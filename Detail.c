@@ -124,7 +124,7 @@ int Detail(char *dev, int brief, int test)
 		struct mdstat_ent *ms = mdstat_read(0);
 		struct mdstat_ent *e;
 		int devnum = array.md_minor;
-		if (MAJOR(stb.st_rdev) != MD_MAJOR)
+		if (major(stb.st_rdev) != MD_MAJOR)
 			devnum = -1 - devnum;
 
 		for (e=ms; e; e=e->next)
@@ -251,8 +251,8 @@ int Detail(char *dev, int brief, int test)
 					 * device from the array, and then put it back.
 					 * If this fails, we are rebuilding
 					 */
-					int err = ioctl(fd, HOT_REMOVE_DISK, MKDEV(disk.major, disk.minor));
-					if (err == 0) ioctl(fd, HOT_ADD_DISK, MKDEV(disk.major, disk.minor));
+					int err = ioctl(fd, HOT_REMOVE_DISK, makedev(disk.major, disk.minor));
+					if (err == 0) ioctl(fd, HOT_ADD_DISK, makedev(disk.major, disk.minor));
 					if (err && errno ==  EBUSY)
 						printf(" rebuilding");
 				}

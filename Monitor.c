@@ -246,10 +246,10 @@ int Monitor(mddev_dev_t devlist,
 				struct stat stb;
 				if (fstat(fd, &stb) == 0 &&
 				    (S_IFMT&stb.st_mode)==S_IFBLK) {
-					if (MAJOR(stb.st_rdev) == MD_MAJOR)
-						st->devnum = MINOR(stb.st_rdev);
+					if (major(stb.st_rdev) == MD_MAJOR)
+						st->devnum = minor(stb.st_rdev);
 					else
-						st->devnum = -1- (MINOR(stb.st_rdev)>>6);
+						st->devnum = -1- (minor(stb.st_rdev)>>6);
 				}
 			}
 
@@ -323,7 +323,7 @@ int Monitor(mddev_dev_t devlist,
 						alert("Fail", dev, dv, mailaddr, alert_cmd);
 					else if (i >= (unsigned)array.raid_disks &&
 						 (disc.major || disc.minor) &&
-						 st->devid[i] == MKDEV(disc.major, disc.minor) &&
+						 st->devid[i] == makedev(disc.major, disc.minor) &&
 						 ((newstate&change)&(1<<MD_DISK_FAULTY))
 						)
 						alert("FailSpare", dev, dv, mailaddr, alert_cmd);
@@ -335,7 +335,7 @@ int Monitor(mddev_dev_t devlist,
 						alert("SpareActive", dev, dv, mailaddr, alert_cmd);
 				}
 				st->devstate[i] = disc.state;
-				st->devid[i] = MKDEV(disc.major, disc.minor);
+				st->devid[i] = makedev(disc.major, disc.minor);
 			}
 			close(fd);
 			st->active = array.active_disks;

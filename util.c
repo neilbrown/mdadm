@@ -94,7 +94,7 @@ int md_get_version(int fd)
 	return  (vers.major*10000) + (vers.minor*100) + vers.patchlevel;
     if (errno == EACCES)
 	    return -1;
-    if (MAJOR(stb.st_rdev) == MD_MAJOR)
+    if (major(stb.st_rdev) == MD_MAJOR)
 	return (3600);
     return -1;
 }
@@ -465,8 +465,8 @@ int add_dev(const char *name, const struct stat *stb, int flag)
 	char *n = strdup(name);
 	struct devmap *dm = malloc(sizeof(*dm));
 	if (dm) {
-	    dm->major = MAJOR(stb->st_rdev);
-	    dm->minor = MINOR(stb->st_rdev);
+	    dm->major = major(stb->st_rdev);
+	    dm->minor = minor(stb->st_rdev);
 	    dm->name = n;
 	    dm->next = devlist;
 	    devlist = dm;
@@ -609,14 +609,14 @@ char *get_md_name(int dev)
 	if (dev < 0) {
 		int mdp =  get_mdp_major();
 		if (mdp < 0) return NULL;
-		rdev = MKDEV(mdp, (-1-dev)<<6);
+		rdev = makedev(mdp, (-1-dev)<<6);
 		sprintf(devname, "/dev/md/d%d", -1-dev);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK
 		    && (stb.st_rdev == rdev))
 			return devname;
 	} else {
-		rdev = MKDEV(MD_MAJOR, dev);
+		rdev = makedev(MD_MAJOR, dev);
 		sprintf(devname, "/dev/md%d", dev);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK

@@ -117,7 +117,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		array.raid_disks = raiddisks;
 		array.md_minor = 0;
 		if (fstat(mdfd, &stb)==0)
-			array.md_minor = MINOR(stb.st_rdev);
+			array.md_minor = minor(stb.st_rdev);
 		array.not_persistent = 1;
 		array.state = 0; /* not clean, but no errors */
 		if (assume_clean)
@@ -153,8 +153,8 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 			disk.number = i;
 			disk.raid_disk = i;
 			disk.state = 6;
-			disk.major = MAJOR(stb.st_rdev);
-			disk.minor = MINOR(stb.st_rdev);
+			disk.major = major(stb.st_rdev);
+			disk.minor = minor(stb.st_rdev);
 			if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 				fprintf(stderr, Name ": ADD_NEW_DISK failed for %s: %s\n",
 					dv->devname, strerror(errno));

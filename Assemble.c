@@ -288,7 +288,7 @@ int Assemble(char *mddev, int mdfd,
 			if (strcmp(update, "super-minor") ==0) {
 				struct stat stb2;
 				fstat(mdfd, &stb2);
-				super.md_minor = MINOR(stb2.st_rdev);
+				super.md_minor = minor(stb2.st_rdev);
 				if (verbose)
 					fprintf(stderr, Name ": updating superblock of %s with minor number %d\n",
 						devname, super.md_minor);
@@ -341,8 +341,8 @@ int Assemble(char *mddev, int mdfd,
 			fprintf(stderr, Name ": %s is identified as a member of %s, slot %d.\n",
 				devname, mddev, super.this_disk.raid_disk);
 		devices[devcnt].devname = devname;
-		devices[devcnt].major = MAJOR(stb.st_rdev);
-		devices[devcnt].minor = MINOR(stb.st_rdev);
+		devices[devcnt].major = major(stb.st_rdev);
+		devices[devcnt].minor = minor(stb.st_rdev);
 		devices[devcnt].oldmajor = super.this_disk.major;
 		devices[devcnt].oldminor = super.this_disk.minor;
 		devices[devcnt].events = md_event(&super);
@@ -665,7 +665,7 @@ This doesnt work yet
 		 * so we can just start the array
 		 */
 		unsigned long dev;
-		dev = MKDEV(devices[chosen_drive].major,
+		dev = makedev(devices[chosen_drive].major,
 			    devices[chosen_drive].minor);
 		if (ioctl(mdfd, START_ARRAY, dev)) {
 		    fprintf(stderr, Name ": Cannot start array: %s\n",

@@ -675,7 +675,7 @@ int main(int argc, char *argv[])
 		if ((int)ident.super_minor == -2) {
 			struct stat stb;
 			fstat(mdfd, &stb);
-			ident.super_minor = MINOR(stb.st_rdev);
+			ident.super_minor = minor(stb.st_rdev);
 		}
 	}
 

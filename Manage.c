@@ -226,8 +226,8 @@ int Manage_subdevs(char *devname, int fd,
 			disc.number =j;
 			disc.raid_disk = j;
 			disc.state = 0;
-			disc.major = MAJOR(stb.st_rdev);
-			disc.minor = MINOR(stb.st_rdev);
+			disc.major = major(stb.st_rdev);
+			disc.minor = minor(stb.st_rdev);
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new device failed for %s: %s\n",
 					dv->devname, strerror(errno));

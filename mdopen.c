@@ -49,21 +49,21 @@ void make_parts(char *dev, int cnt)
 		return;
 	if (!S_ISBLK(stb.st_mode))
 		return;
-	major = MAJOR(stb.st_rdev);
-	minor = MINOR(stb.st_rdev);
+	major = major(stb.st_rdev);
+	minor = minor(stb.st_rdev);
 	for (i=1; i <= cnt ; i++) {
 		struct stat stb2;
 		sprintf(name, "%s%s%d", dev, dig?"p":"", i);
 		if (stat(name, &stb2)==0) {
 			if (!S_ISBLK(stb2.st_mode))
 				continue;
-			if (stb2.st_rdev == MKDEV(major, minor+i))
+			if (stb2.st_rdev == makedev(major, minor+i))
 				continue;
 			unlink(name);
 		} else {
 			stb2 = stb;
 		}
-		mknod(name, S_IFBLK | 0600, MKDEV(major, minor+i));
+		mknod(name, S_IFBLK | 0600, makedev(major, minor+i));
 		chown(name, stb2.st_uid, stb2.st_gid);
 		chmod(name, stb2.st_mode & 07777);
 	}
@@ -101,7 +101,7 @@ int open_mddev(char *dev, int autof)
 		/* check major number is correct */
 		if (autof>0)
 			major = get_mdp_major();
-		if (stb.st_mode && MAJOR(stb.st_rdev) != major)
+		if (stb.st_mode && major(stb.st_rdev) != major)
 			must_remove = 1;
 		if (stb.st_mode && !must_remove) {
 			mdu_array_info_t array;
@@ -181,14 +181,19 @@ int open_mddev(char *dev, int autof)
 		/* If it was a 'standard' name and it is in-use, then
 		 * the device could already be correct
 		 */
-		if (stb.st_mode && MAJOR(stb.st_rdev) == major &&
-		    MINOR(stb.st_rdev) == minor)
+		if (stb.st_mode && major(stb.st_rdev) == major &&
+		    minor(stb.st_rdev) == minor)
 			;
 		else {
+			if (major(makedev(major,minor)) != major ||
+			    minor(makedev(major,minor)) != minor) {
+				fprintf(stderr, Name ": Need newer C library to use more than 4 partitionable md devices, sorry\n");
+				return -1;
+			}
 			if (must_remove)
 				unlink(dev);
 
-			if (mknod(dev, S_IFBLK|0600, MKDEV(major, minor))!= 0) {
+			if (mknod(dev, S_IFBLK|0600, makedev(major, minor))!= 0) {
 				fprintf(stderr, Name ": failed to create %s\n", dev);
 				return -1;
 			}

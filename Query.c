@@ -129,7 +129,7 @@ int Query(char *dev)
 			if (md_get_version(fd) >= 9000 &&	
 			    ioctl(fd, GET_ARRAY_INFO, &array)>= 0) {
 				if (ioctl(fd, GET_DISK_INFO, &disc) >= 0 &&
-				    MKDEV((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
+				    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
 					activity = "active";
 				else
 					activity = "mismatch";

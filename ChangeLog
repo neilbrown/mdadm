@@ -7,6 +7,9 @@ Changes Prior to 1.9.0 release
     -   Remove underscore from partition names, so partitions of 
 	"foo" are "foo1", "foo2" etc (unchanged) and partitions of
 	"f00" are "f00p1", "f00p2" etc rather than "f00_p1"...
+    -   Use "major", "minor", "makedev" macros instead of 
+	"MAJOR", "MINOR", "MKDEV" so that large device numbers work
+	on 2.6 (providing you have glibc 2.3.3 or later).
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

@@ -305,7 +305,7 @@ int Create(char *mddev, int mdfd,
 	 */
 	array.md_minor = 0;
 	if (fstat(mdfd, &stb)==0)
-		array.md_minor = MINOR(stb.st_rdev);
+		array.md_minor = minor(stb.st_rdev);
 	array.not_persistent = 0;
 	/*** FIX: Need to do something about RAID-6 here ***/
 	if ( ( (level == 5) &&
@@ -375,8 +375,8 @@ int Create(char *mddev, int mdfd,
 				return 1;
 			}
 			fstat(fd, &stb);
-			disk.major = MAJOR(stb.st_rdev);
-			disk.minor = MINOR(stb.st_rdev);
+			disk.major = major(stb.st_rdev);
+			disk.minor = minor(stb.st_rdev);
 			close(fd);
 		}
 		if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {

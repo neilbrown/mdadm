@@ -109,8 +109,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	
 	memset(&super.disks[d], 0, sizeof(super.disks[d]));
 	super.disks[d].number = d;
-	super.disks[d].major = MAJOR(stb.st_rdev);
-	super.disks[d].minor = MINOR(stb.st_rdev);
+	super.disks[d].major = major(stb.st_rdev);
+	super.disks[d].minor = minor(stb.st_rdev);
 	super.disks[d].raid_disk = d;
 	super.disks[d].state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 
@@ -122,8 +122,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		return 1;
 	}
 	disk.number = d;
-	disk.major = MAJOR(stb.st_rdev);
-	disk.minor = MINOR(stb.st_rdev);
+	disk.major = major(stb.st_rdev);
+	disk.minor = minor(stb.st_rdev);
 	disk.raid_disk = d;
 	disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	close(nfd);
@@ -173,8 +173,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		super.working_disks = nd+1;
 		memset(&super.disks[nd], 0, sizeof(super.disks[nd]));
 		super.disks[nd].number = nd;
-		super.disks[nd].major = MAJOR(stb.st_rdev);
-		super.disks[nd].minor = MINOR(stb.st_rdev);
+		super.disks[nd].major = major(stb.st_rdev);
+		super.disks[nd].minor = minor(stb.st_rdev);
 		super.disks[nd].raid_disk = nd;
 		super.disks[nd].state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 

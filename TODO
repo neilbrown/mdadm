@@ -1,0 +1,7 @@
+
+- check superblock checksum in examine
+- report "chunk" or "rounding" depending on raid level
+- report "linear" instead of "-1" for raid level
+- decode ayout depending on raid level
+- get Assemble to upgrade devices if force flag.
+- --verbose and --force flags.

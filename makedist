@@ -1,0 +1,20 @@
+#!/bin/sh
+
+target=${1-~/public_html/source/mdctl}
+if [ -d $target ]
+then :
+else echo $target is not a directory
+     exit 2
+fi
+set `grep '^char Version' ReadMe.c `
+echo version = $6
+base=mdctl-$6.tgz
+if [ -f $target/$base ] 
+then 
+  echo $target/$base exists.
+  exit 1
+fi
+trap "rm $target/$base; exit" 1 2 3
+( cd .. ; tar czvf - mdctl )  > $target/$base
+chmod a+r $target/$base
+ls -l $target/$base

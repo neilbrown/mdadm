@@ -1,13 +1,12 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     0.7.2
+Version:     0.8
 Release:     1
 Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
 URL:         http://www.cse.unsw.edu.au/~neilb/source/mdadm/
 License:     GPL
 Group:       Utilities/System
-BuildRoot:   ${_tmppath}/%{name}-root
-Packager:    Danilo Godec <danci@agenda.si> (et.al.)
+BuildRoot:   %{_tmppath}/%{name}-root
 Obsoletes:   mdctl
 
 %description 
@@ -33,7 +32,7 @@ make CFLAGS="$RPM_OPT_FLAGS" SYSCONFDIR="%{_sysconfdir}"
 #rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_sbindir}
 install -m755 mdadm $RPM_BUILD_ROOT/%{_sbindir}
-mkdir -p $RPM_BUILD_ROOT/${_sysconfdir}
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}
 install -m644 mdadm.conf-example $RPM_BUILD_ROOT/%{_sysconfdir}/mdadm.conf
 mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man4
 mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man5

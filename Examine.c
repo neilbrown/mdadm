@@ -35,7 +35,7 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(mddev_dev_t devlist, int brief, char *conffile)
+int Examine(mddev_dev_t devlist, int brief, int scan)
 {
 
 	/* Read the raid superblock from a device and
@@ -60,22 +60,12 @@ int Examine(mddev_dev_t devlist, int brief, char *conffile)
 	char *c;
 	int rv = 0;
 	int err;
-	int scan= 0;
 
 	struct array {
 		mdp_super_t super;
 		void *devs;
 		struct array *next;
 	} *arrays = NULL;
-
-	if (devlist == NULL) {
-		devlist = conf_get_devs(conffile);
-		scan=1;
-	}
-	if (devlist == NULL) {
-		fprintf(stderr, Name ": No devices listed in %s\n", conffile);
-		return 1;
-	}
 
 	for (; devlist ; devlist=devlist->next) {
 		fd = open(devlist->devname, O_RDONLY);

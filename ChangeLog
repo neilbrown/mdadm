@@ -1,4 +1,26 @@
 Changes Prior to this release
+    -   Fix another bug in Assemble.c due to confusing 'i' with 'j'
+    -   Minimal, untested, support for multipath
+    -   re-write of argument parsing to have more coherent modes,
+    -   add --query,-Q option
+    -   Update mdadm.8 to reflect arg processing change and --query
+    -   Change "long" to "unsigned long" for device sizes
+    -   Handle "mailaddr" and "program" lines in config file for follow/scan mode.
+    -   --follow --scan will exit if no program or mail found
+    -   Add MAILADDR and PROGRAM to mdadm.conf-example
+    -   Spell check man pages
+    -   consistently use "component devices" instead of "subdevices"
+    -   Make -Wall -Werror really work and fix lots of errors.
+    -   --detail and --stop can have --scan which chooses devices from /proc/mdstat
+    -   --monitor detects 20% changes in resync, failed spares,
+        disappearing arrays,
+    -   --monitor --scan will automatically add any devices found in /proc/mdstat
+    -   --monitor will move spares between arrays with same spare-group if necessary
+    -   Documentation for Monitor Mode
+    -   --query notes if the array containing the given device is active or not
+    -   Finished md.4 man page.
+	
+Changes Prior to 0.7.2 release
     -   mdadm.spec updates and ifdef BLKGETSIZE64 from  Luca Berra -- bluca@comedia.it
     -   more mdadm.spec updates from  Gregory Leblanc <gleblanc@linuxweasel.com>
     -   make directory for mdadm.conf configurable in Makefile

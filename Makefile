@@ -30,7 +30,7 @@
 CC = gcc
 SYSCONFDIR = /etc
 CONFFILE = $(SYSCONFDIR)/mdadm.conf
-CFLAGS = -Wall,error,strict-prototypes -ggdb -DCONFFILE=\"$(CONFFILE)\"
+CFLAGS = -Wall -Werror -Wstrict-prototypes -ggdb -DCONFFILE=\"$(CONFFILE)\"
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static
@@ -41,7 +41,7 @@ DESTDIR = /.
 BINDIR  = /sbin
 MANDIR  = /usr/share/man/man8
 
-OBJS =  mdadm.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o
+OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o Query.o
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 

@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v0.7.2 - 21 March 2002\n";
+char Version[] = Name " - v0.8 -  4 April 2002\n";
 /*
  * File: ReadMe.c
  *
@@ -58,7 +58,7 @@ char Version[] = Name " - v0.7.2 - 21 March 2002\n";
  */
 
 /*
- * mdadm has 4 major modes of operation:
+ * mdadm has 6 major modes of operation:
  * 1/ Create
  *     This mode is used to create a new array with a superbock
  *     It can progress in several step create-add-add-run
@@ -72,15 +72,24 @@ char Version[] = Name " - v0.7.2 - 21 March 2002\n";
  * 3/ Build
  *     This is for building legacy arrays without superblocks
  * 4/ Manage
- *     This is for odd bits an pieces like hotadd, hotremove, setfaulty,
- *     stop, readonly,readwrite
- *     If an array is only partially setup by the Create/Assemble/Build
- *     command, subsequent Manage commands can finish the job.
+ *     This is for doing something to one or more devices
+ *     in an array, such as add,remove,fail.
+ *     run/stop/readonly/readwrite are also available
+ * 5/ Misc
+ *     This is for doing things to individual devices.
+ *     They might be parts of an array so
+ *       zero-superblock, examine  might be appropriate
+ *     They might be md arrays so
+ *       run,stop,rw,ro,detail  might be appropriate
+ *     Also query will treat it as either
+ * 6/ Monitor
+ *     This mode never exits but just monitors arrays and reports changes.
  */
 
-char short_options[]="-ABCDEFhVvbc:l:p:m:n:x:u:c:d:z:sarfRSow";
+char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:sarfRSow";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
+    {"misc",      0, 0, '#'},
     {"assemble",  0, 0, 'A'},
     {"build",     0, 0, 'B'},
     {"create",    0, 0, 'C'},
@@ -88,7 +97,8 @@ struct option long_options[] = {
     {"examine",   0, 0, 'E'},
     {"follow",    0, 0, 'F'},
     {"grow",      0, 0, 'G'}, /* not yet implemented */
-    {"zero-superblock", 0, 0, 'H'},
+    {"zero-superblock", 0, 0, 'K'}, /* deliberately no a short_option */
+    {"query",	  0, 0, 'Q'},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
@@ -146,31 +156,38 @@ char Help[] =
 "Usage: mdadm --create device options...\n"
 "       mdadm --assemble device options...\n"
 "       mdadm --build device options...\n"
-"       mdadm --detail device\n"
-"       mdadm --examine device\n"
-"       mdadm --follow options...\n"
+"       mdadm --manage device options...\n"
+"       mdadm --misc options... devices\n"
+"       mdadm --monitor options...\n"
 "       mdadm device options...\n"
-" mdadm is used for controlling Linux md devices (aka RAID arrays)\n"
-" For detail help on major modes use, e.g.\n"
+" mdadm is used for building, manageing, and monitoring\n"
+"      Linux md devices (aka RAID arrays)\n"
+" For detail help on the above major modes use --help after the mode\n"
+" e.g.\n"
 "         mdadm --assemble --help\n"
 "\n"
 "Any parameter that does not start with '-' is treated as a device name\n"
-"The first such name is normally the name of an md device.  Subsequent\n"
-"names are names of component devices."
+"The first such name is often the name of an md device.  Subsequent\n"
+"names are often names of component devices."
 "\n"
-"Available options are:\n"
-"  --create      -C   : Create a new array\n"
-"  --assemble    -A   : Assemble an existing array\n"
-"  --build       -B   : Build a legacy array without superblock\n"
-"  --detail      -D   : Print detail of a given md array\n"
-"  --examine     -E   : Print content of md superblock on device\n"
-"  --follow      -F   : Follow (monitor) any changes to devices and respond to them\n"
-"  --monitor          : same as --follow\n"
-"\n"
+"Some common options are:\n"
 "  --help        -h   : This help message or, after above option,\n"
 "                       mode specific help message\n"
 "  --version     -V   : Print version information for mdadm\n"
 "  --verbose     -v   : Be more verbose about what is happening\n"
+"  --brief       -b   : Be less verbose, more brief\n"
+"  --force       -f   : Override normal checks and be more forceful\n"
+"\n"
+"  --assemble    -A   : Assemble an array\n"
+"  --build       -B   : Build a legacy array\n"
+"  --create      -C   : Create a new array\n"
+"  --detail      -D   : Display details of an array\n"
+"  --examine     -E   : Examine superblock on an array componenet\n"
+"  --monitor     -F   : monitor (follow) some arrays\n"
+"  --query       -Q   : Display general information about how a\n"
+"                       device relates to the md driver\n"
+;
+/*
 "\n"
 " For create or build:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
@@ -213,32 +230,43 @@ char Help[] =
 "  --readwrite   -w   : mark array as readwrite\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"
 ;
-
+*/
 
 char Help_create[] =
 "Usage:  mdadm --create device -chunk=X --level=Y --raid-disks=Z devices\n"
 "\n"
-" This usage will initialise a new md array and possibly associate some\n"
+" This usage will initialise a new md array and associate some\n"
 " devices with it.  If enough devices are given to complete the array,\n"
 " the array will be activated.  Otherwise it will be left inactive\n"
 " to be completed and activated by subsequent management commands.\n"
 "\n"
-" As devices are added, they are checked to see if they contain\n"
-" raid superblocks or filesystems.  They are also check to see if\n"
+" As devices are added, they are checked to see if they already contain\n"
+" raid superblocks or filesystems.  They are also checked to see if\n"
 " the variance in device size exceeds 1%.\n"
 " If any discrepancy is found, the array will not automatically\n"
 " be run, though the presence of a '--run' can override this\n"
 " caution.\n"
 "\n"
-" If the --size option is given, it is not necessary to list any subdevices\n"
-" in this command.  They can be added later, before a --run.\n"
+" If the --size option is given then only that many kilobytes of each\n"
+" device is used, no matter how big each device is.\n"
 " If no --size is given, the apparent size of the smallest drive given\n"
-" is used.\n"
+" is used for raid level 1 and greater, and the full device is used for\n"
+" other levels.\n"
 "\n"
-" The General management options that are valid with --create are:\n"
-"   --run   : insist of running the array even if not all devices\n"
-"             are present or some look odd.\n"
-"   --readonly: start the array readonly - not supported yet.\n"
+" Options that are valid with --create (-C) are:\n"
+"  --chunk=      -c   : chunk size of kibibytes\n"
+"  --rounding=        : rounding factor for linear array (==chunck size)\n"
+"  --level=      -l   : raid level: 0,1,4,5,linear,multipath and synonyms\n"
+"  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
+"  --layout=          : same as --parity\n"
+"  --raid-disks= -n   : number of active devices in array\n"
+"  --spare-disks= -x  : number of spares (eXtras) devices in initial array\n"
+"  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
+"  --force       -f   : Honour devices as listed on command line.  Don't\n"
+"                     : insert a missing drive for RAID5.\n"
+"   --run             : insist of running the array even if not all\n"
+"                     : devices are present or some look odd.\n"
+"   --readonly        : start the array readonly - not supported yet.\n"
 "\n"
 ;
 
@@ -246,13 +274,18 @@ char Help_build[] =
 "Usage:  mdadm --build device -chunk=X --level=Y --raid-disks=Z devices\n"
 "\n"
 " This usage is similar to --create.  The difference is that it creates\n"
-" a legacy array with a superblock.  With these arrays there is no\n"
+" a legacy array without a superblock.  With these arrays there is no\n"
 " different between initially creating the array and subsequently\n"
 " assembling the array, except that hopefully there is useful data\n"
 " there in the second case.\n"
 "\n"
-" The level may only be 0 or linear.\n"
+" The level may only be 0, raid0, or linear.\n"
 " All devices must be listed and the array will be started once complete.\n"
+" Options that are valid with --build (-B) are:\n"
+"  --chunk=      -c   : chunk size of kibibytes\n"
+"  --rounding=        : rounding factor for linear array (==chunck size)\n"
+"  --level=      -l   : 0, raid0, or linear\n"
+"  --raid-disks= -n   : number of active devices in array\n"
 ;
 
 char Help_assemble[] =
@@ -261,53 +294,140 @@ char Help_assemble[] =
 "\n"
 "This usage assembles one or more raid arrays from pre-existing\n"
 "components.\n"
-"For each array, mdadm needs to know the md device, the identify of\n"
+"For each array, mdadm needs to know the md device, the identity of\n"
 "the array, and a number of sub devices. These can be found in a number\n"
 "of ways.\n"
 "\n"
 "The md device is either given on the command line or is found listed\n"
 "in the config file.  The array identity is determined either from the\n"
-"--uuid or --super-minor commandline arguments, or from the config file,\n"
+"--uuid or --super-minor commandline arguments, from the config file,\n"
 "or from the first component device on the command line.\n"
 "\n"
 "The different combinations of these are as follows:\n"
 " If the --scan option is not given, then only devices and identities\n"
 " listed on the command line are considered.\n"
-" The first device will be the array devices, and the remainder will\n"
+" The first device will be the array device, and the remainder will be\n"
 " examined when looking for components.\n"
 " If an explicit identity is given with --uuid or --super-minor, then\n"
-" Each device with a superblock which matches that identity is considered,\n"
+" only devices with a superblock which matches that identity is considered,\n"
 " otherwise every device listed is considered.\n"
 "\n"
 " If the --scan option is given, and no devices are listed, then\n"
 " every array listed in the config file is considered for assembly.\n"
-" The identity can candidate devices are determined from the config file.\n"
+" The identity of candidate devices are determined from the config file.\n"
 "\n"
 " If the --scan option is given as well as one or more devices, then\n"
 " Those devices are md devices that are to be assembled.  Their identity\n"
 " and components are determined from the config file.\n"
 "\n"
-"The config file contains, apart from blank lines and comment lines that\n"
-"start with a has, two sorts of configuration lines, array lines and\n"
-"device lines.\n"
-"Each configuration line is constructed of a number of space separated\n"
-"words, and can be continued on subsequent physical lines by indenting\n"
-"those lines.\n"
+"Options that are valid with --assemble (-A) are:\n"
+"  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
+"                       have this uuid are excluded\n"
+"  --super-minor= -m  : minor number to look for in super-block when\n"
+"                       choosing devices to use.\n"
+"  --config=     -c   : config file\n"
+"  --scan        -s   : scan config file for missing information\n"
+"  --run         -R   : Try to start the array even if not enough devices\n"
+"                       for a full array are present\n"
+"  --force       -f   : Assemble the array even if some superblocks appear\n"
+"                     : out-of-date.  This involves modifying the superblocks.\n"
+;
+
+char Help_manage[] =
+"Usage: mdadm arraydevice options component devices...\n"
 "\n"
-"A device line starts with the word 'device' and then has a number of words\n"
-"which identify devices.  These words should be names of devices in the filesystem,\n"
-"and can contain wildcards. There can be multiple words or each device line,\n"
-"and multiple device lines.  All devices so listed are checked for relevant\n"
-"super blocks when assembling arrays.\n"
+"This usage is for managing the component devices within an array.\n"
+"The --manage option is not needed and is assumed if the first argument\n"
+"is a device name or a management option.\n"
+"The first device listed will be taken to be an md array device, and\n"
+"subsequent devices are (potential) components of that array.\n"
 "\n"
-"An array line start with the word 'array'.  This is followed by the name of\n"
-"the array device in the filesystem, e.g. '/dev/md2'.  Subsequent words\n"
-"describe the identity of the array, used to recognise devices to include in the\n"
-"array.  The identity can be given as a UUID with a word starting 'uuid=', or\n"
-"as a minor-number stored in the superblock using 'super-minor=', or as a list\n"
-"of devices.  This is given as a comma separated list of names, possibly containing\n"
-"wildcards, preceeded by 'devices='. If multiple critea are given, than a device\n"
-"must match all of them to be considered.\n"
+"Options that are valid with management mode are:\n"
+"  --add         -a   : hotadd subsequent devices to the array\n"
+"  --remove      -r   : remove subsequent devices, which must not be active\n"
+"  --fail        -f   : mark subsequent devices a faulty\n"
+"  --set-faulty       : same as --fail\n"
+"  --run         -R   : start a partially built array\n"
+"  --stop        -S   : deactive array, releasing all resources\n"
+"  --readonly    -o   : mark array as readonly\n"
+"  --readwrite   -w   : mark array as readwrite\n"
+;
+
+char Help_misc[] =
+"Usage: mdadm misc_option  devices...\n"
+"\n"
+"This usage is for performing some task on one or more devices, which\n"
+"may be arrays or components, depending on the task.\n"
+"The --misc option is not needed (though it is allowed) and is assumed\n"
+"if the first argument in a misc option.\n"
+"\n"
+"Options that are valid with the miscellaneous mode are:\n"
+"  --query       -Q   : Display general information about how a\n"
+"                       device relates to the md driver\n"
+"  --detail      -D   : Display details of an array\n"
+"  --examine     -E   : Examine superblock on an array componenet\n"
+"  --zero-superblock  : erase the MD superblock from a device.\n"
+"  --run         -R   : start a partially built array\n"
+"  --stop        -S   : deactive array, releasing all resources\n"
+"  --readonly    -o   : mark array as readonly\n"
+"  --readwrite   -w   : mark array as readwrite\n"
+;
+
+char Help_monitor[] =
+"Usage: mdadm --monitor options devices\n"
+"\n"
+"This usage causes mdadm to monitor a number of md arrays by periodically\n"
+"polling their status and acting on any changes.\n"
+"If any devices are listed then those devices are monitored, otherwise\n"
+"all devices listed in the config file are monitored.\n"
+"The address for mailing advisories to, and the program to handle\n"
+"each change can be specified in the config file or on the command line.\n"
+"If no mail address or program are specified, then mdadm reports all\n"
+"state changes to stdout.\n"
+"\n"
+"Options that are valid with the monitor (--F --follow) mode are:\n"
+"  --mail=       -m   : Address to mail alerts of failure to\n"
+"  --program=    -p   : Program to run when an event is detected\n"
+"  --alert=           : same as --program\n"
+"  --delay=      -d   : seconds of delay between polling state. default=60\n"
+"  --config=     -c   : specify a different config file\n"
+"  --scan        -s   : find mail-address/program in config file\n"
+;
+
+
+
+
+char Help_config[] =
+"The /etc/mdadm.conf config file:\n\n"
+" The config file contains, apart from blank lines and comment lines that\n"
+" start with a hash(#), four sorts of configuration lines: array lines, \n"
+" device lines, mailaddr lines and program lines.\n"
+" Each configuration line is constructed of a number of space separated\n"
+" words, and can be continued on subsequent physical lines by indenting\n"
+" those lines.\n"
+"\n"
+" A device line starts with the word 'device' and then has a number of words\n"
+" which identify devices.  These words should be names of devices in the\n"
+" filesystem, and can contain wildcards. There can be multiple words or each\n"
+" device line, and multiple device lines.  All devices so listed are checked\n"
+" for relevant super blocks when assembling arrays.\n"
+"\n"
+" An array line start with the word 'array'.  This is followed by the name of\n"
+" the array device in the filesystem, e.g. '/dev/md2'.  Subsequent words\n"
+" describe the identity of the array, used to recognise devices to include in the\n"
+" array.  The identity can be given as a UUID with a word starting 'uuid=', or\n"
+" as a minor-number stored in the superblock using 'super-minor=', or as a list\n"
+" of devices.  This is given as a comma separated list of names, possibly\n"
+" containing wildcards, preceeded by 'devices='. If multiple critea are given,\n"
+" than a device must match all of them to be considered.\n"
+"\n"
+" A mailaddr line starts with the word 'mailaddr' and should contain exactly\n"
+" one Email address.  'mdadm --monitor --scan' will send alerts of failed drives\n"
+" to this Email address."
+"\n"
+" A program line starts with the word 'program' and should contain exactly\n"
+" one program name.  'mdadm --monitor --scan' will run this program when any\n"
+" event is detected.\n"
 "\n"
 ;
 
@@ -340,5 +460,17 @@ mapping_t pers[] = {
 	{ "4", 4},
 	{ "raid5", 5},
 	{ "5", 5},
+	{ "multipath", -4},
+	{ "mp", -4},
 	{ NULL, 0}
+};
+
+
+mapping_t modes[] = {
+	{ "assemble", ASSEMBLE},
+	{ "build", BUILD},
+	{ "create", CREATE},
+	{ "manage", MANAGE},
+	{ "misc", MISC},
+	{ "monitor", MONITOR},
 };

@@ -15,7 +15,7 @@ struct __dl_head
 #define dl_next(p) *((void**)&(((struct __dl_head*)(p))[-1].dh_next))
 #define dl_prev(p) *((void**)&(((struct __dl_head*)(p))[-1].dh_prev))
 
-void *dl_head();
+void *dl_head(void);
 char *dl_strdup(char *);
 char *dl_strndup(char *, int);
 void dl_insert(void*, void*);

@@ -9,9 +9,9 @@ md \- Multiple Device driver aka Linux Software Raid
 The
 .B md
 driver provides virtual devices that are created from one or more
-independant underlying devices.  This array of devices often contains
+independent underlying devices.  This array of devices often contains
 redundancy, and hence the acronym RAID which stands for a Redundant
-Array of Independant Devices.
+Array of Independent Devices.
 .PP
 .B md
 support RAID levels 1 (mirroring) 4 (striped array with parity device) and 5
@@ -20,13 +20,13 @@ device fails while using one of these level, the array will continue
 to function.
 .PP
 .B md
-also supports a number of pseudo RAID (non-redundant) configuations
+also supports a number of pseudo RAID (non-redundant) configurations
 including RAID0 (striped array), LINEAR (catenated array) and
 MULTIPATH (a set of different interfaces to the same device).
 
 .SS MD SUPER BLOCK
 With the exception of Legacy Arrays described below, each device that
-is incorportated into an MD array has a
+is incorporated into an MD array has a
 .I super block
 written towards the end of the device.  This superblock records
 information about the structure and state of the array so that the
@@ -74,16 +74,134 @@ data that is on the array.  However this cannot be done on a live
 array.
 
 
-
 .SS RAID0
 
 A RAID0 array (which has zero redundancy) is also known as a
 striped array.
+A RAID0 array is configured at creation with a
+.B "Chunk Size" 
+which must be a multiple of 4 kibibytes.
+
+The RAID0 driver places the first chunk of the array to the first
+device, the second chunk to the second device, and so on until all
+drives have been assigned one chuck.  This collection of chunks forms
+a
+.BR stripe .
+Further chunks are gathered into stripes in the same way which are
+assigned to the remaining space in the drives.
+
+If device in the array are not all the same size, then once the
+smallest devices has been exhausted, the RAID0 driver starts
+collecting chunks into smaller stripes that only span the drives which
+still have remaining space.
+
+
 .SS RAID1
+
+A RAID1 array is also known as a mirrored set (though mirrors tend to
+provide reflect images, which RAID1 does not) or a plex.
+
+Once initialised, each device in a RAID1 array contains exactly the
+same data.  Changes are written to all devices in parallel.  Data is
+read from any one device.  The driver attempts to distribute read
+requests across all devices to maximise performance.
+
+All devices in a RAID1 array should be the same size.  If they are
+not, then only the amount of space available on the smallest device is
+used.  Any extra space on other devices is wasted.
+
 .SS RAID4
+
+A RAID4 array is like a RAID0 array with an extra device for storing
+parity.  Unlike RAID0, RAID4 also requires that all stripes span all
+drives, so extra space on devices that are larger than the smallest is
+wasted.
+
+When any block in a RAID4 array is modified the parity block for that
+stripe (i.e. the block in the parity device at the same device offset
+as the stripe) is also modified so that the parity block always
+contains the "parity" for the whole stripe.  i.e. its contents is
+equivalent to the result of performing an exclusive-or operation
+between all the data blocks in the stripe.
+
+This allows the array to continue to function if one device fails.
+The data that was on that device can be calculated as needed from the
+parity block and the other data blocks.
+
 .SS RAID5
+
+RAID5 is very similar to RAID4.  The difference is that the parity
+blocks for each stripe, instead of being on a single device, are
+distributed across all devices.  This allows more parallelism when
+writing as two different block updates will quite possibly affect
+parity blocks on different devices so there is less contention.
+
+This also allows more parallelism when reading as read requests are
+distributed over all the devices in the array instead of all but one.
+
 .SS MUTIPATH
-.SS REBUILD/RESYNC
+
+MULTIPATH is not really a RAID at all as there is only one real device
+in a MULTIPATH md array.  However there are multiple access points
+(paths) to this device, and one of these paths might fail, so there
+are some similarities.
+
+A MULTIPATH array is composed of a number of different devices, often
+fibre channel interfaces, that all refer the the same real device.
+If one of these interfaces fails (e.g. due to cable problems), the
+multipath driver to attempt to redirect requests to another
+interface. 
+
+
+.SS UNCLEAN SHUTDOWN
+
+When changes are made to an RAID1, RAID4, or RAID5 array there is a
+possibility of inconsistency for short periods of time as each update
+requires are least two block to be written to different devices, and
+these writes probably wont happen at exactly the same time.
+This is a system with one of these arrays is shutdown in the middle of
+a write operation (e.g. due to power failure), the array may not be
+consistent.
+
+The handle this situation, the md driver marks an array as "dirty"
+before writing any data to it, and marks it as "clean" when the array
+is being disabled, e.g. at shutdown.
+If the md driver finds an array to be dirty at startup, it proceeds to
+correct any possibly inconsistency.  For RAID1, this involves copying
+the contents of the first drive onto all other drives.
+For RAID4 or RAID5 this involves recalculating the parity for each
+stripe and making sure that the parity block has the correct data.
+
+If a RAID4 or RAID5 array is degraded (missing one drive) when it is
+restarted after an unclean shutdown, it cannot recalculate parity, and
+so it is possible that data might be undetectably corrupted.
+The md driver currently
+.B does not
+alert the operator to this condition.  It should probably fail to
+start an array in this condition without manual intervention.
+
+.SS RECOVERY
+
+If the md driver detects any error on a device in a RAID1, RAID4, or
+RAID5 array, it immediately disables that device (marking it as faulty)
+and continues operation on the remaining devices.  If there is a spare
+drive, the driver will start recreating on one of the spare drives the
+data what was on that failed drive, either by copying a working drive
+in a RAID1 configuration, or by doing calculations with the parity
+block on RAID4 and RAID5.
+
+Why this recovery process is happening, the md driver will monitor
+accesses to the array and will slow down the rate of recovery if other
+activity is happening, so that normal access to the array will not be
+unduly affected.  When no other activity is happening, the recovery
+process proceeds at full speed.  The actual speed targets for the two
+different situations can be controlled by the
+.B speed_limit_min
+and
+.B speed_limit_max
+control files mentioned below.
+
+
 .SH FILES
 .TP
 .B /proc/mdstat

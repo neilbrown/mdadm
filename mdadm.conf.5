@@ -11,7 +11,7 @@ is a tool for creating, managing, and monitoring RAID devices using the
 driver in Linux.
 .PP
 Some common tasks, such as assembling all arrays, can be simplified
-by describing the devices and array in this configuation file.
+by describing the devices and array in this configuration file.
 
 .SS SYNTAX
 The file should be seen as a collection of words separated by white
@@ -24,7 +24,7 @@ though it were a continuation of the previous line.
 
 Empty lines are ignored, but otherwise each (non continuation) line
 must start with a keyword as listed below.  The key words are case
-insensitve and can be abbreviated to 3 characters.
+insensitive and can be abbreviated to 3 characters.
 
 The keywords are:
 .TP
@@ -59,7 +59,8 @@ The ARRAY lines identify actual arrays.  The second word on the line
 should be the name of the device where the array is normally
 assembled, such as
 .BR  /dev/md1 .
-Subsequent words identify the array. If multiple identities are given,
+Subsequent words identify the array, or identify the array as a member
+of a group. If multiple identities are given,
 then the array must match ALL identities to be considered a match.
 Each identity word has a tag, and equals sign, and some value.
 The options are:
@@ -95,7 +96,52 @@ The value is the number of disks in a complete active array.  As with
 this is mainly for compatibility with the output of
 
 .BR "mdadm --examine --scan" .
+
+.TP
+.B spare-group=
+The value is a textual name for a group of arrays.  All arrays with
+the same
+.B spare-group
+name are considered to be part of the same group.  The significance of
+a group of arrays is that
+.B mdadm
+will, when monitoring the arrays, move a spare drive from one array in
+a group to another array in that group if the first array had a failed
+or missing drive but no spare.
 .RE
+
+.TP
+.B MAILADDR
+The
+.B mailaddr
+line gives an E-mail address that alerts should be
+sent to when
+.M mdadm
+is running in
+.B --monitor
+mode (and was given the
+.B --scan
+option).  There should only be one
+.B MAILADDR
+line and it should have only one address.
+
+
+.TP
+.B PROGRAM
+The
+.B program
+line gives the name of a program to be run when
+.B "mdadm --monitor"
+detects potentially interesting events on any of the arrays that it
+is monitoring.  This program gets run with two or three arguments, they
+being the Event, the md device, and possibly the related component
+device.
+
+There should only be one
+.B program
+line and it should be give only one program.
+
+
 .SH SEE ALSO
 .BR mdadm (8),
 .BR md (4).

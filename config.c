@@ -70,7 +70,7 @@
 #endif
 char DefaultConfFile[] = CONFFILE;
 
-char *keywords[] = { "device", "array", NULL };
+char *keywords[] = { "device", "array", "mailaddr", "program", NULL };
 
 /*
  * match_keyword returns an index into the keywords array, or -1 for no match
@@ -202,7 +202,7 @@ struct conf_dev {
 
 
 
-int devline(char *line) 
+void devline(char *line) 
 {
 	char *w;
 	struct conf_dev *cd;
@@ -236,6 +236,7 @@ void arrayline(char *line)
 	mis.raid_disks = -1;
 	mis.devices = NULL;
 	mis.devname = NULL;
+	mis.spare_group = NULL;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
 		if (w[0] == '/') {
@@ -302,7 +303,37 @@ void arrayline(char *line)
 		mddevlp = &mi->next;
 	}
 }
-		    
+
+static char *alert_email = NULL;
+void mailline(char *line)
+{
+	char *w;
+
+	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+		if (alert_email == NULL)
+			alert_email = strdup(w);
+		else
+			fprintf(stderr, Name ": excess address on MAIL line: %s - ignored\n",
+				w);
+	}
+}
+
+
+static char *alert_program = NULL;
+void programline(char *line)
+{
+	char *w;
+
+	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+		if (alert_program == NULL)
+			alert_program = strdup(w);
+		else
+			fprintf(stderr, Name ": excess program on PROGRAM line: %s - ignored\n",
+				w);
+	}
+}
+
+
 int loaded = 0;
 
 void load_conffile(char *conffile)
@@ -324,8 +355,14 @@ void load_conffile(char *conffile)
 		case 0: /* DEVICE */
 			devline(line);
 			break;
-		case 1:
+		case 1: /* ARRAY */
 			arrayline(line);
+			break;
+		case 2: /* MAIL */
+			mailline(line);
+			break;
+		case 3: /* PROGRAM */
+			programline(line);
 			break;
 		default:
 			fprintf(stderr, Name ": Unknown keyword %s\n", line);
@@ -335,6 +372,18 @@ void load_conffile(char *conffile)
     
 
 /*    printf("got file\n"); */
+}
+
+char *conf_get_mailaddr(char *conffile)
+{
+	load_conffile(conffile);
+	return alert_email;
+}
+
+char *conf_get_program(char *conffile)
+{
+	load_conffile(conffile);
+	return alert_program;
 }
 
 
@@ -369,16 +418,16 @@ mddev_dev_t conf_get_devs(char *conffile)
 		glob(cd->name, flags, NULL, &globbuf);
 		flags |= GLOB_APPEND;
 	}
-
-	for (i=0; i<globbuf.gl_pathc; i++) {
-		mddev_dev_t t = malloc(sizeof(*t));
-		t->devname = strdup(globbuf.gl_pathv[i]);
-		t->next = dlist;
-		dlist = t;
+	if (flags & GLOB_APPEND) {
+		for (i=0; i<globbuf.gl_pathc; i++) {
+			mddev_dev_t t = malloc(sizeof(*t));
+			t->devname = strdup(globbuf.gl_pathv[i]);
+			t->next = dlist;
+			dlist = t;
 /*	printf("one dev is %s\n", t->devname);*/
+		}
+		globfree(&globbuf);
 	}
-	globfree(&globbuf);
-    
 
 	return dlist;
 }

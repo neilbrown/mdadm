@@ -113,6 +113,8 @@ int get_linux_version()
 int enough(int level, int raid_disks, int avail_disks)
 {
 	switch (level) {
+	case -4:
+		return avail_disks>= 1;
 	case -1:
 	case 0:
 		return avail_disks == raid_disks;
@@ -197,8 +199,8 @@ int load_super(int fd, mdp_super_t *super)
 	 *   5 - no magic
 	 *   6 - wrong major version
 	 */
-	long size;
-	long long offset;
+	unsigned long size;
+	unsigned long long offset;
     
 	if (ioctl(fd, BLKGETSIZE, &size))
 		return 1;
@@ -433,18 +435,79 @@ char *human_size(long long bytes)
 	if (bytes < 5000*1024)
 		buf[0]=0;
 	else if (bytes < 2*1024LL*1024LL*1024LL)
-		sprintf(buf, " (%d.%02d MiB %d.%02d MB)",
+		sprintf(buf, " (%ld.%02ld MiB %ld.%02ld MB)",
 			(long)(bytes>>20),
 			(long)(bytes&0xfffff)/(0x100000/100),
 			(long)(bytes/1000/1000),
 			(long)((bytes%1000000)/10000)
 			);
 	else
-		sprintf(buf, " (%d.%02d GiB %d.%02d GB)",
+		sprintf(buf, " (%ld.%02ld GiB %ld.%02ld GB)",
 			(long)(bytes>>30),
 			(long)((bytes>>10)&0xfffff)/(0x100000/100),
 			(long)(bytes/1000LL/1000LL/1000LL),
 			(long)(((bytes/1000)%1000000)/10000)
 			);
 	return buf;
+}
+
+char *human_size_brief(long long bytes)
+{
+	static char buf[30];
+	
+
+	if (bytes < 5000*1024)
+		sprintf(buf, "%ld.%02ldKiB",
+			(long)(bytes>>10), (long)((bytes&1023)*100/1024)
+			);
+	else if (bytes < 2*1024LL*1024LL*1024LL)
+		sprintf(buf, "%ld.%02ldMiB",
+			(long)(bytes>>20),
+			(long)(bytes&0xfffff)/(0x100000/100)
+			);
+	else
+		sprintf(buf, "%ld.%02ldGiB",
+			(long)(bytes>>30),
+			(long)((bytes>>10)&0xfffff)/(0x100000/100)
+			);
+	return buf;
+}
+
+
+#define MD_MAJOR 9
+char *get_md_name(int dev)
+{
+	/* find /dev/md%d or /dev/md/%d or make a device /dev/.tmp.md%d */
+	static char devname[50];
+	struct stat stb;
+	dev_t rdev = MKDEV(MD_MAJOR, dev);
+
+	sprintf(devname, "/dev/md%d", dev);
+	if (stat(devname, &stb) == 0
+	    && (S_IFMT&stb.st_mode) == S_IFBLK
+	    && (stb.st_rdev == rdev))
+		return devname;
+
+	sprintf(devname, "/dev/md/%d", dev);
+	if (stat(devname, &stb) == 0
+	    && (S_IFMT&stb.st_mode) == S_IFBLK
+	    && (stb.st_rdev == rdev))
+		return devname;
+
+	sprintf(devname, "/dev/.tmp.md%d", dev);
+	if (mknod(devname, S_IFBLK | 0600, rdev) == -1)
+		return NULL;
+
+	if (stat(devname, &stb) == 0
+	    && (S_IFMT&stb.st_mode) == S_IFBLK
+	    && (stb.st_rdev == rdev))
+		return devname;
+	unlink(devname);
+	return NULL;
+}
+
+void put_md_name(char *name)
+{
+	if (strncmp(name, "/dev/.tmp.md", 12)==0)
+		unlink(name);
 }

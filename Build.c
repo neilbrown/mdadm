@@ -130,7 +130,7 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 			}
 		} else {
 			if (ioctl(mdfd, REGISTER_DEV, &stb.st_rdev)) {
-				fprintf(stderr, Name ": REGISTER_DEV failed for %s.\n",
+				fprintf(stderr, Name ": REGISTER_DEV failed for %s: %s.\n",
 					dv->devname, strerror(errno));
 				goto abort;
 			}

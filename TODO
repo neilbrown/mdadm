@@ -1,20 +1,27 @@
 
 
-?? Allow -S /dev/md? - current complains subsequent not a/d/r
+?? Allow -S /dev/md? - current complains subsequent not a/d/r - DONE
 
 * new "Query" mode to subsume --detail and --examine.
    --query or -Q, takes a device and tells if it is an MD device,
-   and also tells in a raid superblock is found.
+   and also tells in a raid superblock is found. 
+ DONE
 
-* write proc.c to parse /proc/mdstat file, and maybe /proc/partitions too.
+* write mdstat.c to parse /proc/mdstat file
    Build list of arrays:  name, rebuild-percent
+  DONE
 
-* --detail --scan to read mdadm.conf, and then iterate over these,
+* parse /proc/partitions and map major/minor into /dev/* names,
+  and use that for default DEVICE list ????
+
+* --detail --scan to read /proc/mdstat, and then iterate over these,
     but assume --brief.  --verbose can override
     check each subdevice to see if it is in conf_get_devs.
     Warn if not.
+  DONE, but don't warn yet...
 
 * Support multipath ... maybe...
+  maybe DONE
 
 * --follow to syslog 
 

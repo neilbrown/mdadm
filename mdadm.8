@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH mdadm 8
+.TH MDADM 8
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -7,7 +7,7 @@ Linux Software Raid.
 
 .SH SYNOPSIS
 
-.BI mdadm " [mode] <raiddevice> [options] <subdevices>"
+.BI mdadm " [mode] <raiddevice> [options] <component-devices>"
 
 .SH DESCRIPTION 
 RAID devices are virtual devices created from two or more
@@ -33,7 +33,7 @@ and
 Recent kernels (2002) also support a mode known as
 .BR MULTIPATH .
 .B mdadm
-does not support MULTIPATH as yet.
+only provides limited support for MULTIPATH as yet.
 
 .B mdadm
 is a program that can be used to create, manage, and monitor
@@ -56,18 +56,13 @@ configuration file.  Also mdadm helps with management of the configuration
 file.
 .IP \(bu 4
 .B mdadm
-can provide information about your arrays (through Detail and Examine)
+can provide information about your arrays (through Query, Detail, and Examine)
 that
 .B  raidtools
 cannot.
-.IP \(bu 4
-.B raidtools
-can manage MULTIPATH devices which
-.B mdadm
-cannot yet manage.
 
 .SH MODES
-mdadm has 7 major modes of operation:
+mdadm has 6 major modes of operation:
 .TP
 .B Assemble
 Assemble the parts of a previously created
@@ -89,31 +84,18 @@ Create a new array with per-device superblocks.
 '''in several step create-add-add-run or it can all happen with one command.
 
 .TP
-.B Detail
-Display the details of a given md device.  Details include the RAID
-level, the number of devices, which ones are faulty (if any), and the
-array UUID.
+.B Manage
+This is for doing things to specific components of an array such as
+adding new spares and removing faulty devices.
 
 .TP
-.B Examine
-Examine a device to see if it is part of an md array, and print out
-the details of that array.
-This mode can also be used to examine a large number of devices and to
-print out a summary of the arrays found in a format suitable for the
-.B mdadm.conf
-configuration file.
+.B Misc
+This mode allows operations on independent devices such as examine MD
+superblocks, erasing old superblocks and stopping active arrays.
 
 .TP
 .B "Follow or Monitor"
 Monitor one or more md devices and act on any state changes.
-
-.TP
-.B Manage
-This is for odd bits an pieces like hotadd, hotremove, setfaulty, stop,
-readonly, readwrite.
-'''If an array is only partially setup by the
-'''Create or Assemble commands, subsequent Manage commands can finish the
-'''job.
 
 .SH OPTIONS
 
@@ -130,6 +112,13 @@ Build a legacy array without superblocks.
 .TP
 .BR -C ", " --create
 Create a new array.
+
+.TP
+.BR -Q ", " --query
+Examine a device to see
+(1) if it is an md device and (2) if it is a component of an md
+array.
+Information about what is discovered is presented.
 
 .TP
 .BR -D ", " --detail
@@ -163,6 +152,36 @@ Be less verbose.  This is used with
 .B --detail
 and
 .BR --examine .
+
+.TP
+.BR -f ", " --force
+Be more forceful about certain operations.  See the various modes of
+the exact meaning of this option in different contexts.
+
+.TP
+.BR -c ", " --config=
+Specify the config file.  Default is
+.BR /etc/mdadm.conf .
+
+.TP
+.BR -s ", " --scan
+scan config file or
+.B /proc/mdstat
+for missing information.
+In general, this option gives
+.B mdadm
+permission to get any missing information, like component devices,
+array devices, array identities, and alert destination from the
+configuration file:
+.BR /etc/mdadm.conf .
+One exception is MISC mode when using
+.B --detail
+or
+.B --stop
+in which case
+.B --scan
+says to get a list of array devices from
+.BR /proc/mdstat .
 
 .SH For create or build:
 
@@ -223,15 +242,6 @@ don't have this minor number are excluded.  If you create an array as
 the array is later assembled as /dev/md2.
 
 .TP
-.BR -c ", " --config=
-config file.  Default is
-.BR /etc/mdadm.conf .
-
-.TP
-.BR -s ", " --scan
-scan config file for missing information
-
-.TP
 .BR -f ", " --force
 Assemble the array even if some superblocks appear out-of-date
 
@@ -245,7 +255,7 @@ With
 .B --run
 an attempt will be made to start it anyway.
 
-.SH General management
+.SH For Manage mode:
 
 .TP
 .BR -a ", " --add
@@ -265,6 +275,8 @@ mark listed devices as faulty.
 .BR --set-faulty
 same as --fail.
 
+.SH For Misc mode:
+
 .TP
 .BR -R ", " --run
 start a partially built array.
@@ -281,8 +293,31 @@ mark array as readonly.
 .BR -w ", " --readwrite
 mark array as readwrite.
 
+.TP
+.B --zero-superblock
+If the device contains a valid md superblock, the block is
+over-written with zeros.  With
+--force
+the block where the superblock would be is over-written even if it
+doesn't appear to be valid.
 
-.SH ASSEMBLY MODE
+.SH For Monitor mode:
+.TP
+.BR -m ", " --mail
+Give a mail address to send alerts to.
+
+.TP
+.BR -p ", " --program ", " --alert
+Give a program to be run whenever an event is detected.
+
+.TP
+.BR -d ", " --delay
+Give a delay in seconds.
+.B mdadm
+polls the md arrays and then waits this many seconds before polling
+again.  The default is 60 seconds.
+
+.SH ASSEMBLE MODE
 
 .HP 12
 Usage:
@@ -296,7 +331,7 @@ Usage:
 .PP
 This usage assembles one or more raid arrays from pre-existing components.
 For each array, mdadm needs to know the md device, the identity of the
-array, and a number of sub devices. These can be found in a number of ways.
+array, and a number of component-devices. These can be found in a number of ways.
 
 The md device is either given before 
 .B --scan
@@ -308,7 +343,7 @@ The identity can be given with the
 option, with the
 .B --super-minor
 option, can be found in in the config file, or will be taken from the
-super block on the first subdevice listed on the command line.
+super block on the first component-device listed on the command line.
 
 Devices can be given on the 
 .B --assemble
@@ -387,7 +422,7 @@ can override this caution.
 
 '''If the 
 '''.B --size
-'''option is given, it is not necessary to list any subdevices in this command.
+'''option is given, it is not necessary to list any component-devices in this command.
 '''They can be added later, before a
 '''.B --run. 
 '''If no 
@@ -404,64 +439,223 @@ be in use.
 .B --readonly
 start the array readonly - not supported yet.
 
-.SH DETAIL MODE
+.SH MANAGE MODE
 .HP 12
 Usage:
-.B mdadm --detail
-.RB [ --brief ]
-.I device ...
+.B mdadm
+.I device
+.I options... devices...
 .PP
 
-This usage sill print out the details of the given array including a
-list of component devices.  To determine names for the devices,
-.B mdadm
-searches
-.B /dev
-for device files with the right major and minor numbers.
+This usage will allow individual devices in an array to be failed,
+removed or added.  It is possible to perform multiple operations with
+on command. For example:
+.br
+mdadm /dev/md0 -f /dev/hda1 -r /dev/hda1 /a /dev/hda1
+.br
+will firstly mark
+.B /dev/hda1
+as faulty in
+.B /dev/md0
+and will then remove it from the array and finally add it back
+in as a spare.  However only one md array can be affect by a single
+command. 
 
-With
-.B --brief
+.SH MISC MODE
+.HP 12
+Usage:
 .B mdadm
-prints a single line that identifies the level, number of disks, and
-UUID of the array.  This line is suitable for inclusion in
+.I options ...
+.I devices  ...
+.PP
+
+MISC mode includes a number if distinct operations that
+operate on distinct devices.  The operations are:
+.TP
+--query
+The device is examined to see if it is
+(1) an active md array, or
+(2) a component of an md array.
+The information discovered is reported.
+
+.TP
+--detail
+The device should be an active md device.  mdadm will display
+a detailed description of the array.
+.B --brief
+will cause the output to be less detailed and format to be
+suitable for inclusion in
 .BR /etc/mdadm.conf .
 
-.SH EXAMINE MODE
+.TP
+--examine
+The device should be a component of an md array.  mdadm will
+read the md superblock of the device and display the contents.
+If
+.B --brief
+is given, or
+.B --scan
+then multiple devices that are components of the one array
+are grouped together and reported in a single entry suitable
+for inclusion in
+.BR /etc/mdadm.conf .
+
+Have
+.B --scan
+without listing any devices will cause all devices listed in the
+config file to be examined.
+
+.TP
+--stop
+This devices should active md arrays which will be deactivated, if
+they are not currently in use.
+
+.TP
+--run
+This will fully activate a partially assembled md array.
+
+.TP
+--readonly
+This will mark an active array as read-only, providing that it is
+not currently being used.
+
+.TP
+--readwrite
+This will change a
+.B readonly
+array back to being read/write.
+
+.SH MONITOR MODE
+
 .HP 12
 Usage:
-.B mdadm --examine
-.RB [ --scan ]
-.RB [ --brief ]
-.I device ...
+.B mdadm --monitor
+.I options... devices...
+
 .PP
-This usage will examine some block devices to see if that have a valid
-RAID superblock on them.  The information in each valid raid
-superblock will be printed.
+This usage causes
+.B mdadm
+to periodically poll a number of md arrays and to report on any events
+noticed.
+.B mdadm
+will never exit once it decides that there are arrays to be checked,
+so it should normally be run in the background.
+
+If any devices are listed on the command line,
+.B mdadm
+will only monitor those devices. Otherwise all arrays listed in the
+configuration file will be monitored.  Further, if
+.B --scan
+is given, then any other md devices that appear in
+.B /proc/mdstat
+will also be monitored.
+
+The result of monitoring the arrays is the generation of events.
+These events are passed to a separate program (is specified) and may
+be mail to a given E-mail address.
+
 
 If
 .B --scan
-is used, the no devices should be listed, and the complete set of
-devices identified in the configuration file are checked.
-.B --scan
-implies
-.B --brief
-but this implication can be countered by specifying
-.BR --verbose .
-
-With
-.B --brief
+is given, then a program or an E-mail address must be specified on the
+command line or in the config file.  If neither are available, then
 .B mdadm
-will output an config file entry of each distinct array that was
-found.  This entry will list the UUID, the raid level, and a list of
-the individual devices on which a superblock for that array was found.
-This output will by syntactically suitable for inclusion in the
-configuration file, but should
-.B NOT
-be used blindly.  Often the array description that you want in the
-configuration file is much less specific than that given by
-.BR "mdadm -Bs" .
-For example, you normally do not want to list the devices,
-particularly if they are SCSI devices.
+will not monitor anything.
+Without
+.B --scan
+.B mdadm
+will continue monitoring along as something was found to monitor.  If
+no program or email is given, then each event is reported to
+.BR stdout .
+
+The different events are:
+
+.RS 4
+.TP
+.B DeviceDisappeared
+An md array which previously was configured appear to no longer be
+configured.
+
+.TP
+.B RebuildStarted
+An md array started reconstruction.
+
+.TP
+.BI Rebuild NN
+Where
+.I NN
+is 20, 40, 60, or 80, this indicates that rebuild has passed that many
+percentage of the total.
+
+.TP
+.B Fail
+An active component device of an array has been marked as faulty.
+
+.TP
+.B FailSpare
+A spare component device which was being rebuilt to replace a faulty
+device has failed.
+
+.TP
+.B SpareActive
+A spare component device which was being rebuilt to replace a faulty
+device as been successfully rebuild and has been made active.
+
+.TP
+.B NewArray
+A new md array has been detected in the
+.B /proc/mdstat
+file.
+
+.TP
+.B MoveSpare
+A spare drive has been moved from one array in a
+.B spare-group
+to another to allow a failed drive to be replaced.
+
+.RE
+
+Only
+.B Fail
+and
+.B FailSpare
+cause Email to be sent.  All events cause the program to be run.
+The program is run with two or three arguments, they being the event
+name, the array device and possibly a second device.
+
+Each event has an associated array device (e.g.
+.BR /dev/md1 )
+and possibly a second device.  For
+.BR Fail ,
+.BR FailSpare ,
+and
+.B SpareActive
+the second device is the relevant component device.
+For
+.B MoveSpare
+the second device is the array that the spare was moved from.
+
+For
+.B mdadm
+to move spares from one array to another, the different arrays need to
+be labelled with the same
+.B spare-group
+in the configuration file.  The
+.B spare-group
+name can be any string. It is only necessary that different spare
+groups use different name.
+
+When
+.B mdadm
+detects that an array which is in a spare group has fewer active
+devices than necessary for the complete array, and has no spare
+devices, it will look for another array in the same spare group that
+has a full complement of working drive and a spare.  It will then
+attempt to remove the spare from the second drive and add it to the
+first.
+If the removal succeeds but the adding fails, then it is added back to
+the original array.
+
 
 '''.SH BUGS
 '''no known bugs.

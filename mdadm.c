@@ -34,7 +34,7 @@ int open_mddev(char *dev)
 {
 	int mdfd = open(dev, O_RDWR, 0);
 	if (mdfd < 0)
-		fprintf(stderr,Name ": error opening %s: %s\n",
+		fprintf(stderr, Name ": error opening %s: %s\n",
 			dev, strerror(errno));
 	else if (md_get_version(mdfd) <= 0) {
 		fprintf(stderr, Name ": %s does not appear to be an md device\n",
@@ -49,12 +49,12 @@ int open_mddev(char *dev)
 
 int main(int argc, char *argv[])
 {
-	char mode = '\0';
+	int mode = 0;
 	int opt;
+	int option_index;
 	char *help_text;
 	char *c;
 	int rv;
-	int i;
 
 	int chunk = 0;
 	int size = 0;
@@ -89,36 +89,22 @@ int main(int argc, char *argv[])
 	ident.super_minor= -1;
 	ident.devices=0;
 
-	while ((opt=getopt_long(argc, argv,
+	while ((option_index = -1) ,
+	       (opt=getopt_long(argc, argv,
 				short_options, long_options,
-				NULL)) != -1) {
-
+				&option_index)) != -1) {
+		int newmode = mode;
+		/* firstly, so mode-independant options */
 		switch(opt) {
-		case '@': /* just incase they say --manage */
-		case 'A':
-		case 'B':
-		case 'C':
-		case 'D':
-		case 'E':
-		case 'F':
-		case 'H':
-			/* setting mode - only once */
-			if (mode) {
-				fprintf(stderr, Name ": --%s/-%c not allowed, mode already set to %s\n",
-					long_options[opt-'A'+1].name,
-					long_options[opt-'A'+1].val,
-					long_options[mode-'A'+1].name);
-				exit(2);
-			}
-			mode = opt;
-			continue;
-
 		case 'h':
 			help_text = Help;
 			switch (mode) {
-			case 'C': help_text = Help_create; break;
-			case 'B': help_text = Help_build; break;
-			case 'A': help_text = Help_assemble; break;
+			case ASSEMBLE : help_text = Help_assemble; break;
+			case BUILD    : help_text = Help_build; break;
+			case CREATE   : help_text = Help_create; break;
+			case MANAGE   : help_text = Help_manage; break;
+			case MISC     : help_text = Help_misc; break;
+			case MONITOR  : help_text = Help_monitor; break;
 			}
 			fputs(help_text,stderr);
 			exit(0);
@@ -133,18 +119,83 @@ int main(int argc, char *argv[])
 		case 'b': brief = 1;
 			continue;
 
-		case 1: /* an undecorated option - must be a device name.
-			 * Depending on mode, it could be that:
-			 *    All devices listed are "md" devices : --Detail, -As
-			 *    No devices are "md" devices : --Examine
-			 *    First device is "md", others are component: -A,-B,-C
-			 * Only accept on device before mode is determined.
-			 *  If mode is @, then require devmode for other devices.
-			 */
-			if (devs_found > 0 && !mode ) {
-				fprintf(stderr, Name ": Must give mode flag before second device name at %s\n", optarg);
-				exit(2);
+		case ':':
+		case '?':
+			fputs(Usage, stderr);
+			exit(2);
+		}
+		/* second, figure out the mode.
+		 * Some options force the mode.  Others
+		 * set the mode if it isn't already 
+		 */
+
+		switch(opt) {
+		case '@': /* just incase they say --manage */
+			newmode = MANAGE; break;
+		case 'a':
+		case 'r':
+		case 'f':
+		case 1 : if (!mode) newmode = MANAGE; break;
+
+		case 'A': newmode = ASSEMBLE; break;
+		case 'B': newmode = BUILD; break;
+		case 'C': newmode = CREATE; break;
+		case 'F': newmode = MONITOR;break;
+
+		case '#':
+		case 'D':
+		case 'E':
+		case 'Q': newmode = MISC; break;
+		case 'R':
+		case 'S':
+		case 'o':
+		case 'w':
+		case 'K': if (!mode) newmode = MISC; break;
+		}
+		if (mode && newmode == mode) {
+			/* everybody happy ! */
+		} else if (mode && newmode != mode) {
+			/* not allowed.. */
+			fprintf(stderr, Name ": ");
+			if (option_index >= 0)
+				fprintf(stderr, "--%s", long_options[option_index].name);
+			else
+				fprintf(stderr, "-%c", opt);
+			fprintf(stderr, " would set mode to %s, but it is already %s.\n",
+				map_num(modes, newmode),
+				map_num(modes, mode));
+			exit(2);
+		} else if (!mode && newmode) {
+			mode = newmode;
+		} else {
+			/* special case of -c --help */
+			if (opt == 'c' && 
+			    ( strncmp(optarg, "--h", 3)==0 ||
+			      strncmp(optarg, "-h", 2)==0)) {
+				fputs(Help_config, stderr);
+				exit(0);
 			}
+			if (option_index >= 0)
+				fprintf(stderr, "--%s", long_options[option_index].name);
+			else
+				fprintf(stderr, "-%c", opt);
+			fprintf(stderr, " does not set the mode, and so cannot be first.\n");
+			exit(2);
+		}
+
+		/* if we just set the mode, then done */
+		switch(opt) {
+		case '@':
+		case '#':
+		case 'A':
+		case 'B':
+		case 'C':
+		case 'F':
+			continue;
+		}
+		if (opt == 1) {
+		        /* an undecorated option - must be a device name.
+			 */
 			if (devs_found > 0 && mode == '@' && !devmode) {
 				fprintf(stderr, Name ": Must give on of -a/-r/-f for subsequent devices at %s\n", optarg);
 				exit(2);
@@ -162,22 +213,14 @@ int main(int argc, char *argv[])
 			
 			devs_found++;
 			continue;
-
-		case ':':
-		case '?':
-			fputs(Usage, stderr);
-			exit(2);
-		default:
-			/* force mode setting - @==manage if nothing else */
-			if (!mode) mode = '@';
 		}
 
 		/* We've got a mode, and opt is now something else which
 		 * could depend on the mode */
 #define O(a,b) ((a<<8)|b)
 		switch (O(mode,opt)) {
-		case O('C','c'):
-		case O('B','c'): /* chunk or rounding */
+		case O(CREATE,'c'):
+		case O(BUILD,'c'): /* chunk or rounding */
 			if (chunk) {
 				fprintf(stderr, Name ": chunk/rounding may only be specified once. "
 					"Second value is %s.\n", optarg);
@@ -191,7 +234,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O('C','z'): /* size */
+		case O(CREATE,'z'): /* size */
 			if (size) {
 				fprintf(stderr, Name ": size may only be specified once. "
 					"Second value is %s.\n", optarg);
@@ -205,8 +248,8 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O('C','l'):
-		case O('B','l'): /* set raid level*/
+		case O(CREATE,'l'):
+		case O(BUILD,'l'): /* set raid level*/
 			if (level != -10) {
 				fprintf(stderr, Name ": raid level may only be set once.  "
 					"Second value is %s.\n", optarg);
@@ -218,12 +261,12 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (level > 0 && mode == 'B') {
+			if (level != 0 && level != -1 && mode == BUILD) {
 				fprintf(stderr, Name ": Raid level %s not permitted with --build.\n",
 					optarg);
 				exit(2);
 			}
-			if (sparedisks > 0 && level < 1) {
+			if (sparedisks > 0 && level < 1 && level >= -1) {
 				fprintf(stderr, Name ": raid level %s is incompatible with spare-disks setting.\n",
 					optarg);
 				exit(2);
@@ -231,7 +274,7 @@ int main(int argc, char *argv[])
 			ident.level = level;
 			continue;
 
-		case O('C','p'): /* raid5 layout */
+		case O(CREATE,'p'): /* raid5 layout */
 			if (layout >= 0) {
 				fprintf(stderr,Name ": layout may only be sent once.  "
 					"Second value was %s\n", optarg);
@@ -257,8 +300,8 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O('C','n'):
-		case O('B','n'): /* number of raid disks */
+		case O(CREATE,'n'):
+		case O(BUILD,'n'): /* number of raid disks */
 			if (raiddisks) {
 				fprintf(stderr, Name ": raid-disks set twice: %d and %s\n",
 					raiddisks, optarg);
@@ -273,13 +316,13 @@ int main(int argc, char *argv[])
 			ident.raid_disks = raiddisks;
 			continue;
 
-		case O('C','x'): /* number of spare (eXtra) discs */
+		case O(CREATE,'x'): /* number of spare (eXtra) discs */
 			if (sparedisks) {
 				fprintf(stderr,Name ": spare-disks set twice: %d and %s\n",
 					sparedisks, optarg);
 				exit(2);
 			}
-			if (level > -10 && level < 1) {
+			if (level > -10 && level <= 0 && level >= -1) {
 				fprintf(stderr, Name ": spare-disks setting is incompatible with raid level %d\n",
 					level);
 				exit(2);
@@ -291,14 +334,14 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			continue;
-		case O('C','f'): /* force honouring of device list */
-		case O('A','f'): /* force assembly */
-		case O('H','f'): /* force zero */
+		case O(CREATE,'f'): /* force honouring of device list */
+		case O(ASSEMBLE,'f'): /* force assembly */
+		case O(MISC,'f'): /* force zero */
 			force=1;
 			continue;
 
 			/* now for the Assemble options */
-		case O('A','u'): /* uuid of array */
+		case O(ASSEMBLE,'u'): /* uuid of array */
 			if (ident.uuid_set) {
 				fprintf(stderr, Name ": uuid cannot be set twice.  "
 					"Second value %s.\n", optarg);
@@ -312,7 +355,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O('A','m'): /* super-minor for array */
+		case O(ASSEMBLE,'m'): /* super-minor for array */
 			if (ident.super_minor >= 0) {
 				fprintf(stderr, Name ": super-minor cannot be set twice.  "
 					"Second value: %s.\n", optarg);
@@ -325,8 +368,8 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O('A','c'): /* config file */
-		case O('F','c'):
+		case O(ASSEMBLE,'c'): /* config file */
+		case O(MONITOR,'c'):
 			if (configfile) {
 				fprintf(stderr, Name ": configfile cannot be set twice.  "
 					"Second value is %s.\n", optarg);
@@ -335,12 +378,13 @@ int main(int argc, char *argv[])
 			configfile = optarg;
 			/* FIXME possibly check that config file exists.  Even parse it */
 			continue;
-		case O('A','s'): /* scan */
-		case O('E','s'):
+		case O(ASSEMBLE,'s'): /* scan */
+		case O(MISC,'s'):
+		case O(MONITOR,'s'):
 			scan = 1;
 			continue;
 
-		case O('F','m'): /* mail address */
+		case O(MONITOR,'m'): /* mail address */
 			if (mailaddr)
 				fprintf(stderr, Name ": only specify one mailaddress. %s ignored.\n",
 					optarg);
@@ -348,7 +392,7 @@ int main(int argc, char *argv[])
 				mailaddr = optarg;
 			continue;
 
-		case O('F','p'): /* alert program */
+		case O(MONITOR,'p'): /* alert program */
 			if (program)
 				fprintf(stderr, Name ": only specify one alter program. %s ignored.\n",
 					optarg);
@@ -356,7 +400,7 @@ int main(int argc, char *argv[])
 				program = optarg;
 			continue;
 
-		case O('F','d'): /* delay in seconds */
+		case O(MONITOR,'d'): /* delay in seconds */
 			if (delay)
 				fprintf(stderr, Name ": only specify delay once. %s ignored.\n",
 					optarg);
@@ -374,29 +418,29 @@ int main(int argc, char *argv[])
 			/* now the general management options.  Some are applicable
 			 * to other modes. None have arguments.
 			 */
-		case O('@','a'):
-		case O('C','a'):
-		case O('B','a'):
-		case O('A','a'): /* add a drive */
+		case O(MANAGE,'a'):
+		case O(CREATE,'a'):
+		case O(BUILD,'a'):
+		case O(ASSEMBLE,'a'): /* add a drive */
 			devmode = 'a';
 			continue;
-		case O('@','r'): /* remove a drive */
+		case O(MANAGE,'r'): /* remove a drive */
 			devmode = 'r';
 			continue;
-		case O('@','f'): /* set faulty */
+		case O(MANAGE,'f'): /* set faulty */
 			devmode = 'f';
 			continue;
-		case O('@','R'):
-		case O('A','R'):
-		case O('B','R'):
-		case O('C','R'): /* Run the array */
+		case O(MANAGE,'R'):
+		case O(ASSEMBLE,'R'):
+		case O(BUILD,'R'):
+		case O(CREATE,'R'): /* Run the array */
 			if (runstop < 0) {
 				fprintf(stderr, Name ": Cannot both Stop and Run an array\n");
 				exit(2);
 			}
 			runstop = 1;
 			continue;
-		case O('@','S'):
+		case O(MANAGE,'S'):
 			if (runstop > 0) {
 				fprintf(stderr, Name ": Cannot both Run and Stop an array\n");
 				exit(2);
@@ -404,26 +448,44 @@ int main(int argc, char *argv[])
 			runstop = -1;
 			continue;
 
-		case O('@','o'):
+		case O(MANAGE,'o'):
 			if (readonly < 0) {
 				fprintf(stderr, Name ": Cannot have both readonly and readwrite\n");
 				exit(2);
 			}
 			readonly = 1;
 			continue;
-		case O('@','w'):
+		case O(MANAGE,'w'):
 			if (readonly > 0) {
-				fprintf(stderr, "mkdctl: Cannot have both readwrite and readonly.\n");
+				fprintf(stderr, Name ": Cannot have both readwrite and readonly.\n");
 				exit(2);
 			}
 			readonly = -1;
 			continue;
+
+		case O(MISC,'Q'):
+		case O(MISC,'D'):
+		case O(MISC,'E'):
+		case O(MISC,'K'):
+		case O(MISC,'R'):
+		case O(MISC,'S'):
+		case O(MISC,'o'):
+		case O(MISC,'w'):
+			if (devmode && devmode != opt &&
+			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
+				fprintf(stderr, Name ": --examine/-E cannot be given with -%c\n",
+					devmode =='E'?opt:devmode);
+				exit(2);
+			}
+			devmode = opt;
+			continue;
+
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
 		 */
-		fprintf(stderr, Name ": option %c not valid in mode %c\n",
-			opt, mode);
+		fprintf(stderr, Name ": option %c not valid in %s mode\n",
+			opt, map_num(modes, mode));
 		exit(2);
 
 	}
@@ -436,13 +498,13 @@ int main(int argc, char *argv[])
 	 * hopefully it's mostly right but there might be some stuff
 	 * missing
 	 *
-	 * That is mosty checked in ther per-mode stuff but...
+	 * That is mosty checked in the per-mode stuff but...
 	 *
 	 * For @,B,C  and A without -s, the first device listed must be an md device
 	 * we check that here and open it.
 	 */
 
-	if (mode=='@' || mode == 'B' || mode == 'C' || (mode == 'A' && ! scan)) {
+	if (mode==MANAGE || mode == BUILD || mode == CREATE || (mode == ASSEMBLE && ! scan)) {
 		if (devs_found < 1) {
 			fprintf(stderr, Name ": an md device must be given in this mode\n");
 			exit(2);
@@ -452,10 +514,9 @@ int main(int argc, char *argv[])
 			exit(1);
 	}
 
-
 	rv = 0;
 	switch(mode) {
-	case '@':/* Management */
+	case MANAGE:
 		/* readonly, add/remove, readwrite, runstop */
 		if (readonly>0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
@@ -467,7 +528,7 @@ int main(int argc, char *argv[])
 		if (!rv && runstop)
 			rv = Manage_runstop(devlist->devname, mdfd, runstop);
 		break;
-	case 'A': /* Assemble */
+	case ASSEMBLE:
 		if (!scan)
 			rv = Assemble(devlist->devname, mdfd, &ident, configfile,
 				      devlist->next,
@@ -513,32 +574,89 @@ int main(int argc, char *argv[])
 				}
 		}
 		break;
-	case 'B': /* Build */
+	case BUILD:
 		rv = Build(devlist->devname, mdfd, chunk, level, raiddisks, devlist->next);
 		break;
-	case 'C': /* Create */
+	case CREATE:
 		rv = Create(devlist->devname, mdfd, chunk, level, layout, size,
 			    raiddisks, sparedisks,
 			    devs_found-1, devlist->next, runstop, verbose, force);
 		break;
-	case 'D': /* Detail */
-		for (dv=devlist ; dv; dv=dv->next)
-			rv |= Detail(dv->devname, brief);
-		break;
-	case 'E': /* Examine */
-		if (devlist == NULL && scan==0) {
-			fprintf(stderr, Name ": No devices to examine\n");
-			exit(2);
+	case MISC:
+
+		if (devmode == 'E') {
+			if (devlist == NULL && !scan) {
+				fprintf(stderr, Name ": No devices to examine\n");
+				exit(2);
+			}
+			if (devlist == NULL)
+				devlist = conf_get_devs(configfile);
+			if (devlist == NULL) {
+				fprintf(stderr, Name ": No devices listed in %s\n", configfile);
+				exit(1);
+			}
+			rv = Examine(devlist, devlist?brief:!verbose, scan);
+		} else {
+			if (devlist == NULL) {
+				if ((devmode == 'S' ||devmode=='D') && scan) {
+					/* apply to all devices in /proc/mdstat */
+					struct mdstat_ent *ms = mdstat_read();
+					struct mdstat_ent *e;
+					for (e=ms ; e ; e=e->next) {
+						char *name = get_md_name(e->devnum);
+
+						if (!name) {
+							fprintf(stderr, Name ": cannot find device file for %s\n",
+								e->dev);
+							continue;
+						}
+						if (devmode == 'D')
+							rv |= Detail(name, !verbose);
+						else if (devmode=='S') {
+							mdfd = open_mddev(name);
+							if (mdfd >= 0)
+								rv |= Manage_runstop(name, mdfd, -1);
+						}
+						put_md_name(name);
+					}
+				} else {						
+					fprintf(stderr, Name ": No devices given.\n");
+					exit(2);
+				}
+			}
+			for (dv=devlist ; dv; dv=dv->next) {
+				switch(dv->disposition) {
+				case 'D':
+					rv |= Detail(dv->devname, brief); continue;
+				case 'K': /* Zero superblock */
+					rv |= Kill(dv->devname, force); continue;
+				case 'Q':
+					rv |= Query(dv->devname); continue;
+				}
+				mdfd = open_mddev(dv->devname);
+				if (mdfd>=0)
+					switch(dv->disposition) {
+					case 'R':
+						rv |= Manage_runstop(dv->devname, mdfd, 1); break;
+					case 'S':
+						rv |= Manage_runstop(dv->devname, mdfd, -1); break;
+					case 'o':
+						rv |= Manage_ro(dv->devname, mdfd, 1); break;
+					case 'w':
+						rv |= Manage_ro(dv->devname, mdfd, -1); break;
+					}
+			}
 		}
-		rv = Examine(devlist, devlist?brief:!verbose, configfile);
 		break;
-	case 'F': /* Follow */
-		rv= Monitor(devlist, mailaddr, program,
-			    delay?delay:60, configfile);
-		break;
-	case 'H': /* Zero superblock */
-		for (dv=devlist ; dv; dv=dv->next)
-			rv |= Kill(dv->devname, force);
+	case MONITOR:
+/*
+		if (!devlist && !scan) {
+			fprintf(stderr, Name ": Cannot monitor: need --scan or at least one device\n");
+			rv = 1;
+			break;
+		}
+*/		rv= Monitor(devlist, mailaddr, program,
+			    delay?delay:60, scan, configfile);
 		break;
 	}
 	exit(rv);

@@ -81,8 +81,8 @@ int Detail(char *dev, int brief)
 	if (brief) 
 		printf("ARRAY %s level=%s disks=%d", dev, c?c:"-unknown-",array.raid_disks );
 	else {
-		long array_size;
-		long long larray_size;
+		unsigned long array_size;
+		unsigned long long larray_size;
 #ifdef BLKGETSIZE64
 		if (ioctl(fd, BLKGETSIZE64, &larray_size)==0)
 			;
@@ -137,15 +137,20 @@ int Detail(char *dev, int brief)
 		printf("\n");
 		printf("    Number   Major   Minor   RaidDisk   State\n");
 	}
-	for (d= 0; d<array.raid_disks+array.spare_disks; d++) {
+	for (d= 0; d<MD_SB_DISKS; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
-			fprintf(stderr, Name ": cannot get disk detail for disk %d: %s\n",
-				d, strerror(errno));
+			if (d < array.raid_disks)
+				fprintf(stderr, Name ": cannot get disk detail for disk %d: %s\n",
+					d, strerror(errno));
 			continue;
 		}
+		if (d >= array.raid_disks &&
+		    disk.major == 0 &&
+		    disk.minor == 0)
+			continue;
 		if (!brief) {
 			printf("   %5d   %5d    %5d    %5d     ", 
 			       disk.number, disk.major, disk.minor, disk.raid_disk);

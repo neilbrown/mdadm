@@ -77,7 +77,6 @@ int Manage_runstop(char *devname, int fd, int runstop)
 	/* Run or stop the array. array must already be configured
 	 * required >= 0.90.0
 	 */
-	mdu_array_info_t array;
 	mdu_param_t param; /* unused */
 
 	if (runstop == -1 && md_get_version(fd) < 9000) {
@@ -132,7 +131,7 @@ int Manage_subdevs(char *devname, int fd,
 	struct stat stb;
 	int i,j;
 	int save_errno;
-	static buf[4096];
+	static char buf[4096];
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",

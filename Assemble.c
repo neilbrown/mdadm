@@ -115,7 +115,7 @@ int Assemble(char *mddev, int mdfd,
 	
 	vers = md_get_version(mdfd);
 	if (vers <= 0) {
-		fprintf(stderr, Name ": %s appears not to be an md device.\n");
+		fprintf(stderr, Name ": %s appears not to be an md device.\n", mddev);
 		return 1;
 	}
 	if (vers < 9000) {
@@ -405,8 +405,8 @@ This doesnt work yet
 		if (devices[j].oldmajor != super.disks[i].major ||
 		    devices[j].oldminor != super.disks[i].minor) {
 			change |= 2;
-			super.disks[i].major = devices[i].oldmajor;
-			super.disks[i].minor = devices[i].oldminor;
+			super.disks[i].major = devices[j].oldmajor;
+			super.disks[i].minor = devices[j].oldminor;
 		}
 		if (devices[j].uptodate &&
 		    (super.disks[i].state != desired_state)) {
@@ -491,7 +491,7 @@ This doesnt work yet
 		if (runstop == 1 ||
 		    (runstop == 0 && 
 		     ( first_super.raid_disks == okcnt
-		       || start_partial_ok && enough(first_super.level, first_super.raid_disks, okcnt))
+		       || (start_partial_ok && enough(first_super.level, first_super.raid_disks, okcnt)))
 			    )) {
 			if (ioctl(mdfd, RUN_ARRAY, NULL)==0) {
 				fprintf(stderr, Name ": %s has been started with %d drive%s",
@@ -527,4 +527,5 @@ This doesnt work yet
 		}
 		
 	}
+	return 0;
 }

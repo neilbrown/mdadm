@@ -113,7 +113,8 @@ used.  Any extra space on other devices is wasted.
 .SS RAID4
 
 A RAID4 array is like a RAID0 array with an extra device for storing
-parity.  Unlike RAID0, RAID4 also requires that all stripes span all
+parity. This device is the last of the active devices in the
+array. Unlike RAID0, RAID4 also requires that all stripes span all
 drives, so extra space on devices that are larger than the smallest is
 wasted.
 

@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
 	char *program = NULL;
 	int delay = 0;
 	int daemonise = 0;
+	int oneshot = 0;
 
 	int mdfd = -1;
 
@@ -320,6 +321,12 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
+			if (raiddisks == 1 &&  !force) {
+				fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
+					"     a mistake.  If you really mean it you will need to specify --force before\n"
+					"     setting the number of drives.\n");
+				exit(2);
+			}
 			ident.raid_disks = raiddisks;
 			continue;
 
@@ -341,6 +348,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			continue;
+		case O(BUILD,'f'): /* force honouring '-n 1' */
 		case O(CREATE,'f'): /* force honouring of device list */
 		case O(ASSEMBLE,'f'): /* force assembly */
 		case O(MISC,'f'): /* force zero */
@@ -441,7 +449,9 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'f'): /* daemonise */
 			daemonise = 1;
 			continue;
-			
+		case O(MONITOR,'1'): /* oneshot */
+			oneshot = 1;
+			continue;
 
 			/* now the general management options.  Some are applicable
 			 * to other modes. None have arguments.
@@ -717,7 +727,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		rv= Monitor(devlist, mailaddr, program,
-			    delay?delay:60, daemonise, scan, configfile);
+			    delay?delay:60, daemonise, scan, oneshot, configfile);
 		break;
 	}
 	exit(rv);

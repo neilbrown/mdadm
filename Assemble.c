@@ -109,6 +109,7 @@ int Assemble(char *mddev, int mdfd,
 	int *best = NULL; /* indexed by raid_disk */
 	int bestcnt = 0;
 	int devcnt = 0, okcnt, sparecnt;
+	int req_cnt;
 	int i;
 	int most_recent = 0;
 	int chosen_drive;
@@ -365,8 +366,11 @@ int Assemble(char *mddev, int mdfd,
 		 * as they don't make sense
 		 */
 		if (first_super.level != -4)
-			if (!(devices[j].state & (1<<MD_DISK_SYNC)))
+			if (!(devices[j].state & (1<<MD_DISK_SYNC))) {
+				if (!(devices[j].state & (1<<MD_DISK_FAULTY)))
+					sparecnt++;
 				continue;
+			}
 		if (devices[j].events+event_margin >=
 		    devices[most_recent].events) {
 			devices[j].uptodate = 1;
@@ -535,6 +539,17 @@ This doesnt work yet
 		change = 0;
 	}
 
+	/* count number of in-sync devices according to the superblock.
+	 * We must have this number to start the array without -s or -R
+	 */
+	req_cnt = 0;
+	for (i=0; i<MD_SB_DISKS; i++)
+		if ((first_super.disks[i].state & (1<<MD_DISK_SYNC)) &&
+		    (first_super.disks[i].state & (1<<MD_DISK_ACTIVE)) &&
+		    !(first_super.disks[i].state & (1<<MD_DISK_FAULTY)))
+			req_cnt ++;
+									    
+
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
 		if (ioctl(mdfd, SET_ARRAY_INFO, NULL) != 0) {
@@ -576,12 +591,14 @@ This doesnt work yet
 		
 		if (runstop == 1 ||
 		    (runstop == 0 && 
-		     ( first_super.raid_disks == okcnt
-		       || (start_partial_ok && enough(first_super.level, first_super.raid_disks, okcnt)))
-			    )) {
+		     ( enough(first_super.level, first_super.raid_disks, okcnt) &&
+		       (okcnt >= req_cnt || start_partial_ok)
+			     ))) {
 			if (ioctl(mdfd, RUN_ARRAY, NULL)==0) {
 				fprintf(stderr, Name ": %s has been started with %d drive%s",
 					mddev, okcnt, okcnt==1?"":"s");
+				if (okcnt < first_super.raid_disks) 
+					fprintf(stderr, " (out of %d)", first_super.raid_disks);
 				if (sparecnt)
 					fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 				fprintf(stderr, ".\n");
@@ -596,8 +613,18 @@ This doesnt work yet
 				mddev, okcnt, okcnt==1?"":"s");
 			return 0;
 		}
-		fprintf(stderr, Name ": %s assembled from %d drive%s - not enough to start it (use --run to insist).\n",
-			mddev, okcnt, okcnt==1?"":"s");
+		fprintf(stderr, Name ": %s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
+		if (sparecnt)
+			fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
+		if (!enough(first_super.level, first_super.raid_disks, okcnt))
+			fprintf(stderr, " - not enough to start the array.\n");
+		else {
+			if (req_cnt == first_super.raid_disks)
+				fprintf(stderr, " - need all %d to start it", req_cnt);
+			else
+				fprintf(stderr, " - need %d of %d to start", req_cnt, first_super.raid_disks);
+			fprintf(stderr, " (use --run to insist).\n");
+		}
 		return 1;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has

@@ -32,7 +32,7 @@
 #include	"md_p.h"
 
 int Create(char *mddev, int mdfd,
-	   int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
+	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force)
 {
@@ -52,7 +52,7 @@ int Create(char *mddev, int mdfd,
 	 * if runstop==run, or raiddisks diskswere used,
 	 * RUN_ARRAY
 	 */
-	int minsize=0, maxsize=0;
+	unsigned long minsize=0, maxsize=0;
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
 	int dnum;
@@ -115,10 +115,24 @@ int Create(char *mddev, int mdfd,
 			break;
 		}
 
-	if (chunk == 0) {
-		chunk = 64;
-		if (verbose)
-			fprintf(stderr, Name ": chunk size defaults to 64K\n");
+	switch(level) {
+	case 4:
+	case 5:
+	case 0:
+	case -1: /* linear */
+		if (chunk == 0) {
+			chunk = 64;
+			if (verbose)
+				fprintf(stderr, Name ": chunk size defaults to 64K\n");
+		}
+		break;
+	default: /* raid1, multipath */
+		if (chunk) {
+			chunk = 0;
+			if (verbose)
+				fprintf(stderr, Name ": chunk size ignored for this level\n");
+		}
+		break;
 	}
 
 	/* now look at the subdevs */
@@ -127,7 +141,7 @@ int Create(char *mddev, int mdfd,
 	dnum = 0;
 	for (dv=devlist; dv; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
-		int dsize, freesize;
+		unsigned long dsize, freesize;
 		int fd;
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
@@ -153,7 +167,7 @@ int Create(char *mddev, int mdfd,
 			continue;
 		}
 		if (dsize < MD_RESERVED_SECTORS*2) {
-			fprintf(stderr, Name ": %s is too small: %dK\n",
+			fprintf(stderr, Name ": %s is too small: %luK\n",
 				dname, dsize/2);
 			fail = 1;
 			close(fd);
@@ -164,7 +178,7 @@ int Create(char *mddev, int mdfd,
 
 		if (size && freesize < size) {
 			fprintf(stderr, Name ": %s is smaller that given size."
-				" %dK < %dK + superblock\n", dname, freesize, size);
+				" %luK < %luK + superblock\n", dname, freesize, size);
 			fail = 1;
 			close(fd);
 			continue;
@@ -193,10 +207,10 @@ int Create(char *mddev, int mdfd,
 		}
 		size = minsize;
 		if (verbose && level>0)
-			fprintf(stderr, Name ": size set to %dK\n", size);
+			fprintf(stderr, Name ": size set to %luK\n", size);
 	}
 	if (level >= 1 && ((maxsize-size)*100 > maxsize)) {
-		fprintf(stderr, Name ": largest drive (%s) exceed size (%dK) by more than 1%%\n",
+		fprintf(stderr, Name ": largest drive (%s) exceed size (%luK) by more than 1%%\n",
 			maxdisc, size);
 		warn = 1;
 	}

@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.2.0
+.TH MDADM 8 "" v1.3.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -232,9 +232,14 @@ Specify rounding factor for linear array (==chunk size)
 
 .TP
 .BR -l ", " --level=
-Set raid level.  Options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid5, 4,
+Set raid level.  When used with
+.IR --create ,
+options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid5, 4,
 raid5, 5, multipath, mp.  Obviously some of these are synonymous.
-Only the first 4 are valid when Building.
+
+When used with
+.IR --build ,
+only linear, raid0, 0, stripe are valid.
 
 .TP
 .BR -p ", " --parity=
@@ -255,7 +260,13 @@ Specify the number of active devices in the array.  This, plus the
 number of spare devices (see below) must equal the number of
 .I component-devices
 (including "\fBmissing\fP" devices)
-that are listed on the command line.
+that are listed on the command line.  Setting a value of 1 is probably
+a mistake and so requires that
+.B --force
+be specified first.  A value of 1 will then be allowed for linear,
+multipath, raid0 and raid1.  It is never allowed for raid4 or raid5.
+.br
+Note that this number cannot be changed once the array has been created.
 
 .TP
 .BR -x ", " --spare-devices=
@@ -428,6 +439,18 @@ This is useful with
 .B --scan
 which will only continue monitoring if a mail address or alert program
 is found in the config file.
+
+.TP
+.BR -1 ", " --oneshot
+Check arrays only once.  This will generate
+.B NewArray
+events and more significantly
+.B DegradedArray
+events.  Running
+.in +5
+.B "   mdadm --monitor --scan -1"
+.in -5
+from a cron script will ensure regular notification of any degraded arrays.
 
 .SH ASSEMBLE MODE
 
@@ -774,6 +797,15 @@ device as been successfully rebuild and has been made active.
 A new md array has been detected in the
 .B /proc/mdstat
 file.
+
+.TP
+.B DegradedArray
+A newly noticed array appears to be degraded.  This message is not
+generated when
+.I mdadm
+notices a drive failure which causes degradation, but only when
+.I mdadm
+notices that an array is degraded when it first sees the array.
 
 .TP
 .B MoveSpare

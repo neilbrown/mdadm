@@ -177,6 +177,7 @@ int Manage_subdevs(char *devname, int fd,
 			 * in case
 			 */
 			for (j=0; j<array.nr_disks; j++) {
+				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					break;
 				if (disc.major==0 && disc.minor==0)

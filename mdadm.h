@@ -159,7 +159,7 @@ extern int Build(char *mddev, int mdfd, int chunk, int level,
 
 
 extern int Create(char *mddev, int mdfd,
-		  int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
+		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force);
 
@@ -168,7 +168,7 @@ extern int Query(char *dev);
 extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
-		   int period, int daemonise, int scan,
+		   int period, int daemonise, int scan, int oneshot,
 		   char *config);
 
 extern int Kill(char *dev, int force);

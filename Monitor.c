@@ -45,7 +45,7 @@ static char *percentalerts[] = {
 
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
-	    int period, int daemonise, int scan,
+	    int period, int daemonise, int scan, int oneshot,
 	    char *config)
 {
 	/*
@@ -176,6 +176,7 @@ int Monitor(mddev_dev_t devlist,
 
 
 	while (! finished) {
+		int new_found = 0;
 		struct state *st;
 
 		if (mdstat)
@@ -241,6 +242,12 @@ int Monitor(mddev_dev_t devlist,
 				st->err = 0;
 				continue;
 			}
+			if (st->utime == 0 && /* new array */
+			    mse &&	/* is in /proc/mdstat */
+			    mse->pattern && strchr(mse->pattern, '_') /* degraded */
+				)
+				alert("DegradedArray", dev, NULL, mailaddr, alert_cmd);
+
 			if (mse &&
 			    st->percent == -1 && 
 			    mse->percent >= 0)
@@ -323,6 +330,7 @@ int Monitor(mddev_dev_t devlist,
 					st->spare_group = NULL;
 					statelist = st;
 					alert("NewArray", st->devname, NULL, mailaddr, alert_cmd);
+					new_found = 1;
 				}
 		}
 		/* If an array has active < raid && spare == 0 && spare_group != NULL
@@ -374,8 +382,12 @@ int Monitor(mddev_dev_t devlist,
 						close(fd2);
 					}
 			}
-					    
-		sleep(period);
+		if (!new_found) {
+			if (oneshot)
+				break;
+			else
+				sleep(period);
+		}
 	}
 	return 0;
 }
@@ -401,7 +413,9 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
 			exit(2);
 		}
 	}
-	if (mailaddr && strncmp(event, "Fail", 4)==0) {
+	if (mailaddr && 
+	    (strncmp(event, "Fail", 4)==0 || 
+	     strncmp(event, "Degrade", 7)==0)) {
 		FILE *mp = popen(Sendmail, "w");
 		if (mp) {
 			char hname[256];

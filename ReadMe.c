@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.2.0 - 13 Mar 2003\n";
+char Version[] = Name " - v1.3.0 - 29 Jul 2003\n";
 /*
  * File: ReadMe.c
  *
@@ -86,7 +86,7 @@ char Version[] = Name " - v1.2.0 - 13 Mar 2003\n";
  *     This mode never exits but just monitors arrays and reports changes.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sarfRSow";
+char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sarfRSow1";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -149,7 +149,7 @@ struct option long_options[] = {
     {"delay",     1, 0, 'd'},
     {"daemonise", 0, 0, 'f'},
     {"daemonize", 0, 0, 'f'},
-    
+    {"oneshot",   0, 0, '1'},
     
     {0, 0, 0, 0}
 };
@@ -248,16 +248,16 @@ char OptionHelp[] =
 char Help_create[] =
 "Usage:  mdadm --create device -chunk=X --level=Y --raid-devices=Z devices\n"
 "\n"
-" This usage will initialise a new md array and associate some\n"
-" devices with it.  If enough devices are given to complete the array,\n"
-" the array will be activated.  Otherwise it will be left inactive\n"
-" to be completed and activated by subsequent management commands.\n"
+" This usage will initialise a new md array, associate some\n"
+" devices with it, and activate the array.   In order to create an\n"
+" array with some devices missing, use the special word 'missing' in\n"
+" place of the relevant device name.\n"
 "\n"
-" As devices are added, they are checked to see if they already contain\n"
+" Before devices are added, they are checked to see if they already contain\n"
 " raid superblocks or filesystems.  They are also checked to see if\n"
 " the variance in device size exceeds 1%.\n"
-" If any discrepancy is found, the array will not automatically\n"
-" be run, though the presence of a '--run' can override this\n"
+" If any discrepancy is found, the user will be prompted for confirmation\n"
+" before the array is created.  The presence of a '--run' can override this\n"
 " caution.\n"
 "\n"
 " If the --size option is given then only that many kilobytes of each\n"
@@ -270,16 +270,16 @@ char Help_create[] =
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : raid level: 0,1,4,5,linear,multipath and synonyms\n"
-"  --parity=    -p   : raid5 parity algorithm: {left,right}-{,a}symmetric\n"
+"  --parity=     -p   : raid5 parity algorithm: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
-"   --run             : insist of running the array even if not all\n"
+"  --run         -R   : insist of running the array even if not all\n"
 "                     : devices are present or some look odd.\n"
-"   --readonly        : start the array readonly - not supported yet.\n"
+"  --readonly    -o   : start the array readonly - not supported yet.\n"
 "\n"
 ;
 
@@ -407,6 +407,7 @@ char Help_monitor[] =
 "  --config=     -c   : specify a different config file\n"
 "  --scan        -s   : find mail-address/program in config file\n"
 "  --daemonise   -f   : Fork and continue in child, parent exits\n"
+"  --oneshot     -1   : Check for degraded arrays, then exit\n"
 ;
 
 

@@ -162,6 +162,7 @@ int Detail(char *dev, int brief)
 			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
 			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
+			if (disk.state == 0) printf(" spare");
 		}
 		if ((dv=map_dev(disk.major, disk.minor))) {
 			if (brief) {

@@ -205,6 +205,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				if (dp->state & (1<<MD_DISK_ACTIVE)) printf(" active");
 				if (dp->state & (1<<MD_DISK_SYNC)) printf(" sync");
 				if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
+				if (dp->state == 0) printf(" spare");
 				if ((dv=map_dev(dp->major, dp->minor)))
 					printf("   %s", dv);
 				printf("\n");

@@ -1,3 +1,5 @@
+* mdadm --monitor to monitor failed multipath paths and re-instate them.
+
 * Maybe make "--help" fit in 80x24 and have a --long-help with more info. DONE
 
 

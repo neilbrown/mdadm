@@ -34,9 +34,11 @@ UCLIBC_GCC = i386-uclibc-gcc
 
 CC = gcc
 CXFLAGS = -ggdb
+CWFLAGS = -Wall -Werror -Wstrict-prototypes
 SYSCONFDIR = /etc
 CONFFILE = $(SYSCONFDIR)/mdadm.conf
-CFLAGS = -Wall -Werror -Wstrict-prototypes -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS)
+MAILCMD =/usr/sbin/sendmail -t
+CFLAGS = $(CWFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static
@@ -94,7 +96,7 @@ install : mdadm mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 clean : 
-	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static
+	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej
 
 dist : clean
 	./makedist

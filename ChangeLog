@@ -13,6 +13,8 @@ Changes Prior to 1.9.0 release
     -   Add some missing closes of open file descriptors.
     -   Reread /proc/partition for every array assembled when using
 	it to find devices, rather than only once.
+    -   Make "mdadm -Ss" stop stacked devices properly, by reversing the
+	order in which arrays are stopped.
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

@@ -793,6 +793,16 @@ int main(int argc, char *argv[])
 					/* apply to all devices in /proc/mdstat */
 					struct mdstat_ent *ms = mdstat_read(0);
 					struct mdstat_ent *e;
+					if (devmode == 'S') {
+						/* reverse order so that arrays made of arrays are stopped properly */
+						struct mdstat_ent *sm = NULL;
+						while ((e=ms) != NULL) {
+							ms = e->next;
+							e->next = sm;
+							sm = e;
+						}
+						ms = sm;
+					}
 					for (e=ms ; e ; e=e->next) {
 						char *name = get_md_name(e->devnum);
 

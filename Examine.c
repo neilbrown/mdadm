@@ -51,10 +51,11 @@ int Examine(char *dev)
 	time_t atime;
 	mdp_super_t super;
 	int d;
+	char *c;
 	int rv;
 
 	if (fd < 0) {
-		fprintf(stderr,"mdctl: cannot open %s: %s\n",
+		fprintf(stderr,Name ": cannot open %s: %s\n",
 			dev, strerror(errno));
 		return 1;
 	}
@@ -63,30 +64,30 @@ int Examine(char *dev)
 	close(fd);
 	switch(rv) {
 	case 1:
-		fprintf(stderr, "mdctl: cannot find device size for %s: %s\n",
+		fprintf(stderr, Name ": cannot find device size for %s: %s\n",
 			dev, strerror(errno));
 		return 1;
 	case 2:
-/*		fprintf(stderr, "mdctl: %s is too small for md: size is %ld sectors\n",
+/*		fprintf(stderr, Name ": %s is too small for md: size is %ld sectors\n",
 			dev, size);
 */
-		fprintf(stderr, "mdctl: %s is too small for md\n",
+		fprintf(stderr, Name ": %s is too small for md\n",
 			dev);
 		return 1;
 	case 3:
-		fprintf(stderr, "mdctl: Cannot seek to superblock on %s: %s\n",
+		fprintf(stderr, Name ": Cannot seek to superblock on %s: %s\n",
 			dev, strerror(errno));
 		return 1;
 	case 4:
-		fprintf(stderr, "mdctl: Cannot read superblock on %s\n",
+		fprintf(stderr, Name ": Cannot read superblock on %s\n",
 			dev);
 		return 1;
 	case 5:
-		fprintf(stderr, "mdctl: No super block found on %s (Expected magic %08x, got %08x)\n",
+		fprintf(stderr, Name ": No super block found on %s (Expected magic %08x, got %08x)\n",
 			dev, MD_SB_MAGIC, super.md_magic);
 		return 1;
 	case 6:
-		fprintf(stderr, "mdctl: Cannot interpret superblock on %s - version is %d\n",
+		fprintf(stderr, Name ": Cannot interpret superblock on %s - version is %d\n",
 			dev, super.major_version);
 		return 1;
 	}
@@ -104,7 +105,8 @@ int Examine(char *dev)
 
 	atime = super.ctime;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
-	printf("     Raid Level : %d\n", super.level);
+	c=map_num(pers, super.level);
+	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	printf("           Size : %d\n", super.size);
 	printf("     Raid Disks : %d\n", super.raid_disks);
 	printf("    Total Disks : %d\n", super.nr_disks);
@@ -122,7 +124,10 @@ int Examine(char *dev)
 	printf("   - checksum not checked yet - \n");
 	printf("         Events : %d.%d\n", super.events_hi, super.events_lo);
 	printf("\n");
-	printf("         Layout : %d\n", super.layout);
+	if (super.level == 5) {
+		c = map_num(r5layout, super.layout);
+		printf("         Layout : %s\n", c?c:"-unknown-");
+	}
 	printf("     Chunk Size : %dK\n", super.chunk_size/1024);
 	printf("\n");
 	printf("      Number   Major   Minor   RaidDisk   State\n");

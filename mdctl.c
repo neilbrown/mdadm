@@ -40,6 +40,7 @@ int main(int argc, char *argv[])
     int i;
 
     int chunk = 0;
+    int size = 0;
     int level = -10;
     int layout = -1;
     int raiddisks = 0;
@@ -73,7 +74,7 @@ int main(int argc, char *argv[])
 	case 'E':
 	    /* setting mode - only once */
 	    if (mode) {
-		fprintf(stderr, "mdctl: --%s/-%c not allowed, mode already set to %s\n",
+		fprintf(stderr, Name ": --%s/-%c not allowed, mode already set to %s\n",
 			long_options[opt-'A'+1].name,
 			long_options[opt-'A'+1].val,
 			long_options[mode-'A'+1].name);
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
 		mddev = optarg;
 	    else {
 		if (subdevs +1 >= MD_SB_DISKS) {
-		    fprintf(stderr, "mdctl: too many devices at %s - current limit -s %d\n",
+		    fprintf(stderr, Name ": too many devices at %s - current limit -s %d\n",
 			    optarg, MD_SB_DISKS);
 		    exit(2);
 		}
@@ -133,46 +134,52 @@ int main(int argc, char *argv[])
 	case O('C','c'):
 	case O('B','c'): /* chunk or rounding */
 	    if (chunk) {
-		fprintf(stderr, "mdctl: chunk/rounding may only be specified once. "
+		fprintf(stderr, Name ": chunk/rounding may only be specified once. "
 			"Second value is %s.\n", optarg);
 		exit(2);
 	    }
 	    chunk = strtol(optarg, &c, 10);
-	    if (!optarg[0] || *c) {
-		fprintf(stderr, "mdctl: invalid chunk/rounding value: %s\n",
+	    if (!optarg[0] || *c || chunk<4 || ((chunk-1)&chunk)) {
+		fprintf(stderr, Name ": invalid chunk/rounding value: %s\n",
 			optarg);
 		exit(2);
 	    }
 	    continue;
 
+	case O('c','z'): /* size */
+		if (size) {
+			fprintf(stderr, Name ": size may only be specified once. "
+				"Second value is %s.\n", optarg);
+			exit(2);
+		}
+		size = strtol(optarg, &c, 10);
+		if (!optarg[0] || *c || size < 4) {
+			fprintf(stderr, Name ": invalid size: %s\n",
+				optarg);
+			exit(2);
+		}
+		continue;
+
 	case O('C','l'):
 	case O('B','l'): /* set raid level*/
 	    if (level != -10) {
-		fprintf(stderr, "mdctl: raid level may only be set once.  "
+		fprintf(stderr, Name ": raid level may only be set once.  "
 			"Second value is %s.\n", optarg);
 		exit(2);
 	    }
-	    if (strcmp(optarg,"linear")==0)
-		level = -1;
-	    else if (strlen(optarg)==1 && strchr("01245", optarg[0]))
-		level = optarg[0]-'0';
-	    else {
-		fprintf(stderr, "mdctl: invalid raid level: %s\n",
+	    level = map_name(pers, optarg);
+	    if (level == -10) {
+		fprintf(stderr, Name ": invalid raid level: %s\n",
 			optarg);
 		exit(2);
 	    }
 	    if (level > 0 && mode == 'B') {
-		fprintf(stderr, "mdctl: Raid level %s not permitted with --build.\n",
-			optarg);
-		exit(2);
-	    }
-	    if (layout >=0 && level < 4) {
-		fprintf(stderr, "mdctl: raid level %s is incompatible with layout setting\n",
+		fprintf(stderr, Name ": Raid level %s not permitted with --build.\n",
 			optarg);
 		exit(2);
 	    }
 	    if (sparedisks > 0 && level < 1) {
-		fprintf(stderr, "mdctl: raid level %s is incompatible with spare-disks setting.\n",
+		fprintf(stderr, Name ": raid level %s is incompatible with spare-disks setting.\n",
 			optarg);
 		exit(2);
 	    }
@@ -180,39 +187,40 @@ int main(int argc, char *argv[])
 
 	case O('C','p'): /* raid5 layout */
 	    if (layout >= 0) {
-		fprintf(stderr,"mdctl: layout may only be sent once.  "
+		fprintf(stderr,Name ": layout may only be sent once.  "
 			"Second value was %s\n", optarg);
 		exit(2);
 	    }
-	    if (level > -10 && level < 4) {
-		fprintf(stderr,"mdctl: layout is incompatible with raid levels below 4.\n");
-		exit(2);
-	    }
-	    if (strcmp(optarg, "left-symmetric")==0 || strcmp(optarg,"ls")==0)
-		layout = ALGORITHM_LEFT_SYMMETRIC;
-	    else if (strcmp(optarg, "left-asymmetric")==0 || strcmp(optarg,"la")==0)
-		layout = ALGORITHM_LEFT_ASYMMETRIC;
-	    else if (strcmp(optarg, "right-symmetric")==0 || strcmp(optarg,"rs")==0)
-		layout = ALGORITHM_RIGHT_SYMMETRIC;
-	    else if (strcmp(optarg, "right-asymmetric")==0 || strcmp(optarg,"ra")==0)
-		layout = ALGORITHM_RIGHT_ASYMMETRIC;
-	    else {
-		fprintf(stderr,"mdctl: %s is not a valid layout value\n",
-			optarg);
-		exit(2);
+	    switch(level) {
+	    default:
+		    fprintf(stderr, Name ": layout now meaningful for %s arrays.\n",
+			    map_num(pers, level));
+		    exit(2);
+	    case -10:
+		    fprintf(stderr, Name ": raid level must be given before layout.\n");
+		    exit(2);
+
+	    case 5:
+		    layout = map_name(r5layout, optarg);
+		    if (layout==-10) {
+			    fprintf(stderr, Name ": layout %s not understood for raid5.\n",
+				    optarg);
+			    exit(2);
+		    }
+		    break;
 	    }
 	    continue;
 
 	case O('C','n'):
 	case O('B','n'): /* number of raid disks */
 	    if (raiddisks) {
-		fprintf(stderr, "mdctl: raid-disks set twice: %d and %s\n",
+		fprintf(stderr, Name ": raid-disks set twice: %d and %s\n",
 			raiddisks, optarg);
 		exit(2);
 	    }
 	    raiddisks = strtol(optarg, &c, 10);
 	    if (!optarg[0] || *c || raiddisks<=0 || raiddisks > MD_SB_DISKS) {
-		fprintf(stderr, "mdctl: invalid number of raid disks: %s\n",
+		fprintf(stderr, Name ": invalid number of raid disks: %s\n",
 			optarg);
 		exit(2);
 	    }
@@ -220,18 +228,18 @@ int main(int argc, char *argv[])
 
 	case O('C','x'): /* number of spare (eXtra) discs */
 	    if (sparedisks) {
-		fprintf(stderr,"mdctl: spare-disks set twice: %d and %s\n",
+		fprintf(stderr,Name ": spare-disks set twice: %d and %s\n",
 			sparedisks, optarg);
 		exit(2);
 	    }
 	    if (level > -10 && level < 1) {
-		fprintf(stderr, "mdctl: spare-disks setting is incompatible with raid level %d\n",
+		fprintf(stderr, Name ": spare-disks setting is incompatible with raid level %d\n",
 			level);
 		exit(2);
 	    }
 	    sparedisks = strtol(optarg, &c, 10);
 	    if (!optarg[0] || *c || sparedisks < 0 || sparedisks > MD_SB_DISKS - raiddisks) {
-		fprintf(stderr, "mdctl: invalid number of spare disks: %s\n",
+		fprintf(stderr, Name ": invalid number of spare disks: %s\n",
 			optarg);
 		exit(2);
 	    }
@@ -243,21 +251,21 @@ int main(int argc, char *argv[])
 		continue;
 	case O('A','u'): /* uuid of array */
 	    if (uuidset) {
-		fprintf(stderr, "mdctl: uuid cannot bet set twice.  "
+		fprintf(stderr, Name ": uuid cannot bet set twice.  "
 			"Second value %s.\n", optarg);
 		exit(2);
 	    }
 	    if (parse_uuid(optarg, uuid))
 		uuidset = 1;
 	    else {
-		fprintf(stderr,"mdctl: Bad uuid: %s\n", optarg);
+		fprintf(stderr,Name ": Bad uuid: %s\n", optarg);
 		exit(2);
 	    }
 	    continue;
 
 	case O('A','c'): /* config file */
 	    if (configfile) {
-		fprintf(stderr, "mdctl: configfile cannot be set twice.  "
+		fprintf(stderr, Name ": configfile cannot be set twice.  "
 			"Second value is %s.\n", optarg);
 		exit(2);
 	    }
@@ -289,14 +297,14 @@ int main(int argc, char *argv[])
 	case O('B','R'):
 	case O('C','R'): /* Run the array */
 	    if (runstop < 0) {
-		fprintf(stderr, "mdctl: Cannot both Stop and Run an array\n");
+		fprintf(stderr, Name ": Cannot both Stop and Run an array\n");
 		exit(2);
 	    }
 	    runstop = 1;
 	    continue;
 	case O('@','S'):
 	    if (runstop > 0) {
-		fprintf(stderr, "mdctl: Cannot both Run and Stop an array\n");
+		fprintf(stderr, Name ": Cannot both Run and Stop an array\n");
 		exit(2);
 	    }
 	    runstop = -1;
@@ -304,7 +312,7 @@ int main(int argc, char *argv[])
 
 	case O('@','o'):
 	    if (readonly < 0) {
-		fprintf(stderr, "mdctl: Cannot have both readonly and readwrite\n");
+		fprintf(stderr, Name ": Cannot have both readonly and readwrite\n");
 		exit(2);
 	    }
 	    readonly = 1;
@@ -320,7 +328,7 @@ int main(int argc, char *argv[])
 	/* We have now processed all the valid options. Anything else is
 	 * an error
 	 */
-	fprintf(stderr, "mdctl: option %c not valid in mode %c\n",
+	fprintf(stderr, Name ": option %c not valid in mode %c\n",
 		opt, mode);
 	exit(2);
 
@@ -341,17 +349,17 @@ int main(int argc, char *argv[])
      */
     if (mode !='D' && mode !='E' && ! (mode =='A' && scan)) {
 	if (!mddev) {
-	    fprintf(stderr, "mdctl: an md device must be given in this mode\n");
+	    fprintf(stderr, Name ": an md device must be given in this mode\n");
 	    exit(2);
 	}
 	mdfd = open(mddev, O_RDWR, 0);
 	if (mdfd < 0) {
-	    fprintf(stderr,"mdctl: error opening %s: %s\n",
+	    fprintf(stderr,Name ": error opening %s: %s\n",
 		    mddev, strerror(errno));
 	    exit(1);
 	}
 	if (md_get_version(mdfd) <= 0) {
-	    fprintf(stderr, "mdctl: %s does not appear to be an md device\n",
+	    fprintf(stderr, Name ": %s does not appear to be an md device\n",
 		    mddev);
 	    close(mdfd);
 	    exit(1);
@@ -378,8 +386,8 @@ int main(int argc, char *argv[])
 	rv = Build(mddev, mdfd, chunk, level, raiddisks, subdevs,subdev);
 	break;
     case 'C': /* Create */
-	rv = Create(mddev, mdfd, chunk, level, layout, raiddisks, sparedisks,
-		    subdevs,subdev,runstop);
+	rv = Create(mddev, mdfd, chunk, level, layout, size, raiddisks, sparedisks,
+		    subdevs,subdev,runstop, verbose);
 	break;
     case 'D': /* Detail */
 	for (i=0; i<subdevs; i++)

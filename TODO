@@ -1,7 +1,12 @@
 
 - check superblock checksum in examine
 - report "chunk" or "rounding" depending on raid level
-- report "linear" instead of "-1" for raid level
-- decode ayout depending on raid level
+- report "linear" instead of "-1" for raid level DONE
+- decode ayout depending on raid level DONE
 - get Assemble to upgrade devices if force flag.
 - --verbose and --force flags.
+
+- set md_minor, *_disks for Create
+- for create raid5, how to choose between 
+   all working, but not insync
+   one missing, one spare, insync

@@ -42,3 +42,6 @@ clean :
 
 dist : clean
 	./makedist
+
+TAGS :
+	etags *.h *.c

@@ -107,7 +107,7 @@ int Assemble(char *mddev, int mdfd,
 	int most_recent = 0;
 	
 	if (!mddev && !scan) {
-		fputs("mdctl: internal error - Assemble called with no devie or scan\n", stderr);
+		fputs(Name ": internal error - Assemble called with no devie or scan\n", stderr);
 		return 1;
 	}
 	if (!mddev) {
@@ -115,7 +115,7 @@ int Assemble(char *mddev, int mdfd,
 		int found = 0;
 		device_list = conf_get_uuids(conffile);
 		if (!device_list) {
-			fprintf(stderr, "mdctl: No devices found in config file\n");
+			fprintf(stderr, Name ": No devices found in config file\n");
 			return 1;
 		}
 		while (device_list) {
@@ -123,7 +123,7 @@ int Assemble(char *mddev, int mdfd,
 				mdfd = open(device_list->devname, O_RDONLY, 0);
 				if (mdfd < 0) {
 					fprintf(stderr,
-						"mdctl: error opening %s: %s\n",
+						Name ": error opening %s: %s\n",
 						device_list->devname,
 						strerror(errno));
 					continue;
@@ -140,7 +140,7 @@ int Assemble(char *mddev, int mdfd,
 		}
 		if (found)
 			return 0;
-		fprintf(stderr,"mdctl: Did not successful Assemble any devices\n");
+		fprintf(stderr,Name ": Did not successful Assemble any devices\n");
 		return 1;
 	}
 
@@ -149,19 +149,19 @@ int Assemble(char *mddev, int mdfd,
 	 */
 	vers = md_get_version(mdfd);
 	if (vers <= 0) {
-		fprintf(stderr, "mdctl: %s appears not to be an md device.\n");
+		fprintf(stderr, Name ": %s appears not to be an md device.\n");
 		return 1;
 	}
-	if (vers < (90<<8)) {
-		fprintf(stderr, "mdctl: Assemble requires driver version 0.90.0 or later.\n"
+	if (vers < 9000) {
+		fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
 			"    Upgrade your kernel or try --Build\n");
 		return 1;
 	}
-	if (get_linux_version() < 0x020400)
+	if (get_linux_version() < 2004000)
 		old_linux = 1;
 
 	if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0) {
-		fprintf(stderr, "mdctl: device %s already active - cannot assemble it\n",
+		fprintf(stderr, Name ": device %s already active - cannot assemble it\n",
 			mddev);
 		return 1;
 	}
@@ -179,7 +179,7 @@ int Assemble(char *mddev, int mdfd,
 			device_list = device_list->next;
 
 		if (!device_list) {
-			fprintf(stderr, "mdctl: --scan set and no uuid found for %s in config file.\n",
+			fprintf(stderr, Name ": --scan set and no uuid found for %s in config file.\n",
 				mddev);
 			return 1;
 		}
@@ -198,7 +198,7 @@ int Assemble(char *mddev, int mdfd,
 		devlist = conf_get_devs(conffile);
 
 	if (subdevs == 0 && devlist == NULL) {
-		fprintf(stderr, "mdctl: no devices given for %s\n", mddev);
+		fprintf(stderr, Name ": no devices given for %s\n", mddev);
 		return 1;
 	}
 	/* now for each device */
@@ -225,26 +225,26 @@ int Assemble(char *mddev, int mdfd,
 		dfd = open(devname, O_RDONLY, 0);
 		if (dfd < 0) {
 			if (inargv || verbose)
-				fprintf(stderr, "mdctl: cannot open device %s: %s\n",
+				fprintf(stderr, Name ": cannot open device %s: %s\n",
 					devname, strerror(errno));
 			continue;
 		}
 		if (fstat(dfd, &stb)< 0) {
 		    /* Impossible! */
-		    fprintf(stderr, "mdctl: fstat failed for %s: %s\n",
+		    fprintf(stderr, Name ": fstat failed for %s: %s\n",
 			    devname, strerror(errno));
 		    close(dfd);
 		    continue;
 		}
 		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		    fprintf(stderr, "mdctl: %d is not a block device.\n",
+		    fprintf(stderr, Name ": %d is not a block device.\n",
 			    devname);
 		    close(dfd);
 		    continue;
 		}
 		if (load_super(dfd, &super)) {
 			if (inargv || verbose)
-				fprintf( stderr, "mdctl: no RAID superblock on %s\n",
+				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
 			close(dfd);
 			continue;
@@ -252,7 +252,7 @@ int Assemble(char *mddev, int mdfd,
 		close(dfd);
 		if (compare_super(&first_super, &super)) {
 			if (inargv || verbose)
-				fprintf(stderr, "mdctl: superblock on %s doesn't match\n",
+				fprintf(stderr, Name ": superblock on %s doesn't match\n",
 					devname);
 			continue;
 		}
@@ -260,7 +260,7 @@ int Assemble(char *mddev, int mdfd,
 			uuid_from_super(this_uuid, &first_super);
 			if (!same_uuid(this_uuid, uuid)) {
 				if (inargv || verbose)
-					fprintf(stderr, "mdctl: %s has wrong uuid.\n",
+					fprintf(stderr, Name ": %s has wrong uuid.\n",
 						devname);
 				continue;
 			}
@@ -271,7 +271,7 @@ int Assemble(char *mddev, int mdfd,
 
 		/* Ok, this one is at least worth considering */
 		if (devcnt >= MD_SB_DISKS) {
-		    fprintf(stderr, "mdctl: ouch - too many devices appear to be in this array. Ignoring %s\n",
+		    fprintf(stderr, Name ": ouch - too many devices appear to be in this array. Ignoring %s\n",
 			    devname);
 		    continue;
 		}
@@ -295,7 +295,7 @@ int Assemble(char *mddev, int mdfd,
 	}
 
 	if (devcnt == 0) {
-		fprintf(stderr, "mdctl: no devices found for %s\n",
+		fprintf(stderr, Name ": no devices found for %s\n",
 			mddev);
 		return 1;
 	}
@@ -317,14 +317,14 @@ int Assemble(char *mddev, int mdfd,
 		 * not up-to-date, update the superblock
 		 * and add it.
 		 */
-		fprintf(stderr,"NoImplementedYet\n");
+		fprintf(stderr,"NotImplementedYet\n");
 		/* FIXME */
 		exit(2);
 	}
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
 		if (ioctl(mdfd, SET_ARRAY_INFO, NULL) != 0) {
-			fprintf(stderr, "mdctl: SET_ARRAY_INFO failed for %s: %s\n",
+			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 				mddev, strerror(errno));
 			return 1;
 		}
@@ -337,14 +337,14 @@ int Assemble(char *mddev, int mdfd,
 				disk.major = devices[j].major;
 				disk.minor = devices[j].minor;
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)!=0) {
-					fprintf(stderr, "mdctl: failed to add %s to %s: %s\n",
+					fprintf(stderr, Name ": failed to add %s to %s: %s\n",
 						devices[j].devname,
 						mddev,
 						strerror(errno));
 				} else
 					okcnt--;
 			} else if (verbose)
-				fprintf(stderr, "mdctl: no uptodate device for slot %d of %s\n",
+				fprintf(stderr, Name ": no uptodate device for slot %d of %s\n",
 					i, mddev);
 		}
 		if (runstop == 1 ||
@@ -352,7 +352,7 @@ int Assemble(char *mddev, int mdfd,
 		     enough(first_super.level, first_super.raid_disks, okcnt))) {
 			if (ioctl(mdfd, RUN_ARRAY, NULL)==0)
 				return 0;
-			fprintf(stderr, "mdctl: failed to RUN_ARRAY %s: %s\n",
+			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",
 				mddev, strerror(errno));
 			return 1;
 		}

@@ -88,10 +88,10 @@ int md_get_version(int fd)
 	return -1;
 
     if (ioctl(fd, RAID_VERSION, &vers) == 0)
-	return  (vers.major<<16) | (vers.minor<<8) | vers.patchlevel;
+	return  (vers.major*10000) + (vers.minor*100) + vers.patchlevel;
 
     if (MAJOR(stb.st_rdev) == MD_MAJOR)
-	return (36<<8);
+	return (3600);
     return -1;
 }
 
@@ -105,7 +105,7 @@ int get_linux_version()
 
 	if (sscanf(name.release, "%d.%d.%d", &a,&b,&c)!= 3)
 		return -1;
-	return (a<<16)+(b<<8)+c;
+	return (a*1000000)+(b*1000)+c;
 }
 
 int enough(int level, int raid_disks, int avail_disks)
@@ -211,7 +211,7 @@ int load_super(int fd, mdp_super_t *super)
 	if (lseek64(fd, offset, 0)< 0LL)
 		return 3;
 
-	if (read(fd, &super, sizeof(super)) != sizeof(super))
+	if (read(fd, super, sizeof(*super)) != sizeof(*super))
 		return 4;
 
 	if (super->md_magic != MD_SB_MAGIC)
@@ -222,3 +222,114 @@ int load_super(int fd, mdp_super_t *super)
 	return 0;
 }
 
+
+int check_ext2(int fd, char *name)
+{
+	/*
+	 * Check for an ext2fs file system.
+	 * Superblock is always 1K at 1K offset
+	 *
+	 * s_magic is le16 at 56 == 0xEF53
+	 * report mtime - le32 at 44
+	 * blocks - le32 at 4
+	 * logblksize - le32 at 24
+	 */
+	unsigned char sb[1024];
+	time_t mtime;
+	int size, bsize;
+	if (lseek(fd, 1024,0)!= 1024)
+		return 0;
+	if (read(fd, sb, 1024)!= 1024)
+		return 0;
+	if (sb[56] != 0x53 || sb[57] != 0xef)
+		return 0;
+
+	mtime = sb[44]|(sb[45]|(sb[46]|sb[47]<<8)<<8)<<8;
+	bsize = sb[24]|(sb[25]|(sb[26]|sb[27]<<8)<<8)<<8;
+	size = sb[4]|(sb[5]|(sb[6]|sb[7]<<8)<<8)<<8;
+	fprintf(stderr, Name ": %s appears to contain an ext2fs file system\n",
+		name);
+	fprintf(stderr,"    size=%dK  mtime=%s",
+		size*(1<<bsize), ctime(&mtime));
+	return 1;
+}
+
+int check_reiser(int fd, char *name)
+{
+	/*
+	 * superblock is at 64K
+	 * size is 1024;
+	 * Magic string "ReIsErFs" or "ReIsEr2Fs" at 52
+	 *
+	 */
+	unsigned char sb[1024];
+	int size;
+	if (lseek(fd, 64*1024, 0) != 64*1024)
+		return 0;
+	if (read(fd, sb, 1024) != 1024)
+		return 0;
+	if (strncmp(sb+52, "ReIsErFs",8)!=0 &&
+	    strncmp(sb+52, "ReIsEr2Fs",9)!=0)
+		return 0;
+	fprintf(stderr, Name ": %s appears to contain a reiserfs file system\n",name);
+	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
+	fprintf(stderr, "    size = %dK\n", size*4);
+		
+	return 1;
+}
+
+int check_raid(int fd, char *name)
+{
+	mdp_super_t super;
+	time_t crtime;
+	if (load_super(fd, &super))
+		return 0;
+	/* Looks like a raid array .. */
+	fprintf(stderr, Name ": %s appear to be part of a raid array:\n",
+		name);
+	crtime = super.ctime;
+	fprintf(stderr, "    level=%d disks=%d ctime=%s",
+		super.level, super.raid_disks, ctime(&crtime));
+	return 1;
+}
+
+
+int ask(char *mesg)
+{
+	char *add = "";
+	int i;
+	for (i=0; i<5; i++) {
+		char buf[100];
+		fprintf(stderr, "%s%s", mesg, add);
+		fflush(stderr);
+		if (fgets(buf, 100, stdin)==NULL)
+			return 0;
+		if (buf[0]=='y' || buf[0]=='Y')
+			return 1;
+		if (buf[0]=='n' || buf[0]=='N')
+			return 0;
+		add = "(y/n) ";
+	}
+	fprintf(stderr, Name ": assuming 'no'\n");
+	return 0;
+}
+
+char *map_num(mapping_t *map, int num)
+{
+	while (map->name) {
+		if (map->num == num)
+			return map->name;
+		map++;
+	}
+	return NULL;
+}
+
+int map_name(mapping_t *map, char *name)
+{
+	while (map->name) {
+		if (strcmp(map->name, name)==0)
+			return map->num;
+		map++;
+	}
+	return -10;
+}

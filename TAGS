@@ -1,0 +1,140 @@
+
+md_p.h,1316
+#define _MD_P_H16,582
+#define MD_RESERVED_BYTES	44,1414
+#define MD_RESERVED_SECTORS	45,1453
+#define MD_RESERVED_BLOCKS	46,1508
+#define MD_NEW_SIZE_SECTORS(MD_NEW_SIZE_SECTORS48,1570
+#define MD_NEW_SIZE_BLOCKS(MD_NEW_SIZE_BLOCKS49,1659
+#define MD_SB_BYTES	51,1746
+#define MD_SB_WORDS	52,1773
+#define MD_SB_BLOCKS	53,1813
+#define MD_SB_SECTORS	54,1863
+#define	MD_SB_GENERIC_OFFSET	59,1960
+#define MD_SB_PERSONALITY_OFFSET	60,1992
+#define MD_SB_DISKS_OFFSET	61,2028
+#define MD_SB_DESCRIPTOR_OFFSET	62,2060
+#define MD_SB_GENERIC_CONSTANT_WORDS	64,2098
+#define MD_SB_GENERIC_STATE_WORDS	65,2138
+#define MD_SB_GENERIC_WORDS	66,2175
+#define MD_SB_PERSONALITY_WORDS	67,2263
+#define MD_SB_DESCRIPTOR_WORDS	68,2299
+#define MD_SB_DISKS	69,2334
+#define MD_SB_DISKS_WORDS	70,2359
+#define MD_SB_RESERVED_WORDS	71,2423
+#define MD_SB_EQUAL_WORDS	72,2553
+#define MD_DISK_FAULTY	77,2691
+#define MD_DISK_ACTIVE	78,2752
+#define MD_DISK_SYNC	79,2814
+#define MD_DISK_REMOVED	80,2878
+typedef struct mdp_device_descriptor_s mdp_device_descriptor_s82,2946
+} mdp_disk_t;mdp_disk_t89,3310
+#define MD_SB_MAGIC	91,3325
+#define MD_SB_CLEAN	96,3390
+#define MD_SB_ERRORS	97,3413
+typedef struct mdp_superblock_s mdp_superblock_s99,3438
+} mdp_super_t;mdp_super_t164,5820
+static inline __u64 md_event(166,5836
+
+md_u.h,1118
+#define _MD_U_H16,590
+#define RAID_VERSION	21,634
+#define GET_ARRAY_INFO	22,693
+#define GET_DISK_INFO	23,757
+#define PRINT_RAID_DEBUG	24,819
+#define RAID_AUTORUN	25,865
+#define CLEAR_ARRAY	28,929
+#define ADD_NEW_DISK	29,971
+#define HOT_REMOVE_DISK	30,1032
+#define SET_ARRAY_INFO	31,1078
+#define SET_DISK_INFO	32,1142
+#define WRITE_RAID_INFO	33,1186
+#define UNPROTECT_ARRAY	34,1232
+#define PROTECT_ARRAY	35,1278
+#define HOT_ADD_DISK	36,1322
+#define SET_DISK_FAULTY	37,1365
+#define RUN_ARRAY	40,1424
+#define START_ARRAY	41,1478
+#define STOP_ARRAY	42,1520
+#define STOP_ARRAY_RO	43,1561
+#define RESTART_ARRAY_RW	44,1605
+typedef struct mdu_version_s mdu_version_s46,1652
+} mdu_version_t;mdu_version_t50,1724
+typedef struct mdu_array_info_s mdu_array_info_s52,1742
+} mdu_array_info_t;mdu_array_info_t83,2516
+typedef struct mdu_disk_info_s mdu_disk_info_s85,2537
+} mdu_disk_info_t;mdu_disk_info_t95,2693
+typedef struct mdu_start_info_s mdu_start_info_s97,2713
+} mdu_start_info_t;mdu_start_info_t106,2857
+typedef struct mdu_param_smdu_param_s108,2878
+} mdu_param_t;mdu_param_t113,3014
+
+mdctl.h,823
+#define	__USE_LARGEFILE6430,1115
+#define	MD_MAJOR 47,1491
+extern char short_options[52,1531
+extern struct option long_options[53,1560
+extern char Version[54,1597
+extern char Version[], Usage[54,1597
+extern char Version[], Usage[], Help[54,1597
+extern char Version[], Usage[], Help[], Help_create[54,1597
+extern char Version[], Usage[], Help[], Help_create[], Help_build[54,1597
+extern char Version[], Usage[], Help[], Help_create[], Help_build[], Help_assemble[54,1597
+typedef struct mddev_uuid_s mddev_uuid_s58,1762
+} *mddev_uuid_t;mddev_uuid_t62,1852
+typedef struct mddev_dev_s mddev_dev_s65,1918
+} *mddev_dev_t;mddev_dev_t68,1990
+#define ALGORITHM_LEFT_ASYMMETRIC	73,2044
+#define ALGORITHM_RIGHT_ASYMMETRIC	74,2080
+#define ALGORITHM_LEFT_SYMMETRIC	75,2117
+#define ALGORITHM_RIGHT_SYMMETRIC	76,2152
+
+Assemble.c,22
+int Assemble(34,1171
+
+Build.c,19
+int Build(32,1135
+
+Create.c,20
+int Create(32,1135
+
+Detail.c,20
+int Detail(34,1171
+
+Examine.c,21
+int Examine(34,1171
+
+Manage.c,79
+int Manage_ro(32,1135
+int Manage_runstop(36,1191
+int Manage_subdevs(40,1251
+
+ReadMe.c,231
+#define Name 32,1135
+char Version[33,1156
+char short_options[82,3241
+struct option long_options[83,3297
+char Usage[122,4441
+char Help[127,4498
+char Help_create[181,6989
+char Help_build[203,7973
+char Help_assemble[216,8513
+
+config.c,102
+char DefaultConfFile[43,1371
+mddev_uuid_t conf_get_uuids(45,1416
+mddev_dev_t conf_get_devs(50,1482
+
+mdctl.c,40
+int main(33,1153
+#define O(O131,3313
+
+util.c,212
+int parse_uuid(40,1354
+int md_get_version(80,2091
+int get_linux_version(99,2448
+int enough(111,2639
+int same_uuid(127,2889
+void uuid_from_super(137,3018
+int compare_super(151,3295
+int load_super(185,4258

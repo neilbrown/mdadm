@@ -49,6 +49,8 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 #include	"md_u.h"
 
+#define Name "mdctl"
+
 extern char short_options[];
 extern struct option long_options[];
 extern char Version[], Usage[], Help[], Help_create[], Help_build[], Help_assemble[];
@@ -67,13 +69,15 @@ typedef struct mddev_dev_s {
 	struct mddev_dev_s *next;
 } *mddev_dev_t;
 
-/*
- * RAID5 supported algorithms
- */
-#define ALGORITHM_LEFT_ASYMMETRIC	0
-#define ALGORITHM_RIGHT_ASYMMETRIC	1
-#define ALGORITHM_LEFT_SYMMETRIC	2
-#define ALGORITHM_RIGHT_SYMMETRIC	3
+typedef struct mapping {
+	char *name;
+	int num;
+} mapping_t;
+
+extern char *map_num(mapping_t *map, int num);
+extern int map_name(mapping_t *map, char *name);
+extern mapping_t r5layout[], pers[];
+
 
 
 extern int Manage_ro(char *devname, int fd, int readonly);
@@ -95,9 +99,9 @@ extern int Build(char *mddev, int mdfd, int chunk, int level,
 
 
 extern int Create(char *mddev, int mdfd,
-		  int chunk, int level, int layout, int raiddisks, int sparedisks,
+		  int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
 		  int subdevs, char *subdev[],
-		  int runstop);
+		  int runstop, int verbose);
 
 extern int Detail(char *dev);
 extern int Examine(char *dev);
@@ -105,6 +109,9 @@ extern int Examine(char *dev);
 extern int md_get_version(int fd);
 extern int get_linux_version();
 extern int parse_uuid(char *str, int uuid[4]);
+extern int check_ext2(int fd, char *name);
+extern int check_reiser(int fd, char *name);
+extern int check_raid(int fd, char *name);
 
 extern mddev_uuid_t conf_get_uuids(char *);
 extern mddev_dev_t conf_get_devs(char *);

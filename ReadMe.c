@@ -29,7 +29,7 @@
 
 #include "mdctl.h"
 
-char Version[] = "mdctl - v0.2 - 06 June 2001\n";
+char Version[] = Name " - v0.3 - 14 June 2001\n";
 /*
  * File: ReadMe.c
  *
@@ -78,7 +78,7 @@ char Version[] = "mdctl - v0.2 - 06 June 2001\n";
  *     command, subsequent Manage commands can finish the job.
  */
 
-char short_options[]="-ABCDEhVvc:l:p:n:x:u:c:sarfRSow";
+char short_options[]="-ABCDEhVvc:l:p:n:x:u:c:z:sarfRSow";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"assemble",  0, 0, 'A'},
@@ -99,6 +99,7 @@ struct option long_options[] = {
     {"layout",    1, 0, 'p'},
     {"raid-disks",1, 0, 'n'},
     {"spare-disks",1,0, 'x'},
+    {"size"      ,1, 0, 'z'},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -157,6 +158,7 @@ char Help[] =
 "  --layout=          : same as --parity\n"
 "  --raid-disks= -n   : number of active devices in array\n"
 "  --spare-disks= -x  : number of spares (eXtras) to allow space for\n"
+"  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
 "\n"
 " For assemble:\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
@@ -191,6 +193,11 @@ char Help_create[] =
 " If any discrepancy is found, the array will not automatically\n"
 " be run, though the presence of a '--run' can override this\n"
 " caution.\n"
+"\n"
+" If the --size option is given, it is not necessary to list any subdevices\n"
+" in this command.  They can be added later, before a --run.\n"
+" If no --size is given, the apparent size of the smallest drive given\n"
+" is used.\n"
 "\n"
 " The General management options that are valid with --create are:\n"
 "   --run   : insist of running the array even if not all devices\n"
@@ -244,3 +251,35 @@ char Help_assemble[] =
 "   not yet documented\n"
 "\n"
 ;
+
+
+/* name/number mappings */
+
+mapping_t r5layout[] = {
+	{ "left_asymmetric", 0},
+	{ "right_asymmetric", 1},
+	{ "left_symmetric", 2},
+	{ "right_symmetric", 3},
+
+	{ "default", 2},
+	{ "la", 0},
+	{ "ra", 1},
+	{ "ls", 2},
+	{ "rs", 3},
+	{ NULL, 0}
+};
+
+mapping_t pers[] = {
+	{ "linear", -1},
+	{ "raid0", 0},
+	{ "0", 0},
+	{ "stripe", 0},
+	{ "raid1", 1},
+	{ "1", 1},
+	{ "mirror", 1},
+	{ "raid4", 4},
+	{ "4", 4},
+	{ "raid5", 5},
+	{ "5", 5},
+	{ NULL, 0}
+};

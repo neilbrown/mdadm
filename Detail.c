@@ -43,31 +43,32 @@ int Detail(char *dev)
 	mdu_array_info_t array;
 	int d;
 	time_t atime;
+	char *c;
 
 	if (fd < 0) {
-		fprintf(stderr, "mdctl: cannot open %s: %s\n",
+		fprintf(stderr, Name ": cannot open %s: %s\n",
 			dev, strerror(errno));
 		return 1;
 	}
 	vers = md_get_version(fd);
 	if (vers < 0) {
-		fprintf(stderr, "mdctl: %s does not appear to be an md device\n",
+		fprintf(stderr, Name ": %s does not appear to be an md device\n",
 			dev);
 		close(fd);
 		return 1;
 	}
-	if (vers < (90<<8)) {
-		fprintf(stderr, "mdctl: cannot get detail for md device %s: driver version too old.\n",
+	if (vers < 9000) {
+		fprintf(stderr, Name ": cannot get detail for md device %s: driver version too old.\n",
 			dev);
 		close(fd);
 		return 1;
 	}
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 		if (errno == ENODEV)
-			fprintf(stderr, "mdctl: md device %s does not appear to be active.\n",
+			fprintf(stderr, Name ": md device %s does not appear to be active.\n",
 				dev);
 		else
-			fprintf(stderr, "mdctl: cannot get array detail for %s: %s\n",
+			fprintf(stderr, Name ": cannot get array detail for %s: %s\n",
 				dev, strerror(errno));
 		close(fd);
 		return 1;
@@ -78,7 +79,8 @@ int Detail(char *dev)
 	       array.major_version, array.minor_version, array.patch_version);
 	atime = array.ctime;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
-	printf("     Raid Level : %d\n", array.level);
+	c = map_num(pers, array.level);
+	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	printf("           Size : %d\n", array.size);
 	printf("     Raid Disks : %d\n", array.raid_disks);
 	printf("    Total Disks : %d\n", array.nr_disks);
@@ -96,7 +98,10 @@ int Detail(char *dev)
 	printf("  Failed Drives : %d\n", array.failed_disks);
 	printf("   Spare Drives : %d\n", array.spare_disks);
 	printf("\n");
-	printf("         Layout : %d\n", array.layout);
+	if (array.level == 5) {
+		c = map_num(r5layout, array.layout);
+		printf("         Layout : %s\n", c?c:"-unknown-");
+	}
 	printf("     Chunk Size : %dK\n", array.chunk_size/1024);
 	printf("\n");
 	printf("    Number   Major   Minor   RaidDisk   State\n");
@@ -104,7 +109,7 @@ int Detail(char *dev)
 		mdu_disk_info_t disk;
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
-			fprintf(stderr, "mdctl: cannot get disk detail for disk %d: %s\n",
+			fprintf(stderr, Name ": cannot get disk detail for disk %d: %s\n",
 				d, strerror(errno));
 			continue;
 		}

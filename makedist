@@ -7,8 +7,8 @@ else echo $target is not a directory
      exit 2
 fi
 set `grep '^char Version' ReadMe.c `
-echo version = $6
-base=mdctl-$6.tgz
+echo version = $7
+base=mdctl-$7.tgz
 if [ -f $target/$base ] 
 then 
   echo $target/$base exists.

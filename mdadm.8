@@ -1,13 +1,13 @@
 .\" -*- nroff -*-
-.TH mdctl 8
+.TH mdadm 8
 .SH NAME
-mdctl \- manage MD devices
+mdadm \- manage MD devices
 .I aka
 Linux Software Raid.
 
 .SH SYNOPSIS
 
-.BI mdctl " [mode] <raiddevice> [options] <subdevices>"
+.BI mdadm " [mode] <raiddevice> [options] <subdevices>"
 
 .SH DESCRIPTION 
 RAID devices are virtual devices created from two or more
@@ -32,29 +32,29 @@ and
 
 Recent kernels (2002) also support a mode known as
 .BR MULTIPATH .
-.B mdctl
+.B mdadm
 does not support MULTIPATH as yet.
 
-.B mdctl
+.B mdadm
 is a program that can be used to create and manage MD devices.  As
 such it provides a similar set of functionality to the
 .B raidtools
 packages.
 The key differences between
-.B mdctl
+.B mdadm
 and
 .B raidtools
 are:
 .IP \(bu 4
-.B mdctl
+.B mdadm
 is a single program and not a collection of programs.
 .IP \(bu 4
-.B mdctl
+.B mdadm
 can perform (almost) all of its functions without having a
-configuration file.  Also mdctl helps with management of the configuration
+configuration file.  Also mdadm helps with management of the configuration
 file.
 .IP \(bu 4
-.B mdctl
+.B mdadm
 can provide information about your arrays (through Detail and Examine)
 that
 .B  raidtools
@@ -62,17 +62,17 @@ cannot.
 .IP \(bu 4
 .B raidtools
 can manage MULTIPATH devices which
-.B mdctl
+.B mdadm
 cannot yet manage.
 
 .SH MODES
-mdctl has 7 major modes of operation:
+mdadm has 7 major modes of operation:
 .TP
 .B Assemble
 Assemble the parts of a previously created
 array into an active array. Components can be explicitly given
 or can be searched for. 
-.B mdctl
+.B mdadm
 checks that the components
 do form a bona fide array, and can, on request, fiddle superblock
 information so as to assemble a faulty array.
@@ -99,7 +99,7 @@ Examine a device to see if it is part of an md array, and print out
 the details of that array.
 This mode can also be used to examine a large number of devices and to
 print out a summary of the arrays found in a format suitable for the
-.B mdctl.conf
+.B mdadm.conf
 configuration file.
 
 .TP
@@ -150,7 +150,7 @@ Display help message or, after above option, mode specific help message.
 
 .TP
 .BR -V ", " --version
-Print version information for mdctl.
+Print version information for mdadm.
 
 .TP
 .BR -v ", " --verbose
@@ -224,7 +224,7 @@ the array is later assembled as /dev/md2.
 .TP
 .BR -c ", " --config=
 config file.  Default is
-.BR /etc/mdctl.conf .
+.BR /etc/mdadm.conf .
 
 .TP
 .BR -s ", " --scan
@@ -285,22 +285,22 @@ mark array as readwrite.
 
 .HP 12
 Usage:
-.B mdctl --assemble
+.B mdadm --assemble
 .I device options...
 .HP 12
 Usage:
-.B mdctl --assemble --scan
+.B mdadm --assemble --scan
 .I  options...
 
 .PP
 This usage assembles one or more raid arrays from pre-existing components.
-For each array, mdctl needs to know the md device, the identity of the
+For each array, mdadm needs to know the md device, the identity of the
 array, and a number of sub devices. These can be found in a number of ways.
 
 The md device is either given before 
 .B --scan
 or is found from the config file. In the latter case, multiple md devices
-can be started with a single mdctl command.
+can be started with a single mdadm command.
 
 The identity can be given with the 
 .B --uuid
@@ -319,7 +319,7 @@ The config file is only used if explicitly named with
 or requested with 
 .B --scan. 
 In the later case,
-.B /etc/mdctl.conf
+.B /etc/mdadm.conf
 is used.
 
 If 
@@ -341,7 +341,7 @@ flag.
 
 .HP 12
 Usage:
-.B mdctl --build
+.B mdadm --build
 .I device
 .BI --chunk= X
 .BI --level= Y
@@ -363,7 +363,7 @@ and the array will be started once complete.
 
 .HP 12
 Usage:
-.B mdctl --create
+.B mdadm --create
 .I device
 .BI --chunk= X
 .BI --level= Y
@@ -406,29 +406,29 @@ start the array readonly - not supported yet.
 .SH DETAIL MODE
 .HP 12
 Usage:
-.B mdctl --detail
+.B mdadm --detail
 .RB [ --brief ]
 .I device ...
 .PP
 
 This usage sill print out the details of the given array including a
 list of component devices.  To determine names for the devices,
-.B mdctl
+.B mdadm
 searches
 .B /dev
 for device files with the right major and minor numbers.
 
 With
 .B --brief
-.B mdctl
+.B mdadm
 prints a single line that identifies the level, number of disks, and
 UUID of the array.  This line is suitable for inclusion in
-.BR /etc/mdctl.conf .
+.BR /etc/mdadm.conf .
 
 .SH EXAMINE MODE
 .HP 12
 Usage:
-.B mdctl --examine
+.B mdadm --examine
 .RB [ --scan ]
 .RB [ --brief ]
 .I device ...
@@ -449,7 +449,7 @@ but this implication can be countered by specifying
 
 With
 .B --brief
-.B mdctl
+.B mdadm
 will output an config file entry of each distinct array that was
 found.  This entry will list the UUID, the raid level, and a list of
 the individual devices on which a superblock for that array was found.
@@ -458,7 +458,7 @@ configuration file, but should
 .B NOT
 be used blindly.  Often the array description that you want in the
 configuration file is much less specific than that given by
-.BR "mdctl -Bs" .
+.BR "mdadm -Bs" .
 For example, you normally do not want to list the devices,
 particularly if they are SCSI devices.
 
@@ -475,9 +475,9 @@ filesystem,
 .B /proc/mdstat
 gives you informations about md devices status.
 This file is not currently used by
-.BR mdctl .
+.BR mdadm .
 
-.SS /etc/mdctl.conf
+.SS /etc/mdadm.conf
 
 The config file is line oriented with, as usual, blank lines and lines
 beginning with a hash (or pound sign or sharp or number sign,
@@ -495,7 +495,7 @@ The DEVICE lines usually come first. All remaining words on the line
 are treated as names of devices, possibly containing wild cards (see
 .IR glob (7)).
 These list all the devices that
-.B mdctl
+.B mdadm
 is allowed to scan
 when looking for devices with RAID superblocks.
 Each line can contain multiple device names, and there can be multiple
@@ -534,14 +534,14 @@ listed there must also be listed on a DEVICE line.
 .B level=
 The value is a raid level.  This is normally used to identify an
 array, but is supported so that the output of
-.B "mdctl --examine --scan"
+.B "mdadm --examine --scan"
 can be use directly in the configuration file.
 .TP
 .B disks=
 The value is the number of disks in a complete active array.  As with
 .B level=
 this is mainly for compatibility with the output of
-.BR "mdctl --examine --scan" .
+.BR "mdadm --examine --scan" .
 
 .SH TODO
 

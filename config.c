@@ -1,5 +1,5 @@
 /*
- * mdctl - manage Linux "md" devices aka RAID arrays.
+ * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
@@ -27,7 +27,7 @@
  *           Australia
  */
 
-#include	"mdctl.h"
+#include	"mdadm.h"
 #include	"dlink.h"
 #include	<glob.h>
 #include	<fnmatch.h>
@@ -65,7 +65,7 @@
  *
  */
 
-char DefaultConfFile[] = "/etc/mdctl.conf";
+char DefaultConfFile[] = "/etc/mdadm.conf";
 
 char *keywords[] = { "device", "array", NULL };
 

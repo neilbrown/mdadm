@@ -1,20 +1,20 @@
-Summary: mdctl is used for controlling Linux md devices (aka RAID arrays)
-Name: mdctl
+Summary: mdadm is used for controlling Linux md devices (aka RAID arrays)
+Name: mdadm
 Version: 0.5
 Release: 1
-Source0: http://www.cse.unsw.edu.au/~neilb/source/mdctl/mdctl-%{version}.tgz
-URL: http://www.cse.unsw.edu.au/~neilb/source/mdctl/
+Source0: http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
+URL: http://www.cse.unsw.edu.au/~neilb/source/mdadm/
 Copyright: GPL
 Group: Utilities/System
 BuildRoot: /var/tmp/%{name}-root
 Packager: Danilo Godec <danci@agenda.si>
 
 %description 
-mdctl is a single program that can be used to control Linux md devices. It
+mdadm is a single program that can be used to control Linux md devices. It
 is intended to provide all the functionality of the mdtools and raidtools
 but with a very different interface.
 
-mdctl can perform all functions without a configuration file. There is the
+mdadm can perform all functions without a configuration file. There is the
 option of using a configuration file, but not in the same way that raidtools
 uses one.
 
@@ -25,7 +25,7 @@ stopping a raid array, which needs to know nothing about the array.
 
 
 %prep
-%setup -q -n mdctl
+%setup -q -n mdadm
 
 %build
 make
@@ -33,7 +33,7 @@ make
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/sbin
-install -m755 mdctl $RPM_BUILD_ROOT/sbin/
+install -m755 mdadm $RPM_BUILD_ROOT/sbin/
 
 %clean
 rm -rf $RPM_BUILD_ROOT

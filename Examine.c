@@ -1,5 +1,5 @@
 /*
- * mdctl - manage Linux "md" devices aka RAID arrays.
+ * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
@@ -27,7 +27,7 @@
  *           Australia
  */
 
-#include	"mdctl.h"
+#include	"mdadm.h"
 #include	"dlink.h"
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
@@ -50,7 +50,7 @@ int Examine(mddev_dev_t devlist, int brief, char *conffile)
 	 *
 	 *   utime, state etc
 	 *
-	 * If (brief) gather devices for same array and just print a mdctl.conf line including devices=
+	 * If (brief) gather devices for same array and just print a mdadm.conf line including devices=
 	 * if devlist==NULL, use conf_get_devs(
 	 */
 	int fd; 

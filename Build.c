@@ -1,5 +1,5 @@
 /*
- * mdctl - manage Linux "md" devices aka RAID arrays.
+ * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
@@ -27,7 +27,7 @@
  *           Australia
  */
 
-#include "mdctl.h"
+#include "mdadm.h"
 
 #define REGISTER_DEV 		_IO (MD_MAJOR, 1)
 #define START_MD     		_IO (MD_MAJOR, 2)

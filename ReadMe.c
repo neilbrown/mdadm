@@ -1,5 +1,5 @@
 /*
- * mdctl - manage Linux "md" devices aka RAID arrays.
+ * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
@@ -27,19 +27,19 @@
  *           Australia
  */
 
-#include "mdctl.h"
+#include "mdadm.h"
 
-char Version[] = Name " - v0.6 -  7 March 2002\n";
+char Version[] = Name " - v0.7 -  8 March 2002\n";
 /*
  * File: ReadMe.c
  *
  * This file contains general comments about the implementation
- * and the various usage messages that can be displayed by mdctl
+ * and the various usage messages that can be displayed by mdadm
  *
- * mdctl is a single program that can be used to control Linux md devices.
+ * mdadm is a single program that can be used to control Linux md devices.
  * It is intended to provide all the functionality of the mdtools and
  * raidtools but with a very different interface.
- * mdctl can perform all functions without a configuration file.
+ * mdadm can perform all functions without a configuration file.
  * There is the option of using a configuration file, but not in the same
  * way that raidtools uses one
  * raidtools uses a configuration file to describe how to create a RAID
@@ -48,7 +48,7 @@ char Version[] = Name " - v0.6 -  7 March 2002\n";
  * file for such things as stopping a raid array which needs to know
  * nothing about the array.
  *
- * The configuration file that can be used by mdctl lists two
+ * The configuration file that can be used by mdadm lists two
  * different things:
  * 1/ a mapping from uuid to md device to identify which arrays are
  *    expect and what names (numbers) they should be given
@@ -58,7 +58,7 @@ char Version[] = Name " - v0.6 -  7 March 2002\n";
  */
 
 /*
- * mdctl has 4 major modes of operation:
+ * mdadm has 4 major modes of operation:
  * 1/ Create
  *     This mode is used to create a new array with a superbock
  *     It can progress in several step create-add-add-run
@@ -66,7 +66,7 @@ char Version[] = Name " - v0.6 -  7 March 2002\n";
  * 2/ Assemble
  *     This mode is used to assemble the parts of a previously created
  *     array into an active array.  Components can be explicitly given
- *     or can be searched for.  mdctl (optionally) check that the components
+ *     or can be searched for.  mdadm (optionally) check that the components
  *     do form a bonafide array, and can, on request, fiddle superblock
  *     version numbers so as to assemble a faulty array.
  * 3/ Build
@@ -87,6 +87,8 @@ struct option long_options[] = {
     {"detail",    0, 0, 'D'},
     {"examine",   0, 0, 'E'},
     {"follow",    0, 0, 'F'},
+    {"grow",      0, 0, 'G'}, /* not yet implemented */
+    {"zero-superblock", 0, 0, 'H'},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
@@ -136,21 +138,21 @@ struct option long_options[] = {
 };
 
 char Usage[] =
-"Usage: mdctl --help\n"
+"Usage: mdadm --help\n"
 "  for help\n"
 ;
 
 char Help[] =
-"Usage: mdctl --create device options...\n"
-"       mdctl --assemble device options...\n"
-"       mdctl --build device options...\n"
-"       mdctl --detail device\n"
-"       mdctl --examine device\n"
-"       mdctl --follow options...\n"
-"       mdctl device options...\n"
-" mdctl is used for controlling Linux md devices (aka RAID arrays)\n"
+"Usage: mdadm --create device options...\n"
+"       mdadm --assemble device options...\n"
+"       mdadm --build device options...\n"
+"       mdadm --detail device\n"
+"       mdadm --examine device\n"
+"       mdadm --follow options...\n"
+"       mdadm device options...\n"
+" mdadm is used for controlling Linux md devices (aka RAID arrays)\n"
 " For detail help on major modes use, e.g.\n"
-"         mdctl --assemble --help\n"
+"         mdadm --assemble --help\n"
 "\n"
 "Any parameter that does not start with '-' is treated as a device name\n"
 "The first such name is normally the name of an md device.  Subsequent\n"
@@ -167,7 +169,7 @@ char Help[] =
 "\n"
 "  --help        -h   : This help message or, after above option,\n"
 "                       mode specific help message\n"
-"  --version     -V   : Print version information for mdctl\n"
+"  --version     -V   : Print version information for mdadm\n"
 "  --verbose     -v   : Be more verbose about what is happening\n"
 "\n"
 " For create or build:\n"
@@ -209,11 +211,12 @@ char Help[] =
 "  --stop        -S   : deactive array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
+"  --zero-superblock  : erase the MD superblock from a device.\n"
 ;
 
 
 char Help_create[] =
-"Usage:  mdctl --create device -chunk=X --level=Y --raid-disks=Z devices\n"
+"Usage:  mdadm --create device -chunk=X --level=Y --raid-disks=Z devices\n"
 "\n"
 " This usage will initialise a new md array and possibly associate some\n"
 " devices with it.  If enough devices are given to complete the array,\n"
@@ -240,7 +243,7 @@ char Help_create[] =
 ;
 
 char Help_build[] =
-"Usage:  mdctl --build device -chunk=X --level=Y --raid-disks=Z devices\n"
+"Usage:  mdadm --build device -chunk=X --level=Y --raid-disks=Z devices\n"
 "\n"
 " This usage is similar to --create.  The difference is that it creates\n"
 " a legacy array with a superblock.  With these arrays there is no\n"
@@ -253,12 +256,12 @@ char Help_build[] =
 ;
 
 char Help_assemble[] =
-"Usage: mdctl --assemble device options...\n"
-"       mdctl --assemble --scan options...\n"
+"Usage: mdadm --assemble device options...\n"
+"       mdadm --assemble --scan options...\n"
 "\n"
 "This usage assembles one or more raid arrays from pre-existing\n"
 "components.\n"
-"For each array, mdctl needs to know the md device, the identify of\n"
+"For each array, mdadm needs to know the md device, the identify of\n"
 "the array, and a number of sub devices. These can be found in a number\n"
 "of ways.\n"
 "\n"

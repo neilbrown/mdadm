@@ -1,5 +1,5 @@
 #
-# mdctl - manage Linux "md" devices aka RAID arrays.
+# mdadm - manage Linux "md" devices aka RAID arrays.
 #
 # Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
 #
@@ -31,25 +31,28 @@ CC = gcc
 CFLAGS = -Wall,error,strict-prototypes -ggdb
 
 INSTALL = /usr/bin/install
-DESTDIR = /sbin
+DESTDIR = /.
+BINDIR  = /sbin
+MANDIR  = /usr/share/man/man8
 
-OBJS =  mdctl.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o
+OBJS =  mdadm.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o
 
-all : mdctl mdctl.man
+all : mdadm mdadm.man
 
-mdctl : $(OBJS)
-	$(CC) -o mdctl $^
+mdadm : $(OBJS)
+	$(CC) -o mdadm $^
 
-mdctl.man : mdctl.8
-	nroff -man mdctl.8 > mdctl.man
+mdadm.man : mdadm.8
+	nroff -man mdadm.8 > mdadm.man
 
-$(OBJS) : mdctl.h
+$(OBJS) : mdadm.h
 
-install : mdctl
-	$(INSTALL) -m 755 mdctl $(DESTDIR)/sbin
+install : mdadm mdadm.8
+	$(INSTALL) -m 755 mdadm $(DESTDIR)/$(BINDIR)
+	$(INSTALL) -m 644 mdadm.8 $(DESTDIR)/$(MANDIR)
 
 clean : 
-	rm -f mdctl $(OBJS) core mdctl.man
+	rm -f mdadm $(OBJS) core mdadm.man
 
 dist : clean
 	./makedist

@@ -1,5 +1,5 @@
 /*
- * mdctl - manage Linux "md" devices aka RAID arrays.
+ * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
@@ -27,7 +27,7 @@
  *           Australia
  */
 
-#include "mdctl.h"
+#include "mdadm.h"
 #include "md_p.h"
 
 int open_mddev(char *dev)
@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
 		case 'D':
 		case 'E':
 		case 'F':
+		case 'H':
 			/* setting mode - only once */
 			if (mode) {
 				fprintf(stderr, Name ": --%s/-%c not allowed, mode already set to %s\n",
@@ -291,13 +292,12 @@ int main(int argc, char *argv[])
 			}
 			continue;
 		case O('C','f'): /* force honouring of device list */
+		case O('A','f'): /* force assembly */
+		case O('H','f'): /* force zero */
 			force=1;
 			continue;
 
 			/* now for the Assemble options */
-		case O('A','f'): /* force assembly */
-			force = 1;
-			continue;
 		case O('A','u'): /* uuid of array */
 			if (ident.uuid_set) {
 				fprintf(stderr, Name ": uuid cannot be set twice.  "
@@ -535,6 +535,11 @@ int main(int argc, char *argv[])
 	case 'F': /* Follow */
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, configfile);
+		break;
+	case 'H': /* Zero superblock */
+		for (dv=devlist ; dv; dv=dv->next)
+			rv |= Kill(dv->devname, force);
+		break;
 	}
 	exit(rv);
 }

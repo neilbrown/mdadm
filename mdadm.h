@@ -1,5 +1,5 @@
 /*
- * mdctl - manage Linux "md" devices aka RAID arrays.
+ * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
@@ -49,7 +49,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 #include	"md_u.h"
 
-#define Name "mdctl"
+#define Name "mdadm"
 
 extern char short_options[];
 extern struct option long_options[];
@@ -136,6 +136,8 @@ extern int Monitor(mddev_dev_t devlist,
 		  char *mailaddr, char *alert_cmd,
 		  int period,
 		  char *config);
+
+extern int Kill(char *dev, int force);
 
 extern int md_get_version(int fd);
 extern int get_linux_version();

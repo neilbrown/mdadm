@@ -1,13 +1,13 @@
-mdctl(8)                                                 mdctl(8)
+mdadm(8)                                                 mdadm(8)
 
 
 
 NNAAMMEE
-       mdctl - manage MD devices _a_k_a Linux Software Raid.
+       mdadm - manage MD devices _a_k_a Linux Software Raid.
 
 
 SSYYNNOOPPSSIISS
-       mmddccttll _[_m_o_d_e_] _<_r_a_i_d_d_e_v_i_c_e_> _[_o_p_t_i_o_n_s_] _<_s_u_b_d_e_v_i_c_e_s_>
+       mmddaaddmm _[_m_o_d_e_] _<_r_a_i_d_d_e_v_i_c_e_> _[_o_p_t_i_o_n_s_] _<_s_u_b_d_e_v_i_c_e_s_>
 
 
 DDEESSCCRRIIPPTTIIOONN
@@ -25,34 +25,34 @@ DDEESSCCRRIIPPTTIIOONN
        ing), RRAAIIDD11 (mirroring), RRAAIIDD44 and RRAAIIDD55..
 
        Recent kernels (2002) also support a mode known as  MMUULLTTII--
-       PPAATTHH.  mmddccttll does not support MULTIPATH as yet.
+       PPAATTHH.  mmddaaddmm does not support MULTIPATH as yet.
 
-       mmddccttll  is  a program that can be used to create and manage
+       mmddaaddmm  is  a program that can be used to create and manage
        MD devices.  As such it provides a similar  set  of  func-
        tionality  to the rraaiiddttoooollss packages.  The key differences
-       between mmddccttll and rraaiiddttoooollss are:
+       between mmddaaddmm and rraaiiddttoooollss are:
 
-       +o   mmddccttll is a single program and not a collection of pro-
+       +o   mmddaaddmm is a single program and not a collection of pro-
            grams.
 
-       +o   mmddccttll  can perform (almost) all of its functions with-
-           out having a configuration  file.   Also  mdctl  helps
+       +o   mmddaaddmm  can perform (almost) all of its functions with-
+           out having a configuration  file.   Also  mdadm  helps
            with management of the configuration file.
 
-       +o   mmddccttll   can  provide  information  about  your  arrays
+       +o   mmddaaddmm   can  provide  information  about  your  arrays
            (through Detail and Examine) that rraaiiddttoooollss cannot.
 
-       +o   rraaiiddttoooollss can manage  MULTIPATH  devices  which  mmddccttll
+       +o   rraaiiddttoooollss can manage  MULTIPATH  devices  which  mmddaaddmm
            cannot yet manage.
 
 
 MMOODDEESS
-       mdctl has 7 major modes of operation:
+       mdadm has 7 major modes of operation:
 
        AAsssseemmbbllee
               Assemble  the  parts  of a previously created array
               into an active array. Components can be  explicitly
-              given  or  can  be searched for.  mmddccttll checks that
+              given  or  can  be searched for.  mmddaaddmm checks that
               the components do form a bona fide array, and  can,
               on  request, fiddle superblock information so as to
               assemble a faulty array.
@@ -76,7 +76,7 @@ MMOODDEESS
               This mode can also be used to examine a large  num-
               ber  of  devices  and to print out a summary of the
               arrays  found  in  a  format   suitable   for   the
-              mmddccttll..ccoonnff configuration file.
+              mmddaaddmm..ccoonnff configuration file.
 
 
        FFoollllooww oorr MMoonniittoorr
@@ -122,7 +122,7 @@ OOPPTTIIOONNSS
 
 
        --VV, ----vveerrssiioonn
-              Print version information for mdctl.
+              Print version information for mdadm.
 
 
        --vv, ----vveerrbboossee
@@ -197,7 +197,7 @@ FFoorr aasssseemmbbllee::
 
 
        --cc, ----ccoonnffiigg==
-              config file.  Default is //eettcc//mmddccttll..ccoonnff.
+              config file.  Default is //eettcc//mmddaaddmm..ccoonnff.
 
 
        --ss, ----ssccaann
@@ -254,19 +254,19 @@ GGeenneerraall mmaannaaggeemmeenntt
 
 
 AASSSSEEMMBBLLYY MMOODDEE
-       Usage: mmddccttll ----aasssseemmbbllee _d_e_v_i_c_e _o_p_t_i_o_n_s_._._.
+       Usage: mmddaaddmm ----aasssseemmbbllee _d_e_v_i_c_e _o_p_t_i_o_n_s_._._.
 
-       Usage: mmddccttll ----aasssseemmbbllee ----ssccaann _o_p_t_i_o_n_s_._._.
+       Usage: mmddaaddmm ----aasssseemmbbllee ----ssccaann _o_p_t_i_o_n_s_._._.
 
 
        This usage assembles one or more  raid  arrays  from  pre-
-       existing  components.  For each array, mdctl needs to know
+       existing  components.  For each array, mdadm needs to know
        the md device, the identity of the array, and a number  of
        sub devices. These can be found in a number of ways.
 
        The  md  device  is either given before ----ssccaann or is found
        from the config file. In  the  latter  case,  multiple  md
-       devices can be started with a single mdctl command.
+       devices can be started with a single mdadm command.
 
        The identity can be given with the ----uuuuiidd option, with the
        ----ssuuppeerr--mmiinnoorr option, can be found in in the config  file,
@@ -280,7 +280,7 @@ AASSSSEEMMBBLLYY MMOODDEE
 
        The  config  file  is  only  used if explicitly named with
        ----ccoonnffiigg or requested with ----ssccaann..   In  the  later  case,
-       //eettcc//mmddccttll..ccoonnff is used.
+       //eettcc//mmddaaddmm..ccoonnff is used.
 
        If  ----ssccaann is not given, then the config file will only be
        used to find the identity of md arrays.
@@ -295,7 +295,7 @@ AASSSSEEMMBBLLYY MMOODDEE
 
 
 BBUUIILLDD MMOODDEE
-       Usage:  mmddccttll  ----bbuuiilldd  _d_e_v_i_c_e ----cchhuunnkk==_X ----lleevveell==_Y ----rraaiidd--
+       Usage:  mmddaaddmm  ----bbuuiilldd  _d_e_v_i_c_e ----cchhuunnkk==_X ----lleevveell==_Y ----rraaiidd--
                    ddiisskkss==_Z _d_e_v_i_c_e_s
 
 
@@ -312,7 +312,7 @@ BBUUIILLDD MMOODDEE
 
 
 CCRREEAATTEE MMOODDEE
-       Usage: mmddccttll ----ccrreeaattee _d_e_v_i_c_e ----cchhuunnkk==_X ----lleevveell==_Y
+       Usage: mmddaaddmm ----ccrreeaattee _d_e_v_i_c_e ----cchhuunnkk==_X ----lleevveell==_Y
                    ----rraaiidd--ddiisskkss==_Z _d_e_v_i_c_e_s
 
 
@@ -340,21 +340,21 @@ CCRREEAATTEE MMOODDEE
 
 
 DDEETTAAIILL MMOODDEE
-       Usage: mmddccttll ----ddeettaaiill [----bbrriieeff] _d_e_v_i_c_e _._._.
+       Usage: mmddaaddmm ----ddeettaaiill [----bbrriieeff] _d_e_v_i_c_e _._._.
 
 
        This usage sill print out the details of the  given  array
        including a list of component devices.  To determine names
-       for the devices, mmddccttll searches //ddeevv for device files with
+       for the devices, mmddaaddmm searches //ddeevv for device files with
        the right major and minor numbers.
 
-       With  ----bbrriieeff  mmddccttll  prints a single line that identifies
+       With  ----bbrriieeff  mmddaaddmm  prints a single line that identifies
        the level, number of disks, and UUID of the  array.   This
-       line is suitable for inclusion in //eettcc//mmddccttll..ccoonnff.
+       line is suitable for inclusion in //eettcc//mmddaaddmm..ccoonnff.
 
 
 EEXXAAMMIINNEE MMOODDEE
-       Usage: mmddccttll ----eexxaammiinnee [----ssccaann] [----bbrriieeff] _d_e_v_i_c_e _._._.
+       Usage: mmddaaddmm ----eexxaammiinnee [----ssccaann] [----bbrriieeff] _d_e_v_i_c_e _._._.
 
        This  usage will examine some block devices to see if that
        have a valid RAID superblock on them.  The information  in
@@ -365,14 +365,14 @@ EEXXAAMMIINNEE MMOODDEE
        tion  file  are  checked.  ----ssccaann implies ----bbrriieeff but this
        implication can be countered by specifying ----vveerrbboossee.
 
-       With ----bbrriieeff mmddccttll will output an  config  file  entry  of
+       With ----bbrriieeff mmddaaddmm will output an  config  file  entry  of
        each  distinct array that was found.  This entry will list
        the UUID, the raid level, and a  list  of  the  individual
        devices  on  which  a superblock for that array was found.
        This output will by syntactically suitable  for  inclusion
        in the configuration file, but should NNOOTT be used blindly.
        Often the array description that you want in the  configu-
-       ration file is much less specific than that given by mmddccttll
+       ration file is much less specific than that given by mmddaaddmm
        --BBss.  For example, you normally do not want  to  list  the
        devices, particularly if they are SCSI devices.
 
@@ -382,10 +382,10 @@ FFIILLEESS
    //pprroocc//mmddssttaatt
        If  you're  using the //pprroocc filesystem, //pprroocc//mmddssttaatt gives
        you informations about md devices status.   This  file  is
-       not currently used by mmddccttll.
+       not currently used by mmddaaddmm.
 
 
-   //eettcc//mmddccttll..ccoonnff
+   //eettcc//mmddaaddmm..ccoonnff
        The  config  file  is  line oriented with, as usual, blank
        lines and lines beginning with a hash (or  pound  sign  or
        sharp  or  number  sign,  whichever  you  like to call it)
@@ -403,7 +403,7 @@ FFIILLEESS
        The  DEVICE  lines usually come first. All remaining words
        on the line are treated as names of devices, possibly con-
        taining  wild  cards  (see  _g_l_o_b(7)).   These list all the
-       devices that mmddccttll is allowed to  scan  when  looking  for
+       devices that mmddaaddmm is allowed to  scan  when  looking  for
        devices with RAID superblocks.  Each line can contain mul-
        tiple device names,  and  there  can  be  multiple  DEVICE
        lines.  For example:
@@ -439,12 +439,12 @@ FFIILLEESS
 
        lleevveell== The  value  is a raid level.  This is normally used
               to identify an array, but is supported so that  the
-              output   of  mmddccttll  ----eexxaammiinnee  ----ssccaann  can  be  use
+              output   of  mmddaaddmm  ----eexxaammiinnee  ----ssccaann  can  be  use
               directly in the configuration file.
 
        ddiisskkss== The value is the number  of  disks  in  a  complete
               active  array.   As  with lleevveell== this is mainly for
-              compatibility with the output  of  mmddccttll  ----eexxaammiinnee
+              compatibility with the output  of  mmddaaddmm  ----eexxaammiinnee
               ----ssccaann.
 
 
@@ -473,4 +473,4 @@ SSEEEE AALLSSOO
 
 
 
-                                                         mdctl(8)
+                                                         mdadm(8)

@@ -1,7 +1,15 @@
 
+Changes Prior to 0.7 release	
+
+    -   Fix makefile to install binary at /sbin and not /sbin/sbin
+	Also install man page.
+    -   Add --zero-superblock based on --destroywithextremeprejudice
+	from Dale Stephenson <steph@snapserver.com>
+    -   change name to mdadm.  It is palandromic, and much nicer to pronouce.
+	
 Changes Prior to 0.6 release
 
-	-   Remove the limit on the number of device names that can be
+    -   Remove the limit on the number of device names that can be
 	given on the command line.
     -   Fix bug in --assemble --force where it would only update a 
 	single superblock.

@@ -5,7 +5,7 @@
 * write proc.c to parse /proc/mdstat file, and maybe /proc/partitions too.
    Build list of arrays:  name, rebuild-percent
 
-* --detail --scan to read mdctl.conf, and then iterate over these,
+* --detail --scan to read mdadm.conf, and then iterate over these,
     but assume --brief.  --verbose can override
     check each subdevice to see if it is in conf_get_devs.
     Warn if not.
@@ -23,7 +23,7 @@
      spare added
 
 ------------------------------------
-- --examine --scan scans all drives and build an mdctl.conf file DONE
+- --examine --scan scans all drives and build an mdadm.conf file DONE
 
 - check superblock checksum in examine DONE
 - report "chunk" or "rounding" depending on raid level DONE
@@ -49,9 +49,9 @@
   then try to assemble that device first.
 
 
-- mdctl -S /dev/md0 /dev/md1 gives internal error FIXED
+- mdadm -S /dev/md0 /dev/md1 gives internal error FIXED
 
-- mdctl --detail --scan print summary of what it can find?
+- mdadm --detail --scan print summary of what it can find?
 
 
 ---------

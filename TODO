@@ -1,3 +1,22 @@
+* --assemble could have a --update option.
+  following word can be:
+	sparc2.2
+	super-minor
+
+* mdadm /dev/md11, where md11 is raid0 can segfault, particularly when looking in the 
+   [UU_UUU] string ... which doesn't exist !
+It should be more sensible.  DONE
+
+Example:
+
+from  Raimund Sacherer <raimund.sacherer@ngit.at>
+
+mke2fs -m0 -q /dev/ram1 300
+mount -n -t ext2 /dev/ram1 /tmp
+echo DEVICE /dev/[sh]* >> /tmp/mdadm.conf
+mdadm -Esb /dev/[sh]* 2>/dev/null >> /tmp/mdadm.conf
+mdadm -ARsc /tmp/mdadm.conf
+umount /tmp
 
 
 ?? Allow -S /dev/md? - current complains subsequent not a/d/r - DONE

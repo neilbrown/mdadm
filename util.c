@@ -91,7 +91,8 @@ int md_get_version(int fd)
 
     if (ioctl(fd, RAID_VERSION, &vers) == 0)
 	return  (vers.major*10000) + (vers.minor*100) + vers.patchlevel;
-
+    if (errno == EACCES)
+	    return -1;
     if (MAJOR(stb.st_rdev) == MD_MAJOR)
 	return (3600);
     return -1;
@@ -212,6 +213,8 @@ int load_super(int fd, mdp_super_t *super)
 
 	offset *= 512;
 
+	ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
+
 	if (lseek64(fd, offset, 0)< 0LL)
 		return 3;
 
@@ -314,7 +317,7 @@ int check_raid(int fd, char *name)
 	if (load_super(fd, &super))
 		return 0;
 	/* Looks like a raid array .. */
-	fprintf(stderr, Name ": %s appear to be part of a raid array:\n",
+	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
 		name);
 	crtime = super.ctime;
 	fprintf(stderr, "    level=%d devices=%d ctime=%s",
@@ -375,6 +378,16 @@ struct devmap {
 } *devlist = NULL;
 int devlist_ready = 0;
 
+#ifdef UCLIBC
+char *map_dev(int major, int minor)
+{
+#if 0
+	fprintf(stderr, "Warning - fail to map %d,%d to a device name\n",
+		major, minor);
+#endif
+	return NULL;
+}
+#else
 #define  __USE_XOPEN_EXTENDED
 #include <ftw.h>
 
@@ -410,6 +423,7 @@ char *map_dev(int major, int minor)
     return NULL;
 }
 
+#endif
 
 int calc_sb_csum(mdp_super_t *super)
 {
@@ -446,7 +460,7 @@ char *human_size(long long bytes)
 			(long)(bytes>>30),
 			(long)(((bytes>>10)&0xfffff)+0x100000/200)/(0x100000/100),
 			(long)(bytes/1000LL/1000LL/1000LL),
-			(long)((((bytes/1000)%1000000)+50000)/10000)
+			(long)((((bytes/1000)%1000000)+5000)/10000)
 			);
 	return buf;
 }

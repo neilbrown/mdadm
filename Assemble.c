@@ -35,6 +35,7 @@ int Assemble(char *mddev, int mdfd,
 	     mddev_ident_t ident, char *conffile,
 	     mddev_dev_t devlist,
 	     int readonly, int runstop,
+	     char *update,
 	     int verbose, int force)
 {
 	/*
@@ -72,7 +73,7 @@ int Assemble(char *mddev, int mdfd,
 	 * For each device:
 	 *   Check superblock - discard if bad
 	 *   Check uuid (set if we don't have one) - discard if no match
-	 *   Check superblock similarity if we have a superbloc - discard if different
+	 *   Check superblock similarity if we have a superblock - discard if different
 	 *   Record events, devicenum, utime
 	 * This should give us a list of devices for the array
 	 * We should collect the most recent event and utime numbers
@@ -103,8 +104,8 @@ int Assemble(char *mddev, int mdfd,
 		time_t utime;
 		int uptodate;
 		int raid_disk;
-	} devices[MD_SB_DISKS];
-	int best[MD_SB_DISKS]; /* indexed by raid_disk */
+	} *devices;
+	int *best; /* indexed by raid_disk */
 	int devcnt = 0, okcnt, sparecnt;
 	int i;
 	int most_recent = 0;
@@ -112,6 +113,8 @@ int Assemble(char *mddev, int mdfd,
 	int change = 0;
 	int inargv = 0;
 	int start_partial_ok = force || devlist==NULL;
+	int num_devs;
+	mddev_dev_t tmpdev;
 	
 	vers = md_get_version(mdfd);
 	if (vers <= 0) {
@@ -153,8 +156,16 @@ int Assemble(char *mddev, int mdfd,
 		devlist = conf_get_devs(conffile);
 	else inargv = 1;
 
+	tmpdev = devlist; num_devs = 0;
+	while (tmpdev) {
+		num_devs++;
+		tmpdev = tmpdev->next;
+	}
+	best = malloc(num_devs * sizeof(*best));
+	devices = malloc(num_devs * sizeof(*devices));
+
 	first_super.md_magic = 0;
-	for (i=0; i<MD_SB_DISKS; i++)
+	for (i=0; i<num_devs; i++)
 		best[i] = -1;
 
 	if (verbose)
@@ -245,11 +256,48 @@ int Assemble(char *mddev, int mdfd,
 			return 1;
 		}
 
+
+		/* this is needed until we get a more relaxed super block format */
 		if (devcnt >= MD_SB_DISKS) {
 		    fprintf(stderr, Name ": ouch - too many devices appear to be in this array. Ignoring %s\n",
 			    devname);
 		    continue;
 		}
+		
+		/* looks like a good enough match to update the super block if needed */
+		if (update) {
+			if (strcmp(update, "sparc2.2")==0 ) {
+				/* 2.2 sparc put the events in the wrong place
+				 * So we copy the tail of the superblock
+				 * up 4 bytes before continuing
+				 */
+				__u32 *sb32 = (__u32*)&super;
+				memcpy(sb32+MD_SB_GENERIC_CONSTANT_WORDS+7,
+				       sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
+				       (MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1))*4);
+				fprintf (stderr, Name ": adjusting superblock of %s for 2.2/sparc compatability.\n",
+					 devname);
+			}
+			if (strcmp(update, "super-minor") ==0) {
+				struct stat stb2;
+				fstat(mdfd, &stb2);
+				super.md_minor = MINOR(stb2.st_rdev);
+				if (verbose)
+					fprintf(stderr, Name ": updating superblock of %s with minor number %d\n",
+						devname, super.md_minor);
+			}
+			super.sb_csum = calc_sb_csum(&super);
+			dfd = open(devname, O_RDWR, 0);
+			if (dfd < 0) 
+				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
+					devname);
+			else if (store_super(dfd, &super))
+				fprintf(stderr, Name ": Could not re-write superblock on %s.\n",
+					devname);
+			if (dfd >= 0)
+				close(dfd);
+		}
+
 		if (verbose)
 			fprintf(stderr, Name ": %s is identified as a member of %s, slot %d.\n",
 				devname, mddev, super.this_disk.raid_disk);
@@ -267,8 +315,12 @@ int Assemble(char *mddev, int mdfd,
 			    > devices[most_recent].events)
 				most_recent = devcnt;
 		}
-		i = devices[devcnt].raid_disk;
-		if (i>=0 && i < MD_SB_DISKS)
+		if (super.level == -4) 
+			/* with multipath, the raid_disk from the superblock is meaningless */
+			i = devcnt;
+		else
+			i = devices[devcnt].raid_disk;
+		if (i>=0 && i < num_devs)
 			if (best[i] == -1
 			    || devices[best[i]].events < devices[devcnt].events)
 				best[i] = devcnt;
@@ -286,7 +338,7 @@ int Assemble(char *mddev, int mdfd,
 	 */
 	okcnt = 0;
 	sparecnt=0;
-	for (i=0; i< MD_SB_DISKS;i++) {
+	for (i=0; i< num_devs ;i++) {
 		int j = best[i];
 		int event_margin = !force;
 		if (j < 0) continue;
@@ -337,6 +389,10 @@ int Assemble(char *mddev, int mdfd,
 		}
 		super.events_hi = (devices[most_recent].events>>32)&0xFFFFFFFF;
 		super.events_lo = (devices[most_recent].events)&0xFFFFFFFF;
+		if (super.level == 5 || super.level == 4) {
+			/* need to force clean */
+			super.state = 0;
+		}
 		super.sb_csum = calc_sb_csum(&super);
 /*DRYRUN*/	if (store_super(fd, &super)) {
 			close(fd);
@@ -358,7 +414,7 @@ int Assemble(char *mddev, int mdfd,
 	 * superblock.
 	 */
 	chosen_drive = -1;
-	for (i=0; chosen_drive < 0 && i<MD_SB_DISKS; i++) {
+	for (i=0; chosen_drive < 0 && i<num_devs; i++) {
 		int j = best[i];
 		int fd;
 		if (j<0)
@@ -380,7 +436,7 @@ int Assemble(char *mddev, int mdfd,
 		close(fd);
 	}
 
-	for (i=0; i<MD_SB_DISKS; i++) {
+	for (i=0; i<num_devs; i++) {
 		int j = best[i];
 		int desired_state;
 
@@ -457,9 +513,9 @@ This doesnt work yet
 			return 1;
 		}
 		/* First, add the raid disks, but add the chosen one last */
-		for (i=0; i<=MD_SB_DISKS; i++) {
+		for (i=0; i<= num_devs; i++) {
 			int j;
-			if (i < MD_SB_DISKS) {
+			if (i < num_devs) {
 				j = best[i];
 				if (j == chosen_drive)
 					continue;

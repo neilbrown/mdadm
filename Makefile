@@ -29,6 +29,9 @@
 
 # define "CXFLAGS" to give extra flags to CC.
 # e.g.  make CXFLAGS=-O to optimise
+TCC = tcc
+UCLIBC_GCC = i386-uclibc-gcc
+
 CC = gcc
 CXFLAGS = -ggdb
 SYSCONFDIR = /etc
@@ -48,11 +51,23 @@ MAN5DIR = $(MANDIR)/man5
 MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o Query.o
+SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c Create.c Detail.c Examine.c Monitor.c dlink.c Kill.c Query.c
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
+everything: all mdadm.static mdadm.tcc mdadm.uclibc
+
 mdadm : $(OBJS)
 	$(CC) $(LDFLAGS) -o mdadm $^
+
+mdadm.static : $(OBJS)
+	$(CC) $(LDFLAGS) --static -o mdadm.static $^
+
+mdadm.tcc : $(SRCS) mdadm.h
+	$(TCC) -o mdadm.tcc $(SRCS)
+
+mdadm.uclibc : $(SRCS) mdadm.h
+	$(UCLIBC_GCC) -DUCLIBC -o mdadm.uclibc $(SRCS)
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man
@@ -72,7 +87,7 @@ install : mdadm mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 clean : 
-	rm -f mdadm $(OBJS) core *.man
+	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc
 
 dist : clean
 	./makedist

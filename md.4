@@ -99,7 +99,7 @@ still have remaining space.
 .SS RAID1
 
 A RAID1 array is also known as a mirrored set (though mirrors tend to
-provide reflect images, which RAID1 does not) or a plex.
+provide reflected images, which RAID1 does not) or a plex.
 
 Once initialised, each device in a RAID1 array contains exactly the
 same data.  Changes are written to all devices in parallel.  Data is
@@ -171,13 +171,16 @@ correct any possibly inconsistency.  For RAID1, this involves copying
 the contents of the first drive onto all other drives.
 For RAID4 or RAID5 this involves recalculating the parity for each
 stripe and making sure that the parity block has the correct data.
+This process, known as "resynchronising" or "resync" is performed in
+the background.  The array can still be used, though possibly with
+reduced performance.
 
 If a RAID4 or RAID5 array is degraded (missing one drive) when it is
 restarted after an unclean shutdown, it cannot recalculate parity, and
 so it is possible that data might be undetectably corrupted.
-The md driver currently
+The 2.4 md driver 
 .B does not
-alert the operator to this condition.  It should probably fail to
+alert the operator to this condition.  The 2.5 md driver will fail to
 start an array in this condition without manual intervention.
 
 .SS RECOVERY
@@ -201,6 +204,39 @@ and
 .B speed_limit_max
 control files mentioned below.
 
+.SS KERNEL PARAMETERS
+
+The md driver recognised three different kernel parameters.
+.TP
+.B raid=noautodetect
+This will disable the normal detection of md arrays that happens at
+boot time.  If a drive is partitioned with MS-DOS style partitions,
+then if any of the 4 main partitions has a partition type of 0xFD,
+then that partition will normally be inspected to see if it is part of
+an MD array, and if any full arrays are found, they are started.  This
+kernel paramenter disables this behaviour.
+
+.TP
+.BI md= n , dev , dev ,...
+This tells the md driver to assemble
+.B /dev/md n
+from the listed devices.  It is only necessary to start the device
+holding the root filesystem this way.  Other arrays are best started
+once the system is booted.
+
+.TP
+.BI md= n , l , c , i , dev...
+This tells the md driver to assemble a legacy RAID0 or LINEAR array
+without a superblock.
+.I n
+gives the md device number,
+.I l
+gives the level, 0 for RAID0 or -1 for LINEAR,
+.I c
+gives the chunk size as a base-2 logarithm offset by twelve, so 0
+means 4K, 1 means 8K.
+.I i
+is ignored (legacy support).
 
 .SH FILES
 .TP

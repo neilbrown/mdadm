@@ -150,6 +150,7 @@ extern int Assemble(char *mddev, int mdfd,
 		    char *conffile,
 		    mddev_dev_t devlist,
 		    int readonly, int runstop,
+		    char *update,
 		    int verbose, int force);
 
 extern int Build(char *mddev, int mdfd, int chunk, int level,

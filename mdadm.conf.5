@@ -45,6 +45,22 @@ and each device name can contain wild cards as defined by
 
 Also, there may be several device lines present in the file.
 
+Alternatively, a
+.B device
+line can contain the word
+.BR partitions .
+This will cause
+.I mdadm
+to read
+.I /proc/partitions
+and include all devices and partitions found there-in.
+.I mdadm
+does not use the names from
+.I /proc/partitions
+but only the major and minor device numbers.  It scans
+.I /dev
+to find the name that matches the numbers.
+
 For example:
 .IP
 DEVICE /dev/hda* /dev/hdc*
@@ -52,6 +68,8 @@ DEVICE /dev/hda* /dev/hdc*
 DEV    /dev/sd*
 .br
 DEVICE /dev/discs/disc*/disc
+.br
+DEVICE partitions
 
 .TP
 .B ARRAY

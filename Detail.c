@@ -102,7 +102,7 @@ int Detail(char *dev, int brief)
 		printf("  Creation Time : %.24s\n", ctime(&atime));
 		printf("     Raid Level : %s\n", c?c:"-unknown-");
 		if (larray_size)
-		printf("     Array Size : %ld%s\n", (long)(larray_size>>10), human_size(larray_size));
+		printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
 		if (array.level >= 1)
 			printf("    Device Size : %d%s\n", array.size, human_size((long long)array.size<<10));
 		printf("   Raid Devices : %d\n", array.raid_disks);
@@ -164,7 +164,7 @@ int Detail(char *dev, int brief)
 		}
 		if ((dv=map_dev(disk.major, disk.minor))) {
 			if (!brief) printf("   %s", dv);
-			if (!have_super) {
+			if (!have_super && (disk.state & (1<<MD_DISK_ACTIVE))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
@@ -186,7 +186,8 @@ int Detail(char *dev, int brief)
 			       super.set_uuid2, super.set_uuid3);
 		else
 			printf("%08x", super.set_uuid0);
-		if (!brief) printf("\n");
+		if (!brief) 
+			printf("\n         Events : %d.%d\n", super.events_hi, super.events_lo);
 	}
 	if (brief) printf("\n");
 	return 0;

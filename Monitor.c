@@ -182,6 +182,14 @@ int Monitor(mddev_dev_t devlist,
 				close(fd);
 				continue;
 			}
+			if (array.level != 1 && array.level != 5 && array.level != -4) {
+				if (!st->err)
+					alert("DeviceDisappeared", dev, "Wrong-Level",
+					      mailaddr, alert_cmd);
+				st->err = 1;
+				close(fd);
+				continue;
+			}
 			if (st->devnum < 0) {
 				struct stat stb;
 				if (fstat(fd, &stb) == 0 &&
@@ -229,7 +237,7 @@ int Monitor(mddev_dev_t devlist,
 				if (ioctl(fd, GET_DISK_INFO, &disc)>= 0) {
 					newstate = disc.state;
 					dv = map_dev(disc.major, disc.minor);
-				} else if (mse && i < strlen(mse->pattern))
+				} else if (mse &&  mse->pattern && i < strlen(mse->pattern))
 					switch(mse->pattern[i]) {
 					case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
 					case '_': newstate = 0; break;
@@ -271,7 +279,11 @@ int Monitor(mddev_dev_t devlist,
 		if (scan) {
 			struct mdstat_ent *mse;
 			for (mse=mdstat; mse; mse=mse->next) 
-				if (mse->devnum > 0) {
+				if (mse->devnum >= 0 &&
+				    (strcmp(mse->level, "raid1")==0 ||
+				     strcmp(mse->level, "raid5")==0 ||
+				     strcmp(mse->level, "multipath")==0)
+					) {
 					struct state *st = malloc(sizeof *st);
 					if (st == NULL)
 						continue;

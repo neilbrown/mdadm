@@ -170,7 +170,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				__u32 *sb32 = (__u32*)&super;
 				memcpy(sb32+MD_SB_GENERIC_CONSTANT_WORDS+7,
 				       sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
-				       MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1));
+				       (MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1))*4);
 				printf (" --- adjusting superblock for 2.2/sparc compatability ---\n");
 			}
 			printf("         Events : %d.%d\n", super.events_hi, super.events_lo);

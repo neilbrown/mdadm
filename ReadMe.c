@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.0.1 - 20 May 2002\n";
+char Version[] = Name " - v1.0.9 - 12 Feb 2003\n";
 /*
  * File: ReadMe.c
  *
@@ -60,14 +60,14 @@ char Version[] = Name " - v1.0.1 - 20 May 2002\n";
 /*
  * mdadm has 6 major modes of operation:
  * 1/ Create
- *     This mode is used to create a new array with a superbock
+ *     This mode is used to create a new array with a superblock
  *     It can progress in several step create-add-add-run
  *     or it can all happen with one command
  * 2/ Assemble
  *     This mode is used to assemble the parts of a previously created
  *     array into an active array.  Components can be explicitly given
  *     or can be searched for.  mdadm (optionally) check that the components
- *     do form a bonafide array, and can, on request, fiddle superblock
+ *     do form a bona-fide array, and can, on request, fiddle superblock
  *     version numbers so as to assemble a faulty array.
  * 3/ Build
  *     This is for building legacy arrays without superblocks
@@ -86,7 +86,7 @@ char Version[] = Name " - v1.0.1 - 20 May 2002\n";
  *     This mode never exits but just monitors arrays and reports changes.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:sarfRSow";
+char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sarfRSow";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -112,7 +112,7 @@ struct option long_options[] = {
     {"chunk",	  1, 0, 'c'},
     {"rounding",  1, 0, 'c'}, /* for linear, chunk is really a rounding number */
     {"level",     1, 0, 'l'}, /* 0,1,4,5,linear */
-    {"parity",    1, 0, 'p'}, /* {left,right}-{a,}symetric */
+    {"parity",    1, 0, 'p'}, /* {left,right}-{a,}symmetric */
     {"layout",    1, 0, 'p'},
     {"raid-disks",1, 0, 'n'},
     {"raid-devices",1, 0, 'n'},
@@ -126,6 +126,7 @@ struct option long_options[] = {
     {"config",    1, 0, 'c'},
     {"scan",      0, 0, 's'},
     {"force",	  0, 0, 'f'},
+    {"update",	  1, 0, 'U'},
     /* Management */
     {"add",       0, 0, 'a'},
     {"remove",    0, 0, 'r'},
@@ -139,7 +140,6 @@ struct option long_options[] = {
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
     {"sparc2.2",  0, 0, 22},
-    {"sparc2.2update", 0, 0, 23},
 
     /* For Follow/monitor */
     {"mail",      1, 0, 'm'},
@@ -164,7 +164,7 @@ char Help[] =
 "       mdadm --misc options... devices\n"
 "       mdadm --monitor options...\n"
 "       mdadm device options...\n"
-" mdadm is used for building, manageing, and monitoring\n"
+" mdadm is used for building, managing, and monitoring\n"
 "      Linux md devices (aka RAID arrays)\n"
 " For detail help on the above major modes use --help after the mode\n"
 " e.g.\n"
@@ -186,7 +186,7 @@ char Help[] =
 "  --build       -B   : Build a legacy array\n"
 "  --create      -C   : Create a new array\n"
 "  --detail      -D   : Display details of an array\n"
-"  --examine     -E   : Examine superblock on an array componenet\n"
+"  --examine     -E   : Examine superblock on an array component\n"
 "  --monitor     -F   : monitor (follow) some arrays\n"
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
@@ -195,9 +195,9 @@ char Help[] =
 "\n"
 " For create or build:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
-"  --rounding=        : rounding factor for linear array (==chunck size)\n"
+"  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : raid level: 0,1,4,5,linear,mp.  0 or linear for build\n"
-"  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
+"  --parity=     -p   : raid5 parity algorithm: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
@@ -213,6 +213,7 @@ char Help[] =
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
+"  --update=     -U   : Update superblock: either sparc2.2 or super-minor\n"
 "\n"
 " For detail or examine:\n"
 "  --brief       -b   : Just print device name and UUID\n"
@@ -229,7 +230,7 @@ char Help[] =
 "  --fail        -f   : mark subsequent devices a faulty\n"
 "  --set-faulty       : same as --fail\n"
 "  --run         -R   : start a partially built array\n"
-"  --stop        -S   : deactive array, releasing all resources\n"
+"  --stop        -S   : deactivate array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"
@@ -259,9 +260,9 @@ char Help_create[] =
 "\n"
 " Options that are valid with --create (-C) are:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
-"  --rounding=        : rounding factor for linear array (==chunck size)\n"
+"  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : raid level: 0,1,4,5,linear,multipath and synonyms\n"
-"  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
+"  --parity=    -p   : raid5 parity algorithm: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
@@ -287,7 +288,7 @@ char Help_build[] =
 " All devices must be listed and the array will be started once complete.\n"
 " Options that are valid with --build (-B) are:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
-"  --rounding=        : rounding factor for linear array (==chunck size)\n"
+"  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : 0, raid0, or linear\n"
 "  --raid-devices= -n   : number of active devices in array\n"
 ;
@@ -335,6 +336,7 @@ char Help_assemble[] =
 "                       for a full array are present\n"
 "  --force       -f   : Assemble the array even if some superblocks appear\n"
 "                     : out-of-date.  This involves modifying the superblocks.\n"
+"  --update=     -U   : Update superblock: either sparc2.2 or super-minor\n"
 ;
 
 char Help_manage[] =
@@ -352,7 +354,7 @@ char Help_manage[] =
 "  --fail        -f   : mark subsequent devices a faulty\n"
 "  --set-faulty       : same as --fail\n"
 "  --run         -R   : start a partially built array\n"
-"  --stop        -S   : deactive array, releasing all resources\n"
+"  --stop        -S   : deactivate array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
 ;
@@ -369,10 +371,10 @@ char Help_misc[] =
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
 "  --detail      -D   : Display details of an array\n"
-"  --examine     -E   : Examine superblock on an array componenet\n"
+"  --examine     -E   : Examine superblock on an array component\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"
 "  --run         -R   : start a partially built array\n"
-"  --stop        -S   : deactive array, releasing all resources\n"
+"  --stop        -S   : deactivate array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
 ;
@@ -422,7 +424,7 @@ char Help_config[] =
 " array.  The identity can be given as a UUID with a word starting 'uuid=', or\n"
 " as a minor-number stored in the superblock using 'super-minor=', or as a list\n"
 " of devices.  This is given as a comma separated list of names, possibly\n"
-" containing wildcards, preceeded by 'devices='. If multiple critea are given,\n"
+" containing wildcards, preceded by 'devices='. If multiple critea are given,\n"
 " than a device must match all of them to be considered.\n"
 "\n"
 " A mailaddr line starts with the word 'mailaddr' and should contain exactly\n"

@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 	struct mddev_ident_s ident;
 	char *configfile = NULL;
 	char *cp;
+	char *update = NULL;
 	int scan = 0;
 	char devmode = 0;
 	int runstop = 0;
@@ -369,6 +370,19 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+		case O(ASSEMBLE,'U'): /* update the superblock */
+			if (update) {
+				fprintf(stderr, Name ": Can only update one aspect of superblock, both %s and %s given.\n",
+					update, optarg);
+				exit(2);
+			}
+			update = optarg;
+			if (strcmp(update, "sparc2.2")==0) continue;
+			if (strcmp(update, "super-minor") == 0)
+				continue;
+			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2' or 'super-minor' supported\n",update);
+			exit(2);
+
 		case O(ASSEMBLE,'c'): /* config file */
 		case O(MISC, 'c'):
 		case O(MONITOR,'c'):
@@ -489,13 +503,6 @@ int main(int argc, char *argv[])
 			}
 			SparcAdjust = 1;
 			continue;
-		case O(MISC,23):
-			if (devmode != 'E') {
-				fprintf(stderr, Name ": --sparc2.2update only allowed with --examine\n");
-				exit(2);
-			}
-			SparcAdjust = 2;
-			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -548,8 +555,12 @@ int main(int argc, char *argv[])
 		if (!scan)
 			rv = Assemble(devlist->devname, mdfd, &ident, configfile,
 				      devlist->next,
-				      readonly, runstop, verbose, force);
-		else if (devs_found>0)
+				      readonly, runstop, update, verbose, force);
+		else if (devs_found>0) {
+			if (update && devs_found > 1) {
+				fprintf(stderr, Name ": can only update a single array at a time\n");
+				exit(1);
+			}
 			for (dv = devlist ; dv ; dv=dv->next) {
 				mddev_ident_t array_ident = conf_get_ident(configfile, dv->devname);
 				mdfd = open_mddev(dv->devname);
@@ -565,9 +576,9 @@ int main(int argc, char *argv[])
 				}
 				rv |= Assemble(dv->devname, mdfd, array_ident, configfile,
 					       NULL,
-					       readonly, runstop, verbose, force);
+					       readonly, runstop, update, verbose, force);
 			}
-		else {
+		} else {
 			mddev_ident_t array_list =  conf_get_ident(configfile, NULL);
 			if (!array_list) {
 				fprintf(stderr, Name ": No arrays found in config file\n");
@@ -586,7 +597,7 @@ int main(int argc, char *argv[])
 					rv |= Assemble(array_list->devname, mdfd,
 						       array_list, configfile,
 						       NULL,
-						       readonly, runstop, verbose, force);
+						       readonly, runstop, NULL, verbose, force);
 				}
 		}
 		break;

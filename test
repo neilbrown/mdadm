@@ -1,0 +1,2 @@
+dev partitions
+array /dev/md0 super-minor=6

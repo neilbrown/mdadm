@@ -32,14 +32,14 @@
 # Arrays can currently be identified by using a UUID, superblock minor number,
 # or a listing of devices.
 #
-#	super-minor is usally the minor number of the metadevice
+#	super-minor is usually the minor number of the metadevice
 #	UUID is the Universally Unique Identifier for the array
 # Each can be obtained using
 #
 # 	mdadm -D <md>
 #
 #ARRAY /dev/md0 UUID=3aaa0122:29827cfa:5331ad66:ca767371
-#ARRAY /dev/md1 superminor=1
+#ARRAY /dev/md1 super-minor=1
 #ARRAY /dev/md2 devices=/dev/hda1,/dev/hda2
 #
 # ARRAY lines can also specify a "spare-group" for each array.  mdadm --monitor

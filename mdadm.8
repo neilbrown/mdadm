@@ -53,7 +53,7 @@ is a single program and not a collection of programs.
 .IP \(bu 4
 .B mdadm
 can perform (almost) all of its functions without having a
-configuration file.  Also
+configuration file and does not use one by default.  Also
 .B mdadm
 helps with management of the configuration
 file.
@@ -63,6 +63,14 @@ can provide information about your arrays (through Query, Detail, and Examine)
 that
 .B  raidtools
 cannot.
+.P
+.I mdadm
+does not use
+.IR /etc/raidtab ,
+the
+.B raidtools
+configuration file, at all.  It has a different configuration file
+with a different format and an different purpose.
 
 .SH MODES
 mdadm has 6 major modes of operation:
@@ -98,7 +106,11 @@ superblocks, erasing old superblocks and stopping active arrays.
 
 .TP
 .B "Follow or Monitor"
-Monitor one or more md devices and act on any state changes.
+Monitor one or more md devices and act on any state changes.  This is
+only meaningful for raid1, raid5 or multipath arrays as only these have
+interesting state.  raid0 or linear never have missing, spare, or
+failed drives, so there is nothing to monitor.  
+
 
 .SH OPTIONS
 
@@ -165,6 +177,15 @@ the exact meaning of this option in different contexts.
 .BR -c ", " --config=
 Specify the config file.  Default is
 .BR /etc/mdadm.conf .
+If the config file given is
+.B partitions
+then nothing will be read, but
+.I mdadm
+will act as though the config file contained exactly
+.B "DEVICE partitions"
+and will read
+.B /proc/partitions
+to find a list of devices to scan.
 
 .TP
 .BR -s ", " --scan
@@ -217,12 +238,21 @@ same as --parity
 
 .TP
 .BR -n ", " --raid-devices=
-number of active devices in array.
+Specify the number of active devices in the array.  This, plus the
+number of spare devices (see below) must equal the number of
+.I component-devices
+(including
+.B missing 
+devices) that are listed on the command line.
 
 .TP
 .BR -x ", " --spare-devices=
-number of spare (eXtra) devices in initial array.  Spares can be added
-and removed later.
+Specify the number of spare (eXtra) devices in the initial array.
+Spares can also be added
+and removed later.  The number of component devices listed
+on the command line must equal the number of raid devices plus the
+number of spare devices. 
+
 
 .TP
 .BR -z ", " --size=
@@ -262,6 +292,33 @@ With
 .B --run
 an attempt will be made to start it anyway.
 
+.TP
+.BR -U ", " --update=
+Update the superblock on each device while assembling the array.  The
+argument given to this flag can be either
+.B sparc2.2
+or
+.BR super-minor .
+
+The
+.B sparc2.2
+option will  adjust the superblock of an array what was created on a Sparc
+machine running a patched 2.2 Linux kernel.  This kernel got the
+alignment of part of the superblock wrong.  You can use the
+.B "--examine --sparc2.2"
+option to
+.I mdadm
+to see what effect this would have.
+
+The
+.B super-minor
+option will update the
+.B "prefered minor"
+field on each superblock to match the minor number of the array being
+assembled.  This is not need on 2.6 and later kernels as they make
+this adjustment automatically.
+
+
 .SH For Manage mode:
 
 .TP
@@ -281,6 +338,20 @@ mark listed devices as faulty.
 .TP
 .BR --set-faulty
 same as --fail.
+
+.SH For Examine mode:
+
+.TP
+.B --sparc2.2
+In an array was created on a 2.2 Linux kernel patched with RAID
+support, the superblock will have been created incorrectly, or at
+least incompatibly with 2.4 and later kernels.  Using the
+.B --sparc2.2
+flag with
+.B --examine
+will fix the superblock before displaying it.  If this appears to do
+the right thing, then the array can be successfully assembled using
+.BR "--assemble --update=sparc2.2" .
 
 .SH For Misc mode:
 
@@ -329,7 +400,11 @@ again.  The default is 60 seconds.
 .HP 12
 Usage:
 .B mdadm --assemble
-.I device options...
+.I md-device options-and-component-devices...
+.HP 12
+Usage:
+.B mdadm --assemble --scan
+.I  md-devices-and-options...
 .HP 12
 Usage:
 .B mdadm --assemble --scan
@@ -340,22 +415,26 @@ This usage assembles one or more raid arrays from pre-existing components.
 For each array, mdadm needs to know the md device, the identity of the
 array, and a number of component-devices. These can be found in a number of ways.
 
-The md device is either given before 
-.B --scan
-or is found from the config file. In the latter case, multiple md devices
-can be started with a single mdadm command.
+In the first usage example (without the
+.BR --scan )
+the first device given is the md device.
+In the second usage example, all devices listed are treated as md
+devices and assembly is attempted.
+In the third (where no devices are listed) all md devices that are
+listed in the configuration file are assembled.
 
 The identity can be given with the 
 .B --uuid
 option, with the
 .B --super-minor
-option, can be found in in the config file, or will be taken from the
+option, can be found  in the config file, or will be taken from the
 super block on the first component-device listed on the command line.
 
 Devices can be given on the 
 .B --assemble
-command line or from the config file. Only devices which have an md
-superblock which contains the right identity will be considered for any device.
+command line or in the config file. Only devices which have an md
+superblock which contains the right identity will be considered for
+any array.
 
 The config file is only used if explicitly named with 
 .B --config
@@ -470,7 +549,7 @@ This usage will allow individual devices in an array to be failed,
 removed or added.  It is possible to perform multiple operations with
 on command. For example:
 .br
-.B "  mdadm /dev/md0 -f /dev/hda1 -r /dev/hda1 /a /dev/hda1"
+.B "  mdadm /dev/md0 -f /dev/hda1 -r /dev/hda1 -a /dev/hda1"
 .br
 will firstly mark
 .B /dev/hda1
@@ -706,62 +785,83 @@ the original array.
 
 .SH EXAMPLES
 
-To find out if a devices is a raid array or part of one:
+.B "  mdadm --query /dev/name-of-device"
 .br
-.B "  mdadm -Q /dev/name-of-device"
+This will find out if a given device is a raid array, or is part of
+one, and will provide brief information about the device.
 
-To assemble and start all array listed in the standard config file:
+.B "  mdadm --assemble --scan"
 .br
-.B "  mdadm -As"
+This will assemble and start all arrays listed in the standard confile
+file.  This command will typically go in a system startup file.
 
-To shut down all arrays (that are not still in used):
-.br
 .B "  mdadm --stop --scan"
-
-To monitor all arrays if (and only if) an email address or program
-was given in the config file, but poll every 2 minutes:
 .br
-.B "  mdadm -Fs --delay=120"
+This will shut down all array that can be shut down (i.e. are not
+currently in used).  This will typically going in a system shutdown script.
 
-To create /dev/md0 as a RAID1 array with /dev/hda1 and /dev/hdc1:
+.B "  mdadm --follow --scan --delay=120"
 .br
-.B "  mdadm -C /dev/md0 -l1 -n2 /dev/hd[ac]1"
+If (and only if) there is an Email address or program given in the
+standard config file, then
+monitor the status of all arrays listed in that file by
+polling them ever 2 minutes.
 
-To create prototype a config file that describes currently
-active arrays that are known to be made from partitions of
-IDE or SCSI drives:
+.B "  mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/hd[ac]1"
+.br
+Create /dev/md0 as a RAID1 array consisting of /dev/hda1 and /dev/hdc1.
+
 .br
 .B "  echo 'DEVICE /dev/hd*[0-9] /dev/sd*[0-9]' > mdadm.conf"
 .br
 .B "  mdadm --detail --scan >> mdadm.conf"
 .br
+This will create a prototype config file that describes currently
+active arrays that are known to be made from partitions of IDE or SCSI drives.
 This file should be reviewed before being used as it may
 contain unwanted detail.
 
-To find out what raid arrays could be assembled from existing
-IDE and SCSI whole drives (not partitions):
-.br
 .B "  echo 'DEVICE /dev/hd[a-z] /dev/sd*[a-z]' > mdadm.conf"
 .br
-.B "  mdadm -Es -c mdadm.conf >> mdadm.conf"
+.B "  mdadm --examine --scan --config=mdadm.conf >> mdadm.conf"
+.ber
+This will find what arrays could be assembled from existign IDE and
+SCSI whole drives (not partitions) and store the information is the
+format of a config file.
 This file is very likely to contain unwanted detail, particularly
 the
 .B devices=
-entries.
+entries.  It should be reviewed and edited before being used as an
+actual config file.
 
-To get help about Create mode:
+.B "  mdadm --examine --brief --scan --config=partitions"
 .br
+.B "  mdadm -Ebsc partitions"
+.br
+Create a list of devices by reading
+.BR /proc/partitions ,
+scan these for RAID superblocks, and printout a brief listing of all
+that was found.
+
+.B "  mdadm -Ac partitions -m 0 /dev/md0"
+.br
+Scan all partitions and devices listed in
+.BR /proc/partitions
+and assemble
+.B /dev/md0
+out of all such devices with a RAID superblock with a minor number of 0.
+
 .B "  mdadm --create --help"
-
-To get help about the format of the config file:
 .br
+Providew help about the Create mode.
+
 .B "  mdadm --config --help"
-
-To get general help:
 .br
+Provide help about the format of the config file.
+
 .B "  mdadm --help"
-
-
+.br
+Provide general help.
 
 
 .SH FILES

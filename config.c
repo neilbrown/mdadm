@@ -201,6 +201,33 @@ struct conf_dev {
     char *name;
 } *cdevlist = NULL;
 
+void load_partitions(void)
+{
+	FILE *f = fopen("/proc/partitions", "r");
+	char buf[1024];
+	if (f == NULL) {
+		fprintf(stderr, Name ": cannot open /proc/partitions\n");
+		return;
+	}
+	while (fgets(buf, 1024, f)) {
+		int major, minor;
+		char *name;
+		buf[1023] = '\0';
+		if (buf[0] != ' ')
+			continue;
+		if (sscanf(buf, " %d %d ", &major, &minor) != 2)
+			continue;
+		name = map_dev(major, minor);
+		if (name) {
+			struct conf_dev *cd;
+
+			cd = malloc(sizeof(*cd));
+			cd->name = strdup(name);
+			cd->next = cdevlist;
+			cdevlist = cd;
+		}
+	}
+}
 
 
 void devline(char *line) 
@@ -214,6 +241,9 @@ void devline(char *line)
 			cd->name = strdup(w);
 			cd->next = cdevlist;
 			cdevlist = cd;
+		} else if (strcasecmp(w, "partitions") == 0) {
+			/* read /proc/partitions, and look major/minor up in /dev */
+			load_partitions();
 		} else {
 			fprintf(stderr, Name ": unreconised word on DEVICE line: %s\n",
 				w);
@@ -349,6 +379,10 @@ void load_conffile(char *conffile)
 	if (conffile == NULL)
 		conffile = DefaultConfFile;
 
+	if (strcmp(conffile, "partitions")==0) {
+		load_partitions();
+		return;
+	}
 	f = fopen(conffile, "r");
 	if (f ==NULL)
 		return;

@@ -202,13 +202,14 @@ struct conf_dev {
     char *name;
 } *cdevlist = NULL;
 
-void load_partitions(void)
+mddev_dev_t load_partitions(void)
 {
 	FILE *f = fopen("/proc/partitions", "r");
 	char buf[1024];
+	mddev_dev_t rv = NULL;
 	if (f == NULL) {
 		fprintf(stderr, Name ": cannot open /proc/partitions\n");
-		return;
+		return NULL;
 	}
 	while (fgets(buf, 1024, f)) {
 		int major, minor;
@@ -223,15 +224,16 @@ void load_partitions(void)
 
 		name = map_dev(major, minor);
 		if (name) {
-			struct conf_dev *cd;
+			mddev_dev_t d;
 
-			cd = malloc(sizeof(*cd));
-			cd->name = strdup(name);
-			cd->next = cdevlist;
-			cdevlist = cd;
+			d = malloc(sizeof(*d));
+			d->devname = strdup(name);
+			d->next = rv;
+			rv = d;
 		}
 	}
 	fclose(f);
+	return rv;
 }
 
 
@@ -241,14 +243,11 @@ void devline(char *line)
 	struct conf_dev *cd;
 
 	for (w=dl_next(line); w != line; w=dl_next(w)) {
-		if (w[0] == '/') {
+		if (w[0] == '/' || strcasecmp(w, "partitions") == 0) {
 			cd = malloc(sizeof(*cd));
 			cd->name = strdup(w);
 			cd->next = cdevlist;
 			cdevlist = cd;
-		} else if (strcasecmp(w, "partitions") == 0) {
-			/* read /proc/partitions, and look major/minor up in /dev */
-			load_partitions();
 		} else {
 			fprintf(stderr, Name ": unreconised word on DEVICE line: %s\n",
 				w);
@@ -422,7 +421,7 @@ void load_conffile(char *conffile)
 		return;
 	}
 	if (strcmp(conffile, "partitions")==0) {
-		load_partitions();
+		devline("DEV partitions");
 		loaded = 1;
 		return;
 	}
@@ -497,8 +496,12 @@ mddev_dev_t conf_get_devs(char *conffile)
 	load_conffile(conffile);
     
 	for (cd=cdevlist; cd; cd=cd->next) {
-		glob(cd->name, flags, NULL, &globbuf);
-		flags |= GLOB_APPEND;
+		if (strcasecmp(cd->name, "partitions")==0 && dlist == NULL)
+			dlist = load_partitions();
+		else {
+			glob(cd->name, flags, NULL, &globbuf);
+			flags |= GLOB_APPEND;
+		}
 	}
 	if (flags & GLOB_APPEND) {
 		for (i=0; i<globbuf.gl_pathc; i++) {

@@ -11,6 +11,8 @@ Changes Prior to 1.9.0 release
 	"MAJOR", "MINOR", "MKDEV" so that large device numbers work
 	on 2.6 (providing you have glibc 2.3.3 or later).
     -   Add some missing closes of open file descriptors.
+    -   Reread /proc/partition for every array assembled when using
+	it to find devices, rather than only once.
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

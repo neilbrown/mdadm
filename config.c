@@ -216,6 +216,7 @@ int devline(char *line)
 }
 
 mddev_uuid_t uuidlist = NULL;
+mddev_uuid_t *uidlp = &uuidlist;
 
 void arrayline(char *line)
 {
@@ -254,8 +255,9 @@ void arrayline(char *line)
 	mu = malloc(sizeof(*mu));
 	mu->devname = strdup(dev);
 	memcpy(mu->uuid, uuid, sizeof(uuid));
-	mu->next = uuidlist;
-	uuidlist = mu;
+	mu->next = NULL;
+	*uidlp = mu;
+	uidlp = &mu->next;
     }
 }
 		    

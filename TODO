@@ -20,3 +20,6 @@
 
 - when --assemble --scan, if an underlying device is an md device, 
   then try to assemble that device first.
+
+
+- mdctl -S /dev/md0 /dev/md1 gives internal error

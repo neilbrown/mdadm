@@ -341,7 +341,7 @@ int Assemble(char *mddev, int mdfd,
 		/* First, add the raid disks */
 		for (i=0; i<first_super.raid_disks; i++) {
 			int j = best[i];
-			if (devices[j].uptodate) {
+			if (j >= 0 && devices[j].uptodate) {
 				mdu_disk_info_t disk;
 				memset(&disk, 0, sizeof(disk));
 				disk.major = devices[j].major;

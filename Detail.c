@@ -161,7 +161,7 @@ int Detail(char *dev, int brief, int test)
 		atime = array.utime;
 		printf("    Update Time : %.24s\n", ctime(&atime));
 		printf("          State : %s%s%s\n",
-		       (array.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
+		       (array.state&(1<<MD_SB_CLEAN))?"clean":"active",
 		       array.active_disks < array.raid_disks? ", degraded":"",
 		       (!e || e->percent < 0) ? "" :
 		        (e->resync) ? ", resyncing": ", recovering");

@@ -154,7 +154,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			atime = super.utime;
 			printf("    Update Time : %.24s\n", ctime(&atime));
 			printf("          State : %s\n",
-			       (super.state&(1<<MD_SB_CLEAN))?"clean":"dirty");
+			       (super.state&(1<<MD_SB_CLEAN))?"clean":"active");
 			printf(" Active Devices : %d\n", super.active_disks);
 			printf("Working Devices : %d\n", super.working_disks);
 			printf(" Failed Devices : %d\n", super.failed_disks);

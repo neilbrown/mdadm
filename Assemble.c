@@ -98,6 +98,7 @@ int Assemble(char *mddev, int mdfd,
 	struct {
 		char *devname;
 		int major, minor;
+		int oldmajor, oldminor;
 		long long events;
 		time_t utime;
 		int uptodate;
@@ -255,6 +256,8 @@ int Assemble(char *mddev, int mdfd,
 		devices[devcnt].devname = devname;
 		devices[devcnt].major = MAJOR(stb.st_rdev);
 		devices[devcnt].minor = MINOR(stb.st_rdev);
+		devices[devcnt].oldmajor = super.this_disk.major;
+		devices[devcnt].oldminor = super.this_disk.minor;
 		devices[devcnt].events = md_event(&super);
 		devices[devcnt].utime = super.utime;
 		devices[devcnt].raid_disk = super.this_disk.raid_disk;
@@ -379,28 +382,43 @@ int Assemble(char *mddev, int mdfd,
 
 	for (i=0; i<MD_SB_DISKS; i++) {
 		int j = best[i];
-		int active_sync = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);
+		int desired_state;
+
+		if (i < super.raid_disks)
+			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);
+		else
+			desired_state = 0;
+
 		if (j<0)
 			continue;
 		if (!devices[j].uptodate)
 			continue;
-		if (devices[j].major != super.disks[j].major ||
-		    devices[j].minor != super.disks[j].minor) {
+#if 0
+This doesnt work yet 
+		if (devices[j].major != super.disks[i].major ||
+		    devices[j].minor != super.disks[i].minor) {
 			change |= 1;
-			super.disks[j].major = devices[j].major;
-			super.disks[j].minor = devices[j].minor;
+			super.disks[i].major = devices[j].major;
+			super.disks[i].minor = devices[j].minor;
+		}
+#endif 
+		if (devices[j].oldmajor != super.disks[i].major ||
+		    devices[j].oldminor != super.disks[i].minor) {
+			change |= 2;
+			super.disks[i].major = devices[i].oldmajor;
+			super.disks[i].minor = devices[i].oldminor;
 		}
 		if (devices[j].uptodate &&
-		    (super.disks[i].state != active_sync)) {
+		    (super.disks[i].state != desired_state)) {
 			if (force) {
 				fprintf(stderr, Name ": "
 					"clearing FAULTY flag for device %d in %s for %s\n",
 					j, mddev, devices[j].devname);
-				super.disks[i].state = active_sync;
+				super.disks[i].state = desired_state;
 				change |= 2;
 			} else {
 				fprintf(stderr, Name ": "
-					"device %d in %s is marked faulty in superblock, but %s seems ok\n",
+					"device %d in %s has wrong state in superblock, but %s seems ok\n",
 					i, mddev, devices[j].devname);
 			}
 		}

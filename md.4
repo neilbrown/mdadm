@@ -16,7 +16,7 @@ Array of Independant Devices.
 .B md
 support RAID levels 1 (mirroring) 4 (striped array with parity device) and 5
 (striped array with distributed parity information.  If a single underlying
-device fails while using one of these level, they array will continue
+device fails while using one of these level, the array will continue
 to function.
 .PP
 .B md
@@ -24,36 +24,65 @@ also supports a number of pseudo RAID (non-redundant) configuations
 including RAID0 (striped array), LINEAR (catenated array) and
 MULTIPATH (a set of different interfaces to the same device).
 
-.SS RAID SUPER BLOCK
+.SS MD SUPER BLOCK
 With the exception of Legacy Arrays described below, each device that
 is incorportated into an MD array has a
 .I super block
 written towards the end of the device.  This superblock records
 information about the structure and state of the array so that the
-array an be reliably re-assembled after a shutdown.
+array can be reliably re-assembled after a shutdown.
 
 The superblock is 4K long and is written into a 64K aligned block that
-start at least 64K and less than 128K from the end of the device
+starts at least 64K and less than 128K from the end of the device
 (i.e. to get the address of the superblock round the size of the
 device down to a multiple of 64K and then subtract 64K).
-The available size of each device is the ammount of space before the
+The available size of each device is the amount of space before the
 super block, so between 64K and 128K is lost when a device in
 incorporated into an MD array.
 
 The superblock contains, among other things:
 .TP
 LEVEL
-The 
+The manner in which the devices are arranged into the array
+(linear, raid0, raid1, raid4, raid5, multipath).
 .TP
 UUID
 a 128 bit Universally Unique Identifier that identifies the array that
 this device is part of.
 
+.SS LEGACY ARRAYS
+Early versions of the
+.B md
+driver only supported Linear and Raid0 configurations and so
+did not use an MD superblock (as there is not state that needs to be
+recorded).  While it is strongly recommended that all newly created
+arrays utilise a superblock to help ensure that they are assembled
+properly, the
+.B md
+driver still supports legacy linear and raid0 md arrays that
+do not have a superblock.
+
 .SS LINEAR
+
+A linear array simply catenates the available space on each
+drive together to form one large virtual drive.
+
+One advantage of this arrangement over the more common RAID0
+arrangement is that the array may be reconfigured at a later time with
+an extra drive and so the array is made bigger without disturbing the
+data that is on the array.  However this cannot be done on a live
+array.
+
+
+
 .SS RAID0
+
+A RAID0 array (which has zero redundancy) is also known as a
+striped array.
 .SS RAID1
 .SS RAID4
 .SS RAID5
+.SS MUTIPATH
 .SS REBUILD/RESYNC
 .SH FILES
 .TP

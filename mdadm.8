@@ -36,7 +36,8 @@ Recent kernels (2002) also support a mode known as
 does not support MULTIPATH as yet.
 
 .B mdadm
-is a program that can be used to create and manage MD devices.  As
+is a program that can be used to create, manage, and monitor
+MD devices.  As
 such it provides a similar set of functionality to the
 .B raidtools
 packages.
@@ -479,69 +480,12 @@ This file is not currently used by
 
 .SS /etc/mdadm.conf
 
-The config file is line oriented with, as usual, blank lines and lines
-beginning with a hash (or pound sign or sharp or number sign,
-whichever you like to call it) ignored.
-Lines that start with a blank are treated as continuations of the
-previous line (I don't like trailing slashes).
+The config file lists which devices may be scanned to see if
+they contain MD super block, and gives identifying information
+(e.g. UUID) about known MD arrays.  See
+.BR mdadm.conf (5)
+for more details.
 
-Each line contains a sequence of space-separated words, the first of
-which identified the type of line. Keywords are case-insensitive, and
-the first work on a line can be abbreviated to 3 letters.
-
-There are two types of lines. ARRAY and DEVICE.
-
-The DEVICE lines usually come first. All remaining words on the line
-are treated as names of devices, possibly containing wild cards (see
-.IR glob (7)).
-These list all the devices that
-.B mdadm
-is allowed to scan
-when looking for devices with RAID superblocks.
-Each line can contain multiple device names, and there can be multiple
-DEVICE lines.  For example:
-.IP
-DEVICE /dev/hda* /dev/hdc*
-.br
-DEV    /dev/sd*
-.br
-DEVICE /dev/discs/disc*/disc
-.PP
-The ARRAY lines identify actual arrays.  The second word on the line
-should be the name of the device where the array is normally
-assembled, such as /dev/md1.
-Subsequent words identify the array. If multiple identities are given,
-then the array much match ALL identities to be considered a match.
-Each identity word has a tag, and equals sign, and some value.
-The options are:
-
-.TP
-.B uuid=
-The value should be a 128 bit uuid in hexadecimal, with punctuation
-interspersed if desired.  This must match the uuid stored in the
-superblock.
-.TP
-.B super-minor=
-The value is an integer which indicates the minor number that was
-stored in the superblock when the array was created. When an array is
-created as /dev/mdX, then the minor number X is stored.
-.TP
-.B devices=
-The value is a comma separated list of device names. Precisely these
-devices will be used to assemble the array.  Note that the devices
-listed there must also be listed on a DEVICE line.
-.TP
-.B level=
-The value is a raid level.  This is normally used to identify an
-array, but is supported so that the output of
-.B "mdadm --examine --scan"
-can be use directly in the configuration file.
-.TP
-.B disks=
-The value is the number of disks in a complete active array.  As with
-.B level=
-this is mainly for compatibility with the output of
-.BR "mdadm --examine --scan" .
 
 .SH TODO
 

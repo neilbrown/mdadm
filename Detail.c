@@ -83,9 +83,12 @@ int Detail(char *dev, int brief)
 	else {
 		long array_size;
 		long long larray_size;
+#ifdef BLKGETSIZE64
 		if (ioctl(fd, BLKGETSIZE64, &larray_size)==0)
 			;
-		else if (ioctl(fd, BLKGETSIZE, &array_size)==0)
+		else
+#endif
+			if (ioctl(fd, BLKGETSIZE, &array_size)==0)
 			larray_size = array_size<<9;
 		else larray_size = 0;
 

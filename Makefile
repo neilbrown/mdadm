@@ -28,7 +28,13 @@
 #
 
 CC = gcc
-CFLAGS = -Wall,error,strict-prototypes -ggdb
+SYSCONFDIR = /etc
+CONFFILE = $(SYSCONFDIR)/mdadm.conf
+CFLAGS = -Wall,error,strict-prototypes -ggdb -DCONFFILE=\"$(CONFFILE)\"
+
+# If you want a static binary, you might uncomment these
+# LDFLAGS = -static
+# STRIP = -s
 
 INSTALL = /usr/bin/install
 DESTDIR = /.
@@ -40,7 +46,7 @@ OBJS =  mdadm.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o D
 all : mdadm mdadm.man md.man mdadm.conf.man
 
 mdadm : $(OBJS)
-	$(CC) -o mdadm $^
+	$(CC) $(LDFLAGS) -o mdadm $^
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man
@@ -54,7 +60,7 @@ mdadm.conf.man : mdadm.conf.5
 $(OBJS) : mdadm.h
 
 install : mdadm mdadm.8
-	$(INSTALL) -m 755 mdadm $(DESTDIR)/$(BINDIR)
+	$(INSTALL) $(STRIP) -m 755 mdadm $(DESTDIR)/$(BINDIR)
 	$(INSTALL) -m 644 mdadm.8 $(DESTDIR)/$(MANDIR)
 
 clean : 

@@ -10,18 +10,18 @@ SSYYNNOOPPSSIISS
        /etc/mdadm.conf
 
 DDEESSCCRRIIPPTTIIOONN
-       mmddaaddmm is a tools for creating  an  managing  RAID  devices
-       using the mmdd driver in Linux.
+       mmddaaddmm is a tool for  creating,  managing,  and  monitoring
+       RAID devices using the mmdd driver in Linux.
 
        Some  common  tasks, such as assembling all arrays, can be
        simplified by describing the devices  and  array  in  this
-       configuations file.
+       configuation file.
 
 
    SSYYNNTTAAXX
        The file should be seen as a collection of words separated
        by white space (space, tab, or newline).   Any  word  that
-       being  with a hash sign (#) starts a comment and that word
+       beings with a hash sign (#) starts a comment and that word
        together with the remainder of the line are ignored.
 
        Any line that start with white space  (space  or  tab)  is
@@ -47,11 +47,58 @@ DDEESSCCRRIIPPTTIIOONN
               Also,  there may be several device lines present in
               the file.
 
+              For example:
 
-       AARRRRAAYY
+              DEVICE /dev/hda* /dev/hdc*
+              DEV    /dev/sd*
+              DEVICE /dev/discs/disc*/disc
+
+
+       AARRRRAAYY  The ARRAY lines identify actual arrays.  The second
+              word  on  the line should be the name of the device
+              where the array  is  normally  assembled,  such  as
+              //ddeevv//mmdd11.   Subsequent words identify the array. If
+              multiple identities are given, then the array  must
+              match  ALL  identities  to  be  considered a match.
+              Each identity word has a tag, and equals sign,  and
+              some value.  The options are:
+
+
+           uuuuiidd==  The value should be a 128 bit uuid in hexadeci-
+                  mal, with punctuation interspersed if  desired.
+                  This   must   match  the  uuid  stored  in  the
+                  superblock.
+
+           ssuuppeerr--mmiinnoorr==
+                  The value is an  integer  which  indicates  the
+                  minor  number that was stored in the superblock
+                  when the array was created. When  an  array  is
+                  created as /dev/mdX, then the minor number X is
+                  stored.
+
+           ddeevviicceess==
+                  The value is a comma separated list  of  device
+                  names.  Precisely these devices will be used to
+                  assemble the  array.   Note  that  the  devices
+                  listed  there  must  also be listed on a DEVICE
+                  line.
+
+           lleevveell== The value is a raid level.  This  is  not  nor-
+                  mally  used  to  identify an array, but is sup-
+                  ported so that the output of
+
+                  mmddaaddmm ----eexxaammiinnee ----ssccaann
+
+                  can be use directly in the configuration  file.
+
+           ddiisskkss== The  value is the number of disks in a complete
+                  active array.  As with lleevveell==  this  is  mainly
+                  for compatibility with the output of
+
+                  mmddaaddmm ----eexxaammiinnee ----ssccaann.
 
 SSEEEE AALLSSOO
-       mdadm (8), md (4).
+       mmddaaddmm(8), mmdd(4).
 
 
 

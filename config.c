@@ -65,7 +65,10 @@
  *
  */
 
-char DefaultConfFile[] = "/etc/mdadm.conf";
+#ifndef CONFFILE
+#define CONFFILE "/etc/mdadm.conf"
+#endif
+char DefaultConfFile[] = CONFFILE;
 
 char *keywords[] = { "device", "array", NULL };
 

@@ -19,8 +19,8 @@ DDEESSCCRRIIPPTTIIOONN
        mmdd support RAID levels 1 (mirroring) 4 (striped array with
        parity device) and 5 (striped array with distributed  par-
        ity  information.   If  a  single  underlying device fails
-       while using one of these level, they array  will  continue
-       to function.
+       while using one of these level, the array will continue to
+       function.
 
        mmdd  also  supports a number of pseudo RAID (non-redundant)
        configuations  including  RAID0  (striped  array),  LINEAR
@@ -28,36 +28,64 @@ DDEESSCCRRIIPPTTIIOONN
        faces to the same device).
 
 
-   RRAAIIDD SSUUPPEERR BBLLOOCCKK
+   MMDD SSUUPPEERR BBLLOOCCKK
        With the exception of Legacy Arrays described below,  each
        device  that is incorportated into an MD array has a _s_u_p_e_r
        _b_l_o_c_k  written  towards  the  end  of  the  device.   This
        superblock  records  information  about  the structure and
-       state of the array so that the array an  be  reliably  re-
+       state of the array so that the array can be  reliably  re-
        assembled after a shutdown.
 
        The  superblock  is  4K  long  and  is  written into a 64K
-       aligned block that start at least 64K and less  than  128K
+       aligned block that starts at least 64K and less than  128K
        from the end of the device (i.e. to get the address of the
        superblock round the size of the device down to a multiple
        of 64K and then subtract 64K).  The available size of each
-       device is the ammount of space before the super block,  so
+       device is the amount of space before the super  block,  so
        between 64K and 128K is lost when a device in incorporated
        into an MD array.
 
        The superblock contains, among other things:
 
-       LEVEL  The
+       LEVEL  The manner in which the devices are  arranged  into
+              the array (linear, raid0, raid1, raid4, raid5, mul-
+              tipath).
 
        UUID   a 128 bit Universally Unique Identifier that  iden-
               tifies the array that this device is part of.
 
 
+   LLEEGGAACCYY AARRRRAAYYSS
+       Early  versions of the mmdd driver only supported Linear and
+       Raid0 configurations and so did not use an  MD  superblock
+       (as  there is not state that needs to be recorded).  While
+       it is strongly recommended that all newly  created  arrays
+       utilise  a  superblock to help ensure that they are assem-
+       bled properly, the mmdd driver still supports legacy  linear
+       and raid0 md arrays that do not have a superblock.
+
+
    LLIINNEEAARR
+       A  linear  array  simply  catenates the available space on
+       each drive together to form one large virtual drive.
+
+       One advantage of this arrangement  over  the  more  common
+       RAID0 arrangement is that the array may be reconfigured at
+       a later time with an extra drive and so the array is  made
+       bigger  without  disturbing the data that is on the array.
+       However this cannot be done on a live array.
+
+
+
+
    RRAAIIDD00
+       A RAID0 array (which has zero redundancy) is also known as
+       a striped array.
+
    RRAAIIDD11
    RRAAIIDD44
    RRAAIIDD55
+   MMUUTTIIPPAATTHH
    RREEBBUUIILLDD//RREESSYYNNCC
 FFIILLEESS
        //pprroocc//mmddssttaatt

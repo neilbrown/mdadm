@@ -1,0 +1,423 @@
+mdadm(8)                                                 mdadm(8)
+
+
+
+NNAAMMEE
+       mdadm - manage MD devices _a_k_a Linux Software Raid.
+
+
+SSYYNNOOPPSSIISS
+       mmddaaddmm _[_m_o_d_e_] _<_r_a_i_d_d_e_v_i_c_e_> _[_o_p_t_i_o_n_s_] _<_s_u_b_d_e_v_i_c_e_s_>
+
+
+DDEESSCCRRIIPPTTIIOONN
+       RAID  devices are virtual devices created from two or more
+       real block devices. This allows  multiple  devices  (typi-
+       cally  disk  drives or partitions there-of) to be combined
+       into a single  device  to  hold  (for  example)  a  single
+       filesystem.   Some  RAID levels included redundancy and so
+       can survive some degree of device failure.
+
+       Linux Software RAID devices are implemented through the md
+       (Multiple Devices) device driver.
+
+       Currently, Linux supports LLIINNEEAARR md devices, RRAAIIDD00 (strip-
+       ing), RRAAIIDD11 (mirroring), RRAAIIDD44 and RRAAIIDD55..
+
+       Recent kernels (2002) also support a mode known as  MMUULLTTII--
+       PPAATTHH.  mmddaaddmm does not support MULTIPATH as yet.
+
+       mmddaaddmm is a program that can be used to create, manage, and
+       monitor MD devices.  As such it provides a similar set  of
+       functionality  to the rraaiiddttoooollss packages.  The key differ-
+       ences between mmddaaddmm and rraaiiddttoooollss are:
+
+       +o   mmddaaddmm is a single program and not a collection of pro-
+           grams.
+
+       +o   mmddaaddmm  can perform (almost) all of its functions with-
+           out having a configuration  file.   Also  mdadm  helps
+           with management of the configuration file.
+
+       +o   mmddaaddmm   can  provide  information  about  your  arrays
+           (through Detail and Examine) that rraaiiddttoooollss cannot.
+
+       +o   rraaiiddttoooollss can manage  MULTIPATH  devices  which  mmddaaddmm
+           cannot yet manage.
+
+
+MMOODDEESS
+       mdadm has 7 major modes of operation:
+
+       AAsssseemmbbllee
+              Assemble  the  parts  of a previously created array
+              into an active array. Components can be  explicitly
+              given  or  can  be searched for.  mmddaaddmm checks that
+              the components do form a bona fide array, and  can,
+              on  request, fiddle superblock information so as to
+              assemble a faulty array.
+
+
+       BBuuiilldd  Build   a   legacy   array    without    per-device
+              superblocks.
+
+
+       CCrreeaattee Create a new array with per-device superblocks.
+
+
+       DDeettaaiill Display  the details of a given md device.  Details
+              include the RAID  level,  the  number  of  devices,
+              which ones are faulty (if any), and the array UUID.
+
+
+       EExxaammiinnee
+              Examine a device to see if it  is  part  of  an  md
+              array,  and  print  out  the details of that array.
+              This mode can also be used to examine a large  num-
+              ber  of  devices  and to print out a summary of the
+              arrays  found  in  a  format   suitable   for   the
+              mmddaaddmm..ccoonnff configuration file.
+
+
+       FFoollllooww oorr MMoonniittoorr
+              Monitor one or more md devices and act on any state
+              changes.
+
+
+       MMaannaaggee This  is  for  odd  bits  an  pieces  like  hotadd,
+              hotremove, setfaulty, stop, readonly, readwrite.
+
+
+OOPPTTIIOONNSS
+       Available options are:
+
+
+       --AA, ----aasssseemmbbllee
+              Assemble an existing array.
+
+
+       --BB, ----bbuuiilldd
+              Build a legacy array without superblocks.
+
+
+       --CC, ----ccrreeaattee
+              Create a new array.
+
+
+       --DD, ----ddeettaaiill
+              Print detail of one or more md devices.
+
+
+       --EE, ----eexxaammiinnee
+              Print content of md superblock on device(s).
+
+
+       --FF, ----ffoollllooww, ----mmoonniittoorr
+              Select MMoonniittoorr mode.
+
+
+       --hh, ----hheellpp
+              Display  help  message or, after above option, mode
+              specific help message.
+
+
+       --VV, ----vveerrssiioonn
+              Print version information for mdadm.
+
+
+       --vv, ----vveerrbboossee
+              Be more verbose about what is happening.
+
+
+       --bb, ----bbrriieeff
+              Be less verbose.  This is used  with  ----ddeettaaiill  and
+              ----eexxaammiinnee.
+
+
+FFoorr ccrreeaattee oorr bbuuiilldd::
+       --cc, ----cchhuunnkk==
+              Specify  chunk  size  of kibibytes.  The default is
+              64.
+
+
+       ----rroouunnddiinngg==
+              Specify rounding factor for linear  array  (==chunk
+              size)
+
+
+       --ll, ----lleevveell==
+              Set  raid  level.   Options  are: linear, raid0, 0,
+              stripe, raid1,  1,  mirror,  raid5,  4,  raid5,  5.
+              Obviously  some  of these are synonymous.  Only the
+              first 4 are valid when Building.
+
+
+       --pp, ----ppaarriittyy==
+              Set   raid5   parity   algorithm.   Options    are:
+              {left,right}-{,a}symmetric,  la,  ra,  ls, rs.  The
+              default is left-symmetric.
+
+
+       ----llaayyoouutt==
+              same as --parity
+
+
+       --nn, ----rraaiidd--ddiisskkss==
+              number of active devices in array.
+
+
+       --xx, ----ssppaarree--ddiisskkss==
+              number of spare (eXtra)  disks  in  initial  array.
+              Spares can be added and removed later.
+
+
+       --zz, ----ssiizzee==
+              Amount  (in  Kibibytes)  of  space to use from each
+              drive in RAID1/4/5.  This must be a multiple of the
+              chunk  size, and must leave about 128Kb of space at
+              the end of the drive for the RAID  superblock.   If
+              this  is  not specified (as it normally is not) the
+              smallest drive (or partition) sets the size, though
+              if  there is a variance among the drives of greater
+              than 1%, a warning is issued.
+
+
+FFoorr aasssseemmbbllee::
+       --uu, ----uuuuiidd==
+              uuid of array to assemble. Devices which don't have
+              this uuid are excluded
+
+
+       --mm, ----ssuuppeerr--mmiinnoorr==
+              Minor  number of device that array was created for.
+              Devices which don't  have  this  minor  number  are
+              excluded.  If you create an array as /dev/md1, then
+              all superblock will contain  the  minor  number  1,
+              even if the array is later assembled as /dev/md2.
+
+
+       --cc, ----ccoonnffiigg==
+              config file.  Default is //eettcc//mmddaaddmm..ccoonnff.
+
+
+       --ss, ----ssccaann
+              scan config file for missing information
+
+
+       --ff, ----ffoorrccee
+              Assemble  the array even if some superblocks appear
+              out-of-date
+
+
+       --RR, ----rruunn
+              Attempt to start the array  even  if  fewer  drives
+              were  given  than are needed for a full array. Nor-
+              mally if not all drives are found and ----ssccaann is not
+              used,  then  the  array  will  be assembled but not
+              started.  With ----rruunn an attempt  will  be  made  to
+              start it anyway.
+
+
+GGeenneerraall mmaannaaggeemmeenntt
+       --aa, ----aadddd
+              hotadd listed devices.
+
+
+       --rr, ----rreemmoovvee
+              remove  listed  devices.   The  must not be active.
+              i.e. they should be failed or spare devices.
+
+
+       --ff, ----ffaaiill
+              mark listed devices as faulty.
+
+
+       ----sseett--ffaauullttyy
+              same as --fail.
+
+
+       --RR, ----rruunn
+              start a partially built array.
+
+
+       --SS, ----ssttoopp
+              deactivate array, releasing all resources.
+
+
+       --oo, ----rreeaaddoonnllyy
+              mark array as readonly.
+
+
+       --ww, ----rreeaaddwwrriittee
+              mark array as readwrite.
+
+
+
+AASSSSEEMMBBLLYY MMOODDEE
+       Usage: mmddaaddmm ----aasssseemmbbllee _d_e_v_i_c_e _o_p_t_i_o_n_s_._._.
+
+       Usage: mmddaaddmm ----aasssseemmbbllee ----ssccaann _o_p_t_i_o_n_s_._._.
+
+
+       This usage assembles one or more  raid  arrays  from  pre-
+       existing  components.  For each array, mdadm needs to know
+       the md device, the identity of the array, and a number  of
+       sub devices. These can be found in a number of ways.
+
+       The  md  device  is either given before ----ssccaann or is found
+       from the config file. In  the  latter  case,  multiple  md
+       devices can be started with a single mdadm command.
+
+       The identity can be given with the ----uuuuiidd option, with the
+       ----ssuuppeerr--mmiinnoorr option, can be found in in the config  file,
+       or  will be taken from the super block on the first subde-
+       vice listed on the command line.
+
+       Devices can be given on the  ----aasssseemmbbllee  command  line  or
+       from  the  config  file.  Only  devices  which  have an md
+       superblock which contains the right identity will be  con-
+       sidered for any device.
+
+       The  config  file  is  only  used if explicitly named with
+       ----ccoonnffiigg or requested with ----ssccaann..   In  the  later  case,
+       //eettcc//mmddaaddmm..ccoonnff is used.
+
+       If  ----ssccaann is not given, then the config file will only be
+       used to find the identity of md arrays.
+
+       Normally the array will be started after it is  assembled.
+       However  is  ----ssccaann  is  not given and insufficient drives
+       were lists to start a complete (non-degraded) array,  then
+       the  array is not started (to guard against usage errors).
+       To insist that the array be started in this case  (as  may
+       work for RAID1 or RAID5), give the ----rruunn flag.
+
+
+
+BBUUIILLDD MMOODDEE
+       Usage:  mmddaaddmm  ----bbuuiilldd  _d_e_v_i_c_e ----cchhuunnkk==_X ----lleevveell==_Y ----rraaiidd--
+                   ddiisskkss==_Z _d_e_v_i_c_e_s
+
+
+       This usage is similar to ----ccrreeaattee.  The difference is that
+       it creates a legacy array without a superblock. With these
+       arrays there is no difference between  initially  creating
+       the  array  and  subsequently assembling the array, except
+       that hopefully there is useful data there  in  the  second
+       case.
+
+       The  level  may  only  be 0, raid0, or linear. All devices
+       must be listed and the array will  be  started  once  com-
+       plete.
+
+
+CCRREEAATTEE MMOODDEE
+       Usage: mmddaaddmm ----ccrreeaattee _d_e_v_i_c_e ----cchhuunnkk==_X ----lleevveell==_Y
+                   ----rraaiidd--ddiisskkss==_Z _d_e_v_i_c_e_s
+
+
+       This  usage will initialise a new md array, associate some
+       devices with it, and activate the array.
+
+       As devices are added, they are checked to see if they con-
+       tain  raid superblocks or filesystems. They are also check
+       to see if the variance in device size exceeds 1%.
+
+       If any discrepancy is found, the array will not  automati-
+       cally  be run, though the presence of a ----rruunn can override
+       this caution.
+
+
+       The General Management options that are valid with  --cre-
+       ate are:
+
+       ----rruunn  insist  of  running  the array even if some devices
+              look like they might be in use.
+
+
+       ----rreeaaddoonnllyy
+              start the array readonly - not supported yet.
+
+
+DDEETTAAIILL MMOODDEE
+       Usage: mmddaaddmm ----ddeettaaiill [----bbrriieeff] _d_e_v_i_c_e _._._.
+
+
+       This usage sill print out the details of the  given  array
+       including a list of component devices.  To determine names
+       for the devices, mmddaaddmm searches //ddeevv for device files with
+       the right major and minor numbers.
+
+       With  ----bbrriieeff  mmddaaddmm  prints a single line that identifies
+       the level, number of disks, and UUID of the  array.   This
+       line is suitable for inclusion in //eettcc//mmddaaddmm..ccoonnff.
+
+
+EEXXAAMMIINNEE MMOODDEE
+       Usage: mmddaaddmm ----eexxaammiinnee [----ssccaann] [----bbrriieeff] _d_e_v_i_c_e _._._.
+
+       This  usage will examine some block devices to see if that
+       have a valid RAID superblock on them.  The information  in
+       each valid raid superblock will be printed.
+
+       If  ----ssccaann  is  used, the no devices should be listed, and
+       the complete set of devices identified in  the  configura-
+       tion  file  are  checked.  ----ssccaann implies ----bbrriieeff but this
+       implication can be countered by specifying ----vveerrbboossee.
+
+       With ----bbrriieeff mmddaaddmm will output an  config  file  entry  of
+       each  distinct array that was found.  This entry will list
+       the UUID, the raid level, and a  list  of  the  individual
+       devices  on  which  a superblock for that array was found.
+       This output will by syntactically suitable  for  inclusion
+       in the configuration file, but should NNOOTT be used blindly.
+       Often the array description that you want in the  configu-
+       ration file is much less specific than that given by mmddaaddmm
+       --BBss.  For example, you normally do not want  to  list  the
+       devices, particularly if they are SCSI devices.
+
+
+
+FFIILLEESS
+   //pprroocc//mmddssttaatt
+       If  you're  using the //pprroocc filesystem, //pprroocc//mmddssttaatt gives
+       you informations about md devices status.   This  file  is
+       not currently used by mmddaaddmm.
+
+
+   //eettcc//mmddaaddmm..ccoonnff
+       The  config file lists which devices may be scanned to see
+       if they contain MD  super  block,  and  gives  identifying
+       information  (e.g.  UUID)  about  known  MD  arrays.   See
+       mmddaaddmm..ccoonnff(5) for more details.
+
+
+
+TTOODDOO
+       Finish and document Follow mode.
+
+
+SSEEEE AALLSSOO
+       For information on the various levels of RAID, check out:
+
+
+              http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
+
+       for new releases of the RAID driver check out:
+
+
+              ftp://ftp.kernel.org/pub/linux/kernel/peo-
+              ple/mingo/raid-patches
+
+       or
+
+              http://www.cse.unsw.edu.au/~neilb/patches/linux-
+              stable/
+
+       mmddaaddmm..ccoonnff(5), mmdd(4).
+
+       _r_a_i_d_t_a_b(5), _r_a_i_d_0_r_u_n(8), _r_a_i_d_s_t_o_p(8), _m_k_r_a_i_d(8)
+
+
+
+                                                         mdadm(8)

@@ -8,9 +8,9 @@ else echo $target is not a directory
 fi
 set `grep '^char Version' ReadMe.c `
 version=`echo $7 | sed 's/v//'`
-grep "^Version: $version$" mdadm.spec > /dev/null 2>&1 || 
+grep "^Version: *$version$" mdadm.spec > /dev/null 2>&1 || 
  {
-   echo mdadm.conf does not mention version $version.
+   echo mdadm.spec does not mention version $version.
    exit 1
  }
 echo version = $version

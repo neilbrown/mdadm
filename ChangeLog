@@ -1,4 +1,15 @@
-Changed Prior to 0.8 release
+Changes Prior to this release
+    -   mdadm.spec updates and ifdef BLKGETSIZE64 from  Luca Berra -- bluca@comedia.it
+    -   more mdadm.spec updates from  Gregory Leblanc <gleblanc@linuxweasel.com>
+    -   make directory for mdadm.conf configurable in Makefile
+    -   Finished mdadm.conf.5.  Removed details of conf file from
+	mdadm.8 leaving a reference to mdadm.conf.5.
+    -   Fix bug in Assemble.c, thanks to Junaid Rizvi <domdev@sat.net.pk>
+    -   Get --assemble --force to make sure old major/minor numbers are
+        consistant, as md.c worries about this :-(
+	
+	
+Changes Prior to 0.7.1 release
     -   update mdadm.spec
     -   use BLKGETSIZE64 if available for array size
     -   give human readable as GiB/MiB and GB and MB, with 2 decimal point precision

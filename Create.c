@@ -187,7 +187,7 @@ int Create(char *mddev, int mdfd,
 		array.working_disks++;
 		if (dnum < raiddisks)
 			array.active_disks++;
-		fd = open(dname, O_RDONLY, 0);
+		fd = open(dname, O_RDONLY|O_EXCL, 0);
 		if (fd <0 ) {
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				dname, strerror(errno));
@@ -368,7 +368,7 @@ int Create(char *mddev, int mdfd,
 			disk.minor = 0;
 			disk.state = 1; /* faulty */
 		} else {
-			fd = open(dv->devname, O_RDONLY, 0);
+			fd = open(dv->devname, O_RDONLY|O_EXCL, 0);
 			if (fd < 0) {
 				fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
 					dv->devname);

@@ -1,3 +1,7 @@
+Changes Prior to 1.10.0 release
+    -   Fix bug with --config=partitions
+    -   Open sub-devices with O_EXCL to detect if already in use
+
 Changes Prior to 1.9.0 release
     -   Fix rpm build problem (stray %)
     -   Minor manpage updates

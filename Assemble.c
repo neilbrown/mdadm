@@ -193,7 +193,7 @@ int Assemble(char *mddev, int mdfd,
 			continue;
 		}
 		
-		dfd = open(devname, O_RDONLY, 0);
+		dfd = open(devname, O_RDONLY|O_EXCL, 0);
 		if (dfd < 0) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": cannot open device %s: %s\n",
@@ -326,7 +326,7 @@ int Assemble(char *mddev, int mdfd,
 				super.recovery_cp = 0;
 			}
 			super.sb_csum = calc_sb_csum(&super);
-			dfd = open(devname, O_RDWR, 0);
+			dfd = open(devname, O_RDWR|O_EXCL, 0);
 			if (dfd < 0) 
 				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
 					devname);
@@ -435,7 +435,7 @@ int Assemble(char *mddev, int mdfd,
 			devices[chosen_drive].devname, devices[chosen_drive].raid_disk,
 			(int)(devices[chosen_drive].events),
 			(int)(devices[most_recent].events));
-		fd = open(devices[chosen_drive].devname, O_RDWR);
+		fd = open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
 		if (fd < 0) {
 			fprintf(stderr, Name ": Couldn't open %s for write - not updating\n",
 				devices[chosen_drive].devname);
@@ -484,7 +484,7 @@ int Assemble(char *mddev, int mdfd,
 		if (!devices[j].uptodate)
 			continue;
 		chosen_drive = j;
-		if ((fd=open(devices[j].devname, O_RDONLY))< 0) {
+		if ((fd=open(devices[j].devname, O_RDONLY|O_EXCL))< 0) {
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				devices[j].devname, strerror(errno));
 			return 1;
@@ -556,7 +556,7 @@ This doesnt work yet
 	    || (old_linux && (change & 1))) {
 		int fd;
 		super.sb_csum = calc_sb_csum(&super);
-		fd = open(devices[chosen_drive].devname, O_RDWR);
+		fd = open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
 		if (fd < 0) {
 			fprintf(stderr, Name ": Could open %s for write - cannot Assemble array.\n",
 				devices[chosen_drive].devname);

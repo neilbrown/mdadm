@@ -44,7 +44,7 @@ int Kill(char *dev, int force)
 	mdp_super_t super;
 	int fd, rv = 0;
 		
-	fd = open(dev, O_RDWR);
+	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
 		fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
 			dev);

@@ -194,6 +194,14 @@ int Manage_subdevs(char *devname, int fd,
 			return 1;
 		case 'a':
 			/* add the device - hot or cold */
+			/* Make sure it isn' in use (in 2.6 or later) */
+			fd = open(dv->devname, O_RDONLY|O_EXCL);
+			if (fd < 0) {
+				fprintf(stderr, Name ": Cannot open %s: %s\n",
+					dv->devname, strerror(errno));
+				return 1;
+			}
+			close(fd);
 			if (ioctl(fd, HOT_ADD_DISK, (unsigned long)stb.st_rdev)==0) {
 				fprintf(stderr, Name ": hot added %s\n",
 					dv->devname);

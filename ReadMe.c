@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v0.8.1 -  6 April 2002\n";
+char Version[] = Name " - v0.8.2 - 11 April 2002\n";
 /*
  * File: ReadMe.c
  *
@@ -115,7 +115,9 @@ struct option long_options[] = {
     {"parity",    1, 0, 'p'}, /* {left,right}-{a,}symetric */
     {"layout",    1, 0, 'p'},
     {"raid-disks",1, 0, 'n'},
+    {"raid-devices",1, 0, 'n'},
     {"spare-disks",1,0, 'x'},
+    {"spare-devices",1,0, 'x'},
     {"size"      ,1, 0, 'z'},
 
     /* For assemble */
@@ -195,8 +197,8 @@ char Help[] =
 "  --level=      -l   : raid level: 0,1,4,5,linear,mp.  0 or linear for build\n"
 "  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
-"  --raid-disks= -n   : number of active devices in array\n"
-"  --spare-disks= -x  : number of spares (eXtras) devices in initial array\n"
+"  --raid-devices= -n : number of active devices in array\n"
+"  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
@@ -233,7 +235,7 @@ char Help[] =
 */
 
 char Help_create[] =
-"Usage:  mdadm --create device -chunk=X --level=Y --raid-disks=Z devices\n"
+"Usage:  mdadm --create device -chunk=X --level=Y --raid-devices=Z devices\n"
 "\n"
 " This usage will initialise a new md array and associate some\n"
 " devices with it.  If enough devices are given to complete the array,\n"
@@ -259,8 +261,8 @@ char Help_create[] =
 "  --level=      -l   : raid level: 0,1,4,5,linear,multipath and synonyms\n"
 "  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
-"  --raid-disks= -n   : number of active devices in array\n"
-"  --spare-disks= -x  : number of spares (eXtras) devices in initial array\n"
+"  --raid-devices= -n : number of active devices in array\n"
+"  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
@@ -271,7 +273,7 @@ char Help_create[] =
 ;
 
 char Help_build[] =
-"Usage:  mdadm --build device -chunk=X --level=Y --raid-disks=Z devices\n"
+"Usage:  mdadm --build device -chunk=X --level=Y --raid-devices=Z devices\n"
 "\n"
 " This usage is similar to --create.  The difference is that it creates\n"
 " a legacy array without a superblock.  With these arrays there is no\n"
@@ -285,7 +287,7 @@ char Help_build[] =
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunck size)\n"
 "  --level=      -l   : 0, raid0, or linear\n"
-"  --raid-disks= -n   : number of active devices in array\n"
+"  --raid-devices= -n   : number of active devices in array\n"
 ;
 
 char Help_assemble[] =

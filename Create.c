@@ -77,22 +77,22 @@ int Create(char *mddev, int mdfd,
 	}
 	if (raiddisks < 1) {
 		fprintf(stderr,
-			Name ": a number of --raid-disks must be given to create an array\n");
+			Name ": a number of --raid-devices must be given to create an array\n");
 		return 1;
 	}
 	if (raiddisks < 2 && level >= 4) {
 		fprintf(stderr,
-			Name ": atleast 2 raid-disks needed for level 4 or 5\n");
+			Name ": atleast 2 raid-devices needed for level 4 or 5\n");
 		return 1;
 	}
 	if (raiddisks+sparedisks > MD_SB_DISKS) {
 		fprintf(stderr,
-			Name ": too many discs requested: %d+%d > %d\n",
+			Name ": too many devices requested: %d+%d > %d\n",
 			raiddisks, sparedisks, MD_SB_DISKS);
 		return 1;
 	}
 	if (subdevs > raiddisks+sparedisks) {
-		fprintf(stderr, Name ": You have listed more disks (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
+		fprintf(stderr, Name ": You have listed more devices (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
 		return 1;
 	}
 	if (subdevs < raiddisks+sparedisks) {
@@ -325,7 +325,7 @@ int Create(char *mddev, int mdfd,
 		}
 		fprintf(stderr, Name ": array %s started.\n", mddev);
 	} else {
-		fprintf(stderr, Name ": not starting array - not enough discs.\n");
+		fprintf(stderr, Name ": not starting array - not enough devices.\n");
 	}
 	return 0;
 }

@@ -190,7 +190,7 @@ int Manage_subdevs(char *devname, int fd,
 			disc.major = MAJOR(stb.st_rdev);
 			disc.minor = MINOR(stb.st_rdev);
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
-				fprintf(stderr, Name ": add new disk failed for %s: %s\n",
+				fprintf(stderr, Name ": add new device failed for %s: %s\n",
 					dv->devname, strerror(errno));
 				return 1;
 			}
@@ -211,7 +211,7 @@ int Manage_subdevs(char *devname, int fd,
 		case 'f': /* set faulty */
 			/* FIXME check current member */
 			if (ioctl(fd, SET_DISK_FAULTY, (unsigned long) stb.st_rdev)) {
-				fprintf(stderr, Name ": set disk faulty failed for %s:  %s\n",
+				fprintf(stderr, Name ": set device faulty failed for %s:  %s\n",
 					dv->devname, strerror(errno));
 				return 1;
 			}

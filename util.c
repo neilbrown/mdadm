@@ -317,7 +317,7 @@ int check_raid(int fd, char *name)
 	fprintf(stderr, Name ": %s appear to be part of a raid array:\n",
 		name);
 	crtime = super.ctime;
-	fprintf(stderr, "    level=%d disks=%d ctime=%s",
+	fprintf(stderr, "    level=%d devices=%d ctime=%s",
 		super.level, super.raid_disks, ctime(&crtime));
 	return 1;
 }

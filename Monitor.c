@@ -378,7 +378,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
 			fprintf(mp, "A %s event had been detected on md device %s.\n\n", event, dev);
 
 			if (disc)
-				fprintf(mp, "It could be related to sub-device %s.\n\n", disc);
+				fprintf(mp, "It could be related to componenet device %s.\n\n", disc);
 
 			fprintf(mp, "Faithfully yours, etc.\n");
 			fclose(mp);

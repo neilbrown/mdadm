@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			if (sparedisks > 0 && level < 1 && level >= -1) {
-				fprintf(stderr, Name ": raid level %s is incompatible with spare-disks setting.\n",
+				fprintf(stderr, Name ": raid level %s is incompatible with spare-devices setting.\n",
 					optarg);
 				exit(2);
 			}
@@ -303,13 +303,13 @@ int main(int argc, char *argv[])
 		case O(CREATE,'n'):
 		case O(BUILD,'n'): /* number of raid disks */
 			if (raiddisks) {
-				fprintf(stderr, Name ": raid-disks set twice: %d and %s\n",
+				fprintf(stderr, Name ": raid-devices set twice: %d and %s\n",
 					raiddisks, optarg);
 				exit(2);
 			}
 			raiddisks = strtol(optarg, &c, 10);
 			if (!optarg[0] || *c || raiddisks<=0 || raiddisks > MD_SB_DISKS) {
-				fprintf(stderr, Name ": invalid number of raid disks: %s\n",
+				fprintf(stderr, Name ": invalid number of raid devices: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -318,18 +318,18 @@ int main(int argc, char *argv[])
 
 		case O(CREATE,'x'): /* number of spare (eXtra) discs */
 			if (sparedisks) {
-				fprintf(stderr,Name ": spare-disks set twice: %d and %s\n",
+				fprintf(stderr,Name ": spare-devices set twice: %d and %s\n",
 					sparedisks, optarg);
 				exit(2);
 			}
 			if (level > -10 && level <= 0 && level >= -1) {
-				fprintf(stderr, Name ": spare-disks setting is incompatible with raid level %d\n",
+				fprintf(stderr, Name ": spare-devices setting is incompatible with raid level %d\n",
 					level);
 				exit(2);
 			}
 			sparedisks = strtol(optarg, &c, 10);
 			if (!optarg[0] || *c || sparedisks < 0 || sparedisks > MD_SB_DISKS - raiddisks) {
-				fprintf(stderr, Name ": invalid number of spare disks: %s\n",
+				fprintf(stderr, Name ": invalid number of spare-devices: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -595,7 +595,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			rv = Examine(devlist, devlist?brief:!verbose, scan);
+			rv = Examine(devlist, scan?!verbose:brief, scan);
 		} else {
 			if (devlist == NULL) {
 				if ((devmode == 'S' ||devmode=='D') && scan) {

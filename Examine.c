@@ -145,8 +145,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan)
 			c=map_num(pers, super.level);
 			printf("     Raid Level : %s\n", c?c:"-unknown-");
 			printf("    Device Size : %d%s\n", super.size, human_size((long long)super.size<<10));
-			printf("     Raid Disks : %d\n", super.raid_disks);
-			printf("    Total Disks : %d\n", super.nr_disks);
+			printf("   Raid Devices : %d\n", super.raid_disks);
+			printf("  Total Devices : %d\n", super.nr_disks);
 			printf("Preferred Minor : %d\n", super.md_minor);
 			printf("\n");
 			atime = super.utime;
@@ -154,10 +154,10 @@ int Examine(mddev_dev_t devlist, int brief, int scan)
 			printf("          State : %s, %serrors\n",
 			       (super.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
 			       (super.state&(1<<MD_SB_ERRORS))?"":"no-");
-			printf("  Active Drives : %d\n", super.active_disks);
-			printf(" Working Drives : %d\n", super.working_disks);
-			printf("  Failed Drives : %d\n", super.failed_disks);
-			printf("   Spare Drives : %d\n", super.spare_disks);
+			printf(" Active Devices : %d\n", super.active_disks);
+			printf("Working Devices : %d\n", super.working_disks);
+			printf(" Failed Devices : %d\n", super.failed_disks);
+			printf("  Spare Devices : %d\n", super.spare_disks);
 			if (calc_sb_csum(&super) == super.sb_csum)
 				printf("       Checksum : %x - correct\n", super.sb_csum);
 			else
@@ -180,7 +180,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan)
 			default: break;		
 			}
 			printf("\n");
-			printf("      Number   Major   Minor   RaidDisk   State\n");
+			printf("      Number   Major   Minor   RaidDevice State\n");
 			for (d= -1; d<(signed int)(super.raid_disks+super.spare_disks); d++) {
 				mdp_disk_t *dp;
 				char *dv;
@@ -206,7 +206,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan)
 			char sep='=';
 			char *c=map_num(pers, ap->super.level);
 			char *d;
-			printf("ARRAY /dev/md%d level=%s disks=%d UUID=",
+			printf("ARRAY /dev/md%d level=%s num-devices=%d UUID=",
 			       ap->super.md_minor, c?c:"-unknown-", ap->super.raid_disks);
 			if (ap->super.minor_version >= 90)
 				printf("%08x:%08x:%08x:%08x", ap->super.set_uuid0, ap->super.set_uuid1,

@@ -79,7 +79,7 @@ int Detail(char *dev, int brief)
 	/* Ok, we have some info to print... */
 	c = map_num(pers, array.level);
 	if (brief) 
-		printf("ARRAY %s level=%s disks=%d", dev, c?c:"-unknown-",array.raid_disks );
+		printf("ARRAY %s level=%s num-devices=%d", dev, c?c:"-unknown-",array.raid_disks );
 	else {
 		unsigned long array_size;
 		unsigned long long larray_size;
@@ -88,8 +88,11 @@ int Detail(char *dev, int brief)
 			;
 		else
 #endif
-			if (ioctl(fd, BLKGETSIZE, &array_size)==0)
-			larray_size = array_size<<9;
+			if (ioctl(fd, BLKGETSIZE, &array_size)==0) {
+				larray_size = array_size;
+				larray_size <<= 9;
+			}
+		
 		else larray_size = 0;
 
 		printf("%s:\n", dev);
@@ -102,10 +105,10 @@ int Detail(char *dev, int brief)
 		printf("     Array Size : %ld%s\n", (long)(larray_size>>10), human_size(larray_size));
 		if (array.level >= 1)
 			printf("    Device Size : %d%s\n", array.size, human_size((long long)array.size<<10));
-		printf("     Raid Disks : %d\n", array.raid_disks);
-		printf("    Total Disks : %d\n", array.nr_disks);
+		printf("   Raid Devices : %d\n", array.raid_disks);
+		printf("  Total Devices : %d\n", array.nr_disks);
 		printf("Preferred Minor : %d\n", array.md_minor);
-		printf("    Persistance : Superblock is %spersistant\n",
+		printf("    Persistence : Superblock is %spersistent\n",
 		       array.not_persistent?"not ":"");
 		printf("\n");
 		atime = array.utime;
@@ -113,10 +116,10 @@ int Detail(char *dev, int brief)
 		printf("          State : %s, %serrors\n",
 		       (array.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
 		       (array.state&(1<<MD_SB_ERRORS))?"":"no-");
-		printf("  Active Drives : %d\n", array.active_disks);
-		printf(" Working Drives : %d\n", array.working_disks);
-		printf("  Failed Drives : %d\n", array.failed_disks);
-		printf("   Spare Drives : %d\n", array.spare_disks);
+		printf(" Active Devices : %d\n", array.active_disks);
+		printf("Working Devices : %d\n", array.working_disks);
+		printf(" Failed Devices : %d\n", array.failed_disks);
+		printf("  Spare Devices : %d\n", array.spare_disks);
 		printf("\n");
 		if (array.level == 5) {
 			c = map_num(r5layout, array.layout);
@@ -135,7 +138,7 @@ int Detail(char *dev, int brief)
 		}
 	
 		printf("\n");
-		printf("    Number   Major   Minor   RaidDisk   State\n");
+		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
 	for (d= 0; d<MD_SB_DISKS; d++) {
 		mdu_disk_info_t disk;
@@ -143,7 +146,7 @@ int Detail(char *dev, int brief)
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
 			if (d < array.raid_disks)
-				fprintf(stderr, Name ": cannot get disk detail for disk %d: %s\n",
+				fprintf(stderr, Name ": cannot get device detail for device %d: %s\n",
 					d, strerror(errno));
 			continue;
 		}

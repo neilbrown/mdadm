@@ -29,6 +29,7 @@
 
 #include	"mdadm.h"
 #include	"dlink.h"
+#include	<sys/dir.h>
 #include	<glob.h>
 #include	<fnmatch.h>
 
@@ -285,6 +286,9 @@ void arrayline(char *line)
 		} else if (strncasecmp(w, "disks=", 6) == 0 ) {
 			/* again, for compat */
 			mis.raid_disks = atoi(w+6);			   
+		} else if (strncasecmp(w, "num-devices=", 12) == 0 ) {
+			/* again, for compat */
+			mis.raid_disks = atoi(w+12);			   
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
 				w);

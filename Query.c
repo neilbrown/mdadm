@@ -71,9 +71,10 @@ int Query(char *dev)
 			;
 		else
 #endif
-			if (ioctl(fd, BLKGETSIZE, &array_size)==0)
-				larray_size = array_size<<9;
-			else larray_size = 0;
+			if (ioctl(fd, BLKGETSIZE, &array_size)==0) {
+				larray_size = array_size;
+				larray_size <<= 9;
+			} else larray_size = 0;
 	}
 	close(fd);
 

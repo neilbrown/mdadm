@@ -1,6 +1,6 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     0.8.1
+Version:     0.8.2
 Release:     1
 Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
 URL:         http://www.cse.unsw.edu.au/~neilb/source/mdadm/
@@ -20,6 +20,8 @@ some common tasks).
 
 %prep
 %setup -q
+# we want to install in /sbin, not /usr/sbin...
+%define _exec_prefix %{nil}
 
 %build
 # This is a debatable issue. The author of this RPM spec file feels that

@@ -1,4 +1,9 @@
 Changes Prior to this release
+    -   Correct spelling of persist[ae]nce/persist[ae]nt.
+    -   Change "disk" to "device" in options and config file
+    -   convert array size to "long long" *before* shift-left in -D and -Q
+	
+Changes Prior to 0.8.1 release
     -   Add "INSTALL" file.
     -   Fix some "i" variables that were not being set properly
     -   Initialise minsize and maxsize so that compilers don't complain.

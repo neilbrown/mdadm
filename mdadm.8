@@ -209,12 +209,12 @@ Set raid5 parity algorithm. Options are:
 same as --parity
 
 .TP
-.BR -n ", " --raid-disks=
+.BR -n ", " --raid-devices=
 number of active devices in array.
 
 .TP
-.BR -x ", " --spare-disks=
-number of spare (eXtra) disks in initial array.  Spares can be added
+.BR -x ", " --spare-devices=
+number of spare (eXtra) devices in initial array.  Spares can be added
 and removed later.
 
 .TP
@@ -381,7 +381,7 @@ Usage:
 .I device
 .BI --chunk= X
 .BI --level= Y
-.BI --raid-disks= Z
+.BI --raid-devices= Z
 .I devices
 
 .PP
@@ -404,7 +404,7 @@ Usage:
 .BI --chunk= X
 .BI --level= Y
 .br
-.BI --raid-disks= Z
+.BI --raid-devices= Z
 .I  devices
 
 .PP

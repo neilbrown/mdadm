@@ -200,7 +200,7 @@ extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);
 
 extern int get_mdp_major(void);
-extern int is_standard(char *dev);
+extern int is_standard(char *dev, int *nump);
 
 
 extern mddev_ident_t conf_get_ident(char *conffile, char *dev);

@@ -35,7 +35,7 @@ void make_parts(char *dev, int cnt)
 {
 	/* make 'cnt' partition devices for 'dev'
 	 * We use the major/minor from dev and add 1..cnt
-	 * If dev ends with a digit, we add "_p%d" else "%d"
+	 * If dev ends with a digit, we add "p%d" else "%d"
 	 * If the name exists, we use it's owner/mode,
 	 * else that of dev
 	 */
@@ -53,7 +53,7 @@ void make_parts(char *dev, int cnt)
 	minor = MINOR(stb.st_rdev);
 	for (i=1; i <= cnt ; i++) {
 		struct stat stb2;
-		sprintf(name, "%s%s%d", dev, dig?"_p":"", i);
+		sprintf(name, "%s%s%d", dev, dig?"p":"", i);
 		if (stat(name, &stb2)==0) {
 			if (!S_ISBLK(stb2.st_mode))
 				continue;
@@ -75,7 +75,7 @@ void make_parts(char *dev, int cnt)
  * If the name already exists, and is not a block device, we fail.
  * If it exists and is not an md device, is not the right type (partitioned or not),
  * or is currently in-use, we remove the device, but remember the owner and mode.
- * If it now doesn't exist, we find a few md array and create the device.
+ * If it now doesn't exist, we find a new md array and create the device.
  * Default ownership is user=0, group=0 perm=0600
  */
 int open_mddev(char *dev, int autof)
@@ -128,55 +128,76 @@ int open_mddev(char *dev, int autof)
 			}
 		}
 		/* Ok, need to find a minor that is not in use.
-		 * Easiest to read /proc/mdstat, and hunt through for
+		 * If the device name is in a 'standard' format,
+		 * intuit the minor from that, else
+		 * easiest to read /proc/mdstat, and hunt through for
 		 * an unused number 
 		 */
-		mdlist = mdstat_read(0);
-		for (num= (autof>0)?-1:0 ; ; num+= (autof>2)?-1:1) {
-			struct mdstat_ent *me;
-			for (me=mdlist; me; me=me->next)
-				if (me->devnum == num)
-					break;
-			if (!me) {
-				/* doesn't exist if mdstat.
-				 * make sure it is new to /dev too
-				 */
-				char *dn;
-				if (autof > 0) 
-					minor = (-1-num) << MdpMinorShift;
-				else
-					minor = num;
-				dn = map_dev(major,minor);
-				if (dn==NULL || is_standard(dn)) {
-					/* this number only used by a 'standard' name,
-					 * so it is safe to use
+		switch(is_standard(dev, &num)) {
+		case -1: /* non partitioned */
+			if (autof > 0) {
+				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
+				return -1;
+			}
+			minor = num;
+			num = -1-num;
+			break;
+		case 1: /* partitioned */
+			if (autof == -1) {
+				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
+				return -1;
+			}
+			minor = num <<  MdpMinorShift;
+			major = get_mdp_major();
+			break;
+		case 0: /* not standard, pick an unused number */
+			mdlist = mdstat_read(0);
+			for (num= (autof>0)?-1:0 ; ; num+= (autof>2)?-1:1) {
+				struct mdstat_ent *me;
+				for (me=mdlist; me; me=me->next)
+					if (me->devnum == num)
+						break;
+				if (!me) {
+					/* doesn't exist if mdstat.
+					 * make sure it is new to /dev too
 					 */
-					break;
+					char *dn;
+					if (autof > 0) 
+						minor = (-1-num) << MdpMinorShift;
+					else
+						minor = num;
+					dn = map_dev(major,minor);
+					if (dn==NULL || is_standard(dn, NULL)) {
+						/* this number only used by a 'standard' name,
+						 * so it is safe to use
+						 */
+						break;
+					}
 				}
 			}
 		}
-		/* 'num' is the number to use, >=0 for md, <0 for mdp */
-		if (must_remove) {
-			/* never remove a device name that ends /mdNN or /dNN,
-			 * that would be confusing 
-			 */
-			if (is_standard(dev)) {
-				fprintf(stderr, Name ": --auto refusing to remove %s as it looks like a standard name.\n",
-					dev);
+		/* major and minor have been chosen */
+		
+		/* If it was a 'standard' name and it is in-use, then
+		 * the device could already be correct
+		 */
+		if (stb.st_mode && MAJOR(stb.st_rdev) == major &&
+		    MINOR(stb.st_rdev) == minor)
+			;
+		else {
+			if (must_remove)
+				unlink(dev);
+
+			if (mknod(dev, S_IFBLK|0600, MKDEV(major, minor))!= 0) {
+				fprintf(stderr, Name ": failed to create %s\n", dev);
 				return -1;
 			}
-			unlink(dev);
+			if (must_remove) {
+				chown(dev, stb.st_uid, stb.st_gid);
+				chmod(dev, stb.st_mode & 07777);
+			}
+			make_parts(dev,autof);
 		}
-
-		if (mknod(dev, S_IFBLK|0600, MKDEV(major, minor))!= 0) {
-			fprintf(stderr, Name ": failed to create %s\n", dev);
-			return -1;
-		}
-		if (must_remove) {
-			chown(dev, stb.st_uid, stb.st_gid);
-			chmod(dev, stb.st_mode & 07777);
-		}
-		make_parts(dev,autof);
 	}
 	mdfd = open(dev, O_RDWR, 0);
 	if (mdfd < 0)

@@ -395,28 +395,37 @@ int map_name(mapping_t *map, char *name)
 }
 
 
-int is_standard(char *dev)
+int is_standard(char *dev, int *nump)
 {
 	/* tests if dev is a "standard" md dev name.
 	 * i.e if the last component is "/dNN" or "/mdNN",
 	 * where NN is a string of digits 
 	 */
-	dev = strrchr(dev, '/');
-	if (!dev)
+	char *d = strrchr(dev, '/');
+	int type=0;
+	int num;
+	if (!d)
 		return 0;
-	if (strncmp(dev, "/d",2)==0)
-		dev += 2;
-	else if (strncmp(dev, "/md", 3)==0)
-		dev += 3;
+	if (strncmp(d, "/d",2)==0)
+		d += 2, type=1; /* /dev/md/dN{pM} */
+	else if (strncmp(d, "/md_d", 5)==0)
+		d += 5, type=1; /* /dev/md_dNpM */
+	else if (strncmp(d, "/md", 3)==0)
+		d += 3, type=-1; /* /dev/mdN */
+	else if (d-dev > 3 && strncmp(d-2, "md/", 3)==0)
+		type = -1; /* /dev/md/N */
 	else
 		return 0;
-	if (!*dev)
+	if (!*d)
 		return 0;
-	while (isdigit(*dev))
-		dev++;
-	if (*dev)
+	num = atoi(d);
+	while (isdigit(*d))
+		d++;
+	if (*d)
 		return 0;
-	return 1;
+	if (nump) *nump = num;
+
+	return type;
 }
 
 
@@ -468,7 +477,7 @@ int add_dev(const char *name, const struct stat *stb, int flag)
 
 /*
  * Find a block device with the right major/minor number.
- * Avoid /dev/mdNN and /dev/md/dNN is possible
+ * Avoid /dev/mdNN and /dev/md/dNN if possible
  */
 char *map_dev(int major, int minor)
 {
@@ -486,7 +495,7 @@ char *map_dev(int major, int minor)
 	for (p=devlist; p; p=p->next)
 		if (p->major == major &&
 		    p->minor == minor) {
-			if (is_standard(p->name))
+			if (is_standard(p->name, NULL))
 				std = p->name;
 			else
 				return p->name;
@@ -620,7 +629,7 @@ char *get_md_name(int dev)
 		    && (stb.st_rdev == rdev))
 			return devname;
 	}
-	dn = map_dev(MAJOR(rdev), MINOR(rdev));
+	dn = map_dev(major(rdev), minor(rdev));
 	if (dn)
 		return dn;
 	sprintf(devname, "/dev/.tmp.md%d", dev);

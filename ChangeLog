@@ -2,6 +2,11 @@ Changes Prior to 1.9.0 release
     -   Fix rpm build problem (stray %)
     -   Minor manpage updates
     -   Change "dirty" status to "active" as it was confusing people.
+    -   --assemble --auto recognises 'standard' name and insists on using
+        the appropriate major/minor number for them.
+    -   Remove underscore from partition names, so partitions of 
+	"foo" are "foo1", "foo2" etc (unchanged) and partitions of
+	"f00" are "f00p1", "f00p2" etc rather than "f00_p1"...
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

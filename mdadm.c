@@ -66,7 +66,14 @@ int main(int argc, char *argv[])
 	int force = 0;
 	int test = 0;
 	int assume_clean = 0;
-	int autof = 0; /* -1 for non-partitions, 1 or more to create partitions */
+	int autof = 0; /* -2 means create device based on name:
+			*    if it ends mdN, then non-partitioned array N
+			*    if it ends dN, then partitions array N
+			* -1 means create non-partitioned, choose N
+			*  1 or more to create partitioned
+			* If -1 or 1 and name is a 'standard' name, then
+			* insist on a match of type and number.
+			*/
 
 	char *mailaddr = NULL;
 	char *program = NULL;
@@ -401,10 +408,12 @@ int main(int argc, char *argv[])
 		case O(BUILD,'a'):
 		case O(ASSEMBLE,'a'): /* auto-creation of device node */
 			if (optarg == NULL)
-				autof = -1;
+				autof = -2;
 			else if (strcasecmp(optarg,"no")==0)
 				autof = 0;
-			else if (strcasecmp(optarg,"yes")==0 || strcasecmp(optarg,"md")==0)
+			else if (strcasecmp(optarg,"yes")==0)
+				autof = -2;
+			else if (strcasecmp(optarg,"md")==0)
 				autof = -1;
 			else {
 				/* There might be digits, and maybe a hypen, at the end */

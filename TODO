@@ -1,21 +1,47 @@
 
+
+?? Allow -S /dev/md? - current complains subsequent not a/d/r
+
+* write proc.c to parse /proc/mdstat file, and maybe /proc/partitions too.
+   Build list of arrays:  name, rebuild-percent
+
+* --detail --scan to read mdctl.conf, and then iterate over these,
+    but assume --brief.  --verbose can override
+    check each subdevice to see if it is in conf_get_devs.
+    Warn if not.
+
+* Support multipath ... maybe...
+
+* --follow to syslog 
+
+* --follow to move spares around
+
+* --follow to notice other events:
+     rebuild started
+     spare activated
+     spare removed
+     spare added
+
+------------------------------------
+- --examine --scan scans all drives and build an mdctl.conf file DONE
+
 - check superblock checksum in examine DONE
 - report "chunk" or "rounding" depending on raid level DONE
 - report "linear" instead of "-1" for raid level DONE
 - decode ayout depending on raid level DONE
-- --verbose and --force flags.
+- --verbose and --force flags. DONE
 
 - set md_minor, *_disks for Create  - DONE
 - for create raid5, how to choose between 
    all working, but not insync
-   one missing, one spare, insync
-- and for raid1 - some failed drives...
+   one missing, one spare, insync  DONE (--force)
+- and for raid1 - some failed drives...  (missing)
 
 - when RUN_ARRAY, make sure *_disks counts are right
 
 - get --detail to extract extra stuff from superblock,
    like uuid  DONE
-- --detail --brief to give a config file line
+- --detail --brief to give a config file line DONE
 - parse config file. DONE
 - test...
 
@@ -23,7 +49,7 @@
   then try to assemble that device first.
 
 
-- mdctl -S /dev/md0 /dev/md1 gives internal error
+- mdctl -S /dev/md0 /dev/md1 gives internal error FIXED
 
 - mdctl --detail --scan print summary of what it can find?
 

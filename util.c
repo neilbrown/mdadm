@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -423,4 +423,17 @@ int calc_sb_csum(mdp_super_t *super)
 	csum = (newcsum& 0xffffffff) + (newcsum>>32);
 	super->sb_csum = oldcsum;
 	return csum;
+}
+
+char *human_size(long kbytes)
+{
+	static char buf[30];
+
+	if (kbytes < 2000)
+		buf[0]=0;
+	else if (kbytes < 2*1024*1024)
+		sprintf(buf, " (%d MiB)", kbytes>>10);
+	else
+		sprintf(buf, " (%d GiB)", kbytes>>20);
+	return buf;
 }

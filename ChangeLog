@@ -1,0 +1,148 @@
+
+Changes Prior to 0.6 release
+
+	-   Remove the limit on the number of device names that can be
+	given on the command line.
+    -   Fix bug in --assemble --force where it would only update a 
+	single superblock.
+    -   Fix bogus printing of big numbers not being block devices
+	when given names of devices that don't exist.
+    -   When --assemble --force, consider superblocks with an event
+	count that is 1 behind as out-of-date.  Normally they are
+	considered up-to-date (as the kernel assumes this too).
+    -   When marking drives as not-failed in the superblock, 
+	we also mark them as ACTIVE and SYNC.
+    -   Don't start arrays for which not all drives are available unless:
+	 --scan   which implies that all drives were found automatically
+	 --run    which means the user knows what they want
+	 --force  which means that we are fixing something broken
+    -   Make sure all device numbers passed as 3rd arg of ioctl
+	are passed as unsigned lock, so that it works on SPARC
+    -   If HOT_ADD_DISK failes for -a, then only try ADD_NEW_DISK
+	if we cannot read from the array, i.e. if the array is
+	not started yet.
+    -   man page update
+    -   Taught Examine to handle --scan. It examines all devices listed
+	on DEVICE lines in the config file.  
+    -   Added --brief (-b) flag for Examine and Detail to print out
+	and mdctl.conf compatible description with uuid=, level=,
+	disks= and  - for Examine - devices=
+	--examine --brief collects all devices the make the one array and 
+	list them as one entry.
+    -   Added level= and disks= options to ARRAY lines in config files
+	so --brief output could be used as-is.
+    -   Make parity style ({left,right}-{,a}symmetric) consistantly use -,
+	never _.
+    -   Add "Array Size" to --detail output
+    -   Change "Size" to "Device Size" and exclude from Detail of arrays
+	that do not have a consistent device size.
+    -   Add Human readable MiB or GiB value on size lines of Detail and Examine
+    -   --assemble --scan  doesn't complain about active drives
+    -   require number of spares given in -x to be listed.
+    -   Made --build actually work.
+Changes Prior to 0.5 release
+
+  --assemble:
+     spare drives are handled properly.
+
+     --force can be used to recover from 2-drive failures on RAID5
+     If you belive that /dev/hda1 /dev/hdb1 /dev/hdc1 /dev/hdd1 should
+     make a raid5 array, but it has experienced multiple failures and
+     wont start, then
+
+       mdctl --assemble --force /dev/md0 /dev/hd[abcd]1
+
+     Should update the superblock on the newest failed drive and
+     restart the array in degraded mode.  You should then remove the
+     remaining failed drive and re-add it (if you are happy that it
+     might work).
+
+     Ofcourse whenever you have a 2-drive failure, you have a risk
+     of corruption in data that hasn't be changed for a long time.  So
+     this doesn't give you your array back all nice and happy, but it
+     does allow you to recover data that might not be corrupt.
+
+     More flexibility in identifying a RAID array in the mdctl.conf
+     e.g.
+         array /dev/md4  super-minor=4
+
+      assembles /dev/md4 from all devices found that have a raid
+      superblock that says the minor number of the array is 4.
+      If the blocks with the right minor number do not all have the
+      same UUID, an error is flags and no assembly happens.
+ 
+        array /dev/md3  devices=/dev/hd[abc]2
+
+      Assembles /dev/md3 drom /dev/hda2 /dev/hdb2 and/dev/hdc2.  All
+      devices must exist and have raid superblock with the same uuid.
+
+      If two identity specifiers are used, only devices that match all
+      of them are considered, so
+
+        array /dev/md2 devices=/dev/hd?2 super-minor=2
+
+      will assemble /dev/md2 using all /dev/hd?2 devices which have a 
+      raid superblock with minor number 2.
+ 
+  --create:
+      When listing devices for --create, the word "missing" can be
+      used to indicate that the respective slot does not have a
+      working drive currently.  This is similar to the "failed-disk"
+      directive in mkraid/raidtab.
+      e.g.
+         mdctl --create --level=5 -raid-disks=4 --spare-disks=2
+                 /dev/md0 /dev/sda /dev/sdb missing /dev/sdc /dev/sdd  /dev/sde
+
+      will create a raid5 array with the third slot empty, and two
+      spares.
+
+      By default, raid5 arrays are created with the last slot empty
+      and drive listed for the last slot added as a spare.  If a
+      "missing" slot is given, or if --force is given, then --create
+      does exactly what you ask and doesn't try to be clever.
+   
+
+   --follow / --monitor:
+
+      This is a new mode.  I couldn't stop my self from picking a name
+      starting with F (as current modes start A,B,C,D,E) but I
+      relented and provided an alternate name that is somewhat more
+      meaningful. 
+ 
+      In this mode, mdctl does not exit, but runs continuously and
+      periodically polls all the md devices to see if they have had
+      any interested state change.
+      The changes that it currently notices are:
+           Fail      -  an active disc fails
+           FailSpare -  a spare, that was presumably being build, fails
+           ActiveSpare - a spare becomes active, presumably after a rebuild.
+
+      Options:
+         --mail mailaddress  - send Email on any Fail* event
+         --program program   - run the program on any event.  
+		   Args are: eventname mddevice subdevice(if-known)
+         --delay  seconds    - change from the default 60second pause
+			       between polls.
+
+      I plan to add functionality to this mode to allow sharing of
+      spare drives. If an array is marks "spare-group=fred", and it
+      has a failed drive and no spares, and if some other array is
+      also "spare-group=fred" and it has no failed drives, but does
+      have a spare drive that is big enough, the spare will be moved
+      to the first array.
+
+  I also have the idea of adding a --grow mode which will re-organise
+  the data on an N disk raid0/4/5 array to be on an N+M disk array.
+  I have no concrete plans for this though.
+
+  I got rid of the "v" in the archive file name, and include the
+  version number in the directory created by the archive.
+
+  There is now a man page and mdctl.spec (for rpm) thanks to
+  Danilo Godec <danci@agenda.si>.
+  
+  Ofcourse, the man page is now out of date and despite being based on
+  the --help output, is not wholy correct.  After I get --follow
+  working properly, I plan to revise the various documentation and/or
+  the code to make sure the two match.
+

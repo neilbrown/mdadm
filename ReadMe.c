@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 
 #include "mdctl.h"
 
-char Version[] = Name " - v0.5 - 23 August 2001\n";
+char Version[] = Name " - v0.6 -  7 March 2002\n";
 /*
  * File: ReadMe.c
  *
@@ -78,7 +78,7 @@ char Version[] = Name " - v0.5 - 23 August 2001\n";
  *     command, subsequent Manage commands can finish the job.
  */
 
-char short_options[]="-ABCDEFhVvc:l:p:m:n:x:u:c:d:z:sarfRSow";
+char short_options[]="-ABCDEFhVvbc:l:p:m:n:x:u:c:d:z:sarfRSow";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"assemble",  0, 0, 'A'},
@@ -121,6 +121,9 @@ struct option long_options[] = {
     {"stop",      0, 0, 'S'},
     {"readonly",  0, 0, 'o'},
     {"readwrite", 0, 0, 'w'},
+
+    /* For Detail/Examine */
+    {"brief",	  0, 0, 'b'},
 
     /* For Follow/monitor */
     {"mail",      1, 0, 'm'},
@@ -174,7 +177,7 @@ char Help[] =
 "  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-disks= -n   : number of active devices in array\n"
-"  --spare-disks= -x  : number of spares (eXtras) to allow space for\n"
+"  --spare-disks= -x  : number of spares (eXtras) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
@@ -187,6 +190,9 @@ char Help[] =
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
+"\n"
+" For detail or examine:\n"
+"  --brief       -b   : Just print device name and UUID\n"
 "\n"
 " For follow/monitor:\n"
 "  --mail=       -m   : Address to mail alerts of failure to\n"
@@ -306,10 +312,10 @@ char Help_assemble[] =
 /* name/number mappings */
 
 mapping_t r5layout[] = {
-	{ "left_asymmetric", 0},
-	{ "right_asymmetric", 1},
-	{ "left_symmetric", 2},
-	{ "right_symmetric", 3},
+	{ "left-asymmetric", 0},
+	{ "right-asymmetric", 1},
+	{ "left-symmetric", 2},
+	{ "right-symmetric", 3},
 
 	{ "default", 2},
 	{ "la", 0},

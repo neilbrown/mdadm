@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -76,7 +76,8 @@ typedef struct mddev_ident_s {
 	char *devices;		/* comma separated list of device
 				 * names with wild cards
 				 */
-
+	int level;		/* -10 if not set */
+	int raid_disks;		/* -1 if not set */
 	char *spare_group;
 	struct mddev_ident_s *next;
 } *mddev_ident_t;
@@ -84,6 +85,9 @@ typedef struct mddev_ident_s {
 /* List of device names - wildcards expanded */
 typedef struct mddev_dev_s {
 	char *devname;
+	char disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
+				 * Not set for names read from .config
+				 */
 	struct mddev_dev_s *next;
 } *mddev_dev_t;
 
@@ -106,29 +110,29 @@ extern char *map_dev(int major, int minor);
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop);
 extern int Manage_subdevs(char *devname, int fd,
-			  int devcnt, char *devnames[], int devmodes[]);
+			  mddev_dev_t devlist);
 
 
 extern int Assemble(char *mddev, int mdfd,
 		    mddev_ident_t ident,
 		    char *conffile,
-		    int subdevs, char *subdev[],
+		    mddev_dev_t devlist,
 		    int readonly, int runstop,
 		    int verbose, int force);
 
 extern int Build(char *mddev, int mdfd, int chunk, int level,
 		 int raiddisks,
-		 int subdevs, char *subdev[]);
+		 mddev_dev_t devlist);
 
 
 extern int Create(char *mddev, int mdfd,
 		  int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
-		  int subdevs, char *subdev[],
+		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force);
 
-extern int Detail(char *dev);
-extern int Examine(char *dev);
-extern int Monitor(int num_devs, char *devlist[],
+extern int Detail(char *dev, int brief);
+extern int Examine(mddev_dev_t devlist, int brief, char *conffile);
+extern int Monitor(mddev_dev_t devlist,
 		  char *mailaddr, char *alert_cmd,
 		  int period,
 		  char *config);
@@ -142,3 +146,5 @@ extern int check_raid(int fd, char *name);
 
 extern mddev_ident_t conf_get_ident(char *, char*);
 extern mddev_dev_t conf_get_devs(char *);
+
+extern char *human_size(long kbytes);

@@ -1,7 +1,7 @@
 #
 # mdctl - manage Linux "md" devices aka RAID arrays.
 #
-# Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+# Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
 #
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -27,18 +27,29 @@
 #           Australia
 #
 
+CC = gcc
 CFLAGS = -Wall,error,strict-prototypes -ggdb
 
+INSTALL = /usr/bin/install
+DESTDIR = /sbin
+
 OBJS =  mdctl.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o
-all : mdctl
+
+all : mdctl mdctl.man
 
 mdctl : $(OBJS)
 	$(CC) -o mdctl $^
 
+mdctl.man : mdctl.8
+	nroff -man mdctl.8 > mdctl.man
+
 $(OBJS) : mdctl.h
 
+install : mdctl
+	$(INSTALL) -m 755 mdctl $(DESTDIR)/sbin
+
 clean : 
-	rm -f mdctl $(OBJS) core
+	rm -f mdctl $(OBJS) core mdctl.man
 
 dist : clean
 	./makedist

@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -229,6 +229,8 @@ void arrayline(char *line)
 
 	mis.uuid_set = 0;
 	mis.super_minor = -1;
+	mis.level = -10;
+	mis.raid_disks = -1;
 	mis.devices = NULL;
 	mis.devname = NULL;
 
@@ -273,6 +275,12 @@ void arrayline(char *line)
 					w);
 			else
 				mis.spare_group = strdup(w+12);
+		} else if (strncasecmp(w, "level=", 6) == 0 ) {
+			/* this is mainly for compatability with --brief output */
+			mis.level = map_name(pers, w+6);
+		} else if (strncasecmp(w, "disks=", 6) == 0 ) {
+			/* again, for compat */
+			mis.raid_disks = atoi(w+6);			   
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
 				w);

@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@
 #include	"md_p.h"
 #include	"md_u.h"
 
-int Detail(char *dev)
+int Detail(char *dev, int brief)
 {
 	/*
 	 * Print out details for an md array by using
@@ -77,48 +77,59 @@ int Detail(char *dev)
 		return 1;
 	}
 	/* Ok, we have some info to print... */
-	printf("%s:\n", dev);
-	printf("        Version : %02d.%02d.%02d\n",
-	       array.major_version, array.minor_version, array.patch_version);
-	atime = array.ctime;
-	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c = map_num(pers, array.level);
-	printf("     Raid Level : %s\n", c?c:"-unknown-");
-	printf("           Size : %d\n", array.size);
-	printf("     Raid Disks : %d\n", array.raid_disks);
-	printf("    Total Disks : %d\n", array.nr_disks);
-	printf("Preferred Minor : %d\n", array.md_minor);
-	printf("    Persistance : Superblock is %spersistant\n",
-	       array.not_persistent?"not ":"");
-	printf("\n");
-	atime = array.utime;
-	printf("    Update Time : %.24s\n", ctime(&atime));
-	printf("          State : %s, %serrors\n",
-	       (array.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
-	       (array.state&(1<<MD_SB_ERRORS))?"":"no-");
-	printf("  Active Drives : %d\n", array.active_disks);
-	printf(" Working Drives : %d\n", array.working_disks);
-	printf("  Failed Drives : %d\n", array.failed_disks);
-	printf("   Spare Drives : %d\n", array.spare_disks);
-	printf("\n");
-	if (array.level == 5) {
-		c = map_num(r5layout, array.layout);
-		printf("         Layout : %s\n", c?c:"-unknown-");
-	}
-	switch (array.level) {
-	case 0:
-	case 4:
-	case 5:
-		printf("     Chunk Size : %dK\n", array.chunk_size/1024);
-		break;
-	case -1:
-		printf("       Rounding : %dK\n", array.chunk_size/1024);
-		break;
-	default: break;
-	}
+	if (brief) 
+		printf("ARRAY %s level=%s disks=%d", dev, c?c:"-unknown-",array.raid_disks );
+	else {
+		int array_size;
+		if (ioctl(fd, BLKGETSIZE, &array_size))
+			array_size = 0;
+		else array_size>>= 1;
+		printf("%s:\n", dev);
+		printf("        Version : %02d.%02d.%02d\n",
+		       array.major_version, array.minor_version, array.patch_version);
+		atime = array.ctime;
+		printf("  Creation Time : %.24s\n", ctime(&atime));
+		printf("     Raid Level : %s\n", c?c:"-unknown-");
+		if (array_size)
+		printf("     Array Size : %d%s\n", array_size, human_size(array_size));
+		if (array.level >= 1)
+			printf("    Device Size : %d%s\n", array.size, human_size(array.size));
+		printf("     Raid Disks : %d\n", array.raid_disks);
+		printf("    Total Disks : %d\n", array.nr_disks);
+		printf("Preferred Minor : %d\n", array.md_minor);
+		printf("    Persistance : Superblock is %spersistant\n",
+		       array.not_persistent?"not ":"");
+		printf("\n");
+		atime = array.utime;
+		printf("    Update Time : %.24s\n", ctime(&atime));
+		printf("          State : %s, %serrors\n",
+		       (array.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
+		       (array.state&(1<<MD_SB_ERRORS))?"":"no-");
+		printf("  Active Drives : %d\n", array.active_disks);
+		printf(" Working Drives : %d\n", array.working_disks);
+		printf("  Failed Drives : %d\n", array.failed_disks);
+		printf("   Spare Drives : %d\n", array.spare_disks);
+		printf("\n");
+		if (array.level == 5) {
+			c = map_num(r5layout, array.layout);
+			printf("         Layout : %s\n", c?c:"-unknown-");
+		}
+		switch (array.level) {
+		case 0:
+		case 4:
+		case 5:
+			printf("     Chunk Size : %dK\n", array.chunk_size/1024);
+			break;
+		case -1:
+			printf("       Rounding : %dK\n", array.chunk_size/1024);
+			break;
+		default: break;
+		}
 	
-	printf("\n");
-	printf("    Number   Major   Minor   RaidDisk   State\n");
+		printf("\n");
+		printf("    Number   Major   Minor   RaidDisk   State\n");
+	}
 	for (d= 0; d<array.raid_disks+array.spare_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
@@ -128,34 +139,40 @@ int Detail(char *dev)
 				d, strerror(errno));
 			continue;
 		}
-		printf("   %5d   %5d    %5d    %5d     ", 
-		       disk.number, disk.major, disk.minor, disk.raid_disk);
-		if (disk.state & (1<<MD_DISK_FAULTY)) printf(" faulty");
-		if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
-		if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
-		if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
-		if ((dv=map_dev(disk.major, disk.minor))) {
-		    printf("   %s", dv);
-		    if (!have_super) {
-			/* try to read the superblock from this device
-			 * to get more info
-			 */
-			int fd = open(dv, O_RDONLY);
-			if (fd >=0 &&
-			    load_super(fd, &super) ==0 &&
-			    super.ctime == array.ctime &&
-			    super.level == array.level)
-			    have_super = 1;
-		    }
+		if (!brief) {
+			printf("   %5d   %5d    %5d    %5d     ", 
+			       disk.number, disk.major, disk.minor, disk.raid_disk);
+			if (disk.state & (1<<MD_DISK_FAULTY)) printf(" faulty");
+			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
+			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
+			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
 		}
-		printf("\n");
+		if ((dv=map_dev(disk.major, disk.minor))) {
+			if (!brief) printf("   %s", dv);
+			if (!have_super) {
+				/* try to read the superblock from this device
+				 * to get more info
+				 */
+				int fd = open(dv, O_RDONLY);
+				if (fd >=0 &&
+				    load_super(fd, &super) ==0 &&
+				    super.ctime == array.ctime &&
+				    super.level == array.level)
+					have_super = 1;
+			}
+		}
+		if (!brief) printf("\n");
 	}
 	if (have_super) {
+		if (brief) printf(" UUID=");
+		else printf("           UUID : ");
 	    	if (super.minor_version >= 90)
-		printf("           UUID : %08x:%08x:%08x:%08x\n", super.set_uuid0, super.set_uuid1,
-		       super.set_uuid2, super.set_uuid3);
-	else
-		printf("           UUID : %08x\n", super.set_uuid0);
+			printf("%08x:%08x:%08x:%08x", super.set_uuid0, super.set_uuid1,
+			       super.set_uuid2, super.set_uuid3);
+		else
+			printf("%08x", super.set_uuid0);
+		if (!brief) printf("\n");
 	}
+	if (brief) printf("\n");
 	return 0;
 }

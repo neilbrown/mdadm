@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -34,7 +34,7 @@
 
 static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd);
 
-int Monitor(int num_devs, char *devlist[],
+int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period,
 	    char *config)
@@ -75,10 +75,12 @@ int Monitor(int num_devs, char *devlist[],
 	int finished = 0;
 	while (! finished) {
 		mddev_ident_t mdlist = NULL;
+		mddev_dev_t dv;
 		int dnum=0;
-		if (num_devs == 0)
+		if (devlist== NULL)
 			mdlist = conf_get_ident(config, NULL);
-		while (dnum < num_devs || mdlist) {
+		dv = devlist;
+		while (dv || mdlist) {
 			mddev_ident_t mdident;
 			struct state *st;
 			mdu_array_info_t array;
@@ -87,9 +89,10 @@ int Monitor(int num_devs, char *devlist[],
 			char *event = NULL;
 			int i;
 			char *event_disc = NULL;
-			if (num_devs) {
-				dev = devlist[dnum++];
+			if (dv) {
+				dev = dv->devname;
 				mdident = conf_get_ident(config, dev);
+				dv = dv->next;
 			} else {
 				mdident = mdlist;
 				dev = mdident->devname;
@@ -171,6 +174,11 @@ int Monitor(int num_devs, char *devlist[],
 
 static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
 {
+	if (!cmd && !mailaddr) {
+		time_t now = time(0);
+	       
+		printf("%0.15s: %s on %s %s\n", ctime(&now)+4, event, dev, disc?disc:"unknown device");
+	}
 	if (cmd) {
 		int pid = fork();
 		switch(pid) {

@@ -16,6 +16,6 @@ then
   exit 1
 fi
 trap "rm $target/$base; exit" 1 2 3
-( cd .. ; ln -s mdctl mdctl-$version ; tar czhvf - --exclude='*,v' --exclude='*.o' --exclude=RCS mdctl-$version ; rm mdctl-$version )  > $target/$base
+( cd .. ; ln -s mdctl mdctl-$version ; tar czhvf - --exclude='*,v' --exclude='*.o' --exclude mdctl --exclude=RCS mdctl-$version ; rm mdctl-$version )  > $target/$base
 chmod a+r $target/$base
 ls -l $target/$base

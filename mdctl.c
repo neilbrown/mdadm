@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -64,14 +64,17 @@ int main(int argc, char *argv[])
 	int sparedisks = 0;
 	struct mddev_ident_s ident;
 	char *configfile = NULL;
+	char *cp;
 	int scan = 0;
 	char devmode = 0;
 	int runstop = 0;
 	int readonly = 0;
-	char *devs[MD_SB_DISKS+1];
-	int devmodes[MD_SB_DISKS+1];
+	mddev_dev_t devlist = NULL;
+	mddev_dev_t *devlistend = & devlist;
+	mddev_dev_t dv;
 	int devs_found = 0;
 	int verbose = 0;
+	int brief = 0;
 	int force = 0;
 
 	char *mailaddr = NULL;
@@ -81,6 +84,8 @@ int main(int argc, char *argv[])
 	int mdfd = -1;
 
 	ident.uuid_set=0;
+	ident.level = -10;
+	ident.raid_disks = -1;
 	ident.super_minor= -1;
 	ident.devices=0;
 
@@ -124,19 +129,36 @@ int main(int argc, char *argv[])
 		case 'v': verbose = 1;
 			continue;
 
+		case 'b': brief = 1;
+			continue;
+
 		case 1: /* an undecorated option - must be a device name.
 			 * Depending on mode, it could be that:
-			 * All devices listed are "md" devices : --Detail, -As
-			 * No devices are "md" devices : --Examine
-			 * First device is "md", others are component: -A,-B,-C
+			 *    All devices listed are "md" devices : --Detail, -As
+			 *    No devices are "md" devices : --Examine
+			 *    First device is "md", others are component: -A,-B,-C
+			 * Only accept on device before mode is determined.
+			 *  If mode is @, then require devmode for other devices.
 			 */
-			if (devs_found >= MD_SB_DISKS+1) {
-				fprintf(stderr, Name ": too many devices at %s - current limit -s %d\n",
-					optarg, MD_SB_DISKS+1);
+			if (devs_found > 0 && !mode ) {
+				fprintf(stderr, Name ": Must give mode flag before second device name at %s\n", optarg);
 				exit(2);
 			}
-			devs[devs_found] = optarg;
-			devmodes[devs_found] = devmode;
+			if (devs_found > 0 && mode == '@' && !devmode) {
+				fprintf(stderr, Name ": Must give on of -a/-r/-f for subsequent devices at %s\n", optarg);
+				exit(2);
+			}
+			dv = malloc(sizeof(*dv));
+			if (dv == NULL) {
+				fprintf(stderr, Name ": malloc failed\n");
+				exit(3);
+			}
+			dv->devname = optarg;
+			dv->disposition = devmode;
+			dv->next = NULL;
+			*devlistend = dv;
+			devlistend = &dv->next;
+			
 			devs_found++;
 			continue;
 
@@ -205,6 +227,7 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
+			ident.level = level;
 			continue;
 
 		case O('C','p'): /* raid5 layout */
@@ -246,6 +269,7 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
+			ident.raid_disks = raiddisks;
 			continue;
 
 		case O('C','x'): /* number of spare (eXtra) discs */
@@ -276,7 +300,7 @@ int main(int argc, char *argv[])
 			continue;
 		case O('A','u'): /* uuid of array */
 			if (ident.uuid_set) {
-				fprintf(stderr, Name ": uuid cannot bet set twice.  "
+				fprintf(stderr, Name ": uuid cannot be set twice.  "
 					"Second value %s.\n", optarg);
 				exit(2);
 			}
@@ -284,6 +308,19 @@ int main(int argc, char *argv[])
 				ident.uuid_set = 1;
 			else {
 				fprintf(stderr,Name ": Bad uuid: %s\n", optarg);
+				exit(2);
+			}
+			continue;
+
+		case O('A','m'): /* super-minor for array */
+			if (ident.super_minor >= 0) {
+				fprintf(stderr, Name ": super-minor cannot be set twice.  "
+					"Second value: %s.\n", optarg);
+				exit(2);
+			}
+			ident.super_minor = strtoul(optarg, &cp, 10);
+			if (!optarg[0] || *cp) {
+				fprintf(stderr, Name ": Bad super-minor number: %s.\n", optarg);
 				exit(2);
 			}
 			continue;
@@ -299,6 +336,7 @@ int main(int argc, char *argv[])
 			/* FIXME possibly check that config file exists.  Even parse it */
 			continue;
 		case O('A','s'): /* scan */
+		case O('E','s'):
 			scan = 1;
 			continue;
 
@@ -409,7 +447,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": an md device must be given in this mode\n");
 			exit(2);
 		}
-		mdfd = open_mddev(devs[0]);
+		mdfd = open_mddev(devlist->devname);
 		if (mdfd < 0)
 			exit(1);
 	}
@@ -420,36 +458,36 @@ int main(int argc, char *argv[])
 	case '@':/* Management */
 		/* readonly, add/remove, readwrite, runstop */
 		if (readonly>0)
-			rv = Manage_ro(devs[0], mdfd, readonly);
+			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && devs_found>1)
-			rv = Manage_subdevs(devs[0], mdfd,
-					    devs_found-1, devs+1, devmodes+1);
+			rv = Manage_subdevs(devlist->devname, mdfd,
+					    devlist->next);
 		if (!rv && readonly < 0)
-			rv = Manage_ro(devs[0], mdfd, readonly);
+			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)
-			rv = Manage_runstop(devs[0], mdfd, runstop);
+			rv = Manage_runstop(devlist->devname, mdfd, runstop);
 		break;
 	case 'A': /* Assemble */
 		if (!scan)
-			rv = Assemble(devs[0], mdfd, &ident, configfile,
-				      devs_found-1, devs+1,
+			rv = Assemble(devlist->devname, mdfd, &ident, configfile,
+				      devlist->next,
 				      readonly, runstop, verbose, force);
 		else if (devs_found>0)
-			for (i=0; i<devs_found; i++) {
-				mddev_ident_t array_ident = conf_get_ident(configfile, devs[i]);
-				mdfd = open_mddev(devs[i]);
+			for (dv = devlist ; dv ; dv=dv->next) {
+				mddev_ident_t array_ident = conf_get_ident(configfile, dv->devname);
+				mdfd = open_mddev(dv->devname);
 				if (mdfd < 0) {
 					rv |= 1;
 					continue;
 				}
 				if (array_ident == NULL) {
 					fprintf(stderr, Name ": %s not identified in config file.\n",
-						devs[i]);
+						dv->devname);
 					rv |= 1;
 					continue;
 				}
-				rv |= Assemble(devs[i], mdfd, array_ident, configfile,
-					       0, NULL,
+				rv |= Assemble(dv->devname, mdfd, array_ident, configfile,
+					       NULL,
 					       readonly, runstop, verbose, force);
 			}
 		else {
@@ -459,36 +497,43 @@ int main(int argc, char *argv[])
 				rv = 1;
 			} else
 				for (; array_list; array_list = array_list->next) {
+					mdu_array_info_t array;
 					mdfd = open_mddev(array_list->devname);
 					if (mdfd < 0) {
 						rv |= 1;
 						continue;
 					}
+					if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
+						/* already assembled, skip */
+						continue;
 					rv |= Assemble(array_list->devname, mdfd,
 						       array_list, configfile,
-						       0, NULL,
+						       NULL,
 						       readonly, runstop, verbose, force);
 				}
 		}
 		break;
 	case 'B': /* Build */
-		rv = Build(devs[0], mdfd, chunk, level, raiddisks, devs_found-1,devs+1);
+		rv = Build(devlist->devname, mdfd, chunk, level, raiddisks, devlist->next);
 		break;
 	case 'C': /* Create */
-		rv = Create(devs[0], mdfd, chunk, level, layout, size,
+		rv = Create(devlist->devname, mdfd, chunk, level, layout, size,
 			    raiddisks, sparedisks,
-			    devs_found-1,devs+1, runstop, verbose, force);
+			    devs_found-1, devlist->next, runstop, verbose, force);
 		break;
 	case 'D': /* Detail */
-		for (i=0; i<devs_found; i++)
-			rv |= Detail(devs[i]);
+		for (dv=devlist ; dv; dv=dv->next)
+			rv |= Detail(dv->devname, brief);
 		break;
 	case 'E': /* Examine */
-		for (i=0; i<devs_found; i++)
-			rv |= Examine(devs[i]);
+		if (devlist == NULL && scan==0) {
+			fprintf(stderr, Name ": No devices to examine\n");
+			exit(2);
+		}
+		rv = Examine(devlist, devlist?brief:!verbose, configfile);
 		break;
 	case 'F': /* Follow */
-		rv= Monitor(devs_found, devs, mailaddr, program,
+		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, configfile);
 	}
 	exit(rv);

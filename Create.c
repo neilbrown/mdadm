@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@
 
 int Create(char *mddev, int mdfd,
 	   int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
-	   int subdevs, char *subdev[],
+	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force)
 {
 	/*
@@ -53,8 +53,10 @@ int Create(char *mddev, int mdfd,
 	 * RUN_ARRAY
 	 */
 	int minsize, maxsize;
-	int maxdisc= -1, mindisc = -1;
+	char *mindisc = NULL;
+	char *maxdisc = NULL;
 	int i;
+	mddev_dev_t dv;
 	int fail=0, warn=0;
 	struct stat stb;
 	int first_missing = MD_SB_DISKS*2;
@@ -93,7 +95,7 @@ int Create(char *mddev, int mdfd,
 		fprintf(stderr, Name ": You have listed more disks (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
 		return 1;
 	}
-	if (subdevs < raiddisks) {
+	if (subdevs < raiddisks+sparedisks) {
 		fprintf(stderr, Name ": You haven't given enough devices (real or missing) to create this array\n");
 		return 1;
 	}
@@ -121,11 +123,11 @@ int Create(char *mddev, int mdfd,
 	/* now look at the subdevs */
 	array.active_disks = 0;
 	array.working_disks = 0;
-	for (i=0; i<subdevs; i++) {
-		char *dname = subdev[i];
+	for (dv=devlist; dv; dv=dv->next) {
+		char *dname = dv->devname;
 		int dsize, freesize;
 		int fd;
-		if (strcasecmp(subdev[i], "missing")==0) {
+		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > i)
 				first_missing = i;
 			missing_disks ++;
@@ -165,12 +167,12 @@ int Create(char *mddev, int mdfd,
 			close(fd);
 			continue;
 		}
-		if (maxdisc< 0 || (maxdisc>=0 && freesize > maxsize)) {
-			maxdisc = i;
+		if (maxdisc == NULL || (maxdisc && freesize > maxsize)) {
+			maxdisc = dname;
 			maxsize = freesize;
 		}
-		if (mindisc < 0 || (mindisc >=0 && freesize < minsize)) {
-			mindisc = i;
+		if (mindisc ==NULL || (mindisc && freesize < minsize)) {
+			mindisc = dname;
 			minsize = freesize;
 		}
 		warn |= check_ext2(fd, dname);
@@ -183,7 +185,7 @@ int Create(char *mddev, int mdfd,
 		return 1;
 	}
 	if (size == 0) {
-		if (mindisc == -1) {
+		if (mindisc == NULL) {
 			fprintf(stderr, Name ": no size and no drives given - aborting create.\n");
 			return 1;
 		}
@@ -193,7 +195,7 @@ int Create(char *mddev, int mdfd,
 	}
 	if ((maxsize-size)*100 > maxsize) {
 		fprintf(stderr, Name ": largest drive (%s) exceed size (%dK) by more than 1%\n",
-			subdev[maxdisc], size);
+			maxdisc, size);
 		warn = 1;
 	}
 
@@ -267,7 +269,7 @@ int Create(char *mddev, int mdfd,
 		return 1;
 	}
 	
-	for (i=0; i<subdevs; i++) {
+	for (i=0, dv = devlist ; dv ; dv=dv->next, i++) {
 		int fd;
 		struct stat stb;
 		mdu_disk_info_t disk;
@@ -280,15 +282,15 @@ int Create(char *mddev, int mdfd,
 			disk.state = 6; /* active and in sync */
 		else
 			disk.state = 0;
-		if (strcasecmp(subdev[i], "missing")==0) {
+		if (strcasecmp(dv->devname, "missing")==0) {
 			disk.major = 0;
 			disk.minor = 0;
 			disk.state = 1; /* faulty */
 		} else {
-			fd = open(subdev[i], O_RDONLY, 0);
+			fd = open(dv->devname, O_RDONLY, 0);
 			if (fd < 0) {
 				fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
-					subdev[i]);
+					dv->devname);
 				return 1;
 			}
 			fstat(fd, &stb);
@@ -298,7 +300,7 @@ int Create(char *mddev, int mdfd,
 		}
 		if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 			fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
-				subdev[i], strerror(errno));
+				dv->devname, strerror(errno));
 			return 1;
 		}
 	}

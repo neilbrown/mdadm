@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -116,8 +116,8 @@ int Manage_runstop(char *devname, int fd, int runstop)
 }
 
 int Manage_subdevs(char *devname, int fd,
-		   int devcnt, char *devnames[], int devmodes[])
- {
+		   mddev_dev_t devlist)
+{
 	/* do something to each dev.
 	 * devmode can be
 	 *  'a' - add the device
@@ -128,36 +128,48 @@ int Manage_subdevs(char *devname, int fd,
 	 */
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
+	mddev_dev_t dv;
 	struct stat stb;
 	int i,j;
+	int save_errno;
+	static buf[4096];
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
 			devname);
 		return 1;
 	}
-	for (i=0 ; i<devcnt; i++) {
-		if (stat(devnames[i], &stb)) {
+	for (dv = devlist ; dv; dv=dv->next) {
+		if (stat(dv->devname, &stb)) {
 			fprintf(stderr, Name ": cannot find %s: %s\n",
-				devnames[i], strerror(errno));
+				dv->devname, strerror(errno));
 			return 1;
 		}
 		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 			fprintf(stderr, Name ": %s is not a block device.\n",
-				devnames[i]);
+				dv->devname);
 			return 1;
 		}
-		switch(devmodes[i]){
+		switch(dv->disposition){
 		default:
 			fprintf(stderr, Name ": internal error - devmode[%d]=%d\n",
-				i, devmodes[i]);
+				i, dv->disposition);
 			return 1;
 		case 'a':
 			/* add the device - hot or cold */
-			if (ioctl(fd, HOT_ADD_DISK, stb.st_rdev)==0) {
+			if (ioctl(fd, HOT_ADD_DISK, (unsigned long)stb.st_rdev)==0) {
 				fprintf(stderr, Name ": hot added %s\n",
-					devnames[i]);
+					dv->devname);
 				continue;
+			}
+			save_errno = errno;
+			if (read(fd, buf, sizeof(buf)) > 0) {
+				/* array is active, so don't try to add.
+				 * i.e. something is wrong 
+				 */
+				fprintf(stderr, Name ": hot add failed for %s: %s\n",
+					dv->devname, strerror(save_errno));
+				return 1;
 			}
 			/* try ADD_NEW_DISK.
 			 * we might be creating, we might be assembling,
@@ -180,32 +192,32 @@ int Manage_subdevs(char *devname, int fd,
 			disc.minor = MINOR(stb.st_rdev);
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new disk failed for %s: %s\n",
-					devnames[i], strerror(errno));
+					dv->devname, strerror(errno));
 				return 1;
 			}
-			fprintf(stderr, Name ": added %s\n", devnames[i]);
+			fprintf(stderr, Name ": added %s\n", dv->devname);
 			break;
 
 		case 'r':
 			/* hot remove */
 			/* FIXME check that it is a current member */
-			if (ioctl(fd, HOT_REMOVE_DISK, stb.st_rdev)) {
+			if (ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev)) {
 				fprintf(stderr, Name ": hot remove failed for %s: %s\n",
-					devnames[i], strerror(errno));
+					dv->devname, strerror(errno));
 				return 1;
 			}
-			fprintf(stderr, Name ": hot removed %s\n", devnames[i]);
+			fprintf(stderr, Name ": hot removed %s\n", dv->devname);
 			break;
 
 		case 'f': /* set faulty */
 			/* FIXME check current member */
-			if (ioctl(fd, SET_DISK_FAULTY, stb.st_rdev)) {
+			if (ioctl(fd, SET_DISK_FAULTY, (unsigned long) stb.st_rdev)) {
 				fprintf(stderr, Name ": set disk faulty failed for %s:  %s\n",
-					devnames[i], strerror(errno));
+					dv->devname, strerror(errno));
 				return 1;
 			}
 			fprintf(stderr, Name ": set %s faulty in %s\n",
-				devnames[i], devname);
+				dv->devname, devname);
 			break;
 		}
 	}

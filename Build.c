@@ -1,7 +1,7 @@
 /*
  * mdctl - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 
 int Build(char *mddev, int mdfd, int chunk, int level,
 	  int raiddisks,
-	  int subdevs, char *subdev[])
+	  mddev_dev_t devlist)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -53,30 +53,34 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 	int i;
 	int vers;
 	struct stat stb;
+	int subdevs = 0;
+	mddev_dev_t dv;
+
+	/* scan all devices, make sure they really are block devices */
+	for (dv = devlist; dv; dv=dv->next) {
+		if (stat(dv->devname, &stb)) {
+			fprintf(stderr, Name ": Cannot find %s: %s\n",
+				dv->devname, strerror(errno));
+			return 1;
+		}
+		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
+			fprintf(stderr, Name ": %s is not a block device.\n",
+				dv->devname);
+			return 1;
+		}
+		subdevs++;
+	}
+
 	if (raiddisks != subdevs) {
 		fprintf(stderr, Name ": requested %d devices in array but listed %d\n",
 			raiddisks, subdevs);
 		return 1;
 	}
 
-	/* scan all devices, make sure they really are block devices */
-	for (i=0; i<subdevs; i++) {
-		if (stat(subdev[i], &stb)) {
-			fprintf(stderr, Name ": Cannot find %s: %s\n",
-				subdev[i], strerror(errno));
-			return 1;
-		}
-		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			fprintf(stderr, Name ": %s is not a block device.\n",
-				subdev[i]);
-			return 1;
-		}
-	}
-
 	vers = md_get_version(mdfd);
 	
 	/* looks Ok, go for it */
-	if (vers >= 90000) {
+	if (vers >= 9000) {
 		mdu_array_info_t array;
 		array.level = level;
 		array.size = 0;
@@ -85,12 +89,14 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 		array.md_minor = 0;
 		if (fstat(mdfd, &stb)==0)
 			array.md_minor = MINOR(stb.st_rdev);
-		array.not_persistent = 0;
+		array.not_persistent = 1;
 		array.state = 0; /* not clean, but no errors */
 		array.active_disks = raiddisks;
 		array.working_disks = raiddisks;
 		array.spare_disks = 0;
 		array.failed_disks = 0;
+		if (chunk == 0)  
+			chunk = 64;
 		array.chunk_size = chunk*1024;
 		if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
 			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
@@ -99,18 +105,18 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 		}
 	}
 	/* now add the devices */
-	for (i=0; i<subdevs; i++) {
-		if (stat(subdev[i], &stb)) {
+	for ((i=0), (dv = devlist) ; dv ; i++, dv=dv->next) {
+		if (stat(dv->devname, &stb)) {
 			fprintf(stderr, Name ": Wierd: %s has disappeared.\n",
-				subdev[i]);
+				dv->devname);
 			goto abort;
 		}
-		if ((stb.st_rdev & S_IFMT)!= S_IFBLK) {
+		if ((stb.st_mode & S_IFMT)!= S_IFBLK) {
 			fprintf(stderr, Name ": Wierd: %s is no longer a block device.\n",
-				subdev[i]);
+				dv->devname);
 			goto abort;
 		}
-		if (vers> 90000) {
+		if (vers>= 9000) {
 			mdu_disk_info_t disk;
 			disk.number = i;
 			disk.raid_disk = i;
@@ -119,27 +125,27 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 			disk.minor = MINOR(stb.st_rdev);
 			if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 				fprintf(stderr, Name ": ADD_NEW_DISK failed for %s: %s\n",
-					subdev[i], strerror(errno));
+					dv->devname, strerror(errno));
 				goto abort;
 			}
 		} else {
 			if (ioctl(mdfd, REGISTER_DEV, &stb.st_rdev)) {
 				fprintf(stderr, Name ": REGISTER_DEV failed for %s.\n",
-					subdev[i], strerror(errno));
+					dv->devname, strerror(errno));
 				goto abort;
 			}
 		}
 	}
 	/* now to start it */
-	if (vers > 90000) {
+	if (vers >= 9000) {
 		mdu_param_t param; /* not used by syscall */
-		if (ioctl(mdfd, RUN_ARRAY, param)) {
+		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 				strerror(errno));
 			goto abort;
 		}
 	} else {
-		int arg;
+		unsigned long arg;
 		arg=0;
 		while (chunk > 4096) {
 			arg++;
@@ -159,7 +165,7 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 	return 0;
 
  abort:
-	if (vers > 900000)
+	if (vers >= 9000)
 	    ioctl(mdfd, STOP_ARRAY, 0);
 	else
 	    ioctl(mdfd, STOP_MD, 0);

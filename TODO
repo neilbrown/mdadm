@@ -1,12 +1,22 @@
 
-- check superblock checksum in examine
-- report "chunk" or "rounding" depending on raid level
+- check superblock checksum in examine DONE
+- report "chunk" or "rounding" depending on raid level DONE
 - report "linear" instead of "-1" for raid level DONE
 - decode ayout depending on raid level DONE
 - get Assemble to upgrade devices if force flag.
 - --verbose and --force flags.
 
-- set md_minor, *_disks for Create
+- set md_minor, *_disks for Create  - DONE
 - for create raid5, how to choose between 
    all working, but not insync
    one missing, one spare, insync
+- when RUN_ARRAY, make sure *_disks counts are right
+
+- get --detail to extract extra stuff from superblock,
+   like uuid  DONE
+- --detail --brief to give a config file line
+- parse config file. DONE
+- test...
+
+- when --assemble --scan, if an underlying device is an md device, 
+  then try to assemble that device first.

@@ -347,6 +347,7 @@ int main(int argc, char *argv[])
      * There must be an mddev unless D or E or (A and scan)
      * If there is one, we open it.
      */
+
     if (mode !='D' && mode !='E' && ! (mode =='A' && scan)) {
 	if (!mddev) {
 	    fprintf(stderr, Name ": an md device must be given in this mode\n");
@@ -366,15 +367,16 @@ int main(int argc, char *argv[])
 	}
     }
     
+
     rv  =0;
     switch(mode) {
     case '@':/* Management */
 	/* readonly, add/remove, readwrite, runstop */
-	if (readonly>1)
+	if (readonly>0)
 	    rv = Manage_ro(mddev, mdfd, readonly);
 	if (!rv && subdevs)
 	    rv = Manage_subdevs(mddev, mdfd, subdevs, subdev, devmodes);
-	if (!rv && readonly < 1)
+	if (!rv && readonly < 0)
 	    rv = Manage_ro(mddev, mdfd, readonly);
 	if (!rv && runstop)
 	    rv = Manage_runstop(mddev, mdfd, runstop);

@@ -29,7 +29,7 @@
 
 #include "mdctl.h"
 
-char Version[] = Name " - v0.3 - 14 June 2001\n";
+char Version[] = Name " - v0.4 - 26 July 2001\n";
 /*
  * File: ReadMe.c
  *

@@ -27,9 +27,9 @@
 #           Australia
 #
 
-CFLAGS = -Wall,error
+CFLAGS = -Wall,error,strict-prototypes -ggdb
 
-OBJS =  mdctl.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o
+OBJS =  mdctl.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o dlink.o
 all : mdctl
 
 mdctl : $(OBJS)

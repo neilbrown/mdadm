@@ -29,6 +29,9 @@
 
 #include	"mdctl.h"
 
+#if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
+#error no endian defined
+#endif
 #include	"md_u.h"
 #include	"md_p.h"
 int Examine(char *dev)
@@ -47,7 +50,7 @@ int Examine(char *dev)
 	 *   utime, state etc
 	 *
 	 */
-	int fd = open(dev, O_RDONLY, 0);
+	int fd = open(dev, O_RDONLY);
 	time_t atime;
 	mdp_super_t super;
 	int d;
@@ -121,18 +124,32 @@ int Examine(char *dev)
 	printf(" Working Drives : %d\n", super.working_disks);
 	printf("  Failed Drives : %d\n", super.failed_disks);
 	printf("   Spare Drives : %d\n", super.spare_disks);
-	printf("   - checksum not checked yet - \n");
+	if (calc_sb_csum(&super) == super.sb_csum)
+	    printf("       Checksum : %x - correct\n", super.sb_csum);
+	else
+	    printf("       Checksum : %x - expected %x\n", super.sb_csum, calc_sb_csum(&super));
 	printf("         Events : %d.%d\n", super.events_hi, super.events_lo);
 	printf("\n");
 	if (super.level == 5) {
 		c = map_num(r5layout, super.layout);
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
-	printf("     Chunk Size : %dK\n", super.chunk_size/1024);
+	switch(super.level) {
+	case 0:
+	case 4:
+	case 5:
+		printf("     Chunk Size : %dK\n", super.chunk_size/1024);
+		break;
+	case -1:
+		printf("       Rounding : %dK\n", super.chunk_size/1024);
+		break;
+	default: break;		
+	}
 	printf("\n");
 	printf("      Number   Major   Minor   RaidDisk   State\n");
 	for (d= -1; d<(signed int)super.nr_disks; d++) {
 		mdp_disk_t *dp;
+		char *dv;
 		char nb[5];
 		if (d>=0) dp = &super.disks[d];
 		else dp = &super.this_disk;
@@ -143,6 +160,8 @@ int Examine(char *dev)
 		if (dp->state & (1<<MD_DISK_ACTIVE)) printf(" active");
 		if (dp->state & (1<<MD_DISK_SYNC)) printf(" sync");
 		if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
+		if ((dv=map_dev(dp->major, dp->minor)))
+		    printf("   %s", dv);
 		printf("\n");
 	}
 	return 0;

@@ -56,8 +56,10 @@ int parse_uuid(char *str, int uuid[4])
 	    continue;
 	else return 0;
 
-	uuid[hit/4] <<= 4;
-	uuid[hit/4] += n;
+	if (hit<32) {
+	    uuid[hit/8] <<= 4;
+	    uuid[hit/8] += n;
+	}
 	hit++;
     }
     if (hit == 32)
@@ -222,6 +224,31 @@ int load_super(int fd, mdp_super_t *super)
 	return 0;
 }
 
+int store_super(int fd, mdp_super_t *super)
+{
+	long size;
+	long long offset;
+    
+	if (ioctl(fd, BLKGETSIZE, &size))
+		return 1;
+
+	if (size < MD_RESERVED_SECTORS*2)
+		return 2;
+	
+	offset = MD_NEW_SIZE_SECTORS(size);
+
+	offset *= 512;
+
+	if (lseek64(fd, offset, 0)< 0LL)
+		return 3;
+
+	if (write(fd, super, sizeof(*super)) != sizeof(*super))
+		return 4;
+
+	return 0;
+}
+    
+
 
 int check_ext2(int fd, char *name)
 {
@@ -332,4 +359,68 @@ int map_name(mapping_t *map, char *name)
 		map++;
 	}
 	return -10;
+}
+
+/*
+ * convert a major/minor pair for a block device into a name in /dev, if possible.
+ * On the first call, walk /dev collecting name.
+ * Put them in a simple linked listfor now.
+ */
+struct devmap {
+    int major, minor;
+    char *name;
+    struct devmap *next;
+} *devlist = NULL;
+int devlist_ready = 0;
+
+#define  __USE_XOPEN_EXTENDED
+#include <ftw.h>
+
+
+int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
+{
+    if ((stb->st_mode&S_IFMT)== S_IFBLK) {
+	char *n = strdup(name);
+	struct devmap *dm = malloc(sizeof(*dm));
+	if (dm) {
+	    dm->major = MAJOR(stb->st_rdev);
+	    dm->minor = MINOR(stb->st_rdev);
+	    dm->name = n;
+	    dm->next = devlist;
+	    devlist = dm;
+	}
+    }
+    return 0;
+}
+
+char *map_dev(int major, int minor)
+{
+    struct devmap *p;
+    if (!devlist_ready) {
+	nftw("/dev", add_dev, 10, FTW_PHYS);
+	devlist_ready=1;
+    }
+
+    for (p=devlist; p; p=p->next)
+	if (p->major == major &&
+	    p->minor == minor)
+	    return p->name;
+    return NULL;
+}
+
+
+int calc_sb_csum(mdp_super_t *super)
+{
+        unsigned int  oldcsum = super->sb_csum;
+	unsigned long long newcsum = 0; /* FIXME why does this make it work?? */
+	unsigned long csum;
+	int i;
+	unsigned int *superc = (int*) super;
+	super->sb_csum = 0;
+
+	for(i=0; i<MD_SB_BYTES/4; i++)
+		newcsum+= superc[i];
+	csum = (newcsum& 0xffffffff) + (newcsum>>32);
+	super->sb_csum = oldcsum;
+	return csum;
 }

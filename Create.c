@@ -56,9 +56,9 @@ int Create(char *mddev, int mdfd,
 	int maxdisc= -1, mindisc = -1;
 	int i;
 	int fail=0, warn=0;
+	struct stat stb;
 
 	mdu_array_info_t array;
-	mdu_param_t param;
 	
 
 	if (md_get_version(mdfd) < 9000) {
@@ -188,14 +188,42 @@ int Create(char *mddev, int mdfd,
 
 	array.level = level;
 	array.size = size;
-	array.nr_disks = raiddisks+sparedisks;
+	array.nr_disks = raiddisks+sparedisks+(level==4||level==5);
 	array.raid_disks = raiddisks;
+	/* The kernel should *know* what md_minor we are dealing
+	 * with, but it chooses to trust me instead. Sigh
+	 */
 	array.md_minor = 0;
+	if (fstat(mdfd, &stb)==0)
+		array.md_minor = MINOR(stb.st_rdev);
 	array.not_persistent = 0;
-	array.state = 0; /* not clean, but no errors */
-	array.active_disks=0;
-	array.working_disks=0;
-	array.spare_disks=0;
+	if (level == 4 || level == 5)
+	    array.state = 1; /* clean, but one drive will be missing */
+	else
+	    array.state = 0; /* not clean, but no errors */
+
+	/* There is lots of redundancy in these disk counts,
+	 * raid_disks is the most meaningful value
+	 *          it describes the geometry of the array
+	 *          it is constant
+	 * nr_disks is total number of used slots.
+	 *          it should be raid_disks+spare_disks
+	 * spare_disks is the number of extra disks present
+	 *          see above
+	 * active_disks is the number of working disks in
+	 *          active slots. (With raid_disks)
+	 * working_disks is the total number of working disks,
+	 *          including spares
+	 * failed_disks is the number of disks marked failed
+	 *
+         * Ideally, the kernel would keep these (except raid_disks)
+	 * up-to-date as we ADD_NEW_DISK, but it doesn't (yet).
+	 * So for now, we assume that all raid and spare
+	 * devices will be given.
+	 */
+	array.active_disks=raiddisks-(level==4||level==5);
+	array.working_disks=raiddisks+sparedisks;
+	array.spare_disks=sparedisks + (level==4||level==5);
 	array.failed_disks=0;
 	array.layout = layout;
 	array.chunk_size = chunk*1024;
@@ -217,13 +245,19 @@ int Create(char *mddev, int mdfd,
 	    }
 	    fstat(fd, &stb);
 	    disk.number = i;
-	    disk.raid_disk = i;
-	    disk.state = 6; /* active and in sync */
+	    if ((level==4 || level==5) &&
+		disk.number >= raiddisks-1)
+		disk.number++;
+	    disk.raid_disk = disk.number;
+	    if (disk.raid_disk < raiddisks)
+		disk.state = 6; /* active and in sync */
+	    else
+		disk.state = 0;
 	    disk.major = MAJOR(stb.st_rdev);
 	    disk.minor = MINOR(stb.st_rdev);
 	    close(fd);
 	    if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
-		fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\b",
+		fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
 			subdev[i], strerror(errno));
 		return 1;
 	    }
@@ -231,6 +265,7 @@ int Create(char *mddev, int mdfd,
 
 	/* param is not actually used */
 	if (runstop == 1 || subdevs >= raiddisks) {
+		mdu_param_t param;
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 				strerror(errno));

@@ -45,6 +45,9 @@ int Detail(char *dev)
 	time_t atime;
 	char *c;
 
+	mdp_super_t super;
+	int have_super = 0;
+
 	if (fd < 0) {
 		fprintf(stderr, Name ": cannot open %s: %s\n",
 			dev, strerror(errno));
@@ -102,11 +105,23 @@ int Detail(char *dev)
 		c = map_num(r5layout, array.layout);
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
-	printf("     Chunk Size : %dK\n", array.chunk_size/1024);
+	switch (array.level) {
+	case 0:
+	case 4:
+	case 5:
+		printf("     Chunk Size : %dK\n", array.chunk_size/1024);
+		break;
+	case -1:
+		printf("       Rounding : %dK\n", array.chunk_size/1024);
+		break;
+	default: break;
+	}
+	
 	printf("\n");
 	printf("    Number   Major   Minor   RaidDisk   State\n");
 	for (d= 0; d<array.nr_disks; d++) {
 		mdu_disk_info_t disk;
+		char *dv;
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
 			fprintf(stderr, Name ": cannot get disk detail for disk %d: %s\n",
@@ -119,7 +134,28 @@ int Detail(char *dev)
 		if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
 		if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
 		if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
+		if ((dv=map_dev(disk.major, disk.minor))) {
+		    printf("   %s", dv);
+		    if (!have_super) {
+			/* try to read the superblock from this device
+			 * to get more info
+			 */
+			int fd = open(dv, O_RDONLY);
+			if (fd >=0 &&
+			    load_super(fd, &super) ==0 &&
+			    super.ctime == array.ctime &&
+			    super.level == array.level)
+			    have_super = 1;
+		    }
+		}
 		printf("\n");
+	}
+	if (have_super) {
+	    	if (super.minor_version >= 90)
+		printf("           UUID : %08x:%08x:%08x:%08x\n", super.set_uuid0, super.set_uuid1,
+		       super.set_uuid2, super.set_uuid3);
+	else
+		printf("           UUID : %08x\n", super.set_uuid0);
 	}
 	return 0;
 }

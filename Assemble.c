@@ -107,7 +107,7 @@ int Assemble(char *mddev, int mdfd,
 	int most_recent = 0;
 	
 	if (!mddev && !scan) {
-		fputs(Name ": internal error - Assemble called with no devie or scan\n", stderr);
+		fputs(Name ": internal error - Assemble called with no device or --scan\n", stderr);
 		return 1;
 	}
 	if (!mddev) {
@@ -118,7 +118,7 @@ int Assemble(char *mddev, int mdfd,
 			fprintf(stderr, Name ": No devices found in config file\n");
 			return 1;
 		}
-		while (device_list) {
+		for (; device_list; device_list=device_list->next) {
 			if (!uuidset || same_uuid(device_list->uuid,uuid)) {
 				mdfd = open(device_list->devname, O_RDONLY, 0);
 				if (mdfd < 0) {
@@ -136,11 +136,10 @@ int Assemble(char *mddev, int mdfd,
 					found++;
 				close(mdfd);
 			}
-			device_list = device_list->next;
 		}
 		if (found)
 			return 0;
-		fprintf(stderr,Name ": Did not successful Assemble any devices\n");
+		fprintf(stderr,Name ": Did not successfully Assemble any devices\n");
 		return 1;
 	}
 
@@ -206,6 +205,10 @@ int Assemble(char *mddev, int mdfd,
 	for (i=0; i<MD_SB_DISKS; i++)
 		best[i] = -1;
 
+	if (verbose)
+	    fprintf(stderr, Name ": looking for devices for %s\n",
+		    mddev);
+
 	while (subdevs || devlist) {
 		char *devname;
 		int this_uuid[4];
@@ -250,6 +253,13 @@ int Assemble(char *mddev, int mdfd,
 			continue;
 		}
 		close(dfd);
+		uuid_from_super(this_uuid, &super);
+		if (uuidset && !same_uuid(this_uuid, uuid)) {
+		    if (inargv || verbose)
+			fprintf(stderr, Name ": %s has wrong uuid.\n",
+				devname);
+		    continue;
+		}
 		if (compare_super(&first_super, &super)) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": superblock on %s doesn't match\n",
@@ -341,8 +351,8 @@ int Assemble(char *mddev, int mdfd,
 						devices[j].devname,
 						mddev,
 						strerror(errno));
-				} else
 					okcnt--;
+				}
 			} else if (verbose)
 				fprintf(stderr, Name ": no uptodate device for slot %d of %s\n",
 					i, mddev);
@@ -350,17 +360,84 @@ int Assemble(char *mddev, int mdfd,
 		if (runstop == 1 ||
 		    (runstop == 0 && 
 		     enough(first_super.level, first_super.raid_disks, okcnt))) {
-			if (ioctl(mdfd, RUN_ARRAY, NULL)==0)
+			if (ioctl(mdfd, RUN_ARRAY, NULL)==0) {
+				fprintf(stderr, Name ": %s has been started with %d drives\n",
+					mddev, okcnt);
 				return 0;
+			}
 			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",
 				mddev, strerror(errno));
 			return 1;
 		}
-		if (runstop == -1)
+		if (runstop == -1) {
+			fprintf(stderr, Name ": %s assembled from %d drives, but not started.\n",
+				mddev, okcnt);
 			return 0;
-		else return 1;
-	} else {
-		/* FIXME */
+		}
+		fprintf(stderr, Name ": %s assembled from %d drives - not enough to start it.\n",
+			mddev, okcnt);
 		return 1;
+	} else {
+		/* It maybe just a case of calling START_ARRAY, but it may not..
+		 * We need to pick a working device, read it's super block, and make
+		 * sure all the device numbers and the minor number are right.
+		 * Then we might need to re-write the super block.
+		 * THEN we call START_ARRAY
+		 * If the md_minor is wrong, wejust give up for now.  The alternate is to
+		 * re-write ALL super blocks.
+		 */
+		int chosen_drive = -1;
+		int change = 0;
+		int dev;
+		for (i=0; i<first_super.nr_disks; i++) {
+		    if (!devices[i].uptodate)
+			continue;
+		    if (chosen_drive == -1) {
+			    int fd;
+			    chosen_drive = i;
+			    if (open(devices[i].devname, O_RDONLY)>= 0) {
+				    fprintf(stderr, Name ": Cannot open %s: %s\n",
+					    devices[i].devname, strerror(errno));
+				    return 1;
+			    }
+			    if (load_super(fd, &super)) {
+				    close(fd);
+				    fprintf(stderr, Name ": RAID superblock has disappeared from %s\n",
+					    devices[i].devname);
+				    return 1;
+			    }
+			    close(fd);
+		    }
+		    if (devices[i].major != super.disks[i].major ||
+			devices[i].minor != super.disks[i].minor) {
+			change = 1;
+			super.disks[i].major = devices[i].major;
+			super.disks[i].minor = devices[i].minor;
+		    }
+		}
+		if (change) {
+		    int fd;
+		    super.sb_csum = calc_sb_csum(super);
+		    fd = open(devices[chosen_drive].devname, O_RDWR);
+		    if (fd < 0) {
+			fprintf(stderr, Name ": Could open %s for write - cannot Assemble array.\n",
+				devices[chosen_drive].devname);
+			return 1;
+		    }
+		    if (store_super(fd, &super)) {
+			close(fd);
+			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
+				devices[chosen_drive].devname);
+			return 1;
+		    }
+		    close(fd);
+		}
+		dev = MKDEV(devices[chosen_drive].major,
+			    devices[chosen_drive].minor);
+		if (ioctl(mdfd, START_ARRAY, dev)) {
+		    fprintf(stderr, Name ": Cannot start array: %s\n",
+			    strerror(errno));
+		}
+		
 	}
 }

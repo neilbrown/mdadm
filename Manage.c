@@ -31,6 +31,10 @@
 #include "md_u.h"
 #include "md_p.h"
 
+#define REGISTER_DEV 		_IO (MD_MAJOR, 1)
+#define START_MD     		_IO (MD_MAJOR, 2)
+#define STOP_MD      		_IO (MD_MAJOR, 3)
+
 int Manage_ro(char *devname, int fd, int readonly)
 {
 	/* switch to readonly or rw
@@ -60,7 +64,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 		}
 	} else if (readonly < 0) {
 		if (ioctl(fd, RESTART_ARRAY_RW, NULL)) {
-			fprintf(stderr, Name ": fail to re writable for %s: %s\n",
+			fprintf(stderr, Name ": failed to set writable for %s: %s\n",
 				devname, strerror(errno));
 			return 1;
 		}
@@ -75,17 +79,26 @@ int Manage_runstop(char *devname, int fd, int runstop)
 	 */
 	mdu_array_info_t array;
 	mdu_param_t param; /* unused */
+
+	if (runstop == -1 && md_get_version(fd) < 9000) {
+		if (ioctl(fd, STOP_MD, 0)) {
+			fprintf(stderr, Name ": stopping device %s failed: %s\n",
+				devname, strerror(errno));
+			return 1;
+		}
+	}
 	
 	if (md_get_version(fd) < 9000) {
 		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
 		return 1;
 	}
+	/*
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": %s does not appear to be active.\n",
 			devname);
 		return 1;
 	}
-	
+	*/
 	if (runstop>0) {
 		if (ioctl(fd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": failed to run array %s: %s\n",
@@ -175,7 +188,7 @@ int Manage_subdevs(char *devname, int fd,
 
 		case 'r':
 			/* hot remove */
-			/* FIXME check that is is a current member */
+			/* FIXME check that it is a current member */
 			if (ioctl(fd, HOT_REMOVE_DISK, stb.st_rdev)) {
 				fprintf(stderr, Name ": hot remove failed for %s: %s\n",
 					devnames[i], strerror(errno));

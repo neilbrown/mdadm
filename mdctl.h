@@ -78,6 +78,7 @@ extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
 extern mapping_t r5layout[], pers[];
 
+extern char *map_dev(int major, int minor);
 
 
 extern int Manage_ro(char *devname, int fd, int readonly);

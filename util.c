@@ -30,6 +30,7 @@
 #include	"mdadm.h"
 #include	"md_p.h"
 #include	<sys/utsname.h>
+#include	<ctype.h>
 
 /*
  * Parse a 128 bit uuid in 4 integers
@@ -102,12 +103,18 @@ int md_get_version(int fd)
 int get_linux_version()
 {
 	struct utsname name;
+	char *cp;
 	int a,b,c;
 	if (uname(&name) <0)
 		return -1;
 
-	if (sscanf(name.release, "%d.%d.%d", &a,&b,&c)!= 3)
-		return -1;
+	cp = name.release;
+	a = strtoul(cp, &cp, 10);
+	if (*cp != '.') return -1;
+	b = strtoul(cp+1, &cp, 10);
+	if (*cp != '.') return -1;
+	c = strtoul(cp+1, NULL, 10);
+
 	return (a*1000000)+(b*1000)+c;
 }
 
@@ -124,6 +131,8 @@ int enough(int level, int raid_disks, int avail_disks)
 	case 4:
 	case 5:
 		return avail_disks >= raid_disks-1;
+	case 6:
+		return avail_disks >= raid_disks-2;
 	default:
 		return 0;
 	}
@@ -363,7 +372,7 @@ int map_name(mapping_t *map, char *name)
 			return map->num;
 		map++;
 	}
-	return -10;
+	return UnSet;
 }
 
 /*
@@ -392,7 +401,11 @@ char *map_dev(int major, int minor)
 #include <ftw.h>
 
 
+#ifndef __dietlibc__
 int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
+#else
+int add_dev(const char *name, const struct stat *stb, int flag)
+#endif
 {
     if ((stb->st_mode&S_IFMT)== S_IFBLK) {
 	char *n = strdup(name);
@@ -412,7 +425,11 @@ char *map_dev(int major, int minor)
 {
     struct devmap *p;
     if (!devlist_ready) {
+#ifndef __dietlibc__
 	nftw("/dev", add_dev, 10, FTW_PHYS);
+#else
+	ftw("/dev", add_dev, 10);
+#endif
 	devlist_ready=1;
     }
 
@@ -425,7 +442,7 @@ char *map_dev(int major, int minor)
 
 #endif
 
-int calc_sb_csum(mdp_super_t *super)
+unsigned long calc_sb_csum(mdp_super_t *super)
 {
         unsigned int  oldcsum = super->sb_csum;
 	unsigned long long newcsum = 0;
@@ -487,27 +504,63 @@ char *human_size_brief(long long bytes)
 	return buf;
 }
 
+static int mdp_major = -1;
+void get_mdp_major(void)
+{
+	FILE *fl = fopen("/proc/devices", "r");
+	char *w;
+	int have_block = 0;
+	int have_devices = 0;
+	int last_num = -1;
+	if (!fl)
+		return;
+	while ((w = conf_word(fl, 1))) {
+		if (have_block && strcmp(w, "devices:")==0)
+			have_devices = 1;
+		have_block =  (strcmp(w, "Block")==0);
+		if (isdigit(w[0]))
+			last_num = atoi(w);
+		if (have_devices && strcmp(w, "mdp")==0)
+			mdp_major = last_num;
+		free(w);
+	}
+	fclose(fl);
+}
 
-#define MD_MAJOR 9
+
+
 char *get_md_name(int dev)
 {
 	/* find /dev/md%d or /dev/md/%d or make a device /dev/.tmp.md%d */
+	/* if dev < 0, want /dev/md/d%d or find mdp in /proc/devices ... */
 	static char devname[50];
 	struct stat stb;
-	dev_t rdev = MKDEV(MD_MAJOR, dev);
+	dev_t rdev;
 
-	sprintf(devname, "/dev/md%d", dev);
-	if (stat(devname, &stb) == 0
-	    && (S_IFMT&stb.st_mode) == S_IFBLK
-	    && (stb.st_rdev == rdev))
-		return devname;
+	if (dev < 0) {
 
-	sprintf(devname, "/dev/md/%d", dev);
-	if (stat(devname, &stb) == 0
-	    && (S_IFMT&stb.st_mode) == S_IFBLK
-	    && (stb.st_rdev == rdev))
-		return devname;
+		if (mdp_major < 0) get_mdp_major();
+		if (mdp_major < 0) return NULL;
+		rdev = MKDEV(mdp_major, (-1-dev)<<6);
+		sprintf(devname, "/dev/md/d%d", -1-dev);
+		if (stat(devname, &stb) == 0
+		    && (S_IFMT&stb.st_mode) == S_IFBLK
+		    && (stb.st_rdev == rdev))
+			return devname;
+	} else {
+		rdev = MKDEV(MD_MAJOR, dev);
+		sprintf(devname, "/dev/md%d", dev);
+		if (stat(devname, &stb) == 0
+		    && (S_IFMT&stb.st_mode) == S_IFBLK
+		    && (stb.st_rdev == rdev))
+			return devname;
 
+		sprintf(devname, "/dev/md/%d", dev);
+		if (stat(devname, &stb) == 0
+		    && (S_IFMT&stb.st_mode) == S_IFBLK
+		    && (stb.st_rdev == rdev))
+			return devname;
+	}
 	sprintf(devname, "/dev/.tmp.md%d", dev);
 	if (mknod(devname, S_IFBLK | 0600, rdev) == -1)
 		return NULL;

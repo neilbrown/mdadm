@@ -5,6 +5,9 @@
 #include	<unistd.h>
 #include	<stdlib.h>
 #include	<string.h>
+#ifdef __dietlibc__
+char *strncpy(char *dest, const char *src, size_t n) __THROW;
+#endif
 #include	"dlink.h"
 
 

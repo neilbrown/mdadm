@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.4.0
+.TH MDADM 8 "" v1.5.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -29,6 +29,7 @@ md devices,
 (mirroring),
 .BR RAID4 ,
 .BR RAID5 ,
+.BR RAID6 ,
 and
 .BR MULTIPATH .
 
@@ -109,9 +110,9 @@ superblocks, erasing old superblocks and stopping active arrays.
 .TP
 .B "Follow or Monitor"
 Monitor one or more md devices and act on any state changes.  This is
-only meaningful for raid1, raid5 or multipath arrays as only these have
-interesting state.  raid0 or linear never have missing, spare, or
-failed drives, so there is nothing to monitor.  
+only meaningful for raid1, 4, 5, 6 or multipath arrays as
+only these have interesting state.  raid0 or linear never have
+missing, spare, or failed drives, so there is nothing to monitor.
 
 
 .SH OPTIONS
@@ -234,8 +235,8 @@ Specify rounding factor for linear array (==chunk size)
 .BR -l ", " --level=
 Set raid level.  When used with
 .IR --create ,
-options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid5, 4,
-raid5, 5, multipath, mp.  Obviously some of these are synonymous.
+options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
+raid5, 5, raid6, 6, multipath, mp.  Obviously some of these are synonymous.
 
 When used with
 .IR --build ,
@@ -279,7 +280,7 @@ number of spare devices.
 
 .TP
 .BR -z ", " --size=
-Amount (in Kibibytes) of space to use from each drive in RAID1/4/5.
+Amount (in Kibibytes) of space to use from each drive in RAID1/4/5/6.
 This must be a multiple of the chunk size, and must leave about 128Kb
 of space at the end of the drive for the RAID superblock.
 If this is not specified
@@ -465,6 +466,14 @@ events.  Running
 .in -5
 from a cron script will ensure regular notification of any degraded arrays.
 
+.TP
+.BR -t ", " --test
+Generate a
+.B TestMessage
+alert for every array found at startup.  This alert gets mailed and
+passed to the alert program.  This can be used for testing that alert
+message to get through successfully.
+
 .SH ASSEMBLE MODE
 
 .HP 12
@@ -532,7 +541,7 @@ Normally the array will be started after it is assembled.  However if
 is not given and insufficient drives were listed to start a complete
 (non-degraded) array, then the array is not started (to guard against
 usage errors).  To insist that the array be started in this case (as
-may work for RAID1 or RAID5), give the
+may work for RAID1, 4, 5 or 6), give the
 .B --run
 flag.
 
@@ -590,7 +599,7 @@ in place of a device name.  This will cause
 .B mdadm
 to leave the corresponding slot in the array empty.
 For a RAID4 or RAID5 array at most one slot can be
-"\fBmissing\fP".
+"\fBmissing\fP"; for a RAID6 array at most two slots.
 For a RAID1 array, only one real device needs to be given.  All of the
 others can be
 "\fBmissing\fP".
@@ -717,8 +726,8 @@ config file to be examined.
 
 .TP
 --stop
-This devices should active md arrays which will be deactivated, if
-they are not currently in use.
+The devices should be active md arrays which will be deactivated, as
+long as they are not currently in use.
 
 .TP
 --run
@@ -823,6 +832,11 @@ is 20, 40, 60, or 80, this indicates that rebuild has passed that many
 percentage of the total.
 
 .TP
+.B RebuildFinished
+An md array that was rebuilding, isn't any more, either because it
+finished normally or was aborted.
+
+.TP
 .B Fail
 An active component device of an array has been marked as faulty.
 
@@ -857,12 +871,19 @@ A spare drive has been moved from one array in a
 .B spare-group
 to another to allow a failed drive to be replaced.
 
+.TP
+.B TestMessage
+An array was found at startup, and the
+.B --test
+flag was given.
 .RE
 
 Only
-.B Fail
+.B Fail ,
+.B FailSpare ,
+.B DegradedArray ,
 and
-.B FailSpare
+.B TestMessage
 cause Email to be sent.  All events cause the program to be run.
 The program is run with two or three arguments, they being the event
 name, the array device and possibly a second device.

@@ -162,7 +162,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			if (calc_sb_csum(&super) == super.sb_csum)
 				printf("       Checksum : %x - correct\n", super.sb_csum);
 			else
-				printf("       Checksum : %x - expected %x\n", super.sb_csum, calc_sb_csum(&super));
+				printf("       Checksum : %x - expected %lx\n", super.sb_csum, calc_sb_csum(&super));
 			if (SparcAdjust) {
 				/* 2.2 sparc put the events in the wrong place
 				 * So we copy the tail of the superblock

@@ -1,3 +1,19 @@
+Changes Prior to this release
+    -   new commands "mdassemble" which is a stripped-down equivalent of
+	"mdadm -As", that can be compiled with dietlibc.
+	Thanks to Luca Berra <bluca@comedia.it>.
+	It can be using in an initramfs or initrd.
+    -   Fix compiling error with BLKGETSIZE64 and some signed/unsigned
+	comparison warnings.
+    -   Add Rebuild Status (% complete) to --detail output.
+    -   Support "--monitor --test" which will generate a test alert
+	for each array once, to test notification paths.
+    -   Generate RebuildFinished event when rebuild finishes.
+    -   Support for raid6 as found in 2.6.2 - thanks to  
+	H. Peter Anvin  <hpa@zytor.com>
+    -   Support partitioned md arrays with a different major number and
+	naming scheme (md_dX in /proc/mdstat, /dev/md/dXpY in /dev).
+	
 Changes Prior to 1.4.0 release
     -   Document fact that creating a raid5 array really creates a
         degraded array with a spare.	

@@ -142,6 +142,17 @@ int Detail(char *dev, int brief, int test)
 		}
 	
 		printf("\n");
+		{
+			struct mdstat_ent *ms = mdstat_read();
+			struct mdstat_ent *e;
+			for (e=ms; e; e=e->next)
+				if (e->devnum == array.md_minor) {
+					if (e->percent >= 0)
+						printf(" Rebuild Status : %d%% complete\n\n", e->percent);
+					break;
+				}
+			free_mdstat(ms);
+		}
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
 	for (d= 0; d<MD_SB_DISKS; d++) {
@@ -189,8 +200,8 @@ int Detail(char *dev, int brief, int test)
 				int fd = open(dv, O_RDONLY);
 				if (fd >=0 &&
 				    load_super(fd, &super) ==0 &&
-				    super.ctime == array.ctime &&
-				    super.level == array.level)
+				    (unsigned long)super.ctime == (unsigned long)array.ctime &&
+				    (unsigned int)super.level == (unsigned int)array.level)
 					have_super = 1;
 			}
 		}

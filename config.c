@@ -211,12 +211,15 @@ void load_partitions(void)
 	}
 	while (fgets(buf, 1024, f)) {
 		int major, minor;
-		char *name;
+		char *name, *mp;
 		buf[1023] = '\0';
 		if (buf[0] != ' ')
 			continue;
-		if (sscanf(buf, " %d %d ", &major, &minor) != 2)
+		major = strtoul(buf, &mp, 10);
+		if (mp == buf || *mp != ' ') 
 			continue;
+		minor = strtoul(mp, NULL, 10);
+
 		name = map_dev(major, minor);
 		if (name) {
 			struct conf_dev *cd;
@@ -262,10 +265,10 @@ void arrayline(char *line)
 	mddev_ident_t mi;
 
 	mis.uuid_set = 0;
-	mis.super_minor = -1;
-	mis.level = -10;
-	mis.raid_disks = -1;
-	mis.spare_disks = -1;
+	mis.super_minor = UnSet;
+	mis.level = UnSet;
+	mis.raid_disks = UnSet;
+	mis.spare_disks = UnSet;
 	mis.devices = NULL;
 	mis.devname = NULL;
 	mis.spare_group = NULL;
@@ -296,7 +299,7 @@ void arrayline(char *line)
 				if (w[12]==0 || endptr[0]!=0 || mis.super_minor < 0) {
 					fprintf(stderr, Name ": invalid super-minor number: %s\n",
 						w);
-					mis.super_minor = -1;
+					mis.super_minor = UnSet;
 				}
 			}
 		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
@@ -450,7 +453,7 @@ mddev_dev_t conf_get_devs(char *conffile)
 	struct conf_dev *cd;
 	int flags = 0;
 	static mddev_dev_t dlist = NULL;
-	int i;
+	unsigned int i;
 
 	while (dlist) {
 		mddev_dev_t t = dlist;

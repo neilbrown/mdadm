@@ -114,6 +114,8 @@ struct mdstat_ent *mdstat_read()
 	for (; (line = conf_line(f)) ; free_line(line)) {
 		struct mdstat_ent *ent;
 		char *w;
+		int devnum;
+		char *ep;
 
 		if (strcmp(line, "Personalities")==0)
 			continue;
@@ -122,9 +124,16 @@ struct mdstat_ent *mdstat_read()
 		if (strcmp(line, "unused")==0)
 			continue;
 		/* Better be an md line.. */
-		if (strncmp(line, "md", 2)!= 0
-		    || atoi(line+2)<0) {
-			fprintf(stderr, Name ": bad /proc/mdstat line starts: %s\n", line);
+		if (strncmp(line, "md", 2)!= 0)
+			continue;
+		if (strncmp(line, "md_d", 4) == 0)
+			devnum = -1-strtoul(line+4, &ep, 10);
+		else if (strncmp(line, "md", 2) == 0)
+			devnum = strtoul(line+2, &ep, 10);
+		else
+			continue;
+		if (ep == NULL || *ep ) {
+			/* fprintf(stderr, Name ": bad /proc/mdstat line starts: %s\n", line); */
 			continue;
 		}
 
@@ -141,7 +150,7 @@ struct mdstat_ent *mdstat_read()
 		ent->active = -1;
 
 		ent->dev = strdup(line);
-		ent->devnum = atoi(line+2);
+		ent->devnum = devnum;
 		
 		for (w=dl_next(line); w!= line ; w=dl_next(w)) {
 			int l = strlen(w);

@@ -32,6 +32,7 @@
 #include	"md_u.h"
 #include	<sys/wait.h>
 #include	<sys/signal.h>
+#include	<values.h>
 
 static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd);
 
@@ -46,7 +47,7 @@ static char *percentalerts[] = {
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
-	    char *config)
+	    char *config, int test)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -150,7 +151,7 @@ int Monitor(mddev_dev_t devlist,
 			st->utime = 0;
 			st->next = statelist;
 			st->err = 0;
-			st->devnum = -1;
+			st->devnum = MAXINT;
 			st->percent = -2;
 			st->expected_spares = mdlist->spare_disks;
 			if (mdlist->spare_group)
@@ -169,7 +170,7 @@ int Monitor(mddev_dev_t devlist,
 			st->utime = 0;
 			st->next = statelist;
 			st->err = 0;
-			st->devnum = -1;
+			st->devnum = MAXINT;
 			st->percent = -2;
 			st->expected_spares = -1;
 			st->spare_group = NULL;
@@ -191,8 +192,10 @@ int Monitor(mddev_dev_t devlist,
 			struct mdstat_ent *mse;
 			char *dev = st->devname;
 			int fd;
-			int i;
+			unsigned int i;
 
+			if (test)
+				alert("TestMessage", dev, NULL, mailaddr, alert_cmd);
 			fd = open(dev, O_RDONLY);
 			if (fd < 0) {
 				if (!st->err)
@@ -221,18 +224,20 @@ int Monitor(mddev_dev_t devlist,
 				close(fd);
 				continue;
 			}
-			if (st->devnum < 0) {
+			if (st->devnum == MAXINT) {
 				struct stat stb;
 				if (fstat(fd, &stb) == 0 &&
-				    (S_IFMT&stb.st_mode)==S_IFBLK)
-					st->devnum = MINOR(stb.st_rdev);
+				    (S_IFMT&stb.st_mode)==S_IFBLK) {
+					if (MINOR(stb.st_rdev) == 9)
+						st->devnum = MINOR(stb.st_rdev);
+					else
+						st->devnum = -1- (MINOR(stb.st_rdev)>>6);
+				}
 			}
 
 			for (mse = mdstat ; mse ; mse=mse->next)
-				if (mse->devnum == st->devnum) {
-					mse->devnum = -1; /* flag it as "used" */
-					break;
-				}
+				if (mse->devnum == st->devnum)
+					mse->devnum = MAXINT; /* flag it as "used" */
 
 			if (st->utime == array.utime &&
 			    st->failed == array.failed_disks &&
@@ -266,6 +271,11 @@ int Monitor(mddev_dev_t devlist,
 				alert(percentalerts[mse->percent/20],
 				      dev, NULL, mailaddr, alert_cmd);
 
+			if (mse &&
+			    mse->percent == -1 &&
+			    st->percent >= 0)
+				alert("RebuildFinished", dev, NULL, mailaddr, alert_cmd);
+
 			if (mse)
 				st->percent = mse->percent;
 					
@@ -285,19 +295,19 @@ int Monitor(mddev_dev_t devlist,
 					}
 				change = newstate ^ st->devstate[i];
 				if (st->utime && change && !st->err) {
-					if (i < array.raid_disks &&
+					if (i < (unsigned)array.raid_disks &&
 					    (((newstate&change)&(1<<MD_DISK_FAULTY)) ||
 					     ((st->devstate[i]&change)&(1<<MD_DISK_ACTIVE)) ||
 					     ((st->devstate[i]&change)&(1<<MD_DISK_SYNC)))
 						)
 						alert("Fail", dev, dv, mailaddr, alert_cmd);
-					else if (i>=array.raid_disks &&
+					else if (i >= (unsigned)array.raid_disks &&
 						 (disc.major || disc.minor) &&
 						 st->devid[i] == MKDEV(disc.major, disc.minor) &&
 						 ((newstate&change)&(1<<MD_DISK_FAULTY))
 						)
 						alert("FailSpare", dev, dv, mailaddr, alert_cmd);
-					else if (i < array.raid_disks &&
+					else if (i < (unsigned)array.raid_disks &&
 						 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
 						  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||
 						  ((newstate&change)&(1<<MD_DISK_SYNC)))
@@ -320,21 +330,32 @@ int Monitor(mddev_dev_t devlist,
 		if (scan) {
 			struct mdstat_ent *mse;
 			for (mse=mdstat; mse; mse=mse->next) 
-				if (mse->devnum >= 0 &&
+				if (mse->devnum != MAXINT &&
 				    (strcmp(mse->level, "raid1")==0 ||
 				     strcmp(mse->level, "raid5")==0 ||
 				     strcmp(mse->level, "multipath")==0)
 					) {
 					struct state *st = malloc(sizeof *st);
+					mdu_array_info_t array;
+					int fd;
 					if (st == NULL)
 						continue;
 					st->devname = strdup(get_md_name(mse->devnum));
+					if ((fd = open(st->devname, O_RDONLY)) < 0 ||
+					    ioctl(fd, GET_ARRAY_INFO, &array)< 0) {
+						/* no such array */
+						if (fd >=0) close(fd);
+						free(st->devname);
+						free(st);
+						continue;
+					}
 					st->utime = 0;
 					st->next = statelist;
 					st->err = 1;
 					st->devnum = mse->devnum;
 					st->percent = -2;
 					st->spare_group = NULL;
+					st->expected_spares = -1;
 					statelist = st;
 					alert("NewArray", st->devname, NULL, mailaddr, alert_cmd);
 					new_found = 1;
@@ -395,6 +416,7 @@ int Monitor(mddev_dev_t devlist,
 			else
 				sleep(period);
 		}
+		test = 0;
 	}
 	return 0;
 }
@@ -422,6 +444,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
 	}
 	if (mailaddr && 
 	    (strncmp(event, "Fail", 4)==0 || 
+	     strncmp(event, "Test", 4)==0 ||
 	     strncmp(event, "Degrade", 7)==0)) {
 		FILE *mp = popen(Sendmail, "w");
 		if (mp) {

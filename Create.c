@@ -71,7 +71,7 @@ int Create(char *mddev, int mdfd,
 		fprintf(stderr, Name ": Create requires md driver verison 0.90.0 or later\n");
 		return 1;
 	}
-	if (level == -10) {
+	if (level == UnSet) {
 		fprintf(stderr,
 			Name ": a RAID level is needed to create an array.\n");
 		return 1;
@@ -81,9 +81,19 @@ int Create(char *mddev, int mdfd,
 			Name ": a number of --raid-devices must be given to create an array\n");
 		return 1;
 	}
+	if (raiddisks < 4 && level == 6) {
+		fprintf(stderr,
+			Name ": at least 4 raid-devices needed for level 6\n");
+		return 1;
+	}
+	if (raiddisks > 256 && level == 6) {
+		fprintf(stderr,
+			Name ": no more than 256 raid-devices supported for level 6\n");
+		return 1;
+	}
 	if (raiddisks < 2 && level >= 4) {
 		fprintf(stderr,
-			Name ": atleast 2 raid-devices needed for level 4 or 5\n");
+			Name ": at least 2 raid-devices needed for level 4 or 5\n");
 		return 1;
 	}
 	if (raiddisks+sparedisks > MD_SB_DISKS) {
@@ -102,12 +112,13 @@ int Create(char *mddev, int mdfd,
 	}
 
 	/* now set some defaults */
-	if (layout == -1)
+	if (layout == UnSet)
 		switch(level) {
 		default: /* no layout */
 			layout = 0;
 			break;
 		case 5:
+		case 6:
 			layout = map_name(r5layout, "default");
 			if (verbose)
 				fprintf(stderr,
@@ -118,6 +129,7 @@ int Create(char *mddev, int mdfd,
 	switch(level) {
 	case 4:
 	case 5:
+	case 6:
 	case 0:
 	case -1: /* linear */
 		if (chunk == 0) {
@@ -229,12 +241,19 @@ int Create(char *mddev, int mdfd,
 
 	/* If this is  raid5, we want to configure the last active slot
 	 * as missing, so that a reconstruct happens (faster than re-parity)
+	 * FIX: Can we do this for raid6 as well?
 	 */
-	if (force == 0 && level == 5 && first_missing >= raiddisks) {
-		insert_point = raiddisks-1;
-		sparedisks++;
-		array.active_disks--;
-		missing_disks++;
+	if (force == 0 && first_missing >= raiddisks) {
+		switch ( level ) {
+		case 5:
+			insert_point = raiddisks-1;
+			sparedisks++;
+			array.active_disks--;
+			missing_disks++;
+			break;
+		default:
+			break;
+		}
 	}
 	
 	/* Ok, lets try some ioctls */
@@ -249,8 +268,10 @@ int Create(char *mddev, int mdfd,
 	if (fstat(mdfd, &stb)==0)
 		array.md_minor = MINOR(stb.st_rdev);
 	array.not_persistent = 0;
-	if (level == 5 && (insert_point < raiddisks || first_missing < raiddisks))
-		array.state = 1; /* clean, but one drive will be missing */
+	/*** FIX: Need to do something about RAID-6 here ***/
+	if ( (level == 5 || level == 6) &&
+	     (insert_point < raiddisks || first_missing < raiddisks) )
+		array.state = 1; /* clean, but one+ drive will be missing */
 	else
 		array.state = 0; /* not clean, but no errors */
 

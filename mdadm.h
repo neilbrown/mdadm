@@ -29,7 +29,9 @@
 
 #define	__USE_LARGEFILE64
 #include	<unistd.h>
+#ifndef __dietlibc__
 extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
+#endif
 
 #include	<sys/types.h>
 #include	<sys/stat.h>
@@ -40,6 +42,12 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<stdio.h>
 #include	<errno.h>
 #include	<string.h>
+#ifdef __dietlibc__NONO
+int strncmp(const char *s1, const char *s2, size_t n) __THROW __pure__;
+char *strncpy(char *dest, const char *src, size_t n) __THROW;
+#include    <strings.h>
+#endif
+
 
 #include	<linux/kdev_t.h>
 /*#include	<linux/fs.h> */
@@ -49,7 +57,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define	MD_MAJOR 9
 
 #ifndef BLKGETSIZE64
-#define BLKGETSIZE64 _IOR(0x12,114,sizeof(__u64)) /* return device size in bytes (u64 *arg) */
+#define BLKGETSIZE64 _IOR(0x12,114,size_t) /* return device size in bytes (u64 *arg) */
 #endif
 
 
@@ -83,20 +91,21 @@ extern char Version[], Usage[], Help[], OptionHelp[],
  * If multiple fields are present, the intersection of all matching
  * devices is considered
  */
+#define UnSet (0xfffe)
 typedef struct mddev_ident_s {
 	char *devname;
 	
 	int uuid_set;
 	__u32 uuid[4];
 
-	int super_minor;	/* -1 if not set */
+	unsigned int super_minor;
 
 	char *devices;		/* comma separated list of device
 				 * names with wild cards
 				 */
-	int level;		/* -10 if not set */
-	int raid_disks;		/* -1 if not set */
-	int spare_disks;	/* -1 if not set */
+	int level;
+	unsigned int raid_disks;
+	unsigned int spare_disks;
 	char *spare_group;
 	struct mddev_ident_s *next;
 } *mddev_ident_t;
@@ -170,7 +179,7 @@ extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
-		   char *config);
+		   char *config, int test);
 
 extern int Kill(char *dev, int force);
 
@@ -186,13 +195,14 @@ extern mddev_dev_t conf_get_devs(char *conffile);
 extern char *conf_get_mailaddr(char *conffile);
 extern char *conf_get_program(char *conffile);
 extern char *conf_line(FILE *file);
+extern char *conf_word(FILE *file, int allow_key);
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);
 extern int load_super(int fd, mdp_super_t *super);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);
 extern int same_uuid(int a[4], int b[4]);
 extern int compare_super(mdp_super_t *first, mdp_super_t *second);
-extern int calc_sb_csum(mdp_super_t *super);
+extern unsigned long calc_sb_csum(mdp_super_t *super);
 extern int store_super(int fd, mdp_super_t *super);
 extern int enough(int level, int raid_disks, int avail_disks);
 extern int ask(char *mesg);

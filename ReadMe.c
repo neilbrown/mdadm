@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.4.0 - 29 Oct 2003\n";
+char Version[] = Name " - v1.5.0 - 22 Jan 2004\n";
 /*
  * File: ReadMe.c
  *
@@ -112,7 +112,7 @@ struct option long_options[] = {
     /* For create or build: */
     {"chunk",	  1, 0, 'c'},
     {"rounding",  1, 0, 'c'}, /* for linear, chunk is really a rounding number */
-    {"level",     1, 0, 'l'}, /* 0,1,4,5,linear */
+    {"level",     1, 0, 'l'}, /* 0,1,4,5,6,linear */
     {"parity",    1, 0, 'p'}, /* {left,right}-{a,}symmetric */
     {"layout",    1, 0, 'p'},
     {"raid-disks",1, 0, 'n'},
@@ -205,12 +205,12 @@ char OptionHelp[] =
 " For create or build:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,linear,mp.  0 or linear for build\n"
-"  --parity=     -p   : raid5 parity algorithm: {left,right}-{,a}symmetric\n"
+"  --level=      -l   : raid level: 0,1,4,5,6,linear,mp.  0 or linear for build\n"
+"  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
+"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
 "\n"
@@ -270,12 +270,12 @@ char Help_create[] =
 " Options that are valid with --create (-C) are:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,linear,multipath and synonyms\n"
-"  --parity=     -p   : raid5 parity algorithm: {left,right}-{,a}symmetric\n"
+"  --level=      -l   : raid level: 0,1,4,5,6,linear,multipath and synonyms\n"
+"  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
+"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
 "  --run         -R   : insist of running the array even if not all\n"
@@ -410,6 +410,7 @@ char Help_monitor[] =
 "  --scan        -s   : find mail-address/program in config file\n"
 "  --daemonise   -f   : Fork and continue in child, parent exits\n"
 "  --oneshot     -1   : Check for degraded arrays, then exit\n"
+"  --test        -t   : Generate a TestMessage event against each array at startup\n"
 ;
 
 
@@ -480,6 +481,8 @@ mapping_t pers[] = {
 	{ "5", 5},
 	{ "multipath", -4},
 	{ "mp", -4},
+	{ "raid6", 6},
+	{ "6", 6},
 	{ NULL, 0}
 };
 

@@ -15,9 +15,12 @@ Array of Independent Devices.
 .PP
 .B md
 supports RAID levels 1 (mirroring) 4 (striped array with parity
-device) and 5 (striped array with distributed parity information).
-If a single underlying device fails while using one of these levels,
-the array will continue to function.
+device), 5 (striped array with distributed parity information) and 6
+(striped array with distributed dual redundancy information.)  If a
+some number of underlying devices fails while using one of these
+levels, the array will continue to function; this number is one for
+RAID levels 4 and 5, two for RAID level 6, and all but one (N-1) for
+RAID level 1.
 .PP
 .B md
 also supports a number of pseudo RAID (non-redundant) configurations
@@ -140,6 +143,16 @@ parity blocks on different devices so there is less contention.
 This also allows more parallelism when reading as read requests are
 distributed over all the devices in the array instead of all but one.
 
+.SS RAID6
+
+RAID6 is similar to RAID5, but can handle the loss of any \fItwo\fP
+devices without data loss.  Accordingly, it requires N+2 drives to
+store N drives worth of data.
+
+The performance for RAID6 is slightly lower but comparable to RAID5 in
+normal mode and single disk failure mode.  It is very slow in dual
+disk failure mode, however.
+
 .SS MUTIPATH
 
 MULTIPATH is not really a RAID at all as there is only one real device
@@ -156,7 +169,7 @@ another interface.
 
 .SS UNCLEAN SHUTDOWN
 
-When changes are made to a RAID1, RAID4, or RAID5 array there is a
+When changes are made to a RAID1, RAID4, RAID5 or RAID6 array there is a
 possibility of inconsistency for short periods of time as each update
 requires are least two block to be written to different devices, and
 these writes probably wont happen at exactly the same time.
@@ -166,33 +179,32 @@ consistent.
 
 To handle this situation, the md driver marks an array as "dirty"
 before writing any data to it, and marks it as "clean" when the array
-is being disabled, e.g. at shutdown.
-If the md driver finds an array to be dirty at startup, it proceeds to
-correct any possibly inconsistency.  For RAID1, this involves copying
-the contents of the first drive onto all other drives.
-For RAID4 or RAID5 this involves recalculating the parity for each
-stripe and making sure that the parity block has the correct data.
-This process, known as "resynchronising" or "resync" is performed in
-the background.  The array can still be used, though possibly with
-reduced performance.
+is being disabled, e.g. at shutdown.  If the md driver finds an array
+to be dirty at startup, it proceeds to correct any possibly
+inconsistency.  For RAID1, this involves copying the contents of the
+first drive onto all other drives.  For RAID4, RAID5 and RAID6 this
+involves recalculating the parity for each stripe and making sure that
+the parity block has the correct data.  This process, known as
+"resynchronising" or "resync" is performed in the background.  The
+array can still be used, though possibly with reduced performance.
 
-If a RAID4 or RAID5 array is degraded (missing one drive) when it is
-restarted after an unclean shutdown, it cannot recalculate parity, and
-so it is possible that data might be undetectably corrupted.
-The 2.4 md driver 
+If a RAID4, RAID5 or RAID6 array is degraded (missing at least one
+drive) when it is restarted after an unclean shutdown, it cannot
+recalculate parity, and so it is possible that data might be
+undetectably corrupted.  The 2.4 md driver
 .B does not
 alert the operator to this condition.  The 2.5 md driver will fail to
 start an array in this condition without manual intervention.
 
 .SS RECOVERY
 
-If the md driver detects any error on a device in a RAID1, RAID4, or
-RAID5 array, it immediately disables that device (marking it as faulty)
-and continues operation on the remaining devices.  If there is a spare
-drive, the driver will start recreating on one of the spare drives the
-data what was on that failed drive, either by copying a working drive
-in a RAID1 configuration, or by doing calculations with the parity
-block on RAID4 and RAID5.
+If the md driver detects any error on a device in a RAID1, RAID4,
+RAID5 or RAID6 array, it immediately disables that device (marking it
+as faulty) and continues operation on the remaining devices.  If there
+is a spare drive, the driver will start recreating on one of the spare
+drives the data what was on that failed drive, either by copying a
+working drive in a RAID1 configuration, or by doing calculations with
+the parity block on RAID4, RAID5 or RAID6.
 
 While this recovery process is happening, the md driver will monitor
 accesses to the array and will slow down the rate of recovery if other

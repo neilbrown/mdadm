@@ -78,6 +78,16 @@ mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
 	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
+mdassemble : mdassemble.c Assemble.c config.c dlink.c util.c mdadm.h
+	rm -f $(OBJS)
+	diet gcc -o mdassemble mdassemble.c Assemble.c config.c dlink.c util.c
+
+# This doesn't work
+mdassemble.klibc : mdassemble.c Assemble.c config.c dlink.c util.c mdadm.h
+	rm -f $(OBJS)
+	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) -o mdassemble mdassemble.c Assemble.c config.c dlink.c util.c
+
+
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man
 

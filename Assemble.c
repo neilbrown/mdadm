@@ -98,8 +98,8 @@ int Assemble(char *mddev, int mdfd,
 	mdp_super_t first_super, super;
 	struct {
 		char *devname;
-		int major, minor;
-		int oldmajor, oldminor;
+		unsigned int major, minor;
+		unsigned int oldmajor, oldminor;
 		long long events;
 		time_t utime;
 		int uptodate;
@@ -107,16 +107,17 @@ int Assemble(char *mddev, int mdfd,
 		int raid_disk;
 	} *devices;
 	int *best = NULL; /* indexed by raid_disk */
-	int bestcnt = 0;
-	int devcnt = 0, okcnt, sparecnt;
-	int req_cnt;
-	int i;
+	unsigned int bestcnt = 0;
+	int devcnt = 0;
+	unsigned int okcnt, sparecnt;
+	unsigned int req_cnt;
+	unsigned int i;
 	int most_recent = 0;
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
 	int start_partial_ok = force || devlist==NULL;
-	int num_devs;
+	unsigned int num_devs;
 	mddev_dev_t tmpdev;
 	
 	vers = md_get_version(mdfd);
@@ -224,21 +225,21 @@ int Assemble(char *mddev, int mdfd,
 					devname);
 			continue;
 		}
-		if (ident->super_minor >= 0 &&
+		if (ident->super_minor != UnSet &&
 		    (!havesuper || ident->super_minor != super.md_minor)) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": %s has wrong super-minor.\n",
 					devname);
 			continue;
 		}
-		if (ident->level != -10 &&
-		    (!havesuper|| ident->level != super.level)) {
+		if (ident->level != UnSet &&
+		    (!havesuper|| ident->level != (int)super.level)) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": %s has wrong raid level.\n",
 					devname);
 			continue;
 		}
-		if (ident->raid_disks != -1 &&
+		if (ident->raid_disks != UnSet &&
 		    (!havesuper || ident->raid_disks!= super.raid_disks)) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": %s requires wrong number of drives.\n",
@@ -349,16 +350,16 @@ int Assemble(char *mddev, int mdfd,
 			    > devices[most_recent].events)
 				most_recent = devcnt;
 		}
-		if (super.level == -4) 
+		if ((int)super.level == -4) 
 			/* with multipath, the raid_disk from the superblock is meaningless */
 			i = devcnt;
 		else
 			i = devices[devcnt].raid_disk;
-		if (i>=0 && i < 10000) {
+		if (i < 10000) {
 			if (i >= bestcnt) {
-				int newbestcnt = i+10;
+				unsigned int newbestcnt = i+10;
 				int *newbest = malloc(sizeof(int)*newbestcnt);
-				int c;
+				unsigned int c;
 				for (c=0; c < newbestcnt; c++)
 					if (c < bestcnt)
 						newbest[c] = best[c];
@@ -392,7 +393,7 @@ int Assemble(char *mddev, int mdfd,
 		/* note: we ignore error flags in multipath arrays
 		 * as they don't make sense
 		 */
-		if (first_super.level != -4)
+		if ((int)first_super.level != -4)
 			if (!(devices[j].state & (1<<MD_DISK_SYNC))) {
 				if (!(devices[j].state & (1<<MD_DISK_FAULTY)))
 					sparecnt++;
@@ -494,7 +495,7 @@ int Assemble(char *mddev, int mdfd,
 
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
-		int desired_state;
+		unsigned int desired_state;
 
 		if (i < super.raid_disks)
 			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);

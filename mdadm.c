@@ -58,8 +58,8 @@ int main(int argc, char *argv[])
 
 	int chunk = 0;
 	int size = 0;
-	int level = -10;
-	int layout = -1;
+	int level = UnSet;
+	int layout = UnSet;
 	int raiddisks = 0;
 	int sparedisks = 0;
 	struct mddev_ident_s ident;
@@ -89,9 +89,9 @@ int main(int argc, char *argv[])
 	int mdfd = -1;
 
 	ident.uuid_set=0;
-	ident.level = -10;
-	ident.raid_disks = -1;
-	ident.super_minor= -1;
+	ident.level = UnSet;
+	ident.raid_disks = UnSet;
+	ident.super_minor= UnSet;
 	ident.devices=0;
 
 	while ((option_index = -1) ,
@@ -259,13 +259,13 @@ int main(int argc, char *argv[])
 
 		case O(CREATE,'l'):
 		case O(BUILD,'l'): /* set raid level*/
-			if (level != -10) {
+			if (level != UnSet) {
 				fprintf(stderr, Name ": raid level may only be set once.  "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
 			level = map_name(pers, optarg);
-			if (level == -10) {
+			if (level == UnSet) {
 				fprintf(stderr, Name ": invalid raid level: %s\n",
 					optarg);
 				exit(2);
@@ -294,13 +294,14 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": layout not meaningful for %s arrays.\n",
 					map_num(pers, level));
 				exit(2);
-			case -10:
+			case UnSet:
 				fprintf(stderr, Name ": raid level must be given before layout.\n");
 				exit(2);
 
 			case 5:
+			case 6:
 				layout = map_name(r5layout, optarg);
-				if (layout==-10) {
+				if (layout==UnSet) {
 					fprintf(stderr, Name ": layout %s not understood for raid5.\n",
 						optarg);
 					exit(2);
@@ -337,7 +338,7 @@ int main(int argc, char *argv[])
 					sparedisks, optarg);
 				exit(2);
 			}
-			if (level > -10 && level <= 0 && level >= -1) {
+			if (level != UnSet && level <= 0 && level >= -1) {
 				fprintf(stderr, Name ": spare-devices setting is incompatible with raid level %d\n",
 					level);
 				exit(2);
@@ -372,7 +373,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(ASSEMBLE,'m'): /* super-minor for array */
-			if (ident.super_minor != -1) {
+			if (ident.super_minor != UnSet) {
 				fprintf(stderr, Name ": super-minor cannot be set twice.  "
 					"Second value: %s.\n", optarg);
 				exit(2);
@@ -454,6 +455,9 @@ int main(int argc, char *argv[])
 			continue;
 		case O(MONITOR,'1'): /* oneshot */
 			oneshot = 1;
+			continue;
+		case O(MONITOR,'t'): /* test */
+			test = 1;
 			continue;
 
 			/* now the general management options.  Some are applicable
@@ -563,7 +567,7 @@ int main(int argc, char *argv[])
 		mdfd = open_mddev(devlist->devname);
 		if (mdfd < 0)
 			exit(1);
-		if (ident.super_minor == -2) {
+		if ((int)ident.super_minor == -2) {
 			struct stat stb;
 			fstat(mdfd, &stb);
 			ident.super_minor = MINOR(stb.st_rdev);
@@ -586,7 +590,7 @@ int main(int argc, char *argv[])
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
-		    ident.super_minor == -1 && !scan ) {
+		    ident.super_minor == UnSet && !scan ) {
 			/* Only a device has been given, so get details from config file */
 			mddev_ident_t array_ident = conf_get_ident(configfile, devlist->devname);
 			mdfd = open_mddev(devlist->devname);
@@ -733,7 +737,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		rv= Monitor(devlist, mailaddr, program,
-			    delay?delay:60, daemonise, scan, oneshot, configfile);
+			    delay?delay:60, daemonise, scan, oneshot, configfile, test);
 		break;
 	}
 	exit(rv);

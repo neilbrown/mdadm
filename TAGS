@@ -1,4 +1,12 @@
 
+dlink.h,193
+struct __dl_head__dl_head5,100
+#define	dl_alloc(dl_alloc11,187
+#define	dl_new(dl_new12,297
+#define	dl_newv(dl_newv13,341
+#define dl_next(dl_next15,391
+#define dl_prev(dl_prev16,461
+
 md_p.h,1316
 #define _MD_P_H16,582
 #define MD_RESERVED_BYTES	44,1414
@@ -69,72 +77,123 @@ typedef struct mdu_start_info_s mdu_start_info_s97,2713
 typedef struct mdu_param_smdu_param_s108,2878
 } mdu_param_t;mdu_param_t113,3014
 
-mdctl.h,823
+mdctl.h,826
 #define	__USE_LARGEFILE6430,1115
 #define	MD_MAJOR 47,1491
-extern char short_options[52,1531
-extern struct option long_options[53,1560
-extern char Version[54,1597
-extern char Version[], Usage[54,1597
-extern char Version[], Usage[], Help[54,1597
-extern char Version[], Usage[], Help[], Help_create[54,1597
-extern char Version[], Usage[], Help[], Help_create[], Help_build[54,1597
-extern char Version[], Usage[], Help[], Help_create[], Help_build[], Help_assemble[54,1597
-typedef struct mddev_uuid_s mddev_uuid_s58,1762
-} *mddev_uuid_t;mddev_uuid_t62,1852
-typedef struct mddev_dev_s mddev_dev_s65,1918
-} *mddev_dev_t;mddev_dev_t68,1990
-#define ALGORITHM_LEFT_ASYMMETRIC	73,2044
-#define ALGORITHM_RIGHT_ASYMMETRIC	74,2080
-#define ALGORITHM_LEFT_SYMMETRIC	75,2117
-#define ALGORITHM_RIGHT_SYMMETRIC	76,2152
+#define Name 52,1531
+extern char short_options[54,1553
+extern struct option long_options[55,1582
+extern char Version[56,1619
+extern char Version[], Usage[56,1619
+extern char Version[], Usage[], Help[56,1619
+extern char Version[], Usage[], Help[], Help_create[56,1619
+extern char Version[], Usage[], Help[], Help_create[], Help_build[56,1619
+extern char Version[], Usage[], Help[], Help_create[], Help_build[], Help_assemble[56,1619
+typedef struct mddev_ident_s mddev_ident_s68,2055
+} *mddev_ident_t;mddev_ident_t80,2292
+typedef struct mddev_dev_s mddev_dev_s83,2359
+} *mddev_dev_t;mddev_dev_t86,2431
+typedef struct mapping mapping88,2448
+} mapping_t;mapping_t91,2496
+extern mapping_t r5layout[95,2606
+extern mapping_t r5layout[], pers[95,2606
 
 Assemble.c,22
 int Assemble(34,1171
 
-Build.c,19
-int Build(32,1135
+Build.c,100
+#define REGISTER_DEV 32,1135
+#define START_MD 33,1176
+#define STOP_MD 34,1217
+int Build(36,1259
 
 Create.c,20
-int Create(32,1135
+int Create(34,1171
 
 Detail.c,20
 int Detail(34,1171
 
 Examine.c,21
-int Examine(34,1171
+int Examine(37,1261
 
-Manage.c,79
-int Manage_ro(32,1135
-int Manage_runstop(36,1191
-int Manage_subdevs(40,1251
+Manage.c,161
+#define REGISTER_DEV 34,1171
+#define START_MD 35,1212
+#define STOP_MD 36,1253
+int Manage_ro(38,1295
+int Manage_runstop(75,2149
+int Manage_subdevs(118,3161
 
-ReadMe.c,231
-#define Name 32,1135
-char Version[33,1156
-char short_options[82,3241
-struct option long_options[83,3297
-char Usage[122,4441
-char Help[127,4498
-char Help_create[181,6989
-char Help_build[203,7973
-char Help_assemble[216,8513
+ReadMe.c,265
+char Version[32,1135
+char short_options[81,3222
+struct option long_options[82,3280
+char Usage[123,4484
+char Help[128,4541
+char Help_create[185,7233
+char Help_build[212,8453
+char Help_assemble[225,8993
+mapping_t r5layout[284,11939
+mapping_t pers[298,12155
 
-config.c,102
-char DefaultConfFile[43,1371
-mddev_uuid_t conf_get_uuids(45,1416
-mddev_dev_t conf_get_devs(50,1482
+config.c,479
+char DefaultConfFile[68,2396
+char *keywords[70,2441
+int match_keyword(77,2640
+char *conf_word(97,3148
+char *conf_line(163,4739
+void free_line(184,5041
+struct conf_dev conf_dev195,5183
+} *cdevlist 198,5244
+int devline(202,5267
+mddev_ident_t mddevlist 220,5590
+mddev_ident_t *mddevlp 221,5622
+void arrayline(223,5660
+int loaded 289,7453
+void load_conffile(291,7470
+mddev_ident_t conf_get_ident(324,7961
+mddev_dev_t conf_get_devs(334,8163
+int match_oneof(369,8791
 
-mdctl.c,40
-int main(33,1153
-#define O(O131,3313
+dlink.c,177
+void *dl_head(11,180
+void dl_free(20,289
+void dl_init(26,363
+void dl_insert(32,430
+void dl_add(40,598
+void dl_del(48,763
+char *dl_strndup(57,969
+char *dl_strdup(73,1176
 
-util.c,212
+mdctl.c,64
+int open_mddev(33,1153
+int main(50,1472
+#define O(O149,3610
+
+raid5extend.c,39
+int phys2log(2,1
+raid5_extend(46,902
+
+util.c,573
 int parse_uuid(40,1354
-int md_get_version(80,2091
-int get_linux_version(99,2448
-int enough(111,2639
-int same_uuid(127,2889
-void uuid_from_super(137,3018
-int compare_super(151,3295
-int load_super(185,4258
+int md_get_version(82,2117
+int get_linux_version(101,2476
+int enough(113,2673
+int same_uuid(129,2923
+void uuid_from_super(139,3052
+int compare_super(153,3329
+int load_super(187,4292
+int store_super(227,4950
+int check_ext2(253,5321
+int check_reiser(284,6084
+int check_raid(308,6640
+int ask(324,7003
+char *map_num(344,7368
+int map_name(354,7503
+struct devmap devmap369,7832
+} *devlist 373,7911
+int devlist_ready 374,7930
+#define  __USE_XOPEN_EXTENDED376,7954
+int add_dev(380,8003
+char *map_dev(396,8370
+int calc_sb_csum(412,8645

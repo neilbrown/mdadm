@@ -34,7 +34,7 @@
 int Create(char *mddev, int mdfd,
 	   int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
 	   int subdevs, char *subdev[],
-	   int runstop, int verbose)
+	   int runstop, int verbose, int force)
 {
 	/*
 	 * Create a new raid array.
@@ -57,13 +57,16 @@ int Create(char *mddev, int mdfd,
 	int i;
 	int fail=0, warn=0;
 	struct stat stb;
+	int first_missing = MD_SB_DISKS*2;
+	int missing_disks = 0;
+	int insert_point = MD_SB_DISKS*2; /* where to insert a missing drive */
 
 	mdu_array_info_t array;
 	
 
 	if (md_get_version(mdfd) < 9000) {
-	    fprintf(stderr, Name ": Create requires md driver verison 0.90.0 or later\n");
-	    return 1;
+		fprintf(stderr, Name ": Create requires md driver verison 0.90.0 or later\n");
+		return 1;
 	}
 	if (level == -10) {
 		fprintf(stderr,
@@ -75,6 +78,11 @@ int Create(char *mddev, int mdfd,
 			Name ": a number of --raid-disks must be given to create an array\n");
 		return 1;
 	}
+	if (raiddisks < 2 && level >= 4) {
+		fprintf(stderr,
+			Name ": atleast 2 raid-disks needed for level 4 or 5\n");
+		return 1;
+	}
 	if (raiddisks+sparedisks > MD_SB_DISKS) {
 		fprintf(stderr,
 			Name ": too many discs requested: %d+%d > %d\n",
@@ -82,9 +90,14 @@ int Create(char *mddev, int mdfd,
 		return 1;
 	}
 	if (subdevs > raiddisks+sparedisks) {
-	    fprintf(stderr, Name ": You have listed more disks (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
-	    return 1;
+		fprintf(stderr, Name ": You have listed more disks (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
+		return 1;
 	}
+	if (subdevs < raiddisks) {
+		fprintf(stderr, Name ": You haven't given enough devices (real or missing) to create this array\n");
+		return 1;
+	}
+
 	/* now set some defaults */
 	if (layout == -1)
 		switch(level) {
@@ -106,10 +119,22 @@ int Create(char *mddev, int mdfd,
 	}
 
 	/* now look at the subdevs */
+	array.active_disks = 0;
+	array.working_disks = 0;
 	for (i=0; i<subdevs; i++) {
 		char *dname = subdev[i];
 		int dsize, freesize;
-		int fd = open(dname, O_RDONLY, 0);
+		int fd;
+		if (strcasecmp(subdev[i], "missing")==0) {
+			if (first_missing > i)
+				first_missing = i;
+			missing_disks ++;
+			continue;
+		}
+		array.working_disks++;
+		if (i < raiddisks)
+			array.active_disks++;
+		fd = open(dname, O_RDONLY, 0);
 		if (fd <0 ) {
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				dname, strerror(errno));
@@ -124,29 +149,29 @@ int Create(char *mddev, int mdfd,
 			continue;
 		}
 		if (dsize < MD_RESERVED_SECTORS*2) {
-		    fprintf(stderr, Name ": %s is too small: %dK\n",
-			    dname, dsize/2);
-		    fail = 1;
-		    close(fd);
-		    continue;
+			fprintf(stderr, Name ": %s is too small: %dK\n",
+				dname, dsize/2);
+			fail = 1;
+			close(fd);
+			continue;
 		}
 		freesize = MD_NEW_SIZE_SECTORS(dsize);
 		freesize /= 2;
 
 		if (size && freesize < size) {
-		    fprintf(stderr, Name ": %s is smaller that given size."
-			    " %dK < %dK + superblock\n", dname, freesize, size);
-		    fail = 1;
-		    close(fd);
-		    continue;
+			fprintf(stderr, Name ": %s is smaller that given size."
+				" %dK < %dK + superblock\n", dname, freesize, size);
+			fail = 1;
+			close(fd);
+			continue;
 		}
 		if (maxdisc< 0 || (maxdisc>=0 && freesize > maxsize)) {
-		    maxdisc = i;
-		    maxsize = freesize;
+			maxdisc = i;
+			maxsize = freesize;
 		}
 		if (mindisc < 0 || (mindisc >=0 && freesize < minsize)) {
-		    mindisc = i;
-		    minsize = freesize;
+			mindisc = i;
+			minsize = freesize;
 		}
 		warn |= check_ext2(fd, dname);
 		warn |= check_reiser(fd, dname);
@@ -154,41 +179,50 @@ int Create(char *mddev, int mdfd,
 		close(fd);
 	}
 	if (fail) {
-	    fprintf(stderr, Name ": create aborted\n");
-	    return 1;
+		fprintf(stderr, Name ": create aborted\n");
+		return 1;
 	}
 	if (size == 0) {
-	    if (mindisc == -1) {
-		fprintf(stderr, Name ": no size and no drives given - aborting create.\n");
-		return 1;
-	    }
-	    size = minsize;
-	    if (verbose)
-		fprintf(stderr, Name ": size set to %dK\n", size);
+		if (mindisc == -1) {
+			fprintf(stderr, Name ": no size and no drives given - aborting create.\n");
+			return 1;
+		}
+		size = minsize;
+		if (verbose && level>0)
+			fprintf(stderr, Name ": size set to %dK\n", size);
 	}
 	if ((maxsize-size)*100 > maxsize) {
-	    fprintf(stderr, Name ": largest drive (%s) exceed size (%dK) by more than 1%\n",
-		    subdev[maxdisc], size);
-	    warn = 1;
+		fprintf(stderr, Name ": largest drive (%s) exceed size (%dK) by more than 1%\n",
+			subdev[maxdisc], size);
+		warn = 1;
 	}
 
 	if (warn) {
-	    if (runstop!= 1) {
-		if (!ask("Continue creating array? ")) {
-		    fprintf(stderr, Name ": create aborted.\n");
-		    return 1;
+		if (runstop!= 1) {
+			if (!ask("Continue creating array? ")) {
+				fprintf(stderr, Name ": create aborted.\n");
+				return 1;
+			}
+		} else {
+			if (verbose)
+				fprintf(stderr, Name ": creation continuing despite oddities due to --run\n");
 		}
-	    } else {
-		if (verbose)
-		    fprintf(stderr, Name ": creation continuing despite oddities due to --run\n");
-	    }
 	}
 
+	/* If this is  raid5, we want to configure the last active slot
+	 * as missing, so that a reconstruct happens (faster than re-parity)
+	 */
+	if (force == 0 && level == 5 && first_missing >= raiddisks) {
+		insert_point = raiddisks-1;
+		sparedisks++;
+		array.active_disks--;
+		missing_disks++;
+	}
+	
 	/* Ok, lets try some ioctls */
 
 	array.level = level;
 	array.size = size;
-	array.nr_disks = raiddisks+sparedisks+(level==4||level==5);
 	array.raid_disks = raiddisks;
 	/* The kernel should *know* what md_minor we are dealing
 	 * with, but it chooses to trust me instead. Sigh
@@ -197,10 +231,10 @@ int Create(char *mddev, int mdfd,
 	if (fstat(mdfd, &stb)==0)
 		array.md_minor = MINOR(stb.st_rdev);
 	array.not_persistent = 0;
-	if (level == 4 || level == 5)
-	    array.state = 1; /* clean, but one drive will be missing */
+	if (level == 5 && (insert_point < raiddisks || first_missing < raiddisks))
+		array.state = 1; /* clean, but one drive will be missing */
 	else
-	    array.state = 0; /* not clean, but no errors */
+		array.state = 0; /* not clean, but no errors */
 
 	/* There is lots of redundancy in these disk counts,
 	 * raid_disks is the most meaningful value
@@ -221,52 +255,57 @@ int Create(char *mddev, int mdfd,
 	 * So for now, we assume that all raid and spare
 	 * devices will be given.
 	 */
-	array.active_disks=raiddisks-(level==4||level==5);
-	array.working_disks=raiddisks+sparedisks;
-	array.spare_disks=sparedisks + (level==4||level==5);
-	array.failed_disks=0;
+	array.spare_disks=sparedisks;
+	array.failed_disks=missing_disks;
+	array.nr_disks = array.working_disks + array.failed_disks;
 	array.layout = layout;
 	array.chunk_size = chunk*1024;
 
 	if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
-	    fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
-		    mddev, strerror(errno));
-	    return 1;
+		fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
+			mddev, strerror(errno));
+		return 1;
 	}
 	
 	for (i=0; i<subdevs; i++) {
-	    int fd = open(subdev[i], O_RDONLY, 0);
-	    struct stat stb;
-	    mdu_disk_info_t disk;
-	    if (fd < 0) {
-		fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
-			subdev[i]);
-		return 1;
-	    }
-	    fstat(fd, &stb);
-	    disk.number = i;
-	    if ((level==4 || level==5) &&
-		disk.number >= raiddisks-1)
-		disk.number++;
-	    disk.raid_disk = disk.number;
-	    if (disk.raid_disk < raiddisks)
-		disk.state = 6; /* active and in sync */
-	    else
-		disk.state = 0;
-	    disk.major = MAJOR(stb.st_rdev);
-	    disk.minor = MINOR(stb.st_rdev);
-	    close(fd);
-	    if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
-		fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
-			subdev[i], strerror(errno));
-		return 1;
-	    }
+		int fd;
+		struct stat stb;
+		mdu_disk_info_t disk;
+
+		disk.number = i;
+		if (i >= insert_point)
+			disk.number++;
+		disk.raid_disk = disk.number;
+		if (disk.raid_disk < raiddisks)
+			disk.state = 6; /* active and in sync */
+		else
+			disk.state = 0;
+		if (strcasecmp(subdev[i], "missing")==0) {
+			disk.major = 0;
+			disk.minor = 0;
+			disk.state = 1; /* faulty */
+		} else {
+			fd = open(subdev[i], O_RDONLY, 0);
+			if (fd < 0) {
+				fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
+					subdev[i]);
+				return 1;
+			}
+			fstat(fd, &stb);
+			disk.major = MAJOR(stb.st_rdev);
+			disk.minor = MINOR(stb.st_rdev);
+			close(fd);
+		}
+		if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
+			fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
+				subdev[i], strerror(errno));
+			return 1;
+		}
 	}
 
-	/* hack */
-	if (level==4 || level==5) {
+	if (insert_point < MD_SB_DISKS) {
 		mdu_disk_info_t disk;
-		disk.number = raiddisks-1;
+		disk.number = insert_point;
 		disk.raid_disk = disk.number;
 		disk.state = 1; /* faulty */
 		disk.major = disk.minor = 0;

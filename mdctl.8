@@ -1,0 +1,287 @@
+.\" -*- nroff -*-
+.TH mdctl 8
+.SH NAME
+mdctl \- a single program that can be used to control Linux md devices
+.SH SYNOPSIS
+
+.BI mdctl 
+[mode] <raiddevice> [options]
+
+.SH DESCRIPTION 
+RAID devices are virtual devices created from two or more
+real block devices. This allows multiple disks to be combined into a single
+filesystem, possibly with integrated redundancy to survive drive failure.. Linux RAID devices
+are implemented through the md device driver.
+
+If you're using the 
+.B /proc 
+filesystem,
+.B /proc/mdstat
+gives you informations about md devices status.
+
+Currently, Linux supports linear md devices, RAID0 (striping), RAID1
+(mirrroring), RAID4 and RAID5. For information on the various levels of
+RAID, check out:
+
+  http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
+
+for new releases of the RAID driver check out:
+
+  ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
+
+.B mdctl 
+is a single program that can be used to control Linux md devices. It
+is intended to provide all the functionality (and more) of the mdtools
+and raidtools but with a very different interface.
+
+mdctl can perform all functions without a configuration file. There is the
+option of using a configuration file, but not in the same way that raidtools
+uses one. raidtools uses a configuration file to describe how to create a
+RAID array, and also uses this file partially to start a previously created
+RAID array. Further, raidtools requires the configuration file for such
+things as stopping a raid array which needs to know nothing about the array.
+
+The configuration file that can be used by mdctl lists two different things:
+
+.IP "\fB\-\fP"
+a list of md devices and information about how to identify each.  The
+identity can consist of a UUID, and minor-number as recorded on the
+superblock, or a list of devices.
+
+.IP "\fB\-\fP"
+a list of devices that should be scanned for md sub-devices.
+
+.SH MODES
+mdctl has 4 major modes of operation:
+.IP "\fBCreate\fP"
+This mode is used to create a new array with a superblock. It can progress
+in several step create-add-add-run or it can all happen with one command.
+
+.IP "\fBAssemble\fP"
+This mode is used to assemble the parts of a previously created
+array into an active array. Components can be explicitly given
+or can be searched for. 
+.B mdctl
+(optionally) checks that the components
+do form a bonafide array, and can, on request, fiddle superblock
+version numbers so as to assemble a faulty array.
+
+.IP "\fBBuild\fP"
+This is for building legacy arrays without superblocks.
+
+.IP "\fBManage\fP"
+This is for odd bits an pieces like hotadd, hotremove, setfaulty, stop,
+readonly,readwrite If an array is only partially setup by the
+Create/Assemble/Build command, subsequent Manage commands can finish the
+job.
+
+.SH OPTIONS
+
+Available options are:
+
+.IP "\fB\-C\fP, \fB\-\-create\fP"
+Create a new array
+
+.IP "\fB-A\fP, \fB\-\-assemble\fP"
+Assemble an existing array
+
+.IP "\fB\-B\fP, \fB\-\-build\fP"
+Build a legacy array without superblock
+
+.IP "\fB\-D\fP, \fB\-\-detail\fP"
+Print detail of a given md array
+
+.IP "\fB\-E\fP, \fB\-\-examine\fP"
+Print content of md superblock on device
+
+.IP "\fB\-h\fP, \fB\-\-help\fP"
+This help message or, after above option, mode specific help message
+
+.IP "\fB\-V\fP, \fB\-\-version\fP"
+Print version information for mdctl
+
+.IP "\fB\-v\fP, \fB\-\-verbose\fP"
+Be more verbose about what is happening
+
+.SH For create or build:
+
+.IP "\fB\-c\fP, \fB\-\-chunk=\fP"
+chunk size of kibibytes
+
+.IP "\fB\-\-rounding=\fP"
+rounding factor for linear array (==chunk size)
+
+.IP "\fB\-l\fP, \fB\-\-level=\fP"
+raid level: 0,1,4,5,linear. 0 or linear for build
+
+.IP "\fB\-p\fP, \fB\-\-parity=\fP"
+raid5 parity algorithm: {left,right}-{,a}symmetric
+
+.IP "\fB\-\-layout=\fP"
+same as --parity
+
+.IP "\fB\-n\fP, \fB\-\-raid-disks=\fP"
+number of active devices in array
+
+.IP "\fB\-x\fP, \fB\-\-spare-disks=\fP"
+number of spares (eXtras) to allow space for
+
+.IP "\fB\-z\fP, \fB\-\-size=\fP"
+Size (in K) of each drive in RAID1/4/5 - optional
+
+.SH For assemble:
+
+.IP "\fB\-u\fP, \fB\-\-uuid=\fP"
+uuid of array to assemble. Devices which don't have this uuid are excluded
+
+.IP "\fB\-c\fP, \fB\-\-config=\fP"
+config file
+
+.IP "\fB\-s\fP, \fB\-\-scan\fP"
+scan config file for missing information
+
+.IP "\fB\-f\fP, \fB\-\-force\fP"
+Assemble the array even if some superblocks appear out-of-date
+
+.SH General management
+
+.IP "\fB\-a\fP, \fB\-\-add\fP"
+add, or hotadd subsequent devices
+
+.IP "\fB\-r\fP, \fB\-\-remove\fP"
+remove subsequent devices
+
+.IP "\fB\-f\fP, \fB\-\-fail\fP"
+mark subsequent devices a faulty
+
+.IP "\fB\-\-set-faulty\fP"
+same as --fail
+
+.IP "\fB\-R\fP, \fB\-\-run\fP"
+start a partially built array
+
+.IP "\fB\-S\fP, \fB\-\-stop\fP"
+deactivate array, releasing all resources
+
+.IP "\fB\-o\fP, \fB\-\-readonly\fP"
+mark array as readonly
+
+.IP "\fB\-w\fP, \fB\-\-readwrite\fP"
+mark array as readwrite
+
+.SH CREATE MODE
+
+Usage:
+
+.B mdctl
+--create device --chunk=X --level=Y --raid-disks=Z devices
+
+This usage will initialise a new md array and possibly associate some
+devices with it. If enough devices are given to complete the array, the
+array will be activated. Otherwise it will be left inactive to be completed
+and activated by subsequent management commands.
+
+As devices are added, they are checked to see if they contain raid
+superblocks or filesystems. They are also check to see if the variance in
+device size exceeds 1%.
+
+If any discrepancy is found, the array will not automatically be run, though
+the presence of a 
+.B --run
+can override this caution.
+
+If the 
+.B --size
+option is given, it is not necessary to list any subdevices in this command.
+They can be added later, before a
+.B --run. 
+If no 
+.B --size
+is given, the apparent size of the smallest drive given is used.
+
+The General management options that are valid with --create are:
+.IP "\fB\-\-run\fP"
+insist of running the array even if not all devices are present or some look
+odd.
+
+.IP "\fB\-\-readonly\fP"
+start the array readonly - not supported yet.
+
+.SH ASSEMBLY MODE
+
+Usage: 
+
+.B mdctl
+--assemble device options...
+
+.B mdctl
+--assemble --scan options...
+
+This usage assembles one or more raid arrays from pre-existing components.
+For each array, mdctl needs to know the md device, the uuid, and a number of
+sub devices. These can be found in a number of ways.
+
+The md device is either given before 
+.B --scan
+or is found from the config file. In the latter case, multiple md devices
+can be started with a single mdctl command.
+
+The uuid can be given with the 
+.B --uuid
+option, or can be found in in the config file, or will be taken from the
+super block on the first subdevice listed on the command line or in a
+subsequent
+.B --add
+command.
+
+Devices can be given on the 
+.B --assemble
+command line, on subsequent
+.B 'mdctl --add'
+command lines, or from the config file. Only devices which have an md
+superblock which contains the right uuid will be considered for any device.
+
+The config file is only used if explicitly named with 
+.B --config
+or requested with 
+.B --scan. 
+In the later case,
+.B /etc/md.conf
+is used.
+
+If 
+.B --scan
+is not given, then the config file will only be used to find uuids for md
+arrays.
+
+The format of the config file is:
+   not yet documented
+
+.SH BUILD MDOE
+
+Usage:
+
+.B mdctl 
+--build device -chunk=X --level=Y --raid-disks=Z devices
+
+This usage is similar to 
+.B --create. 
+The difference is that it creates a legacy array without a superblock. With
+these arrays there is no different between initially creating the array and
+subsequently assembling the array, except that hopefully there is useful
+data there in the second case.
+
+The level may only be 0 or linear. All devices must be listed and the array
+will be started once complete.
+
+.SH BUGS
+no known bugs.
+
+.SH TODO
+
+
+.SH SEE ALSO
+.IR raidtab (5),
+.IR raid0run (8),
+.IR raidstop (8),
+.IR mkraid (8)

@@ -56,12 +56,30 @@ extern struct option long_options[];
 extern char Version[], Usage[], Help[], Help_create[], Help_build[], Help_assemble[];
 
 /* structures read from config file */
-/* List of mddevice names and uuids */
-typedef struct mddev_uuid_s {
+/* List of mddevice names and identifiers
+ * Identifiers can be:
+ *    uuid=128-hex-uuid
+ *    super-minor=decimal-minor-number-from-superblock
+ *    devices=comma,separated,list,of,device,names,with,wildcards
+ *
+ * If multiple fields are present, the intersection of all matching
+ * devices is considered
+ */
+typedef struct mddev_ident_s {
 	char *devname;
+	
+	int uuid_set;
 	__u32 uuid[4];
-	struct mddev_uuid_s *next;
-} *mddev_uuid_t;
+
+	int super_minor;	/* -1 if not set */
+
+	char *devices;		/* comma separated list of device
+				 * names with wild cards
+				 */
+
+	char *spare_group;
+	struct mddev_ident_s *next;
+} *mddev_ident_t;
 
 /* List of device names - wildcards expanded */
 typedef struct mddev_dev_s {
@@ -73,6 +91,10 @@ typedef struct mapping {
 	char *name;
 	int num;
 } mapping_t;
+
+#ifndef Sendmail
+#define Sendmail "/usr/lib/sendmail -t"
+#endif
 
 extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
@@ -88,8 +110,8 @@ extern int Manage_subdevs(char *devname, int fd,
 
 
 extern int Assemble(char *mddev, int mdfd,
-		    int uuid[4], int uuidset,
-		    char *conffile, int scan,
+		    mddev_ident_t ident,
+		    char *conffile,
 		    int subdevs, char *subdev[],
 		    int readonly, int runstop,
 		    int verbose, int force);
@@ -102,10 +124,14 @@ extern int Build(char *mddev, int mdfd, int chunk, int level,
 extern int Create(char *mddev, int mdfd,
 		  int chunk, int level, int layout, int size, int raiddisks, int sparedisks,
 		  int subdevs, char *subdev[],
-		  int runstop, int verbose);
+		  int runstop, int verbose, int force);
 
 extern int Detail(char *dev);
 extern int Examine(char *dev);
+extern int Monitor(int num_devs, char *devlist[],
+		  char *mailaddr, char *alert_cmd,
+		  int period,
+		  char *config);
 
 extern int md_get_version(int fd);
 extern int get_linux_version();
@@ -114,5 +140,5 @@ extern int check_ext2(int fd, char *name);
 extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);
 
-extern mddev_uuid_t conf_get_uuids(char *);
+extern mddev_ident_t conf_get_ident(char *, char*);
 extern mddev_dev_t conf_get_devs(char *);

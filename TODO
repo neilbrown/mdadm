@@ -3,13 +3,14 @@
 - report "chunk" or "rounding" depending on raid level DONE
 - report "linear" instead of "-1" for raid level DONE
 - decode ayout depending on raid level DONE
-- get Assemble to upgrade devices if force flag.
 - --verbose and --force flags.
 
 - set md_minor, *_disks for Create  - DONE
 - for create raid5, how to choose between 
    all working, but not insync
    one missing, one spare, insync
+- and for raid1 - some failed drives...
+
 - when RUN_ARRAY, make sure *_disks counts are right
 
 - get --detail to extract extra stuff from superblock,
@@ -23,3 +24,54 @@
 
 
 - mdctl -S /dev/md0 /dev/md1 gives internal error
+
+- mdctl --detail --scan print summary of what it can find?
+
+
+---------
+Assemble doesn't add spares. - DONE
+Create to allow "missing" name for devices.
+Create to accept "--force" for do exactly what is requested
+- get Assemble to upgrade devices if force flag.
+ARRAY lines in config file to have super_minor=n
+ARRAY lines in config file to have device=pattern, and only accept
+   those devices
+   If UUID given, insist on that
+   If not, but super_minor given, require all found with that minor
+    to have same uuid
+   If only device given, all valid supers on those devices must have 
+    same uuid
+allow /dev/mdX as first argument before any options
+Possible --dry-run option for create and assemble--force
+
+Assemble to check that all devices mentioned in superblock
+  are present.
+
+New mode: --Monitor (or --Follow)
+  Periodically check status of all arrays (listed in config file).
+  Log every event and apparent cause - or differences
+  Email and alert - or run a program - for important events
+  Move spares around if necessary.
+
+  An Array line can have a spare-group= field that indicates that
+   the array shares spares with other arrays with the same
+   spare-group name.
+   If an array has a failed and no spares, then check all other
+     arrays in the spare group.  If one has no failures and a spare,
+     then consider that spare.
+    Choose the smallest considered spare that is large enough.
+    If there is one, then hot-remove it from it's home, and
+    hot-add it to the array in question.
+
+  --mail-to address  
+  --alert-handler program
+  
+  Will also extract information from /proc/mdstat if present,
+  and consider 20% marks in rebuild as events.
+
+  Events are:
+     drive fails  - causes mail to be sent
+     rebuild started
+     spare activated
+     spare removed
+     spare added

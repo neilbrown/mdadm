@@ -29,7 +29,7 @@
 
 #include "mdctl.h"
 
-char Version[] = Name " - v0.4.2 - 27 July 2001\n";
+char Version[] = Name " - v0.5 - 23 August 2001\n";
 /*
  * File: ReadMe.c
  *
@@ -78,7 +78,7 @@ char Version[] = Name " - v0.4.2 - 27 July 2001\n";
  *     command, subsequent Manage commands can finish the job.
  */
 
-char short_options[]="-ABCDEhVvc:l:p:n:x:u:c:z:sarfRSow";
+char short_options[]="-ABCDEFhVvc:l:p:m:n:x:u:c:d:z:sarfRSow";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"assemble",  0, 0, 'A'},
@@ -86,6 +86,11 @@ struct option long_options[] = {
     {"create",    0, 0, 'C'},
     {"detail",    0, 0, 'D'},
     {"examine",   0, 0, 'E'},
+    {"follow",    0, 0, 'F'},
+
+    /* synonyms */
+    {"monitor",   0, 0, 'F'},
+	    
     /* after those will normally come the name of the md device */
     {"help",      0, 0, 'h'},
     {"version",	  0, 0, 'V'},
@@ -103,6 +108,7 @@ struct option long_options[] = {
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
+    {"super-minor",1,0, 'm'},
     {"config",    1, 0, 'c'},
     {"scan",      0, 0, 's'},
     {"force",	  0, 0, 'f'},
@@ -115,6 +121,13 @@ struct option long_options[] = {
     {"stop",      0, 0, 'S'},
     {"readonly",  0, 0, 'o'},
     {"readwrite", 0, 0, 'w'},
+
+    /* For Follow/monitor */
+    {"mail",      1, 0, 'm'},
+    {"program",   1, 0, 'p'},
+    {"alert",     1, 0, 'p'},
+    {"delay",     1, 0, 'd'},
+    
     
     {0, 0, 0, 0}
 };
@@ -130,6 +143,7 @@ char Help[] =
 "       mdctl --build device options...\n"
 "       mdctl --detail device\n"
 "       mdctl --examine device\n"
+"       mdctl --follow options...\n"
 "       mdctl device options...\n"
 " mdctl is used for controlling Linux md devices (aka RAID arrays)\n"
 " For detail help on major modes use, e.g.\n"
@@ -145,6 +159,9 @@ char Help[] =
 "  --build       -B   : Build a legacy array without superblock\n"
 "  --detail      -D   : Print detail of a given md array\n"
 "  --examine     -E   : Print content of md superblock on device\n"
+"  --follow      -F   : Follow (monitor) any changes to devices and respond to them\n"
+"  --monitor          : same as --follow\n"
+"\n"
 "  --help        -h   : This help message or, after above option,\n"
 "                       mode specific help message\n"
 "  --version     -V   : Print version information for mdctl\n"
@@ -159,13 +176,23 @@ char Help[] =
 "  --raid-disks= -n   : number of active devices in array\n"
 "  --spare-disks= -x  : number of spares (eXtras) to allow space for\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5 - optional\n"
+"  --force       -f   : Honour devices as listed on command line.  Don't\n"
+"                     : insert a missing drive for RAID5.\n"
 "\n"
 " For assemble:\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
 "                       have this uuid are excluded\n"
+"  --super-minor= -m  : minor number to look for in super-block when\n"
+"                       choosing devices to use.\n"
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
+"\n"
+" For follow/monitor:\n"
+"  --mail=       -m   : Address to mail alerts of failure to\n"
+"  --program=    -p   : Program to run when an event is detected\n"
+"  --alert=           : same as --program\n"
+"  --delay=      -d   : seconds of delay between polling state. default=60\n"
 "\n"
 " General management:\n"
 "  --add         -a   : add, or hotadd subsequent devices\n"
@@ -185,10 +212,10 @@ char Help_create[] =
 " This usage will initialise a new md array and possibly associate some\n"
 " devices with it.  If enough devices are given to complete the array,\n"
 " the array will be activated.  Otherwise it will be left inactive\n"
-" to be competed and activated by subsequent management commands.\n"
+" to be completed and activated by subsequent management commands.\n"
 "\n"
 " As devices are added, they are checked to see if they contain\n"
-" raid superblock or filesystems.  They are also check to see if\n"
+" raid superblocks or filesystems.  They are also check to see if\n"
 " the variance in device size exceeds 1%.\n"
 " If any discrepancy is found, the array will not automatically\n"
 " be run, though the presence of a '--run' can override this\n"
@@ -225,30 +252,53 @@ char Help_assemble[] =
 "\n"
 "This usage assembles one or more raid arrays from pre-existing\n"
 "components.\n"
-"For each array, mdctl needs to know the md device, the uuid, and\n"
-"a number of sub devices.  These can be found in a number of ways.\n"
+"For each array, mdctl needs to know the md device, the identify of\n"
+"the array, and a number of sub devices. These can be found in a number\n"
+"of ways.\n"
 "\n"
-"The md device is either given before --scan or is found from the\n"
-"config file.  In the latter case, multiple md devices can be started\n"
-"with a single mdctl command.\n"
+"The md device is either given on the command line or is found listed\n"
+"in the config file.  The array identity is determined either from the\n"
+"--uuid or --super-minor commandline arguments, or from the config file,\n"
+"or from the first component device on the command line.\n"
 "\n"
-"The uuid can be given with the --uuid option, or can be found in\n"
-"in the config file, or will be taken from the super block on the first\n"
-"subdevice listed on the command line or in a subsequent --add command.\n"
+"The different combinations of these are as follows:\n"
+" If the --scan option is not given, then only devices and identities\n"
+" listed on the command line are considered.\n"
+" The first device will be the array devices, and the remainder will\n"
+" examined when looking for components.\n"
+" If an explicit identity is given with --uuid or --super-minor, then\n"
+" Each device with a superblock which matches that identity is considered,\n"
+" otherwise every device listed is considered.\n"
 "\n"
-"Devices can be given on the --assemble command line, on subsequent\n"
-"'mdctl --add' command lines, or from the config file.  Only devices\n"
-"which have an md superblock which contains the right uuid will be\n"
-"considered for any device.\n"
+" If the --scan option is given, and no devices are listed, then\n"
+" every array listed in the config file is considered for assembly.\n"
+" The identity can candidate devices are determined from the config file.\n"
 "\n"
-"The config file is only used if explicitly named with --config or\n"
-"requested with --scan.  In the later case, '/etc/md.conf' is used.\n"
+" If the --scan option is given as well as one or more devices, then\n"
+" Those devices are md devices that are to be assembled.  Their identity\n"
+" and components are determined from the config file.\n"
 "\n"
-"If --scan is not given, then the config file will only be used\n"
-"to find uuids for md arrays.\n"
+"The config file contains, apart from blank lines and comment lines that\n"
+"start with a has, two sorts of configuration lines, array lines and\n"
+"device lines.\n"
+"Each configuration line is constructed of a number of space separated\n"
+"words, and can be continued on subsequent physical lines by indenting\n"
+"those lines.\n"
 "\n"
-"The format of the config file is:\n"
-"   not yet documented\n"
+"A device line starts with the word 'device' and then has a number of words\n"
+"which identify devices.  These words should be names of devices in the filesystem,\n"
+"and can contain wildcards. There can be multiple words or each device line,\n"
+"and multiple device lines.  All devices so listed are checked for relevant\n"
+"super blocks when assembling arrays.\n"
+"\n"
+"An array line start with the word 'array'.  This is followed by the name of\n"
+"the array device in the filesystem, e.g. '/dev/md2'.  Subsequent words\n"
+"describe the identity of the array, used to recognise devices to include in the\n"
+"array.  The identity can be given as a UUID with a word starting 'uuid=', or\n"
+"as a minor-number stored in the superblock using 'super-minor=', or as a list\n"
+"of devices.  This is given as a comma separated list of names, possibly containing\n"
+"wildcards, preceeded by 'devices='. If multiple critea are given, than a device\n"
+"must match all of them to be considered.\n"
 "\n"
 ;
 

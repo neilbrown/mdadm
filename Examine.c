@@ -147,7 +147,7 @@ int Examine(char *dev)
 	}
 	printf("\n");
 	printf("      Number   Major   Minor   RaidDisk   State\n");
-	for (d= -1; d<(signed int)super.nr_disks; d++) {
+	for (d= -1; d<(signed int)(super.raid_disks+super.spare_disks); d++) {
 		mdp_disk_t *dp;
 		char *dv;
 		char nb[5];

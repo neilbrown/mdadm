@@ -7,14 +7,15 @@ else echo $target is not a directory
      exit 2
 fi
 set `grep '^char Version' ReadMe.c `
-echo version = $7
-base=mdctl-$7.tgz
+version=`echo $7 | sed 's/v//'`
+echo version = $version
+base=mdctl-$version.tgz
 if [ -f $target/$base ] 
 then 
   echo $target/$base exists.
   exit 1
 fi
 trap "rm $target/$base; exit" 1 2 3
-( cd .. ; tar czvf - mdctl )  > $target/$base
+( cd .. ; ln -s mdctl mdctl-$version ; tar czhvf - --exclude='*,v' --exclude='*.o' --exclude=RCS mdctl-$version ; rm mdctl-$version )  > $target/$base
 chmod a+r $target/$base
 ls -l $target/$base

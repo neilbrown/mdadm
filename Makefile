@@ -29,7 +29,7 @@
 
 CFLAGS = -Wall,error,strict-prototypes -ggdb
 
-OBJS =  mdctl.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o dlink.o
+OBJS =  mdctl.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o
 all : mdctl
 
 mdctl : $(OBJS)
@@ -38,7 +38,7 @@ mdctl : $(OBJS)
 $(OBJS) : mdctl.h
 
 clean : 
-	rm -f mdctl $(OBJS)
+	rm -f mdctl $(OBJS) core
 
 dist : clean
 	./makedist

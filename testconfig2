@@ -1,3 +1,0 @@
-
-DEV /dev/hda* /dev/sd?
-ARRAY /dev/md0 uuid=1234.5678.abcd.ef09:1234.5678.abcd.ef90

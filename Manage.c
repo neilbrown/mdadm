@@ -107,7 +107,7 @@ int Manage_runstop(char *devname, int fd, int runstop)
 		}
 	} else if (runstop < 0){
 		if (ioctl(fd, STOP_ARRAY, NULL)) {
-			fprintf(stderr, Name ": fail to re writable for %s: %s\n",
+			fprintf(stderr, Name ": fail to stop array %s: %s\n",
 				devname, strerror(errno));
 			return 1;
 		}

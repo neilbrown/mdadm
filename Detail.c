@@ -119,7 +119,7 @@ int Detail(char *dev)
 	
 	printf("\n");
 	printf("    Number   Major   Minor   RaidDisk   State\n");
-	for (d= 0; d<array.nr_disks; d++) {
+	for (d= 0; d<array.raid_disks+array.spare_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 		disk.number = d;

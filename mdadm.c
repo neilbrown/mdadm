@@ -755,11 +755,13 @@ int main(int argc, char *argv[])
 					}
 					if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
 						/* already assembled, skip */
-						continue;
-					rv |= Assemble(array_list->devname, mdfd,
-						       array_list, configfile,
-						       NULL,
-						       readonly, runstop, NULL, verbose, force);
+						;
+					else
+						rv |= Assemble(array_list->devname, mdfd,
+							       array_list, configfile,
+							       NULL,
+							       readonly, runstop, NULL, verbose, force);
+					close(mdfd);
 				}
 		}
 		break;
@@ -803,8 +805,10 @@ int main(int argc, char *argv[])
 							rv |= Detail(name, !verbose, test);
 						else if (devmode=='S') {
 							mdfd = open_mddev(name, 0);
-							if (mdfd >= 0)
+							if (mdfd >= 0) {
 								rv |= Manage_runstop(name, mdfd, -1);
+								close(mdfd);
+							}
 						}
 						put_md_name(name);
 					}
@@ -823,7 +827,7 @@ int main(int argc, char *argv[])
 					rv |= Query(dv->devname); continue;
 				}
 				mdfd = open_mddev(dv->devname, 0);
-				if (mdfd>=0)
+				if (mdfd>=0) {
 					switch(dv->disposition) {
 					case 'R':
 						rv |= Manage_runstop(dv->devname, mdfd, 1); break;
@@ -834,6 +838,8 @@ int main(int argc, char *argv[])
 					case 'w':
 						rv |= Manage_ro(dv->devname, mdfd, -1); break;
 					}
+					close(mdfd);
+				}
 			}
 		}
 		break;

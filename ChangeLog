@@ -10,6 +10,7 @@ Changes Prior to 1.9.0 release
     -   Use "major", "minor", "makedev" macros instead of 
 	"MAJOR", "MINOR", "MKDEV" so that large device numbers work
 	on 2.6 (providing you have glibc 2.3.3 or later).
+    -   Add some missing closes of open file descriptors.
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

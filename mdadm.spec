@@ -50,7 +50,7 @@ rm -rf $RPM_BUILD_ROOT
 - Set CXFLAGS instead of CFLAGS
 
 * Sat Apr  6 2002  <neilb@cse.unsw.edu.au>
-- change %install to use "make install"
+- change install to use "make install"
 
 * Fri Mar 15 2002  <gleblanc@localhost.localdomain>
 - beautification

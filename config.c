@@ -421,7 +421,11 @@ void load_conffile(char *conffile)
 		return;
 	}
 	if (strcmp(conffile, "partitions")==0) {
-		devline("DEV partitions");
+		char *list = dl_strdup("DEV");
+		dl_init(list);
+		dl_add(list, dl_strdup("partitions"));
+		devline(list);
+		free_line(list);
 		loaded = 1;
 		return;
 	}

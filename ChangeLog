@@ -1,4 +1,9 @@
-Changes Prior to 1.0.0 reease
+Changes Prior to this release
+    -   Round off MB/GiB etc values instead of round down.
+    -   Add --sparc2.2 option to examine to shift superblock around
+	and --sparc2.2update to rewrite the superblock
+	
+Changes Prior to 1.0.0 release
     -   Allow --config with Misc mode (for --examine --scan)
     -   Add $(CXFLAGS) to end of CFLAGS in makefile
     -   When making an N disk raid5 array, the Nth drive

@@ -35,7 +35,7 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(mddev_dev_t devlist, int brief, int scan)
+int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 {
 
 	/* Read the raid superblock from a device and
@@ -162,6 +162,17 @@ int Examine(mddev_dev_t devlist, int brief, int scan)
 				printf("       Checksum : %x - correct\n", super.sb_csum);
 			else
 				printf("       Checksum : %x - expected %x\n", super.sb_csum, calc_sb_csum(&super));
+			if (SparcAdjust) {
+				/* 2.2 sparc put the events in the wrong place
+				 * So we copy the tail of the superblock
+				 * up 4 bytes before continuing
+				 */
+				__u32 *sb32 = (__u32*)&super;
+				memcpy(sb32+MD_SB_GENERIC_CONSTANT_WORDS+7,
+				       sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
+				       MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1));
+				printf (" --- adjusting superblock for 2.2/sparc compatability ---\n");
+			}
 			printf("         Events : %d.%d\n", super.events_hi, super.events_lo);
 			printf("\n");
 			if (super.level == 5) {
@@ -197,6 +208,23 @@ int Examine(mddev_dev_t devlist, int brief, int scan)
 				if ((dv=map_dev(dp->major, dp->minor)))
 					printf("   %s", dv);
 				printf("\n");
+			}
+		}
+		if (SparcAdjust == 2) {
+			printf(" ----- updating superblock on device ----\n");
+			fd = open(devlist->devname, O_RDWR);
+			if (fd < 0) {
+				fprintf(stderr, Name ": cannot open %s to update superblock: %s\n",
+					devlist->devname, strerror(errno));
+				err = 1;
+			} else {
+				super.sb_csum = calc_sb_csum(&super);
+				if (store_super(fd, &super)) {
+					fprintf(stderr, Name ": Count not re-write superblock on %s\n",
+						devlist->devname);
+					err = 1;
+				}
+				close(fd);
 			}
 		}
 	}

@@ -594,9 +594,14 @@ is given, then any other md devices that appear in
 will also be monitored.
 
 The result of monitoring the arrays is the generation of events.
-These events are passed to a separate program (is specified) and may
+These events are passed to a separate program (if specified) and may
 be mailed to a given E-mail address.
 
+When passing event to program, the program is run once for each event
+and is given 2 or 3 command-line arguements.  The first is the
+name of the event (see below).  The second is the name of the
+md device which is affected, and the third is the name of a related
+device if relevant, such as a component device that has failed.
 
 If
 .B --scan

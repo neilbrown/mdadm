@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 	char devmode = 0;
 	int runstop = 0;
 	int readonly = 0;
+	int SparcAdjust = 0;
 	mddev_dev_t devlist = NULL;
 	mddev_dev_t *devlistend = & devlist;
 	mddev_dev_t dv;
@@ -481,6 +482,20 @@ int main(int argc, char *argv[])
 			devmode = opt;
 			continue;
 
+		case O(MISC, 22):
+			if (devmode != 'E') {
+				fprintf(stderr, Name ": --sparc2.2 only allowed with --examine\n");
+				exit(2);
+			}
+			SparcAdjust = 1;
+			continue;
+		case O(MISC,23):
+			if (devmode != 'E') {
+				fprintf(stderr, Name ": --sparc2.2update only allowed with --examine\n");
+				exit(2);
+			}
+			SparcAdjust = 2;
+			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -596,7 +611,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			rv = Examine(devlist, scan?!verbose:brief, scan);
+			rv = Examine(devlist, scan?!verbose:brief, scan, SparcAdjust);
 		} else {
 			if (devlist == NULL) {
 				if ((devmode == 'S' ||devmode=='D') && scan) {

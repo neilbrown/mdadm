@@ -437,16 +437,16 @@ char *human_size(long long bytes)
 	else if (bytes < 2*1024LL*1024LL*1024LL)
 		sprintf(buf, " (%ld.%02ld MiB %ld.%02ld MB)",
 			(long)(bytes>>20),
-			(long)(bytes&0xfffff)/(0x100000/100),
+			(long)((bytes&0xfffff)+0x100000/200)/(0x100000/100),
 			(long)(bytes/1000/1000),
-			(long)((bytes%1000000)/10000)
+			(long)(((bytes%1000000)+5000)/10000)
 			);
 	else
 		sprintf(buf, " (%ld.%02ld GiB %ld.%02ld GB)",
 			(long)(bytes>>30),
-			(long)((bytes>>10)&0xfffff)/(0x100000/100),
+			(long)(((bytes>>10)&0xfffff)+0x100000/200)/(0x100000/100),
 			(long)(bytes/1000LL/1000LL/1000LL),
-			(long)(((bytes/1000)%1000000)/10000)
+			(long)((((bytes/1000)%1000000)+50000)/10000)
 			);
 	return buf;
 }
@@ -458,17 +458,17 @@ char *human_size_brief(long long bytes)
 
 	if (bytes < 5000*1024)
 		sprintf(buf, "%ld.%02ldKiB",
-			(long)(bytes>>10), (long)((bytes&1023)*100/1024)
+			(long)(bytes>>10), (long)(((bytes&1023)*100+512)/1024)
 			);
 	else if (bytes < 2*1024LL*1024LL*1024LL)
 		sprintf(buf, "%ld.%02ldMiB",
 			(long)(bytes>>20),
-			(long)(bytes&0xfffff)/(0x100000/100)
+			(long)((bytes&0xfffff)+0x100000/200)/(0x100000/100)
 			);
 	else
 		sprintf(buf, "%ld.%02ldGiB",
 			(long)(bytes>>30),
-			(long)((bytes>>10)&0xfffff)/(0x100000/100)
+			(long)(((bytes>>10)&0xfffff)+0x100000/200)/(0x100000/100)
 			);
 	return buf;
 }

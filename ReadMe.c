@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.0.0 - 10 May 2002\n";
+char Version[] = Name " - v1.0.1 - 20 May 2002\n";
 /*
  * File: ReadMe.c
  *
@@ -138,6 +138,8 @@ struct option long_options[] = {
 
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
+    {"sparc2.2",  0, 0, 22},
+    {"sparc2.2update", 0, 0, 23},
 
     /* For Follow/monitor */
     {"mail",      1, 0, 'm'},

@@ -164,7 +164,7 @@ extern int Create(char *mddev, int mdfd,
 
 extern int Detail(char *dev, int brief);
 extern int Query(char *dev);
-extern int Examine(mddev_dev_t devlist, int brief, int scan);
+extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int scan,

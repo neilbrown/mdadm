@@ -124,7 +124,7 @@ int Query(char *dev)
 		/* array might be active... */
 		mddev = get_md_name(super.md_minor);
 		disc.number = super.this_disk.number;
-		activity = "inactive";
+		activity = "undetected";
 		if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
 			if (md_get_version(fd) >= 9000 &&	
 			    ioctl(fd, GET_ARRAY_INFO, &array)>= 0) {

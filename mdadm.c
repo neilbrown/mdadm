@@ -145,7 +145,8 @@ int main(int argc, char *argv[])
 		case 'a':
 		case 'r':
 		case 'f':
-		case 1 : if (!mode) newmode = MANAGE; break;
+			if (!mode) newmode = MANAGE; 
+			break;
 
 		case 'A': newmode = ASSEMBLE; break;
 		case 'B': newmode = BUILD; break;
@@ -186,11 +187,33 @@ int main(int argc, char *argv[])
 				fputs(Help_config, stderr);
 				exit(0);
 			}
+
+			/* If first option is a device, don't force the mode yet */
+			if (opt == 1) {
+				if (devs_found == 0) {
+					dv = malloc(sizeof(*dv));
+					if (dv == NULL) {
+						fprintf(stderr, Name ": malloc failed\n");
+						exit(3);
+					}
+					dv->devname = optarg;
+					dv->disposition = devmode;
+					dv->next = NULL;
+					*devlistend = dv;
+					devlistend = &dv->next;
+			
+					devs_found++;
+					continue;
+				}
+				/* No mode yet, and this is the second device ... */
+				fprintf(stderr, Name ": An option must be given to set the mode before a second device is listed\n");
+				exit(2);
+			}
 			if (option_index >= 0)
-				fprintf(stderr, "--%s", long_options[option_index].name);
+				fprintf(stderr, Name ": --%s", long_options[option_index].name);
 			else
-				fprintf(stderr, "-%c", opt);
-			fprintf(stderr, " does not set the mode, and so cannot be first.\n");
+				fprintf(stderr, Name ": -%c", opt);
+			fprintf(stderr, " does not set the mode, and so cannot be the first option.\n");
 			exit(2);
 		}
 
@@ -645,6 +668,12 @@ int main(int argc, char *argv[])
 
 	}
 
+	if (!mode && devs_found) {
+		mode = MISC;
+		devmode = 'Q';
+		if (devlist->disposition == 0)
+			devlist->disposition = devmode;
+	}
 	if (!mode) {
 		fputs(Usage, stderr);
 		exit(2);

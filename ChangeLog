@@ -16,6 +16,10 @@ Changes Prior to 1.9.0 release
     -   Make "mdadm -Ss" stop stacked devices properly, by reversing the
 	order in which arrays are stopped.
     -   Improve some error messages.
+    -   Allow device name to appear before first option, so e.g.
+	mdadm /dev/md0 -A /dev/sd[ab]
+	works.
+    -   Assume '-Q' if just a device is given, rather than being silent.
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

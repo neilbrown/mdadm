@@ -44,6 +44,7 @@ int Detail(char *dev, int brief)
 	int d;
 	time_t atime;
 	char *c;
+	char *devices = NULL;
 
 	mdp_super_t super;
 	int have_super = 0;
@@ -163,7 +164,15 @@ int Detail(char *dev, int brief)
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
 		}
 		if ((dv=map_dev(disk.major, disk.minor))) {
-			if (!brief) printf("   %s", dv);
+			if (brief) {
+				if (devices) {
+					devices = realloc(devices,
+							  strlen(devices)+1+strlen(dv)+1);
+					strcat(strcat(devices,","),dv);
+				} else
+					devices = strdup(dv);
+			} else
+				printf("   %s", dv);
 			if (!have_super && (disk.state & (1<<MD_DISK_ACTIVE))) {
 				/* try to read the superblock from this device
 				 * to get more info
@@ -189,6 +198,7 @@ int Detail(char *dev, int brief)
 		if (!brief) 
 			printf("\n         Events : %d.%d\n", super.events_hi, super.events_lo);
 	}
+	if (brief && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
 	return 0;
 }

@@ -103,6 +103,7 @@ int Assemble(char *mddev, int mdfd,
 		long long events;
 		time_t utime;
 		int uptodate;
+		int state;
 		int raid_disk;
 	} *devices;
 	int *best; /* indexed by raid_disk */
@@ -310,6 +311,7 @@ int Assemble(char *mddev, int mdfd,
 		devices[devcnt].utime = super.utime;
 		devices[devcnt].raid_disk = super.this_disk.raid_disk;
 		devices[devcnt].uptodate = 0;
+		devices[devcnt].state = super.this_disk.state;
 		if (most_recent < devcnt) {
 			if (devices[devcnt].events
 			    > devices[most_recent].events)
@@ -342,6 +344,12 @@ int Assemble(char *mddev, int mdfd,
 		int j = best[i];
 		int event_margin = !force;
 		if (j < 0) continue;
+		/* note: we ignore error flags in multipath arrays
+		 * as they don't make sense
+		 */
+		if (first_super.level != -4)
+			if (!(devices[j].state & (1<<MD_DISK_SYNC)))
+				continue;
 		if (devices[j].events+event_margin >=
 		    devices[most_recent].events) {
 			devices[j].uptodate = 1;
@@ -391,7 +399,7 @@ int Assemble(char *mddev, int mdfd,
 		super.events_lo = (devices[most_recent].events)&0xFFFFFFFF;
 		if (super.level == 5 || super.level == 4) {
 			/* need to force clean */
-			super.state = 0;
+			super.state = (1<<MD_SB_CLEAN);
 		}
 		super.sb_csum = calc_sb_csum(&super);
 /*DRYRUN*/	if (store_super(fd, &super)) {
@@ -483,6 +491,11 @@ This doesnt work yet
 			fprintf(stderr, Name ": devices %d of %s is not marked FAULTY in superblock, but cannot be found\n",
 				i, mddev);
 		}
+	}
+	if (force && (super.level == 4 || super.level == 5) && 
+	    okcnt == super.raid_disks-1) {
+		super.state = (1<< MD_SB_CLEAN);
+		change |= 2;
 	}
 
 	if ((force && (change & 2))

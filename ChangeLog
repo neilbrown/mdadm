@@ -1,4 +1,14 @@
-Changes Prior to this release
+Changes Prior to 1.1.0 release
+    -   add --deamonise flag for --monitor - forks and prints pid to stdout
+    -   Fix bug so we REALLY clear dirty flag with -Af
+    -   -Db now prints a 'devices=' word for each array.
+    -   "mdadm -A /dev/md0" will get info from configfile, even without scan
+    -   When assembling multipath arrays, ignore devices which are flagged
+        as having errors.
+    -   take --super-minor=dev  to mean "use the minor number of the mddev 
+	being assembled.
+    -   take --config=none to mean "completely ignore config file"
+    -   Make --monitor require --scan or a device list.
 Changes Prior to 1.0.9 release
     -   Documentation updates including kernel parameters documented
 	in md.4
@@ -12,13 +22,13 @@ Changes Prior to 1.0.9 release
     -   Fix printing of Gibibytes - calc was wrong.
     -   Fix printing of Array Size in --detail when very big.
     -   --monitor no longer tries to work for raid0 or linear as these
-	have nothing to be monitors.
+	have nothing to be monitored.
     -   The word 'partitions' on a DEVICE line will cause all partitions
 	listed in /proc/partitions to be considered
     -   If the config file is called 'partitions' then it will be treated
         as though it contained exactly 'device partitions' so e.g.
 	  mdadm -Ebsc partitions
-	will fill all raid partitions easily.	
+	will find all raid partitions easily.	
     -	successfully assemble multipath devices by ignoring raid_disk
 	value from superblock (it is always the same).
     -   --assemble not tied to MD_SB_DISKS limit quite so much

@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.0.9 - 12 Feb 2003\n";
+char Version[] = Name " - v1.1.0 - 3 Mar 2003\n";
 /*
  * File: ReadMe.c
  *
@@ -146,6 +146,8 @@ struct option long_options[] = {
     {"program",   1, 0, 'p'},
     {"alert",     1, 0, 'p'},
     {"delay",     1, 0, 'd'},
+    {"daemonise", 1, 0, 'f'},
+    {"daemonize", 1, 0, 'f'},
     
     
     {0, 0, 0, 0}
@@ -398,6 +400,7 @@ char Help_monitor[] =
 "  --delay=      -d   : seconds of delay between polling state. default=60\n"
 "  --config=     -c   : specify a different config file\n"
 "  --scan        -s   : find mail-address/program in config file\n"
+"  --daemonise   -f   : Fork and continue in child, parent exits\n"
 ;
 
 

@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8
+.TH MDADM 8 "" v1.1.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -27,14 +27,16 @@ md devices,
 (striping),
 .B RAID1
 (mirroring),
-.B RAID4
+.BR RAID4 ,
+.BR RAID5 ,
 and
-.B RAID5.
-
-Recent kernels (2002) also support a mode known as
 .BR MULTIPATH .
-.B mdadm
-only provides limited support for MULTIPATH as yet.
+
+.B MULTIPATH is not a Software RAID mechanism, but does involve
+multiple devices.  For
+.B MULTIPATH
+each device is a path to one common physical storage device.
+
 
 .B mdadm
 is a program that can be used to create, manage, and monitor
@@ -186,6 +188,11 @@ will act as though the config file contained exactly
 and will read
 .B /proc/partitions
 to find a list of devices to scan.
+If the word
+.B none
+is given for the config file, then
+.I mdadm
+will act as though the config file were empty.
 
 .TP
 .BR -s ", " --scan
@@ -241,9 +248,8 @@ same as --parity
 Specify the number of active devices in the array.  This, plus the
 number of spare devices (see below) must equal the number of
 .I component-devices
-(including
-.B missing 
-devices) that are listed on the command line.
+(including "\fBmissing\fP" devices)
+that are listed on the command line.
 
 .TP
 .BR -x ", " --spare-devices=
@@ -277,6 +283,16 @@ Minor number of device that array was created for.  Devices which
 don't have this minor number are excluded.  If you create an array as
 /dev/md1, then all superblocks will contain the minor number 1, even if
 the array is later assembled as /dev/md2.
+
+Giving the literal word "dev" for
+.B --super-minor
+will cause
+.I mdadm
+to use the minor number of the md device that is being assembled.
+e.g. when assembling
+.BR /dev/md0 ,
+.M --super-minor=dev
+will look for super blocks with a minor number of 0.
 
 .TP
 .BR -f ", " --force
@@ -395,6 +411,18 @@ Give a delay in seconds.
 polls the md arrays and then waits this many seconds before polling
 again.  The default is 60 seconds.
 
+.TP
+.BR -f ", " --daemonise
+Tell
+.B mdadm
+to run as a background daemon if it decides to monitor anything.  This
+causes it to fork and run in the child, and to disconnect form the
+terminal.  The process id of the child is written to stdout.
+This is useful with
+.B --scan
+which will only continue monitoring if a mail address or alert program
+is found in the config file.
+
 .SH ASSEMBLE MODE
 
 .HP 12
@@ -423,6 +451,14 @@ devices and assembly is attempted.
 In the third (where no devices are listed) all md devices that are
 listed in the configuration file are assembled.
 
+If precisely one device is listed, but
+.B --scan
+is not given, that
+.I mdadm
+acts as though
+.B --scan
+was given and identify information is extracted from the configuration file.
+
 The identity can be given with the 
 .B --uuid
 option, with the
@@ -438,7 +474,7 @@ any array.
 
 The config file is only used if explicitly named with 
 .B --config
-or requested with 
+or requested with (a possibly implicit)
 .B --scan. 
 In the later case,
 .B /etc/mdadm.conf
@@ -507,16 +543,15 @@ the presence of a
 can override this caution.
 
 To create a "degraded" array in which some devices are missing, simply
-give the word
-.B missing
+give the word "\fBmissing\fP"
 in place of a device name.  This will cause
 .B mdadm
 to leave the corresponding slot in the array empty.
 For a RAID4 or RAID5 array at most one slot can be
-.BR missing .
+"\fBmissing\fP".
 For a RAID1 array, only one real device needs to be given.  All of the
 others can be
-.BR missing .
+"\fBmissing\fP".
 
 '''If the 
 '''.B --size
@@ -850,6 +885,13 @@ Scan all partitions and devices listed in
 and assemble
 .B /dev/md0
 out of all such devices with a RAID superblock with a minor number of 0.
+
+.B "  mdadm --monitor --scan --daemonise > /var/run/mdadm"
+.br
+If config file contains a mail address or alert program, run mdadm in
+the background in monitor mode monitoring all md devices.  Also write
+pid of mdadm daemon to
+.BR /var/run/mdadm .
 
 .B "  mdadm --create --help"
 .br

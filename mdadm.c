@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
 	char *mailaddr = NULL;
 	char *program = NULL;
 	int delay = 0;
+	int daemonise = 0;
 
 	int mdfd = -1;
 
@@ -358,15 +359,19 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(ASSEMBLE,'m'): /* super-minor for array */
-			if (ident.super_minor >= 0) {
+			if (ident.super_minor != -1) {
 				fprintf(stderr, Name ": super-minor cannot be set twice.  "
 					"Second value: %s.\n", optarg);
 				exit(2);
 			}
-			ident.super_minor = strtoul(optarg, &cp, 10);
-			if (!optarg[0] || *cp) {
-				fprintf(stderr, Name ": Bad super-minor number: %s.\n", optarg);
-				exit(2);
+			if (strcmp(optarg, "dev")==0)
+				ident.super_minor = -2;
+			else {
+				ident.super_minor = strtoul(optarg, &cp, 10);
+				if (!optarg[0] || *cp) {
+					fprintf(stderr, Name ": Bad super-minor number: %s.\n", optarg);
+					exit(2);
+				}
 			}
 			continue;
 
@@ -428,6 +433,9 @@ int main(int argc, char *argv[])
 					exit(2);
 				}
 			}
+			continue;
+		case O(MONITOR,'f'): /* daemonise */
+			daemonise = 1;
 			continue;
 			
 
@@ -535,6 +543,11 @@ int main(int argc, char *argv[])
 		mdfd = open_mddev(devlist->devname);
 		if (mdfd < 0)
 			exit(1);
+		if (ident.super_minor == -2) {
+			struct stat stb;
+			fstat(mdfd, &stb);
+			ident.super_minor = MINOR(stb.st_rdev);
+		}
 	}
 
 	rv = 0;
@@ -552,7 +565,25 @@ int main(int argc, char *argv[])
 			rv = Manage_runstop(devlist->devname, mdfd, runstop);
 		break;
 	case ASSEMBLE:
-		if (!scan)
+		if (devs_found == 1 && ident.uuid_set == 0 &&
+		    ident.super_minor == -1 && !scan ) {
+			/* Only a device has been given, so get details from config file */
+			mddev_ident_t array_ident = conf_get_ident(configfile, devlist->devname);
+			mdfd = open_mddev(devlist->devname);
+			if (mdfd < 0)
+				rv |= 1;
+			else {
+				if (array_ident == NULL) {
+					fprintf(stderr, Name ": %s not identified in config file.\n",
+						devlist->devname);
+					rv |= 1;
+				}
+				else 
+					rv |= Assemble(devlist->devname, mdfd, array_ident, configfile,
+						       NULL,
+						       readonly, runstop, update, verbose, force);
+			}
+		} else if (!scan)
 			rv = Assemble(devlist->devname, mdfd, &ident, configfile,
 				      devlist->next,
 				      readonly, runstop, update, verbose, force);
@@ -676,14 +707,13 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case MONITOR:
-/*
 		if (!devlist && !scan) {
 			fprintf(stderr, Name ": Cannot monitor: need --scan or at least one device\n");
 			rv = 1;
 			break;
 		}
-*/		rv= Monitor(devlist, mailaddr, program,
-			    delay?delay:60, scan, configfile);
+		rv= Monitor(devlist, mailaddr, program,
+			    delay?delay:60, daemonise, scan, configfile);
 		break;
 	}
 	exit(rv);

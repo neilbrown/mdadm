@@ -1,4 +1,13 @@
-* --assemble could have a --update option.
+* maybe "missing" instead of <bold>missing</> in doco DONE
+* possibly wait for resync to start, or even finish while assembling.- NO
+
+* -Db should have a devices= entry if possible. - DONE
+* when assembling multipath arrays, ignore any error indicators. - DONE
+* rationalise --monitor usage:
+     mdadm --monitor
+  doesn't do as expected. DONE
+
+* --assemble could have a --update option. - DONE
   following word can be:
 	sparc2.2
 	super-minor

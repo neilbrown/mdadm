@@ -45,7 +45,7 @@ static char *percentalerts[] = {
 
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
-	    int period, int scan,
+	    int period, int daemonise, int scan,
 	    char *config)
 {
 	/*
@@ -105,12 +105,37 @@ int Monitor(mddev_dev_t devlist,
 	int finished = 0;
 	struct mdstat_ent *mdstat = NULL;
 
-	if (!mailaddr && scan)
+	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr(config);
-	if (!alert_cmd && scan)
+		if (mailaddr && ! scan)
+			printf("mdadm: Monitor using email address \"%s\" from config file\n",
+			       mailaddr);
+	}
+	if (!alert_cmd) {
 		alert_cmd = conf_get_program(config);
+		if (alert_cmd && ! scan)
+			printf("mdadm: Monitor using program \"%s\" from config file\n",
+			       alert_cmd);
+	}
 	if (scan && !mailaddr && !alert_cmd)
-		return 0;
+		return 1;
+
+	if (daemonise) {
+		int pid = fork();
+		if (pid > 0) {
+			printf("%d\n", pid);
+			return 0;
+		}
+		if (pid < 0) {
+			perror("daemonise");
+			return 1;
+		}
+		close(0);
+		open("/dev/null", 3);
+		dup2(0,1);
+		dup2(0,2);
+		setsid();
+	}
 
 	if (devlist == NULL) {
 		mddev_ident_t mdlist = conf_get_ident(config, NULL);
@@ -121,7 +146,7 @@ int Monitor(mddev_dev_t devlist,
 			st->devname = strdup(mdlist->devname);
 			st->utime = 0;
 			st->next = statelist;
-			st->err = 1;
+			st->err = 0;
 			st->devnum = -1;
 			st->percent = -2;
 			if (mdlist->spare_group)
@@ -139,7 +164,7 @@ int Monitor(mddev_dev_t devlist,
 			st->devname = strdup(dv->devname);
 			st->utime = 0;
 			st->next = statelist;
-			st->err = 1;
+			st->err = 0;
 			st->devnum = -1;
 			st->percent = -2;
 			st->spare_group = NULL;

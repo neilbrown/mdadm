@@ -379,8 +379,13 @@ void load_conffile(char *conffile)
 	if (conffile == NULL)
 		conffile = DefaultConfFile;
 
+	if (strcmp(conffile, "none") == 0) {
+		loaded = 1;
+		return;
+	}
 	if (strcmp(conffile, "partitions")==0) {
 		load_partitions();
+		loaded = 1;
 		return;
 	}
 	f = fopen(conffile, "r");

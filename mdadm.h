@@ -168,7 +168,7 @@ extern int Query(char *dev);
 extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
-		   int period, int scan,
+		   int period, int daemonise, int scan,
 		   char *config);
 
 extern int Kill(char *dev, int force);

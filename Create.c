@@ -52,10 +52,10 @@ int Create(char *mddev, int mdfd,
 	 * if runstop==run, or raiddisks diskswere used,
 	 * RUN_ARRAY
 	 */
-	int minsize, maxsize;
+	int minsize=0, maxsize=0;
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
-	int i;
+	int dnum;
 	mddev_dev_t dv;
 	int fail=0, warn=0;
 	struct stat stb;
@@ -123,18 +123,19 @@ int Create(char *mddev, int mdfd,
 	/* now look at the subdevs */
 	array.active_disks = 0;
 	array.working_disks = 0;
-	for (dv=devlist; dv; dv=dv->next) {
+	dnum = 0;
+	for (dv=devlist; dv; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
 		int dsize, freesize;
 		int fd;
 		if (strcasecmp(dname, "missing")==0) {
-			if (first_missing > i)
-				first_missing = i;
+			if (first_missing > dnum)
+				first_missing = dnum;
 			missing_disks ++;
 			continue;
 		}
 		array.working_disks++;
-		if (i < raiddisks)
+		if (dnum < raiddisks)
 			array.active_disks++;
 		fd = open(dname, O_RDONLY, 0);
 		if (fd <0 ) {
@@ -269,13 +270,13 @@ int Create(char *mddev, int mdfd,
 		return 1;
 	}
 	
-	for (i=0, dv = devlist ; dv ; dv=dv->next, i++) {
+	for (dnum=0, dv = devlist ; dv ; dv=dv->next, dnum++) {
 		int fd;
 		struct stat stb;
 		mdu_disk_info_t disk;
 
-		disk.number = i;
-		if (i >= insert_point)
+		disk.number = dnum;
+		if (dnum >= insert_point)
 			disk.number++;
 		disk.raid_disk = disk.number;
 		if (disk.raid_disk < raiddisks)

@@ -37,9 +37,12 @@ CFLAGS = -Wall -Werror -Wstrict-prototypes -ggdb -DCONFFILE=\"$(CONFFILE)\"
 # STRIP = -s
 
 INSTALL = /usr/bin/install
-DESTDIR = /.
+DESTDIR = 
 BINDIR  = /sbin
-MANDIR  = /usr/share/man/man8
+MANDIR  = /usr/share/man
+MAN4DIR = $(MANDIR)/man4
+MAN5DIR = $(MANDIR)/man5
+MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o Query.o
 
@@ -59,12 +62,14 @@ mdadm.conf.man : mdadm.conf.5
 
 $(OBJS) : mdadm.h
 
-install : mdadm mdadm.8
-	$(INSTALL) $(STRIP) -m 755 mdadm $(DESTDIR)/$(BINDIR)
-	$(INSTALL) -m 644 mdadm.8 $(DESTDIR)/$(MANDIR)
+install : mdadm mdadm.8 md.4 mdadm.conf.5
+	$(INSTALL) -D $(STRIP) -m 755 mdadm $(DESTDIR)$(BINDIR)/mdadm
+	$(INSTALL) -D -m 644 mdadm.8 $(DESTDIR)$(MAN8DIR)/mdadm.8
+	$(INSTALL) -D -m 644 md.4 $(DESTDIR)$(MAN4DIR)/md.4
+	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 clean : 
-	rm -f mdadm $(OBJS) core mdadm.man
+	rm -f mdadm $(OBJS) core *.man
 
 dist : clean
 	./makedist

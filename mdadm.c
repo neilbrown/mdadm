@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 			if (devlist == NULL)
 				devlist = conf_get_devs(configfile);
 			if (devlist == NULL) {
-				fprintf(stderr, Name ": No devices listed in %s\n", configfile);
+				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
 			rv = Examine(devlist, devlist?brief:!verbose, scan);

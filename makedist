@@ -24,3 +24,7 @@ trap "rm $target/$base; exit" 1 2 3
 ( cd .. ; ln -s mdadm mdadm-$version ; tar czhvf - --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=RCS mdadm-$version ; rm mdadm-$version )  > $target/$base
 chmod a+r $target/$base
 ls -l $target/$base
+
+rpm -ta $target/$base
+find /home/neilb/src/RPM -name "*mdadm-$version-*" \
+ -exec cp {} $target/RPM \;

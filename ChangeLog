@@ -1,4 +1,11 @@
 Changes Prior to this release
+    -   Add "INSTALL" file.
+    -   Fix some "i" variables that were not being set properly
+    -   Initialise minsize and maxsize so that compilers don't complain.
+    -   Tidy up Makefile and mdadm.spec installations
+    -   Add "multipath" to documentation of valid levels
+	
+Changes Prior to 0.8 release
     -   Fix another bug in Assemble.c due to confusing 'i' with 'j'
     -   Minimal, untested, support for multipath
     -   re-write of argument parsing to have more coherent modes,

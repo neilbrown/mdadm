@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v0.8 -  4 April 2002\n";
+char Version[] = Name " - v0.8.1 -  6 April 2002\n";
 /*
  * File: ReadMe.c
  *
@@ -192,7 +192,7 @@ char Help[] =
 " For create or build:\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunck size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,linear.  0 or linear for build\n"
+"  --level=      -l   : raid level: 0,1,4,5,linear,mp.  0 or linear for build\n"
 "  --paritiy=    -p   : raid5 parity algorith: {left,right}-{,a}symmetric\n"
 "  --layout=          : same as --parity\n"
 "  --raid-disks= -n   : number of active devices in array\n"

@@ -80,7 +80,7 @@ A RAID0 array (which has zero redundancy) is also known as a
 striped array.
 A RAID0 array is configured at creation with a
 .B "Chunk Size" 
-which must be a multiple of 4 kibibytes.
+which must be a power of two, and at least 4 kibibytes.
 
 The RAID0 driver places the first chunk of the array to the first
 device, the second chunk to the second device, and so on until all

@@ -129,7 +129,7 @@ int Manage_subdevs(char *devname, int fd,
 	mdu_disk_info_t disc;
 	mddev_dev_t dv;
 	struct stat stb;
-	int i,j;
+	int j;
 	int save_errno;
 	static char buf[4096];
 
@@ -151,8 +151,8 @@ int Manage_subdevs(char *devname, int fd,
 		}
 		switch(dv->disposition){
 		default:
-			fprintf(stderr, Name ": internal error - devmode[%d]=%d\n",
-				i, dv->disposition);
+			fprintf(stderr, Name ": internal error - devmode[%s]=%d\n",
+				dv->devname, dv->disposition);
 			return 1;
 		case 'a':
 			/* add the device - hot or cold */

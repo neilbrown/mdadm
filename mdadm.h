@@ -202,3 +202,4 @@ char *human_size_brief(long long bytes);
 extern void put_md_name(char *name);
 extern char *get_md_name(int dev);
 
+extern char DefaultConfFile[];

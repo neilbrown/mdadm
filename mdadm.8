@@ -14,10 +14,11 @@ RAID devices are virtual devices created from two or more
 real block devices. This allows multiple devices (typically disk
 drives or partitions there-of) to be combined into a single device to
 hold (for example) a single filesystem.
-Some RAID levels included redundancy and so can survive some degree of
+Some RAID levels include redundancy and so can survive some degree of
 device failure.
 
-Linux Software RAID devices are implemented through the md (Multiple Devices) device driver.
+Linux Software RAID devices are implemented through the md (Multiple
+Devices) device driver.
 
 Currently, Linux supports
 .B LINEAR
@@ -52,7 +53,9 @@ is a single program and not a collection of programs.
 .IP \(bu 4
 .B mdadm
 can perform (almost) all of its functions without having a
-configuration file.  Also mdadm helps with management of the configuration
+configuration file.  Also
+.B mdadm
+helps with management of the configuration
 file.
 .IP \(bu 4
 .B mdadm
@@ -103,7 +106,7 @@ Available options are:
 
 .TP
 .BR -A ", " --assemble
-Assemble an existing array.
+Assemble a pre-existing array.
 
 .TP
 .BR -B ", " --build
@@ -202,7 +205,11 @@ Only the first 4 are valid when Building.
 .TP
 .BR -p ", " --parity=
 Set raid5 parity algorithm. Options are:
-{left,right}-{,a}symmetric, la, ra, ls, rs.  The default is left-symmetric.
+left-asymmetric,
+left-symmetric,
+right-asymmetric,
+right-symmetric,
+la, ra, ls, rs.  The default is left-symmetric.
 
 .TP
 .BR --layout=
@@ -238,7 +245,7 @@ excluded
 .BR -m ", " --super-minor=
 Minor number of device that array was created for.  Devices which
 don't have this minor number are excluded.  If you create an array as
-/dev/md1, then all superblock will contain the minor number 1, even if
+/dev/md1, then all superblocks will contain the minor number 1, even if
 the array is later assembled as /dev/md2.
 
 .TP
@@ -264,7 +271,7 @@ hotadd listed devices.
 
 .TP
 .BR -r ", " --remove
-remove listed devices.  The must not be active.  i.e. they should
+remove listed devices.  They must not be active.  i.e. they should
 be failed or spare devices.
 
 .TP
@@ -363,9 +370,9 @@ If
 is not given, then the config file will only be used to find the
 identity of md arrays.
 
-Normally the array will be started after it is assembled.  However is
+Normally the array will be started after it is assembled.  However if
 .B --scan
-is not given and insufficient drives were lists to start a complete
+is not given and insufficient drives were listed to start a complete
 (non-degraded) array, then the array is not started (to guard against
 usage errors).  To insist that the array be started in this case (as
 may work for RAID1 or RAID5), give the
@@ -412,13 +419,25 @@ This usage will initialise a new md array, associate some devices with
 it, and activate the array.
 
 As devices are added, they are checked to see if they contain raid
-superblocks or filesystems. They are also check to see if the variance in
+superblocks or filesystems. They are also checked to see if the variance in
 device size exceeds 1%.
 
 If any discrepancy is found, the array will not automatically be run, though
 the presence of a 
 .B --run
 can override this caution.
+
+To create a "degraded" array in which some devices are missing, simply
+give the word
+.B missing
+in place of a device name.  This will cause
+.B mdadm
+to leave the corresponding slot in the array empty.
+For a RAID4 or RAID5 array at most one slot can be
+.BR missing .
+For a RAID1 array, only one real device needs to be given.  All of the
+others can be
+.BR missing .
 
 '''If the 
 '''.B --size
@@ -451,14 +470,14 @@ This usage will allow individual devices in an array to be failed,
 removed or added.  It is possible to perform multiple operations with
 on command. For example:
 .br
-mdadm /dev/md0 -f /dev/hda1 -r /dev/hda1 /a /dev/hda1
+.B "  mdadm /dev/md0 -f /dev/hda1 -r /dev/hda1 /a /dev/hda1"
 .br
 will firstly mark
 .B /dev/hda1
 as faulty in
 .B /dev/md0
 and will then remove it from the array and finally add it back
-in as a spare.  However only one md array can be affect by a single
+in as a spare.  However only one md array can be affected by a single
 command. 
 
 .SH MISC MODE
@@ -480,17 +499,21 @@ The information discovered is reported.
 
 .TP
 --detail
-The device should be an active md device.  mdadm will display
-a detailed description of the array.
+The device should be an active md device.
+.B   mdadm
+will display a detailed description of the array.
 .B --brief
-will cause the output to be less detailed and format to be
+or
+.B --scan
+will cause the output to be less detailed and the format to be
 suitable for inclusion in
 .BR /etc/mdadm.conf .
 
 .TP
 --examine
-The device should be a component of an md array.  mdadm will
-read the md superblock of the device and display the contents.
+The device should be a component of an md array.
+.B mdadm
+will read the md superblock of the device and display the contents.
 If
 .B --brief
 is given, or
@@ -500,7 +523,7 @@ are grouped together and reported in a single entry suitable
 for inclusion in
 .BR /etc/mdadm.conf .
 
-Have
+Having
 .B --scan
 without listing any devices will cause all devices listed in the
 config file to be examined.
@@ -525,6 +548,19 @@ This will change a
 .B readonly
 array back to being read/write.
 
+.TP
+--scan
+For all operations except
+.BR --examine ,
+.B --scan
+will cause the operation to be applied to all arrays listed in
+.BR /proc/mdstat .
+For
+.BR --examine,
+.B --scan
+causes all devices listed in the config file to be examined.
+
+
 .SH MONITOR MODE
 
 .HP 12
@@ -541,6 +577,13 @@ noticed.
 will never exit once it decides that there are arrays to be checked,
 so it should normally be run in the background.
 
+As well as reporting events,
+.B mdadm
+may move a spare drive from one array to another if they are in the
+same
+.B spare-group
+and if the destination array has a failed drive but not spares.
+
 If any devices are listed on the command line,
 .B mdadm
 will only monitor those devices. Otherwise all arrays listed in the
@@ -552,7 +595,7 @@ will also be monitored.
 
 The result of monitoring the arrays is the generation of events.
 These events are passed to a separate program (is specified) and may
-be mail to a given E-mail address.
+be mailed to a given E-mail address.
 
 
 If
@@ -564,7 +607,7 @@ will not monitor anything.
 Without
 .B --scan
 .B mdadm
-will continue monitoring along as something was found to monitor.  If
+will continue monitoring as long as something was found to monitor.  If
 no program or email is given, then each event is reported to
 .BR stdout .
 
@@ -573,7 +616,7 @@ The different events are:
 .RS 4
 .TP
 .B DeviceDisappeared
-An md array which previously was configured appear to no longer be
+An md array which previously was configured appears to no longer be
 configured.
 
 .TP
@@ -643,7 +686,7 @@ be labelled with the same
 in the configuration file.  The
 .B spare-group
 name can be any string. It is only necessary that different spare
-groups use different name.
+groups use different names.
 
 When
 .B mdadm
@@ -656,9 +699,65 @@ first.
 If the removal succeeds but the adding fails, then it is added back to
 the original array.
 
+.SH EXAMPLES
 
-'''.SH BUGS
-'''no known bugs.
+To find out if a devices is a raid array or part of one:
+.br
+.B "  mdadm -Q /dev/name-of-device"
+
+To assemble and start all array listed in the standard config file:
+.br
+.B "  mdadm -As"
+
+To shut down all arrays (that are not still in used):
+.br
+.B "  mdadm --stop --scan"
+
+To monitor all arrays if (and only if) an email address or program
+was given in the config file, but poll every 2 minutes:
+.br
+.B "  mdadm -Fs --delay=120"
+
+To create /dev/md0 as a RAID1 array with /dev/hda1 and /dev/hdc1:
+.br
+.B "  mdadm -C /dev/md0 -l1 -n2 /dev/hd[ac]1"
+
+To create prototype a config file that describes currently
+active arrays that are known to be made from partitions of
+IDE or SCSI drives:
+.br
+.B "  echo 'DEVICE /dev/hd*[0-9] /dev/sd*[0-9]' > mdadm.conf"
+.br
+.B "  mdadm --detail --scan >> mdadm.conf"
+.br
+This file should be reviewed before being used as it may
+contain unwanted detail.
+
+To find out what raid arrays could be assembled from existing
+IDE and SCSI whole drives (not partitions):
+.br
+.B "  echo 'DEVICE /dev/hd[a-z] /dev/sd*[a-z]' > mdadm.conf"
+.br
+.B "  mdadm -Es -c mdadm.conf >> mdadm.conf"
+This file is very likely to contain unwanted detail, particularly
+the
+.B devices=
+entries.
+
+To get help about Create mode:
+.br
+.B "  mdadm --create --help"
+
+To get help about the format of the config file:
+.br
+.B "  mdadm --config --help"
+
+To get general help:
+.br
+.B "  mdadm --help"
+
+
+
 
 .SH FILES
 
@@ -668,9 +767,13 @@ If you're using the
 .B /proc 
 filesystem,
 .B /proc/mdstat
-gives you informations about md devices status.
-This file is not currently used by
-.BR mdadm .
+lists all active md devices with information about them.
+.B mdadm
+uses this to find arrays when
+.B --scan
+is given in Misc mode, and to monitor array reconstruction
+on Monitor mode.
+
 
 .SS /etc/mdadm.conf
 
@@ -681,10 +784,11 @@ they contain MD super block, and gives identifying information
 for more details.
 
 
-.SH TODO
-
-Finish and document Follow mode.
-
+.SH NOTE
+.B mdadm
+was previously known as
+.BR mdctl .
+ 
 .SH SEE ALSO
 For information on the various levels of
 RAID, check out:

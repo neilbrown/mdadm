@@ -1,4 +1,13 @@
-Changes Prior to this release
+Changes Prior to 1.0.0 reease
+    -   Allow --config with Misc mode (for --examine --scan)
+    -   Add $(CXFLAGS) to end of CFLAGS in makefile
+    -   When making an N disk raid5 array, the Nth drive
+	is moved to the end of the array as a spare rather than
+	being shifted up one place.  This means that when the
+	kernel builds onto the last spare and inserts it,
+	the devices will be in the expected order.
+    -   Man page improvements
+Changes Prior to 0.8.2 release
     -   Correct spelling of persist[ae]nce/persist[ae]nt.
     -   Change "disk" to "device" in options and config file
     -   convert array size to "long long" *before* shift-left in -D and -Q

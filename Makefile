@@ -27,10 +27,13 @@
 #           Australia
 #
 
+# define "CXFLAGS" to give extra flags to CC.
+# e.g.  make CXFLAGS=-O to optimise
 CC = gcc
+CXFLAGS = -ggdb
 SYSCONFDIR = /etc
 CONFFILE = $(SYSCONFDIR)/mdadm.conf
-CFLAGS = -Wall -Werror -Wstrict-prototypes -ggdb -DCONFFILE=\"$(CONFFILE)\"
+CFLAGS = -Wall -Werror -Wstrict-prototypes -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS)
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static

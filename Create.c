@@ -62,6 +62,7 @@ int Create(char *mddev, int mdfd,
 	int first_missing = MD_SB_DISKS*2;
 	int missing_disks = 0;
 	int insert_point = MD_SB_DISKS*2; /* where to insert a missing drive */
+	mddev_dev_t moved_disk = NULL; /* the disk that was moved out of the insert point */
 
 	mdu_array_info_t array;
 	
@@ -270,20 +271,22 @@ int Create(char *mddev, int mdfd,
 		return 1;
 	}
 	
-	for (dnum=0, dv = devlist ; dv ; dv=dv->next, dnum++) {
+	for (dnum=0, dv = devlist ; dv ; dv=(dv->next)?(dv->next):moved_disk, dnum++) {
 		int fd;
 		struct stat stb;
 		mdu_disk_info_t disk;
 
 		disk.number = dnum;
-		if (dnum >= insert_point)
-			disk.number++;
+		if (dnum == insert_point) {
+			moved_disk = dv;
+		}
 		disk.raid_disk = disk.number;
 		if (disk.raid_disk < raiddisks)
 			disk.state = 6; /* active and in sync */
 		else
 			disk.state = 0;
-		if (strcasecmp(dv->devname, "missing")==0) {
+		if (dnum == insert_point ||
+		    strcasecmp(dv->devname, "missing")==0) {
 			disk.major = 0;
 			disk.minor = 0;
 			disk.state = 1; /* faulty */
@@ -304,15 +307,7 @@ int Create(char *mddev, int mdfd,
 				dv->devname, strerror(errno));
 			return 1;
 		}
-	}
-
-	if (insert_point < MD_SB_DISKS) {
-		mdu_disk_info_t disk;
-		disk.number = insert_point;
-		disk.raid_disk = disk.number;
-		disk.state = 1; /* faulty */
-		disk.major = disk.minor = 0;
-		ioctl(mdfd,ADD_NEW_DISK, &disk);
+		if (dv == moved_disk && dnum != insert_point) break;
 	}
 
 	/* param is not actually used */

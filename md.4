@@ -14,10 +14,10 @@ redundancy, and hence the acronym RAID which stands for a Redundant
 Array of Independent Devices.
 .PP
 .B md
-support RAID levels 1 (mirroring) 4 (striped array with parity device) and 5
-(striped array with distributed parity information.  If a single underlying
-device fails while using one of these level, the array will continue
-to function.
+supports RAID levels 1 (mirroring) 4 (striped array with parity
+device) and 5 (striped array with distributed parity information).
+If a single underlying device fails while using one of these levels,
+the array will continue to function.
 .PP
 .B md
 also supports a number of pseudo RAID (non-redundant) configurations
@@ -54,7 +54,7 @@ this device is part of.
 Early versions of the
 .B md
 driver only supported Linear and Raid0 configurations and so
-did not use an MD superblock (as there is not state that needs to be
+did not use an MD superblock (as there is no state that needs to be
 recorded).  While it is strongly recommended that all newly created
 arrays utilise a superblock to help ensure that they are assembled
 properly, the
@@ -82,16 +82,16 @@ A RAID0 array is configured at creation with a
 .B "Chunk Size" 
 which must be a power of two, and at least 4 kibibytes.
 
-The RAID0 driver places the first chunk of the array to the first
+The RAID0 driver assigns the first chunk of the array to the first
 device, the second chunk to the second device, and so on until all
-drives have been assigned one chuck.  This collection of chunks forms
+drives have been assigned one chunk.  This collection of chunks forms
 a
 .BR stripe .
 Further chunks are gathered into stripes in the same way which are
 assigned to the remaining space in the drives.
 
-If device in the array are not all the same size, then once the
-smallest devices has been exhausted, the RAID0 driver starts
+If devices in the array are not all the same size, then once the
+smallest device has been exhausted, the RAID0 driver starts
 collecting chunks into smaller stripes that only span the drives which
 still have remaining space.
 
@@ -146,24 +146,24 @@ in a MULTIPATH md array.  However there are multiple access points
 (paths) to this device, and one of these paths might fail, so there
 are some similarities.
 
-A MULTIPATH array is composed of a number of different devices, often
-fibre channel interfaces, that all refer the the same real device.
-If one of these interfaces fails (e.g. due to cable problems), the
-multipath driver to attempt to redirect requests to another
-interface. 
+A MULTIPATH array is composed of a number of logical different
+devices, often fibre channel interfaces, that all refer the the same
+real device. If one of these interfaces fails (e.g. due to cable
+problems), the multipath driver to attempt to redirect requests to
+another interface. 
 
 
 .SS UNCLEAN SHUTDOWN
 
-When changes are made to an RAID1, RAID4, or RAID5 array there is a
+When changes are made to a RAID1, RAID4, or RAID5 array there is a
 possibility of inconsistency for short periods of time as each update
 requires are least two block to be written to different devices, and
 these writes probably wont happen at exactly the same time.
-This is a system with one of these arrays is shutdown in the middle of
+Thus if a system with one of these arrays is shutdown in the middle of
 a write operation (e.g. due to power failure), the array may not be
 consistent.
 
-The handle this situation, the md driver marks an array as "dirty"
+To handle this situation, the md driver marks an array as "dirty"
 before writing any data to it, and marks it as "clean" when the array
 is being disabled, e.g. at shutdown.
 If the md driver finds an array to be dirty at startup, it proceeds to
@@ -190,7 +190,7 @@ data what was on that failed drive, either by copying a working drive
 in a RAID1 configuration, or by doing calculations with the parity
 block on RAID4 and RAID5.
 
-Why this recovery process is happening, the md driver will monitor
+While this recovery process is happening, the md driver will monitor
 accesses to the array and will slow down the rate of recovery if other
 activity is happening, so that normal access to the array will not be
 unduly affected.  When no other activity is happening, the recovery

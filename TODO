@@ -1,6 +1,4 @@
 
-Document "missing"
-
 
 ?? Allow -S /dev/md? - current complains subsequent not a/d/r - DONE
 
@@ -27,9 +25,9 @@ Document "missing"
 
 * --follow to syslog 
 
-* --follow to move spares around
+* --follow to move spares around DONE
 
-* --follow to notice other events:
+* --follow to notice other events: DONE
      rebuild started
      spare activated
      spare removed

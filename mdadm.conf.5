@@ -11,19 +11,19 @@ is a tool for creating, managing, and monitoring RAID devices using the
 driver in Linux.
 .PP
 Some common tasks, such as assembling all arrays, can be simplified
-by describing the devices and array in this configuration file.
+by describing the devices and arrays in this configuration file.
 
 .SS SYNTAX
 The file should be seen as a collection of words separated by white
 space (space, tab, or newline).
 Any word that beings with a hash sign (#) starts a comment and that
-word together with the remainder of the line are ignored.
+word together with the remainder of the line is ignored.
 
-Any line that start with white space (space or tab) is treated as
+Any line that starts with white space (space or tab) is treated as
 though it were a continuation of the previous line.
 
 Empty lines are ignored, but otherwise each (non continuation) line
-must start with a keyword as listed below.  The key words are case
+must start with a keyword as listed below.  The keywords are case
 insensitive and can be abbreviated to 3 characters.
 
 The keywords are:
@@ -35,7 +35,7 @@ line lists the devices (whole devices or partitions) that might contain
 a component of an MD array.  When looking for the components of an
 array,
 .B mdadm
-will scan these devices and no others.
+will scan these devices (or any devices listed on the command line).
 
 The
 .B device
@@ -61,9 +61,9 @@ assembled, such as
 .BR  /dev/md1 .
 Subsequent words identify the array, or identify the array as a member
 of a group. If multiple identities are given,
-then the array must match ALL identities to be considered a match.
-Each identity word has a tag, and equals sign, and some value.
-The options are:
+then a component device must match ALL identities to be considered a
+match.  Each identity word has a tag, and equals sign, and some value.
+The tags are:
 
 .RS 4
 .TP
@@ -140,6 +140,41 @@ device.
 There should only be one
 .B program
 line and it should be give only one program.
+
+.SH EXAMPLE
+DEVICE /dev/sd[bcdjkl]1
+.br
+DEVICE /dev/hda1 /dev/hdb1
+
+# /dev/md0 is known by it's UID.
+.br
+ARRAY /dev/md0 UUID=3aaa0122:29827cfa:5331ad66:ca767371
+.br
+# /dev/md1 contains all devices with a minor number of
+.br
+#   1 in the superblock.
+.br
+ARRAY /dev/md1 superminor=1
+.br
+# /dev/md2 is made from precisey these two devices
+.br
+ARRAY /dev/md2 devices=/dev/hda1,/dev/hda2
+
+# /dev/md4 and /dev/md5 are a spare-group and spares
+.br
+#  can be moved between them
+.br
+ARRAY /dev/md4 uuid=b23f3c6d:aec43a9f:fd65db85:369432df
+.br
+           spare-group=group1
+.br
+ARRAY /dev/md5 uuid=19464854:03f71b1b:e0df2edd:246cc977
+.br
+           spare-group=group1
+
+MAILADDR root@mydomain.tld
+.br
+PROGRAM /usr/sbin/handle-mdadm-events
 
 
 .SH SEE ALSO

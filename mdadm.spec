@@ -1,6 +1,6 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     0.8.2
+Version:     1.0.0
 Release:     1
 Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
 URL:         http://www.cse.unsw.edu.au/~neilb/source/mdadm/
@@ -28,7 +28,7 @@ some common tasks).
 # people who install RPMs (especially given that the default RPM options
 # will strip the binary) are not going to be running gdb against the
 # program.
-make CFLAGS="$RPM_OPT_FLAGS" SYSCONFDIR="%{_sysconfdir}"
+make CXFLAGS="$RPM_OPT_FLAGS" SYSCONFDIR="%{_sysconfdir}"
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT MANDIR=%{_mandir} BINDIR=%{_sbindir} install
@@ -45,6 +45,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man*/md*
 
 %changelog
+* Fri May 10 2002  <neilb@cse.unsw.edu.au>
+- update to 1.0.0
+- Set CXFLAGS instead of CFLAGS
+
 * Sat Apr  6 2002  <neilb@cse.unsw.edu.au>
 - change %install to use "make install"
 

@@ -83,7 +83,7 @@ int open_mddev(char *dev, int autof)
 	int mdfd;
 	struct stat stb;
 	int major = MD_MAJOR;
-	int minor;
+	int minor = 0;
 	int must_remove = 0;
 	struct mdstat_ent *mdlist;
 	int num;

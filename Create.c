@@ -52,7 +52,7 @@ int Create(char *mddev, int mdfd,
 	 * if runstop==run, or raiddisks diskswere used,
 	 * RUN_ARRAY
 	 */
-	unsigned long minsize=0, maxsize=0;
+	unsigned long long minsize=0, maxsize=0;
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
 	int dnum;
@@ -130,6 +130,13 @@ int Create(char *mddev, int mdfd,
 				fprintf(stderr,
 					Name ": layout defaults to %s\n", map_num(r5layout, layout));
 			break;
+		case LEVEL_FAULTY:
+			layout = map_name(faultylayout, "default");
+
+			if (verbose)
+				fprintf(stderr,
+					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
+			break;
 		}
 
 	if (level == 10)
@@ -168,7 +175,8 @@ int Create(char *mddev, int mdfd,
 	dnum = 0;
 	for (dv=devlist; dv; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
-		unsigned long dsize, freesize;
+		unsigned long dsize;
+		unsigned long long ldsize, freesize;
 		int fd;
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
@@ -186,6 +194,11 @@ int Create(char *mddev, int mdfd,
 			fail=1;
 			continue;
 		}
+#ifdef BLKGETSIZE64
+		if (ioctl(fd, BLKGETSIZE64, &ldsize)==0)
+			;
+		else
+#endif
 		if (ioctl(fd, BLKGETSIZE, &dsize)) {
 			fprintf(stderr, Name ": Cannot get size of %s: %s\n",
 				dname, strerror(errno));
@@ -193,19 +206,23 @@ int Create(char *mddev, int mdfd,
 			close(fd);
 			continue;
 		}
-		if (dsize < MD_RESERVED_SECTORS*2) {
+		else {
+			ldsize = dsize;
+			dsize <<= 9;
+		}
+		if (ldsize < MD_RESERVED_SECTORS*2LL*512LL) {
 			fprintf(stderr, Name ": %s is too small: %luK\n",
-				dname, dsize/2);
+				dname, (unsigned long)(ldsize>>10));
 			fail = 1;
 			close(fd);
 			continue;
 		}
-		freesize = MD_NEW_SIZE_SECTORS(dsize);
+		freesize = MD_NEW_SIZE_SECTORS((ldsize>>9));
 		freesize /= 2;
 
 		if (size && freesize < size) {
 			fprintf(stderr, Name ": %s is smaller that given size."
-				" %luK < %luK + superblock\n", dname, freesize, size);
+				" %lluK < %luK + superblock\n", dname, freesize, size);
 			fail = 1;
 			close(fd);
 			continue;
@@ -232,11 +249,18 @@ int Create(char *mddev, int mdfd,
 			fprintf(stderr, Name ": no size and no drives given - aborting create.\n");
 			return 1;
 		}
-		size = minsize;
-		if (verbose && level>0)
-			fprintf(stderr, Name ": size set to %luK\n", size);
+		if (level > 0) {
+			/* size is meaningful */
+			if (minsize > 0x100000000ULL) {
+				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);	
+				return 1;
+			}
+			size = minsize;
+			if (verbose)
+				fprintf(stderr, Name ": size set to %luK\n", size);
+		}
 	}
-	if (level >= 1 && ((maxsize-size)*100 > maxsize)) {
+	if (level > 0 && ((maxsize-size)*100 > maxsize)) {
 		fprintf(stderr, Name ": largest drive (%s) exceed size (%luK) by more than 1%%\n",
 			maxdisc, size);
 		warn = 1;
@@ -284,8 +308,11 @@ int Create(char *mddev, int mdfd,
 		array.md_minor = MINOR(stb.st_rdev);
 	array.not_persistent = 0;
 	/*** FIX: Need to do something about RAID-6 here ***/
-	if ( (level == 5 || level == 6) &&
-	     (insert_point < raiddisks || first_missing < raiddisks) )
+	if ( ( (level == 5) &&
+	       (insert_point < raiddisks || first_missing < raiddisks) )
+	     ||
+	     ( level == 6 && missing_disks == 2)
+		)
 		array.state = 1; /* clean, but one+ drive will be missing */
 	else
 		array.state = 0; /* not clean, but no errors */

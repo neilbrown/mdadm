@@ -145,7 +145,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			printf("  Creation Time : %.24s\n", ctime(&atime));
 			c=map_num(pers, super.level);
 			printf("     Raid Level : %s\n", c?c:"-unknown-");
-			printf("    Device Size : %d%s\n", super.size, human_size((long long)super.size<<10));
+			if (super.level <= 0)
+				printf("    Device Size : %u%s\n", super.size, human_size((long long)super.size<<10));
 			printf("   Raid Devices : %d\n", super.raid_disks);
 			printf("  Total Devices : %d\n", super.nr_disks);
 			printf("Preferred Minor : %d\n", super.md_minor);

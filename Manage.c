@@ -134,6 +134,23 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 	return 0;
 }
 
+int Manage_reconfig(char *devname, int fd, int layout)
+{
+	mdu_array_info_t info;
+	if (ioctl(fd, GET_ARRAY_INFO, &info) != 0) {
+		fprintf(stderr, Name ": Cannot get array information for %s: %s\n",
+			devname, strerror(errno));
+		return 1;
+	}
+	info.layout = layout;
+	printf("layout set to %d\n", info.layout);
+	if (ioctl(fd, SET_ARRAY_INFO, &info) != 0) {
+		fprintf(stderr, Name ": Cannot set layout for %s: %s\n",
+			devname, strerror(errno));
+		return 1;
+	}
+	return 0;
+}
 
 int Manage_subdevs(char *devname, int fd,
 		   mddev_dev_t devlist)

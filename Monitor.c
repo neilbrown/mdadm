@@ -47,7 +47,7 @@ static char *percentalerts[] = {
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
-	    char *config, int test)
+	    char *config, int test, char* pidfile)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -127,7 +127,18 @@ int Monitor(mddev_dev_t devlist,
 	if (daemonise) {
 		int pid = fork();
 		if (pid > 0) {
-			printf("%d\n", pid);
+			if (!pidfile)
+				printf("%d\n", pid);
+			else {
+				FILE *pid_file;
+				pid_file=fopen(pidfile, "w");
+				if (!pid_file)
+					perror("cannot create pid file");
+				else {
+					fprintf(pid_file,"%d\n", pid);
+					fclose(pid_file);
+				}
+			}
 			return 0;
 		}
 		if (pid < 0) {
@@ -428,6 +439,8 @@ int Monitor(mddev_dev_t devlist,
 		}
 		test = 0;
 	}
+	if (pidfile)
+		unlink(pidfile);
 	return 0;
 }
 

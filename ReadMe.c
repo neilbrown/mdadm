@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.7.0 - 11 August 2004\n";
+char Version[] = Name " - v1.8.0 - 01 November 2004\n";
 /*
  * File: ReadMe.c
  *
@@ -90,7 +90,7 @@ char Version[] = Name " - v1.7.0 - 11 August 2004\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1t";
+char short_options[]="-ABCDEFGQhVvbc:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1t";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -157,6 +157,7 @@ struct option long_options[] = {
     {"daemonise", 0, 0, 'f'},
     {"daemonize", 0, 0, 'f'},
     {"oneshot",   0, 0, '1'},
+    {"pid-file",  1, 0, 'i'},
     
     {0, 0, 0, 0}
 };
@@ -418,6 +419,7 @@ char Help_monitor[] =
 "  --config=     -c   : specify a different config file\n"
 "  --scan        -s   : find mail-address/program in config file\n"
 "  --daemonise   -f   : Fork and continue in child, parent exits\n"
+"  --pid-file=   -i   : In daemon mode write pid to specified file instead of stdout\n"
 "  --oneshot     -1   : Check for degraded arrays, then exit\n"
 "  --test        -t   : Generate a TestMessage event against each array at startup\n"
 ;
@@ -510,6 +512,7 @@ mapping_t pers[] = {
 	{ "6", 6},
 	{ "raid10", 10},
 	{ "10", 10},
+	{ "faulty", -5},
 	{ NULL, 0}
 };
 
@@ -522,4 +525,25 @@ mapping_t modes[] = {
 	{ "misc", MISC},
 	{ "monitor", MONITOR},
 	{ "grow", GROW},
+};
+
+mapping_t faultylayout[] = {
+	{ "write-transient", WriteTransient },
+	{ "wt", WriteTransient },
+	{ "read-transient", ReadTransient },
+	{ "rt", ReadTransient },
+	{ "write-persistent", WritePersistent },
+	{ "wp", WritePersistent },
+	{ "read-persistent", ReadPersistent },
+	{ "rp", ReadPersistent },
+	{ "write-all", WriteAll },
+	{ "wa", WriteAll },
+	{ "read-fixable", ReadFixable },
+	{ "rf", ReadFixable },
+
+	{ "clear", ClearErrors},
+	{ "flush", ClearFaults},
+	{ "none", ClearErrors},
+	{ "default", ClearErrors},
+	{ NULL, 0}
 };

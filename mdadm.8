@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.7.0
+.TH MDADM 8 "" v1.8.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -30,14 +30,17 @@ md devices,
 .BR RAID4 ,
 .BR RAID5 ,
 .BR RAID6 ,
+.BR MULTIPATH ,
 and
-.BR MULTIPATH .
+.BR FAULTY .
 
 .B MULTIPATH is not a Software RAID mechanism, but does involve
 multiple devices.  For
 .B MULTIPATH
 each device is a path to one common physical storage device.
 
+.B FAULTY is also no true RAID, and it only involves one device.  It
+provides a layer over a true device that can be used to inject faults.
 
 .B mdadm
 is a program that can be used to create, manage, and monitor
@@ -246,7 +249,7 @@ Specify rounding factor for linear array (==chunk size)
 Set raid level.  When used with
 .IR --create ,
 options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
-raid5, 5, raid6, 6, multipath, mp.  Obviously some of these are synonymous.
+raid5, 5, raid6, 6, multipath, mp, fautly.  Obviously some of these are synonymous.
 
 When used with
 .IR --build ,
@@ -260,6 +263,39 @@ left-symmetric,
 right-asymmetric,
 right-symmetric,
 la, ra, ls, rs.  The default is left-symmetric.
+
+This option is also used to set the failure mode for
+.IR faulty .
+The options are:
+write-transient,
+wt,
+read-transient,
+rt,
+write-presistent,
+wp,
+read-persistent,
+rp,
+write-all,
+read-fixable,
+rf,
+clear,
+flush,
+none.
+
+Each mode can be followed by a number which is used as a period
+between fault generation.  Without a number, the fault is generated
+once on the first relevant request.  With a number, the fault will be
+generated after that many request, and will continue to be generated
+every time the period elapses.
+
+Multiple failure modes can be current simultaneously by using the
+"--grow" option to set subsequent failure modes.
+
+"clear" or "none" will remove any pending or periodic failure modes,
+and "flush" will clear any persistant faults.
+
+To set the parity with "--grow", the level of the array ("faulty")
+must be specified before the fault mode is specified.
 
 .TP
 .BR --layout=
@@ -540,6 +576,13 @@ which will only continue monitoring if a mail address or alert program
 is found in the config file.
 
 .TP
+.BR -i ", " --pid-file
+When
+.B mdadm
+is running in daemon mode, write the pid of the daemon process to
+the specified file, instead of printing it on standard output.
+
+.TP
 .BR -1 ", " --oneshot
 Check arrays only once.  This will generate
 .B NewArray
@@ -741,7 +784,7 @@ will automatically create a degraded array with an extra spare drive.
 This is because building the spare into a degraded array is in general faster than resyncing
 the parity on a non-degraded, but not clean, array.  This feature can
 be over-ridden with the
--I --force
+.I --force
 option.
 
 '''If the 
@@ -793,7 +836,7 @@ Usage:
 .I devices  ...
 .PP
 
-MISC mode includes a number if distinct operations that
+MISC mode includes a number of distinct operations that
 operate on distinct devices.  The operations are:
 .TP
 --query

@@ -7,6 +7,7 @@ ANNOUNCE-1.4.0
 ANNOUNCE-1.5.0
 ANNOUNCE-1.6.0
 ANNOUNCE-1.7.0
+ANNOUNCE-1.8.0
 Assemble.c
 Build.c
 COPYING
@@ -38,6 +39,9 @@ mdadm.conf.5
 mdadm.h
 mdadm.spec
 mdassemble.c
+mdopen.c
 mdstat.c
+misc/
+misc/syslog-events
 raid5extend.c
 util.c

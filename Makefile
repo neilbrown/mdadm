@@ -31,6 +31,11 @@
 # e.g.  make CXFLAGS=-O to optimise
 TCC = tcc
 UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
+DIET_GCC = diet gcc
+
+KLIBC=/home/src/klibc/klibc-0.77
+
+KLIBC_GCC = gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32
 
 CC = gcc
 CXFLAGS = -ggdb
@@ -52,11 +57,15 @@ MAN4DIR = $(MANDIR)/man4
 MAN5DIR = $(MANDIR)/man5
 MAN8DIR = $(MANDIR)/man8
 
-
-KLIBC=/home/src/klibc/klibc-0.77
-
-OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o
-SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c
+OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
+	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o mdopen.o
+SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
+	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c mdopen.c
+ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c
+ifdef MDASSEMBLE_AUTO
+ASSEMBLE_SRCS += mdopen.c mdstat.c
+ASSEMBLE_FLAGS = -DMDASSEMBLE_AUTO
+endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
@@ -66,7 +75,7 @@ mdadm : $(OBJS)
 	$(CC) $(LDFLAGS) -o mdadm $^
 
 mdadm.static : $(OBJS)
-	$(CC) $(LDFLAGS) --static -o mdadm.static $^
+	$(CC) $(LDFLAGS) -static -o mdadm.static $^
 
 mdadm.tcc : $(SRCS) mdadm.h
 	$(TCC) -o mdadm.tcc $(SRCS)
@@ -78,15 +87,22 @@ mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
 	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
-mdassemble : mdassemble.c Assemble.c config.c dlink.c util.c mdadm.h
+mdassemble : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	diet gcc -o mdassemble mdassemble.c Assemble.c config.c dlink.c util.c
+	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS) 
+
+mdassemble.static : $(ASSEMBLE_SRCS) mdadm.h
+	rm -f $(OBJS)
+	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -o mdassemble $(ASSEMBLE_SRCS)
+
+mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
+	rm -f $(OBJS)
+	$(UCLIBC_GCC) $(ASSEMBLE_FLAGS) -DUCLIBC -static -o mdassemble.uclibc $(ASSEMBLE_SRCS) 
 
 # This doesn't work
-mdassemble.klibc : mdassemble.c Assemble.c config.c dlink.c util.c mdadm.h
+mdassemble.klibc : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) -o mdassemble mdassemble.c Assemble.c config.c dlink.c util.c
-
+	$(KLIBC_GCC) $(CFLAGS) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man
@@ -106,7 +122,8 @@ install : mdadm mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 clean : 
-	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt
+	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
+	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc
 
 dist : clean
 	./makedist

@@ -32,167 +32,6 @@
 #include <ctype.h>
 
 
-void make_parts(char *dev, int cnt)
-{
-	/* make 'cnt' partition devices for 'dev'
-	 * We use the major/minor from dev and add 1..cnt
-	 * If dev ends with a digit, we add "_p%d" else "%d"
-	 * If the name exists, we use it's owner/mode,
-	 * else that of dev
-	 */
-	struct stat stb;
-	int major, minor;
-	int i;
-	char *name = malloc(strlen(dev) + 20);
-	int dig = isdigit(dev[strlen(dev)-1]);
-
-	if (stat(dev, &stb)!= 0)
-		return;
-	if (!S_ISBLK(stb.st_mode))
-		return;
-	major = MAJOR(stb.st_rdev);
-	minor = MINOR(stb.st_rdev);
-	for (i=1; i <= cnt ; i++) {
-		struct stat stb2;
-		sprintf(name, "%s%s%d", dev, dig?"_p":"", i);
-		if (stat(name, &stb2)==0) {
-			if (!S_ISBLK(stb2.st_mode))
-				continue;
-			if (stb2.st_rdev == MKDEV(major, minor+i))
-				continue;
-			unlink(name);
-		} else {
-			stb2 = stb;
-		}
-		mknod(name, S_IFBLK | 0600, MKDEV(major, minor+i));
-		chown(name, stb2.st_uid, stb2.st_gid);
-		chmod(name, stb2.st_mode & 07777);
-	}
-}
-
-/*
- * Open a given md device, and check that it really is one.
- * If 'autof' is given, then we need to create, or recreate, the md device.
- * If the name already exists, and is not a block device, we fail.
- * If it exists and is not an md device, is not the right type (partitioned or not),
- * or is currently in-use, we remove the device, but remember the owner and mode.
- * If it now doesn't exist, we find a few md array and create the device.
- * Default ownership is user=0, group=0 perm=0600
- */
-int open_mddev(char *dev, int autof)
-{
-	int mdfd;
-	struct stat stb;
-	int major = MD_MAJOR;
-	int minor;
-	int must_remove = 0;
-	struct mdstat_ent *mdlist;
-	int num;
-
-	if (autof) {
-		/* autof is set, so we need to check that the name is ok,
-		 * and possibly create one if not
-		 */
-		stb.st_mode = 0;
-		if (lstat(dev, &stb)==0 && ! S_ISBLK(stb.st_mode)) {
-			fprintf(stderr, Name ": %s is not a block device.\n",
-				dev);
-			return -1;
-		}
-		/* check major number is correct */
-		if (autof>0)
-			major = get_mdp_major();
-		if (stb.st_mode && MAJOR(stb.st_rdev) != major)
-			must_remove = 1;
-		if (stb.st_mode && !must_remove) {
-			mdu_array_info_t array;
-			/* looks ok, see if it is available */
-			mdfd = open(dev, O_RDWR, 0);
-			if (mdfd < 0) {
-				fprintf(stderr, Name ": error opening %s: %s\n",
-					dev, strerror(errno));
-				return -1;
-			} else if (md_get_version(mdfd) <= 0) {
-				fprintf(stderr, Name ": %s does not appear to be an md device\n",
-					dev);
-				close(mdfd);
-				return -1;
-			}
-			if (ioctl(mdfd, GET_ARRAY_INFO, &array)==0) {
-				/* already active */
-				must_remove = 1;
-				close(mdfd);
-			} else {
-				if (autof > 0)
-					make_parts(dev, autof);
-				return mdfd;
-			}
-		}
-		/* Ok, need to find a minor that is not in use.
-		 * Easiest to read /proc/mdstat, and hunt through for
-		 * an unused number 
-		 */
-		mdlist = mdstat_read(0);
-		for (num= (autof>0)?-1:0 ; ; num+= (autof>2)?-1:1) {
-			struct mdstat_ent *me;
-			for (me=mdlist; me; me=me->next)
-				if (me->devnum == num)
-					break;
-			if (!me) {
-				/* doesn't exist if mdstat.
-				 * make sure it is new to /dev too
-				 */
-				char *dn;
-				if (autof > 0) 
-					minor = (-1-num) << MdpMinorShift;
-				else
-					minor = num;
-				dn = map_dev(major,minor);
-				if (dn==NULL || is_standard(dn)) {
-					/* this number only used by a 'standard' name,
-					 * so it is safe to use
-					 */
-					break;
-				}
-			}
-		}
-		/* 'num' is the number to use, >=0 for md, <0 for mdp */
-		if (must_remove) {
-			/* never remove a device name that ends /mdNN or /dNN,
-			 * that would be confusing 
-			 */
-			if (is_standard(dev)) {
-				fprintf(stderr, Name ": --auto refusing to remove %s as it looks like a standard name.\n",
-					dev);
-				return -1;
-			}
-			unlink(dev);
-		}
-
-		if (mknod(dev, S_IFBLK|0600, MKDEV(major, minor))!= 0) {
-			fprintf(stderr, Name ": failed to create %s\n", dev);
-			return -1;
-		}
-		if (must_remove) {
-			chown(dev, stb.st_uid, stb.st_gid);
-			chmod(dev, stb.st_mode & 07777);
-		}
-		make_parts(dev,autof);
-	}
-	mdfd = open(dev, O_RDWR, 0);
-	if (mdfd < 0)
-		fprintf(stderr, Name ": error opening %s: %s\n",
-			dev, strerror(errno));
-	else if (md_get_version(mdfd) <= 0) {
-		fprintf(stderr, Name ": %s does not appear to be an md device\n",
-			dev);
-		close(mdfd);
-		mdfd = -1;
-	}
-	return mdfd;
-}
-
-
 
 int main(int argc, char *argv[])
 {
@@ -233,6 +72,7 @@ int main(int argc, char *argv[])
 	char *program = NULL;
 	int delay = 0;
 	int daemonise = 0;
+	char *pidfile = NULL;
 	int oneshot = 0;
 
 	int copies;
@@ -420,6 +260,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+		case O(GROW,'l'): /* hack - needed to understand layout */
 		case O(CREATE,'l'):
 		case O(BUILD,'l'): /* set raid level*/
 			if (level != UnSet) {
@@ -433,7 +274,7 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (level != 0 && level != -1 && level != 1 && level != -4 && mode == BUILD) {
+			if (level != 0 && level != -1 && level != 1 && level != -4 && level != -5 && mode == BUILD) {
 				fprintf(stderr, Name ": Raid level %s not permitted with --build.\n",
 					optarg);
 				exit(2);
@@ -447,6 +288,8 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(CREATE,'p'): /* raid5 layout */
+		case O(BUILD,'p'): /* faulty layout */
+		case O(GROW, 'p'): /* faulty reconfig */
 			if (layout != UnSet) {
 				fprintf(stderr,Name ": layout may only be sent once.  "
 					"Second value was %s\n", optarg);
@@ -485,6 +328,23 @@ int main(int argc, char *argv[])
 				else
 					layout = 1 + (copies<<8);
 				break;
+			case -5: /* Faulty
+				  * modeNNN
+				  */
+				    
+			{
+				int ln = strcspn(optarg, "0123456789");
+				char *m = strdup(optarg);
+				int mode;
+				m[ln] = 0;
+				mode = map_name(faultylayout, m);
+				if (mode == UnSet) {
+					fprintf(stderr, Name ": layout %s not understood for faulty.\n",
+						optarg);
+					exit(2);
+				}
+				layout = mode | (atoi(optarg+ln)<< ModeShift);
+			}
 			}
 			continue;
 
@@ -507,7 +367,7 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (raiddisks == 1 &&  !force) {
+			if (raiddisks == 1 &&  !force && level != -5) {
 				fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
 					"     a mistake.  If you really mean it you will need to specify --force before\n"
 					"     setting the number of drives.\n");
@@ -677,6 +537,13 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'f'): /* daemonise */
 			daemonise = 1;
 			continue;
+		case O(MONITOR,'i'): /* pid */
+			if (pidfile)
+				fprintf(stderr, Name ": only specify one pid file. %s ignored.\n",
+					optarg);
+			else
+				pidfile = optarg;
+			continue;
 		case O(MONITOR,'1'): /* oneshot */
 			oneshot = 1;
 			continue;
@@ -820,19 +687,20 @@ int main(int argc, char *argv[])
 		    ident.super_minor == UnSet && !scan ) {
 			/* Only a device has been given, so get details from config file */
 			mddev_ident_t array_ident = conf_get_ident(configfile, devlist->devname);
-			mdfd = open_mddev(devlist->devname, array_ident->autof);
-			if (mdfd < 0)
+			if (array_ident == NULL) {
+				fprintf(stderr, Name ": %s not identified in config file.\n",
+					devlist->devname);
 				rv |= 1;
-			else {
-				if (array_ident == NULL) {
-					fprintf(stderr, Name ": %s not identified in config file.\n",
-						devlist->devname);
+			} else {
+				mdfd = open_mddev(devlist->devname, array_ident->autof);
+				if (mdfd < 0)
 					rv |= 1;
-				}
-				else 
+				else {
 					rv |= Assemble(devlist->devname, mdfd, array_ident, configfile,
 						       NULL,
 						       readonly, runstop, update, verbose, force);
+					close(mdfd);
+				}
 			}
 		} else if (!scan)
 			rv = Assemble(devlist->devname, mdfd, &ident, configfile,
@@ -845,20 +713,21 @@ int main(int argc, char *argv[])
 			}
 			for (dv = devlist ; dv ; dv=dv->next) {
 				mddev_ident_t array_ident = conf_get_ident(configfile, dv->devname);
-				mdfd = open_mddev(dv->devname, array_ident->autof);
-				if (mdfd < 0) {
-					rv |= 1;
-					continue;
-				}
 				if (array_ident == NULL) {
 					fprintf(stderr, Name ": %s not identified in config file.\n",
 						dv->devname);
 					rv |= 1;
 					continue;
 				}
+				mdfd = open_mddev(dv->devname, array_ident->autof);
+				if (mdfd < 0) {
+					rv |= 1;
+					continue;
+				}
 				rv |= Assemble(dv->devname, mdfd, array_ident, configfile,
 					       NULL,
 					       readonly, runstop, update, verbose, force);
+				close(mdfd);
 			}
 		} else {
 			mddev_ident_t array_list =  conf_get_ident(configfile, NULL);
@@ -884,7 +753,7 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case BUILD:
-		rv = Build(devlist->devname, mdfd, chunk, level, raiddisks, devlist->next, assume_clean);
+		rv = Build(devlist->devname, mdfd, chunk, level, layout, raiddisks, devlist->next, assume_clean);
 		break;
 	case CREATE:
 		rv = Create(devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
@@ -963,8 +832,13 @@ int main(int argc, char *argv[])
 			rv = 1;
 			break;
 		}
+		if (pidfile && !daemonise) {
+			fprintf(stderr, Name ": Cannot write a pid file when not in daemon mode\n");
+			rv = 1;
+			break;
+		}
 		rv= Monitor(devlist, mailaddr, program,
-			    delay?delay:60, daemonise, scan, oneshot, configfile, test);
+			    delay?delay:60, daemonise, scan, oneshot, configfile, test, pidfile);
 		break;
 
 	case GROW:
@@ -981,12 +855,16 @@ int main(int argc, char *argv[])
 				if (rv)
 					break;
 			}
-		} else if (size >= 0 && raiddisks) {
-			fprintf(stderr, Name ": can only grow size OR raiddisks, not both\n");
+		} else if ((size >= 0) + (raiddisks != 0) +  (layout != UnSet) > 1) {
+			fprintf(stderr, Name ": can change at most one of size, raiddisks, and layout\n");
 			rv = 1;
 			break;
-		} else 
+		} else if (layout != UnSet)
+			rv = Manage_reconfig(devlist->devname, mdfd, layout);
+		else if (size >= 0 || raiddisks)
 			rv = Manage_resize(devlist->devname, mdfd, size, raiddisks);
+		else 
+			fprintf(stderr, Name ": no changes to --grow\n");
 		break;
 	}
 	exit(rv);

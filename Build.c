@@ -33,7 +33,7 @@
 #define START_MD     		_IO (MD_MAJOR, 2)
 #define STOP_MD      		_IO (MD_MAJOR, 3)
 
-int Build(char *mddev, int mdfd, int chunk, int level,
+int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	  int raiddisks,
 	  mddev_dev_t devlist, int assume_clean)
 {
@@ -50,6 +50,7 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 	 * SET_ARRAY_INFO,  ADD_NEW_DISK, RUN_ARRAY
 	 *
 	 */
+	int verbose = 0;
 	int i;
 	int vers;
 	struct stat stb;
@@ -77,6 +78,34 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 		return 1;
 	}
 
+	if (layout == UnSet)
+		switch(level) {
+		default: /* no layout */
+			layout = 0;
+			break;
+		case 10:
+			layout = 0x102; /* near=2, far=1 */
+			if (verbose)
+				fprintf(stderr,
+					Name ": layout defaults to n1\n");
+			break;
+		case 5:
+		case 6:
+			layout = map_name(r5layout, "default");
+			if (verbose)
+				fprintf(stderr,
+					Name ": layout defaults to %s\n", map_num(r5layout, layout));
+			break;
+		case LEVEL_FAULTY:
+			layout = map_name(faultylayout, "default");
+
+			if (verbose)
+				fprintf(stderr,
+					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
+			break;
+		}
+
+
 	vers = md_get_version(mdfd);
 	
 	/* looks Ok, go for it */
@@ -100,6 +129,7 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 		if (chunk == 0)  
 			chunk = 64;
 		array.chunk_size = chunk*1024;
+		array.layout = layout;
 		if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
 			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 				mddev, strerror(errno));

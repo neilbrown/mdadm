@@ -46,11 +46,16 @@ mapping_t pers[] = {
 	{ "5", 5},
 	{ "multipath", -4},
 	{ "mp", -4},
+	{ "raid6", 6},
+	{ "6", 6},
+	{ "raid10", 10},
+	{ "10", 10},
 	{ NULL, 0}
 };
 
+#ifndef MDASSEMBLE_AUTO
 /* from mdadm.c */
-int open_mddev(char *dev)
+int open_mddev(char *dev, int autof/*unused */)
 {
 	int mdfd = open(dev, O_RDWR, 0);
 	if (mdfd < 0)
@@ -64,6 +69,7 @@ int open_mddev(char *dev)
 	}
 	return mdfd;
 }
+#endif
 
 char *configfile = NULL;
 int rv;
@@ -81,7 +87,7 @@ int main() {
 	} else
 		for (; array_list; array_list = array_list->next) {
 			mdu_array_info_t array;
-			mdfd = open_mddev(array_list->devname);
+			mdfd = open_mddev(array_list->devname, array_list->autof);
 			if (mdfd < 0) {
 				rv |= 1;
 				continue;

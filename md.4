@@ -166,6 +166,33 @@ real device. If one of these interfaces fails (e.g. due to cable
 problems), the multipath driver to attempt to redirect requests to
 another interface. 
 
+.SS FAULTY
+The FAULTY md module is provided for testing purposes.  A faulty array
+has exactly one component device and is normally assembled without a
+superblock, so the md array created provides direct access to all of
+the data in the component device.
+
+The FAULTY module may be requested to simulate faults to allow testing
+of other md levels or of filesystem.  Faults can be chosen to trigger
+on read requests or write requests, and can be transient (a subsequent
+read/write at the address will probably succeed) or persistant
+(subsequent read/write of the same address will fail).  Further, read
+faults can be "fixable" meaning that they persist until a write
+request at the same address.
+
+Fault types can be requested with a period.  In this case the fault
+will recur repeatedly after the given number of request of the
+relevant time.  For example if persistent read faults have a period of
+100, then ever 100th read request would generate a fault, and the
+faulty sector would be recorded so that subsequent reads on that
+sector would also fail.
+
+There is a limit to the number of faulty sectors that are remembered.
+Faults generated after this limit is exhausted are treated as
+transient.
+
+It list of faulty sectors can be flushed, and the active list of
+failure modes can be cleared.
 
 .SS UNCLEAN SHUTDOWN
 

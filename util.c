@@ -212,15 +212,23 @@ int load_super(int fd, mdp_super_t *super)
 	 *   6 - wrong major version
 	 */
 	unsigned long size;
+	unsigned long long dsize;
 	unsigned long long offset;
     
-	if (ioctl(fd, BLKGETSIZE, &size))
-		return 1;
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size))
+			return 1;
+		else
+			dsize = size << 9;
+	}
 
-	if (size < MD_RESERVED_SECTORS*2)
+	if (dsize < MD_RESERVED_SECTORS*2)
 		return 2;
 	
-	offset = MD_NEW_SIZE_SECTORS(size);
+	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;
 
@@ -242,16 +250,25 @@ int load_super(int fd, mdp_super_t *super)
 
 int store_super(int fd, mdp_super_t *super)
 {
-	long size;
+	unsigned long size;
+	unsigned long long dsize;
+	
 	long long offset;
     
-	if (ioctl(fd, BLKGETSIZE, &size))
-		return 1;
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size))
+			return 1;
+		else
+			dsize = ((unsigned long long)size) << 9;
+	}
 
-	if (size < MD_RESERVED_SECTORS*2)
+	if (dsize < MD_RESERVED_SECTORS*2)
 		return 2;
 	
-	offset = MD_NEW_SIZE_SECTORS(size);
+	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;
 

@@ -1,0 +1,37 @@
+Subject:  ANNOUNCE: mdadm 1.8.0 - A tool for managing Soft RAID under Linux
+
+
+I am pleased to announce the availability of 
+   mdadm version 1.8.0
+It is available at
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+as a source tar-ball and (at the first site) as an SRPM, and as an RPM for i386.
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 1.8.0 adds:
+    -   --pid-file option to declare a file to record the pid in for 
+	--monitor --daemonise
+    -   Support for new "faulty" personalitiy (see md.4) - not submited to
+        kernel.org yet.
+    -   support for raid0 and linear over devices larger than 2 Terabytes.
+    -   assorted bug fixes.
+
+It is hoped that the next full release of mdadm will be 2.0.0
+and it will have substantially re-written handling for superblocks and
+array creation.  In particular, it will be able to work with the new
+superblock format (version 1) supported by 2.6.
+1.8.1 may be released soon which contains much of this functionality.
+
+Development of mdadm is sponsored by CSE@UNSW: 
+  The School of Computer Science and Engineering
+at
+  The University of New South Wales
+
+NeilBrown  01 November 2004
+

@@ -150,7 +150,7 @@ extern void mdstat_wait(int seconds);
 
 extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
-extern mapping_t r5layout[], pers[], modes[];
+extern mapping_t r5layout[], pers[], modes[], faultylayout[];
 
 extern char *map_dev(int major, int minor);
 
@@ -158,6 +158,7 @@ extern char *map_dev(int major, int minor);
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
+extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
@@ -171,7 +172,7 @@ extern int Assemble(char *mddev, int mdfd,
 		    char *update,
 		    int verbose, int force);
 
-extern int Build(char *mddev, int mdfd, int chunk, int level,
+extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 int raiddisks,
 		 mddev_dev_t devlist, int assume_clean);
 
@@ -187,7 +188,7 @@ extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
-		   char *config, int test);
+		   char *config, int test, char *pidfile);
 
 extern int Kill(char *dev, int force);
 
@@ -227,3 +228,30 @@ extern void put_md_name(char *name);
 extern char *get_md_name(int dev);
 
 extern char DefaultConfFile[];
+
+extern int open_mddev(char *dev, int autof);
+
+
+#define	LEVEL_MULTIPATH		(-4)
+#define	LEVEL_LINEAR		(-1)
+#define	LEVEL_FAULTY		(-5)
+
+
+/* faulty stuff */
+
+#define	WriteTransient	0
+#define	ReadTransient	1
+#define	WritePersistent	2
+#define	ReadPersistent	3
+#define	WriteAll	4 /* doesn't go to device */
+#define	ReadFixable	5
+#define	Modes	6
+
+#define	ClearErrors	31
+#define	ClearFaults	30
+
+#define AllPersist	100 /* internal use only */
+#define	NoPersist	101
+
+#define	ModeMask	0x1f
+#define	ModeShift	5

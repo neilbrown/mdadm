@@ -1,4 +1,14 @@
-Changes Prior to this release
+Changes Prior to 1.8.0 release
+    -   Makefile cleanup from  Luca Berra <bluca@comedia.it>
+    -   --pid-file (-i) to set a pid file to use with --monitor --daemonise
+    -   Fix typo in mdadm man page
+    -   Fix coredump when "-s" used with no config file present.
+    -   Support new "faulty" personality which can inject synthetic
+        faults. (Not in kernel.org yet at 1Nov2004)
+    -   Support raid0/linear on devices > 2 Terabytes
+    -   Make sure raid6 resyncs when created with one missing device
+
+Changes Prior to 1.7.0 release
     -   Support "--grow --add" to add a device to a linear array, if the
         kernel supports it.  Not documented yet.
     -   Restore support for uclibc which was broken recently.

@@ -1,3 +1,14 @@
+Changes Prior to 1.2.0 release
+    -   Fix bug where --daemonise required an argument.
+    -   In --assemble --verbose, print appropriate message if device is
+        not in devices= list
+    -   Updated mdadm.conf.5 to reflect fact that device= takes wildcards
+    -   Typos:  componenet -> component
+    -   Reduce size of "--help" message put excess into "--help-options"
+    -   Fix bug introduced when MD_SB_DISKS dependancy removed, and which
+        caused spares not be assembled properly.
+    -   Print appropriate message if --monitor --scan decides not to
+	monitor anything.  
 Changes Prior to 1.1.0 release
     -   add --deamonise flag for --monitor - forks and prints pid to stdout
     -   Fix bug so we REALLY clear dirty flag with -Af

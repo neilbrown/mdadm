@@ -108,17 +108,19 @@ int Monitor(mddev_dev_t devlist,
 	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr(config);
 		if (mailaddr && ! scan)
-			printf("mdadm: Monitor using email address \"%s\" from config file\n",
+			fprintf(stderr, Name ": Monitor using email address \"%s\" from config file\n",
 			       mailaddr);
 	}
 	if (!alert_cmd) {
 		alert_cmd = conf_get_program(config);
 		if (alert_cmd && ! scan)
-			printf("mdadm: Monitor using program \"%s\" from config file\n",
+			fprintf(stderr, Name ": Monitor using program \"%s\" from config file\n",
 			       alert_cmd);
 	}
-	if (scan && !mailaddr && !alert_cmd)
+	if (scan && !mailaddr && !alert_cmd) {
+		fprintf(stderr, Name ": No mail address or alert command - not monitoring.\n");
 		return 1;
+	}
 
 	if (daemonise) {
 		int pid = fork();
@@ -415,7 +417,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
 			fprintf(mp, "A %s event had been detected on md device %s.\n\n", event, dev);
 
 			if (disc)
-				fprintf(mp, "It could be related to componenet device %s.\n\n", disc);
+				fprintf(mp, "It could be related to component device %s.\n\n", disc);
 
 			fprintf(mp, "Faithfully yours, etc.\n");
 			fclose(mp);

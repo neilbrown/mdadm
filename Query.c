@@ -101,7 +101,7 @@ int Query(char *dev)
 		       dev, strerror(superrno));
 		break;
 	case 2:
-		printf("%s: is too small to be an md componenet.\n",
+		printf("%s: is too small to be an md component.\n",
 		       dev);
 		break;
 	case 3:

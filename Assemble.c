@@ -106,7 +106,8 @@ int Assemble(char *mddev, int mdfd,
 		int state;
 		int raid_disk;
 	} *devices;
-	int *best; /* indexed by raid_disk */
+	int *best = NULL; /* indexed by raid_disk */
+	int bestcnt = 0;
 	int devcnt = 0, okcnt, sparecnt;
 	int i;
 	int most_recent = 0;
@@ -184,8 +185,11 @@ int Assemble(char *mddev, int mdfd,
 		devlist = devlist->next;
 
 		if (ident->devices &&
-		    !match_oneof(ident->devices, devname))
+		    !match_oneof(ident->devices, devname)) {
+			if (inargv || verbose)
+				fprintf(stderr, Name ": %s is not one of %s\n", devname, ident->devices);
 			continue;
+		}
 		
 		dfd = open(devname, O_RDONLY, 0);
 		if (dfd < 0) {
@@ -322,11 +326,24 @@ int Assemble(char *mddev, int mdfd,
 			i = devcnt;
 		else
 			i = devices[devcnt].raid_disk;
-		if (i>=0 && i < num_devs)
+		if (i>=0 && i < 10000) {
+			if (i >= bestcnt) {
+				int newbestcnt = i+10;
+				int *newbest = malloc(sizeof(int)*newbestcnt);
+				int c;
+				for (c=0; c < newbestcnt; c++)
+					if (c < bestcnt)
+						newbest[c] = best[c];
+					else
+						newbest[c] = -1;
+				if (best)free(best);
+				best = newbest;
+				bestcnt = newbestcnt;
+			}
 			if (best[i] == -1
 			    || devices[best[i]].events < devices[devcnt].events)
 				best[i] = devcnt;
-
+		}
 		devcnt++;
 	}
 
@@ -340,7 +357,7 @@ int Assemble(char *mddev, int mdfd,
 	 */
 	okcnt = 0;
 	sparecnt=0;
-	for (i=0; i< num_devs ;i++) {
+	for (i=0; i< bestcnt ;i++) {
 		int j = best[i];
 		int event_margin = !force;
 		if (j < 0) continue;
@@ -366,7 +383,7 @@ int Assemble(char *mddev, int mdfd,
 		 */
 		int fd;
 		chosen_drive = -1;
-		for (i=0; i<first_super.raid_disks; i++) {
+		for (i=0; i<first_super.raid_disks && i < bestcnt; i++) {
 			int j = best[i];
 			if (j>=0 &&
 			    !devices[j].uptodate &&
@@ -422,7 +439,7 @@ int Assemble(char *mddev, int mdfd,
 	 * superblock.
 	 */
 	chosen_drive = -1;
-	for (i=0; chosen_drive < 0 && i<num_devs; i++) {
+	for (i=0; chosen_drive < 0 && i<bestcnt; i++) {
 		int j = best[i];
 		int fd;
 		if (j<0)
@@ -444,7 +461,7 @@ int Assemble(char *mddev, int mdfd,
 		close(fd);
 	}
 
-	for (i=0; i<num_devs; i++) {
+	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
 		int desired_state;
 
@@ -526,16 +543,16 @@ This doesnt work yet
 			return 1;
 		}
 		/* First, add the raid disks, but add the chosen one last */
-		for (i=0; i<= num_devs; i++) {
+		for (i=0; i<= bestcnt; i++) {
 			int j;
-			if (i < num_devs) {
+			if (i < bestcnt) {
 				j = best[i];
 				if (j == chosen_drive)
 					continue;
 			} else
 				j = chosen_drive;
 
-			if (j >= 0 && devices[j].uptodate) {
+			if (j >= 0 /* && devices[j].uptodate */) {
 				mdu_disk_info_t disk;
 				memset(&disk, 0, sizeof(disk));
 				disk.major = devices[j].major;

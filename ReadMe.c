@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.1.0 - 3 Mar 2003\n";
+char Version[] = Name " - v1.2.0 - 13 Mar 2003\n";
 /*
  * File: ReadMe.c
  *
@@ -105,6 +105,7 @@ struct option long_options[] = {
 	    
     /* after those will normally come the name of the md device */
     {"help",      0, 0, 'h'},
+    {"help-options",0,0,'h'},
     {"version",	  0, 0, 'V'},
     {"verbose",   0, 0, 'v'},
 
@@ -146,8 +147,8 @@ struct option long_options[] = {
     {"program",   1, 0, 'p'},
     {"alert",     1, 0, 'p'},
     {"delay",     1, 0, 'd'},
-    {"daemonise", 1, 0, 'f'},
-    {"daemonize", 1, 0, 'f'},
+    {"daemonise", 0, 0, 'f'},
+    {"daemonize", 0, 0, 'f'},
     
     
     {0, 0, 0, 0}
@@ -167,18 +168,23 @@ char Help[] =
 "       mdadm --monitor options...\n"
 "       mdadm device options...\n"
 " mdadm is used for building, managing, and monitoring\n"
-"      Linux md devices (aka RAID arrays)\n"
-" For detail help on the above major modes use --help after the mode\n"
+" Linux md devices (aka RAID arrays)\n"
+" For detailed help on the above major modes use --help after the mode\n"
 " e.g.\n"
 "         mdadm --assemble --help\n"
-"\n"
+" For general help on options use\n"
+"         mdadm --help-options\n"
+;
+
+char OptionHelp[] =
 "Any parameter that does not start with '-' is treated as a device name\n"
 "The first such name is often the name of an md device.  Subsequent\n"
 "names are often names of component devices."
 "\n"
 "Some common options are:\n"
-"  --help        -h   : This help message or, after above option,\n"
+"  --help        -h   : General help message or, after above option,\n"
 "                       mode specific help message\n"
+"  --help-options     : This help message\n"
 "  --version     -V   : Print version information for mdadm\n"
 "  --verbose     -v   : Be more verbose about what is happening\n"
 "  --brief       -b   : Be less verbose, more brief\n"

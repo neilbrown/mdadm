@@ -1,3 +1,6 @@
+* Maybe make "--help" fit in 80x24 and have a --long-help with more info. DONE
+
+
 * maybe "missing" instead of <bold>missing</> in doco DONE
 * possibly wait for resync to start, or even finish while assembling.- NO
 
@@ -90,7 +93,7 @@ umount /tmp
 
 - mdadm -S /dev/md0 /dev/md1 gives internal error FIXED
 
-- mdadm --detail --scan print summary of what it can find?
+- mdadm --detail --scan print summary of what it can find? DONE
 
 
 ---------

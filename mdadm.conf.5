@@ -96,8 +96,10 @@ stored in the superblock when the array was created. When an array is
 created as /dev/mdX, then the minor number X is stored.
 .TP
 .B devices=
-The value is a comma separated list of device names. Precisely these
-devices will be used to assemble the array.  Note that the devices
+The value is a comma separated list of device names or device name
+patterns.
+Only devices with names which match one entry in the list will be used
+to assemble the array.  Note that the devices 
 listed there must also be listed on a DEVICE line.
 .TP
 .B level=

@@ -101,14 +101,18 @@ int main(int argc, char *argv[])
 		switch(opt) {
 		case 'h':
 			help_text = Help;
-			switch (mode) {
-			case ASSEMBLE : help_text = Help_assemble; break;
-			case BUILD    : help_text = Help_build; break;
-			case CREATE   : help_text = Help_create; break;
-			case MANAGE   : help_text = Help_manage; break;
-			case MISC     : help_text = Help_misc; break;
-			case MONITOR  : help_text = Help_monitor; break;
-			}
+			if (option_index > 0 && 
+			    strcmp(long_options[option_index].name, "help-options")==0)
+				help_text = OptionHelp;
+			else
+				switch (mode) {
+				case ASSEMBLE : help_text = Help_assemble; break;
+				case BUILD    : help_text = Help_build; break;
+				case CREATE   : help_text = Help_create; break;
+				case MANAGE   : help_text = Help_manage; break;
+				case MISC     : help_text = Help_misc; break;
+				case MONITOR  : help_text = Help_monitor; break;
+				}
 			fputs(help_text,stderr);
 			exit(0);
 

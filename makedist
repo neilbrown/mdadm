@@ -1,6 +1,6 @@
 #!/bin/sh
-
-target=${1-~/public_html/source/mdadm}
+arg=$1
+target=~/public_html/source/mdadm
 if [ -d $target ]
 then :
 else echo $target is not a directory
@@ -8,23 +8,53 @@ else echo $target is not a directory
 fi
 set `grep '^char Version' ReadMe.c `
 version=`echo $7 | sed 's/v//'`
+grep "^.TH MDADM 8 .. v$version" mdadm.8 > /dev/null 2>&1 ||
+ {
+   echo mdadm.8 does not mention verion $version.
+   exit 1
+ }
 grep "^Version: *$version$" mdadm.spec > /dev/null 2>&1 || 
  {
    echo mdadm.spec does not mention version $version.
    exit 1
  }
+if [ -f ANNOUNCE-$version ]
+then :
+else
+   echo ANNONCE-$version does not exist
+   exit 1
+fi
+
 echo version = $version
 base=mdadm-$version.tgz
-if [ -f $target/$base ] 
-then 
-  echo $target/$base exists.
-  exit 1
-fi
-trap "rm $target/$base; exit" 1 2 3
-( cd .. ; ln -s mdadm mdadm-$version ; tar chvf - --exclude="TAGS" --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
-chmod a+r $target/$base
-ls -l $target/$base
+if [ " $arg" != " diff" ]
+then
+  if [ -f $target/$base ] 
+  then 
+    echo $target/$base exists.
+    exit 1
+  fi
+  trap "rm $target/$base; exit" 1 2 3
+  ( cd .. ; ln -s mdadm mdadm-$version ; tar chvf - --exclude="TAGS" --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
+  chmod a+r $target/$base
+  ls -l $target/$base
 
-rpm -ta $target/$base
-find /home/neilb/src/RPM -name "*mdadm-$version-*" \
- -exec cp {} $target/RPM \;
+  rpm -ta $target/$base
+  find /home/neilb/src/RPM -name "*mdadm-$version-*" \
+     -exec cp {} $target/RPM \;
+  cp ANNOUNCE-$version $target/ANNOUNCE
+  cp ChangeLog $target/ChangeLog
+  scp $target/$base master.kernel.org:/pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
+  scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
+else
+  if [ ! -f $target/$base ] 
+  then 
+    echo $target/$base does not exist.
+    exit 1
+  fi
+  ( cd .. ; ln -s mdadm mdadm-$version ; tar chf - --exclude="TAGS" --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > /var/tmp/mdadm-new.tgz
+  mkdir /var/tmp/mdadm-old ; zcat $target/$base | ( cd /var/tmp/mdadm-old ; tar xf - )
+  mkdir /var/tmp/mdadm-new ; zcat /var/tmp/mdadm-new.tgz | ( cd /var/tmp/mdadm-new ; tar xf - )
+  diff -ru /var/tmp/mdadm-old /var/tmp/mdadm-new 
+  rm -rf /var/tmp/mdadm-old /var/tmp/mdadm-new /var/tmp/mdadm-new.tgz
+fi

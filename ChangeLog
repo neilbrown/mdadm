@@ -1,3 +1,19 @@
+Changes Prior to this release
+    -   Support "--grow --add" to add a device to a linear array, if the
+        kernel supports it.  Not documented yet.
+    -   Restore support for uclibc which was broken recently.
+    -   Several improvements to the output of --detail, including
+        reporting "resyncing" or "recovering" in the state.
+    -   Close filedescriptor at end of --detail (exit would have closed it 
+	anyway, so this isn't abig deal).
+    -   Report "Sync checkpoint" in --examine output if appropriate.
+    -   Add --update=resync for --assemble mode to for a resync when the
+        array is assembled.	 
+    -   Add support for "raid10", which is under development in 2.6.
+	Not documented yet.
+    -   --monitor now reads spare-group and spares info from config file
+	even when names of arrays to scan are given on the command line
+	
 Changes Prior to 1.6.0 release
     -	Device name given in -Eb is determined by examining /dev rather
 	than assuming /dev/md%d

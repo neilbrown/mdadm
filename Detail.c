@@ -47,6 +47,9 @@ int Detail(char *dev, int brief, int test)
 	char *devices = NULL;
 	int spares = 0;
 	struct stat stb;
+	int is_26 = get_linux_version() >= 2006000;
+	int is_rebuilding = 0;
+	int failed = 0;
 
 	mdp_super_t super;
 	int have_super = 0;
@@ -83,6 +86,34 @@ int Detail(char *dev, int brief, int test)
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
 		stb.st_rdev = 0;
 	rv = 0;
+
+	/* try to load a superblock */
+	for (d= 0; d<MD_SB_DISKS; d++) {
+		mdu_disk_info_t disk;
+		char *dv;
+		disk.number = d;
+		if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			continue;
+		if (d >= array.raid_disks &&
+		    disk.major == 0 &&
+		    disk.minor == 0)
+			continue;
+		if ((dv=map_dev(disk.major, disk.minor))) {
+			if (!have_super && (disk.state & (1<<MD_DISK_ACTIVE))) {
+				/* try to read the superblock from this device
+				 * to get more info
+				 */
+				int fd2 = open(dv, O_RDONLY);
+				if (fd2 >=0 &&
+				    load_super(fd2, &super) ==0 &&
+				    (unsigned long)super.ctime == (unsigned long)array.ctime &&
+				    (unsigned int)super.level == (unsigned int)array.level)
+					have_super = 1;
+				if (fd2 >= 0) close(fd2);
+			}
+		}
+	}
+
 	/* Ok, we have some info to print... */
 	c = map_num(pers, array.level);
 	if (brief) 
@@ -132,7 +163,8 @@ int Detail(char *dev, int brief, int test)
 		printf("          State : %s%s%s\n",
 		       (array.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
 		       array.active_disks < array.raid_disks? ", degraded":"",
-		       (e && e->percent >= 0) ? ", recovering": "");
+		       (!e || e->percent < 0) ? "" :
+		        (e->resync) ? ", resyncing": ", recovering");
 		printf(" Active Devices : %d\n", array.active_disks);
 		printf("Working Devices : %d\n", array.working_disks);
 		printf(" Failed Devices : %d\n", array.failed_disks);
@@ -142,23 +174,39 @@ int Detail(char *dev, int brief, int test)
 			c = map_num(r5layout, array.layout);
 			printf("         Layout : %s\n", c?c:"-unknown-");
 		}
+		if (array.level == 10) {
+			printf("         Layout : near=%d, far=%d\n", 
+			       array.layout&255, (array.layout>>8)&255);
+		}
 		switch (array.level) {
 		case 0:
 		case 4:
 		case 5:
-			printf("     Chunk Size : %dK\n", array.chunk_size/1024);
+		case 10:
+		case 6:
+			printf("     Chunk Size : %dK\n\n", array.chunk_size/1024);
 			break;
 		case -1:
-			printf("       Rounding : %dK\n", array.chunk_size/1024);
+			printf("       Rounding : %dK\n\n", array.chunk_size/1024);
 			break;
 		default: break;
 		}
 	
-		printf("\n");
-
-		if (e && e->percent >= 0)
+		if (e && e->percent >= 0) {
 			printf(" Rebuild Status : %d%% complete\n\n", e->percent);
+			is_rebuilding = 1;
+		}
 		free_mdstat(ms);
+
+		if (have_super) {
+			printf("           UUID : ");
+			if (super.minor_version >= 90)
+				printf("%08x:%08x:%08x:%08x", super.set_uuid0, super.set_uuid1,
+				       super.set_uuid2, super.set_uuid3);
+			else
+				printf("%08x", super.set_uuid0);
+			printf("\n         Events : %d.%d\n\n", super.events_hi, super.events_lo);
+		}
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
@@ -177,14 +225,40 @@ int Detail(char *dev, int brief, int test)
 		    disk.minor == 0)
 			continue;
 		if (!brief) {
-			printf("   %5d   %5d    %5d    %5d     ", 
-			       disk.number, disk.major, disk.minor, disk.raid_disk);
-			if (disk.state & (1<<MD_DISK_FAULTY)) printf(" faulty");
+			if (disk.number == array.raid_disks) printf("\n");
+			if (disk.raid_disk < 0)
+				printf("   %5d   %5d    %5d        -     ", 
+				       disk.number, disk.major, disk.minor);
+			else
+				printf("   %5d   %5d    %5d    %5d     ", 
+				       disk.number, disk.major, disk.minor, disk.raid_disk);
+			if (disk.state & (1<<MD_DISK_FAULTY)) { 
+				printf(" faulty"); 
+				if (disk.raid_disk < array.raid_disks &&
+				    disk.raid_disk >= 0)
+					failed++;
+			}
 			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
 			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
-			if (disk.state == 0) { printf(" spare"); spares++; }
+			if (disk.state == 0) printf(" spare");
+			if (disk.state == 0) {
+				if (is_26) {
+					if (disk.raid_disk < array.raid_disks && disk.raid_disk >= 0)
+						printf(" rebuilding");
+				} else if (is_rebuilding && failed) {
+					/* Taking a bit of a risk here, we remove the
+					 * device from the array, and then put it back.
+					 * If this fails, we are rebuilding
+					 */
+					int err = ioctl(fd, HOT_REMOVE_DISK, MKDEV(disk.major, disk.minor));
+					if (err == 0) ioctl(fd, HOT_ADD_DISK, MKDEV(disk.major, disk.minor));
+					if (err && errno ==  EBUSY)
+						printf(" rebuilding");
+				}
+			}
 		}
+		if (disk.state == 0) spares++;
 		if (test && d < array.raid_disks && disk.state & (1<<MD_DISK_FAULTY)) {
 			if ((rv & 1) && (array.level ==4 || array.level == 5))
 				rv |= 2;
@@ -200,34 +274,21 @@ int Detail(char *dev, int brief, int test)
 					devices = strdup(dv);
 			} else
 				printf("   %s", dv);
-			if (!have_super && (disk.state & (1<<MD_DISK_ACTIVE))) {
-				/* try to read the superblock from this device
-				 * to get more info
-				 */
-				int fd = open(dv, O_RDONLY);
-				if (fd >=0 &&
-				    load_super(fd, &super) ==0 &&
-				    (unsigned long)super.ctime == (unsigned long)array.ctime &&
-				    (unsigned int)super.level == (unsigned int)array.level)
-					have_super = 1;
-			}
 		}
 		if (!brief) printf("\n");
 	}
 	if (spares && brief) printf(" spares=%d", spares);
-	if (have_super) {
-		if (brief) printf(" UUID=");
-		else printf("           UUID : ");
+	if (have_super && brief) {
+		printf(" UUID=");
 	    	if (super.minor_version >= 90)
 			printf("%08x:%08x:%08x:%08x", super.set_uuid0, super.set_uuid1,
 			       super.set_uuid2, super.set_uuid3);
 		else
 			printf("%08x", super.set_uuid0);
-		if (!brief) 
-			printf("\n         Events : %d.%d\n", super.events_hi, super.events_lo);
 	}
 	if (brief && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
 	if (test && (rv&2)) rv &= ~1;
+	close(fd);
 	return rv;
 }

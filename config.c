@@ -364,7 +364,7 @@ void arrayline(char *line)
 	}
 	if (mis.devname == NULL)
 		fprintf(stderr, Name ": ARRAY line with no device\n");
-	else if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor < 0)
+	else if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor == UnSet)
 		fprintf(stderr, Name ": ARRAY line %s has no identity information.\n", mis.devname);
 	else {
 		mi = malloc(sizeof(*mi));

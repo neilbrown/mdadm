@@ -163,6 +163,7 @@ int Monitor(mddev_dev_t devlist,
 	} else {
 		mddev_dev_t dv;
 		for (dv=devlist ; dv; dv=dv->next) {
+			mddev_ident_t mdlist = conf_get_ident(config, dv->devname);
 			struct state *st = malloc(sizeof *st);
 			if (st == NULL)
 				continue;
@@ -174,6 +175,11 @@ int Monitor(mddev_dev_t devlist,
 			st->percent = -2;
 			st->expected_spares = -1;
 			st->spare_group = NULL;
+			if (mdlist) {
+				st->expected_spares = mdlist->spare_disks;
+				if (mdlist->spare_group)
+					st->spare_group = strdup(mdlist->spare_group);
+			}
 			statelist = st;
 		}
 	}
@@ -216,7 +222,8 @@ int Monitor(mddev_dev_t devlist,
 				close(fd);
 				continue;
 			}
-			if (array.level != 1 && array.level != 5 && array.level != -4) {
+			if (array.level != 1 && array.level != 5 && array.level != -4 &&
+				array.level != 6 && array.level != 10) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, "Wrong-Level",
 					      mailaddr, alert_cmd);

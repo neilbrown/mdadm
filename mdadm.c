@@ -235,6 +235,8 @@ int main(int argc, char *argv[])
 	int daemonise = 0;
 	int oneshot = 0;
 
+	int copies;
+
 	int mdfd = -1;
 
 	ident.uuid_set=0;
@@ -361,6 +363,10 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": Must give one of -a/-r/-f for subsequent devices at %s\n", optarg);
 				exit(2);
 			}
+			if (devs_found > 0 && mode == 'G' && !devmode) {
+				fprintf(stderr, Name ": Must give one of -a for devices do add: %s\n", optarg);
+				exit(2);
+			}
 			dv = malloc(sizeof(*dv));
 			if (dv == NULL) {
 				fprintf(stderr, Name ": malloc failed\n");
@@ -441,7 +447,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(CREATE,'p'): /* raid5 layout */
-			if (layout >= 0) {
+			if (layout != UnSet) {
 				fprintf(stderr,Name ": layout may only be sent once.  "
 					"Second value was %s\n", optarg);
 				exit(2);
@@ -463,6 +469,21 @@ int main(int argc, char *argv[])
 						optarg);
 					exit(2);
 				}
+				break;
+
+			case 10:
+				/* 'f' or 'n' followed by a number <= raid_disks */
+				if ((optarg[0] !=  'n' && optarg[0] != 'f') ||
+				    (copies = strtoul(optarg+1, &cp, 10)) < 1 ||
+				    copies > 200 ||
+				    *cp) {
+					fprintf(stderr, Name ": layout for raid10 must be 'nNN' or 'fNN' where NN is a number, not %s\n", optarg);
+					exit(2);
+				}
+				if (optarg[0] == 'n')
+					layout = 256 + copies;
+				else
+					layout = 1 + (copies<<8);
 				break;
 			}
 			continue;
@@ -596,12 +617,15 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			update = optarg;
-			if (strcmp(update, "sparc2.2")==0) continue;
+			if (strcmp(update, "sparc2.2")==0) 
+				continue;
 			if (strcmp(update, "super-minor") == 0)
 				continue;
 			if (strcmp(update, "summaries")==0)
 				continue;
-			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor' or 'summaries' supported\n",update);
+			if (strcmp(update, "resync")==0)
+				continue;
+			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor', 'resync' or 'summaries' supported\n",update);
 			exit(2);
 
 		case O(ASSEMBLE,'c'): /* config file */
@@ -663,6 +687,7 @@ int main(int argc, char *argv[])
 			/* now the general management options.  Some are applicable
 			 * to other modes. None have arguments.
 			 */
+		case O(GROW,'a'):
 		case O(MANAGE,'a'): /* add a drive */
 			devmode = 'a';
 			continue;
@@ -944,16 +969,24 @@ int main(int argc, char *argv[])
 
 	case GROW:
 		if (devs_found > 1) {
-			fprintf(stderr, Name ": Only one device may be given for --grow\n");
-			rv = 1;
-			break;
-		}
-		if (size >= 0 && raiddisks) {
+			
+			/* must be '-a'. */
+			if (size >= 0 || raiddisks) {
+				fprintf(stderr, Name ": --size, --raiddisks, and --add are exclusing in --grow mode\n");
+				rv = 1;
+				break;
+			}
+			for (dv=devlist->next; dv ; dv=dv->next) {
+				rv = Grow_Add_device(devlist->devname, mdfd, dv->devname);
+				if (rv)
+					break;
+			}
+		} else if (size >= 0 && raiddisks) {
 			fprintf(stderr, Name ": can only grow size OR raiddisks, not both\n");
 			rv = 1;
 			break;
-		}
-		rv = Manage_resize(devlist->devname, mdfd, size, raiddisks);
+		} else 
+			rv = Manage_resize(devlist->devname, mdfd, size, raiddisks);
 		break;
 	}
 	exit(rv);

@@ -136,6 +136,7 @@ struct mdstat_ent {
 	char		*level;
 	char		*pattern; /* U or up, _ for down */
 	int		percent; /* -1 if no resync */
+	int		resync; /* 1 if resync, 0 if recovery */
 	struct mdstat_ent *next;
 };
 
@@ -159,6 +160,7 @@ extern int Manage_runstop(char *devname, int fd, int runstop);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist);
+extern int Grow_Add_device(char *devname, int fd, char *newdev);
 
 
 extern int Assemble(char *mddev, int mdfd,

@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.6.0
+.TH MDADM 8 "" v1.7.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -407,6 +407,7 @@ Update the superblock on each device while assembling the array.  The
 argument given to this flag can be one of
 .BR sparc2.2 ,
 .BR summaries ,
+.BR resync ,
 or
 .BR super-minor .
 
@@ -427,6 +428,15 @@ option will update the
 field on each superblock to match the minor number of the array being
 assembled.  This is not needed on 2.6 and later kernels as they make
 this adjustment automatically.
+
+The
+.B resync
+option will cause the array to be marked
+.I dirty
+meaning that any redundancy in the array (e.g. parity for raid5,
+copies for raid1) may be incorrect.  This will cause the raid system
+to perform a "resync" pass to make sure that all redundant information
+is correct.
 
 The
 .B summaries

@@ -117,6 +117,12 @@ int Create(char *mddev, int mdfd,
 		default: /* no layout */
 			layout = 0;
 			break;
+		case 10:
+			layout = 0x102; /* near=2, far=1 */
+			if (verbose)
+				fprintf(stderr,
+					Name ": layout defaults to n1\n");
+			break;
 		case 5:
 		case 6:
 			layout = map_name(r5layout, "default");
@@ -126,9 +132,18 @@ int Create(char *mddev, int mdfd,
 			break;
 		}
 
+	if (level == 10)
+		/* check layout fits in array*/
+		if ((layout&255) * ((layout>>8)&255) > raiddisks) {
+			fprintf(stderr, Name ": that layout requires at least %d devices\n",
+				(layout&255) * ((layout>>8)&255));
+			return 1;
+		}
+
 	switch(level) {
 	case 4:
 	case 5:
+	case 10:
 	case 6:
 	case 0:
 	case -1: /* linear */

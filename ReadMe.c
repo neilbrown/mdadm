@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.6.0 - 4 June 2004\n";
+char Version[] = Name " - v1.7.0 - 11 August 2004\n";
 /*
  * File: ReadMe.c
  *
@@ -216,7 +216,7 @@ char OptionHelp[] =
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6 - optional\n"
+"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
 "  --auto(=p)    -a   : Automatically allocate new (partitioned) md array if needed.\n"
@@ -284,7 +284,7 @@ char Help_create[] =
 "  --layout=          : same as --parity\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6 - optional\n"
+"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
 "  --run         -R   : insist of running the array even if not all\n"
@@ -508,6 +508,8 @@ mapping_t pers[] = {
 	{ "mp", -4},
 	{ "raid6", 6},
 	{ "6", 6},
+	{ "raid10", 10},
+	{ "10", 10},
 	{ NULL, 0}
 };
 

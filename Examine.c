@@ -174,11 +174,20 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				printf (" --- adjusting superblock for 2.2/sparc compatability ---\n");
 			}
 			printf("         Events : %d.%d\n", super.events_hi, super.events_lo);
+			if (super.events_hi == super.cp_events_hi &&
+			    super.events_lo == super.cp_events_lo &&
+			    super.recovery_cp > 0 &&
+			    (super.state & (1<<MD_SB_CLEAN)) == 0 )
+				printf("Sync checkpoint : %d KB (%d%%)\n", super.recovery_cp/2, super.recovery_cp/(super.size/100*2));
 			printf("\n");
 			if (super.level == 5) {
 				c = map_num(r5layout, super.layout);
 				printf("         Layout : %s\n", c?c:"-unknown-");
 			}
+			if (super.level == 10)
+				printf("         Layout : near=%d, far=%d\n",
+				       super.layout&255, (super.layout>>8) & 255);
+
 			switch(super.level) {
 			case 0:
 			case 4:
@@ -209,6 +218,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				if ((dv=map_dev(dp->major, dp->minor)))
 					printf("   %s", dv);
 				printf("\n");
+				if (d == -1) printf("\n");
 			}
 		}
 		if (SparcAdjust == 2) {

@@ -121,6 +121,8 @@ int get_linux_version()
 int enough(int level, int raid_disks, int avail_disks)
 {
 	switch (level) {
+	case 10: return 1; /* a lie, but it is hard to tell */
+
 	case -4:
 		return avail_disks>= 1;
 	case -1:
@@ -375,6 +377,32 @@ int map_name(mapping_t *map, char *name)
 	return UnSet;
 }
 
+
+int is_standard(char *dev)
+{
+	/* tests if dev is a "standard" md dev name.
+	 * i.e if the last component is "/dNN" or "/mdNN",
+	 * where NN is a string of digits 
+	 */
+	dev = strrchr(dev, '/');
+	if (!dev)
+		return 0;
+	if (strncmp(dev, "/d",2)==0)
+		dev += 2;
+	else if (strncmp(dev, "/md", 3)==0)
+		dev += 3;
+	else
+		return 0;
+	if (!*dev)
+		return 0;
+	while (isdigit(*dev))
+		dev++;
+	if (*dev)
+		return 0;
+	return 1;
+}
+
+
 /*
  * convert a major/minor pair for a block device into a name in /dev, if possible.
  * On the first call, walk /dev collecting name.
@@ -420,31 +448,6 @@ int add_dev(const char *name, const struct stat *stb, int flag)
     }
     return 0;
 }
-
-int is_standard(char *dev)
-{
-	/* tests if dev is a "standard" md dev name.
-	 * i.e if the last component is "/dNN" or "/mdNN",
-	 * where NN is a string of digits 
-	 */
-	dev = strrchr(dev, '/');
-	if (!dev)
-		return 0;
-	if (strncmp(dev, "/d",2)==0)
-		dev += 2;
-	else if (strncmp(dev, "/md", 3)==0)
-		dev += 3;
-	else
-		return 0;
-	if (!*dev)
-		return 0;
-	while (isdigit(*dev))
-		dev++;
-	if (*dev)
-		return 0;
-	return 1;
-}
-
 
 /*
  * Find a block device with the right major/minor number.

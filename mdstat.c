@@ -153,6 +153,7 @@ struct mdstat_ent *mdstat_read(int hold)
 		ent->next = NULL;
 		ent->percent = -1;
 		ent->active = -1;
+		ent->resync = 0;
 
 		ent->dev = strdup(line);
 		ent->devnum = devnum;
@@ -179,6 +180,11 @@ struct mdstat_ent *mdstat_read(int hold)
 				   w[l-1] == '%' &&
 				   (eq=strchr(w, '=')) != NULL ) {
 				ent->percent = atoi(eq+1);
+				if (strncmp(w,"resync", 4)==0)
+					ent->resync = 1;
+			} else if (ent->percent == -1 &&
+				   strncmp(w, "resync", 4)==0) {
+				ent->resync = 1;
 			} else if (ent->percent == -1 &&
 				   w[0] >= '0' && 
 				   w[0] <= '9' &&

@@ -320,6 +320,11 @@ int Assemble(char *mddev, int mdfd,
 					} else if (i >= super.raid_disks && super.disks[i].number == 0)
 						super.disks[i].state = 0;
 			}
+			if (strcmp(update, "resync") == 0) {
+				/* make sure resync happens */
+				super.state &= ~(1<<MD_SB_CLEAN);
+				super.recovery_cp = 0;
+			}
 			super.sb_csum = calc_sb_csum(&super);
 			dfd = open(devname, O_RDWR, 0);
 			if (dfd < 0) 

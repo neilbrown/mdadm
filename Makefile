@@ -30,7 +30,7 @@
 # define "CXFLAGS" to give extra flags to CC.
 # e.g.  make CXFLAGS=-O to optimise
 TCC = tcc
-UCLIBC_GCC = i386-uclibc-gcc
+UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
 
 CC = gcc
 CXFLAGS = -ggdb
@@ -55,8 +55,8 @@ MAN8DIR = $(MANDIR)/man8
 
 KLIBC=/home/src/klibc/klibc-0.77
 
-OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o Query.o
-SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c Create.c Detail.c Examine.c Monitor.c dlink.c Kill.c Query.c
+OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o
+SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 

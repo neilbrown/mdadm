@@ -1,0 +1,59 @@
+MDADM.CONF(5)                                       MDADM.CONF(5)
+
+
+
+NNAAMMEE
+       mdadm.conf - configuration for management of Software Raid
+       with mdadm
+
+SSYYNNOOPPSSIISS
+       /etc/mdadm.conf
+
+DDEESSCCRRIIPPTTIIOONN
+       mmddaaddmm is a tools for creating  an  managing  RAID  devices
+       using the mmdd driver in Linux.
+
+       Some  common  tasks, such as assembling all arrays, can be
+       simplified by describing the devices  and  array  in  this
+       configuations file.
+
+
+   SSYYNNTTAAXX
+       The file should be seen as a collection of words separated
+       by white space (space, tab, or newline).   Any  word  that
+       being  with a hash sign (#) starts a comment and that word
+       together with the remainder of the line are ignored.
+
+       Any line that start with white space  (space  or  tab)  is
+       treated  as  though it were a continuation of the previous
+       line.
+
+       Empty lines are ignored, but otherwise each (non continua-
+       tion) line must start with a keyword as listed below.  The
+       key words are case insensitve and can be abbreviated to  3
+       characters.
+
+       The keywords are:
+
+       DDEEVVIICCEE A  ddeevviiccee  line lists the devices (whole devices or
+              partitions) that might contain a component of an MD
+              array.   When  looking  for  the  components  of an
+              array, mmddaaddmm will scan these devices and no others.
+
+              The  ddeevviiccee  line may contain a number of different
+              devices (separated by spaces) and each device  name
+              can contain wild cards as defined by gglloobb(7).
+
+              Also,  there may be several device lines present in
+              the file.
+
+
+       AARRRRAAYY
+
+SSEEEE AALLSSOO
+       mdadm (8), md (4).
+
+
+
+
+                                                    MDADM.CONF(5)

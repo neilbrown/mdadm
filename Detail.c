@@ -81,20 +81,24 @@ int Detail(char *dev, int brief)
 	if (brief) 
 		printf("ARRAY %s level=%s disks=%d", dev, c?c:"-unknown-",array.raid_disks );
 	else {
-		int array_size;
-		if (ioctl(fd, BLKGETSIZE, &array_size))
-			array_size = 0;
-		else array_size>>= 1;
+		long array_size;
+		long long larray_size;
+		if (ioctl(fd, BLKGETSIZE64, &larray_size)==0)
+			;
+		else if (ioctl(fd, BLKGETSIZE, &array_size)==0)
+			larray_size = array_size<<9;
+		else larray_size = 0;
+
 		printf("%s:\n", dev);
 		printf("        Version : %02d.%02d.%02d\n",
 		       array.major_version, array.minor_version, array.patch_version);
 		atime = array.ctime;
 		printf("  Creation Time : %.24s\n", ctime(&atime));
 		printf("     Raid Level : %s\n", c?c:"-unknown-");
-		if (array_size)
-		printf("     Array Size : %d%s\n", array_size, human_size(array_size));
+		if (larray_size)
+		printf("     Array Size : %ld%s\n", (long)(larray_size>>10), human_size(larray_size));
 		if (array.level >= 1)
-			printf("    Device Size : %d%s\n", array.size, human_size(array.size));
+			printf("    Device Size : %d%s\n", array.size, human_size((long long)array.size<<10));
 		printf("     Raid Disks : %d\n", array.raid_disks);
 		printf("    Total Disks : %d\n", array.nr_disks);
 		printf("Preferred Minor : %d\n", array.md_minor);

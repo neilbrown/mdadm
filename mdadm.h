@@ -46,6 +46,9 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<sys/ioctl.h>
 #define	MD_MAJOR 9
 
+/* I seem to need this to make BLKGETSIZE64 to work... */
+#define u64 __u64
+
 
 #include	"md_u.h"
 
@@ -149,4 +152,4 @@ extern int check_raid(int fd, char *name);
 extern mddev_ident_t conf_get_ident(char *, char*);
 extern mddev_dev_t conf_get_devs(char *);
 
-extern char *human_size(long kbytes);
+extern char *human_size(long long bytes);

@@ -1,0 +1,54 @@
+.TH MDADM.CONF 5
+.SH NAME
+mdadm.conf \- configuration for management of Software Raid with mdadm
+.SH SYNOPSIS
+/etc/mdadm.conf
+.SH DESCRIPTION
+.PP
+.B mdadm
+is a tools for creating an managing RAID devices using the
+.B md
+driver in Linux.
+.PP
+Some common tasks, such as assembling all arrays, can be simplified
+by describing the devices and array in this configuations file.
+
+.SS SYNTAX
+The file should be seen as a collection of words separated by white
+space (space, tab, or newline).
+Any word that being with a hash sign (#) starts a comment and that
+word together with the remainder of the line are ignored.
+
+Any line that start with white space (space or tab) is treated as
+though it were a continuation of the previous line.
+
+Empty lines are ignored, but otherwise each (non continuation) line
+must start with a keyword as listed below.  The key words are case
+insensitve and can be abbreviated to 3 characters.
+
+The keywords are:
+.TP
+.B DEVICE
+A
+.B device
+line lists the devices (whole devices or partitions) that might contain
+a component of an MD array.  When looking for the components of an
+array,
+.B mdadm
+will scan these devices and no others.
+
+The
+.B device
+line may contain a number of different devices (separated by spaces)
+and each device name can contain wild cards as defined by
+.BR glob (7).
+
+Also, there may be several device lines present in the file.
+
+.TP
+.B ARRAY
+
+.SH SEE ALSO
+mdadm (8),
+md (4).
+

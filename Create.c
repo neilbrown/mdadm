@@ -193,7 +193,7 @@ int Create(char *mddev, int mdfd,
 		if (verbose && level>0)
 			fprintf(stderr, Name ": size set to %dK\n", size);
 	}
-	if ((maxsize-size)*100 > maxsize) {
+	if (level >= 1 && ((maxsize-size)*100 > maxsize)) {
 		fprintf(stderr, Name ": largest drive (%s) exceed size (%dK) by more than 1%\n",
 			maxdisc, size);
 		warn = 1;

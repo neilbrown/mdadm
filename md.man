@@ -1,0 +1,89 @@
+MD(4)                                                       MD(4)
+
+
+
+NNAAMMEE
+       md - Multiple Device driver aka Linux Software Raid
+
+SSYYNNOOPPSSIISS
+       //ddeevv//mmdd_n
+       //ddeevv//mmdd//_n
+
+DDEESSCCRRIIPPTTIIOONN
+       The  mmdd  driver  provides virtual devices that are created
+       from one or more  independant  underlying  devices.   This
+       array  of devices often contains redundancy, and hence the
+       acronym RAID which stands for a Redundant Array  of  Inde-
+       pendant Devices.
+
+       mmdd support RAID levels 1 (mirroring) 4 (striped array with
+       parity device) and 5 (striped array with distributed  par-
+       ity  information.   If  a  single  underlying device fails
+       while using one of these level, they array  will  continue
+       to function.
+
+       mmdd  also  supports a number of pseudo RAID (non-redundant)
+       configuations  including  RAID0  (striped  array),  LINEAR
+       (catenated array) and MULTIPATH (a set of different inter-
+       faces to the same device).
+
+
+   RRAAIIDD SSUUPPEERR BBLLOOCCKK
+       With the exception of Legacy Arrays described below,  each
+       device  that is incorportated into an MD array has a _s_u_p_e_r
+       _b_l_o_c_k  written  towards  the  end  of  the  device.   This
+       superblock  records  information  about  the structure and
+       state of the array so that the array an  be  reliably  re-
+       assembled after a shutdown.
+
+       The  superblock  is  4K  long  and  is  written into a 64K
+       aligned block that start at least 64K and less  than  128K
+       from the end of the device (i.e. to get the address of the
+       superblock round the size of the device down to a multiple
+       of 64K and then subtract 64K).  The available size of each
+       device is the ammount of space before the super block,  so
+       between 64K and 128K is lost when a device in incorporated
+       into an MD array.
+
+       The superblock contains, among other things:
+
+       LEVEL  The
+
+       UUID   a 128 bit Universally Unique Identifier that  iden-
+              tifies the array that this device is part of.
+
+
+   LLIINNEEAARR
+   RRAAIIDD00
+   RRAAIIDD11
+   RRAAIIDD44
+   RRAAIIDD55
+   RREEBBUUIILLDD//RREESSYYNNCC
+FFIILLEESS
+       //pprroocc//mmddssttaatt
+              Contains  information about the status of currently
+              running array.
+
+       //pprroocc//ssyyss//ddeevv//rraaiidd//ssppeeeedd__lliimmiitt__mmiinn
+              A readable and writable file that reflects the cur-
+              rent  goal rebuild speed for times when non-rebuild
+              activity is current on an array.  The speed  is  in
+              Kibibytes per second, and is a per-device rate, not
+              a per-array rate (which means that  an  array  with
+              more  disc  will  shuffle  more  data  for  a given
+              speed).   The default is 100.
+
+
+       //pprroocc//ssyyss//ddeevv//rraaiidd//ssppeeeedd__lliimmiitt__mmaaxx
+              A readable and writable file that reflects the cur-
+              rent  goal  rebuild  speed  for  times when no non-
+              rebuild activity  is  current  on  an  array.   The
+              default is 100,000.
+
+
+SSEEEE AALLSSOO
+       mmddaaddmm(8), mmkkrraaiidd(8).
+
+
+
+                                                            MD(4)

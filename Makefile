@@ -37,13 +37,19 @@ MANDIR  = /usr/share/man/man8
 
 OBJS =  mdadm.o config.o  ReadMe.o util.o Manage.o Assemble.o Build.o Create.o Detail.o Examine.o Monitor.o dlink.o Kill.o
 
-all : mdadm mdadm.man
+all : mdadm mdadm.man md.man mdadm.conf.man
 
 mdadm : $(OBJS)
 	$(CC) -o mdadm $^
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man
+
+md.man : md.4
+	nroff -man md.4 > md.man
+
+mdadm.conf.man : mdadm.conf.5
+	nroff -man mdadm.conf.5 > mdadm.conf.man
 
 $(OBJS) : mdadm.h
 

@@ -412,7 +412,7 @@ char *map_dev(int major, int minor)
 int calc_sb_csum(mdp_super_t *super)
 {
         unsigned int  oldcsum = super->sb_csum;
-	unsigned long long newcsum = 0; /* FIXME why does this make it work?? */
+	unsigned long long newcsum = 0;
 	unsigned long csum;
 	int i;
 	unsigned int *superc = (int*) super;
@@ -425,15 +425,26 @@ int calc_sb_csum(mdp_super_t *super)
 	return csum;
 }
 
-char *human_size(long kbytes)
+char *human_size(long long bytes)
 {
 	static char buf[30];
+	
 
-	if (kbytes < 2000)
+	if (bytes < 5000*1024)
 		buf[0]=0;
-	else if (kbytes < 2*1024*1024)
-		sprintf(buf, " (%d MiB)", kbytes>>10);
+	else if (bytes < 2*1024LL*1024LL*1024LL)
+		sprintf(buf, " (%d.%02d MiB %d.%02d MB)",
+			(long)(bytes>>20),
+			(long)(bytes&0xfffff)/(0x100000/100),
+			(long)(bytes/1000/1000),
+			(long)((bytes%1000000)/10000)
+			);
 	else
-		sprintf(buf, " (%d GiB)", kbytes>>20);
+		sprintf(buf, " (%d.%02d GiB %d.%02d GB)",
+			(long)(bytes>>30),
+			(long)((bytes>>10)&0xfffff)/(0x100000/100),
+			(long)(bytes/1000LL/1000LL/1000LL),
+			(long)(((bytes/1000)%1000000)/10000)
+			);
 	return buf;
 }

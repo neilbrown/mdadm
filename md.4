@@ -1,0 +1,78 @@
+.TH MD 4
+.SH NAME
+md \- Multiple Device driver aka Linux Software Raid
+.SH SYNOPSIS
+.BI /dev/md n
+.br
+.BI /dev/md/ n
+.SH DESCRIPTION
+The
+.B md
+driver provides virtual devices that are created from one or more
+independant underlying devices.  This array of devices often contains
+redundancy, and hence the acronym RAID which stands for a Redundant
+Array of Independant Devices.
+.PP
+.B md
+support RAID levels 1 (mirroring) 4 (striped array with parity device) and 5
+(striped array with distributed parity information.  If a single underlying
+device fails while using one of these level, they array will continue
+to function.
+.PP
+.B md
+also supports a number of pseudo RAID (non-redundant) configuations
+including RAID0 (striped array), LINEAR (catenated array) and
+MULTIPATH (a set of different interfaces to the same device).
+
+.SS RAID SUPER BLOCK
+With the exception of Legacy Arrays described below, each device that
+is incorportated into an MD array has a
+.I super block
+written towards the end of the device.  This superblock records
+information about the structure and state of the array so that the
+array an be reliably re-assembled after a shutdown.
+
+The superblock is 4K long and is written into a 64K aligned block that
+start at least 64K and less than 128K from the end of the device
+(i.e. to get the address of the superblock round the size of the
+device down to a multiple of 64K and then subtract 64K).
+The available size of each device is the ammount of space before the
+super block, so between 64K and 128K is lost when a device in
+incorporated into an MD array.
+
+The superblock contains, among other things:
+.TP
+LEVEL
+The 
+.TP
+UUID
+a 128 bit Universally Unique Identifier that identifies the array that
+this device is part of.
+
+.SS LINEAR
+.SS RAID0
+.SS RAID1
+.SS RAID4
+.SS RAID5
+.SS REBUILD/RESYNC
+.SH FILES
+.TP
+.B /proc/mdstat
+Contains information about the status of currently running array.
+.TP
+.B /proc/sys/dev/raid/speed_limit_min
+A readable and writable file that reflects the current goal rebuild
+speed for times when non-rebuild activity is current on an array.
+The speed is in Kibibytes per second, and is a per-device rate, not a
+per-array rate (which means that an array with more disc will shuffle
+more data for a given speed).   The default is 100.
+
+.TP
+.B /proc/sys/dev/raid/speed_limit_max
+A readable and writable file that reflects the current goal rebuild
+speed for times when no non-rebuild activity is current on an array.
+The default is 100,000.
+
+.SH SEE ALSO
+.BR mdadm (8),
+.BR mkraid (8).

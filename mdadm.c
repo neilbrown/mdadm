@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 			}
 			switch(level) {
 			default:
-				fprintf(stderr, Name ": layout now meaningful for %s arrays.\n",
+				fprintf(stderr, Name ": layout not meaningful for %s arrays.\n",
 					map_num(pers, level));
 				exit(2);
 			case -10:

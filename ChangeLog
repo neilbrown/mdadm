@@ -1,4 +1,11 @@
-
+Changed Prior to 0.8 release
+    -   update mdadm.spec
+    -   use BLKGETSIZE64 if available for array size
+    -   give human readable as GiB/MiB and GB and MB, with 2 decimal point precision
+    -   Only warn about size variation for raid1/4/5.
+    -   Started md.4 man page
+    -   Started mdadm.conf.5 man page
+	
 Changes Prior to 0.7 release	
 
     -   Fix makefile to install binary at /sbin and not /sbin/sbin

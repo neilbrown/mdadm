@@ -2,6 +2,10 @@
 
 ?? Allow -S /dev/md? - current complains subsequent not a/d/r
 
+* new "Query" mode to subsume --detail and --examine.
+   --query or -Q, takes a device and tells if it is an MD device,
+   and also tells in a raid superblock is found.
+
 * write proc.c to parse /proc/mdstat file, and maybe /proc/partitions too.
    Build list of arrays:  name, rebuild-percent
 

@@ -265,6 +265,7 @@ void arrayline(char *line)
 	mis.super_minor = -1;
 	mis.level = -10;
 	mis.raid_disks = -1;
+	mis.spare_disks = -1;
 	mis.devices = NULL;
 	mis.devname = NULL;
 	mis.spare_group = NULL;
@@ -315,10 +316,13 @@ void arrayline(char *line)
 			mis.level = map_name(pers, w+6);
 		} else if (strncasecmp(w, "disks=", 6) == 0 ) {
 			/* again, for compat */
-			mis.raid_disks = atoi(w+6);			   
+			mis.raid_disks = atoi(w+6);
 		} else if (strncasecmp(w, "num-devices=", 12) == 0 ) {
 			/* again, for compat */
-			mis.raid_disks = atoi(w+12);			   
+			mis.raid_disks = atoi(w+12);
+		} else if (strncasecmp(w, "spares=", 7) == 0 ) {
+			/* for warning if not all spares present */
+			mis.spare_disks = atoi(w+7);
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
 				w);

@@ -292,6 +292,33 @@ int Assemble(char *mddev, int mdfd,
 					fprintf(stderr, Name ": updating superblock of %s with minor number %d\n",
 						devname, super.md_minor);
 			}
+			if (strcmp(update, "summaries") == 0) {
+				/* set nr_disks, active_disks, working_disks,
+				 * failed_disks, spare_disks based on disks[] 
+				 * array in superblock.
+				 * Also make sure extra slots aren't 'failed'
+				 */
+				super.nr_disks = super.active_disks =
+					super.working_disks = super.failed_disks =
+					super.spare_disks = 0;
+				for (i=0; i < MD_SB_DISKS ; i++) 
+					if (super.disks[i].major ||
+					    super.disks[i].minor) {
+						int state = super.disks[i].state;
+						if (state & (1<<MD_DISK_REMOVED))
+							continue;
+						super.nr_disks++;
+						if (state & (1<<MD_DISK_ACTIVE))
+							super.active_disks++;
+						if (state & (1<<MD_DISK_FAULTY))
+							super.failed_disks++;
+						else
+							super.working_disks++;
+						if (state == 0)
+							super.spare_disks++;
+					} else if (i >= super.raid_disks && super.disks[i].number == 0)
+						super.disks[i].state = 0;
+			}
 			super.sb_csum = calc_sb_csum(&super);
 			dfd = open(devname, O_RDWR, 0);
 			if (dfd < 0) 

@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 	int verbose = 0;
 	int brief = 0;
 	int force = 0;
+	int test = 0;
 
 	char *mailaddr = NULL;
 	char *program = NULL;
@@ -397,7 +398,9 @@ int main(int argc, char *argv[])
 			if (strcmp(update, "sparc2.2")==0) continue;
 			if (strcmp(update, "super-minor") == 0)
 				continue;
-			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2' or 'super-minor' supported\n",update);
+			if (strcmp(update, "summaries")==0)
+				continue;
+			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor' or 'summaries' supported\n",update);
 			exit(2);
 
 		case O(ASSEMBLE,'c'): /* config file */
@@ -516,6 +519,9 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			devmode = opt;
+			continue;
+		case O(MISC,'t'):
+			test = 1;
 			continue;
 
 		case O(MISC, 22):
@@ -683,7 +689,7 @@ int main(int argc, char *argv[])
 							continue;
 						}
 						if (devmode == 'D')
-							rv |= Detail(name, !verbose);
+							rv |= Detail(name, !verbose, test);
 						else if (devmode=='S') {
 							mdfd = open_mddev(name);
 							if (mdfd >= 0)
@@ -699,7 +705,7 @@ int main(int argc, char *argv[])
 			for (dv=devlist ; dv; dv=dv->next) {
 				switch(dv->disposition) {
 				case 'D':
-					rv |= Detail(dv->devname, brief); continue;
+					rv |= Detail(dv->devname, brief, test); continue;
 				case 'K': /* Zero superblock */
 					rv |= Kill(dv->devname, force); continue;
 				case 'Q':

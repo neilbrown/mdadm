@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.3.0
+.TH MDADM 8 "" v1.4.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -328,8 +328,9 @@ an attempt will be made to start it anyway.
 .TP
 .BR -U ", " --update=
 Update the superblock on each device while assembling the array.  The
-argument given to this flag can be either
-.B sparc2.2
+argument given to this flag can be one of
+.BR sparc2.2 ,
+.BR summaries ,
 or
 .BR super-minor .
 
@@ -348,9 +349,13 @@ The
 option will update the
 .B "prefered minor"
 field on each superblock to match the minor number of the array being
-assembled.  This is not need on 2.6 and later kernels as they make
+assembled.  This is not needed on 2.6 and later kernels as they make
 this adjustment automatically.
 
+The
+.B summaries
+option will correct the summaries in the superblock. That is the
+counts of total, working, active, failed, and spare devices.
 
 .SH For Manage mode:
 
@@ -411,6 +416,14 @@ over-written with zeros.  With
 --force
 the block where the superblock would be is over-written even if it
 doesn't appear to be valid.
+
+.TP
+.BR -t ", " --test
+When used with
+.BR --detail ,
+the exit status of
+.I mdadm
+is set to reflect the status of the device.
 
 .SH For Monitor mode:
 .TP
@@ -582,6 +595,15 @@ For a RAID1 array, only one real device needs to be given.  All of the
 others can be
 "\fBmissing\fP".
 
+When creating a RAID5 array,
+.B mdadm
+will automatically create a degraded array with an extra spare drive.
+This is because building the spare into a degraded array is in general faster than resyncing
+the parity on a non-degraded, but not clean, array.  This feature can
+be over-ridden with the
+-I --force
+option.
+
 '''If the 
 '''.B --size
 '''option is given, it is not necessary to list any component-devices in this command.
@@ -651,6 +673,28 @@ or
 will cause the output to be less detailed and the format to be
 suitable for inclusion in
 .BR /etc/mdadm.conf .
+The exit status of
+.I mdadm
+will normally be 0 unless
+.I mdadm
+failed to get useful information about the device(s).  However if the
+.B --test
+option is given, then the exit status will be:
+.RS
+.TP
+0
+The array is functioning normally.
+.TP
+1
+The array has at least one failed device.
+.TP
+2
+The array has multiple failed devices and hence is unusable (raid4 or
+raid5).
+.TP
+4
+There was an error while trying to get information about the device.
+.RE
 
 .TP
 --examine

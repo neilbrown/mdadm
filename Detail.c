@@ -31,7 +31,7 @@
 #include	"md_p.h"
 #include	"md_u.h"
 
-int Detail(char *dev, int brief)
+int Detail(char *dev, int brief, int test)
 {
 	/*
 	 * Print out details for an md array by using
@@ -45,27 +45,29 @@ int Detail(char *dev, int brief)
 	time_t atime;
 	char *c;
 	char *devices = NULL;
+	int spares = 0;
 
 	mdp_super_t super;
 	int have_super = 0;
+	int rv = test ? 4 : 1;
 
 	if (fd < 0) {
 		fprintf(stderr, Name ": cannot open %s: %s\n",
 			dev, strerror(errno));
-		return 1;
+		return rv;
 	}
 	vers = md_get_version(fd);
 	if (vers < 0) {
 		fprintf(stderr, Name ": %s does not appear to be an md device\n",
 			dev);
 		close(fd);
-		return 1;
+		return rv;
 	}
 	if (vers < 9000) {
 		fprintf(stderr, Name ": cannot get detail for md device %s: driver version too old.\n",
 			dev);
 		close(fd);
-		return 1;
+		return rv;
 	}
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 		if (errno == ENODEV)
@@ -75,8 +77,9 @@ int Detail(char *dev, int brief)
 			fprintf(stderr, Name ": cannot get array detail for %s: %s\n",
 				dev, strerror(errno));
 		close(fd);
-		return 1;
+		return rv;
 	}
+	rv = 0;
 	/* Ok, we have some info to print... */
 	c = map_num(pers, array.level);
 	if (brief) 
@@ -162,7 +165,12 @@ int Detail(char *dev, int brief)
 			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
 			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
-			if (disk.state == 0) printf(" spare");
+			if (disk.state == 0) { printf(" spare"); spares++; }
+		}
+		if (test && d < array.raid_disks && disk.state & (1<<MD_DISK_FAULTY)) {
+			if ((rv & 1) && (array.level ==4 || array.level == 5))
+				rv |= 2;
+			rv |= 1;
 		}
 		if ((dv=map_dev(disk.major, disk.minor))) {
 			if (brief) {
@@ -188,6 +196,7 @@ int Detail(char *dev, int brief)
 		}
 		if (!brief) printf("\n");
 	}
+	if (spares && brief) printf(" spares=%d", spares);
 	if (have_super) {
 		if (brief) printf(" UUID=");
 		else printf("           UUID : ");
@@ -201,5 +210,6 @@ int Detail(char *dev, int brief)
 	}
 	if (brief && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
-	return 0;
+	if (test && (rv&2)) rv &= ~1;
+	return rv;
 }

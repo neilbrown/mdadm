@@ -97,6 +97,7 @@ int Monitor(mddev_dev_t devlist,
 		int err;
 		char *spare_group;
 		int active, working, failed, spare, raid;
+		int expected_spares;
 		int devstate[MD_SB_DISKS];
 		int devid[MD_SB_DISKS];
 		int percent;
@@ -151,6 +152,7 @@ int Monitor(mddev_dev_t devlist,
 			st->err = 0;
 			st->devnum = -1;
 			st->percent = -2;
+			st->expected_spares = mdlist->spare_disks;
 			if (mdlist->spare_group)
 				st->spare_group = strdup(mdlist->spare_group);
 			else
@@ -169,6 +171,7 @@ int Monitor(mddev_dev_t devlist,
 			st->err = 0;
 			st->devnum = -1;
 			st->percent = -2;
+			st->expected_spares = -1;
 			st->spare_group = NULL;
 			statelist = st;
 		}
@@ -248,6 +251,10 @@ int Monitor(mddev_dev_t devlist,
 				)
 				alert("DegradedArray", dev, NULL, mailaddr, alert_cmd);
 
+			if (st->utime == 0 && /* new array */
+			    st->expected_spares > 0 && 
+			    array.spare_disks < st->expected_spares) 
+				alert("SparesMissing", dev, NULL, mailaddr, alert_cmd);
 			if (mse &&
 			    st->percent == -1 && 
 			    mse->percent >= 0)

@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.3.0 - 29 Jul 2003\n";
+char Version[] = Name " - v1.4.0 - 29 Oct 2003\n";
 /*
  * File: ReadMe.c
  *
@@ -86,7 +86,7 @@ char Version[] = Name " - v1.3.0 - 29 Jul 2003\n";
  *     This mode never exits but just monitors arrays and reports changes.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sarfRSow1";
+char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sarfRSow1t";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -141,6 +141,7 @@ struct option long_options[] = {
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
     {"sparc2.2",  0, 0, 22},
+    {"test",      0, 0, 't'},
 
     /* For Follow/monitor */
     {"mail",      1, 0, 'm'},
@@ -221,7 +222,7 @@ char OptionHelp[] =
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
-"  --update=     -U   : Update superblock: either sparc2.2 or super-minor\n"
+"  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
 "\n"
 " For detail or examine:\n"
 "  --brief       -b   : Just print device name and UUID\n"
@@ -344,7 +345,7 @@ char Help_assemble[] =
 "                       for a full array are present\n"
 "  --force       -f   : Assemble the array even if some superblocks appear\n"
 "                     : out-of-date.  This involves modifying the superblocks.\n"
-"  --update=     -U   : Update superblock: either sparc2.2 or super-minor\n"
+"  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
 ;
 
 char Help_manage[] =
@@ -385,6 +386,7 @@ char Help_misc[] =
 "  --stop        -S   : deactivate array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
+"  --test        -t   : exit status 0 if ok, 1 if degrade, 2 if dead, 4 if missing\n"
 ;
 
 char Help_monitor[] =

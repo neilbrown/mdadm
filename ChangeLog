@@ -1,3 +1,15 @@
+Changes Prior to 1.4.0 release
+    -   Document fact that creating a raid5 array really creates a
+        degraded array with a spare.	
+    -   Add "spares=" tag to config file and generate it wit --detail and
+        --examine
+    -   Add "SparesMissing" event when --monitor first sees an array and
+	it doesn't have the enough spare devices.
+    -   Add --update=summaries for --assemble to update summary
+        information in superblock, and correct other inconsistancies in
+	the superblock.
+    -   Add --test option to --detail to set a meaningful exit status.
+	
 Changes Prior to 1.3.0 release
     -   Make 'size' and unsigned long in Create to allow creation of
         larger arrays.

@@ -96,6 +96,7 @@ typedef struct mddev_ident_s {
 				 */
 	int level;		/* -10 if not set */
 	int raid_disks;		/* -1 if not set */
+	int spare_disks;	/* -1 if not set */
 	char *spare_group;
 	struct mddev_ident_s *next;
 } *mddev_ident_t;
@@ -163,7 +164,7 @@ extern int Create(char *mddev, int mdfd,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force);
 
-extern int Detail(char *dev, int brief);
+extern int Detail(char *dev, int brief, int test);
 extern int Query(char *dev);
 extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
 extern int Monitor(mddev_dev_t devlist,

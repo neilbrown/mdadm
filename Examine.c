@@ -60,6 +60,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 	char *c;
 	int rv = 0;
 	int err;
+	int spares = 0;
 
 	struct array {
 		mdp_super_t super;
@@ -205,7 +206,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				if (dp->state & (1<<MD_DISK_ACTIVE)) printf(" active");
 				if (dp->state & (1<<MD_DISK_SYNC)) printf(" sync");
 				if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
-				if (dp->state == 0) printf(" spare");
+				if (dp->state == 0) { printf(" spare"); spares++; }
 				if ((dv=map_dev(dp->major, dp->minor)))
 					printf("   %s", dv);
 				printf("\n");
@@ -237,6 +238,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			char *d;
 			printf("ARRAY /dev/md%d level=%s num-devices=%d UUID=",
 			       ap->super.md_minor, c?c:"-unknown-", ap->super.raid_disks);
+			if (spares) printf(" spares=%d", spares);
 			if (ap->super.minor_version >= 90)
 				printf("%08x:%08x:%08x:%08x", ap->super.set_uuid0, ap->super.set_uuid1,
 				       ap->super.set_uuid2, ap->super.set_uuid3);

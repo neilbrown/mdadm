@@ -15,8 +15,7 @@ Changes Prior to 1.9.0 release
 	it to find devices, rather than only once.
     -   Make "mdadm -Ss" stop stacked devices properly, by reversing the
 	order in which arrays are stopped.
-    -   Correct error message when last device to be added to an array
-        fails.
+    -   Improve some error messages.
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "--%s", long_options[option_index].name);
 			else
 				fprintf(stderr, "-%c", opt);
-			fprintf(stderr, " would set mode to %s, but it is already %s.\n",
+			fprintf(stderr, " would set mdadm mode to \"%s\", but it is already set to \"%s\".\n",
 				map_num(modes, newmode),
 				map_num(modes, mode));
 			exit(2);

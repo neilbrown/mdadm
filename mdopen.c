@@ -92,6 +92,10 @@ int open_mddev(char *dev, int autof)
 		/* autof is set, so we need to check that the name is ok,
 		 * and possibly create one if not
 		 */
+		if (autof == -2 && !is_standard(dev, NULL)) {
+			fprintf(stderr, Name ": --auto=yes requires a 'standard' md device name, not %s\n", dev);
+			return -1;
+		}
 		stb.st_mode = 0;
 		if (lstat(dev, &stb)==0 && ! S_ISBLK(stb.st_mode)) {
 			fprintf(stderr, Name ": %s is not a block device.\n",

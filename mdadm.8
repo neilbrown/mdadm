@@ -378,10 +378,14 @@ will not try to be so clever.
 
 .TP
 .BR -a ", " "--auto{=no,yes,md,mdp,part,p}{NN}"
-Instruct mdadm to create the device file if needed, and to allocate
-an unused minor number.  "yes" or "md" causes a non-partitionable array
+Instruct mdadm to create the device file if needed, possibly allocating
+an unused minor number.  "md" causes a non-partitionable array
 to be used.  "mdp", "part" or "p" causes a partitionable array (2.6 and
-later) to be used.  The argumentment can also come immediately after
+later) to be used.  "yes" requires the named md device to have a
+'standard' format, and the type and minor number will be determined
+from this.  See DEVICE NAMES below.
+
+The argumentment can also come immediately after
 "-a".  e.g. "-ap".
 
 For partitionable arrays,
@@ -390,10 +394,18 @@ will create the device file for the whole array and for the first 4
 partitions.  A different number of partitions can be specified at the
 end of this option (e.g.
 .BR --auto=p7 ).
-If the device name ends with a digit, the partition names add an
-underscore, a 'p', and a number, e.g. "/dev/home1_p3".  If there is no
+If the device name ends with a digit, the partition names add a'p',
+and a number, e.g. "/dev/home1p3".  If there is no
 trailing digit, then the partition names just have a number added,
 e.g. "/dev/scratch3".
+
+If the md device name is in a 'standard' format as described in DEVICE
+NAMES, then it will be created, if necessary, with the appropriate
+number based on that name.  If the device name is not in one of these
+formats, then a unused minor number will be allocted.  The minor
+number will be considered unused if there is no active array for that
+number, and there is no entry in /dev for that number and with a
+non-standard name.
 
 .SH For assemble:
 
@@ -1244,6 +1256,31 @@ they contain MD super block, and gives identifying information
 .BR mdadm.conf (5)
 for more details.
 
+.SH DEVICE NAMES
+
+While entries in the /dev directory can have any format you like,
+.I mdadm
+has an understanding of 'standard' formats which it uses to guide its
+behaviour when creating device files via the
+.I --auto
+option.
+
+The standard names for non-partitioned arrays (the only sort of md
+array available in 2.4 and earlier) either of
+.IP
+/dev/mdNN
+.br
+/dev/md/NN
+.PP
+where NN is a number.
+The standard names for partitionable arrays (as available from 2.6
+onwards) is one of
+.IP
+/dev/md/dNN
+.br
+/dev/md_dNN
+.PP
+Partition numbers should be indicated by added "pMM" to these, thus "/dev/md/d1p2".
 
 .SH NOTE
 .B mdadm

@@ -278,6 +278,7 @@ int store_super(int fd, mdp_super_t *super)
 	if (write(fd, super, sizeof(*super)) != sizeof(*super))
 		return 4;
 
+	fsync(fd);
 	return 0;
 }
     

@@ -85,6 +85,7 @@
 
 #include	"mdadm.h"
 #include	"dlink.h"
+#include	<sys/select.h>
 
 void free_mdstat(struct mdstat_ent *ms)
 {
@@ -99,13 +100,18 @@ void free_mdstat(struct mdstat_ent *ms)
 	}
 }
 
-struct mdstat_ent *mdstat_read()
+static int mdstat_fd = -1;
+struct mdstat_ent *mdstat_read(int hold)
 {
 	FILE *f;
 	struct mdstat_ent *all, **end;
 	char *line;
 
-	f = fopen("/proc/mdstat", "r");
+	if (hold && mdstat_fd != -1) {
+		lseek(mdstat_fd, 0L, 0);
+		f = fdopen(dup(mdstat_fd), "r");
+	} else
+		f = fopen("/proc/mdstat", "r");
 	if (f == NULL)
 		return NULL;
 
@@ -141,8 +147,7 @@ struct mdstat_ent *mdstat_read()
 		if (!ent) {
 			fprintf(stderr, Name ": malloc failed reading /proc/mdstat.\n");
 			free_line(line);
-			fclose(f);
-			return all;
+			break;
 		}
 		ent->dev = ent->level = ent->pattern= NULL;
 		ent->next = NULL;
@@ -184,6 +189,20 @@ struct mdstat_ent *mdstat_read()
 		*end = ent;
 		end = &ent->next;
 	}
+	if (hold && mdstat_fd == -1)
+		mdstat_fd = dup(fileno(f));
 	fclose(f);
 	return all;
+}
+
+void mdstat_wait(int seconds)
+{
+	fd_set fds;
+	struct timeval tm;
+	FD_ZERO(&fds);
+	if (mdstat_fd >= 0)
+		FD_SET(mdstat_fd, &fds);
+	tm.tv_sec = seconds;
+	tm.tv_usec = 0;
+	select(mdstat_fd >2 ? mdstat_fd+1:3, NULL, NULL, &fds, &tm);
 }

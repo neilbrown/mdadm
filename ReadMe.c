@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v1.5.0 - 22 Jan 2004\n";
+char Version[] = Name " - v1.6.0 - 4 June 2004\n";
 /*
  * File: ReadMe.c
  *
@@ -58,7 +58,7 @@ char Version[] = Name " - v1.5.0 - 22 Jan 2004\n";
  */
 
 /*
- * mdadm has 6 major modes of operation:
+ * mdadm has 7 major modes of operation:
  * 1/ Create
  *     This mode is used to create a new array with a superblock
  *     It can progress in several step create-add-add-run
@@ -84,9 +84,13 @@ char Version[] = Name " - v1.5.0 - 22 Jan 2004\n";
  *     Also query will treat it as either
  * 6/ Monitor
  *     This mode never exits but just monitors arrays and reports changes.
+ * 7/ Grow
+ *     This mode allows for changing of key attributes of a raid array, such
+ *     as size, number of devices, and possibly even layout.
+ *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sarfRSow1t";
+char short_options[]="-ABCDEFGQhVvbc:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1t";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -96,7 +100,7 @@ struct option long_options[] = {
     {"detail",    0, 0, 'D'},
     {"examine",   0, 0, 'E'},
     {"follow",    0, 0, 'F'},
-    {"grow",      0, 0, 'G'}, /* not yet implemented */
+    {"grow",      0, 0, 'G'},
     {"zero-superblock", 0, 0, 'K'}, /* deliberately no a short_option */
     {"query",	  0, 0, 'Q'},
 
@@ -119,7 +123,9 @@ struct option long_options[] = {
     {"raid-devices",1, 0, 'n'},
     {"spare-disks",1,0, 'x'},
     {"spare-devices",1,0, 'x'},
-    {"size"      ,1, 0, 'z'},
+    {"size",	  1, 0, 'z'},
+    {"auto",	  2, 0, 'a'}, /* also for --assemble */
+    {"assume-clean",0,0, 3 },
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -213,6 +219,8 @@ char OptionHelp[] =
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
+"  --auto(=p)    -a   : Automatically allocate new (partitioned) md array if needed.\n"
+"  --assume-clean     : Assume the array is already in-sync. This is dangerous.\n"
 "\n"
 " For assemble:\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
@@ -223,6 +231,7 @@ char OptionHelp[] =
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
 "  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
+"  --auto(=p)    -a   : Automatically allocate new (partitioned) md array if needed.\n"
 "\n"
 " For detail or examine:\n"
 "  --brief       -b   : Just print device name and UUID\n"
@@ -401,7 +410,7 @@ char Help_monitor[] =
 "If no mail address or program are specified, then mdadm reports all\n"
 "state changes to stdout.\n"
 "\n"
-"Options that are valid with the monitor (--F --follow) mode are:\n"
+"Options that are valid with the monitor (-F --follow) mode are:\n"
 "  --mail=       -m   : Address to mail alerts of failure to\n"
 "  --program=    -p   : Program to run when an event is detected\n"
 "  --alert=           : same as --program\n"
@@ -413,6 +422,22 @@ char Help_monitor[] =
 "  --test        -t   : Generate a TestMessage event against each array at startup\n"
 ;
 
+char Help_grow[] =
+"Usage: mdadm --grow device options\n"
+"\n"
+"This usage causes mdadm to attempt to reconfigure a running array.\n"
+"This is only possibly if the kernel being used supports a particular\n"
+"reconfiguration.  This version only supports changing the number of\n"
+"devices in a RAID1, and changing the active size of all devices in\n"
+"a RAID1/4/5/6.\n"
+"\n"
+"Options that are valid with the grow (-F --grow) mode are:\n"
+"  --size=        -z   : Change the active size of devices in an array.\n"
+"                      : This is useful if all devices have been replaced\n"
+"                      : with larger devices.\n"
+"  --raid-disks=  -n   : Change the number of active devices in a RAID1\n"
+"                      : array.\n"
+;
 
 
 
@@ -494,4 +519,5 @@ mapping_t modes[] = {
 	{ "manage", MANAGE},
 	{ "misc", MISC},
 	{ "monitor", MONITOR},
+	{ "grow", GROW},
 };

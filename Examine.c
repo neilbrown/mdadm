@@ -152,9 +152,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			printf("\n");
 			atime = super.utime;
 			printf("    Update Time : %.24s\n", ctime(&atime));
-			printf("          State : %s, %serrors\n",
-			       (super.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
-			       (super.state&(1<<MD_SB_ERRORS))?"":"no-");
+			printf("          State : %s\n",
+			       (super.state&(1<<MD_SB_CLEAN))?"clean":"dirty");
 			printf(" Active Devices : %d\n", super.active_disks);
 			printf("Working Devices : %d\n", super.working_disks);
 			printf(" Failed Devices : %d\n", super.failed_disks);
@@ -236,8 +235,9 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			char sep='=';
 			char *c=map_num(pers, ap->super.level);
 			char *d;
-			printf("ARRAY /dev/md%d level=%s num-devices=%d UUID=",
-			       ap->super.md_minor, c?c:"-unknown-", ap->super.raid_disks);
+			printf("ARRAY %s level=%s num-devices=%d UUID=",
+			       get_md_name(ap->super.md_minor),
+			       c?c:"-unknown-", ap->super.raid_disks);
 			if (spares) printf(" spares=%d", spares);
 			if (ap->super.minor_version >= 90)
 				printf("%08x:%08x:%08x:%08x", ap->super.set_uuid0, ap->super.set_uuid1,

@@ -128,6 +128,22 @@ a group of arrays is that
 will, when monitoring the arrays, move a spare drive from one array in
 a group to another array in that group if the first array had a failed
 or missing drive but no spare.
+
+.TP
+.B auto=
+This option declares to
+.B mdadm
+that it should try to create the device file of the array if it
+doesn't already exist, or exists but with the wrong device number.
+
+The value of this option can be "yes" or "md" to indicate that a
+traditional, non-partitionable md array should be created, or "mdp",
+"part" or "partition" to indicate that a partitionable md array (only
+available in linux 2.6 and later) should be used.  This later set can
+also have a number appended to indicate how many partitions to create
+device files for, e.g.
+.BR auto=mdp5 .
+The default is 4.
 .RE
 
 .TP
@@ -191,6 +207,14 @@ ARRAY /dev/md4 uuid=b23f3c6d:aec43a9f:fd65db85:369432df
 ARRAY /dev/md5 uuid=19464854:03f71b1b:e0df2edd:246cc977
 .br
            spare-group=group1
+.br
+# /dev/md/home is created if need to be a partitionable md array
+.br
+# any spare device number is allocated.
+.br
+ARRAY /dev/md/home UUID=9187a482:5dde19d9:eea3cc4a:d646ab8b
+.br
+           auto=part
 
 MAILADDR root@mydomain.tld
 .br

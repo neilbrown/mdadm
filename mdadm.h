@@ -55,6 +55,7 @@ char *strncpy(char *dest, const char *src, size_t n) __THROW;
 #include	<asm/types.h>
 #include	<sys/ioctl.h>
 #define	MD_MAJOR 9
+#define MdpMinorShift 6
 
 #ifndef BLKGETSIZE64
 #define BLKGETSIZE64 _IOR(0x12,114,size_t) /* return device size in bytes (u64 *arg) */
@@ -73,12 +74,13 @@ enum mode {
 	MANAGE,
 	MISC,
 	MONITOR,
+	GROW,
 };
 
 extern char short_options[];
 extern struct option long_options[];
 extern char Version[], Usage[], Help[], OptionHelp[],
-	Help_create[], Help_build[], Help_assemble[],
+	Help_create[], Help_build[], Help_assemble[], Help_grow[],
 	Help_manage[], Help_misc[], Help_monitor[], Help_config[];
 
 /* structures read from config file */
@@ -93,20 +95,22 @@ extern char Version[], Usage[], Help[], OptionHelp[],
  */
 #define UnSet (0xfffe)
 typedef struct mddev_ident_s {
-	char *devname;
+	char	*devname;
 	
-	int uuid_set;
-	__u32 uuid[4];
+	int	uuid_set;
+	__u32	uuid[4];
 
 	unsigned int super_minor;
 
-	char *devices;		/* comma separated list of device
+	char	*devices;	/* comma separated list of device
 				 * names with wild cards
 				 */
-	int level;
+	int	level;
 	unsigned int raid_disks;
 	unsigned int spare_disks;
-	char *spare_group;
+	int	autof;		/* 1 for normal, 2 for partitioned */
+	char	*spare_group;
+
 	struct mddev_ident_s *next;
 } *mddev_ident_t;
 
@@ -135,8 +139,9 @@ struct mdstat_ent {
 	struct mdstat_ent *next;
 };
 
-extern struct mdstat_ent *mdstat_read(void);
+extern struct mdstat_ent *mdstat_read(int);
 extern void free_mdstat(struct mdstat_ent *ms);
+extern void mdstat_wait(int seconds);
 
 #ifndef Sendmail
 #define Sendmail "/usr/lib/sendmail -t"
@@ -151,6 +156,7 @@ extern char *map_dev(int major, int minor);
 
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop);
+extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist);
 
@@ -165,7 +171,7 @@ extern int Assemble(char *mddev, int mdfd,
 
 extern int Build(char *mddev, int mdfd, int chunk, int level,
 		 int raiddisks,
-		 mddev_dev_t devlist);
+		 mddev_dev_t devlist, int assume_clean);
 
 
 extern int Create(char *mddev, int mdfd,
@@ -189,6 +195,10 @@ extern int parse_uuid(char *str, int uuid[4]);
 extern int check_ext2(int fd, char *name);
 extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);
+
+extern int get_mdp_major(void);
+extern int is_standard(char *dev);
+
 
 extern mddev_ident_t conf_get_ident(char *conffile, char *dev);
 extern mddev_dev_t conf_get_devs(char *conffile);

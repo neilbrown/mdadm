@@ -46,6 +46,7 @@ int Detail(char *dev, int brief, int test)
 	char *c;
 	char *devices = NULL;
 	int spares = 0;
+	struct stat stb;
 
 	mdp_super_t super;
 	int have_super = 0;
@@ -79,6 +80,8 @@ int Detail(char *dev, int brief, int test)
 		close(fd);
 		return rv;
 	}
+	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
+		stb.st_rdev = 0;
 	rv = 0;
 	/* Ok, we have some info to print... */
 	c = map_num(pers, array.level);
@@ -87,6 +90,15 @@ int Detail(char *dev, int brief, int test)
 	else {
 		unsigned long array_size;
 		unsigned long long larray_size;
+		struct mdstat_ent *ms = mdstat_read(0);
+		struct mdstat_ent *e;
+		int devnum = array.md_minor;
+		if (MAJOR(stb.st_rdev) != MD_MAJOR)
+			devnum = -1 - devnum;
+
+		for (e=ms; e; e=e->next)
+			if (e->devnum == devnum)
+				break;
 #ifdef BLKGETSIZE64
 		if (ioctl(fd, BLKGETSIZE64, &larray_size)==0)
 			;
@@ -106,7 +118,7 @@ int Detail(char *dev, int brief, int test)
 		printf("  Creation Time : %.24s\n", ctime(&atime));
 		printf("     Raid Level : %s\n", c?c:"-unknown-");
 		if (larray_size)
-		printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
+			printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
 		if (array.level >= 1)
 			printf("    Device Size : %d%s\n", array.size, human_size((long long)array.size<<10));
 		printf("   Raid Devices : %d\n", array.raid_disks);
@@ -117,9 +129,10 @@ int Detail(char *dev, int brief, int test)
 		printf("\n");
 		atime = array.utime;
 		printf("    Update Time : %.24s\n", ctime(&atime));
-		printf("          State : %s, %serrors\n",
+		printf("          State : %s%s%s\n",
 		       (array.state&(1<<MD_SB_CLEAN))?"clean":"dirty",
-		       (array.state&(1<<MD_SB_ERRORS))?"":"no-");
+		       array.active_disks < array.raid_disks? ", degraded":"",
+		       (e && e->percent >= 0) ? ", recovering": "");
 		printf(" Active Devices : %d\n", array.active_disks);
 		printf("Working Devices : %d\n", array.working_disks);
 		printf(" Failed Devices : %d\n", array.failed_disks);
@@ -142,17 +155,11 @@ int Detail(char *dev, int brief, int test)
 		}
 	
 		printf("\n");
-		{
-			struct mdstat_ent *ms = mdstat_read();
-			struct mdstat_ent *e;
-			for (e=ms; e; e=e->next)
-				if (e->devnum == array.md_minor) {
-					if (e->percent >= 0)
-						printf(" Rebuild Status : %d%% complete\n\n", e->percent);
-					break;
-				}
-			free_mdstat(ms);
-		}
+
+		if (e && e->percent >= 0)
+			printf(" Rebuild Status : %d%% complete\n\n", e->percent);
+		free_mdstat(ms);
+
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
 	for (d= 0; d<MD_SB_DISKS; d++) {

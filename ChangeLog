@@ -1,4 +1,28 @@
-Changes Prior to this release
+Changes Prior to 1.6.0 release
+    -	Device name given in -Eb is determined by examining /dev rather
+	than assuming /dev/md%d
+    -   Fix bug in --monitor where an array could be held open an so
+	could not be stopped without killing mdadm.
+    -   Add --grow mode.  Currently only --size and --raid-disks can be
+	changed. Both require kernel support which, at the time of
+	writing, is not in a release kernel yet.
+    -   Don't print out "errors" or "no-errors" in -D and -E, as the bit
+	is never set or used.
+    -   Use md event notification in 2.6.??? to make --monitor mode
+        respond instantly to events.
+    -   Add --auto= option and auto= configfile entry to tell mdadm to
+	create device files as needed.  This is particularly useful
+	with partitioned arrays where the major device number can change.
+    -   When generating --brief listing, if the standard name doesn't
+        exist, search /dev for one rather than using a temp name.
+    -   Allow --build to build raid1 and multipath arrays.
+    -   Add "--assume-clean" for Create and Build, particularly for raid1
+	Note: this is dangerous. Only use it if you are certain.
+    -   Fix bug so that Rebuild status monitoring works again.
+    -   Add "degraded" and "recovering" options to the "Status:"
+	entry for --detail
+
+Changes Prior to 1.5.0 release
     -   new commands "mdassemble" which is a stripped-down equivalent of
 	"mdadm -As", that can be compiled with dietlibc.
 	Thanks to Luca Berra <bluca@comedia.it>.
@@ -323,4 +347,3 @@ Changes Prior to 0.5 release
   the --help output, is not wholy correct.  After I get --follow
   working properly, I plan to revise the various documentation and/or
   the code to make sure the two match.
-

@@ -1,3 +1,15 @@
+2004-june-02
+  * Don't print 'errors' flag, it is meaningless. DONE
+  * Handle new superblock format
+  * create device file on demand, particularly partitionable devices. DONE
+      BUT figure a way to create the partition devices.
+              auto=partN
+  * Use Event: interface to listen for events. DONE, untested
+  * Make sure mdadm -As can assemble multi-level RAIDs ok.
+  * --build to build raid1 or multipath arrays 
+       clean or not ???
+  
+----------------------------------------------------------------------------
 * mdadm --monitor to monitor failed multipath paths and re-instate them.
 
 * Maybe make "--help" fit in 80x24 and have a --long-help with more info. DONE

@@ -35,7 +35,7 @@
 
 int Build(char *mddev, int mdfd, int chunk, int level,
 	  int raiddisks,
-	  mddev_dev_t devlist)
+	  mddev_dev_t devlist, int assume_clean)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -91,6 +91,8 @@ int Build(char *mddev, int mdfd, int chunk, int level,
 			array.md_minor = MINOR(stb.st_rdev);
 		array.not_persistent = 1;
 		array.state = 0; /* not clean, but no errors */
+		if (assume_clean)
+			array.state |= 1;
 		array.active_disks = raiddisks;
 		array.working_disks = raiddisks;
 		array.spare_disks = 0;

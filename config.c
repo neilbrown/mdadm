@@ -32,6 +32,7 @@
 #include	<sys/dir.h>
 #include	<glob.h>
 #include	<fnmatch.h>
+#include	<ctype.h>
 
 /*
  * Read the config file
@@ -230,6 +231,7 @@ void load_partitions(void)
 			cdevlist = cd;
 		}
 	}
+	fclose(f);
 }
 
 
@@ -272,6 +274,7 @@ void arrayline(char *line)
 	mis.devices = NULL;
 	mis.devname = NULL;
 	mis.spare_group = NULL;
+	mis.autof = 0;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
 		if (w[0] == '/') {
@@ -326,13 +329,41 @@ void arrayline(char *line)
 		} else if (strncasecmp(w, "spares=", 7) == 0 ) {
 			/* for warning if not all spares present */
 			mis.spare_disks = atoi(w+7);
+		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
+			/* whether to create device special files as needed */
+			if (strcasecmp(w+5, "no")==0)
+				mis.autof = 0;
+			else if (strcasecmp(w+5,"yes")==0 || strcasecmp(w+5,"md")==0)
+				mis.autof = -1;
+			else {
+				/* There might be digits, and maybe a hypen, at the end */
+				char *e = w+5 + strlen(w+5);
+				int num = 4;
+				int len;
+				while (e > w+5 && isdigit(e[-1]))
+					e--;
+				if (*e) {
+					num = atoi(e);
+					if (num <= 0) num = 1;
+				}
+				if (e > w+5 && e[-1] == '-')
+					e--;
+				len = e - (w+5);
+				if ((len == 3 && strncasecmp(w+5,"mdp",3)==0) ||
+				    (len == 1 && strncasecmp(w+5,"p",1)==0) ||
+				    (len >= 4 && strncasecmp(w+5,"part",4)==0))
+					mis.autof = num;
+				else 
+					fprintf(stderr, Name ": auto type of \"%s\" ignored for %s\n",
+						w+5, mis.devname?mis.devname:"unlabeled-array");
+			}
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
 				w);
 		}
 	}
 	if (mis.devname == NULL)
-		fprintf(stderr, Name ": ARRAY line with a device\n");
+		fprintf(stderr, Name ": ARRAY line with no device\n");
 	else if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor < 0)
 		fprintf(stderr, Name ": ARRAY line %s has no identity information.\n", mis.devname);
 	else {
@@ -420,6 +451,7 @@ void load_conffile(char *conffile)
 		free_line(line);
 	}
     
+	fclose(f);
 
 /*    printf("got file\n"); */
 }

@@ -185,11 +185,11 @@ int Monitor(mddev_dev_t devlist,
 
 		if (mdstat)
 			free_mdstat(mdstat);
-		mdstat = mdstat_read();
+		mdstat = mdstat_read(oneshot?0:1);
 
 		for (st=statelist; st; st=st->next) {
 			mdu_array_info_t array;
-			struct mdstat_ent *mse;
+			struct mdstat_ent *mse = NULL, *mse2;
 			char *dev = st->devname;
 			int fd;
 			unsigned int i;
@@ -228,16 +228,18 @@ int Monitor(mddev_dev_t devlist,
 				struct stat stb;
 				if (fstat(fd, &stb) == 0 &&
 				    (S_IFMT&stb.st_mode)==S_IFBLK) {
-					if (MINOR(stb.st_rdev) == 9)
+					if (MAJOR(stb.st_rdev) == MD_MAJOR)
 						st->devnum = MINOR(stb.st_rdev);
 					else
 						st->devnum = -1- (MINOR(stb.st_rdev)>>6);
 				}
 			}
 
-			for (mse = mdstat ; mse ; mse=mse->next)
-				if (mse->devnum == st->devnum)
-					mse->devnum = MAXINT; /* flag it as "used" */
+			for (mse2 = mdstat ; mse2 ; mse2=mse2->next)
+				if (mse2->devnum == st->devnum) {
+					mse2->devnum = MAXINT; /* flag it as "used" */
+					mse = mse2;
+				}
 
 			if (st->utime == array.utime &&
 			    st->failed == array.failed_disks &&
@@ -349,6 +351,7 @@ int Monitor(mddev_dev_t devlist,
 						free(st);
 						continue;
 					}
+					close(fd);
 					st->utime = 0;
 					st->next = statelist;
 					st->err = 1;
@@ -414,7 +417,7 @@ int Monitor(mddev_dev_t devlist,
 			if (oneshot)
 				break;
 			else
-				sleep(period);
+				mdstat_wait(period);
 		}
 		test = 0;
 	}

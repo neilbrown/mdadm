@@ -68,7 +68,7 @@ int Create(char *mddev, int mdfd,
 	
 
 	if (md_get_version(mdfd) < 9000) {
-		fprintf(stderr, Name ": Create requires md driver verison 0.90.0 or later\n");
+		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");
 		return 1;
 	}
 	if (level == UnSet) {
@@ -351,6 +351,7 @@ int Create(char *mddev, int mdfd,
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 				strerror(errno));
+			Manage_runstop(mddev, mdfd, -1);
 			return 1;
 		}
 		fprintf(stderr, Name ": array %s started.\n", mddev);

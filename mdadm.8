@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.5.0
+.TH MDADM 8 "" v1.6.0
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -76,7 +76,7 @@ configuration file, at all.  It has a different configuration file
 with a different format and an different purpose.
 
 .SH MODES
-mdadm has 6 major modes of operation:
+mdadm has 7 major modes of operation:
 .TP
 .B Assemble
 Assemble the parts of a previously created
@@ -114,6 +114,12 @@ only meaningful for raid1, 4, 5, 6 or multipath arrays as
 only these have interesting state.  raid0 or linear never have
 missing, spare, or failed drives, so there is nothing to monitor.
 
+.TP
+.B "Grow"
+Grow (or shrink) an array, or otherwise reshape it in some way.
+Currently supported growth options including changing the active size
+of componenet devices in RAID level 1/4/5/6 and changing the number of
+active devices in RAID1.
 
 .SH OPTIONS
 
@@ -151,6 +157,10 @@ Print content of md superblock on device(s).
 Select
 .B Monitor
 mode.
+
+.TP
+.BR -G ", " --grow
+Change the size or shape of an active array.
 
 .TP
 .BR -h ", " --help
@@ -261,13 +271,17 @@ Specify the number of active devices in the array.  This, plus the
 number of spare devices (see below) must equal the number of
 .I component-devices
 (including "\fBmissing\fP" devices)
-that are listed on the command line.  Setting a value of 1 is probably
+that are listed on the command line for
+.BR  --create .
+Setting a value of 1 is probably
 a mistake and so requires that
 .B --force
 be specified first.  A value of 1 will then be allowed for linear,
 multipath, raid0 and raid1.  It is never allowed for raid4 or raid5.
 .br
-Note that this number cannot be changed once the array has been created.
+This number can only be changed using
+.B --grow
+for RAID1 arrays, and only on kernels which provide necessary support.
 
 .TP
 .BR -x ", " --spare-devices=
@@ -287,6 +301,63 @@ If this is not specified
 (as it normally is not) the smallest drive (or partition) sets the
 size, though if there is a variance among the drives of greater than 1%, a warning is
 issued.
+
+This value can be set with
+.B --grow
+for RAID level 1/4/5/6. If the array was created with a size smaller
+than the currently active drives, the extra space can be accessed
+using
+.BR --grow .
+
+.TP
+.BR --assume-clean
+Tell
+.I mdadm
+that the array pre-existed and is known to be clean.  This is only
+really useful for Building RAID1 array.  Only use this if you really
+know what you are doing.  This is currently only supported for --build.
+
+.TP
+.BR -R ", " --run
+Insist that
+.I mdadm
+run the array, even if some of the components
+appear to be active in another array or filesystem.  Normally
+.I mdadm
+will ask for confirmation before including such components in an
+array.  This option causes that question to be suppressed.
+
+.TP
+.BR -f ", " --force
+Insist that
+.I mdadm
+accept the geometry and layout specified without question.  Normally
+.I mdadm
+will not allow creation of an array with only one device, and will try
+to create a raid5 array with one missing drive (as this makes the
+initial resync work faster).  With
+.BR --force ,
+.I mdadm
+will not try to be so clever.
+
+.TP
+.BR -a ", " "--auto{=no,yes,md,mdp,part,p}{NN}"
+Instruct mdadm to create the device file if needed, and to allocate
+an unused minor number.  "yes" or "md" causes a non-partitionable array
+to be used.  "mdp", "part" or "p" causes a partitionable array (2.6 and
+later) to be used.  The argumentment can also come immediately after
+"-a".  e.g. "-ap".
+
+For partitionable arrays,
+.I mdadm
+will create the device file for the whole array and for the first 4
+partitions.  A different number of partitions can be specified at the
+end of this option (e.g.
+.BR --auto=p7 ).
+If the device name ends with a digit, the partition names add an
+underscore, a 'p', and a number, e.g. "/dev/home1_p3".  If there is no
+trailing digit, then the partition names just have a number added,
+e.g. "/dev/scratch3".
 
 .SH For assemble:
 
@@ -325,6 +396,10 @@ is not used, then the array will be assembled but not started.
 With
 .B --run
 an attempt will be made to start it anyway.
+
+.TP
+.BR -a ", " "--auto{=no,yes,md,mdp,part}"
+See this option under Create and Build options.
 
 .TP
 .BR -U ", " --update=
@@ -504,7 +579,7 @@ listed in the configuration file are assembled.
 
 If precisely one device is listed, but
 .B --scan
-is not given, that
+is not given, then
 .I mdadm
 acts as though
 .B --scan
@@ -545,6 +620,46 @@ may work for RAID1, 4, 5 or 6), give the
 .B --run
 flag.
 
+If an
+.B auto
+option is given, either on the command line (--auto) or in the
+configuration file (e.g. auto=part), then
+.I mdadm
+will create the md device if necessary or will re-create it if it
+doesn't look usable as it is.
+
+This can be useful for handling partitioned devices (which don't have
+a stable device number - it can change after a reboot) and when using
+"udev" to manage your
+.B /dev
+tree (udev cannot handle md devices because of the unusual device
+initialisation conventions).
+
+If the option to "auto" is "mdp" or "part" or (on the command line
+only) "p", then mdadm will create a partitionable array, using the
+first free one that is not inuse, and does not already have an entry
+in /dev (apart from numeric /dev/md* entries).
+
+If the option to "auto" is "yes" or "md" or (on the command line)
+nothing, then mdadm will create a traditional, non-partitionable md
+array.
+
+It is expected that the "auto" functionality will be used to create
+device entries with meaningful names such as "/dev/md/home" or
+"/dev/md/root", rather than names based on the numerical array number.
+
+When using this option to create a partitionable array, the device
+files for the first 4 partitions are also created. If a different
+number is required it can be simply appended to the auto option.
+e.g. "auto=part8".  Partition names are created by appending a digit
+string to the device name, with an intervening "_p" if the device name
+ends with a digit.
+
+The
+.B --auto
+option is also available in Build and Create modes.  As those modes do
+not use a config file, the "auto=" config option does not apply to
+these modes.
 
 .SH BUILD MODE
 
@@ -583,6 +698,12 @@ Usage:
 .PP
 This usage will initialise a new md array, associate some devices with
 it, and activate the array.
+
+This the
+.B --auto
+option is given (as described in more detail in the section on
+Assemble mode), then the md device will be created with a suitable
+device number if necessary.
 
 As devices are added, they are checked to see if they contain raid
 superblocks or filesystems. They are also checked to see if the variance in
@@ -625,7 +746,7 @@ option.
 The General Management options that are valid with --create are:
 .TP
 .B --run
-insist of running the array even if some devices look like they might
+insist on running the array even if some devices look like they might
 be in use.
 
 .TP
@@ -920,6 +1041,43 @@ attempt to remove the spare from the second drive and add it to the
 first.
 If the removal succeeds but the adding fails, then it is added back to
 the original array.
+
+.SH GROW MODE
+The GROW mode is used for changing the size or shape of an active
+array.
+For this to work, the kernel must support the necessary change.
+Various types of growth may be added during 2.6 development, possibly
+including restructuring a raid5 array to have more active devices.
+
+Currently the only support available is to change the "size" attribute
+for arrays with redundancy, and the raid-disks attribute of RAID1
+arrays.
+
+Normally when an array is build the "size" it taken from the smallest
+of the drives.  If all the small drives in an arrays are, one at a
+time, removed and replaced with larger drives, then you could have an
+array of large drives with only a small amount used.  In this
+situation, changing the "size" with "GROW" mode will allow the extra
+space to start being used.  If the size is increased in this way, a
+"resync" process will start to make sure the new parts of the array
+are synchronised.
+
+Note that when an array changes size, any filesystem that may be
+stored in the array will not automatically grow to use the space.  The
+filesystem will need to be explicitly told to use the extra space.
+
+A RAID1 array can work with any number of devices from 1 upwards
+(though 1 is not very useful).  There may be times which you want to
+increase or decrease the number of active devices.  Note that this is
+different to hot-add or hot-remove which changes the number of
+inactive devices.
+
+When reducing the number of devices in a RAID1 array, the slots which
+are to be removed from the array must already be vacant.  That is, the
+devices that which were in those slots must be failed and removed.
+
+When the number of devices is increased, any hot spares that are
+present may be activated immediately.
 
 .SH EXAMPLES
 

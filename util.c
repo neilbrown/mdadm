@@ -421,23 +421,57 @@ int add_dev(const char *name, const struct stat *stb, int flag)
     return 0;
 }
 
+int is_standard(char *dev)
+{
+	/* tests if dev is a "standard" md dev name.
+	 * i.e if the last component is "/dNN" or "/mdNN",
+	 * where NN is a string of digits 
+	 */
+	dev = strrchr(dev, '/');
+	if (!dev)
+		return 0;
+	if (strncmp(dev, "/d",2)==0)
+		dev += 2;
+	else if (strncmp(dev, "/md", 3)==0)
+		dev += 3;
+	else
+		return 0;
+	if (!*dev)
+		return 0;
+	while (isdigit(*dev))
+		dev++;
+	if (*dev)
+		return 0;
+	return 1;
+}
+
+
+/*
+ * Find a block device with the right major/minor number.
+ * Avoid /dev/mdNN and /dev/md/dNN is possible
+ */
 char *map_dev(int major, int minor)
 {
-    struct devmap *p;
-    if (!devlist_ready) {
+	struct devmap *p;
+	char *std = NULL;
+	if (!devlist_ready) {
 #ifndef __dietlibc__
-	nftw("/dev", add_dev, 10, FTW_PHYS);
+		nftw("/dev", add_dev, 10, FTW_PHYS);
 #else
-	ftw("/dev", add_dev, 10);
+		ftw("/dev", add_dev, 10);
 #endif
-	devlist_ready=1;
-    }
+		devlist_ready=1;
+	}
 
-    for (p=devlist; p; p=p->next)
-	if (p->major == major &&
-	    p->minor == minor)
-	    return p->name;
-    return NULL;
+	for (p=devlist; p; p=p->next)
+		if (p->major == major &&
+		    p->minor == minor) {
+			if (is_standard(p->name))
+				std = p->name;
+			else
+				return p->name;
+		}
+	return std;
 }
 
 #endif
@@ -504,16 +538,20 @@ char *human_size_brief(long long bytes)
 	return buf;
 }
 
-static int mdp_major = -1;
-void get_mdp_major(void)
+int get_mdp_major(void)
 {
-	FILE *fl = fopen("/proc/devices", "r");
+static int mdp_major = -1;
+	FILE *fl;
 	char *w;
 	int have_block = 0;
 	int have_devices = 0;
 	int last_num = -1;
+
+	if (mdp_major != -1)
+		return mdp_major;
+	fl = fopen("/proc/devices", "r");
 	if (!fl)
-		return;
+		return -1;
 	while ((w = conf_word(fl, 1))) {
 		if (have_block && strcmp(w, "devices:")==0)
 			have_devices = 1;
@@ -525,6 +563,7 @@ void get_mdp_major(void)
 		free(w);
 	}
 	fclose(fl);
+	return mdp_major;
 }
 
 
@@ -536,12 +575,12 @@ char *get_md_name(int dev)
 	static char devname[50];
 	struct stat stb;
 	dev_t rdev;
+	char *dn;
 
 	if (dev < 0) {
-
-		if (mdp_major < 0) get_mdp_major();
-		if (mdp_major < 0) return NULL;
-		rdev = MKDEV(mdp_major, (-1-dev)<<6);
+		int mdp =  get_mdp_major();
+		if (mdp < 0) return NULL;
+		rdev = MKDEV(mdp, (-1-dev)<<6);
 		sprintf(devname, "/dev/md/d%d", -1-dev);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK
@@ -561,9 +600,13 @@ char *get_md_name(int dev)
 		    && (stb.st_rdev == rdev))
 			return devname;
 	}
+	dn = map_dev(MAJOR(rdev), MINOR(rdev));
+	if (dn)
+		return dn;
 	sprintf(devname, "/dev/.tmp.md%d", dev);
 	if (mknod(devname, S_IFBLK | 0600, rdev) == -1)
-		return NULL;
+		if (errno != EEXIST)
+			return NULL;
 
 	if (stat(devname, &stb) == 0
 	    && (S_IFMT&stb.st_mode) == S_IFBLK

@@ -114,6 +114,27 @@ int Manage_runstop(char *devname, int fd, int runstop)
 	return 0;
 }
 
+int Manage_resize(char *devname, int fd, long long size, int raid_disks)
+{
+	mdu_array_info_t info;
+	if (ioctl(fd, GET_ARRAY_INFO, &info) != 0) {
+		fprintf(stderr, Name ": Cannot get array information for %s: %s\n",
+			devname, strerror(errno));
+		return 1;
+	}
+	if (size >= 0)
+		info.size = size;
+	if (raid_disks > 0)
+		info.raid_disks = raid_disks;
+	if (ioctl(fd, SET_ARRAY_INFO, &info) != 0) {
+		fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
+			devname, strerror(errno));
+		return 1;
+	}
+	return 0;
+}
+
+
 int Manage_subdevs(char *devname, int fd,
 		   mddev_dev_t devlist)
 {

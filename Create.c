@@ -263,6 +263,16 @@ int Create(char *mddev, int mdfd,
 	    }
 	}
 
+	/* hack */
+	if (level==4 || level==5) {
+		mdu_disk_info_t disk;
+		disk.number = raiddisks-1;
+		disk.raid_disk = disk.number;
+		disk.state = 1; /* faulty */
+		disk.major = disk.minor = 0;
+		ioctl(mdfd,ADD_NEW_DISK, &disk);
+	}
+
 	/* param is not actually used */
 	if (runstop == 1 || subdevs >= raiddisks) {
 		mdu_param_t param;

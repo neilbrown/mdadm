@@ -1,0 +1,50 @@
+Subject:  ANNOUNCE: mdadm 1.8.1 - A tool for managing Soft RAID under Linux - DEVELOPMENT version
+
+
+I am pleased to announce the availability of 
+   mdadm version 1.8.1
+It is available at
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+as a source tar-ball and (at the first site) as an SRPM, and as an RPM for i386.
+
+This is a "development" release of mdadm.  It should *not* be
+considered stable and should be used primarily for testing.
+The current "stable" version is 1.8.0.
+
+Release 1.8.1 supports different styles of superblocks (aka RAID metadata).
+Two formats are currently supported 
+   version 0.90.0 - the traditional Linux RAID superblock
+   version 1 - a new superblock which less useless information and some more 
+        flexability.
+
+Version 1 supports more than 28 devices in an array, and RAID1 and greater over
+devices larger than 2TB (though a 2TB RAID1 would take forever to resync!).
+
+mdadm 1.8.1 takes a different approach to creating arrays than
+previous versions, though this is largely transparent.  Instead of
+giving the devices to the kernel and letting it "create" the array and
+write out initial superblocks, mdadm 1.8.1 writes out the initial
+superblocks itself, thus creating the array, and then asks the kernel
+to assemble that array.
+
+Version 1 superblocks requires 2.6.10 or a recent 2.6.10-rc snapshot.
+
+Enhancements that are expected before this becomes 2.0.0:
+
+ - mdassemble currently doesn't compile
+ - version 1 superblocks have room for a label, which currently isn't used.
+   Setting the label, and assembling arrays by label will be supported.
+   A label like "$HOSTNAME-root" could be the standard label for the device 
+   containing the root filesystem for $HOSTNAME.
+
+
+Development of mdadm is sponsored by CSE@UNSW: 
+  The School of Computer Science and Engineering
+at
+  The University of New South Wales
+
+NeilBrown  05 November 2004
+

@@ -84,6 +84,8 @@ int main(int argc, char *argv[])
 	ident.raid_disks = UnSet;
 	ident.super_minor= UnSet;
 	ident.devices=0;
+	ident.spare_group = NULL;
+	ident.autof = 0;
 
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,

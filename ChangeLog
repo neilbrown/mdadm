@@ -1,5 +1,6 @@
 Changes Prior to 1.9.0 release
     -   Fix rpm build problem (stray %)
+    -   Minor manpage updates
 
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>

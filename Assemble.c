@@ -610,7 +610,7 @@ This doesnt work yet
 						devices[j].devname,
 						mddev,
 						strerror(errno));
-					if (i < first_super.raid_disks)
+					if (i < first_super.raid_disks || i == bestcnt)
 						okcnt--;
 					else
 						sparecnt--;

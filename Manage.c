@@ -168,6 +168,7 @@ int Manage_subdevs(char *devname, int fd,
 	mddev_dev_t dv;
 	struct stat stb;
 	int j;
+	int tfd;
 	int save_errno;
 	static char buf[4096];
 
@@ -195,13 +196,13 @@ int Manage_subdevs(char *devname, int fd,
 		case 'a':
 			/* add the device - hot or cold */
 			/* Make sure it isn' in use (in 2.6 or later) */
-			fd = open(dv->devname, O_RDONLY|O_EXCL);
-			if (fd < 0) {
+			tfd = open(dv->devname, O_RDONLY|O_EXCL);
+			if (tfd < 0) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
 				return 1;
 			}
-			close(fd);
+			close(tfd);
 			if (ioctl(fd, HOT_ADD_DISK, (unsigned long)stb.st_rdev)==0) {
 				fprintf(stderr, Name ": hot added %s\n",
 					dv->devname);

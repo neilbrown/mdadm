@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.
 
 Changes Prior to 1.10.0 release

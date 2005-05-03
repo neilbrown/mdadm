@@ -41,7 +41,7 @@ int Kill(char *dev, int force)
 	 * Definitely not safe.
 	 */
 
-	mdp_super_t super;
+	void *super;
 	int fd, rv = 0;
 		
 	fd = open(dev, O_RDWR|O_EXCL);
@@ -50,32 +50,18 @@ int Kill(char *dev, int force)
 			dev);
 		return 1;
 	} 
-	rv = load_super(fd, &super);
-	if (force && rv >= 5)
+	rv = load_super0(fd, &super, dev);
+	if (force && rv >= 2)
 		rv = 0; /* ignore bad data in superblock */
-	switch(rv) {
-	case 1:
-		fprintf(stderr, Name ": cannot file device size for %s: %s\n",
-			dev, strerror(errno));
-		break;
-	case 2:
-		fprintf(stderr, Name ": %s is too small for md.\n", dev);
-		break;
-	case 3:
-	case 4:
-		fprintf(stderr, Name ": cannot access superblock on %s.\n", dev);
-		break;
-	case 5:
-	case 6:
-		fprintf(stderr, Name ": %s does not appear to have an MD superblock.\n", dev);
-		break;
-	}
-	if (!rv) {
+	if (rv== 0 || (force && rv >= 2)) {
 		memset(&super, 0, sizeof(super));
-		if (store_super(fd, &super)) {
+		if (store_super0(fd, super)) {
 			fprintf(stderr, Name ": Could not zero superblock on %s\n",
 				dev);
 			rv = 1;
+		} else if (rv) {
+			fprintf(stderr, Name ": superblock zeroed anyway\n");
+			rv = 0;
 		}
 	}
 	close(fd);

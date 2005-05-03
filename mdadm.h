@@ -65,6 +65,14 @@ char *strncpy(char *dest, const char *src, size_t n) __THROW;
 #include	"md_u.h"
 #include	"md_p.h"
 
+/* general information that might be extracted from a superblock */
+struct mdinfo {
+	mdu_array_info_t	array;
+	mdu_disk_info_t		disk;
+	__u64			events;
+	unsigned int		uuid[4];
+};
+
 #define Name "mdadm"
 
 enum mode {
@@ -211,11 +219,10 @@ extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);
-extern int load_super(int fd, mdp_super_t *super);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);
 extern int same_uuid(int a[4], int b[4]);
-extern int compare_super(mdp_super_t *first, mdp_super_t *second);
-extern unsigned long calc_sb_csum(mdp_super_t *super);
+/* extern int compare_super(mdp_super_t *first, mdp_super_t *second);*/
+extern unsigned long calc_csum(void *super, int bytes);
 extern int store_super(int fd, mdp_super_t *super);
 extern int enough(int level, int raid_disks, int avail_disks);
 extern int ask(char *mesg);
@@ -255,3 +262,18 @@ extern int open_mddev(char *dev, int autof);
 
 #define	ModeMask	0x1f
 #define	ModeShift	5
+
+extern void examine_super0(void *sbv);
+extern void brief_examine_super0(void *sbv);
+extern void detail_super0(void *sbv);
+extern void brief_detail_super0(void *sbv);
+extern void getinfo_super0(struct mdinfo *info, void *sbv);
+extern int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
+extern __u64 event_super0(void *sbv);
+extern void uuid_from_super0(int uuid[4], void * sbv);
+extern void init_super0(void **sbv, mdu_array_info_t *info);
+extern void add_to_super0(void *sbp, mdu_disk_info_t *dinfo);
+extern int store_super0(int fd, mdp_super_t *super);
+extern int write_init_super0(void *sbv, mdu_disk_info_t *dinfo, char *devname);
+extern int load_super0(int fd, void **super, char *devname);
+extern int compare_super0(void **first, void *second);

@@ -51,8 +51,7 @@ int Detail(char *dev, int brief, int test)
 	int is_rebuilding = 0;
 	int failed = 0;
 
-	mdp_super_t super;
-	int have_super = 0;
+	void *super = NULL;
 	int rv = test ? 4 : 1;
 
 	if (fd < 0) {
@@ -99,16 +98,21 @@ int Detail(char *dev, int brief, int test)
 		    disk.minor == 0)
 			continue;
 		if ((dv=map_dev(disk.major, disk.minor))) {
-			if (!have_super && (disk.state & (1<<MD_DISK_ACTIVE))) {
+			if (!super && (disk.state & (1<<MD_DISK_ACTIVE))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
 				int fd2 = open(dv, O_RDONLY);
 				if (fd2 >=0 &&
-				    load_super(fd2, &super) ==0 &&
-				    (unsigned long)super.ctime == (unsigned long)array.ctime &&
-				    (unsigned int)super.level == (unsigned int)array.level)
-					have_super = 1;
+				    load_super0(fd2, &super, NULL) == 0) {
+					struct mdinfo info;
+					getinfo_super0(&info, super);
+					if (info.array.ctime != array.ctime ||
+					    info.array.level != array.level) {
+						free(super);
+						super = NULL;
+					}
+				}
 				if (fd2 >= 0) close(fd2);
 			}
 		}
@@ -198,15 +202,8 @@ int Detail(char *dev, int brief, int test)
 		}
 		free_mdstat(ms);
 
-		if (have_super) {
-			printf("           UUID : ");
-			if (super.minor_version >= 90)
-				printf("%08x:%08x:%08x:%08x", super.set_uuid0, super.set_uuid1,
-				       super.set_uuid2, super.set_uuid3);
-			else
-				printf("%08x", super.set_uuid0);
-			printf("\n         Events : %d.%d\n\n", super.events_hi, super.events_lo);
-		}
+		if (super)
+			detail_super0(super);
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
@@ -278,14 +275,9 @@ int Detail(char *dev, int brief, int test)
 		if (!brief) printf("\n");
 	}
 	if (spares && brief) printf(" spares=%d", spares);
-	if (have_super && brief) {
-		printf(" UUID=");
-	    	if (super.minor_version >= 90)
-			printf("%08x:%08x:%08x:%08x", super.set_uuid0, super.set_uuid1,
-			       super.set_uuid2, super.set_uuid3);
-		else
-			printf("%08x", super.set_uuid0);
-	}
+	if (super && brief)
+		brief_detail_super0(super);
+
 	if (brief && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
 	if (test && (rv&2)) rv &= ~1;

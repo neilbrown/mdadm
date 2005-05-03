@@ -150,140 +150,6 @@ int same_uuid(int a[4], int b[4])
     return 0;
 }
 
-void uuid_from_super(int uuid[4], mdp_super_t *super)
-{
-    uuid[0] = super->set_uuid0;
-    if (super->minor_version >= 90) {
-	uuid[1] = super->set_uuid1;
-	uuid[2] = super->set_uuid2;
-	uuid[3] = super->set_uuid3;
-    } else {
-	uuid[1] = 0;
-	uuid[2] = 0;
-	uuid[3] = 0;
-    }
-}
-
-int compare_super(mdp_super_t *first, mdp_super_t *second)
-{
-    /*
-     * return:
-     *  0 same, or first was empty, and second was copied
-     *  1 second had wrong number
-     *  2 wrong uuid
-     *  3 wrong other info
-     */
-    int uuid1[4], uuid2[4];
-    if (second->md_magic != MD_SB_MAGIC)
-	return 1;
-    if (first-> md_magic != MD_SB_MAGIC) {
-	memcpy(first, second, sizeof(*first));
-	return 0;
-    }
-
-    uuid_from_super(uuid1, first);
-    uuid_from_super(uuid2, second);
-    if (!same_uuid(uuid1, uuid2))
-	return 2;
-    if (first->major_version != second->major_version ||
-	first->minor_version != second->minor_version ||
-	first->patch_version != second->patch_version ||
-	first->gvalid_words  != second->gvalid_words  ||
-	first->ctime         != second->ctime         ||
-	first->level         != second->level         ||
-	first->size          != second->size          ||
-	first->raid_disks    != second->raid_disks    )
-	return 3;
-
-    return 0;
-}
-
-int load_super(int fd, mdp_super_t *super)
-{
-	/* try to read in the superblock
-	 *
-	 * return
-	 *   0 - success
-	 *   1 - no block size
-	 *   2 - too small
-	 *   3 - no seek
-	 *   4 - no read
-	 *   5 - no magic
-	 *   6 - wrong major version
-	 */
-	unsigned long size;
-	unsigned long long dsize;
-	unsigned long long offset;
-    
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return 1;
-		else
-			dsize = size << 9;
-	}
-
-	if (dsize < MD_RESERVED_SECTORS*2)
-		return 2;
-	
-	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
-
-	offset *= 512;
-
-	ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
-
-	if (lseek64(fd, offset, 0)< 0LL)
-		return 3;
-
-	if (read(fd, super, sizeof(*super)) != sizeof(*super))
-		return 4;
-
-	if (super->md_magic != MD_SB_MAGIC)
-		return 5;
-
-	if (super->major_version != 0)
-		return 6;
-	return 0;
-}
-
-int store_super(int fd, mdp_super_t *super)
-{
-	unsigned long size;
-	unsigned long long dsize;
-	
-	long long offset;
-    
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return 1;
-		else
-			dsize = ((unsigned long long)size) << 9;
-	}
-
-	if (dsize < MD_RESERVED_SECTORS*2)
-		return 2;
-	
-	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
-
-	offset *= 512;
-
-	if (lseek64(fd, offset, 0)< 0LL)
-		return 3;
-
-	if (write(fd, super, sizeof(*super)) != sizeof(*super))
-		return 4;
-
-	fsync(fd);
-	return 0;
-}
-    
-
-
 int check_ext2(int fd, char *name)
 {
 	/*
@@ -339,18 +205,25 @@ int check_reiser(int fd, char *name)
 	return 1;
 }
 
+int load_super(int fd, void **sbp, int vers)
+{
+	return load_super0(fd, sbp, NULL);
+}
 int check_raid(int fd, char *name)
 {
-	mdp_super_t super;
+	void *super;
+	struct mdinfo info;
 	time_t crtime;
-	if (load_super(fd, &super))
+	if (load_super(fd, &super, -1))
 		return 0;
 	/* Looks like a raid array .. */
 	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
 		name);
-	crtime = super.ctime;
+	getinfo_super0(&info, super);
+	free(super);
+	crtime = info.array.ctime;
 	fprintf(stderr, "    level=%d devices=%d ctime=%s",
-		super.level, super.raid_disks, ctime(&crtime));
+		info.array.level, info.array.raid_disks, ctime(&crtime));
 	return 1;
 }
 
@@ -506,19 +379,16 @@ char *map_dev(int major, int minor)
 
 #endif
 
-unsigned long calc_sb_csum(mdp_super_t *super)
+unsigned long calc_csum(void *super, int bytes)
 {
-        unsigned int  oldcsum = super->sb_csum;
 	unsigned long long newcsum = 0;
-	unsigned long csum;
 	int i;
-	unsigned int *superc = (int*) super;
-	super->sb_csum = 0;
+	unsigned int csum;
+	unsigned int *superc = (unsigned int*) super;
 
-	for(i=0; i<MD_SB_BYTES/4; i++)
+	for(i=0; i<bytes/4; i++)
 		newcsum+= superc[i];
 	csum = (newcsum& 0xffffffff) + (newcsum>>32);
-	super->sb_csum = oldcsum;
 	return csum;
 }
 

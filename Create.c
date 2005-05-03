@@ -62,7 +62,8 @@ int Create(char *mddev, int mdfd,
 	int first_missing = MD_SB_DISKS*2;
 	int missing_disks = 0;
 	int insert_point = MD_SB_DISKS*2; /* where to insert a missing drive */
-	mddev_dev_t moved_disk = NULL; /* the disk that was moved out of the insert point */
+	void *super;
+	int pass;
 
 	mdu_array_info_t array;
 	
@@ -342,50 +343,70 @@ int Create(char *mddev, int mdfd,
 	array.layout = layout;
 	array.chunk_size = chunk*1024;
 
-	if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
+	if (ioctl(mdfd, SET_ARRAY_INFO, NULL)) {
 		fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 			mddev, strerror(errno));
 		return 1;
 	}
-	
-	for (dnum=0, dv = devlist ; dv ; dv=(dv->next)?(dv->next):moved_disk, dnum++) {
-		int fd;
-		struct stat stb;
-		mdu_disk_info_t disk;
 
-		disk.number = dnum;
-		if (dnum == insert_point) {
-			moved_disk = dv;
-		}
-		disk.raid_disk = disk.number;
-		if (disk.raid_disk < raiddisks)
-			disk.state = 6; /* active and in sync */
-		else
-			disk.state = 0;
-		if (dnum == insert_point ||
-		    strcasecmp(dv->devname, "missing")==0) {
-			disk.major = 0;
-			disk.minor = 0;
-			disk.state = 1; /* faulty */
-		} else {
-			fd = open(dv->devname, O_RDONLY|O_EXCL, 0);
-			if (fd < 0) {
-				fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
-					dv->devname);
-				return 1;
+	init_super0(&super, &array);
+
+
+	for (pass=1; pass <=2 ; pass++) {
+		mddev_dev_t moved_disk = NULL; /* the disk that was moved out of the insert point */
+
+		for (dnum=0, dv = devlist ; dv ;
+		     dv=(dv->next)?(dv->next):moved_disk, dnum++) {
+			int fd;
+			struct stat stb;
+			mdu_disk_info_t disk;
+
+			disk.number = dnum;
+			if (dnum == insert_point) {
+				moved_disk = dv;
 			}
-			fstat(fd, &stb);
-			disk.major = major(stb.st_rdev);
-			disk.minor = minor(stb.st_rdev);
-			close(fd);
+			disk.raid_disk = disk.number;
+			if (disk.raid_disk < raiddisks)
+				disk.state = 6; /* active and in sync */
+			else
+				disk.state = 0;
+			if (dnum == insert_point ||
+			    strcasecmp(dv->devname, "missing")==0) {
+				disk.major = 0;
+				disk.minor = 0;
+				disk.state = 1; /* faulty */
+			} else {
+				fd = open(dv->devname, O_RDONLY|O_EXCL, 0);
+				if (fd < 0) {
+					fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
+						dv->devname);
+					return 1;
+				}
+				fstat(fd, &stb);
+				disk.major = major(stb.st_rdev);
+				disk.minor = minor(stb.st_rdev);
+				close(fd);
+			}
+			switch(pass){
+			case 1:
+				add_to_super0(super, &disk);
+				break;
+			case 2:
+				write_init_super0(super, &disk, dv->devname);
+
+				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
+					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
+						dv->devname, strerror(errno));
+					free(super);
+					return 1;
+				}
+
+				break;
+			}
+			if (dv == moved_disk && dnum != insert_point) break;
 		}
-		if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
-			fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
-				dv->devname, strerror(errno));
-			return 1;
-		}
-		if (dv == moved_disk && dnum != insert_point) break;
 	}
+	free(super);
 
 	/* param is not actually used */
 	if (runstop == 1 || subdevs >= raiddisks) {

@@ -45,20 +45,20 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 * all other devices.
 	 * This means that we need to *find* all other devices.
 	 */
-	mdu_array_info_t array;
-	mdu_disk_info_t disk;
-	mdp_super_t super;
+	struct mdinfo info;
+
+	void *super = NULL;
 	struct stat stb;
 	int nfd, fd2;
 	int d, nd;
 	
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
+	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
 		fprintf(stderr, Name ": cannot get array info for %s\n", devname);
 		return 1;
 	}
 
-	if (array.level != -1) {
+	if (info.array.level != -1) {
 		fprintf(stderr, Name ": can only add devices to linear arrays\n");
 		return 1;
 	}
@@ -75,7 +75,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		return 1;
 	}
 	/* now check out all the devices and make sure we can read the superblock */
-	for (d=0 ; d < array.raid_disks ; d++) {
+	for (d=0 ; d < info.array.raid_disks ; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 
@@ -96,7 +96,9 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			return 1;
 		}
-		if (load_super(fd2, &super)) {
+		if (super) free(super);
+		super= NULL;
+		if (load_super0(fd2, &super, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
 			close(fd2);
 			return 1;
@@ -107,27 +109,21 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 * newdev.
 	 */
 	
-	memset(&super.disks[d], 0, sizeof(super.disks[d]));
-	super.disks[d].number = d;
-	super.disks[d].major = major(stb.st_rdev);
-	super.disks[d].minor = minor(stb.st_rdev);
-	super.disks[d].raid_disk = d;
-	super.disks[d].state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
+	info.disk.number = d;
+	info.disk.major = major(stb.st_rdev);
+	info.disk.minor = minor(stb.st_rdev);
+	info.disk.raid_disk = d;
+	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
+	update_super0(&info, super, "grow", newdev, 0);
 
-	super.this_disk = super.disks[d];
-	super.sb_csum = calc_sb_csum(&super);
-	if (store_super(nfd, &super)) {
+	if (store_super0(nfd, super)) {
 		fprintf(stderr, Name ": Cannot store new superblock on %s\n", newdev);
 		close(nfd);
 		return 1;
 	}
-	disk.number = d;
-	disk.major = major(stb.st_rdev);
-	disk.minor = minor(stb.st_rdev);
-	disk.raid_disk = d;
-	disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	close(nfd);
-	if (ioctl(fd, ADD_NEW_DISK, &disk) != 0) {
+
+	if (ioctl(fd, ADD_NEW_DISK, &info.disk) != 0) {
 		fprintf(stderr, Name ": Cannot add new disk to this array\n");
 		return 1;
 	}
@@ -135,13 +131,13 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 * Now go through and update all superblocks
 	 */
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
+	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
 		fprintf(stderr, Name ": cannot get array info for %s\n", devname);
 		return 1;
 	}
 
 	nd = d;
-	for (d=0 ; d < array.raid_disks ; d++) {
+	for (d=0 ; d < info.array.raid_disks ; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 
@@ -162,25 +158,23 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			return 1;
 		}
-		if (load_super(fd2, &super)) {
+		if (load_super0(fd2, &super, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
 			close(fd);
 			return 1;
 		}
-		super.raid_disks = nd+1;
-		super.nr_disks = nd+1;
-		super.active_disks = nd+1;
-		super.working_disks = nd+1;
-		memset(&super.disks[nd], 0, sizeof(super.disks[nd]));
-		super.disks[nd].number = nd;
-		super.disks[nd].major = major(stb.st_rdev);
-		super.disks[nd].minor = minor(stb.st_rdev);
-		super.disks[nd].raid_disk = nd;
-		super.disks[nd].state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-
-		super.this_disk = super.disks[d];
-		super.sb_csum = calc_sb_csum(&super);
-		if (store_super(fd2, &super)) {
+		info.array.raid_disks = nd+1;
+		info.array.nr_disks = nd+1;
+		info.array.active_disks = nd+1;
+		info.array.working_disks = nd+1;
+		info.disk.number = nd;
+		info.disk.major = major(stb.st_rdev);
+		info.disk.minor = minor(stb.st_rdev);
+		info.disk.raid_disk = nd;
+		info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
+		update_super0(&info, super, "grow", dv, 0);
+		
+		if (store_super0(fd2, super)) {
 			fprintf(stderr, Name ": Cannot store new superblock on %s\n", dv);
 			close(fd2);
 			return 1;

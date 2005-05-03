@@ -41,8 +41,10 @@ int Query(char *dev)
 	int vers;
 	int ioctlerr;
 	int superror, superrno;
-	mdp_super_t super;
+	struct mdinfo info;
 	mdu_array_info_t array;
+	void *super;
+
 	unsigned long long larray_size;
 	unsigned long array_size;
 	struct stat stb;
@@ -60,8 +62,6 @@ int Query(char *dev)
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0)
 		ioctlerr = errno;
 	else ioctlerr = 0;
-	superror = load_super(fd, &super);
-	superrno = errno;
  
 	fstat(fd, &stb);
 
@@ -76,7 +76,6 @@ int Query(char *dev)
 				larray_size <<= 9;
 			} else larray_size = 0;
 	}
-	close(fd);
 
 	if (vers < 0) 
 		printf("%s: is not an md array\n", dev);
@@ -95,35 +94,14 @@ int Query(char *dev)
 		       array.raid_disks,
 		       array.spare_disks, array.spare_disks==1?"":"s");
 	}
-	switch(superror) {
-	case 1:
-		printf("%s: cannot find device size: %s\n",
-		       dev, strerror(superrno));
-		break;
-	case 2:
-		printf("%s: is too small to be an md component.\n",
-		       dev);
-		break;
-	case 3:
-		printf("%s: Cannot seek to superblock: %s\n",
-		       dev, strerror(superrno));
-		break;
-	case 4:
-		printf("%s: Cannot read md superblock.\n",
-		       dev);
-		break;
-	case 5:
-		printf("%s: No md super block found, not an md component.\n",
-		       dev);
-		break;
-	case 6:
-		printf("%s: md superblock present with wrong version: %d\n",
-		       dev, super.major_version);
-		break;
-	default:
+	superror = load_super0(fd, &super, dev);
+	superrno = errno;
+	close(fd);
+	if (superror == 0) {
 		/* array might be active... */
-		mddev = get_md_name(super.md_minor);
-		disc.number = super.this_disk.number;
+		getinfo_super0(&info, super);
+		mddev = get_md_name(info.array.md_minor);
+		disc.number = info.disk.number;
 		activity = "undetected";
 		if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
 			if (md_get_version(fd) >= 9000 &&	
@@ -138,11 +116,10 @@ int Query(char *dev)
 		}
 		printf("%s: device %d in %d device %s %s md%d.  Use mdadm --examine for more detail.\n",
 		       dev, 
-		       super.this_disk.number, super.raid_disks,
+		       info.disk.number, info.array.raid_disks,
 		       activity,
-		       map_num(pers, super.level),
-		       super.md_minor);
-		break;
+		       map_num(pers, info.array.level),
+		       info.array.md_minor);
 	}
 	return 0;
 }

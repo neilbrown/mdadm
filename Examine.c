@@ -60,6 +60,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 
 	struct array {
 		void *super;
+		struct superswitch *ss;
 		struct mdinfo info;
 		void *devs;
 		struct array *next;
@@ -67,6 +68,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 	} *arrays = NULL;
 
 	for (; devlist ; devlist=devlist->next) {
+		struct superswitch *ss;
+
 		fd = open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
 			if (!scan)
@@ -75,7 +78,11 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			err = 1;
 		}
 		else {
-			err = load_super0(fd, &super, (brief||scan)?NULL:devlist->devname);
+			ss = guess_super(fd, devlist->devname);
+			if (ss)
+				err = ss->load_super(fd, &super, (brief||scan)?NULL:devlist->devname);
+			else
+				err = 1;
 			close(fd);
 		}
 		if (err)
@@ -83,13 +90,13 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 		if (err) rv =1;
 
 		if (SparcAdjust)
-			update_super0(NULL, super, "sparc2.2", devlist->devname, 0);
+			ss->update_super(NULL, super, "sparc2.2", devlist->devname, 0);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 		if (brief) {
 			struct array *ap;
 			char *d;
 			for (ap=arrays; ap; ap=ap->next) {
-				if (compare_super0(&ap->super, super)==0)
+				if (ss == ap->ss && ss->compare_super(&ap->super, super)==0)
 					break;
 			}
 			if (!ap) {
@@ -98,10 +105,11 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				ap->devs = dl_head();
 				ap->next = arrays;
 				ap->spares = 0;
+				ap->ss = ss;
 				arrays = ap;
-				getinfo_super0(&ap->info, super);
+				ss->getinfo_super(&ap->info, super);
 			} else {
-				getinfo_super0(&ap->info, super);
+				ss->getinfo_super(&ap->info, super);
 				free(super);
 			}
 			if (!(ap->info.disk.state & MD_DISK_SYNC))
@@ -110,7 +118,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			dl_add(ap->devs, d);
 		} else {
 			printf("%s:\n",devlist->devname);
-			examine_super0(super);
+			ss->examine_super(super);
 			free(super);
 		}
 	}
@@ -119,7 +127,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
-			brief_examine_super0(ap->super);
+			ap->ss->brief_examine_super(ap->super);
 			if (ap->spares) printf("   spares=%d", ap->spares);
 			printf("   devices");
 			for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {

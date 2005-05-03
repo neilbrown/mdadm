@@ -91,7 +91,7 @@ char Version[] = Name " - v1.11.0 - 11 April 2005\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1t";
+char short_options[]="-ABCDEFGQhVvbc:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1te:";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -127,6 +127,7 @@ struct option long_options[] = {
     {"size",	  1, 0, 'z'},
     {"auto",	  2, 0, 'a'}, /* also for --assemble */
     {"assume-clean",0,0, 3 },
+    {"metadata",  1, 0, 'e'}, /* superblock format */
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},

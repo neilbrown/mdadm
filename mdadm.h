@@ -116,6 +116,7 @@ typedef struct mddev_ident_s {
 	int	level;
 	unsigned int raid_disks;
 	unsigned int spare_disks;
+	struct superswitch *ss;
 	int	autof;		/* 1 for normal, 2 for partitioned */
 	char	*spare_group;
 
@@ -163,6 +164,28 @@ extern mapping_t r5layout[], pers[], modes[], faultylayout[];
 extern char *map_dev(int major, int minor);
 
 
+extern struct superswitch {
+	void (*examine_super)(void *sbv);
+	void (*brief_examine_super)(void *sbv);
+	void (*detail_super)(void *sbv);
+	void (*brief_detail_super)(void *sbv);
+	void (*uuid_from_super)(int uuid[4], void *sbv);
+	void (*getinfo_super)(struct mdinfo *info, void *sbv);
+	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
+	__u64 (*event_super)(void *sbv);
+	void (*init_super)(void **sbp, mdu_array_info_t *info);
+	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
+	int (*store_super)(int fd, void *sbv);
+	int (*write_init_super)(void *sbv, mdu_disk_info_t *dinfo, char *devname);
+	int (*compare_super)(void **firstp, void *secondv);
+	int (*load_super)(int fd, void **sbp, char *devname);
+	int (*match_metadata_desc)(char *arg);
+} super0, *superlist[];
+
+extern struct superswitch *super_by_version(int vers);
+extern struct superswitch *guess_super(int fd, char *dev);
+
+
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
@@ -172,7 +195,7 @@ extern int Manage_subdevs(char *devname, int fd,
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 
 
-extern int Assemble(char *mddev, int mdfd,
+extern int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 		    mddev_ident_t ident,
 		    char *conffile,
 		    mddev_dev_t devlist,
@@ -185,7 +208,7 @@ extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 mddev_dev_t devlist, int assume_clean);
 
 
-extern int Create(char *mddev, int mdfd,
+extern int Create(struct superswitch *ss, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force);
@@ -262,18 +285,3 @@ extern int open_mddev(char *dev, int autof);
 
 #define	ModeMask	0x1f
 #define	ModeShift	5
-
-extern void examine_super0(void *sbv);
-extern void brief_examine_super0(void *sbv);
-extern void detail_super0(void *sbv);
-extern void brief_detail_super0(void *sbv);
-extern void getinfo_super0(struct mdinfo *info, void *sbv);
-extern int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
-extern __u64 event_super0(void *sbv);
-extern void uuid_from_super0(int uuid[4], void * sbv);
-extern void init_super0(void **sbv, mdu_array_info_t *info);
-extern void add_to_super0(void *sbp, mdu_disk_info_t *dinfo);
-extern int store_super0(int fd, mdp_super_t *super);
-extern int write_init_super0(void *sbv, mdu_disk_info_t *dinfo, char *devname);
-extern int load_super0(int fd, void **super, char *devname);
-extern int compare_super0(void **first, void *second);

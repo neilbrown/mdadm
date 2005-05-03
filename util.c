@@ -205,26 +205,27 @@ int check_reiser(int fd, char *name)
 	return 1;
 }
 
-int load_super(int fd, void **sbp, int vers)
-{
-	return load_super0(fd, sbp, NULL);
-}
 int check_raid(int fd, char *name)
 {
 	void *super;
 	struct mdinfo info;
 	time_t crtime;
-	if (load_super(fd, &super, -1))
-		return 0;
-	/* Looks like a raid array .. */
-	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
-		name);
-	getinfo_super0(&info, super);
-	free(super);
-	crtime = info.array.ctime;
-	fprintf(stderr, "    level=%d devices=%d ctime=%s",
-		info.array.level, info.array.raid_disks, ctime(&crtime));
-	return 1;
+
+	int i;
+	for (i=0; superlist[i]; i++) {
+		if (superlist[i]->load_super(fd, &super, name))
+			continue;
+		/* Looks like a raid array .. */
+		fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
+			name);
+		superlist[i]->getinfo_super(&info, super);
+		free(super);
+		crtime = info.array.ctime;
+		fprintf(stderr, "    level=%d devices=%d ctime=%s",
+			info.array.level, info.array.raid_disks, ctime(&crtime));
+		return 1;
+	}
+	return 0;
 }
 
 
@@ -520,4 +521,43 @@ void put_md_name(char *name)
 {
 	if (strncmp(name, "/dev/.tmp.md", 12)==0)
 		unlink(name);
+}
+
+
+
+
+struct superswitch *superlist[] = { &super0, NULL };
+
+struct superswitch *super_by_version(int vers)
+{
+	if (vers == 0) return &super0;
+	return NULL;
+}
+
+struct superswitch *guess_super(int fd, char *dev)
+{
+	/* try each load_super to find the best match,
+	 * and return the best superswitch
+	 */
+	struct superswitch *best = NULL, *ss;
+	int bestrv = 0;
+	void *sbp = NULL;
+	int i;
+
+	for (i=0 ; superlist[i]; i++) {
+		int rv;
+		ss = superlist[i];
+		rv = ss->load_super(fd, &sbp, NULL);
+		if (rv == 0) {
+			free(sbp);
+			return ss;
+		}
+		if (rv > bestrv) {
+			bestrv  = rv;
+			best = ss;
+		}
+	}
+	if (bestrv > 2) /* FIXME */
+		return best;
+	return NULL;
 }

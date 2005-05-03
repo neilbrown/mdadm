@@ -32,7 +32,6 @@
 #include <ctype.h>
 
 
-
 int main(int argc, char *argv[])
 {
 	int mode = 0;
@@ -41,6 +40,7 @@ int main(int argc, char *argv[])
 	char *help_text;
 	char *c;
 	int rv;
+	int i;
 
 	int chunk = 0;
 	int size = -1;
@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
 	int daemonise = 0;
 	char *pidfile = NULL;
 	int oneshot = 0;
+	struct superswitch *ss = NULL;
 
 	int copies;
 
@@ -269,6 +270,24 @@ int main(int argc, char *argv[])
 			if (!optarg[0] || *c || chunk<4 || ((chunk-1)&chunk)) {
 				fprintf(stderr, Name ": invalid chunk/rounding value: %s\n",
 					optarg);
+				exit(2);
+			}
+			continue;
+
+		case O(CREATE,'e'):
+		case O(ASSEMBLE,'e'):
+		case O(MISC,'e'): /* set metadata (superblock) information */
+			if (ss) {
+				fprintf(stderr, Name ": metadata information already given\n");
+				exit(2);
+			}
+			for(i=0; superlist[i]; i++) 
+				if (superlist[i]->match_metadata_desc(optarg)) {
+					ss = superlist[i];
+					break;
+				}
+			if (!ss) {
+				fprintf(stderr, Name ": unrecognised metadata identifier: %s\n", optarg);
 				exit(2);
 			}
 			continue;
@@ -736,14 +755,14 @@ int main(int argc, char *argv[])
 				if (mdfd < 0)
 					rv |= 1;
 				else {
-					rv |= Assemble(devlist->devname, mdfd, array_ident, configfile,
+					rv |= Assemble(ss, devlist->devname, mdfd, array_ident, configfile,
 						       NULL,
 						       readonly, runstop, update, verbose, force);
 					close(mdfd);
 				}
 			}
 		} else if (!scan)
-			rv = Assemble(devlist->devname, mdfd, &ident, configfile,
+			rv = Assemble(ss, devlist->devname, mdfd, &ident, configfile,
 				      devlist->next,
 				      readonly, runstop, update, verbose, force);
 		else if (devs_found>0) {
@@ -764,7 +783,7 @@ int main(int argc, char *argv[])
 					rv |= 1;
 					continue;
 				}
-				rv |= Assemble(dv->devname, mdfd, array_ident, configfile,
+				rv |= Assemble(ss, dv->devname, mdfd, array_ident, configfile,
 					       NULL,
 					       readonly, runstop, update, verbose, force);
 				close(mdfd);
@@ -786,7 +805,7 @@ int main(int argc, char *argv[])
 						/* already assembled, skip */
 						;
 					else
-						rv |= Assemble(array_list->devname, mdfd,
+						rv |= Assemble(ss, array_list->devname, mdfd,
 							       array_list, configfile,
 							       NULL,
 							       readonly, runstop, NULL, verbose, force);
@@ -798,7 +817,19 @@ int main(int argc, char *argv[])
 		rv = Build(devlist->devname, mdfd, chunk, level, layout, raiddisks, devlist->next, assume_clean);
 		break;
 	case CREATE:
-		rv = Create(devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
+		if (ss == NULL) {
+			for(i=0; superlist[i]; i++) 
+				if (superlist[i]->match_metadata_desc("default")) {
+					ss = superlist[i];
+					break;
+				}
+		}
+		if (!ss) {
+			fprintf(stderr, Name ": internal error - no default metadata style\n");
+			exit(2);
+		}
+
+		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks,
 			    devs_found-1, devlist->next, runstop, verbose, force);
 		break;

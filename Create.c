@@ -31,7 +31,7 @@
 #include	"md_u.h"
 #include	"md_p.h"
 
-int Create(char *mddev, int mdfd,
+int Create(struct superswitch *ss, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force)
@@ -349,7 +349,7 @@ int Create(char *mddev, int mdfd,
 		return 1;
 	}
 
-	init_super0(&super, &array);
+	ss->init_super(&super, &array);
 
 
 	for (pass=1; pass <=2 ; pass++) {
@@ -389,10 +389,10 @@ int Create(char *mddev, int mdfd,
 			}
 			switch(pass){
 			case 1:
-				add_to_super0(super, &disk);
+				ss->add_to_super(super, &disk);
 				break;
 			case 2:
-				write_init_super0(super, &disk, dv->devname);
+				ss->write_init_super(super, &disk, dv->devname);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",

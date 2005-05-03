@@ -328,6 +328,17 @@ void arrayline(char *line)
 		} else if (strncasecmp(w, "spares=", 7) == 0 ) {
 			/* for warning if not all spares present */
 			mis.spare_disks = atoi(w+7);
+		} else if (strncasecmp(w, "metadata=", 9) == 0) {
+			/* style of metadata on the devices. */
+			int i;
+			
+			for(i=0; superlist[i]; i++) 
+				if (superlist[i]->match_metadata_desc(w+9)) {
+					mis.ss = superlist[i];
+					break;
+				}
+			if (!mis.ss)
+				fprintf(stderr, Name ": metadata format %s unknown, ignored.\n", w+9);
 		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
 			/* whether to create device special files as needed */
 			if (strcasecmp(w+5, "no")==0)

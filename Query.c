@@ -44,6 +44,7 @@ int Query(char *dev)
 	struct mdinfo info;
 	mdu_array_info_t array;
 	void *super;
+	struct superswitch *ss = NULL;
 
 	unsigned long long larray_size;
 	unsigned long array_size;
@@ -94,12 +95,16 @@ int Query(char *dev)
 		       array.raid_disks,
 		       array.spare_disks, array.spare_disks==1?"":"s");
 	}
-	superror = load_super0(fd, &super, dev);
-	superrno = errno;
+	ss = guess_super(fd, dev);
+	if (ss) {
+		superror = ss->load_super(fd, &super, dev);
+		superrno = errno;
+	} else 
+		superror = -1;
 	close(fd);
 	if (superror == 0) {
 		/* array might be active... */
-		getinfo_super0(&info, super);
+		ss->getinfo_super(&info, super);
 		mddev = get_md_name(info.array.md_minor);
 		disc.number = info.disk.number;
 		activity = "undetected";

@@ -51,7 +51,7 @@ static unsigned long calc_sb0_csum(mdp_super_t *super)
 	return newcsum;
 }
 
-void examine_super0(void *sbv)
+static void examine_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	time_t atime;
@@ -129,7 +129,7 @@ void examine_super0(void *sbv)
 	}
 }
 
-void brief_examine_super0(void *sbv)
+static void brief_examine_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	char *c=map_num(pers, sb->level);
@@ -145,7 +145,7 @@ void brief_examine_super0(void *sbv)
 	printf("\n");
 }
 
-void detail_super0(void *sbv)
+static void detail_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	printf("           UUID : ");
@@ -157,7 +157,7 @@ void detail_super0(void *sbv)
 	printf("\n         Events : %d.%d\n\n", sb->events_hi, sb->events_lo);
 }
 
-void brief_detail_super0(void *sbv)
+static void brief_detail_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	printf(" UUID=");
@@ -168,7 +168,7 @@ void brief_detail_super0(void *sbv)
 		printf("%08x", sb->set_uuid0);
 }
 
-void uuid_from_super0(int uuid[4], void * sbv)
+static void uuid_from_super0(int uuid[4], void * sbv)
 {
 	mdp_super_t *super = sbv;
 	uuid[0] = super->set_uuid0;
@@ -183,7 +183,7 @@ void uuid_from_super0(int uuid[4], void * sbv)
 	}
 }
 
-void getinfo_super0(struct mdinfo *info, void *sbv)
+static void getinfo_super0(struct mdinfo *info, void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	int working = 0;
@@ -216,7 +216,7 @@ void getinfo_super0(struct mdinfo *info, void *sbv)
 }
 
 
-int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose)
+static int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose)
 {
 	int rv = 0;
 	mdp_super_t *sb = sbv;
@@ -314,7 +314,7 @@ int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, i
 	return rv;
 }
 
-__u64 event_super0(void *sbv)
+static __u64 event_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	return md_event(sb);
@@ -322,10 +322,15 @@ __u64 event_super0(void *sbv)
 
 
 
-void init_super0(void **sbp, mdu_array_info_t *info)
+static void init_super0(void **sbp, mdu_array_info_t *info)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES);
 	memset(sb, 0, MD_SB_BYTES);
+
+	if (info->major_version == -1) {
+		/* zeroing the superblock */
+		return;
+	}
 
 	sb->md_magic = MD_SB_MAGIC;
 	sb->major_version = 0;
@@ -359,7 +364,7 @@ void init_super0(void **sbp, mdu_array_info_t *info)
 }
 
 /* Add a device to the superblock being created */
-void add_to_super0(void *sbv, mdu_disk_info_t *dinfo)
+static void add_to_super0(void *sbv, mdu_disk_info_t *dinfo)
 {
 	mdp_super_t *sb = sbv;
 	mdp_disk_t *dk = &sb->disks[dinfo->number];
@@ -371,11 +376,12 @@ void add_to_super0(void *sbv, mdu_disk_info_t *dinfo)
 	dk->state = dinfo->state;
 }
 
-int store_super0(int fd, mdp_super_t *super)
+static int store_super0(int fd, void *sbv)
 {
 	unsigned long size;
 	unsigned long long dsize;
 	unsigned long long offset;
+	mdp_super_t *super = sbv;
     
 #ifdef BLKGETSIZE64
 	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
@@ -403,7 +409,7 @@ int store_super0(int fd, mdp_super_t *super)
 	return 0;
 }
 
-int write_init_super0(void *sbv, mdu_disk_info_t *dinfo, char *devname)
+static int write_init_super0(void *sbv, mdu_disk_info_t *dinfo, char *devname)
 {
 	mdp_super_t *sb = sbv;
 	int fd = open(devname, O_RDWR, O_EXCL);
@@ -423,7 +429,7 @@ int write_init_super0(void *sbv, mdu_disk_info_t *dinfo, char *devname)
 	return rv;
 }
 
-int compare_super0(void **firstp, void *secondv)
+static int compare_super0(void **firstp, void *secondv)
 {
 	/*
 	 * return:
@@ -463,7 +469,7 @@ int compare_super0(void **firstp, void *secondv)
 }
 
 
-int load_super0(int fd, void **sbp, char *devname)
+static int load_super0(int fd, void **sbp, char *devname)
 {
 	/* try to read in the superblock
 	 * Return:
@@ -537,3 +543,31 @@ int load_super0(int fd, void **sbp, char *devname)
 	*sbp = super;
 	return 0;
 }
+
+static int match_metadata_desc0(char *arg)
+{
+	if (strcmp(arg, "0") == 0 ||
+	    strcmp(arg, "0.90") == 0 ||
+	    strcmp(arg, "default") == 0
+		)
+		return 1;
+	return 0;
+}
+
+struct superswitch super0 = {
+	.examine_super = examine_super0,
+	.brief_examine_super = brief_examine_super0,
+	.detail_super = detail_super0,
+	.brief_detail_super = brief_detail_super0,
+	.uuid_from_super = uuid_from_super0,
+	.getinfo_super = getinfo_super0,
+	.update_super = update_super0,
+	.event_super = event_super0,
+	.init_super = init_super0,
+	.add_to_super = add_to_super0,
+	.store_super = store_super0,
+	.write_init_super = write_init_super0,
+	.compare_super = compare_super0,
+	.load_super = load_super0,
+	.match_metadata_desc = match_metadata_desc0,
+};

@@ -43,19 +43,28 @@ int Kill(char *dev, int force)
 
 	void *super;
 	int fd, rv = 0;
+	struct superswitch *ss;
 		
 	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
 		fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
 			dev);
 		return 1;
-	} 
-	rv = load_super0(fd, &super, dev);
+	}
+	ss = guess_super(fd, dev);
+	if (ss == NULL) {
+		fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
+		return 1;
+	}
+	rv = ss->load_super(fd, &super, dev);
 	if (force && rv >= 2)
 		rv = 0; /* ignore bad data in superblock */
 	if (rv== 0 || (force && rv >= 2)) {
-		memset(&super, 0, sizeof(super));
-		if (store_super0(fd, super)) {
+		mdu_array_info_t info;
+		info.major_version = -1; /* zero superblock */
+		free(super);
+		ss->init_super(&super, &info);
+		if (ss->store_super(fd, super)) {
 			fprintf(stderr, Name ": Could not zero superblock on %s\n",
 				dev);
 			rv = 1;

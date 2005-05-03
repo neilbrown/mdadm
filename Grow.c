@@ -51,7 +51,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	struct stat stb;
 	int nfd, fd2;
 	int d, nd;
-	struct superswitch *ss = NULL;
+	struct supertype *st = NULL;
 	
 
 	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
@@ -59,8 +59,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		return 1;
 	}
 
-	ss = super_by_version(info.array.major_version);
-	if (!ss) {
+	st = super_by_version(info.array.major_version, info.array.minor_version);
+	if (!st) {
 		fprintf(stderr, Name ": cannot handle arrays with superblock version %d\n", info.array.major_version);
 		return 1;
 	}
@@ -105,7 +105,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		}
 		if (super) free(super);
 		super= NULL;
-		if (ss->load_super(fd2, &super, NULL)) {
+		if (st->ss->load_super(st, fd2, &super, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
 			close(fd2);
 			return 1;
@@ -121,9 +121,9 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	info.disk.minor = minor(stb.st_rdev);
 	info.disk.raid_disk = d;
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-	ss->update_super(&info, super, "grow", newdev, 0);
+	st->ss->update_super(&info, super, "grow", newdev, 0);
 
-	if (ss->store_super(nfd, super)) {
+	if (st->ss->store_super(nfd, super)) {
 		fprintf(stderr, Name ": Cannot store new superblock on %s\n", newdev);
 		close(nfd);
 		return 1;
@@ -165,7 +165,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			return 1;
 		}
-		if (ss->load_super(fd2, &super, NULL)) {
+		if (st->ss->load_super(st, fd2, &super, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
 			close(fd);
 			return 1;
@@ -179,9 +179,9 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		info.disk.minor = minor(stb.st_rdev);
 		info.disk.raid_disk = nd;
 		info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-		ss->update_super(&info, super, "grow", dv, 0);
+		st->ss->update_super(&info, super, "grow", dv, 0);
 		
-		if (ss->store_super(fd2, super)) {
+		if (st->ss->store_super(fd2, super)) {
 			fprintf(stderr, Name ": Cannot store new superblock on %s\n", dv);
 			close(fd2);
 			return 1;

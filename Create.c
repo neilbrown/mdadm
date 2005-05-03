@@ -31,7 +31,7 @@
 #include	"md_u.h"
 #include	"md_p.h"
 
-int Create(struct superswitch *ss, char *mddev, int mdfd,
+int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force)
@@ -49,7 +49,7 @@ int Create(struct superswitch *ss, char *mddev, int mdfd,
 	 * abort.
 	 *
 	 * SET_ARRAY_INFO and ADD_NEW_DISK, and
-	 * if runstop==run, or raiddisks diskswere used,
+	 * if runstop==run, or raiddisks disks were used,
 	 * RUN_ARRAY
 	 */
 	unsigned long long minsize=0, maxsize=0;
@@ -59,16 +59,18 @@ int Create(struct superswitch *ss, char *mddev, int mdfd,
 	mddev_dev_t dv;
 	int fail=0, warn=0;
 	struct stat stb;
-	int first_missing = MD_SB_DISKS*2;
+	int first_missing = subdevs * 2;
 	int missing_disks = 0;
-	int insert_point = MD_SB_DISKS*2; /* where to insert a missing drive */
+	int insert_point = subdevs * 2; /* where to insert a missing drive */
 	void *super;
 	int pass;
+	int vers;
+	int rv;
 
 	mdu_array_info_t array;
 	
-
-	if (md_get_version(mdfd) < 9000) {
+	vers = md_get_version(mdfd);
+	if (vers < 9000) {
 		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");
 		return 1;
 	}
@@ -95,12 +97,6 @@ int Create(struct superswitch *ss, char *mddev, int mdfd,
 	if (raiddisks < 2 && level >= 4) {
 		fprintf(stderr,
 			Name ": at least 2 raid-devices needed for level 4 or 5\n");
-		return 1;
-	}
-	if (raiddisks+sparedisks > MD_SB_DISKS) {
-		fprintf(stderr,
-			Name ": too many devices requested: %d+%d > %d\n",
-			raiddisks, sparedisks, MD_SB_DISKS);
 		return 1;
 	}
 	if (subdevs > raiddisks+sparedisks) {
@@ -211,15 +207,16 @@ int Create(struct superswitch *ss, char *mddev, int mdfd,
 			ldsize = dsize;
 			dsize <<= 9;
 		}
-		if (ldsize < MD_RESERVED_SECTORS*2LL*512LL) {
+		freesize = st->ss->avail_size(ldsize);
+		if (freesize == 0) {
 			fprintf(stderr, Name ": %s is too small: %luK\n",
 				dname, (unsigned long)(ldsize>>10));
 			fail = 1;
 			close(fd);
 			continue;
 		}
-		freesize = MD_NEW_SIZE_SECTORS((ldsize>>9));
-		freesize /= 2;
+
+		freesize /= 2; /* convert to K */
 
 		if (size && freesize < size) {
 			fprintf(stderr, Name ": %s is smaller that given size."
@@ -342,14 +339,25 @@ int Create(struct superswitch *ss, char *mddev, int mdfd,
 	array.nr_disks = array.working_disks + array.failed_disks;
 	array.layout = layout;
 	array.chunk_size = chunk*1024;
+	printf("VERS = %d\n", vers);
 
-	if (ioctl(mdfd, SET_ARRAY_INFO, NULL)) {
+	if (!st->ss->init_super(&super, &array))
+		return 1;
+
+	if ((vers % 100) >= 1) { /* can use different versions */
+		mdu_array_info_t inf;
+		memset(&inf, 0, sizeof(inf));
+		inf.major_version = st->ss->major;
+		inf.minor_version = st->minor_version;
+		rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
+	} else 
+		rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
+	if (rv) {
 		fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 			mddev, strerror(errno));
 		return 1;
 	}
 
-	ss->init_super(&super, &array);
 
 
 	for (pass=1; pass <=2 ; pass++) {
@@ -387,12 +395,13 @@ int Create(struct superswitch *ss, char *mddev, int mdfd,
 				disk.minor = minor(stb.st_rdev);
 				close(fd);
 			}
+			if (disk.state != 1)
 			switch(pass){
 			case 1:
-				ss->add_to_super(super, &disk);
+				st->ss->add_to_super(super, &disk);
 				break;
 			case 2:
-				ss->write_init_super(super, &disk, dv->devname);
+				st->ss->write_init_super(st, super, &disk, dv->devname);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",

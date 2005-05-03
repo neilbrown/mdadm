@@ -43,7 +43,7 @@ int Kill(char *dev, int force)
 
 	void *super;
 	int fd, rv = 0;
-	struct superswitch *ss;
+	struct supertype *st;
 		
 	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
@@ -51,20 +51,20 @@ int Kill(char *dev, int force)
 			dev);
 		return 1;
 	}
-	ss = guess_super(fd, dev);
-	if (ss == NULL) {
+	st = guess_super(fd);
+	if (st == NULL) {
 		fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
 		return 1;
 	}
-	rv = ss->load_super(fd, &super, dev);
+	rv = st->ss->load_super(st, fd, &super, dev);
 	if (force && rv >= 2)
 		rv = 0; /* ignore bad data in superblock */
 	if (rv== 0 || (force && rv >= 2)) {
 		mdu_array_info_t info;
 		info.major_version = -1; /* zero superblock */
 		free(super);
-		ss->init_super(&super, &info);
-		if (ss->store_super(fd, super)) {
+		st->ss->init_super(&super, &info);
+		if (st->ss->store_super(fd, super)) {
 			fprintf(stderr, Name ": Could not zero superblock on %s\n",
 				dev);
 			rv = 1;

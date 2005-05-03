@@ -210,24 +210,20 @@ int check_raid(int fd, char *name)
 	void *super;
 	struct mdinfo info;
 	time_t crtime;
+	struct supertype *st = guess_super(fd);
 
-	int i;
-	for (i=0; superlist[i]; i++) {
-		if (superlist[i]->load_super(fd, &super, name))
-			continue;
-		/* Looks like a raid array .. */
-		fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
-			name);
-		superlist[i]->getinfo_super(&info, super);
-		free(super);
-		crtime = info.array.ctime;
-		fprintf(stderr, "    level=%d devices=%d ctime=%s",
-			info.array.level, info.array.raid_disks, ctime(&crtime));
-		return 1;
-	}
-	return 0;
+	if (!st) return 0;
+	st->ss->load_super(st, fd, &super, name);
+	/* Looks like a raid array .. */
+	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
+		name);
+	st->ss->getinfo_super(&info, super);
+	free(super);
+	crtime = info.array.ctime;
+	fprintf(stderr, "    level=%d devices=%d ctime=%s",
+		info.array.level, info.array.raid_disks, ctime(&crtime));
+	return 1;
 }
-
 
 int ask(char *mesg)
 {
@@ -526,38 +522,42 @@ void put_md_name(char *name)
 
 
 
-struct superswitch *superlist[] = { &super0, NULL };
+struct superswitch *superlist[] = { &super0, &super1, NULL };
 
-struct superswitch *super_by_version(int vers)
+struct supertype *super_by_version(int vers, int minor)
 {
-	if (vers == 0) return &super0;
-	return NULL;
+	struct supertype *st = malloc(sizeof(*st));
+	if (!st) return st;
+	if (vers == 0)
+		st->ss = &super0;
+
+	if (vers == 1)
+		st->ss = &super1;
+	st->minor_version = minor;
+	return st;
 }
 
-struct superswitch *guess_super(int fd, char *dev)
+struct supertype *guess_super(int fd)
 {
 	/* try each load_super to find the best match,
 	 * and return the best superswitch
 	 */
-	struct superswitch *best = NULL, *ss;
-	int bestrv = 0;
+	struct superswitch  *ss;
+	struct supertype *st;
+	
 	void *sbp = NULL;
 	int i;
 
+	st = malloc(sizeof(*st));
+	memset(st, 0, sizeof(*st));
 	for (i=0 ; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];
-		rv = ss->load_super(fd, &sbp, NULL);
+		rv = ss->load_super(st, fd, &sbp, NULL);
 		if (rv == 0) {
 			free(sbp);
-			return ss;
-		}
-		if (rv > bestrv) {
-			bestrv  = rv;
-			best = ss;
+			return st;
 		}
 	}
-	if (bestrv > 2) /* FIXME */
-		return best;
 	return NULL;
 }

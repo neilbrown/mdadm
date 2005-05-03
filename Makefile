@@ -58,9 +58,9 @@ MAN5DIR = $(MANDIR)/man5
 MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
-	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o mdopen.o super0.o
+	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o mdopen.o super0.o super1.o
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
-	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c mdopen.c super0.c
+	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c mdopen.c super0.c super1.c
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c
 ifdef MDASSEMBLE_AUTO

@@ -332,12 +332,10 @@ void arrayline(char *line)
 			/* style of metadata on the devices. */
 			int i;
 			
-			for(i=0; superlist[i]; i++) 
-				if (superlist[i]->match_metadata_desc(w+9)) {
-					mis.ss = superlist[i];
-					break;
-				}
-			if (!mis.ss)
+			for(i=0; superlist[i] && !mis.st; i++)
+				mis.st = superlist[i]->match_metadata_desc(w+9);
+
+			if (!mis.st)
 				fprintf(stderr, Name ": metadata format %s unknown, ignored.\n", w+9);
 		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
 			/* whether to create device special files as needed */

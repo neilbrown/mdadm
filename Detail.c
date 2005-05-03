@@ -50,7 +50,7 @@ int Detail(char *dev, int brief, int test)
 	int is_26 = get_linux_version() >= 2006000;
 	int is_rebuilding = 0;
 	int failed = 0;
-	struct superswitch *ss = NULL;
+	struct supertype *st = NULL;
 
 	void *super = NULL;
 	int rv = test ? 4 : 1;
@@ -83,7 +83,7 @@ int Detail(char *dev, int brief, int test)
 		close(fd);
 		return rv;
 	}
-	ss = super_by_version(array.major_version);
+	st = super_by_version(array.major_version, array.minor_version);
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
 		stb.st_rdev = 0;
@@ -106,10 +106,10 @@ int Detail(char *dev, int brief, int test)
 				 * to get more info
 				 */
 				int fd2 = open(dv, O_RDONLY);
-				if (fd2 >=0 && ss &&
-				    ss->load_super(fd2, &super, NULL) == 0) {
+				if (fd2 >=0 && st &&
+				    st->ss->load_super(st, fd2, &super, NULL) == 0) {
 					struct mdinfo info;
-					ss->getinfo_super(&info, super);
+					st->ss->getinfo_super(&info, super);
 					if (info.array.ctime != array.ctime ||
 					    info.array.level != array.level) {
 						free(super);
@@ -205,8 +205,8 @@ int Detail(char *dev, int brief, int test)
 		}
 		free_mdstat(ms);
 
-		if (super && ss)
-			ss->detail_super(super);
+		if (super && st)
+			st->ss->detail_super(super);
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
@@ -278,8 +278,8 @@ int Detail(char *dev, int brief, int test)
 		if (!brief) printf("\n");
 	}
 	if (spares && brief) printf(" spares=%d", spares);
-	if (super && brief && ss)
-		ss->brief_detail_super(super);
+	if (super && brief && st)
+		st->ss->brief_detail_super(super);
 
 	if (brief && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");

@@ -35,7 +35,7 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
+int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct supertype *forcest)
 {
 
 	/* Read the raid superblock from a device and
@@ -60,7 +60,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 
 	struct array {
 		void *super;
-		struct superswitch *ss;
+		struct supertype *st;
 		struct mdinfo info;
 		void *devs;
 		struct array *next;
@@ -68,7 +68,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 	} *arrays = NULL;
 
 	for (; devlist ; devlist=devlist->next) {
-		struct superswitch *ss;
+		struct supertype *st = forcest;
 
 		fd = open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
@@ -78,9 +78,10 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			err = 1;
 		}
 		else {
-			ss = guess_super(fd, devlist->devname);
-			if (ss)
-				err = ss->load_super(fd, &super, (brief||scan)?NULL:devlist->devname);
+			if (!st)
+				st = guess_super(fd);
+			if (st)
+				err = st->ss->load_super(st, fd, &super, (brief||scan)?NULL:devlist->devname);
 			else
 				err = 1;
 			close(fd);
@@ -90,13 +91,13 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 		if (err) rv =1;
 
 		if (SparcAdjust)
-			ss->update_super(NULL, super, "sparc2.2", devlist->devname, 0);
+			st->ss->update_super(NULL, super, "sparc2.2", devlist->devname, 0);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 		if (brief) {
 			struct array *ap;
 			char *d;
 			for (ap=arrays; ap; ap=ap->next) {
-				if (ss == ap->ss && ss->compare_super(&ap->super, super)==0)
+				if (st->ss == ap->st->ss && st->ss->compare_super(&ap->super, super)==0)
 					break;
 			}
 			if (!ap) {
@@ -105,11 +106,11 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				ap->devs = dl_head();
 				ap->next = arrays;
 				ap->spares = 0;
-				ap->ss = ss;
+				ap->st = st;
 				arrays = ap;
-				ss->getinfo_super(&ap->info, super);
+				st->ss->getinfo_super(&ap->info, super);
 			} else {
-				ss->getinfo_super(&ap->info, super);
+				st->ss->getinfo_super(&ap->info, super);
 				free(super);
 			}
 			if (!(ap->info.disk.state & MD_DISK_SYNC))
@@ -118,7 +119,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			dl_add(ap->devs, d);
 		} else {
 			printf("%s:\n",devlist->devname);
-			ss->examine_super(super);
+			st->ss->examine_super(super);
 			free(super);
 		}
 	}
@@ -127,7 +128,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
-			ap->ss->brief_examine_super(ap->super);
+			ap->st->ss->brief_examine_super(ap->super);
 			if (ap->spares) printf("   spares=%d", ap->spares);
 			printf("   devices");
 			for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {

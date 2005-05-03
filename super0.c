@@ -322,14 +322,22 @@ static __u64 event_super0(void *sbv)
 
 
 
-static void init_super0(void **sbp, mdu_array_info_t *info)
+static int init_super0(void **sbp, mdu_array_info_t *info)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES);
+	int spares;
 	memset(sb, 0, MD_SB_BYTES);
 
 	if (info->major_version == -1) {
 		/* zeroing the superblock */
-		return;
+		return 0;
+	}
+
+	spares = info->working_disks - info->active_disks;
+	if (info->raid_disks + spares  > MD_SB_DISKS) {
+		fprintf(stderr, Name ": too many devices requested: %d+%d > %d\n",
+			info->raid_disks , spares, MD_SB_DISKS);
+		return 0;
 	}
 
 	sb->md_magic = MD_SB_MAGIC;
@@ -361,6 +369,7 @@ static void init_super0(void **sbp, mdu_array_info_t *info)
 	sb->chunk_size = info->chunk_size;
 
 	*sbp = sb;
+	return 1;
 }
 
 /* Add a device to the superblock being created */
@@ -409,7 +418,7 @@ static int store_super0(int fd, void *sbv)
 	return 0;
 }
 
-static int write_init_super0(void *sbv, mdu_disk_info_t *dinfo, char *devname)
+static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname)
 {
 	mdp_super_t *sb = sbv;
 	int fd = open(devname, O_RDWR, O_EXCL);
@@ -469,7 +478,7 @@ static int compare_super0(void **firstp, void *secondv)
 }
 
 
-static int load_super0(int fd, void **sbp, char *devname)
+static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 {
 	/* try to read in the superblock
 	 * Return:
@@ -541,17 +550,36 @@ static int load_super0(int fd, void **sbp, char *devname)
 		return 2;
 	}
 	*sbp = super;
+	if (st->ss == NULL) {
+		st->ss = &super0;
+		st->minor_version = 90;
+	}
+
 	return 0;
 }
 
-static int match_metadata_desc0(char *arg)
+static struct supertype *match_metadata_desc0(char *arg)
 {
+	struct supertype *st = malloc(sizeof(*st));
+	if (!st) return st;
+
+	st->ss = &super0;
+	st->minor_version = 90;
 	if (strcmp(arg, "0") == 0 ||
 	    strcmp(arg, "0.90") == 0 ||
 	    strcmp(arg, "default") == 0
 		)
-		return 1;
-	return 0;
+		return st;
+
+	free(st);
+	return NULL;
+}
+
+static __u64 avail_size0(__u64 devsize)
+{
+	if (devsize < MD_RESERVED_SECTORS*2)
+		return 0ULL;
+	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
 struct superswitch super0 = {
@@ -570,4 +598,6 @@ struct superswitch super0 = {
 	.compare_super = compare_super0,
 	.load_super = load_super0,
 	.match_metadata_desc = match_metadata_desc0,
+	.avail_size = avail_size0,
+	.major = 0,
 };

@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	int daemonise = 0;
 	char *pidfile = NULL;
 	int oneshot = 0;
-	struct superswitch *ss = NULL;
+	struct supertype *ss = NULL;
 
 	int copies;
 
@@ -281,11 +281,9 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": metadata information already given\n");
 				exit(2);
 			}
-			for(i=0; superlist[i]; i++) 
-				if (superlist[i]->match_metadata_desc(optarg)) {
-					ss = superlist[i];
-					break;
-				}
+			for(i=0; !ss && superlist[i]; i++) 
+				ss = superlist[i]->match_metadata_desc(optarg);
+
 			if (!ss) {
 				fprintf(stderr, Name ": unrecognised metadata identifier: %s\n", optarg);
 				exit(2);
@@ -818,11 +816,8 @@ int main(int argc, char *argv[])
 		break;
 	case CREATE:
 		if (ss == NULL) {
-			for(i=0; superlist[i]; i++) 
-				if (superlist[i]->match_metadata_desc("default")) {
-					ss = superlist[i];
-					break;
-				}
+			for(i=0; !ss && superlist[i]; i++) 
+				ss = superlist[i]->match_metadata_desc("default");
 		}
 		if (!ss) {
 			fprintf(stderr, Name ": internal error - no default metadata style\n");
@@ -846,7 +841,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			rv = Examine(devlist, scan?!verbose:brief, scan, SparcAdjust);
+			rv = Examine(devlist, scan?!verbose:brief, scan, SparcAdjust, ss);
 		} else {
 			if (devlist == NULL) {
 				if ((devmode == 'S' ||devmode=='D') && scan) {

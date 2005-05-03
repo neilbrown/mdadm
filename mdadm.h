@@ -116,7 +116,7 @@ typedef struct mddev_ident_s {
 	int	level;
 	unsigned int raid_disks;
 	unsigned int spare_disks;
-	struct superswitch *ss;
+	struct supertype *st;
 	int	autof;		/* 1 for normal, 2 for partitioned */
 	char	*spare_group;
 
@@ -173,17 +173,24 @@ extern struct superswitch {
 	void (*getinfo_super)(struct mdinfo *info, void *sbv);
 	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
 	__u64 (*event_super)(void *sbv);
-	void (*init_super)(void **sbp, mdu_array_info_t *info);
+	int (*init_super)(void **sbp, mdu_array_info_t *info);
 	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
 	int (*store_super)(int fd, void *sbv);
-	int (*write_init_super)(void *sbv, mdu_disk_info_t *dinfo, char *devname);
+	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
 	int (*compare_super)(void **firstp, void *secondv);
-	int (*load_super)(int fd, void **sbp, char *devname);
-	int (*match_metadata_desc)(char *arg);
-} super0, *superlist[];
+	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
+	struct supertype * (*match_metadata_desc)(char *arg);
+	__u64 (*avail_size)(__u64 size);
+	int major;
+} super0, super1, *superlist[];
 
-extern struct superswitch *super_by_version(int vers);
-extern struct superswitch *guess_super(int fd, char *dev);
+struct supertype {
+	struct superswitch *ss;
+	int minor_version;
+};
+
+extern struct supertype *super_by_version(int vers, int minor);
+extern struct supertype *guess_super(int fd);
 
 
 extern int Manage_ro(char *devname, int fd, int readonly);
@@ -195,7 +202,7 @@ extern int Manage_subdevs(char *devname, int fd,
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 
 
-extern int Assemble(struct superswitch *ss, char *mddev, int mdfd,
+extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 		    mddev_ident_t ident,
 		    char *conffile,
 		    mddev_dev_t devlist,
@@ -208,14 +215,15 @@ extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 mddev_dev_t devlist, int assume_clean);
 
 
-extern int Create(struct superswitch *ss, char *mddev, int mdfd,
+extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force);
 
 extern int Detail(char *dev, int brief, int test);
 extern int Query(char *dev);
-extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust);
+extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust,
+		   struct supertype *forcest);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,

@@ -29,7 +29,7 @@
 
 #include	"mdadm.h"
 
-int Assemble(struct superswitch *ss, char *mddev, int mdfd,
+int Assemble(struct supertype *st, char *mddev, int mdfd,
 	     mddev_ident_t ident, char *conffile,
 	     mddev_dev_t devlist,
 	     int readonly, int runstop,
@@ -164,7 +164,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 	}
 	devices = malloc(num_devs * sizeof(*devices));
 
-	if (!ss && ident->ss) ss = ident->ss;
+	if (!st && ident->st) st = ident->st;
 
 	if (verbose)
 	    fprintf(stderr, Name ": looking for devices for %s\n",
@@ -174,7 +174,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 		char *devname;
 		int dfd;
 		struct stat stb;
-		struct superswitch *tss = ss;
+		struct supertype *tst = st;
 
 		devname = devlist->devname;
 		devlist = devlist->next;
@@ -205,16 +205,16 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				devname);
 			close(dfd);
-		} else if (!tss && (tss = guess_super(dfd, NULL)) == NULL) {
+		} else if (!tst && (tst = guess_super(dfd)) == NULL) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": no recogniseable superblock\n");
-		} else if (tss->load_super(dfd, &super, NULL)) {
+		} else if (tst->ss->load_super(tst,dfd, &super, NULL)) {
 			if (inargv || verbose)
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
 			close(dfd);
 		} else {
-			tss->getinfo_super(&info, super);
+			tst->ss->getinfo_super(&info, super);
 			close(dfd);
 		}
 
@@ -258,8 +258,8 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 			free(first_super);
 			return 1;
 		}
-		ss = tss; /* commit to this format, if haven't already */
-		if (ss->compare_super(&first_super, super)) {
+		st = tst; /* commit to this format, if haven't already */
+		if (st->ss->compare_super(&first_super, super)) {
 			fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",
 				devname);
 			free(super);
@@ -274,13 +274,13 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 			fstat(mdfd, &stb2);
 			info.array.md_minor = minor(stb2.st_rdev);
 			
-			ss->update_super(&info, super, update, devname, verbose);
+			st->ss->update_super(&info, super, update, devname, verbose);
 			
 			dfd = open(devname, O_RDWR|O_EXCL, 0);
 			if (dfd < 0) 
 				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
 					devname);
-			else if (ss->store_super(dfd, super))
+			else if (st->ss->store_super(dfd, super))
 				fprintf(stderr, Name ": Could not re-write superblock on %s.\n",
 					devname);
 			if (dfd >= 0)
@@ -341,7 +341,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 		return 1;
 	}
 
-	ss->getinfo_super(&info, first_super);
+	st->ss->getinfo_super(&info, first_super);
 
 	/* now we have some devices that might be suitable.
 	 * I wonder how many
@@ -399,7 +399,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 			devices[chosen_drive].events = 0;
 			continue;
 		}
-		if (ss->load_super(fd, &super, NULL)) {
+		if (st->ss->load_super(st,fd, &super, NULL)) {
 			close(fd);
 			fprintf(stderr, Name ": RAID superblock disappeared from %s - not updating.\n",
 				devices[chosen_drive].devname);
@@ -407,9 +407,9 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 			continue;
 		}
 		info.events = devices[most_recent].events;
-		ss->update_super(&info, super, "force", devices[chosen_drive].devname, verbose);
+		st->ss->update_super(&info, super, "force", devices[chosen_drive].devname, verbose);
 
-		if (ss->store_super(fd, super)) {
+		if (st->ss->store_super(fd, super)) {
 			close(fd);
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
@@ -446,7 +446,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 				devices[j].devname, strerror(errno));
 			return 1;
 		}
-		if (ss->load_super(fd, &super, NULL)) {
+		if (st->ss->load_super(st,fd, &super, NULL)) {
 			close(fd);
 			fprintf(stderr, Name ": RAID superblock has disappeared from %s\n",
 				devices[j].devname);
@@ -458,7 +458,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 		fprintf(stderr, Name ": No suitable drives found for %s\n", mddev);
 		return 1;
 	}
-	ss->getinfo_super(&info, super);
+	st->ss->getinfo_super(&info, super);
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
 		unsigned int desired_state;
@@ -476,7 +476,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 		info.disk.state = desired_state;
 
 		if (devices[j].uptodate &&
-		    ss->update_super(&info, super, "assemble", NULL, 0)) {
+		    st->ss->update_super(&info, super, "assemble", NULL, 0)) {
 			if (force) {
 				fprintf(stderr, Name ": "
 					"clearing FAULTY flag for device %d in %s for %s\n",
@@ -498,7 +498,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 	}
 	if (force && okcnt == info.array.raid_disks-1) {
 		/* FIXME check event count */
-		change += ss->update_super(&info, super, "force", 
+		change += st->ss->update_super(&info, super, "force", 
 					devices[chosen_drive].devname, 0);
 	}
 
@@ -510,7 +510,7 @@ int Assemble(struct superswitch *ss, char *mddev, int mdfd,
 				devices[chosen_drive].devname);
 			return 1;
 		}
-		if (ss->store_super(fd, super)) {
+		if (st->ss->store_super(fd, super)) {
 			close(fd);
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);

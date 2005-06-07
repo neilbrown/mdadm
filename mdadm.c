@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case 'b':
-			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE)
+			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE || mode == GROW)
 				break; /* b means bitmap */
 			brief = 1;
 			continue;
@@ -587,6 +587,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(MONITOR,'d'): /* delay in seconds */
+		case O(GROW, 'd'):
 		case O(BUILD,'d'): /* delay for bitmap updates */
 		case O(CREATE,'d'):
 			if (delay)
@@ -709,11 +710,14 @@ int main(int argc, char *argv[])
 			}
 			ident.bitmap_fd = bitmap_fd; /* for Assemble */
 			continue;
+
+		case O(GROW,'b'):
 		case O(BUILD,'b'):
 		case O(CREATE,'b'): /* here we create the bitmap */
 			bitmap_file = optarg;
 			continue;
 
+		case O(GROW,4):
 		case O(BUILD,4):
 		case O(CREATE,4): /* bitmap chunksize */
 			bitmap_chunk = strtol(optarg, &c, 10);
@@ -1014,15 +1018,19 @@ int main(int argc, char *argv[])
 				if (rv)
 					break;
 			}
-		} else if ((size >= 0) + (raiddisks != 0) +  (layout != UnSet) > 1) {
-			fprintf(stderr, Name ": can change at most one of size, raiddisks, and layout\n");
+		} else if ((size >= 0) + (raiddisks != 0) +  (layout != UnSet) + (bitmap_file != NULL)> 1) {
+			fprintf(stderr, Name ": can change at most one of size, raiddisks, bitmap, and layout\n");
 			rv = 1;
 			break;
 		} else if (layout != UnSet)
 			rv = Manage_reconfig(devlist->devname, mdfd, layout);
 		else if (size >= 0 || raiddisks)
 			rv = Manage_resize(devlist->devname, mdfd, size, raiddisks);
-		else 
+		else if (bitmap_file) {
+			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
+			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
+					    bitmap_chunk, delay);
+		} else
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;
 	}

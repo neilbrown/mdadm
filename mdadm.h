@@ -187,6 +187,7 @@ extern struct superswitch {
 	__u64 (*avail_size)(__u64 size);
 	int (*add_internal_bitmap)(void *sbv, int chunk, int delay, unsigned long long size);
 	void (*locate_bitmap)(struct supertype *st, int fd);
+	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
 	int major;
 } super0, super1, *superlist[];
 
@@ -206,6 +207,7 @@ extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
+extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay);
 
 
 extern int Assemble(struct supertype *st, char *mddev, int mdfd,

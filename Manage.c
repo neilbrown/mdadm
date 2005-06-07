@@ -203,7 +203,11 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 			close(tfd);
+#if 0
 			if (array.major_version == 0) {
+#else
+				if (md_get_version(fd)%100 < 2) {
+#endif
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
 					fprintf(stderr, Name ": hot added %s\n",

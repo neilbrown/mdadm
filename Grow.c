@@ -191,3 +191,86 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 
 	return 0;
 }
+
+int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay)
+{
+	/*
+	 * First check that array doesn't have a bitmap
+	 * Then create the bitmap
+	 * Then add it
+	 *
+	 * For internal bitmaps, we need to check the version,
+	 * find all the active devices, and write the bitmap block
+	 * to all devices
+	 */
+	mdu_bitmap_file_t bmf;
+	mdu_array_info_t array;
+	struct supertype *st;
+
+	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {
+		if (errno == ENOMEM) 
+			fprintf(stderr, Name ": Memory allocation failure.\n");
+		else
+			fprintf(stderr, Name ": bitmaps not supported by this kernel.\n");
+		return 1;
+	}
+	if (bmf.pathname[0]) {
+		fprintf(stderr, Name ": %s already has a bitmap (%s)\n",
+			devname, bmf.pathname);
+		return 1;
+	}
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+		fprintf(stderr, Name ": cannot get array status for %s\n", devname);
+		return 1;
+	}
+	if (array.state & (1<<MD_SB_BITMAP_PRESENT)) {
+		fprintf(stderr, Name ": Internal bitmap already present on %s\n",
+			devname);
+		return 1;
+	}
+	st = super_by_version(array.major_version, array.minor_version);
+	if (!st) {
+		fprintf(stderr, Name ": Cannot understand version %d.%d\n",
+			array.major_version, array.minor_version);
+		return 1;
+	}
+	if (strcmp(file, "internal") == 0) {
+		int d;
+		for (d=0; d< MD_SB_DISKS; d++) {
+			mdu_disk_info_t disk;
+			char *dv;
+			disk.number = d;
+			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+				continue;
+			if (disk.major == 0 &&
+			    disk.minor == 0)
+				continue;
+			if ((disk.state & (1<<MD_DISK_SYNC))==0)
+				continue;
+			dv = map_dev(disk.major, disk.minor);
+			if (dv) {
+				void *super;
+				int fd2 = open(dv, O_RDWR);
+				if (fd2 < 0)
+					continue;
+				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
+					st->ss->add_internal_bitmap(super, 
+								    chunk, delay,
+								    array.size);
+					st->ss->write_bitmap(st, fd2, super);
+				}
+				close(fd2);
+			}
+		}
+		array.state |= (1<<MD_SB_BITMAP_PRESENT);
+		if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
+			fprintf(stderr, Name ": failed to set internal bitmap.\n");
+			return 1;
+		}
+	} else
+		abort(); /* FIXME */
+
+	return 0;
+}
+
+		

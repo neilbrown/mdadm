@@ -343,7 +343,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	array.chunk_size = chunk*1024;
 
 
-	if (!st->ss->init_super(&super, &array))
+	if (!st->ss->init_super(st, &super, &array))
 		return 1;
 
 	if (bitmap_file && strcmp(bitmap_file, "internal")==0) {

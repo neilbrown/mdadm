@@ -123,7 +123,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	st->ss->update_super(&info, super, "grow", newdev, 0);
 
-	if (st->ss->store_super(nfd, super)) {
+	if (st->ss->store_super(st, nfd, super)) {
 		fprintf(stderr, Name ": Cannot store new superblock on %s\n", newdev);
 		close(nfd);
 		return 1;
@@ -181,7 +181,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 		st->ss->update_super(&info, super, "grow", dv, 0);
 		
-		if (st->ss->store_super(fd2, super)) {
+		if (st->ss->store_super(st, fd2, super)) {
 			fprintf(stderr, Name ": Cannot store new superblock on %s\n", dv);
 			close(fd2);
 			return 1;

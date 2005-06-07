@@ -177,9 +177,9 @@ extern struct superswitch {
 	void (*getinfo_super)(struct mdinfo *info, void *sbv);
 	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
 	__u64 (*event_super)(void *sbv);
-	int (*init_super)(void **sbp, mdu_array_info_t *info);
+	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info);
 	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
-	int (*store_super)(int fd, void *sbv);
+	int (*store_super)(struct supertype *st, int fd, void *sbv);
 	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
 	int (*compare_super)(void **firstp, void *secondv);
 	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
@@ -270,7 +270,6 @@ extern void uuid_from_super(int uuid[4], mdp_super_t *super);
 extern int same_uuid(int a[4], int b[4]);
 /* extern int compare_super(mdp_super_t *first, mdp_super_t *second);*/
 extern unsigned long calc_csum(void *super, int bytes);
-extern int store_super(int fd, mdp_super_t *super);
 extern int enough(int level, int raid_disks, int avail_disks);
 extern int ask(char *mesg);
 

@@ -280,7 +280,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (dfd < 0) 
 				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
 					devname);
-			else if (st->ss->store_super(dfd, super))
+			else if (st->ss->store_super(st, dfd, super))
 				fprintf(stderr, Name ": Could not re-write superblock on %s.\n",
 					devname);
 			if (dfd >= 0)
@@ -409,7 +409,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		info.events = devices[most_recent].events;
 		st->ss->update_super(&info, super, "force", devices[chosen_drive].devname, verbose);
 
-		if (st->ss->store_super(fd, super)) {
+		if (st->ss->store_super(st, fd, super)) {
 			close(fd);
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
@@ -510,7 +510,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				devices[chosen_drive].devname);
 			return 1;
 		}
-		if (st->ss->store_super(fd, super)) {
+		if (st->ss->store_super(st, fd, super)) {
 			close(fd);
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);

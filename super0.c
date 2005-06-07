@@ -325,7 +325,7 @@ static __u64 event_super0(void *sbv)
 
 
 
-static int init_super0(void **sbp, mdu_array_info_t *info)
+static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
 	int spares;
@@ -396,7 +396,7 @@ static void add_to_super0(void *sbv, mdu_disk_info_t *dinfo)
 	dk->state = dinfo->state;
 }
 
-static int store_super0(int fd, void *sbv)
+static int store_super0(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long size;
 	unsigned long long dsize;
@@ -446,7 +446,7 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);
-	rv = store_super0(fd, sb);
+	rv = store_super0(st, fd, sb);
 
 	if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
 		int towrite, n;

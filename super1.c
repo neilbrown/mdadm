@@ -368,7 +368,7 @@ static __u64 event_super1(void *sbv)
 	return __le64_to_cpu(sb->events);
 }
 
-static int init_super1(void **sbp, mdu_array_info_t *info)
+static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info)
 {
 	struct mdp_superblock_1 *sb = malloc(1024);
 	int spares;
@@ -438,14 +438,52 @@ static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
 		*rp = 0xfffe;
 }
 
-static int store_super1(int fd, void *sbv)
+static int store_super1(struct supertype *st, int fd, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	long long sb_offset;
 	int sbsize;
+	long size;
+
+	if (ioctl(fd, BLKGETSIZE, &size))
+		return 1;
+
+
+	if (size < 24)
+		return 2;
+
+	/*
+	 * Calculate the position of the superblock.
+	 * It is always aligned to a 4K boundary and
+	 * depending on minor_version, it can be:
+	 * 0: At least 8K, but less than 12K, from end of device
+	 * 1: At start of device
+	 * 2: 4K from start of device.
+	 */
+	switch(st->minor_version) {
+	case 0:
+		sb_offset = size;
+		sb_offset -= 8*2;
+		sb_offset &= ~(4*2-1);
+		break;
+	case 1:
+		sb->super_offset = __cpu_to_le64(0);
+		break;
+	case 2:
+		sb_offset = 4*2;
+		break;
+	default:
+		return -EINVAL;
+	}
+
 
     
-	sb_offset = __le64_to_cpu(sb->super_offset) << 9;
+	if (sb_offset != (__le64_to_cpu(sb->super_offset) << 9 ) &&
+	    0 != (__le64_to_cpu(sb->super_offset) << 9 )
+		) {
+		fprintf(stderr, Name ": internal error - sb_offset is wrong\n");
+		abort();
+	}
 
 	if (lseek64(fd, sb_offset, 0)< 0LL)
 		return 3;
@@ -546,7 +584,7 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 
 
 	sb->sb_csum = calc_sb_1_csum(sb);
-	rv = store_super1(fd, sb);
+	rv = store_super1(st, fd, sb);
 	if (rv)
 		fprintf(stderr, Name ": failed to write superblock to %s\n", devname);
 	close(fd);

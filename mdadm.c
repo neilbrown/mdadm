@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 	int level = UnSet;
 	int layout = UnSet;
 	int raiddisks = 0;
+	int max_disks = MD_SB_DISKS;
 	int sparedisks = 0;
 	struct mddev_ident_s ident;
 	char *configfile = NULL;
@@ -302,6 +303,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": unrecognised metadata identifier: %s\n", optarg);
 				exit(2);
 			}
+			max_disks = ss->max_devs;
 			continue;
 
 		case O(GROW,'z'):
@@ -425,7 +427,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			raiddisks = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || raiddisks<=0 || raiddisks > MD_SB_DISKS) {
+			if (!optarg[0] || *c || raiddisks<=0 || raiddisks > max_disks) {
 				fprintf(stderr, Name ": invalid number of raid devices: %s\n",
 					optarg);
 				exit(2);
@@ -451,7 +453,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			sparedisks = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || sparedisks < 0 || sparedisks > MD_SB_DISKS - raiddisks) {
+			if (!optarg[0] || *c || sparedisks < 0 || sparedisks > max_disks - raiddisks) {
 				fprintf(stderr, Name ": invalid number of spare-devices: %s\n",
 					optarg);
 				exit(2);

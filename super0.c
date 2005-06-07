@@ -589,6 +589,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	if (st->ss == NULL) {
 		st->ss = &super0;
 		st->minor_version = 90;
+		st->max_devs = MD_SB_DISKS;
 	}
 
 	return 0;
@@ -601,6 +602,7 @@ static struct supertype *match_metadata_desc0(char *arg)
 
 	st->ss = &super0;
 	st->minor_version = 90;
+	st->max_devs = MD_SB_DISKS;
 	if (strcmp(arg, "0") == 0 ||
 	    strcmp(arg, "0.90") == 0 ||
 	    strcmp(arg, "default") == 0

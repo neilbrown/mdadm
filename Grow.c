@@ -236,7 +236,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay)
 	}
 	if (strcmp(file, "internal") == 0) {
 		int d;
-		for (d=0; d< MD_SB_DISKS; d++) {
+		for (d=0; d< st->max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;
 			disk.number = d;

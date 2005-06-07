@@ -194,6 +194,7 @@ extern struct superswitch {
 struct supertype {
 	struct superswitch *ss;
 	int minor_version;
+	int max_devs;
 };
 
 extern struct supertype *super_by_version(int vers, int minor);

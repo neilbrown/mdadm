@@ -399,7 +399,7 @@ static int init_super1(void **sbp, mdu_array_info_t *info)
 
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);
-	sb->layout = __cpu_to_le32(info->level);
+	sb->layout = __cpu_to_le32(info->layout);
 	sb->size = __cpu_to_le64(info->size*2ULL);
 	sb->chunksize = __cpu_to_le32(info->chunk_size>>9);
 	sb->raid_disks = __cpu_to_le32(info->raid_disks);
@@ -621,6 +621,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 			int rv;
 			st->minor_version = bestvers;
 			st->ss = &super1;
+			st->max_devs = 384;
 			rv = load_super1(st, fd, sbp, devname);
 			if (rv) st->ss = NULL;
 			return rv;
@@ -719,6 +720,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 	if (!st) return st;
 
 	st->ss = &super1;
+	st->max_devs = 384;
 	if (strcmp(arg, "1") == 0 ||
 	    strcmp(arg, "1.0") == 0) {
 		st->minor_version = 0;

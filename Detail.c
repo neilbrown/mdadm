@@ -51,6 +51,7 @@ int Detail(char *dev, int brief, int test)
 	int is_rebuilding = 0;
 	int failed = 0;
 	struct supertype *st = NULL;
+	int max_disks = MD_SB_DISKS;
 
 	void *super = NULL;
 	int rv = test ? 4 : 1;
@@ -89,8 +90,10 @@ int Detail(char *dev, int brief, int test)
 		stb.st_rdev = 0;
 	rv = 0;
 
+	if (st) max_disks = st->max_devs;
+
 	/* try to load a superblock */
-	for (d= 0; d<MD_SB_DISKS; d++) {
+	for (d= 0; d<max_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 		disk.number = d;
@@ -210,7 +213,7 @@ int Detail(char *dev, int brief, int test)
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
-	for (d= 0; d<MD_SB_DISKS; d++) {
+	for (d= 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 		disk.number = d;

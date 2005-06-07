@@ -417,12 +417,12 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				disk.minor = minor(stb.st_rdev);
 				close(fd);
 			}
-			if (disk.state != 1)
 			switch(pass){
 			case 1:
 				st->ss->add_to_super(super, &disk);
 				break;
 			case 2:
+				if (disk.state == 1) break;
 				st->ss->write_init_super(st, super, &disk, dv->devname);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {

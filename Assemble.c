@@ -531,7 +531,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				mddev, strerror(errno));
 			return 1;
 		}
-		if (ident->bitmap_fd) {
+		if (ident->bitmap_fd >= 0) {
 			if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
 				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
 				return 1;

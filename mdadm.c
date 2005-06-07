@@ -427,15 +427,9 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			raiddisks = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || raiddisks<=0 || raiddisks > max_disks) {
+			if (!optarg[0] || *c || raiddisks<=0) {
 				fprintf(stderr, Name ": invalid number of raid devices: %s\n",
 					optarg);
-				exit(2);
-			}
-			if (raiddisks == 1 &&  !force && level != -5) {
-				fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
-					"     a mistake.  If you really mean it you will need to specify --force before\n"
-					"     setting the number of drives.\n");
 				exit(2);
 			}
 			ident.raid_disks = raiddisks;
@@ -453,7 +447,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			sparedisks = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || sparedisks < 0 || sparedisks > max_disks - raiddisks) {
+			if (!optarg[0] || *c || sparedisks < 0) {
 				fprintf(stderr, Name ": invalid number of spare-devices: %s\n",
 					optarg);
 				exit(2);
@@ -782,6 +776,26 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (raiddisks) {
+		if (raiddisks > max_disks) {
+			fprintf(stderr, Name ": invalid number of raid devices: %s\n",
+				optarg);
+			exit(2);
+		}
+		if (raiddisks == 1 &&  !force && level != -5) {
+			fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
+				"     a mistake.  If you really mean it you will need to specify --force before\n"
+				"     setting the number of drives.\n");
+			exit(2);
+		}
+	}
+	if (sparedisks) {
+		if ( sparedisks > max_disks - raiddisks) {
+			fprintf(stderr, Name ": invalid number of spare-devices: %s\n",
+				optarg);
+			exit(2);
+		}
+	}
 
 	rv = 0;
 	switch(mode) {

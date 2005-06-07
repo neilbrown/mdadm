@@ -341,10 +341,25 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	array.nr_disks = array.working_disks + array.failed_disks;
 	array.layout = layout;
 	array.chunk_size = chunk*1024;
-	printf("VERS = %d\n", vers);
+
 
 	if (!st->ss->init_super(&super, &array))
 		return 1;
+
+	if (bitmap_file && strcmp(bitmap_file, "internal")==0) {
+		if ((vers%100) < 2) {
+			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
+			return 1;
+		}
+		if (!st->ss->add_internal_bitmap(super, bitmap_chunk, delay, 
+						 size ? size : maxsize)) {
+			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
+			return 1;
+		}
+		bitmap_file = NULL;
+	}
+
+
 
 	if ((vers % 100) >= 1) { /* can use different versions */
 		mdu_array_info_t inf;
@@ -362,6 +377,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 	if (bitmap_file) {
 		int uuid[4];
+
+		if (bitmap_chunk == UnSet)
+			bitmap_chunk = DEFAULT_BITMAP_CHUNK;
+
 		st->ss->uuid_from_super(uuid, super);
 		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk, delay,
 				 array.size*2ULL /* FIXME wrong for raid10 */)) {

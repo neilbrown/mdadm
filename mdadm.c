@@ -698,6 +698,10 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": bitmap file needed with -b in --assemble mode\n");
 				exit(2);
 			}
+			if (strcmp(optarg, "internal")==0) {
+				fprintf(stderr, Name ": there is no need to specify --bitmap when assembling arrays with internal bitmaps\n");
+				continue;
+			}
 			bitmap_fd = open(optarg, O_RDWR);
 			if (!*optarg || bitmap_fd < 0) {
 				fprintf(stderr, Name ": cannot open bitmap file %s: %s\n", optarg, strerror(errno));
@@ -863,6 +867,11 @@ int main(int argc, char *argv[])
 		if (bitmap_chunk == UnSet) bitmap_chunk = DEFAULT_BITMAP_CHUNK;
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (bitmap_file) {
+			if (strcmp(bitmap_file, "internal")==0) {
+				fprintf(stderr, Name ": 'internal' bitmaps not supported with --build\n");
+				rv |= 1;
+				break;
+			}
 			bitmap_fd = open(bitmap_file, O_RDWR,0);
 			if (bitmap_fd < 0 && errno != ENOENT) {
 				perror(Name ": cannot create bitmap file");
@@ -879,7 +888,6 @@ int main(int argc, char *argv[])
 			   bitmap_file, bitmap_chunk, delay);
 		break;
 	case CREATE:
-		if (bitmap_chunk == UnSet) bitmap_chunk = DEFAULT_BITMAP_CHUNK;
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (ss == NULL) {
 			for(i=0; !ss && superlist[i]; i++) 
@@ -958,7 +966,7 @@ int main(int argc, char *argv[])
 				case 'Q':
 					rv |= Query(dv->devname); continue;
 				case 'X':
-					rv |= ExamineBitmap(dv->devname, brief); continue;
+					rv |= ExamineBitmap(dv->devname, brief, ss); continue;
 				}
 				mdfd = open_mddev(dv->devname, 0);
 				if (mdfd>=0) {

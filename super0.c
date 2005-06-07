@@ -28,6 +28,7 @@
  */
 
 #include "mdadm.h"
+#include <asm/byteorder.h>
 
 /*
  * All handling for the 0.90.0 version superblock is in
@@ -81,6 +82,8 @@ static void examine_super0(void *sbv)
 	printf("    Update Time : %.24s\n", ctime(&atime));
 	printf("          State : %s\n",
 	       (sb->state&(1<<MD_SB_CLEAN))?"clean":"active");
+	if (sb->state & (1<<MD_SB_BITMAP_PRESENT))
+		printf("Internal Bitmap : present\n");
 	printf(" Active Devices : %d\n", sb->active_disks);
 	printf("Working Devices : %d\n", sb->working_disks);
 	printf(" Failed Devices : %d\n", sb->failed_disks);
@@ -324,10 +327,10 @@ static __u64 event_super0(void *sbv)
 
 static int init_super0(void **sbp, mdu_array_info_t *info)
 {
-	mdp_super_t *sb = malloc(MD_SB_BYTES);
+	mdp_super_t *sb = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
 	int spares;
 	int rfd;
-	memset(sb, 0, MD_SB_BYTES);
+	memset(sb, 0, MD_SB_BYTES + sizeof(bitmap_super_t));
 
 	if (info->major_version == -1) {
 		/* zeroing the superblock */
@@ -441,6 +444,27 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);
 	rv = store_super0(fd, sb);
+
+	if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
+		int towrite, n;
+		char buf[4096];
+		write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
+		towrite = 64*1024 - MD_SB_BYTES - sizeof(bitmap_super_t);
+		memset(buf, 0xff, sizeof(buf));
+		while (towrite > 0) {
+			n = towrite;
+			if (n > sizeof(buf)) 
+				n = sizeof(buf);
+			n = write(fd, buf, n);
+			if (n > 0)
+				towrite -= n;
+			else
+				break;
+		}
+		if (towrite)
+			rv = -2;
+	}
+
 	close(fd);
 	if (rv)
 		fprintf(stderr, Name ": failed to write superblock to %s\n", devname);
@@ -591,6 +615,75 @@ static __u64 avail_size0(__u64 devsize)
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
+static int add_internal_bitmap0(void *sbv, int chunk, int delay, unsigned long long size)
+{
+	/*
+	 * The bitmap comes immediately after the superblock and must be 60K in size
+	 * at most.  The default size is between 30K and 60K
+	 *
+	 * size is in K,  chunk is in bytes !!!
+	 */
+
+	unsigned long long bits = size;
+	unsigned long long max_bits = 60*1024*8;
+	unsigned long long min_chunk;
+	mdp_super_t *sb = sbv;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MD_SB_BYTES);
+
+	
+	min_chunk = 1024;
+	while (bits > max_bits) {
+		min_chunk *= 2;
+		bits = (bits+1)/2;
+	}
+	if (chunk == UnSet)
+		chunk = min_chunk;
+	else if (chunk < min_chunk)
+		return 0; /* chunk size too small */
+
+	sb->state |= (1<<MD_SB_BITMAP_PRESENT);
+
+	bms->magic = __le32_to_cpu(BITMAP_MAGIC);
+	bms->version = __le32_to_cpu(BITMAP_MAJOR);
+	uuid_from_super0((int*)bms->uuid, sb);
+	bms->chunksize = __le32_to_cpu(chunk);
+	bms->daemon_sleep = __le32_to_cpu(delay);
+	bms->sync_size = __le64_to_cpu(size);
+
+
+	return 1;
+}
+		
+
+void locate_bitmap0(struct supertype *st, int fd)
+{
+	unsigned long long dsize;
+	unsigned long size;
+	unsigned long long offset;
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size))
+			return;
+		else
+			dsize = ((unsigned long long)size)<<9;
+	}
+
+	if (dsize < MD_RESERVED_SECTORS*2)
+		return;
+	
+	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
+
+	offset *= 512;
+
+	offset += MD_SB_BYTES;
+
+	lseek64(fd, offset, 0);
+}
+
+	
+
 struct superswitch super0 = {
 	.examine_super = examine_super0,
 	.brief_examine_super = brief_examine_super0,
@@ -608,5 +701,7 @@ struct superswitch super0 = {
 	.load_super = load_super0,
 	.match_metadata_desc = match_metadata_desc0,
 	.avail_size = avail_size0,
+	.add_internal_bitmap = add_internal_bitmap0,
+	.locate_bitmap = locate_bitmap0,
 	.major = 0,
 };

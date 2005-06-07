@@ -177,10 +177,11 @@ out:
 	return info;
 }
 
-bitmap_info_t *bitmap_file_read(char *filename, int brief)
+bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype *st)
 {
 	int fd;
 	bitmap_info_t *info;
+	struct stat stb;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -188,13 +189,24 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief)
 				filename, strerror(errno));
 		return NULL;
 	}
+	fstat(fd, &stb);
+	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
+		/* block device, so we are probably after an internal bitmap */
+		if (!st) st = guess_super(fd);
+		if (!st) {
+			/* just look at device... */
+			lseek(fd, 0, 0);
+		} else {	
+			st->ss->locate_bitmap(st, fd);
+		}
+	}
 
 	info = bitmap_fd_read(fd, brief);
 	close(fd);
 	return info;
 }
 
-int ExamineBitmap(char *filename, int brief)
+int ExamineBitmap(char *filename, int brief, struct supertype *st)
 {
 	/*
 	 * Read the bitmap file and display its contents
@@ -204,7 +216,7 @@ int ExamineBitmap(char *filename, int brief)
 	bitmap_info_t *info;
 	int rv = 1;
 
-	info = bitmap_file_read(filename, brief);
+	info = bitmap_file_read(filename, brief, st);
 	if (!info)
 		return rv;
 

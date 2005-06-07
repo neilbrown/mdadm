@@ -96,6 +96,8 @@ typedef struct mdp_device_descriptor_s {
 #define MD_SB_CLEAN		0
 #define MD_SB_ERRORS		1
 
+#define	MD_SB_BITMAP_PRESENT	8 /* bitmap may be present nearby */
+
 typedef struct mdp_superblock_s {
 	/*
 	 * Constant generic information

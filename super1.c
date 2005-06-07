@@ -432,7 +432,7 @@ static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
 	__u16 *rp = sb->dev_roles + dk->number;
 	if (dk->state == 6) /* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
-	else if (dk->state == 2) /* active -> spare */
+	else if ((dk->state & ~2) == 0) /* active or idle -> spare */
 		*rp = 0xffff;
 	else 
 		*rp = 0xfffe;

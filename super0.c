@@ -441,6 +441,9 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 		return -1;
 	}
 
+	sb->disks[dinfo->number].state &= ~(1<<MD_DISK_FAULTY);
+	sb->disks[dinfo->number].state |= (1<<MD_DISK_SYNC);
+
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);
 	rv = store_super0(fd, sb);
@@ -557,7 +560,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 		return 1;
 	}
 
-	super = malloc(MD_SB_BYTES);
+	super = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
 
 	if (read(fd, super, sizeof(*super)) != MD_SB_BYTES) {
 		if (devname)
@@ -643,12 +646,14 @@ static int add_internal_bitmap0(void *sbv, int chunk, int delay, unsigned long l
 
 	sb->state |= (1<<MD_SB_BITMAP_PRESENT);
 
+	memset(bms, sizeof(*bms), 0);
 	bms->magic = __le32_to_cpu(BITMAP_MAGIC);
 	bms->version = __le32_to_cpu(BITMAP_MAJOR);
 	uuid_from_super0((int*)bms->uuid, sb);
 	bms->chunksize = __le32_to_cpu(chunk);
 	bms->daemon_sleep = __le32_to_cpu(delay);
 	bms->sync_size = __le64_to_cpu(size);
+
 
 
 	return 1;
@@ -682,6 +687,57 @@ void locate_bitmap0(struct supertype *st, int fd)
 	lseek64(fd, offset, 0);
 }
 
+int write_bitmap0(struct supertype *st, int fd, void *sbv)
+{
+	unsigned long size;
+	unsigned long long dsize;
+	unsigned long long offset;
+	mdp_super_t *sb = sbv;
+    
+	int rv = 0;
+
+	int towrite, n;
+	char buf[4096];
+
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size))
+			return 1;
+		else
+			dsize = ((unsigned long long)size)<<9;
+	}
+
+	if (dsize < MD_RESERVED_SECTORS*2)
+		return -1;
+	
+	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
+
+	offset *= 512;
+
+	if (lseek64(fd, offset + 4096, 0)< 0LL)
+		return 3;
+
+
+	write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
+	towrite = 64*1024 - MD_SB_BYTES - sizeof(bitmap_super_t);
+	memset(buf, 0xff, sizeof(buf));
+	while (towrite > 0) {
+		n = towrite;
+		if (n > sizeof(buf)) 
+			n = sizeof(buf);
+		n = write(fd, buf, n);
+		if (n > 0)
+			towrite -= n;
+		else
+			break;
+	}
+	if (towrite)
+		rv = -2;
+
+	return rv;
+}
 	
 
 struct superswitch super0 = {
@@ -703,5 +759,6 @@ struct superswitch super0 = {
 	.avail_size = avail_size0,
 	.add_internal_bitmap = add_internal_bitmap0,
 	.locate_bitmap = locate_bitmap0,
+	.write_bitmap = write_bitmap0,
 	.major = 0,
 };

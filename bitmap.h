@@ -141,7 +141,7 @@ typedef struct bitmap_super_s {
 	__u32 chunksize;    /* 52  the bitmap chunk size in bytes */
 	__u32 daemon_sleep; /* 56  seconds between disk flushes */
 
-	__u8  pad[4096 - 60]; /* set to zero */
+	__u8  pad[256 - 60]; /* set to zero */
 } bitmap_super_t;
 
 /* notes:

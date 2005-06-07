@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.11.1
+.TH MDADM 8 "" v2.0-devel-1
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -166,6 +166,10 @@ mode.
 Change the size or shape of an active array.
 
 .TP
+.BR -X ", " --examine-bitmap
+Report information about a bitmap file.
+
+.TP
 .BR -h ", " --help
 Display help message or, after above option, mode specific help
 message.
@@ -189,6 +193,18 @@ Be less verbose.  This is used with
 .B --detail
 and
 .BR --examine .
+
+.TP
+.BR -b ", " --bitmap=
+Give the name of a bitmap file to use with this array.  Can be used
+with --create (file should not exist) or --assemble (file should
+exist).
+
+.TP
+.BR --bitmap-chunk=
+Set the Chunksize of the bitmap. Each bit corresponds to that many
+Kilobytes of storage. Default is 4.
+
 
 .TP
 .BR -f ", " --force
@@ -318,6 +334,16 @@ must be specified before the fault mode is specified.
 .TP
 .BR --layout=
 same as --parity
+
+.TP
+.BR -b ", " --bitmap=
+Specify a file to store a write-intent bitmap in.  The file should not
+exist unless --force is also given.  The same file should be provided
+when assembling the array.
+
+.TP
+.BR --bitmap-chunk=
+Specifty the chunksize for the bitmap.
 
 .TP
 .BR -n ", " --raid-devices=
@@ -466,6 +492,10 @@ an attempt will be made to start it anyway.
 .TP
 .BR -a ", " "--auto{=no,yes,md,mdp,part}"
 See this option under Create and Build options.
+
+.TP
+.BR -b ", " --bitmap=
+Specify the bitmap file that was given when the array was created.
 
 .TP
 .BR -U ", " --update=

@@ -6,6 +6,11 @@ Changes Prior to 1.10.0 release
     -   Open sub-devices with O_EXCL to detect if already in use
     -   Make sure superblock updates are flushed directly to disk.
 	
+Changes Prior to 2.0-deve-1 release
+    -   Support for version-1 superblock.  See --metadata option.
+    -   Support for bitmap based intent logging.
+    -   Minor fixes.
+	
 Changes Prior to 1.9.0 release
     -   Fix rpm build problem (stray %)
     -   Minor manpage updates
@@ -28,8 +33,6 @@ Changes Prior to 1.9.0 release
 	mdadm /dev/md0 -A /dev/sd[ab]
 	works.
     -   Assume '-Q' if just a device is given, rather than being silent.
-
-Changes Prior to this release
     -   Change "dirty" status to "active" as it was confusing people.
 	
 Changes Prior to 1.8.0 release

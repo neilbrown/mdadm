@@ -411,7 +411,7 @@ static int init_super1(void **sbp, mdu_array_info_t *info)
 
 	sb->utime = sb->ctime;
 	sb->events = __cpu_to_le64(1);
-	if (info->state & MD_SB_CLEAN)
+	if (info->state & (1<<MD_SB_CLEAN))
 		sb->resync_offset = ~0ULL;
 	else
 		sb->resync_offset = 0;

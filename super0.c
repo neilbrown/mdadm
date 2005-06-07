@@ -362,6 +362,7 @@ static int init_super0(void **sbp, mdu_array_info_t *info)
 	sb->active_disks = info->active_disks;
 	sb->working_disks = info->working_disks;
 	sb->failed_disks = info->failed_disks;
+	sb->spare_disks = info->spare_disks;
 	sb->events_hi = 0;
 	sb->events_lo = 1;
 

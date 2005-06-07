@@ -1009,6 +1009,16 @@ The different events are:
 An md array which previously was configured appears to no longer be
 configured.
 
+If
+.I mdadm
+was told to monitor an array which is RAID0 or Linear, then it will
+report
+.B DeviceDisappeared
+with the extra information
+.BR Wrong-Level .
+This is because RAID0 and Linear do not support the device-failed,
+hot-spare and resync operations which are monitored.
+
 .TP
 .B RebuildStarted
 An md array started reconstruction.
@@ -1059,6 +1069,18 @@ notices that an array is degraded when it first sees the array.
 A spare drive has been moved from one array in a
 .B spare-group
 to another to allow a failed drive to be replaced.
+
+.TP
+.B SparesMissing
+If
+.I mdadm
+has been told, via the config file, that an array should have a certain
+number of spare devices, and
+.I mdadm
+detects that it has fewer that this number when it first sees the
+array, it will report a
+.B SparesMissing
+message.
 
 .TP
 .B TestMessage

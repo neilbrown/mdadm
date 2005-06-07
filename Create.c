@@ -208,7 +208,7 @@ int Create(char *mddev, int mdfd,
 		}
 		else {
 			ldsize = dsize;
-			dsize <<= 9;
+			ldsize <<= 9;
 		}
 		if (ldsize < MD_RESERVED_SECTORS*2LL*512LL) {
 			fprintf(stderr, Name ": %s is too small: %luK\n",

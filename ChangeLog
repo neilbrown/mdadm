@@ -1,6 +1,6 @@
 Changes Prior to 1.12.0 release
     -   Don't use 'lstat' to check for blockdevices, use stat.
-	
+    -   Get size calculation right when in Create when BLKGESIZE64 not available
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.
 

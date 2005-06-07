@@ -95,7 +95,7 @@ int main() {
 			if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
 				/* already assembled, skip */
 				continue;
-			rv |= Assemble(array_list->devname, mdfd,
+			rv |= Assemble(array_list->st, array_list->devname, mdfd,
 					   array_list, configfile,
 					   NULL,
 					   readonly, runstop, NULL, verbose, force);

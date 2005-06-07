@@ -205,9 +205,9 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		else {
 			ldsize = dsize;
-			dsize <<= 9;
+			ldsize <<= 9;
 		}
-		freesize = st->ss->avail_size(ldsize);
+		freesize = st->ss->avail_size(ldsize >> 9);
 		if (freesize == 0) {
 			fprintf(stderr, Name ": %s is too small: %luK\n",
 				dname, (unsigned long)(ldsize>>10));

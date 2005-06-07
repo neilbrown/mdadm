@@ -62,7 +62,7 @@ OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c mdopen.c super0.c super1.c
 
-ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c
+ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += mdopen.c mdstat.c
 ASSEMBLE_FLAGS = -DMDASSEMBLE_AUTO

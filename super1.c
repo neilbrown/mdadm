@@ -83,7 +83,9 @@ struct mdp_superblock_1 {
 	__u16	dev_roles[0];	/* role in array, or 0xffff for a spare, or 0xfffe for faulty */
 };
 
+#ifndef offsetof
 #define offsetof(t,f) ((int)&(((t*)0)->f))
+#endif
 static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 {
 	unsigned int disk_csum, csum;
@@ -139,11 +141,11 @@ static void examine_super1(void *sbv)
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	printf("   Raid Devices : %d\n", __le32_to_cpu(sb->raid_disks));
 	printf("\n");
-	printf("    Device Size : %llu%s\n", sb->data_size, human_size(sb->data_size<<9));
+	printf("    Device Size : %llu%s\n", (unsigned long long)sb->data_size, human_size(sb->data_size<<9));
 	if (sb->data_offset)
-		printf("    Data Offset : %llu sectors\n", __le64_to_cpu(sb->data_offset));
+		printf("    Data Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->data_offset));
 	if (sb->super_offset)
-		printf("   Super Offset : %llu sectors\n", __le64_to_cpu(sb->super_offset));
+		printf("   Super Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->super_offset));
 	printf("    Device UUID : ");
 	for (i=0; i<16; i++) {
 		printf("%02x", sb->set_uuid[i]);
@@ -159,7 +161,7 @@ static void examine_super1(void *sbv)
 	else
 		printf("       Checksum : %x - expected %x\n", __le32_to_cpu(sb->sb_csum),
 		       __le32_to_cpu(calc_sb_1_csum(sb)));
-	printf("         Events : %llu\n", __le64_to_cpu(sb->events));
+	printf("         Events : %llu\n", (unsigned long long)__le64_to_cpu(sb->events));
 	printf("\n");
 	if (__le32_to_cpu(sb->level) == 5) {
 		c = map_num(r5layout, __le32_to_cpu(sb->layout));
@@ -235,7 +237,7 @@ static void detail_super1(void *sbv)
 		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
 	}
-	printf("\n         Events : %llu\n\n", __le64_to_cpu(sb->events));
+	printf("\n         Events : %llu\n\n", (unsigned long long)__le64_to_cpu(sb->events));
 }
 
 static void brief_detail_super1(void *sbv)
@@ -452,6 +454,7 @@ static int store_super1(int fd, void *sbv)
 	if (write(fd, sb, sbsize) != sbsize)
 		return 4;
 
+	fsync(fd);
 	return 0;
 }
 
@@ -575,14 +578,32 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 
 
 	if (st->ss == NULL) {
-		/* guess... */
+		int bestvers = -1;
+		__u64 bestctime = 0;
+		/* guess... choose latest ctime */
 		st->ss = &super1;
 		for (st->minor_version = 0; st->minor_version <= 2 ; st->minor_version++) {
 			switch(load_super1(st, fd, sbp, devname)) {
-			case 0: return 0; /* good */
+			case 0: super = *sbp;
+				if (bestvers == -1 ||
+				    bestctime < __le64_to_cpu(super->ctime)) {
+					bestvers = st->minor_version;
+					bestctime = __le64_to_cpu(super->ctime);
+				}
+				free(super);
+				*sbp = NULL;
+				break;
 			case 1: st->ss = NULL; return 1; /*bad device */
 			case 2: break; /* bad, try next */
 			}
+		}
+		if (bestvers != -1) {
+			int rv;
+			st->minor_version = bestvers;
+			st->ss = &super1;
+			rv = load_super1(st, fd, sbp, devname);
+			if (rv) st->ss = NULL;
+			return rv;
 		}
 		st->ss = NULL;
 		return 2;

@@ -386,6 +386,15 @@ unsigned long calc_csum(void *super, int bytes)
 	for(i=0; i<bytes/4; i++)
 		newcsum+= superc[i];
 	csum = (newcsum& 0xffffffff) + (newcsum>>32);
+#ifdef __alpha__
+/* The in-kernel checksum calculation is always 16bit on 
+ * the alpha, though it is 32 bit on i386...
+ * I wonder what it is elsewhere... (it uses and API in
+ * a way that it shouldn't).
+ */
+	csum = (csum & 0xffff) + (csum >> 16);
+	csum = (csum & 0xffff) + (csum >> 16);
+#endif
 	return csum;
 }
 
@@ -544,6 +553,8 @@ struct supertype *guess_super(int fd)
 	 */
 	struct superswitch  *ss;
 	struct supertype *st;
+	unsigned long besttime = 0;
+	int bestsuper = -1;
 	
 	void *sbp = NULL;
 	int i;
@@ -555,9 +566,25 @@ struct supertype *guess_super(int fd)
 		ss = superlist[i];
 		rv = ss->load_super(st, fd, &sbp, NULL);
 		if (rv == 0) {
+			struct mdinfo info;
+			ss->getinfo_super(&info, sbp);
+			if (bestsuper == -1 ||
+			    besttime < info.array.ctime) {
+				bestsuper = i;
+				besttime = info.array.ctime;
+				st->ss = NULL;
+			}
+			free(sbp);
+		}
+	}
+	if (bestsuper != -1) {
+		int rv;
+		rv = superlist[bestsuper]->load_super(st, fd, &sbp, NULL);
+		if (rv == 0) {
 			free(sbp);
 			return st;
 		}
 	}
+	free(st);
 	return NULL;
 }

@@ -16,7 +16,7 @@ Array of Independent Devices.
 .B md
 supports RAID levels 1 (mirroring) 4 (striped array with parity
 device), 5 (striped array with distributed parity information) and 6
-(striped array with distributed dual redundancy information.)  If a
+(striped array with distributed dual redundancy information.)  If
 some number of underlying devices fails while using one of these
 levels, the array will continue to function; this number is one for
 RAID levels 4 and 5, two for RAID level 6, and all but one (N-1) for
@@ -24,24 +24,42 @@ RAID level 1.
 .PP
 .B md
 also supports a number of pseudo RAID (non-redundant) configurations
-including RAID0 (striped array), LINEAR (catenated array) and
-MULTIPATH (a set of different interfaces to the same device).
+including RAID0 (striped array), LINEAR (catenated array),
+MULTIPATH (a set of different interfaces to the same device),
+and FAULTY (a layer over a single device into which errors can be injected).
 
 .SS MD SUPER BLOCK
-With the exception of Legacy Arrays described below, each device that
-is incorporated into an MD array has a
-.I super block
-written towards the end of the device.  This superblock records
-information about the structure and state of the array so that the
-array can be reliably re-assembled after a shutdown.
+Each device in an array may have a
+.I superblock
+which records information about the structure and state of the array.
+This allows the array to be reliably re-assembled after a shutdown.
 
-The superblock is 4K long and is written into a 64K aligned block that
+From Linux kernel version 2.6.10,
+.B md
+provides support for two different formats of this superblock, and
+other formats can be added.  Prior to this release, only one format is
+supported.
+
+The common format - known as version 0.90 - has
+a superblock that is 4K long and is written into a 64K aligned block that
 starts at least 64K and less than 128K from the end of the device
 (i.e. to get the address of the superblock round the size of the
 device down to a multiple of 64K and then subtract 64K).
 The available size of each device is the amount of space before the
 super block, so between 64K and 128K is lost when a device in
 incorporated into an MD array.
+This superblock stores multi-byte fields in a processor-dependant
+manner, so arrays cannot easily be moved between computers with
+different processors.
+
+The new format - known as version 1 - has a superblock that is
+normally 1K long, but can be longer.  It is normally stored between 8K
+and 12K from the end of the device, on a 4K boundary, though
+variations can be stored at the start of the device (version 1.1) or 4K from
+the start of the device (version 1.2).
+This superblock format stores multibyte data in a
+processor-independant format and has supports upto hundreds of
+component devices (version 0.90 only supports 28).
 
 The superblock contains, among other things:
 .TP
@@ -53,17 +71,34 @@ UUID
 a 128 bit Universally Unique Identifier that identifies the array that
 this device is part of.
 
-.SS LEGACY ARRAYS
+.SS ARRAYS WITHOUT SUPERBLOCKS
+While it is usually best to create arrays with superblocks so that
+they can be assembled reliably, there are some circumstances where an
+array without superblocks in preferred.  This include:
+.TP
+LEGACY ARRAYS
 Early versions of the
 .B md
-driver only supported Linear and Raid0 configurations and so
-did not use an MD superblock (as there is no state that needs to be
-recorded).  While it is strongly recommended that all newly created
-arrays utilise a superblock to help ensure that they are assembled
-properly, the
+driver only supported Linear and Raid0 configurations and did not use
+a superblock (which is less critical with these configurations).
+While such arrays should be rebuilt with superblocks if possible,
 .B md
-driver still supports legacy linear and raid0 md arrays that
-do not have a superblock.
+continues to support them.
+.TP
+FAULTY
+Being a largely transparent layer over a different device, the FAULTY
+personality doesn't gain anything from having a superblock.
+.TP
+MULTIPATH
+It is often possible to detect devices which are different paths to
+the same storage directly rather than having a distinctive superblock
+written to the device and searched for on all paths.  In this case,
+a MULTIPATH array with no superblock makes sense.
+.TP
+RAID1
+In some configurations it might be desired to create a raid1
+configuration that does use a superblock, and to maintain the state of
+the array elsewhere.  While not encouraged, this is supported.
 
 .SS LINEAR
 

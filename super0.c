@@ -415,6 +415,7 @@ static int store_super0(int fd, void *sbv)
 	if (write(fd, super, sizeof(*super)) != sizeof(*super))
 		return 4;
 
+	fsync(fd);
 	return 0;
 }
 

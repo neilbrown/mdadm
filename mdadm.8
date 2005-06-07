@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v1.11.0
+.TH MDADM 8 "" v1.11.1
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -92,7 +92,7 @@ information so as to assemble a faulty array.
 
 .TP
 .B Build
-Build a legacy array without per-device superblocks.
+Build an array without per-device superblocks.
 
 .TP
 .B Create
@@ -233,6 +233,24 @@ in which case
 .B --scan
 says to get a list of array devices from
 .BR /proc/mdstat .
+
+.TP
+.B -e ", " --metadata=
+Declare the style of superblock (raid metadata) to be used.  The
+default is 0.90 for --create, and to guess for other operations.
+
+Options are:
+.RS
+.IP "0, 0.90, default"
+Use the original 0.90 format superblock.  This format limits arrays to
+28 componenet devices and limits component devices of levels 1 and
+greater to 2 terabytes.
+.IP "1, 1.0, 1.1, 1.2"
+Use the new version-1 format superblock.  This has few restrictions.
+The different subversion store the superblock at different locations
+on the device, either at the end (for 1.0), at the start (for 1.1) or
+4K from the start (for 1.2).
+.RE
 
 .SH For create or build:
 

@@ -93,6 +93,8 @@ int main(int argc, char *argv[])
 
 	int mdfd = -1;
 
+	srandom(time(0) ^ getpid());
+
 	ident.uuid_set=0;
 	ident.level = UnSet;
 	ident.raid_disks = UnSet;

@@ -466,6 +466,7 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	struct mdp_superblock_1 *sb = sbv;
 	struct mdp_superblock_1 *refsb = NULL;
 	int fd = open(devname, O_RDWR | O_EXCL);
+	int rfd;
 	int rv;
 
 	long size;
@@ -480,10 +481,14 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 
 	sb->dev_number = __cpu_to_le32(dinfo->number);
 
-	*(__u32*)(sb->device_uuid) = random();
-	*(__u32*)(sb->device_uuid+4) = random();
-	*(__u32*)(sb->device_uuid+8) = random();
-	*(__u32*)(sb->device_uuid+12) = random();
+	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+	    read(rfd, sb->device_uuid, 16) != 16) {
+		*(__u32*)(sb->device_uuid) = random();
+		*(__u32*)(sb->device_uuid+4) = random();
+		*(__u32*)(sb->device_uuid+8) = random();
+		*(__u32*)(sb->device_uuid+12) = random();
+	}
+	if (rfd >= 0) close(rfd);
 	sb->events = 0;
 
 	if (load_super1(st, fd, (void**)&refsb, NULL)==0) {

@@ -326,6 +326,7 @@ static int init_super0(void **sbp, mdu_array_info_t *info)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES);
 	int spares;
+	int rfd;
 	memset(sb, 0, MD_SB_BYTES);
 
 	if (info->major_version == -1) {
@@ -340,12 +341,14 @@ static int init_super0(void **sbp, mdu_array_info_t *info)
 		return 0;
 	}
 
+	rfd = open("/dev/urandom", O_RDONLY);
 	sb->md_magic = MD_SB_MAGIC;
 	sb->major_version = 0;
 	sb->minor_version = 90;
 	sb->patch_version = 0;
 	sb->gvalid_words = 0; /* ignored */
-	sb->set_uuid0 = random();
+	if (rfd < 0 || read(rfd, &sb->set_uuid0, 4) != 4)
+		sb->set_uuid0 = random();
 	sb->ctime = time(0);
 	sb->level = info->level;
 	sb->size = info->size;
@@ -353,9 +356,13 @@ static int init_super0(void **sbp, mdu_array_info_t *info)
 	sb->raid_disks = info->raid_disks;
 	sb->md_minor = info->md_minor;
 	sb->not_persistent = 0;
-	sb->set_uuid1 = random();
-	sb->set_uuid2 = random();
-	sb->set_uuid3 = random();
+	if (rfd < 0 || read(rfd, &sb->set_uuid1, 12) != 12) {
+		sb->set_uuid1 = random();
+		sb->set_uuid2 = random();
+		sb->set_uuid3 = random();
+	}
+	if (rfd >= 0)
+		close(rfd);
 
 	sb->utime = sb->ctime;
 	sb->state = info->state;

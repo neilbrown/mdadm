@@ -146,6 +146,7 @@ static void examine_super1(void *sbv)
 		printf("    Data Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->data_offset));
 	if (sb->super_offset)
 		printf("   Super Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->super_offset));
+	printf("          State : %s\n", (__le64_to_cpu(sb->resync_offset)+1)? "active":"clean");
 	printf("    Device UUID : ");
 	for (i=0; i<16; i++) {
 		printf("%02x", sb->set_uuid[i]);

@@ -29,6 +29,9 @@ Changes Prior to 1.9.0 release
 	works.
     -   Assume '-Q' if just a device is given, rather than being silent.
 
+Changes Prior to this release
+    -   Change "dirty" status to "active" as it was confusing people.
+	
 Changes Prior to 1.8.0 release
     -   Makefile cleanup from  Luca Berra <bluca@comedia.it>
     -   --pid-file (-i) to set a pid file to use with --monitor --daemonise

@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 	ident.devices=0;
 	ident.spare_group = NULL;
 	ident.autof = 0;
+	ident.st = NULL;
 
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,

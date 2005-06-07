@@ -572,8 +572,8 @@ struct supertype *guess_super(int fd)
 			    besttime < info.array.ctime) {
 				bestsuper = i;
 				besttime = info.array.ctime;
-				st->ss = NULL;
 			}
+			st->ss = NULL;
 			free(sbp);
 		}
 	}

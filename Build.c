@@ -35,7 +35,8 @@
 
 int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	  int raiddisks,
-	  mddev_dev_t devlist, int assume_clean)
+	  mddev_dev_t devlist, int assume_clean,
+	  char *bitmap_file, int bitmap_chunk, int delay)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -56,6 +57,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	struct stat stb;
 	int subdevs = 0;
 	mddev_dev_t dv;
+	int bitmap_fd;
 
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
@@ -135,6 +137,9 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 				mddev, strerror(errno));
 			return 1;
 		}
+	} else if (bitmap_file) {
+		fprintf(stderr, Name ": bitmaps not supported with this kernel\n");
+		return 1;
 	}
 	/* now add the devices */
 	for ((i=0), (dv = devlist) ; dv ; i++, dv=dv->next) {
@@ -171,6 +176,33 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	/* now to start it */
 	if (vers >= 9000) {
 		mdu_param_t param; /* not used by syscall */
+		if (bitmap_file) {
+			bitmap_fd = open(bitmap_file, O_RDWR);
+			if (bitmap_fd < 0) {
+				if (bitmap_chunk == UnSet) {
+					fprintf(stderr, Name ": %s cannot be openned.",
+						bitmap_file);
+					return 1;
+				}
+				if (CreateBitmap(bitmap_file, 1, NULL, bitmap_chunk,
+						 delay, 0/* FIXME size */)) {
+					return 1;
+				}
+				bitmap_fd = open(bitmap_file, O_RDWR);
+				if (bitmap_fd < 0) {
+					fprintf(stderr, Name ": %s cannot be openned.",
+						bitmap_file);
+					return 1;
+				}
+			}				
+			if (bitmap_fd >= 0) {
+				if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {
+					fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
+						mddev, strerror(errno));
+					return 1;
+				}
+			}
+		}
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 				strerror(errno));

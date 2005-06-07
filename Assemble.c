@@ -531,6 +531,13 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				mddev, strerror(errno));
 			return 1;
 		}
+		if (ident->bitmap_fd) {
+			if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
+				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
+				return 1;
+			}
+		}
+					
 		/* First, add the raid disks, but add the chosen one last */
 		for (i=0; i<= bestcnt; i++) {
 			int j;

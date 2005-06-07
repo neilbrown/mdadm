@@ -58,9 +58,11 @@ MAN5DIR = $(MANDIR)/man5
 MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
-	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o mdopen.o super0.o super1.o
+	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
+	mdopen.o super0.o super1.o bitmap.o
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
-	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c mdopen.c super0.c super1.c
+	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
+	mdopen.c super0.c super1.c bitmap.c
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
 ifdef MDASSEMBLE_AUTO
@@ -114,7 +116,7 @@ md.man : md.4
 mdadm.conf.man : mdadm.conf.5
 	nroff -man mdadm.conf.5 > mdadm.conf.man
 
-$(OBJS) : mdadm.h
+$(OBJS) : mdadm.h bitmap.h
 
 install : mdadm mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D $(STRIP) -m 755 mdadm $(DESTDIR)$(BINDIR)/mdadm

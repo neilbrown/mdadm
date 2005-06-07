@@ -34,7 +34,8 @@
 int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 	   int subdevs, mddev_dev_t devlist,
-	   int runstop, int verbose, int force)
+	   int runstop, int verbose, int force,
+	   char *bitmap_file, int bitmap_chunk, int delay)
 {
 	/*
 	 * Create a new raid array.
@@ -66,6 +67,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int pass;
 	int vers;
 	int rv;
+	int bitmap_fd;
 
 	mdu_array_info_t array;
 	
@@ -356,6 +358,26 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 			mddev, strerror(errno));
 		return 1;
+	}
+
+	if (bitmap_file) {
+		int uuid[4];
+		st->ss->uuid_from_super(uuid, super);
+		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk, delay,
+				 array.size*2ULL /* FIXME wrong for raid10 */)) {
+			return 1;
+		}
+		bitmap_fd = open(bitmap_file, O_RDWR);
+		if (bitmap_fd < 0) {
+			fprintf(stderr, Name ": weird: %s cannot be openned\n",
+			       bitmap_file);
+			return 1;
+		}
+		if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {
+			fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
+				mddev, strerror(errno));
+			return 1;
+		}
 	}
 
 

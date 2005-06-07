@@ -25,6 +25,9 @@
  *           The University of New South Wales
  *           Sydney, 2052
  *           Australia
+ *
+ *    Additions for bitmap and async RAID options, Copyright (C) 2003-2004, 
+ *    Paul Clements, SteelEye Technology, Inc.
  */
 
 #include "mdadm.h"
@@ -56,6 +59,9 @@ int main(int argc, char *argv[])
 	char devmode = 0;
 	int runstop = 0;
 	int readonly = 0;
+	int bitmap_fd = -1;
+	char *bitmap_file = NULL;
+	int bitmap_chunk = UnSet;
 	int SparcAdjust = 0;
 	mddev_dev_t devlist = NULL;
 	mddev_dev_t *devlistend = & devlist;
@@ -95,6 +101,7 @@ int main(int argc, char *argv[])
 	ident.spare_group = NULL;
 	ident.autof = 0;
 	ident.st = NULL;
+	ident.bitmap_fd = -1;
 
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,
@@ -128,7 +135,10 @@ int main(int argc, char *argv[])
 		case 'v': verbose = 1;
 			continue;
 
-		case 'b': brief = 1;
+		case 'b':
+			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE)
+				break; /* b means bitmap */
+			brief = 1;
 			continue;
 
 		case ':':
@@ -159,6 +169,7 @@ int main(int argc, char *argv[])
 		case '#':
 		case 'D':
 		case 'E':
+		case 'X':
 		case 'Q': newmode = MISC; break;
 		case 'R':
 		case 'S':
@@ -574,6 +585,8 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(MONITOR,'d'): /* delay in seconds */
+		case O(BUILD,'d'): /* delay for bitmap updates */
+		case O(CREATE,'d'):
 			if (delay)
 				fprintf(stderr, Name ": only specify delay once. %s ignored.\n",
 					optarg);
@@ -655,6 +668,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'K'):
 		case O(MISC,'R'):
 		case O(MISC,'S'):
+		case O(MISC,'X'):
 		case O(MISC,'o'):
 		case O(MISC,'w'):
 			if (devmode && devmode != opt &&
@@ -675,6 +689,36 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			SparcAdjust = 1;
+			continue;
+
+		case O(ASSEMBLE,'b'): /* here we simply set the bitmap file */
+			if (!optarg) {
+				fprintf(stderr, Name ": bitmap file needed with -b in --assemble mode\n");
+				exit(2);
+			}
+			bitmap_fd = open(optarg, O_RDWR);
+			if (!*optarg || bitmap_fd < 0) {
+				fprintf(stderr, Name ": cannot open bitmap file %s: %s\n", optarg, strerror(errno));
+				exit(2);
+			}
+			ident.bitmap_fd = bitmap_fd; /* for Assemble */
+			continue;
+		case O(BUILD,'b'):
+		case O(CREATE,'b'): /* here we create the bitmap */
+			bitmap_file = optarg;
+			continue;
+
+		case O(BUILD,4):
+		case O(CREATE,4): /* bitmap chunksize */
+			bitmap_chunk = strtol(optarg, &c, 10);
+			if (!optarg[0] || *c || bitmap_chunk < 0 ||
+					bitmap_chunk & (bitmap_chunk - 1)) {
+				fprintf(stderr, Name ": invalid bitmap chunksize: %s\n",
+						optarg);
+				exit(2);
+			}
+			/* convert K to B, chunk of 0K means 512B */
+			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 1024 : 512;
 			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
@@ -725,6 +769,7 @@ int main(int argc, char *argv[])
 			ident.super_minor = minor(stb.st_rdev);
 		}
 	}
+
 
 	rv = 0;
 	switch(mode) {
@@ -813,9 +858,27 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case BUILD:
-		rv = Build(devlist->devname, mdfd, chunk, level, layout, raiddisks, devlist->next, assume_clean);
+		if (bitmap_chunk == UnSet) bitmap_chunk = DEFAULT_BITMAP_CHUNK;
+		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
+		if (bitmap_file) {
+			bitmap_fd = open(bitmap_file, O_RDWR,0);
+			if (bitmap_fd < 0 && errno != ENOENT) {
+				perror(Name ": cannot create bitmap file");
+				rv |= 1;
+				break;
+			}
+			if (bitmap_fd < 0) {
+				bitmap_fd = CreateBitmap(bitmap_file, force, NULL,
+							 bitmap_chunk, delay, size);
+			}
+		}
+		rv = Build(devlist->devname, mdfd, chunk, level, layout,
+			   raiddisks, devlist->next, assume_clean,
+			   bitmap_file, bitmap_chunk, delay);
 		break;
 	case CREATE:
+		if (bitmap_chunk == UnSet) bitmap_chunk = DEFAULT_BITMAP_CHUNK;
+		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (ss == NULL) {
 			for(i=0; !ss && superlist[i]; i++) 
 				ss = superlist[i]->match_metadata_desc("default");
@@ -827,7 +890,8 @@ int main(int argc, char *argv[])
 
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks,
-			    devs_found-1, devlist->next, runstop, verbose, force);
+			    devs_found-1, devlist->next, runstop, verbose, force,
+			    bitmap_file, bitmap_chunk, delay);
 		break;
 	case MISC:
 
@@ -891,6 +955,8 @@ int main(int argc, char *argv[])
 					rv |= Kill(dv->devname, force); continue;
 				case 'Q':
 					rv |= Query(dv->devname); continue;
+				case 'X':
+					rv |= ExamineBitmap(dv->devname, brief); continue;
 				}
 				mdfd = open_mddev(dv->devname, 0);
 				if (mdfd>=0) {

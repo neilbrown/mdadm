@@ -61,9 +61,12 @@ char *strncpy(char *dest, const char *src, size_t n) __THROW;
 #define BLKGETSIZE64 _IOR(0x12,114,size_t) /* return device size in bytes (u64 *arg) */
 #endif
 
+#define DEFAULT_BITMAP_CHUNK 4096
+#define DEFAULT_BITMAP_DELAY 5
 
 #include	"md_u.h"
 #include	"md_p.h"
+#include	"bitmap.h"
 
 /* general information that might be extracted from a superblock */
 struct mdinfo {
@@ -119,6 +122,7 @@ typedef struct mddev_ident_s {
 	struct supertype *st;
 	int	autof;		/* 1 for normal, 2 for partitioned */
 	char	*spare_group;
+	int	bitmap_fd;
 
 	struct mddev_ident_s *next;
 } *mddev_ident_t;
@@ -212,13 +216,15 @@ extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 int raiddisks,
-		 mddev_dev_t devlist, int assume_clean);
+		 mddev_dev_t devlist, int assume_clean,
+		 char *bitmap_file, int bitmap_chunk, int delay);
 
 
 extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 		  int subdevs, mddev_dev_t devlist,
-		  int runstop, int verbose, int force);
+		  int runstop, int verbose, int force,
+		  char *bitmap_file, int bitmap_chunk, int delay);
 
 extern int Detail(char *dev, int brief, int test);
 extern int Query(char *dev);
@@ -230,6 +236,11 @@ extern int Monitor(mddev_dev_t devlist,
 		   char *config, int test, char *pidfile);
 
 extern int Kill(char *dev, int force);
+
+extern int CreateBitmap(char *filename, int force, char uuid[16],
+			unsigned long chunksize, unsigned long daemon_sleep,
+			unsigned long long array_size);
+extern int ExamineBitmap(char *filename, int brief);
 
 extern int md_get_version(int fd);
 extern int get_linux_version(void);

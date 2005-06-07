@@ -91,7 +91,7 @@ char Version[] = Name " - v1.11.0 - 11 April 2005\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVvbc:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1te:";
+char short_options[]="-ABCDEFGQhVXvb::c:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1te:";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -104,6 +104,7 @@ struct option long_options[] = {
     {"grow",      0, 0, 'G'},
     {"zero-superblock", 0, 0, 'K'}, /* deliberately no a short_option */
     {"query",	  0, 0, 'Q'},
+    {"examine-bitmap", 0, 0, 'X'},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
@@ -125,9 +126,11 @@ struct option long_options[] = {
     {"spare-disks",1,0, 'x'},
     {"spare-devices",1,0, 'x'},
     {"size",	  1, 0, 'z'},
-    {"auto",	  2, 0, 'a'}, /* also for --assemble */
+    {"auto",	  1, 0, 'a'}, /* also for --assemble */
     {"assume-clean",0,0, 3 },
     {"metadata",  1, 0, 'e'}, /* superblock format */
+    {"bitmap",	  1, 0, 'b'},
+    {"bitmap-chunk", 1, 0, 4},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -188,6 +191,7 @@ char Help[] =
 
 char OptionHelp[] =
 "Any parameter that does not start with '-' is treated as a device name\n"
+"or, for --examine-bitmap, a file name.\n"
 "The first such name is often the name of an md device.  Subsequent\n"
 "names are often names of component devices."
 "\n"
@@ -205,6 +209,7 @@ char OptionHelp[] =
 "  --create      -C   : Create a new array\n"
 "  --detail      -D   : Display details of an array\n"
 "  --examine     -E   : Examine superblock on an array component\n"
+"  --examine-bitmap -X: Display the detail of a bitmap file\n"
 "  --monitor     -F   : monitor (follow) some arrays\n"
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
@@ -212,6 +217,7 @@ char OptionHelp[] =
 /*
 "\n"
 " For create or build:\n"
+"  --bitmap=     -b   : File to store bitmap in - may pre-exist for --build\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : raid level: 0,1,4,5,6,linear,mp.  0 or linear for build\n"
@@ -224,8 +230,11 @@ char OptionHelp[] =
 "                     : insert a missing drive for RAID5.\n"
 "  --auto(=p)    -a   : Automatically allocate new (partitioned) md array if needed.\n"
 "  --assume-clean     : Assume the array is already in-sync. This is dangerous.\n"
+"  --bitmap-chunk=    : chunksize of bitmap in bitmap file (Kilobytes)\n"
+"  --delay=      -d   : seconds between bitmap updates\n"
 "\n"
 " For assemble:\n"
+"  --bitmap=     -b   : File to find bitmap information in\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
 "                       have this uuid are excluded\n"
 "  --super-minor= -m  : minor number to look for in super-block when\n"
@@ -280,6 +289,7 @@ char Help_create[] =
 " other levels.\n"
 "\n"
 " Options that are valid with --create (-C) are:\n"
+"  --bitmap=          : Create a bitmap for the array with the given filename\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : raid level: 0,1,4,5,6,linear,multipath and synonyms\n"
@@ -293,6 +303,8 @@ char Help_create[] =
 "  --run         -R   : insist of running the array even if not all\n"
 "                     : devices are present or some look odd.\n"
 "  --readonly    -o   : start the array readonly - not supported yet.\n"
+"  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
+"  --delay=      -d   : bitmap update delay in seconds.\n"
 "\n"
 ;
 
@@ -308,10 +320,13 @@ char Help_build[] =
 " The level may only be 0, raid0, or linear.\n"
 " All devices must be listed and the array will be started once complete.\n"
 " Options that are valid with --build (-B) are:\n"
+"  --bitmap=          : file to store/find bitmap information in.\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
 "  --level=      -l   : 0, raid0, or linear\n"
-"  --raid-devices= -n   : number of active devices in array\n"
+"  --raid-devices= -n : number of active devices in array\n"
+"  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
+"  --delay=      -d   : bitmap update delay in seconds.\n"
 ;
 
 char Help_assemble[] =
@@ -347,6 +362,7 @@ char Help_assemble[] =
 " and components are determined from the config file.\n"
 "\n"
 "Options that are valid with --assemble (-A) are:\n"
+"  --bitmap=          : bitmap file to use wit the array\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
 "                       have this uuid are excluded\n"
 "  --super-minor= -m  : minor number to look for in super-block when\n"
@@ -393,6 +409,7 @@ char Help_misc[] =
 "                       device relates to the md driver\n"
 "  --detail      -D   : Display details of an array\n"
 "  --examine     -E   : Examine superblock on an array component\n"
+"  --examine-bitmap -X: Display contents of a bitmap file\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"
 "  --run         -R   : start a partially built array\n"
 "  --stop        -S   : deactivate array, releasing all resources\n"

@@ -169,8 +169,8 @@ int Manage_subdevs(char *devname, int fd,
 	struct stat stb;
 	int j;
 	int tfd;
-	int save_errno;
-	static char buf[4096];
+	struct supertype *st;
+	void *dsuper = NULL;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
@@ -203,26 +203,54 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 			close(tfd);
-			if (ioctl(fd, HOT_ADD_DISK, (unsigned long)stb.st_rdev)==0) {
-				fprintf(stderr, Name ": hot added %s\n",
-					dv->devname);
-				continue;
-			}
-			save_errno = errno;
-			if (read(fd, buf, sizeof(buf)) > 0) {
-				/* array is active, so don't try to add.
-				 * i.e. something is wrong 
-				 */
+			if (array.major_version == 0) {
+				if (ioctl(fd, HOT_ADD_DISK,
+					  (unsigned long)stb.st_rdev)==0) {
+					fprintf(stderr, Name ": hot added %s\n",
+						dv->devname);
+					continue;
+				}
+
 				fprintf(stderr, Name ": hot add failed for %s: %s\n",
-					dv->devname, strerror(save_errno));
+					dv->devname, strerror(errno));
 				return 1;
 			}
-			/* try ADD_NEW_DISK.
-			 * we might be creating, we might be assembling,
-			 * it is hard to tell.
-			 * set up number/raid_disk/state just
-			 * in case
+
+			/* need to find a sample superblock to copy, and
+			 * a spare slot to use 
 			 */
+			st = super_by_version(array.major_version,
+					      array.minor_version);
+			if (!st) {
+				fprintf(stderr, Name ": unsupport array - version %d.%d\n",
+					array.major_version, array.minor_version);
+				return 1;
+			}
+			for (j=0; j<array.active_disks+array.spare_disks+ array.failed_disks; j++) {
+				char *dev;
+				int dfd;
+				disc.number = j;
+				if (ioctl(fd, GET_DISK_INFO, &disc))
+					continue;
+				if (disc.major==0 && disc.minor==0)
+					continue;
+				if ((disc.state & 4)==0) continue; /* sync */
+				/* Looks like a good device to try */
+				dev = map_dev(disc.major, disc.minor);
+				if (!dev) continue;
+				dfd = open(dev, O_RDONLY);
+				if (dfd < 0) continue;
+				if (st->ss->load_super(st, dfd, &dsuper, NULL)) {
+					close(dfd);
+					continue;
+				}
+				close(dfd);
+				break;
+			}
+			if (!dsuper) {
+				fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
+				return 1;
+			}
 			for (j=0; j<array.nr_disks; j++) {
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
@@ -232,11 +260,12 @@ int Manage_subdevs(char *devname, int fd,
 				if (disc.state & 8) /* removed */
 					break;
 			}
-			disc.number =j;
-			disc.raid_disk = j;
-			disc.state = 0;
 			disc.major = major(stb.st_rdev);
 			disc.minor = minor(stb.st_rdev);
+			disc.number =j;
+			disc.state = 0;
+			if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
+				return 1;
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new device failed for %s: %s\n",
 					dv->devname, strerror(errno));

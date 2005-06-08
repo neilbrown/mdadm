@@ -98,7 +98,7 @@ typedef struct mddev_ident_s {
 	char	*devname;
 	
 	int	uuid_set;
-	__u32	uuid[4];
+	int	uuid[4];
 
 	unsigned int super_minor;
 

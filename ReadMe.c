@@ -433,7 +433,7 @@ char Help_grow[] =
 "devices in a RAID1, and changing the active size of all devices in\n"
 "a RAID1/4/5/6.\n"
 "\n"
-"Options that are valid with the grow (-F --grow) mode are:\n"
+"Options that are valid with the grow (-G --grow) mode are:\n"
 "  --size=        -z   : Change the active size of devices in an array.\n"
 "                      : This is useful if all devices have been replaced\n"
 "                      : with larger devices.\n"

@@ -6,6 +6,7 @@ Changes Prior to 1.12.0 release
     -   --stop --scan repeatly cycles until no more progress can be made
 	so that stack devices are stopped properly
     -   Minor type rationalisation for ident->uuid - now always 'int[]'
+    -   Fix type in online help for --grow (was -F, now -G)
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

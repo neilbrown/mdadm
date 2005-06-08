@@ -1,4 +1,5 @@
 Changes Prior to 1.12.0 release
+  Several of these are backported from the Debian package
     -   Don't use 'lstat' to check for blockdevices, use stat.
     -   Get size calculation right when in Create when BLKGESIZE64 not available
     -   Document --size=max option for --grow
@@ -13,6 +14,7 @@ Changes Prior to 1.12.0 release
     -   Fix a few type casts
     -   Fix parsing of /dev/md/N in is_standard
     -   Fix rounding errors in human_size()
+    -   Fix silly example in mdadm.conf-examples
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

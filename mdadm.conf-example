@@ -40,7 +40,7 @@
 #
 #ARRAY /dev/md0 UUID=3aaa0122:29827cfa:5331ad66:ca767371
 #ARRAY /dev/md1 super-minor=1
-#ARRAY /dev/md2 devices=/dev/hda1,/dev/hda2
+#ARRAY /dev/md2 devices=/dev/hda1,/dev/hdb1
 #
 # ARRAY lines can also specify a "spare-group" for each array.  mdadm --monitor
 # will then move a spare between arrays in a spare-group if one array has a failed

@@ -3,6 +3,8 @@ Changes Prior to 1.12.0 release
     -   Get size calculation right when in Create when BLKGESIZE64 not available
     -   Document --size=max option for --grow
     -   Document SparesMissing event and DeviceDisappeared/WrongLevel
+    -   --stop --scan repeatly cycles until no more progress can be made
+	so that stack devices are stopped properly
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

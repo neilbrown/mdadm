@@ -156,7 +156,7 @@ extern char *map_dev(int major, int minor);
 
 
 extern int Manage_ro(char *devname, int fd, int readonly);
-extern int Manage_runstop(char *devname, int fd, int runstop);
+extern int Manage_runstop(char *devname, int fd, int runstop, int quiet);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,

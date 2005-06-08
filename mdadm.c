@@ -720,7 +720,7 @@ int main(int argc, char *argv[])
 		if (!rv && readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)
-			rv = Manage_runstop(devlist->devname, mdfd, runstop);
+			rv = Manage_runstop(devlist->devname, mdfd, runstop, 0);
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
@@ -818,20 +818,10 @@ int main(int argc, char *argv[])
 			rv = Examine(devlist, scan?!verbose:brief, scan, SparcAdjust);
 		} else {
 			if (devlist == NULL) {
-				if ((devmode == 'S' ||devmode=='D') && scan) {
-					/* apply to all devices in /proc/mdstat */
+				if (devmode=='D' && scan) {
+					/* apply --detail to all devices in /proc/mdstat */
 					struct mdstat_ent *ms = mdstat_read(0);
 					struct mdstat_ent *e;
-					if (devmode == 'S') {
-						/* reverse order so that arrays made of arrays are stopped properly */
-						struct mdstat_ent *sm = NULL;
-						while ((e=ms) != NULL) {
-							ms = e->next;
-							e->next = sm;
-							sm = e;
-						}
-						ms = sm;
-					}
 					for (e=ms ; e ; e=e->next) {
 						char *name = get_md_name(e->devnum);
 
@@ -840,18 +830,43 @@ int main(int argc, char *argv[])
 								e->dev);
 							continue;
 						}
-						if (devmode == 'D')
-							rv |= Detail(name, !verbose, test);
-						else if (devmode=='S') {
-							mdfd = open_mddev(name, 0);
-							if (mdfd >= 0) {
-								rv |= Manage_runstop(name, mdfd, -1);
-								close(mdfd);
-							}
-						}
+						rv |= Detail(name, !verbose, test);
 						put_md_name(name);
 					}
-				} else {						
+				} else	if (devmode == 'S' && scan) {
+					/* apply --stop to all devices in /proc/mdstat */
+					/* Due to possible stacking of devices, repeat until
+					 * nothing more can be stopped
+					 */
+					int progress=1, err;
+					int last = 0;
+					do {
+						struct mdstat_ent *ms = mdstat_read(0);
+						struct mdstat_ent *e;
+
+						if (!progress) last = 1;
+						progress = 0; err = 0;
+						for (e=ms ; e ; e=e->next) {
+							char *name = get_md_name(e->devnum);
+
+							if (!name) {
+								fprintf(stderr, Name ": cannot find device file for %s\n",
+									e->dev);
+								continue;
+							}
+							mdfd = open_mddev(name, 0);
+							if (mdfd >= 0) {
+								if (Manage_runstop(name, mdfd, -1, !last))
+									err = 1;
+								else
+									progress = 1;
+								close(mdfd);
+							}
+
+							put_md_name(name);
+						}
+					} while (!last && err);
+				} else {
 					fprintf(stderr, Name ": No devices given.\n");
 					exit(2);
 				}
@@ -869,9 +884,9 @@ int main(int argc, char *argv[])
 				if (mdfd>=0) {
 					switch(dv->disposition) {
 					case 'R':
-						rv |= Manage_runstop(dv->devname, mdfd, 1); break;
+						rv |= Manage_runstop(dv->devname, mdfd, 1, 0); break;
 					case 'S':
-						rv |= Manage_runstop(dv->devname, mdfd, -1); break;
+						rv |= Manage_runstop(dv->devname, mdfd, -1, 0); break;
 					case 'o':
 						rv |= Manage_ro(dv->devname, mdfd, 1); break;
 					case 'w':

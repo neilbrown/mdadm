@@ -732,7 +732,8 @@ int main(int argc, char *argv[])
 					devlist->devname);
 				rv |= 1;
 			} else {
-				mdfd = open_mddev(devlist->devname, array_ident->autof);
+				mdfd = open_mddev(devlist->devname, 
+						  array_ident->autof ? array_ident->autof : autof);
 				if (mdfd < 0)
 					rv |= 1;
 				else {
@@ -759,7 +760,8 @@ int main(int argc, char *argv[])
 					rv |= 1;
 					continue;
 				}
-				mdfd = open_mddev(dv->devname, array_ident->autof);
+				mdfd = open_mddev(dv->devname, 
+						  array_ident->autof ?array_ident->autof : autof);
 				if (mdfd < 0) {
 					rv |= 1;
 					continue;
@@ -777,7 +779,8 @@ int main(int argc, char *argv[])
 			} else
 				for (; array_list; array_list = array_list->next) {
 					mdu_array_info_t array;
-					mdfd = open_mddev(array_list->devname, array_list->autof);
+					mdfd = open_mddev(array_list->devname, 
+							  array_list->autof ? array_list->autof : autof);
 					if (mdfd < 0) {
 						rv |= 1;
 						continue;

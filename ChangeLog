@@ -7,6 +7,9 @@ Changes Prior to 1.12.0 release
 	so that stack devices are stopped properly
     -   Minor type rationalisation for ident->uuid - now always 'int[]'
     -   Fix type in online help for --grow (was -F, now -G)
+    -   Allow --auto command line option to set default auto=
+	value when running "--assemble --scan".  Previously
+	--auto was ignored if --scan was given
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

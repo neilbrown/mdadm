@@ -336,7 +336,7 @@ void arrayline(char *line)
 			else if (strcasecmp(w+5,"yes")==0 || strcasecmp(w+5,"md")==0)
 				mis.autof = -1;
 			else {
-				/* There might be digits, and maybe a hypen, at the end */
+				/* There might be digits, and maybe a hyphen, at the end */
 				char *e = w+5 + strlen(w+5);
 				int num = 4;
 				int len;

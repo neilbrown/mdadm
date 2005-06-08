@@ -391,6 +391,14 @@ from this.  See DEVICE NAMES below.
 The argumentment can also come immediately after
 "-a".  e.g. "-ap".
 
+If
+.I --scan
+is also given, then any
+.I auto=
+entries in the config file will over-ride the
+.I --auto
+instruction given on the command line.
+
 For partitionable arrays,
 .I mdadm
 will create the device file for the whole array and for the first 4

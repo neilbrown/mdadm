@@ -329,8 +329,8 @@ int check_reiser(int fd, char *name)
 		return 0;
 	if (read(fd, sb, 1024) != 1024)
 		return 0;
-	if (strncmp(sb+52, "ReIsErFs",8)!=0 &&
-	    strncmp(sb+52, "ReIsEr2Fs",9)!=0)
+	if (strncmp((char*)sb+52, "ReIsErFs",8)!=0 &&
+	    strncmp((char*)sb+52, "ReIsEr2Fs",9)!=0)
 		return 0;
 	fprintf(stderr, Name ": %s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
@@ -512,7 +512,7 @@ unsigned long calc_sb_csum(mdp_super_t *super)
 	unsigned long long newcsum = 0;
 	unsigned long csum;
 	int i;
-	unsigned int *superc = (int*) super;
+	unsigned int *superc = (unsigned int*) super;
 	super->sb_csum = 0;
 
 	for(i=0; i<MD_SB_BYTES/4; i++)

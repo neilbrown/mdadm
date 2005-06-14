@@ -466,6 +466,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(BUILD,'f'): /* force honouring '-n 1' */
+		case O(GROW,'f'): /* ditto */
 		case O(CREATE,'f'): /* force honouring of device list */
 		case O(ASSEMBLE,'f'): /* force assembly */
 		case O(MISC,'f'): /* force zero */

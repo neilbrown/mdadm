@@ -255,10 +255,12 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				       ap->super.set_uuid2, ap->super.set_uuid3);
 			else
 				printf("%08x", ap->super.set_uuid0);
-			printf("\n   devices");
-			for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
-				printf("%c%s", sep, d);
-				sep=',';
+			if (brief > 1) {
+				printf("\n   devices");
+				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
+					printf("%c%s", sep, d);
+					sep=',';
+				}
 			}
 			printf("\n");
 		}

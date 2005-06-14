@@ -181,7 +181,12 @@ Print version information for mdadm.
 
 .TP
 .BR -v ", " --verbose
-Be more verbose about what is happening.
+Be more verbose about what is happening.  This can be used twice to be
+extra-verbose.
+This currently only affects
+.B --detail --scan
+and
+.BR "--examine --scan" .
 
 .TP
 .BR -b ", " --brief
@@ -189,6 +194,11 @@ Be less verbose.  This is used with
 .B --detail
 and
 .BR --examine .
+Using
+.B --brief
+with
+.B --verbose
+gives an intermediate level of verbosity.
 
 .TP
 .BR -f ", " --force

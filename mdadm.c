@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 			fputs(Version, stderr);
 			exit(0);
 
-		case 'v': verbose = 1;
+		case 'v': verbose++;
 			continue;
 
 		case 'b': brief = 1;
@@ -818,7 +818,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			rv = Examine(devlist, scan?!verbose:brief, scan, SparcAdjust);
+			rv = Examine(devlist, scan?(verbose>1?0:verbose+1):brief, scan, SparcAdjust);
 		} else {
 			if (devlist == NULL) {
 				if (devmode=='D' && scan) {
@@ -833,7 +833,7 @@ int main(int argc, char *argv[])
 								e->dev);
 							continue;
 						}
-						rv |= Detail(name, !verbose, test);
+						rv |= Detail(name, verbose>1?0:verbose+1, test);
 						put_md_name(name);
 					}
 				} else	if (devmode == 'S' && scan) {
@@ -877,7 +877,7 @@ int main(int argc, char *argv[])
 			for (dv=devlist ; dv; dv=dv->next) {
 				switch(dv->disposition) {
 				case 'D':
-					rv |= Detail(dv->devname, brief, test); continue;
+					rv |= Detail(dv->devname, brief?1+verbose:0, test); continue;
 				case 'K': /* Zero superblock */
 					rv |= Kill(dv->devname, force); continue;
 				case 'Q':

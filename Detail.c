@@ -286,7 +286,7 @@ int Detail(char *dev, int brief, int test)
 		else
 			printf("%08x", super.set_uuid0);
 	}
-	if (brief && devices) printf("\n   devices=%s", devices);
+	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
 	if (test && (rv&2)) rv &= ~1;
 	close(fd);

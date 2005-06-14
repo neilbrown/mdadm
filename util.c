@@ -478,12 +478,15 @@ int add_dev(const char *name, const struct stat *stb, int flag)
 
 /*
  * Find a block device with the right major/minor number.
- * Avoid /dev/mdNN and /dev/md/dNN if possible
+ * If we find multiple names, choose the shortest.
+ * If we find a non-standard name, it is probably there
+ * deliberately so prefer it over a standard name.
+ * This applies only to names for MD devices.
  */
 char *map_dev(int major, int minor)
 {
 	struct devmap *p;
-	char *std = NULL;
+	char *std = NULL, *nonstd=NULL;
 	if (!devlist_ready) {
 #ifndef __dietlibc__
 		nftw("/dev", add_dev, 10, FTW_PHYS);
@@ -496,12 +499,17 @@ char *map_dev(int major, int minor)
 	for (p=devlist; p; p=p->next)
 		if (p->major == major &&
 		    p->minor == minor) {
-			if (is_standard(p->name, NULL))
-				std = p->name;
-			else
-				return p->name;
+			if (is_standard(p->name, NULL)) {
+				if (std == NULL ||
+				    strlen(p->name) < strlen(std))
+					std = p->name;
+			} else {
+				if (nonstd == NULL ||
+				    strlen(p->name) < strlen(nonstd))
+					nonstd = p->name;
+			}
 		}
-	return std;
+	return nonstd ? nonstd : std;
 }
 
 #endif

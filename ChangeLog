@@ -15,6 +15,7 @@ Changes Prior to 1.12.0 release
     -   Fix parsing of /dev/md/N in is_standard
     -   Fix rounding errors in human_size()
     -   Fix silly example in mdadm.conf-examples
+    -   When finding a /dev name for a device, prefer shorter names
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

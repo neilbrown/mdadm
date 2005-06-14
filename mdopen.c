@@ -97,7 +97,7 @@ int open_mddev(char *dev, int autof)
 			return -1;
 		}
 		stb.st_mode = 0;
-		if (lstat(dev, &stb)==0 && ! S_ISBLK(stb.st_mode)) {
+		if (stat(dev, &stb)==0 && ! S_ISBLK(stb.st_mode)) {
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				dev);
 			return -1;

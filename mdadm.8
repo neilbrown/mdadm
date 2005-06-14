@@ -34,49 +34,51 @@ md devices,
 and
 .BR FAULTY .
 
-.B MULTIPATH is not a Software RAID mechanism, but does involve
+.B MULTIPATH
+is not a Software RAID mechanism, but does involve
 multiple devices.  For
 .B MULTIPATH
 each device is a path to one common physical storage device.
 
-.B FAULTY is also no true RAID, and it only involves one device.  It
+.B FAULTY
+is also not true RAID, and it only involves one device.  It
 provides a layer over a true device that can be used to inject faults.
 
-.B mdadm
-is a program that can be used to create, manage, and monitor
-MD devices.  As
-such it provides a similar set of functionality to the
-.B raidtools
-packages.
-The key differences between
-.B mdadm
-and
-.B raidtools
-are:
-.IP \(bu 4
-.B mdadm
-is a single program and not a collection of programs.
-.IP \(bu 4
-.B mdadm
-can perform (almost) all of its functions without having a
-configuration file and does not use one by default.  Also
-.B mdadm
-helps with management of the configuration
-file.
-.IP \(bu 4
-.B mdadm
-can provide information about your arrays (through Query, Detail, and Examine)
-that
-.B  raidtools
-cannot.
-.P
-.I mdadm
-does not use
-.IR /etc/raidtab ,
-the
-.B raidtools
-configuration file, at all.  It has a different configuration file
-with a different format and an different purpose.
+'''.B mdadm
+'''is a program that can be used to create, manage, and monitor
+'''MD devices.  As
+'''such it provides a similar set of functionality to the
+'''.B raidtools
+'''packages.
+'''The key differences between
+'''.B mdadm
+'''and
+'''.B raidtools
+'''are:
+'''.IP \(bu 4
+'''.B mdadm
+'''is a single program and not a collection of programs.
+'''.IP \(bu 4
+'''.B mdadm
+'''can perform (almost) all of its functions without having a
+'''configuration file and does not use one by default.  Also
+'''.B mdadm
+'''helps with management of the configuration
+'''file.
+'''.IP \(bu 4
+'''.B mdadm
+'''can provide information about your arrays (through Query, Detail, and Examine)
+'''that
+'''.B  raidtools
+'''cannot.
+'''.P
+'''.I mdadm
+'''does not use
+'''.IR /etc/raidtab ,
+'''the
+'''.B raidtools
+'''configuration file, at all.  It has a different configuration file
+'''with a different format and an different purpose.
 
 .SH MODES
 mdadm has 7 major modes of operation:
@@ -92,7 +94,15 @@ information so as to assemble a faulty array.
 
 .TP
 .B Build
-Build a legacy array without per-device superblocks.
+Build an array that doesn't have per-device superblocks.  For these
+sorts of arrays,
+.I mdadm
+cannot differentiate between initial creation and subsequent assembly
+of an array.  It also cannot perform any checks that appropriate
+devices have been requested.  Because of this, the
+.B Build
+mode should only be used together with a complete understanding of
+what you are doing.
 
 .TP
 .B Create
@@ -167,8 +177,8 @@ Change the size or shape of an active array.
 
 .TP
 .BR -h ", " --help
-Display help message or, after above option, mode specific help
-message.
+Display general help message or, after one of the above options, a
+mode specific help message.
 
 .TP
 .B --help-options
@@ -183,7 +193,7 @@ Print version information for mdadm.
 .BR -v ", " --verbose
 Be more verbose about what is happening.  This can be used twice to be
 extra-verbose.
-This currently only affects
+The extra verbosity currently only affects
 .B --detail --scan
 and
 .BR "--examine --scan" .
@@ -263,7 +273,7 @@ raid5, 5, raid6, 6, multipath, mp, fautly.  Obviously some of these are synonymo
 
 When used with
 .IR --build ,
-only linear, raid0, 0, stripe are valid.
+only linear, stripe, raid0, 0, raid1, multipath, mp, and faulty are valid.
 
 .TP
 .BR -p ", " --parity=
@@ -356,7 +366,7 @@ using
 .BR --grow .
 The size can be given as
 .B max
-which means to choose the largest size that fits all on all current drives.
+which means to choose the largest size that fits on all current drives.
 
 .TP
 .BR --assume-clean
@@ -398,7 +408,7 @@ later) to be used.  "yes" requires the named md device to have a
 'standard' format, and the type and minor number will be determined
 from this.  See DEVICE NAMES below.
 
-The argumentment can also come immediately after
+The argument can also come immediately after
 "-a".  e.g. "-ap".
 
 If
@@ -423,7 +433,7 @@ e.g. "/dev/scratch3".
 If the md device name is in a 'standard' format as described in DEVICE
 NAMES, then it will be created, if necessary, with the appropriate
 number based on that name.  If the device name is not in one of these
-formats, then a unused minor number will be allocted.  The minor
+formats, then a unused minor number will be allocated.  The minor
 number will be considered unused if there is no active array for that
 number, and there is no entry in /dev for that number and with a
 non-standard name.
@@ -536,7 +546,7 @@ same as --fail.
 
 .TP
 .B --sparc2.2
-In an array was created on a 2.2 Linux kernel patched with RAID
+If an array was created on a 2.2 Linux kernel patched with RAID
 support, the superblock will have been created incorrectly, or at
 least incompatibly with 2.4 and later kernels.  Using the
 .B --sparc2.2
@@ -621,6 +631,8 @@ Check arrays only once.  This will generate
 .B NewArray
 events and more significantly
 .B DegradedArray
+and
+.B SparesMissing
 events.  Running
 .in +5
 .B "   mdadm --monitor --scan -1"
@@ -633,7 +645,7 @@ Generate a
 .B TestMessage
 alert for every array found at startup.  This alert gets mailed and
 passed to the alert program.  This can be used for testing that alert
-message to get through successfully.
+message do get through successfully.
 
 .SH ASSEMBLE MODE
 
@@ -738,7 +750,7 @@ When using this option to create a partitionable array, the device
 files for the first 4 partitions are also created. If a different
 number is required it can be simply appended to the auto option.
 e.g. "auto=part8".  Partition names are created by appending a digit
-string to the device name, with an intervening "_p" if the device name
+string to the device name, with an intervening "p" if the device name
 ends with a digit.
 
 The
@@ -761,13 +773,14 @@ Usage:
 .PP
 This usage is similar to 
 .BR --create .
-The difference is that it creates a legacy array without a superblock. With
+The difference is that it creates an array without a superblock. With
 these arrays there is no difference between initially creating the array and
 subsequently assembling the array, except that hopefully there is useful
 data there in the second case.
 
-The level may only be 0, raid0, or linear. All devices must be listed
-and the array will be started once complete.
+The level may raid0, linear, multipath, or faulty, or one of their
+synonyms. All devices must be listed and the array will be started
+once complete.
 
 .SH CREATE MODE
 
@@ -785,7 +798,7 @@ Usage:
 This usage will initialise a new md array, associate some devices with
 it, and activate the array.
 
-This the
+If the
 .B --auto
 option is given (as described in more detail in the section on
 Assemble mode), then the md device will be created with a suitable
@@ -985,7 +998,7 @@ As well as reporting events,
 may move a spare drive from one array to another if they are in the
 same
 .B spare-group
-and if the destination array has a failed drive but not spares.
+and if the destination array has a failed drive but no spares.
 
 If any devices are listed on the command line,
 .B mdadm
@@ -1161,7 +1174,7 @@ Currently the only support available is to change the "size" attribute
 for arrays with redundancy, and the raid-disks attribute of RAID1
 arrays.
 
-Normally when an array is build the "size" it taken from the smallest
+Normally when an array is built the "size" it taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a
 time, removed and replaced with larger drives, then you could have an
 array of large drives with only a small amount used.  In this
@@ -1185,7 +1198,7 @@ are to be removed from the array must already be vacant.  That is, the
 devices that which were in those slots must be failed and removed.
 
 When the number of devices is increased, any hot spares that are
-present may be activated immediately.
+present will be activated immediately.
 
 .SH EXAMPLES
 
@@ -1329,7 +1342,14 @@ Partition numbers should be indicated by added "pMM" to these, thus "/dev/md/d1p
 .B mdadm
 was previously known as
 .BR mdctl .
- 
+.P
+.B mdadm
+is completely separate from the
+.B raidtools
+package, and does not use the
+.I /etc/raidtab
+configuration file at all.
+
 .SH SEE ALSO
 For information on the various levels of
 RAID, check out:
@@ -1338,24 +1358,32 @@ RAID, check out:
 .UR   http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
 http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
 .UE
+'''.PP
+'''for new releases of the RAID driver check out:
+'''
+'''.IP
+'''.UR  ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
+'''ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
+'''.UE
+'''.PP
+'''or
+'''.IP
+'''.UR http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
+'''http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
+'''.UE
 .PP
-for new releases of the RAID driver check out:
-
+The lastest version of
+.I mdadm
+should always be available from
 .IP
-.UR  ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
-ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
+.UR http://www.kernel.org/pub/linux/utils/raid/mdadm/
+http://www.kernel.org/pub/linux/utils/raid/mdadm/
 .UE
 .PP
-or
-.IP
-.UR http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
-http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
-.URk
-.PP
-.BR mdadm.conf (5),
-.BR md (4).
+.IR mdadm.conf (5),
+.IR md (4).
 .PP
 .IR raidtab (5),
 .IR raid0run (8),
 .IR raidstop (8),
-.IR mkraid (8)
+.IR mkraid (8).

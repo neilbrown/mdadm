@@ -401,24 +401,31 @@ unsigned long calc_csum(void *super, int bytes)
 char *human_size(long long bytes)
 {
 	static char buf[30];
-	
+
+	/* We convert bytes to either centi-M{ega,ibi}bytes or
+	 * centi-G{igi,ibi}bytes, with appropriate rounding,
+	 * and then print 1/100th of those as a decimal.
+	 * We allow upto 2048Megabytes before converting to
+	 * gigabytes, as that shows more precision and isn't
+	 * too large a number.
+	 * Terrabytes are not yet handled.
+	 */
 
 	if (bytes < 5000*1024)
 		buf[0]=0;
-	else if (bytes < 2*1024LL*1024LL*1024LL)
+	else if (bytes < 2*1024LL*1024LL*1024LL) {
+		long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
+		long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
 		sprintf(buf, " (%ld.%02ld MiB %ld.%02ld MB)",
-			(long)(bytes>>20),
-			(long)((bytes&0xfffff)+0x100000/200)/(0x100000/100),
-			(long)(bytes/1000/1000),
-			(long)(((bytes%1000000)+5000)/10000)
-			);
-	else
+			cMiB/100 , cMiB % 100,
+			cMB/100, cMB % 100);
+	} else {
+		long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
+		long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
 		sprintf(buf, " (%ld.%02ld GiB %ld.%02ld GB)",
-			(long)(bytes>>30),
-			(long)(((bytes>>10)&0xfffff)+0x100000/200)/(0x100000/100),
-			(long)(bytes/1000LL/1000LL/1000LL),
-			(long)((((bytes/1000)%1000000)+5000)/10000)
-			);
+			cGiB/100 , cGiB % 100,
+			cGB/100, cGB % 100);
+	}
 	return buf;
 }
 

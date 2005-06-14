@@ -669,3 +669,9 @@ void put_md_name(char *name)
 	if (strncmp(name, "/dev/.tmp.md", 12)==0)
 		unlink(name);
 }
+
+#ifdef __TINYC__
+/* tinyc doesn't optimize this check in ioctl.h out ... */
+unsigned int __invalid_size_argument_for_IOC = 0;
+#endif
+

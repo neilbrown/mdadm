@@ -69,7 +69,7 @@ endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
-everything: all mdadm.static mdadm.tcc mdadm.uclibc
+everything: all mdadm.static mdadm.tcc mdadm.uclibc  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
 
 mdadm : $(OBJS)
 	$(CC) $(LDFLAGS) -o mdadm $^
@@ -112,6 +112,9 @@ md.man : md.4
 
 mdadm.conf.man : mdadm.conf.5
 	nroff -man mdadm.conf.5 > mdadm.conf.man
+
+mdassemble.man : mdassemble.8
+	nroff -man mdassemble.8 > mdassemble.man
 
 $(OBJS) : mdadm.h
 

@@ -21,6 +21,7 @@ Changes Prior to this release
 	stable aspect of the array
     -   Allow --force with --grow so '-Gfn1' works (on raid1)
     -   Replace sprintf calls with snprintf (to quiet diet-libc)
+    -   Add man page for mdassemble
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

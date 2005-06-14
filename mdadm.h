@@ -154,6 +154,19 @@ extern mapping_t r5layout[], pers[], modes[], faultylayout[];
 
 extern char *map_dev(int major, int minor);
 
+#ifdef UCLIBC
+  struct FTW {};
+# define FTW_PHYS 1
+#else
+# define  __USE_XOPEN_EXTENDED
+# include <ftw.h>
+# ifdef __dietlibc__
+#  define FTW_PHYS 1
+# endif
+#endif
+
+extern int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s);
+
 
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop, int quiet);

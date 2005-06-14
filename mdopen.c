@@ -66,6 +66,8 @@ void make_parts(char *dev, int cnt)
 		mknod(name, S_IFBLK | 0600, makedev(major, minor+i));
 		chown(name, stb2.st_uid, stb2.st_gid);
 		chmod(name, stb2.st_mode & 07777);
+		stat(name, &stb2);
+		add_dev(name, &stb2, 0, NULL);
 	}
 }
 
@@ -205,6 +207,8 @@ int open_mddev(char *dev, int autof)
 				chown(dev, stb.st_uid, stb.st_gid);
 				chmod(dev, stb.st_mode & 07777);
 			}
+			stat(dev, &stb);
+			add_dev(dev, &stb, 0, NULL);
 			make_parts(dev,autof);
 		}
 	}

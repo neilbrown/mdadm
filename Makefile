@@ -65,9 +65,10 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	mdopen.c super0.c super1.c bitmap.c
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
+ASSEMBLE_FLAGS:= -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += mdopen.c mdstat.c
-ASSEMBLE_FLAGS = -DMDASSEMBLE_AUTO
+ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man

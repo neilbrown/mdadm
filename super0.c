@@ -52,6 +52,7 @@ static unsigned long calc_sb0_csum(mdp_super_t *super)
 	return newcsum;
 }
 
+#ifndef MDASSEMBLE
 static void examine_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
@@ -170,7 +171,7 @@ static void brief_detail_super0(void *sbv)
 	else
 		printf("%08x", sb->set_uuid0);
 }
-
+#endif
 static void uuid_from_super0(int uuid[4], void * sbv)
 {
 	mdp_super_t *super = sbv;
@@ -743,10 +744,12 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	
 
 struct superswitch super0 = {
+#ifndef MDASSEMBLE
 	.examine_super = examine_super0,
 	.brief_examine_super = brief_examine_super0,
 	.detail_super = detail_super0,
 	.brief_detail_super = brief_detail_super0,
+#endif
 	.uuid_from_super = uuid_from_super0,
 	.getinfo_super = getinfo_super0,
 	.update_super = update_super0,

@@ -115,7 +115,7 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 	return csum;
 }
 
-
+#ifndef MDASSEMBLE
 static void examine_super1(void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
@@ -249,6 +249,8 @@ static void brief_detail_super1(void *sbv)
 		if ((i&3)==0 && i != 0) printf(":");
 	}
 }
+
+#endif
 
 static void uuid_from_super1(int uuid[4], void * sbv)
 {
@@ -783,10 +785,12 @@ static __u64 avail_size1(__u64 devsize)
 }
 
 struct superswitch super1 = {
+#ifndef MDASSEMBLE
 	.examine_super = examine_super1,
 	.brief_examine_super = brief_examine_super1,
 	.detail_super = detail_super1,
 	.brief_detail_super = brief_detail_super1,
+#endif
 	.uuid_from_super = uuid_from_super1,
 	.getinfo_super = getinfo_super1,
 	.update_super = update_super1,

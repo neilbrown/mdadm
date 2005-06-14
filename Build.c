@@ -55,12 +55,18 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	int i;
 	int vers;
 	struct stat stb;
-	int subdevs = 0;
+	int subdevs = 0, missing_disks = 0;
 	mddev_dev_t dv;
 	int bitmap_fd;
+/*	unsigned long long size = ~0ULL; / * needed for bitmap only */
 
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
+		subdevs++;
+		if (strcmp("missing", dv->devname) == 0) {
+			missing_disks++;
+			continue;
+		}
 		if (stat(dv->devname, &stb)) {
 			fprintf(stderr, Name ": Cannot find %s: %s\n",
 				dv->devname, strerror(errno));
@@ -71,7 +77,6 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 				dv->devname);
 			return 1;
 		}
-		subdevs++;
 	}
 
 	if (raiddisks != subdevs) {
@@ -124,10 +129,10 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		array.state = 0; /* not clean, but no errors */
 		if (assume_clean)
 			array.state |= 1;
-		array.active_disks = raiddisks;
-		array.working_disks = raiddisks;
+		array.active_disks = raiddisks - missing_disks;
+		array.working_disks = raiddisks - missing_disks;
 		array.spare_disks = 0;
-		array.failed_disks = 0;
+		array.failed_disks = missing_disks;
 		if (chunk == 0)  
 			chunk = 64;
 		array.chunk_size = chunk*1024;
@@ -143,8 +148,10 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	}
 	/* now add the devices */
 	for ((i=0), (dv = devlist) ; dv ; i++, dv=dv->next) {
+		if (strcmp("missing", dv->devname) == 0)
+			continue;
 		if (stat(dv->devname, &stb)) {
-			fprintf(stderr, Name ": Wierd: %s has disappeared.\n",
+			fprintf(stderr, Name ": Weird: %s has disappeared.\n",
 				dv->devname);
 			goto abort;
 		}
@@ -236,4 +243,3 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	return 1;
 		
 }
-

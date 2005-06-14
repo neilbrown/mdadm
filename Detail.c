@@ -284,7 +284,7 @@ int Detail(char *dev, int brief, int test)
 	if (super && brief && st)
 		st->ss->brief_detail_super(super);
 
-	if (brief && devices) printf("\n   devices=%s", devices);
+	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
 	if (test && (rv&2)) rv &= ~1;
 	close(fd);

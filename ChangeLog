@@ -15,6 +15,10 @@ Changes Prior to this release
     -   Fix rounding errors in human_size()
     -   Fix silly example in mdadm.conf-examples
     -   When finding a /dev name for a device, prefer shorter names
+    -   Suppress listing of devices= in --brief output of -D or -E,
+	unless -v is given (-vv gives the old behaviour with -Dsv).
+	This is because the device list can change and so is not a
+	stable aspect of the array
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

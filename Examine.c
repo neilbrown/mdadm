@@ -130,10 +130,12 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 			char *d;
 			ap->st->ss->brief_examine_super(ap->super);
 			if (ap->spares) printf("   spares=%d", ap->spares);
-			printf("   devices");
-			for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
-				printf("%c%s", sep, d);
-				sep=',';
+			if (brief > 1) {
+				printf("   devices");
+				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
+					printf("%c%s", sep, d);
+					sep=',';
+				}
 			}
 			free(ap->super);
 			/* FIXME free ap */

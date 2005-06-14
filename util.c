@@ -313,6 +313,9 @@ struct devmap {
 int devlist_ready = 0;
 
 #ifdef UCLIBC
+int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
+{
+}
 char *map_dev(int major, int minor)
 {
 #if 0
@@ -322,15 +325,19 @@ char *map_dev(int major, int minor)
 	return NULL;
 }
 #else
-#define  __USE_XOPEN_EXTENDED
-#include <ftw.h>
 
-
-#ifndef __dietlibc__
-int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
-#else
-int add_dev(const char *name, const struct stat *stb, int flag)
+#ifdef __dietlibc__
+int add_dev_1(const char *name, const struct stat *stb, int flag)
+{
+	return add_dev(name, stb, flag, NULL);
+}
+int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+{
+	ftw(path, add_dev_1, nopenfd);
+}
 #endif
+
+int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 {
     if ((stb->st_mode&S_IFMT)== S_IFBLK) {
 	char *n = strdup(name);
@@ -358,11 +365,7 @@ char *map_dev(int major, int minor)
 	struct devmap *p;
 	char *std = NULL, *nonstd=NULL;
 	if (!devlist_ready) {
-#ifndef __dietlibc__
 		nftw("/dev", add_dev, 10, FTW_PHYS);
-#else
-		ftw("/dev", add_dev, 10);
-#endif
 		devlist_ready=1;
 	}
 

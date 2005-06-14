@@ -221,8 +221,10 @@ int load_super(int fd, mdp_super_t *super)
 	{
 		if (ioctl(fd, BLKGETSIZE, &size))
 			return 1;
-		else
-			dsize = size << 9;
+		else {
+			dsize = size;
+			dsize <<= 9;
+		}
 	}
 
 	if (dsize < MD_RESERVED_SECTORS*2)

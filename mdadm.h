@@ -321,3 +321,14 @@ extern int open_mddev(char *dev, int autof);
 
 #define	ModeMask	0x1f
 #define	ModeShift	5
+
+
+#ifdef __TINYC__
+#undef minor
+#undef major
+#undef makedev
+#define minor(x) ((x)&0xff)
+#define major(x) (((x)>>8)&0xff)
+#define makedev(M,m) (((M)<<8) | (m))
+#endif
+

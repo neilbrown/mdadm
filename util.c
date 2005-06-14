@@ -548,7 +548,6 @@ void put_md_name(char *name)
 
 
 
-
 struct superswitch *superlist[] = { &super0, &super1, NULL };
 
 struct supertype *super_by_version(int vers, int minor)
@@ -610,3 +609,9 @@ struct supertype *guess_super(int fd)
 	free(st);
 	return NULL;
 }
+
+#ifdef __TINYC__
+/* tinyc doesn't optimize this check in ioctl.h out ... */
+unsigned int __invalid_size_argument_for_IOC = 0;
+#endif
+

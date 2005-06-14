@@ -22,6 +22,7 @@ Changes Prior to this release
     -   Allow --force with --grow so '-Gfn1' works (on raid1)
     -   Replace sprintf calls with snprintf (to quiet diet-libc)
     -   Add man page for mdassemble
+    -   Fix compilation with tinyc
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

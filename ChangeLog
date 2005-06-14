@@ -9,6 +9,7 @@ Changes Prior to this release
     -   Allow --auto command line option to set default auto=
 	value when running "--assemble --scan".  Previously
 	--auto was ignored if --scan was given
+    -   Fix a few type casts
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

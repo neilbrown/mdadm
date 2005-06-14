@@ -195,8 +195,8 @@ int check_reiser(int fd, char *name)
 		return 0;
 	if (read(fd, sb, 1024) != 1024)
 		return 0;
-	if (strncmp(sb+52, "ReIsErFs",8)!=0 &&
-	    strncmp(sb+52, "ReIsEr2Fs",9)!=0)
+	if (strncmp((char*)sb+52, "ReIsErFs",8)!=0 &&
+	    strncmp((char*)sb+52, "ReIsEr2Fs",9)!=0)
 		return 0;
 	fprintf(stderr, Name ": %s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;

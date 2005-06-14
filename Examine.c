@@ -211,7 +211,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				char nb[5];
 				if (d>=0) dp = &super.disks[d];
 				else dp = &super.this_disk;
-				sprintf(nb, "%4d", d);
+				snprintf(nb, sizeof(nb), "%4d", d);
 				printf("%4s %5d   %5d    %5d    %5d     ", d < 0 ? "this" :  nb,
 				       dp->number, dp->major, dp->minor, dp->raid_disk);
 				if (dp->state & (1<<MD_DISK_FAULTY)) printf(" faulty");

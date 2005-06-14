@@ -42,7 +42,8 @@ void make_parts(char *dev, int cnt)
 	struct stat stb;
 	int major, minor;
 	int i;
-	char *name = malloc(strlen(dev) + 20);
+	int nlen = strlen(dev) + 20;
+	char *name = malloc(nlen);
 	int dig = isdigit(dev[strlen(dev)-1]);
 
 	if (stat(dev, &stb)!= 0)
@@ -53,7 +54,7 @@ void make_parts(char *dev, int cnt)
 	minor = minor(stb.st_rdev);
 	for (i=1; i <= cnt ; i++) {
 		struct stat stb2;
-		sprintf(name, "%s%s%d", dev, dig?"p":"", i);
+		snprintf(name, nlen, "%s%s%d", dev, dig?"p":"", i);
 		if (stat(name, &stb2)==0) {
 			if (!S_ISBLK(stb2.st_mode))
 				continue;

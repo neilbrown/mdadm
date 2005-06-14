@@ -60,12 +60,12 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 	char *c;
 	int rv = 0;
 	int err;
-	int spares = 0;
 
 	struct array {
 		mdp_super_t super;
 		void *devs;
 		struct array *next;
+		int spares;
 	} *arrays = NULL;
 
 	for (; devlist ; devlist=devlist->next) {
@@ -126,10 +126,13 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				ap->super = super;
 				ap->devs = dl_head();
 				ap->next = arrays;
+				ap->spares = 0;
 				arrays = ap;
 			}
 			d = dl_strdup(devlist->devname);
 			dl_add(ap->devs, d);
+			if (super.this_disk.state == 0)
+				ap->spares++;
 		} else {
 			printf("%s:\n",devlist->devname);
 			printf("          Magic : %08x\n", super.md_magic);
@@ -215,7 +218,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 				if (dp->state & (1<<MD_DISK_ACTIVE)) printf(" active");
 				if (dp->state & (1<<MD_DISK_SYNC)) printf(" sync");
 				if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
-				if (dp->state == 0) { printf(" spare"); spares++; }
+				if (dp->state == 0) printf(" spare");
 				if ((dv=map_dev(dp->major, dp->minor)))
 					printf("   %s", dv);
 				printf("\n");
@@ -246,15 +249,15 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust)
 			char sep='=';
 			char *c=map_num(pers, ap->super.level);
 			char *d;
-			printf("ARRAY %s level=%s num-devices=%d UUID=",
+			printf("ARRAY %s level=%s num-devices=%d",
 			       get_md_name(ap->super.md_minor),
 			       c?c:"-unknown-", ap->super.raid_disks);
-			if (spares) printf(" spares=%d", spares);
+			if (ap->spares) printf(" spares=%d", ap->spares);
 			if (ap->super.minor_version >= 90)
-				printf("%08x:%08x:%08x:%08x", ap->super.set_uuid0, ap->super.set_uuid1,
+				printf(" UUID=%08x:%08x:%08x:%08x", ap->super.set_uuid0, ap->super.set_uuid1,
 				       ap->super.set_uuid2, ap->super.set_uuid3);
 			else
-				printf("%08x", ap->super.set_uuid0);
+				printf(" UUID=%08x", ap->super.set_uuid0);
 			if (brief > 1) {
 				printf("\n   devices");
 				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {

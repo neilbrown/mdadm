@@ -19,6 +19,7 @@ Changes Prior to this release
 	unless -v is given (-vv gives the old behaviour with -Dsv).
 	This is because the device list can change and so is not a
 	stable aspect of the array
+    -   Allow --force with --grow so '-Gfn1' works (on raid1)
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

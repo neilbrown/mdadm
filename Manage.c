@@ -72,7 +72,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 	return 0;			
 }
 
-int Manage_runstop(char *devname, int fd, int runstop)
+int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 {
 	/* Run or stop the array. array must already be configured
 	 * required >= 0.90.0
@@ -81,8 +81,8 @@ int Manage_runstop(char *devname, int fd, int runstop)
 
 	if (runstop == -1 && md_get_version(fd) < 9000) {
 		if (ioctl(fd, STOP_MD, 0)) {
-			fprintf(stderr, Name ": stopping device %s failed: %s\n",
-				devname, strerror(errno));
+			if (!quiet) fprintf(stderr, Name ": stopping device %s failed: %s\n",
+					    devname, strerror(errno));
 			return 1;
 		}
 	}
@@ -106,8 +106,9 @@ int Manage_runstop(char *devname, int fd, int runstop)
 		}
 	} else if (runstop < 0){
 		if (ioctl(fd, STOP_ARRAY, NULL)) {
-			fprintf(stderr, Name ": fail to stop array %s: %s\n",
-				devname, strerror(errno));
+			if (!quiet)
+				fprintf(stderr, Name ": fail to stop array %s: %s\n",
+					devname, strerror(errno));
 			return 1;
 		}
 	}

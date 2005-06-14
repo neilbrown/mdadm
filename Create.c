@@ -464,7 +464,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 				strerror(errno));
-			Manage_runstop(mddev, mdfd, -1);
+			Manage_runstop(mddev, mdfd, -1, 0);
 			return 1;
 		}
 		fprintf(stderr, Name ": array %s started.\n", mddev);

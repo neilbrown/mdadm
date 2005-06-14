@@ -2,6 +2,8 @@ Changes Prior to this release
     -   Don't use 'lstat' to check for blockdevices, use stat.
     -   Document --size=max option for --grow
     -   Document SparesMissing event and DeviceDisappeared/WrongLevel
+    -   --stop --scan repeatly cycles until no more progress can be made
+	so that stack devices are stopped properly
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

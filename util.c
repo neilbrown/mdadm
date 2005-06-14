@@ -284,7 +284,7 @@ int is_standard(char *dev, int *nump)
 	else if (strncmp(d, "/md", 3)==0)
 		d += 3, type=-1; /* /dev/mdN */
 	else if (d-dev > 3 && strncmp(d-2, "md/", 3)==0)
-		type = -1; /* /dev/md/N */
+		d += 1, type=-1; /* /dev/md/N */
 	else
 		return 0;
 	if (!*d)

@@ -10,6 +10,7 @@ Changes Prior to this release
 	value when running "--assemble --scan".  Previously
 	--auto was ignored if --scan was given
     -   Fix a few type casts
+    -   Fix parsing of /dev/md/N in is_standard
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

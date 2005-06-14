@@ -1,5 +1,6 @@
 Changes Prior to this release
     -   Don't use 'lstat' to check for blockdevices, use stat.
+    -   Document --size=max option for --grow
 	
 Changes Prior to 1.11.0 release
     -   Fix embarassing bug which causes --add to always fail.

@@ -427,13 +427,13 @@ char *human_size(long long bytes)
 	else if (bytes < 2*1024LL*1024LL*1024LL) {
 		long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
 		long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
-		sprintf(buf, " (%ld.%02ld MiB %ld.%02ld MB)",
+		snprintf(buf, sizeof(buf), " (%ld.%02ld MiB %ld.%02ld MB)",
 			cMiB/100 , cMiB % 100,
 			cMB/100, cMB % 100);
 	} else {
 		long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
 		long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
-		sprintf(buf, " (%ld.%02ld GiB %ld.%02ld GB)",
+		snprintf(buf, sizeof(buf), " (%ld.%02ld GiB %ld.%02ld GB)",
 			cGiB/100 , cGiB % 100,
 			cGB/100, cGB % 100);
 	}
@@ -446,16 +446,16 @@ char *human_size_brief(long long bytes)
 	
 
 	if (bytes < 5000*1024)
-		sprintf(buf, "%ld.%02ldKiB",
+		snprintf(buf, sizeof(buf), "%ld.%02ldKiB",
 			(long)(bytes>>10), (long)(((bytes&1023)*100+512)/1024)
 			);
 	else if (bytes < 2*1024LL*1024LL*1024LL)
-		sprintf(buf, "%ld.%02ldMiB",
+		snprintf(buf, sizeof(buf), "%ld.%02ldMiB",
 			(long)(bytes>>20),
 			(long)((bytes&0xfffff)+0x100000/200)/(0x100000/100)
 			);
 	else
-		sprintf(buf, "%ld.%02ldGiB",
+		snprintf(buf, sizeof(buf), "%ld.%02ldGiB",
 			(long)(bytes>>30),
 			(long)(((bytes>>10)&0xfffff)+0x100000/200)/(0x100000/100)
 			);
@@ -505,20 +505,20 @@ char *get_md_name(int dev)
 		int mdp =  get_mdp_major();
 		if (mdp < 0) return NULL;
 		rdev = makedev(mdp, (-1-dev)<<6);
-		sprintf(devname, "/dev/md/d%d", -1-dev);
+		snprintf(devname, sizeof(devname), "/dev/md/d%d", -1-dev);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK
 		    && (stb.st_rdev == rdev))
 			return devname;
 	} else {
 		rdev = makedev(MD_MAJOR, dev);
-		sprintf(devname, "/dev/md%d", dev);
+		snprintf(devname, sizeof(devname), "/dev/md%d", dev);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK
 		    && (stb.st_rdev == rdev))
 			return devname;
 
-		sprintf(devname, "/dev/md/%d", dev);
+		snprintf(devname, sizeof(devname), "/dev/md/%d", dev);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK
 		    && (stb.st_rdev == rdev))
@@ -527,7 +527,7 @@ char *get_md_name(int dev)
 	dn = map_dev(major(rdev), minor(rdev));
 	if (dn)
 		return dn;
-	sprintf(devname, "/dev/.tmp.md%d", dev);
+	snprintf(devname, sizeof(devname), "/dev/.tmp.md%d", dev);
 	if (mknod(devname, S_IFBLK | 0600, rdev) == -1)
 		if (errno != EEXIST)
 			return NULL;

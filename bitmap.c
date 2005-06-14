@@ -66,7 +66,7 @@ const char *human_chunksize(unsigned long bytes)
 		i++;
 	}
 
-	sprintf(buf, "%lu %s", bytes, suffixes[i]);
+	snprintf(buf, sizeof(buf), "%lu %s", bytes, suffixes[i]);
 
 	return buf;
 }

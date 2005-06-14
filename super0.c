@@ -117,7 +117,7 @@ static void examine_super0(void *sbv)
 		char nb[5];
 		if (d>=0) dp = &sb->disks[d];
 		else dp = &sb->this_disk;
-		sprintf(nb, "%4d", d);
+		snprintf(nb, sizeof(nb), "%4d", d);
 		printf("%4s %5d   %5d    %5d    %5d     ", d < 0 ? "this" :  nb,
 		       dp->number, dp->major, dp->minor, dp->raid_disk);
 		if (dp->state & (1<<MD_DISK_FAULTY)) printf(" faulty");

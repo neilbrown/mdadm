@@ -274,6 +274,7 @@ void arrayline(char *line)
 	mis.devname = NULL;
 	mis.spare_group = NULL;
 	mis.autof = 0;
+	mis.next = NULL;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
 		if (w[0] == '/') {

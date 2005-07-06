@@ -231,7 +231,7 @@ int Manage_subdevs(char *devname, int fd,
 					array.major_version, array.minor_version);
 				return 1;
 			}
-			for (j=0; j<array.active_disks+array.spare_disks+ array.failed_disks; j++) {
+			for (j=0; j<array.raid_disks+array.spare_disks+ array.failed_disks; j++) {
 				char *dev;
 				int dfd;
 				disc.number = j;

@@ -39,7 +39,7 @@ then
     exit 1
   fi
   trap "rm $target/$base; exit" 1 2 3
-  ( cd .. ; ln -s mdadm mdadm-$version ; tar chvf - --exclude="TAGS" --exclude='*~' --exclude=.patches --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
+  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chvf - --exclude="TAGS" --exclude='*~' --exclude=.patches --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
   chmod a+r $target/$base
   ls -l $target/$base
   if tar tzf $target/$base | sed 's,[^/]*/,,' | sort | diff -u inventory -
@@ -52,10 +52,10 @@ then
   rpm -ta $target/$base
   find /home/neilb/src/RPM -name "*mdadm-$version-*" \
      -exec cp {} $target/RPM \;
-  cp ANNOUNCE-$version $target/ANNOUNCE
-  cp ChangeLog $target/ChangeLog
+  #cp ANNOUNCE-$version $target/ANNOUNCE
+  #cp ChangeLog $target/ChangeLog
   scp $target/$base master.kernel.org:/pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
-  scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
+  #scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
 else
   if [ ! -f $target/$base ] 
   then 

@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v2.0-devel-1 - DEVELOPMENT VERSION NOT FOR REGULAR USE - 18 February 2005\n";
+char Version[] = Name " - v2.0-devel-2 - DEVELOPMENT VERSION NOT FOR REGULAR USE - 7 July 2005\n";
 
 /*
  * File: ReadMe.c

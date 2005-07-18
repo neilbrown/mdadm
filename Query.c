@@ -105,26 +105,31 @@ int Query(char *dev)
 	if (superror == 0) {
 		/* array might be active... */
 		st->ss->getinfo_super(&info, super);
-		mddev = get_md_name(info.array.md_minor);
-		disc.number = info.disk.number;
-		activity = "undetected";
-		if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
-			if (md_get_version(fd) >= 9000 &&	
-			    ioctl(fd, GET_ARRAY_INFO, &array)>= 0) {
-				if (ioctl(fd, GET_DISK_INFO, &disc) >= 0 &&
-				    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
-					activity = "active";
-				else
-					activity = "mismatch";
+		if (st->ss->major == 0) {
+			mddev = get_md_name(info.array.md_minor);
+			disc.number = info.disk.number;
+			activity = "undetected";
+			if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
+				if (md_get_version(fd) >= 9000 &&	
+				    ioctl(fd, GET_ARRAY_INFO, &array)>= 0) {
+					if (ioctl(fd, GET_DISK_INFO, &disc) >= 0 &&
+					    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
+						activity = "active";
+					else
+						activity = "mismatch";
+				}
+				close(fd);
 			}
-			close(fd);
+		} else {
+			activity = "unknown";
+			mddev = "array";
 		}
-		printf("%s: device %d in %d device %s %s md%d.  Use mdadm --examine for more detail.\n",
+		printf("%s: device %d in %d device %s %s %s.  Use mdadm --examine for more detail.\n",
 		       dev, 
 		       info.disk.number, info.array.raid_disks,
 		       activity,
 		       map_num(pers, info.array.level),
-		       info.array.md_minor);
+		       mddev);
 	}
 	return 0;
 }

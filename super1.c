@@ -278,7 +278,7 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
-
+	info->disk.number = __le32_to_cpu(sb->dev_number);
 	if (__le32_to_cpu(sb->dev_number) >= __le32_to_cpu(sb->max_dev) ||
 	    __le32_to_cpu(sb->max_dev) > 512)
 		role = 0xfffe;
@@ -303,7 +303,7 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 
 	for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
 		role = __le16_to_cpu(sb->dev_roles[i]);
-		if (role == 0xFFFF || role < info->array.raid_disks)
+		if (/*role == 0xFFFF || */role < info->array.raid_disks)
 			working++;
 	}
 

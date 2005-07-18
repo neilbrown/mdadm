@@ -205,6 +205,7 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 	info->disk.major = sb->this_disk.major;
 	info->disk.minor = sb->this_disk.minor;
 	info->disk.raid_disk = sb->this_disk.raid_disk;
+	info->disk.number = sb->this_disk.number;
 
 	info->events = md_event(sb);
 

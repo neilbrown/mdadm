@@ -473,6 +473,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (!devices[j].uptodate)
 			continue;
 		info.disk.number = i;
+		info.disk.raid_disk = i;
 		info.disk.state = desired_state;
 
 		if (devices[j].uptodate &&
@@ -526,7 +527,17 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
-		if (ioctl(mdfd, SET_ARRAY_INFO, NULL) != 0) {
+		int rv;
+		if ((vers % 100) >= 1) { /* can use different versions */
+			mdu_array_info_t inf;
+			memset(&inf, 0, sizeof(inf));
+			inf.major_version = st->ss->major;
+			inf.minor_version = st->minor_version;
+			rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
+		} else 
+			rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
+
+		if (rv) {
 			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 				mddev, strerror(errno));
 			return 1;

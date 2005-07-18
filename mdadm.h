@@ -73,7 +73,7 @@ struct mdinfo {
 	mdu_array_info_t	array;
 	mdu_disk_info_t		disk;
 	__u64			events;
-	unsigned int		uuid[4];
+	int			uuid[4];
 };
 
 #define Name "mdadm"

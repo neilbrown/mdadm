@@ -37,6 +37,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<sys/stat.h>
 #include	<stdlib.h>
 #include	<time.h>
+#include	<sys/time.h>
 #include	<getopt.h>
 #include	<fcntl.h>
 #include	<stdio.h>

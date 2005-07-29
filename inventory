@@ -42,6 +42,7 @@ mdadm.conf-example
 mdadm.conf.5
 mdadm.h
 mdadm.spec
+mdassemble.8
 mdassemble.c
 mdopen.c
 mdstat.c

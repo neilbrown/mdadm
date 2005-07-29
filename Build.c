@@ -133,7 +133,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		array.working_disks = raiddisks - missing_disks;
 		array.spare_disks = 0;
 		array.failed_disks = missing_disks;
-		if (chunk == 0)  
+		if (chunk == 0 && (level==0 || level==LEVEL_LINEAR))
 			chunk = 64;
 		array.chunk_size = chunk*1024;
 		array.layout = layout;

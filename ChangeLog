@@ -1,5 +1,6 @@
 Changes Prior to 2.0-devel-3 release
     -   Assorted fixes for multiple bugs...
+    -   Add test suite
 	
 Changes Prior to 1.12.0 release
   Several of these are backported from the Debian package

@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# run test suite for mdadm
+user=`id -un`
+if [ " $user" != " root" ]
+then echo >&2 "test: testing can only be done as 'root'."
+     exit 1;
+fi
+
+prefix='[0-9][0-9]'
+if [ -n "$1" ]
+then prefix=$1
+fi
+
+dir=`pwd`
+mdadm=$dir/mdadm
+export mdadm
+if [ \! -x $mdadm ]
+then
+   echo >&2 "test: $mdadm isn't usable."
+fi
+
+export check="sh $dir/tests/check"
+
+# assume md0, md1, md2 exist in /dev
+export md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
+
+# We test mdadm on loop-back block devices.
+# dir for storing files should be settable by command line maybe
+targetdir=/tmp
+export targetdir
+size=20000
+mdsize0=19904
+mdsize1=19992
+export size mdsize0 mdsize1
+
+cleanup() {
+	$mdadm -Ss
+	for d in 0 1 2 3 4 5 6 7
+	do losetup -d /dev/loop$d ; # rm -f $targetdir/mdtest$d
+        done
+}
+
+trap cleanup 0 1 2 3 15
+
+devlist=
+for d in 0 1 2 3 4 5 6 7
+do
+   [ -f $targetdir/mdtest$d ] || dd if=/dev/zero of=$targetdir/mdtest$d count=$size bs=1K > /dev/null 2>&1
+   losetup /dev/loop$d $targetdir/mdtest$d
+   export dev$d=/dev/loop$d
+   eval devlist=\"\$devlist \$dev$d\"
+done
+export devlist
+
+
+for script in tests/$prefix*[^~]
+do
+   if sh -x $script > $targetdir/log 2>&1
+   then echo "$script succeeded"
+   else cat $targetdir/log
+        echo "$script failed"
+       exit 1
+   fi
+done
+exit 0

@@ -243,8 +243,8 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	printf("           State : %s\n", bitmap_state(sb->state));
 	printf("       Chunksize : %s\n", human_chunksize(sb->chunksize));
 	printf("          Daemon : %ds flush period\n", sb->daemon_sleep);
-	printf("       Sync Size : %llu%s\n", sb->sync_size,
-					human_size(sb->sync_size * 1024));
+	printf("       Sync Size : %llu%s\n", sb->sync_size/2,
+					human_size(sb->sync_size * 512));
 	if (brief)
 		goto free_info;
 	printf("          Bitmap : %llu bits (chunks), %llu dirty (%2.1f%%)\n",

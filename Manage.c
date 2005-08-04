@@ -196,7 +196,7 @@ int Manage_subdevs(char *devname, int fd,
 			return 1;
 		case 'a':
 			/* add the device - hot or cold */
-			/* Make sure it isn' in use (in 2.6 or later) */
+			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd < 0) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
@@ -228,7 +228,7 @@ int Manage_subdevs(char *devname, int fd,
 					array.major_version, array.minor_version);
 				return 1;
 			}
-			for (j=0; j<array.raid_disks+array.spare_disks+ array.failed_disks; j++) {
+			for (j=0; j<st->max_devs; j++) {
 				char *dev;
 				int dfd;
 				disc.number = j;
@@ -253,7 +253,7 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
 				return 1;
 			}
-			for (j=0; j<array.nr_disks; j++) {
+			for (j=0; j< st->max_devs; j++) {
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					break;
@@ -266,11 +266,12 @@ int Manage_subdevs(char *devname, int fd,
 			disc.minor = minor(stb.st_rdev);
 			disc.number =j;
 			disc.state = 0;
+			st->ss->add_to_super(dsuper, &disc);
 			if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
 				return 1;
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
-				fprintf(stderr, Name ": add new device failed for %s: %s\n",
-					dv->devname, strerror(errno));
+				fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
+					dv->devname, j, strerror(errno));
 				return 1;
 			}
 			fprintf(stderr, Name ": added %s\n", dv->devname);

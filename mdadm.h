@@ -190,6 +190,7 @@ extern struct superswitch {
 	void (*locate_bitmap)(struct supertype *st, int fd);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
 	int major;
+	int swapuuid; /* true if uuid is bigending rather than hostendian */
 } super0, super1, *superlist[];
 
 struct supertype {
@@ -281,7 +282,7 @@ extern char *conf_word(FILE *file, int allow_key);
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);
-extern int same_uuid(int a[4], int b[4]);
+extern int same_uuid(int a[4], int b[4], int swapuuid);
 /* extern int compare_super(mdp_super_t *first, mdp_super_t *second);*/
 extern unsigned long calc_csum(void *super, int bytes);
 extern int enough(int level, int raid_disks, int avail_disks);

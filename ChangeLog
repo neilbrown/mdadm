@@ -1,4 +1,7 @@
-Changes Prior to this release
+Changes Prior to 2.0-devel-3 release
+    -   Assorted fixes for multiple bugs...
+	
+Changes Prior to 1.12.0 release
   Several of these are backported from the Debian package
     -   Don't use 'lstat' to check for blockdevices, use stat.
     -   Document --size=max option for --grow
@@ -32,7 +35,7 @@ Changes Prior to 1.10.0 release
     -   Open sub-devices with O_EXCL to detect if already in use
     -   Make sure superblock updates are flushed directly to disk.
 	
-Changes Prior to 2.0-deve-1 release
+Changes Prior to 2.0-devel-1 release
     -   Support for version-1 superblock.  See --metadata option.
     -   Support for bitmap based intent logging.
     -   Minor fixes.

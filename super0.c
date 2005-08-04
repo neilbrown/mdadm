@@ -500,7 +500,7 @@ static int compare_super0(void **firstp, void *secondv)
 
 	uuid_from_super0(uuid1, first);
 	uuid_from_super0(uuid2, second);
-	if (!same_uuid(uuid1, uuid2))
+	if (!same_uuid(uuid1, uuid2, 0))
 		return 2;
 	if (first->major_version != second->major_version ||
 	    first->minor_version != second->minor_version ||
@@ -638,7 +638,7 @@ static int add_internal_bitmap0(void *sbv, int chunk, int delay, unsigned long l
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MD_SB_BYTES);
 
 	
-	min_chunk = 1024;
+	min_chunk = 4096; /* sub-page chunks don't work yet.. */
 	while (bits > max_bits) {
 		min_chunk *= 2;
 		bits = (bits+1)/2;
@@ -767,4 +767,5 @@ struct superswitch super0 = {
 	.locate_bitmap = locate_bitmap0,
 	.write_bitmap = write_bitmap0,
 	.major = 0,
+	.swapuuid = 0,
 };

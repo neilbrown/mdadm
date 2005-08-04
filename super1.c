@@ -28,7 +28,7 @@
  */
 
 #include "mdadm.h"
-
+#include <endian.h>
 #include "asm/byteorder.h"
 /*
  * The version-1 superblock :
@@ -804,4 +804,9 @@ struct superswitch super1 = {
 	.match_metadata_desc = match_metadata_desc1,
 	.avail_size = avail_size1,
 	.major = 1,
+#if __BYTE_ORDER == BIG_ENDIAN
+	.swapuuid = 0,
+#else
+	.swapuuid = 1,
+#endif
 };

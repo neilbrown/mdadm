@@ -140,14 +140,32 @@ int enough(int level, int raid_disks, int avail_disks)
 	}
 }
 
-int same_uuid(int a[4], int b[4])
+int same_uuid(int a[4], int b[4], int swapuuid)
 {
-    if (a[0]==b[0] &&
-	a[1]==b[1] &&
-	a[2]==b[2] &&
-	a[3]==b[3])
-	return 1;
-    return 0;
+	if (swapuuid) {
+		/* parse uuids are hostendian.
+		 * uuid's from some superblocks are big-ending
+		 * if there is a difference, we need to swap.. 
+		 */
+		unsigned char *ac = (unsigned char *)a;
+		unsigned char *bc = (unsigned char *)b;
+		int i;
+		for (i=0; i<16; i+= 4) {
+			if (ac[i+0] != bc[i+3] ||
+			    ac[i+1] != bc[i+2] ||
+			    ac[i+2] != bc[i+1] ||
+			    ac[i+3] != bc[i+0])
+				return 0;
+		}
+		return 1;
+	} else {
+		if (a[0]==b[0] &&
+		    a[1]==b[1] &&
+		    a[2]==b[2] &&
+		    a[3]==b[3])
+			return 1;
+		return 0;
+	}
 }
 
 int check_ext2(int fd, char *name)
@@ -585,6 +603,7 @@ struct supertype *guess_super(int fd)
 	for (i=0 ; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];
+		st->ss = NULL;
 		rv = ss->load_super(st, fd, &sbp, NULL);
 		if (rv == 0) {
 			struct mdinfo info;
@@ -594,12 +613,12 @@ struct supertype *guess_super(int fd)
 				bestsuper = i;
 				besttime = info.array.ctime;
 			}
-			st->ss = NULL;
 			free(sbp);
 		}
 	}
 	if (bestsuper != -1) {
 		int rv;
+		st->ss = NULL;
 		rv = superlist[bestsuper]->load_super(st, fd, &sbp, NULL);
 		if (rv == 0) {
 			free(sbp);

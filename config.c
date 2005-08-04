@@ -275,6 +275,8 @@ void arrayline(char *line)
 	mis.spare_group = NULL;
 	mis.autof = 0;
 	mis.next = NULL;
+	mis.st = NULL;
+	mis.bitmap_fd = -1;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
 		if (w[0] == '/') {
@@ -293,7 +295,7 @@ void arrayline(char *line)
 					fprintf(stderr, Name ": bad uuid: %s\n", w);
 			}
 		} else if (strncasecmp(w, "super-minor=", 12)==0 ) {
-			if (mis.super_minor >= 0)
+			if (mis.super_minor != UnSet)
 				fprintf(stderr, Name ": only specify super-minor once, %s ignored.\n",
 					w);
 			else {

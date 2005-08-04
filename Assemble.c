@@ -219,7 +219,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 
 		if (ident->uuid_set &&
-		    (!super || same_uuid(info.uuid, ident->uuid)==0)) {
+		    (!super || same_uuid(info.uuid, ident->uuid, tst->ss->swapuuid)==0)) {
 			if (inargv || verbose)
 				fprintf(stderr, Name ": %s has wrong uuid.\n",
 					devname);

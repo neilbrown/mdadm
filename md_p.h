@@ -79,6 +79,11 @@
 #define MD_DISK_SYNC		2 /* disk is in sync with the raid set */
 #define MD_DISK_REMOVED		3 /* disk is in sync with the raid set */
 
+#define	MD_DISK_WRITEMOSTLY	9 /* disk is "write-mostly" is RAID1 config.
+				   * read requests will only be sent here in 
+				   * dire need
+				   */
+
 typedef struct mdp_device_descriptor_s {
 	__u32 number;		/* 0 Device number in the entire set	      */
 	__u32 major;		/* 1 Device major number		      */

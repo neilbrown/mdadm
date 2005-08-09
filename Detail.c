@@ -216,6 +216,8 @@ int Detail(char *dev, int brief, int test)
 	for (d= 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
+		int wonly = disk.state & (1<<MD_DISK_WRITEMOSTLY);
+		disk.state &= ~(1<<MD_DISK_WRITEMOSTLY);
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
 			if (d < array.raid_disks)
@@ -244,6 +246,7 @@ int Detail(char *dev, int brief, int test)
 			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
 			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
+			if (wonly) printf(" writeonly");
 			if (disk.state == 0) printf(" spare");
 			if (disk.state == 0) {
 				if (is_26) {

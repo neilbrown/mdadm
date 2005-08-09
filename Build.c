@@ -36,7 +36,7 @@
 int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	  int raiddisks,
 	  mddev_dev_t devlist, int assume_clean,
-	  char *bitmap_file, int bitmap_chunk, int delay)
+	  char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -164,7 +164,9 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 			mdu_disk_info_t disk;
 			disk.number = i;
 			disk.raid_disk = i;
-			disk.state = 6;
+			disk.state = (1<<MD_DISK_SYNC) | (1<<MD_DISK_ACTIVE);
+			if (dv->writemostly)
+				disk.state |= 1<<MD_DISK_WRITEMOSTLY;
 			disk.major = major(stb.st_rdev);
 			disk.minor = minor(stb.st_rdev);
 			if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
@@ -192,7 +194,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 					return 1;
 				}
 				if (CreateBitmap(bitmap_file, 1, NULL, bitmap_chunk,
-						 delay, 0/* FIXME size */)) {
+						 delay, write_behind, 0/* FIXME size */)) {
 					return 1;
 				}
 				bitmap_fd = open(bitmap_file, O_RDWR);

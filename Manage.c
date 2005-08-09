@@ -266,6 +266,8 @@ int Manage_subdevs(char *devname, int fd,
 			disc.minor = minor(stb.st_rdev);
 			disc.number =j;
 			disc.state = 0;
+			if (dv->writemostly)
+				disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 			st->ss->add_to_super(dsuper, &disc);
 			if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
 				return 1;

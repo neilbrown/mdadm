@@ -148,15 +148,19 @@ static void examine_super0(void *sbv)
 		mdp_disk_t *dp;
 		char *dv;
 		char nb[5];
+		int wonly;
 		if (d>=0) dp = &sb->disks[d];
 		else dp = &sb->this_disk;
 		snprintf(nb, sizeof(nb), "%4d", d);
 		printf("%4s %5d   %5d    %5d    %5d     ", d < 0 ? "this" :  nb,
 		       dp->number, dp->major, dp->minor, dp->raid_disk);
+		wonly = dp->state & (1<<MD_DISK_WRITEMOSTLY);
+		dp->state &= ~(1<<MD_DISK_WRITEMOSTLY);
 		if (dp->state & (1<<MD_DISK_FAULTY)) printf(" faulty");
 		if (dp->state & (1<<MD_DISK_ACTIVE)) printf(" active");
 		if (dp->state & (1<<MD_DISK_SYNC)) printf(" sync");
 		if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
+		if (wonly) printf(" write-mostly");
 		if (dp->state == 0) printf(" spare");
 		if ((dv=map_dev(dp->major, dp->minor)))
 			printf("   %s", dv);
@@ -312,8 +316,10 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 	}
 	if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
+		int wonly = sb->disks[d].state & (1<<MD_DISK_WRITEMOSTLY);
+		sb->disks[d].state &= ~(1<<MD_DISK_WRITEMOSTLY);
 		if (sb->disks[d].state != info->disk.state) {
-			sb->disks[d].state = info->disk.state;
+			sb->disks[d].state = info->disk.state & wonly;
 			rv = 1;
 		}
 	}
@@ -467,7 +473,7 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname)
 {
 	mdp_super_t *sb = sbv;
-	int fd = open(devname, O_RDWR, O_EXCL);
+	int fd = open(devname, O_RDWR|O_EXCL);
 	int rv;
 
 	if (fd < 0) {
@@ -485,6 +491,7 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
 		int towrite, n;
 		char buf[4096];
+
 		write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
 		towrite = 64*1024 - MD_SB_BYTES - sizeof(bitmap_super_t);
 		memset(buf, 0xff, sizeof(buf));
@@ -498,6 +505,7 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 			else
 				break;
 		}
+		fsync(fd);
 		if (towrite)
 			rv = -2;
 	}
@@ -661,7 +669,7 @@ static __u64 avail_size0(__u64 devsize)
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
-static int add_internal_bitmap0(void *sbv, int chunk, int delay, unsigned long long size)
+static int add_internal_bitmap0(void *sbv, int chunk, int delay, int write_behind, unsigned long long size)
 {
 	/*
 	 * The bitmap comes immediately after the superblock and must be 60K in size
@@ -690,12 +698,13 @@ static int add_internal_bitmap0(void *sbv, int chunk, int delay, unsigned long l
 	sb->state |= (1<<MD_SB_BITMAP_PRESENT);
 
 	memset(bms, sizeof(*bms), 0);
-	bms->magic = __le32_to_cpu(BITMAP_MAGIC);
-	bms->version = __le32_to_cpu(BITMAP_MAJOR);
+	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
+	bms->version = __cpu_to_le32(BITMAP_MAJOR);
 	uuid_from_super0((int*)bms->uuid, sb);
-	bms->chunksize = __le32_to_cpu(chunk);
-	bms->daemon_sleep = __le32_to_cpu(delay);
-	bms->sync_size = __le64_to_cpu(size);
+	bms->chunksize = __cpu_to_le32(chunk);
+	bms->daemon_sleep = __cpu_to_le32(delay);
+	bms->sync_size = __cpu_to_le64(size);
+	bms->write_behind = __cpu_to_le32(write_behind);
 
 
 
@@ -776,6 +785,7 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 		else
 			break;
 	}
+	fsync(fd);
 	if (towrite)
 		rv = -2;
 

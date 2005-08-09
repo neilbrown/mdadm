@@ -192,7 +192,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	return 0;
 }
 
-int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay)
+int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind)
 {
 	/*
 	 * First check that array doesn't have a bitmap
@@ -255,7 +255,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay)
 					continue;
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
 					st->ss->add_internal_bitmap(super, 
-								    chunk, delay,
+								    chunk, delay, write_behind,
 								    array.size);
 					st->ss->write_bitmap(st, fd2, super);
 				}

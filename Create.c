@@ -35,7 +35,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force,
-	   char *bitmap_file, int bitmap_chunk, int delay)
+	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
 {
 	/*
 	 * Create a new raid array.
@@ -351,7 +351,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
 			return 1;
 		}
-		if (!st->ss->add_internal_bitmap(super, bitmap_chunk, delay, 
+		if (!st->ss->add_internal_bitmap(super, bitmap_chunk, delay, write_behind,
 						 size ? size : maxsize)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
 			return 1;
@@ -382,7 +382,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			bitmap_chunk = DEFAULT_BITMAP_CHUNK;
 
 		st->ss->uuid_from_super(uuid, super);
-		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk, delay,
+		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
+			delay, write_behind,
 				 array.size*2ULL /* FIXME wrong for raid10 */)) {
 			return 1;
 		}
@@ -416,14 +417,18 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			}
 			disk.raid_disk = disk.number;
 			if (disk.raid_disk < raiddisks)
-				disk.state = 6; /* active and in sync */
+				disk.state = (1<<MD_DISK_ACTIVE) |
+						(1<<MD_DISK_SYNC);
 			else
 				disk.state = 0;
+			if (dv->writemostly)
+				disk.state |= (1<<MD_DISK_WRITEMOSTLY);
+
 			if (dnum == insert_point ||
 			    strcasecmp(dv->devname, "missing")==0) {
 				disk.major = 0;
 				disk.minor = 0;
-				disk.state = 1; /* faulty */
+				disk.state = (1<<MD_DISK_FAULTY);
 			} else {
 				fd = open(dv->devname, O_RDONLY|O_EXCL, 0);
 				if (fd < 0) {

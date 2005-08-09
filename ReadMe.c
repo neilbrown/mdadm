@@ -131,6 +131,8 @@ struct option long_options[] = {
     {"metadata",  1, 0, 'e'}, /* superblock format */
     {"bitmap",	  1, 0, 'b'},
     {"bitmap-chunk", 1, 0, 4},
+    {"write-behind", 2, 0, 5},
+    {"write-mostly",0, 0, 'W'},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -139,6 +141,7 @@ struct option long_options[] = {
     {"scan",      0, 0, 's'},
     {"force",	  0, 0, 'f'},
     {"update",	  1, 0, 'U'},
+
     /* Management */
     {"add",       0, 0, 'a'},
     {"remove",    0, 0, 'r'},
@@ -232,6 +235,7 @@ char OptionHelp[] =
 "  --assume-clean     : Assume the array is already in-sync. This is dangerous.\n"
 "  --bitmap-chunk=    : chunksize of bitmap in bitmap file (Kilobytes)\n"
 "  --delay=      -d   : seconds between bitmap updates\n"
+"  --write-behind=    : number of simultaneous write-behind requests to allow (requires bitmap)\n"
 "\n"
 " For assemble:\n"
 "  --bitmap=     -b   : File to find bitmap information in\n"

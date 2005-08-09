@@ -64,6 +64,7 @@ char *strncpy(char *dest, const char *src, size_t n) __THROW;
 
 #define DEFAULT_BITMAP_CHUNK 4096
 #define DEFAULT_BITMAP_DELAY 5
+#define DEFAULT_MAX_WRITE_BEHIND 256
 
 #include	"md_u.h"
 #include	"md_p.h"
@@ -134,6 +135,7 @@ typedef struct mddev_dev_s {
 	char disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
 				 * Not set for names read from .config
 				 */
+	char writemostly;
 	struct mddev_dev_s *next;
 } *mddev_dev_t;
 
@@ -186,7 +188,7 @@ extern struct superswitch {
 	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
 	__u64 (*avail_size)(__u64 size);
-	int (*add_internal_bitmap)(void *sbv, int chunk, int delay, unsigned long long size);
+	int (*add_internal_bitmap)(void *sbv, int chunk, int delay, int write_behind, unsigned long long size);
 	void (*locate_bitmap)(struct supertype *st, int fd);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
 	int major;
@@ -223,7 +225,7 @@ extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
-extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay);
+extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind);
 
 
 extern int Assemble(struct supertype *st, char *mddev, int mdfd,
@@ -237,14 +239,14 @@ extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 int raiddisks,
 		 mddev_dev_t devlist, int assume_clean,
-		 char *bitmap_file, int bitmap_chunk, int delay);
+		 char *bitmap_file, int bitmap_chunk, int write_behind, int delay);
 
 
 extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force,
-		  char *bitmap_file, int bitmap_chunk, int delay);
+		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay);
 
 extern int Detail(char *dev, int brief, int test);
 extern int Query(char *dev);
@@ -259,6 +261,7 @@ extern int Kill(char *dev, int force);
 
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,
+			unsigned long write_behind,
 			unsigned long long array_size);
 extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
 

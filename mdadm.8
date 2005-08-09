@@ -205,6 +205,18 @@ with
 gives an intermediate level of verbosity.
 
 .TP
+.BR -W ", " --write-mostly
+subsequent devices lists in a
+.BR --build ,
+.BR --create ,
+or
+.B --add
+command will be flagged as 'write-mostly'.  This is valid for RAID1
+only and means that the 'md' driver will avoid reading from these
+devices if at all possible.  This can be useful if mirroring over a
+slow link.
+
+.TP
 .BR -b ", " --bitmap=
 Give the name of a bitmap file to use with this array.  Can be used
 with --create (file should not exist) or --assemble (file should
@@ -214,6 +226,15 @@ exist).
 .BR --bitmap-chunk=
 Set the Chunksize of the bitmap. Each bit corresponds to that many
 Kilobytes of storage. Default is 4.
+
+.TP
+.BR --write-behind=
+Specify that write-behind mode should be enabled (valid for RAID1
+only). If an argument is specified, it will set the maximum number
+of outstanding writes allowed. The default value is 256.
+A write-intent bitmap is required in order to use write-behind
+mode, and write-behind is only attempted on drives marked as
+.IR write-mostly .
 
 
 .TP
@@ -1218,9 +1239,15 @@ For this to work, the kernel must support the necessary change.
 Various types of growth may be added during 2.6 development, possibly
 including restructuring a raid5 array to have more active devices.
 
-Currently the only support available is to change the "size" attribute
-for arrays with redundancy, and the raid-disks attribute of RAID1
-arrays.
+Currently the only support available is to
+.IP \(bu 4
+change the "size" attribute
+for RAID1, RAID5 and RAID6.
+.IP \(bu 4
+change the "raid-disks" attribute of RAID1.
+.IP \(bu 4
+add a write-intent bitmap to a RAID1 array.
+.PP
 
 Normally when an array is build the "size" it taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a

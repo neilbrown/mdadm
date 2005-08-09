@@ -64,7 +64,9 @@ struct mdp_superblock_1 {
 	__u32	dev_number;	/* permanent identifier of this  device - not role in raid */
 	__u32	cnt_corrected_read; /* number of read errors that were corrected by re-writing */
 	__u8	device_uuid[16]; /* user-space setable, ignored by kernel */
-	__u8	pad2[64-56];	/* set to 0 when writing */
+        __u8    devflags;        /* per-device flags.  Only one defined...*/
+#define WriteMostly1    1        /* mask for writemostly flag in above */
+	__u8	pad2[64-57];	/* set to 0 when writing */
 
 	/* array state information - 64 bytes */
 	__u64	utime;		/* 40 bits second, 24 btes microseconds */
@@ -153,6 +155,12 @@ static void examine_super1(void *sbv)
 		if ((i&3)==0 && i != 0) printf(":");
 	}
 	printf("\n");
+	if (sb->devflags) {
+		printf("      Flags :");
+		if (sb->devflags & WriteMostly1) 
+			printf(" write-mostly");
+		printf("\n");
+	}
 
 	atime = __le64_to_cpu(sb->utime) & 0xFFFFFFFFFFULL;
 	printf("    Update Time : %.24s\n", ctime(&atime));
@@ -429,7 +437,7 @@ static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	__u16 *rp = sb->dev_roles + dk->number;
-	if (dk->state == 6) /* active, sync */
+	if ((dk->state & 6) == 6) /* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
 	else if ((dk->state & ~2) == 0) /* active or idle -> spare */
 		*rp = 0xffff;
@@ -517,6 +525,8 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	}
 
 	sb->dev_number = __cpu_to_le32(dinfo->number);
+	if (dinfo->state & (1<<MD_DISK_WRITEMOSTLY)) 
+		sb->devflags |= WriteMostly1;
 
 	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 	    read(rfd, sb->device_uuid, 16) != 16) {

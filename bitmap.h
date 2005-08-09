@@ -7,7 +7,7 @@
 #define BITMAP_H 1
 
 #define BITMAP_MAJOR 3
-#define BITMAP_MINOR 38
+#define BITMAP_MINOR 39
 
 /*
  * in-memory bitmap:
@@ -42,6 +42,13 @@
  * bit can be cleared aswell, thus setting the counter to 0.
  * When we set a bit, or in the counter (to start a write), if the fields is
  * 0, we first set the disk bit and set the counter to 1.
+ *
+ * If the counter is 0, the on-disk bit is clear and the stipe is clean
+ * Anything that dirties the stipe pushes the counter to 2 (at least)
+ * and sets the on-disk bit (lazily).
+ * If a periodic sweep find the counter at 2, it is decremented to 1.
+ * If the sweep find the counter at 1, the on-disk bit is cleared and the
+ * counter goes to zero.
  *
  * Also, we'll hijack the "map" pointer itself and use it as two 16 bit block
  * counters as a fallback when "page" memory cannot be allocated:
@@ -140,8 +147,9 @@ typedef struct bitmap_super_s {
 	__u32 state;        /* 48  bitmap state information */
 	__u32 chunksize;    /* 52  the bitmap chunk size in bytes */
 	__u32 daemon_sleep; /* 56  seconds between disk flushes */
+	__u32 write_behind; /* 60  number of outstanding write-behind writes */
 
-	__u8  pad[256 - 60]; /* set to zero */
+	__u8  pad[256 - 64]; /* set to zero */
 } bitmap_super_t;
 
 /* notes:

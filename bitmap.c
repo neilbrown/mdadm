@@ -215,6 +215,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	bitmap_super_t *sb;
 	bitmap_info_t *info;
 	int rv = 1;
+	char buf[64];
 
 	info = bitmap_file_read(filename, brief, st);
 	if (!info)
@@ -243,6 +244,11 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	printf("           State : %s\n", bitmap_state(sb->state));
 	printf("       Chunksize : %s\n", human_chunksize(sb->chunksize));
 	printf("          Daemon : %ds flush period\n", sb->daemon_sleep);
+	if (sb->write_behind)
+		sprintf(buf, "Allow write behind, max %d", sb->write_behind);
+	else
+		sprintf(buf, "Normal");
+	printf("      Write Mode : %s\n", buf);
 	printf("       Sync Size : %llu%s\n", sb->sync_size/2,
 					human_size(sb->sync_size * 512));
 	if (brief)
@@ -257,6 +263,7 @@ free_info:
 
 int CreateBitmap(char *filename, int force, char uuid[16],
 		unsigned long chunksize, unsigned long daemon_sleep,
+		unsigned long write_behind,
 		unsigned long long array_size)
 {
 	/*
@@ -288,6 +295,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 		memcpy(sb.uuid, uuid, 16);
 	sb.chunksize = chunksize;
 	sb.daemon_sleep = daemon_sleep;
+	sb.write_behind = write_behind;
 	sb.sync_size = array_size;
 
 	sb_cpu_to_le(&sb); /* convert to on-disk byte ordering */

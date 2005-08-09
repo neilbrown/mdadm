@@ -26,7 +26,7 @@
  *           Sydney, 2052
  *           Australia
  *
- *    Additions for bitmap and async RAID options, Copyright (C) 2003-2004, 
+ *    Additions for bitmap and write-behind RAID options, Copyright (C) 2003-2004, 
  *    Paul Clements, SteelEye Technology, Inc.
  */
 
@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 	char devmode = 0;
 	int runstop = 0;
 	int readonly = 0;
+	int write_behind = 0;
 	int bitmap_fd = -1;
 	char *bitmap_file = NULL;
 	int bitmap_chunk = UnSet;
@@ -89,6 +90,7 @@ int main(int argc, char *argv[])
 	char *pidfile = NULL;
 	int oneshot = 0;
 	struct supertype *ss = NULL;
+	int writemostly = 0;
 
 	int copies;
 
@@ -214,6 +216,7 @@ int main(int argc, char *argv[])
 					}
 					dv->devname = optarg;
 					dv->disposition = devmode;
+					dv->writemostly = writemostly;
 					dv->next = NULL;
 					*devlistend = dv;
 					devlistend = &dv->next;
@@ -262,6 +265,7 @@ int main(int argc, char *argv[])
 			}
 			dv->devname = optarg;
 			dv->disposition = devmode;
+			dv->writemostly = writemostly;
 			dv->next = NULL;
 			*devlistend = dv;
 			devlistend = &dv->next;
@@ -304,6 +308,13 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			max_disks = ss->max_devs;
+			continue;
+
+		case O(MANAGE,'W'):
+		case O(BUILD,'W'):
+		case O(CREATE,'W'):
+			/* set write-mostly for following devices */
+			writemostly = 1;
 			continue;
 
 		case O(GROW,'z'):
@@ -741,6 +752,19 @@ int main(int argc, char *argv[])
 			/* convert K to B, chunk of 0K means 512B */
 			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 1024 : 512;
 			continue;
+
+		case O(BUILD, 5):
+		case O(CREATE, 5): /* write-behind mode */
+			write_behind = DEFAULT_MAX_WRITE_BEHIND;
+			if (optarg) {
+				write_behind = strtol(optarg, &c, 10);
+				if (write_behind < 0 || *c ||
+				    write_behind > 16383) {
+					fprintf(stderr, Name ": Invalid value for maximum outstanding write-behind writes: %s.\n\tMust be between 0 and 16383.\n", optarg);
+					exit(2);
+				}
+			}
+			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -904,6 +928,12 @@ int main(int argc, char *argv[])
 	case BUILD:
 		if (bitmap_chunk == UnSet) bitmap_chunk = DEFAULT_BITMAP_CHUNK;
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
+		if (write_behind && !bitmap_file) {
+			fprintf(stderr, Name ": write-behind mode requires a bitmap.\n");
+			rv = 1;
+			break;
+		}
+
 		if (bitmap_file) {
 			if (strcmp(bitmap_file, "internal")==0) {
 				fprintf(stderr, Name ": 'internal' bitmaps not supported with --build\n");
@@ -918,15 +948,20 @@ int main(int argc, char *argv[])
 			}
 			if (bitmap_fd < 0) {
 				bitmap_fd = CreateBitmap(bitmap_file, force, NULL,
-							 bitmap_chunk, delay, size);
+							 bitmap_chunk, delay, write_behind, size);
 			}
 		}
 		rv = Build(devlist->devname, mdfd, chunk, level, layout,
 			   raiddisks, devlist->next, assume_clean,
-			   bitmap_file, bitmap_chunk, delay);
+			   bitmap_file, bitmap_chunk, write_behind, delay);
 		break;
 	case CREATE:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
+		if (write_behind && !bitmap_file) {
+			fprintf(stderr, Name ": write-behind mode requires a bitmap.\n");
+			rv = 1;
+			break;
+		}
 		if (ss == NULL) {
 			for(i=0; !ss && superlist[i]; i++) 
 				ss = superlist[i]->match_metadata_desc("default");
@@ -939,7 +974,7 @@ int main(int argc, char *argv[])
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks,
 			    devs_found-1, devlist->next, runstop, verbose, force,
-			    bitmap_file, bitmap_chunk, delay);
+			    bitmap_file, bitmap_chunk, write_behind, delay);
 		break;
 	case MISC:
 
@@ -1078,7 +1113,7 @@ int main(int argc, char *argv[])
 		else if (bitmap_file) {
 			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
-					    bitmap_chunk, delay);
+					    bitmap_chunk, delay, write_behind);
 		} else
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;

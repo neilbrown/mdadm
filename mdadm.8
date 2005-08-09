@@ -525,6 +525,7 @@ argument given to this flag can be one of
 .BR sparc2.2 ,
 .BR summaries ,
 .BR resync ,
+.BR byteorder ,
 or
 .BR super-minor .
 
@@ -554,6 +555,18 @@ meaning that any redundancy in the array (e.g. parity for raid5,
 copies for raid1) may be incorrect.  This will cause the raid system
 to perform a "resync" pass to make sure that all redundant information
 is correct.
+
+The
+.B byteorder
+option allows arrays to be moved between machines with different
+byte-order.
+When assembling such an array for the first time after a move, giving 
+.B "--update=byteorder"
+will cause
+.I mdadm
+to expect superblocks to have their byteorder reversed, and will
+correct that order before assembling the array.  This is only valid
+with original (Verion 0.90) superblocks.
 
 The
 .B summaries

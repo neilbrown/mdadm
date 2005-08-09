@@ -52,7 +52,39 @@ static unsigned long calc_sb0_csum(mdp_super_t *super)
 	return newcsum;
 }
 
+
+void super0_swap_endian(struct mdp_superblock_s *sb)
+{
+	/* as super0 superblocks are host-endian, it is sometimes
+	 * useful to be able to swap the endianness 
+	 * as (almost) everything is u32's we byte-swap every 4byte
+	 * number.
+	 * We then also have to swap the events_hi and events_lo
+	 */
+	char *sbc = (char *)sb;
+	__u32 t32;
+	int i;
+
+	for (i=0; i < MD_SB_BYTES ; i+=4) {
+		char t = sbc[i];
+		sbc[i] = sbc[i+3];
+		sbc[i+3] = t;
+		t=sbc[i+1];
+		sbc[i+1]=sbc[i+2];
+		sbc[i+2]=t;
+	}
+	t32 = sb->events_hi;
+	sb->events_hi = sb->events_lo;
+	sb->events_lo = t32;
+
+	t32 = sb->cp_events_hi;
+	sb->cp_events_hi = sb->cp_events_lo;
+	sb->cp_events_lo = t32;
+
+}	
+
 #ifndef MDASSEMBLE
+
 static void examine_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
@@ -572,6 +604,9 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 		return 1;
 	}
 
+	if (st->ss && st->minor_version == 9)
+		super0_swap_endian(super);
+
 	if (super->md_magic != MD_SB_MAGIC) {
 		if (devname)
 			fprintf(stderr, Name ": No super block found on %s (Expected magic %08x, got %08x)\n",
@@ -609,6 +644,10 @@ static struct supertype *match_metadata_desc0(char *arg)
 	    strcmp(arg, "0.90") == 0 ||
 	    strcmp(arg, "default") == 0
 		)
+		return st;
+
+	st->minor_version = 9; /* flag for 'byte-swapped' */
+	if (strcmp(arg, "0.swap")==0)
 		return st;
 
 	free(st);
@@ -742,7 +781,6 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 
 	return rv;
 }
-	
 
 struct superswitch super0 = {
 #ifndef MDASSEMBLE

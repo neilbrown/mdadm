@@ -334,6 +334,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		free(super);
 	super = NULL;
 
+	if (update && strcmp(update, "byteorder")==0)
+		st->minor_version = 90;
+
 	if (devcnt == 0) {
 		fprintf(stderr, Name ": no devices found for %s\n",
 			mddev);

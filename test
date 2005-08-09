@@ -28,7 +28,7 @@ export md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
 # We test mdadm on loop-back block devices.
 # dir for storing files should be settable by command line maybe
 targetdir=/tmp
-export targetdir
+export targetdir dir
 size=20000
 mdsize0=19904
 mdsize1=19992

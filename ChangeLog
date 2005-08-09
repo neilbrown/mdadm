@@ -1,3 +1,7 @@
+Changes Prior to this release
+    -   Support assembling from byte-swapped superblocks
+	metadata type "0.swap" and --update=byteorder
+
 Changes Prior to 2.0-devel-3 release
     -   Assorted fixes for multiple bugs...
     -   Add test suite

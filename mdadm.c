@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
 	ident.autof = 0;
 	ident.st = NULL;
 	ident.bitmap_fd = -1;
+	ident.name[0] = 0;
 
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,
@@ -526,6 +527,21 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+		case O(CREATE,'N'):
+		case O(ASSEMBLE,'N'):
+			if (ident.name[0]) {
+				fprintf(stderr, Name ": name cannot be set twice.   "
+					"Second value %s.\n", optarg);
+				exit(2);
+			}
+			if (strlen(optarg) > 32) {
+				fprintf(stderr, Name ": name '%s' is too long, 32 chars max.\n",
+					optarg);
+				exit(2);
+			}
+			strcpy(ident.name, optarg);
+			continue;
+
 		case O(ASSEMBLE,'m'): /* super-minor for array */
 			if (ident.super_minor != UnSet) {
 				fprintf(stderr, Name ": super-minor cannot be set twice.  "
@@ -852,7 +868,7 @@ int main(int argc, char *argv[])
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
-		    ident.super_minor == UnSet && !scan ) {
+		    ident.super_minor == UnSet && ident.name[0] == 0 && !scan ) {
 			/* Only a device has been given, so get details from config file */
 			mddev_ident_t array_ident = conf_get_ident(configfile, devlist->devname);
 			if (array_ident == NULL) {
@@ -972,7 +988,7 @@ int main(int argc, char *argv[])
 		}
 
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
-			    raiddisks, sparedisks,
+			    raiddisks, sparedisks, ident.name,
 			    devs_found-1, devlist->next, runstop, verbose, force,
 			    bitmap_file, bitmap_chunk, write_behind, delay);
 		break;

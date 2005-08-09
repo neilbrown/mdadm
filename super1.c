@@ -230,6 +230,8 @@ static void brief_examine_super1(void *sbv)
 		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
 	}
+	if (sb->set_name[0])
+		printf(" name=%.32s", sb->set_name);
 	printf("\n");
 }
 
@@ -238,6 +240,7 @@ static void detail_super1(void *sbv)
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
 
+	printf("           Name : %.32s\n", sb->set_name);
 	printf("           UUID : ");
 	for (i=0; i<16; i++) {
 		printf("%02x", sb->set_uuid[i]);
@@ -251,6 +254,8 @@ static void brief_detail_super1(void *sbv)
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
 
+	if (sb->set_name[0])
+		printf(" name=%.32s", sb->set_name);
 	printf(" UUID=");
 	for (i=0; i<16; i++) {
 		printf("%02x", sb->set_uuid[i]);
@@ -269,7 +274,7 @@ static void uuid_from_super1(int uuid[4], void * sbv)
 		cuuid[i] = super->set_uuid[i];
 }
 
-static void getinfo_super1(struct mdinfo *info, void *sbv)
+static void getinfo_super1(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int working = 0;
@@ -308,6 +313,9 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 	info->events = __le64_to_cpu(sb->events);
 
 	memcpy(info->uuid, sb->set_uuid, 16);
+
+	strncpy(ident->name, sb->set_name, 32);
+	ident->name[32] = 0;
 
 	for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
 		role = __le16_to_cpu(sb->dev_roles[i]);
@@ -375,7 +383,7 @@ static __u64 event_super1(void *sbv)
 	return __le64_to_cpu(sb->events);
 }
 
-static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info)
+static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info, char *name)
 {
 	struct mdp_superblock_1 *sb = malloc(1024);
 	int spares;
@@ -402,7 +410,8 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info)
 	*(__u32*)(sb->set_uuid+8) = random();
 	*(__u32*)(sb->set_uuid+12) = random();
 
-	/* FIXME name */
+	memset(sb->set_name, 0, 32);
+	strcpy(sb->set_name, name);
 
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);

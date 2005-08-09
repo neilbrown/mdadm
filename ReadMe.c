@@ -137,6 +137,7 @@ struct option long_options[] = {
     /* For assemble */
     {"uuid",      1, 0, 'u'},
     {"super-minor",1,0, 'm'},
+    {"name",	  1, 0, 'N'},
     {"config",    1, 0, 'c'},
     {"scan",      0, 0, 's'},
     {"force",	  0, 0, 'f'},
@@ -236,6 +237,7 @@ char OptionHelp[] =
 "  --bitmap-chunk=    : chunksize of bitmap in bitmap file (Kilobytes)\n"
 "  --delay=      -d   : seconds between bitmap updates\n"
 "  --write-behind=    : number of simultaneous write-behind requests to allow (requires bitmap)\n"
+"  --name=       -N   : Textual name for array - max 32 characters\n"
 "\n"
 " For assemble:\n"
 "  --bitmap=     -b   : File to find bitmap information in\n"
@@ -243,6 +245,7 @@ char OptionHelp[] =
 "                       have this uuid are excluded\n"
 "  --super-minor= -m  : minor number to look for in super-block when\n"
 "                       choosing devices to use.\n"
+"  --name=       -N   : Array name to look for in super-block.\n"
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
@@ -307,6 +310,7 @@ char Help_create[] =
 "  --run         -R   : insist of running the array even if not all\n"
 "                     : devices are present or some look odd.\n"
 "  --readonly    -o   : start the array readonly - not supported yet.\n"
+"  --name=       -N   : Textual name for array - max 32 characters\n"
 "  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
 "  --delay=      -d   : bitmap update delay in seconds.\n"
 "\n"
@@ -371,6 +375,7 @@ char Help_assemble[] =
 "                       have this uuid are excluded\n"
 "  --super-minor= -m  : minor number to look for in super-block when\n"
 "                       choosing devices to use.\n"
+"  --name=       -N   : Array name to look for in super-block.\n"
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --run         -R   : Try to start the array even if not enough devices\n"

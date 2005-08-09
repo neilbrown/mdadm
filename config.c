@@ -277,6 +277,7 @@ void arrayline(char *line)
 	mis.next = NULL;
 	mis.st = NULL;
 	mis.bitmap_fd = -1;
+	mis.name[0] = 0;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
 		if (w[0] == '/') {
@@ -307,6 +308,15 @@ void arrayline(char *line)
 					mis.super_minor = UnSet;
 				}
 			}
+		} else if (strncasecmp(w, "name=", 5)==0) {
+			if (mis.name[0])
+				fprintf(stderr, Name ": only specify name once, %s ignored.\n",
+					w);
+			else if (strlen(w+5) > 32)
+				fprintf(stderr, Name ": name too long, ignoring %s\n", w);
+			else
+				strcpy(mis.name, w+5);
+
 		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
 			if (mis.devices)
 				fprintf(stderr, Name ": only specify devices once (use a comma separated list). %s ignored\n",
@@ -375,7 +385,7 @@ void arrayline(char *line)
 	}
 	if (mis.devname == NULL)
 		fprintf(stderr, Name ": ARRAY line with no device\n");
-	else if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor == UnSet)
+	else if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor == UnSet && mis.name[0] == 0)
 		fprintf(stderr, Name ": ARRAY line %s has no identity information.\n", mis.devname);
 	else {
 		mi = malloc(sizeof(*mi));

@@ -223,7 +223,7 @@ static void uuid_from_super0(int uuid[4], void * sbv)
 	}
 }
 
-static void getinfo_super0(struct mdinfo *info, void *sbv)
+static void getinfo_super0(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	int working = 0;
@@ -246,7 +246,8 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 	info->events = md_event(sb);
 
 	uuid_from_super0(info->uuid, sbv);
-	
+
+	ident->name[0] = 0;
 	/* work_disks is calculated rather than read directly */
 	for (i=0; i < MD_SB_DISKS; i++)
 		if ((sb->disks[i].state & (1<<MD_DISK_SYNC)) &&
@@ -365,7 +366,7 @@ static __u64 event_super0(void *sbv)
 
 
 
-static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info)
+static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info, char *ignored_name)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
 	int spares;

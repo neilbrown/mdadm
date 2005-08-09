@@ -2,6 +2,8 @@ Changes Prior to this release
     -   Support assembling from byte-swapped superblocks
 	metadata type "0.swap" and --update=byteorder
     -   write-mostly and write-behind support for raid1.
+    -   Support --name= and 'name=' config entry for identifying
+	arrays be name.
 
 Changes Prior to 2.0-devel-3 release
     -   Assorted fixes for multiple bugs...

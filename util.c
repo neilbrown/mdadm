@@ -227,6 +227,7 @@ int check_raid(int fd, char *name)
 {
 	void *super;
 	struct mdinfo info;
+	struct mddev_ident_s ident;
 	time_t crtime;
 	struct supertype *st = guess_super(fd);
 
@@ -235,7 +236,7 @@ int check_raid(int fd, char *name)
 	/* Looks like a raid array .. */
 	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
 		name);
-	st->ss->getinfo_super(&info, super);
+	st->ss->getinfo_super(&info, &ident, super);
 	free(super);
 	crtime = info.array.ctime;
 	fprintf(stderr, "    level=%d devices=%d ctime=%s",
@@ -607,7 +608,8 @@ struct supertype *guess_super(int fd)
 		rv = ss->load_super(st, fd, &sbp, NULL);
 		if (rv == 0) {
 			struct mdinfo info;
-			ss->getinfo_super(&info, sbp);
+			struct mddev_ident_s ident;
+			ss->getinfo_super(&info, &ident, sbp);
 			if (bestsuper == -1 ||
 			    besttime < info.array.ctime) {
 				bestsuper = i;

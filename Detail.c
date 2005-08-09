@@ -112,7 +112,8 @@ int Detail(char *dev, int brief, int test)
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, &super, NULL) == 0) {
 					struct mdinfo info;
-					st->ss->getinfo_super(&info, super);
+					struct mddev_ident_s ident;
+					st->ss->getinfo_super(&info, &ident, super);
 					if (info.array.ctime != array.ctime ||
 					    info.array.level != array.level) {
 						free(super);

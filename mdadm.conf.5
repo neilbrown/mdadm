@@ -90,6 +90,13 @@ The value should be a 128 bit uuid in hexadecimal, with punctuation
 interspersed if desired.  This must match the uuid stored in the
 superblock.
 .TP
+.B name=
+The value should be a simple textual name as was given to
+.I mdadm
+when the array was created.  This must match the name stored in the
+superblock on a device for that device to be included in the array.
+Not all superblock-formats support names.
+.TP
 .B super-minor=
 The value is an integer which indicates the minor number that was
 stored in the superblock when the array was created. When an array is

@@ -62,6 +62,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 		void *super;
 		struct supertype *st;
 		struct mdinfo info;
+		struct mddev_ident_s ident;
 		void *devs;
 		struct array *next;
 		int spares;
@@ -108,9 +109,9 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 				ap->spares = 0;
 				ap->st = st;
 				arrays = ap;
-				st->ss->getinfo_super(&ap->info, super);
+				st->ss->getinfo_super(&ap->info, &ap->ident, super);
 			} else {
-				st->ss->getinfo_super(&ap->info, super);
+				st->ss->getinfo_super(&ap->info, &ap->ident, super);
 				free(super);
 			}
 			if (!(ap->info.disk.state & MD_DISK_SYNC))

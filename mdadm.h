@@ -112,6 +112,7 @@ typedef struct mddev_ident_s {
 	
 	int	uuid_set;
 	int	uuid[4];
+	char	name[33];
 
 	unsigned int super_minor;
 
@@ -177,10 +178,10 @@ extern struct superswitch {
 	void (*detail_super)(void *sbv);
 	void (*brief_detail_super)(void *sbv);
 	void (*uuid_from_super)(int uuid[4], void *sbv);
-	void (*getinfo_super)(struct mdinfo *info, void *sbv);
+	void (*getinfo_super)(struct mdinfo *info, mddev_ident_t ident, void *sbv);
 	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
 	__u64 (*event_super)(void *sbv);
-	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info);
+	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, char *name);
 	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
 	int (*store_super)(struct supertype *st, int fd, void *sbv);
 	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
@@ -244,6 +245,7 @@ extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 
 extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
+		  char *name,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay);

@@ -432,6 +432,14 @@ really useful for Building RAID1 array.  Only use this if you really
 know what you are doing.  This is currently only supported for --build.
 
 .TP
+.BR -N ", " --name=
+Set a
+.B name
+for the array.  This is currently only effective when creating an
+array with a version-1 superblock.  The name is a simple textual
+string that can be used to identify array components when assembling.
+
+.TP
 .BR -R ", " --run
 Insist that
 .I mdadm
@@ -516,6 +524,11 @@ e.g. when assembling
 .BR /dev/md0 ,
 .M --super-minor=dev
 will look for super blocks with a minor number of 0.
+
+.TP
+.BR -N ", " --name=
+Specify the name of the array to assemble.  This must be the name
+that was specified when creating the array.
 
 .TP
 .BR -f ", " --force

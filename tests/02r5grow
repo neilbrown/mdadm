@@ -1,5 +1,4 @@
 
-set -e
 
 # create a small raid5 array, make it larger.  Then make it smaller
 

@@ -101,6 +101,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		int uptodate;
 		int state;
 		int raid_disk;
+		int disk_nr;
 	} *devices;
 	int *best = NULL; /* indexed by raid_disk */
 	unsigned int bestcnt = 0;
@@ -182,7 +183,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose>=0) || verbose > 0)
 				fprintf(stderr, Name ": %s is not one of %s\n", devname, ident->devices);
 			continue;
 		}
@@ -194,7 +195,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		
 		dfd = open(devname, O_RDONLY|O_EXCL, 0);
 		if (dfd < 0) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": cannot open device %s: %s\n",
 					devname, strerror(errno));
 		} else if (fstat(dfd, &stb)< 0) {
@@ -207,10 +208,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				devname);
 			close(dfd);
 		} else if (!tst && (tst = guess_super(dfd)) == NULL) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": no recogniseable superblock\n");
 		} else if (tst->ss->load_super(tst,dfd, &super, NULL)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
 			close(dfd);
@@ -221,35 +222,35 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 		if (ident->uuid_set &&
 		    (!super || same_uuid(info.uuid, ident->uuid, tst->ss->swapuuid)==0)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong uuid.\n",
 					devname);
 			continue;
 		}
 		if (ident->name[0] &&
 		    (!super || strncmp(ident2.name, ident->name, 32)!=0)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong name.\n",
 					devname);
 			continue;
 		}
 		if (ident->super_minor != UnSet &&
 		    (!super || ident->super_minor != info.array.md_minor)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong super-minor.\n",
 					devname);
 			continue;
 		}
 		if (ident->level != UnSet &&
 		    (!super|| ident->level != info.array.level)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong raid level.\n",
 					devname);
 			continue;
 		}
 		if (ident->raid_disks != UnSet &&
 		    (!super || ident->raid_disks!= info.array.raid_disks)) {
-			if (inargv || verbose > 0)
+			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s requires wrong number of drives.\n",
 					devname);
 			continue;
@@ -305,6 +306,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		devices[devcnt].oldminor = info.disk.minor;
 		devices[devcnt].events = info.events;
 		devices[devcnt].raid_disk = info.disk.raid_disk;
+		devices[devcnt].disk_nr = info.disk.number;
 		devices[devcnt].uptodate = 0;
 		devices[devcnt].state = info.disk.state;
 		if (most_recent < devcnt) {
@@ -484,7 +486,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		if (!devices[j].uptodate)
 			continue;
-		info.disk.number = i;
+		info.disk.number = devices[j].disk_nr;
 		info.disk.raid_disk = i;
 		info.disk.state = desired_state;
 

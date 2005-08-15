@@ -1,5 +1,4 @@
 
-set -e
 
 # create a raid5, fail and remove a drive during initial sync
 # Add two more, fail and remove one

@@ -1,5 +1,4 @@
 
-set -e
 
 # create a small raid6 array, make it larger.  Then make it smaller
 

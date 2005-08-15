@@ -1,5 +1,4 @@
 
-set -e
 # Make a raid1,  add a device, then remove it again.
 
 mdadm -CR $md0 -l1 -n2 -x1 $dev0 $dev1 $dev2  

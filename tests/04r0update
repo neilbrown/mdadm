@@ -1,4 +1,3 @@
-set -e
 
 # create a raid0, re-assemble with a different super-minor
 mdadm -CR $md0 -l0 -n3 $dev0 $dev1 $dev2 

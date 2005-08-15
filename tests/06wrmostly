@@ -1,4 +1,3 @@
-set -e
 
 # create a raid1 array with a wrmostly device
 

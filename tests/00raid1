@@ -2,7 +2,6 @@
 # create a simple mirror
 # test version0, version1, and no super
 # test resync and recovery.
-set -e
 
 mdadm -CR $md0 -l 1 -n2 $dev0 $dev1 
 check resync

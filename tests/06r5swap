@@ -16,7 +16,4 @@ diff -u $targetdir/d1 $targetdir/d1s
 $mdadm --assemble --update=byteorder $md0 $dev0 $dev1 $dev2 $dev3
 sleep 3
 cat /proc/mdstat
-exit 1
-
-
-
+$mdadm -S $md0

@@ -41,6 +41,8 @@ int Detail(char *dev, int brief, int test)
 	int fd = open(dev, O_RDONLY, 0);
 	int vers;
 	mdu_array_info_t array;
+	mdu_disk_info_t *disks;
+	int next;
 	int d;
 	time_t atime;
 	char *c;
@@ -214,11 +216,15 @@ int Detail(char *dev, int brief, int test)
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
-	for (d= 0; d < max_disks; d++) {
+	disks = malloc(max_disks * sizeof(mdu_disk_info_t));
+	for (d=0; d<max_disks; d++) {
+		disks[d].state = (1<<MD_DISK_REMOVED);
+		disks[d].major = disks[d].minor = 0;
+	}
+
+	next = array.raid_disks;
+	for (d=0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
-		char *dv;
-		int wonly = disk.state & (1<<MD_DISK_WRITEMOSTLY);
-		disk.state &= ~(1<<MD_DISK_WRITEMOSTLY);
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
 			if (d < array.raid_disks)
@@ -226,12 +232,22 @@ int Detail(char *dev, int brief, int test)
 					d, strerror(errno));
 			continue;
 		}
+		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks) 
+			disks[disk.raid_disk] = disk;
+		else if (next < max_disks)
+			disks[next++] = disk;
+	}
+
+	for (d= 0; d < max_disks; d++) {
+		char *dv;
+		mdu_disk_info_t disk = disks[d];
+
 		if (d >= array.raid_disks &&
 		    disk.major == 0 &&
 		    disk.minor == 0)
 			continue;
 		if (!brief) {
-			if (disk.number == array.raid_disks) printf("\n");
+			if (d == array.raid_disks) printf("\n");
 			if (disk.raid_disk < 0)
 				printf("   %5d   %5d    %5d        -     ", 
 				       disk.number, disk.major, disk.minor);
@@ -247,9 +263,11 @@ int Detail(char *dev, int brief, int test)
 			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
 			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
-			if (wonly) printf(" writeonly");
-			if (disk.state == 0) printf(" spare");
-			if (disk.state == 0) {
+			if (disk.state & (1<<MD_DISK_WRITEMOSTLY)) printf(" writemostly");
+			if ((disk.state &
+			     ((1<<MD_DISK_ACTIVE)|(1<<MD_DISK_SYNC)|(1<<MD_DISK_REMOVED)))
+			    == 0) {
+				printf(" spare");
 				if (is_26) {
 					if (disk.raid_disk < array.raid_disks && disk.raid_disk >= 0)
 						printf(" rebuilding");

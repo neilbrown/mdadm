@@ -154,7 +154,7 @@ int Manage_reconfig(char *devname, int fd, int layout)
 }
 
 int Manage_subdevs(char *devname, int fd,
-		   mddev_dev_t devlist)
+		   mddev_dev_t devlist, int verbose)
 {
 	/* do something to each dev.
 	 * devmode can be
@@ -208,8 +208,9 @@ int Manage_subdevs(char *devname, int fd,
 			    md_get_version(fd)%100 < 2) {
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
-					fprintf(stderr, Name ": hot added %s\n",
-						dv->devname);
+					if (verbose >= 0)
+						fprintf(stderr, Name ": hot added %s\n",
+							dv->devname);
 					continue;
 				}
 
@@ -276,7 +277,8 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, j, strerror(errno));
 				return 1;
 			}
-			fprintf(stderr, Name ": added %s\n", dv->devname);
+			if (verbose >= 0)
+				fprintf(stderr, Name ": added %s\n", dv->devname);
 			break;
 
 		case 'r':
@@ -287,7 +289,8 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, strerror(errno));
 				return 1;
 			}
-			fprintf(stderr, Name ": hot removed %s\n", dv->devname);
+			if (verbose >= 0)
+				fprintf(stderr, Name ": hot removed %s\n", dv->devname);
 			break;
 
 		case 'f': /* set faulty */
@@ -297,8 +300,9 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, strerror(errno));
 				return 1;
 			}
-			fprintf(stderr, Name ": set %s faulty in %s\n",
-				dv->devname, devname);
+			if (verbose >= 0)
+				fprintf(stderr, Name ": set %s faulty in %s\n",
+					dv->devname, devname);
 			break;
 		}
 	}

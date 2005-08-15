@@ -12,8 +12,8 @@ do
    n2 ) m=3;;
    n3 ) m=2;;
  esac
- $mdadm --create --run --level=raid10 --layout $lo --raid-disks 6 -x 1 $md0 $devs
- $check resync ; $check raid10
- sh tests/testdev $md0 $m $mdsize0 $[64*cm]
- $mdadm -S $md0
+ mdadm --create --run --level=raid10 --layout $lo --raid-disks 6 -x 1 $md0 $devs
+ check resync ; check raid10
+ testdev $md0 $m $mdsize0 $[64*cm]
+ mdadm -S $md0
 done

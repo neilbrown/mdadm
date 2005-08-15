@@ -91,7 +91,7 @@ char Version[] = Name " - v2.0-devel-3 - DEVELOPMENT VERSION NOT FOR REGULAR USE
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVXvb::c:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1te:";
+char short_options[]="-ABCDEFGQhVXvqb::c:i:l:p:m:n:x:u:c:d:z:U:sa::rfRSow1te:";
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},
@@ -114,6 +114,7 @@ struct option long_options[] = {
     {"help-options",0,0,'h'},
     {"version",	  0, 0, 'V'},
     {"verbose",   0, 0, 'v'},
+    {"quiet",	  0, 0, 'q'},
 
     /* For create or build: */
     {"chunk",	  1, 0, 'c'},
@@ -205,6 +206,7 @@ char OptionHelp[] =
 "  --help-options     : This help message\n"
 "  --version     -V   : Print version information for mdadm\n"
 "  --verbose     -v   : Be more verbose about what is happening\n"
+"  --quiet       -q   : Don't print un-necessary messages\n"
 "  --brief       -b   : Be less verbose, more brief\n"
 "  --force       -f   : Override normal checks and be more forceful\n"
 "\n"

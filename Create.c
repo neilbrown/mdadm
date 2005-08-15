@@ -119,21 +119,21 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			break;
 		case 10:
 			layout = 0x102; /* near=2, far=1 */
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr,
 					Name ": layout defaults to n1\n");
 			break;
 		case 5:
 		case 6:
 			layout = map_name(r5layout, "default");
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr,
 					Name ": layout defaults to %s\n", map_num(r5layout, layout));
 			break;
 		case LEVEL_FAULTY:
 			layout = map_name(faultylayout, "default");
 
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr,
 					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
 			break;
@@ -156,14 +156,14 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	case -1: /* linear */
 		if (chunk == 0) {
 			chunk = 64;
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr, Name ": chunk size defaults to 64K\n");
 		}
 		break;
 	default: /* raid1, multipath */
 		if (chunk) {
 			chunk = 0;
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr, Name ": chunk size ignored for this level\n");
 		}
 		break;
@@ -236,9 +236,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			mindisc = dname;
 			minsize = freesize;
 		}
-		warn |= check_ext2(fd, dname);
-		warn |= check_reiser(fd, dname);
-		warn |= check_raid(fd, dname);
+		if (runstop != 1 || verbose >= 0) {
+			warn |= check_ext2(fd, dname);
+			warn |= check_reiser(fd, dname);
+			warn |= check_raid(fd, dname);
+		}
 		close(fd);
 	}
 	if (fail) {
@@ -257,13 +259,14 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				return 1;
 			}
 			size = minsize;
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr, Name ": size set to %luK\n", size);
 		}
 	}
 	if (level > 0 && ((maxsize-size)*100 > maxsize)) {
-		fprintf(stderr, Name ": largest drive (%s) exceed size (%luK) by more than 1%%\n",
-			maxdisc, size);
+		if (runstop != 1 || verbose >= 0)
+			fprintf(stderr, Name ": largest drive (%s) exceed size (%luK) by more than 1%%\n",
+				maxdisc, size);
 		warn = 1;
 	}
 
@@ -274,7 +277,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				return 1;
 			}
 		} else {
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr, Name ": creation continuing despite oddities due to --run\n");
 		}
 	}
@@ -473,7 +476,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			Manage_runstop(mddev, mdfd, -1, 0);
 			return 1;
 		}
-		fprintf(stderr, Name ": array %s started.\n", mddev);
+		if (verbose >= 0)
+			fprintf(stderr, Name ": array %s started.\n", mddev);
 	} else {
 		fprintf(stderr, Name ": not starting array - not enough devices.\n");
 	}

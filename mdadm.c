@@ -70,6 +70,7 @@ int main(int argc, char *argv[])
 	mddev_dev_t dv;
 	int devs_found = 0;
 	int verbose = 0;
+	int quiet = 0;
 	int brief = 0;
 	int force = 0;
 	int test = 0;
@@ -114,7 +115,7 @@ int main(int argc, char *argv[])
 				short_options, long_options,
 				&option_index)) != -1) {
 		int newmode = mode;
-		/* firstly, so mode-independant options */
+		/* firstly, some mode-independant options */
 		switch(opt) {
 		case 'h':
 			help_text = Help;
@@ -139,6 +140,9 @@ int main(int argc, char *argv[])
 			exit(0);
 
 		case 'v': verbose++;
+			continue;
+
+		case 'q': quiet++;
 			continue;
 
 		case 'b':
@@ -860,7 +864,7 @@ int main(int argc, char *argv[])
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && devs_found>1)
 			rv = Manage_subdevs(devlist->devname, mdfd,
-					    devlist->next);
+					    devlist->next, verbose-quiet);
 		if (!rv && readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)
@@ -883,14 +887,14 @@ int main(int argc, char *argv[])
 				else {
 					rv |= Assemble(ss, devlist->devname, mdfd, array_ident, configfile,
 						       NULL,
-						       readonly, runstop, update, verbose, force);
+						       readonly, runstop, update, verbose-quiet, force);
 					close(mdfd);
 				}
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, mdfd, &ident, configfile,
 				      devlist->next,
-				      readonly, runstop, update, verbose, force);
+				      readonly, runstop, update, verbose-quiet, force);
 		else if (devs_found>0) {
 			if (update && devs_found > 1) {
 				fprintf(stderr, Name ": can only update a single array at a time\n");
@@ -912,7 +916,7 @@ int main(int argc, char *argv[])
 				}
 				rv |= Assemble(ss, dv->devname, mdfd, array_ident, configfile,
 					       NULL,
-					       readonly, runstop, update, verbose, force);
+					       readonly, runstop, update, verbose-quiet, force);
 				close(mdfd);
 			}
 		} else {
@@ -936,7 +940,7 @@ int main(int argc, char *argv[])
 						rv |= Assemble(ss, array_list->devname, mdfd,
 							       array_list, configfile,
 							       NULL,
-							       readonly, runstop, NULL, verbose, force);
+							       readonly, runstop, NULL, verbose-quiet, force);
 					close(mdfd);
 				}
 		}
@@ -969,7 +973,7 @@ int main(int argc, char *argv[])
 		}
 		rv = Build(devlist->devname, mdfd, chunk, level, layout,
 			   raiddisks, devlist->next, assume_clean,
-			   bitmap_file, bitmap_chunk, write_behind, delay);
+			   bitmap_file, bitmap_chunk, write_behind, delay, verbose-quiet);
 		break;
 	case CREATE:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
@@ -989,7 +993,7 @@ int main(int argc, char *argv[])
 
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks, ident.name,
-			    devs_found-1, devlist->next, runstop, verbose, force,
+			    devs_found-1, devlist->next, runstop, verbose-quiet, force,
 			    bitmap_file, bitmap_chunk, write_behind, delay);
 		break;
 	case MISC:

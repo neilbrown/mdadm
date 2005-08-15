@@ -271,12 +271,13 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 		memcpy(sb32+MD_SB_GENERIC_CONSTANT_WORDS+7,
 		       sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
 		       (MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1))*4);
-		fprintf (stderr, Name ": adjusting superblock of %s for 2.2/sparc compatability.\n",
-			 devname);
+		if (verbose >= 0)
+			fprintf (stderr, Name ": adjusting superblock of %s for 2.2/sparc compatability.\n",
+				 devname);
 	}
 	if (strcmp(update, "super-minor") ==0) {
 		sb->md_minor = info->array.md_minor;
-		if (verbose)
+		if (verbose > 0)
 			fprintf(stderr, Name ": updating superblock of %s with minor number %d\n",
 				devname, info->array.md_minor);
 	}

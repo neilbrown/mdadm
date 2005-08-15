@@ -36,7 +36,7 @@
 int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	  int raiddisks,
 	  mddev_dev_t devlist, int assume_clean,
-	  char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
+	  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int verbose)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -51,7 +51,6 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	 * SET_ARRAY_INFO,  ADD_NEW_DISK, RUN_ARRAY
 	 *
 	 */
-	int verbose = 0;
 	int i;
 	int vers;
 	struct stat stb;
@@ -92,21 +91,21 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 			break;
 		case 10:
 			layout = 0x102; /* near=2, far=1 */
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr,
 					Name ": layout defaults to n1\n");
 			break;
 		case 5:
 		case 6:
 			layout = map_name(r5layout, "default");
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr,
 					Name ": layout defaults to %s\n", map_num(r5layout, layout));
 			break;
 		case LEVEL_FAULTY:
 			layout = map_name(faultylayout, "default");
 
-			if (verbose)
+			if (verbose > 0)
 				fprintf(stderr,
 					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
 			break;
@@ -233,8 +232,9 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 			goto abort;
 		}
 	}
-	fprintf(stderr, Name ": array %s built and started.\n",
-		mddev);
+	if (verbose >= 0)
+		fprintf(stderr, Name ": array %s built and started.\n",
+			mddev);
 	return 0;
 
  abort:

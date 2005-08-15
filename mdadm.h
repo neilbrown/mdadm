@@ -224,7 +224,7 @@ extern int Manage_runstop(char *devname, int fd, int runstop, int quiet);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,
-			  mddev_dev_t devlist);
+			  mddev_dev_t devlist, int verbose);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind);
 
@@ -240,7 +240,7 @@ extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 int raiddisks,
 		 mddev_dev_t devlist, int assume_clean,
-		 char *bitmap_file, int bitmap_chunk, int write_behind, int delay);
+		 char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int verbose);
 
 
 extern int Create(struct supertype *st, char *mddev, int mdfd,

@@ -252,7 +252,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": no size and no drives given - aborting create.\n");
 			return 1;
 		}
-		if (level > 0) {
+		if (level > 0 || level == LEVEL_MULTIPATH || level == LEVEL_FAULTY) {
 			/* size is meaningful */
 			if (minsize > 0x100000000ULL) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);	

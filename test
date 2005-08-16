@@ -42,11 +42,19 @@ devlist=
 for d in 0 1 2 3 4 5 6 7
 do
    [ -f $targetdir/mdtest$d ] || dd if=/dev/zero of=$targetdir/mdtest$d count=$size bs=1K > /dev/null 2>&1
-   losetup /dev/loop$d $targetdir/mdtest$d
+   if [ $d -eq 7 ]
+   then
+     losetup /dev/loop$d $targetdir/mdtest6 # for multipath use
+   else
+     losetup /dev/loop$d $targetdir/mdtest$d
+   fi
    eval dev$d=/dev/loop$d
    eval file$d=$targetdir/mdtest$d
    eval devlist=\"\$devlist \$dev$d\"
 done
+path0=$dev6
+path1=$dev7
+
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {
@@ -117,6 +125,11 @@ testdev() {
      echo "ERROR: size is wrong for $dev: $cnt * $dvsize (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize64 $dev`"
      exit 1
    fi
+}
+
+rotest() {
+  dev=$1
+  fsck -fn $dev >&2
 }
 
 

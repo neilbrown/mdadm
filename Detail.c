@@ -232,6 +232,8 @@ int Detail(char *dev, int brief, int test)
 					d, strerror(errno));
 			continue;
 		}
+		if (disk.major == 0 && disk.minor == 0)
+			continue;
 		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks) 
 			disks[disk.raid_disk] = disk;
 		else if (next < max_disks)

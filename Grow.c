@@ -215,6 +215,14 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	}
 	if (bmf.pathname[0]) {
+		if (strcmp(file,"none")==0) {
+			if (ioctl(fd, SET_BITMAP_FILE, -1)!= 0) {
+				fprintf(stderr, Name ": failed to remove bitmap %s\n",
+					bmf.pathname);
+				return 1;
+			}
+			return 0;
+		}
 		fprintf(stderr, Name ": %s already has a bitmap (%s)\n",
 			devname, bmf.pathname);
 		return 1;
@@ -224,6 +232,14 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	}
 	if (array.state & (1<<MD_SB_BITMAP_PRESENT)) {
+		if (strcmp(file, "none")==0) {
+			array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
+			if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
+				fprintf(stderr, Name ": failed to remove internal bitmap.\n");
+				return 1;
+			}
+			return 0;
+		}
 		fprintf(stderr, Name ": Internal bitmap already present on %s\n",
 			devname);
 		return 1;
@@ -234,7 +250,10 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			array.major_version, array.minor_version);
 		return 1;
 	}
-	if (strcmp(file, "internal") == 0) {
+	if (strcmp(file, "none") == 0) {
+		fprintf(stderr, Name ": no bitmap found on %s\n", devname);
+		return 1;
+	} else if (strcmp(file, "internal") == 0) {
 		int d;
 		for (d=0; d< st->max_devs; d++) {
 			mdu_disk_info_t disk;
@@ -267,8 +286,57 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			fprintf(stderr, Name ": failed to set internal bitmap.\n");
 			return 1;
 		}
-	} else
-		abort(); /* FIXME */
+	} else {
+		int uuid[4];
+		int bitmap_fd;
+		int d;
+		int max_devs = st->max_devs;
+		void *super = NULL;
+		if (chunk == UnSet)
+			chunk = DEFAULT_BITMAP_CHUNK;
+
+		/* try to load a superblock */
+		for (d=0; d<max_devs; d++) {
+			mdu_disk_info_t disk;
+			char *dv;
+			int fd2;
+			disk.number = d;
+			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+				continue;
+			if ((disk.major==0 && disk.minor==0) ||
+			    (disk.state & (1<<MD_DISK_REMOVED)))
+				continue;
+			dv = map_dev(disk.major, disk.minor);
+			if (!dv) continue;
+			fd2 = open(dv, O_RDONLY);
+			if (fd2 >= 0 &&
+			    st->ss->load_super(st, fd2, &super, NULL) == 0) {
+				close(fd2);
+				st->ss->uuid_from_super(uuid, super);
+				break;
+			}
+			close(fd2);
+		}
+		if (d == max_devs) {
+			fprintf(stderr, Name ": cannot find UUID for array!\n");
+			return 1;
+		}
+		if (CreateBitmap(file, 0, (char*)uuid, chunk,
+				 delay, write_behind, array.size*2ULL)) {
+			return 1;
+		}
+		bitmap_fd = open(file, O_RDWR);
+		if (bitmap_fd < 0) {
+			fprintf(stderr, Name ": weird: %s cannot be openned\n",
+				file);
+			return 1;
+		}
+		if (ioctl(fd, SET_BITMAP_FILE, bitmap_fd) < 0) {
+			fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
+				devname, strerror(errno));
+			return 1;
+		}
+	}
 
 	return 0;
 }

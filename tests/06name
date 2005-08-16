@@ -8,6 +8,6 @@ mdadm -D $md0 | grep 'Name : Fred$' > /dev/null || exit 1
 mdadm -S $md0
 
 mdadm -A $md0 --name="Fred" $devlist
-mdadm -Db $md0
+#mdadm -Db $md0
 mdadm -S $md0
 

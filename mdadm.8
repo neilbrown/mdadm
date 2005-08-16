@@ -225,8 +225,18 @@ slow link.
 .TP
 .BR -b ", " --bitmap=
 Give the name of a bitmap file to use with this array.  Can be used
-with --create (file should not exist) or --assemble (file should
-exist).
+with --create (file should not exist), --assemble (file should
+exist), of --grow (file should not exist).
+
+The file
+.B internal
+can be used to indicate that the bitmap should be stored in the array,
+near the superblock.  There is a limited amount of space for such
+bitmaps, but it is often sufficient.
+
+The file
+.B none
+can be given when used with --grow to remove a bitmap.
 
 .TP
 .BR --bitmap-chunk=
@@ -619,6 +629,20 @@ counts of total, working, active, failed, and spare devices.
 .BR -a ", " --add
 '''add, or
 hotadd listed devices.
+
+.TP
+.BR --re-add
+Listed devices are assumed to have recently been part of the array,
+and they are re-added.  This is only different from --add when a
+write-intent bitmap is present.  It causes only those parts of the
+device that have changed since the device was removed from the array
+to be reconstructed.
+
+This flag is only needed with arrays that are built without a
+superblock (i.e. --build, not --create).  For array with a superblock,
+.I mdadm
+checks if a superblock is present and automatically determines if a
+re-add is appropriate. 
 
 .TP
 .BR -r ", " --remove
@@ -1268,7 +1292,7 @@ change the "raid-disks" attribute of RAID1.
 add a write-intent bitmap to a RAID1 array.
 .PP
 
-Normally when an array is build the "size" it taken from the smallest
+Normally when an array is built the "size" it taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a
 time, removed and replaced with larger drives, then you could have an
 array of large drives with only a small amount used.  In this
@@ -1293,6 +1317,12 @@ devices that which were in those slots must be failed and removed.
 
 When the number of devices is increased, any hot spares that are
 present may be activated immediately.
+
+A write-intent bitmap can be added to, or remove from, an active RAID1
+array.  Either internal bitmap, of bitmaps stored in a separate file
+can be added.  Note that if you add a bitmap stored in a file which is
+in a filesystem that is on the raid array being affected, the system
+will deadlock.  The bitmap must be on a separate filesystem.
 
 .SH EXAMPLES
 

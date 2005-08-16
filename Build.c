@@ -57,7 +57,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	int subdevs = 0, missing_disks = 0;
 	mddev_dev_t dv;
 	int bitmap_fd;
-/*	unsigned long long size = ~0ULL; / * needed for bitmap only */
+	unsigned long long size = ~0ULL;
 
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
@@ -147,6 +147,8 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	}
 	/* now add the devices */
 	for ((i=0), (dv = devlist) ; dv ; i++, dv=dv->next) {
+		unsigned long dsize;
+		int fd;
 		if (strcmp("missing", dv->devname) == 0)
 			continue;
 		if (stat(dv->devname, &stb)) {
@@ -159,6 +161,19 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 				dv->devname);
 			goto abort;
 		}
+		fd = open(dv->devname, O_RDONLY|O_EXCL);
+		if (fd < 0) {
+			fprintf(stderr, Name ": Cannot open %s: %s\n", 
+				dv->devname, strerror(errno));
+			goto abort;
+		}
+		if (ioctl(fd, BLKGETSIZE, &dsize) == 0 && dsize > 0) {
+			unsigned long long ldsize = dsize;
+			ldsize <<= 9;
+			if (size== 0 || ldsize < size)
+				size = ldsize;
+		}
+		close(fd);
 		if (vers>= 9000) {
 			mdu_disk_info_t disk;
 			disk.number = i;
@@ -193,7 +208,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 					return 1;
 				}
 				if (CreateBitmap(bitmap_file, 1, NULL, bitmap_chunk,
-						 delay, write_behind, 0/* FIXME size */)) {
+						 delay, write_behind, size>>9)) {
 					return 1;
 				}
 				bitmap_fd = open(bitmap_file, O_RDWR);

@@ -134,6 +134,7 @@ struct option long_options[] = {
     {"bitmap-chunk", 1, 0, 4},
     {"write-behind", 2, 0, 5},
     {"write-mostly",0, 0, 'W'},
+    {"re-add",    0, 0,  6},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},

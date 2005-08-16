@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 	int oneshot = 0;
 	struct supertype *ss = NULL;
 	int writemostly = 0;
+	int re_add = 0;
 
 	int copies;
 
@@ -167,6 +168,7 @@ int main(int argc, char *argv[])
 		case 'a':
 		case 'r':
 		case 'f':
+		case 6: /* re-add */
 			if (!mode) newmode = MANAGE; 
 			break;
 
@@ -222,6 +224,7 @@ int main(int argc, char *argv[])
 					dv->devname = optarg;
 					dv->disposition = devmode;
 					dv->writemostly = writemostly;
+					dv->re_add = re_add;
 					dv->next = NULL;
 					*devlistend = dv;
 					devlistend = &dv->next;
@@ -271,6 +274,7 @@ int main(int argc, char *argv[])
 			dv->devname = optarg;
 			dv->disposition = devmode;
 			dv->writemostly = writemostly;
+			dv->re_add = re_add;
 			dv->next = NULL;
 			*devlistend = dv;
 			devlistend = &dv->next;
@@ -667,6 +671,11 @@ int main(int argc, char *argv[])
 		case O(GROW,'a'):
 		case O(MANAGE,'a'): /* add a drive */
 			devmode = 'a';
+			re_add = 0;
+			continue;
+		case O(MANAGE,6):
+			devmode = 'a';
+			re_add = 1;
 			continue;
 		case O(MANAGE,'r'): /* remove a drive */
 			devmode = 'r';
@@ -959,16 +968,6 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": 'internal' bitmaps not supported with --build\n");
 				rv |= 1;
 				break;
-			}
-			bitmap_fd = open(bitmap_file, O_RDWR,0);
-			if (bitmap_fd < 0 && errno != ENOENT) {
-				perror(Name ": cannot create bitmap file");
-				rv |= 1;
-				break;
-			}
-			if (bitmap_fd < 0) {
-				bitmap_fd = CreateBitmap(bitmap_file, force, NULL,
-							 bitmap_chunk, delay, write_behind, size);
 			}
 		}
 		rv = Build(devlist->devname, mdfd, chunk, level, layout,

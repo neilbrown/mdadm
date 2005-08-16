@@ -172,6 +172,9 @@ int Manage_subdevs(char *devname, int fd,
 	int tfd;
 	struct supertype *st;
 	void *dsuper = NULL;
+	void *osuper = NULL; /* original super */
+	int duuid[4];
+	int ouuid[4];
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
@@ -196,6 +199,14 @@ int Manage_subdevs(char *devname, int fd,
 			return 1;
 		case 'a':
 			/* add the device - hot or cold */
+			st = super_by_version(array.major_version,
+					      array.minor_version);
+			if (!st) {
+				fprintf(stderr, Name ": unsupport array - version %d.%d\n",
+					array.major_version, array.minor_version);
+				return 1;
+			}
+
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd < 0) {
@@ -203,7 +214,11 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, strerror(errno));
 				return 1;
 			}
+			if (array.not_persistent==0)
+				st->ss->load_super(st, tfd, &osuper, NULL);
+			/* will use osuper later */
 			close(tfd);
+
 			if (array.major_version == 0 &&
 			    md_get_version(fd)%100 < 2) {
 				if (ioctl(fd, HOT_ADD_DISK,
@@ -219,40 +234,65 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 
-			/* need to find a sample superblock to copy, and
-			 * a spare slot to use 
-			 */
-			st = super_by_version(array.major_version,
-					      array.minor_version);
-			if (!st) {
-				fprintf(stderr, Name ": unsupport array - version %d.%d\n",
-					array.major_version, array.minor_version);
-				return 1;
-			}
-			for (j=0; j<st->max_devs; j++) {
-				char *dev;
-				int dfd;
-				disc.number = j;
-				if (ioctl(fd, GET_DISK_INFO, &disc))
-					continue;
-				if (disc.major==0 && disc.minor==0)
-					continue;
-				if ((disc.state & 4)==0) continue; /* sync */
-				/* Looks like a good device to try */
-				dev = map_dev(disc.major, disc.minor);
-				if (!dev) continue;
-				dfd = open(dev, O_RDONLY);
-				if (dfd < 0) continue;
-				if (st->ss->load_super(st, dfd, &dsuper, NULL)) {
+			if (array.not_persistent == 0) {
+
+				/* need to find a sample superblock to copy, and
+				 * a spare slot to use 
+				 */
+				for (j=0; j<st->max_devs; j++) {
+					char *dev;
+					int dfd;
+					disc.number = j;
+					if (ioctl(fd, GET_DISK_INFO, &disc))
+						continue;
+					if (disc.major==0 && disc.minor==0)
+						continue;
+					if ((disc.state & 4)==0) continue; /* sync */
+					/* Looks like a good device to try */
+					dev = map_dev(disc.major, disc.minor);
+					if (!dev) continue;
+					dfd = open(dev, O_RDONLY);
+					if (dfd < 0) continue;
+					if (st->ss->load_super(st, dfd, &dsuper, NULL)) {
+						close(dfd);
+						continue;
+					}
 					close(dfd);
-					continue;
+					break;
 				}
-				close(dfd);
-				break;
-			}
-			if (!dsuper) {
-				fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
-				return 1;
+				if (!dsuper) {
+					fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
+					return 1;
+				}
+				/* Possibly this device was recently part of the array
+				 * and was temporarily removed, and is now being re-added.
+				 * If so, we can simply re-add it.
+				 */
+				st->ss->uuid_from_super(duuid, dsuper);
+			
+				if (osuper) {
+					st->ss->uuid_from_super(ouuid, osuper);
+					if (memcmp(duuid, ouuid, sizeof(ouuid))==0) {
+						/* look close enough for now.  Kernel
+						 * will worry about where a bitmap
+						 * based reconstruct is possible
+						 */
+						struct mdinfo mdi;
+						struct mddev_ident_s ident;
+						st->ss->getinfo_super(&mdi, &ident, osuper);
+						disc.major = major(stb.st_rdev);
+						disc.minor = minor(stb.st_rdev);
+						disc.number = mdi.disk.number;
+						disc.raid_disk = mdi.disk.raid_disk;
+						disc.state = mdi.disk.state;
+						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
+							if (verbose >= 0)
+								fprintf(stderr, Name ": re-added %s\n", dv->devname);
+							return 0;
+						}
+						/* fall back on normal-add */
+					}
+				}
 			}
 			for (j=0; j< st->max_devs; j++) {
 				disc.number = j;
@@ -267,11 +307,41 @@ int Manage_subdevs(char *devname, int fd,
 			disc.minor = minor(stb.st_rdev);
 			disc.number =j;
 			disc.state = 0;
-			if (dv->writemostly)
-				disc.state |= 1 << MD_DISK_WRITEMOSTLY;
-			st->ss->add_to_super(dsuper, &disc);
-			if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
-				return 1;
+			if (array.not_persistent==0) {
+				if (dv->writemostly)
+					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
+				st->ss->add_to_super(dsuper, &disc);
+				if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
+					return 1;
+			} else if (dv->re_add) {
+				/*  this had better be raid1.
+				 * As we are "--re-add"ing we must find a spare slot
+				 * to fill.
+				 */
+				char *used = malloc(array.raid_disks);
+				memset(used, 0, array.raid_disks);
+				for (j=0; j< st->max_devs; j++) {
+					mdu_disk_info_t disc2;
+					disc2.number = j;
+					if (ioctl(fd, GET_DISK_INFO, &disc2))
+						continue;
+					if (disc2.major==0 && disc2.minor==0)
+						continue;
+					if (disc2.state & 8) /* removed */
+						continue;
+					if (disc2.raid_disk < 0)
+						continue;
+					if (disc2.raid_disk > array.raid_disks)
+						continue;
+					used[disc2.raid_disk] = 1;
+				}
+				for (j=0 ; j<array.raid_disks; j++)
+					if (!used[j]) {
+						disc.raid_disk = j;
+						disc.state |= (1<<MD_DISK_SYNC);
+						break;
+					}
+			}
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
 					dv->devname, j, strerror(errno));

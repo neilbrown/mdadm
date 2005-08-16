@@ -137,6 +137,7 @@ typedef struct mddev_dev_s {
 				 * Not set for names read from .config
 				 */
 	char writemostly;
+	char re_add;
 	struct mddev_dev_s *next;
 } *mddev_dev_t;
 

@@ -229,6 +229,7 @@ int check_raid(int fd, char *name)
 	struct mdinfo info;
 	struct mddev_ident_s ident;
 	time_t crtime;
+	char *level;
 	struct supertype *st = guess_super(fd);
 
 	if (!st) return 0;
@@ -239,8 +240,10 @@ int check_raid(int fd, char *name)
 	st->ss->getinfo_super(&info, &ident, super);
 	free(super);
 	crtime = info.array.ctime;
-	fprintf(stderr, "    level=%d devices=%d ctime=%s",
-		info.array.level, info.array.raid_disks, ctime(&crtime));
+	level = map_num(pers, info.array.level);
+	if (!level) level = "-unknown-";
+	fprintf(stderr, "    level=%s devices=%d ctime=%s",
+		level, info.array.raid_disks, ctime(&crtime));
 	return 1;
 }
 

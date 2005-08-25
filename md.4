@@ -14,13 +14,16 @@ redundancy, and hence the acronym RAID which stands for a Redundant
 Array of Independent Devices.
 .PP
 .B md
-supports RAID levels 1 (mirroring) 4 (striped array with parity
-device), 5 (striped array with distributed parity information) and 6
-(striped array with distributed dual redundancy information.)  If
-some number of underlying devices fails while using one of these
+supports RAID levels
+1 (mirroring),
+4 (striped array with parity device),
+5 (striped array with distributed parity information),
+6 (striped array with distributed dual redundancy information), and
+10 (striped and mirrored).
+If some number of underlying devices fails while using one of these
 levels, the array will continue to function; this number is one for
 RAID levels 4 and 5, two for RAID level 6, and all but one (N-1) for
-RAID level 1.
+RAID level 1, and dependant of configuration for level 10.
 .PP
 .B md
 also supports a number of pseudo RAID (non-redundant) configurations
@@ -65,7 +68,7 @@ The superblock contains, among other things:
 .TP
 LEVEL
 The manner in which the devices are arranged into the array
-(linear, raid0, raid1, raid4, raid5, multipath).
+(linear, raid0, raid1, raid4, raid5, raid10, multipath).
 .TP
 UUID
 a 128 bit Universally Unique Identifier that identifies the array that
@@ -111,6 +114,8 @@ an extra drive and so the array is made bigger without disturbing the
 data that is on the array.  However this cannot be done on a live
 array.
 
+If a chunksize is given with a LINEAR array, the usable space on each
+device is rounded down to a multiple of this chunksize.
 
 .SS RAID0
 
@@ -188,6 +193,46 @@ The performance for RAID6 is slightly lower but comparable to RAID5 in
 normal mode and single disk failure mode.  It is very slow in dual
 disk failure mode, however.
 
+.SS RAID10
+
+RAID10 provides a combination of RAID1 and RAID0, and sometimes known
+as RAID1+0.  Every datablock is duplicated some number of times, and
+the resulting collection of datablocks are distributed over multiple
+drives.
+
+When configuring a RAID10 array it is necessary to specify the number
+of replicas of each data block that are required (this will normally
+be 2) and whether the replicas should be 'near' or 'far'.
+
+When 'near' replicas are chosen, the multiple copies of a given chunk
+are laid out consecutively across the stripes of the array, so the two
+copies of a datablock will likely be at the same offset on two
+adjacent devices.
+
+When 'far' replicas are chosen, the multiple copies of a given chunk
+are laid out quite distant from each other.  The first copy of all
+data blocks will be striped across the early part of all drives in
+RAID0 fashion, and then the next copy of all blocks will be striped
+across a later section of all drives, always ensuring that all copies
+of any given block are on different drives.
+
+The 'far' arrangement can give sequential read performance equal to
+that of a RAID0 array, but at the cost of degraded write performance.
+
+It should be noted that the number of devices in a RAID10 array need
+not be a multiple of the number of replica of each data block, those
+there must be at least as many devices as replicas.
+
+If, for example, an array is created with 5 devices and 2 replicas,
+then space equivalent to 2.5 of the devices will be available, and
+every block will be stored on two different devices.
+
+Finally, it is possible to have an array with both 'near' and 'far'
+copies.  If and array is configured with 2 near copies and 2 far
+copies, then there will be a total of 4 copies of each block, each on
+a different drive.  This is an artifact of the implementation and is
+unlikely to be of real value.
+
 .SS MUTIPATH
 
 MULTIPATH is not really a RAID at all as there is only one real device
@@ -231,13 +276,13 @@ failure modes can be cleared.
 
 .SS UNCLEAN SHUTDOWN
 
-When changes are made to a RAID1, RAID4, RAID5 or RAID6 array there is a
-possibility of inconsistency for short periods of time as each update
-requires are least two block to be written to different devices, and
-these writes probably wont happen at exactly the same time.
-Thus if a system with one of these arrays is shutdown in the middle of
-a write operation (e.g. due to power failure), the array may not be
-consistent.
+When changes are made to a RAID1, RAID4, RAID5, RAID6, or RAID10 array
+there is a possibility of inconsistency for short periods of time as
+each update requires are least two block to be written to different
+devices, and these writes probably wont happen at exactly the same
+time.  Thus if a system with one of these arrays is shutdown in the
+middle of a write operation (e.g. due to power failure), the array may
+not be consistent.
 
 To handle this situation, the md driver marks an array as "dirty"
 before writing any data to it, and marks it as "clean" when the array
@@ -246,9 +291,10 @@ to be dirty at startup, it proceeds to correct any possibly
 inconsistency.  For RAID1, this involves copying the contents of the
 first drive onto all other drives.  For RAID4, RAID5 and RAID6 this
 involves recalculating the parity for each stripe and making sure that
-the parity block has the correct data.  This process, known as
-"resynchronising" or "resync" is performed in the background.  The
-array can still be used, though possibly with reduced performance.
+the parity block has the correct data.  For RAID10 it involves copying
+one of the replicas of each block onto all the others.  This process,
+known as "resynchronising" or "resync" is performed in the background.
+The array can still be used, though possibly with reduced performance.
 
 If a RAID4, RAID5 or RAID6 array is degraded (missing at least one
 drive) when it is restarted after an unclean shutdown, it cannot
@@ -261,12 +307,13 @@ start an array in this condition without manual intervention.
 .SS RECOVERY
 
 If the md driver detects any error on a device in a RAID1, RAID4,
-RAID5 or RAID6 array, it immediately disables that device (marking it
-as faulty) and continues operation on the remaining devices.  If there
-is a spare drive, the driver will start recreating on one of the spare
-drives the data what was on that failed drive, either by copying a
-working drive in a RAID1 configuration, or by doing calculations with
-the parity block on RAID4, RAID5 or RAID6.
+RAID5, RAID6, or RAID10 array, it immediately disables that device
+(marking it as faulty) and continues operation on the remaining
+devices.  If there is a spare drive, the driver will start recreating
+on one of the spare drives the data what was on that failed drive,
+either by copying a working drive in a RAID1 configuration, or by
+doing calculations with the parity block on RAID4, RAID5 or RAID6, or
+by finding a copying originals for RAID10.
 
 While this recovery process is happening, the md driver will monitor
 accesses to the array and will slow down the rate of recovery if other
@@ -278,6 +325,60 @@ different situations can be controlled by the
 and
 .B speed_limit_max
 control files mentioned below.
+
+.SS BITMAP WRITE-INTENT LOGGING
+
+From Linux 2.6.13,
+.I md
+supports a bitmap based write-intent log.  If configured, the bitmap
+is used to record which blocks of the array may be out of sync.
+Before any write request is honoured, md will make sure that the
+corresponding bit in the log is set.  After a period of time with no
+writes to an area of the array, the corresponding bit will be cleared.
+
+This bitmap is used for two optimisations.
+
+Firstly, after an unclear shutdown, the resync process will consult
+the bitmap and only resync those blocks that correspond to bits in the
+bitmap that are set.  This can dramatically increase resync time.
+
+Secondly, when a drive fails and is removed from the array, md stops
+clearing bits in the intent log.  If that same drive is re-added to
+the array, md will notice and will only recover the sections of the
+drive that are covered by bits in the intent log that are set.  This
+can allow a device to be temporarily removed and reinserted without
+causing an enormous recovery cost.
+
+The intent log can be stored in a file on a separate device, or it can
+be stored near the superblocks of an array which has superblocks.
+
+Subsequent versions of Linux will support hot-adding of bitmaps to
+existing arrays.
+
+In 2.6.13, intent bitmaps are only supported with RAID1.  Other levels
+will follow.
+
+.SS WRITE-BEHIND
+
+From Linux 2.6.14,
+.I md
+will support WRITE-BEHIND on RAID1 arrays.
+
+This allows certain devices in the array to be flagged as
+.IR write-mostly .
+MD will only read from such devices if there is no
+other option.
+
+If a write-intent bitmap is also provided, write requests to
+write-mostly devices will be treated as write-behind requests and md
+will not wait for writes to those requests to complete before
+reporting the write as complete to the filesystem.
+
+This allows for a RAID1 with WRITE-BEHIND to be used to mirror data
+over a slow link to a remove computer (providing the link isn't too
+slow).  The extra latency of the remote link will not slow down normal
+operations, but the remote system will still have a reasonably
+up-to-date copy of all data.
 
 .SS KERNEL PARAMETERS
 

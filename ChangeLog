@@ -4,6 +4,8 @@ Changes Prior to this release
     -   write-mostly and write-behind support for raid1.
     -   Support --name= and 'name=' config entry for identifying
 	arrays be name.
+    -   RAID10 in man pages.
+    -   Lot of minor manpage updates
 
 Changes Prior to 2.0-devel-3 release
     -   Assorted fixes for multiple bugs...

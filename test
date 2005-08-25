@@ -27,7 +27,9 @@ md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
 targetdir=/tmp
 size=20000
 mdsize0=19904
-mdsize1=19992
+mdsize1=19928
+mdsize11=19935
+mdsize12=19931
 
 cleanup() {
 	$mdadm -Ss
@@ -96,7 +98,7 @@ check() {
 
     bitmap )
        grep -s bitmap > /dev/null /proc/mdstat || {
-	   echo >&2 ERROR no bitmap ; cat /proc/mdstat ; exist 1; }
+	   echo >&2 ERROR no bitmap ; cat /proc/mdstat ; exit 1; }
       ;;
     nobitmap )
        if grep -s "bitmap" > /dev/null /proc/mdstat 
@@ -134,8 +136,10 @@ rotest() {
 
 
 
-for script in tests/$prefix*[^~]
+for script in tests/$prefix tests/$prefix*[^~]
 do
+  if [ -f "$script" ]
+  then
    # source script in a subshell, so it has access to our
    # namespace, but cannot change it.
    if ( set -ex ; . $script )  2> $targetdir/log
@@ -144,5 +148,6 @@ do
         echo "$script failed"
        exit 1
    fi
+  fi
 done
 exit 0

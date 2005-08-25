@@ -185,12 +185,12 @@ extern struct superswitch {
 	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, char *name);
 	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
 	int (*store_super)(struct supertype *st, int fd, void *sbv);
-	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
+	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname, int reserve);
 	int (*compare_super)(void **firstp, void *secondv);
 	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
-	__u64 (*avail_size)(__u64 size);
-	int (*add_internal_bitmap)(void *sbv, int chunk, int delay, int write_behind, unsigned long long size);
+	__u64 (*avail_size)(struct supertype *st, __u64 size, int reserve);
+	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, unsigned long long size);
 	void (*locate_bitmap)(struct supertype *st, int fd);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
 	int major;

@@ -472,7 +472,7 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 	return 0;
 }
 
-static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname)
+static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname, int reserve)
 {
 	mdp_super_t *sb = sbv;
 	int fd = open(devname, O_RDWR|O_EXCL);
@@ -664,14 +664,15 @@ static struct supertype *match_metadata_desc0(char *arg)
 	return NULL;
 }
 
-static __u64 avail_size0(__u64 devsize)
+static __u64 avail_size0(struct supertype *st, __u64 devsize, int reserve)
 {
 	if (devsize < MD_RESERVED_SECTORS*2)
 		return 0ULL;
+	if (reserve > 64*2) return 0ULL;
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
-static int add_internal_bitmap0(void *sbv, int chunk, int delay, int write_behind, unsigned long long size)
+static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, unsigned long long size)
 {
 	/*
 	 * The bitmap comes immediately after the superblock and must be 60K in size

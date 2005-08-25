@@ -311,7 +311,7 @@ int Manage_subdevs(char *devname, int fd,
 				if (dv->writemostly)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 				st->ss->add_to_super(dsuper, &disc);
-				if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
+				if (st->ss->write_init_super(st, dsuper, &disc, dv->devname, 0 /* FIXME */))
 					return 1;
 			} else if (dv->re_add) {
 				/*  this had better be raid1.

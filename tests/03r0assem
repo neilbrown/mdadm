@@ -84,7 +84,7 @@ mdadm -A $md2 -u $uuid $devlist
 $tst
 mdadm -S $md2
 
-# version 1 has now super-minor
+# version 1 has no super-minor
 # mdadm --assemble $md2 --super-minor=2 $devlist # 
 # $tst
 # mdadm -S $md2

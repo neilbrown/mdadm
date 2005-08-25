@@ -54,7 +54,11 @@ struct mdp_superblock_1 {
 
 	__u32	chunksize;	/* in 512byte sectors */
 	__u32	raid_disks;
-	__u8	pad1[128-96];	/* set to 0 when written */
+	__u32	bitmap_offset;	/* sectors after start of superblock that bitmap starts
+				 * NOTE: signed, so bitmap can be before superblock
+				 * only meaningful of feature_map[0] is set.
+				 */
+	__u8	pad1[128-100];	/* set to 0 when written */
 
 	/* constant this-device information - 64 bytes */
 	__u64	data_offset;	/* sector start of data, often 0 */
@@ -131,8 +135,8 @@ static void examine_super1(void *sbv)
 	printf("        Version : %02d.%02d\n", 1, __le32_to_cpu(sb->feature_map));
 	printf("     Array UUID : ");
 	for (i=0; i<16; i++) {
-		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->set_uuid[i]);
 	}
 	printf("\n");
 	printf("           Name : %.32s\n", sb->set_name);
@@ -151,13 +155,13 @@ static void examine_super1(void *sbv)
 	printf("          State : %s\n", (__le64_to_cpu(sb->resync_offset)+1)? "active":"clean");
 	printf("    Device UUID : ");
 	for (i=0; i<16; i++) {
-		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->device_uuid[i]);
 	}
 	printf("\n");
 	if (sb->devflags) {
 		printf("      Flags :");
-		if (sb->devflags & WriteMostly1) 
+		if (sb->devflags & WriteMostly1)
 			printf(" write-mostly");
 		printf("\n");
 	}
@@ -243,8 +247,8 @@ static void detail_super1(void *sbv)
 	printf("           Name : %.32s\n", sb->set_name);
 	printf("           UUID : ");
 	for (i=0; i<16; i++) {
-		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->set_uuid[i]);
 	}
 	printf("\n         Events : %llu\n\n", (unsigned long long)__le64_to_cpu(sb->events));
 }
@@ -258,8 +262,8 @@ static void brief_detail_super1(void *sbv)
 		printf(" name=%.32s", sb->set_name);
 	printf(" UUID=");
 	for (i=0; i<16; i++) {
-		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->set_uuid[i]);
 	}
 }
 
@@ -385,8 +389,9 @@ static __u64 event_super1(void *sbv)
 
 static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info, char *name)
 {
-	struct mdp_superblock_1 *sb = malloc(1024);
+	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t));
 	int spares;
+	int rfd;
 	memset(sb, 0, 1024);
 
 	if (info->major_version == -1)
@@ -405,10 +410,15 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	sb->major_version = __cpu_to_le32(1);
 	sb->feature_map = 0;
 	sb->pad0 = 0;
-	*(__u32*)(sb->set_uuid) = random();
-	*(__u32*)(sb->set_uuid+4) = random();
-	*(__u32*)(sb->set_uuid+8) = random();
-	*(__u32*)(sb->set_uuid+12) = random();
+
+	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+	    read(rfd, sb->set_uuid, 16) != 16) {
+		*(__u32*)(sb->set_uuid) = random();
+		*(__u32*)(sb->set_uuid+4) = random();
+		*(__u32*)(sb->set_uuid+8) = random();
+		*(__u32*)(sb->set_uuid+12) = random();
+	}
+	if (rfd >= 0) close(rfd);
 
 	memset(sb->set_name, 0, 32);
 	strcpy(sb->set_name, name);
@@ -431,7 +441,7 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 		sb->resync_offset = ~0ULL;
 	else
 		sb->resync_offset = 0;
-	sb->max_dev = __cpu_to_le32((1024- sizeof(struct mdp_superblock_1))/ 
+	sb->max_dev = __cpu_to_le32((1024- sizeof(struct mdp_superblock_1))/
 				    sizeof(sb->dev_roles[0]));
 	memset(sb->pad3, 0, sizeof(sb->pad3));
 
@@ -450,7 +460,7 @@ static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
 		*rp = __cpu_to_le16(dk->raid_disk);
 	else if ((dk->state & ~2) == 0) /* active or idle -> spare */
 		*rp = 0xffff;
-	else 
+	else
 		*rp = 0xfffe;
 }
 
@@ -493,7 +503,7 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 	}
 
 
-    
+
 	if (sb_offset != __le64_to_cpu(sb->super_offset) &&
 	    0 != __le64_to_cpu(sb->super_offset)
 		) {
@@ -515,7 +525,9 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 
 static int load_super1(struct supertype *st, int fd, void **sbp, char *devname);
 
-static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname)
+static int write_init_super1(struct supertype *st, void *sbv,
+			     mdu_disk_info_t *dinfo, char *devname,
+			     int reserve)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	struct mdp_superblock_1 *refsb = NULL;
@@ -534,7 +546,7 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	}
 
 	sb->dev_number = __cpu_to_le32(dinfo->number);
-	if (dinfo->state & (1<<MD_DISK_WRITEMOSTLY)) 
+	if (dinfo->state & (1<<MD_DISK_WRITEMOSTLY))
 		sb->devflags |= WriteMostly1;
 
 	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
@@ -556,7 +568,7 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 		}
 		free(refsb);
 	}
-    
+
 	if (ioctl(fd, BLKGETSIZE, &size)) {
 		close(fd);
 		return 1;
@@ -583,18 +595,18 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 		sb_offset &= ~(4*2-1);
 		sb->super_offset = __cpu_to_le64(sb_offset);
 		sb->data_offset = __cpu_to_le64(0);
-		sb->data_size = sb->super_offset;
+		sb->data_size = __cpu_to_le64(sb_offset - reserve);
 		break;
 	case 1:
 		sb->super_offset = __cpu_to_le64(0);
-		sb->data_offset = __cpu_to_le64(2);
-		sb->data_size = __cpu_to_le64(size - 2);
+		sb->data_offset = __cpu_to_le64(2 + reserve);
+		sb->data_size = __cpu_to_le64(size - 2 - reserve);
 		break;
 	case 2:
 		sb_offset = 4*2;
 		sb->super_offset = __cpu_to_le64(sb_offset);
-		sb->data_offset = __cpu_to_le64(sb_offset+2);
-		sb->data_size = __cpu_to_le64(size - 4*2 - 2);
+		sb->data_offset = __cpu_to_le64(sb_offset+2 + reserve);
+		sb->data_size = __cpu_to_le64(size - 4*2 - 2 - reserve);
 		break;
 	default:
 		return -EINVAL;
@@ -605,6 +617,30 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	rv = store_super1(st, fd, sb);
 	if (rv)
 		fprintf(stderr, Name ": failed to write superblock to %s\n", devname);
+
+	if (__le32_to_cpu(sb->feature_map) & 1) {
+		/* write the bitmap */
+		int towrite, n;
+		char buf[4096];
+
+		st->ss->locate_bitmap(st, fd);
+		write(fd, ((char*)sb)+1024, sizeof(bitmap_super_t));
+		towrite = 62*1024;
+		memset(buf, 0xff, sizeof(buf));
+		while (towrite > 0) {
+			n=towrite;
+			if (n > sizeof(buf))
+				n = sizeof(buf);
+			n = write(fd, buf, n);
+			if (n > 0)
+				towrite -= n;
+			else
+				break;
+		}
+		if (towrite)
+			rv = -2;
+	}
+	fsync(fd);
 	close(fd);
 	return rv;
 }
@@ -686,7 +722,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		return 2;
 	}
 	if (ioctl(fd, BLKGETSIZE, &size)) {
-		if (devname) 
+		if (devname)
 			fprintf(stderr, Name ": cannot find device size for %s: %s\n",
 				devname, strerror(errno));
 		return 1;
@@ -733,7 +769,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		return 1;
 	}
 
-	super = malloc(1024);
+	super = malloc(1024 + sizeof(bitmap_super_t));
 
 	if (read(fd, super, 1024) != 1024) {
 		if (devname)
@@ -795,12 +831,137 @@ static struct supertype *match_metadata_desc1(char *arg)
 	return NULL;
 }
 
-static __u64 avail_size1(__u64 devsize)
+/* find available size on device with this devsize, using
+ * superblock type st, and reserving 'reserve' sectors for
+ * a possible bitmap
+ */
+static __u64 avail_size1(struct supertype *st, __u64 devsize, int reserve)
 {
 	if (devsize < 24)
 		return 0;
 
-	return (devsize - 8*2 ) & ~(4*2-1);
+	switch(st->minor_version) {
+	case 0:
+		/* at end, with reserve before it */
+		return ((devsize - 8*2 ) & ~(4*2-1)) - reserve;
+	case 1:
+		/* at start, 1K for superblock */
+		return devsize - 2 - reserve;
+	case 2:
+		/* 4k from start, 1K for superblock */
+		return devsize - (4+1)*2 - reserve;
+	}
+	return 0;
+}
+
+static int add_internal_bitmap1(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, unsigned long long size)
+{
+	/*
+	 * The bitmap comes immediately before of after the superblock and must be 62K in size
+	 * at most.  The default size is between 31K and 62K
+	 *
+	 * size is in K,  chunk is in bytes !!!
+	 */
+
+	unsigned long long bits = size;
+	unsigned long long max_bits = 62*1024*8;
+	unsigned long long min_chunk;
+	struct mdp_superblock_1 *sb = sbv;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + 1024);
+
+
+	min_chunk = 4096; /* sub-page chunks don't work yet.. */
+	while (bits > max_bits) {
+		min_chunk *= 2;
+		bits = (bits+1)/2;
+	}
+	if (chunk == UnSet)
+		chunk = min_chunk;
+	else if (chunk < min_chunk)
+		return 0; /* chunk size too small */
+
+	if (st->minor_version == 0)
+		sb->bitmap_offset = __cpu_to_le32(-64*2);
+	else
+		sb->bitmap_offset = __cpu_to_le32(2);
+
+	sb->feature_map = __cpu_to_le32(__le32_to_cpu(sb->feature_map) | 1);
+	memset(bms, sizeof(*bms), 0);
+	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
+	bms->version = __cpu_to_le32(BITMAP_MAJOR);
+	uuid_from_super1((int*)bms->uuid, sb);
+	bms->chunksize = __cpu_to_le32(chunk);
+	bms->daemon_sleep = __cpu_to_le32(delay);
+	bms->sync_size = __cpu_to_le64(size);
+	bms->write_behind = __cpu_to_le32(write_behind);
+
+
+
+	return 1;
+}
+
+
+void locate_bitmap1(struct supertype *st, int fd)
+{
+	unsigned long long dsize;
+	unsigned long size;
+	unsigned long long offset;
+
+	switch(st->minor_version){
+	case 0:
+#ifdef BLKGETSIZE64
+		if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+		{
+			if (ioctl(fd, BLKGETSIZE, &size))
+				return;
+			else
+				dsize = ((unsigned long long)size)<<9;
+		}
+
+		offset = (dsize - 8192) & ~4095ULL;
+
+		offset -= 65536;
+		break;
+
+	case 1:
+		offset = 1024;
+		break;
+	case 2:
+		offset = 4096+1024;
+	}
+	lseek64(fd, offset, 0);
+}
+
+int write_bitmap1(struct supertype *st, int fd, void *sbv)
+{
+	struct mdp_superblock_1 *sb = sbv;
+
+	int rv = 0;
+
+	int towrite, n;
+	char buf[4096];
+
+	locate_bitmap1(st, fd);
+
+	write(fd, ((char*)sb)+1024, sizeof(bitmap_super_t));
+	towrite = 62*1024 - sizeof(bitmap_super_t);
+	memset(buf, 0xff, sizeof(buf));
+	while (towrite > 0) {
+		n = towrite;
+		if (n > sizeof(buf))
+			n = sizeof(buf);
+		n = write(fd, buf, n);
+		if (n > 0)
+			towrite -= n;
+		else
+			break;
+	}
+	fsync(fd);
+	if (towrite)
+		rv = -2;
+
+	return rv;
 }
 
 struct superswitch super1 = {
@@ -822,6 +983,9 @@ struct superswitch super1 = {
 	.load_super = load_super1,
 	.match_metadata_desc = match_metadata_desc1,
 	.avail_size = avail_size1,
+	.add_internal_bitmap = add_internal_bitmap1,
+	.locate_bitmap = locate_bitmap1,
+	.write_bitmap = write_bitmap1,
 	.major = 1,
 #if __BYTE_ORDER == BIG_ENDIAN
 	.swapuuid = 0,

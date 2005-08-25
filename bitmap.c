@@ -177,11 +177,12 @@ out:
 	return info;
 }
 
-bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype *st)
+bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **stp)
 {
 	int fd;
 	bitmap_info_t *info;
 	struct stat stb;
+	struct supertype *st = *stp;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -199,6 +200,8 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype *st)
 		} else {	
 			st->ss->locate_bitmap(st, fd);
 		}
+		ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
+		*stp = st;
 	}
 
 	info = bitmap_fd_read(fd, brief);
@@ -206,6 +209,18 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype *st)
 	return info;
 }
 
+__u32 swapl(__u32 l)
+{
+	char *c = (char*)&l;
+	char t= c[0];
+	c[0] = c[3];
+	c[3] = t;
+
+	t = c[1];
+	c[1] = c[2];
+	c[2] = t;
+	return l;
+}
 int ExamineBitmap(char *filename, int brief, struct supertype *st)
 {
 	/*
@@ -217,7 +232,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	int rv = 1;
 	char buf[64];
 
-	info = bitmap_file_read(filename, brief, st);
+	info = bitmap_file_read(filename, brief, &st);
 	if (!info)
 		return rv;
 
@@ -234,11 +249,19 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	}
 
 	rv = 0;
+	if (st && st->ss->swapuuid) {
+	printf("            UUID : %08x.%08x.%08x.%08x\n",
+					swapl(*(__u32 *)(sb->uuid+0)),
+					swapl(*(__u32 *)(sb->uuid+4)),
+					swapl(*(__u32 *)(sb->uuid+8)),
+					swapl(*(__u32 *)(sb->uuid+12)));
+	} else {
 	printf("            UUID : %08x.%08x.%08x.%08x\n",
 					*(__u32 *)(sb->uuid+0),
 					*(__u32 *)(sb->uuid+4),
 					*(__u32 *)(sb->uuid+8),
 					*(__u32 *)(sb->uuid+12));
+	}
 	printf("          Events : %llu\n", sb->events);
 	printf("  Events Cleared : %llu\n", sb->events_cleared);
 	printf("           State : %s\n", bitmap_state(sb->state));

@@ -30,6 +30,7 @@ md devices,
 .BR RAID4 ,
 .BR RAID5 ,
 .BR RAID6 ,
+.BR RAID10 ,
 .BR MULTIPATH ,
 and
 .BR FAULTY .
@@ -123,7 +124,7 @@ superblocks, erasing old superblocks and stopping active arrays.
 .TP
 .B "Follow or Monitor"
 Monitor one or more md devices and act on any state changes.  This is
-only meaningful for raid1, 4, 5, 6 or multipath arrays as
+only meaningful for raid1, 4, 5, 6, 10 or multipath arrays as
 only these have interesting state.  raid0 or linear never have
 missing, spare, or failed drives, so there is nothing to monitor.
 
@@ -340,24 +341,28 @@ Specify rounding factor for linear array (==chunk size)
 Set raid level.  When used with
 .IR --create ,
 options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
-raid5, 5, raid6, 6, multipath, mp, fautly.  Obviously some of these are synonymous.
+raid5, 5, raid6, 6, raid10, 10, multipath, mp, fautly.  Obviously some of these are synonymous.
 
 When used with
 .IR --build ,
 only linear, stripe, raid0, 0, raid1, multipath, mp, and faulty are valid.
 
 .TP
-.BR -p ", " --parity=
-Set raid5 parity algorithm. Options are:
+.BR -p ", " --layout=
+This option configures the fine details of data layout for raid5,
+and raid10 arrays, and controls the failure modes for
+.IR faulty .
+
+The layout of the raid5 parity block can be one of
 left-asymmetric,
 left-symmetric,
 right-asymmetric,
 right-symmetric,
 la, ra, ls, rs.  The default is left-symmetric.
 
-This option is also used to set the failure mode for
-.IR faulty .
-The options are:
+When setting the failure mode for
+.I faulty
+the options are:
 write-transient,
 wt,
 read-transient,
@@ -388,9 +393,27 @@ and "flush" will clear any persistant faults.
 To set the parity with "--grow", the level of the array ("faulty")
 must be specified before the fault mode is specified.
 
+Finally, the layout options for RAID10 are either 'n' or 'p' followed
+by a small number.  The default is 'n2'.
+
+.I n
+signals 'near' copies (multiple copies of one data block are at
+similar offsets in different devices) while
+.I f
+signals 'far' copies
+(multiple copies have very different offsets).  See md(4) for more
+detail about 'near' and 'far'.
+
+The number is the number of copies of each datablock.  2 is normal, 3
+can be useful.  This number can be at most equal to the number of
+devices in the array.  It does not need to divide evenly into that
+number (e.g. it is perfectly legal to have an 'n2' layout for an array
+with an odd number of devices).
+
 .TP
-.BR --layout=
-same as --parity
+.BR --parity=
+same as --layout (thus explaining the p of
+.IR -p ).
 
 .TP
 .BR -b ", " --bitmap=
@@ -839,7 +862,7 @@ Normally the array will be started after it is assembled.  However if
 is not given and insufficient drives were listed to start a complete
 (non-degraded) array, then the array is not started (to guard against
 usage errors).  To insist that the array be started in this case (as
-may work for RAID1, 4, 5 or 6), give the
+may work for RAID1, 4, 5, 6, or 10), give the
 .B --run
 flag.
 

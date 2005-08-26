@@ -285,9 +285,9 @@ free_info:
 }
 
 int CreateBitmap(char *filename, int force, char uuid[16],
-		unsigned long chunksize, unsigned long daemon_sleep,
-		unsigned long write_behind,
-		unsigned long long array_size)
+		 unsigned long chunksize, unsigned long daemon_sleep,
+		 unsigned long write_behind,
+		 unsigned long long array_size /* sectors */)
 {
 	/*
 	 * Create a bitmap file with a superblock and (optionally) a full bitmap

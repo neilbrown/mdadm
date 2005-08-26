@@ -24,12 +24,12 @@ md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
 
 # We test mdadm on loop-back block devices.
 # dir for storing files should be settable by command line maybe
-targetdir=/tmp
+targetdir=/var/tmp
 size=20000
 mdsize0=19904
-mdsize1=19928
-mdsize11=19935
-mdsize12=19931
+mdsize1=19992
+mdsize11=19996
+mdsize12=19992
 
 cleanup() {
 	$mdadm -Ss

@@ -210,7 +210,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			ldsize = dsize;
 			ldsize <<= 9;
 		}
-		freesize = st->ss->avail_size(st, ldsize >> 9, 64*2);
+		freesize = st->ss->avail_size(st, ldsize >> 9);
 		if (freesize == 0) {
 			fprintf(stderr, Name ": %s is too small: %luK\n",
 				dname, (unsigned long)(ldsize>>10));
@@ -356,7 +356,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			return 1;
 		}
 		if (!st->ss->add_internal_bitmap(st, super, bitmap_chunk, delay, write_behind,
-						 size ? size : maxsize)) {
+						 &array.size, 1)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
 			return 1;
 		}
@@ -451,7 +451,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				break;
 			case 2:
 				if (disk.state == 1) break;
-				st->ss->write_init_super(st, super, &disk, dv->devname, 64*2);
+				st->ss->write_init_super(st, super, &disk, dv->devname);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",

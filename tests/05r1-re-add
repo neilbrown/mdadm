@@ -15,7 +15,7 @@ mdadm $md0 -f $dev2
 sleep 1
 mdadm $md0 -r $dev2
 mdadm $md0 -a $dev2
- cat /proc/mdstat
+#cat /proc/mdstat
 check nosync
 
 mdadm $md0 -f $dev2

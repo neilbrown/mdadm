@@ -275,7 +275,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
 					st->ss->add_internal_bitmap(st, super,
 								    chunk, delay, write_behind,
-								    array.size);
+								    &array.size, 0);
 					st->ss->write_bitmap(st, fd2, super);
 				}
 				close(fd2);

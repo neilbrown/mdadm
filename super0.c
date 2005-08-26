@@ -472,7 +472,7 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 	return 0;
 }
 
-static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname, int reserve)
+static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname)
 {
 	mdp_super_t *sb = sbv;
 	int fd = open(devname, O_RDWR|O_EXCL);
@@ -490,27 +490,8 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	sb->sb_csum = calc_sb0_csum(sb);
 	rv = store_super0(st, fd, sb);
 
-	if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
-		int towrite, n;
-		char buf[4096];
-
-		write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
-		towrite = 64*1024 - MD_SB_BYTES - sizeof(bitmap_super_t);
-		memset(buf, 0xff, sizeof(buf));
-		while (towrite > 0) {
-			n = towrite;
-			if (n > sizeof(buf)) 
-				n = sizeof(buf);
-			n = write(fd, buf, n);
-			if (n > 0)
-				towrite -= n;
-			else
-				break;
-		}
-		fsync(fd);
-		if (towrite)
-			rv = -2;
-	}
+	if (rv == 0 && (sb->state & (1<<MD_SB_BITMAP_PRESENT)))
+		rv = st->ss->write_bitmap(st, fd, sbv);
 
 	close(fd);
 	if (rv)
@@ -664,15 +645,14 @@ static struct supertype *match_metadata_desc0(char *arg)
 	return NULL;
 }
 
-static __u64 avail_size0(struct supertype *st, __u64 devsize, int reserve)
+static __u64 avail_size0(struct supertype *st, __u64 devsize)
 {
 	if (devsize < MD_RESERVED_SECTORS*2)
 		return 0ULL;
-	if (reserve > 64*2) return 0ULL;
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
-static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, unsigned long long size)
+static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change)
 {
 	/*
 	 * The bitmap comes immediately after the superblock and must be 60K in size
@@ -680,8 +660,8 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	 *
 	 * size is in K,  chunk is in bytes !!!
 	 */
-
-	unsigned long long bits = size;
+	unsigned long long size = *sizep;
+	unsigned long long bits;
 	unsigned long long max_bits = 60*1024*8;
 	unsigned long long min_chunk;
 	mdp_super_t *sb = sbv;
@@ -689,6 +669,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 
 	
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
+	bits = (size * 1024)/ min_chunk +1;
 	while (bits > max_bits) {
 		min_chunk *= 2;
 		bits = (bits+1)/2;
@@ -706,7 +687,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	uuid_from_super0((int*)bms->uuid, sb);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
-	bms->sync_size = __cpu_to_le64(size);
+	bms->sync_size = __cpu_to_le64(size<<1);
 	bms->write_behind = __cpu_to_le32(write_behind);
 
 

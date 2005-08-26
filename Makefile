@@ -73,7 +73,8 @@ endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
-everything: all mdadm.static mdadm.tcc mdadm.uclibc  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
+everything: all mdadm.static mdadm.uclibc swap_super  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
+# mdadm.tcc doesn't work..
 
 mdadm : $(OBJS)
 	$(CC) $(LDFLAGS) -o mdadm $^
@@ -130,7 +131,7 @@ install : mdadm mdadm.8 md.4 mdadm.conf.5
 
 clean : 
 	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
-	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc
+	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super
 
 dist : clean
 	./makedist

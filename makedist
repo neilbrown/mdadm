@@ -44,18 +44,18 @@ then
   ls -l $target/$base
   if tar tzf $target/$base | sed 's,[^/]*/,,' | sort | diff -u inventory -
   then : correct files found
-  else echo "Extra files, or invertory is out-of-date"
+  else echo "Extra files, or inventory is out-of-date"
        rm $target/$base
        exit 1
   fi
-
+exit 1
   rpm -ta $target/$base
   find /home/neilb/src/RPM -name "*mdadm-$version-*" \
      -exec cp {} $target/RPM \;
-  #cp ANNOUNCE-$version $target/ANNOUNCE
-  #cp ChangeLog $target/ChangeLog
+  cp ANNOUNCE-$version $target/ANNOUNCE
+  cp ChangeLog $target/ChangeLog
   scp $target/$base master.kernel.org:/pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
-  #scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
+  scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
 else
   if [ ! -f $target/$base ] 
   then 

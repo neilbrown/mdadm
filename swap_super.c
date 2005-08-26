@@ -16,7 +16,9 @@
 
 #define MD_NEW_SIZE_SECTORS(x)		((x & ~(MD_RESERVED_SECTORS - 1)) - MD_RESERVED_SECTORS)
 
-main(int argc, char *argv[])
+extern long long lseek64(int, long long, int);
+
+int main(int argc, char *argv[])
 {
 	int fd, i;
 	unsigned long size;

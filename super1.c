@@ -895,8 +895,6 @@ static int add_internal_bitmap1(struct supertype *st, void *sbv, int chunk, int 
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 
-
-
 	return 1;
 }
 

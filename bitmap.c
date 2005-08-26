@@ -152,11 +152,11 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	 */
 	total_bits = bitmap_bits(info->sb.sync_size, info->sb.chunksize);
 
-	while ((n = read(fd, buf, sizeof(*buf))) > 0) {
+	while ((n = read(fd, buf, sizeof(buf))) > 0) {
 		unsigned long long remaining = total_bits - read_bits;
 
-		if (remaining > sizeof(*buf) * 8) /* we want the full buffer */
-			remaining = sizeof(*buf) * 8;
+		if (remaining > sizeof(buf) * 8) /* we want the full buffer */
+			remaining = sizeof(buf) * 8;
 		if (remaining > n * 8) /* the file is truncated */
 			remaining = n * 8;
 		dirty_bits += count_dirty_bits(buf, remaining);

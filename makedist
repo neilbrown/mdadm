@@ -48,7 +48,6 @@ then
        rm $target/$base
        exit 1
   fi
-exit 1
   rpm -ta $target/$base
   find /home/neilb/src/RPM -name "*mdadm-$version-*" \
      -exec cp {} $target/RPM \;

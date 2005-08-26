@@ -19,7 +19,7 @@ Version-1 can support many more than 28 devices and can be easily
 moved between hosts with different endian-ness.
 Release 2.0 also contains support for the recent bitmap-intent-logging
 which will appear in 2.6.13, and the RAID1 write-behind that will be
-available in 2.6.14.
+available in 2.6.14 (it is currently only in -mm).
 
 This release comes with a test-suite which has been used to verify that
 mdadm-2.0 actually works in a number of common scenarios.  Some of the
@@ -30,9 +30,12 @@ Being a '.0' release, 2.0 should be treated with some caution.
 However I believe it is quite stable and can safely be used on
 production systems.
 
+Note that this release is "2.0", not "2.0.0".  I never found a use for
+the third number with 1.X.Y, so I dropped it.
+
 
 Development of mdadm has moved from CSE@UNSW and is now sponsored by
  SUSE Labs, Novell Inc.
 
-NeilBrown  25th August 2005
+NeilBrown  26th August 2005
 

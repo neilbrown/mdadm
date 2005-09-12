@@ -180,6 +180,11 @@ static void examine_super1(void *sbv)
 		c = map_num(r5layout, __le32_to_cpu(sb->layout));
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
+	if (__le32_to_cpu(sb->level) == 10) {
+		int lo = __le32_to_cpu(sb->layout);
+		printf("         Layout : near=%d, far=%d\n",
+		       lo&255, (lo>>8)&255);
+	}
 	switch(__le32_to_cpu(sb->level)) {
 	case 0:
 	case 4:
@@ -290,6 +295,7 @@ static void getinfo_super1(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 	info->array.patch_version = 0;
 	info->array.raid_disks = __le32_to_cpu(sb->raid_disks);
 	info->array.level = __le32_to_cpu(sb->level);
+	info->array.layout = __le32_to_cpu(sb->layout);
 	info->array.md_minor = -1;
 	info->array.ctime = __le64_to_cpu(sb->ctime);
 

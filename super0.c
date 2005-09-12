@@ -131,6 +131,10 @@ static void examine_super0(void *sbv)
 		c = map_num(r5layout, sb->layout);
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
+	if (sb->level == 10) {
+		printf("         Layout : near=%d, far=%d\n",
+		       sb->layout&255, (sb->layout>>8)&255);
+	}
 	switch(sb->level) {
 	case 0:
 	case 4:
@@ -234,6 +238,7 @@ static void getinfo_super0(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 	info->array.patch_version = sb->patch_version;
 	info->array.raid_disks = sb->raid_disks;
 	info->array.level = sb->level;
+	info->array.layout = sb->layout;
 	info->array.md_minor = sb->md_minor;
 	info->array.ctime = sb->ctime;
 

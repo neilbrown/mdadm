@@ -118,6 +118,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	mddev_dev_t tmpdev;
 	struct mdinfo info;
 	struct mddev_ident_s ident2;
+	char *avail;
 	
 	vers = md_get_version(mdfd);
 	if (vers <= 0) {
@@ -359,6 +360,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	/* now we have some devices that might be suitable.
 	 * I wonder how many
 	 */
+	avail = malloc(info.array.raid_disks);
+	memset(avail, 0, info.array.raid_disks);
 	okcnt = 0;
 	sparecnt=0;
 	for (i=0; i< bestcnt ;i++) {
@@ -377,13 +380,16 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (devices[j].events+event_margin >=
 		    devices[most_recent].events) {
 			devices[j].uptodate = 1;
-			if (i < info.array.raid_disks)
+			if (i < info.array.raid_disks) {
 				okcnt++;
-			else
+				avail[i]=1;
+			} else
 				sparecnt++;
 		}
 	}
-	while (force && !enough(info.array.level, info.array.raid_disks, okcnt)) {
+	while (force && !enough(info.array.level, info.array.raid_disks,
+				info.array.layout,
+				avail, okcnt)) {
 		/* Choose the newest best drive which is
 		 * not up-to-date, update the superblock
 		 * and add it.
@@ -434,6 +440,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		close(fd);
 		devices[chosen_drive].events = devices[most_recent].events;
 		devices[chosen_drive].uptodate = 1;
+		avail[chosen_drive] = 1;
 		okcnt++;
 		free(super);
 	}
@@ -599,7 +606,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		
 		if (runstop == 1 ||
 		    (runstop == 0 && 
-		     ( enough(info.array.level, info.array.raid_disks, okcnt) &&
+		     ( enough(info.array.level, info.array.raid_disks, info.array.layout, avail, okcnt) &&
 		       (okcnt >= req_cnt || start_partial_ok)
 			     ))) {
 			if (ioctl(mdfd, RUN_ARRAY, NULL)==0) {
@@ -627,7 +634,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": %s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
 			if (sparecnt)
 				fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
-			if (!enough(info.array.level, info.array.raid_disks, okcnt))
+			if (!enough(info.array.level, info.array.raid_disks, info.array.layout, avail, okcnt))
 				fprintf(stderr, " - not enough to start the array.\n");
 			else {
 				if (req_cnt == info.array.raid_disks)

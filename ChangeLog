@@ -1,4 +1,11 @@
 Changes Prior to this release
+    -   Fix assembling of raid10 array when devices are missing.
+	  mdadm now correctly detects if a array is workable or not
+	  depending on which devices are present, and so will correctly
+	  handle "--assemble --force"  if multiple devices have failed.
+    -   Report raid10 layout in --examine output.
+
+Changes Prior to 2.0
     -   Support assembling from byte-swapped superblocks
 	metadata type "0.swap" and --update=byteorder
     -   write-mostly and write-behind support for raid1.

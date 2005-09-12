@@ -118,10 +118,31 @@ int get_linux_version()
 	return (a*1000000)+(b*1000)+c;
 }
 
-int enough(int level, int raid_disks, int avail_disks)
+int enough(int level, int raid_disks, int layout,
+	   char *avail, int avail_disks)
 {
+	int copies, first;
 	switch (level) {
-	case 10: return 1; /* a lie, but it is hard to tell */
+	case 10:
+		/* This is the tricky one - we need to check
+		 * which actual disks are present.
+		 */
+		copies = (layout&255)* (layout>>8);
+		first=0;
+		do {
+			/* there must be one of the 'copies' form 'first' */
+			int n = copies;
+			int cnt=0;
+			while (n--) {
+				if (avail[first])
+					cnt++;
+				first = (first+1) % raid_disks;
+			}
+			if (cnt == 0)
+				return 0;
+
+		} while (first != 0);
+		return 1;
 
 	case -4:
 		return avail_disks>= 1;

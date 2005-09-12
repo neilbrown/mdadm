@@ -6,7 +6,8 @@
 
 mdadm -CR $md0 -l5 -n4 $dev0 $dev1 $dev2 $dev3 
 check recovery
-mdadm $md0 --fail $dev3 
+mdadm $md0 --fail $dev3
+sleep 1
 check nosync
 check state UUU_
 

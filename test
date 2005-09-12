@@ -78,7 +78,7 @@ check() {
    		echo >&2 "ERROR active $1 not found" ; cat /proc/mdstat ; exit 1;}
      ;;
     resync | recovery )
-      sleep 0.1
+      sleep 0.5
       grep -s $1 /proc/mdstat > /dev/null || {
    		echo >&2 ERROR no $1 happening; cat /proc/mdstat; exit 1; }
      ;;

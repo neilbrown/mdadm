@@ -4,6 +4,9 @@ Changes Prior to this release
 	  depending on which devices are present, and so will correctly
 	  handle "--assemble --force"  if multiple devices have failed.
     -   Report raid10 layout in --examine output.
+    -   Fix assembling of arrays that use the version-1 superblock and
+	  have spares.  Previously the spares would be ignored.
+    -   Fix bug so that multiple drives can be re-added at once.
 
 Changes Prior to 2.0
     -   Support assembling from byte-swapped superblocks

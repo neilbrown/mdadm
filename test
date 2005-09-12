@@ -60,12 +60,19 @@ path1=$dev7
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {
-    $mdadm 2>&1 --quiet "$@"
+    $mdadm --quiet "$@"
 }
 
 # check various things
 check() {
    case $1 in
+    spares )
+       spares=`tr '] ' '\012\012' < /proc/mdstat | grep -c '(S)' || exit 0`
+       if [ $spares -ne $2 ]
+       then
+          echo >&2 "ERROR expected $2 spares, found $spares"; exit 1;
+       fi
+      ;;
     raid* | linear )
       grep -s "active $1 " /proc/mdstat > /dev/null || {
    		echo >&2 "ERROR active $1 not found" ; cat /proc/mdstat ; exit 1;}

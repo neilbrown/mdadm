@@ -119,6 +119,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	struct mdinfo info;
 	struct mddev_ident_s ident2;
 	char *avail;
+	int nextspare = 0;
 	
 	vers = md_get_version(mdfd);
 	if (vers <= 0) {
@@ -320,6 +321,11 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			i = devcnt;
 		else
 			i = devices[devcnt].raid_disk;
+		if (i+1 == 0) {
+			if (nextspare < info.array.raid_disks)
+				nextspare = info.array.raid_disks;
+			i = nextspare++;
+		}
 		if (i < 10000) {
 			if (i >= bestcnt) {
 				unsigned int newbestcnt = i+10;

@@ -61,7 +61,7 @@ else
     echo $target/$base does not exist.
     exit 1
   fi
-  ( cd .. ; ln -s mdadm mdadm-$version ; tar chf - --exclude="TAGS" --exclude='*,v' --exclude='*~' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > /var/tmp/mdadm-new.tgz
+  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chf - --exclude="TAGS" --exclude='*,v' --exclude='*~' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > /var/tmp/mdadm-new.tgz
   mkdir /var/tmp/mdadm-old ; zcat $target/$base | ( cd /var/tmp/mdadm-old ; tar xf - )
   mkdir /var/tmp/mdadm-new ; zcat /var/tmp/mdadm-new.tgz | ( cd /var/tmp/mdadm-new ; tar xf - )
   diff -ru /var/tmp/mdadm-old /var/tmp/mdadm-new 

@@ -288,7 +288,7 @@ int Manage_subdevs(char *devname, int fd,
 						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
 								fprintf(stderr, Name ": re-added %s\n", dv->devname);
-							return 0;
+							continue;
 						}
 						/* fall back on normal-add */
 					}

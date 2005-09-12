@@ -892,16 +892,21 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 }
 
 
-void locate_bitmap1(struct supertype *st, int fd)
+void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long long offset;
 	struct mdp_superblock_1 *sb;
 
-	if (st->ss->load_super(st, fd, (void**)&sb, NULL))
-		return; /* no error I hope... */
+	if (sbv)
+		sb = sbv;
+	else {
+		if (st->ss->load_super(st, fd, (void**)&sb, NULL))
+			return; /* no error I hope... */
+	}
 	offset = __le64_to_cpu(sb->super_offset);
 	offset += (long) __le32_to_cpu(sb->bitmap_offset);
-
+	if (!sbv)
+		free(sb);
 	lseek64(fd, offset<<9, 0);
 }
 
@@ -914,7 +919,7 @@ int write_bitmap1(struct supertype *st, int fd, void *sbv)
 	int towrite, n;
 	char buf[4096];
 
-	locate_bitmap1(st, fd);
+	locate_bitmap1(st, fd, sbv);
 
 	write(fd, ((char*)sb)+1024, sizeof(bitmap_super_t));
 	towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);

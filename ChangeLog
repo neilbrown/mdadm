@@ -7,6 +7,8 @@ Changes Prior to this release
     -   Fix assembling of arrays that use the version-1 superblock and
 	  have spares.  Previously the spares would be ignored.
     -   Fix bug so that multiple drives can be re-added at once.
+    -   Fix problem with hot-adding a bitmap to version-1-superblock
+	  arrays.
 
 Changes Prior to 2.0
     -   Support assembling from byte-swapped superblocks

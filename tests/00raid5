@@ -6,7 +6,7 @@ check resync
 testdev $md0 2 $mdsize0 64
 mdadm -S $md0
 
-# now with verion-1 superblock
+# now with version-1 superblock
 mdadm -CR $md0 -e1 --level=raid5 -n4 $dev0 $dev1 $dev2 $dev3 
 check recovery
 testdev $md0 3 $mdsize1 64
@@ -22,7 +22,7 @@ do
   testdev $md0 2 $mdsize0 64
   mdadm -S $md0
 
-  # now with verion-1 superblock
+  # now with version-1 superblock
   mdadm -CR $md0 -e1 --level=raid5 --layout $lo -n4 $dev0 $dev1 $dev2 $dev3 
   check recovery ; check raid5
   testdev $md0 3 $mdsize1 64

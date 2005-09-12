@@ -6,7 +6,7 @@ check linear
 testdev $md0 3 $mdsize0 64 
 mdadm -S $md0
 
-# now with verion-1 superblock
+# now with version-1 superblock
 mdadm -CR $md0 -e1 --level=linear -n4 $dev0 $dev1 $dev2 $dev3
 check linear
 testdev $md0 4 $mdsize1 64 

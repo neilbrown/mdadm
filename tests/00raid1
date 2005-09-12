@@ -9,7 +9,7 @@ check raid1
 testdev $md0 1 $mdsize0 1
 mdadm -S $md0
 
-# now with verion-1 superblock, spare
+# now with version-1 superblock, spare
 mdadm -CR $md0 -e1 --level=raid1 -n3 -x2 $dev0 missing missing $dev1 $dev2 
 check recovery
 check raid1

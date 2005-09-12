@@ -701,7 +701,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 }
 		
 
-void locate_bitmap0(struct supertype *st, int fd)
+void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long long dsize;
 	unsigned long size;

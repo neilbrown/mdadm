@@ -6,7 +6,7 @@ check raid0
 testdev $md0 3 $mdsize0 64 
 mdadm -S $md0
 
-# now with verion-1 superblock
+# now with version-1 superblock
 mdadm -CR $md0 -e1 -l0 -n4 $dev0 $dev1 $dev2 $dev3 
 check raid0
 testdev $md0 4 $mdsize1 64 
@@ -27,7 +27,7 @@ do
   testdev $md0 3 $mdsize0 $chunk
   mdadm -S $md0
 
-  # now with verion-1 superblock
+  # now with version-1 superblock
   mdadm -CR $md0 -e1 -l0 -c $chunk -n4 $dev0 $dev1 $dev2 $dev3 
   check raid0
   testdev $md0 4 $mdsize1 $chunk

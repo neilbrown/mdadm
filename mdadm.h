@@ -191,7 +191,7 @@ extern struct superswitch {
 	struct supertype * (*match_metadata_desc)(char *arg);
 	__u64 (*avail_size)(struct supertype *st, __u64 size);
 	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change);
-	void (*locate_bitmap)(struct supertype *st, int fd);
+	void (*locate_bitmap)(struct supertype *st, int fd, void *sbv);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
 	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */

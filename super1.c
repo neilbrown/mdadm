@@ -342,7 +342,7 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update, char *dev
 	struct mdp_superblock_1 *sb = sbv;
 
 	if (strcmp(update, "force")==0) {
-		sb->events = __cpu_to_le32(info->events);
+		sb->events = __cpu_to_le64(info->events);
 		switch(__le32_to_cpu(sb->level)) {
 		case 5: case 4: case 6:
 			/* need to force clean */

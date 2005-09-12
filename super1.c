@@ -535,7 +535,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 			     mdu_disk_info_t *dinfo, char *devname)
 {
 	struct mdp_superblock_1 *sb = sbv;
-	struct mdp_superblock_1 *refsb = NULL;
+	void *refsbv = NULL;
 	int fd = open(devname, O_RDWR | O_EXCL);
 	int rfd;
 	int rv;
@@ -564,7 +564,9 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	if (rfd >= 0) close(rfd);
 	sb->events = 0;
 
-	if (load_super1(st, fd, (void**)&refsb, NULL)==0) {
+	if (load_super1(st, fd, &refsbv, NULL)==0) {
+		struct mdp_superblock_1 *refsb = refsbv;
+
 		memcpy(sb->device_uuid, refsb->device_uuid, 16);
 		if (memcmp(sb->set_uuid, refsb->set_uuid, 16)==0) {
 			/* same array, so preserve events and dev_number */
@@ -897,12 +899,12 @@ void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 	unsigned long long offset;
 	struct mdp_superblock_1 *sb;
 
-	if (sbv)
-		sb = sbv;
-	else {
-		if (st->ss->load_super(st, fd, (void**)&sb, NULL))
+	if (!sbv)
+		if (st->ss->load_super(st, fd, sbv, NULL))
 			return; /* no error I hope... */
-	}
+
+	sb = sbv;
+
 	offset = __le64_to_cpu(sb->super_offset);
 	offset += (long) __le32_to_cpu(sb->bitmap_offset);
 	if (!sbv)

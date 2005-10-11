@@ -243,7 +243,8 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 		fprintf(stderr, Name ": invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);
 	}
 	printf("         Version : %d\n", sb->version);
-	if (sb->version != BITMAP_MAJOR) {
+	if (sb->version < BITMAP_MAJOR_LO ||
+	    sb->version > BITMAP_MAJOR_HI) {
 		fprintf(stderr, Name ": unknown bitmap version %d, either the bitmap file is corrupted or you need to upgrade your tools\n", sb->version);
 		goto free_info;
 	}
@@ -287,7 +288,8 @@ free_info:
 int CreateBitmap(char *filename, int force, char uuid[16],
 		 unsigned long chunksize, unsigned long daemon_sleep,
 		 unsigned long write_behind,
-		 unsigned long long array_size /* sectors */)
+		 unsigned long long array_size /* sectors */,
+		 int major)
 {
 	/*
 	 * Create a bitmap file with a superblock and (optionally) a full bitmap
@@ -313,7 +315,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 
 	memset(&sb, 0, sizeof(sb));
 	sb.magic = BITMAP_MAGIC;
-	sb.version = BITMAP_MAJOR;
+	sb.version = major;
 	if (uuid != NULL)
 		memcpy(sb.uuid, uuid, 16);
 	sb.chunksize = chunksize;

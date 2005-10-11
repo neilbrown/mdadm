@@ -71,7 +71,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int bitmap_fd;
 
 	mdu_array_info_t array;
-	
+	int major = BITMAP_MAJOR_HI;
+
 	vers = md_get_version(mdfd);
 	if (vers < 9000) {
 		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");
@@ -350,13 +351,21 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (!st->ss->init_super(st, &super, &array, name))
 		return 1;
 
+	if (bitmap_file && vers < 9003) {
+		major = BITMAP_MAJOR_HOSTENDIAN;
+#ifdef __BIG_ENDIAN
+		fprintf(stderr, Name ": Warning - bitmaps created on this kernel are not portable\n"
+			"  between different architectured.  Consider upgrading the Linux kernel.\n");
+#endif
+	}
+
 	if (bitmap_file && strcmp(bitmap_file, "internal")==0) {
 		if ((vers%100) < 2) {
 			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
 			return 1;
 		}
 		if (!st->ss->add_internal_bitmap(st, super, bitmap_chunk, delay, write_behind,
-						 &array.size, 1)) {
+						 &array.size, 1, major)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
 			return 1;
 		}
@@ -387,14 +396,15 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 		st->ss->uuid_from_super(uuid, super);
 		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
-			delay, write_behind,
-				 array.size*2ULL /* FIXME wrong for raid10 */)) {
+				 delay, write_behind,
+				 array.size*2ULL /* FIXME wrong for raid10 */,
+				 major)) {
 			return 1;
 		}
 		bitmap_fd = open(bitmap_file, O_RDWR);
 		if (bitmap_fd < 0) {
 			fprintf(stderr, Name ": weird: %s cannot be openned\n",
-			       bitmap_file);
+				bitmap_file);
 			return 1;
 		}
 		if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {

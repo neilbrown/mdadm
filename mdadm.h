@@ -190,7 +190,7 @@ extern struct superswitch {
 	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
 	__u64 (*avail_size)(struct supertype *st, __u64 size);
-	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change);
+	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change, int major);
 	void (*locate_bitmap)(struct supertype *st, int fd, void *sbv);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
 	int major;
@@ -265,7 +265,8 @@ extern int Kill(char *dev, int force);
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,
 			unsigned long write_behind,
-			unsigned long long array_size);
+			unsigned long long array_size,
+			int major);
 extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
 
 extern int md_get_version(int fd);

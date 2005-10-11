@@ -842,7 +842,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 
 static int
 add_internal_bitmap1(struct supertype *st, void *sbv,
-		     int chunk, int delay, int write_behind, int *sizep, int may_change)
+		     int chunk, int delay, int write_behind, int *sizep, int may_change, int major)
 {
 	/*
 	 * If not may_change, then this is a 'Grow', and the bitmap
@@ -883,7 +883,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	sb->feature_map = __cpu_to_le32(__le32_to_cpu(sb->feature_map) | 1);
 	memset(bms, sizeof(*bms), 0);
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
-	bms->version = __cpu_to_le32(BITMAP_MAJOR);
+	bms->version = __cpu_to_le32(major);
 	uuid_from_super1((int*)bms->uuid, sb);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);

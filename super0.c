@@ -657,7 +657,7 @@ static __u64 avail_size0(struct supertype *st, __u64 devsize)
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
-static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change)
+static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change, int major)
 {
 	/*
 	 * The bitmap comes immediately after the superblock and must be 60K in size
@@ -688,7 +688,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 
 	memset(bms, sizeof(*bms), 0);
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
-	bms->version = __cpu_to_le32(BITMAP_MAJOR);
+	bms->version = __cpu_to_le32(major);
 	uuid_from_super0((int*)bms->uuid, sb);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);

@@ -206,6 +206,16 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	mdu_bitmap_file_t bmf;
 	mdu_array_info_t array;
 	struct supertype *st;
+	int major = BITMAP_MAJOR_HI;
+	int vers = md_get_version(fd);
+
+	if (vers < 9003) {
+		major = BITMAP_MAJOR_HOSTENDIAN;
+#ifdef __BIG_ENDIAN
+		fprintf(stderr, Name ": Warning - bitmaps created on this kernel are not portable\n"
+			"  between different architectured.  Consider upgrading the Linux kernel.\n");
+#endif
+	}
 
 	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {
 		if (errno == ENOMEM) 
@@ -275,7 +285,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
 					st->ss->add_internal_bitmap(st, super,
 								    chunk, delay, write_behind,
-								    &array.size, 0);
+								    &array.size, 0, major);
 					st->ss->write_bitmap(st, fd2, super);
 				}
 				close(fd2);
@@ -322,7 +332,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			return 1;
 		}
 		if (CreateBitmap(file, 0, (char*)uuid, chunk,
-				 delay, write_behind, array.size*2ULL)) {
+				 delay, write_behind, array.size*2ULL, major)) {
 			return 1;
 		}
 		bitmap_fd = open(file, O_RDWR);

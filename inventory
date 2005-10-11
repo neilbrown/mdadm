@@ -1,5 +1,6 @@
 
 ANNOUNCE-2.0
+ANNOUNCE-2.1
 Assemble.c
 Build.c
 COPYING
@@ -66,6 +67,7 @@ tests/04r1update
 tests/05r1-bitmapfile
 tests/05r1-grow-external
 tests/05r1-grow-internal
+tests/05r1-grow-internal-1
 tests/05r1-internalbitmap
 tests/05r1-internalbitmap-v1a
 tests/05r1-internalbitmap-v1b
@@ -73,6 +75,9 @@ tests/05r1-internalbitmap-v1c
 tests/05r1-n3-bitmapfile
 tests/05r1-re-add
 tests/05r1-re-add-nosuper
+tests/05r5-bitmapfile
+tests/05r5-internalbitmap
+tests/05r6-bitmapfile
 tests/06name
 tests/06r5swap
 tests/06sysfs

@@ -57,6 +57,9 @@ done
 path0=$dev6
 path1=$dev7
 
+if [ " $1" = " setup" ]
+then trap 0 ; exit 0
+fi
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {

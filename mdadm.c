@@ -1059,6 +1059,7 @@ int main(int argc, char *argv[])
 							put_md_name(name);
 						}
 					} while (!last && err);
+					if (err) rv |= 1
 				} else {
 					fprintf(stderr, Name ": No devices given.\n");
 					exit(2);
@@ -1088,7 +1089,8 @@ int main(int argc, char *argv[])
 						rv |= Manage_ro(dv->devname, mdfd, -1); break;
 					}
 					close(mdfd);
-				}
+				} else
+					rv |= 1;
 			}
 		}
 		break;

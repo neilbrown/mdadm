@@ -58,6 +58,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	mddev_dev_t dv;
 	int bitmap_fd;
 	unsigned long long size = ~0ULL;
+	unsigned long long bitmapsize;
 
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
@@ -215,8 +216,9 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 						"  between different architectured.  Consider upgrading the Linux kernel.\n");
 #endif
 				}
+				bitmapsize = size>>9; /* FIXME wrong for RAID10 */
 				if (CreateBitmap(bitmap_file, 1, NULL, bitmap_chunk,
-						 delay, write_behind, size>>9, major)) {
+						 delay, write_behind, bitmapsize, major)) {
 					return 1;
 				}
 				bitmap_fd = open(bitmap_file, O_RDWR);

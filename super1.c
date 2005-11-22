@@ -842,7 +842,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 
 static int
 add_internal_bitmap1(struct supertype *st, void *sbv,
-		     int chunk, int delay, int write_behind, int *sizep, int may_change, int major)
+		     int chunk, int delay, int write_behind, unsigned long long size, int may_change, int major)
 {
 	/*
 	 * If not may_change, then this is a 'Grow', and the bitmap
@@ -851,10 +851,9 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	 * before the superblock if we like, or may move the start.
 	 * For now, just squeeze the bitmap into 3k and don't change anything.
 	 *
-	 * size is in K,  chunk is in bytes !!!
+	 * size is in sectors,  chunk is in bytes !!!
 	 */
 
-	unsigned long long size = *sizep;
 	unsigned long long bits;
 	unsigned long long max_bits = (3*512 - sizeof(bitmap_super_t)) * 8;
 	unsigned long long min_chunk;
@@ -868,7 +867,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 
 
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
-	bits = (size*1024)/min_chunk +1;
+	bits = (size*512)/min_chunk +1;
 	while (bits > max_bits) {
 		min_chunk *= 2;
 		bits = (bits+1)/2;
@@ -887,7 +886,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	uuid_from_super1((int*)bms->uuid, sb);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
-	bms->sync_size = __cpu_to_le64(size<<1);
+	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 
 	return 1;

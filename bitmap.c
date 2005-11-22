@@ -126,7 +126,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 
 	info = malloc(sizeof(*info));
 	if (info == NULL) {
-		fprintf(stderr, Name ": failed to allocate %d bytes\n",
+		fprintf(stderr, Name ": failed to allocate %zd bytes\n",
 				sizeof(*info));
 		return NULL;
 	}
@@ -168,7 +168,8 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 
 	if (read_bits < total_bits) { /* file truncated... */
 		fprintf(stderr, Name ": WARNING: bitmap file is not large "
-			"enough for array size %llu!\n\n", info->sb.sync_size);
+			"enough for array size %llu!\n\n",
+			(unsigned long long)info->sb.sync_size);
 		total_bits = read_bits;
 	}
 out:
@@ -263,8 +264,8 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 					*(__u32 *)(sb->uuid+8),
 					*(__u32 *)(sb->uuid+12));
 	}
-	printf("          Events : %llu\n", sb->events);
-	printf("  Events Cleared : %llu\n", sb->events_cleared);
+	printf("          Events : %llu\n", (unsigned long long)sb->events);
+	printf("  Events Cleared : %llu\n", (unsigned long long)sb->events_cleared);
 	printf("           State : %s\n", bitmap_state(sb->state));
 	printf("       Chunksize : %s\n", human_chunksize(sb->chunksize));
 	printf("          Daemon : %ds flush period\n", sb->daemon_sleep);
@@ -273,7 +274,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	else
 		sprintf(buf, "Normal");
 	printf("      Write Mode : %s\n", buf);
-	printf("       Sync Size : %llu%s\n", sb->sync_size/2,
+	printf("       Sync Size : %llu%s\n", (unsigned long long)sb->sync_size/2,
 					human_size(sb->sync_size * 512));
 	if (brief)
 		goto free_info;

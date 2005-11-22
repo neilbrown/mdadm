@@ -657,7 +657,7 @@ static __u64 avail_size0(struct supertype *st, __u64 devsize)
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
-static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, int *sizep, int may_change, int major)
+static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int delay, int write_behind, unsigned long long size, int may_change, int major)
 {
 	/*
 	 * The bitmap comes immediately after the superblock and must be 60K in size
@@ -665,7 +665,6 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	 *
 	 * size is in K,  chunk is in bytes !!!
 	 */
-	unsigned long long size = *sizep;
 	unsigned long long bits;
 	unsigned long long max_bits = 60*1024*8;
 	unsigned long long min_chunk;
@@ -674,7 +673,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 
 	
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
-	bits = (size * 1024)/ min_chunk +1;
+	bits = (size * 512)/ min_chunk +1;
 	while (bits > max_bits) {
 		min_chunk *= 2;
 		bits = (bits+1)/2;
@@ -692,7 +691,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	uuid_from_super0((int*)bms->uuid, sb);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
-	bms->sync_size = __cpu_to_le64(size<<1);
+	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 
 

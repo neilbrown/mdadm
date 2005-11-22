@@ -1,4 +1,10 @@
 Changes Prior to this release
+    -   Assorted bug fixes
+    -   Support write-intent-bitmaps on raid10
+    -   Support little-endian (Rather than hostendian) bitmaps.
+    -   Return correct error code from 'mdadm -S'
+
+Changes Prior to 2.1 release
     -   Fix assembling of raid10 array when devices are missing.
 	  mdadm now correctly detects if a array is workable or not
 	  depending on which devices are present, and so will correctly

@@ -1059,7 +1059,7 @@ int main(int argc, char *argv[])
 							put_md_name(name);
 						}
 					} while (!last && err);
-					if (err) rv |= 1
+					if (err) rv |= 1;
 				} else {
 					fprintf(stderr, Name ": No devices given.\n");
 					exit(2);

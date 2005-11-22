@@ -69,6 +69,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int vers;
 	int rv;
 	int bitmap_fd;
+	unsigned long long bitmapsize;
 
 	mdu_array_info_t array;
 	int major = BITMAP_MAJOR_HI;
@@ -322,6 +323,17 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	else
 		array.state = 0; /* not clean, but no errors */
 
+	if (level == 10) {
+		/* for raid10, the bitmap size is the capacity of the array,
+		 * which is array.size * raid_disks / ncopies;
+		 * .. but convert to sectors.
+		 */
+		int ncopies = (layout>>8) * (layout & 255);
+		bitmapsize = (unsigned long long)array.size * raiddisks / ncopies * 2;
+		printf("bms=%llu as=%d rd=%d nc=%d\n", bitmapsize, array.size, raiddisks, ncopies);
+	} else
+		bitmapsize = (unsigned long long)array.size * 2;
+
 	/* There is lots of redundancy in these disk counts,
 	 * raid_disks is the most meaningful value
 	 *          it describes the geometry of the array
@@ -365,7 +377,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			return 1;
 		}
 		if (!st->ss->add_internal_bitmap(st, super, bitmap_chunk, delay, write_behind,
-						 &array.size, 1, major)) {
+						 bitmapsize, 1, major)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
 			return 1;
 		}
@@ -397,7 +409,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		st->ss->uuid_from_super(uuid, super);
 		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
 				 delay, write_behind,
-				 array.size*2ULL /* FIXME wrong for raid10 */,
+				 bitmapsize,
 				 major)) {
 			return 1;
 		}

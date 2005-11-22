@@ -208,6 +208,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	struct supertype *st;
 	int major = BITMAP_MAJOR_HI;
 	int vers = md_get_version(fd);
+	unsigned long long bitmapsize;
 
 	if (vers < 9003) {
 		major = BITMAP_MAJOR_HOSTENDIAN;
@@ -254,6 +255,12 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			devname);
 		return 1;
 	}
+	bitmapsize = array.size * 2;
+	if (array.level == 10) {
+		int ncopies = (array.layout&255)*(array.layout>>8);
+		bitmapsize = bitmapsize * array.raid_disks / ncopies;
+	}
+
 	st = super_by_version(array.major_version, array.minor_version);
 	if (!st) {
 		fprintf(stderr, Name ": Cannot understand version %d.%d\n",
@@ -285,7 +292,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
 					st->ss->add_internal_bitmap(st, super,
 								    chunk, delay, write_behind,
-								    &array.size, 0, major);
+								    bitmapsize, 0, major);
 					st->ss->write_bitmap(st, fd2, super);
 				}
 				close(fd2);
@@ -332,7 +339,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			return 1;
 		}
 		if (CreateBitmap(file, 0, (char*)uuid, chunk,
-				 delay, write_behind, array.size*2ULL, major)) {
+				 delay, write_behind, bitmapsize, major)) {
 			return 1;
 		}
 		bitmap_fd = open(file, O_RDWR);

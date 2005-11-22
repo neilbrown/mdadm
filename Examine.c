@@ -140,7 +140,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 			}
 			free(ap->super);
 			/* FIXME free ap */
-			printf("\n");
+			if (ap->spares || brief > 1)
+				printf("\n");
 		}
 	}
 	return rv;

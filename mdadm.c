@@ -593,6 +593,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(update, "resync")==0)
 				continue;
+			if (strcmp(update, "uuid")==0)
+				continue;
 			if (strcmp(update, "byteorder")==0) {
 				if (ss) {
 					fprintf(stderr, Name ": must not set metadata type with --update=byteorder.\n");
@@ -607,7 +609,7 @@ int main(int argc, char *argv[])
 
 				continue;
 			}
-			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor', 'resync' or 'summaries' supported\n",update);
+			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor', 'uuid', 'resync' or 'summaries' supported\n",update);
 			exit(2);
 
 		case O(ASSEMBLE,'c'): /* config file */

@@ -610,6 +610,7 @@ Update the superblock on each device while assembling the array.  The
 argument given to this flag can be one of
 .BR sparc2.2 ,
 .BR summaries ,
+.BR uuid ,
 .BR resync ,
 .BR byteorder ,
 or
@@ -617,7 +618,7 @@ or
 
 The
 .B sparc2.2
-option will  adjust the superblock of an array what was created on a Sparc
+option will adjust the superblock of an array what was created on a Sparc
 machine running a patched 2.2 Linux kernel.  This kernel got the
 alignment of part of the superblock wrong.  You can use the
 .B "--examine --sparc2.2"
@@ -632,6 +633,14 @@ option will update the
 field on each superblock to match the minor number of the array being
 assembled.  This is not needed on 2.6 and later kernels as they make
 this adjustment automatically.
+
+The
+.B uuid
+option will change the uuid of the array.  If a UUID is given with the
+"--uuid" option that UUID will be used as a new UUID and with
+.B NOT
+be used to help identify the devices in the array.
+If no "--uuid" is given, a random uuid is chosen.
 
 The
 .B resync

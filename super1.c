@@ -381,6 +381,8 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update, char *dev
 		/* make sure resync happens */
 		sb->resync_offset = ~0ULL;
 	}
+	if (strcmp(update, "uuid") == 0)
+		memcmp(sb->set_uuid, info->uuid, 16);
 
 	sb->sb_csum = calc_sb_1_csum(sb);
 	return rv;

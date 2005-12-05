@@ -18,6 +18,7 @@ Changes Prior to this release
 	mdadm was insisting the event numbers were identical, but this
 	isn't needed, and is a problem if the crash was while the metadata
 	was being updated.
+    -   Support --update==uuid
 
 Changes Prior to 2.1 release
     -   Fix assembling of raid10 array when devices are missing.

@@ -219,7 +219,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (dfd >= 0) close(dfd);
 
-		if (ident->uuid_set &&
+		if (ident->uuid_set && (!update && strcmp(update, "uuid")!= 0) &&
 		    (!super || same_uuid(info.uuid, ident->uuid, tst->ss->swapuuid)==0)) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong uuid.\n",
@@ -281,7 +281,21 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			struct stat stb2;
 			fstat(mdfd, &stb2);
 			info.array.md_minor = minor(stb2.st_rdev);
-			
+
+			if (strcmp(update, "uuid")==0 &&
+			    !ident->uuid_set) {
+				int rfd;
+				if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+				    read(rfd, ident->uuid, 16) != 16) {
+					*(__u32*)(ident->uuid) = random();
+					*(__u32*)(ident->uuid+1) = random();
+					*(__u32*)(ident->uuid+2) = random();
+					*(__u32*)(ident->uuid+3) = random();
+				}
+				if (rfd >= 0) close(rfd);
+				ident->uuid_set = 1;
+			}
+			memcpy(info.uuid, ident->uuid, 16);
 			st->ss->update_super(&info, super, update, devname, verbose);
 			
 			dfd = dev_open(devname, O_RDWR|O_EXCL);

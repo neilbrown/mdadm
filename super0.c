@@ -359,6 +359,12 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 		sb->state &= ~(1<<MD_SB_CLEAN);
 		sb->recovery_cp = 0;
 	}
+	if (strcmp(update, "uuid") == 0) {
+		sb->set_uuid0 = info->uuid[0];
+		sb->set_uuid1 = info->uuid[1];
+		sb->set_uuid2 = info->uuid[2];
+		sb->set_uuid3 = info->uuid[3];
+	}
 
 	sb->sb_csum = calc_sb0_csum(sb);
 	return rv;

@@ -19,6 +19,8 @@ Changes Prior to this release
 	isn't needed, and is a problem if the crash was while the metadata
 	was being updated.
     -   Support --update==uuid
+    -   Added README.initramfs and mkinitramfs to help people use an
+	initram for starting md arrays at boot.
 
 Changes Prior to 2.1 release
     -   Fix assembling of raid10 array when devices are missing.

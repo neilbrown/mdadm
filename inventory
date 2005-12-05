@@ -15,6 +15,7 @@ Makefile
 Manage.c
 Monitor.c
 Query.c
+README.initramfs
 ReadMe.c
 TODO
 bitmap.c
@@ -39,6 +40,7 @@ mdopen.c
 mdstat.c
 misc/
 misc/syslog-events
+mkinitramfs
 raid5extend.c
 super0.c
 super1.c

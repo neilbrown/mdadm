@@ -14,6 +14,10 @@ Changes Prior to this release
 	Thanks to Ross Vandegrift
     -   --monitor now reports which device failed in a 'Fail' message
 	   This broke with 2.6
+    -   Improve chance of array starting properly after a crash.
+	mdadm was insisting the event numbers were identical, but this
+	isn't needed, and is a problem if the crash was while the metadata
+	was being updated.
 
 Changes Prior to 2.1 release
     -   Fix assembling of raid10 array when devices are missing.

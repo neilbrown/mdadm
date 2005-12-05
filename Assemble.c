@@ -369,7 +369,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	sparecnt=0;
 	for (i=0; i< bestcnt ;i++) {
 		int j = best[i];
-		int event_margin = !force;
+		int event_margin = 1; /* always allow a difference of '1'
+				       * like the kernel does
+				       */
 		if (j < 0) continue;
 		/* note: we ignore error flags in multipath arrays
 		 * as they don't make sense

@@ -278,6 +278,7 @@ extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);
 
 extern int get_mdp_major(void);
+extern int dev_open(char *dev, int flags);
 extern int is_standard(char *dev, int *nump);
 
 

@@ -589,7 +589,28 @@ void put_md_name(char *name)
 		unlink(name);
 }
 
-
+int dev_open(char *dev, int flags)
+{
+	/* like 'open', but if 'dev' matches %d:%d, create a temp
+	 * block device and open that
+	 */
+	char *e;
+	int fd = -1;
+	char devname[32];
+	int major = strtoul(dev, &e, 0);
+	int minor;
+	if (e > dev && *e == ':' && e[1] &&
+	    (minor = strtoul(e+1, &e, 0)) >= 0 &&
+	    *e == 0) {
+		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d", major, minor);
+		if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
+			fd = open(devname, flags);
+			unlink(devname);
+		}
+	} else
+		fd = open(dev, flags);
+	return fd;
+}
 
 struct superswitch *superlist[] = { &super0, &super1, NULL };
 

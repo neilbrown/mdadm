@@ -214,6 +214,8 @@ mddev_dev_t load_partitions(void)
 	while (fgets(buf, 1024, f)) {
 		int major, minor;
 		char *name, *mp;
+		mddev_dev_t d;
+
 		buf[1023] = '\0';
 		if (buf[0] != ' ')
 			continue;
@@ -223,14 +225,15 @@ mddev_dev_t load_partitions(void)
 		minor = strtoul(mp, NULL, 10);
 
 		name = map_dev(major, minor);
-		if (name) {
-			mddev_dev_t d;
-
-			d = malloc(sizeof(*d));
-			d->devname = strdup(name);
-			d->next = rv;
-			rv = d;
+		if (!name) {
+			snprintf(buf, 1024, "%d:%d", major, minor);
+			name = buf;
 		}
+
+		d = malloc(sizeof(*d));
+		d->devname = strdup(name);
+		d->next = rv;
+		rv = d;
 	}
 	fclose(f);
 	return rv;

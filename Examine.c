@@ -51,7 +51,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 	 *   utime, state etc
 	 *
 	 * If (brief) gather devices for same array and just print a mdadm.conf line including devices=
-	 * if devlist==NULL, use conf_get_devs(
+	 * if devlist==NULL, use conf_get_devs()
 	 */
 	int fd; 
 	void *super = NULL;
@@ -71,7 +71,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 	for (; devlist ; devlist=devlist->next) {
 		struct supertype *st = forcest;
 
-		fd = open(devlist->devname, O_RDONLY);
+		fd = dev_open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
 			if (!scan)
 				fprintf(stderr,Name ": cannot open %s: %s\n",

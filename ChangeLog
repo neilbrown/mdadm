@@ -4,6 +4,8 @@ Changes Prior to this release
     -   Support little-endian (Rather than hostendian) bitmaps.
     -   Return correct error code from 'mdadm -S'
     -   Remove extra blank line from 'mdadm -Eb' output.
+    -   Allow scanning of devices listed in /proc/partitions even
+	if they don't appear in /dev.
 
 Changes Prior to 2.1 release
     -   Fix assembling of raid10 array when devices are missing.

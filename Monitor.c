@@ -313,6 +313,9 @@ int Monitor(mddev_dev_t devlist,
 					case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
 					case '_': newstate = 0; break;
 					}
+				if (dv == NULL && st->devid[i])
+					dv = map_dev(major(st->devid[i]),
+						     minor(st->devid[i]));
 				change = newstate ^ st->devstate[i];
 				if (st->utime && change && !st->err) {
 					if (i < (unsigned)array.raid_disks &&

@@ -204,11 +204,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			/* Impossible! */
 			fprintf(stderr, Name ": fstat failed for %s: %s\n",
 				devname, strerror(errno));
-			close(dfd);
 		} else if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				devname);
-			close(dfd);
 		} else if (!tst && (tst = guess_super(dfd)) == NULL) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": no recogniseable superblock\n");
@@ -216,11 +214,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
-			close(dfd);
 		} else {
 			tst->ss->getinfo_super(&info, &ident2, super);
-			close(dfd);
 		}
+		if (dfd >= 0) close(dfd);
 
 		if (ident->uuid_set &&
 		    (!super || same_uuid(info.uuid, ident->uuid, tst->ss->swapuuid)==0)) {

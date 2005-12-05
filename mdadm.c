@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
 	struct supertype *ss = NULL;
 	int writemostly = 0;
 	int re_add = 0;
+	char *shortopt = short_options;
 
 	int copies;
 
@@ -113,7 +114,7 @@ int main(int argc, char *argv[])
 
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,
-				short_options, long_options,
+				shortopt, long_options,
 				&option_index)) != -1) {
 		int newmode = mode;
 		/* firstly, some mode-independant options */
@@ -150,6 +151,10 @@ int main(int argc, char *argv[])
 			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE || mode == GROW)
 				break; /* b means bitmap */
 			brief = 1;
+			if (optarg) {
+				fprintf(stderr, Name ": -b cannot have any extra immediately after it, sorry.\n");
+				exit(2);
+			}
 			continue;
 
 		case ':':
@@ -164,19 +169,24 @@ int main(int argc, char *argv[])
 
 		switch(opt) {
 		case '@': /* just incase they say --manage */
-			newmode = MANAGE; break;
+			newmode = MANAGE;
+			shortopt = short_bitmap_auto_options;
+			break;
 		case 'a':
 		case 'r':
 		case 'f':
 		case 6: /* re-add */
-			if (!mode) newmode = MANAGE; 
+			if (!mode) {
+				newmode = MANAGE;
+				shortopt = short_bitmap_auto_options;
+			}
 			break;
 
-		case 'A': newmode = ASSEMBLE; break;
-		case 'B': newmode = BUILD; break;
-		case 'C': newmode = CREATE; break;
+		case 'A': newmode = ASSEMBLE; shortopt = short_bitmap_auto_options; break;
+		case 'B': newmode = BUILD; shortopt = short_bitmap_auto_options; break;
+		case 'C': newmode = CREATE; shortopt = short_bitmap_auto_options; break;
 		case 'F': newmode = MONITOR;break;
-		case 'G': newmode = GROW; break;
+		case 'G': newmode = GROW; shortopt = short_bitmap_auto_options; break;
 
 		case '#':
 		case 'D':

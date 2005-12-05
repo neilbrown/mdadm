@@ -4,6 +4,9 @@ Changes Prior to this release
     -   Support little-endian (Rather than hostendian) bitmaps.
     -   Return correct error code from 'mdadm -S'
     -   Remove extra blank line from 'mdadm -Eb' output.
+    -   Improve option parsing so that -a and -b do not have
+	optional arguements: the arg is either required or not
+	depending on context.
     -   Allow scanning of devices listed in /proc/partitions even
 	if they don't appear in /dev.
 

@@ -98,7 +98,7 @@ mdassemble : $(ASSEMBLE_SRCS) mdadm.h
 
 mdassemble.static : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -o mdassemble $(ASSEMBLE_SRCS)
+	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -o mdassemble.static $(ASSEMBLE_SRCS)
 
 mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)

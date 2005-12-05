@@ -250,7 +250,7 @@ extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 		  char *name,
 		  int subdevs, mddev_dev_t devlist,
-		  int runstop, int verbose, int force,
+		  int runstop, int verbose, int force, int assume_clean,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay);
 
 extern int Detail(char *dev, int brief, int test);

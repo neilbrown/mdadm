@@ -476,9 +476,12 @@ which means to choose the largest size that fits on all current drives.
 .BR --assume-clean
 Tell
 .I mdadm
-that the array pre-existed and is known to be clean.  This is only
-really useful for Building RAID1 array.  Only use this if you really
-know what you are doing.  This is currently only supported for --build.
+that the array pre-existed and is known to be clean.  It can be useful
+when trying to recover from a major failure as you can be sure that no
+data will be affected unless you actually write to the array.  It can
+also be used when creating a RAID1 or RAID10 if you want to avoid the
+initial resync, however this practice - while normally safe - is not
+recommended.   Use this ony if you really know what you are doing.
 
 .TP
 .BR -N ", " --name=

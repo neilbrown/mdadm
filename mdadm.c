@@ -1002,7 +1002,7 @@ int main(int argc, char *argv[])
 
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks, ident.name,
-			    devs_found-1, devlist->next, runstop, verbose-quiet, force,
+			    devs_found-1, devlist->next, runstop, verbose-quiet, force, assume_clean,
 			    bitmap_file, bitmap_chunk, write_behind, delay);
 		break;
 	case MISC:

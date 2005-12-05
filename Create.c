@@ -35,7 +35,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
 	   char *name,
 	   int subdevs, mddev_dev_t devlist,
-	   int runstop, int verbose, int force,
+	   int runstop, int verbose, int force, int assume_clean,
 	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
 {
 	/*
@@ -288,7 +288,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	 * as missing, so that a reconstruct happens (faster than re-parity)
 	 * FIX: Can we do this for raid6 as well?
 	 */
-	if (force == 0 && first_missing >= raiddisks) {
+	if (assume_clean==0 && force == 0 && first_missing >= raiddisks) {
 		switch ( level ) {
 		case 5:
 			insert_point = raiddisks-1;
@@ -318,6 +318,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	       (insert_point < raiddisks || first_missing < raiddisks) )
 	     ||
 	     ( level == 6 && missing_disks == 2)
+	     ||
+	     assume_clean
 		)
 		array.state = 1; /* clean, but one+ drive will be missing */
 	else

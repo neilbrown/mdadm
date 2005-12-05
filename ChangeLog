@@ -9,6 +9,7 @@ Changes Prior to this release
 	depending on context.
     -   Allow scanning of devices listed in /proc/partitions even
 	if they don't appear in /dev.
+    -   Support --assume-clean in --create mode as well as --build
 
 Changes Prior to 2.1 release
     -   Fix assembling of raid10 array when devices are missing.

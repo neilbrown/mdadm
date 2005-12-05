@@ -1,3 +1,4 @@
+
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
@@ -91,8 +92,9 @@ char Version[] = Name " - v2.1 - 12 September 2005\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVXvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1te:";
-char short_bitmap_auto_options[]="-ABCDEFGQhVXvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1te:";
+char short_options[]="-ABCDEFGQhVXvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
+char short_bitmap_auto_options[]="-ABCDEFGQhVXvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1tye:";
+
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
     {"misc",      0, 0, '#'},

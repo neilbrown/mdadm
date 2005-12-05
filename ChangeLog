@@ -10,6 +10,8 @@ Changes Prior to this release
     -   Allow scanning of devices listed in /proc/partitions even
 	if they don't appear in /dev.
     -   Support --assume-clean in --create mode as well as --build
+    -   Add support for --monitor to report to syslog: -y or --syslog.
+	Thanks to Ross Vandegrift
     -   --monitor now reports which device failed in a 'Fail' message
 	   This broke with 2.6
 

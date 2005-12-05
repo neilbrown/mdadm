@@ -751,6 +751,11 @@ Give a mail address to send alerts to.
 Give a program to be run whenever an event is detected.
 
 .TP
+.BR -y ", " --syslog
+Cause all events to be reported through 'syslog'.  The messages have
+facility of 'daemon' and varying priorities.
+
+.TP
 .BR -d ", " --delay
 Give a delay in seconds.
 .B mdadm
@@ -1189,7 +1194,7 @@ The different events are:
 .TP
 .B DeviceDisappeared
 An md array which previously was configured appears to no longer be
-configured.
+configured. (syslog priority: Critical)
 
 If
 .I mdadm
@@ -1203,39 +1208,41 @@ hot-spare and resync operations which are monitored.
 
 .TP
 .B RebuildStarted
-An md array started reconstruction.
+An md array started reconstruction. (syslog priority: Warning)
 
 .TP
 .BI Rebuild NN
 Where
 .I NN
 is 20, 40, 60, or 80, this indicates that rebuild has passed that many
-percentage of the total.
+percentage of the total. (syslog priority: Warning)
 
 .TP
 .B RebuildFinished
 An md array that was rebuilding, isn't any more, either because it
-finished normally or was aborted.
+finished normally or was aborted. (syslog priority: Warning)
 
 .TP
 .B Fail
-An active component device of an array has been marked as faulty.
+An active component device of an array has been marked as
+faulty. (syslog priority: Critical)
 
 .TP
 .B FailSpare
 A spare component device which was being rebuilt to replace a faulty
-device has failed.
+device has failed. (syslog priority: Critial)
 
 .TP
 .B SpareActive
 A spare component device which was being rebuilt to replace a faulty
 device as been successfully rebuild and has been made active.
+(syslog priority: Info)
 
 .TP
 .B NewArray
 A new md array has been detected in the
 .B /proc/mdstat
-file.
+file.   (syslog priority: Info)
 
 .TP
 .B DegradedArray
@@ -1245,12 +1252,14 @@ generated when
 notices a drive failure which causes degradation, but only when
 .I mdadm
 notices that an array is degraded when it first sees the array.
+(syslog priority: Critial)
 
 .TP
 .B MoveSpare
 A spare drive has been moved from one array in a
 .B spare-group
 to another to allow a failed drive to be replaced.
+(syslog priority: Info)
 
 .TP
 .B SparesMissing
@@ -1263,12 +1272,14 @@ detects that it has fewer that this number when it first sees the
 array, it will report a
 .B SparesMissing
 message.
+(syslog priority: Info)
 
 .TP
 .B TestMessage
 An array was found at startup, and the
 .B --test
 flag was given.
+(syslog priority: Info)
 .RE
 
 Only

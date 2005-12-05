@@ -43,6 +43,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<stdio.h>
 #include	<errno.h>
 #include	<string.h>
+#include	<syslog.h>
 #ifdef __dietlibc__NONO
 int strncmp(const char *s1, const char *s2, size_t n) __THROW __pure__;
 char *strncpy(char *dest, const char *src, size_t n) __THROW;
@@ -167,6 +168,8 @@ extern void mdstat_wait(int seconds);
 #define Sendmail "/usr/lib/sendmail -t"
 #endif
 
+#define SYSLOG_FACILITY LOG_DAEMON
+
 extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
 extern mapping_t r5layout[], pers[], modes[], faultylayout[];
@@ -260,7 +263,7 @@ extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust,
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
-		   char *config, int test, char *pidfile);
+		   int dosyslog, char *config, int test, char *pidfile);
 
 extern int Kill(char *dev, int force);
 

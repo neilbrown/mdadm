@@ -33,8 +33,10 @@
 #include	<sys/wait.h>
 #include	<sys/signal.h>
 #include	<values.h>
+#include	<syslog.h>
 
-static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd);
+static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd,
+		  int dosyslog);
 
 static char *percentalerts[] = { 
 	"RebuildStarted",
@@ -47,7 +49,7 @@ static char *percentalerts[] = {
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
-	    char *config, int test, char* pidfile)
+	    int dosyslog, char *config, int test, char* pidfile)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -212,12 +214,12 @@ int Monitor(mddev_dev_t devlist,
 			unsigned int i;
 
 			if (test)
-				alert("TestMessage", dev, NULL, mailaddr, alert_cmd);
+				alert("TestMessage", dev, NULL, mailaddr, alert_cmd, dosyslog);
 			fd = open(dev, O_RDONLY);
 			if (fd < 0) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, NULL,
-					      mailaddr, alert_cmd);
+					      mailaddr, alert_cmd, dosyslog);
 /*					fprintf(stderr, Name ": cannot open %s: %s\n",
 						dev, strerror(errno));
 */				st->err=1;
@@ -226,7 +228,7 @@ int Monitor(mddev_dev_t devlist,
 			if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, NULL,
-					      mailaddr, alert_cmd);
+					      mailaddr, alert_cmd, dosyslog);
 /*					fprintf(stderr, Name ": cannot get array info for %s: %s\n",
 						dev, strerror(errno));
 */				st->err=1;
@@ -237,7 +239,7 @@ int Monitor(mddev_dev_t devlist,
 				array.level != 6 && array.level != 10) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, "Wrong-Level",
-					      mailaddr, alert_cmd);
+					      mailaddr, alert_cmd, dosyslog);
 				st->err = 1;
 				close(fd);
 				continue;
@@ -274,27 +276,27 @@ int Monitor(mddev_dev_t devlist,
 			    mse &&	/* is in /proc/mdstat */
 			    mse->pattern && strchr(mse->pattern, '_') /* degraded */
 				)
-				alert("DegradedArray", dev, NULL, mailaddr, alert_cmd);
+				alert("DegradedArray", dev, NULL, mailaddr, alert_cmd, dosyslog);
 
 			if (st->utime == 0 && /* new array */
 			    st->expected_spares > 0 && 
 			    array.spare_disks < st->expected_spares) 
-				alert("SparesMissing", dev, NULL, mailaddr, alert_cmd);
+				alert("SparesMissing", dev, NULL, mailaddr, alert_cmd, dosyslog);
 			if (mse &&
 			    st->percent == -1 && 
 			    mse->percent >= 0)
-				alert("RebuildStarted", dev, NULL, mailaddr, alert_cmd);
+				alert("RebuildStarted", dev, NULL, mailaddr, alert_cmd, dosyslog);
 			if (mse &&
 			    st->percent >= 0 &&
 			    mse->percent >= 0 &&
 			    (mse->percent / 20) > (st->percent / 20))
 				alert(percentalerts[mse->percent/20],
-				      dev, NULL, mailaddr, alert_cmd);
+				      dev, NULL, mailaddr, alert_cmd, dosyslog);
 
 			if (mse &&
 			    mse->percent == -1 &&
 			    st->percent >= 0)
-				alert("RebuildFinished", dev, NULL, mailaddr, alert_cmd);
+				alert("RebuildFinished", dev, NULL, mailaddr, alert_cmd, dosyslog);
 
 			if (mse)
 				st->percent = mse->percent;
@@ -323,19 +325,19 @@ int Monitor(mddev_dev_t devlist,
 					     ((st->devstate[i]&change)&(1<<MD_DISK_ACTIVE)) ||
 					     ((st->devstate[i]&change)&(1<<MD_DISK_SYNC)))
 						)
-						alert("Fail", dev, dv, mailaddr, alert_cmd);
+						alert("Fail", dev, dv, mailaddr, alert_cmd, dosyslog);
 					else if (i >= (unsigned)array.raid_disks &&
 						 (disc.major || disc.minor) &&
 						 st->devid[i] == makedev(disc.major, disc.minor) &&
 						 ((newstate&change)&(1<<MD_DISK_FAULTY))
 						)
-						alert("FailSpare", dev, dv, mailaddr, alert_cmd);
+						alert("FailSpare", dev, dv, mailaddr, alert_cmd, dosyslog);
 					else if (i < (unsigned)array.raid_disks &&
 						 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
 						  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||
 						  ((newstate&change)&(1<<MD_DISK_SYNC)))
 						)
-						alert("SpareActive", dev, dv, mailaddr, alert_cmd);
+						alert("SpareActive", dev, dv, mailaddr, alert_cmd, dosyslog);
 				}
 				st->devstate[i] = disc.state;
 				st->devid[i] = makedev(disc.major, disc.minor);
@@ -381,7 +383,7 @@ int Monitor(mddev_dev_t devlist,
 					st->spare_group = NULL;
 					st->expected_spares = -1;
 					statelist = st;
-					alert("NewArray", st->devname, NULL, mailaddr, alert_cmd);
+					alert("NewArray", st->devname, NULL, mailaddr, alert_cmd, dosyslog);
 					new_found = 1;
 				}
 		}
@@ -422,7 +424,7 @@ int Monitor(mddev_dev_t devlist,
 								  (unsigned long)dev) == 0) {
 								if (ioctl(fd1, HOT_ADD_DISK,
 									  (unsigned long)dev) == 0) {
-									alert("MoveSpare", st->devname, st2->devname, mailaddr, alert_cmd);
+									alert("MoveSpare", st->devname, st2->devname, mailaddr, alert_cmd, dosyslog);
 									close(fd1);
 									close(fd2);
 									break;
@@ -448,8 +450,11 @@ int Monitor(mddev_dev_t devlist,
 }
 
 
-static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
+static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd,
+		  int dosyslog)
 {
+	int priority;
+
 	if (!cmd && !mailaddr) {
 		time_t now = time(0);
 	       
@@ -494,5 +499,27 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd)
 		}
 
 	}
-	/* FIXME log the event to syslog maybe */
+
+	/* log the event to syslog maybe */
+	if (dosyslog) {
+		/* Log at a different severity depending on the event.
+		 *
+		 * These are the critical events:  */
+		if (strncmp(event, "Fail", 4)==0 ||
+		    strncmp(event, "Degrade", 7)==0 ||
+		    strncmp(event, "DeviceDisappeared", 17)==0)
+			priority = LOG_CRIT;
+		/* Good to know about, but are not failures: */
+		else if (strncmp(event, "Rebuild", 7)==0 ||
+			 strncmp(event, "MoveSpare", 9)==0)
+			priority = LOG_WARNING;
+		/* Everything else: */
+		else
+			priority = LOG_INFO;
+
+		if (disc)
+			syslog(priority, "%s event detected on md device %s, component device %s", event, dev, disc);
+		else
+			syslog(priority, "%s event detected on md device %s", event, dev);
+	}
 }

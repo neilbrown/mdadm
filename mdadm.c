@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 	int writemostly = 0;
 	int re_add = 0;
 	char *shortopt = short_options;
+	int dosyslog = 0;
 
 	int copies;
 
@@ -674,6 +675,10 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'t'): /* test */
 			test = 1;
 			continue;
+		case O(MONITOR,'y'): /* log messages to syslog */
+			openlog("mdadm", 0, SYSLOG_FACILITY);
+			dosyslog = 1;
+			continue;
 
 			/* now the general management options.  Some are applicable
 			 * to other modes. None have arguments.
@@ -1116,7 +1121,8 @@ int main(int argc, char *argv[])
 			break;
 		}
 		rv= Monitor(devlist, mailaddr, program,
-			    delay?delay:60, daemonise, scan, oneshot, configfile, test, pidfile);
+			    delay?delay:60, daemonise, scan, oneshot,
+			    dosyslog, configfile, test, pidfile);
 		break;
 
 	case GROW:

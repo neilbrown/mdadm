@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 2.2 release
     -   Assorted bug fixes
     -   Support write-intent-bitmaps on raid10
     -   Support little-endian (Rather than hostendian) bitmaps.

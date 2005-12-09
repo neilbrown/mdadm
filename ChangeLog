@@ -1,3 +1,7 @@
+Changes Prior to this release
+    -   Try /etc/mdadm/mdadm.conf if /etc/mdadm.conf doesn't exist.
+	This provided compatability for Debian.
+
 Changes Prior to 2.2 release
     -   Assorted bug fixes
     -   Support write-intent-bitmaps on raid10

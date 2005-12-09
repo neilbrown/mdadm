@@ -70,7 +70,12 @@
 #ifndef CONFFILE
 #define CONFFILE "/etc/mdadm.conf"
 #endif
+#ifndef CONFFILE2
+/* for Debian compatibility .... */
+#define CONFFILE2 "/etc/mdadm/mdadm.conf"
+#endif
 char DefaultConfFile[] = CONFFILE;
+char DefaultAltConfFile[] = CONFFILE2;
 
 char *keywords[] = { "device", "array", "mailaddr", "program", NULL };
 
@@ -455,7 +460,18 @@ void load_conffile(char *conffile)
 		return;
 	}
 	f = fopen(conffile, "r");
-	if (f ==NULL)
+	/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
+	 * To allow Debian users to compile from clean source and still
+	 * have a working mdadm, we read /etc/mdadm/mdadm.conf
+	 * if /etc/mdadm.conf doesn't exist
+	 */
+	if (f == NULL &&
+	    conffile == DefaultConfFile) {
+		f = fopen(DefaultAltConfFile, "r");
+		if (f)
+			conffile = DefaultAltConfFile;
+	}
+	if (f == NULL)
 		return;
 
 	loaded = 1;

@@ -222,6 +222,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 
 		freesize /= 2; /* convert to K */
+		if (chunk) {
+			/* round to chunk size */
+			freesize = freesize & ~(chunk-1);
+		}
 
 		if (size && freesize < size) {
 			fprintf(stderr, Name ": %s is smaller that given size."

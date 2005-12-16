@@ -89,6 +89,14 @@ struct mdp_superblock_1 {
 	__u16	dev_roles[0];	/* role in array, or 0xffff for a spare, or 0xfffe for faulty */
 };
 
+/* feature_map bits */
+#define MD_FEATURE_BITMAP_OFFSET	1
+#define	MD_FEATURE_RECOVERY_OFFSET	2 /* recovery_offset is present and
+					   * must be honoured
+					   */
+
+#define	MD_FEATURE_ALL			(1|2)
+
 #ifndef offsetof
 #define offsetof(t,f) ((int)&(((t*)0)->f))
 #endif
@@ -148,10 +156,14 @@ static void examine_super1(void *sbv)
 	printf("   Raid Devices : %d\n", __le32_to_cpu(sb->raid_disks));
 	printf("\n");
 	printf("    Device Size : %llu%s\n", (unsigned long long)sb->data_size, human_size(sb->data_size<<9));
+	if (sb->size != sb->data_size)
+		printf("      Used Size : %llu%s\n", (unsigned long long)sb->size, human_size(sb->size<<9));
 	if (sb->data_offset)
 		printf("    Data Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->data_offset));
 	if (sb->super_offset)
 		printf("   Super Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->super_offset));
+	if (__le32_to_cpu(sb->feature_map) & MD_FEATURE_RECOVERY_OFFSET)
+		printf("Recovery Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->recovery_offset));
 	printf("          State : %s\n", (__le64_to_cpu(sb->resync_offset)+1)? "active":"clean");
 	printf("    Device UUID : ");
 	for (i=0; i<16; i++) {
@@ -189,6 +201,8 @@ static void examine_super1(void *sbv)
 	case 0:
 	case 4:
 	case 5:
+	case 6:
+	case 10:
 		printf("     Chunk Size : %dK\n", __le32_to_cpu(sb->chunksize/2));
 		break;
 	case -1:

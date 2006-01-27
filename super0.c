@@ -691,7 +691,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 
 	sb->state |= (1<<MD_SB_BITMAP_PRESENT);
 
-	memset(bms, sizeof(*bms), 0);
+	memset(bms, 0, sizeof(*bms));
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
 	bms->version = __cpu_to_le32(major);
 	uuid_from_super0((int*)bms->uuid, sb);

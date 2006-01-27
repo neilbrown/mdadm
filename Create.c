@@ -74,6 +74,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	mdu_array_info_t array;
 	int major = BITMAP_MAJOR_HI;
 
+	memset(array, 0, sizeof(array));
+
 	vers = md_get_version(mdfd);
 	if (vers < 9000) {
 		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");

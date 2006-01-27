@@ -409,7 +409,7 @@ static __u64 event_super1(void *sbv)
 	return __le64_to_cpu(sb->events);
 }
 
-static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info, char *name)
+static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name)
 {
 	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t));
 	int spares;
@@ -448,7 +448,7 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);
 	sb->layout = __cpu_to_le32(info->layout);
-	sb->size = __cpu_to_le64(info->size*2ULL);
+	sb->size = __cpu_to_le64(size*2ULL);
 	sb->chunksize = __cpu_to_le32(info->chunk_size>>9);
 	sb->raid_disks = __cpu_to_le32(info->raid_disks);
 
@@ -491,13 +491,21 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 	struct mdp_superblock_1 *sb = sbv;
 	unsigned long long sb_offset;
 	int sbsize;
-	long size;
+	unsigned long size;
+	unsigned long long dsize;
 
-	if (ioctl(fd, BLKGETSIZE, &size))
-		return 1;
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size))
+			return 1;
+		else
+			dsize = (unsigned long long)size;
+	} else
+		dsize >>= 9;
 
-
-	if (size < 24)
+	if (dsize < 24)
 		return 2;
 
 	/*
@@ -510,7 +518,7 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 	 */
 	switch(st->minor_version) {
 	case 0:
-		sb_offset = size;
+		sb_offset = dsize;
 		sb_offset -= 8*2;
 		sb_offset &= ~(4*2-1);
 		break;
@@ -556,7 +564,8 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	int rfd;
 	int rv;
 
-	long size;
+	unsigned long size;
+	unsigned long long dsize;
 	long long sb_offset;
 
 
@@ -592,12 +601,18 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		free(refsb);
 	}
 
-	if (ioctl(fd, BLKGETSIZE, &size)) {
-		close(fd);
-		return 1;
-	}
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size))
+			return 1;
+		else
+			dsize = size;
+	} else
+		dsize >>= 9;
 
-	if (size < 24) {
+	if (dsize < 24) {
 		close(fd);
 		return 2;
 	}
@@ -613,7 +628,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	 */
 	switch(st->minor_version) {
 	case 0:
-		sb_offset = size;
+		sb_offset = dsize;
 		sb_offset -= 8*2;
 		sb_offset &= ~(4*2-1);
 		sb->super_offset = __cpu_to_le64(sb_offset);
@@ -623,13 +638,13 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	case 1:
 		sb->super_offset = __cpu_to_le64(0);
 		sb->data_offset = __cpu_to_le64(4*2); /* leave 4k for super and bitmap */
-		sb->data_size = __cpu_to_le64(size - 4*2);
+		sb->data_size = __cpu_to_le64(dsize - 4*2);
 		break;
 	case 2:
 		sb_offset = 4*2;
 		sb->super_offset = __cpu_to_le64(sb_offset);
 		sb->data_offset = __cpu_to_le64(sb_offset+4*2);
-		sb->data_size = __cpu_to_le64(size - 4*2 - 4*2);
+		sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2);
 		break;
 	default:
 		return -EINVAL;
@@ -686,6 +701,7 @@ static int compare_super1(void **firstp, void *secondv)
 static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 {
 	unsigned long size;
+	unsigned long long dsize;
 	unsigned long long sb_offset;
 	struct mdp_superblock_1 *super;
 
@@ -723,17 +739,24 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		st->ss = NULL;
 		return 2;
 	}
-	if (ioctl(fd, BLKGETSIZE, &size)) {
-		if (devname)
-			fprintf(stderr, Name ": cannot find device size for %s: %s\n",
-				devname, strerror(errno));
-		return 1;
-	}
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
+#endif
+	{
+		if (ioctl(fd, BLKGETSIZE, &size)) {
+			if (devname)
+				fprintf(stderr, Name ": cannot find device size for %s: %s\n",
+					devname, strerror(errno));
+			return 1;
+		}
+		dsize = size;
+	} else
+		dsize >>= 9;
 
-	if (size < 24) {
+	if (dsize < 24) {
 		if (devname)
-			fprintf(stderr, Name ": %s is too small for md: size is %lu sectors.\n",
-				devname, size);
+			fprintf(stderr, Name ": %s is too small for md: size is %llu sectors.\n",
+				devname, dsize);
 		return 1;
 	}
 
@@ -747,7 +770,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	 */
 	switch(st->minor_version) {
 	case 0:
-		sb_offset = size;
+		sb_offset = dsize;
 		sb_offset -= 8*2;
 		sb_offset &= ~(4*2-1);
 		break;

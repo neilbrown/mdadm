@@ -63,7 +63,7 @@ int Kill(char *dev, int force)
 		mdu_array_info_t info;
 		info.major_version = -1; /* zero superblock */
 		free(super);
-		st->ss->init_super(st, &super, &info, "");
+		st->ss->init_super(st, &super, &info, 0, "");
 		if (st->ss->store_super(st, fd, super)) {
 			fprintf(stderr, Name ": Could not zero superblock on %s\n",
 				dev);

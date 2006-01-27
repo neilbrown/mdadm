@@ -32,7 +32,7 @@
 #include	"md_p.h"
 
 int Create(struct supertype *st, char *mddev, int mdfd,
-	   int chunk, int level, int layout, unsigned long size, int raiddisks, int sparedisks,
+	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
 	   char *name,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force, int assume_clean,
@@ -74,7 +74,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	mdu_array_info_t array;
 	int major = BITMAP_MAJOR_HI;
 
-	memset(array, 0, sizeof(array));
+	memset(&array, 0, sizeof(array));
 
 	vers = md_get_version(mdfd);
 	if (vers < 9000) {
@@ -231,7 +231,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 		if (size && freesize < size) {
 			fprintf(stderr, Name ": %s is smaller that given size."
-				" %lluK < %luK + superblock\n", dname, freesize, size);
+				" %lluK < %lluK + superblock\n", dname, freesize, size);
 			fail = 1;
 			close(fd);
 			continue;
@@ -262,18 +262,18 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (level > 0 || level == LEVEL_MULTIPATH || level == LEVEL_FAULTY) {
 			/* size is meaningful */
-			if (minsize > 0x100000000ULL) {
+			if (minsize > 0x100000000ULL && st->ss->major == 0) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);	
 				return 1;
 			}
 			size = minsize;
 			if (verbose > 0)
-				fprintf(stderr, Name ": size set to %luK\n", size);
+				fprintf(stderr, Name ": size set to %lluK\n", size);
 		}
 	}
 	if (level > 0 && ((maxsize-size)*100 > maxsize)) {
 		if (runstop != 1 || verbose >= 0)
-			fprintf(stderr, Name ": largest drive (%s) exceed size (%luK) by more than 1%%\n",
+			fprintf(stderr, Name ": largest drive (%s) exceed size (%lluK) by more than 1%%\n",
 				maxdisc, size);
 		warn = 1;
 	}
@@ -337,10 +337,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		 * .. but convert to sectors.
 		 */
 		int ncopies = (layout>>8) * (layout & 255);
-		bitmapsize = (unsigned long long)array.size * raiddisks / ncopies * 2;
-		printf("bms=%llu as=%d rd=%d nc=%d\n", bitmapsize, array.size, raiddisks, ncopies);
+		bitmapsize = (unsigned long long)size * raiddisks / ncopies * 2;
+/*		printf("bms=%llu as=%d rd=%d nc=%d\n", bitmapsize, size, raiddisks, ncopies);*/
 	} else
-		bitmapsize = (unsigned long long)array.size * 2;
+		bitmapsize = (unsigned long long)size * 2;
 
 	/* There is lots of redundancy in these disk counts,
 	 * raid_disks is the most meaningful value
@@ -368,7 +368,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	array.chunk_size = chunk*1024;
 	array.major_version = st->ss->major;
 
-	if (!st->ss->init_super(st, &super, &array, name))
+	if (!st->ss->init_super(st, &super, &array, size, name))
 		return 1;
 
 	if (bitmap_file && vers < 9003) {

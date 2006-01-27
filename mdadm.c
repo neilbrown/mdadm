@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	int i;
 
 	int chunk = 0;
-	int size = -1;
+	long long size = -1;
 	int level = UnSet;
 	int layout = UnSet;
 	int raiddisks = 0;
@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "max")==0)
 				size = 0;
 			else {
-				size = strtol(optarg, &c, 10);
+				size = strtoll(optarg, &c, 10);
 				if (!optarg[0] || *c || size < 4) {
 					fprintf(stderr, Name ": invalid size: %s\n",
 						optarg);

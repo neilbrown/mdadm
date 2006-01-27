@@ -378,7 +378,7 @@ static __u64 event_super0(void *sbv)
 
 
 
-static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info, char *ignored_name)
+static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *ignored_name)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
 	int spares;
@@ -407,6 +407,8 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 		sb->set_uuid0 = random();
 	sb->ctime = time(0);
 	sb->level = info->level;
+	if (size != info->size)
+		return 0;
 	sb->size = info->size;
 	sb->nr_disks = info->nr_disks;
 	sb->raid_disks = info->raid_disks;
@@ -466,7 +468,7 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 			dsize = ((unsigned long long)size)<<9;
 	}
 
-	if (dsize < MD_RESERVED_SECTORS*2)
+	if (dsize < MD_RESERVED_SECTORS*2*512)
 		return 2;
 	
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);

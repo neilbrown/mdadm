@@ -58,7 +58,14 @@ struct mdp_superblock_1 {
 				 * NOTE: signed, so bitmap can be before superblock
 				 * only meaningful of feature_map[0] is set.
 				 */
-	__u8	pad1[128-100];	/* set to 0 when written */
+
+	/* These are only valid with feature bit '4' */
+	__u64	reshape_position;	/* next address in array-space for reshape */
+	__u32	new_level;	/* new level we are reshaping to		*/
+	__u32	delta_disks;	/* change in number of raid_disks		*/
+	__u32	new_layout;	/* new layout					*/
+	__u32	new_chunk;	/* new chunk size (bytes)			*/
+	__u8	pad1[128-124];	/* set to 0 when written */
 
 	/* constant this-device information - 64 bytes */
 	__u64	data_offset;	/* sector start of data, often 0 */
@@ -94,8 +101,9 @@ struct mdp_superblock_1 {
 #define	MD_FEATURE_RECOVERY_OFFSET	2 /* recovery_offset is present and
 					   * must be honoured
 					   */
+#define	MD_FEATURE_RESHAPE_ACTIVE	4
 
-#define	MD_FEATURE_ALL			(1|2)
+#define	MD_FEATURE_ALL			(1|2|4)
 
 #ifndef offsetof
 #define offsetof(t,f) ((int)&(((t*)0)->f))
@@ -156,8 +164,20 @@ static void examine_super1(void *sbv)
 	printf("   Raid Devices : %d\n", __le32_to_cpu(sb->raid_disks));
 	printf("\n");
 	printf("    Device Size : %llu%s\n", (unsigned long long)sb->data_size, human_size(sb->data_size<<9));
-	if (sb->size != sb->data_size)
-		printf("      Used Size : %llu%s\n", (unsigned long long)sb->size, human_size(sb->size<<9));
+	if (__le32_to_cpu(sb->level) >= 0) {
+		int ddsks=0;
+		switch(__le32_to_cpu(sb->level)) {
+		case 1: ddsks=1;break;
+		case 4:
+		case 5: ddsks = sb->raid_disks-1; break;
+		case 6: ddsks = sb->raid_disks-2; break;
+		case 10: ddsks = sb->raid_disks / (sb->layout&255) / ((sb->layout>>8)&255);
+		}
+		if (ddsks)
+			printf("     Array Size : %llu%s\n", ddsks*(unsigned long long)sb->size, human_size(ddsks*sb->size<<9));
+		if (sb->size != sb->data_size)
+			printf("      Used Size : %llu%s\n", (unsigned long long)sb->size, human_size(sb->size<<9));
+	}
 	if (sb->data_offset)
 		printf("    Data Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->data_offset));
 	if (sb->super_offset)
@@ -171,6 +191,39 @@ static void examine_super1(void *sbv)
 		printf("%02x", sb->device_uuid[i]);
 	}
 	printf("\n");
+	printf("\n");
+	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
+		printf("  Reshape pos'n : %llu%s\n", __le64_to_cpu(sb->reshape_position)/2,
+		       human_size(__le64_to_cpu(sb->reshape_position)<<9));
+		if (__le32_to_cpu(sb->delta_disks)) {
+			printf("  Delta Devices : %d", __le32_to_cpu(sb->delta_disks));
+			if (__le32_to_cpu(sb->delta_disks))
+				printf(" (%d->%d)\n",
+				       __le32_to_cpu(sb->raid_disks)-__le32_to_cpu(sb->delta_disks),
+				       __le32_to_cpu(sb->raid_disks));
+			else
+				printf(" (%d->%d)\n", __le32_to_cpu(sb->raid_disks),
+				       __le32_to_cpu(sb->raid_disks)+__le32_to_cpu(sb->delta_disks));
+		}
+		if (__le32_to_cpu(sb->new_level) != __le32_to_cpu(sb->level)) {
+			c = map_num(pers, __le32_to_cpu(sb->new_level));
+			printf("      New Level : %s\n", c?c:"-unknown-");
+		}
+		if (__le32_to_cpu(sb->new_layout) != __le32_to_cpu(sb->layout)) {
+			if (__le32_to_cpu(sb->level) == 5) {
+				c = map_num(r5layout, __le32_to_cpu(sb->new_layout));
+				printf("     New Layout : %s\n", c?c:"-unknown-");
+			}
+			if (__le32_to_cpu(sb->level) == 10) {
+				printf("     New Layout : near=%d, far=%d\n",
+				       __le32_to_cpu(sb->new_layout)&255,
+				       (__le32_to_cpu(sb->new_layout)>>8)&255);
+			}
+		}
+		if (__le32_to_cpu(sb->new_chunk) != __le32_to_cpu(sb->chunksize))
+			printf("  New Chunksize : %dK\n", __le32_to_cpu(sb->new_chunk)/2);
+		printf("\n");
+	}
 	if (sb->devflags) {
 		printf("      Flags :");
 		if (sb->devflags & WriteMostly1)
@@ -203,10 +256,10 @@ static void examine_super1(void *sbv)
 	case 5:
 	case 6:
 	case 10:
-		printf("     Chunk Size : %dK\n", __le32_to_cpu(sb->chunksize/2));
+		printf("     Chunk Size : %dK\n", __le32_to_cpu(sb->chunksize)/2);
 		break;
 	case -1:
-		printf("       Rounding : %dK\n", __le32_to_cpu(sb->chunksize/2));
+		printf("       Rounding : %dK\n", __le32_to_cpu(sb->chunksize)/2);
 		break;
 	default: break;
 	}

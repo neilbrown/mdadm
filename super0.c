@@ -105,12 +105,51 @@ static void examine_super0(void *sbv)
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, sb->level);
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
-	if ((int)sb->level >= 0)
+	if ((int)sb->level >= 0) {
+		int ddsks=0;
 		printf("    Device Size : %d%s\n", sb->size, human_size((long long)sb->size<<10));
+		switch(sb->level) {
+		case 1: ddsks=1;break;
+		case 4:
+		case 5: ddsks = sb->raid_disks-1; break;
+		case 6: ddsks = sb->raid_disks-2; break;
+		case 10: ddsks = sb->raid_disks / (sb->layout&255) / ((sb->layout>>8)&255);
+		}
+		if (ddsks)
+			printf("     Array Size : %llu%s\n", (unsigned long long)ddsks * sb->size,
+			       human_size(ddsks*(long long)sb->size<<10));
+	}
 	printf("   Raid Devices : %d\n", sb->raid_disks);
 	printf("  Total Devices : %d\n", sb->nr_disks);
 	printf("Preferred Minor : %d\n", sb->md_minor);
 	printf("\n");
+	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {
+		printf("  Reshape pos'n : %llu%s\n", sb->reshape_position/2, human_size((long long)sb->reshape_position<<9));
+		if (sb->delta_disks) {
+			printf("  Delta Devices : %d", sb->delta_disks);
+			if (sb->delta_disks)
+				printf(" (%d->%d)\n", sb->raid_disks-sb->delta_disks, sb->raid_disks);
+			else
+				printf(" (%d->%d)\n", sb->raid_disks, sb->raid_disks+sb->delta_disks);
+		}
+		if (sb->new_level != sb->level) {
+			c = map_num(pers, sb->new_level);
+			printf("      New Level : %s\n", c?c:"-unknown-");
+		}
+		if (sb->new_layout != sb->layout) {
+			if (sb->level == 5) {
+				c = map_num(r5layout, sb->new_layout);
+				printf("     New Layout : %s\n", c?c:"-unknown-");
+			}
+			if (sb->level == 10) {
+				printf("     New Layout : near=%d, far=%d\n",
+				       sb->new_layout&255, (sb->new_layout>>8)&255);
+			}
+		}
+		if (sb->new_chunk != sb->chunk_size)
+			printf("  New Chunksize : %d\n", sb->new_chunk);
+		printf("\n");
+	}
 	atime = sb->utime;
 	printf("    Update Time : %.24s\n", ctime(&atime));
 	printf("          State : %s\n",

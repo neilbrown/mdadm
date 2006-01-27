@@ -147,7 +147,13 @@ typedef struct mdp_superblock_s {
 	__u32 cp_events_hi;	/* 10 high-order of checkpoint update count   */
 #endif
 	__u32 recovery_cp;	/* 11 recovery checkpoint sector count	      */
-	__u32 gstate_sreserved[MD_SB_GENERIC_STATE_WORDS - 12];
+	/* There are only valid for minor_version > 90 */
+	__u64 reshape_position;	/* 12,13 next address in array-space for reshape */
+	__u32 new_level;	/* 14 new level we are reshaping to	      */
+	__u32 delta_disks;	/* 15 change in number of raid_disks	      */
+	__u32 new_layout;	/* 16 new layout			      */
+	__u32 new_chunk;	/* 17 new chunk size (bytes)		      */
+	__u32 gstate_sreserved[MD_SB_GENERIC_STATE_WORDS - 18];
 
 	/*
 	 * Personality information

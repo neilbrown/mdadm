@@ -1,3 +1,22 @@
+2005-dec-20
+  Want an incremental assembly mode to work nicely with udev.
+  Core usage would be something like
+       mdadm --incr-assemble /dev/newdevice
+  This would
+     - examine the device to determine  uuid etc.
+     - look for a match in /etc/mdadm.conf, abort if not found
+     - find that device and collect current contents
+     - perform an 'assemble' analysis to make sure we have the best set of devices.
+     - remove or add devices as appropriate
+     - possibly start the array if it was complete
+
+   Other usages could involve
+     - specify which array to auto-add to.
+       This requires an existing array for uuid matching... is there any point?
+
+     -
+
+
 2004-june-02
   * Don't print 'errors' flag, it is meaningless. DONE
   * Handle new superblock format

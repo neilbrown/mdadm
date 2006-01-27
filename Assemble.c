@@ -219,7 +219,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (dfd >= 0) close(dfd);
 
-		if (ident->uuid_set && (!update && strcmp(update, "uuid")!= 0) &&
+		if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
 		    (!super || same_uuid(info.uuid, ident->uuid, tst->ss->swapuuid)==0)) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong uuid.\n",
@@ -266,6 +266,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			free(first_super);
 			return 1;
 		}
+
+
 		st = tst; /* commit to this format, if haven't already */
 		if (st->ss->compare_super(&first_super, super)) {
 			fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",

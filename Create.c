@@ -364,7 +364,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	array.nr_disks = array.working_disks + array.failed_disks;
 	array.layout = layout;
 	array.chunk_size = chunk*1024;
-
+	array.major_version = st->ss->major;
 
 	if (!st->ss->init_super(st, &super, &array, name))
 		return 1;

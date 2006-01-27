@@ -211,6 +211,10 @@ struct supertype {
 extern struct supertype *super_by_version(int vers, int minor);
 extern struct supertype *guess_super(int fd);
 
+#if __GNUC__ < 3
+struct stat64;
+#endif
+
 #ifdef UCLIBC
   struct FTW {};
 # define FTW_PHYS 1

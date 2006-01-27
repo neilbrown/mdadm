@@ -126,8 +126,13 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 
 	info = malloc(sizeof(*info));
 	if (info == NULL) {
+#if __GNUC__ < 3
+		fprintf(stderr, Name ": failed to allocate %d bytes\n",
+				(int)sizeof(*info));
+#else
 		fprintf(stderr, Name ": failed to allocate %zd bytes\n",
 				sizeof(*info));
+#endif
 		return NULL;
 	}
 

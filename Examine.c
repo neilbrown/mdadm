@@ -56,7 +56,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 	int fd; 
 	void *super = NULL;
 	int rv = 0;
-	int err;
+	int err = 0;
 
 	struct array {
 		void *super;
@@ -83,13 +83,17 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 				st = guess_super(fd);
 			if (st)
 				err = st->ss->load_super(st, fd, &super, (brief||scan)?NULL:devlist->devname);
-			else
+			else {
+				if (!brief)
+					fprintf(stderr, Name ": No md superblock detected on %s.\n", devlist->devname);
 				err = 1;
+			}
 			close(fd);
 		}
-		if (err)
+		if (err) {
+			rv = 1;
 			continue;
-		if (err) rv =1;
+		}
 
 		if (SparcAdjust)
 			st->ss->update_super(NULL, super, "sparc2.2", devlist->devname,  0);

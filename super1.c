@@ -148,7 +148,8 @@ static void examine_super1(void *sbv)
 	char *c;
 
 	printf("          Magic : %08x\n", __le32_to_cpu(sb->magic));
-	printf("        Version : %02d.%02d\n", 1, __le32_to_cpu(sb->feature_map));
+	printf("        Version : %02d\n", 1);
+	printf("    Feature Map : 0x%x\n", __le32_to_cpu(sb->feature_map));
 	printf("     Array UUID : ");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
@@ -192,6 +193,9 @@ static void examine_super1(void *sbv)
 	}
 	printf("\n");
 	printf("\n");
+	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
+		printf("Internal Bitmap : %ld sectors from superblock\n",
+		       __le32_to_cpu(sb->bitmap_offset));
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
 		printf("  Reshape pos'n : %llu%s\n", __le64_to_cpu(sb->reshape_position)/2,
 		       human_size(__le64_to_cpu(sb->reshape_position)<<9));

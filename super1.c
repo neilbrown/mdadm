@@ -678,6 +678,8 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	 * 0: At least 8K, but less than 12K, from end of device
 	 * 1: At start of device
 	 * 2: 4K from start of device.
+	 * Depending on the array size, we might leave extra space
+	 * for a bitmap.
 	 */
 	switch(st->minor_version) {
 	case 0:
@@ -686,18 +688,29 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		sb_offset &= ~(4*2-1);
 		sb->super_offset = __cpu_to_le64(sb_offset);
 		sb->data_offset = __cpu_to_le64(0);
-		sb->data_size = __cpu_to_le64(sb_offset);
+		if (sb_offset-64*2 >= array_size)
+			sb->data_size = __cpu_to_le64(sb_offset-64*2);
+		else
+			sb->data_size = __cpu_to_le64(sb_offset);
 		break;
 	case 1:
 		sb->super_offset = __cpu_to_le64(0);
-		sb->data_offset = __cpu_to_le64(4*2); /* leave 4k for super and bitmap */
-		sb->data_size = __cpu_to_le64(dsize - 4*2);
+		if (dsize - 64*2 >= array_size)
+			space = 64*2;
+		else
+			space = 4*2;
+		sb->data_offset = __cpu_to_le64(space); /* leave space for super and bitmap */
+		sb->data_size = __cpu_to_le64(dsize - space);
 		break;
 	case 2:
 		sb_offset = 4*2;
+		if (dsize - 4*2 - 64*2 >= array_size)
+			space = 64*2;
+		else
+			space = 4*2;
 		sb->super_offset = __cpu_to_le64(sb_offset);
-		sb->data_offset = __cpu_to_le64(sb_offset+4*2);
-		sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2);
+		sb->data_offset = __cpu_to_le64(sb_offset+space);
+		sb->data_size = __cpu_to_le64(dsize - 4*2 - space);
 		break;
 	default:
 		return -EINVAL;
@@ -918,6 +931,14 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 	if (devsize < 24)
 		return 0;
 
+	/* if the device is bigger than 8Gig, save 64k for bitmap usage,
+	 * if biffer than 200Gig, save 128k
+	 */
+	if (devsize > 200*1024*1024*2)
+		devsize -= 128*2;
+	else if (devsize > 8*1024*1024*2)
+		devsize -= 64*2;
+
 	switch(st->minor_version) {
 	case 0:
 		/* at end */
@@ -934,7 +955,8 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 
 static int
 add_internal_bitmap1(struct supertype *st, void *sbv,
-		     int chunk, int delay, int write_behind, unsigned long long size, int may_change, int major)
+		     int chunk, int delay, int write_behind, unsigned long long size,
+		     int may_change, int major)
 {
 	/*
 	 * If not may_change, then this is a 'Grow', and the bitmap
@@ -968,6 +990,8 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 		chunk = min_chunk;
 	else if (chunk < min_chunk)
 		return 0; /* chunk size too small */
+	if (chunk == 0) /* rounding problem */
+		return 0;
 
 	sb->bitmap_offset = __cpu_to_le32(2);
 

@@ -290,10 +290,15 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				if (fd2 < 0)
 					continue;
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
-					st->ss->add_internal_bitmap(st, super,
+					if (st->ss->add_internal_bitmap(st, super,
 								    chunk, delay, write_behind,
-								    bitmapsize, 0, major);
-					st->ss->write_bitmap(st, fd2, super);
+									bitmapsize, 0, major))
+						st->ss->write_bitmap(st, fd2, super);
+					else {
+						fprintf(stderr, Name ": failed to create internal bitmap - chunksize problem.\n");
+						close(fd2);
+						return 1;
+					}
 				}
 				close(fd2);
 			}

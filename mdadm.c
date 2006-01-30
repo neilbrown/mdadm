@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
 	int mode = 0;
 	int opt;
 	int option_index;
-	char *help_text;
 	char *c;
 	int rv;
 	int i;
@@ -97,6 +96,7 @@ int main(int argc, char *argv[])
 	int dosyslog = 0;
 
 	int copies;
+	int print_help = 0;
 
 	int mdfd = -1;
 
@@ -121,22 +121,12 @@ int main(int argc, char *argv[])
 		/* firstly, some mode-independant options */
 		switch(opt) {
 		case 'h':
-			help_text = Help;
 			if (option_index > 0 && 
 			    strcmp(long_options[option_index].name, "help-options")==0)
-				help_text = OptionHelp;
+				print_help = 2;
 			else
-				switch (mode) {
-				case ASSEMBLE : help_text = Help_assemble; break;
-				case BUILD    : help_text = Help_build; break;
-				case CREATE   : help_text = Help_create; break;
-				case MANAGE   : help_text = Help_manage; break;
-				case MISC     : help_text = Help_misc; break;
-				case MONITOR  : help_text = Help_monitor; break;
-				case GROW     : help_text = Help_grow; break;
-				}
-			fputs(help_text,stderr);
-			exit(0);
+				print_help = 1;
+			continue;
 
 		case 'V':
 			fputs(Version, stderr);
@@ -819,6 +809,24 @@ int main(int argc, char *argv[])
 			opt, map_num(modes, mode));
 		exit(2);
 
+	}
+
+	if (print_help) {
+		char *help_text = Help;
+		if (print_help == 2)
+			help_text = OptionHelp;
+		else
+			switch (mode) {
+			case ASSEMBLE : help_text = Help_assemble; break;
+			case BUILD    : help_text = Help_build; break;
+			case CREATE   : help_text = Help_create; break;
+			case MANAGE   : help_text = Help_manage; break;
+			case MISC     : help_text = Help_misc; break;
+			case MONITOR  : help_text = Help_monitor; break;
+			case GROW     : help_text = Help_grow; break;
+			}
+		fputs(help_text,stderr);
+		exit(0);
 	}
 
 	if (!mode && devs_found) {

@@ -163,8 +163,13 @@ int Detail(char *dev, int brief, int test)
 		printf("     Raid Level : %s\n", c?c:"-unknown-");
 		if (larray_size)
 			printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
-		if (array.level >= 1)
-			printf("    Device Size : %d%s\n", array.size, human_size((long long)array.size<<10));
+		if (array.level >= 1) {
+			if (array.major_version != 0 &&
+			    larray_size >= 0xFFFFFFFFULL)
+				printf("    Device Size : unknown\n");
+			else
+				printf("    Device Size : %d%s\n", array.size, human_size((long long)array.size<<10));
+		}
 		printf("   Raid Devices : %d\n", array.raid_disks);
 		printf("  Total Devices : %d\n", array.nr_disks);
 		printf("Preferred Minor : %d\n", array.md_minor);

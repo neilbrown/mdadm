@@ -676,6 +676,35 @@ struct supertype *guess_super(int fd)
 	return NULL;
 }
 
+unsigned long long get_component_size(int fd)
+{
+	/* Find out the component size of the array.
+	 * We cannot trust GET_ARRAY_INFO ioctl as it's
+	 * size field is only 32bits.
+	 * So look in /sys/block/mdXXX/md/component_size
+	 */
+	struct stat stb;
+	char fname[50];
+	int n;
+	if (fstat(fd, &stb)) return 0;
+	if (major(stb.st_rdev) == 9)
+		sprintf(fname, "/sys/block/md%d/component_size",
+			minor(stb.st_rdev));
+	else
+		sprintf(fname, "/sys/block/md_d%d/component_size",
+			minor(stb.st_rdev)/16);
+	fd = open(fname, O_RDONLY);
+	if (fd < 0)
+		return 0;
+	n = read(fd, fname, sizeof(fname));
+	close(fd);
+	if (n == sizeof(fname))
+		return 0;
+	fname[n] = 0;
+	return strtoull(fname, NULL, 10);
+}
+
+
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */
 unsigned int __invalid_size_argument_for_IOC = 0;

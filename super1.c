@@ -195,7 +195,8 @@ static void examine_super1(void *sbv)
 	printf("\n");
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 		printf("Internal Bitmap : %ld sectors from superblock\n",
-		       __le32_to_cpu(sb->bitmap_offset));
+		       (long)__le32_to_cpu(sb->bitmap_offset));
+	}
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
 		printf("  Reshape pos'n : %llu%s\n", __le64_to_cpu(sb->reshape_position)/2,
 		       human_size(__le64_to_cpu(sb->reshape_position)<<9));
@@ -621,8 +622,8 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	int rfd;
 	int rv;
 
-	unsigned long size;
-	unsigned long long dsize;
+	unsigned long size, space;
+	unsigned long long dsize, array_size;
 	long long sb_offset;
 
 
@@ -685,6 +686,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	 * Depending on the array size, we might leave extra space
 	 * for a bitmap.
 	 */
+	array_size = __le64_to_cpu(sb->size);
 	switch(st->minor_version) {
 	case 0:
 		sb_offset = dsize;
@@ -1016,13 +1018,13 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long long offset;
-	struct mdp_superblock_1 *sb;
+	struct mdp_superblock_1 *sb = NULL;
 
-	if (!sbv)
-		if (st->ss->load_super(st, fd, sbv, NULL))
+	if (sbv)
+		sb = sbv;
+	else
+		if (st->ss->load_super(st, fd, (void **)&sb, NULL))
 			return; /* no error I hope... */
-
-	sb = sbv;
 
 	offset = __le64_to_cpu(sb->super_offset);
 	offset += (long) __le32_to_cpu(sb->bitmap_offset);

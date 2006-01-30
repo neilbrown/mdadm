@@ -132,6 +132,7 @@ int Detail(char *dev, int brief, int test)
 	if (brief) 
 		printf("ARRAY %s level=%s num-devices=%d", dev, c?c:"-unknown-",array.raid_disks );
 	else {
+		mdu_bitmap_file_t bmf;
 		unsigned long array_size;
 		unsigned long long larray_size;
 		struct mdstat_ent *ms = mdstat_read(0);
@@ -176,6 +177,12 @@ int Detail(char *dev, int brief, int test)
 		printf("    Persistence : Superblock is %spersistent\n",
 		       array.not_persistent?"not ":"");
 		printf("\n");
+		if (ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 &&
+			bmf.pathname[0]) {
+			printf("  Intent Bitmap : %s\n", bmf.pathname);
+			printf("\n");
+		} else if (array.state & (1<<MD_SB_BITMAP_PRESENT))
+			printf("  Intent Bitmap : Internal\n\n");
 		atime = array.utime;
 		printf("    Update Time : %.24s\n", ctime(&atime));
 		printf("          State : %s%s%s\n",

@@ -236,7 +236,7 @@ extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist, int verbose);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
-extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind);
+extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);
 
 
 extern int Assemble(struct supertype *st, char *mddev, int mdfd,
@@ -305,6 +305,7 @@ extern unsigned long calc_csum(void *super, int bytes);
 extern int enough(int level, int raid_disks, int layout,
 		   char *avail, int avail_disks);
 extern int ask(char *mesg);
+extern unsigned long long get_component_size(int fd);
 
 
 extern char *human_size(long long bytes);

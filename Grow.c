@@ -192,7 +192,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	return 0;
 }
 
-int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind)
+int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force)
 {
 	/*
 	 * First check that array doesn't have a bitmap
@@ -208,7 +208,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	struct supertype *st;
 	int major = BITMAP_MAJOR_HI;
 	int vers = md_get_version(fd);
-	unsigned long long bitmapsize;
+	unsigned long long bitmapsize, array_size;
 
 	if (vers < 9003) {
 		major = BITMAP_MAJOR_HOSTENDIAN;
@@ -255,7 +255,22 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			devname);
 		return 1;
 	}
-	bitmapsize = array.size * 2;
+	bitmapsize = array.size;
+	bitmapsize <<= 1;
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &array_size) == 0 &&
+	    array_size > (0x7fffffffULL<<9)) {
+		/* Array is big enough that we cannot trust array.size
+		 * try other approaches
+		 */
+		bitmapsize = get_component_size(fd);
+	}
+#endif
+	if (bitmapsize == 0) {
+		fprintf(stderr, Name ": Cannot reliably determine size of array to create bitmap - sorry.\n");
+		return 1;
+	}
+
 	if (array.level == 10) {
 		int ncopies = (array.layout&255)*(array.layout>>8);
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
@@ -343,13 +358,13 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			fprintf(stderr, Name ": cannot find UUID for array!\n");
 			return 1;
 		}
-		if (CreateBitmap(file, 0, (char*)uuid, chunk,
+		if (CreateBitmap(file, force, (char*)uuid, chunk,
 				 delay, write_behind, bitmapsize, major)) {
 			return 1;
 		}
 		bitmap_fd = open(file, O_RDWR);
 		if (bitmap_fd < 0) {
-			fprintf(stderr, Name ": weird: %s cannot be openned\n",
+			fprintf(stderr, Name ": weird: %s cannot be opened\n",
 				file);
 			return 1;
 		}

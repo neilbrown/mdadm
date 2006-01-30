@@ -1160,7 +1160,7 @@ int main(int argc, char *argv[])
 		else if (bitmap_file) {
 			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
-					    bitmap_chunk, delay, write_behind);
+					    bitmap_chunk, delay, write_behind, force);
 		} else
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;

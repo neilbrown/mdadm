@@ -688,10 +688,10 @@ unsigned long long get_component_size(int fd)
 	int n;
 	if (fstat(fd, &stb)) return 0;
 	if (major(stb.st_rdev) == 9)
-		sprintf(fname, "/sys/block/md%d/component_size",
+		sprintf(fname, "/sys/block/md%d/md/component_size",
 			minor(stb.st_rdev));
 	else
-		sprintf(fname, "/sys/block/md_d%d/component_size",
+		sprintf(fname, "/sys/block/md_d%d/md/component_size",
 			minor(stb.st_rdev)/16);
 	fd = open(fname, O_RDONLY);
 	if (fd < 0)

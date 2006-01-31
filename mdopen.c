@@ -158,7 +158,7 @@ int open_mddev(char *dev, int autof)
 			major = get_mdp_major();
 			break;
 		case 0: /* not standard, pick an unused number */
-			mdlist = mdstat_read(0);
+			mdlist = mdstat_read(0, 0);
 			for (num= (autof>0)?-1:0 ; ; num+= (autof>2)?-1:1) {
 				struct mdstat_ent *me;
 				for (me=mdlist; me; me=me->next)

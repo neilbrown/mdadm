@@ -160,7 +160,7 @@ struct mdstat_ent {
 	struct mdstat_ent *next;
 };
 
-extern struct mdstat_ent *mdstat_read(int);
+extern struct mdstat_ent *mdstat_read(int hold, int start);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
 

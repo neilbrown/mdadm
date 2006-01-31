@@ -204,7 +204,7 @@ int Monitor(mddev_dev_t devlist,
 
 		if (mdstat)
 			free_mdstat(mdstat);
-		mdstat = mdstat_read(oneshot?0:1);
+		mdstat = mdstat_read(oneshot?0:1, 0);
 
 		for (st=statelist; st; st=st->next) {
 			mdu_array_info_t array;

@@ -135,7 +135,7 @@ int Detail(char *dev, int brief, int test)
 		mdu_bitmap_file_t bmf;
 		unsigned long array_size;
 		unsigned long long larray_size;
-		struct mdstat_ent *ms = mdstat_read(0);
+		struct mdstat_ent *ms = mdstat_read(0, 0);
 		struct mdstat_ent *e;
 		int devnum = array.md_minor;
 		if (major(stb.st_rdev) != MD_MAJOR)

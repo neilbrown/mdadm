@@ -101,10 +101,10 @@ void free_mdstat(struct mdstat_ent *ms)
 }
 
 static int mdstat_fd = -1;
-struct mdstat_ent *mdstat_read(int hold)
+struct mdstat_ent *mdstat_read(int hold, int start)
 {
 	FILE *f;
-	struct mdstat_ent *all, **end;
+	struct mdstat_ent *all, *rv, **end, **insert_here;
 	char *line;
 
 	if (hold && mdstat_fd != -1) {
@@ -121,6 +121,7 @@ struct mdstat_ent *mdstat_read(int hold)
 		struct mdstat_ent *ent;
 		char *w;
 		int devnum;
+		int in_devs = 0;
 		char *ep;
 
 		if (strcmp(line, "Personalities")==0)
@@ -129,6 +130,7 @@ struct mdstat_ent *mdstat_read(int hold)
 			continue;
 		if (strcmp(line, "unused")==0)
 			continue;
+		insert_here = NULL;
 		/* Better be an md line.. */
 		if (strncmp(line, "md", 2)!= 0)
 			continue;
@@ -167,9 +169,28 @@ struct mdstat_ent *mdstat_read(int hold)
 				ent->active = 0;
 			else if (ent->active >=0 &&
 				 ent->level == NULL &&
-				 w[0] != '(' /*readonly*/)
+				 w[0] != '(' /*readonly*/) {
 				ent->level = strdup(w);
-			else if (!ent->pattern &&
+				in_devs = 1;
+			} else if (in_devs && strcmp(w, "blocks")==0)
+				in_devs = 0;
+			else if (in_devs && strncmp(w, "md", 2)==0) {
+				/* This has an md device as a component.
+				 * If that device is already in the list,
+				 * make sure we insert before there.
+				 */
+				struct mdstat_ent **ih;
+				int dn2;
+				if (strncmp(w, "md_d", 4)==0)
+					dn2 = -1-strtoul(w+4, &ep, 10);
+				else
+					dn2 = strtoul(w+2, &ep, 10);
+				ih = &all;
+				while (ih != insert_here && *ih &&
+				       (*ih)->devnum != dn2)
+					ih = & (*ih)->next;
+				insert_here = ih;
+			} else if (!ent->pattern &&
 				 w[0] == '[' &&
 				 (w[1] == 'U' || w[1] == '_')) {
 				ent->pattern = strdup(w+1);
@@ -192,13 +213,31 @@ struct mdstat_ent *mdstat_read(int hold)
 				ent->percent = atoi(w);
 			}
 		}
-		*end = ent;
-		end = &ent->next;
+		if (insert_here && (*insert_here)) {
+			ent->next = *insert_here;
+			*insert_here = ent;
+		} else {
+			*end = ent;
+			end = &ent->next;
+		}
 	}
 	if (hold && mdstat_fd == -1)
 		mdstat_fd = dup(fileno(f));
 	fclose(f);
-	return all;
+
+	/* If we might want to start array,
+	 * reverse the order, so that components comes before composites
+	 */
+	if (start) {
+		rv = NULL;
+		while (all) {
+			struct mdstat_ent *e = all;
+			all = all->next;
+			e->next = rv;
+			rv = e;
+		}
+	} else rv = all;
+	return rv;
 }
 
 void mdstat_wait(int seconds)

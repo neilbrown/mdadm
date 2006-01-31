@@ -1030,7 +1030,7 @@ int main(int argc, char *argv[])
 			if (devlist == NULL) {
 				if (devmode=='D' && scan) {
 					/* apply --detail to all devices in /proc/mdstat */
-					struct mdstat_ent *ms = mdstat_read(0);
+					struct mdstat_ent *ms = mdstat_read(0, 1);
 					struct mdstat_ent *e;
 					for (e=ms ; e ; e=e->next) {
 						char *name = get_md_name(e->devnum);
@@ -1051,7 +1051,7 @@ int main(int argc, char *argv[])
 					int progress=1, err;
 					int last = 0;
 					do {
-						struct mdstat_ent *ms = mdstat_read(0);
+						struct mdstat_ent *ms = mdstat_read(0, 0);
 						struct mdstat_ent *e;
 
 						if (!progress) last = 1;

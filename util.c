@@ -229,7 +229,7 @@ int check_reiser(int fd, char *name)
 	 *
 	 */
 	unsigned char sb[1024];
-	int size;
+	unsigned long size;
 	if (lseek(fd, 64*1024, 0) != 64*1024)
 		return 0;
 	if (read(fd, sb, 1024) != 1024)
@@ -239,7 +239,7 @@ int check_reiser(int fd, char *name)
 		return 0;
 	fprintf(stderr, Name ": %s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
-	fprintf(stderr, "    size = %dK\n", size*4);
+	fprintf(stderr, "    size = %luK\n", size*4);
 		
 	return 1;
 }

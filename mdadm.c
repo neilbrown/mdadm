@@ -1006,14 +1006,6 @@ int main(int argc, char *argv[])
 			rv = 1;
 			break;
 		}
-		if (ss == NULL) {
-			for(i=0; !ss && superlist[i]; i++) 
-				ss = superlist[i]->match_metadata_desc("default");
-		}
-		if (!ss) {
-			fprintf(stderr, Name ": internal error - no default metadata style\n");
-			exit(2);
-		}
 
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks, ident.name,

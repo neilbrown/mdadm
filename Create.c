@@ -214,6 +214,27 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			ldsize = dsize;
 			ldsize <<= 9;
 		}
+		if (st == NULL) {
+			/* Need to choose a default metadata, which is different
+			 * depending on the sizes of devices
+			 */
+			int i;
+			char *name = "default";
+			if (level >= 1 && ldsize > (0x7fffffffULL<<10))
+				name = "default/large";
+			for(i=0; !st && superlist[i]; i++)
+				st = superlist[i]->match_metadata_desc(name);
+
+			if (!st) {
+				fprintf(stderr, Name ": internal error - no default metadata style\n");
+				exit(2);
+			}
+			if (st->ss->major != 0 ||
+			    st->minor_version != 90)
+				fprintf(stderr, Name ": Defaulting to verion %d.%d metadata\n",
+					st->ss->major,
+					st->minor_version);
+		}
 		freesize = st->ss->avail_size(st, ldsize >> 9);
 		if (freesize == 0) {
 			fprintf(stderr, Name ": %s is too small: %luK\n",

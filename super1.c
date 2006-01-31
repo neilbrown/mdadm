@@ -911,7 +911,8 @@ static struct supertype *match_metadata_desc1(char *arg)
 	st->ss = &super1;
 	st->max_devs = 384;
 	if (strcmp(arg, "1") == 0 ||
-	    strcmp(arg, "1.0") == 0) {
+	    strcmp(arg, "1.0") == 0 ||
+	    strcmp(arg, "default/large") == 0) {
 		st->minor_version = 0;
 		return st;
 	}

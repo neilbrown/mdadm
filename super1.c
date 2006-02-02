@@ -694,14 +694,14 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		sb_offset &= ~(4*2-1);
 		sb->super_offset = __cpu_to_le64(sb_offset);
 		sb->data_offset = __cpu_to_le64(0);
-		if (sb_offset-64*2 >= array_size)
+		if (sb_offset-64*2 >= array_size && array_size > 8*1024*1024*2)
 			sb->data_size = __cpu_to_le64(sb_offset-64*2);
 		else
 			sb->data_size = __cpu_to_le64(sb_offset);
 		break;
 	case 1:
 		sb->super_offset = __cpu_to_le64(0);
-		if (dsize - 64*2 >= array_size)
+		if (dsize - 64*2 >= array_size && array_size > 8*1024*1024*2)
 			space = 64*2;
 		else
 			space = 4*2;
@@ -710,7 +710,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		break;
 	case 2:
 		sb_offset = 4*2;
-		if (dsize - 4*2 - 64*2 >= array_size)
+		if (dsize - 4*2 - 64*2 >= array_size && array_size > 8*1024*1024*2)
 			space = 64*2;
 		else
 			space = 4*2;

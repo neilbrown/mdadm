@@ -1,6 +1,27 @@
 Changes Prior to this release
     -   Try /etc/mdadm/mdadm.conf if /etc/mdadm.conf doesn't exist.
 	This provided compatability for Debian.
+    -   Fixed for version-1 superblock:
+	 report chunksize for raid6 and raid10
+	 make sure device size used is a multiple of chunksize
+    -   Fix "--assemble --scan" crash.
+    -   Fix completely failure to create array on ppc64
+    -   Fix memcmp in place of memcpy
+    -   A few minor improvements to online help
+    -   Clean up usage of 'long long' for used-size of devices, so
+	that it is possible to create a raid1 of 7TB devices!
+    -   Make internal bitmaps work on 7TB raid1 arrays.
+    -   Provide error message if --examine doesn't find any superblock.
+    -   Report 'reshape' status in --examine - this depends on kernel
+	patches that are not yet finalised.
+    -   Report bitmap status in --detail and --examine
+    -   Default to v1 superblocks instead of v0.90 if the array
+	is too big for 0.90 to handle.
+    -   Sort the output of "mdadm --detail --scan" so that it is
+	in a suitable order for assembling arrays. i.e. components come
+	before an array that they are part of.
+    -   Print size of large reiserfs array properly went warning of
+        possible confilcts.
 
 Changes Prior to 2.2 release
     -   Assorted bug fixes

@@ -2,7 +2,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2005 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2006 Neil Brown <neilb@cse.unsw.edu.au>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v2.2 - 5 December 2005\n";
+char Version[] = Name " - v2.3 - 2 February 2006\n";
 
 /*
  * File: ReadMe.c

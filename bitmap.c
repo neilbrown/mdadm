@@ -21,7 +21,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "mdadm.h"
-#include <asm/byteorder.h>
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -357,7 +356,8 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 	
 	rv = 0;
 	/* make the file be the right size (well, to the nearest byte) */
-	ftruncate(fileno(fp), filesize);
+	if (ftruncate(fileno(fp), filesize))
+		perror("ftrunace");
 out:
 	fclose(fp);
 	if (rv)

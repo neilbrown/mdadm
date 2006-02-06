@@ -1,6 +1,12 @@
 #!/bin/sh
 arg=$1
 target=~/public_html/source/mdadm
+if [ " $arg" = " test" ]
+then
+  target=/tmp/mdadm-test
+  rm -rf $target
+  mkdir -p $target
+fi
 if [ -d $target ]
 then :
 else echo $target is not a directory
@@ -48,13 +54,16 @@ then
        rm $target/$base
        exit 1
   fi
-  rpmbuild -ta $target/$base
+  rpmbuild -ta $target/$base || exit 1
   find /home/neilb/src/RPM -name "*mdadm-$version-*" \
      -exec cp {} $target/RPM \;
   cp ANNOUNCE-$version $target/ANNOUNCE
   cp ChangeLog $target/ChangeLog
-  scp $target/$base master.kernel.org:/pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
-  scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
+  if [ " $arg" != " test" ]
+  then
+    scp $target/$base master.kernel.org:/pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
+    scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
+  fi
 else
   if [ ! -f $target/$base ] 
   then 

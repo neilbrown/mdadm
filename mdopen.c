@@ -64,9 +64,12 @@ void make_parts(char *dev, int cnt)
 		} else {
 			stb2 = stb;
 		}
-		mknod(name, S_IFBLK | 0600, makedev(major, minor+i));
-		chown(name, stb2.st_uid, stb2.st_gid);
-		chmod(name, stb2.st_mode & 07777);
+		if (mknod(name, S_IFBLK | 0600, makedev(major, minor+i)))
+			perror("mknod");
+		if (chown(name, stb2.st_uid, stb2.st_gid))
+			perror("chown");
+		if (chmod(name, stb2.st_mode & 07777))
+			perror("chmod");
 		stat(name, &stb2);
 		add_dev(name, &stb2, 0, NULL);
 	}
@@ -205,8 +208,10 @@ int open_mddev(char *dev, int autof)
 				return -1;
 			}
 			if (must_remove) {
-				chown(dev, stb.st_uid, stb.st_gid);
-				chmod(dev, stb.st_mode & 07777);
+				if (chown(dev, stb.st_uid, stb.st_gid))
+					perror("chown");
+				if (chmod(dev, stb.st_mode & 07777))
+					perror("chmod");
 			}
 			stat(dev, &stb);
 			add_dev(dev, &stb, 0, NULL);

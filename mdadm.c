@@ -772,8 +772,15 @@ int main(int argc, char *argv[])
 		case O(GROW,'b'):
 		case O(BUILD,'b'):
 		case O(CREATE,'b'): /* here we create the bitmap */
-			bitmap_file = optarg;
-			continue;
+			if (strcmp(optarg, "internal")== 0 ||
+			    strcmp(optarg, "none")== 0 ||
+			    strchr(optarg, '/') != NULL) {
+				bitmap_file = optarg;
+				continue;
+			}
+			/* probable typo */
+			fprintf(stderr, Name ": bitmap file must contain a '/', or be 'internal', or 'none'\n");
+			exit(2);
 
 		case O(GROW,4):
 		case O(BUILD,4):

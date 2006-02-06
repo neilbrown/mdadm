@@ -28,8 +28,6 @@
  */
 
 #include "mdadm.h"
-#include <endian.h>
-#include "asm/byteorder.h"
 /*
  * The version-1 superblock :
  * All numeric fields are little-endian.
@@ -198,7 +196,7 @@ static void examine_super1(void *sbv)
 		       (long)__le32_to_cpu(sb->bitmap_offset));
 	}
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
-		printf("  Reshape pos'n : %llu%s\n", __le64_to_cpu(sb->reshape_position)/2,
+		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)__le64_to_cpu(sb->reshape_position)/2,
 		       human_size(__le64_to_cpu(sb->reshape_position)<<9));
 		if (__le32_to_cpu(sb->delta_disks)) {
 			printf("  Delta Devices : %d", __le32_to_cpu(sb->delta_disks));
@@ -1019,17 +1017,19 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long long offset;
-	struct mdp_superblock_1 *sb = NULL;
+	struct mdp_superblock_1 *sb;
+	int mustfree = 0;
 
-	if (sbv)
-		sb = sbv;
-	else
-		if (st->ss->load_super(st, fd, (void **)&sb, NULL))
+	if (!sbv) {
+		if (st->ss->load_super(st, fd, &sbv, NULL))
 			return; /* no error I hope... */
+		mustfree = 1;
+	}
+	sb = sbv;
 
 	offset = __le64_to_cpu(sb->super_offset);
 	offset += (long) __le32_to_cpu(sb->bitmap_offset);
-	if (!sbv)
+	if (mustfree)
 		free(sb);
 	lseek64(fd, offset<<9, 0);
 }
@@ -1045,7 +1045,9 @@ int write_bitmap1(struct supertype *st, int fd, void *sbv)
 
 	locate_bitmap1(st, fd, sbv);
 
-	write(fd, ((char*)sb)+1024, sizeof(bitmap_super_t));
+	if (write(fd, ((char*)sb)+1024, sizeof(bitmap_super_t)) !=
+	    sizeof(bitmap_super_t))
+		return -2;
 	towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
 	towrite = (towrite+7) >> 3; /* bits to bytes */
 	memset(buf, 0xff, sizeof(buf));

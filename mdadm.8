@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v2.3
+.TH MDADM 8 "" v2.3.1
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -248,6 +248,12 @@ bitmaps, but it is often sufficient.
 The file
 .B none
 can be given when used with --grow to remove a bitmap.
+
+To help catch typing errors, the filename must contain at least one
+slash ('/') if it is a real file (not 'internal' or 'none').
+
+Note: bitmaps are only known to work on ext2 and ext3.  Using other
+filesystems may result in serious problems.
 
 .TP
 .BR --bitmap-chunk=

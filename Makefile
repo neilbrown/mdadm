@@ -137,5 +137,8 @@ clean :
 dist : clean
 	./makedist
 
+testdist : everything clean
+	./makedist test
+
 TAGS :
 	etags *.h *.c

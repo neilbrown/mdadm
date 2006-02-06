@@ -28,7 +28,6 @@
  */
 
 #include "mdadm.h"
-#include <asm/byteorder.h>
 
 /*
  * All handling for the 0.90.0 version superblock is in
@@ -124,7 +123,7 @@ static void examine_super0(void *sbv)
 	printf("Preferred Minor : %d\n", sb->md_minor);
 	printf("\n");
 	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {
-		printf("  Reshape pos'n : %llu%s\n", sb->reshape_position/2, human_size((long long)sb->reshape_position<<9));
+		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)sb->reshape_position/2, human_size((long long)sb->reshape_position<<9));
 		if (sb->delta_disks) {
 			printf("  Delta Devices : %d", sb->delta_disks);
 			if (sb->delta_disks)
@@ -807,7 +806,9 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 		return 3;
 
 
-	write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
+	if (write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t)) !=
+	    sizeof(bitmap_super_t))
+		return -2;
 	towrite = 64*1024 - MD_SB_BYTES - sizeof(bitmap_super_t);
 	memset(buf, 0xff, sizeof(buf));
 	while (towrite > 0) {

@@ -71,6 +71,20 @@ char *strncpy(char *dest, const char *src, size_t n) __THROW;
 #include	"md_p.h"
 #include	"bitmap.h"
 
+#include <endian.h>
+/* #include "asm/byteorder.h" Redhat don't like this so... */
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#  include <linux/byteorder/little_endian.h>
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#  include <linux/byteorder/big_endian.h>
+#elif __BYTE_ORDER == __PDP_ENDIAN
+#  include <linux/byteorder/pdp_endian.h>
+#else
+#  error "unknown endianness."
+#endif
+
+
+
 /* general information that might be extracted from a superblock */
 struct mdinfo {
 	mdu_array_info_t	array;

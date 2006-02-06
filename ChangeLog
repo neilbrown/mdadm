@@ -1,4 +1,12 @@
-Changes Prior to this release
+Changes Prior to 2.3.1 release
+    -   Fixed -O2 compile so I could make and RPM.
+    -   Type cast number to be printed %llu so it compiles on 64bit
+        machines. (Thanks Luca).
+    -   Stop using asm/byteorder.h - to make Redhat happy :-(
+    -   Require bitmap files to have a '/' in their name.
+    -   Error-check a few syscalls - code from SuSE package.
+
+Changes Prior to 2.3 release
     -   Try /etc/mdadm/mdadm.conf if /etc/mdadm.conf doesn't exist.
 	This provided compatability for Debian.
     -   Fixed for version-1 superblock:

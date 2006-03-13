@@ -178,6 +178,54 @@ extern struct mdstat_ent *mdstat_read(int hold, int start);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
 
+/* Data structure for holding info read from sysfs */
+struct sysdev {
+	char	name[20];
+	int	role;
+	int	major, minor;
+	unsigned long long offset, size;
+	int	state;
+	int	errors;
+	struct sysdev *next;
+};
+struct sysarray {
+	char	name[20];
+	struct sysdev *devs;
+	int	chunk;
+	unsigned long long component_size;
+	int	layout;
+	int	level;
+	int	spares;
+};
+/* various details can be requested */
+#define	GET_LEVEL	1
+#define	GET_LAYOUT	2
+#define	GET_COMPONENT	4
+#define	GET_CHUNK	8
+
+#define	GET_DEVS	1024 /* gets role, major, minor */
+#define	GET_OFFSET	2048
+#define	GET_SIZE	4096
+#define	GET_STATE	8192
+#define	GET_ERROR	16384
+
+/* If fd >= 0, get the array it is open on,
+ * else use devnum. >=0 -> major9. <0.....
+ */
+extern struct sysarray *sysfs_read(int fd, int devnum, unsigned long options);
+extern int sysfs_set_str(struct sysarray *sra, struct sysdev *dev,
+			 char *name, char *val);
+extern int sysfs_set_num(struct sysarray *sra, struct sysdev *dev,
+			 char *name, unsigned long long val);
+extern int sysfs_get_ll(struct sysarray *sra, struct sysdev *dev,
+			char *name, unsigned long long *val);
+
+
+extern int save_stripes(int *source, unsigned long long *offsets,
+			int raid_disks, int chunk_size, int level, int layout,
+			int nwrites, int *dest,
+			unsigned long long start, unsigned long long length);
+
 #ifndef Sendmail
 #define Sendmail "/usr/lib/sendmail -t"
 #endif
@@ -251,6 +299,9 @@ extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist, int verbose);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);
+extern int Grow_reshape(char *devname, int fd, int quiet,
+			long long size,
+			int level, int layout, int chunksize, int raid_disks);
 
 
 extern int Assemble(struct supertype *st, char *mddev, int mdfd,
@@ -367,3 +418,8 @@ extern int open_mddev(char *dev, int autof);
 #define makedev(M,m) (((M)<<8) | (m))
 #endif
 
+/* for raid5 */
+#define ALGORITHM_LEFT_ASYMMETRIC	0
+#define ALGORITHM_RIGHT_ASYMMETRIC	1
+#define ALGORITHM_LEFT_SYMMETRIC	2
+#define ALGORITHM_RIGHT_SYMMETRIC	3

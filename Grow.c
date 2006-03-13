@@ -306,7 +306,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 					continue;
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
 					if (st->ss->add_internal_bitmap(st, super,
-								    chunk, delay, write_behind,
+									chunk, delay, write_behind,
 									bitmapsize, 0, major))
 						st->ss->write_bitmap(st, fd2, super);
 					else {
@@ -378,4 +378,410 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	return 0;
 }
 
+
+/*
+ * When reshaping an array we might need to backup some data.
+ * This is written to all spares with a 'super_block' describing it.
+ * The superblock goes 1K form the end of the used space on the
+ * device.
+ * It if written after the backup is complete.
+ * It has the following structure.
+ */
+
+struct mdp_backup_super {
+	char	magic[16];  /* md_backup_data-1 */
+	__u8	set_uuid[16];
+	__u64	mtime;
+	/* start/sizes in 512byte sectors */
+	__u64	devstart;
+	__u64	arraystart;
+	__u64	length;
+	__u32	sb_csum;	/* csum of preceeding bytes. */
+};
+
+int bsb_csum(char *buf, int len)
+{
+	int i;
+	int csum = 0;
+	for (i=0; i<len; i++)
+		csum = (csum<<3) + buf[0];
+	return __cpu_to_le32(csum);
+}
+
+int Grow_reshape(char *devname, int fd, int quiet,
+		 long long size,
+		 int level, int layout, int chunksize, int raid_disks)
+{
+	/* Make some changes in the shape of an array.
+	 * The kernel must support the change.
+	 * Different reshapes have subtly different meaning for different
+	 * levels, so we need to check the current state of the array
+	 * and go from there.
+	 */
+	struct mdu_array_info_s array;
+	char *c;
+
+	struct mdp_backup_super bsb;
+	struct supertype *st;
+
+	int nlevel, olevel;
+	int nchunk, ochunk;
+	int nlayout, olayout;
+	int ndisks, odisks;
+	int ndata, odata;
+	unsigned long long nstripe, ostripe, last_block;
+	int *fdlist;
+	unsigned long long *offsets;
+	int d, i, spares;
+	int nrdisks;
+	int err;
+	void *super = NULL;
+
+	struct sysarray *sra;
+	struct sysdev *sd;
+
+	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
+		fprintf(stderr, Name ": %s is not an active md array - aborting\n",
+			devname);
+		return 1;
+	}
+	c = map_num(pers, array.level);
+	if (c == NULL) c = "-unknown-";
+	switch(array.level) {
+	default: /* raid0, linear, multipath cannot be reconfigured */
+		fprintf(stderr, Name ": %s array %s cannot be reshaped.\n",
+			c, devname);
+		return 1;
+
+	case LEVEL_FAULTY: /* only 'layout' change is permitted */
+
+		if (size >= 0) {
+			fprintf(stderr, Name ": %s: Cannot change size of a 'faulty' array\n",
+				devname);
+			return 1;
+		}
+		if (level != UnSet && level != LEVEL_FAULTY) {
+			fprintf(stderr, Name ": %s: Cannot change RAID level of a 'faulty' array\n",
+				devname);
+			return 1;
+		}
+		if (chunksize  || raid_disks) {
+			fprintf(stderr, Name ": %s: Cannot change chunksize or disks of a 'faulty' array\n",
+				devname);
+			return 1;
+		}
+		if (layout == UnSet)
+			return 0; /* nothing to do.... */
+
+		array.layout = layout;
+		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			fprintf(stderr, Name ": Cannot set layout for %s: %s\n",
+				devname, strerror(errno));
+			return 1;
+		}
+		if (!quiet)
+			printf("layout for %s set to %d\n", devname, array.layout);
+		return 0;
+
+	case 1: /* raid_disks and size can each be changed.  They are independant */
+
+		if (level != UnSet && level != 1) {
+			fprintf(stderr, Name ": %s: Cannot change RAID level of a RAID1 array.\n",
+				devname);
+			return 1;
+		}
+		if (chunksize || layout != UnSet) {
+			fprintf(stderr, Name ": %s: Cannot change chunk size of layout for a RAID1 array.\n",
+				devname);
+			return 1;
+		}
+
+		/* Each can trigger a resync/recovery which will block the
+		 * other from happening.  Later we could block
+		 * resync for the duration via 'sync_action'...
+		 */
+		if (raid_disks >= 0)
+			array.raid_disks = raid_disks;
+		if (size >= 0)
+			array.size = size;
+		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
+				devname, strerror(errno));
+			return 1;
+		}
+		return 0;
+
+	case 4:
+	case 5:
+	case 6:
+		st = super_by_version(array.major_version,
+				      array.minor_version);
+		/* size can be changed independantly.
+		 * layout/chunksize/raid_disks/level can be changed
+		 * though the kernel may not support it all.
+		 * If 'suspend_lo' is not present in devfs, then
+		 * these cannot be changed.
+		 */
+		if (size >= 0) {
+			/* Cannot change other details as well.. */
+			if (layout != UnSet ||
+			    chunksize != 0 ||
+			    raid_disks != 0 ||
+			    level != UnSet) {
+				fprintf(stderr, Name ": %s: Cannot change shape as well as size of a %s array.\n",
+					devname, c);
+				return 1;
+			}
+			array.size = size;
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+				fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
+					devname, strerror(errno));
+				return 1;
+			}
+			return 0;
+		}
+		/* Ok, just change the shape. This can be awkward.
+		 *  There are three possibilities.
+		 * 1/ The array will shrink.  We don't support this
+		 *    possibility.  Maybe one day...
+		 * 2/ The array will not change size.  This is easy enough
+		 *    to do, but not reliably.  If the process is aborted
+		 *    the array *will* be corrupted.  So maybe we can allow
+		 *    this but only if the user is really certain.  e.g.
+		 *    --really-risk-everything
+		 * 3/ The array will grow. This can be reliably achieved.
+		 *    However the kernel's restripe routines will cheerfully
+		 *    overwrite some early data before it is safe.  So we
+		 *    need to make a backup of the early parts of the array
+		 *    and be ready to restore it if rebuild aborts very early.
+		 *
+		 *    We backup data by writing it to all spares (there must be
+		 *    at least 1, so even raid6->raid5 requires a spare to be
+		 *    present).
+		 *
+		 *    So: we enumerate the devices in the array and
+		 *    make sure we can open all of them.
+		 *    Then we freeze the early part of the array and
+		 *    backup to the various spares.
+		 *    Then we request changes and start the reshape.
+		 *    Monitor progress until it has passed the danger zone.
+		 *    and finally invalidate the copied data and unfreeze the
+		 *    start of the array.
+		 *
+		 *    Before we can do this we need to decide:
+		 *     - will the array grow?  Just calculate size
+		 *     - how much needs to be saved: count stripes.
+		 *     - where to save data... good question.
+		 *
+		 */
+		nlevel = olevel = array.level;
+		nchunk = ochunk = array.chunk_size;
+		nlayout = olayout = array.layout;
+		ndisks = odisks = array.raid_disks;
+
+		if (level != UnSet) nlevel = level;
+		if (chunksize) nchunk = chunksize;
+		if (layout != UnSet) nlayout = layout;
+		if (raid_disks) ndisks = raid_disks;
+
+		odata = odisks-1;
+		if (olevel == 6) odata--; /* number of data disks */
+		ndata = ndisks-1;
+		if (nlevel == 6) ndata--;
+
+		if (ndata < odata) {
+			fprintf(stderr, Name ": %s: Cannot reduce number of data disks (yet).\n",
+				devname);
+			return 1;
+		}
+		if (ndata == odata) {
+			fprintf(stderr, Name ": %s: Cannot reshape array without increasing size (yet).\n",
+				devname);
+			return 1;
+		}
+		/* Well, it is growing... so how much do we need to backup.
+		 * Need to backup a full number of new-stripes, such that the
+		 * last one does not over-write any place that it would be read
+		 * from
+		 */
+		nstripe = ostripe = 0;
+		while (nstripe+ochunk/512 >= ostripe) {
+			nstripe += nchunk/512;
+			last_block = nstripe * ndata;
+			ostripe = last_block / odata;
+		}
+		printf("Need to backup to stripe %llu sectors, %lluK\n", nstripe, last_block/2);
+
+		sra = sysfs_read(fd, 0,
+				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE);
+		if (!sra) {
+			fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
+				devname);
+			return 1;
+		}
+
+		if (last_block >= sra->component_size/2) {
+			fprintf(stderr, Name ": %s: Something wrong - reshape aborted\n",
+				devname);
+			return 1;
+		}
+
+		nrdisks = array.nr_disks + sra->spares;
+		/* Now we need to open all these devices so we can read/write.
+		 */
+		fdlist = malloc(nrdisks * sizeof(int));
+		offsets = malloc(nrdisks * sizeof(offsets[0]));
+		if (!fdlist || !offsets) {
+			fprintf(stderr, Name ": malloc failed: grow aborted\n");
+			return 1;
+		}
+		for (d=0; d< nrdisks; d++)
+			fdlist[d] = -1;
+		d = array.raid_disks;
+		for (sd = sra->devs; sd; sd=sd->next) {
+			if (sd->state & (1<<MD_DISK_FAULTY))
+				continue;
+			if (sd->state & (1<<MD_DISK_SYNC)) {
+				char *dn = map_dev(sd->major, sd->minor);
+				fdlist[sd->role] = open(dn, O_RDONLY);
+				offsets[sd->role] = sd->offset;
+				if (fdlist[sd->role] < 0) {
+					fprintf(stderr, Name ": %s: cannot open component %s\n",
+						devname, dn);
+					goto abort;
+				}
+			} else {
+				/* spare */
+				char *dn = map_dev(sd->major, sd->minor);
+				fdlist[d] = open(dn, O_RDWR);
+				offsets[d] = sd->offset;
+				if (fdlist[d]<0) {
+					fprintf(stderr, Name ": %s: cannot open component %s\n",
+						devname, dn);
+					goto abort;
+				}
+				d++;
+			}
+		}
+		for (i=0 ; i<array.raid_disks; i++)
+			if (fdlist[i] < 0) {
+				fprintf(stderr, Name ": %s: failed to find device %d. Array might be degraded.\n"
+					" --grow aborted\n", devname, i);
+				goto abort;
+			}
+		if (fdlist[array.raid_disks] < 0) {
+			fprintf(stderr, Name ": %s: failed to find a spare - --grow aborted\n",
+				devname);
+			goto abort;
+		}
+
+		/* Find a superblock */
+		if (st->ss->load_super(st, fdlist[0], &super, NULL)) {
+			fprintf(stderr, Name ": %s: Cannot find a superblock\n",
+				devname);
+			goto abort;
+		}
+
+		spares = sra->spares;
+
+		/* Decide offset for the backup and llseek the spares */
+		for (i=array.raid_disks; i<d; i++) {
+			offsets[i] += sra->component_size - last_block - 8;
+			if (lseek64(fdlist[i], offsets[i]<<9, 0) != offsets[i]<<9) {
+				fprintf(stderr, Name ": could not seek...\n");
+				goto abort;
+			}
+		}
+		array.level = nlevel;
+		array.raid_disks = ndisks;
+		array.chunk_size = nchunk;
+		array.layout = nlayout;
+		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
+				devname, strerror(errno));
+			goto abort;
+		}
+
+		/* suspend the relevant region */
+		sysfs_set_num(sra, NULL, "suspend_hi", 0); /* just in case */
+		if (sysfs_set_num(sra, NULL, "suspend_lo", 0) < 0 ||
+		    sysfs_set_num(sra, NULL, "suspend_hi", last_block) < 0) {
+			fprintf(stderr, Name ": %s: failed to suspend device.\n",
+				devname);
+			goto abort_resume;
+		}
+
+
+		err = save_stripes(fdlist, offsets,
+				   odisks, ochunk, olevel, olayout,
+				   spares, fdlist+odisks,
+				   0ULL, nstripe*512);
+
+		/* abort if there was an error */
+		if (err < 0) {
+			fprintf(stderr, Name ": %s: failed to save critical region\n",
+				devname);
+			goto abort_resume;
+		}
+		/* FIXME write superblocks */
+		memcpy(bsb.magic, "md_backups_data-1", 16);
+		st->ss->uuid_from_super((int*)&bsb.set_uuid, super);
+		bsb.mtime = time(0);
+		bsb.arraystart = 0;
+		bsb.length = last_block;
+		for (i=odisks; i<d ; i++) {
+			bsb.devstart = offsets[i];
+			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
+			lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0);
+			write(fdlist[i], &bsb, sizeof(bsb));
+			/* FIXME error check */
+		}
+
+		/* start the reshape happening */
+		if (sysfs_set_str(sra, NULL, "sync_action", "reshape") < 0) {
+			fprintf(stderr, Name ": %s: failed to initiate reshape\n",
+				devname);
+			goto abort_resume;
+		}
+		/* wait for reshape to pass the critical region */
+		while(1) {
+			unsigned long long comp;
+			if (sysfs_get_ll(sra, NULL, "sync_completed", &comp)<0)
+				break;
+			if (comp >= nstripe)
+				break;
+			sleep(1);
+		}
 		
+		/* invalidate superblocks */
+		memset(&bsb, 0, sizeof(bsb));
+		for (i=odisks; i<d ; i++) {
+			lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0);
+			write(fdlist[i], &bsb, sizeof(bsb));
+		}
+
+		/* unsuspend. */
+		sysfs_set_num(sra, NULL, "suspend_lo", last_block);
+
+		for (i=0; i<d; i++)
+			if (fdlist[i] >= 0)
+				close(fdlist[i]);
+		free(fdlist);
+		free(offsets);
+
+		break;
+	}
+	return 0;
+
+
+ abort_resume:
+	sysfs_set_num(sra, NULL, "suspend_lo", last_block);
+ abort:
+	for (i=0; i<array.nr_disks; i++)
+		if (fdlist[i] >= 0)
+			close(fdlist[i]);
+	free(fdlist);
+	free(offsets);
+	return 1;
+
+}

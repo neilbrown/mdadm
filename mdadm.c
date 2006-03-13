@@ -1155,7 +1155,8 @@ int main(int argc, char *argv[])
 		} else if (layout != UnSet)
 			rv = Manage_reconfig(devlist->devname, mdfd, layout);
 		else if (size >= 0 || raiddisks)
-			rv = Manage_resize(devlist->devname, mdfd, size, raiddisks);
+			rv = Grow_reshape(devlist->devname, mdfd, quiet,
+					  size, level, layout, chunk, raiddisks);
 		else if (bitmap_file) {
 			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,

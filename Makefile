@@ -59,10 +59,10 @@ MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
-	mdopen.o super0.o super1.o bitmap.o
+	mdopen.o super0.o super1.o bitmap.o restripe.o sysfs.o
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
-	mdopen.c super0.c super1.c bitmap.c
+	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
 ASSEMBLE_FLAGS:= -DMDASSEMBLE
@@ -73,7 +73,7 @@ endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
-everything: all mdadm.static mdadm.uclibc swap_super  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
+everything: all mdadm.static mdadm.uclibc swap_super test_stripe  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
 # mdadm.tcc doesn't work..
 
 mdadm : $(OBJS)
@@ -91,6 +91,9 @@ mdadm.uclibc : $(SRCS) mdadm.h
 mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
 	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
+
+test_stripe : restripe.c mdadm.h
+	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe -DMAIN restripe.c
 
 mdassemble : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)

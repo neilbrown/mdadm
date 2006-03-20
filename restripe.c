@@ -162,7 +162,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 /* Restore data:
  * We are given:
  *  A list of 'fds' of the active disks. Some may be '-1' for not-available.
- *  A geometry: raid_disks, chunk_sisze, level, layout
+ *  A geometry: raid_disks, chunk_size, level, layout
  *  An 'fd' to read from.  It is already seeked to the right (Read) location.
  *  A start and length.
  * The length must be a multiple of the stripe size.
@@ -172,7 +172,7 @@ int save_stripes(int *source, unsigned long long *offsets,
  */
 int restore_stripes(int *dest, unsigned long long *offsets,
 		    int raid_disks, int chunk_size, int level, int layout,
-		    int source,
+		    int source, unsigned long long read_offset,
 		    unsigned long long start, unsigned long long length)
 {
 	char *stripe_buf = malloc(raid_disks * chunk_size);
@@ -199,8 +199,11 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 			int disk = geo_map(i, start/chunk_size/data_disks,
 					   raid_disks, level, layout);
 			blocks[i] = stripes[disk];
+			if (lseek64(source, read_offset, 0) != read_offset)
+				return -1;
 			if (read(source, stripes[disk], chunk_size) != chunk_size)
 				return -1;
+			read_offset += chunk_size;
 		}
 		/* We have the data, now do the parity */
 		offset = (start/chunk_size/data_disks) * chunk_size;
@@ -311,7 +314,7 @@ main(int argc, char *argv[])
 	} else {
 		int rv = restore_stripes(fds, offsets,
 					 raid_disks, chunk_size, level, layout,
-					 storefd,
+					 storefd, 0ULL,
 					 start, length);
 		if (rv != 0) {
 			fprintf(stderr, "test_stripe: restore_stripes returned %d\n", rv);

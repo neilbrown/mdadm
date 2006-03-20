@@ -80,7 +80,7 @@ void super0_swap_endian(struct mdp_superblock_s *sb)
 	sb->cp_events_hi = sb->cp_events_lo;
 	sb->cp_events_lo = t32;
 
-}	
+}
 
 #ifndef MDASSEMBLE
 
@@ -182,7 +182,7 @@ static void examine_super0(void *sbv)
 	case -1:
 		printf("       Rounding : %dK\n", sb->chunk_size/1024);
 		break;
-	default: break;		
+	default: break;
 	}
 	printf("\n");
 	printf("      Number   Major   Minor   RaidDevice State\n");
@@ -279,6 +279,9 @@ static void getinfo_super0(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 	info->array.layout = sb->layout;
 	info->array.md_minor = sb->md_minor;
 	info->array.ctime = sb->ctime;
+	info->array.utime = sb->utime;
+	info->array.chunk_size = sb->chunk_size;
+	info->component_size = sb->size*2;
 
 	info->disk.state = sb->this_disk.state;
 	info->disk.major = sb->this_disk.major;
@@ -287,8 +290,19 @@ static void getinfo_super0(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 	info->disk.number = sb->this_disk.number;
 
 	info->events = md_event(sb);
+	info->data_offset = 0;
 
 	uuid_from_super0(info->uuid, sbv);
+
+	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {
+		info->reshape_active = 1;
+		info->reshape_progress = sb->reshape_position;
+		info->new_level = sb->new_level;
+		info->delta_disks = sb->delta_disks;
+		info->new_layout = sb->new_layout;
+		info->new_chunk = sb->new_chunk;
+	} else
+		info->reshape_active = 0;
 
 	ident->name[0] = 0;
 	/* work_disks is calculated rather than read directly */
@@ -403,6 +417,8 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 		sb->set_uuid2 = info->uuid[2];
 		sb->set_uuid3 = info->uuid[3];
 	}
+	if (strcmp(update, "_reshape_progress")==0)
+		sb->reshape_position = info->reshape_progress;
 
 	sb->sb_csum = calc_sb0_csum(sb);
 	return rv;
@@ -481,7 +497,7 @@ static void add_to_super0(void *sbv, mdu_disk_info_t *dinfo)
 {
 	mdp_super_t *sb = sbv;
 	mdp_disk_t *dk = &sb->disks[dinfo->number];
-	
+
 	dk->number = dinfo->number;
 	dk->major = dinfo->major;
 	dk->minor = dinfo->minor;
@@ -508,7 +524,7 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 
 	if (dsize < MD_RESERVED_SECTORS*2*512)
 		return 2;
-	
+
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;
@@ -622,7 +638,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 				devname, size);
 		return 1;
 	}
-	
+
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;
@@ -717,7 +733,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	mdp_super_t *sb = sbv;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MD_SB_BYTES);
 
-	
+
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
 	bits = (size * 512)/ min_chunk +1;
 	while (bits > max_bits) {
@@ -744,7 +760,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 
 	return 1;
 }
-		
+
 
 void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 {
@@ -763,7 +779,7 @@ void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 
 	if (dsize < MD_RESERVED_SECTORS*2)
 		return;
-	
+
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;
@@ -796,8 +812,8 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	}
 
 	if (dsize < MD_RESERVED_SECTORS*2)
-		return -1;
-	
+	return -1;
+
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;

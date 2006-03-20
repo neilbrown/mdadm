@@ -551,7 +551,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		int fd;
 		fd = dev_open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
 		if (fd < 0) {
-			fprintf(stderr, Name ": Could open %s for write - cannot Assemble array.\n",
+			fprintf(stderr, Name ": Could not open %s for write - cannot Assemble array.\n",
 				devices[chosen_drive].devname);
 			return 1;
 		}
@@ -564,6 +564,37 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		close(fd);
 	}
 
+	/* If we are in the middle of a reshape we may need to restore saved data
+	 * that was moved aside due to the reshape overwriting live data
+	 * The code of doing this lives in Grow.c
+	 */
+	if (info.reshape_active) {
+		int err = 0;
+		int *fdlist = malloc(sizeof(int)* bestcnt);
+		for (i=0; i<bestcnt; i++) {
+			int j = best[i];
+			if (j >= 0) {
+				fdlist[i] = dev_open(devices[j].devname, O_RDWR|O_EXCL);
+				if (fdlist[i] < 0) {
+					fprintf(stderr, Name ": Could not open %s for write - cannot Assemble array.\n",
+						devices[j].devname);
+					err = 1;
+					break;
+				}
+			} else
+				fdlist[i] = -1;
+		}
+		if (!err)
+			err = Grow_restart(st, &info, fdlist, bestcnt);
+		while (i>0) {
+			i--;
+			if (fdlist[i]>=0) close(fdlist[i]);
+		}
+		if (err) {
+			fprintf(stderr, Name ": Failed to restore critical section for reshape, sorry.\n");
+			return err;
+		}
+	}
 	/* count number of in-sync devices according to the superblock.
 	 * We must have this number to start the array without -s or -R
 	 */

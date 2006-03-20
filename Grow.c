@@ -219,7 +219,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	}
 
 	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {
-		if (errno == ENOMEM) 
+		if (errno == ENOMEM)
 			fprintf(stderr, Name ": Memory allocation failure.\n");
 		else
 			fprintf(stderr, Name ": bitmaps not supported by this kernel.\n");
@@ -605,12 +605,12 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		 * from
 		 */
 		nstripe = ostripe = 0;
-		while (nstripe+ochunk/512 >= ostripe) {
+		while (nstripe >= ostripe) {
 			nstripe += nchunk/512;
 			last_block = nstripe * ndata;
-			ostripe = last_block / odata;
+			ostripe = last_block / odata / (ochunk/512) * (ochunk/512);
 		}
-		printf("Need to backup to stripe %llu sectors, %lluK\n", nstripe, last_block/2);
+		printf("mdadm: Need to backup %lluK of critical section..\n", last_block/2);
 
 		sra = sysfs_read(fd, 0,
 				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE);
@@ -622,6 +622,11 @@ int Grow_reshape(char *devname, int fd, int quiet,
 
 		if (last_block >= sra->component_size/2) {
 			fprintf(stderr, Name ": %s: Something wrong - reshape aborted\n",
+				devname);
+			return 1;
+		}
+		if (sra->spares == 0) {
+			fprintf(stderr, Name ": %s: Cannot grow - need a spare to backup critical section\n",
 				devname);
 			return 1;
 		}
@@ -724,13 +729,13 @@ int Grow_reshape(char *devname, int fd, int quiet,
 			goto abort_resume;
 		}
 		/* FIXME write superblocks */
-		memcpy(bsb.magic, "md_backups_data-1", 16);
+		memcpy(bsb.magic, "md_backup_data-1", 16);
 		st->ss->uuid_from_super((int*)&bsb.set_uuid, super);
-		bsb.mtime = time(0);
+		bsb.mtime = __cpu_to_le64(time(0));
 		bsb.arraystart = 0;
-		bsb.length = last_block;
+		bsb.length = __cpu_to_le64(last_block);
 		for (i=odisks; i<d ; i++) {
-			bsb.devstart = offsets[i];
+			bsb.devstart = __cpu_to_le64(offsets[i]);
 			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
 			lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0);
 			write(fdlist[i], &bsb, sizeof(bsb));
@@ -769,6 +774,7 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		free(fdlist);
 		free(offsets);
 
+		printf("mdadm: ... critical section passed.\n");
 		break;
 	}
 	return 0;
@@ -784,4 +790,115 @@ int Grow_reshape(char *devname, int fd, int quiet,
 	free(offsets);
 	return 1;
 
+}
+
+/*
+ * If any spare contains md_back_data-1 which is recent wrt mtime,
+ * write that data into the array and update the super blocks with
+ * the new reshape_progress
+ */
+int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt)
+{
+	int i, j;
+	int old_disks;
+	int err = 0;
+	unsigned long long *offsets;
+
+	if (info->delta_disks < 0)
+		return 1; /* cannot handle a shrink */
+	if (info->new_level != info->array.level ||
+	    info->new_layout != info->array.layout ||
+	    info->new_chunk != info->array.chunk_size)
+		return 1; /* Can only handle change in disks */
+
+	old_disks = info->array.raid_disks - info->delta_disks;
+
+	for (i=old_disks; i<cnt; i++) {
+		void *super = NULL;
+		struct mdinfo dinfo;
+		struct mddev_ident_s id;
+		struct mdp_backup_super bsb;
+
+		/* This was a spare and may have some saved data on it.
+		 * Load the superblock, find and load the
+		 * backup_super_block.
+		 * If either fail, go on to next device.
+		 * If the backup contains no new info, just return
+		 * Else retore data and update all superblocks
+		 */
+		if (fdlist[i] < 0)
+			continue;
+		if (st->ss->load_super(st, fdlist[i], &super, NULL))
+			continue;
+
+		st->ss->getinfo_super(&dinfo, &id, super);
+		free(super); super = NULL;
+		if (lseek64(fdlist[i],
+			(dinfo.data_offset + dinfo.component_size - 8) <<9,
+			    0) < 0)
+			continue; /* Cannot seek */
+		if (read(fdlist[i], &bsb, sizeof(bsb)) != sizeof(bsb))
+			continue; /* Cannot read */
+		if (memcmp(bsb.magic, "md_backup_data-1", 16) != 0)
+			continue;
+		if (bsb.sb_csum != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb)))
+			continue; /* bad checksum */
+		if (memcmp(bsb.set_uuid,info->uuid, 16) != 0)
+			continue; /* Wrong uuid */
+
+		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 3600 ||
+		    info->array.utime < __le64_to_cpu(bsb.mtime))
+			continue; /* time stamp is too bad */
+
+		if (__le64_to_cpu(bsb.arraystart) != 0)
+			continue; /* Can only handle backup from start of array */
+		if (__le64_to_cpu(bsb.length) <
+		    info->reshape_progress)
+			continue; /* No new data here */
+
+		if (lseek64(fdlist[i], __le64_to_cpu(bsb.devstart)*512, 0)< 0)
+			continue; /* Cannot seek */
+
+		/* Now need the data offsets for all devices. */
+		offsets = malloc(sizeof(*offsets)*info->array.raid_disks);
+		for(j=0; j<info->array.raid_disks; j++) {
+			if (fdlist[j] < 0)
+				continue;
+			if (st->ss->load_super(st, fdlist[j], &super, NULL))
+				/* FIXME should be this be an error */
+				continue;
+			st->ss->getinfo_super(&dinfo, &id, super);
+			free(super); super = NULL;
+			offsets[j] = dinfo.data_offset;
+		}
+		printf(Name ": restoring critical section\n");
+
+		if (restore_stripes(fdlist, offsets,
+				    info->array.raid_disks,
+				    info->new_chunk,
+				    info->new_level,
+				    info->new_layout,
+				    fdlist[i], __le64_to_cpu(bsb.devstart)*512,
+				    0, __le64_to_cpu(bsb.length)*512)) {
+			/* didn't succeed, so giveup */
+			return 0;
+		}
+
+		/* Ok, so the data is restored. Let's update those superblocks. */
+
+		for (j=0; j<info->array.raid_disks; j++) {
+			if (fdlist[j] < 0) continue;
+			if (st->ss->load_super(st, fdlist[j], &super, NULL))
+				continue;
+			st->ss->getinfo_super(&dinfo, &id, super);
+			dinfo.reshape_progress = __le64_to_cpu(bsb.length);
+			st->ss->update_super(&dinfo, super, "_reshape_progress",NULL,0);
+			st->ss->store_super(st, fdlist[j], super);
+			free(super);
+		}
+
+		/* And we are done! */
+		return 0;
+	}
+	return err;
 }

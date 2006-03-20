@@ -368,6 +368,11 @@ static void getinfo_super1(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 	info->array.layout = __le32_to_cpu(sb->layout);
 	info->array.md_minor = -1;
 	info->array.ctime = __le64_to_cpu(sb->ctime);
+	info->array.utime = __le64_to_cpu(sb->utime);
+	info->array.chunk_size = __le32_to_cpu(sb->chunksize)/512;
+
+	info->data_offset = __le64_to_cpu(sb->data_offset);
+	info->component_size = __le64_to_cpu(sb->size);
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
@@ -396,6 +401,16 @@ static void getinfo_super1(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 
 	strncpy(ident->name, sb->set_name, 32);
 	ident->name[32] = 0;
+
+	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
+		info->reshape_active = 1;
+		info->reshape_progress = __le64_to_cpu(sb->reshape_position);
+		info->new_level = __le32_to_cpu(sb->new_level);
+		info->delta_disks = __le32_to_cpu(sb->delta_disks);
+		info->new_layout = __le32_to_cpu(sb->new_layout);
+		info->new_chunk = __le32_to_cpu(sb->new_chunk);
+	} else
+		info->reshape_active = 0;
 
 	for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
 		role = __le16_to_cpu(sb->dev_roles[i]);
@@ -453,6 +468,8 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update, char *dev
 	}
 	if (strcmp(update, "uuid") == 0)
 		memcpy(sb->set_uuid, info->uuid, 16);
+	if (strcmp(update, "_reshape_progress")==0)
+		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
 
 	sb->sb_csum = calc_sb_1_csum(sb);
 	return rv;

@@ -98,6 +98,8 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 		if (load_sys(fname, buf))
 			goto abort;
 		sra->component_size = strtoull(buf, NULL, 0);
+		/* sysfs reports "K", but we want sectors */
+		sra->component_size *= 2;
 	}
 	if (options & GET_CHUNK) {
 		strcpy(base, "chunk_size");
@@ -192,6 +194,8 @@ unsigned long long get_component_size(int fd)
 	 * We cannot trust GET_ARRAY_INFO ioctl as it's
 	 * size field is only 32bits.
 	 * So look in /sys/block/mdXXX/md/component_size
+	 *
+	 * WARNING: this returns in units of Kilobytes.
 	 */
 	struct stat stb;
 	char fname[50];

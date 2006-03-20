@@ -91,6 +91,11 @@ struct mdinfo {
 	mdu_disk_info_t		disk;
 	__u64			events;
 	int			uuid[4];
+	unsigned long long	data_offset;
+	unsigned long long	component_size;
+	int			reshape_active;
+	unsigned long long	reshape_progress;
+	int			new_level, delta_disks, new_layout, new_chunk;
 };
 
 #define Name "mdadm"
@@ -225,6 +230,10 @@ extern int save_stripes(int *source, unsigned long long *offsets,
 			int raid_disks, int chunk_size, int level, int layout,
 			int nwrites, int *dest,
 			unsigned long long start, unsigned long long length);
+extern int restore_stripes(int *dest, unsigned long long *offsets,
+			   int raid_disks, int chunk_size, int level, int layout,
+			   int source, unsigned long long read_offset,
+			   unsigned long long start, unsigned long long length);
 
 #ifndef Sendmail
 #define Sendmail "/usr/lib/sendmail -t"
@@ -302,6 +311,7 @@ extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int dela
 extern int Grow_reshape(char *devname, int fd, int quiet,
 			long long size,
 			int level, int layout, int chunksize, int raid_disks);
+extern int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt);
 
 
 extern int Assemble(struct supertype *st, char *mddev, int mdfd,

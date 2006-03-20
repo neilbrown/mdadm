@@ -737,9 +737,12 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		for (i=odisks; i<d ; i++) {
 			bsb.devstart = __cpu_to_le64(offsets[i]);
 			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
-			lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0);
-			write(fdlist[i], &bsb, sizeof(bsb));
-			/* FIXME error check */
+			if (lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0) < 0 ||
+			    write(fdlist[i], &bsb, sizeof(bsb)) != sizeof(bsb)) {
+				fprintf(stderr, Name ": %s: fail to save metadata for critical region backups.\n",
+					devname);
+				goto abort_resume;
+			}
 		}
 
 		/* start the reshape happening */
@@ -751,8 +754,10 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		/* wait for reshape to pass the critical region */
 		while(1) {
 			unsigned long long comp;
-			if (sysfs_get_ll(sra, NULL, "sync_completed", &comp)<0)
+			if (sysfs_get_ll(sra, NULL, "sync_completed", &comp)<0) {
+				sleep(5);
 				break;
+			}
 			if (comp >= nstripe)
 				break;
 			sleep(1);
@@ -774,7 +779,7 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		free(fdlist);
 		free(offsets);
 
-		printf("mdadm: ... critical section passed.\n");
+		printf(Name ": ... critical section passed.\n");
 		break;
 	}
 	return 0;
@@ -824,7 +829,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		 * backup_super_block.
 		 * If either fail, go on to next device.
 		 * If the backup contains no new info, just return
-		 * Else retore data and update all superblocks
+		 * else restore data and update all superblocks
 		 */
 		if (fdlist[i] < 0)
 			continue;
@@ -881,7 +886,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    fdlist[i], __le64_to_cpu(bsb.devstart)*512,
 				    0, __le64_to_cpu(bsb.length)*512)) {
 			/* didn't succeed, so giveup */
-			return 0;
+			return -1;
 		}
 
 		/* Ok, so the data is restored. Let's update those superblocks. */

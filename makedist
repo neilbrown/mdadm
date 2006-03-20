@@ -19,7 +19,8 @@ grep "^.TH MDADM 8 .. v$version" mdadm.8 > /dev/null 2>&1 ||
    echo mdadm.8 does not mention verion $version.
    exit 1
  }
-grep "^Version: *$version$" mdadm.spec > /dev/null 2>&1 || 
+rpmv=`echo $version | tr - _`
+grep "^Version: *$rpmv$" mdadm.spec > /dev/null 2>&1 ||
  {
    echo mdadm.spec does not mention version $version.
    exit 1

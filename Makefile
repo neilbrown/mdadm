@@ -135,7 +135,7 @@ install : mdadm mdadm.8 md.4 mdadm.conf.5
 clean : 
 	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
 	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super \
-	init.cpio.gz mdadm.uclibc.static
+	init.cpio.gz mdadm.uclibc.static test_stripe
 
 dist : clean
 	./makedist

@@ -568,6 +568,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	 * that was moved aside due to the reshape overwriting live data
 	 * The code of doing this lives in Grow.c
 	 */
+#ifndef MDASSEMBLE
 	if (info.reshape_active) {
 		int err = 0;
 		int *fdlist = malloc(sizeof(int)* bestcnt);
@@ -595,6 +596,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			return err;
 		}
 	}
+#endif
 	/* count number of in-sync devices according to the superblock.
 	 * We must have this number to start the array without -s or -R
 	 */

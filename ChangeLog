@@ -5,6 +5,7 @@ Changes Prior to 2.4 release
     -   Put a 'canary' at each end of the backup so a corruption
 	can be more easily detected.
     -   Remove useless 'ident' arguement from ->getinfo_super method.
+    -   Support --backup-file for backing-up critical section during growth.
 
 Changes Prior to 2.3.1 release
     -   Fixed -O2 compile so I could make and RPM.

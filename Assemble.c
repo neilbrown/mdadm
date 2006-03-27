@@ -31,7 +31,7 @@
 
 int Assemble(struct supertype *st, char *mddev, int mdfd,
 	     mddev_ident_t ident, char *conffile,
-	     mddev_dev_t devlist,
+	     mddev_dev_t devlist, char *backup_file,
 	     int readonly, int runstop,
 	     char *update,
 	     int verbose, int force)
@@ -585,7 +585,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fdlist[i] = -1;
 		}
 		if (!err)
-			err = Grow_restart(st, &info, fdlist, bestcnt);
+			err = Grow_restart(st, &info, fdlist, bestcnt, backup_file);
 		while (i>0) {
 			i--;
 			if (fdlist[i]>=0) close(fdlist[i]);

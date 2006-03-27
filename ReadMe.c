@@ -172,6 +172,8 @@ struct option long_options[] = {
     {"daemonize", 0, 0, 'f'},
     {"oneshot",   0, 0, '1'},
     {"pid-file",  1, 0, 'i'},
+    /* For Grow */
+    {"backup-file", 1,0, 7},
     
     {0, 0, 0, 0}
 };

@@ -408,7 +408,7 @@ int bsb_csum(char *buf, int len)
 	return __cpu_to_le32(csum);
 }
 
-int Grow_reshape(char *devname, int fd, int quiet,
+int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, int layout, int chunksize, int raid_disks)
 {
@@ -625,8 +625,8 @@ int Grow_reshape(char *devname, int fd, int quiet,
 				devname);
 			return 1;
 		}
-		if (sra->spares == 0) {
-			fprintf(stderr, Name ": %s: Cannot grow - need a spare to backup critical section\n",
+		if (sra->spares == 0 && backup_file == NULL) {
+			fprintf(stderr, Name ": %s: Cannot grow - need a spare or backup-file to backup critical section\n",
 				devname);
 			return 1;
 		}
@@ -634,13 +634,13 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		nrdisks = array.nr_disks + sra->spares;
 		/* Now we need to open all these devices so we can read/write.
 		 */
-		fdlist = malloc(nrdisks * sizeof(int));
-		offsets = malloc(nrdisks * sizeof(offsets[0]));
+		fdlist = malloc((1+nrdisks) * sizeof(int));
+		offsets = malloc((1+nrdisks) * sizeof(offsets[0]));
 		if (!fdlist || !offsets) {
 			fprintf(stderr, Name ": malloc failed: grow aborted\n");
 			return 1;
 		}
-		for (d=0; d< nrdisks; d++)
+		for (d=0; d <= nrdisks; d++)
 			fdlist[d] = -1;
 		d = array.raid_disks;
 		for (sd = sra->devs; sd; sd=sd->next) {
@@ -674,8 +674,20 @@ int Grow_reshape(char *devname, int fd, int quiet,
 					" --grow aborted\n", devname, i);
 				goto abort;
 			}
+		spares = sra->spares;
+		if (backup_file) {
+			fdlist[d] = open(backup_file, O_RDWR|O_CREAT|O_EXCL, 0600);
+			if (fdlist[d] < 0) {
+				fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
+					devname, backup_file, strerror(errno));
+				goto abort;
+			}
+			offsets[d] = 8;
+			d++;
+			spares++;
+		}
 		if (fdlist[array.raid_disks] < 0) {
-			fprintf(stderr, Name ": %s: failed to find a spare - --grow aborted\n",
+			fprintf(stderr, Name ": %s: failed to find a spare and no backup-file given - --grow aborted\n",
 				devname);
 			goto abort;
 		}
@@ -686,8 +698,6 @@ int Grow_reshape(char *devname, int fd, int quiet,
 				devname);
 			goto abort;
 		}
-
-		spares = sra->spares;
 
 
 		memcpy(bsb.magic, "md_backup_data-1", 16);
@@ -701,7 +711,11 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		 */
 		for (i=array.raid_disks; i<d; i++) {
 			char buf[4096];
-			offsets[i] += sra->component_size - last_block - 8;
+			if (i==d-1 && backup_file) {
+				/* This is the backup file */
+				offsets[i] = 8;
+			} else
+				offsets[i] += sra->component_size - last_block - 8;
 			if (lseek64(fdlist[i], (offsets[i]<<9) - 4096, 0)
 			    != (offsets[i]<<9) - 4096) {
 				fprintf(stderr, Name ": could not seek...\n");
@@ -739,7 +753,7 @@ int Grow_reshape(char *devname, int fd, int quiet,
 		err = save_stripes(fdlist, offsets,
 				   odisks, ochunk, olevel, olayout,
 				   spares, fdlist+odisks,
-				   0ULL, nstripe*512);
+				   0ULL, last_block*512);
 
 		/* abort if there was an error */
 		if (err < 0) {
@@ -752,7 +766,8 @@ int Grow_reshape(char *devname, int fd, int quiet,
 			bsb.devstart = __cpu_to_le64(offsets[i]);
 			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
 			if (lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0) < 0 ||
-			    write(fdlist[i], &bsb, sizeof(bsb)) != sizeof(bsb)) {
+			    write(fdlist[i], &bsb, sizeof(bsb)) != sizeof(bsb) ||
+			    fsync(fdlist[i]) != 0) {
 				fprintf(stderr, Name ": %s: fail to save metadata for critical region backups.\n",
 					devname);
 				goto abort_resume;
@@ -792,6 +807,8 @@ int Grow_reshape(char *devname, int fd, int quiet,
 				close(fdlist[i]);
 		free(fdlist);
 		free(offsets);
+		if (backup_file)
+			unlink(backup_file);
 
 		printf(Name ": ... critical section passed.\n");
 		break;
@@ -807,6 +824,8 @@ int Grow_reshape(char *devname, int fd, int quiet,
 			close(fdlist[i]);
 	free(fdlist);
 	free(offsets);
+	if (backup_file)
+		unlink(backup_file);
 	return 1;
 
 }
@@ -816,7 +835,7 @@ int Grow_reshape(char *devname, int fd, int quiet,
  * write that data into the array and update the super blocks with
  * the new reshape_progress
  */
-int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt)
+int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt, char *backup_file)
 {
 	int i, j;
 	int old_disks;
@@ -832,11 +851,12 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 
 	old_disks = info->array.raid_disks - info->delta_disks;
 
-	for (i=old_disks; i<cnt; i++) {
+	for (i=old_disks-(backup_file?1:0); i<cnt; i++) {
 		void *super = NULL;
 		struct mdinfo dinfo;
 		struct mdp_backup_super bsb;
 		char buf[4096];
+		int fd;
 
 		/* This was a spare and may have some saved data on it.
 		 * Load the superblock, find and load the
@@ -845,18 +865,27 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		 * If the backup contains no new info, just return
 		 * else restore data and update all superblocks
 		 */
-		if (fdlist[i] < 0)
-			continue;
-		if (st->ss->load_super(st, fdlist[i], &super, NULL))
-			continue;
+		if (i == old_disks-1) {
+			fd = open(backup_file, O_RDONLY);
+			if (fd<0)
+				continue;
+			if (lseek(fd, 4096, 0) != 4096)
+				continue;
+		} else {
+			fd = fdlist[i];
+			if (fd < 0)
+				continue;
+			if (st->ss->load_super(st, fd, &super, NULL))
+				continue;
 
-		st->ss->getinfo_super(&dinfo, super);
-		free(super); super = NULL;
-		if (lseek64(fdlist[i],
-			(dinfo.data_offset + dinfo.component_size - 8) <<9,
-			    0) < 0)
-			continue; /* Cannot seek */
-		if (read(fdlist[i], &bsb, sizeof(bsb)) != sizeof(bsb))
+			st->ss->getinfo_super(&dinfo, super);
+			free(super); super = NULL;
+			if (lseek64(fd,
+				    (dinfo.data_offset + dinfo.component_size - 8) <<9,
+				    0) < 0)
+				continue; /* Cannot seek */
+		}
+		if (read(fd, &bsb, sizeof(bsb)) != sizeof(bsb))
 			continue; /* Cannot read */
 		if (memcmp(bsb.magic, "md_backup_data-1", 16) != 0)
 			continue;
@@ -875,14 +904,13 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		    info->reshape_progress)
 			continue; /* No new data here */
 
-		if (lseek64(fdlist[i], __le64_to_cpu(bsb.devstart)*512, 0)< 0)
+		if (lseek64(fd, __le64_to_cpu(bsb.devstart)*512, 0)< 0)
 			continue; /* Cannot seek */
 		/* There should be a duplicate backup superblock 4k before here */
-		if (lseek64(fdlist[i], -4096, 1) < 0 ||
-		    read(fdlist[i], buf, 4096) != 4096 ||
+		if (lseek64(fd, -4096, 1) < 0 ||
+		    read(fd, buf, 4096) != 4096 ||
 		    memcmp(buf, &bsb, sizeof(buf)) != 0)
 			continue; /* Cannot find leading superblock */
-
 
 		/* Now need the data offsets for all devices. */
 		offsets = malloc(sizeof(*offsets)*info->array.raid_disks);
@@ -903,7 +931,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    info->new_chunk,
 				    info->new_level,
 				    info->new_layout,
-				    fdlist[i], __le64_to_cpu(bsb.devstart)*512,
+				    fd, __le64_to_cpu(bsb.devstart)*512,
 				    0, __le64_to_cpu(bsb.length)*512)) {
 			/* didn't succeed, so giveup */
 			return -1;

@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
 	int write_behind = 0;
 	int bitmap_fd = -1;
 	char *bitmap_file = NULL;
+	char *backup_file = NULL;
 	int bitmap_chunk = UnSet;
 	int SparcAdjust = 0;
 	mddev_dev_t devlist = NULL;
@@ -769,6 +770,18 @@ int main(int argc, char *argv[])
 			ident.bitmap_fd = bitmap_fd; /* for Assemble */
 			continue;
 
+		case O(ASSEMBLE, 7):
+		case O(GROW, 7):
+			/* Specify a file into which grow might place a backup,
+			 * or from which assemble might recover a backup
+			 */
+			if (backup_file) {
+				fprintf(stderr, Name ": backup file already specified, rejecting %s\n", optarg);
+				exit(2);
+			}
+			backup_file = optarg;
+			continue;
+
 		case O(GROW,'b'):
 		case O(BUILD,'b'):
 		case O(CREATE,'b'): /* here we create the bitmap */
@@ -812,8 +825,13 @@ int main(int argc, char *argv[])
 		/* We have now processed all the valid options. Anything else is
 		 * an error
 		 */
-		fprintf(stderr, Name ": option %c not valid in %s mode\n",
-			opt, map_num(modes, mode));
+		if (option_index > 0)
+			fprintf(stderr, Name ":option --%s not valid in %s mode\n",
+				long_options[option_index].name,
+				map_num(modes, mode));
+		else
+			fprintf(stderr, Name ": option -%c not valid in %s mode\n",
+				opt, map_num(modes, mode));
 		exit(2);
 
 	}
@@ -927,18 +945,22 @@ int main(int argc, char *argv[])
 					rv |= 1;
 				else {
 					rv |= Assemble(ss, devlist->devname, mdfd, array_ident, configfile,
-						       NULL,
+						       NULL, backup_file,
 						       readonly, runstop, update, verbose-quiet, force);
 					close(mdfd);
 				}
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, mdfd, &ident, configfile,
-				      devlist->next,
+				      devlist->next, backup_file,
 				      readonly, runstop, update, verbose-quiet, force);
 		else if (devs_found>0) {
 			if (update && devs_found > 1) {
 				fprintf(stderr, Name ": can only update a single array at a time\n");
+				exit(1);
+			}
+			if (backup_file && devs_found > 1) {
+				fprintf(stderr, Name ": can only assemble a single array when providing a backup file.\n");
 				exit(1);
 			}
 			for (dv = devlist ; dv ; dv=dv->next) {
@@ -956,7 +978,7 @@ int main(int argc, char *argv[])
 					continue;
 				}
 				rv |= Assemble(ss, dv->devname, mdfd, array_ident, configfile,
-					       NULL,
+					       NULL, backup_file,
 					       readonly, runstop, update, verbose-quiet, force);
 				close(mdfd);
 			}
@@ -966,6 +988,14 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No arrays found in config file\n");
 				rv = 1;
 			} else
+				if (update) {
+					fprintf(stderr, Name ": --update not meaningful with a --scan assembly.\n");
+					exit(1);
+				}
+				if (backup_file) {
+					fprintf(stderr, Name ": --backup_file not meaningful with a --scan assembly.\n");
+					exit(1);
+				}
 				for (; array_list; array_list = array_list->next) {
 					mdu_array_info_t array;
 					mdfd = open_mddev(array_list->devname, 
@@ -980,7 +1010,7 @@ int main(int argc, char *argv[])
 					else
 						rv |= Assemble(ss, array_list->devname, mdfd,
 							       array_list, configfile,
-							       NULL,
+							       NULL, NULL,
 							       readonly, runstop, NULL, verbose-quiet, force);
 					close(mdfd);
 				}
@@ -1155,7 +1185,7 @@ int main(int argc, char *argv[])
 		} else if (layout != UnSet)
 			rv = Manage_reconfig(devlist->devname, mdfd, layout);
 		else if (size >= 0 || raiddisks)
-			rv = Grow_reshape(devlist->devname, mdfd, quiet,
+			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout, chunk, raiddisks);
 		else if (bitmap_file) {
 			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;

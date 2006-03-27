@@ -689,11 +689,30 @@ int Grow_reshape(char *devname, int fd, int quiet,
 
 		spares = sra->spares;
 
-		/* Decide offset for the backup and llseek the spares */
+
+		memcpy(bsb.magic, "md_backup_data-1", 16);
+		st->ss->uuid_from_super((int*)&bsb.set_uuid, super);
+		bsb.mtime = __cpu_to_le64(time(0));
+		bsb.arraystart = 0;
+		bsb.length = __cpu_to_le64(last_block);
+
+		/* Decide offset for the backup, llseek the spares, and write
+		 * a leading superblock 4K earlier.
+		 */
 		for (i=array.raid_disks; i<d; i++) {
+			char buf[4096];
 			offsets[i] += sra->component_size - last_block - 8;
-			if (lseek64(fdlist[i], offsets[i]<<9, 0) != offsets[i]<<9) {
+			if (lseek64(fdlist[i], (offsets[i]<<9) - 4096, 0)
+			    != (offsets[i]<<9) - 4096) {
 				fprintf(stderr, Name ": could not seek...\n");
+				goto abort;
+			}
+			memset(buf, 0, sizeof(buf));
+			bsb.devstart = __cpu_to_le64(offsets[i]);
+			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
+			memcpy(buf, &bsb, sizeof(bsb));
+			if (write(fdlist[i], buf, 4096) != 4096) {
+				fprintf(stderr, Name ": could not write leading superblock\n");
 				goto abort;
 			}
 		}
@@ -728,12 +747,7 @@ int Grow_reshape(char *devname, int fd, int quiet,
 				devname);
 			goto abort_resume;
 		}
-		/* FIXME write superblocks */
-		memcpy(bsb.magic, "md_backup_data-1", 16);
-		st->ss->uuid_from_super((int*)&bsb.set_uuid, super);
-		bsb.mtime = __cpu_to_le64(time(0));
-		bsb.arraystart = 0;
-		bsb.length = __cpu_to_le64(last_block);
+
 		for (i=odisks; i<d ; i++) {
 			bsb.devstart = __cpu_to_le64(offsets[i]);
 			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
@@ -823,6 +837,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		struct mdinfo dinfo;
 		struct mddev_ident_s id;
 		struct mdp_backup_super bsb;
+		char buf[4096];
 
 		/* This was a spare and may have some saved data on it.
 		 * Load the superblock, find and load the
@@ -863,6 +878,12 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 
 		if (lseek64(fdlist[i], __le64_to_cpu(bsb.devstart)*512, 0)< 0)
 			continue; /* Cannot seek */
+		/* There should be a duplicate backup superblock 4k before here */
+		if (lseek64(fdlist[i], -4096, 1) < 0 ||
+		    read(fdlist[i], buf, 4096) != 4096 ||
+		    memcmp(buf, &bsb, sizeof(buf)) != 0)
+			continue; /* Cannot find leading superblock */
+
 
 		/* Now need the data offsets for all devices. */
 		offsets = malloc(sizeof(*offsets)*info->array.raid_disks);

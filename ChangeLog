@@ -1,3 +1,10 @@
+Changes Prior to 2.4 release
+    -   Rewrite 'reshape' support including performing a backup
+	of the critical region for a raid5 growth, and restoring that
+	backup after a crash.
+    -   Put a 'canary' at each end of the backup so a corruption
+	can be more easily detected.
+
 Changes Prior to 2.3.1 release
     -   Fixed -O2 compile so I could make and RPM.
     -   Type cast number to be printed %llu so it compiles on 64bit

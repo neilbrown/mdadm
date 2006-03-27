@@ -384,6 +384,8 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
     if ((stb->st_mode&S_IFMT)== S_IFBLK) {
 	char *n = strdup(name);
 	struct devmap *dm = malloc(sizeof(*dm));
+	if (strncmp(n, "/dev/.", 6)==0)
+		strcpy(n+4, name+6);
 	if (dm) {
 	    dm->major = major(stb->st_rdev);
 	    dm->minor = minor(stb->st_rdev);
@@ -407,7 +409,12 @@ char *map_dev(int major, int minor)
 	struct devmap *p;
 	char *std = NULL, *nonstd=NULL;
 	if (!devlist_ready) {
-		nftw("/dev", add_dev, 10, FTW_PHYS);
+		char *dev = "/dev";
+		struct stat stb;
+		if (lstat(dev, &stb)==0 &&
+		    S_ISLNK(stb.st_mode))
+			dev = "/dev/.";
+		nftw(dev, add_dev, 10, FTW_PHYS);
 		devlist_ready=1;
 	}
 

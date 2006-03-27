@@ -42,7 +42,6 @@ int Query(char *dev)
 	int ioctlerr;
 	int superror, superrno;
 	struct mdinfo info;
-	struct mddev_ident_s ident;
 	mdu_array_info_t array;
 	void *super;
 	struct supertype *st = NULL;
@@ -105,7 +104,7 @@ int Query(char *dev)
 	close(fd);
 	if (superror == 0) {
 		/* array might be active... */
-		st->ss->getinfo_super(&info, &ident, super);
+		st->ss->getinfo_super(&info, super);
 		if (st->ss->major == 0) {
 			mddev = get_md_name(info.array.md_minor);
 			disc.number = info.disk.number;

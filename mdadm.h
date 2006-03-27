@@ -91,6 +91,7 @@ struct mdinfo {
 	mdu_disk_info_t		disk;
 	__u64			events;
 	int			uuid[4];
+	char			name[33];
 	unsigned long long	data_offset;
 	unsigned long long	component_size;
 	int			reshape_active;
@@ -254,7 +255,7 @@ extern struct superswitch {
 	void (*detail_super)(void *sbv);
 	void (*brief_detail_super)(void *sbv);
 	void (*uuid_from_super)(int uuid[4], void *sbv);
-	void (*getinfo_super)(struct mdinfo *info, mddev_ident_t ident, void *sbv);
+	void (*getinfo_super)(struct mdinfo *info, void *sbv);
 	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
 	__u64 (*event_super)(void *sbv);
 	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name);

@@ -278,8 +278,7 @@ int Manage_subdevs(char *devname, int fd,
 						 * based reconstruct is possible
 						 */
 						struct mdinfo mdi;
-						struct mddev_ident_s ident;
-						st->ss->getinfo_super(&mdi, &ident, osuper);
+						st->ss->getinfo_super(&mdi, osuper);
 						disc.major = major(stb.st_rdev);
 						disc.minor = minor(stb.st_rdev);
 						disc.number = mdi.disk.number;

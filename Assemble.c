@@ -117,7 +117,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	unsigned int num_devs;
 	mddev_dev_t tmpdev;
 	struct mdinfo info;
-	struct mddev_ident_s ident2;
 	char *avail;
 	int nextspare = 0;
 	
@@ -215,7 +214,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
 		} else {
-			tst->ss->getinfo_super(&info, &ident2, super);
+			tst->ss->getinfo_super(&info, super);
 		}
 		if (dfd >= 0) close(dfd);
 
@@ -227,7 +226,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 		if (ident->name[0] &&
-		    (!super || strncmp(ident2.name, ident->name, 32)!=0)) {
+		    (!super || strncmp(info.name, ident->name, 32)!=0)) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong name.\n",
 					devname);
@@ -374,7 +373,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 	}
 
-	st->ss->getinfo_super(&info, &ident2, first_super);
+	st->ss->getinfo_super(&info, first_super);
 
 	/* now we have some devices that might be suitable.
 	 * I wonder how many
@@ -500,7 +499,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		fprintf(stderr, Name ": No suitable drives found for %s\n", mddev);
 		return 1;
 	}
-	st->ss->getinfo_super(&info, &ident2, super);
+	st->ss->getinfo_super(&info, super);
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
 		unsigned int desired_state;

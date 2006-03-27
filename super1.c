@@ -353,7 +353,7 @@ static void uuid_from_super1(int uuid[4], void * sbv)
 		cuuid[i] = super->set_uuid[i];
 }
 
-static void getinfo_super1(struct mdinfo *info, mddev_ident_t ident, void *sbv)
+static void getinfo_super1(struct mdinfo *info, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int working = 0;
@@ -399,8 +399,8 @@ static void getinfo_super1(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 
 	memcpy(info->uuid, sb->set_uuid, 16);
 
-	strncpy(ident->name, sb->set_name, 32);
-	ident->name[32] = 0;
+	strncpy(info->name, sb->set_name, 32);
+	info->name[32] = 0;
 
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
 		info->reshape_active = 1;

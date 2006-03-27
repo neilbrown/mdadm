@@ -835,7 +835,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	for (i=old_disks; i<cnt; i++) {
 		void *super = NULL;
 		struct mdinfo dinfo;
-		struct mddev_ident_s id;
 		struct mdp_backup_super bsb;
 		char buf[4096];
 
@@ -851,7 +850,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		if (st->ss->load_super(st, fdlist[i], &super, NULL))
 			continue;
 
-		st->ss->getinfo_super(&dinfo, &id, super);
+		st->ss->getinfo_super(&dinfo, super);
 		free(super); super = NULL;
 		if (lseek64(fdlist[i],
 			(dinfo.data_offset + dinfo.component_size - 8) <<9,
@@ -893,7 +892,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (st->ss->load_super(st, fdlist[j], &super, NULL))
 				/* FIXME should be this be an error */
 				continue;
-			st->ss->getinfo_super(&dinfo, &id, super);
+			st->ss->getinfo_super(&dinfo, super);
 			free(super); super = NULL;
 			offsets[j] = dinfo.data_offset;
 		}
@@ -916,7 +915,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (fdlist[j] < 0) continue;
 			if (st->ss->load_super(st, fdlist[j], &super, NULL))
 				continue;
-			st->ss->getinfo_super(&dinfo, &id, super);
+			st->ss->getinfo_super(&dinfo, super);
 			dinfo.reshape_progress = __le64_to_cpu(bsb.length);
 			st->ss->update_super(&dinfo, super, "_reshape_progress",NULL,0);
 			st->ss->store_super(st, fdlist[j], super);

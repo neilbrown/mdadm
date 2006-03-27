@@ -265,7 +265,7 @@ static void uuid_from_super0(int uuid[4], void * sbv)
 	}
 }
 
-static void getinfo_super0(struct mdinfo *info, mddev_ident_t ident, void *sbv)
+static void getinfo_super0(struct mdinfo *info, void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	int working = 0;
@@ -304,7 +304,7 @@ static void getinfo_super0(struct mdinfo *info, mddev_ident_t ident, void *sbv)
 	} else
 		info->reshape_active = 0;
 
-	ident->name[0] = 0;
+	info->name[0] = 0;
 	/* work_disks is calculated rather than read directly */
 	for (i=0; i < MD_SB_DISKS; i++)
 		if ((sb->disks[i].state & (1<<MD_DISK_SYNC)) &&

@@ -246,7 +246,7 @@ extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
 extern mapping_t r5layout[], pers[], modes[], faultylayout[];
 
-extern char *map_dev(int major, int minor);
+extern char *map_dev(int major, int minor, int create);
 
 
 extern struct superswitch {

@@ -176,7 +176,7 @@ int open_mddev(char *dev, int autof)
 						minor = (-1-num) << MdpMinorShift;
 					else
 						minor = num;
-					dn = map_dev(major,minor);
+					dn = map_dev(major,minor, 0);
 					if (dn==NULL || is_standard(dn, NULL)) {
 						/* this number only used by a 'standard' name,
 						 * so it is safe to use

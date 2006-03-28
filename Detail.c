@@ -105,12 +105,12 @@ int Detail(char *dev, int brief, int test)
 		    disk.major == 0 &&
 		    disk.minor == 0)
 			continue;
-		if ((dv=map_dev(disk.major, disk.minor))) {
+		if ((dv=map_dev(disk.major, disk.minor, 1))) {
 			if (!super && (disk.state & (1<<MD_DISK_ACTIVE))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
-				int fd2 = open(dv, O_RDONLY);
+				int fd2 = dev_open(dv, O_RDONLY);
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, &super, NULL) == 0) {
 					struct mdinfo info;
@@ -307,7 +307,7 @@ int Detail(char *dev, int brief, int test)
 				rv |= 2;
 			rv |= 1;
 		}
-		if ((dv=map_dev(disk.major, disk.minor))) {
+		if ((dv=map_dev(disk.major, disk.minor, 0))) {
 			if (brief) {
 				if (devices) {
 					devices = realloc(devices,

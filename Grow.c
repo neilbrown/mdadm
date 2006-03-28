@@ -92,13 +92,13 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 				d);
 			return 1;
 		}
-		dv = map_dev(disk.major, disk.minor);
+		dv = map_dev(disk.major, disk.minor, 1);
 		if (!dv) {
 			fprintf(stderr, Name ": cannot find device file for device %d\n",
 				d);
 			return 1;
 		}
-		fd2 = open(dv, O_RDWR);
+		fd2 = dev_open(dv, O_RDWR);
 		if (!fd2) {
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			return 1;
@@ -154,13 +154,13 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 				d);
 			return 1;
 		}
-		dv = map_dev(disk.major, disk.minor);
+		dv = map_dev(disk.major, disk.minor, 1);
 		if (!dv) {
 			fprintf(stderr, Name ": cannot find device file for device %d\n",
 				d);
 			return 1;
 		}
-		fd2 = open(dv, O_RDWR);
+		fd2 = dev_open(dv, O_RDWR);
 		if (fd2 < 0) {
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			return 1;
@@ -298,10 +298,10 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				continue;
 			if ((disk.state & (1<<MD_DISK_SYNC))==0)
 				continue;
-			dv = map_dev(disk.major, disk.minor);
+			dv = map_dev(disk.major, disk.minor, 1);
 			if (dv) {
 				void *super;
-				int fd2 = open(dv, O_RDWR);
+				int fd2 = dev_open(dv, O_RDWR);
 				if (fd2 < 0)
 					continue;
 				if (st->ss->load_super(st, fd2, &super, NULL)==0) {
@@ -343,9 +343,9 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			if ((disk.major==0 && disk.minor==0) ||
 			    (disk.state & (1<<MD_DISK_REMOVED)))
 				continue;
-			dv = map_dev(disk.major, disk.minor);
+			dv = map_dev(disk.major, disk.minor, 1);
 			if (!dv) continue;
-			fd2 = open(dv, O_RDONLY);
+			fd2 = dev_open(dv, O_RDONLY);
 			if (fd2 >= 0 &&
 			    st->ss->load_super(st, fd2, &super, NULL) == 0) {
 				close(fd2);
@@ -647,8 +647,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			if (sd->state & (1<<MD_DISK_FAULTY))
 				continue;
 			if (sd->state & (1<<MD_DISK_SYNC)) {
-				char *dn = map_dev(sd->major, sd->minor);
-				fdlist[sd->role] = open(dn, O_RDONLY);
+				char *dn = map_dev(sd->major, sd->minor, 1);
+				fdlist[sd->role] = dev_open(dn, O_RDONLY);
 				offsets[sd->role] = sd->offset;
 				if (fdlist[sd->role] < 0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",
@@ -657,8 +657,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				}
 			} else {
 				/* spare */
-				char *dn = map_dev(sd->major, sd->minor);
-				fdlist[d] = open(dn, O_RDWR);
+				char *dn = map_dev(sd->major, sd->minor, 1);
+				fdlist[d] = dev_open(dn, O_RDWR);
 				offsets[d] = sd->offset;
 				if (fdlist[d]<0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",

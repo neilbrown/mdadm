@@ -204,7 +204,7 @@ static void examine_super0(void *sbv)
 		if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
 		if (wonly) printf(" write-mostly");
 		if (dp->state == 0) printf(" spare");
-		if ((dv=map_dev(dp->major, dp->minor)))
+		if ((dv=map_dev(dp->major, dp->minor, 0)))
 			printf("   %s", dv);
 		printf("\n");
 		if (d == -1) printf("\n");

@@ -309,7 +309,7 @@ int Monitor(mddev_dev_t devlist,
 				disc.number = i;
 				if (ioctl(fd, GET_DISK_INFO, &disc)>= 0) {
 					newstate = disc.state;
-					dv = map_dev(disc.major, disc.minor);
+					dv = map_dev(disc.major, disc.minor, 1);
 				} else if (mse &&  mse->pattern && i < strlen(mse->pattern))
 					switch(mse->pattern[i]) {
 					case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
@@ -317,7 +317,7 @@ int Monitor(mddev_dev_t devlist,
 					}
 				if (dv == NULL && st->devid[i])
 					dv = map_dev(major(st->devid[i]),
-						     minor(st->devid[i]));
+						     minor(st->devid[i]), 1);
 				change = newstate ^ st->devstate[i];
 				if (st->utime && change && !st->err) {
 					if (i < (unsigned)array.raid_disks &&

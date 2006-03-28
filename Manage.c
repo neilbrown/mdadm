@@ -249,9 +249,9 @@ int Manage_subdevs(char *devname, int fd,
 						continue;
 					if ((disc.state & 4)==0) continue; /* sync */
 					/* Looks like a good device to try */
-					dev = map_dev(disc.major, disc.minor);
+					dev = map_dev(disc.major, disc.minor, 1);
 					if (!dev) continue;
-					dfd = open(dev, O_RDONLY);
+					dfd = dev_open(dev, O_RDONLY);
 					if (dfd < 0) continue;
 					if (st->ss->load_super(st, dfd, &dsuper, NULL)) {
 						close(dfd);

@@ -358,7 +358,7 @@ int devlist_ready = 0;
 int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 {
 }
-char *map_dev(int major, int minor)
+char *map_dev(int major, int minor, int create)
 {
 #if 0
 	fprintf(stderr, "Warning - fail to map %d,%d to a device name\n",
@@ -404,7 +404,7 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
  * deliberately so prefer it over a standard name.
  * This applies only to names for MD devices.
  */
-char *map_dev(int major, int minor)
+char *map_dev(int major, int minor, int create)
 {
 	struct devmap *p;
 	char *std = NULL, *nonstd=NULL;
@@ -431,6 +431,12 @@ char *map_dev(int major, int minor)
 					nonstd = p->name;
 			}
 		}
+	if (create && !std && !nonstd) {
+		static char buf[30];
+		snprintf(buf, 1024, "%d:%d", major, minor);
+		nonstd = buf;
+	}
+
 	return nonstd ? nonstd : std;
 }
 
@@ -573,7 +579,7 @@ char *get_md_name(int dev)
 		    && (stb.st_rdev == rdev))
 			return devname;
 	}
-	dn = map_dev(major(rdev), minor(rdev));
+	dn = map_dev(major(rdev), minor(rdev), 0);
 	if (dn)
 		return dn;
 	snprintf(devname, sizeof(devname), "/dev/.tmp.md%d", dev);

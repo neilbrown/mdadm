@@ -229,11 +229,7 @@ mddev_dev_t load_partitions(void)
 			continue;
 		minor = strtoul(mp, NULL, 10);
 
-		name = map_dev(major, minor);
-		if (!name) {
-			snprintf(buf, 1024, "%d:%d", major, minor);
-			name = buf;
-		}
+		name = map_dev(major, minor, 1);
 
 		d = malloc(sizeof(*d));
 		d->devname = strdup(name);

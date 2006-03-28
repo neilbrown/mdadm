@@ -97,7 +97,7 @@ int main() {
 				continue;
 			rv |= Assemble(array_list->st, array_list->devname, mdfd,
 					   array_list, configfile,
-					   NULL,
+					   NULL, NULL,
 					   readonly, runstop, NULL, verbose, force);
 		}
 }

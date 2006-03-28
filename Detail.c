@@ -53,7 +53,7 @@ int Detail(char *dev, int brief, int test)
 	int is_rebuilding = 0;
 	int failed = 0;
 	struct supertype *st = NULL;
-	int max_disks = MD_SB_DISKS;
+	int max_disks = MD_SB_DISKS; /* just a default */
 	struct mdinfo info;
 
 	void *super = NULL;

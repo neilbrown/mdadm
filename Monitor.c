@@ -46,6 +46,11 @@ static char *percentalerts[] = {
 	"Rebuild80",
 };
 
+/* The largest number of disks current arrays can manage is 384
+ * This really should be dynamically, but that will have to wait
+ * At least it isn't MD_SB_DISKS.
+ */
+#define MaxDisks 384
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
@@ -101,8 +106,8 @@ int Monitor(mddev_dev_t devlist,
 		char *spare_group;
 		int active, working, failed, spare, raid;
 		int expected_spares;
-		int devstate[MD_SB_DISKS];
-		int devid[MD_SB_DISKS];
+		int devstate[MaxDisks];
+		int devid[MaxDisks];
 		int percent;
 		struct state *next;
 	} *statelist = NULL;
@@ -300,21 +305,26 @@ int Monitor(mddev_dev_t devlist,
 
 			if (mse)
 				st->percent = mse->percent;
-					
-			for (i=0; i<MD_SB_DISKS; i++) {
+
+			for (i=0; i<MaxDisks; i++) {
 				mdu_disk_info_t disc;
 				int newstate=0;
 				int change;
 				char *dv = NULL;
 				disc.number = i;
-				if (ioctl(fd, GET_DISK_INFO, &disc)>= 0) {
+				if (i > array.raid_disks + array.nr_disks) {
+					newstate = 0;
+					disc.major = disc.minor = 0;
+				} else if (ioctl(fd, GET_DISK_INFO, &disc)>= 0) {
 					newstate = disc.state;
 					dv = map_dev(disc.major, disc.minor, 1);
-				} else if (mse &&  mse->pattern && i < strlen(mse->pattern))
+				} else if (mse &&  mse->pattern && i < strlen(mse->pattern)) {
 					switch(mse->pattern[i]) {
 					case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
 					case '_': newstate = 0; break;
 					}
+					disc.major = disc.minor = 0;
+				}
 				if (dv == NULL && st->devid[i])
 					dv = map_dev(major(st->devid[i]),
 						     minor(st->devid[i]), 1);
@@ -412,7 +422,7 @@ int Monitor(mddev_dev_t devlist,
 							if (fd2>=0) close(fd2);
 							continue;
 						}
-						for (d=st2->raid; d<MD_SB_DISKS; d++) {
+						for (d=st2->raid; d < MaxDisks; d++) {
 							if (st2->devid[d] > 0 &&
 							    st2->devstate[d] == 0) {
 								dev = st2->devid[d];

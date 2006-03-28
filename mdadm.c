@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 	int level = UnSet;
 	int layout = UnSet;
 	int raiddisks = 0;
-	int max_disks = MD_SB_DISKS;
+	int max_disks = MD_SB_DISKS; /* just a default */
 	int sparedisks = 0;
 	struct mddev_ident_s ident;
 	char *configfile = NULL;

@@ -346,7 +346,7 @@ extern int Monitor(mddev_dev_t devlist,
 		   int period, int daemonise, int scan, int oneshot,
 		   int dosyslog, char *config, int test, char *pidfile);
 
-extern int Kill(char *dev, int force);
+extern int Kill(char *dev, int force, int quiet);
 
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,

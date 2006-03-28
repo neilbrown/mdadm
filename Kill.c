@@ -34,7 +34,7 @@
 #include	"md_u.h"
 #include	"md_p.h"
 
-int Kill(char *dev, int force)
+int Kill(char *dev, int force, int quiet)
 {
 	/*
 	 * Nothing fancy about Kill.  It just zeroes out a superblock
@@ -47,13 +47,15 @@ int Kill(char *dev, int force)
 		
 	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
-		fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
-			dev);
+		if (!quiet)
+			fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
+				dev);
 		return 1;
 	}
 	st = guess_super(fd);
 	if (st == NULL) {
-		fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
+		if (!quiet)
+			fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
 		return 1;
 	}
 	rv = st->ss->load_super(st, fd, &super, dev);
@@ -65,11 +67,13 @@ int Kill(char *dev, int force)
 		free(super);
 		st->ss->init_super(st, &super, &info, 0, "");
 		if (st->ss->store_super(st, fd, super)) {
-			fprintf(stderr, Name ": Could not zero superblock on %s\n",
-				dev);
+			if (!quiet)
+				fprintf(stderr, Name ": Could not zero superblock on %s\n",
+					dev);
 			rv = 1;
 		} else if (rv) {
-			fprintf(stderr, Name ": superblock zeroed anyway\n");
+			if (!quiet)
+				fprintf(stderr, Name ": superblock zeroed anyway\n");
 			rv = 0;
 		}
 	}

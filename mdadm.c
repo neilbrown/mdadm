@@ -1124,7 +1124,7 @@ int main(int argc, char *argv[])
 				case 'D':
 					rv |= Detail(dv->devname, brief?1+verbose:0, test); continue;
 				case 'K': /* Zero superblock */
-					rv |= Kill(dv->devname, force); continue;
+					rv |= Kill(dv->devname, force, quiet); continue;
 				case 'Q':
 					rv |= Query(dv->devname); continue;
 				case 'X':

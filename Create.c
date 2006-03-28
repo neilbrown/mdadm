@@ -502,6 +502,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				break;
 			case 2:
 				if (disk.state == 1) break;
+				Kill(dv->devname, 0, 1); /* Just be sure it is clean */
+				Kill(dv->devname, 0, 1); /* and again, there could be two superblocks */
 				st->ss->write_init_super(st, super, &disk, dv->devname);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {

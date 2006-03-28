@@ -180,8 +180,10 @@ int Detail(char *dev, int brief, int test)
 		printf("    Persistence : Superblock is %spersistent\n",
 		       array.not_persistent?"not ":"");
 		printf("\n");
-		if (ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 &&
-			bmf.pathname[0]) {
+		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
+		if (vers >= 9001 &&
+		    ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 &&
+		    bmf.pathname[0]) {
 			printf("  Intent Bitmap : %s\n", bmf.pathname);
 			printf("\n");
 		} else if (array.state & (1<<MD_SB_BITMAP_PRESENT))

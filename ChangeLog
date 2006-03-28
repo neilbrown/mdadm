@@ -5,7 +5,14 @@ Changes Prior to 2.4 release
     -   Put a 'canary' at each end of the backup so a corruption
 	can be more easily detected.
     -   Remove useless 'ident' arguement from ->getinfo_super method.
-    -   Support --backup-file for backing-up critical section during growth.
+    -   Support --backup-file for backing-up critical section during
+        growth.
+    -   Erase old superblocks (of different versions) when creating new
+        array.
+    -   Allow --monitor to work with arrays with >28 devices
+    -   Report reshape information in --detail
+    -   Handle symlinks in /dev better
+    -   Fix mess in --detail output which a device is missing.
 
 Changes Prior to 2.3.1 release
     -   Fixed -O2 compile so I could make and RPM.

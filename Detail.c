@@ -235,6 +235,7 @@ int Detail(char *dev, int brief, int test)
 	for (d=0; d<max_disks; d++) {
 		disks[d].state = (1<<MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
+		disks[d].number = disks[d].raid_disk = d;
 	}
 
 	next = array.raid_disks;

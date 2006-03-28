@@ -381,20 +381,26 @@ int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, 
 
 int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 {
-    if ((stb->st_mode&S_IFMT)== S_IFBLK) {
-	char *n = strdup(name);
-	struct devmap *dm = malloc(sizeof(*dm));
-	if (strncmp(n, "/dev/.", 6)==0)
-		strcpy(n+4, name+6);
-	if (dm) {
-	    dm->major = major(stb->st_rdev);
-	    dm->minor = minor(stb->st_rdev);
-	    dm->name = n;
-	    dm->next = devlist;
-	    devlist = dm;
+	struct stat st;
+	if (S_ISLNK(stb->st_mode)) {
+		stat(name, &st);
+		stb = &st;
 	}
-    }
-    return 0;
+
+	if ((stb->st_mode&S_IFMT)== S_IFBLK) {
+		char *n = strdup(name);
+		struct devmap *dm = malloc(sizeof(*dm));
+		if (strncmp(n, "/dev/./", 7)==0)
+			strcpy(n+4, name+6);
+		if (dm) {
+			dm->major = major(stb->st_rdev);
+			dm->minor = minor(stb->st_rdev);
+			dm->name = n;
+			dm->next = devlist;
+			devlist = dm;
+		}
+	}
+	return 0;
 }
 
 /*

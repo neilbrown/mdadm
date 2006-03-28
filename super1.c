@@ -369,7 +369,7 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 	info->array.md_minor = -1;
 	info->array.ctime = __le64_to_cpu(sb->ctime);
 	info->array.utime = __le64_to_cpu(sb->utime);
-	info->array.chunk_size = __le32_to_cpu(sb->chunksize)/512;
+	info->array.chunk_size = __le32_to_cpu(sb->chunksize)*512;
 
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);
@@ -408,7 +408,7 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 		info->new_level = __le32_to_cpu(sb->new_level);
 		info->delta_disks = __le32_to_cpu(sb->delta_disks);
 		info->new_layout = __le32_to_cpu(sb->new_layout);
-		info->new_chunk = __le32_to_cpu(sb->new_chunk);
+		info->new_chunk = __le32_to_cpu(sb->new_chunk)<<9;
 	} else
 		info->reshape_active = 0;
 

@@ -54,6 +54,7 @@ int Detail(char *dev, int brief, int test)
 	int failed = 0;
 	struct supertype *st = NULL;
 	int max_disks = MD_SB_DISKS;
+	struct mdinfo info;
 
 	void *super = NULL;
 	int rv = test ? 4 : 1;
@@ -113,7 +114,6 @@ int Detail(char *dev, int brief, int test)
 				int fd2 = dev_open(dv, O_RDONLY);
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, &super, NULL) == 0) {
-					struct mdinfo info;
 					st->ss->getinfo_super(&info, super);
 					if (info.array.ctime != array.ctime ||
 					    info.array.level != array.level) {
@@ -223,11 +223,47 @@ int Detail(char *dev, int brief, int test)
 		}
 	
 		if (e && e->percent >= 0) {
-			printf(" Rebuild Status : %d%% complete\n\n", e->percent);
+			printf(" Re%s Status : %d%% complete\n",
+			       (super && info.reshape_active)? "shape":"build",
+			       e->percent);
 			is_rebuilding = 1;
 		}
 		free_mdstat(ms);
 
+		if (super && info.reshape_active) {
+#if 0
+This is pretty boring
+			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info.reshape_progress<<9,
+			       human_size(info.reshape_progress<<9));
+#endif
+			if (info.delta_disks > 0)
+				printf("  Delta Devices : %d, (%d->%d)\n",
+				       info.delta_disks, array.raid_disks - info.delta_disks, array.raid_disks);
+			if (info.delta_disks < 0)
+				printf("  Delta Devices : %d, (%d->%d)\n",
+				       info.delta_disks, array.raid_disks, array.raid_disks + info.delta_disks);
+			if (info.new_level != array.level) {
+				char *c = map_num(pers, info.new_level);
+				printf("      New Level : %s\n", c?c:"-unknown-");
+			}
+			if (info.new_level != array.level ||
+			    info.new_layout != array.layout) {
+				if (info.new_level == 5) {
+					char *c = map_num(r5layout, info.new_layout);
+					printf("     New Layout : %s\n",
+					       c?c:"-unknown-");
+				}
+				if (info.new_level == 10) {
+					printf("     New Layout : near=%d, far=%d\n",
+					       info.new_layout&255,
+					       (info.new_layout>>8)&255);
+				}
+			}
+			if (info.new_chunk != array.chunk_size)
+				printf("  New Chunksize : %dK\n", info.new_chunk/1024);
+			printf("\n");
+		} else if (e && e->percent >= 0)
+			printf("\n");
 		if (super && st)
 			st->ss->detail_super(super);
 

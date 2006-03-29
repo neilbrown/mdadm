@@ -147,6 +147,7 @@ typedef struct mddev_ident_s {
 	struct supertype *st;
 	int	autof;		/* 1 for normal, 2 for partitioned */
 	char	*spare_group;
+	char	*bitmap_file;
 	int	bitmap_fd;
 
 	struct mddev_ident_s *next;

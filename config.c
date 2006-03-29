@@ -281,6 +281,7 @@ void arrayline(char *line)
 	mis.next = NULL;
 	mis.st = NULL;
 	mis.bitmap_fd = -1;
+	mis.bitmap_file = NULL;
 	mis.name[0] = 0;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
@@ -320,6 +321,13 @@ void arrayline(char *line)
 				fprintf(stderr, Name ": name too long, ignoring %s\n", w);
 			else
 				strcpy(mis.name, w+5);
+
+		} else if (strncasecmp(w, "bitmap=", 7) == 0) {
+			if (mis.bitmap_file)
+				fprintf(stderr, Name ": only specify bitmap file once. %s ignored\n",
+					w);
+			else
+				mis.bitmap_file = w+7;
 
 		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
 			if (mis.devices)

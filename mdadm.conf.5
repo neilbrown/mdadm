@@ -151,6 +151,18 @@ also have a number appended to indicate how many partitions to create
 device files for, e.g.
 .BR auto=mdp5 .
 The default is 4.
+
+.TP
+.B bitmap=
+The option specifies a file in which a write-intent bitmap should be
+found.  When assembling the array,
+.I mdadm
+will provide this file to the
+.B md
+driver as the bitmap file.  This has the same function as the
+.B --bitmap-file
+option to
+.BR --assemble .
 .RE
 
 .TP

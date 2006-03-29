@@ -14,6 +14,8 @@ Changes Prior to 2.4 release
     -   Handle symlinks in /dev better
     -   Fix mess in --detail output which a device is missing.
     -   Manpage tidyup
+    -   Support 'bitmap=' in mdadm.conf for auto-assembling arrays with
+	write-intent bitmaps in separate files.
 
 Changes Prior to 2.3.1 release
     -   Fixed -O2 compile so I could make and RPM.

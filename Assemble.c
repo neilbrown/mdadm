@@ -623,8 +623,22 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
 				return 1;
 			}
+		} else if (ident->bitmap_file) {
+			/* From config file */
+			int bmfd = open(ident->bitmap_file, O_RDWR);
+			if (bmfd < 0) {
+				fprintf(stderr, Name ": Could not open bitmap file %s\n",
+					ident->bitmap_file);
+				return 1;
+			}
+			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
+				fprintf(stderr, Name ": Failed to set bitmapfile for %s\n", mddev);
+				close(bmfd);
+				return 1;
+			}
+			close(bmfd);
 		}
-					
+
 		/* First, add the raid disks, but add the chosen one last */
 		for (i=0; i<= bestcnt; i++) {
 			int j;

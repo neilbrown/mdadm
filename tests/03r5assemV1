@@ -49,7 +49,6 @@ mdadm -As -c $conf
 echo "DEVICE $devlist" > $conf
 mdadm -Db $md1 >> $conf
 eval $tst
-
 mdadm --assemble --scan --config=$conf $md1
 eval $tst
 echo PING >&2

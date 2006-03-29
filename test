@@ -63,7 +63,10 @@ fi
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {
-    $mdadm --quiet "$@"
+    case $* in
+       *-C* ) $mdadm --quiet "$@" --auto=yes;;
+        * )   $mdadm --quiet "$@"
+    esac
 }
 
 # check various things

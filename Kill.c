@@ -50,12 +50,14 @@ int Kill(char *dev, int force, int quiet)
 		if (!quiet)
 			fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
 				dev);
+		close(fd);
 		return 1;
 	}
 	st = guess_super(fd);
 	if (st == NULL) {
 		if (!quiet)
 			fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
+		close(fd);
 		return 1;
 	}
 	rv = st->ss->load_super(st, fd, &super, dev);

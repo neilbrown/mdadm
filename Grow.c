@@ -500,14 +500,21 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * other from happening.  Later we could block
 		 * resync for the duration via 'sync_action'...
 		 */
-		if (raid_disks >= 0)
+		if (raid_disks > 0) {
 			array.raid_disks = raid_disks;
-		if (size >= 0)
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+				fprintf(stderr, Name ": Cannot set raid-devices for %s: %s\n",
+					devname, strerror(errno));
+				return 1;
+			}
+		}
+		if (size >= 0) {
 			array.size = size;
-		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
-			fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
-				devname, strerror(errno));
-			return 1;
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+				fprintf(stderr, Name ": Cannot set device size for %s: %s\n",
+					devname, strerror(errno));
+				return 1;
+			}
 		}
 		return 0;
 
@@ -869,8 +876,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			fd = open(backup_file, O_RDONLY);
 			if (fd<0)
 				continue;
-			if (lseek(fd, 4096, 0) != 4096)
-				continue;
 		} else {
 			fd = fdlist[i];
 			if (fd < 0)
@@ -909,7 +914,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		/* There should be a duplicate backup superblock 4k before here */
 		if (lseek64(fd, -4096, 1) < 0 ||
 		    read(fd, buf, 4096) != 4096 ||
-		    memcmp(buf, &bsb, sizeof(buf)) != 0)
+		    memcmp(buf, &bsb, sizeof(bsb)) != 0)
 			continue; /* Cannot find leading superblock */
 
 		/* Now need the data offsets for all devices. */

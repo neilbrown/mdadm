@@ -9,7 +9,7 @@ Linux Software Raid.
 
 .BI mdadm " [mode] <raiddevice> [options] <component-devices>"
 
-.SH DESCRIPTION 
+.SH DESCRIPTION
 RAID devices are virtual devices created from two or more
 real block devices. This allows multiple devices (typically disk
 drives or partitions there-of) to be combined into a single device to
@@ -87,7 +87,7 @@ mdadm has 7 major modes of operation:
 .B Assemble
 Assemble the parts of a previously created
 array into an active array. Components can be explicitly given
-or can be searched for. 
+or can be searched for.
 .B mdadm
 checks that the components
 do form a bona fide array, and can, on request, fiddle superblock
@@ -112,16 +112,6 @@ Create a new array with per-device superblocks.
 '''in several step create-add-add-run or it can all happen with one command.
 
 .TP
-.B Manage
-This is for doing things to specific components of an array such as
-adding new spares and removing faulty devices.
-
-.TP
-.B Misc
-This mode allows operations on independent devices such as examine MD
-superblocks, erasing old superblocks and stopping active arrays.
-
-.TP
 .B "Follow or Monitor"
 Monitor one or more md devices and act on any state changes.  This is
 only meaningful for raid1, 4, 5, 6, 10 or multipath arrays as
@@ -132,12 +122,25 @@ missing, spare, or failed drives, so there is nothing to monitor.
 .B "Grow"
 Grow (or shrink) an array, or otherwise reshape it in some way.
 Currently supported growth options including changing the active size
-of componenet devices in RAID level 1/4/5/6 and changing the number of
+of component devices in RAID level 1/4/5/6 and changing the number of
 active devices in RAID1.
+
+.TP
+.B Manage
+This is for doing things to specific components of an array such as
+adding new spares and removing faulty devices.
+
+.TP
+.B Misc
+This is an 'everything else' mode that supports operations on active
+arrays, operations on component devices such as erasing old superblocks, and
+information gathering operations.
+'''This mode allows operations on independent devices such as examine MD
+'''superblocks, erasing old superblocks and stopping active arrays.
 
 .SH OPTIONS
 
-Available options are:
+.SH Options for selecting a mode are:
 
 .TP
 .BR -A ", " --assemble
@@ -152,21 +155,6 @@ Build a legacy array without superblocks.
 Create a new array.
 
 .TP
-.BR -Q ", " --query
-Examine a device to see
-(1) if it is an md device and (2) if it is a component of an md
-array.
-Information about what is discovered is presented.
-
-.TP
-.BR -D ", " --detail
-Print detail of one or more md devices.
-
-.TP
-.BR -E ", " --examine
-Print content of md superblock on device(s).
-
-.TP
 .BR -F ", " --follow ", " --monitor
 Select
 .B Monitor
@@ -175,10 +163,18 @@ mode.
 .TP
 .BR -G ", " --grow
 Change the size or shape of an active array.
+.P
+If a device is given before any options, or if the first option is
+.BR --add ,
+.BR --fail ,
+or
+.BR --remove ,
+then the MANAGE mode is assume.
+Anything other than these will cause the
+.B Misc
+mode to be assumed.
 
-.TP
-.BR -X ", " --examine-bitmap
-Report information about a bitmap file.
+.SH Options that are not mode-specific are:
 
 .TP
 .BR -h ", " --help
@@ -222,63 +218,16 @@ with
 gives an intermediate level of verbosity.
 
 .TP
-.BR -W ", " --write-mostly
-subsequent devices lists in a
-.BR --build ,
-.BR --create ,
-or
-.B --add
-command will be flagged as 'write-mostly'.  This is valid for RAID1
-only and means that the 'md' driver will avoid reading from these
-devices if at all possible.  This can be useful if mirroring over a
-slow link.
-
-.TP
-.BR -b ", " --bitmap=
-Give the name of a bitmap file to use with this array.  Can be used
-with --create (file should not exist), --assemble (file should
-exist), of --grow (file should not exist).
-
-The file
-.B internal
-can be used to indicate that the bitmap should be stored in the array,
-near the superblock.  There is a limited amount of space for such
-bitmaps, but it is often sufficient.
-
-The file
-.B none
-can be given when used with --grow to remove a bitmap.
-
-To help catch typing errors, the filename must contain at least one
-slash ('/') if it is a real file (not 'internal' or 'none').
-
-Note: bitmaps are only known to work on ext2 and ext3.  Using other
-filesystems may result in serious problems.
-
-.TP
-.BR --bitmap-chunk=
-Set the Chunksize of the bitmap. Each bit corresponds to that many
-Kilobytes of storage. Default is 4.
-
-.TP
-.BR --write-behind=
-Specify that write-behind mode should be enabled (valid for RAID1
-only). If an argument is specified, it will set the maximum number
-of outstanding writes allowed. The default value is 256.
-A write-intent bitmap is required in order to use write-behind
-mode, and write-behind is only attempted on drives marked as
-.IR write-mostly .
-
-
-.TP
 .BR -f ", " --force
 Be more forceful about certain operations.  See the various modes of
 the exact meaning of this option in different contexts.
 
 .TP
 .BR -c ", " --config=
-Specify the config file.  Default is
-.BR /etc/mdadm.conf .
+Specify the config file.  Default is to use
+.BR /etc/mdadm.conf ,
+or if that is missing, then
+.BR /etc/mdadm/mdadm.conf .
 If the config file given is
 .B partitions
 then nothing will be read, but
@@ -332,7 +281,54 @@ on the device, either at the end (for 1.0), at the start (for 1.1) or
 4K from the start (for 1.2).
 .RE
 
-.SH For create or build:
+.SH For create, build, or grow:
+
+.TP
+.BR -n ", " --raid-devices=
+Specify the number of active devices in the array.  This, plus the
+number of spare devices (see below) must equal the number of
+.I component-devices
+(including "\fBmissing\fP" devices)
+that are listed on the command line for
+.BR  --create .
+Setting a value of 1 is probably
+a mistake and so requires that
+.B --force
+be specified first.  A value of 1 will then be allowed for linear,
+multipath, raid0 and raid1.  It is never allowed for raid4 or raid5.
+.br
+This number can only be changed using
+.B --grow
+for RAID1 arrays, and only on kernels which provide necessary support.
+
+.TP
+.BR -x ", " --spare-devices=
+Specify the number of spare (eXtra) devices in the initial array.
+Spares can also be added
+and removed later.  The number of component devices listed
+on the command line must equal the number of raid devices plus the
+number of spare devices.
+
+
+.TP
+.BR -z ", " --size=
+Amount (in Kibibytes) of space to use from each drive in RAID1/4/5/6.
+This must be a multiple of the chunk size, and must leave about 128Kb
+of space at the end of the drive for the RAID superblock.
+If this is not specified
+(as it normally is not) the smallest drive (or partition) sets the
+size, though if there is a variance among the drives of greater than 1%, a warning is
+issued.
+
+This value can be set with
+.B --grow
+for RAID level 1/4/5/6. If the array was created with a size smaller
+than the currently active drives, the extra space can be accessed
+using
+.BR --grow .
+The size can be given as
+.B max
+which means to choose the largest size that fits on all current drives.
 
 .TP
 .BR -c ", " --chunk=
@@ -347,11 +343,14 @@ Specify rounding factor for linear array (==chunk size)
 Set raid level.  When used with
 .IR --create ,
 options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
-raid5, 5, raid6, 6, raid10, 10, multipath, mp, fautly.  Obviously some of these are synonymous.
+raid5, 5, raid6, 6, raid10, 10, multipath, mp, faulty.  Obviously some of these are synonymous.
 
 When used with
 .IR --build ,
 only linear, stripe, raid0, 0, raid1, multipath, mp, and faulty are valid.
+
+Not yet supported with
+.IR --grow .
 
 .TP
 .BR -p ", " --layout=
@@ -373,7 +372,7 @@ write-transient,
 wt,
 read-transient,
 rt,
-write-presistent,
+write-persistent,
 wp,
 read-persistent,
 rp,
@@ -394,7 +393,7 @@ Multiple failure modes can be current simultaneously by using the
 "--grow" option to set subsequent failure modes.
 
 "clear" or "none" will remove any pending or periodic failure modes,
-and "flush" will clear any persistant faults.
+and "flush" will clear any persistent faults.
 
 To set the parity with "--grow", the level of the array ("faulty")
 must be specified before the fault mode is specified.
@@ -425,58 +424,52 @@ same as --layout (thus explaining the p of
 .BR -b ", " --bitmap=
 Specify a file to store a write-intent bitmap in.  The file should not
 exist unless --force is also given.  The same file should be provided
-when assembling the array.
+when assembling the array.  If the word
+.B internal
+is given, then the bitmap is stored with the metadata on the array,
+and so is replicated on all devices.  If the word
+.B none
+is given with
+.B --grow
+mode, then any bitmap that is present is removed.
+
+To help catch typing errors, the filename must contain at least one
+slash ('/') if it is a real file (not 'internal' or 'none').
+
+Note: external bitmaps are only known to work on ext2 and ext3.
+Storing bitmap files on other filesystems may result in serious problems.
+
 
 .TP
 .BR --bitmap-chunk=
-Specifty the chunksize for the bitmap.
-
-.TP
-.BR -n ", " --raid-devices=
-Specify the number of active devices in the array.  This, plus the
-number of spare devices (see below) must equal the number of
-.I component-devices
-(including "\fBmissing\fP" devices)
-that are listed on the command line for
-.BR  --create .
-Setting a value of 1 is probably
-a mistake and so requires that
-.B --force
-be specified first.  A value of 1 will then be allowed for linear,
-multipath, raid0 and raid1.  It is never allowed for raid4 or raid5.
-.br
-This number can only be changed using
-.B --grow
-for RAID1 arrays, and only on kernels which provide necessary support.
-
-.TP
-.BR -x ", " --spare-devices=
-Specify the number of spare (eXtra) devices in the initial array.
-Spares can also be added
-and removed later.  The number of component devices listed
-on the command line must equal the number of raid devices plus the
-number of spare devices. 
+Set the chunksize of the bitmap. Each bit corresponds to that many
+Kilobytes of storage. Default is 4 when using a file based bitmap.
+When using an
+.B internal
+bitmap, the chunksize is automatically determined to make best use of
+available space.
 
 
 .TP
-.BR -z ", " --size=
-Amount (in Kibibytes) of space to use from each drive in RAID1/4/5/6.
-This must be a multiple of the chunk size, and must leave about 128Kb
-of space at the end of the drive for the RAID superblock.
-If this is not specified
-(as it normally is not) the smallest drive (or partition) sets the
-size, though if there is a variance among the drives of greater than 1%, a warning is
-issued.
+.BR -W ", " --write-mostly
+subsequent devices lists in a
+.BR --build ,
+.BR --create ,
+or
+.B --add
+command will be flagged as 'write-mostly'.  This is valid for RAID1
+only and means that the 'md' driver will avoid reading from these
+devices if at all possible.  This can be useful if mirroring over a
+slow link.
 
-This value can be set with
-.B --grow
-for RAID level 1/4/5/6. If the array was created with a size smaller
-than the currently active drives, the extra space can be accessed
-using
-.BR --grow .
-The size can be given as
-.B max
-which means to choose the largest size that fits on all current drives.
+.TP
+.BR --write-behind=
+Specify that write-behind mode should be enabled (valid for RAID1
+only). If an argument is specified, it will set the maximum number
+of outstanding writes allowed. The default value is 256.
+A write-intent bitmap is required in order to use write-behind
+mode, and write-behind is only attempted on drives marked as
+.IR write-mostly .
 
 .TP
 .BR --assume-clean
@@ -488,6 +481,13 @@ data will be affected unless you actually write to the array.  It can
 also be used when creating a RAID1 or RAID10 if you want to avoid the
 initial resync, however this practice - while normally safe - is not
 recommended.   Use this ony if you really know what you are doing.
+
+.TP
+.BR --backup-file=
+This is needed when --grow is used to increase the number of
+raid-devices in a RAID5 if there  are no spare devices available.
+See the section below on RAID_DEVICE CHANGES.  The file should be
+stored on a separate device, not on the raid array being reshaped.
 
 .TP
 .BR -N ", " --name=
@@ -525,7 +525,7 @@ will not try to be so clever.
 Instruct mdadm to create the device file if needed, possibly allocating
 an unused minor number.  "md" causes a non-partitionable array
 to be used.  "mdp", "part" or "p" causes a partitionable array (2.6 and
-later) to be used.  "yes" requires the named md device to haveo
+later) to be used.  "yes" requires the named md device to have
 a 'standard' format, and the type and minor number will be determined
 from this.  See DEVICE NAMES below.
 
@@ -546,7 +546,7 @@ will create the device file for the whole array and for the first 4
 partitions.  A different number of partitions can be specified at the
 end of this option (e.g.
 .BR --auto=p7 ).
-If the device name ends with a digit, the partition names add a'p',
+If the device name ends with a digit, the partition names add a 'p',
 and a number, e.g. "/dev/home1p3".  If there is no
 trailing digit, then the partition names just have a number added,
 e.g. "/dev/scratch3".
@@ -608,7 +608,20 @@ See this option under Create and Build options.
 
 .TP
 .BR -b ", " --bitmap=
-Specify the bitmap file that was given when the array was created.
+Specify the bitmap file that was given when the array was created.  If
+an array has an
+.B internal
+bitmap, there is no need to specify this when assembling the array.
+
+.TP
+.BR --backup-file=
+If
+.B --backup-file
+was used to grow the number of raid-devices in a RAID5, and the system
+crashed during the critical section, then the same
+.B --backup-file
+must be presented to --assemble to allow possibly corrupted data to be
+restored.
 
 .TP
 .BR -U ", " --update=
@@ -635,7 +648,7 @@ to see what effect this would have.
 The
 .B super-minor
 option will update the
-.B "prefered minor"
+.B "preferred minor"
 field on each superblock to match the minor number of the array being
 assembled.  This is not needed on 2.6 and later kernels as they make
 this adjustment automatically.
@@ -661,13 +674,13 @@ The
 .B byteorder
 option allows arrays to be moved between machines with different
 byte-order.
-When assembling such an array for the first time after a move, giving 
+When assembling such an array for the first time after a move, giving
 .B "--update=byteorder"
 will cause
 .I mdadm
 to expect superblocks to have their byteorder reversed, and will
 correct that order before assembling the array.  This is only valid
-with original (Verion 0.90) superblocks.
+with original (Version 0.90) superblocks.
 
 The
 .B summaries
@@ -678,22 +691,11 @@ counts of total, working, active, failed, and spare devices.
 
 .TP
 .BR -a ", " --add
-'''add, or
-hotadd listed devices.
+hot-add listed devices.
 
 .TP
 .BR --re-add
-Listed devices are assumed to have recently been part of the array,
-and they are re-added.  This is only different from --add when a
-write-intent bitmap is present.  It causes only those parts of the
-device that have changed since the device was removed from the array
-to be reconstructed.
-
-This flag is only needed with arrays that are built without a
-superblock (i.e. --build, not --create).  For array with a superblock,
-.I mdadm
-checks if a superblock is present and automatically determines if a
-re-add is appropriate. 
+re-add a device that was recently removed from an array.
 
 .TP
 .BR -r ", " --remove
@@ -708,8 +710,48 @@ mark listed devices as faulty.
 .BR --set-faulty
 same as --fail.
 
-.SH For Examine mode:
+.P
+Each of these options require that the first device list is the array
+to be acted upon and the remainder are component devices to be added,
+removed, or marked as fault.  Several different operations can be
+specified for different devices, e.g.
+.in +5
+mdadm /dev/md0 --add /dev/sda1 --fail /dev/sdb1 --remove /dev/sdb1
+.in -5
+Each operation applies to all devices listed until the next
+operations.
 
+If an array is using a write-intent bitmap, then devices which have
+been removed can be re-added in a way that avoids a full
+reconstruction but instead just updated the blocks that have changed
+since the device was removed.  For arrays with persistent metadata
+(superblocks) this is done automatically.  For arrays created with
+.B --build
+mdadm needs to be told that this device we removed recently with
+.B --re-add.
+
+Devices can only be removed from an array if they are not in active
+use.  i.e. that must be spares or failed devices.  To remove an active
+device, it must be marked as
+.B faulty
+first.
+
+.SH For Misc mode:
+
+.TP
+.BR -Q ", " --query
+Examine a device to see
+(1) if it is an md device and (2) if it is a component of an md
+array.
+Information about what is discovered is presented.
+
+.TP
+.BR -D ", " --detail
+Print detail of one or more md devices.
+
+.TP
+.BR -E ", " --examine
+Print content of md superblock on device(s).
 .TP
 .B --sparc2.2
 If an array was created on a 2.2 Linux kernel patched with RAID
@@ -722,7 +764,9 @@ will fix the superblock before displaying it.  If this appears to do
 the right thing, then the array can be successfully assembled using
 .BR "--assemble --update=sparc2.2" .
 
-.SH For Misc mode:
+.TP
+.BR -X ", " --examine-bitmap
+Report information about a bitmap file.
 
 .TP
 .BR -R ", " --run
@@ -854,28 +898,28 @@ acts as though
 .B --scan
 was given and identify information is extracted from the configuration file.
 
-The identity can be given with the 
+The identity can be given with the
 .B --uuid
 option, with the
 .B --super-minor
 option, can be found  in the config file, or will be taken from the
 super block on the first component-device listed on the command line.
 
-Devices can be given on the 
+Devices can be given on the
 .B --assemble
 command line or in the config file. Only devices which have an md
 superblock which contains the right identity will be considered for
 any array.
 
-The config file is only used if explicitly named with 
+The config file is only used if explicitly named with
 .B --config
 or requested with (a possibly implicit)
-.B --scan. 
+.B --scan.
 In the later case,
 .B /etc/mdadm.conf
 is used.
 
-If 
+If
 .B --scan
 is not given, then the config file will only be used to find the
 identity of md arrays.
@@ -906,7 +950,7 @@ initialisation conventions).
 
 If the option to "auto" is "mdp" or "part" or (on the command line
 only) "p", then mdadm will create a partitionable array, using the
-first free one that is not inuse, and does not already have an entry
+first free one that is not in use, and does not already have an entry
 in /dev (apart from numeric /dev/md* entries).
 
 If the option to "auto" is "yes" or "md" or (on the command line)
@@ -942,7 +986,7 @@ Usage:
 .I devices
 
 .PP
-This usage is similar to 
+This usage is similar to
 .BR --create .
 The difference is that it creates an array without a superblock. With
 these arrays there is no difference between initially creating the array and
@@ -980,7 +1024,7 @@ superblocks or filesystems. They are also checked to see if the variance in
 device size exceeds 1%.
 
 If any discrepancy is found, the array will not automatically be run, though
-the presence of a 
+the presence of a
 .B --run
 can override this caution.
 
@@ -1004,12 +1048,12 @@ be over-ridden with the
 .I --force
 option.
 
-'''If the 
+'''If the
 '''.B --size
 '''option is given, it is not necessary to list any component-devices in this command.
 '''They can be added later, before a
-'''.B --run. 
-'''If no 
+'''.B --run.
+'''If no
 '''.B --size
 '''is given, the apparent size of the smallest drive given is used.
 
@@ -1022,6 +1066,7 @@ be in use.
 .TP
 .B --readonly
 start the array readonly - not supported yet.
+
 
 .SH MANAGE MODE
 .HP 12
@@ -1043,7 +1088,7 @@ as faulty in
 .B /dev/md0
 and will then remove it from the array and finally add it back
 in as a spare.  However only one md array can be affected by a single
-command. 
+command.
 
 .SH MISC MODE
 .HP 12
@@ -1185,7 +1230,7 @@ These events are passed to a separate program (if specified) and may
 be mailed to a given E-mail address.
 
 When passing event to program, the program is run once for each event
-and is given 2 or 3 command-line arguements.  The first is the
+and is given 2 or 3 command-line arguments.  The first is the
 name of the event (see below).  The second is the name of the
 md device which is affected, and the third is the name of a related
 device if relevant, such as a component device that has failed.
@@ -1344,7 +1389,7 @@ the original array.
 The GROW mode is used for changing the size or shape of an active
 array.
 For this to work, the kernel must support the necessary change.
-Various types of growth may be added during 2.6 development, possibly
+Various types of growth are being added during 2.6 development,
 including restructuring a raid5 array to have more active devices.
 
 Currently the only support available is to
@@ -1352,11 +1397,13 @@ Currently the only support available is to
 change the "size" attribute
 for RAID1, RAID5 and RAID6.
 .IP \(bu 4
-change the "raid-disks" attribute of RAID1.
+increase the "raid-disks" attribute of RAID1 and RAID5.
 .IP \(bu 4
-add a write-intent bitmap to a RAID1 array.
+add a write-intent bitmap to any array which support these bitmaps, or
+remove a write-intent bitmap from such an array.
 .PP
 
+.SS SIZE CHANGES
 Normally when an array is built the "size" it taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a
 time, removed and replaced with larger drives, then you could have an
@@ -1369,6 +1416,8 @@ are synchronised.
 Note that when an array changes size, any filesystem that may be
 stored in the array will not automatically grow to use the space.  The
 filesystem will need to be explicitly told to use the extra space.
+
+.SS RAID-DEVICES CHANGES
 
 A RAID1 array can work with any number of devices from 1 upwards
 (though 1 is not very useful).  There may be times which you want to
@@ -1383,8 +1432,28 @@ devices that which were in those slots must be failed and removed.
 When the number of devices is increased, any hot spares that are
 present will be activated immediately.
 
-A write-intent bitmap can be added to, or remove from, an active RAID1
-array.  Either internal bitmap, of bitmaps stored in a separate file
+Increasing the number of active devices in a RAID5 is much more
+effort.  Every block in the array will need to be read and written
+back to a new location.  From 2.6.17, the Linux Kernel is able to do
+this safely, including restart and interrupted "reshape".
+
+When relocating the first few stripes on a raid5, it is not possible
+to keep the data on disk completely consistent and crash-proof.  To
+provide the required safety, mdadm disables writes to the array while
+this "critical section" is reshaped, and takes a backup of the data
+that is in that section.  This backup is normally stored in any spare
+devices that the array has, however it can also be stored in a
+separate file specified with the
+.B --backup-file
+option.  If this option is used, and the system does crash during the
+critical period, the same file must be passed to
+.B --assemble
+to restore the backup and reassemble the array.
+
+.SS BITMAP CHANGES
+
+A write-intent bitmap can be added to, or removed from, an active
+array.  Either internal bitmaps, or bitmaps stored in a separate file
 can be added.  Note that if you add a bitmap stored in a file which is
 in a filesystem that is on the raid array being affected, the system
 will deadlock.  The bitmap must be on a separate filesystem.
@@ -1398,7 +1467,7 @@ one, and will provide brief information about the device.
 
 .B "  mdadm --assemble --scan"
 .br
-This will assemble and start all arrays listed in the standard confile
+This will assemble and start all arrays listed in the standard config file
 file.  This command will typically go in a system startup file.
 
 .B "  mdadm --stop --scan"
@@ -1431,7 +1500,7 @@ contain unwanted detail.
 .br
 .B "  mdadm --examine --scan --config=mdadm.conf >> mdadm.conf"
 .ber
-This will find what arrays could be assembled from existign IDE and
+This will find what arrays could be assembled from existing IDE and
 SCSI whole drives (not partitions) and store the information is the
 format of a config file.
 This file is very likely to contain unwanted detail, particularly
@@ -1466,7 +1535,7 @@ pid of mdadm daemon to
 
 .B "  mdadm --create --help"
 .br
-Providew help about the Create mode.
+Provide help about the Create mode.
 
 .B "  mdadm --config --help"
 .br
@@ -1481,8 +1550,8 @@ Provide general help.
 
 .SS /proc/mdstat
 
-If you're using the 
-.B /proc 
+If you're using the
+.B /proc
 filesystem,
 .B /proc/mdstat
 lists all active md devices with information about them.
@@ -1561,7 +1630,7 @@ http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
 '''http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
 '''.UE
 .PP
-The lastest version of
+The latest version of
 .I mdadm
 should always be available from
 .IP

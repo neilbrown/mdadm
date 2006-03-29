@@ -13,6 +13,7 @@ Changes Prior to 2.4 release
     -   Report reshape information in --detail
     -   Handle symlinks in /dev better
     -   Fix mess in --detail output which a device is missing.
+    -   Manpage tidyup
 
 Changes Prior to 2.3.1 release
     -   Fixed -O2 compile so I could make and RPM.

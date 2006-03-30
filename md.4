@@ -23,7 +23,7 @@ supports RAID levels
 If some number of underlying devices fails while using one of these
 levels, the array will continue to function; this number is one for
 RAID levels 4 and 5, two for RAID level 6, and all but one (N-1) for
-RAID level 1, and dependant of configuration for level 10.
+RAID level 1, and dependant on configuration for level 10.
 .PP
 .B md
 also supports a number of pseudo RAID (non-redundant) configurations
@@ -61,7 +61,7 @@ and 12K from the end of the device, on a 4K boundary, though
 variations can be stored at the start of the device (version 1.1) or 4K from
 the start of the device (version 1.2).
 This superblock format stores multibyte data in a
-processor-independant format and has supports upto hundreds of
+processor-independent format and has supports up to hundreds of
 component devices (version 0.90 only supports 28).
 
 The superblock contains, among other things:
@@ -101,7 +101,8 @@ a MULTIPATH array with no superblock makes sense.
 RAID1
 In some configurations it might be desired to create a raid1
 configuration that does use a superblock, and to maintain the state of
-the array elsewhere.  While not encouraged, this is supported.
+the array elsewhere.  While not encouraged for general us, it does
+have special-purpose uses and is supported.
 
 .SS LINEAR
 
@@ -255,7 +256,7 @@ the data in the component device.
 The FAULTY module may be requested to simulate faults to allow testing
 of other md levels or of filesystems.  Faults can be chosen to trigger
 on read requests or write requests, and can be transient (a subsequent
-read/write at the address will probably succeed) or persistant
+read/write at the address will probably succeed) or persistent
 (subsequent read/write of the same address will fail).  Further, read
 faults can be "fixable" meaning that they persist until a write
 request at the same address.
@@ -301,12 +302,13 @@ drive) when it is restarted after an unclean shutdown, it cannot
 recalculate parity, and so it is possible that data might be
 undetectably corrupted.  The 2.4 md driver
 .B does not
-alert the operator to this condition.  The 2.5 md driver will fail to
-start an array in this condition without manual intervention.
+alert the operator to this condition.  The 2.6 md driver will fail to
+start an array in this condition without manual intervention, though
+this behaviour can be over-ridden by a kernel parameter.
 
 .SS RECOVERY
 
-If the md driver detects any error on a device in a RAID1, RAID4,
+If the md driver detects a write error on a device in a RAID1, RAID4,
 RAID5, RAID6, or RAID10 array, it immediately disables that device
 (marking it as faulty) and continues operation on the remaining
 devices.  If there is a spare drive, the driver will start recreating
@@ -314,6 +316,14 @@ on one of the spare drives the data what was on that failed drive,
 either by copying a working drive in a RAID1 configuration, or by
 doing calculations with the parity block on RAID4, RAID5 or RAID6, or
 by finding a copying originals for RAID10.
+
+In kernels prior to about 2.6.15, a read error would cause the same
+effect as a write error.  In later kernels, a read-error will instead
+cause md to attempt a recovery by overwriting the bad block. i.e. it
+will find the correct data from elsewhere, write it over the block
+that failed, and then try to read it back again.  If either the write
+or the re-read fail, md will treat the error the same way that a write
+error is treated and will fail the whole device.
 
 While this recovery process is happening, the md driver will monitor
 accesses to the array and will slow down the rate of recovery if other
@@ -352,17 +362,17 @@ causing an enormous recovery cost.
 The intent log can be stored in a file on a separate device, or it can
 be stored near the superblocks of an array which has superblocks.
 
-Subsequent versions of Linux will support hot-adding of bitmaps to
-existing arrays.
+It is possible to add an intent log or an active array, or remove an
+intent log if one is present.
 
 In 2.6.13, intent bitmaps are only supported with RAID1.  Other levels
-will follow.
+with redundancy are supported from 2.6.15.
 
 .SS WRITE-BEHIND
 
 From Linux 2.6.14,
 .I md
-will support WRITE-BEHIND on RAID1 arrays.
+supports WRITE-BEHIND on RAID1 arrays.
 
 This allows certain devices in the array to be flagged as
 .IR write-mostly .
@@ -380,9 +390,121 @@ slow).  The extra latency of the remote link will not slow down normal
 operations, but the remote system will still have a reasonably
 up-to-date copy of all data.
 
+.SS RESTRIPING
+
+.IR Restriping ,
+also known as
+.IR Reshaping ,
+is the processes of re-arranging the data stored in each stripe into a
+new layout.  This might involve changing the number of devices in the
+array (so the stripes are wider) changing the chunk size (so stripes
+are deeper or shallower), or changing the arrangement of data and
+parity, possibly changing the raid level (e.g. 1 to 5 or 5 to 6).
+
+As of Linux 2.6.17, md can reshape a raid5 array to have more
+devices.  Other possibilities may follow in future kernels.
+
+During any stripe process there is a 'critical section' during which
+live data is being over-written on disk.  For the operation of
+increasing the number of drives in a raid5, this critical section
+covers the first few stripes (the number being the product of the old
+and new number of devices).  After this critical section is passed,
+data is only written to areas of the array which no longer hold live
+data - the live data has already been located away.
+
+md is not able to ensure data preservation if there is a crash
+(e.g. power failure) during the critical section.  If md is asked to
+start an array which failed during a critical section of restriping,
+it will fail to start the array.
+
+To deal with this possibility, a user-space program must
+.IP \(bu 4
+Disable writes to that section of the array (using the
+.B sysfs
+interface),
+.IP \(bu 4
+Take a copy of the data somewhere (i.e. make a backup)
+.IP \(bu 4
+Allow the process to continue and invalidate the backup and restore
+write access once the critical section is passed, and
+.IP \(bu 4
+Provide for restoring the critical data before restarting the array
+after a system crash.
+.PP
+
+.B mdadm
+version 2.4 and later will do this for growing a RAID5  array.
+
+For operations that do not change the size of the array, like simply
+increasing chunk size, or converting RAID5 to RAID6 with one extra
+device, the entire process is the critical section. In this case the
+restripe will need to progress in stages as a section is suspended,
+backed up,
+restriped, and released.  This is not yet implemented.
+
+.SS SYSFS INTERFACE
+All block devices appear as a directory in
+.I sysfs
+(usually mounted at
+.BR /sys ).
+For MD devices, this directory will contain a subdirectory called
+.B md
+which contains various files for providing access to information about
+the array.
+
+This interface is documented more fully in the file
+.B Documentation/md.txt
+which is distributed with the kernel sources.  That file should be
+consulted for full documentation.  The following are just a selection
+of attribute files that are available.
+
+.TP
+.B md/sync_speed_min
+This value, if set, overrides the system-wide setting in
+.B /proc/sys/dev/raid/speed_limit_min
+for this array only.
+Writing the value
+.B system
+to this file cause the system-wide setting to have effect.
+
+.TP
+.B md/sync_speed_max
+This is the partner of
+.B md/sync_speed_min
+and overrides
+.B /proc/sys/dev/raid/spool_limit_max
+described below.
+
+.TP
+.B md/sync_action
+This can be used to monitor and control the resync/recovery process of
+MD.
+In particular, writing "check" here will cause the array to read all
+data block and check that they are consistent (e.g. parity is correct,
+or all mirror replicas are the same).  Any discrepancies found are
+.B NOT
+corrected.
+
+A count of problems found will be stored in
+.BR md/mismatch_count .
+
+Alternately, "repair" can be written which will cause the same check
+to be performed, but any errors will be corrected.
+
+Finally, "idle" can be written to stop the check/repair process.
+
+.TP
+.B md/stripe_cache_size
+This is only available on RAID5 and RAID6.  It records the size (in
+pages per device) of the  stripe cache which is used for synchronising
+all read and write operations to the array.  The default is 128.
+Increasing this number can increase performance in some situations, at
+some cost in system memory.
+
+
 .SS KERNEL PARAMETERS
 
-The md driver recognised three different kernel parameters.
+The md driver recognised several different kernel parameters.
 .TP
 .B raid=noautodetect
 This will disable the normal detection of md arrays that happens at
@@ -390,7 +512,7 @@ boot time.  If a drive is partitioned with MS-DOS style partitions,
 then if any of the 4 main partitions has a partition type of 0xFD,
 then that partition will normally be inspected to see if it is part of
 an MD array, and if any full arrays are found, they are started.  This
-kernel paramenter disables this behaviour.
+kernel parameter disables this behaviour.
 
 .TP
 .B raid=partitionable
@@ -404,6 +526,22 @@ arrays.  The device number is listed as
 in
 .IR /proc/devices .
 
+.TP
+.B md_mod.start_ro=1
+This tells md to start all arrays in read-only mode.  This is a soft
+read-only that will automatically switch to read-write on the first
+write request.  However until that write request, nothing is written
+to any device by md, and in particular, no resync or recovery
+operation is started.
+
+.TP
+.B md_mod.start_dirty_degraded=1
+As mentioned above, md will not normally start a RAID4, RAID5, or
+RAID6 that is both dirty and degraded as this situation can imply
+hidden data loss.  This can be awkward if the root filesystem is
+affected.  Using the module parameter allows such arrays to be started
+at boot time.  It should be understood that there is a real (though
+small) risk of data corruption in this situation.
 
 .TP
 .BI md= n , dev , dev ,...

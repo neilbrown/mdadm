@@ -16,6 +16,7 @@ Changes Prior to 2.4 release
     -   Manpage tidyup
     -   Support 'bitmap=' in mdadm.conf for auto-assembling arrays with
 	write-intent bitmaps in separate files.
+    -   Updates to md.4 man page including section on RESTRIPING and SYSFS
 
 Changes Prior to 2.3.1 release
     -   Fixed -O2 compile so I could make and RPM.

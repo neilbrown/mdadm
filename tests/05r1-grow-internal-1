@@ -7,7 +7,6 @@ check wait
 testdev $md0 1 $mdsize1 1
 
 #mdadm -E $dev1
-sh -i < /dev/tty > /dev/tty 2>&1
 mdadm --grow $md0 --bitmap=internal --delay=1
 dirty1=`mdadm -X $dev2 | sed -n -e 's/.*Bitmap.* \([0-9]*\) dirty.*/\1/p'`
 sleep 4

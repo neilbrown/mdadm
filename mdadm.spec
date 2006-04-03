@@ -1,9 +1,8 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     2.4_pre1
+Version:     2.4
 Release:     1
-#Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
-Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-2.4-pre1.tgz
+Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
 URL:         http://www.cse.unsw.edu.au/~neilb/source/mdadm/
 License:     GPL
 Group:       Utilities/System
@@ -20,7 +19,7 @@ configuration file (that a config file can be used to help with
 some common tasks).
 
 %prep
-%setup -q -n mdadm-2.4-pre1
+%setup -q
 # we want to install in /sbin, not /usr/sbin...
 %define _exec_prefix %{nil}
 

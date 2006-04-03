@@ -341,6 +341,8 @@ int Manage_subdevs(char *devname, int fd,
 						break;
 					}
 			}
+			if (dv->writemostly)
+				disc.state |= (1 << MD_DISK_WRITEMOSTLY);
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
 					dv->devname, j, strerror(errno));

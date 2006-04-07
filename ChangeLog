@@ -1,3 +1,11 @@
+Changes Prior to 2.4.1 release
+    -   Honour --write-mostly when adding to an array without persistent
+        superblocks.
+    -   Fix alignment problem in version-1 superblocks.
+	NOTE: This is an incompatable change affecting raid5 reshape.
+	If you want to reshape a raid5 using version-1 superblocks,
+	use 2.6.17-rc2 or later, and mdadm-2.4.1 or later.
+
 Changes Prior to 2.4 release
     -   Rewrite 'reshape' support including performing a backup
 	of the critical region for a raid5 growth, and restoring that

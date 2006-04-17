@@ -478,11 +478,15 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	*(__u32*)(sb->device_uuid+12) = random();
 
     
-	if (ioctl(fd, BLKGETSIZE, &size))
+	if (ioctl(fd, BLKGETSIZE, &size)) {
+		close(fd);
 		return 1;
+	}
 
-	if (size < 24)
+	if (size < 24) {
+		close(fd);
 		return 2;
+	}
 
 
 	/*
@@ -522,6 +526,7 @@ static int write_init_super1(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	rv = store_super1(fd, sb);
 	if (rv)
 		fprintf(stderr, Name ": failed to write superblock to %s\n", devname);
+	close(fd);
 	return rv;
 }
 

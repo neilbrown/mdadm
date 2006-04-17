@@ -537,11 +537,15 @@ struct supertype *super_by_version(int vers, int minor)
 {
 	struct supertype *st = malloc(sizeof(*st));
 	if (!st) return st;
-	if (vers == 0)
+	if (vers == 0) {
 		st->ss = &super0;
+		st->max_devs = MD_SB_DISKS;
+	}
 
-	if (vers == 1)
+	if (vers == 1) {
 		st->ss = &super1;
+		st->max_devs = 384;
+	}
 	st->minor_version = minor;
 	return st;
 }

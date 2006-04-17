@@ -121,7 +121,7 @@ static void examine_super1(void *sbv)
 	struct mdp_superblock_1 *sb = sbv;
 	time_t atime;
 	int d;
-	int spares, faulty;
+	int faulty;
 	int i;
 	char *c;
 
@@ -198,15 +198,12 @@ static void examine_super1(void *sbv)
 		else if (cnt == 1) printf("u");
 		else printf ("_");
 	}
-	spares = faulty = 0;
+	faulty = 0;
 	for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
 		int role = __le16_to_cpu(sb->dev_roles[i]);
-		switch (role) {
-		case 0xFFFF: spares++; break;
-		case 0xFFFE: faulty++;
-		}
+		if (role == 0xFFFE)
+			faulty++;
 	}
-	if (spares) printf(" %d spares", spares);
 	if (faulty) printf(" %d failed", faulty);
 	printf("\n");
 }
@@ -441,7 +438,7 @@ static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
 static int store_super1(struct supertype *st, int fd, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
-	long long sb_offset;
+	unsigned long long sb_offset;
 	int sbsize;
 	long size;
 
@@ -467,7 +464,7 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 		sb_offset &= ~(4*2-1);
 		break;
 	case 1:
-		sb->super_offset = __cpu_to_le64(0);
+		sb_offset = 0;
 		break;
 	case 2:
 		sb_offset = 4*2;
@@ -478,14 +475,14 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 
 
     
-	if (sb_offset != (__le64_to_cpu(sb->super_offset) << 9 ) &&
-	    0 != (__le64_to_cpu(sb->super_offset) << 9 )
+	if (sb_offset != __le64_to_cpu(sb->super_offset) &&
+	    0 != __le64_to_cpu(sb->super_offset)
 		) {
 		fprintf(stderr, Name ": internal error - sb_offset is wrong\n");
 		abort();
 	}
 
-	if (lseek64(fd, sb_offset, 0)< 0LL)
+	if (lseek64(fd, sb_offset << 9, 0)< 0LL)
 		return 3;
 
 	sbsize = sizeof(*sb) + 2 * __le32_to_cpu(sb->max_dev);

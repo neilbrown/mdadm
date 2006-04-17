@@ -778,8 +778,8 @@ int main(int argc, char *argv[])
 
 	if (raiddisks) {
 		if (raiddisks > max_disks) {
-			fprintf(stderr, Name ": invalid number of raid devices: %s\n",
-				optarg);
+			fprintf(stderr, Name ": invalid number of raid devices: %d\n",
+				raiddisks);
 			exit(2);
 		}
 		if (raiddisks == 1 &&  !force && level != -5) {
@@ -791,8 +791,8 @@ int main(int argc, char *argv[])
 	}
 	if (sparedisks) {
 		if ( sparedisks > max_disks - raiddisks) {
-			fprintf(stderr, Name ": invalid number of spare-devices: %s\n",
-				optarg);
+			fprintf(stderr, Name ": invalid number of spare-devices: %d\n",
+				sparedisks);
 			exit(2);
 		}
 	}

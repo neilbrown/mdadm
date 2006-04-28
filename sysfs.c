@@ -69,7 +69,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 			sprintf(sra->name, "md%d", minor(stb.st_rdev));
 		else
 			sprintf(sra->name, "md_d%d",
-				minor(stb.st_rdev)/16);
+				minor(stb.st_rdev)>>MdpMinorShift);
 	} else {
 		if (devnum >= 0)
 			sprintf(sra->name, "md%d", devnum);
@@ -206,7 +206,7 @@ unsigned long long get_component_size(int fd)
 			minor(stb.st_rdev));
 	else
 		sprintf(fname, "/sys/block/md_d%d/md/component_size",
-			minor(stb.st_rdev)/16);
+			minor(stb.st_rdev)>>MdpMinorShift);
 	fd = open(fname, O_RDONLY);
 	if (fd < 0)
 		return 0;

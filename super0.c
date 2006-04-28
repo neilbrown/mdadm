@@ -317,6 +317,9 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 
 static int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose)
 {
+	/* NOTE: for 'assemble' and 'force' we need to return non-zero if any change was made.
+	 * For others, the return value is ignored.
+	 */
 	int rv = 0;
 	mdp_super_t *sb = sbv;
 	if (strcmp(update, "sparc2.2")==0 ) {
@@ -367,18 +370,25 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 				sb->disks[i].state = 0;
 	}
 	if (strcmp(update, "force")==0) {
+		__u32 ehi = sb->events_hi, elo = sb->events_lo;
 		sb->events_hi = (info->events>>32) & 0xFFFFFFFF;
 		sb->events_lo = (info->events) & 0xFFFFFFFF;
-		if (sb->level == 5 || sb->level == 4 || sb->level == 6)
+		if (sb->events_hi != ehi ||
+		    sb->events_lo != elo)
+			rv = 1;
+		if ((sb->level == 5 || sb->level == 4 || sb->level == 6) &&
+		    (sb->state & (1 << MD_SB_CLEAN)) == 0) {
 			/* need to force clean */
 			sb->state |= (1 << MD_SB_CLEAN);
+			rv = 1;
+		}
 	}
 	if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
 		int wonly = sb->disks[d].state & (1<<MD_DISK_WRITEMOSTLY);
-		sb->disks[d].state &= ~(1<<MD_DISK_WRITEMOSTLY);
-		if (sb->disks[d].state != info->disk.state) {
-			sb->disks[d].state = info->disk.state & wonly;
+		if ((sb->disks[d].state & ~(1<<MD_DISK_WRITEMOSTLY))
+		    != info->disk.state) {
+			sb->disks[d].state = info->disk.state | wonly;
 			rv = 1;
 		}
 	}

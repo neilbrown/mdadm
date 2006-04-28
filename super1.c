@@ -423,14 +423,21 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 
 static int update_super1(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose)
 {
+	/* NOTE: for 'assemble' and 'force' we need to return non-zero if any change was made.
+	 * For others, the return value is ignored.
+	 */
 	int rv = 0;
 	struct mdp_superblock_1 *sb = sbv;
 
 	if (strcmp(update, "force")==0) {
+		if (sb->events != __cpu_to_le64(info->events))
+			rv = 1;
 		sb->events = __cpu_to_le64(info->events);
 		switch(__le32_to_cpu(sb->level)) {
 		case 5: case 4: case 6:
 			/* need to force clean */
+			if (sb->resync_offset != ~0ULL)
+				rv = 1;
 			sb->resync_offset = ~0ULL;
 		}
 	}

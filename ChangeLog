@@ -1,6 +1,8 @@
 Changes Prior to this release
     -   Support 'mailfrom' line in mdadm.conf so the From: line in alert
 	emails can be explicitly set.
+    -   Arrange that SparesMissing (which is similar in import to
+	DegradedArray) generates an Email.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

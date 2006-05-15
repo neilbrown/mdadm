@@ -1332,7 +1332,7 @@ detects that it has fewer that this number when it first sees the
 array, it will report a
 .B SparesMissing
 message.
-(syslog priority: Info)
+(syslog priority: Warning)
 
 .TP
 .B TestMessage
@@ -1346,6 +1346,7 @@ Only
 .B Fail ,
 .B FailSpare ,
 .B DegradedArray ,
+.B SparesMissing ,
 and
 .B TestMessage
 cause Email to be sent.  All events cause the program to be run.

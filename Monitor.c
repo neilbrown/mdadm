@@ -489,6 +489,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 	if (mailaddr && 
 	    (strncmp(event, "Fail", 4)==0 || 
 	     strncmp(event, "Test", 4)==0 ||
+	     strncmp(event, "Spares", 6)==0 ||
 	     strncmp(event, "Degrade", 7)==0)) {
 		FILE *mp = popen(Sendmail, "w");
 		if (mp) {
@@ -527,7 +528,8 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			priority = LOG_CRIT;
 		/* Good to know about, but are not failures: */
 		else if (strncmp(event, "Rebuild", 7)==0 ||
-			 strncmp(event, "MoveSpare", 9)==0)
+			 strncmp(event, "MoveSpare", 9)==0 ||
+			 strncmp(event, "Spares", 6) != 0)
 			priority = LOG_WARNING;
 		/* Everything else: */
 		else

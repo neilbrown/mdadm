@@ -370,6 +370,7 @@ extern int is_standard(char *dev, int *nump);
 extern mddev_ident_t conf_get_ident(char *conffile, char *dev);
 extern mddev_dev_t conf_get_devs(char *conffile);
 extern char *conf_get_mailaddr(char *conffile);
+extern char *conf_get_mailfrom(char *conffile);
 extern char *conf_get_program(char *conffile);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);

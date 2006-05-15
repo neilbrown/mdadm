@@ -35,8 +35,8 @@
 #include	<values.h>
 #include	<syslog.h>
 
-static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd,
-		  int dosyslog);
+static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom,
+		  char *cmd, int dosyslog);
 
 static char *percentalerts[] = { 
 	"RebuildStarted",
@@ -113,6 +113,7 @@ int Monitor(mddev_dev_t devlist,
 	} *statelist = NULL;
 	int finished = 0;
 	struct mdstat_ent *mdstat = NULL;
+	char *mailfrom = NULL;
 
 	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr(config);
@@ -120,6 +121,8 @@ int Monitor(mddev_dev_t devlist,
 			fprintf(stderr, Name ": Monitor using email address \"%s\" from config file\n",
 			       mailaddr);
 	}
+	mailfrom = conf_get_mailfrom(config);
+
 	if (!alert_cmd) {
 		alert_cmd = conf_get_program(config);
 		if (alert_cmd && ! scan)
@@ -219,12 +222,12 @@ int Monitor(mddev_dev_t devlist,
 			unsigned int i;
 
 			if (test)
-				alert("TestMessage", dev, NULL, mailaddr, alert_cmd, dosyslog);
+				alert("TestMessage", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 			fd = open(dev, O_RDONLY);
 			if (fd < 0) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, NULL,
-					      mailaddr, alert_cmd, dosyslog);
+					      mailaddr, mailfrom, alert_cmd, dosyslog);
 /*					fprintf(stderr, Name ": cannot open %s: %s\n",
 						dev, strerror(errno));
 */				st->err=1;
@@ -233,7 +236,7 @@ int Monitor(mddev_dev_t devlist,
 			if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, NULL,
-					      mailaddr, alert_cmd, dosyslog);
+					      mailaddr, mailfrom, alert_cmd, dosyslog);
 /*					fprintf(stderr, Name ": cannot get array info for %s: %s\n",
 						dev, strerror(errno));
 */				st->err=1;
@@ -244,7 +247,7 @@ int Monitor(mddev_dev_t devlist,
 				array.level != 6 && array.level != 10) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, "Wrong-Level",
-					      mailaddr, alert_cmd, dosyslog);
+					      mailaddr, mailfrom, alert_cmd, dosyslog);
 				st->err = 1;
 				close(fd);
 				continue;
@@ -281,27 +284,27 @@ int Monitor(mddev_dev_t devlist,
 			    mse &&	/* is in /proc/mdstat */
 			    mse->pattern && strchr(mse->pattern, '_') /* degraded */
 				)
-				alert("DegradedArray", dev, NULL, mailaddr, alert_cmd, dosyslog);
+				alert("DegradedArray", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 
 			if (st->utime == 0 && /* new array */
 			    st->expected_spares > 0 && 
 			    array.spare_disks < st->expected_spares) 
-				alert("SparesMissing", dev, NULL, mailaddr, alert_cmd, dosyslog);
+				alert("SparesMissing", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 			if (mse &&
 			    st->percent == -1 && 
 			    mse->percent >= 0)
-				alert("RebuildStarted", dev, NULL, mailaddr, alert_cmd, dosyslog);
+				alert("RebuildStarted", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 			if (mse &&
 			    st->percent >= 0 &&
 			    mse->percent >= 0 &&
 			    (mse->percent / 20) > (st->percent / 20))
 				alert(percentalerts[mse->percent/20],
-				      dev, NULL, mailaddr, alert_cmd, dosyslog);
+				      dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 
 			if (mse &&
 			    mse->percent == -1 &&
 			    st->percent >= 0)
-				alert("RebuildFinished", dev, NULL, mailaddr, alert_cmd, dosyslog);
+				alert("RebuildFinished", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 
 			if (mse)
 				st->percent = mse->percent;
@@ -335,19 +338,19 @@ int Monitor(mddev_dev_t devlist,
 					     ((st->devstate[i]&change)&(1<<MD_DISK_ACTIVE)) ||
 					     ((st->devstate[i]&change)&(1<<MD_DISK_SYNC)))
 						)
-						alert("Fail", dev, dv, mailaddr, alert_cmd, dosyslog);
+						alert("Fail", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
 					else if (i >= (unsigned)array.raid_disks &&
 						 (disc.major || disc.minor) &&
 						 st->devid[i] == makedev(disc.major, disc.minor) &&
 						 ((newstate&change)&(1<<MD_DISK_FAULTY))
 						)
-						alert("FailSpare", dev, dv, mailaddr, alert_cmd, dosyslog);
+						alert("FailSpare", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
 					else if (i < (unsigned)array.raid_disks &&
 						 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
 						  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||
 						  ((newstate&change)&(1<<MD_DISK_SYNC)))
 						)
-						alert("SpareActive", dev, dv, mailaddr, alert_cmd, dosyslog);
+						alert("SpareActive", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
 				}
 				st->devstate[i] = disc.state;
 				st->devid[i] = makedev(disc.major, disc.minor);
@@ -393,7 +396,7 @@ int Monitor(mddev_dev_t devlist,
 					st->spare_group = NULL;
 					st->expected_spares = -1;
 					statelist = st;
-					alert("NewArray", st->devname, NULL, mailaddr, alert_cmd, dosyslog);
+					alert("NewArray", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 					new_found = 1;
 				}
 		}
@@ -434,7 +437,7 @@ int Monitor(mddev_dev_t devlist,
 								  (unsigned long)dev) == 0) {
 								if (ioctl(fd1, HOT_ADD_DISK,
 									  (unsigned long)dev) == 0) {
-									alert("MoveSpare", st->devname, st2->devname, mailaddr, alert_cmd, dosyslog);
+									alert("MoveSpare", st->devname, st2->devname, mailaddr, mailfrom, alert_cmd, dosyslog);
 									close(fd1);
 									close(fd2);
 									break;
@@ -460,7 +463,7 @@ int Monitor(mddev_dev_t devlist,
 }
 
 
-static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd,
+static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom, char *cmd,
 		  int dosyslog)
 {
 	int priority;
@@ -492,7 +495,10 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *cmd,
 			char hname[256];
 			gethostname(hname, sizeof(hname));
 			signal(SIGPIPE, SIG_IGN);
-			fprintf(mp, "From: " Name " monitoring <root>\n");
+			if (mailfrom)
+				fprintf(mp, "From: %s\n", mailfrom);
+			else
+				fprintf(mp, "From: " Name " monitoring <root>\n");
 			fprintf(mp, "To: %s\n", mailaddr);
 			fprintf(mp, "Subject: %s event on %s:%s\n\n", event, dev, hname);
 

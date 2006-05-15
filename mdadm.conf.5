@@ -182,6 +182,20 @@ line and it should have only one address.
 
 
 .TP
+.B MAILFROM
+The
+.B mailfrom
+line (which can only be abbreviate at leat 5 characters) gives an
+address to appear in the "From" address for alert mails.  This can be
+useful if you want to explicitly set a domain, as the default from
+address is "root" with no domain.  All words on this line are
+catenated with spaces to form the address.
+
+Note that this value cannot be set via the
+.I mdadm
+commandline.  It is only settable via the config file.
+
+.TP
 .B PROGRAM
 The
 .B program

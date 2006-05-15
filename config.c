@@ -77,7 +77,7 @@
 char DefaultConfFile[] = CONFFILE;
 char DefaultAltConfFile[] = CONFFILE2;
 
-char *keywords[] = { "device", "array", "mailaddr", "program", NULL };
+char *keywords[] = { "device", "array", "mailaddr", "program", "mailfrom", NULL };
 
 /*
  * match_keyword returns an index into the keywords array, or -1 for no match
@@ -423,6 +423,23 @@ void mailline(char *line)
 	}
 }
 
+static char *alert_mail_from = NULL;
+void mailfromline(char *line)
+{
+	char *w;
+
+	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+		if (alert_mail_from == NULL)
+			alert_mail_from = strdup(w);
+		else {
+			char *t= NULL;
+			asprintf(&t, "%s %s", alert_mail_from, w);
+			free(alert_mail_from);
+			alert_mail_from = t;
+		}
+	}
+}
+
 
 static char *alert_program = NULL;
 void programline(char *line)
@@ -493,6 +510,9 @@ void load_conffile(char *conffile)
 		case 3: /* PROGRAM */
 			programline(line);
 			break;
+		case 4: /* MAILFROM */
+			mailfromline(line);
+			break;
 		default:
 			fprintf(stderr, Name ": Unknown keyword %s\n", line);
 		}
@@ -508,6 +528,12 @@ char *conf_get_mailaddr(char *conffile)
 {
 	load_conffile(conffile);
 	return alert_email;
+}
+
+char *conf_get_mailfrom(char *conffile)
+{
+	load_conffile(conffile);
+	return alert_mail_from;
 }
 
 char *conf_get_program(char *conffile)

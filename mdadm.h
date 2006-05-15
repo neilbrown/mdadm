@@ -27,7 +27,7 @@
  *           Australia
  */
 
-#define	__USE_LARGEFILE64
+#define	_GNU_SOURCE
 #include	<unistd.h>
 #ifndef __dietlibc__
 extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
@@ -292,7 +292,6 @@ struct stat64;
   struct FTW {};
 # define FTW_PHYS 1
 #else
-# define  __USE_XOPEN_EXTENDED
 # include <ftw.h>
 # ifdef __dietlibc__
 #  define FTW_PHYS 1

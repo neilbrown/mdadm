@@ -273,7 +273,7 @@ void arrayline(char *line)
 	mis.super_minor = UnSet;
 	mis.level = UnSet;
 	mis.raid_disks = UnSet;
-	mis.spare_disks = UnSet;
+	mis.spare_disks = 0;
 	mis.devices = NULL;
 	mis.devname = NULL;
 	mis.spare_group = NULL;

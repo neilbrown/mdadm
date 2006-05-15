@@ -18,8 +18,6 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include "mdadm.h"
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
@@ -118,10 +116,17 @@ unsigned long long bitmap_bits(unsigned long long array_size,
 
 bitmap_info_t *bitmap_fd_read(int fd, int brief)
 {
+	/* Note: fd might be open O_DIRECT, so we must be
+	 * careful to align reads properly
+	 */
 	unsigned long long total_bits = 0, read_bits = 0, dirty_bits = 0;
 	bitmap_info_t *info;
-	char buf[512];
-	int n;
+	char *buf, *unaligned;
+	int n, skip;
+
+	unaligned = malloc(8192*2);
+	buf = (char*) ((unsigned long)unaligned | 8191)+1;
+	n = read(fd, buf, 8192);
 
 	info = malloc(sizeof(*info));
 	if (info == NULL) {
@@ -135,12 +140,15 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 		return NULL;
 	}
 
-	if (read(fd, &info->sb, sizeof(info->sb)) != sizeof(info->sb)) {
+	if (n < sizeof(info->sb)) {
 		fprintf(stderr, Name ": failed to read superblock of bitmap "
 			"file: %s\n", strerror(errno));
 		free(info);
+		free(unaligned);
 		return NULL;
 	}
+	memcpy(&info->sb, buf, sizeof(info->sb));
+	skip = sizeof(info->sb);
 
 	sb_le_to_cpu(&info->sb); /* convert superblock to CPU byte ordering */
 	
@@ -156,18 +164,22 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	 */
 	total_bits = bitmap_bits(info->sb.sync_size, info->sb.chunksize);
 
-	while ((n = read(fd, buf, sizeof(buf))) > 0) {
+	while(read_bits < total_bits) {
 		unsigned long long remaining = total_bits - read_bits;
 
-		if (remaining > sizeof(buf) * 8) /* we want the full buffer */
-			remaining = sizeof(buf) * 8;
-		if (remaining > n * 8) /* the file is truncated */
-			remaining = n * 8;
-		dirty_bits += count_dirty_bits(buf, remaining);
+		if (n == 0) {
+			n = read(fd, buf, 8192);
+			skip = 0;
+			if (n <= 0)
+				break;
+		}
+		if (remaining > (n-skip) * 8) /* we want the full buffer */
+			remaining = (n-skip) * 8;
+
+		dirty_bits += count_dirty_bits(buf+skip, remaining);
 
 		read_bits += remaining;
-		if (read_bits >= total_bits) /* we've got what we want */
-			break;
+		n = 0;
 	}
 
 	if (read_bits < total_bits) { /* file truncated... */
@@ -189,14 +201,18 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 	struct stat stb;
 	struct supertype *st = *stp;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, Name ": failed to open bitmap file %s: %s\n",
-				filename, strerror(errno));
+	if (stat(filename, &stb) < 0) {
+		fprintf(stderr, Name ": failed to find file %s: %s\n",
+			filename, strerror(errno));
 		return NULL;
 	}
-	fstat(fd, &stb);
 	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
+		fd = open(filename, O_RDONLY);
+		if (fd < 0) {
+			fprintf(stderr, Name ": failed to open bitmap file %s: %s\n",
+				filename, strerror(errno));
+			return NULL;
+		}
 		/* block device, so we are probably after an internal bitmap */
 		if (!st) st = guess_super(fd);
 		if (!st) {
@@ -207,6 +223,13 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 		}
 		ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
 		*stp = st;
+	} else {
+		fd = open(filename, O_RDONLY|O_DIRECT);
+		if (fd < 0) {
+			fprintf(stderr, Name ": failed to open bitmap file %s: %s\n",
+				filename, strerror(errno));
+			return NULL;
+		}
 	}
 
 	info = bitmap_fd_read(fd, brief);

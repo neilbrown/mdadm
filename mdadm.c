@@ -75,7 +75,8 @@ int main(int argc, char *argv[])
 	int force = 0;
 	int test = 0;
 	int assume_clean = 0;
-	int autof = 0; /* -2 means create device based on name:
+	int autof = 0; /* -3 means don't create anything,
+			* -2 means create device based on name:
 			*    if it ends mdN, then non-partitioned array N
 			*    if it ends dN, then partitions array N
 			* -1 means create non-partitioned, choose N
@@ -482,39 +483,7 @@ int main(int argc, char *argv[])
 		case O(CREATE,'a'):
 		case O(BUILD,'a'):
 		case O(ASSEMBLE,'a'): /* auto-creation of device node */
-			if (optarg == NULL)
-				autof = -2;
-			else if (strcasecmp(optarg,"no")==0)
-				autof = 0;
-			else if (strcasecmp(optarg,"yes")==0)
-				autof = -2;
-			else if (strcasecmp(optarg,"md")==0)
-				autof = -1;
-			else {
-				/* There might be digits, and maybe a hypen, at the end */
-				char *e = optarg + strlen(optarg);
-				int num = 4;
-				int len;
-				while (e > optarg && isdigit(e[-1]))
-					e--;
-				if (*e) {
-					num = atoi(e);
-					if (num <= 0) num = 1;
-				}
-				if (e > optarg && e[-1] == '-')
-					e--;
-				len = e - optarg;
-				if ((len == 3 && strncasecmp(optarg,"mdp",3)==0) ||
-				    (len == 1 && strncasecmp(optarg,"p",1)==0) ||
-				    (len >= 4 && strncasecmp(optarg,"part",4)==0))
-					autof = num;
-				else {
-					fprintf(stderr, Name ": --auto flag arg of \"%s\" unrecognised: use no,yes,md,mdp,part\n"
-						"        optionally followed by a number.\n",
-						optarg);
-					exit(2);
-				}
-			}
+			autof = parse_auto(optarg, "--auto flag");
 			continue;
 
 		case O(BUILD,'f'): /* force honouring '-n 1' */

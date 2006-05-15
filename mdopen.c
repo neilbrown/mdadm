@@ -82,7 +82,7 @@ void make_parts(char *dev, int cnt)
  * If it exists and is not an md device, is not the right type (partitioned or not),
  * or is currently in-use, we remove the device, but remember the owner and mode.
  * If it now doesn't exist, we find a new md array and create the device.
- * Default ownership is user=0, group=0 perm=0600
+ * Default ownership/mode comes from config file.
  */
 int open_mddev(char *dev, int autof)
 {
@@ -93,8 +93,12 @@ int open_mddev(char *dev, int autof)
 	int must_remove = 0;
 	struct mdstat_ent *mdlist;
 	int num;
+	struct createinfo *ci = conf_get_create_info(NULL);
 
-	if (autof) {
+	if (autof == 0)
+		autof = ci->autof;
+
+	if (autof && autof != -3) {
 		/* autof is set, so we need to check that the name is ok,
 		 * and possibly create one if not
 		 */
@@ -211,6 +215,11 @@ int open_mddev(char *dev, int autof)
 				if (chown(dev, stb.st_uid, stb.st_gid))
 					perror("chown");
 				if (chmod(dev, stb.st_mode & 07777))
+					perror("chmod");
+			} else {
+				if (chown(dev, ci->uid, ci->gid))
+					perror("chown");
+				if (chmod(dev, ci->mode))
 					perror("chmod");
 			}
 			stat(dev, &stb);

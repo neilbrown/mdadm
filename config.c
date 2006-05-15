@@ -33,6 +33,8 @@
 #include	<glob.h>
 #include	<fnmatch.h>
 #include	<ctype.h>
+#include	<pwd.h>
+#include	<grp.h>
 
 /*
  * Read the config file
@@ -77,7 +79,10 @@
 char DefaultConfFile[] = CONFFILE;
 char DefaultAltConfFile[] = CONFFILE2;
 
-char *keywords[] = { "device", "array", "mailaddr", "program", "mailfrom", NULL };
+char *keywords[] = { "devices", "array",
+		     "mailaddr", "program", "mailfrom",
+		     "create",
+		     NULL };
 
 /*
  * match_keyword returns an index into the keywords array, or -1 for no match
@@ -240,6 +245,112 @@ mddev_dev_t load_partitions(void)
 	return rv;
 }
 
+struct createinfo createinfo = {
+#ifdef DEBIAN
+	.gid = 6, /* disk */
+	.mode = 0660,
+#else
+	.mode = 0600,
+#endif
+};
+
+int parse_auto(char *str, char *msg)
+{
+	int autof;
+	if (str == NULL || *str == 0)
+		autof = -2;
+	else if (strcasecmp(str,"no")==0)
+		autof = -3;
+	else if (strcasecmp(str,"yes")==0)
+		autof = -2;
+	else if (strcasecmp(str,"md")==0)
+		autof = -1;
+	else {
+		/* There might be digits, and maybe a hypen, at the end */
+		char *e = str + strlen(str);
+		int num = 4;
+		int len;
+		while (e > str && isdigit(e[-1]))
+			e--;
+		if (*e) {
+			num = atoi(e);
+			if (num <= 0) num = 1;
+		}
+		if (e > str && e[-1] == '-')
+			e--;
+		len = e - str;
+		if ((len == 3 && strncasecmp(str,"mdp",3)==0) ||
+		    (len == 1 && strncasecmp(str,"p",1)==0) ||
+		    (len >= 4 && strncasecmp(str,"part",4)==0))
+			autof = num;
+		else {
+			fprintf(stderr, Name ": %s arg of \"%s\" unrecognised: use no,yes,md,mdp,part\n"
+				"        optionally followed by a number.\n",
+				msg, str);
+			exit(2);
+		}
+	}
+	return autof;
+}
+static void createline(char *line)
+{
+	char *w;
+	char *ep;
+
+	for (w=dl_next(line); w!=line; w=dl_next(w)) {
+		if (strncasecmp(w, "auto=", 5) == 0)
+			createinfo.autof = parse_auto(w+5, "auto=");
+		else if (strncasecmp(w, "owner=", 6) == 0) {
+			if (w[6] == 0) {
+				fprintf(stderr, Name ": missing owner name\n");
+				continue;
+			}
+			createinfo.uid = strtoul(w+6, &ep, 10);
+			if (*ep != 0) {
+#ifndef STATIC
+				struct passwd *pw;
+				/* must be a name */
+				pw = getpwnam(w+6);
+				if (pw)
+					createinfo.uid = pw->pw_uid;
+				else
+#endif /* STATIC */
+					fprintf(stderr, Name ": CREATE user %s not found\n", w+6);
+			}
+		} else if (strncasecmp(w, "group=", 6) == 0) {
+			if (w[6] == 0) {
+				fprintf(stderr, Name ": missing group name\n");
+				continue;
+			}
+			createinfo.gid = strtoul(w+6, &ep, 10);
+			if (*ep != 0) {
+#ifndef STATIC
+				struct group *gr;
+				/* must be a name */
+				gr = getgrnam(w+6);
+				if (gr)
+					createinfo.gid = gr->gr_gid;
+				else
+#endif /* STATIC */
+					fprintf(stderr, Name ": CREATE group %s not found\n", w+6);
+			}
+		} else if (strncasecmp(w, "mode=", 5) == 0) {
+			if (w[5] == 0) {
+				fprintf(stderr, Name ": missing CREATE mode\n");
+				continue;
+			}
+			createinfo.mode = strtoul(w+5, &ep, 8);
+			if (*ep != 0) {
+				createinfo.mode = 0600;
+				fprintf(stderr, Name ": unrecognised CREATE mode %s\n",
+					w+5);
+			}
+		} else {
+			fprintf(stderr, Name ": unrecognised word on CREATE line: %s\n",
+				w);
+		}
+	}
+}
 
 void devline(char *line) 
 {
@@ -364,32 +475,7 @@ void arrayline(char *line)
 				fprintf(stderr, Name ": metadata format %s unknown, ignored.\n", w+9);
 		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
 			/* whether to create device special files as needed */
-			if (strcasecmp(w+5, "no")==0)
-				mis.autof = 0;
-			else if (strcasecmp(w+5,"yes")==0 || strcasecmp(w+5,"md")==0)
-				mis.autof = -1;
-			else {
-				/* There might be digits, and maybe a hyphen, at the end */
-				char *e = w+5 + strlen(w+5);
-				int num = 4;
-				int len;
-				while (e > w+5 && isdigit(e[-1]))
-					e--;
-				if (*e) {
-					num = atoi(e);
-					if (num <= 0) num = 1;
-				}
-				if (e > w+5 && e[-1] == '-')
-					e--;
-				len = e - (w+5);
-				if ((len == 3 && strncasecmp(w+5,"mdp",3)==0) ||
-				    (len == 1 && strncasecmp(w+5,"p",1)==0) ||
-				    (len >= 4 && strncasecmp(w+5,"part",4)==0))
-					mis.autof = num;
-				else 
-					fprintf(stderr, Name ": auto type of \"%s\" ignored for %s\n",
-						w+5, mis.devname?mis.devname:"unlabeled-array");
-			}
+			mis.autof = parse_auto(w+5, "auto type");
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
 				w);
@@ -513,6 +599,9 @@ void load_conffile(char *conffile)
 		case 4: /* MAILFROM */
 			mailfromline(line);
 			break;
+		case 5: /* CREATE */
+			createline(line);
+			break;
 		default:
 			fprintf(stderr, Name ": Unknown keyword %s\n", line);
 		}
@@ -542,6 +631,11 @@ char *conf_get_program(char *conffile)
 	return alert_program;
 }
 
+struct createinfo *conf_get_create_info(char *conffile)
+{
+	load_conffile(conffile);
+	return &createinfo;
+}
 
 mddev_ident_t conf_get_ident(char *conffile, char *dev)
 {

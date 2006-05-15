@@ -40,10 +40,17 @@ KLIBC_GCC = gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIB
 CC = $(CROSS_COMPILE)gcc
 CXFLAGS = -ggdb
 CWFLAGS = -Wall -Werror -Wstrict-prototypes
+
+ifdef DEBIAN
+CPPFLAGS= -DDEBIAN
+else
+CPPFLAGS=
+endif
+
 SYSCONFDIR = /etc
 CONFFILE = $(SYSCONFDIR)/mdadm.conf
 MAILCMD =/usr/sbin/sendmail -t
-CFLAGS = $(CWFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
+CFLAGS = $(CWFLAGS) $(STATIC) $(CPPFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static
@@ -76,11 +83,14 @@ all : mdadm mdadm.man md.man mdadm.conf.man
 everything: all mdadm.static mdadm.uclibc swap_super test_stripe  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
 # mdadm.tcc doesn't work..
 
-mdadm : $(OBJS)
-	$(CC) $(LDFLAGS) -o mdadm $^
+mdadm : rmconf $(OBJS)
+	$(CC) $(LDFLAGS) -o mdadm $(OBJS)
 
-mdadm.static : $(OBJS)
-	$(CC) $(LDFLAGS) -static -o mdadm.static $^
+mdadm.static : STATIC=-DSTATIC
+mdadm.static : rmconf $(OBJS)
+	$(CC) $(LDFLAGS) -DSTATIC -static -o mdadm.static $(OBJS)
+rmconf:
+	rm -f config.o
 
 mdadm.tcc : $(SRCS) mdadm.h
 	$(TCC) -o mdadm.tcc $(SRCS)

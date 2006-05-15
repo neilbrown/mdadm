@@ -8,6 +8,8 @@ Changes Prior to this release
     -   When creating a bitmap file, choose a chunksize to limit number
 	of bitmap chunks to 2 million.  More than this can cause kmalloc
 	failure.
+    -   New 'CREATE' line in mdadm.conf for defaults such as owner, group,
+	mode and auto-flag
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

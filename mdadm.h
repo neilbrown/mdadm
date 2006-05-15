@@ -99,6 +99,13 @@ struct mdinfo {
 	int			new_level, delta_disks, new_layout, new_chunk;
 };
 
+struct createinfo {
+	int	uid;
+	int	gid;
+	int	autof;
+	int	mode;
+};
+
 #define Name "mdadm"
 
 enum mode {
@@ -366,9 +373,10 @@ extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
 extern int is_standard(char *dev, int *nump);
 
-
+extern int parse_auto(char *str, char *msg);
 extern mddev_ident_t conf_get_ident(char *conffile, char *dev);
 extern mddev_dev_t conf_get_devs(char *conffile);
+extern struct createinfo *conf_get_create_info(char *conffile);
 extern char *conf_get_mailaddr(char *conffile);
 extern char *conf_get_mailfrom(char *conffile);
 extern char *conf_get_program(char *conffile);

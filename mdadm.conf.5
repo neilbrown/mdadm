@@ -212,6 +212,41 @@ There should only be one
 .B program
 line and it should be give only one program.
 
+
+.TP
+.B CREATE
+The
+.B create
+line gives default values to be used when creating device entries for
+arrays.
+These include:
+
+.RS 4
+.TP
+.B owner=
+.TP
+.B group=
+These can give user/group ids or names to use instead of system
+defaults (root/wheel or root/disk).
+.TP
+.B mode=
+An octal file mode such as 0660 can be given to override the default
+of 0600.
+.TP
+.B auto=
+This corresponds to the
+.B --auto
+flag to mdadm.  Give
+.BR yes ,
+.BR md ,
+.BR mdp ,
+.B part
+- possibly followed by a number of partitions - to indicate how
+missing device entries should be created.
+
+.RE
+
+
 .SH EXAMPLE
 DEVICE /dev/sd[bcdjkl]1
 .br
@@ -254,7 +289,8 @@ ARRAY /dev/md/home UUID=9187a482:5dde19d9:eea3cc4a:d646ab8b
 MAILADDR root@mydomain.tld
 .br
 PROGRAM /usr/sbin/handle-mdadm-events
-
+.br
+CREATE group=system mode=0640 auto=part-8
 
 .SH SEE ALSO
 .BR mdadm (8),

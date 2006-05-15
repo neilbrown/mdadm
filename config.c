@@ -569,7 +569,11 @@ mddev_dev_t conf_get_devs(char *conffile)
 	}
     
 	load_conffile(conffile);
-    
+
+	if (cdevlist == NULL)
+		/* default to 'partitions */
+		dlist = load_partitions();
+
 	for (cd=cdevlist; cd; cd=cd->next) {
 		if (strcasecmp(cd->name, "partitions")==0 && dlist == NULL)
 			dlist = load_partitions();

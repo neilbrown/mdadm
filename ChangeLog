@@ -3,6 +3,7 @@ Changes Prior to this release
 	emails can be explicitly set.
     -   Arrange that SparesMissing (which is similar in import to
 	DegradedArray) generates an Email.
+    -   Assume "DEVICE partitions" if no DEVICE line is given.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

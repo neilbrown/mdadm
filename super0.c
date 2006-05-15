@@ -739,7 +739,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	 * The bitmap comes immediately after the superblock and must be 60K in size
 	 * at most.  The default size is between 30K and 60K
 	 *
-	 * size is in K,  chunk is in bytes !!!
+	 * size is in sectors,  chunk is in bytes !!!
 	 */
 	unsigned long long bits;
 	unsigned long long max_bits = 60*1024*8;
@@ -749,7 +749,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 
 
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
-	bits = (size * 512)/ min_chunk +1;
+	bits = (size * 512) / min_chunk + 1;
 	while (bits > max_bits) {
 		min_chunk *= 2;
 		bits = (bits+1)/2;
@@ -769,8 +769,6 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int chunk, int 
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
-
-
 
 	return 1;
 }

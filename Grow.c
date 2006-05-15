@@ -272,7 +272,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	}
 
 	if (array.level == 10) {
-		int ncopies = (array.layout&255)*(array.layout>>8);
+		int ncopies = (array.layout&255)*((array.layout>>8)&255);
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
 	}
 

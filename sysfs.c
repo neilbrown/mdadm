@@ -195,7 +195,7 @@ unsigned long long get_component_size(int fd)
 	 * size field is only 32bits.
 	 * So look in /sys/block/mdXXX/md/component_size
 	 *
-	 * WARNING: this returns in units of Kilobytes.
+	 * This returns in units of sectors.
 	 */
 	struct stat stb;
 	char fname[50];
@@ -215,7 +215,7 @@ unsigned long long get_component_size(int fd)
 	if (n == sizeof(fname))
 		return 0;
 	fname[n] = 0;
-	return strtoull(fname, NULL, 10);
+	return strtoull(fname, NULL, 10) * 2;
 }
 
 int sysfs_set_str(struct sysarray *sra, struct sysdev *dev,

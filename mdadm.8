@@ -398,12 +398,20 @@ and "flush" will clear any persistent faults.
 To set the parity with "--grow", the level of the array ("faulty")
 must be specified before the fault mode is specified.
 
-Finally, the layout options for RAID10 are either 'n' or 'p' followed
+Finally, the layout options for RAID10 are one of 'n', 'o' or 'p' followed
 by a small number.  The default is 'n2'.
 
 .I n
-signals 'near' copies (multiple copies of one data block are at
-similar offsets in different devices) while
+signals 'near' copies. Multiple copies of one data block are at
+similar offsets in different devices.
+
+.I o
+signals 'offset' copies.  Rather than the chunks being duplicated
+within a stripe, whole stripes are duplicated but are rotated by one
+device so duplicate blocks are on different devices.  Thus subsequent
+copies of a block are in the next drive, and are one chunk further
+down.
+
 .I f
 signals 'far' copies
 (multiple copies have very different offsets).  See md(4) for more

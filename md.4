@@ -203,7 +203,8 @@ drives.
 
 When configuring a RAID10 array it is necessary to specify the number
 of replicas of each data block that are required (this will normally
-be 2) and whether the replicas should be 'near' or 'far'.
+be 2) and whether the replicas should be 'near', 'offset' or 'far'.
+(Note that the 'offset' layout is only available from 2.6.18).
 
 When 'near' replicas are chosen, the multiple copies of a given chunk
 are laid out consecutively across the stripes of the array, so the two
@@ -219,6 +220,13 @@ of any given block are on different drives.
 
 The 'far' arrangement can give sequential read performance equal to
 that of a RAID0 array, but at the cost of degraded write performance.
+
+When 'offset' replicas are chosen, the multiple copies of a given
+chunk are laid out on consecutive drives and at consecutive offsets.
+Effectively each stripe is duplicated and the copies are offset by one
+device.   This should give similar read characteristics to 'far' if a
+suitably large chunk size is used, but without as much seeking for
+writes.
 
 It should be noted that the number of devices in a RAID10 array need
 not be a multiple of the number of replica of each data block, those

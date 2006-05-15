@@ -205,8 +205,9 @@ int Detail(char *dev, int brief, int test)
 			printf("         Layout : %s\n", c?c:"-unknown-");
 		}
 		if (array.level == 10) {
-			printf("         Layout : near=%d, far=%d\n", 
-			       array.layout&255, (array.layout>>8)&255);
+			printf("         Layout : near=%d, %s=%d\n",
+			       array.layout&255, (array.layout&0x10000)?"offset":"far",
+			       (array.layout>>8)&255);
 		}
 		switch (array.level) {
 		case 0:
@@ -254,8 +255,9 @@ This is pretty boring
 					       c?c:"-unknown-");
 				}
 				if (info.new_level == 10) {
-					printf("     New Layout : near=%d, far=%d\n",
+					printf("     New Layout : near=%d, %s=%d\n",
 					       info.new_layout&255,
+					       (info.new_layout&0x10000)?"offset":"far",
 					       (info.new_layout>>8)&255);
 				}
 			}

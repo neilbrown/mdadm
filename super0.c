@@ -141,8 +141,10 @@ static void examine_super0(void *sbv)
 				printf("     New Layout : %s\n", c?c:"-unknown-");
 			}
 			if (sb->level == 10) {
-				printf("     New Layout : near=%d, far=%d\n",
-				       sb->new_layout&255, (sb->new_layout>>8)&255);
+				printf("     New Layout : near=%d, %s=%d\n",
+				       sb->new_layout&255,
+				       (sb->new_layout&0x10000)?"offset":"far",
+				       (sb->new_layout>>8)&255);
 			}
 		}
 		if (sb->new_chunk != sb->chunk_size)
@@ -170,8 +172,10 @@ static void examine_super0(void *sbv)
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
 	if (sb->level == 10) {
-		printf("         Layout : near=%d, far=%d\n",
-		       sb->layout&255, (sb->layout>>8)&255);
+		printf("         Layout : near=%d, %s=%d\n",
+		       sb->layout&255,
+		       (sb->layout&0x10000)?"offset":"far",
+		       (sb->layout>>8)&255);
 	}
 	switch(sb->level) {
 	case 0:

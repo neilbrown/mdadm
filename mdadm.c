@@ -403,16 +403,18 @@ int main(int argc, char *argv[])
 				break;
 
 			case 10:
-				/* 'f' or 'n' followed by a number <= raid_disks */
-				if ((optarg[0] !=  'n' && optarg[0] != 'f') ||
+				/* 'f', 'o' or 'n' followed by a number <= raid_disks */
+				if ((optarg[0] !=  'n' && optarg[0] != 'f' && optarg[0] != 'o') ||
 				    (copies = strtoul(optarg+1, &cp, 10)) < 1 ||
 				    copies > 200 ||
 				    *cp) {
-					fprintf(stderr, Name ": layout for raid10 must be 'nNN' or 'fNN' where NN is a number, not %s\n", optarg);
+					fprintf(stderr, Name ": layout for raid10 must be 'nNN', 'oNN' or 'fNN' where NN is a number, not %s\n", optarg);
 					exit(2);
 				}
 				if (optarg[0] == 'n')
 					layout = 256 + copies;
+				else if (optarg[0] == 'o')
+					layout = 0x10000 + (copies<<8) + 1;
 				else
 					layout = 1 + (copies<<8);
 				break;

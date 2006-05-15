@@ -218,8 +218,9 @@ static void examine_super1(void *sbv)
 				printf("     New Layout : %s\n", c?c:"-unknown-");
 			}
 			if (__le32_to_cpu(sb->level) == 10) {
-				printf("     New Layout : near=%d, far=%d\n",
+				printf("     New Layout : near=%d, %s=%d\n",
 				       __le32_to_cpu(sb->new_layout)&255,
+				       (__le32_to_cpu(sb->new_layout)&0x10000)?"offset":"far",
 				       (__le32_to_cpu(sb->new_layout)>>8)&255);
 			}
 		}
@@ -250,8 +251,10 @@ static void examine_super1(void *sbv)
 	}
 	if (__le32_to_cpu(sb->level) == 10) {
 		int lo = __le32_to_cpu(sb->layout);
-		printf("         Layout : near=%d, far=%d\n",
-		       lo&255, (lo>>8)&255);
+		printf("         Layout : near=%d, %s=%d\n",
+		       lo&255,
+		       (lo&0x10000)?"offset":"far",
+		       (lo>>8)&255);
 	}
 	switch(__le32_to_cpu(sb->level)) {
 	case 0:

@@ -204,16 +204,18 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 			bitmap_fd = open(bitmap_file, O_RDWR);
 			if (bitmap_fd < 0) {
 				int major = BITMAP_MAJOR_HI;
+#if 0
 				if (bitmap_chunk == UnSet) {
 					fprintf(stderr, Name ": %s cannot be openned.",
 						bitmap_file);
 					return 1;
 				}
+#endif
 				if (vers < 9003) {
 					major = BITMAP_MAJOR_HOSTENDIAN;
 #ifdef __BIG_ENDIAN
 					fprintf(stderr, Name ": Warning - bitmaps created on this kernel are not portable\n"
-						"  between different architectured.  Consider upgrading the Linux kernel.\n");
+						"  between different architectures.  Consider upgrading the Linux kernel.\n");
 #endif
 				}
 				bitmapsize = size>>9; /* FIXME wrong for RAID10 */

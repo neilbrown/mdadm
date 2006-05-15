@@ -329,8 +329,6 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		int d;
 		int max_devs = st->max_devs;
 		void *super = NULL;
-		if (chunk == UnSet)
-			chunk = DEFAULT_BITMAP_CHUNK;
 
 		/* try to load a superblock */
 		for (d=0; d<max_devs; d++) {

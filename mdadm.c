@@ -1020,7 +1020,6 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case BUILD:
-		if (bitmap_chunk == UnSet) bitmap_chunk = DEFAULT_BITMAP_CHUNK;
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (write_behind && !bitmap_file) {
 			fprintf(stderr, Name ": write-behind mode requires a bitmap.\n");

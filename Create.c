@@ -432,9 +432,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (bitmap_file) {
 		int uuid[4];
 
-		if (bitmap_chunk == UnSet)
-			bitmap_chunk = DEFAULT_BITMAP_CHUNK;
-
 		st->ss->uuid_from_super(uuid, super);
 		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
 				 delay, write_behind,

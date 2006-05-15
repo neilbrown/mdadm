@@ -447,11 +447,12 @@ slash ('/') if it is a real file (not 'internal' or 'none').
 Note: external bitmaps are only known to work on ext2 and ext3.
 Storing bitmap files on other filesystems may result in serious problems.
 
-
 .TP
 .BR --bitmap-chunk=
 Set the chunksize of the bitmap. Each bit corresponds to that many
-Kilobytes of storage. Default is 4 when using a file based bitmap.
+Kilobytes of storage.
+When using a file based bitmap, the default is to use the smallest
+size that is atleast 4 and requires no more than 2^21 chunks.
 When using an
 .B internal
 bitmap, the chunksize is automatically determined to make best use of

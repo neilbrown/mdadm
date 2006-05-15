@@ -5,6 +5,9 @@ Changes Prior to this release
 	DegradedArray) generates an Email.
     -   Assume "DEVICE partitions" if no DEVICE line is given.
     -   Support new 'offset' layout for raid10.
+    -   When creating a bitmap file, choose a chunksize to limit number
+	of bitmap chunks to 2 million.  More than this can cause kmalloc
+	failure.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

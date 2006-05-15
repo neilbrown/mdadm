@@ -190,11 +190,12 @@ int Detail(char *dev, int brief, int test)
 			printf("  Intent Bitmap : Internal\n\n");
 		atime = array.utime;
 		printf("    Update Time : %.24s\n", ctime(&atime));
-		printf("          State : %s%s%s\n",
+		printf("          State : %s%s%s%s\n",
 		       (array.state&(1<<MD_SB_CLEAN))?"clean":"active",
 		       array.active_disks < array.raid_disks? ", degraded":"",
 		       (!e || e->percent < 0) ? "" :
-		        (e->resync) ? ", resyncing": ", recovering");
+		        (e->resync) ? ", resyncing": ", recovering",
+		       larray_size ? "": ", Not Started");
 		printf(" Active Devices : %d\n", array.active_disks);
 		printf("Working Devices : %d\n", array.working_disks);
 		printf(" Failed Devices : %d\n", array.failed_disks);

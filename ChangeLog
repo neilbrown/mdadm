@@ -10,6 +10,8 @@ Changes Prior to this release
 	failure.
     -   New 'CREATE' line in mdadm.conf for defaults such as owner, group,
 	mode and auto-flag
+    -   --detail checks if array has been started or not and includes that
+	in report.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

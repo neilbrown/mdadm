@@ -430,6 +430,11 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 		sb->set_uuid1 = info->uuid[1];
 		sb->set_uuid2 = info->uuid[2];
 		sb->set_uuid3 = info->uuid[3];
+		if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
+			struct bitmap_super_s *bm;
+			bm = (struct bitmap_super_s*)(sb+1);
+			uuid_from_super0((int*)bm->uuid, sbv);
+		}
 	}
 	if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = info->reshape_progress;
@@ -549,6 +554,12 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 	if (write(fd, super, sizeof(*super)) != sizeof(*super))
 		return 4;
 
+	if (super->state & (1<<MD_SB_BITMAP_PRESENT)) {
+		struct bitmap_super_s * bm = (struct bitmap_super_s*)(super+1);
+		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC)
+			write(fd, bm, sizeof(*bm));
+	}
+
 	fsync(fd);
 	return 0;
 }
@@ -596,8 +607,8 @@ static int compare_super0(void **firstp, void *secondv)
 	if (second->md_magic != MD_SB_MAGIC)
 		return 1;
 	if (!first) {
-		first = malloc(MD_SB_BYTES);
-		memcpy(first, second, MD_SB_BYTES);
+		first = malloc(MD_SB_BYTES + sizeof(struct bitmap_super_s));
+		memcpy(first, second, MD_SB_BYTES + sizeof(struct bitmap_super_s));
 		*firstp = first;
 		return 0;
 	}
@@ -632,6 +643,8 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	unsigned long long dsize;
 	unsigned long long offset;
 	mdp_super_t *super;
+	int uuid[4];
+	struct bitmap_super_s *bsb;
     
 #ifdef BLKGETSIZE64
 	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
@@ -700,6 +713,27 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 		st->minor_version = 90;
 		st->max_devs = MD_SB_DISKS;
 	}
+
+	/* Now check on the bitmap superblock */
+	if ((super->state & (1<<MD_SB_BITMAP_PRESENT)) == 0)
+		return 0;
+	/* Read the bitmap superblock and make sure it looks
+	 * valid.  If it doesn't clear the bit.  An --assemble --force
+	 * should get that written out.
+	 */
+	if (read(fd, super+1, sizeof(struct bitmap_super_s))
+	    != sizeof(struct bitmap_super_s))
+		goto no_bitmap;
+
+	uuid_from_super0(uuid, super);
+	bsb = (struct bitmap_super_s *)(super+1);
+	if (__le32_to_cpu(bsb->magic) != BITMAP_MAGIC ||
+	    memcmp(bsb->uuid, uuid, 16) != 0)
+		goto no_bitmap;
+	return 0;
+
+ no_bitmap:
+	super->state &= ~(1<<MD_SB_BITMAP_PRESENT);
 
 	return 0;
 }

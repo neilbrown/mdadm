@@ -476,8 +476,14 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update, char *dev
 		/* make sure resync happens */
 		sb->resync_offset = ~0ULL;
 	}
-	if (strcmp(update, "uuid") == 0)
+	if (strcmp(update, "uuid") == 0) {
 		memcpy(sb->set_uuid, info->uuid, 16);
+		if (__le32_to_cpu(sb->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
+			struct bitmap_super_s *bm;
+			bm = (struct bitmap_super_s*)(sbv+1024);
+			memcpy(bm->uuid, info->uuid, 16);
+		}
+	}
 	if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
 
@@ -569,6 +575,8 @@ static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
 		*rp = 0xfffe;
 }
 
+static void locate_bitmap1(struct supertype *st, int fd, void *sbv);
+
 static int store_super1(struct supertype *st, int fd, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
@@ -632,6 +640,14 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 	if (write(fd, sb, sbsize) != sbsize)
 		return 4;
 
+	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
+		struct bitmap_super_s *bm = (struct bitmap_super_s*)
+			((char*)sb)+1024;
+		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC) {
+			locate_bitmap1(st, fd, sbv);
+			write(fd, bm, sizeof(*bm));
+		}
+	}
 	fsync(fd);
 	return 0;
 }
@@ -777,8 +793,8 @@ static int compare_super1(void **firstp, void *secondv)
 		return 1;
 
 	if (!first) {
-		first = malloc(1024);
-		memcpy(first, second, 1024);
+		first = malloc(1024+sizeof(bitmap_super_t));
+		memcpy(first, second, 1024+sizeof(bitmap_super_t));
 		*firstp = first;
 		return 0;
 	}
@@ -801,7 +817,8 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	unsigned long long dsize;
 	unsigned long long sb_offset;
 	struct mdp_superblock_1 *super;
-
+	int uuid[4];
+	struct bitmap_super_s *bsb;
 
 
 	if (st->ss == NULL) {
@@ -860,7 +877,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	/*
 	 * Calculate the position of the superblock.
 	 * It is always aligned to a 4K boundary and
-	 * depeding on minor_version, it can be:
+	 * depending on minor_version, it can be:
 	 * 0: At least 8K, but less than 12K, from end of device
 	 * 1: At start of device
 	 * 2: 4K from start of device.
@@ -924,6 +941,28 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		return 2;
 	}
 	*sbp = super;
+
+	/* Now check on the bitmap superblock */
+	if ((__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) == 0)
+		return 0;
+	/* Read the bitmap superblock and make sure it looks
+	 * valid.  If it doesn't clear the bit.  An --assemble --force
+	 * should get that written out.
+	 */
+	locate_bitmap1(st, fd, super);
+	if (read(fd, ((char*)super)+1024, sizeof(struct bitmap_super_s))
+	    != sizeof(struct bitmap_super_s))
+		goto no_bitmap;
+
+	uuid_from_super1(uuid, super);
+	bsb = (struct bitmap_super_s *)(((char*)super)+1024);
+	if (__le32_to_cpu(bsb->magic) != BITMAP_MAGIC ||
+	    memcmp(bsb->uuid, uuid, 16) != 0)
+		goto no_bitmap;
+	return 0;
+
+ no_bitmap:
+	super->feature_map = __cpu_to_le32(__le32_to_cpu(super->feature_map) & ~1);
 	return 0;
 }
 
@@ -1041,7 +1080,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 }
 
 
-void locate_bitmap1(struct supertype *st, int fd, void *sbv)
+static void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long long offset;
 	struct mdp_superblock_1 *sb;
@@ -1061,7 +1100,7 @@ void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 	lseek64(fd, offset<<9, 0);
 }
 
-int write_bitmap1(struct supertype *st, int fd, void *sbv)
+static int write_bitmap1(struct supertype *st, int fd, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+1024);

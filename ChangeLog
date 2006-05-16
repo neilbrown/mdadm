@@ -12,6 +12,8 @@ Changes Prior to this release
 	mode and auto-flag
     -   --detail checks if array has been started or not and includes that
 	in report.
+    -   When using --update=uuid on an array with a bitmap, update the
+	bitmap's uuid too.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

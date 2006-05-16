@@ -308,6 +308,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					devname);
 			if (dfd >= 0)
 				close(dfd);
+
+			if (strcmp(update, "uuid")==0 &&
+			    ident->bitmap_fd)
+				bitmap_update_uuid(ident->bitmap_fd, info.uuid);
 		}
 
 		if (verbose > 0)

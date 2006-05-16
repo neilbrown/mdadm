@@ -398,3 +398,17 @@ out:
 		unlink(filename); /* possibly corrupted, better get rid of it */
 	return rv;
 }
+
+void bitmap_update_uuid(int fd, int *uuid)
+{
+	struct bitmap_super_s bm;
+	lseek(fd, 0, 0);
+	if (read(fd, &bm, sizeof(bm)) != sizeof(bm))
+		return;
+	if (bm.magic != __cpu_to_le32(BITMAP_MAGIC))
+		return;
+	memcpy(bm.uuid, uuid, 16);
+	lseek(fd, 0, 0);
+	write(fd, &bm, sizeof(bm));
+	lseek(fd, 0, 0);
+}

@@ -46,6 +46,7 @@ void make_parts(char *dev, int cnt)
 	char *name = malloc(nlen);
 	int dig = isdigit(dev[strlen(dev)-1]);
 
+	if (cnt==0) cnt=4;
 	if (stat(dev, &stb)!= 0)
 		return;
 	if (!S_ISBLK(stb.st_mode))
@@ -94,27 +95,59 @@ int open_mddev(char *dev, int autof)
 	struct mdstat_ent *mdlist;
 	int num;
 	struct createinfo *ci = conf_get_create_info(NULL);
+	int parts;
 
 	if (autof == 0)
 		autof = ci->autof;
 
-	if (autof && autof != -3) {
+	parts = autof >> 3;
+	autof &= 7;
+
+	if (autof && autof != 1) {
 		/* autof is set, so we need to check that the name is ok,
 		 * and possibly create one if not
 		 */
-		if (autof == -2 && !is_standard(dev, NULL)) {
-			fprintf(stderr, Name ": --auto=yes requires a 'standard' md device name, not %s\n", dev);
-			return -1;
-		}
+		int std;
 		stb.st_mode = 0;
 		if (stat(dev, &stb)==0 && ! S_ISBLK(stb.st_mode)) {
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				dev);
 			return -1;
 		}
+		if (autof == 2 && stb.st_mode == 0 && !is_standard(dev, NULL)) {
+			fprintf(stderr, Name ": --auto=yes requires a 'standard' md device name, not %s\n", dev);
+			return -1;
+		}
 		/* check major number is correct */
-		if (autof>0)
-			major = get_mdp_major();
+		num = -1;
+		std = is_standard(dev, &num);
+		if (std>0) major = get_mdp_major();
+		switch(autof) {
+		case 2: /* only create is_standard names */
+			if (!std && !stb.st_mode) {
+				fprintf(stderr, Name ": --auto=yes requires a 'standard' md device name, not %s\n", dev);
+				return -1;
+			}
+			break;
+		case 3: /* create md, reject std>0 */
+			if (std > 0) {
+				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
+				return -1;
+			}
+			break;
+		case 4: /* create mdp, reject std<0 */
+			if (std < 0) {
+				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
+				return -1;
+			}
+			break;
+		case 5: /* default to md if not standard */
+			break;
+		case 6: /* default to mdp if not standard */
+			if (std == 0) major = get_mdp_major();
+			break;
+		}
+		/* major is final. num is -1 if not standard */
 		if (stb.st_mode && major(stb.st_rdev) != major)
 			must_remove = 1;
 		if (stb.st_mode && !must_remove) {
@@ -136,8 +169,8 @@ int open_mddev(char *dev, int autof)
 				must_remove = 1;
 				close(mdfd);
 			} else {
-				if (autof > 0)
-					make_parts(dev, autof);
+				if (major != MD_MAJOR && parts > 0)
+					make_parts(dev, parts);
 				return mdfd;
 			}
 		}
@@ -147,37 +180,25 @@ int open_mddev(char *dev, int autof)
 		 * easiest to read /proc/mdstat, and hunt through for
 		 * an unused number 
 		 */
-		switch(is_standard(dev, &num)) {
-		case -1: /* non partitioned */
-			if (autof > 0) {
-				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
-				return -1;
-			}
-			minor = num;
-			num = -1-num;
-			break;
-		case 1: /* partitioned */
-			if (autof == -1) {
-				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
-				return -1;
-			}
-			minor = num <<  MdpMinorShift;
-			major = get_mdp_major();
-			break;
-		case 0: /* not standard, pick an unused number */
+		if (num < 0) {
+			/* need to pick an unused number */
 			mdlist = mdstat_read(0, 0);
-			for (num= (autof>0)?-1:0 ; ; num+= (autof>2)?-1:1) {
+			for (num = 0 ; ; num++) {
 				struct mdstat_ent *me;
+				int devnum = num;
+				if (major != MD_MAJOR)
+					devnum = -1-num;
+
 				for (me=mdlist; me; me=me->next)
-					if (me->devnum == num)
+					if (me->devnum == devnum)
 						break;
 				if (!me) {
 					/* doesn't exist if mdstat.
 					 * make sure it is new to /dev too
 					 */
 					char *dn;
-					if (autof > 0) 
-						minor = (-1-num) << MdpMinorShift;
+					if (major != MD_MAJOR)
+						minor = num << MdpMinorShift;
 					else
 						minor = num;
 					dn = map_dev(major,minor, 0);
@@ -189,9 +210,12 @@ int open_mddev(char *dev, int autof)
 					}
 				}
 			}
-		}
+		} else if (major == MD_MAJOR)
+			minor = num;
+		else
+			minor = num << MdpMinorShift;
 		/* major and minor have been chosen */
-		
+
 		/* If it was a 'standard' name and it is in-use, then
 		 * the device could already be correct
 		 */
@@ -224,7 +248,8 @@ int open_mddev(char *dev, int autof)
 			}
 			stat(dev, &stb);
 			add_dev(dev, &stb, 0, NULL);
-			make_parts(dev,autof);
+			if (major != MD_MAJOR)
+				make_parts(dev,parts);
 		}
 	}
 	mdfd = open(dev, O_RDWR, 0);

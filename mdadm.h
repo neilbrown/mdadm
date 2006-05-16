@@ -374,7 +374,7 @@ extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
 extern int is_standard(char *dev, int *nump);
 
-extern int parse_auto(char *str, char *msg);
+extern int parse_auto(char *str, char *msg, int config);
 extern mddev_ident_t conf_get_ident(char *conffile, char *dev);
 extern mddev_dev_t conf_get_devs(char *conffile);
 extern struct createinfo *conf_get_create_info(char *conffile);

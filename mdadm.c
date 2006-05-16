@@ -75,15 +75,17 @@ int main(int argc, char *argv[])
 	int force = 0;
 	int test = 0;
 	int assume_clean = 0;
-	int autof = 0; /* -3 means don't create anything,
-			* -2 means create device based on name:
-			*    if it ends mdN, then non-partitioned array N
-			*    if it ends dN, then partitions array N
-			* -1 means create non-partitioned, choose N
-			*  1 or more to create partitioned
-			* If -1 or 1 and name is a 'standard' name, then
-			* insist on a match of type and number.
-			*/
+	/* autof indicates whether and how to create device node.
+	 * bottom 3 bits are style.  Rest (when shifted) are number of parts
+	 * 0  - unset
+	 * 1  - don't create (no)
+	 * 2  - if is_standard, then create (yes)
+	 * 3  - create as 'md' - reject is_standard mdp (md)
+	 * 4  - create as 'mdp' - reject is_standard md (mdp)
+	 * 5  - default to md if not is_standard (md in config file)
+	 * 6  - default to mdp if not is_standard (part, or mdp in config file)
+	 */
+	int autof = 0;
 
 	char *mailaddr = NULL;
 	char *program = NULL;
@@ -483,7 +485,7 @@ int main(int argc, char *argv[])
 		case O(CREATE,'a'):
 		case O(BUILD,'a'):
 		case O(ASSEMBLE,'a'): /* auto-creation of device node */
-			autof = parse_auto(optarg, "--auto flag");
+			autof = parse_auto(optarg, "--auto flag", 0);
 			continue;
 
 		case O(BUILD,'f'): /* force honouring '-n 1' */

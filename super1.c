@@ -136,7 +136,7 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 }
 
 #ifndef MDASSEMBLE
-static void examine_super1(void *sbv)
+static void examine_super1(void *sbv, char *homehost)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	time_t atime;
@@ -144,6 +144,7 @@ static void examine_super1(void *sbv)
 	int faulty;
 	int i;
 	char *c;
+	int l = homehost ? strlen(homehost) : 0;
 
 	printf("          Magic : %08x\n", __le32_to_cpu(sb->magic));
 	printf("        Version : %02d\n", 1);
@@ -154,8 +155,12 @@ static void examine_super1(void *sbv)
 		printf("%02x", sb->set_uuid[i]);
 	}
 	printf("\n");
-	printf("           Name : %.32s\n", sb->set_name);
-
+	printf("           Name : %.32s", sb->set_name);
+	if (l > 0 && l < 32 &&
+	    sb->set_name[l] == ':' &&
+	    strncmp(sb->set_name, homehost, l) == 0)
+		printf("  (local to host %s)", homehost);
+	printf("\n");
 	atime = __le64_to_cpu(sb->ctime) & 0xFFFFFFFFFFULL;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, __le32_to_cpu(sb->level));

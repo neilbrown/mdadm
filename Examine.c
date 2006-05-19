@@ -35,7 +35,9 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct supertype *forcest)
+int Examine(mddev_dev_t devlist, int brief, int scan,
+	    int SparcAdjust, struct supertype *forcest,
+	    char *homehost)
 {
 
 	/* Read the raid superblock from a device and
@@ -124,7 +126,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 			dl_add(ap->devs, d);
 		} else {
 			printf("%s:\n",devlist->devname);
-			st->ss->examine_super(super);
+			st->ss->examine_super(super, homehost);
 			free(super);
 		}
 	}

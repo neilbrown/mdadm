@@ -84,7 +84,7 @@ void super0_swap_endian(struct mdp_superblock_s *sb)
 
 #ifndef MDASSEMBLE
 
-static void examine_super0(void *sbv)
+static void examine_super0(void *sbv, char *homehost)
 {
 	mdp_super_t *sb = sbv;
 	time_t atime;
@@ -94,10 +94,18 @@ static void examine_super0(void *sbv)
 	printf("          Magic : %08x\n", sb->md_magic);
 	printf("        Version : %02d.%02d.%02d\n", sb->major_version, sb->minor_version,
 	       sb->patch_version);
-	if (sb->minor_version >= 90)
-		printf("           UUID : %08x:%08x:%08x:%08x\n", sb->set_uuid0, sb->set_uuid1,
+	if (sb->minor_version >= 90) {
+		printf("           UUID : %08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
 		       sb->set_uuid2, sb->set_uuid3);
-	else
+		if (homehost) {
+			unsigned char *hash = SHA1((unsigned char *)homehost,
+						   strlen(homehost),
+						   NULL);
+			if (memcmp(&sb->set_uuid2, hash, 8)==0)
+				printf(" (local to host %s)", homehost);
+		}
+		printf("\n");
+	} else
 		printf("           UUID : %08x\n", sb->set_uuid0);
 
 	atime = sb->ctime;

@@ -272,7 +272,7 @@ extern char *map_dev(int major, int minor, int create);
 
 
 extern struct superswitch {
-	void (*examine_super)(void *sbv);
+	void (*examine_super)(void *sbv, char *homehost);
 	void (*brief_examine_super)(void *sbv);
 	void (*detail_super)(void *sbv, char *homehost);
 	void (*brief_detail_super)(void *sbv);
@@ -361,7 +361,7 @@ extern int Create(struct supertype *st, char *mddev, int mdfd,
 extern int Detail(char *dev, int brief, int test, char *homehost);
 extern int Query(char *dev);
 extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust,
-		   struct supertype *forcest);
+		   struct supertype *forcest, char *homehost);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,

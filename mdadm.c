@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
 	int autof = 0;
 
 	char *homehost = NULL;
+	char sys_hostname[256];
 	char *mailaddr = NULL;
 	char *program = NULL;
 	int delay = 0;
@@ -900,6 +901,12 @@ int main(int argc, char *argv[])
 
 	if (homehost == NULL)
 		homehost = conf_get_homehost(configfile);
+	if (homehost && strcmp(homehost, "<system>")==0) {
+		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
+			sys_hostname[sizeof(sys_hostname)-1] = 0;
+			homehost = sys_hostname;
+		}
+	}
 
 	rv = 0;
 	switch(mode) {
@@ -1030,7 +1037,7 @@ int main(int argc, char *argv[])
 		}
 
 		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
-			    raiddisks, sparedisks, ident.name,
+			    raiddisks, sparedisks, ident.name, homehost,
 			    devs_found-1, devlist->next, runstop, verbose-quiet, force, assume_clean,
 			    bitmap_file, bitmap_chunk, write_behind, delay);
 		break;

@@ -498,16 +498,20 @@ static __u64 event_super1(void *sbv)
 	return __le64_to_cpu(sb->events);
 }
 
-static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name)
+static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
+		       unsigned long long size, char *name, char *homehost)
 {
 	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t));
 	int spares;
 	int rfd;
+	char defname[10];
 	memset(sb, 0, 1024);
 
-	if (info->major_version == -1)
+	if (info->major_version == -1) {
 		/* zeroing superblock */
+		*sbp = sb;
 		return 0;
+	}
 
 	spares = info->working_disks - info->active_disks;
 	if (info->raid_disks + spares  > 384) {
@@ -515,7 +519,6 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 			info->raid_disks , spares, 384);
 		return 0;
 	}
-
 
 	sb->magic = __cpu_to_le32(MD_SB_MAGIC);
 	sb->major_version = __cpu_to_le32(1);
@@ -531,8 +534,19 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	}
 	if (rfd >= 0) close(rfd);
 
+	if (name == NULL || *name == 0) {
+		sprintf(defname, "%d", info->md_minor);
+		name = defname;
+	}
 	memset(sb->set_name, 0, 32);
-	strcpy(sb->set_name, name);
+	if (homehost &&
+	    strchr(name, ':')== NULL &&
+	    strlen(homehost)+1+strlen(name) < 32) {
+		strcpy(sb->set_name, homehost);
+		strcat(sb->set_name, ":");
+		strcat(sb->set_name, name);
+	} else
+		strcpy(sb->set_name, name);
 
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);

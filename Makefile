@@ -32,6 +32,7 @@
 TCC = tcc
 UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
 DIET_GCC = diet gcc
+LDLIBS=-lssl
 
 KLIBC=/home/src/klibc/klibc-0.77
 
@@ -84,11 +85,11 @@ everything: all mdadm.static mdadm.uclibc swap_super test_stripe  mdassemble mda
 # mdadm.tcc doesn't work..
 
 mdadm : rmconf $(OBJS)
-	$(CC) $(LDFLAGS) -o mdadm $(OBJS)
+	$(CC) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
 mdadm.static : STATIC=-DSTATIC
 mdadm.static : rmconf $(OBJS)
-	$(CC) $(LDFLAGS) -DSTATIC -static -o mdadm.static $(OBJS)
+	$(CC) $(LDFLAGS) -DSTATIC -static -o mdadm.static $(OBJS) SHA1.o sha1.o
 rmconf:
 	rm -f config.o
 
@@ -135,6 +136,11 @@ mdassemble.man : mdassemble.8
 	nroff -man mdassemble.8 > mdassemble.man
 
 $(OBJS) : mdadm.h bitmap.h
+
+sha1.o : sha1.c sha1.h md5.h
+	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o sha1.o -c sha1.c
+SHA1.o : SHA1.c
+	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o SHA1.o -c SHA1.c
 
 install : mdadm mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D $(STRIP) -m 755 mdadm $(DESTDIR)$(BINDIR)/mdadm

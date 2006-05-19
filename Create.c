@@ -33,7 +33,7 @@
 
 int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
-	   char *name,
+	   char *name, char *homehost,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force, int assume_clean,
 	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
@@ -389,7 +389,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	array.chunk_size = chunk*1024;
 	array.major_version = st->ss->major;
 
-	if (!st->ss->init_super(st, &super, &array, size, name))
+	if (!st->ss->init_super(st, &super, &array, size, name, homehost))
 		return 1;
 
 	if (bitmap_file && vers < 9003) {

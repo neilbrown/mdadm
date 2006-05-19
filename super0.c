@@ -28,7 +28,7 @@
  */
 
 #include "mdadm.h"
-
+#include <openssl/sha.h> /* for SHA1 */
 /*
  * All handling for the 0.90.0 version superblock is in
  * this file.
@@ -449,9 +449,17 @@ static __u64 event_super0(void *sbv)
 	return md_event(sb);
 }
 
+/*
+ * For verion-0 superblock, the homehost is 'stored' in the
+ * uuid.  8 bytes for a hash of the host leaving 8 bytes
+ * of random material.
+ * We use the first 8 bytes (64bits) of the sha1 of the
+ * host name
+ */
 
 
-static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *ignored_name)
+static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
+		       unsigned long long size, char *ignored_name, char *homehost)
 {
 	mdp_super_t *sb = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
 	int spares;
@@ -460,6 +468,7 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 
 	if (info->major_version == -1) {
 		/* zeroing the superblock */
+		*sbp = sb;
 		return 0;
 	}
 
@@ -494,6 +503,12 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	}
 	if (rfd >= 0)
 		close(rfd);
+	if (homehost) {
+		unsigned char *hash = SHA1((unsigned char*)homehost,
+					   strlen(homehost),
+					   NULL);
+		memcpy(&sb->set_uuid2, hash, 8);
+	}
 
 	sb->utime = sb->ctime;
 	sb->state = info->state;

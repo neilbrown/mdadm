@@ -280,7 +280,7 @@ extern struct superswitch {
 	void (*getinfo_super)(struct mdinfo *info, void *sbv);
 	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
 	__u64 (*event_super)(void *sbv);
-	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name);
+	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name, char *homehost);
 	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
 	int (*store_super)(struct supertype *st, int fd, void *sbv);
 	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
@@ -353,7 +353,7 @@ extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 
 extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
-		  char *name,
+		  char *name, char *homehost,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force, int assume_clean,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay);

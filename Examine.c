@@ -72,10 +72,11 @@ int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust, struct su
 
 		fd = dev_open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
-			if (!scan)
+			if (!scan) {
 				fprintf(stderr,Name ": cannot open %s: %s\n",
 					devlist->devname, strerror(errno));
-			err = 1;
+				err = 1;
+			}
 		}
 		else {
 			if (!st)

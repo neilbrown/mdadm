@@ -2,7 +2,7 @@
  * mdstat - parse /proc/mdstat file. Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2002 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2002-2006 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify

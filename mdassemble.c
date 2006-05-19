@@ -1,7 +1,7 @@
 /*
  * mdassemble - assemble Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
+ * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
  * Copyright (C) 2003 Luca Berra <bluca@vodka.it>
  *
  *

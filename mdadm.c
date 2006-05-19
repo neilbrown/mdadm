@@ -577,6 +577,10 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor', 'uuid', 'resync' or 'summaries' supported\n",update);
 			exit(2);
 
+		case O(ASSEMBLE,4): /* --no-degraded */
+			runstop = -1; /* --stop isn't allowed for --assemble, so we overload slightly */
+			continue;
+
 		case O(ASSEMBLE,'c'): /* config file */
 		case O(MISC, 'c'):
 		case O(MONITOR,'c'):

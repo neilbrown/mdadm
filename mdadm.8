@@ -603,13 +603,24 @@ Assemble the array even if some superblocks appear out-of-date
 
 .TP
 .BR -R ", " --run
-Attempt to start the array even if fewer drives were given than are
-needed for a full array. Normally if not all drives are found and
+Attempt to start the array even if fewer drives were given than were
+present last time the array was active.  Normally if not all the
+expected drives are found and
 .B --scan
 is not used, then the array will be assembled but not started.
 With
 .B --run
 an attempt will be made to start it anyway.
+
+.TP
+.B --no-degraded
+This is the reverse of
+.B --run
+in that it inhibits the started if array unless all expected drives
+are present.  This is only needed with
+.B --scan
+and can be used if you physical connections to devices are
+not as reliable as you would like.
 
 .TP
 .BR -a ", " "--auto{=no,yes,md,mdp,part}"

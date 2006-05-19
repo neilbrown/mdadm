@@ -157,6 +157,7 @@ struct option long_options[] = {
     {"stop",      0, 0, 'S'},
     {"readonly",  0, 0, 'o'},
     {"readwrite", 0, 0, 'w'},
+    {"no-degraded",0,0,  4 },
 
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
@@ -271,6 +272,7 @@ char OptionHelp[] =
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
 "  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
 "  --auto(=p)    -a   : Automatically allocate new (partitioned) md array if needed.\n"
+"  --no-degraded      : Do not start any degraded arrays - default unless --scan.\n"
 "\n"
 " For detail or examine:\n"
 "  --brief       -b   : Just print device name and UUID\n"
@@ -389,6 +391,14 @@ char Help_assemble[] =
 " Those devices are md devices that are to be assembled.  Their identity\n"
 " and components are determined from the config file.\n"
 "\n"
+" If mdadm can not find all of the components for an array, it will assemble\n"
+" it but not activate it unless --run or --scan is given.  To preserve this\n"
+" behaviour even with --scan, add --no-degraded.  Note that \"all of the\n"
+" components\" means as many as were present the last time the array was running\n"
+" as recorded in the superblock.  If the array was already degraded, and\n"
+" the missing device is not a new problem, it will still be assembled.  It\n"
+" is only newly missing devices that cause the array not to be started.\n"
+"\n"
 "Options that are valid with --assemble (-A) are:\n"
 "  --bitmap=          : bitmap file to use wit the array\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
@@ -403,6 +413,7 @@ char Help_assemble[] =
 "  --force       -f   : Assemble the array even if some superblocks appear\n"
 "                     : out-of-date.  This involves modifying the superblocks.\n"
 "  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
+"  --no-degraded      : Assemble but do not start degraded arrays.\n"
 ;
 
 char Help_manage[] =

@@ -16,6 +16,10 @@ Changes Prior to this release
 	bitmap's uuid too.
     -   Add a copy of /proc/mdstat to the mail message send by mdadm
         --monitor.
+    -   New flag --no-degraded to avoid starting arrays if there are
+	fewer devices available than last time the array was started.
+	This is only needed with --scan, as with --scan, that behaviour
+	is the default.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent
@@ -172,10 +176,10 @@ Changes Prior to 1.9.0 release
     -   Change "dirty" status to "active" as it was confusing people.
     -   --assemble --auto recognises 'standard' name and insists on using
         the appropriate major/minor number for them.
-    -   Remove underscore from partition names, so partitions of 
+    -   Remove underscore from partition names, so partitions of
 	"foo" are "foo1", "foo2" etc (unchanged) and partitions of
 	"f00" are "f00p1", "f00p2" etc rather than "f00_p1"...
-    -   Use "major", "minor", "makedev" macros instead of 
+    -   Use "major", "minor", "makedev" macros instead of
 	"MAJOR", "MINOR", "MKDEV" so that large device numbers work
 	on 2.6 (providing you have glibc 2.3.3 or later).
     -   Add some missing closes of open file descriptors.
@@ -206,11 +210,11 @@ Changes Prior to 1.7.0 release
     -   Restore support for uclibc which was broken recently.
     -   Several improvements to the output of --detail, including
         reporting "resyncing" or "recovering" in the state.
-    -   Close filedescriptor at end of --detail (exit would have closed it 
+    -   Close filedescriptor at end of --detail (exit would have closed it
 	anyway, so this isn't abig deal).
     -   Report "Sync checkpoint" in --examine output if appropriate.
     -   Add --update=resync for --assemble mode to for a resync when the
-        array is assembled.	 
+        array is assembled.
     -   Add support for "raid10", which is under development in 2.6.
 	Not documented yet.
     -   --monitor now reads spare-group and spares info from config file
@@ -251,7 +255,7 @@ Changes Prior to 1.5.0 release
     -   Support "--monitor --test" which will generate a test alert
 	for each array once, to test notification paths.
     -   Generate RebuildFinished event when rebuild finishes.
-    -   Support for raid6 as found in 2.6.2 - thanks to  
+    -   Support for raid6 as found in 2.6.2 - thanks to
 	H. Peter Anvin  <hpa@zytor.com>
     -   Support partitioned md arrays with a different major number and
 	naming scheme (md_dX in /proc/mdstat, /dev/md/dXpY in /dev).
@@ -303,7 +307,7 @@ Changes Prior to 1.2.0 release
     -   Fix bug introduced when MD_SB_DISKS dependancy removed, and which
         caused spares not be assembled properly.
     -   Print appropriate message if --monitor --scan decides not to
-	monitor anything.  
+	monitor anything.
 Changes Prior to 1.1.0 release
     -   add --deamonise flag for --monitor - forks and prints pid to stdout
     -   Fix bug so we REALLY clear dirty flag with -Af
@@ -311,7 +315,7 @@ Changes Prior to 1.1.0 release
     -   "mdadm -A /dev/md0" will get info from configfile, even without scan
     -   When assembling multipath arrays, ignore devices which are flagged
         as having errors.
-    -   take --super-minor=dev  to mean "use the minor number of the mddev 
+    -   take --super-minor=dev  to mean "use the minor number of the mddev
 	being assembled.
     -   take --config=none to mean "completely ignore config file"
     -   Make --monitor require --scan or a device list.
@@ -423,14 +427,14 @@ Changes Prior to 0.6 release
 
     -   Remove the limit on the number of device names that can be
 	given on the command line.
-    -   Fix bug in --assemble --force where it would only update a 
+    -   Fix bug in --assemble --force where it would only update a
 	single superblock.
     -   Fix bogus printing of big numbers not being block devices
 	when given names of devices that don't exist.
     -   When --assemble --force, consider superblocks with an event
 	count that is 1 behind as out-of-date.  Normally they are
 	considered up-to-date (as the kernel assumes this too).
-    -   When marking drives as not-failed in the superblock, 
+    -   When marking drives as not-failed in the superblock,
 	we also mark them as ACTIVE and SYNC.
     -   Don't start arrays for which not all drives are available unless:
 	 --scan   which implies that all drives were found automatically
@@ -443,11 +447,11 @@ Changes Prior to 0.6 release
 	not started yet.
     -   man page update
     -   Taught Examine to handle --scan. It examines all devices listed
-	on DEVICE lines in the config file.  
+	on DEVICE lines in the config file.
     -   Added --brief (-b) flag for Examine and Detail to print out
 	and mdctl.conf compatible description with uuid=, level=,
 	disks= and  - for Examine - devices=
-	--examine --brief collects all devices the make the one array and 
+	--examine --brief collects all devices the make the one array and
 	list them as one entry.
     -   Added level= and disks= options to ARRAY lines in config files
 	so --brief output could be used as-is.
@@ -490,7 +494,7 @@ Changes Prior to 0.5 release
       superblock that says the minor number of the array is 4.
       If the blocks with the right minor number do not all have the
       same UUID, an error is flags and no assembly happens.
- 
+
         array /dev/md3  devices=/dev/hd[abc]2
 
       Assembles /dev/md3 drom /dev/hda2 /dev/hdb2 and/dev/hdc2.  All
@@ -501,9 +505,9 @@ Changes Prior to 0.5 release
 
         array /dev/md2 devices=/dev/hd?2 super-minor=2
 
-      will assemble /dev/md2 using all /dev/hd?2 devices which have a 
+      will assemble /dev/md2 using all /dev/hd?2 devices which have a
       raid superblock with minor number 2.
- 
+
   --create:
       When listing devices for --create, the word "missing" can be
       used to indicate that the respective slot does not have a
@@ -520,15 +524,15 @@ Changes Prior to 0.5 release
       and drive listed for the last slot added as a spare.  If a
       "missing" slot is given, or if --force is given, then --create
       does exactly what you ask and doesn't try to be clever.
-   
+
 
    --follow / --monitor:
 
       This is a new mode.  I couldn't stop my self from picking a name
       starting with F (as current modes start A,B,C,D,E) but I
       relented and provided an alternate name that is somewhat more
-      meaningful. 
- 
+      meaningful.
+
       In this mode, mdctl does not exit, but runs continuously and
       periodically polls all the md devices to see if they have had
       any interested state change.
@@ -539,7 +543,7 @@ Changes Prior to 0.5 release
 
       Options:
          --mail mailaddress  - send Email on any Fail* event
-         --program program   - run the program on any event.  
+         --program program   - run the program on any event.
 		   Args are: eventname mddevice subdevice(if-known)
          --delay  seconds    - change from the default 60second pause
 			       between polls.
@@ -560,7 +564,7 @@ Changes Prior to 0.5 release
 
   There is now a man page and mdctl.spec (for rpm) thanks to
   Danilo Godec <danci@agenda.si>.
-  
+
   Ofcourse, the man page is now out of date and despite being based on
   the --help output, is not wholy correct.  After I get --follow
   working properly, I plan to revise the various documentation and/or

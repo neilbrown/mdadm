@@ -66,7 +66,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	 *
 	 * If !uuidset and scan, look in conf-file for uuid
 	 *       If not found, give up
-	 * If !devlist and scan and uuidset, get list of devs from conf-file 
+	 * If !devlist and scan and uuidset, get list of devs from conf-file
 	 *
 	 * For each device:
 	 *   Check superblock - discard if bad
@@ -113,7 +113,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
-	int start_partial_ok = force || devlist==NULL;
+	int start_partial_ok = (runstop >= 0) && (force || devlist==NULL);
 	unsigned int num_devs;
 	mddev_dev_t tmpdev;
 	struct mdinfo info;
@@ -300,7 +300,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			st->ss->update_super(&info, super, update, devname, verbose);
 			
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
-			if (dfd < 0) 
+			if (dfd < 0)
 				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
 					devname);
 			else if (st->ss->store_super(st, dfd, super))
@@ -332,7 +332,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			    > devices[most_recent].events)
 				most_recent = devcnt;
 		}
-		if (info.array.level == -4) 
+		if (info.array.level == -4)
 			/* with multipath, the raid_disk from the superblock is meaningless */
 			i = devcnt;
 		else
@@ -546,7 +546,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	}
 	if (force && okcnt == info.array.raid_disks-1) {
 		/* FIXME check event count */
-		change += st->ss->update_super(&info, super, "force", 
+		change += st->ss->update_super(&info, super, "force",
 					devices[chosen_drive].devname, verbose);
 	}
 
@@ -614,7 +614,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			inf.major_version = st->ss->major;
 			inf.minor_version = st->minor_version;
 			rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
-		} else 
+		} else
 			rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
 
 		if (rv) {
@@ -676,7 +676,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		
 		if (runstop == 1 ||
-		    (runstop == 0 && 
+		    (runstop <= 0 &&
 		     ( enough(info.array.level, info.array.raid_disks, info.array.layout, avail, okcnt) &&
 		       (okcnt >= req_cnt || start_partial_ok)
 			     ))) {
@@ -684,7 +684,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				if (verbose >= 0) {
 					fprintf(stderr, Name ": %s has been started with %d drive%s",
 						mddev, okcnt, okcnt==1?"":"s");
-					if (okcnt < info.array.raid_disks) 
+					if (okcnt < info.array.raid_disks)
 						fprintf(stderr, " (out of %d)", info.array.raid_disks);
 					if (sparecnt)
 						fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
@@ -697,8 +697,11 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			return 1;
 		}
 		if (runstop == -1) {
-			fprintf(stderr, Name ": %s assembled from %d drive%s, but not started.\n",
+			fprintf(stderr, Name ": %s assembled from %d drive%s",
 				mddev, okcnt, okcnt==1?"":"s");
+			if (okcnt != info.array.raid_disks)
+				fprintf(stderr, " (out of %d)", info.array.raid_disks);
+			fprintf(stderr, ", but not started.\n");
 			return 0;
 		}
 		if (verbose >= 0) {

@@ -14,6 +14,8 @@ Changes Prior to this release
 	in report.
     -   When using --update=uuid on an array with a bitmap, update the
 	bitmap's uuid too.
+    -   Add a copy of /proc/mdstat to the mail message send by mdadm
+        --monitor.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

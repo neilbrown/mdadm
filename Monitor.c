@@ -493,6 +493,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 	     strncmp(event, "Degrade", 7)==0)) {
 		FILE *mp = popen(Sendmail, "w");
 		if (mp) {
+			FILE *mdstat;
 			char hname[256];
 			gethostname(hname, sizeof(hname));
 			signal(SIGPIPE, SIG_IGN);
@@ -512,6 +513,16 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 				fprintf(mp, "It could be related to component device %s.\n\n", disc);
 
 			fprintf(mp, "Faithfully yours, etc.\n");
+
+			mdstat = fopen("/proc/mdstat", "r");
+			if (mdstat) {
+				char buf[8192];
+				int n;
+				fprintf(mp, "\nP.S. The /proc/mdstat file current contains the following:\n\n");
+				while ( (n=fread(buf, 1, sizeof(buf), mdstat)) > 0)
+					fwrite(buf, 1, n, mp);
+				fclose(mdstat);
+			}
 			fclose(mp);
 		}
 

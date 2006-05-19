@@ -317,13 +317,18 @@ static void brief_examine_super1(void *sbv)
 	printf("\n");
 }
 
-static void detail_super1(void *sbv)
+static void detail_super1(void *sbv, char *homehost)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
+	int l = homehost ? strlen(homehost) : 0;
 
-	printf("           Name : %.32s\n", sb->set_name);
-	printf("           UUID : ");
+	printf("           Name : %.32s", sb->set_name);
+	if (l > 0 && l < 32 &&
+	    sb->set_name[l] == ':' &&
+	    strncmp(sb->set_name, homehost, l) == 0)
+		printf("  (local to host %s)", homehost);
+	printf("\n           UUID : ");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
 		printf("%02x", sb->set_uuid[i]);

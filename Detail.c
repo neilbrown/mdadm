@@ -31,7 +31,7 @@
 #include	"md_p.h"
 #include	"md_u.h"
 
-int Detail(char *dev, int brief, int test)
+int Detail(char *dev, int brief, int test, char *homehost)
 {
 	/*
 	 * Print out details for an md array by using
@@ -268,7 +268,7 @@ This is pretty boring
 		} else if (e && e->percent >= 0)
 			printf("\n");
 		if (super && st)
-			st->ss->detail_super(super);
+			st->ss->detail_super(super, homehost);
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}

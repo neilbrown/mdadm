@@ -231,7 +231,7 @@ static void brief_examine_super0(void *sbv)
 	printf("\n");
 }
 
-static void detail_super0(void *sbv)
+static void detail_super0(void *sbv, char *homehost)
 {
 	mdp_super_t *sb = sbv;
 	printf("           UUID : ");
@@ -240,6 +240,13 @@ static void detail_super0(void *sbv)
 		       sb->set_uuid2, sb->set_uuid3);
 	else
 		printf("%08x", sb->set_uuid0);
+	if (homehost) {
+		unsigned char *hash = SHA1((unsigned char *)homehost,
+					   strlen(homehost),
+					   NULL);
+		if (memcmp(&sb->set_uuid2, hash, 8)==0)
+			printf(" (local to host %s)", homehost);
+	}
 	printf("\n         Events : %d.%d\n\n", sb->events_hi, sb->events_lo);
 }
 

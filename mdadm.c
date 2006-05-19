@@ -1069,7 +1069,7 @@ int main(int argc, char *argv[])
 								e->dev);
 							continue;
 						}
-						rv |= Detail(name, verbose>1?0:verbose+1, test);
+						rv |= Detail(name, verbose>1?0:verbose+1, test, homehost);
 						put_md_name(name);
 					}
 				} else	if (devmode == 'S' && scan) {
@@ -1114,7 +1114,7 @@ int main(int argc, char *argv[])
 			for (dv=devlist ; dv; dv=dv->next) {
 				switch(dv->disposition) {
 				case 'D':
-					rv |= Detail(dv->devname, brief?1+verbose:0, test); continue;
+					rv |= Detail(dv->devname, brief?1+verbose:0, test, homehost); continue;
 				case 'K': /* Zero superblock */
 					rv |= Kill(dv->devname, force, quiet); continue;
 				case 'Q':

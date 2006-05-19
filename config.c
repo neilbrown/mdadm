@@ -553,6 +553,20 @@ void programline(char *line)
 	}
 }
 
+static char *home_host = NULL;
+void homehostline(char *line)
+{
+	char *w;
+
+	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+		if (home_host == NULL)
+			home_host = strdup(w);
+		else
+			fprintf(stderr, Name ": excess host name on HOMEHOST line: %s - ignored\n",
+				w);
+	}
+}
+
 
 int loaded = 0;
 
@@ -614,6 +628,9 @@ void load_conffile(char *conffile)
 		case CreateDev:
 			createline(line);
 			break;
+		case Homehost:
+			homehostline(line);
+			break;
 		default:
 			fprintf(stderr, Name ": Unknown keyword %s\n", line);
 		}
@@ -641,6 +658,12 @@ char *conf_get_program(char *conffile)
 {
 	load_conffile(conffile);
 	return alert_program;
+}
+
+char *conf_get_homehost(char *conffile)
+{
+	load_conffile(conffile);
+	return home_host;
 }
 
 struct createinfo *conf_get_create_info(char *conffile)

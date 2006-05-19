@@ -125,6 +125,20 @@ extern char Version[], Usage[], Help[], OptionHelp[],
 	Help_create[], Help_build[], Help_assemble[], Help_grow[],
 	Help_manage[], Help_misc[], Help_monitor[], Help_config[];
 
+/* for option that don't have short equivilents, we assign arbitrary
+ * small numbers.  '1' means an undecorated option, so we start at '2'.
+ */
+enum special_options {
+	AssumeClean = 2,
+	BitmapChunk,
+	WriteBehind,
+	ReAdd,
+	NoDegraded,
+	Sparc22,
+	BackupFile,
+	HomeHost,
+};
+
 /* structures read from config file */
 /* List of mddevice names and identifiers
  * Identifiers can be:
@@ -381,6 +395,7 @@ extern struct createinfo *conf_get_create_info(char *conffile);
 extern char *conf_get_mailaddr(char *conffile);
 extern char *conf_get_mailfrom(char *conffile);
 extern char *conf_get_program(char *conffile);
+extern char *conf_get_homehost(char *conffile);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern void free_line(char *line);

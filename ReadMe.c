@@ -130,13 +130,14 @@ struct option long_options[] = {
     {"spare-devices",1,0, 'x'},
     {"size",	  1, 0, 'z'},
     {"auto",	  1, 0, 'a'}, /* also for --assemble */
-    {"assume-clean",0,0, 3 },
+    {"assume-clean",0,0, AssumeClean },
     {"metadata",  1, 0, 'e'}, /* superblock format */
     {"bitmap",	  1, 0, 'b'},
-    {"bitmap-chunk", 1, 0, 4},
-    {"write-behind", 2, 0, 5},
+    {"bitmap-chunk", 1, 0, BitmapChunk},
+    {"write-behind", 2, 0, WriteBehind},
     {"write-mostly",0, 0, 'W'},
-    {"re-add",    0, 0,  6},
+    {"re-add",    0, 0,  ReAdd},
+    {"homehost",  1, 0,  HomeHost},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -156,11 +157,11 @@ struct option long_options[] = {
     {"stop",      0, 0, 'S'},
     {"readonly",  0, 0, 'o'},
     {"readwrite", 0, 0, 'w'},
-    {"no-degraded",0,0,  4 },
+    {"no-degraded",0,0,  NoDegraded },
 
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
-    {"sparc2.2",  0, 0, 22},
+    {"sparc2.2",  0, 0, Sparc22},
     {"test",      0, 0, 't'},
 
     /* For Follow/monitor */
@@ -173,7 +174,7 @@ struct option long_options[] = {
     {"oneshot",   0, 0, '1'},
     {"pid-file",  1, 0, 'i'},
     /* For Grow */
-    {"backup-file", 1,0, 7},
+    {"backup-file", 1,0, BackupFile},
     
     {0, 0, 0, 0}
 };

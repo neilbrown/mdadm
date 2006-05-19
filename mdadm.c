@@ -87,6 +87,7 @@ int main(int argc, char *argv[])
 	 */
 	int autof = 0;
 
+	char *homehost = NULL;
 	char *mailaddr = NULL;
 	char *program = NULL;
 	int delay = 0;
@@ -151,6 +152,10 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": -b cannot have any extra immediately after it, sorry.\n");
 				exit(2);
 			}
+			continue;
+
+		case HomeHost:
+			homehost = optarg;
 			continue;
 
 		case ':':
@@ -441,8 +446,8 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O(CREATE,3):
-		case O(BUILD,3): /* assume clean */
+		case O(CREATE,AssumeClean):
+		case O(BUILD,AssumeClean): /* assume clean */
 			assume_clean = 1;
 			continue;
 
@@ -577,7 +582,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor', 'uuid', 'resync' or 'summaries' supported\n",update);
 			exit(2);
 
-		case O(ASSEMBLE,4): /* --no-degraded */
+		case O(ASSEMBLE,NoDegraded): /* --no-degraded */
 			runstop = -1; /* --stop isn't allowed for --assemble, so we overload slightly */
 			continue;
 
@@ -659,7 +664,7 @@ int main(int argc, char *argv[])
 			devmode = 'a';
 			re_add = 0;
 			continue;
-		case O(MANAGE,6):
+		case O(MANAGE,ReAdd):
 			devmode = 'a';
 			re_add = 1;
 			continue;
@@ -723,7 +728,7 @@ int main(int argc, char *argv[])
 			test = 1;
 			continue;
 
-		case O(MISC, 22):
+		case O(MISC, Sparc22):
 			if (devmode != 'E') {
 				fprintf(stderr, Name ": --sparc2.2 only allowed with --examine\n");
 				exit(2);
@@ -748,8 +753,8 @@ int main(int argc, char *argv[])
 			ident.bitmap_fd = bitmap_fd; /* for Assemble */
 			continue;
 
-		case O(ASSEMBLE, 7):
-		case O(GROW, 7):
+		case O(ASSEMBLE, BackupFile):
+		case O(GROW, BackupFile):
 			/* Specify a file into which grow might place a backup,
 			 * or from which assemble might recover a backup
 			 */
@@ -773,9 +778,9 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": bitmap file must contain a '/', or be 'internal', or 'none'\n");
 			exit(2);
 
-		case O(GROW,4):
-		case O(BUILD,4):
-		case O(CREATE,4): /* bitmap chunksize */
+		case O(GROW,BitmapChunk):
+		case O(BUILD,BitmapChunk):
+		case O(CREATE,BitmapChunk): /* bitmap chunksize */
 			bitmap_chunk = strtol(optarg, &c, 10);
 			if (!optarg[0] || *c || bitmap_chunk < 0 ||
 					bitmap_chunk & (bitmap_chunk - 1)) {
@@ -787,8 +792,8 @@ int main(int argc, char *argv[])
 			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 1024 : 512;
 			continue;
 
-		case O(BUILD, 5):
-		case O(CREATE, 5): /* write-behind mode */
+		case O(BUILD, WriteBehind):
+		case O(CREATE, WriteBehind): /* write-behind mode */
 			write_behind = DEFAULT_MAX_WRITE_BEHIND;
 			if (optarg) {
 				write_behind = strtol(optarg, &c, 10);
@@ -892,6 +897,9 @@ int main(int argc, char *argv[])
 			exit(2);
 		}
 	}
+
+	if (homehost == NULL)
+		homehost = conf_get_homehost(configfile);
 
 	rv = 0;
 	switch(mode) {

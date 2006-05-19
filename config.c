@@ -79,10 +79,17 @@
 char DefaultConfFile[] = CONFFILE;
 char DefaultAltConfFile[] = CONFFILE2;
 
-char *keywords[] = { "devices", "array",
-		     "mailaddr", "program", "mailfrom",
-		     "create",
-		     NULL };
+enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev, Homehost, LTEnd };
+char *keywords[] = {
+	[Devices]  = "devices",
+	[Array]    = "array",
+	[Mailaddr] = "mailaddr",
+	[Mailfrom] = "mailfrom",
+	[Program]  = "program",
+	[CreateDev]   = "create",
+	[Homehost] = "homehost",
+	[LTEnd]    = NULL
+};
 
 /*
  * match_keyword returns an index into the keywords array, or -1 for no match
@@ -589,22 +596,22 @@ void load_conffile(char *conffile)
 	loaded = 1;
 	while ((line=conf_line(f))) {
 		switch(match_keyword(line)) {
-		case 0: /* DEVICE */
+		case Devices:
 			devline(line);
 			break;
-		case 1: /* ARRAY */
+		case Array:
 			arrayline(line);
 			break;
-		case 2: /* MAIL */
+		case Mailaddr:
 			mailline(line);
 			break;
-		case 3: /* PROGRAM */
-			programline(line);
-			break;
-		case 4: /* MAILFROM */
+		case Mailfrom:
 			mailfromline(line);
 			break;
-		case 5: /* CREATE */
+		case Program:
+			programline(line);
+			break;
+		case CreateDev:
 			createline(line);
 			break;
 		default:

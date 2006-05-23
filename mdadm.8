@@ -651,6 +651,7 @@ argument given to this flag can be one of
 .BR summaries ,
 .BR uuid ,
 .BR name ,
+.BR homehost ,
 .BR resync ,
 .BR byteorder ,
 or
@@ -688,6 +689,14 @@ option will change the
 .I name
 of the array as stored in the superblock.  This is only supported for
 version-1 superblocks.
+
+The
+.B homehost
+option will change the
+.I homehost
+as recorded in the superblock.  For version-0 superblocks, this is the
+same as updating the UUID.
+For version-1 superblocks, this involves updating the name.
 
 The
 .B resync

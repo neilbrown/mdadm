@@ -442,6 +442,13 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 		sb->state &= ~(1<<MD_SB_CLEAN);
 		sb->recovery_cp = 0;
 	}
+	if (strcmp(update, "homehost") == 0 &&
+	    homehost) {
+		uuid_set = 0;
+		update = "uuid";
+		info->uuid[0] = sb->set_uuid0;
+		info->uuid[1] = sb->set_uuid1;
+	}
 	if (strcmp(update, "uuid") == 0) {
 		if (!uuid_set && homehost) {
 			unsigned char *hash = SHA1((unsigned char*)homehost,

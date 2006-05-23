@@ -496,6 +496,17 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 			memcpy(bm->uuid, info->uuid, 16);
 		}
 	}
+	if (strcmp(update, "homehost") == 0 &&
+	    homehost) {
+		char *c;
+		update = "name";
+		c = strchr(sb->set_name, ':');
+		if (c)
+			strncpy(info->name, c+1, 31 - (c-sb->set_name));
+		else
+			strncpy(info->name, sb->set_name, 32);
+		info->name[33] = 0;
+	}
 	if (strcmp(update, "name") == 0) {
 		if (info->name[0] == 0)
 			sprintf(info->name, "%d", info->array.md_minor);

@@ -595,7 +595,11 @@ will look for super blocks with a minor number of 0.
 .TP
 .BR -N ", " --name=
 Specify the name of the array to assemble.  This must be the name
-that was specified when creating the array.
+that was specified when creating the array.  It must either match
+then name stored in the superblock exactly, or it must match
+which the current
+.I homehost
+is added to the start of the given name.
 
 .TP
 .BR -f ", " --force

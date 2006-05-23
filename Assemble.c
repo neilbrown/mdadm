@@ -29,6 +29,26 @@
 
 #include	"mdadm.h"
 
+static int name_matches(char *found, char *required, char *homehost)
+{
+	/* See if the name found matches the required name, possibly
+	 * prefixed with 'homehost'
+	 */
+	char fnd[33];
+
+	strncpy(fnd, found, 32);
+	fnd[32] = 0;
+	if (strcmp(found, required)==0)
+		return 1;
+	if (homehost) {
+		int l = strlen(homehost);
+		if (l < 32 && fnd[l] == ':' &&
+		    strcmp(fnd+l+1, required)==0)
+			return 1;
+	}
+	return 0;
+}
+
 int Assemble(struct supertype *st, char *mddev, int mdfd,
 	     mddev_ident_t ident, char *conffile,
 	     mddev_dev_t devlist, char *backup_file,
@@ -226,7 +246,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 		if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
-		    (!super || strncmp(info.name, ident->name, 32)!=0)) {
+		    (!super || name_matches(info.name, ident->name, homehost)==0)) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong name.\n",
 					devname);

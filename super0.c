@@ -269,6 +269,17 @@ static void brief_detail_super0(void *sbv)
 		printf("%08x", sb->set_uuid0);
 }
 #endif
+
+static int match_home0(void *sbv, char *homehost)
+{
+	mdp_super_t *sb = sbv;
+	unsigned char *hash = SHA1((unsigned char *)homehost,
+				   strlen(homehost),
+				   NULL);
+
+	return (memcmp(&sb->set_uuid2, hash, 8)==0);
+}
+
 static void uuid_from_super0(int uuid[4], void * sbv)
 {
 	mdp_super_t *super = sbv;
@@ -942,6 +953,7 @@ struct superswitch super0 = {
 	.detail_super = detail_super0,
 	.brief_detail_super = brief_detail_super0,
 #endif
+	.match_home = match_home0,
 	.uuid_from_super = uuid_from_super0,
 	.getinfo_super = getinfo_super0,
 	.update_super = update_super0,

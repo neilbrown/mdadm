@@ -357,6 +357,16 @@ static void brief_detail_super1(void *sbv)
 
 #endif
 
+static int match_home1(void *sbv, char *homehost)
+{
+	struct mdp_superblock_1 *sb = sbv;
+	int l = homehost ? strlen(homehost) : 0;
+
+	return (l > 0 && l < 32 &&
+		sb->set_name[l] == ':' &&
+		strncmp(sb->set_name, homehost, l) == 0);
+}
+
 static void uuid_from_super1(int uuid[4], void * sbv)
 {
 	struct mdp_superblock_1 *super = sbv;
@@ -1191,6 +1201,7 @@ struct superswitch super1 = {
 	.detail_super = detail_super1,
 	.brief_detail_super = brief_detail_super1,
 #endif
+	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,
 	.getinfo_super = getinfo_super1,
 	.update_super = update_super1,

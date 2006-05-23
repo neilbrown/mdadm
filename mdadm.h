@@ -279,6 +279,7 @@ extern struct superswitch {
 	void (*brief_detail_super)(void *sbv);
 	void (*uuid_from_super)(int uuid[4], void *sbv);
 	void (*getinfo_super)(struct mdinfo *info, void *sbv);
+	int (*match_home)(void *sbv, char *homehost);
 	int (*update_super)(struct mdinfo *info, void *sbv, char *update,
 			    char *devname, int verbose,
 			    int uuid_set, char *homehost);

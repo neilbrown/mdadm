@@ -277,9 +277,11 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 
-		/* If we are this far, then we are commited to this device.
+		/* If we are this far, then we are nearly commited to this device.
 		 * If the super_block doesn't exist, or doesn't match others,
-		 * then we cannot continue
+		 * then we probably cannot continue
+		 * However if one of the arrays is for the homehost, and
+		 * the other isn't that can disambiguate.
 		 */
 
 		if (!super) {
@@ -289,9 +291,37 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			return 1;
 		}
 
-
-		st = tst; /* commit to this format, if haven't already */
-		if (st->ss->compare_super(&first_super, super)) {
+		if (st == NULL)
+			st = tst;
+		if (st->ss != tst->ss ||
+		    st->minor_version != tst->minor_version ||
+		    st->ss->compare_super(&first_super, super) != 0) {
+			/* Some mismatch. If exactly one array matches this host,
+			 * we can resolve on that one
+			 */
+			if (homehost) {
+				int first = st->ss->match_home(first_super, homehost);
+				int last = tst->ss->match_home(super, homehost);
+				if (first+last == 1) {
+					/* We can do something */
+					if (first) {/* just ignore this one */
+						if ((inargv && verbose >= 0) || verbose > 0)
+							fprintf(stderr, Name ": %s misses out due to wrong homehost\n",
+								devname);
+						continue;
+					} else { /* reject all those sofar */
+						mddev_dev_t td;
+						if ((inargv && verbose >= 0) || verbose > 0)
+							fprintf(stderr, Name ": %s overrides previous devices due to good homehost\n",
+								devname);
+						for (td=devlist; td != tmpdev; td=td->next)
+							if (td->used == 1)
+								td->used = 0;
+						tmpdev->used = 1;
+						continue;
+					}
+				}
+			}
 			fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",
 				devname);
 			free(super);

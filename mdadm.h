@@ -182,6 +182,7 @@ typedef struct mddev_dev_s {
 				 */
 	char writemostly;
 	char re_add;
+	char used;		/* set when used */
 	struct mddev_dev_s *next;
 } *mddev_dev_t;
 

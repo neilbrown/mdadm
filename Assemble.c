@@ -193,14 +193,17 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	    fprintf(stderr, Name ": looking for devices for %s\n",
 		    mddev);
 
-	while ( devlist) {
-		char *devname;
+	/* first walk the list of devices to find a consistent set
+	 * that match the criterea, if that is possible.
+	 * We flag the one we like with 'used'.
+	 */
+	for (tmpdev = devlist;
+	     tmpdev;
+	     tmpdev = tmpdev->next) {
+		char *devname = tmpdev->devname;
 		int dfd;
 		struct stat stb;
 		struct supertype *tst = st;
-
-		devname = devlist->devname;
-		devlist = devlist->next;
 
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
@@ -296,12 +299,19 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			return 1;
 		}
 
+		tmpdev->used = 1;
+	}
+
+	/* Ok, no bad inconsistancy, we can try updating etc */
+	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used) {
+		char *devname = tmpdev->devname;
+		struct stat stb;
 		/* looks like a good enough match to update the super block if needed */
 		if (update) {
+			int dfd;
 			/* prepare useful information in info structures */
 			struct stat stb2;
 			fstat(mdfd, &stb2);
-			info.array.md_minor = minor(stb2.st_rdev);
 
 			if (strcmp(update, "uuid")==0 &&
 			    !ident->uuid_set) {
@@ -315,8 +325,20 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				}
 				if (rfd >= 0) close(rfd);
 			}
+			dfd = dev_open(devname, O_RDWR|O_EXCL);
+
+			if (super) {
+				free(super);
+				super = NULL;
+			}
+
+			st->ss->load_super(st, dfd, &super, NULL);
+			st->ss->getinfo_super(&info, super);
+
 			memcpy(info.uuid, ident->uuid, 16);
 			strcpy(info.name, ident->name);
+			info.array.md_minor = minor(stb2.st_rdev);
+
 			st->ss->update_super(&info, super, update, devname, verbose,
 					     ident->uuid_set, homehost);
 			if (strcmp(update, "uuid")==0 &&
@@ -324,7 +346,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				ident->uuid_set = 1;
 				memcpy(ident->uuid, info.uuid, 16);
 			}
-			dfd = dev_open(devname, O_RDWR|O_EXCL);
 			if (dfd < 0)
 				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
 					devname);
@@ -338,6 +359,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			    ident->bitmap_fd)
 				bitmap_update_uuid(ident->bitmap_fd, info.uuid);
 		}
+
+		stat(devname, &stb);
 
 		if (verbose > 0)
 			fprintf(stderr, Name ": %s is identified as a member of %s, slot %d.\n",

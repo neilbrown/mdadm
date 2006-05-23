@@ -225,7 +225,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					devname);
 			continue;
 		}
-		if (ident->name[0] &&
+		if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
 		    (!super || strncmp(info.name, ident->name, 32)!=0)) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": %s has wrong name.\n",

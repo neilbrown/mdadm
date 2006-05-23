@@ -496,6 +496,19 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 			memcpy(bm->uuid, info->uuid, 16);
 		}
 	}
+	if (strcmp(update, "name") == 0) {
+		if (info->name[0] == 0)
+			sprintf(info->name, "%d", info->array.md_minor);
+		memset(sb->set_name, 0, sizeof(sb->set_name));
+		if (homehost &&
+		    strchr(info->name, ':') == NULL &&
+		    strlen(homehost)+1+strlen(info->name) < 32) {
+			strcpy(sb->set_name, homehost);
+			strcat(sb->set_name, ":");
+			strcat(sb->set_name, info->name);
+		} else
+			strcpy(sb->set_name, info->name);
+	}
 	if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
 

@@ -566,6 +566,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(update, "uuid")==0)
 				continue;
+			if (strcmp(update, "name")==0)
+				continue;
 			if (strcmp(update, "byteorder")==0) {
 				if (ss) {
 					fprintf(stderr, Name ": must not set metadata type with --update=byteorder.\n");

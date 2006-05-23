@@ -334,7 +334,7 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 	} else
 		info->reshape_active = 0;
 
-	info->name[0] = 0;
+	sprintf(info->name, "%d", sb->md_minor);
 	/* work_disks is calculated rather than read directly */
 	for (i=0; i < MD_SB_DISKS; i++)
 		if ((sb->disks[i].state & (1<<MD_DISK_SYNC)) &&

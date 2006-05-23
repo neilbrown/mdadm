@@ -139,27 +139,29 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	struct mdinfo info;
 	char *avail;
 	int nextspare = 0;
-	
-	vers = md_get_version(mdfd);
-	if (vers <= 0) {
-		fprintf(stderr, Name ": %s appears not to be an md device.\n", mddev);
-		return 1;
-	}
-	if (vers < 9000) {
-		fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
-			"    Upgrade your kernel or try --build\n");
-		return 1;
-	}
+
 	if (get_linux_version() < 2004000)
 		old_linux = 1;
 
-	if (ioctl(mdfd, GET_ARRAY_INFO, &info.array)>=0) {
-		fprintf(stderr, Name ": device %s already active - cannot assemble it\n",
-			mddev);
-		return 1;
-	}
-	ioctl(mdfd, STOP_ARRAY, NULL); /* just incase it was started but has no content */
+	if (mdfd >= 0) {
+		vers = md_get_version(mdfd);
+		if (vers <= 0) {
+			fprintf(stderr, Name ": %s appears not to be an md device.\n", mddev);
+			return 1;
+		}
+		if (vers < 9000) {
+			fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
+				"    Upgrade your kernel or try --build\n");
+			return 1;
+		}
 
+		if (ioctl(mdfd, GET_ARRAY_INFO, &info.array)>=0) {
+			fprintf(stderr, Name ": device %s already active - cannot assemble it\n",
+				mddev);
+			return 1;
+		}
+		ioctl(mdfd, STOP_ARRAY, NULL); /* just incase it was started but has no content */
+	}
 	/*
 	 * If any subdevs are listed, then any that don't
 	 * match ident are discarded.  Remainder must all match and
@@ -173,7 +175,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	    ident->super_minor < 0 &&
 	    ident->devices == NULL) {
 		fprintf(stderr, Name ": No identity information available for %s - cannot assemble.\n",
-			mddev);
+			mddev ? mddev : "further assembly");
 		return 1;
 	}
 	if (devlist == NULL)
@@ -191,7 +193,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 	if (verbose>0)
 	    fprintf(stderr, Name ": looking for devices for %s\n",
-		    mddev);
+		    mddev ? mddev : "further assembly");
 
 	/* first walk the list of devices to find a consistent set
 	 * that match the criterea, if that is possible.
@@ -330,6 +332,17 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 
 		tmpdev->used = 1;
+	}
+
+	if (mdfd < 0) {
+		/* So... it is up to me to open the device.
+		 * We create a name '/dev/md/XXX' based on the info in the
+		 * superblock, and call open_mddev on that
+		 */
+		asprintf(&mddev, "/dev/md/%s", info.name);
+		mdfd = open_mddev(mddev, 0);
+		if (mdfd < 0)
+			return mdfd;
 	}
 
 	/* Ok, no bad inconsistancy, we can try updating etc */

@@ -33,7 +33,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	     mddev_ident_t ident, char *conffile,
 	     mddev_dev_t devlist, char *backup_file,
 	     int readonly, int runstop,
-	     char *update,
+	     char *update, char *homehost,
 	     int verbose, int force)
 {
 	/*
@@ -294,11 +294,16 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					*(__u32*)(ident->uuid+3) = random();
 				}
 				if (rfd >= 0) close(rfd);
-				ident->uuid_set = 1;
 			}
 			memcpy(info.uuid, ident->uuid, 16);
-			st->ss->update_super(&info, super, update, devname, verbose);
-			
+			strcpy(info.name, ident->name);
+			st->ss->update_super(&info, super, update, devname, verbose,
+					     ident->uuid_set, homehost);
+			if (strcmp(update, "uuid")==0 &&
+			    !ident->uuid_set) {
+				ident->uuid_set = 1;
+				memcpy(ident->uuid, info.uuid, 16);
+			}
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
 			if (dfd < 0)
 				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
@@ -451,7 +456,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 		info.events = devices[most_recent].events;
-		st->ss->update_super(&info, super, "force", devices[chosen_drive].devname, verbose);
+		st->ss->update_super(&info, super, "force", devices[chosen_drive].devname, verbose, 0, NULL);
 
 		if (st->ss->store_super(st, fd, super)) {
 			close(fd);
@@ -522,7 +527,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		info.disk.state = desired_state;
 
 		if (devices[j].uptodate &&
-		    st->ss->update_super(&info, super, "assemble", NULL, verbose)) {
+		    st->ss->update_super(&info, super, "assemble", NULL, verbose, 0, NULL)) {
 			if (force) {
 				if (verbose >= 0)
 					fprintf(stderr, Name ": "
@@ -547,7 +552,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	if (force && okcnt == info.array.raid_disks-1) {
 		/* FIXME check event count */
 		change += st->ss->update_super(&info, super, "force",
-					devices[chosen_drive].devname, verbose);
+					devices[chosen_drive].devname, verbose, 0, NULL);
 	}
 
 	if (change) {

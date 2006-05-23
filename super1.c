@@ -434,7 +434,9 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 	info->array.working_disks = working;
 }
 
-static int update_super1(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose)
+static int update_super1(struct mdinfo *info, void *sbv, char *update,
+			 char *devname, int verbose,
+			 int uuid_set, char *homehost)
 {
 	/* NOTE: for 'assemble' and 'force' we need to return non-zero if any change was made.
 	 * For others, the return value is ignored.

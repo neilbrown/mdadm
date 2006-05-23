@@ -334,7 +334,9 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 }
 
 
-static int update_super0(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose)
+static int update_super0(struct mdinfo *info, void *sbv, char *update,
+			 char *devname, int verbose,
+			 int uuid_set, char *homehost)
 {
 	/* NOTE: for 'assemble' and 'force' we need to return non-zero if any change was made.
 	 * For others, the return value is ignored.
@@ -441,6 +443,12 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update, char *dev
 		sb->recovery_cp = 0;
 	}
 	if (strcmp(update, "uuid") == 0) {
+		if (!uuid_set && homehost) {
+			unsigned char *hash = SHA1((unsigned char*)homehost,
+						   strlen(homehost),
+						   NULL);
+			memcpy(info->uuid+2, hash, 8);
+		}
 		sb->set_uuid0 = info->uuid[0];
 		sb->set_uuid1 = info->uuid[1];
 		sb->set_uuid2 = info->uuid[2];

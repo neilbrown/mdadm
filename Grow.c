@@ -121,7 +121,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	info.disk.minor = minor(stb.st_rdev);
 	info.disk.raid_disk = d;
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-	st->ss->update_super(&info, super, "grow", newdev, 0);
+	st->ss->update_super(&info, super, "grow", newdev, 0, 0, NULL);
 
 	if (st->ss->store_super(st, nfd, super)) {
 		fprintf(stderr, Name ": Cannot store new superblock on %s\n", newdev);
@@ -179,7 +179,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		info.disk.minor = minor(stb.st_rdev);
 		info.disk.raid_disk = nd;
 		info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-		st->ss->update_super(&info, super, "grow", dv, 0);
+		st->ss->update_super(&info, super, "grow", dv, 0, 0, NULL);
 		
 		if (st->ss->store_super(st, fd2, super)) {
 			fprintf(stderr, Name ": Cannot store new superblock on %s\n", dv);
@@ -948,7 +948,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				continue;
 			st->ss->getinfo_super(&dinfo, super);
 			dinfo.reshape_progress = __le64_to_cpu(bsb.length);
-			st->ss->update_super(&dinfo, super, "_reshape_progress",NULL,0);
+			st->ss->update_super(&dinfo, super, "_reshape_progress",NULL,0, 0, NULL);
 			st->ss->store_super(st, fdlist[j], super);
 			free(super);
 		}

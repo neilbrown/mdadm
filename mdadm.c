@@ -939,14 +939,14 @@ int main(int argc, char *argv[])
 				else {
 					rv |= Assemble(ss, devlist->devname, mdfd, array_ident, configfile,
 						       NULL, backup_file,
-						       readonly, runstop, update, verbose-quiet, force);
+						       readonly, runstop, update, homehost, verbose-quiet, force);
 					close(mdfd);
 				}
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, mdfd, &ident, configfile,
 				      devlist->next, backup_file,
-				      readonly, runstop, update, verbose-quiet, force);
+				      readonly, runstop, update, homehost, verbose-quiet, force);
 		else if (devs_found>0) {
 			if (update && devs_found > 1) {
 				fprintf(stderr, Name ": can only update a single array at a time\n");
@@ -972,7 +972,7 @@ int main(int argc, char *argv[])
 				}
 				rv |= Assemble(ss, dv->devname, mdfd, array_ident, configfile,
 					       NULL, backup_file,
-					       readonly, runstop, update, verbose-quiet, force);
+					       readonly, runstop, update, homehost, verbose-quiet, force);
 				close(mdfd);
 			}
 		} else {
@@ -1004,7 +1004,7 @@ int main(int argc, char *argv[])
 						rv |= Assemble(ss, array_list->devname, mdfd,
 							       array_list, configfile,
 							       NULL, NULL,
-							       readonly, runstop, NULL, verbose-quiet, force);
+							       readonly, runstop, NULL, homehost, verbose-quiet, force);
 					close(mdfd);
 				}
 		}

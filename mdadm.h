@@ -278,7 +278,9 @@ extern struct superswitch {
 	void (*brief_detail_super)(void *sbv);
 	void (*uuid_from_super)(int uuid[4], void *sbv);
 	void (*getinfo_super)(struct mdinfo *info, void *sbv);
-	int (*update_super)(struct mdinfo *info, void *sbv, char *update, char *devname, int verbose);
+	int (*update_super)(struct mdinfo *info, void *sbv, char *update,
+			    char *devname, int verbose,
+			    int uuid_set, char *homehost);
 	__u64 (*event_super)(void *sbv);
 	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name, char *homehost);
 	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
@@ -342,7 +344,7 @@ extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 		    char *conffile,
 		    mddev_dev_t devlist, char *backup_file,
 		    int readonly, int runstop,
-		    char *update,
+		    char *update, char *homehost,
 		    int verbose, int force);
 
 extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,

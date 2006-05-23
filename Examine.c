@@ -98,7 +98,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 		}
 
 		if (SparcAdjust)
-			st->ss->update_super(NULL, super, "sparc2.2", devlist->devname,  0);
+			st->ss->update_super(NULL, super, "sparc2.2", devlist->devname, 0, 0, NULL);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 		if (brief) {
 			struct array *ap;

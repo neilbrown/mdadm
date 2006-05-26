@@ -389,6 +389,17 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	array.chunk_size = chunk*1024;
 	array.major_version = st->ss->major;
 
+	if (name == NULL || *name == 0) {
+		/* base name on mddev */
+		name = strrchr(mddev, '/');
+		if (name) {
+			name++;
+			if (strncmp(name, "md", 2)==0 &&
+			    strlen(name) > 2 &&
+			    (name-mddev) == 5 /* /dev/ */)
+				name += 2;
+		}
+	}
 	if (!st->ss->init_super(st, &super, &array, size, name, homehost))
 		return 1;
 

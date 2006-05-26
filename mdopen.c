@@ -166,8 +166,10 @@ int open_mddev(char *dev, int autof)
 			}
 			if (ioctl(mdfd, GET_ARRAY_INFO, &array)==0) {
 				/* already active */
-				must_remove = 1;
 				close(mdfd);
+				fprintf(sterr, Name ": %s is alreadyt active.\n",
+					dev);
+				return -1;
 			} else {
 				if (major != MD_MAJOR && parts > 0)
 					make_parts(dev, parts);

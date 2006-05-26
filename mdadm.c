@@ -873,6 +873,8 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": --super-minor=dev is incompatible with --auto\n");	
 			exit(2);
 		}
+		if (mode == MANAGE && runstop < 0)
+			autof=1; /* Don't create */
 		mdfd = open_mddev(devlist->devname, autof);
 		if (mdfd < 0)
 			exit(1);
@@ -1022,15 +1024,23 @@ int main(int argc, char *argv[])
 				 * until it fails
 				 */
 				int rv2;
+				int acnt;
+				ident.autof = autof;
 				do {
-					ident.autof = autof;
-					rv2 = Assemble(ss, NULL, -1,
-						       &ident, configfile,
-						       devlist, NULL,
-						       readonly, runstop, NULL, homehost, verbose-quiet, force);
-					if (rv2==0)
-						cnt++;
-				} while (rv2==0);
+					acnt = 0;
+					do {
+						rv2 = Assemble(ss, NULL, -1,
+							       &ident, configfile,
+							       devlist, NULL,
+							       readonly, runstop, NULL, homehost, verbose-quiet, force);
+						if (rv2==0) {
+							cnt++;
+							acnt++;
+						}
+					} while (rv2!=2);
+					/* Incase there are stacked devices, we need to go around again */
+					devlist = conf_get_devs(configfile);
+				} while (acnt);
 				if (cnt == 0 && rv == 0) {
 					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
 					rv = 1;
@@ -1125,7 +1135,7 @@ int main(int argc, char *argv[])
 									e->dev);
 								continue;
 							}
-							mdfd = open_mddev(name, 0);
+							mdfd = open_mddev(name, 1);
 							if (mdfd >= 0) {
 								if (Manage_runstop(name, mdfd, -1, !last))
 									err = 1;
@@ -1154,7 +1164,7 @@ int main(int argc, char *argv[])
 				case 'X':
 					rv |= ExamineBitmap(dv->devname, brief, ss); continue;
 				}
-				mdfd = open_mddev(dv->devname, 0);
+				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {
 					switch(dv->disposition) {
 					case 'R':

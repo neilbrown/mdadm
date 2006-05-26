@@ -167,7 +167,7 @@ int open_mddev(char *dev, int autof)
 			if (ioctl(mdfd, GET_ARRAY_INFO, &array)==0) {
 				/* already active */
 				close(mdfd);
-				fprintf(sterr, Name ": %s is alreadyt active.\n",
+				fprintf(stderr, Name ": %s is already active.\n",
 					dev);
 				return -1;
 			} else {

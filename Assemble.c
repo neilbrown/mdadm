@@ -110,6 +110,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	 *    START_ARRAY
 	 *
 	 */
+	int must_close = 0;
 	int old_linux = 0;
 	int vers;
 	void *first_super = NULL, *super = NULL;
@@ -367,7 +368,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		mdu_array_info_t inf;
 		char *c;
 		if (!first_super) {
-			return 1;
+			return 2;
 		}
 		st->ss->getinfo_super(&info, first_super);
 		c = strchr(info.name, ':');
@@ -383,6 +384,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			free(first_super);
 			return 1;
 		}
+		must_close = 1;
 	}
 
 	/* Ok, no bad inconsistancy, we can try updating etc */
@@ -517,6 +519,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		fprintf(stderr, Name ": no devices found for %s\n",
 			mddev);
 		free(first_super);
+		if (must_close) close(mdfd);
 		return 1;
 	}
 
@@ -632,18 +635,21 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if ((fd=dev_open(devices[j].devname, O_RDONLY|O_EXCL))< 0) {
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				devices[j].devname, strerror(errno));
+			if (must_close) close(mdfd);
 			return 1;
 		}
 		if (st->ss->load_super(st,fd, &super, NULL)) {
 			close(fd);
 			fprintf(stderr, Name ": RAID superblock has disappeared from %s\n",
 				devices[j].devname);
+			if (must_close) close(mdfd);
 			return 1;
 		}
 		close(fd);
 	}
 	if (super == NULL) {
 		fprintf(stderr, Name ": No suitable drives found for %s\n", mddev);
+		if (must_close) close(mdfd);
 		return 1;
 	}
 	st->ss->getinfo_super(&info, super);
@@ -699,12 +705,14 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (fd < 0) {
 			fprintf(stderr, Name ": Could not open %s for write - cannot Assemble array.\n",
 				devices[chosen_drive].devname);
+			if (must_close) close(mdfd);
 			return 1;
 		}
 		if (st->ss->store_super(st, fd, super)) {
 			close(fd);
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
+			if (must_close) close(mdfd);
 			return 1;
 		}
 		close(fd);
@@ -739,6 +747,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (err) {
 			fprintf(stderr, Name ": Failed to restore critical section for reshape, sorry.\n");
+			if (must_close) close(mdfd);
 			return err;
 		}
 	}
@@ -763,11 +772,13 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (rv) {
 			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
 				mddev, strerror(errno));
+			if (must_close) close(mdfd);
 			return 1;
 		}
 		if (ident->bitmap_fd >= 0) {
 			if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
 				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
+				if (must_close) close(mdfd);
 				return 1;
 			}
 		} else if (ident->bitmap_file) {
@@ -776,11 +787,13 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (bmfd < 0) {
 				fprintf(stderr, Name ": Could not open bitmap file %s\n",
 					ident->bitmap_file);
+				if (must_close) close(mdfd);
 				return 1;
 			}
 			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
 				fprintf(stderr, Name ": Failed to set bitmapfile for %s\n", mddev);
 				close(bmfd);
+				if (must_close) close(mdfd);
 				return 1;
 			}
 			close(bmfd);
@@ -833,10 +846,12 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 						fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 					fprintf(stderr, ".\n");
 				}
+				if (must_close) close(mdfd);
 				return 0;
 			}
 			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",
 				mddev, strerror(errno));
+			if (must_close) close(mdfd);
 			return 1;
 		}
 		if (runstop == -1) {
@@ -845,6 +860,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (okcnt != info.array.raid_disks)
 				fprintf(stderr, " (out of %d)", info.array.raid_disks);
 			fprintf(stderr, ", but not started.\n");
+			if (must_close) close(mdfd);
 			return 0;
 		}
 		if (verbose >= 0) {
@@ -861,6 +877,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fprintf(stderr, " (use --run to insist).\n");
 			}
 		}
+		if (must_close) close(mdfd);
 		return 1;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has
@@ -876,5 +893,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		
 	}
+	if (must_close) close(mdfd);
 	return 0;
 }

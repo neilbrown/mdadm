@@ -180,11 +180,15 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	}
 	if (devlist == NULL)
 		devlist = conf_get_devs(conffile);
-	else inargv = 1;
+	else if (mdfd >= 0)
+		inargv = 1;
 
 	tmpdev = devlist; num_devs = 0;
 	while (tmpdev) {
-		num_devs++;
+		if (tmpdev->used)
+			tmpdev->used = 2;
+		else
+			num_devs++;
 		tmpdev = tmpdev->next;
 	}
 	devices = malloc(num_devs * sizeof(*devices));
@@ -207,6 +211,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		struct stat stb;
 		struct supertype *tst = st;
 
+		if (tmpdev->used > 1) continue;
+
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
 			if ((inargv && verbose>=0) || verbose > 0)
@@ -224,16 +230,21 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf(stderr, Name ": cannot open device %s: %s\n",
 					devname, strerror(errno));
+			tmpdev->used = 2;
 		} else if (fstat(dfd, &stb)< 0) {
 			/* Impossible! */
 			fprintf(stderr, Name ": fstat failed for %s: %s\n",
 				devname, strerror(errno));
+			tmpdev->used = 2;
 		} else if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				devname);
+			tmpdev->used = 2;
 		} else if (!tst && (tst = guess_super(dfd)) == NULL) {
 			if ((inargv && verbose >= 0) || verbose > 0)
-				fprintf(stderr, Name ": no recogniseable superblock\n");
+				fprintf(stderr, Name ": no recogniseable superblock on %s\n",
+					devname);
+			tmpdev->used = 2;
 		} else if (tst->ss->load_super(tst,dfd, &super, NULL)) {
 			if ((inargv && verbose >= 0) || verbose > 0)
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
@@ -278,7 +289,17 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					devname);
 			continue;
 		}
-
+		if (mdfd < 0) {
+			if (tst == NULL || super == NULL)
+				continue;
+			if (tst->ss->match_home(super, homehost)==0) {
+				if ((inargv && verbose >= 0) || verbose > 0)
+					fprintf(stderr, Name ": %s is not built for host %s.\n",
+						devname, homehost);
+				/* Auto-assemble, and this is not a usable host */
+				continue;
+			}
+		}
 		/* If we are this far, then we are nearly commited to this device.
 		 * If the super_block doesn't exist, or doesn't match others,
 		 * then we probably cannot continue
@@ -299,8 +320,12 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		    st->minor_version != tst->minor_version ||
 		    st->ss->compare_super(&first_super, super) != 0) {
 			/* Some mismatch. If exactly one array matches this host,
-			 * we can resolve on that one
+			 * we can resolve on that one.
+			 * Or, if we are auto assembling, we just ignore the second
+			 * for now.
 			 */
+			if (mdfd < 0)
+				continue;
 			if (homehost) {
 				int first = st->ss->match_home(first_super, homehost);
 				int last = tst->ss->match_home(super, homehost);
@@ -339,14 +364,29 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		 * We create a name '/dev/md/XXX' based on the info in the
 		 * superblock, and call open_mddev on that
 		 */
-		asprintf(&mddev, "/dev/md/%s", info.name);
-		mdfd = open_mddev(mddev, 0);
+		mdu_array_info_t inf;
+		char *c;
+		if (!first_super) {
+			return 1;
+		}
+		st->ss->getinfo_super(&info, first_super);
+		c = strchr(info.name, ':');
+		if (c) c++; else c= info.name;
+		asprintf(&mddev, "/dev/md/%s", c);
+		mdfd = open_mddev(mddev, ident->autof);
 		if (mdfd < 0)
 			return mdfd;
+		vers = md_get_version(mdfd);
+		if (ioctl(mdfd, GET_ARRAY_INFO, &inf)==0) {
+			fprintf(stderr, Name ": %s already active, cannot restart it!\n", mddev);
+			close(mdfd);
+			free(first_super);
+			return 1;
+		}
 	}
 
 	/* Ok, no bad inconsistancy, we can try updating etc */
-	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used) {
+	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
 		/* looks like a good enough match to update the super block if needed */
@@ -401,6 +441,18 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (strcmp(update, "uuid")==0 &&
 			    ident->bitmap_fd)
 				bitmap_update_uuid(ident->bitmap_fd, info.uuid);
+		} else {
+			int dfd;
+			dfd = dev_open(devname, O_RDWR|O_EXCL);
+
+			if (super) {
+				free(super);
+				super = NULL;
+			}
+
+			st->ss->load_super(st, dfd, &super, NULL);
+			st->ss->getinfo_super(&info, super);
+			close(dfd);
 		}
 
 		stat(devname, &stb);

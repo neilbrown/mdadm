@@ -237,6 +237,7 @@ int main(int argc, char *argv[])
 					dv->disposition = devmode;
 					dv->writemostly = writemostly;
 					dv->re_add = re_add;
+					dv->used = 0;
 					dv->next = NULL;
 					*devlistend = dv;
 					devlistend = &dv->next;
@@ -981,36 +982,63 @@ int main(int argc, char *argv[])
 			}
 		} else {
 			mddev_ident_t array_list =  conf_get_ident(configfile, NULL);
-			if (!array_list) {
+			mddev_dev_t devlist = conf_get_devs(configfile);
+			int cnt = 0;
+			if (devlist == NULL) {
+				fprintf(stderr, Name ": No devices listed in conf file were found.\n");
+				exit(1);
+			}
+			if (update) {
+				fprintf(stderr, Name ": --update not meaningful with a --scan assembly.\n");
+				exit(1);
+			}
+			if (backup_file) {
+				fprintf(stderr, Name ": --backup_file not meaningful with a --scan assembly.\n");
+				exit(1);
+			}
+			for (; array_list; array_list = array_list->next) {
+				mdu_array_info_t array;
+				mdfd = open_mddev(array_list->devname,
+						  array_list->autof ? array_list->autof : autof);
+				if (mdfd < 0) {
+					rv |= 1;
+					continue;
+				}
+				if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
+					/* already assembled, skip */
+					;
+				else {
+					rv |= Assemble(ss, array_list->devname, mdfd,
+						       array_list, configfile,
+						       devlist, NULL,
+						       readonly, runstop, NULL, homehost, verbose-quiet, force);
+					if (rv == 0) cnt++;
+				}
+				close(mdfd);
+			}
+			if (homehost) {
+				/* Maybe we can auto-assemble something.
+				 * Repeatedly call Assemble in auto-assmble mode
+				 * until it fails
+				 */
+				int rv2;
+				do {
+					ident.autof = autof;
+					rv2 = Assemble(ss, NULL, -1,
+						       &ident, configfile,
+						       devlist, NULL,
+						       readonly, runstop, NULL, homehost, verbose-quiet, force);
+					if (rv2==0)
+						cnt++;
+				} while (rv2==0);
+				if (cnt == 0 && rv == 0) {
+					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
+					rv = 1;
+				}
+			} else if (cnt == 0 && rv == 0) {
 				fprintf(stderr, Name ": No arrays found in config file\n");
 				rv = 1;
-			} else
-				if (update) {
-					fprintf(stderr, Name ": --update not meaningful with a --scan assembly.\n");
-					exit(1);
-				}
-				if (backup_file) {
-					fprintf(stderr, Name ": --backup_file not meaningful with a --scan assembly.\n");
-					exit(1);
-				}
-				for (; array_list; array_list = array_list->next) {
-					mdu_array_info_t array;
-					mdfd = open_mddev(array_list->devname, 
-							  array_list->autof ? array_list->autof : autof);
-					if (mdfd < 0) {
-						rv |= 1;
-						continue;
-					}
-					if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
-						/* already assembled, skip */
-						;
-					else
-						rv |= Assemble(ss, array_list->devname, mdfd,
-							       array_list, configfile,
-							       NULL, NULL,
-							       readonly, runstop, NULL, homehost, verbose-quiet, force);
-					close(mdfd);
-				}
+			}
 		}
 		break;
 	case BUILD:

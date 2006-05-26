@@ -246,6 +246,7 @@ mddev_dev_t load_partitions(void)
 		d = malloc(sizeof(*d));
 		d->devname = strdup(name);
 		d->next = rv;
+		d->used = 0;
 		rv = d;
 	}
 	fclose(f);
@@ -716,6 +717,7 @@ mddev_dev_t conf_get_devs(char *conffile)
 			mddev_dev_t t = malloc(sizeof(*t));
 			t->devname = strdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
+			t->used = 0;
 			dlist = t;
 /*	printf("one dev is %s\n", t->devname);*/
 		}

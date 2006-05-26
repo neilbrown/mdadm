@@ -712,7 +712,7 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 		struct bitmap_super_s *bm = (struct bitmap_super_s*)
-			((char*)sb)+1024;
+			(((char*)sb)+1024);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC) {
 			locate_bitmap1(st, fd, sbv);
 			write(fd, bm, sizeof(*bm));

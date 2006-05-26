@@ -7,6 +7,7 @@ ANNOUNCE-2.3.1
 ANNOUNCE-2.4
 ANNOUNCE-2.4-pre1
 ANNOUNCE-2.4.1
+ANNOUNCE-2.5
 Assemble.c
 Build.c
 COPYING
@@ -23,6 +24,7 @@ Monitor.c
 Query.c
 README.initramfs
 ReadMe.c
+SHA1.c
 TODO
 bitmap.c
 bitmap.h
@@ -32,6 +34,7 @@ dlink.h
 inventory
 makedist
 md.4
+md5.h
 md_p.h
 md_u.h
 mdadm.8
@@ -49,6 +52,8 @@ misc/syslog-events
 mkinitramfs
 raid5extend.c
 restripe.c
+sha1.c
+sha1.h
 super0.c
 super1.c
 swap_super.c

@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 		case 'a':
 		case 'r':
 		case 'f':
-		case 6: /* re-add */
+		case ReAdd: /* re-add */
 			if (!mode) {
 				newmode = MANAGE;
 				shortopt = short_bitmap_auto_options;

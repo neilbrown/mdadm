@@ -1,5 +1,5 @@
 .\" -*- nroff -*-
-.TH MDADM 8 "" v2.4.1
+.TH MDADM 8 "" v2.5
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -280,6 +280,26 @@ The different subversion store the superblock at different locations
 on the device, either at the end (for 1.0), at the start (for 1.1) or
 4K from the start (for 1.2).
 .RE
+
+.TP
+.B --homehost=
+This will over-ride any
+.B HOMEHOST
+setting in the config file and provides the identify of the host which
+should be considered the home for any arrays.
+
+When creating an array, the
+.B homehost
+will be recorded in the superblock.  For version-1 superblocks, it will
+be prefixed to the array name.  For version-0.90 superblocks part of
+the SHA1 hash of the hostname will be stored in the later half of the
+UUID.
+
+When reporting information about an array, any array which is tagged
+for the given homehost will be reported as such.
+
+When using Auto-Assemble, only arrays tagged for the given homehost
+will be assembled.
 
 .SH For create, build, or grow:
 
@@ -597,7 +617,7 @@ will look for super blocks with a minor number of 0.
 Specify the name of the array to assemble.  This must be the name
 that was specified when creating the array.  It must either match
 then name stored in the superblock exactly, or it must match
-which the current
+with the current
 .I homehost
 is added to the start of the given name.
 
@@ -727,6 +747,14 @@ The
 .B summaries
 option will correct the summaries in the superblock. That is the
 counts of total, working, active, failed, and spare devices.
+
+.TP
+.B --auto-update-homehost
+This flag is only meaning with auto-assembly (see discussion below).
+In that situation, if no suitable arrays are found for this homehost,
+.I mdadm
+will recan for any arrays at all and will assemble them and update the
+homehost to match the current host.
 
 .SH For Manage mode:
 
@@ -1015,6 +1043,62 @@ option is also available in Build and Create modes.  As those modes do
 not use a config file, the "auto=" config option does not apply to
 these modes.
 
+.SS Auto Assembly
+When
+.B --assemble
+is used with
+.B --scan
+and no devices are listed,
+.I mdadm
+will first attempt to assemble all the arrays listed in the config
+file.
+
+If a
+.B homehost
+has been specified (either in the config file or on the command line),
+.I mdadm
+will look further for possible arrays and will try to assemble
+anything that it finds which is tagged as belonging to the given
+homehost.  This is the only situation where
+.I mdadm
+will assemble arrays without being given specific device name or
+identify information for the array.
+
+If
+.I mdadm
+finds a consistent set of devices that look like they should comprise
+an array, and if the superblock is tagged as belonging to the given
+home host, it will automatically choose a device name and try to
+assemble the array.  If the array uses version-0.90 metadata, then the
+.B minor
+number as recorded in the superblock is used to create a name in
+.B /dev/md/
+so for example
+.BR /dev/md/3 .
+If the array uses version-1 metadata, then the
+.B name
+from the superblock is used to similarly create a name in
+.BR /dev/md .
+The name will have any 'host' prefix stripped first.
+
+If
+.I mdadm
+cannot find any array for the given host at all, and if
+.B --auto-update-homehost
+is given, then
+.I mdadm
+will search again for any array (not just an array created for this
+host) and will assemble each assuming
+.IR --update=homehost .
+This will change the host tag in the superblock so that on the next run,
+these arrays will be found without the second pass.  The intention of
+this feature is to support transitioning a set of md arrays to using
+homehost tagging.
+
+The reason for requiring arrays to be tagged with the homehost for
+auto assembly is to guard against problems that can arise when moving
+devices from one host to another.
+
 .SH BUILD MODE
 
 .HP 12
@@ -1088,6 +1172,24 @@ the parity on a non-degraded, but not clean, array.  This feature can
 be over-ridden with the
 .I --force
 option.
+
+When creating an array with version-1 metadata a name for the host is
+required.
+If this is not given with the
+.B --name
+option,
+.I mdadm
+will chose a name based on the last component of the name of the
+device being created.  So if
+.B /dev/md3
+is being created, then the name
+.B 3
+will be chosen.
+If
+.B /dev/md/home
+is being created, then the name
+.B home
+will be used.
 
 '''If the
 '''.B --size

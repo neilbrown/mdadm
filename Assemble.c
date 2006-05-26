@@ -28,6 +28,7 @@
  */
 
 #include	"mdadm.h"
+#include	<ctype.h>
 
 static int name_matches(char *found, char *required, char *homehost)
 {
@@ -112,7 +113,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	 */
 	int must_close = 0;
 	int old_linux = 0;
-	int vers;
+	int vers = 0; /* Keep gcc quite - it really is initialised */
 	void *first_super = NULL, *super = NULL;
 	struct {
 		char *devname;
@@ -376,7 +377,11 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		st->ss->getinfo_super(&info, first_super);
 		c = strchr(info.name, ':');
 		if (c) c++; else c= info.name;
-		asprintf(&mddev, "/dev/md/%s", c);
+		if (isdigit(*c) && ((ident->autof & 7)==4 || (ident->autof&7)==6))
+			/* /dev/md/d0 style for partitionable */
+			asprintf(&mddev, "/dev/md/d%s", c);
+		else
+			asprintf(&mddev, "/dev/md/%s", c);
 		mdfd = open_mddev(mddev, ident->autof);
 		if (mdfd < 0)
 			return mdfd;

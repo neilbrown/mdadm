@@ -14,12 +14,19 @@ Changes Prior to this release
 	in report.
     -   When using --update=uuid on an array with a bitmap, update the
 	bitmap's uuid too.
-    -   Add a copy of /proc/mdstat to the mail message send by mdadm
+    -   Add a copy of /proc/mdstat to the mail message sent by mdadm
         --monitor.
     -   New flag --no-degraded to avoid starting arrays if there are
 	fewer devices available than last time the array was started.
 	This is only needed with --scan, as with --scan, that behaviour
 	is the default.
+    -   Support for 'homehost' concept.  This is a fairly major update.
+	It includes a configfile option and a command line option for
+	specifying a homehost, records that host in the superblock,
+	and reports the homehost where possible.
+    -   Support for Auto Assembly.  "mdadm -As" will, if provided with
+	the name of a homehost, try to assemble all arrays it can find
+	that were created for that homehost.  See man pages for more details.
 
 Changes Prior to 2.4.1 release
     -   Honour --write-mostly when adding to an array without persistent

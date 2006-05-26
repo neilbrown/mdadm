@@ -35,6 +35,7 @@ mdadm -S $md0
 
 mdadm --assemble -R $md0 --bitmap=$bmf $dev1 $dev3
 check nosync
+mdadm --zero-superblock $dev2
 mdadm $md0 --add $dev2
 check recovery
 

@@ -227,10 +227,17 @@ static void brief_examine_super0(void *sbv)
 {
 	mdp_super_t *sb = sbv;
 	char *c=map_num(pers, sb->level);
-	char *nm;
+	char devname[20];
+	struct stat stb;
+
+	sprintf(devname, "/dev/md%d", sb->md_minor);
+	if (stat(devname, &stb) != 0) {
+		/* /dev/mdX doesn't exist, so use /dev/md/X */
+		sprintf(devname, "/dev/md/%d", sb->md_minor);
+	}
 
 	printf("ARRAY %s level=%s num-devices=%d UUID=",
-	       nm = get_md_name(sb->md_minor),
+	       devname,
 	       c?c:"-unknown-", sb->raid_disks);
 	if (sb->minor_version >= 90)
 		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
@@ -238,7 +245,6 @@ static void brief_examine_super0(void *sbv)
 	else
 		printf("%08x", sb->set_uuid0);
 	printf("\n");
-	put_md_name(nm);
 }
 
 static void detail_super0(void *sbv, char *homehost)

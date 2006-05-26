@@ -308,10 +308,20 @@ static void brief_examine_super1(void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
+	char *nm;
+
+	nm = strchr(sb->set_name, ':');
+	if (nm)
+		nm++;
+	else if (sb->set_name[0])
+		nm = sb->set_name;
+	else
+		nm = "??";
 
 	char *c=map_num(pers, __le32_to_cpu(sb->level));
 
-	printf("ARRAY /dev/?? level=%s metadata=1 num-devices=%d UUID=",
+	printf("ARRAY /dev/md/%s level=%s metadata=1 num-devices=%d UUID=",
+	       nm,
 	       c?c:"-unknown-", sb->raid_disks);
 	for (i=0; i<16; i++) {
 		printf("%02x", sb->set_uuid[i]);

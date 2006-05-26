@@ -97,7 +97,7 @@ mdadm.tcc : $(SRCS) mdadm.h
 	$(TCC) -o mdadm.tcc $(SRCS)
 
 mdadm.uclibc : $(SRCS) mdadm.h
-	$(UCLIBC_GCC) -DUCLIBC -o mdadm.uclibc $(SRCS)
+	$(UCLIBC_GCC) -DUCLIBC -DHAVE_STDINT_H -o mdadm.uclibc $(SRCS) SHA1.c sha1.c
 
 mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
@@ -108,15 +108,15 @@ test_stripe : restripe.c mdadm.h
 
 mdassemble : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS) 
+	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  SHA1.c sha1.c
 
 mdassemble.static : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -o mdassemble.static $(ASSEMBLE_SRCS)
+	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DSTATIC -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) SHA1.c sha1.c
 
 mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
-	rm -f $(OBJS)
-	$(UCLIBC_GCC) $(ASSEMBLE_FLAGS) -DUCLIBC -static -o mdassemble.uclibc $(ASSEMBLE_SRCS) 
+	rm -f $(OJS)
+	$(UCLIBC_GCC) $(ASSEMBLE_FLAGS) -DSTATIC -DUCLIBC -DHAVE_STDINT_H -static -o mdassemble.uclibc $(ASSEMBLE_SRCS) SHA1.c sha1.c
 
 # This doesn't work
 mdassemble.klibc : $(ASSEMBLE_SRCS) mdadm.h

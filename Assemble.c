@@ -395,6 +395,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		char *devname = tmpdev->devname;
 		struct stat stb;
 		/* looks like a good enough match to update the super block if needed */
+#ifndef MDASSEMBLE
 		if (update) {
 			int dfd;
 			/* prepare useful information in info structures */
@@ -446,7 +447,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (strcmp(update, "uuid")==0 &&
 			    ident->bitmap_fd)
 				bitmap_update_uuid(ident->bitmap_fd, info.uuid);
-		} else {
+		} else
+#endif
+		{
 			int dfd;
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
 

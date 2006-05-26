@@ -28,7 +28,11 @@
  */
 
 #include "mdadm.h"
+#ifndef UCLIBC
 #include <openssl/sha.h> /* for SHA1 */
+#else
+extern unsigned char *SHA1(unsigned char *buf, int len, unsigned char *dest);
+#endif
 /*
  * All handling for the 0.90.0 version superblock is in
  * this file.

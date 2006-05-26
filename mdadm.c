@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
 	int re_add = 0;
 	char *shortopt = short_options;
 	int dosyslog = 0;
+	int auto_update_home = 0;
 
 	int copies;
 	int print_help = 0;
@@ -315,6 +316,9 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+		case O(ASSEMBLE,AutoHomeHost):
+			auto_update_home = 1;
+			continue;
 		case O(CREATE,'e'):
 		case O(ASSEMBLE,'e'):
 		case O(MISC,'e'): /* set metadata (superblock) information */
@@ -1037,10 +1041,33 @@ int main(int argc, char *argv[])
 							cnt++;
 							acnt++;
 						}
+						if (rv2 == 1)
+							/* found something so even though assembly failed  we
+							 * want to avoid auto-updates
+							 */
+							auto_update_home = 0;
 					} while (rv2!=2);
 					/* Incase there are stacked devices, we need to go around again */
 					devlist = conf_get_devs(configfile);
 				} while (acnt);
+				if (cnt == 0 && auto_update_home && homehost) {
+					/* Nothing found, maybe we need to bootstrap homehost info */
+					do {
+						acnt = 0;
+						do {
+							rv2 = Assemble(ss, NULL, -1,
+								       &ident, configfile,
+								       devlist, NULL,
+								       readonly, runstop, "homehost", homehost, verbose-quiet, force);
+							if (rv2==0) {
+								cnt++;
+								acnt++;
+							}
+						} while (rv2!=2);
+						/* Incase there are stacked devices, we need to go around again */
+						devlist = conf_get_devs(configfile);
+					} while (acnt);
+				}
 				if (cnt == 0 && rv == 0) {
 					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
 					rv = 1;

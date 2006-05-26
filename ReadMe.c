@@ -138,6 +138,7 @@ struct option long_options[] = {
     {"write-mostly",0, 0, 'W'},
     {"re-add",    0, 0,  ReAdd},
     {"homehost",  1, 0,  HomeHost},
+    {"auto-update-homehost", 0, 0, AutoHomeHost},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},

@@ -137,6 +137,7 @@ enum special_options {
 	Sparc22,
 	BackupFile,
 	HomeHost,
+	AutoHomeHost,
 };
 
 /* structures read from config file */

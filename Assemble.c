@@ -134,7 +134,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
-	int start_partial_ok = (runstop >= 0) && (force || devlist==NULL);
+	int start_partial_ok = (runstop >= 0) && (force || devlist==NULL || mdfd < 0);
 	unsigned int num_devs;
 	mddev_dev_t tmpdev;
 	struct mdinfo info;
@@ -293,11 +293,14 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (mdfd < 0) {
 			if (tst == NULL || super == NULL)
 				continue;
-			if (tst->ss->match_home(super, homehost)==0) {
+			if (update == NULL &&
+			    tst->ss->match_home(super, homehost)==0) {
 				if ((inargv && verbose >= 0) || verbose > 0)
 					fprintf(stderr, Name ": %s is not built for host %s.\n",
 						devname, homehost);
 				/* Auto-assemble, and this is not a usable host */
+				/* if update != NULL, we are updating the host
+				 * name... */
 				continue;
 			}
 		}
@@ -846,7 +849,32 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 						fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 					fprintf(stderr, ".\n");
 				}
-				if (must_close) close(mdfd);
+				if (must_close) {
+					int usecs = 1;
+					close(mdfd);
+					/* There is a nasty race with 'mdadm --monitor'.
+					 * If it opens this device before we close it,
+					 * it gets an incomplete open on which IO
+					 * doesn't work and the capacity if wrong.
+					 * If we reopen (to check for layered devices)
+					 * before --monitor closes, we loose.
+					 *
+					 * So: wait upto 1 second for there to be
+					 * a non-zero capacity.
+					 */
+					while (usecs < 1000) {
+						mdfd = open(mddev, O_RDONLY);
+						if (mdfd >= 0) {
+							unsigned long size;
+							if (ioctl(mdfd, BLKGETSIZE, &size) == 0 &&
+							    size > 0)
+								break;
+							close(mdfd);
+						}
+						usleep(usecs);
+						usecs <<= 1;
+					}
+				}
 				return 0;
 			}
 			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",

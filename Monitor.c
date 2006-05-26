@@ -385,6 +385,7 @@ int Monitor(mddev_dev_t devlist,
 						if (fd >=0) close(fd);
 						free(st->devname);
 						free(st);
+						put_md_name(st->devname);
 						continue;
 					}
 					close(fd);

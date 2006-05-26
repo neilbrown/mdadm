@@ -183,7 +183,10 @@ int open_mddev(char *dev, int autof)
 		if (num < 0) {
 			/* need to pick an unused number */
 			mdlist = mdstat_read(0, 0);
-			for (num = 0 ; ; num++) {
+			/* Choose a large number.  Start from 127 and search down,
+			 * but if nothing is found, start really big
+			 */
+			for (num = 127 ; num != 128 ; num = num ? num-1 : (1<<22)-1) {
 				struct mdstat_ent *me;
 				int devnum = num;
 				if (major != MD_MAJOR)
@@ -193,7 +196,7 @@ int open_mddev(char *dev, int autof)
 					if (me->devnum == devnum)
 						break;
 				if (!me) {
-					/* doesn't exist if mdstat.
+					/* doesn't exist in mdstat.
 					 * make sure it is new to /dev too
 					 */
 					char *dn;

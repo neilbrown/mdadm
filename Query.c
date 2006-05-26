@@ -130,6 +130,8 @@ int Query(char *dev)
 		       activity,
 		       map_num(pers, info.array.level),
 		       mddev);
+		if (st->ss->major == 0)
+			put_md_name(mddev);
 	}
 	return 0;
 }

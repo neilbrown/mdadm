@@ -414,6 +414,8 @@ char *map_dev(int major, int minor, int create)
 {
 	struct devmap *p;
 	char *std = NULL, *nonstd=NULL;
+	int did_check = 0;
+ retry:
 	if (!devlist_ready) {
 		char *dev = "/dev";
 		struct stat stb;
@@ -422,6 +424,7 @@ char *map_dev(int major, int minor, int create)
 			dev = "/dev/.";
 		nftw(dev, add_dev, 10, FTW_PHYS);
 		devlist_ready=1;
+		did_check = 1;
 	}
 
 	for (p=devlist; p; p=p->next)
@@ -437,6 +440,10 @@ char *map_dev(int major, int minor, int create)
 					nonstd = p->name;
 			}
 		}
+	if (!std && !nonstd && !did_check) {
+		devlist_ready = 0;
+		goto retry;
+	}
 	if (create && !std && !nonstd) {
 		static char buf[30];
 		snprintf(buf, 1024, "%d:%d", major, minor);

@@ -51,7 +51,7 @@ endif
 SYSCONFDIR = /etc
 CONFFILE = $(SYSCONFDIR)/mdadm.conf
 MAILCMD =/usr/sbin/sendmail -t
-CFLAGS = $(CWFLAGS) $(STATIC) $(CPPFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
+CFLAGS = $(CWFLAGS) $(CPPFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static
@@ -72,7 +72,8 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
 	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c
 
-STATICOBJS = SHA1.o sha1.o
+STATICSRC = SHA1.c sha1.c pwgr.c
+STATICOBJS = SHA1.o sha1.o pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
@@ -86,21 +87,17 @@ all : mdadm mdadm.man md.man mdadm.conf.man
 everything: all mdadm.static mdadm.uclibc swap_super test_stripe  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
 # mdadm.tcc doesn't work..
 
-mdadm : rmconf $(OBJS)
+mdadm : $(OBJS)
 	$(CC) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
-mdadm.static : STATIC=-DSTATIC
-mdadm.static : rmconf $(OBJS) $(STATICOBJS)
-	$(CC) $(LDFLAGS) -DSTATIC -static -o mdadm.static $(OBJS) $(STATICOBJS)
-
-rmconf:
-	rm -f config.o
+mdadm.static : $(OBJS) $(STATICOBJS)
+	$(CC) $(LDFLAGS) -static -o mdadm.static $(OBJS) $(STATICOBJS)
 
 mdadm.tcc : $(SRCS) mdadm.h
 	$(TCC) -o mdadm.tcc $(SRCS)
 
 mdadm.uclibc : $(SRCS) mdadm.h
-	$(UCLIBC_GCC) -DUCLIBC -DHAVE_STDINT_H -o mdadm.uclibc $(SRCS) SHA1.c sha1.c
+	$(UCLIBC_GCC) -DUCLIBC -DHAVE_STDINT_H -o mdadm.uclibc $(SRCS) $(STATICSRC)
 
 mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
@@ -111,15 +108,15 @@ test_stripe : restripe.c mdadm.h
 
 mdassemble : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  SHA1.c sha1.c
+	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  $(STATICSRC)
 
 mdassemble.static : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DSTATIC -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) SHA1.c sha1.c
+	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
 
 mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OJS)
-	$(UCLIBC_GCC) $(ASSEMBLE_FLAGS) -DSTATIC -DUCLIBC -DHAVE_STDINT_H -static -o mdassemble.uclibc $(ASSEMBLE_SRCS) SHA1.c sha1.c
+	$(UCLIBC_GCC) $(ASSEMBLE_FLAGS) -DUCLIBC -DHAVE_STDINT_H -static -o mdassemble.uclibc $(ASSEMBLE_SRCS) $(STATICSRC)
 
 # This doesn't work
 mdassemble.klibc : $(ASSEMBLE_SRCS) mdadm.h

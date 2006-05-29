@@ -320,14 +320,12 @@ static void createline(char *line)
 			}
 			createinfo.uid = strtoul(w+6, &ep, 10);
 			if (*ep != 0) {
-#ifndef STATIC
 				struct passwd *pw;
 				/* must be a name */
 				pw = getpwnam(w+6);
 				if (pw)
 					createinfo.uid = pw->pw_uid;
 				else
-#endif /* STATIC */
 					fprintf(stderr, Name ": CREATE user %s not found\n", w+6);
 			}
 		} else if (strncasecmp(w, "group=", 6) == 0) {
@@ -337,14 +335,12 @@ static void createline(char *line)
 			}
 			createinfo.gid = strtoul(w+6, &ep, 10);
 			if (*ep != 0) {
-#ifndef STATIC
 				struct group *gr;
 				/* must be a name */
 				gr = getgrnam(w+6);
 				if (gr)
 					createinfo.gid = gr->gr_gid;
 				else
-#endif /* STATIC */
 					fprintf(stderr, Name ": CREATE group %s not found\n", w+6);
 			}
 		} else if (strncasecmp(w, "mode=", 5) == 0) {

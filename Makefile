@@ -165,6 +165,9 @@ install-man: mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 md.4 $(DESTDIR)$(MAN4DIR)/md.4
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
+uninstall:
+	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 md.4 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm
+
 clean : 
 	rm -f mdadm $(OBJS) $(STATICOBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
 	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super \

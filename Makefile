@@ -145,8 +145,22 @@ sha1.o : sha1.c sha1.h md5.h
 SHA1.o : SHA1.c
 	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o SHA1.o -c SHA1.c
 
-install : mdadm mdadm.8 md.4 mdadm.conf.5
+install : mdadm install-man
 	$(INSTALL) -D $(STRIP) -m 755 mdadm $(DESTDIR)$(BINDIR)/mdadm
+
+install-static : mdadm.static install-man
+	$(INSTALL) -D $(STRIP) -m 755 mdadm.static $(DESTDIR)$(BINDIR)/mdadm
+
+install-tcc : mdadm.tcc install-man
+	$(INSTALL) -D $(STRIP) -m 755 mdadm.tcc $(DESTDIR)$(BINDIR)/mdadm
+
+install-uclibc : mdadm.uclibc install-man
+	$(INSTALL) -D $(STRIP) -m 755 mdadm.uclibc $(DESTDIR)$(BINDIR)/mdadm
+
+install-klibc : mdadm.klibc install-man
+	$(INSTALL) -D $(STRIP) -m 755 mdadm.klibc $(DESTDIR)$(BINDIR)/mdadm
+
+install-man: mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 mdadm.8 $(DESTDIR)$(MAN8DIR)/mdadm.8
 	$(INSTALL) -D -m 644 md.4 $(DESTDIR)$(MAN4DIR)/md.4
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5

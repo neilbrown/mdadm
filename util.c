@@ -357,6 +357,7 @@ int devlist_ready = 0;
 #ifdef UCLIBC
 int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 {
+	return 0;
 }
 char *map_dev(int major, int minor, int create)
 {

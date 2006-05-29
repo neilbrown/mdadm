@@ -46,6 +46,9 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<syslog.h>
 #ifdef __dietlibc__
 #include	<strings.h>
+/* dietlibc has deprecated random and srandom!! */
+#define random rand
+#define srandom srand
 #endif
 
 

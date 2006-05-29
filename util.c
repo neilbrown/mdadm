@@ -446,7 +446,7 @@ char *map_dev(int major, int minor, int create)
 	}
 	if (create && !std && !nonstd) {
 		static char buf[30];
-		snprintf(buf, 1024, "%d:%d", major, minor);
+		snprintf(buf, sizeof(buf), "%d:%d", major, minor);
 		nonstd = buf;
 	}
 

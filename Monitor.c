@@ -521,7 +521,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 				int n;
 				fprintf(mp, "\nP.S. The /proc/mdstat file current contains the following:\n\n");
 				while ( (n=fread(buf, 1, sizeof(buf), mdstat)) > 0)
-					fwrite(buf, 1, n, mp);
+					n=fwrite(buf, 1, n, mp); /* yes, i don't care about the result */
 				fclose(mdstat);
 			}
 			fclose(mp);

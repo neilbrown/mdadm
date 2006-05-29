@@ -625,7 +625,8 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 	if (super->state & (1<<MD_SB_BITMAP_PRESENT)) {
 		struct bitmap_super_s * bm = (struct bitmap_super_s*)(super+1);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC)
-			write(fd, bm, sizeof(*bm));
+			if (write(fd, bm, sizeof(*bm)) != sizeof(*bm))
+			    return 5;
 	}
 
 	fsync(fd);

@@ -451,7 +451,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 			if (strcmp(update, "uuid")==0 &&
 			    ident->bitmap_fd)
-				bitmap_update_uuid(ident->bitmap_fd, info.uuid);
+				if (bitmap_update_uuid(ident->bitmap_fd, info.uuid) != 0)
+					fprintf(stderr, Name ": Could not update uuid on %s.\n",
+						devname);
 		} else
 #endif
 		{

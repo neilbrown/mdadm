@@ -715,7 +715,8 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 			(((char*)sb)+1024);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC) {
 			locate_bitmap1(st, fd, sbv);
-			write(fd, bm, sizeof(*bm));
+			if (write(fd, bm, sizeof(*bm)) != sizeof(*bm))
+			    return 5;
 		}
 	}
 	fsync(fd);

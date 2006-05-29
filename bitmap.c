@@ -399,16 +399,22 @@ out:
 	return rv;
 }
 
-void bitmap_update_uuid(int fd, int *uuid)
+int bitmap_update_uuid(int fd, int *uuid)
 {
 	struct bitmap_super_s bm;
-	lseek(fd, 0, 0);
+	if (lseek(fd, 0, 0) != 0)
+		return 1;
 	if (read(fd, &bm, sizeof(bm)) != sizeof(bm))
-		return;
+		return 1;
 	if (bm.magic != __cpu_to_le32(BITMAP_MAGIC))
-		return;
+		return 1;
 	memcpy(bm.uuid, uuid, 16);
+	if (lseek(fd, 0, 0) != 0)
+		return 2;
+	if (write(fd, &bm, sizeof(bm)) != sizeof(bm)) {
+		lseek(fd, 0, 0);
+		return 2;
+	}
 	lseek(fd, 0, 0);
-	write(fd, &bm, sizeof(bm));
-	lseek(fd, 0, 0);
+	return 0;
 }

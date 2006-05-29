@@ -801,7 +801,10 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		memset(&bsb, 0, sizeof(bsb));
 		for (i=odisks; i<d ; i++) {
 			lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0);
-			write(fdlist[i], &bsb, sizeof(bsb));
+			if (write(fdlist[i], &bsb, sizeof(bsb)) < 0) {
+				fprintf(stderr, Name ": %s: failed to invalidate metadata for raid disk %d\n",
+					devname, i);
+			}
 		}
 
 		/* unsuspend. */

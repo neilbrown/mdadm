@@ -72,6 +72,8 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
 	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c
 
+STATICOBJS = SHA1.o sha1.o
+
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
@@ -88,8 +90,9 @@ mdadm : rmconf $(OBJS)
 	$(CC) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
 mdadm.static : STATIC=-DSTATIC
-mdadm.static : rmconf $(OBJS)
-	$(CC) $(LDFLAGS) -DSTATIC -static -o mdadm.static $(OBJS) SHA1.o sha1.o
+mdadm.static : rmconf $(OBJS) $(STATICOBJS)
+	$(CC) $(LDFLAGS) -DSTATIC -static -o mdadm.static $(OBJS) $(STATICOBJS)
+
 rmconf:
 	rm -f config.o
 
@@ -149,7 +152,7 @@ install : mdadm mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 clean : 
-	rm -f mdadm $(OBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
+	rm -f mdadm $(OBJS) $(STATICOBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
 	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super \
 	init.cpio.gz mdadm.uclibc.static test_stripe
 

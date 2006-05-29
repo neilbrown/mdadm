@@ -73,7 +73,7 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
-ASSEMBLE_FLAGS:= -DMDASSEMBLE
+ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += mdopen.c mdstat.c
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
@@ -121,7 +121,7 @@ mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
 # This doesn't work
 mdassemble.klibc : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
-	$(KLIBC_GCC) $(CFLAGS) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)
+	$(KLIBC_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man

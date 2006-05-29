@@ -54,7 +54,7 @@ mapping_t pers[] = {
 };
 
 #ifndef MDASSEMBLE_AUTO
-/* from mdadm.c */
+/* from mdopen.c */
 int open_mddev(char *dev, int autof/*unused */)
 {
 	int mdfd = open(dev, O_RDWR, 0);
@@ -79,7 +79,7 @@ int readonly = 0;
 int verbose = 0;
 int force = 0;
 
-int main() {
+int main(int argc, char *argv[]) {
 	mddev_ident_t array_list =  conf_get_ident(configfile, NULL);
 	if (!array_list) {
 		fprintf(stderr, Name ": No arrays found in config file\n");
@@ -100,4 +100,5 @@ int main() {
 					   NULL, NULL,
 					   readonly, runstop, NULL, NULL, verbose, force);
 		}
+	return rv;
 }

@@ -375,7 +375,7 @@ int add_dev_1(const char *name, const struct stat *stb, int flag)
 }
 int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
 {
-	ftw(path, add_dev_1, nopenfd);
+	return ftw(path, add_dev_1, nopenfd);
 }
 #endif
 

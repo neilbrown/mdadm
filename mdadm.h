@@ -44,10 +44,8 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<errno.h>
 #include	<string.h>
 #include	<syslog.h>
-#ifdef __dietlibc__NONO
-int strncmp(const char *s1, const char *s2, size_t n) __THROW __pure__;
-char *strncpy(char *dest, const char *src, size_t n) __THROW;
-#include    <strings.h>
+#ifdef __dietlibc__
+#include	<strings.h>
 #endif
 
 

@@ -215,6 +215,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			ldsize <<= 9;
 		}
 		if (st == NULL) {
+			struct createinfo *ci = conf_get_create_info(NULL);
+			if (ci)
+				st = ci->supertype;
+		}
+		if (st == NULL) {
 			/* Need to choose a default metadata, which is different
 			 * depending on the sizes of devices
 			 */

@@ -116,6 +116,7 @@ struct createinfo {
 	int	gid;
 	int	autof;
 	int	mode;
+	struct supertype *supertype;
 };
 
 #define Name "mdadm"

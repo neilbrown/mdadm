@@ -127,6 +127,17 @@ this is mainly for compatibility with the output of
 .BR "mdadm --examine --scan" .
 
 .TP
+.B spares=
+The value is a number of spare devices to expect the array to have.
+.I mdadm --monitor
+will report an array if it is found to have fewer than this number of
+spares when
+.B --monitor
+starts or when
+.B --oneshot
+is used.
+
+.TP
 .B spare-group=
 The value is a textual name for a group of arrays.  All arrays with
 the same
@@ -165,6 +176,13 @@ driver as the bitmap file.  This has the same function as the
 .B --bitmap-file
 option to
 .BR --assemble .
+
+.TP
+.B metadata=
+Specify the metadata format that the array has.  This is mainly
+recognised for comparability with the output of
+.IR "mdadm -Es" .
+
 .RE
 
 .TP
@@ -217,7 +235,7 @@ line and it should be give only one program.
 .B CREATE
 The
 .B create
-line gives default values to be used when creating device entries for
+line gives default values to be used when creating arrays and device entries for
 arrays.
 These include:
 
@@ -243,6 +261,11 @@ flag to mdadm.  Give
 .B part
 - possibly followed by a number of partitions - to indicate how
 missing device entries should be created.
+
+.TP
+.B metadata=
+The name of the metadata format to use if none is explicitly given.
+This can be useful to impose a system-wide default of version-1 superblocks.
 
 .RE
 

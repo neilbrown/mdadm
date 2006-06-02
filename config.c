@@ -354,6 +354,16 @@ static void createline(char *line)
 				fprintf(stderr, Name ": unrecognised CREATE mode %s\n",
 					w+5);
 			}
+		} else if (strncasecmp(w, "metadata=", 9) == 0) {
+			/* style of metadata to use by default */
+			int i;
+			for (i=0; superlist[i] && !createinfo.supertype; i++)
+				createinfo.supertype =
+					superlist[i]->match_metadata_desc(w+9);
+			if (!createinfo.supertype)
+				fprintf(stderr, Name ": metadata format %s unknown, ignoring\n",
+					w+9);
+
 		} else {
 			fprintf(stderr, Name ": unrecognised word on CREATE line: %s\n",
 				w);

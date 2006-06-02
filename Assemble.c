@@ -514,6 +514,25 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				best = newbest;
 				bestcnt = newbestcnt;
 			}
+			if (best[i] >=0 &&
+			    devices[best[i]].events == devices[devcnt].events &&
+			    devices[best[i]].minor != devices[devcnt].minor &&
+			    st->ss->major == 0 &&
+			    info.array.level != -4) {
+				/* two different devices with identical superblock.
+				 * Could be a mis-detection caused by overlapping
+				 * partitions.  fail-safe.
+				 */
+				fprintf(stderr, Name ": WARNING %s and %s appear"
+					" to have very similar superblocks.\n"
+					"      If they are really different, "
+					"please --zero the superblock on one\n"
+					"      If they are the same, please remove "
+					"one from the list.\n",
+					devices[best[i]].devname, devname);
+				if (must_close) close(mdfd);
+				return 1;
+			}
 			if (best[i] == -1
 			    || devices[best[i]].events < devices[devcnt].events)
 				best[i] = devcnt;

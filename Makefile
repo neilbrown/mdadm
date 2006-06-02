@@ -50,7 +50,7 @@ endif
 SYSCONFDIR = /etc
 CONFFILE = $(SYSCONFDIR)/mdadm.conf
 MAILCMD =/usr/sbin/sendmail -t
-CFLAGS = $(CWFLAGS) $(CPPFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
+CFLAGS = $(CWFLAGS) -DCONFFILE=\"$(CONFFILE)\" $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\"
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static

@@ -73,13 +73,24 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	"bitmap.h"
 
 #include <endian.h>
-/* #include "asm/byteorder.h" Redhat don't like this so... */
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#  include <linux/byteorder/little_endian.h>
-#elif __BYTE_ORDER == __BIG_ENDIAN
-#  include <linux/byteorder/big_endian.h>
-#elif __BYTE_ORDER == __PDP_ENDIAN
-#  include <linux/byteorder/pdp_endian.h>
+#include <byteswap.h>
+/* Redhat don't like to #include <asm/byteorder.h>, and
+ * some time include <linux/byteorder/xxx_endian.h> isn't enough,
+ * and there is no standard conversion function so... */
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define	__cpu_to_le16(_x) (_x)
+#define __cpu_to_le32(_x) (_x)
+#define __cpu_to_le64(_x) (_x)
+#define	__le16_to_cpu(_x) (_x)
+#define __le32_to_cpu(_x) (_x)
+#define __le64_to_cpu(_x) (_x)
+#elif BYTE_ORDER == BIG_ENDIAN
+#define	__cpu_to_le16(_x) bswap_16(_x)
+#define __cpu_to_le32(_x) bswap_32(_x)
+#define __cpu_to_le64(_x) bswap_64(_x)
+#define	__le16_to_cpu(_x) bswap_16(_x)
+#define __le32_to_cpu(_x) bswap_32(_x)
+#define __le64_to_cpu(_x) bswap_64(_x)
 #else
 #  error "unknown endianness."
 #endif

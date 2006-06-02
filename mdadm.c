@@ -931,7 +931,7 @@ int main(int argc, char *argv[])
 		if (!rv && readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)
-			rv = Manage_runstop(devlist->devname, mdfd, runstop, 0);
+			rv = Manage_runstop(devlist->devname, mdfd, runstop, quiet);
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
@@ -1164,7 +1164,7 @@ int main(int argc, char *argv[])
 							}
 							mdfd = open_mddev(name, 1);
 							if (mdfd >= 0) {
-								if (Manage_runstop(name, mdfd, -1, !last))
+								if (Manage_runstop(name, mdfd, -1, quiet?1:last?0:-1))
 									err = 1;
 								else
 									progress = 1;
@@ -1195,9 +1195,9 @@ int main(int argc, char *argv[])
 				if (mdfd>=0) {
 					switch(dv->disposition) {
 					case 'R':
-						rv |= Manage_runstop(dv->devname, mdfd, 1, 0); break;
+						rv |= Manage_runstop(dv->devname, mdfd, 1, quiet); break;
 					case 'S':
-						rv |= Manage_runstop(dv->devname, mdfd, -1, 0); break;
+						rv |= Manage_runstop(dv->devname, mdfd, -1, quiet); break;
 					case 'o':
 						rv |= Manage_ro(dv->devname, mdfd, 1); break;
 					case 'w':

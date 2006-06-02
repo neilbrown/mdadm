@@ -106,11 +106,13 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		}
 	} else if (runstop < 0){
 		if (ioctl(fd, STOP_ARRAY, NULL)) {
-			if (!quiet)
+			if (quiet==0)
 				fprintf(stderr, Name ": fail to stop array %s: %s\n",
 					devname, strerror(errno));
 			return 1;
 		}
+		if (quiet <= 0)
+			fprintf(stderr, Name ": stopped %s\n", devname);
 	}
 	return 0;
 }

@@ -32,7 +32,6 @@
 TCC = tcc
 UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
 DIET_GCC = diet gcc
-LDLIBS=-lssl
 
 KLIBC=/home/src/klibc/klibc-0.77
 
@@ -67,15 +66,15 @@ MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
-	mdopen.o super0.o super1.o bitmap.o restripe.o sysfs.o
+	mdopen.o super0.o super1.o bitmap.o restripe.o sysfs.o sha1.o
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
-	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c
+	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c sha1.c
 
-STATICSRC = SHA1.c sha1.c pwgr.c
-STATICOBJS = SHA1.o sha1.o pwgr.o
+STATICSRC = pwgr.c
+STATICOBJS = pwgr.o
 
-ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c
+ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c sha1.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += mdopen.c mdstat.c
@@ -139,8 +138,6 @@ $(OBJS) : mdadm.h bitmap.h
 
 sha1.o : sha1.c sha1.h md5.h
 	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o sha1.o -c sha1.c
-SHA1.o : SHA1.c
-	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o SHA1.o -c SHA1.c
 
 install : mdadm install-man
 	$(INSTALL) -D $(STRIP) -m 755 mdadm $(DESTDIR)$(BINDIR)/mdadm

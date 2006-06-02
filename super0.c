@@ -27,12 +27,9 @@
  *           Australia
  */
 
+#define HAVE_STDINT_H 1
 #include "mdadm.h"
-#ifndef UCLIBC
-#include <openssl/sha.h> /* for SHA1 */
-#else
-extern unsigned char *SHA1(unsigned char *buf, int len, unsigned char *dest);
-#endif
+#include "sha1.h"
 /*
  * All handling for the 0.90.0 version superblock is in
  * this file.
@@ -102,9 +99,10 @@ static void examine_super0(void *sbv, char *homehost)
 		printf("           UUID : %08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
 		       sb->set_uuid2, sb->set_uuid3);
 		if (homehost) {
-			unsigned char *hash = SHA1((unsigned char *)homehost,
-						   strlen(homehost),
-						   NULL);
+			char buf[20];
+			void *hash = sha1_buffer(homehost,
+						 strlen(homehost),
+						 buf);
 			if (memcmp(&sb->set_uuid2, hash, 8)==0)
 				printf(" (local to host %s)", homehost);
 		}
@@ -261,9 +259,10 @@ static void detail_super0(void *sbv, char *homehost)
 	else
 		printf("%08x", sb->set_uuid0);
 	if (homehost) {
-		unsigned char *hash = SHA1((unsigned char *)homehost,
-					   strlen(homehost),
-					   NULL);
+		char buf[20];
+		void *hash = sha1_buffer(homehost,
+					 strlen(homehost),
+					 buf);
 		if (memcmp(&sb->set_uuid2, hash, 8)==0)
 			printf(" (local to host %s)", homehost);
 	}
@@ -285,9 +284,10 @@ static void brief_detail_super0(void *sbv)
 static int match_home0(void *sbv, char *homehost)
 {
 	mdp_super_t *sb = sbv;
-	unsigned char *hash = SHA1((unsigned char *)homehost,
-				   strlen(homehost),
-				   NULL);
+	char buf[20];
+	char *hash = sha1_buffer(homehost,
+				 strlen(homehost),
+				 buf);
 
 	return (memcmp(&sb->set_uuid2, hash, 8)==0);
 }
@@ -474,9 +474,10 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 	}
 	if (strcmp(update, "uuid") == 0) {
 		if (!uuid_set && homehost) {
-			unsigned char *hash = SHA1((unsigned char*)homehost,
-						   strlen(homehost),
-						   NULL);
+			char buf[20];
+			char *hash = sha1_buffer(homehost,
+						 strlen(homehost),
+						 buf);
 			memcpy(info->uuid+2, hash, 8);
 		}
 		sb->set_uuid0 = info->uuid[0];
@@ -557,9 +558,10 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	if (rfd >= 0)
 		close(rfd);
 	if (homehost) {
-		unsigned char *hash = SHA1((unsigned char*)homehost,
-					   strlen(homehost),
-					   NULL);
+		char buf[20];
+		char *hash = sha1_buffer(homehost,
+					 strlen(homehost),
+					 buf);
 		memcpy(&sb->set_uuid2, hash, 8);
 	}
 

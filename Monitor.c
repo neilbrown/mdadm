@@ -519,7 +519,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			if (mdstat) {
 				char buf[8192];
 				int n;
-				fprintf(mp, "\nP.S. The /proc/mdstat file current contains the following:\n\n");
+				fprintf(mp, "\nP.S. The /proc/mdstat file currently contains the following:\n\n");
 				while ( (n=fread(buf, 1, sizeof(buf), mdstat)) > 0)
 					n=fwrite(buf, 1, n, mp); /* yes, i don't care about the result */
 				fclose(mdstat);

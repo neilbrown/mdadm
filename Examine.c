@@ -77,8 +77,9 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			if (!scan) {
 				fprintf(stderr,Name ": cannot open %s: %s\n",
 					devlist->devname, strerror(errno));
-				err = 1;
+				rv = 1;
 			}
+			err = 1;
 		}
 		else {
 			if (!st)
@@ -86,16 +87,16 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			if (st)
 				err = st->ss->load_super(st, fd, &super, (brief||scan)?NULL:devlist->devname);
 			else {
-				if (!brief)
+				if (!brief) {
 					fprintf(stderr, Name ": No md superblock detected on %s.\n", devlist->devname);
+					rv = 1;
+				}
 				err = 1;
 			}
 			close(fd);
 		}
-		if (err) {
-			rv = 1;
+		if (err)
 			continue;
-		}
 
 		if (SparcAdjust)
 			st->ss->update_super(NULL, super, "sparc2.2", devlist->devname, 0, 0, NULL);

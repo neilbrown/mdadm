@@ -877,7 +877,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": --super-minor=dev is incompatible with --auto\n");	
 			exit(2);
 		}
-		if (mode == MANAGE && runstop < 0)
+		if (mode == MANAGE || mode == GROW)
 			autof=1; /* Don't create */
 		mdfd = open_mddev(devlist->devname, autof);
 		if (mdfd < 0)

@@ -46,7 +46,7 @@ then
     exit 1
   fi
   trap "rm $target/$base; exit" 1 2 3
-  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chvf - --exclude="TAGS" --exclude='*~' --exclude=.patches --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
+  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chvf - --exclude=.git --exclude="TAGS" --exclude='*~' --exclude=.patches --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
   chmod a+r $target/$base
   ls -l $target/$base
   if tar tzf $target/$base | sed 's,[^/]*/,,' | sort | diff -u inventory -
@@ -71,7 +71,7 @@ else
     echo $target/$base does not exist.
     exit 1
   fi
-  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chf - --exclude="TAGS" --exclude='*,v' --exclude='*~' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > /var/tmp/mdadm-new.tgz
+  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chf - --exclude=.git --exclude="TAGS" --exclude='*,v' --exclude='*~' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > /var/tmp/mdadm-new.tgz
   mkdir /var/tmp/mdadm-old ; zcat $target/$base | ( cd /var/tmp/mdadm-old ; tar xf - )
   mkdir /var/tmp/mdadm-new ; zcat /var/tmp/mdadm-new.tgz | ( cd /var/tmp/mdadm-new ; tar xf - )
   diff -ru /var/tmp/mdadm-old /var/tmp/mdadm-new 

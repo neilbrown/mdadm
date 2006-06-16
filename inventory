@@ -8,6 +8,7 @@ ANNOUNCE-2.4
 ANNOUNCE-2.4-pre1
 ANNOUNCE-2.4.1
 ANNOUNCE-2.5
+ANNOUNCE-2.5.1
 Assemble.c
 Build.c
 COPYING
@@ -50,6 +51,7 @@ mdstat.c
 misc/
 misc/syslog-events
 mkinitramfs
+pwgr.c
 raid5extend.c
 restripe.c
 sha1.c

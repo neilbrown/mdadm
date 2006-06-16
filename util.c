@@ -416,10 +416,23 @@ char *map_dev(int major, int minor, int create)
 	struct devmap *p;
 	char *std = NULL, *nonstd=NULL;
 	int did_check = 0;
+
+	if (major == 0 && minor == 0) {
+		if (!create)
+			return NULL;
+		else
+			return "0:0";
+	}
  retry:
 	if (!devlist_ready) {
 		char *dev = "/dev";
 		struct stat stb;
+		while(devlist) {
+			struct devmap *d = devlist;
+			devlist = d->next;
+			free(d->name);
+			free(d);
+		}
 		if (lstat(dev, &stb)==0 &&
 		    S_ISLNK(stb.st_mode))
 			dev = "/dev/.";

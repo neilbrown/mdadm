@@ -104,7 +104,7 @@ struct mdp_superblock_1 {
 #define	MD_FEATURE_ALL			(1|2|4)
 
 #ifndef offsetof
-#define offsetof(t,f) ((int)&(((t*)0)->f))
+#define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 {

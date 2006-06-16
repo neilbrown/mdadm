@@ -1,4 +1,20 @@
-Changes Prior to this release
+Changes Prior to 2.5.1 release
+    -   Various fixes for gcc warnings
+    -   uclibc warnings
+    -   Makefile improvements for static linking/intalling
+    -   Makefile uninstall target
+    -   Really fix return status of --examine
+    -   Typos
+    -   Byteorder stuff (again)
+    -   Don't try to create devices with --manage or --grow
+    -   allow default metadata (superblock) type to be specified
+	in mdadm.conf
+    -   Get --stop to list devices stopped but honour --quiet
+    -   remove libssl dependency
+    -   Avoid some misdetection of overlapping partitions
+    -   Fix memory leak in --monitor mode
+
+Changes Prior to 2.5 release
     -   Support 'mailfrom' line in mdadm.conf so the From: line in alert
 	emails can be explicitly set.
     -   Arrange that SparesMissing (which is similar in import to

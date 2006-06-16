@@ -30,6 +30,7 @@ fi
 
 mdadm -S $md0
 
+mdadm --zero-superblock $dev1
 mdadm --assemble -R $md0  $dev2
 mdadm $md0 --add $dev1
 check recovery

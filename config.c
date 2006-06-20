@@ -242,7 +242,8 @@ mddev_dev_t load_partitions(void)
 		minor = strtoul(mp, NULL, 10);
 
 		name = map_dev(major, minor, 1);
-
+		if (!name)
+			continue;
 		d = malloc(sizeof(*d));
 		d->devname = strdup(name);
 		d->next = rv;

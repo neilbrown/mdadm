@@ -657,7 +657,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				offsets[sd->role] = sd->offset;
 				if (fdlist[sd->role] < 0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",
-						devname, dn);
+						devname, dn?dn:"-unknown-");
 					goto abort;
 				}
 			} else {
@@ -667,7 +667,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				offsets[d] = sd->offset;
 				if (fdlist[d]<0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",
-						devname, dn);
+						devname, dn?dn:"-unknown");
 					goto abort;
 				}
 				d++;

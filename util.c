@@ -417,12 +417,9 @@ char *map_dev(int major, int minor, int create)
 	char *std = NULL, *nonstd=NULL;
 	int did_check = 0;
 
-	if (major == 0 && minor == 0) {
-		if (!create)
+	if (major == 0 && minor == 0)
 			return NULL;
-		else
-			return "0:0";
-	}
+
  retry:
 	if (!devlist_ready) {
 		char *dev = "/dev";
@@ -636,8 +633,12 @@ int dev_open(char *dev, int flags)
 	char *e;
 	int fd = -1;
 	char devname[32];
-	int major = strtoul(dev, &e, 0);
+	int major;
 	int minor;
+
+	if (!dev) return -1;
+
+	major = strtoul(dev, &e, 0);
 	if (e > dev && *e == ':' && e[1] &&
 	    (minor = strtoul(e+1, &e, 0)) >= 0 &&
 	    *e == 0) {

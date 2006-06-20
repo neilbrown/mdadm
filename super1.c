@@ -311,6 +311,7 @@ static void brief_examine_super1(void *sbv)
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
 	char *nm;
+	char *c=map_num(pers, __le32_to_cpu(sb->level));
 
 	nm = strchr(sb->set_name, ':');
 	if (nm)
@@ -319,8 +320,6 @@ static void brief_examine_super1(void *sbv)
 		nm = sb->set_name;
 	else
 		nm = "??";
-
-	char *c=map_num(pers, __le32_to_cpu(sb->level));
 
 	printf("ARRAY /dev/md/%s level=%s metadata=1 num-devices=%d UUID=",
 	       nm,

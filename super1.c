@@ -124,8 +124,10 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 	disk_csum = sb->sb_csum;
 	sb->sb_csum = 0;
 	newcsum = 0;
-	for (i=0; size>=4; size -= 4 )
-		newcsum += __le32_to_cpu(*isuper++);
+	for (i=0; size>=4; size -= 4 ) {
+		newcsum += __le32_to_cpu(*isuper);
+		isuper++;
+	}
 
 	if (size == 2)
 		newcsum += __le16_to_cpu(*(unsigned short*) isuper);

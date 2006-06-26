@@ -578,7 +578,13 @@ void homehostline(char *line)
 
 int loaded = 0;
 
-void load_conffile(char *conffile)
+static char *conffile = NULL;
+void set_conffile(char *file)
+{
+	conffile = file;
+}
+
+void load_conffile(void)
 {
 	FILE *f;
 	char *line;
@@ -650,47 +656,47 @@ void load_conffile(char *conffile)
 /*    printf("got file\n"); */
 }
 
-char *conf_get_mailaddr(char *conffile)
+char *conf_get_mailaddr(void)
 {
-	load_conffile(conffile);
+	load_conffile();
 	return alert_email;
 }
 
-char *conf_get_mailfrom(char *conffile)
+char *conf_get_mailfrom(void)
 {
-	load_conffile(conffile);
+	load_conffile();
 	return alert_mail_from;
 }
 
-char *conf_get_program(char *conffile)
+char *conf_get_program(void)
 {
-	load_conffile(conffile);
+	load_conffile();
 	return alert_program;
 }
 
-char *conf_get_homehost(char *conffile)
+char *conf_get_homehost(void)
 {
-	load_conffile(conffile);
+	load_conffile();
 	return home_host;
 }
 
-struct createinfo *conf_get_create_info(char *conffile)
+struct createinfo *conf_get_create_info(void)
 {
-	load_conffile(conffile);
+	load_conffile();
 	return &createinfo;
 }
 
-mddev_ident_t conf_get_ident(char *conffile, char *dev)
+mddev_ident_t conf_get_ident(char *dev)
 {
 	mddev_ident_t rv;
-	load_conffile(conffile);
+	load_conffile();
 	rv = mddevlist;
 	while (dev && rv && strcmp(dev, rv->devname)!=0)
 		rv = rv->next;
 	return rv;
 }
 
-mddev_dev_t conf_get_devs(char *conffile)
+mddev_dev_t conf_get_devs()
 {
 	glob_t globbuf;
 	struct conf_dev *cd;
@@ -705,7 +711,7 @@ mddev_dev_t conf_get_devs(char *conffile)
 		free(t);
 	}
     
-	load_conffile(conffile);
+	load_conffile();
 
 	if (cdevlist == NULL)
 		/* default to 'partitions */

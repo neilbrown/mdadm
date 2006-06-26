@@ -51,7 +51,7 @@ static int name_matches(char *found, char *required, char *homehost)
 }
 
 int Assemble(struct supertype *st, char *mddev, int mdfd,
-	     mddev_ident_t ident, char *conffile,
+	     mddev_ident_t ident,
 	     mddev_dev_t devlist, char *backup_file,
 	     int readonly, int runstop,
 	     char *update, char *homehost,
@@ -181,7 +181,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 	}
 	if (devlist == NULL)
-		devlist = conf_get_devs(conffile);
+		devlist = conf_get_devs();
 	else if (mdfd >= 0)
 		inargv = 1;
 

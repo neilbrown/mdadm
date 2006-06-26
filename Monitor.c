@@ -54,7 +54,7 @@ static char *percentalerts[] = {
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
-	    int dosyslog, char *config, int test, char* pidfile)
+	    int dosyslog, int test, char* pidfile)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -116,15 +116,15 @@ int Monitor(mddev_dev_t devlist,
 	char *mailfrom = NULL;
 
 	if (!mailaddr) {
-		mailaddr = conf_get_mailaddr(config);
+		mailaddr = conf_get_mailaddr();
 		if (mailaddr && ! scan)
 			fprintf(stderr, Name ": Monitor using email address \"%s\" from config file\n",
 			       mailaddr);
 	}
-	mailfrom = conf_get_mailfrom(config);
+	mailfrom = conf_get_mailfrom();
 
 	if (!alert_cmd) {
-		alert_cmd = conf_get_program(config);
+		alert_cmd = conf_get_program();
 		if (alert_cmd && ! scan)
 			fprintf(stderr, Name ": Monitor using program \"%s\" from config file\n",
 			       alert_cmd);
@@ -163,7 +163,7 @@ int Monitor(mddev_dev_t devlist,
 	}
 
 	if (devlist == NULL) {
-		mddev_ident_t mdlist = conf_get_ident(config, NULL);
+		mddev_ident_t mdlist = conf_get_ident(NULL);
 		for (; mdlist; mdlist=mdlist->next) {
 			struct state *st = malloc(sizeof *st);
 			if (st == NULL)
@@ -184,7 +184,7 @@ int Monitor(mddev_dev_t devlist,
 	} else {
 		mddev_dev_t dv;
 		for (dv=devlist ; dv; dv=dv->next) {
-			mddev_ident_t mdlist = conf_get_ident(config, dv->devname);
+			mddev_ident_t mdlist = conf_get_ident(dv->devname);
 			struct state *st = malloc(sizeof *st);
 			if (st == NULL)
 				continue;

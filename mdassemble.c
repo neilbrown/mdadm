@@ -71,7 +71,6 @@ int open_mddev(char *dev, int autof/*unused */)
 }
 #endif
 
-char *configfile = NULL;
 int rv;
 int mdfd = -1;
 int runstop = 0;
@@ -80,7 +79,7 @@ int verbose = 0;
 int force = 0;
 
 int main(int argc, char *argv[]) {
-	mddev_ident_t array_list =  conf_get_ident(configfile, NULL);
+	mddev_ident_t array_list =  conf_get_ident(NULL);
 	if (!array_list) {
 		fprintf(stderr, Name ": No arrays found in config file\n");
 		rv = 1;
@@ -96,7 +95,7 @@ int main(int argc, char *argv[]) {
 				/* already assembled, skip */
 				continue;
 			rv |= Assemble(array_list->st, array_list->devname, mdfd,
-					   array_list, configfile,
+					   array_list,
 					   NULL, NULL,
 					   readonly, runstop, NULL, NULL, verbose, force);
 		}

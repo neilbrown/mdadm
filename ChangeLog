@@ -12,6 +12,8 @@ Changes Prior to this release
 	code was ever in there)
     -   Work better when no 'ftw' is available, and check to see
 	if current uclibc provides ftw.
+    -   Never use /etc/mdadm.conf if --config file is given (previously
+	some code used one, some used the other).
 
 Changes Prior to 2.5.1 release
     -   Various fixes for gcc warnings

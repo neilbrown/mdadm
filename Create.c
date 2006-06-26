@@ -215,7 +215,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			ldsize <<= 9;
 		}
 		if (st == NULL) {
-			struct createinfo *ci = conf_get_create_info(NULL);
+			struct createinfo *ci = conf_get_create_info();
 			if (ci)
 				st = ci->supertype;
 		}

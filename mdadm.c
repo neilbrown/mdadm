@@ -605,6 +605,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			configfile = optarg;
+			set_conffile(configfile);
 			/* FIXME possibly check that config file exists.  Even parse it */
 			continue;
 		case O(ASSEMBLE,'s'): /* scan */
@@ -911,7 +912,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (homehost == NULL)
-		homehost = conf_get_homehost(configfile);
+		homehost = conf_get_homehost();
 	if (homehost && strcmp(homehost, "<system>")==0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			sys_hostname[sizeof(sys_hostname)-1] = 0;
@@ -937,7 +938,7 @@ int main(int argc, char *argv[])
 		if (devs_found == 1 && ident.uuid_set == 0 &&
 		    ident.super_minor == UnSet && ident.name[0] == 0 && !scan ) {
 			/* Only a device has been given, so get details from config file */
-			mddev_ident_t array_ident = conf_get_ident(configfile, devlist->devname);
+			mddev_ident_t array_ident = conf_get_ident(devlist->devname);
 			if (array_ident == NULL) {
 				fprintf(stderr, Name ": %s not identified in config file.\n",
 					devlist->devname);
@@ -948,14 +949,14 @@ int main(int argc, char *argv[])
 				if (mdfd < 0)
 					rv |= 1;
 				else {
-					rv |= Assemble(ss, devlist->devname, mdfd, array_ident, configfile,
+					rv |= Assemble(ss, devlist->devname, mdfd, array_ident,
 						       NULL, backup_file,
 						       readonly, runstop, update, homehost, verbose-quiet, force);
 					close(mdfd);
 				}
 			}
 		} else if (!scan)
-			rv = Assemble(ss, devlist->devname, mdfd, &ident, configfile,
+			rv = Assemble(ss, devlist->devname, mdfd, &ident,
 				      devlist->next, backup_file,
 				      readonly, runstop, update, homehost, verbose-quiet, force);
 		else if (devs_found>0) {
@@ -968,7 +969,7 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			for (dv = devlist ; dv ; dv=dv->next) {
-				mddev_ident_t array_ident = conf_get_ident(configfile, dv->devname);
+				mddev_ident_t array_ident = conf_get_ident(dv->devname);
 				if (array_ident == NULL) {
 					fprintf(stderr, Name ": %s not identified in config file.\n",
 						dv->devname);
@@ -981,14 +982,14 @@ int main(int argc, char *argv[])
 					rv |= 1;
 					continue;
 				}
-				rv |= Assemble(ss, dv->devname, mdfd, array_ident, configfile,
+				rv |= Assemble(ss, dv->devname, mdfd, array_ident,
 					       NULL, backup_file,
 					       readonly, runstop, update, homehost, verbose-quiet, force);
 				close(mdfd);
 			}
 		} else {
-			mddev_ident_t array_list =  conf_get_ident(configfile, NULL);
-			mddev_dev_t devlist = conf_get_devs(configfile);
+			mddev_ident_t array_list =  conf_get_ident(NULL);
+			mddev_dev_t devlist = conf_get_devs();
 			int cnt = 0;
 			if (devlist == NULL) {
 				fprintf(stderr, Name ": No devices listed in conf file were found.\n");
@@ -1015,7 +1016,7 @@ int main(int argc, char *argv[])
 					;
 				else {
 					rv |= Assemble(ss, array_list->devname, mdfd,
-						       array_list, configfile,
+						       array_list,
 						       devlist, NULL,
 						       readonly, runstop, NULL, homehost, verbose-quiet, force);
 					if (rv == 0) cnt++;
@@ -1034,7 +1035,7 @@ int main(int argc, char *argv[])
 					acnt = 0;
 					do {
 						rv2 = Assemble(ss, NULL, -1,
-							       &ident, configfile,
+							       &ident,
 							       devlist, NULL,
 							       readonly, runstop, NULL, homehost, verbose-quiet, force);
 						if (rv2==0) {
@@ -1048,7 +1049,7 @@ int main(int argc, char *argv[])
 							auto_update_home = 0;
 					} while (rv2!=2);
 					/* Incase there are stacked devices, we need to go around again */
-					devlist = conf_get_devs(configfile);
+					devlist = conf_get_devs();
 				} while (acnt);
 				if (cnt == 0 && auto_update_home && homehost) {
 					/* Nothing found, maybe we need to bootstrap homehost info */
@@ -1056,7 +1057,7 @@ int main(int argc, char *argv[])
 						acnt = 0;
 						do {
 							rv2 = Assemble(ss, NULL, -1,
-								       &ident, configfile,
+								       &ident,
 								       devlist, NULL,
 								       readonly, runstop, "homehost", homehost, verbose-quiet, force);
 							if (rv2==0) {
@@ -1065,7 +1066,7 @@ int main(int argc, char *argv[])
 							}
 						} while (rv2!=2);
 						/* Incase there are stacked devices, we need to go around again */
-						devlist = conf_get_devs(configfile);
+						devlist = conf_get_devs();
 					} while (acnt);
 				}
 				if (cnt == 0 && rv == 0) {
@@ -1118,7 +1119,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			if (devlist == NULL)
-				devlist = conf_get_devs(configfile);
+				devlist = conf_get_devs();
 			if (devlist == NULL) {
 				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
@@ -1222,7 +1223,7 @@ int main(int argc, char *argv[])
 		}
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, daemonise, scan, oneshot,
-			    dosyslog, configfile, test, pidfile);
+			    dosyslog, test, pidfile);
 		break;
 
 	case GROW:

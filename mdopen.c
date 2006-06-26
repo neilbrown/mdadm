@@ -94,7 +94,7 @@ int open_mddev(char *dev, int autof)
 	int must_remove = 0;
 	struct mdstat_ent *mdlist;
 	int num;
-	struct createinfo *ci = conf_get_create_info(NULL);
+	struct createinfo *ci = conf_get_create_info();
 	int parts;
 
 	if (autof == 0)

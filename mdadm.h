@@ -389,7 +389,6 @@ extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 
 extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 		    mddev_ident_t ident,
-		    char *conffile,
 		    mddev_dev_t devlist, char *backup_file,
 		    int readonly, int runstop,
 		    char *update, char *homehost,
@@ -415,7 +414,7 @@ extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust,
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
-		   int dosyslog, char *config, int test, char *pidfile);
+		   int dosyslog, int test, char *pidfile);
 
 extern int Kill(char *dev, int force, int quiet);
 
@@ -439,13 +438,14 @@ extern int dev_open(char *dev, int flags);
 extern int is_standard(char *dev, int *nump);
 
 extern int parse_auto(char *str, char *msg, int config);
-extern mddev_ident_t conf_get_ident(char *conffile, char *dev);
-extern mddev_dev_t conf_get_devs(char *conffile);
-extern struct createinfo *conf_get_create_info(char *conffile);
-extern char *conf_get_mailaddr(char *conffile);
-extern char *conf_get_mailfrom(char *conffile);
-extern char *conf_get_program(char *conffile);
-extern char *conf_get_homehost(char *conffile);
+extern mddev_ident_t conf_get_ident(char *dev);
+extern mddev_dev_t conf_get_devs(void);
+extern struct createinfo *conf_get_create_info(void);
+extern void set_conffile(char *file);
+extern char *conf_get_mailaddr(void);
+extern char *conf_get_mailfrom(void);
+extern char *conf_get_program(void);
+extern char *conf_get_homehost(void);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern void free_line(char *line);

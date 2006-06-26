@@ -6,6 +6,10 @@ Changes Prior to this release
 	to make it a bit easier to see what is happening.
     -   Work around bug in --add handling for  version-1 superblocks
 	in 2.6.17 (and prior).
+    -   Make -assemble a bit more resilient to finding strange
+	information in superblocks.
+    -   Don't claim newly added spares are InSync!! (don't know why that
+	code was ever in there)
 
 Changes Prior to 2.5.1 release
     -   Various fixes for gcc warnings

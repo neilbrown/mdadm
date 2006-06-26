@@ -350,6 +350,7 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 	/* work_disks is calculated rather than read directly */
 	for (i=0; i < MD_SB_DISKS; i++)
 		if ((sb->disks[i].state & (1<<MD_DISK_SYNC)) &&
+		    (sb->disks[i].raid_disk < info->array.raid_disks) &&
 		    (sb->disks[i].state & (1<<MD_DISK_ACTIVE)) &&
 		    !(sb->disks[i].state & (1<<MD_DISK_FAULTY)))
 			working ++;
@@ -647,7 +648,6 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	}
 
 	sb->disks[dinfo->number].state &= ~(1<<MD_DISK_FAULTY);
-	sb->disks[dinfo->number].state |= (1<<MD_DISK_SYNC);
 
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);

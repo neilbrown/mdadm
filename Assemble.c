@@ -499,6 +499,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (nextspare < info.array.raid_disks)
 				nextspare = info.array.raid_disks;
 			i = nextspare++;
+		} else {
+			if (i >= info.array.raid_disks &&
+			    i >= nextspare)
+				nextspare = i+1;
 		}
 		if (i < 10000) {
 			if (i >= bestcnt) {

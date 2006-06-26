@@ -271,8 +271,14 @@ int Manage_subdevs(char *devname, int fd,
 				 * If so, we can simply re-add it.
 				 */
 				st->ss->uuid_from_super(duuid, dsuper);
-			
-				if (osuper) {
+
+				/* re-add doesn't work for version-1 superblocks
+				 * before 2.6.18 :-(
+				 */
+				if (array.major_version == 1 &&
+				    get_linux_version() <= 2006018)
+					;
+				else if (osuper) {
 					st->ss->uuid_from_super(ouuid, osuper);
 					if (memcmp(duuid, ouuid, sizeof(ouuid))==0) {
 						/* look close enough for now.  Kernel
@@ -295,7 +301,12 @@ int Manage_subdevs(char *devname, int fd,
 					}
 				}
 			}
-			for (j=0; j< st->max_devs; j++) {
+			/* in 2.6.17 and earlier, version-1 superblocks won't
+			 * use the number we write, but will choose a free number.
+			 * we must choose the same free number, which requires
+			 * starting at 'raid_disks' and counting up
+			 */
+			for (j = array.raid_disks; j< st->max_devs; j++) {
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					break;

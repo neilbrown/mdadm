@@ -4,6 +4,8 @@ Changes Prior to this release
     -   Stop map_dev from returning [0:0], as that breaks things.
     -   Add 'Array Slot' line to --examine for version-1 superblocks
 	to make it a bit easier to see what is happening.
+    -   Work around bug in --add handling for  version-1 superblocks
+	in 2.6.17 (and prior).
 
 Changes Prior to 2.5.1 release
     -   Various fixes for gcc warnings

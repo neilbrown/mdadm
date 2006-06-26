@@ -779,7 +779,11 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		if (memcmp(sb->set_uuid, refsb->set_uuid, 16)==0) {
 			/* same array, so preserve events and dev_number */
 			sb->events = refsb->events;
-			sb->dev_number = refsb->dev_number;
+			/* bugs in 2.6.17 and earlier mean the dev_number
+			 * chosen in Manage must be preserved
+			 */
+			if (get_linux_version() >= 2006018)
+				sb->dev_number = refsb->dev_number;
 		}
 		free(refsb);
 	}

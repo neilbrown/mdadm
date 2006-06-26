@@ -383,9 +383,9 @@ int Monitor(mddev_dev_t devlist,
 					    ioctl(fd, GET_ARRAY_INFO, &array)< 0) {
 						/* no such array */
 						if (fd >=0) close(fd);
+						put_md_name(st->devname);
 						free(st->devname);
 						free(st);
-						put_md_name(st->devname);
 						continue;
 					}
 					close(fd);

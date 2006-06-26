@@ -354,32 +354,6 @@ struct devmap {
 } *devlist = NULL;
 int devlist_ready = 0;
 
-#ifdef UCLIBC
-int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
-{
-	return 0;
-}
-char *map_dev(int major, int minor, int create)
-{
-#if 0
-	fprintf(stderr, "Warning - fail to map %d,%d to a device name\n",
-		major, minor);
-#endif
-	return NULL;
-}
-#else
-
-#ifdef __dietlibc__
-int add_dev_1(const char *name, const struct stat *stb, int flag)
-{
-	return add_dev(name, stb, flag, NULL);
-}
-int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
-{
-	return ftw(path, add_dev_1, nopenfd);
-}
-#endif
-
 int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 {
 	struct stat st;
@@ -403,6 +377,28 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 	}
 	return 0;
 }
+
+#ifndef HAVE_NFTW
+#ifdef HAVE_FTW
+int add_dev_1(const char *name, const struct stat *stb, int flag)
+{
+	return add_dev(name, stb, flag, NULL);
+}
+int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+{
+	return ftw(path, add_dev_1, nopenfd);
+}
+#else
+int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
+{
+	return 0;
+}
+int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+{
+	return 0;
+}
+#endif /* HAVE_FTW */
+#endif /* HAVE_NFTW */
 
 /*
  * Find a block device with the right major/minor number.
@@ -463,8 +459,6 @@ char *map_dev(int major, int minor, int create)
 
 	return nonstd ? nonstd : std;
 }
-
-#endif
 
 unsigned long calc_csum(void *super, int bytes)
 {

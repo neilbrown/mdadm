@@ -10,6 +10,8 @@ Changes Prior to this release
 	information in superblocks.
     -   Don't claim newly added spares are InSync!! (don't know why that
 	code was ever in there)
+    -   Work better when no 'ftw' is available, and check to see
+	if current uclibc provides ftw.
 
 Changes Prior to 2.5.1 release
     -   Various fixes for gcc warnings

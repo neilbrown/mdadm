@@ -343,14 +343,30 @@ extern struct supertype *guess_super(int fd);
 struct stat64;
 #endif
 
+#define HAVE_NFTW  we assume
+#define HAVE_FTW
+
 #ifdef UCLIBC
-  struct FTW {};
-# define FTW_PHYS 1
-#else
-# include <ftw.h>
-# ifdef __dietlibc__
-#  define FTW_PHYS 1
+# include <features.h>
+# ifndef  __UCLIBC_HAS_FTW__
+#  undef HAVE_FTW
+#  undef HAVE_NFTW
 # endif
+#endif
+
+#ifdef __dietlibc__
+# undef HAVE_NFTW
+#endif
+
+#ifndef HAVE_NFTW
+# define FTW_PHYS 1
+# ifndef HAVE_FTW
+  struct FTW {};
+# endif
+#endif
+
+#ifdef HAVE_FTW
+# include <ftw.h>
 #endif
 
 extern int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s);

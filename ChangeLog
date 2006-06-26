@@ -2,6 +2,8 @@ Changes Prior to this release
     -   Fix problem with compiling with gcc-2 compilers
     -   Fix compile problem of post-incrmenting a variable in a macro arg.
     -   Stop map_dev from returning [0:0], as that breaks things.
+    -   Add 'Array Slot' line to --examine for version-1 superblocks
+	to make it a bit easier to see what is happening.
 
 Changes Prior to 2.5.1 release
     -   Various fixes for gcc warnings

@@ -277,6 +277,18 @@ static void examine_super1(void *sbv, char *homehost)
 	default: break;
 	}
 	printf("\n");
+	printf("    Array Slot : %d (", __le32_to_cpu(sb->dev_number));
+	for (i= __le32_to_cpu(sb->max_dev); i> 0 ; i--)
+		if (__le16_to_cpu(sb->dev_roles[i-1]) != 0xffff)
+			break;
+	for (d=0; d < i; d++) {
+		int role = __le16_to_cpu(sb->dev_roles[d]);
+		if (d) printf(", ");
+		if (role == 0xffff) printf("empty");
+		else if(role == 0xfffe) printf("failed");
+		else printf("%d", role);
+	}
+	printf(")\n");
 	printf("   Array State : ");
 	for (d=0; d<__le32_to_cpu(sb->raid_disks); d++) {
 		int cnt = 0;

@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 2.5.2 release
     -   Fix problem with compiling with gcc-2 compilers
     -   Fix compile problem of post-incrmenting a variable in a macro arg.
     -   Stop map_dev from returning [0:0], as that breaks things.

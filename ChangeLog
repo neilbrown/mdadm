@@ -2,6 +2,8 @@ Changes Prior to 2.5.3 release
     -   Document v0.91 superblocks in md.4
     -   Make GPL explicit in man pages.
     -   Fix recent breakage of starting degraded arrays.
+    -   Tidyup automatic name choice for v-1 arrays:
+	  /dev/md_d0 now becomes '0', not '_d0'.
 
 Changes Prior to 2.5.2 release
     -   Fix problem with compiling with gcc-2 compilers

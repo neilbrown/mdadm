@@ -30,6 +30,7 @@
 #include "mdadm.h"
 #include	"md_u.h"
 #include	"md_p.h"
+#include	<ctype.h>
 
 int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
@@ -399,9 +400,15 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		name = strrchr(mddev, '/');
 		if (name) {
 			name++;
-			if (strncmp(name, "md", 2)==0 &&
-			    strlen(name) > 2 &&
+			if (strncmp(name, "md_d", 4)==0 &&
+			    strlen(name) > 4 &&
+			    isdigit(name[4]) &&
 			    (name-mddev) == 5 /* /dev/ */)
+				name += 4;
+			else if (strncmp(name, "md", 2)==0 &&
+				 strlen(name) > 2 &&
+				 isdigit(name[2]) &&
+				 (name-mddev) == 5 /* /dev/ */)
 				name += 2;
 		}
 	}

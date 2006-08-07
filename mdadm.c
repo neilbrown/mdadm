@@ -1017,7 +1017,7 @@ int main(int argc, char *argv[])
 				else {
 					rv |= Assemble(ss, array_list->devname, mdfd,
 						       array_list,
-						       devlist, NULL,
+						       NULL, NULL,
 						       readonly, runstop, NULL, homehost, verbose-quiet, force);
 					if (rv == 0) cnt++;
 				}
@@ -1036,7 +1036,7 @@ int main(int argc, char *argv[])
 					do {
 						rv2 = Assemble(ss, NULL, -1,
 							       &ident,
-							       devlist, NULL,
+							       NULL, NULL,
 							       readonly, runstop, NULL, homehost, verbose-quiet, force);
 						if (rv2==0) {
 							cnt++;
@@ -1049,7 +1049,6 @@ int main(int argc, char *argv[])
 							auto_update_home = 0;
 					} while (rv2!=2);
 					/* Incase there are stacked devices, we need to go around again */
-					devlist = conf_get_devs();
 				} while (acnt);
 				if (cnt == 0 && auto_update_home && homehost) {
 					/* Nothing found, maybe we need to bootstrap homehost info */
@@ -1058,7 +1057,7 @@ int main(int argc, char *argv[])
 						do {
 							rv2 = Assemble(ss, NULL, -1,
 								       &ident,
-								       devlist, NULL,
+								       NULL, NULL,
 								       readonly, runstop, "homehost", homehost, verbose-quiet, force);
 							if (rv2==0) {
 								cnt++;
@@ -1066,7 +1065,6 @@ int main(int argc, char *argv[])
 							}
 						} while (rv2!=2);
 						/* Incase there are stacked devices, we need to go around again */
-						devlist = conf_get_devs();
 					} while (acnt);
 				}
 				if (cnt == 0 && rv == 0) {

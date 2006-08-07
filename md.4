@@ -74,6 +74,14 @@ UUID
 a 128 bit Universally Unique Identifier that identifies the array that
 this device is part of.
 
+When a version 0.90 array is being reshaped (e.g. adding extra devices
+to a RAID5), the version number is temporarily set to 0.91.  This
+ensures that if the reshape process is stopped in the middle (e.g. by
+a system crash) and the machine boots into an older kernel that does
+not support reshaping, then the array will not be assembled (which
+would cause data corruption) but will be left untouched until a kernel
+that can complete the reshape processes is used.
+
 .SS ARRAYS WITHOUT SUPERBLOCKS
 While it is usually best to create arrays with superblocks so that
 they can be assembled reliably, there are some circumstances where an

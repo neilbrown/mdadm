@@ -1,3 +1,6 @@
+Changes Prior to 2.5.3 release
+    -   Document v0.91 superblocks in md.4
+
 Changes Prior to 2.5.2 release
     -   Fix problem with compiling with gcc-2 compilers
     -   Fix compile problem of post-incrmenting a variable in a macro arg.

@@ -1,5 +1,6 @@
 Changes Prior to 2.5.3 release
     -   Document v0.91 superblocks in md.4
+    -   Make GPL explicit in man pages.
 
 Changes Prior to 2.5.2 release
     -   Fix problem with compiling with gcc-2 compilers

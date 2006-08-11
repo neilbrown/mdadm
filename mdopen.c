@@ -31,6 +31,23 @@
 #include "md_p.h"
 #include <ctype.h>
 
+
+void make_dev_symlink(char *dev)
+{
+	char *new = strdup(dev);
+
+	if (!new) return;
+	/* /dev/md/0 -> /dev/md0
+	 * /dev/md/d0 -> /dev/md_d0
+	 */
+	if (isdigit(new[8]))
+		strcpy(new+7, new+8);
+	else
+		new[7] = '_';
+	symlink(dev+5, new);
+}
+
+
 void make_parts(char *dev, int cnt)
 {
 	/* make 'cnt' partition devices for 'dev'
@@ -71,10 +88,13 @@ void make_parts(char *dev, int cnt)
 			perror("chown");
 		if (chmod(name, stb2.st_mode & 07777))
 			perror("chmod");
+		if (strncmp(name, "/dev/md/", 8) == 0)
+			make_dev_symlink(name);
 		stat(name, &stb2);
 		add_dev(name, &stb2, 0, NULL);
 	}
 }
+
 
 /*
  * Open a given md device, and check that it really is one.
@@ -236,6 +256,12 @@ int open_mddev(char *dev, int autof)
 			if (must_remove)
 				unlink(dev);
 
+			if (strncmp(dev, "/dev/md/", 8) == 0) {
+				if (mkdir("/dev/md",0700)==0) {
+					chown("/dev/md", ci->uid, ci->gid);
+					chmod("/dev/md", ci->mode| ((ci->mode>>2) & 0111));
+				}
+			}
 			if (mknod(dev, S_IFBLK|0600, makedev(major, minor))!= 0) {
 				fprintf(stderr, Name ": failed to create %s\n", dev);
 				return -1;
@@ -253,6 +279,8 @@ int open_mddev(char *dev, int autof)
 			}
 			stat(dev, &stb);
 			add_dev(dev, &stb, 0, NULL);
+			if (strncmp(dev, "/dev/md/", 8) == 0)
+				make_dev_symlink(dev);
 			if (major != MD_MAJOR)
 				make_parts(dev,parts);
 		}

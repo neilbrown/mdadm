@@ -397,6 +397,13 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 	if (name == NULL || *name == 0) {
 		/* base name on mddev */
+		/*  /dev/md0 -> 0
+		 *  /dev/md_d0 -> d0
+		 *  /dev/md/1 -> 1
+		 *  /dev/md/d1 -> d1
+		 *  /dev/md/home -> home
+		 *  /dev/mdhome -> home
+		 */
 		name = strrchr(mddev, '/');
 		if (name) {
 			name++;
@@ -404,7 +411,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			    strlen(name) > 4 &&
 			    isdigit(name[4]) &&
 			    (name-mddev) == 5 /* /dev/ */)
-				name += 4;
+				name += 3;
 			else if (strncmp(name, "md", 2)==0 &&
 				 strlen(name) > 2 &&
 				 isdigit(name[2]) &&

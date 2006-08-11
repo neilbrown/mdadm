@@ -230,13 +230,8 @@ static void brief_examine_super0(void *sbv)
 	mdp_super_t *sb = sbv;
 	char *c=map_num(pers, sb->level);
 	char devname[20];
-	struct stat stb;
 
 	sprintf(devname, "/dev/md%d", sb->md_minor);
-	if (stat(devname, &stb) != 0) {
-		/* /dev/mdX doesn't exist, so use /dev/md/X */
-		sprintf(devname, "/dev/md/%d", sb->md_minor);
-	}
 
 	printf("ARRAY %s level=%s num-devices=%d UUID=",
 	       devname,

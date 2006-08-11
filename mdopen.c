@@ -48,7 +48,7 @@ void make_dev_symlink(char *dev)
 }
 
 
-void make_parts(char *dev, int cnt)
+void make_parts(char *dev, int cnt, int symlinks)
 {
 	/* make 'cnt' partition devices for 'dev'
 	 * We use the major/minor from dev and add 1..cnt
@@ -88,7 +88,7 @@ void make_parts(char *dev, int cnt)
 			perror("chown");
 		if (chmod(name, stb2.st_mode & 07777))
 			perror("chmod");
-		if (strncmp(name, "/dev/md/", 8) == 0)
+		if (symlinks && strncmp(name, "/dev/md/", 8) == 0)
 			make_dev_symlink(name);
 		stat(name, &stb2);
 		add_dev(name, &stb2, 0, NULL);
@@ -192,7 +192,7 @@ int open_mddev(char *dev, int autof)
 				return -1;
 			} else {
 				if (major != MD_MAJOR && parts > 0)
-					make_parts(dev, parts);
+					make_parts(dev, parts, ci->symlinks);
 				return mdfd;
 			}
 		}
@@ -279,10 +279,10 @@ int open_mddev(char *dev, int autof)
 			}
 			stat(dev, &stb);
 			add_dev(dev, &stb, 0, NULL);
-			if (strncmp(dev, "/dev/md/", 8) == 0)
+			if (ci->symlinks && strncmp(dev, "/dev/md/", 8) == 0)
 				make_dev_symlink(dev);
 			if (major != MD_MAJOR)
-				make_parts(dev,parts);
+				make_parts(dev,parts, ci->symlinks);
 		}
 	}
 	mdfd = open(dev, O_RDWR, 0);

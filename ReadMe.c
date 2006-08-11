@@ -139,6 +139,7 @@ struct option long_options[] = {
     {"re-add",    0, 0,  ReAdd},
     {"homehost",  1, 0,  HomeHost},
     {"auto-update-homehost", 0, 0, AutoHomeHost},
+    {"symlinks",  1, 0,  Symlinks},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},

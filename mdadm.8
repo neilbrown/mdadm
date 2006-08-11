@@ -594,6 +594,28 @@ number will be considered unused if there is no active array for that
 number, and there is no entry in /dev for that number and with a
 non-standard name.
 
+.TP
+.BR --symlink = no
+Normally when
+.B --auto
+causes
+.I mdadm
+to create devices in
+.B /dev/md/
+it will also create symlinks from
+.B /dev/
+with names starting with
+.B md
+or
+.BR md_ .
+Use
+.B --symlink=no
+to suppress this, or
+.B --symlink=yes
+to enforce this even if it is suppressing
+.IR mdadm.conf .
+
+
 .SH For assemble:
 
 .TP

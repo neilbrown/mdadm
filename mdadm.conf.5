@@ -273,6 +273,20 @@ missing device entries should be created.
 The name of the metadata format to use if none is explicitly given.
 This can be useful to impose a system-wide default of version-1 superblocks.
 
+.TP
+.B symlinks=no
+Normally when creating devices in
+.B /dev/md/
+.I mdadm
+will create a matching symlink from
+.B /dev/
+with a name starting
+.B md
+or
+.BR md_ .
+Give
+.B symlinked=no
+to suppress this symlink creation.
 .RE
 
 

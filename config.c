@@ -255,6 +255,7 @@ mddev_dev_t load_partitions(void)
 }
 
 struct createinfo createinfo = {
+	.symlinks = 1,
 #ifdef DEBIAN
 	.gid = 6, /* disk */
 	.mode = 0660,
@@ -364,8 +365,11 @@ static void createline(char *line)
 			if (!createinfo.supertype)
 				fprintf(stderr, Name ": metadata format %s unknown, ignoring\n",
 					w+9);
-
-		} else {
+		} else if (strncasecmp(w, "symlinks=yes", 12) == 0)
+			createinfo.symlinks = 1;
+		else if  (strncasecmp(w, "symlinks=no", 11) == 0)
+			createinfo.symlinks = 0;
+		else {
 			fprintf(stderr, Name ": unrecognised word on CREATE line: %s\n",
 				w);
 		}

@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
 	int force = 0;
 	int test = 0;
 	int assume_clean = 0;
+	char *symlinks = NULL;
 	/* autof indicates whether and how to create device node.
 	 * bottom 3 bits are style.  Rest (when shifted) are number of parts
 	 * 0  - unset
@@ -499,6 +500,12 @@ int main(int argc, char *argv[])
 			autof = parse_auto(optarg, "--auto flag", 0);
 			continue;
 
+		case O(CREATE,Symlinks):
+		case O(BUILD,Symlinks):
+		case O(ASSEMBLE,Symlinks): /* auto creation of symlinks in /dev to /dev/md */
+			symlinks = optarg;
+			continue;
+
 		case O(BUILD,'f'): /* force honouring '-n 1' */
 		case O(GROW,'f'): /* ditto */
 		case O(CREATE,'f'): /* force honouring of device list */
@@ -857,6 +864,19 @@ int main(int argc, char *argv[])
 	if (!mode) {
 		fputs(Usage, stderr);
 		exit(2);
+	}
+
+	if (symlinks) {
+		struct createinfo *ci = conf_get_create_info();
+
+		if (strcasecmp(symlinks, "yes") == 0)
+			ci->symlinks = 1;
+		else if (strcasecmp(symlinks, "no") == 0)
+			ci->symlinks = 0;
+		else {
+			fprintf(stderr, Name ": option --symlinks must be 'no' or 'yes'\n");
+			exit(2);
+		}
 	}
 	/* Ok, got the option parsing out of the way
 	 * hopefully it's mostly right but there might be some stuff

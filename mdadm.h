@@ -132,6 +132,7 @@ struct createinfo {
 	int	gid;
 	int	autof;
 	int	mode;
+	int	symlinks;
 	struct supertype *supertype;
 };
 
@@ -167,6 +168,7 @@ enum special_options {
 	BackupFile,
 	HomeHost,
 	AutoHomeHost,
+	Symlinks,
 };
 
 /* structures read from config file */

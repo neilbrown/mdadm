@@ -724,8 +724,15 @@ The
 option will update the
 .B "preferred minor"
 field on each superblock to match the minor number of the array being
-assembled.  This is not needed on 2.6 and later kernels as they make
-this adjustment automatically.
+assembled.
+This can be useful if
+.B --examine
+reports a different "Preferred Minor" to
+.BR --detail .
+In some cases this update will be performed automatically
+by the kernel driver. In particular the update happens automatically
+at the first write to an array with redundancy (RAID level 1 or
+greater) on a 2.6 (or later) kernel.
 
 The
 .B uuid

@@ -4,6 +4,7 @@ Changes Prior to this release
 	Allow this to be disabled in mdadm.conf or on command line.
     -   Fix some endian-ness issues with version-1 superblocks (affects
 	bigendian only).
+    -   Fix endian problem with 'bitmap' metadata
 
 Changes Prior to 2.5.3 release
     -   Document v0.91 superblocks in md.4

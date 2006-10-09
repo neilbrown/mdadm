@@ -43,7 +43,7 @@
  *  read_ahead {not set|%d sectors}
  *  mdN : {in}active {(readonly)} raidX dev[%d]{(F)} ... %d blocks STATUS RESYNC
  *  ... Only initialised arrays listed
- *  unused: dev dev dev | <none>
+ *  unused devices: {dev dev ... | <none>}
  *
  * STATUS is personality dependant:
  *    linear:  %dk rounding
@@ -62,7 +62,7 @@
  *  mdN : {in}active {(read-only)} raidX dev[%d]{(F)} ...
  *       %d blocks STATUS
  *       RESYNC
- *  unused: dev dev .. | <none>
+ *  unused devices: {dev dev .. | <none>}
  *
  *  STATUS matches 0.90.0/2.2
  *  RESYNC includes [===>....],

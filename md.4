@@ -407,7 +407,7 @@ will not wait for writes to those requests to complete before
 reporting the write as complete to the filesystem.
 
 This allows for a RAID1 with WRITE-BEHIND to be used to mirror data
-over a slow link to a remove computer (providing the link isn't too
+over a slow link to a remote computer (providing the link isn't too
 slow).  The extra latency of the remote link will not slow down normal
 operations, but the remote system will still have a reasonably
 up-to-date copy of all data.

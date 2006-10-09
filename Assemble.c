@@ -531,9 +531,12 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					" to have very similar superblocks.\n"
 					"      If they are really different, "
 					"please --zero the superblock on one\n"
-					"      If they are the same, please remove "
-					"one from the list.\n",
-					devices[best[i]].devname, devname);
+					"      If they are the same or overlap,"
+					" please remove one from %s.\n",
+					devices[best[i]].devname, devname,
+					inargv ? "the list" :
+					   "the\n      DEVICE list in mdadm.conf"
+					);
 				if (must_close) close(mdfd);
 				return 1;
 			}

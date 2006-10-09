@@ -134,7 +134,7 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 
 	csum = (newcsum & 0xffffffff) + (newcsum >> 32);
 	sb->sb_csum = disk_csum;
-	return csum;
+	return __cpu_to_le32(csum);
 }
 
 #ifndef MDASSEMBLE
@@ -147,6 +147,7 @@ static void examine_super1(void *sbv, char *homehost)
 	int i;
 	char *c;
 	int l = homehost ? strlen(homehost) : 0;
+	int layout;
 
 	printf("          Magic : %08x\n", __le32_to_cpu(sb->magic));
 	printf("        Version : %02d\n", 1);
@@ -175,14 +176,21 @@ static void examine_super1(void *sbv, char *homehost)
 		switch(__le32_to_cpu(sb->level)) {
 		case 1: ddsks=1;break;
 		case 4:
-		case 5: ddsks = sb->raid_disks-1; break;
-		case 6: ddsks = sb->raid_disks-2; break;
-		case 10: ddsks = sb->raid_disks / (sb->layout&255) / ((sb->layout>>8)&255);
+		case 5: ddsks = __le32_to_cpu(sb->raid_disks)-1; break;
+		case 6: ddsks = __le32_to_cpu(sb->raid_disks)-2; break;
+		case 10:
+			layout = __le32_to_cpu(sb->layout);
+			ddsks = __le32_to_cpu(sb->raid_disks)
+				 / (layout&255) / ((layout>>8)&255);
 		}
 		if (ddsks)
-			printf("     Array Size : %llu%s\n", ddsks*(unsigned long long)sb->size, human_size(ddsks*sb->size<<9));
+			printf("     Array Size : %llu%s\n",
+			       ddsks*(unsigned long long)__le44_to_cpu(sb->size),
+			       human_size(ddsks*__le64_to_cpu(sb->size)<<9));
 		if (sb->size != sb->data_size)
-			printf("      Used Size : %llu%s\n", (unsigned long long)sb->size, human_size(sb->size<<9));
+			printf("      Used Size : %llu%s\n",
+			       (unsigned long long)__le64_to_cpu(sb->size),
+			       human_size(__le64_to_cpu(sb->size)<<9));
 	}
 	if (sb->data_offset)
 		printf("    Data Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->data_offset));
@@ -335,7 +343,7 @@ static void brief_examine_super1(void *sbv)
 
 	printf("ARRAY /dev/md/%s level=%s metadata=1 num-devices=%d UUID=",
 	       nm,
-	       c?c:"-unknown-", sb->raid_disks);
+	       c?c:"-unknown-", __le32_to_cpu(sb->raid_disks));
 	for (i=0; i<16; i++) {
 		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
@@ -760,7 +768,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 
 	sb->dev_number = __cpu_to_le32(dinfo->number);
 	if (dinfo->state & (1<<MD_DISK_WRITEMOSTLY))
-		sb->devflags |= WriteMostly1;
+		sb->devflags |= __cpu_to_le32(WriteMostly1);
 
 	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 	    read(rfd, sb->device_uuid, 16) != 16) {

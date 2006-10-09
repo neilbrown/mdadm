@@ -191,6 +191,8 @@ static void examine_super0(void *sbv, char *homehost)
 	case 0:
 	case 4:
 	case 5:
+	case 6:
+	case 10:
 		printf("     Chunk Size : %dK\n", sb->chunk_size/1024);
 		break;
 	case -1:

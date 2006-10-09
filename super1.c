@@ -185,7 +185,7 @@ static void examine_super1(void *sbv, char *homehost)
 		}
 		if (ddsks)
 			printf("     Array Size : %llu%s\n",
-			       ddsks*(unsigned long long)__le44_to_cpu(sb->size),
+			       ddsks*(unsigned long long)__le64_to_cpu(sb->size),
 			       human_size(ddsks*__le64_to_cpu(sb->size)<<9));
 		if (sb->size != sb->data_size)
 			printf("      Used Size : %llu%s\n",

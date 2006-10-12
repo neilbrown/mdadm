@@ -259,6 +259,7 @@ int Manage_subdevs(char *devname, int fd,
 						close(dfd);
 						continue;
 					}
+					remove_partitions(dfd);
 					close(dfd);
 					break;
 				}

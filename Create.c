@@ -521,6 +521,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				fstat(fd, &stb);
 				disk.major = major(stb.st_rdev);
 				disk.minor = minor(stb.st_rdev);
+				remove_partitions(fd);
 				close(fd);
 			}
 			switch(pass){

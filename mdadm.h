@@ -460,6 +460,7 @@ extern int enough(int level, int raid_disks, int layout,
 		   char *avail, int avail_disks);
 extern int ask(char *mesg);
 extern unsigned long long get_component_size(int fd);
+extern void remove_partitions(int fd);
 
 
 extern char *human_size(long long bytes);

@@ -421,6 +421,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			}
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
 
+			remove_partitions(dfd);
+
 			if (super) {
 				free(super);
 				super = NULL;
@@ -459,6 +461,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		{
 			int dfd;
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
+
+			remove_partitions(dfd);
 
 			if (super) {
 				free(super);

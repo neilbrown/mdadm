@@ -7,6 +7,10 @@ Changes Prior to this release
     -   Fix endian problem with 'bitmap' metadata
     -   Allow a number (of partitions) after the 'yes' option to --auto=
 	This is particularly useful in the 'create' line in mdadm.conf.
+    -   Remove partitions from any whole device that is made part of
+	an md array.  This is a work-around for annoying messages
+	when the first block on some drive accidentally looks like a
+	partition table.
 
 Changes Prior to 2.5.3 release
     -   Document v0.91 superblocks in md.4

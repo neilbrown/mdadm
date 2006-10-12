@@ -31,6 +31,7 @@
 #include	"md_p.h"
 #include	<sys/utsname.h>
 #include	<ctype.h>
+#include	<linux/blkpg.h>
 
 /*
  * Parse a 128 bit uuid in 4 integers
@@ -116,6 +117,25 @@ int get_linux_version()
 	c = strtoul(cp+1, NULL, 10);
 
 	return (a*1000000)+(b*1000)+c;
+}
+
+void remove_partitions(int fd)
+{
+	/* remove partitions from this block devices.
+	 * This is used for components added to an array
+	 */
+#ifdef BLKPG_DEL_PARTITION
+	struct blkpg_ioctl_arg a;
+	struct blkpg_partition p;
+
+	a.op = BLKPG_DEL_PARTITION;
+	a.data = (void*)&p;
+	a.datalen = sizeof(p);
+	a.flags = 0;
+	memset(a.data, 0, a.datalen);
+	for (p.pno=0; p.pno < 16; p.pno++)
+		ioctl(fd, BLKPG, &a);
+#endif
 }
 
 int enough(int level, int raid_disks, int layout,

@@ -5,6 +5,8 @@ Changes Prior to this release
     -   Fix some endian-ness issues with version-1 superblocks (affects
 	bigendian only).
     -   Fix endian problem with 'bitmap' metadata
+    -   Allow a number (of partitions) after the 'yes' option to --auto=
+	This is particularly useful in the 'create' line in mdadm.conf.
 
 Changes Prior to 2.5.3 release
     -   Document v0.91 superblocks in md.4

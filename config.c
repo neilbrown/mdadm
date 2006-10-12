@@ -291,6 +291,8 @@ int parse_auto(char *str, char *msg, int config)
 		len = e - str;
 		if ((len == 2 && strncasecmp(str,"md",2)==0)) {
 			autof = config ? 5 : 3;
+		} else if ((len == 3 && strncasecmp(str,"yes",3)==0)) {
+			autof = 2;
 		} else if ((len == 3 && strncasecmp(str,"mdp",3)==0)) {
 			autof = config ? 6 : 4;
 		} else if ((len == 1 && strncasecmp(str,"p",1)==0) ||

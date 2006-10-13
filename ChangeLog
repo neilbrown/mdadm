@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks
 	from /dev.  e.g. /dev/md0 -> /dev/md/0.
 	Allow this to be disabled in mdadm.conf or on command line.

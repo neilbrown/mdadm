@@ -29,7 +29,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v2.5.3 -  7 August 2006\n";
+char Version[] = Name " - v2.5.4 - 13 October 2006\n";
 
 /*
  * File: ReadMe.c

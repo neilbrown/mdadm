@@ -1,6 +1,9 @@
 Changes Prior to this release
     -   Don't #include linux/blkpg.h as that isn't safe.  Just
 	include the content literally.
+    -   Reduce maximum bitmap usage when working with bitmap files,
+	so that a only single-page allocations are made, even on
+	64bit hosts with 4K pages.
 
 Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks

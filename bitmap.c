@@ -345,11 +345,12 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 	if (chunksize == UnSet) {
 		/* We don't want more than 2^21 chunks, as 2^11 fill up one
 		 * 4K page (2 bytes per chunk), and 2^10 address of those
-		 * fill up a 4K indexing page.  2^20 might be safer...
+		 * fill up a 4K indexing page.  2^20 might be safer, especially
+		 * on 64bit hosts, so use that.
 		 */
 		chunksize = DEFAULT_BITMAP_CHUNK;
-		/* <<21 for 2^21 chunks, >>9 to convert bytes to sectors */
-		while (array_size > (chunksize << (21-9)))
+		/* <<20 for 2^20 chunks, >>9 to convert bytes to sectors */
+		while (array_size > (chunksize << (20-9)))
 			chunksize <<= 1;
 	}
 

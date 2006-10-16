@@ -241,6 +241,7 @@ int same_uuid(int a[4], int b[4], int swapuuid)
 	}
 }
 
+#ifndef MDASSEMBLE
 int check_ext2(int fd, char *name)
 {
 	/*
@@ -338,6 +339,7 @@ int ask(char *mesg)
 	fprintf(stderr, Name ": assuming 'no'\n");
 	return 0;
 }
+#endif /* MDASSEMBLE */
 
 char *map_num(mapping_t *map, int num)
 {
@@ -534,6 +536,7 @@ unsigned long calc_csum(void *super, int bytes)
 	return csum;
 }
 
+#ifndef MDASSEMBLE
 char *human_size(long long bytes)
 {
 	static char buf[30];
@@ -586,7 +589,9 @@ char *human_size_brief(long long bytes)
 			);
 	return buf;
 }
+#endif
 
+#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 int get_mdp_major(void)
 {
 static int mdp_major = -1;
@@ -670,6 +675,7 @@ void put_md_name(char *name)
 	if (strncmp(name, "/dev/.tmp.md", 12)==0)
 		unlink(name);
 }
+#endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
 int dev_open(char *dev, int flags)
 {

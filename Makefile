@@ -76,7 +76,7 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
-ASSEMBLE_SRCS := mdassemble.c Assemble.c config.c dlink.c util.c super0.c super1.c sha1.c
+ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c super0.c super1.c sha1.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += mdopen.c mdstat.c

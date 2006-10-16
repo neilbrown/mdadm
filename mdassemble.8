@@ -25,6 +25,13 @@ Invoking
 .B mdassemble
 has the same effect as invoking
 .B mdadm --assemble --scan.
+.PP
+Invoking
+.B mdassemble
+a second time will make all defined arrays readwrite, this is useful if
+using the
+.B start_ro
+module parameter.
 
 .SH OPTIONS
 
@@ -54,6 +61,5 @@ define.
 .PP
 .BR mdadm (8),
 .BR mdadm.conf (5),
-.BR md (4).
-.PP
+.BR md (4),
 .BR diet (1).

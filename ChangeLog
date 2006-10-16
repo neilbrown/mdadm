@@ -4,6 +4,10 @@ Changes Prior to this release
     -   Reduce maximum bitmap usage when working with bitmap files,
 	so that a only single-page allocations are made, even on
 	64bit hosts with 4K pages.
+    -   Close stray fd in mdassemble so that it can assemble stacked
+	devices
+    -   If mdassemble finds an array already assembled, it marks it
+        read-write.
 
 Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks

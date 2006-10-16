@@ -72,6 +72,8 @@ int Manage_ro(char *devname, int fd, int readonly)
 	return 0;			
 }
 
+#ifndef MDASSEMBLE
+
 int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 {
 	/* Run or stop the array. array must already be configured
@@ -394,3 +396,4 @@ int Manage_subdevs(char *devname, int fd,
 	return 0;
 	
 }
+#endif

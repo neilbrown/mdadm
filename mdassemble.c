@@ -91,13 +91,14 @@ int main(int argc, char *argv[]) {
 				rv |= 1;
 				continue;
 			}
-			if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
-				/* already assembled, skip */
-				continue;
-			rv |= Assemble(array_list->st, array_list->devname, mdfd,
-					   array_list,
-					   NULL, NULL,
+			if (ioctl(mdfd, GET_ARRAY_INFO, &array) < 0) {
+				rv |= Assemble(array_list->st, array_list->devname, mdfd,
+					   array_list, NULL, NULL,
 					   readonly, runstop, NULL, NULL, verbose, force);
+			} else {
+				rv |= Manage_ro(array_list->devname, mdfd, -1); /* make it readwrite */
+			}
+			close(mdfd);
 		}
 	return rv;
 }

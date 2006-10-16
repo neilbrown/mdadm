@@ -1,3 +1,7 @@
+Changes Prior to this release
+    -   Don't #include linux/blkpg.h as that isn't safe.  Just
+	include the content literally.
+
 Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks
 	from /dev.  e.g. /dev/md0 -> /dev/md/0.

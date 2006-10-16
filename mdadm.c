@@ -1033,7 +1033,7 @@ int main(int argc, char *argv[])
 				}
 				if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
 					/* already assembled, skip */
-					;
+					cnt++;
 				else {
 					rv |= Assemble(ss, array_list->devname, mdfd,
 						       array_list,

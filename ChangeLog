@@ -11,6 +11,8 @@ Changes Prior to this release
     -   Remove error in md_open if array is already active.  This isn't
 	needed and gets in the ways if an array was created e.g. in
 	initramfs, but device doesn't yet exist in /dev.
+    -   When --assemble --scan is run, if all arrays that could be found
+	have already been started, don't report an error.
 
 Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks

@@ -8,6 +8,9 @@ Changes Prior to this release
 	devices
     -   If mdassemble finds an array already assembled, it marks it
         read-write.
+    -   Remove error in md_open if array is already active.  This isn't
+	needed and gets in the ways if an array was created e.g. in
+	initramfs, but device doesn't yet exist in /dev.
 
 Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks

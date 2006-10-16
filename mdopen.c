@@ -171,7 +171,6 @@ int open_mddev(char *dev, int autof)
 		if (stb.st_mode && major(stb.st_rdev) != major)
 			must_remove = 1;
 		if (stb.st_mode && !must_remove) {
-			mdu_array_info_t array;
 			/* looks ok, see if it is available */
 			mdfd = open(dev, O_RDWR, 0);
 			if (mdfd < 0) {
@@ -184,17 +183,9 @@ int open_mddev(char *dev, int autof)
 				close(mdfd);
 				return -1;
 			}
-			if (ioctl(mdfd, GET_ARRAY_INFO, &array)==0) {
-				/* already active */
-				close(mdfd);
-				fprintf(stderr, Name ": %s is already active.\n",
-					dev);
-				return -1;
-			} else {
-				if (major != MD_MAJOR && parts > 0)
-					make_parts(dev, parts, ci->symlinks);
-				return mdfd;
-			}
+			if (major != MD_MAJOR && parts > 0)
+				make_parts(dev, parts, ci->symlinks);
+			return mdfd;
 		}
 		/* Ok, need to find a minor that is not in use.
 		 * If the device name is in a 'standard' format,

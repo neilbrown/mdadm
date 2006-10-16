@@ -390,6 +390,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 	}
 	
 	rv = 0;
+	fflush(fp);
 	/* make the file be the right size (well, to the nearest byte) */
 	if (ftruncate(fileno(fp), filesize))
 		perror("ftrunace");

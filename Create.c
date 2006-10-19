@@ -363,7 +363,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		 * which is array.size * raid_disks / ncopies;
 		 * .. but convert to sectors.
 		 */
-		int ncopies = (layout>>8) * (layout & 255);
+		int ncopies = ((layout>>8) & 255) * (layout & 255);
 		bitmapsize = (unsigned long long)size * raiddisks / ncopies * 2;
 /*		printf("bms=%llu as=%d rd=%d nc=%d\n", bitmapsize, size, raiddisks, ncopies);*/
 	} else

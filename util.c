@@ -179,7 +179,7 @@ int enough(int level, int raid_disks, int layout,
 		/* This is the tricky one - we need to check
 		 * which actual disks are present.
 		 */
-		copies = (layout&255)* (layout>>8);
+		copies = (layout&255)* ((layout>>8) & 255);
 		first=0;
 		do {
 			/* there must be one of the 'copies' form 'first' */

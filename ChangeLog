@@ -13,6 +13,7 @@ Changes Prior to this release
 	initramfs, but device doesn't yet exist in /dev.
     -   When --assemble --scan is run, if all arrays that could be found
 	have already been started, don't report an error.
+    -   Fix a couple of bugs related to raid10 and the new 'offset' layout.
 
 Changes Prior to 2.5.4 release
     -   When creating devices in /dev/md/ create matching symlinks

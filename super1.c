@@ -1136,7 +1136,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	 */
 
 	unsigned long long bits;
-	unsigned long long max_bits = (3*512 - sizeof(bitmap_super_t)) * 8;
+	unsigned long long max_bits = (6*512 - sizeof(bitmap_super_t)) * 8;
 	unsigned long long min_chunk;
 	struct mdp_superblock_1 *sb = sbv;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + 1024);

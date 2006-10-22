@@ -596,7 +596,13 @@ int main(int argc, char *argv[])
 
 				continue;
 			}
-			fprintf(stderr, Name ": '--update %s' invalid.  Only 'sparc2.2', 'super-minor', 'uuid', 'resync' or 'summaries' supported\n",update);
+			if (strcmp(update,"?") == 0 || strcmp(update, "help") == 0)
+				fprintf(stderr, Name ": ");
+			else
+				fprintf(stderr, Name ": '--update=%s' is invalid.  ", update);
+			fprintf(stderr, "Valid --update options are:\n"
+				"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
+				"     'summaries', 'homehost', 'byteorder'.\n");
 			exit(2);
 
 		case O(ASSEMBLE,NoDegraded): /* --no-degraded */

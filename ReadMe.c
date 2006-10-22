@@ -272,7 +272,7 @@ char OptionHelp[] =
 "  --config=     -c   : config file\n"
 "  --scan        -s   : scan config file for missing information\n"
 "  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
-"  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
+"  --update=     -U   : Update superblock: try '-A --update=?' for list of options.\n"
 "  --auto(=p)    -a   : Automatically allocate new (partitioned) md array if needed.\n"
 "  --no-degraded      : Do not start any degraded arrays - default unless --scan.\n"
 "\n"
@@ -414,7 +414,7 @@ char Help_assemble[] =
 "                       for a full array are present\n"
 "  --force       -f   : Assemble the array even if some superblocks appear\n"
 "                     : out-of-date.  This involves modifying the superblocks.\n"
-"  --update=     -U   : Update superblock: one of sparc2.2, super-minor or summaries\n"
+"  --update=     -U   : Update superblock: try '-A --update=?' for option list.\n"
 "  --no-degraded      : Assemble but do not start degraded arrays.\n"
 ;
 

@@ -44,7 +44,8 @@ void make_dev_symlink(char *dev)
 		strcpy(new+7, new+8);
 	else
 		new[7] = '_';
-	symlink(dev+5, new);
+	if (symlink(dev+5, new))
+		perror(new);
 }
 
 
@@ -249,8 +250,10 @@ int open_mddev(char *dev, int autof)
 
 			if (strncmp(dev, "/dev/md/", 8) == 0) {
 				if (mkdir("/dev/md",0700)==0) {
-					chown("/dev/md", ci->uid, ci->gid);
-					chmod("/dev/md", ci->mode| ((ci->mode>>2) & 0111));
+					if (chown("/dev/md", ci->uid, ci->gid))
+						perror("chown /dev/md");
+					if (chmod("/dev/md", ci->mode| ((ci->mode>>2) & 0111)))
+						perror("chmod /dev/md");
 				}
 			}
 			if (mknod(dev, S_IFBLK|0600, makedev(major, minor))!= 0) {

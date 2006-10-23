@@ -1148,6 +1148,8 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
+			if (brief && verbose)
+				brief = 2;
 			rv = Examine(devlist, scan?(verbose>1?0:verbose+1):brief, scan, SparcAdjust, ss, homehost);
 		} else {
 			if (devlist == NULL) {

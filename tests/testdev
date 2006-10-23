@@ -5,10 +5,10 @@ chunk=$4
 mkfs -j $dev > /dev/null 2>&1 && fsck -fn $dev >&2
 dsize=$[size/chunk]
 dsize=$[dsize*chunk]
-rasize=$[dsize*1024*cnt]
-if [ $rasize -ne `/sbin/blockdev --getsize64 $dev` ]
+rasize=$[dsize*2*cnt]
+if [ $rasize -ne `/sbin/blockdev --getsize $dev` ]
 then
-  echo "ERROR: size is wrong for $dev: $cnt * $size (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize64 $dev`"
+  echo "ERROR: size is wrong for $dev: $cnt * $size (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize $dev`"
   exit 1;
 fi
 

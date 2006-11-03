@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 2.5.5 release
     -   Don't #include linux/blkpg.h as that isn't safe.  Just
 	include the content literally.
     -   Reduce maximum bitmap usage when working with bitmap files,

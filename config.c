@@ -464,7 +464,7 @@ void arrayline(char *line)
 				fprintf(stderr, Name ": only specify bitmap file once. %s ignored\n",
 					w);
 			else
-				mis.bitmap_file = w+7;
+				mis.bitmap_file = strdup(w+7);
 
 		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
 			if (mis.devices)

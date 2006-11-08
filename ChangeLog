@@ -1,3 +1,7 @@
+Changes Prior to 2.5.6 release
+    -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled
+	properly.
+
 Changes Prior to 2.5.5 release
     -   Don't #include linux/blkpg.h as that isn't safe.  Just
 	include the content literally.

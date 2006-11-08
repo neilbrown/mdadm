@@ -273,6 +273,12 @@ says to get a list of array devices from
 .B -e ", " --metadata=
 Declare the style of superblock (raid metadata) to be used.  The
 default is 0.90 for --create, and to guess for other operations.
+The default can be overridden by setting the
+.B metadata
+value for the
+.B CREATE
+keyword in
+.BR mdadm.conf .
 
 Options are:
 .RS

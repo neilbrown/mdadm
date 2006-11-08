@@ -185,6 +185,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	else if (mdfd >= 0)
 		inargv = 1;
 
+ try_again:
+
 	tmpdev = devlist; num_devs = 0;
 	while (tmpdev) {
 		if (tmpdev->used)
@@ -383,14 +385,28 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		else
 			asprintf(&mddev, "/dev/md/%s", c);
 		mdfd = open_mddev(mddev, ident->autof);
-		if (mdfd < 0)
-			return mdfd;
+		if (mdfd < 0) {
+			free(first_super);
+			free(devices);
+			first_super = NULL;
+			goto try_again;
+		}
 		vers = md_get_version(mdfd);
 		if (ioctl(mdfd, GET_ARRAY_INFO, &inf)==0) {
+			for (tmpdev = devlist ;
+			     tmpdev && tmpdev->used != 1;
+			     tmpdev = tmpdev->next)
+				;
 			fprintf(stderr, Name ": %s already active, cannot restart it!\n", mddev);
+			if (tmpdev)
+				fprintf(stderr, Name ":   %s needed for %s...\n",
+					mddev, tmpdev->devname);
 			close(mdfd);
+			mdfd = -1;
 			free(first_super);
-			return 1;
+			free(devices);
+			first_super = NULL;
+			goto try_again;
 		}
 		must_close = 1;
 	}

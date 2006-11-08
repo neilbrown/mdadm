@@ -2,6 +2,8 @@ Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled
 	properly.
     -	Documentation updates.
+    -   Fix bug that caused infinite loop when doing auto-assembly,
+	in certain cases where arrays couldn't be assembled.
 
 Changes Prior to 2.5.5 release
     -   Don't #include linux/blkpg.h as that isn't safe.  Just

@@ -345,8 +345,8 @@ static void brief_examine_super1(void *sbv)
 	       nm,
 	       c?c:"-unknown-", __le32_to_cpu(sb->raid_disks));
 	for (i=0; i<16; i++) {
-		printf("%02x", sb->set_uuid[i]);
 		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->set_uuid[i]);
 	}
 	if (sb->set_name[0])
 		printf(" name=%.32s", sb->set_name);

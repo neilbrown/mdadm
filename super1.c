@@ -527,7 +527,7 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 	}
 	if (strcmp(update, "resync") == 0) {
 		/* make sure resync happens */
-		sb->resync_offset = ~0ULL;
+		sb->resync_offset = 0ULL;
 	}
 	if (strcmp(update, "uuid") == 0) {
 		memcpy(sb->set_uuid, info->uuid, 16);

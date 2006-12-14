@@ -116,7 +116,8 @@ static void examine_super0(void *sbv, char *homehost)
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	if ((int)sb->level >= 0) {
 		int ddsks=0;
-		printf("    Device Size : %d%s\n", sb->size, human_size((long long)sb->size<<10));
+		printf("  Used Dev Size : %d%s\n", sb->size,
+		       human_size((long long)sb->size<<10));
 		switch(sb->level) {
 		case 1: ddsks=1;break;
 		case 4:

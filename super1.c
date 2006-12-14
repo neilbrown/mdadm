@@ -485,10 +485,18 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 	int rv = 0;
 	struct mdp_superblock_1 *sb = sbv;
 
-	if (strcmp(update, "force")==0) {
+	if (strcmp(update, "force-one")==0) {
+		/* Not enough devices for a working array,
+		 * so bring this one up-to-date
+		 */
 		if (sb->events != __cpu_to_le64(info->events))
 			rv = 1;
 		sb->events = __cpu_to_le64(info->events);
+	}
+	if (strcmp(update, "force-array")==0) {
+		/* Degraded array and 'force' requests to
+		 * maybe need to mark it 'clean'.
+		 */
 		switch(__le32_to_cpu(sb->level)) {
 		case 5: case 4: case 6:
 			/* need to force clean */

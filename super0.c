@@ -411,13 +411,21 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 			} else if (i >= sb->raid_disks && sb->disks[i].number == 0)
 				sb->disks[i].state = 0;
 	}
-	if (strcmp(update, "force")==0) {
+	if (strcmp(update, "force-one")==0) {
+		/* Not enough devices for a working array, so
+		 * bring this one up-to-date.
+		 */
 		__u32 ehi = sb->events_hi, elo = sb->events_lo;
 		sb->events_hi = (info->events>>32) & 0xFFFFFFFF;
 		sb->events_lo = (info->events) & 0xFFFFFFFF;
 		if (sb->events_hi != ehi ||
 		    sb->events_lo != elo)
 			rv = 1;
+	}
+	if (strcmp(update, "force-array")==0) {
+		/* degraded array and 'force' requested, so
+		 * maybe need to mark it 'clean'
+		 */
 		if ((sb->level == 5 || sb->level == 4 || sb->level == 6) &&
 		    (sb->state & (1 << MD_SB_CLEAN)) == 0) {
 			/* need to force clean */

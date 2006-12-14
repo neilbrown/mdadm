@@ -656,7 +656,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 		info.events = devices[most_recent].events;
-		st->ss->update_super(&info, super, "force", devices[chosen_drive].devname, verbose, 0, NULL);
+		st->ss->update_super(&info, super, "force-one",
+				     devices[chosen_drive].devname, verbose,
+				     0, NULL);
 
 		if (st->ss->store_super(st, fd, super)) {
 			close(fd);
@@ -752,10 +754,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 #endif
 	}
-	if (force && okcnt == info.array.raid_disks-1) {
-		/* FIXME check event count */
-		change += st->ss->update_super(&info, super, "force",
-					devices[chosen_drive].devname, verbose, 0, NULL);
+	if (force && okcnt < info.array.raid_disks) {
+		change += st->ss->update_super(&info, super, "force-array",
+					devices[chosen_drive].devname, verbose,
+					       0, NULL);
 	}
 
 	if (change) {

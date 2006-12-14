@@ -20,6 +20,9 @@ Changes Prior to this release
     -   --wait or -W will wait for resync activity to finish on the given
 	devices.
     -   Fix some problems with --update=uuid and add a test.
+    -   If two drives in a raid5 disappear at the same time, then "-Af"
+        will add them both in rather than just one and forcing the array
+	to 'clean'.  This is slightly safer in some cases.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

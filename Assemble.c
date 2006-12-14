@@ -630,6 +630,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		 * and add it.
 		 */
 		int fd;
+		long long current_events;
 		chosen_drive = -1;
 		for (i=0; i<info.array.raid_disks && i < bestcnt; i++) {
 			int j = best[i];
@@ -642,6 +643,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (chosen_drive < 0)
 			break;
+		current_events = devices[chosen_drive].events;
+	add_another:
 		if (verbose >= 0)
 			fprintf(stderr, Name ": forcing event count in %s(%d) from %d upto %d\n",
 				devices[chosen_drive].devname, devices[chosen_drive].raid_disk,
@@ -680,6 +683,20 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		avail[chosen_drive] = 1;
 		okcnt++;
 		free(super);
+
+		/* If there are any other drives of the same vintage,
+		 * add them in as well.  We can't lose and we might gain
+		 */
+		for (i=0; i<info.array.raid_disks && i < bestcnt ; i++) {
+			int j = best[i];
+			if (j >= 0 &&
+			    !devices[j].uptodate &&
+			    devices[j].events > 0 &&
+			    devices[j].events == current_events) {
+				chosen_drive = j;
+				goto add_another;
+			}
+		}
 	}
 
 	/* Now we want to look at the superblock which the kernel will base things on
@@ -760,7 +777,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 #endif
 	}
-	if (force && okcnt < info.array.raid_disks) {
+	if (force && !clean &&
+	    !enough(info.array.level, info.array.raid_disks,
+		    info.array.layout, clean,
+		    avail, okcnt)) {
 		change += st->ss->update_super(&info, super, "force-array",
 					devices[chosen_drive].devname, verbose,
 					       0, NULL);

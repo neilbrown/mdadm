@@ -524,7 +524,9 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 	}
 	if (strcmp(update, "grow") == 0) {
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
-		/* FIXME */
+		/* As we are just adding a spare, there is no need to
+		 * make any change to the dev_roles array
+		 */
 	}
 	if (strcmp(update, "resync") == 0) {
 		/* make sure resync happens */

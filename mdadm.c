@@ -201,6 +201,7 @@ int main(int argc, char *argv[])
 		case 'S':
 		case 'o':
 		case 'w':
+		case 'W':
 		case 'K': if (!mode) newmode = MISC; break;
 		}
 		if (mode && newmode == mode) {
@@ -742,6 +743,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'X'):
 		case O(MISC,'o'):
 		case O(MISC,'w'):
+		case O(MISC,'W'):
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
 				fprintf(stderr, Name ": --examine/-E cannot be given with -%c\n",
@@ -1138,7 +1140,6 @@ int main(int argc, char *argv[])
 			    bitmap_file, bitmap_chunk, write_behind, delay);
 		break;
 	case MISC:
-
 		if (devmode == 'E') {
 			if (devlist == NULL && !scan) {
 				fprintf(stderr, Name ": No devices to examine\n");
@@ -1219,6 +1220,8 @@ int main(int argc, char *argv[])
 					rv |= Query(dv->devname); continue;
 				case 'X':
 					rv |= ExamineBitmap(dv->devname, brief, ss); continue;
+				case 'W':
+					rv |= Wait(dv->devname); continue;
 				}
 				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {

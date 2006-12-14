@@ -931,6 +931,14 @@ the exit status of
 .I mdadm
 is set to reflect the status of the device.
 
+.TP
+.BR -W ", " --wait
+For each md device given, wait for any resync, recovery, or reshape
+activity to finish before returning.
+.I mdadm
+will return with success if it actually waited for every device
+listed, otherwise it will return failure.
+
 .SH For Monitor mode:
 .TP
 .BR -m ", " --mail

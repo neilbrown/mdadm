@@ -553,3 +553,38 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			syslog(priority, "%s event detected on md device %s", event, dev);
 	}
 }
+
+/* Not really Monitor but ... */
+int Wait(char *dev)
+{
+	struct stat stb;
+	int devnum;
+	int rv = 1;
+
+	if (stat(dev, &stb) != 0) {
+		fprintf(stderr, Name ": Cannot find %s: %s\n", dev,
+			strerror(errno));
+		return 2;
+	}
+	if (major(stb.st_rdev) == MD_MAJOR)
+		devnum = minor(stb.st_rdev);
+	else
+		devnum = -minor(stb.st_rdev)/16;
+
+	while(1) {
+		struct mdstat_ent *ms = mdstat_read(1, 0);
+		struct mdstat_ent *e;
+
+		for (e=ms ; e; e=e->next)
+			if (e->devnum == devnum)
+				break;
+
+		if (!e || e->percent < 0) {
+			free_mdstat(ms);
+			return rv;
+		}
+		free(ms);
+		rv = 0;
+		mdstat_wait(5);
+	}
+}

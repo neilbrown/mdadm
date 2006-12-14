@@ -17,6 +17,8 @@ Changes Prior to this release
 	kernel, and it not reset when the reshape finishes.
     -   Change 'Device Size' to 'Used Dev Size' because it only shows how
 	much of each device is actually used, not how big they are.
+    -   --wait or -W will wait for resync activity to finish on the given
+	devices.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

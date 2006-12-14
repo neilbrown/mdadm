@@ -91,8 +91,8 @@ char Version[] = Name " - v2.5.6 - 9 November 2006\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVXvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
-char short_bitmap_auto_options[]="-ABCDEFGQhVXvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1tye:";
+char short_options[]="-ABCDEFGQhVXWvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
+char short_bitmap_auto_options[]="-ABCDEFGQhVXWvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1tye:";
 
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
@@ -160,6 +160,7 @@ struct option long_options[] = {
     {"readonly",  0, 0, 'o'},
     {"readwrite", 0, 0, 'w'},
     {"no-degraded",0,0,  NoDegraded },
+    {"wait",	  0, 0, 'W'},
 
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
@@ -296,6 +297,7 @@ char OptionHelp[] =
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"
+"  --wait        -W   : wait for recovery/resync/reshape to finish.\n"
 ;
 */
 
@@ -459,6 +461,7 @@ char Help_misc[] =
 "  --readonly    -o   : mark array as readonly\n"
 "  --readwrite   -w   : mark array as readwrite\n"
 "  --test        -t   : exit status 0 if ok, 1 if degrade, 2 if dead, 4 if missing\n"
+"  --wait        -W   : wait for resync/rebuild/recovery to finish\n"
 ;
 
 char Help_monitor[] =

@@ -990,7 +990,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (must_close) close(mdfd);
 			return 0;
 		}
-		if (verbose >= 0) {
+		if (verbose >= -1) {
 			fprintf(stderr, Name ": %s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
 			if (sparecnt)
 				fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");

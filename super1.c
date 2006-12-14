@@ -431,7 +431,9 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 	info->array.ctime = __le64_to_cpu(sb->ctime);
 	info->array.utime = __le64_to_cpu(sb->utime);
 	info->array.chunk_size = __le32_to_cpu(sb->chunksize)*512;
-	info->array.state = (__le64_to_cpu(sb->resync_offset)+1) ? 0 : 1;
+	info->array.state =
+		(__le64_to_cpu(sb->resync_offset) >= __le64_to_cpu(sb->size))
+		? 1 : 0;
 
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);

@@ -6,6 +6,8 @@ Changes Prior to this release
 	missing devices (which is needed else if won't assemble.
 	Without this fix it would only assemble if one or zero
 	missing devices.
+    -   Support --update=devicesize for cases where the underlying device
+	can change size.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

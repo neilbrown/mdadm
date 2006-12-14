@@ -94,6 +94,10 @@ struct mdp_superblock_1 {
 	__u16	dev_roles[0];	/* role in array, or 0xffff for a spare, or 0xfffe for faulty */
 };
 
+struct misc_dev_info {
+	__u64 device_size;
+};
+
 /* feature_map bits */
 #define MD_FEATURE_BITMAP_OFFSET	1
 #define	MD_FEATURE_RECOVERY_OFFSET	2 /* recovery_offset is present and
@@ -558,6 +562,17 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 		} else
 			strcpy(sb->set_name, info->name);
 	}
+	if (strcmp(update, "devicesize") == 0 &&
+	    __le64_to_cpu(sb->super_offset) <
+	    __le64_to_cpu(sb->data_offset)) {
+		/* set data_size to device size less data_offset */
+		struct misc_dev_info *misc = (struct misc_dev_info*)
+			(sbv + 1024 + sizeof(struct bitmap_super_s));
+		printf("Size was %llu\n", __le64_to_cpu(sb->data_size));
+		sb->data_size = __cpu_to_le64(
+			misc->device_size - __le64_to_cpu(sb->data_offset));
+		printf("Size is %llu\n", __le64_to_cpu(sb->data_size));
+	}
 	if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
 
@@ -568,7 +583,8 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 		       unsigned long long size, char *name, char *homehost)
 {
-	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t));
+	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t) +
+					     sizeof(struct misc_dev_info));
 	int spares;
 	int rfd;
 	char defname[10];
@@ -882,8 +898,10 @@ static int compare_super1(void **firstp, void *secondv)
 		return 1;
 
 	if (!first) {
-		first = malloc(1024+sizeof(bitmap_super_t));
-		memcpy(first, second, 1024+sizeof(bitmap_super_t));
+		first = malloc(1024+sizeof(bitmap_super_t) +
+			       sizeof(struct misc_dev_info));
+		memcpy(first, second, 1024+sizeof(bitmap_super_t) +
+		       sizeof(struct misc_dev_info));
 		*firstp = first;
 		return 0;
 	}
@@ -908,6 +926,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	struct mdp_superblock_1 *super;
 	int uuid[4];
 	struct bitmap_super_s *bsb;
+	struct misc_dev_info *misc;
 
 
 	if (st->ss == NULL) {
@@ -997,7 +1016,8 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		return 1;
 	}
 
-	super = malloc(1024 + sizeof(bitmap_super_t));
+	super = malloc(1024 + sizeof(bitmap_super_t) +
+		       sizeof(struct misc_dev_info));
 
 	if (read(fd, super, 1024) != 1024) {
 		if (devname)
@@ -1031,6 +1051,11 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	}
 	*sbp = super;
 
+	bsb = (struct bitmap_super_s *)(((char*)super)+1024);
+
+	misc = (struct misc_dev_info*) (bsb+1);
+	misc->device_size = dsize;
+
 	/* Now check on the bitmap superblock */
 	if ((__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) == 0)
 		return 0;
@@ -1044,7 +1069,6 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		goto no_bitmap;
 
 	uuid_from_super1(uuid, super);
-	bsb = (struct bitmap_super_s *)(((char*)super)+1024);
 	if (__le32_to_cpu(bsb->magic) != BITMAP_MAGIC ||
 	    memcmp(bsb->uuid, uuid, 16) != 0)
 		goto no_bitmap;

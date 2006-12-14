@@ -582,6 +582,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(update, "homehost")==0)
 				continue;
+			if (strcmp(update, "devicesize")==0)
+				continue;
 			if (strcmp(update, "byteorder")==0) {
 				if (ss) {
 					fprintf(stderr, Name ": must not set metadata type with --update=byteorder.\n");
@@ -601,8 +603,8 @@ int main(int argc, char *argv[])
 			else
 				fprintf(stderr, Name ": '--update=%s' is invalid.  ", update);
 			fprintf(stderr, "Valid --update options are:\n"
-				"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
-				"     'summaries', 'homehost', 'byteorder'.\n");
+		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
+		"     'summaries', 'homehost', 'byteorder', 'devicesize'.\n");
 			exit(2);
 
 		case O(ASSEMBLE,NoDegraded): /* --no-degraded */

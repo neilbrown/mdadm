@@ -712,6 +712,7 @@ argument given to this flag can be one of
 .BR homehost ,
 .BR resync ,
 .BR byteorder ,
+.BR devicesize ,
 or
 .BR super-minor .
 
@@ -788,6 +789,22 @@ The
 .B summaries
 option will correct the summaries in the superblock. That is the
 counts of total, working, active, failed, and spare devices.
+
+The
+.B devicesize
+will rarely be of use.  It applies to version 1.1 and 1.2 metadata
+only (where the metadata is at the start of the device) and is only
+useful when the component device has changed size (typically become
+larger).  The version 1 metadata records the amount of the device that
+can be used to store data, so if a device in a version 1.1 or 1.2
+array becomes larger, the metadata will still be visible, but the
+extra space will not.  In this case it might be useful to assemble the
+array with
+.BR --update=devicesize .
+This will cause
+.I mdadm
+to determine the maximum usable amount of space on each device and
+update the relevant field in the metadata.
 
 .TP
 .B --auto-update-homehost

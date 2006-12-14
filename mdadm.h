@@ -323,7 +323,8 @@ extern struct superswitch {
 	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
 	__u64 (*avail_size)(struct supertype *st, __u64 size);
-	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int chunk, int delay, int write_behind,
+	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int *chunkp,
+				   int delay, int write_behind,
 				   unsigned long long size, int may_change, int major);
 	void (*locate_bitmap)(struct supertype *st, int fd, void *sbv);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);

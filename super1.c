@@ -193,9 +193,10 @@ static void examine_super1(void *sbv, char *homehost)
 			       human_size(__le64_to_cpu(sb->size)<<9));
 	}
 	if (sb->data_offset)
-		printf("    Data Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->data_offset));
-	if (sb->super_offset)
-		printf("   Super Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->super_offset));
+		printf("    Data Offset : %llu sectors\n",
+		       (unsigned long long)__le64_to_cpu(sb->data_offset));
+	printf("   Super Offset : %llu sectors\n",
+	       (unsigned long long)__le64_to_cpu(sb->super_offset));
 	if (__le32_to_cpu(sb->feature_map) & MD_FEATURE_RECOVERY_OFFSET)
 		printf("Recovery Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->recovery_offset));
 	printf("          State : %s\n", (__le64_to_cpu(sb->resync_offset)+1)? "active":"clean");
@@ -743,8 +744,9 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	int fd = open(devname, O_RDWR | O_EXCL);
 	int rfd;
 	int rv;
+	int bm_space;
 
-	unsigned long size, space;
+	unsigned long space;
 	unsigned long long dsize, array_size;
 	long long sb_offset;
 
@@ -789,6 +791,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
 #endif
 	{
+		unsigned long size;
 		if (ioctl(fd, BLKGETSIZE, &size))
 			return 1;
 		else
@@ -813,6 +816,14 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	 * for a bitmap.
 	 */
 	array_size = __le64_to_cpu(sb->size);
+	/* work out how much space we left of a bitmap */
+	if (array_size >= 200*1024*1024*2)
+		bm_space = 128*2;
+	else if (array_size > 8*1024*1024*2)
+		bm_space = 64*2;
+	else
+		bm_space = 0;
+
 	switch(st->minor_version) {
 	case 0:
 		sb_offset = dsize;
@@ -820,19 +831,12 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		sb_offset &= ~(4*2-1);
 		sb->super_offset = __cpu_to_le64(sb_offset);
 		sb->data_offset = __cpu_to_le64(0);
-		if (sb_offset-64*2 >= array_size && array_size > 8*1024*1024*2)
-			sb->data_size = __cpu_to_le64(sb_offset-64*2);
-		else
-			sb->data_size = __cpu_to_le64(sb_offset);
+		sb->data_size = __cpu_to_le64(sb_offset - bm_space);
 		break;
 	case 1:
 		sb->super_offset = __cpu_to_le64(0);
-		if (dsize - 64*2 >= array_size && array_size > 8*1024*1024*2)
-			space = 64*2;
-		else
-			space = 4*2;
-		sb->data_offset = __cpu_to_le64(space); /* leave space for super and bitmap */
-		sb->data_size = __cpu_to_le64(dsize - space);
+		sb->data_offset = __cpu_to_le64(bm_space + 4*2);
+		sb->data_size = __cpu_to_le64(dsize - bm_space - 4*2);
 		break;
 	case 2:
 		sb_offset = 4*2;
@@ -840,9 +844,9 @@ static int write_init_super1(struct supertype *st, void *sbv,
 			space = 64*2;
 		else
 			space = 4*2;
-		sb->super_offset = __cpu_to_le64(sb_offset);
-		sb->data_offset = __cpu_to_le64(sb_offset+space);
-		sb->data_size = __cpu_to_le64(dsize - 4*2 - space);
+		sb->super_offset = __cpu_to_le64(4*2);
+		sb->data_offset = __cpu_to_le64(4*2 + 4*2 + bm_space);
+		sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2 - bm_space );
 		break;
 	default:
 		return -EINVAL;
@@ -1088,11 +1092,11 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 		return 0;
 
 	/* if the device is bigger than 8Gig, save 64k for bitmap usage,
-	 * if biffer than 200Gig, save 128k
+	 * if bigger than 200Gig, save 128k
 	 */
-	if (devsize > 200*1024*1024*2)
+	if (devsize-64*2 >= 200*1024*1024*2)
 		devsize -= 128*2;
-	else if (devsize > 8*1024*1024*2)
+	else if (devsize >= 8*1024*1024*2)
 		devsize -= 64*2;
 
 	switch(st->minor_version) {
@@ -1111,7 +1115,8 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 
 static int
 add_internal_bitmap1(struct supertype *st, void *sbv,
-		     int chunk, int delay, int write_behind, unsigned long long size,
+		     int *chunkp, int delay, int write_behind,
+		     unsigned long long size,
 		     int may_change, int major)
 {
 	/*
@@ -1119,22 +1124,82 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	 * must fit after the superblock.
 	 * If may_change, then this is create, and we can put the bitmap
 	 * before the superblock if we like, or may move the start.
-	 * For now, just squeeze the bitmap into 3k and don't change anything.
+	 * If !may_change, the bitmap MUST live at offset of 1K, until
+	 * we get a sysfs interface.
 	 *
 	 * size is in sectors,  chunk is in bytes !!!
 	 */
 
 	unsigned long long bits;
-	unsigned long long max_bits = (6*512 - sizeof(bitmap_super_t)) * 8;
+	unsigned long long max_bits;
 	unsigned long long min_chunk;
+	long offset;
+	int chunk = *chunkp;
+	int room;
 	struct mdp_superblock_1 *sb = sbv;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + 1024);
 
-	if (st->minor_version && !may_change &&
-	    __le64_to_cpu(sb->data_offset) - __le64_to_cpu(sb->super_offset) < 8)
-		return 0; /* doesn't fit */
+	switch(st->minor_version) {
+	case 0:
+		/* either 3K after the superblock, or some amount of space
+		 * before.
+		 */
+		if (may_change) {
+			/* We are creating array, so we *know* how much room has
+			 * been left.
+			 */
+			offset = 0;
+			if (__le64_to_cpu(sb->size) >= 200*1024*1024*2)
+				room = 128*2;
+			else if (__le64_to_cpu(sb->size) > 8*1024*1024*2)
+				room = 64*2;
+			else {
+				room = 3*2;
+				offset = 2;
+			}
+		} else {
+			room = __le64_to_cpu(sb->super_offset)
+				- __le64_to_cpu(sb->data_offset)
+				- __le64_to_cpu(sb->data_size);
+			/* remove '1 ||' when we can set offset via sysfs */
+			if (1 || (room < 3*2 &&
+				  __le32_to_cpu(sb->max_dev) <= 384)) {
+				room = 3*2;
+				offset = 1*2;
+			} else {
+				offset = 0; /* means movable offset */
+			}
+		}
+		break;
+	case 1:
+	case 2: /* between superblock and data */
+		if (may_change) {
+			offset = 4*2;
+			if (__le64_to_cpu(sb->size) >= 200*1024*1024*2)
+				room = 128*2;
+			else if (__le64_to_cpu(sb->size) > 8*1024*1024*2)
+				room = 64*2;
+			else
+				room = 3*2;
+		} else {
+			room = __le64_to_cpu(sb->data_offset)
+				- __le64_to_cpu(sb->super_offset);
+			if (1 || __le32_to_cpu(sb->max_dev) <= 384) {
+				room -= 2;
+				offset = 2;
+			} else {
+				room -= 4*2;
+				offset = 4*2;
+			}
+		}
+		break;
+	}
 
+	if (chunk == UnSet && room > 128*2)
+		/* Limit to 128K of bitmap when chunk size not requested */
+		room = 128*2;
 
+	max_bits = (room * 512 - sizeof(bitmap_super_t)) * 8;
 
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
 	bits = (size*512)/min_chunk +1;
@@ -1149,7 +1214,13 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	if (chunk == 0) /* rounding problem */
 		return 0;
 
-	sb->bitmap_offset = __cpu_to_le32(2);
+	if (offset == 0) {
+		bits = (size*512) / chunk + 1;
+		room = ((bits+7)/8 + sizeof(bitmap_super_t) +511)/512;
+		offset = -room;
+	}
+
+	sb->bitmap_offset = __cpu_to_le32(offset);
 
 	sb->feature_map = __cpu_to_le32(__le32_to_cpu(sb->feature_map) | 1);
 	memset(bms, 0, sizeof(*bms));
@@ -1161,6 +1232,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 
+	*chunkp = chunk;
 	return 1;
 }
 

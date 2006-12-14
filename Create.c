@@ -435,7 +435,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
 			return 1;
 		}
-		if (!st->ss->add_internal_bitmap(st, super, bitmap_chunk, delay, write_behind,
+		if (!st->ss->add_internal_bitmap(st, super, &bitmap_chunk,
+						 delay, write_behind,
 						 bitmapsize, 1, major)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
 			return 1;

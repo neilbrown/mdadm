@@ -523,7 +523,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	case 6:
 		st = super_by_version(array.major_version,
 				      array.minor_version);
-		/* size can be changed independantly.
+		/* size can be changed independently.
 		 * layout/chunksize/raid_disks/level can be changed
 		 * though the kernel may not support it all.
 		 * If 'suspend_lo' is not present in devfs, then
@@ -620,7 +620,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		printf("mdadm: Need to backup %lluK of critical section..\n", last_block/2);
 
 		sra = sysfs_read(fd, 0,
-				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE);
+				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+				 GET_CACHE);
 		if (!sra) {
 			fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
 				devname);
@@ -742,10 +743,25 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		array.chunk_size = nchunk;
 		array.layout = nlayout;
 		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (errno == ENOSPC) {
+				/* stripe cache is not big enough.
+				 * It needs to be 4 times chunksize_size,
+				 * and we assume pagesize is 4K
+				 */
+				if (sra->cache_size < 4 * (nchunk/4096)) {
+					sysfs_set_num(sra, NULL,
+						      "stripe_cache_size",
+						      4 * (nchunk/4096) +1);
+					if (ioctl(fd, SET_ARRAY_INFO,
+						  &array) == 0)
+						goto ok;
+				}
+			}
 			fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
 				devname, strerror(errno));
 			goto abort;
 		}
+		ok: ;
 
 		/* suspend the relevant region */
 		sysfs_set_num(sra, NULL, "suspend_hi", 0); /* just in case */

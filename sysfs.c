@@ -107,6 +107,12 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 			goto abort;
 		sra->chunk = strtoul(buf, NULL, 0);
 	}
+	if (options & GET_CACHE) {
+		strcpy(base, "stripe_cache_size");
+		if (load_sys(fname, buf))
+			goto abort;
+		sra->cache_size = strtoul(buf, NULL, 0);
+	}
 
 	if (! (options & GET_DEVS))
 		return sra;

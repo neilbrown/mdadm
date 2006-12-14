@@ -12,6 +12,9 @@ Changes Prior to this release
 	get created automatically, as this is almost always what is wanted.
     -   Give useful message if raid4/5/6 cannot be started because it is
 	not clean and is also degraded.
+    -   Increase raid456 stripe cache size if needed to --grow the array.
+	The setting used unfortunately requires intimate knowledge of the
+	kernel, and it not reset when the reshape finishes.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

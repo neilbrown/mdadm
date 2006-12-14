@@ -257,12 +257,14 @@ struct sysarray {
 	int	layout;
 	int	level;
 	int	spares;
+	int	cache_size;
 };
 /* various details can be requested */
 #define	GET_LEVEL	1
 #define	GET_LAYOUT	2
 #define	GET_COMPONENT	4
 #define	GET_CHUNK	8
+#define GET_CACHE	16
 
 #define	GET_DEVS	1024 /* gets role, major, minor */
 #define	GET_OFFSET	2048

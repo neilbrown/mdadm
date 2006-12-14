@@ -8,6 +8,8 @@ Changes Prior to this release
 	missing devices.
     -   Support --update=devicesize for cases where the underlying device
 	can change size.
+    -   Default to --auto=yes so the array devices with 'standard' names
+	get created automatically, as this is almost always what is wanted.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

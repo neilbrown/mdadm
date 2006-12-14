@@ -135,10 +135,6 @@ int open_mddev(char *dev, int autof)
 				dev);
 			return -1;
 		}
-		if (autof == 2 && stb.st_mode == 0 && !is_standard(dev, NULL)) {
-			fprintf(stderr, Name ": --auto=yes requires a 'standard' md device name, not %s\n", dev);
-			return -1;
-		}
 		/* check major number is correct */
 		num = -1;
 		std = is_standard(dev, &num);
@@ -146,19 +142,23 @@ int open_mddev(char *dev, int autof)
 		switch(autof) {
 		case 2: /* only create is_standard names */
 			if (!std && !stb.st_mode) {
-				fprintf(stderr, Name ": --auto=yes requires a 'standard' md device name, not %s\n", dev);
+				fprintf(stderr, Name
+			": %s does not exist and is not a 'standard' name "
+			"so it cannot be created\n", dev);
 				return -1;
 			}
 			break;
 		case 3: /* create md, reject std>0 */
 			if (std > 0) {
-				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
+				fprintf(stderr, Name ": that --auto option "
+				"not compatable with device named %s\n", dev);
 				return -1;
 			}
 			break;
 		case 4: /* create mdp, reject std<0 */
 			if (std < 0) {
-				fprintf(stderr, Name ": that --auto option not compatable with device named %s\n", dev);
+				fprintf(stderr, Name ": that --auto option "
+				"not compatable with device named %s\n", dev);
 				return -1;
 			}
 			break;

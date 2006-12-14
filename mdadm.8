@@ -573,6 +573,10 @@ from this.  See DEVICE NAMES below.
 The argument can also come immediately after
 "-a".  e.g. "-ap".
 
+If --auto is not given on the command line or in the config file, then
+the default will be
+.BR --auto=yes .
+
 If
 .I --scan
 is also given, then any
@@ -1060,13 +1064,11 @@ may work for RAID1, 4, 5, 6, or 10), give the
 .B --run
 flag.
 
-If an
-.B auto
-option is given, either on the command line (--auto) or in the
-configuration file (e.g. auto=part), then
-.I mdadm
-will create the md device if necessary or will re-create it if it
-doesn't look usable as it is.
+If the md device does not exist, then it will be created providing the
+intent is clear. i.e. the name must be in a standard form, or the
+.I --auto
+option must be given to clarify how and whether the device should be
+created.
 
 This can be useful for handling partitioned devices (which don't have
 a stable device number - it can change after a reboot) and when using

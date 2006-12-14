@@ -255,6 +255,7 @@ mddev_dev_t load_partitions(void)
 }
 
 struct createinfo createinfo = {
+	.autof = 2, /* by default, create devices with standard names */
 	.symlinks = 1,
 #ifdef DEBIAN
 	.gid = 6, /* disk */

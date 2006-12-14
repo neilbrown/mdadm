@@ -19,6 +19,7 @@ Changes Prior to this release
 	much of each device is actually used, not how big they are.
     -   --wait or -W will wait for resync activity to finish on the given
 	devices.
+    -   Fix some problems with --update=uuid and add a test.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

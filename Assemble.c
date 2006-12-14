@@ -136,6 +136,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
+	int bitmap_done;
 	int start_partial_ok = (runstop >= 0) && (force || devlist==NULL || mdfd < 0);
 	unsigned int num_devs;
 	mddev_dev_t tmpdev;
@@ -413,6 +414,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	}
 
 	/* Ok, no bad inconsistancy, we can try updating etc */
+	bitmap_done = 0;
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
@@ -469,10 +471,12 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				close(dfd);
 
 			if (strcmp(update, "uuid")==0 &&
-			    ident->bitmap_fd)
-				if (bitmap_update_uuid(ident->bitmap_fd, info.uuid) != 0)
-					fprintf(stderr, Name ": Could not update uuid on %s.\n",
-						devname);
+			    ident->bitmap_fd >= 0 && !bitmap_done) {
+				if (bitmap_update_uuid(ident->bitmap_fd, info.uuid, st->ss->swapuuid) != 0)
+					fprintf(stderr, Name ": Could not update uuid on external bitmap.\n");
+				else
+					bitmap_done = 1;
+			}
 		} else
 #endif
 		{

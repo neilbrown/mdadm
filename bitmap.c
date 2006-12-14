@@ -260,6 +260,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	bitmap_info_t *info;
 	int rv = 1;
 	char buf[64];
+	int swap;
 
 	info = bitmap_file_read(filename, brief, &st);
 	if (!info)
@@ -279,14 +280,22 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	}
 
 	rv = 0;
-	if (st && st->ss->swapuuid) {
-	printf("            UUID : %08x.%08x.%08x.%08x\n",
+	if (st)
+		swap = st->ss->swapuuid;
+	else
+#if __BYTE_ORDER == BIG_ENDIAN
+		swap = 0;
+#else
+		swap = 1;
+#endif
+	if (swap) {
+	printf("            UUID : %08x:%08x:%08x:%08x\n",
 					swapl(*(__u32 *)(sb->uuid+0)),
 					swapl(*(__u32 *)(sb->uuid+4)),
 					swapl(*(__u32 *)(sb->uuid+8)),
 					swapl(*(__u32 *)(sb->uuid+12)));
 	} else {
-	printf("            UUID : %08x.%08x.%08x.%08x\n",
+	printf("            UUID : %08x:%08x:%08x:%08x\n",
 					*(__u32 *)(sb->uuid+0),
 					*(__u32 *)(sb->uuid+4),
 					*(__u32 *)(sb->uuid+8),
@@ -402,7 +411,7 @@ out:
 	return rv;
 }
 
-int bitmap_update_uuid(int fd, int *uuid)
+int bitmap_update_uuid(int fd, int *uuid, int swap)
 {
 	struct bitmap_super_s bm;
 	if (lseek(fd, 0, 0) != 0)
@@ -411,7 +420,18 @@ int bitmap_update_uuid(int fd, int *uuid)
 		return 1;
 	if (bm.magic != __cpu_to_le32(BITMAP_MAGIC))
 		return 1;
-	memcpy(bm.uuid, uuid, 16);
+	if (swap) {
+		unsigned char *ac = (unsigned char *)bm.uuid;
+		unsigned char *bc = (unsigned char *)uuid;
+		int i;
+		for (i=0; i<16; i+= 4) {
+			ac[i+0] = bc[i+3];
+			ac[i+1] = bc[i+2];
+			ac[i+2] = bc[i+1];
+			ac[i+3] = bc[i+0];
+		}
+	} else
+		memcpy(bm.uuid, uuid, 16);
 	if (lseek(fd, 0, 0) != 0)
 		return 2;
 	if (write(fd, &bm, sizeof(bm)) != sizeof(bm)) {

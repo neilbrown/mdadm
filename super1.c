@@ -536,11 +536,23 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 		sb->resync_offset = 0ULL;
 	}
 	if (strcmp(update, "uuid") == 0) {
-		memcpy(sb->set_uuid, info->uuid, 16);
+		if (super1.swapuuid) {
+			unsigned char *ac = (unsigned char *)sb->set_uuid;
+			unsigned char *bc = (unsigned char *)info->uuid;
+			int i;
+			for (i=0; i<16; i+= 4) {
+				ac[i+0] = bc[i+3];
+				ac[i+1] = bc[i+2];
+				ac[i+2] = bc[i+1];
+				ac[i+3] = bc[i+0];
+			}
+		} else
+			memcpy(sb->set_uuid, info->uuid, 16);
+
 		if (__le32_to_cpu(sb->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
 			struct bitmap_super_s *bm;
 			bm = (struct bitmap_super_s*)(sbv+1024);
-			memcpy(bm->uuid, info->uuid, 16);
+			memcpy(bm->uuid, sb->set_uuid, 16);
 		}
 	}
 	if (strcmp(update, "homehost") == 0 &&

@@ -27,6 +27,7 @@ Changes Prior to this release
 	of error message.
     -   Don't hold md device open for so long in --monitor mode - map_dev
 	can be slow and interferes with trying to stop the array.
+    -   Support --uuid= with --create to choose your own UUID.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

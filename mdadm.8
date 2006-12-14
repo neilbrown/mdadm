@@ -1259,6 +1259,16 @@ is being created, then the name
 .B home
 will be used.
 
+A new array will normally get a randomly assigned 128bit UUID which is
+very likely to be unique.  If you have a specific need, you can choose
+a UUID for the array by giving the
+.B --uuid=
+option.  Be warned that creating two arrays with the same UUID is a
+recipe for disaster.  Also, using
+.B --uuid=
+when creating a v0.90 array will silently override any
+.B --homehost=
+setting.
 '''If the
 '''.B --size
 '''option is given, it is not necessary to list any component-devices in this command.

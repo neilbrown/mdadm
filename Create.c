@@ -34,7 +34,7 @@
 
 int Create(struct supertype *st, char *mddev, int mdfd,
 	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
-	   char *name, char *homehost,
+	   char *name, char *homehost, int *uuid,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force, int assume_clean,
 	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
@@ -407,7 +407,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				name += 2;
 		}
 	}
-	if (!st->ss->init_super(st, &super, &array, size, name, homehost))
+	if (!st->ss->init_super(st, &super, &array, size, name, homehost, uuid))
 		return 1;
 
 	if (bitmap_file && vers < 9003) {

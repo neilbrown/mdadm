@@ -600,7 +600,7 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 }
 
 static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
-		       unsigned long long size, char *name, char *homehost)
+		       unsigned long long size, char *name, char *homehost, int *uuid)
 {
 	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t) +
 					     sizeof(struct misc_dev_info));
@@ -627,14 +627,29 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	sb->feature_map = 0;
 	sb->pad0 = 0;
 
-	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-	    read(rfd, sb->set_uuid, 16) != 16) {
-		*(__u32*)(sb->set_uuid) = random();
-		*(__u32*)(sb->set_uuid+4) = random();
-		*(__u32*)(sb->set_uuid+8) = random();
-		*(__u32*)(sb->set_uuid+12) = random();
+	if (uuid) {
+		if (super1.swapuuid) {
+			unsigned char *ac = (unsigned char *)sb->set_uuid;
+			unsigned char *bc = (unsigned char *)uuid;
+			int i;
+			for (i=0; i<16; i+= 4) {
+				ac[i+0] = bc[i+3];
+				ac[i+1] = bc[i+2];
+				ac[i+2] = bc[i+1];
+				ac[i+3] = bc[i+0];
+			}
+		} else
+			memcpy(sb->set_uuid, uuid, 16);
+	} else {
+		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+		    read(rfd, sb->set_uuid, 16) != 16) {
+			*(__u32*)(sb->set_uuid) = random();
+			*(__u32*)(sb->set_uuid+4) = random();
+			*(__u32*)(sb->set_uuid+8) = random();
+			*(__u32*)(sb->set_uuid+12) = random();
+		}
+		if (rfd >= 0) close(rfd);
 	}
-	if (rfd >= 0) close(rfd);
 
 	if (name == NULL || *name == 0) {
 		sprintf(defname, "%d", info->md_minor);

@@ -1164,7 +1164,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	unsigned long long min_chunk;
 	long offset;
 	int chunk = *chunkp;
-	int room;
+	int room = 0;
 	struct mdp_superblock_1 *sb = sbv;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + 1024);
 

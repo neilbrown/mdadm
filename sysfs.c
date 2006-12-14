@@ -113,6 +113,12 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 			goto abort;
 		sra->cache_size = strtoul(buf, NULL, 0);
 	}
+	if (options & GET_MISMATCH) {
+		strcpy(base, "mismatch_cnt");
+		if (load_sys(fname, buf))
+			goto abort;
+		sra->mismatch_cnt = strtoul(buf, NULL, 0);
+	}
 
 	if (! (options & GET_DEVS))
 		return sra;

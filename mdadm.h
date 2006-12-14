@@ -258,6 +258,7 @@ struct sysarray {
 	int	level;
 	int	spares;
 	int	cache_size;
+	int	mismatch_cnt;
 };
 /* various details can be requested */
 #define	GET_LEVEL	1
@@ -265,6 +266,7 @@ struct sysarray {
 #define	GET_COMPONENT	4
 #define	GET_CHUNK	8
 #define GET_CACHE	16
+#define	GET_MISMATCH	32
 
 #define	GET_DEVS	1024 /* gets role, major, minor */
 #define	GET_OFFSET	2048

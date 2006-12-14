@@ -303,8 +303,22 @@ int Monitor(mddev_dev_t devlist,
 
 			if (mse &&
 			    mse->percent == -1 &&
-			    st->percent >= 0)
-				alert("RebuildFinished", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+			    st->percent >= 0) {
+				/* Rebuild/sync/whatever just finished.
+				 * If there is a number in /mismatch_cnt,
+				 * we should report that.
+				 */
+				struct sysarray *sra =
+				       sysfs_read(-1, st->devnum, GET_MISMATCH);
+				if (sra && sra->mismatch_cnt > 0) {
+					char cnt[40];
+					sprintf(cnt, " mismatches found: %d", sra->mismatch_cnt);
+					alert("RebuildFinished", dev, cnt, mailaddr, mailfrom, alert_cmd, dosyslog);
+				} else
+					alert("RebuildFinished", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+				if (sra)
+					free(sra);
+			}
 
 			if (mse)
 				st->percent = mse->percent;
@@ -510,8 +524,10 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 
 			fprintf(mp, "A %s event had been detected on md device %s.\n\n", event, dev);
 
-			if (disc)
+			if (disc && disc[0] != ' ')
 				fprintf(mp, "It could be related to component device %s.\n\n", disc);
+			if (disc && disc[0] == ' ')
+				fprintf(mp, "Extra information:%s.\n\n", disc);
 
 			fprintf(mp, "Faithfully yours, etc.\n");
 

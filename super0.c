@@ -442,16 +442,6 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 			rv = 1;
 		}
 	}
-	if (strcmp(update, "newdev") == 0) {
-		int d = info->disk.number;
-		memset(&sb->disks[d], 0, sizeof(sb->disks[d]));
-		sb->disks[d].number = d;
-		sb->disks[d].major = info->disk.major;
-		sb->disks[d].minor = info->disk.minor;
-		sb->disks[d].raid_disk = info->disk.raid_disk;
-		sb->disks[d].state = info->disk.state;
-		sb->this_disk = sb->disks[d];
-	}
 	if (strcmp(update, "grow") == 0) {
 		sb->raid_disks = info->array.raid_disks;
 		sb->nr_disks = info->array.nr_disks;
@@ -501,12 +491,6 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 
 	sb->sb_csum = calc_sb0_csum(sb);
 	return rv;
-}
-
-static __u64 event_super0(void *sbv)
-{
-	mdp_super_t *sb = sbv;
-	return md_event(sb);
 }
 
 /*
@@ -977,7 +961,6 @@ struct superswitch super0 = {
 	.uuid_from_super = uuid_from_super0,
 	.getinfo_super = getinfo_super0,
 	.update_super = update_super0,
-	.event_super = event_super0,
 	.init_super = init_super0,
 	.add_to_super = add_to_super0,
 	.store_super = store_super0,

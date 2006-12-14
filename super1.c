@@ -517,18 +517,6 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 			rv = 1;
 		}
 	}
-#if 0
-	if (strcmp(update, "newdev") == 0) {
-		int d = info->disk.number;
-		memset(&sb->disks[d], 0, sizeof(sb->disks[d]));
-		sb->disks[d].number = d;
-		sb->disks[d].major = info->disk.major;
-		sb->disks[d].minor = info->disk.minor;
-		sb->disks[d].raid_disk = info->disk.raid_disk;
-		sb->disks[d].state = info->disk.state;
-		sb->this_disk = sb->disks[d];
-	}
-#endif
 	if (strcmp(update, "grow") == 0) {
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
 		/* FIXME */
@@ -574,13 +562,6 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 
 	sb->sb_csum = calc_sb_1_csum(sb);
 	return rv;
-}
-
-
-static __u64 event_super1(void *sbv)
-{
-	struct mdp_superblock_1 *sb = sbv;
-	return __le64_to_cpu(sb->events);
 }
 
 static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
@@ -1249,7 +1230,6 @@ struct superswitch super1 = {
 	.uuid_from_super = uuid_from_super1,
 	.getinfo_super = getinfo_super1,
 	.update_super = update_super1,
-	.event_super = event_super1,
 	.init_super = init_super1,
 	.add_to_super = add_to_super1,
 	.store_super = store_super1,

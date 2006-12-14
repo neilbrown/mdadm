@@ -420,18 +420,7 @@ int bitmap_update_uuid(int fd, int *uuid, int swap)
 		return 1;
 	if (bm.magic != __cpu_to_le32(BITMAP_MAGIC))
 		return 1;
-	if (swap) {
-		unsigned char *ac = (unsigned char *)bm.uuid;
-		unsigned char *bc = (unsigned char *)uuid;
-		int i;
-		for (i=0; i<16; i+= 4) {
-			ac[i+0] = bc[i+3];
-			ac[i+1] = bc[i+2];
-			ac[i+2] = bc[i+1];
-			ac[i+3] = bc[i+0];
-		}
-	} else
-		memcpy(bm.uuid, uuid, 16);
+	copy_uuid(bm.uuid, uuid, swap);
 	if (lseek(fd, 0, 0) != 0)
 		return 2;
 	if (write(fd, &bm, sizeof(bm)) != sizeof(bm)) {

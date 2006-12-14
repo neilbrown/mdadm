@@ -538,18 +538,7 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 		sb->resync_offset = 0ULL;
 	}
 	if (strcmp(update, "uuid") == 0) {
-		if (super1.swapuuid) {
-			unsigned char *ac = (unsigned char *)sb->set_uuid;
-			unsigned char *bc = (unsigned char *)info->uuid;
-			int i;
-			for (i=0; i<16; i+= 4) {
-				ac[i+0] = bc[i+3];
-				ac[i+1] = bc[i+2];
-				ac[i+2] = bc[i+1];
-				ac[i+3] = bc[i+0];
-			}
-		} else
-			memcpy(sb->set_uuid, info->uuid, 16);
+		copy_uuid(sb->set_uuid, info->uuid, super1.swapuuid);
 
 		if (__le32_to_cpu(sb->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
 			struct bitmap_super_s *bm;
@@ -627,20 +616,9 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	sb->feature_map = 0;
 	sb->pad0 = 0;
 
-	if (uuid) {
-		if (super1.swapuuid) {
-			unsigned char *ac = (unsigned char *)sb->set_uuid;
-			unsigned char *bc = (unsigned char *)uuid;
-			int i;
-			for (i=0; i<16; i+= 4) {
-				ac[i+0] = bc[i+3];
-				ac[i+1] = bc[i+2];
-				ac[i+2] = bc[i+1];
-				ac[i+3] = bc[i+0];
-			}
-		} else
-			memcpy(sb->set_uuid, uuid, 16);
-	} else {
+	if (uuid)
+		copy_uuid(sb->set_uuid, uuid, super1.swapuuid);
+	else {
 		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 		    read(rfd, sb->set_uuid, 16) != 16) {
 			*(__u32*)(sb->set_uuid) = random();

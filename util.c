@@ -246,6 +246,25 @@ int same_uuid(int a[4], int b[4], int swapuuid)
 		return 0;
 	}
 }
+void copy_uuid(void *a, int b[4], int swapuuid)
+{
+	if (swapuuid) {
+		/* parse uuids are hostendian.
+		 * uuid's from some superblocks are big-ending
+		 * if there is a difference, we need to swap..
+		 */
+		unsigned char *ac = (unsigned char *)a;
+		unsigned char *bc = (unsigned char *)b;
+		int i;
+		for (i=0; i<16; i+= 4) {
+			ac[i+0] = bc[i+3];
+			ac[i+1] = bc[i+2];
+			ac[i+2] = bc[i+1];
+			ac[i+3] = bc[i+0];
+		}
+	} else
+		memcpy(a, b, 16);
+}
 
 #ifndef MDASSEMBLE
 int check_ext2(int fd, char *name)

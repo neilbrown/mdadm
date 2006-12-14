@@ -25,6 +25,8 @@ Changes Prior to this release
 	to 'clean'.  This is slightly safer in some cases.
     -   Check device is large enough before hot-add: this improves quality
 	of error message.
+    -   Don't hold md device open for so long in --monitor mode - map_dev
+	can be slow and interferes with trying to stop the array.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

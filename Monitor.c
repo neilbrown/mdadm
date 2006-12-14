@@ -215,6 +215,7 @@ int Monitor(mddev_dev_t devlist,
 		mdstat = mdstat_read(oneshot?0:1, 0);
 
 		for (st=statelist; st; st=st->next) {
+			struct { int state, major, minor; } info[MaxDisks];
 			mdu_array_info_t array;
 			struct mdstat_ent *mse = NULL, *mse2;
 			char *dev = st->devname;
@@ -323,6 +324,19 @@ int Monitor(mddev_dev_t devlist,
 			if (mse)
 				st->percent = mse->percent;
 
+
+			for (i=0; i<MaxDisks && i <= array.raid_disks + array.nr_disks;
+			     i++) {
+				mdu_disk_info_t disc;
+				if (ioctl(fd, GET_DISK_INFO, &disc) >= 0) {
+					info[i].state = disc.state;
+					info[i].major = disc.major;
+					info[i].minor = disc.minor;
+				} else
+					info[i].major = info[i].minor = 0;
+			}
+			close(fd);
+
 			for (i=0; i<MaxDisks; i++) {
 				mdu_disk_info_t disc;
 				int newstate=0;
@@ -332,9 +346,12 @@ int Monitor(mddev_dev_t devlist,
 				if (i > array.raid_disks + array.nr_disks) {
 					newstate = 0;
 					disc.major = disc.minor = 0;
-				} else if (ioctl(fd, GET_DISK_INFO, &disc)>= 0) {
-					newstate = disc.state;
-					dv = map_dev(disc.major, disc.minor, 1);
+				} else if (info[i].major || info[i].minor) {
+					newstate = info[i].state;
+					dv = map_dev(info[i].major, info[i].minor, 1);
+					disc.state = newstate;
+					disc.major = info[i].major;
+					disc.minor = info[i].minor;
 				} else if (mse &&  mse->pattern && i < strlen(mse->pattern)) {
 					switch(mse->pattern[i]) {
 					case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
@@ -369,7 +386,6 @@ int Monitor(mddev_dev_t devlist,
 				st->devstate[i] = disc.state;
 				st->devid[i] = makedev(disc.major, disc.minor);
 			}
-			close(fd);
 			st->active = array.active_disks;
 			st->working = array.working_disks;
 			st->spare = array.spare_disks;

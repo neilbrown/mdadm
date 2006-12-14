@@ -588,20 +588,12 @@ static void add_to_super0(void *sbv, mdu_disk_info_t *dinfo)
 
 static int store_super0(struct supertype *st, int fd, void *sbv)
 {
-	unsigned long size;
 	unsigned long long dsize;
 	unsigned long long offset;
 	mdp_super_t *super = sbv;
-    
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return 1;
-		else
-			dsize = ((unsigned long long)size)<<9;
-	}
+
+	if (!get_dev_size(fd, NULL, &dsize))
+		return 1;
 
 	if (dsize < MD_RESERVED_SECTORS*2*512)
 		return 2;
@@ -708,20 +700,10 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	int uuid[4];
 	struct bitmap_super_s *bsb;
     
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size)) {
-			if (devname)
-				fprintf(stderr, Name ": cannot find device size for %s: %s\n",
-					devname, strerror(errno));
-			return 1;
-		} else
-			dsize = size << 9;
-	}
+	if (!get_dev_size(fd, devname, &dsize))
+		return 1;
 
-	if (dsize < MD_RESERVED_SECTORS*2) {
+	if (dsize < MD_RESERVED_SECTORS*512 * 2) {
 		if (devname)
 			fprintf(stderr, Name ": %s is too small for md: size is %ld sectors.\n",
 				devname, size);
@@ -877,19 +859,12 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int *chunkp,
 void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 {
 	unsigned long long dsize;
-	unsigned long size;
 	unsigned long long offset;
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return;
-		else
-			dsize = ((unsigned long long)size)<<9;
-	}
 
-	if (dsize < MD_RESERVED_SECTORS*2)
+	if (!get_dev_size(fd, NULL, &dsize))
+		return;
+
+	if (dsize < MD_RESERVED_SECTORS*512 * 2)
 		return;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
@@ -903,7 +878,6 @@ void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 
 int write_bitmap0(struct supertype *st, int fd, void *sbv)
 {
-	unsigned long size;
 	unsigned long long dsize;
 	unsigned long long offset;
 	mdp_super_t *sb = sbv;
@@ -913,17 +887,11 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	int towrite, n;
 	char buf[4096];
 
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return 1;
-		else
-			dsize = ((unsigned long long)size)<<9;
-	}
+	if (!get_dev_size(fd, NULL, &dsize))
+		return 1;
 
-	if (dsize < MD_RESERVED_SECTORS*2)
+
+	if (dsize < MD_RESERVED_SECTORS*512 * 2)
 	return -1;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);

@@ -65,6 +65,7 @@ fi
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {
+    rm -f $targetdir/stderr
     case $* in
        *-C* ) $mdadm 2> $targetdir/stderr --quiet "$@" --auto=yes;;
         * )   $mdadm 2> $targetdir/stderr --quiet "$@"
@@ -161,6 +162,7 @@ for script in tests/$prefix tests/$prefix*[^~]
 do
   if [ -f "$script" ]
   then
+   rm -f $targetdir/stderr
    # source script in a subshell, so it has access to our
    # namespace, but cannot change it.
    if ( set -ex ; . $script )  2> $targetdir/log

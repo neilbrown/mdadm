@@ -132,7 +132,6 @@ int Detail(char *dev, int brief, int test, char *homehost)
 		printf("ARRAY %s level=%s num-devices=%d", dev, c?c:"-unknown-",array.raid_disks );
 	else {
 		mdu_bitmap_file_t bmf;
-		unsigned long array_size;
 		unsigned long long larray_size;
 		struct mdstat_ent *ms = mdstat_read(0, 0);
 		struct mdstat_ent *e;
@@ -143,17 +142,8 @@ int Detail(char *dev, int brief, int test, char *homehost)
 		for (e=ms; e; e=e->next)
 			if (e->devnum == devnum)
 				break;
-#ifdef BLKGETSIZE64
-		if (ioctl(fd, BLKGETSIZE64, &larray_size)==0)
-			;
-		else
-#endif
-			if (ioctl(fd, BLKGETSIZE, &array_size)==0) {
-				larray_size = array_size;
-				larray_size <<= 9;
-			}
-		
-		else larray_size = 0;
+		if (!get_dev_size(fd, NULL, &larray_size))
+			larray_size = 0;
 
 		printf("%s:\n", dev);
 		printf("        Version : %02d.%02d.%02d\n",

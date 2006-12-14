@@ -773,6 +773,28 @@ struct supertype *guess_super(int fd)
 	return NULL;
 }
 
+/* Return size of device in bytes */
+int get_dev_size(int fd, char *dname, unsigned long long *sizep)
+{
+	unsigned long long ldsize;
+#ifdef BLKGETSIZE64
+	if (ioctl(fd, BLKGETSIZE64, &ldsize) != 0)
+#endif
+	{
+		unsigned long dsize;
+		if (ioctl(fd, BLKGETSIZE, &dsize) == 0) {
+			ldsize = dsize;
+			ldsize <<= 9;
+		} else {
+			if (dname)
+				fprintf(stderr, Name ": Cannot get size of %s: %s\b",
+					dname, strerror(errno));
+			return 0;
+		}
+	}
+	*sizep = ldsize;
+	return 1;
+}
 
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */

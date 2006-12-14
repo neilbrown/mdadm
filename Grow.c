@@ -257,15 +257,13 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	}
 	bitmapsize = array.size;
 	bitmapsize <<= 1;
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &array_size) == 0 &&
+	if (get_dev_size(fd, NULL, &array_size) &&
 	    array_size > (0x7fffffffULL<<9)) {
 		/* Array is big enough that we cannot trust array.size
 		 * try other approaches
 		 */
 		bitmapsize = get_component_size(fd);
 	}
-#endif
 	if (bitmapsize == 0) {
 		fprintf(stderr, Name ": Cannot reliably determine size of array to create bitmap - sorry.\n");
 		return 1;

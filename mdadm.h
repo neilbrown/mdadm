@@ -344,6 +344,7 @@ struct supertype {
 
 extern struct supertype *super_by_version(int vers, int minor);
 extern struct supertype *guess_super(int fd);
+extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);
 
 #if __GNUC__ < 3
 struct stat64;

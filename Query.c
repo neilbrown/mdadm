@@ -47,7 +47,6 @@ int Query(char *dev)
 	struct supertype *st = NULL;
 
 	unsigned long long larray_size;
-	unsigned long array_size;
 	struct stat stb;
 	char *mddev;
 	mdu_disk_info_t disc;
@@ -67,15 +66,8 @@ int Query(char *dev)
 	fstat(fd, &stb);
 
 	if (vers>=9000 && !ioctlerr) {
-#ifdef BLKGETSIZE64
-		if (ioctl(fd, BLKGETSIZE64, &larray_size)==0)
-			;
-		else
-#endif
-			if (ioctl(fd, BLKGETSIZE, &array_size)==0) {
-				larray_size = array_size;
-				larray_size <<= 9;
-			} else larray_size = 0;
+		if (!get_dev_size(fd, NULL, &larray_size))
+			larray_size = 0;
 	}
 
 	if (vers < 0) 

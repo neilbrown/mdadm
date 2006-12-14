@@ -951,8 +951,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					while (usecs < 1000) {
 						mdfd = open(mddev, O_RDONLY);
 						if (mdfd >= 0) {
-							unsigned long size;
-							if (ioctl(mdfd, BLKGETSIZE, &size) == 0 &&
+							unsigned long long size;
+							if (get_dev_size(mdfd, NULL, &size) &&
 							    size > 0)
 								break;
 							close(mdfd);

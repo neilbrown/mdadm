@@ -180,7 +180,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	dnum = 0;
 	for (dv=devlist; dv; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
-		unsigned long dsize;
 		unsigned long long ldsize, freesize;
 		int fd;
 		if (strcasecmp(dname, "missing")==0) {
@@ -199,21 +198,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			fail=1;
 			continue;
 		}
-#ifdef BLKGETSIZE64
-		if (ioctl(fd, BLKGETSIZE64, &ldsize)==0)
-			;
-		else
-#endif
-		if (ioctl(fd, BLKGETSIZE, &dsize)) {
-			fprintf(stderr, Name ": Cannot get size of %s: %s\n",
-				dname, strerror(errno));
+		if (!get_dev_size(fd, dname, &ldsize)) {
 			fail = 1;
 			close(fd);
 			continue;
-		}
-		else {
-			ldsize = dsize;
-			ldsize <<= 9;
 		}
 		if (st == NULL) {
 			struct createinfo *ci = conf_get_create_info();

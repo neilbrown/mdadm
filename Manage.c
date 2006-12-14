@@ -187,7 +187,6 @@ int Manage_subdevs(char *devname, int fd,
 	}
 	for (dv = devlist ; dv; dv=dv->next) {
 		unsigned long long ldsize;
-		unsigned long dsize;
 
 		if (stat(dv->devname, &stb)) {
 			fprintf(stderr, Name ": cannot find %s: %s\n",
@@ -224,19 +223,9 @@ int Manage_subdevs(char *devname, int fd,
 			if (array.not_persistent==0)
 				st->ss->load_super(st, tfd, &osuper, NULL);
 			/* will use osuper later */
-#ifdef BLKGETSIZE64
-			if (ioctl(tfd, BLKGETSIZE64, &ldsize)==0)
-				;
-			else
-#endif
-			if (ioctl(tfd, BLKGETSIZE, &dsize)) {
-				fprintf(stderr, Name ": Cannot get size of %s: %s\n",
-					dv->devname, strerror(errno));
+			if (!get_dev_size(tfd, dv->devname, &ldsize)) {
 				close(tfd);
 				return 1;
-			} else {
-				ldsize = dsize;
-				ldsize <<= 9;
 			}
 			close(tfd);
 

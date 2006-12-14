@@ -148,7 +148,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	}
 	/* now add the devices */
 	for ((i=0), (dv = devlist) ; dv ; i++, dv=dv->next) {
-		unsigned long dsize;
+		unsigned long long dsize;
 		int fd;
 		if (strcmp("missing", dv->devname) == 0)
 			continue;
@@ -168,12 +168,9 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 				dv->devname, strerror(errno));
 			goto abort;
 		}
-		if (ioctl(fd, BLKGETSIZE, &dsize) == 0 && dsize > 0) {
-			unsigned long long ldsize = dsize;
-			ldsize <<= 9;
-			if (size== 0 || ldsize < size)
-				size = ldsize;
-		}
+		if (get_dev_size(fd, NULL, &dsize) &&
+		    (size == 0 || dsize < size))
+				size = dsize;
 		close(fd);
 		if (vers>= 9000) {
 			mdu_disk_info_t disk;

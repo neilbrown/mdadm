@@ -696,19 +696,12 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 	struct mdp_superblock_1 *sb = sbv;
 	unsigned long long sb_offset;
 	int sbsize;
-	unsigned long size;
 	unsigned long long dsize;
 
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return 1;
-		else
-			dsize = (unsigned long long)size;
-	} else
-		dsize >>= 9;
+	if (!get_dev_size(fd, NULL, &dsize))
+		return 1;
+
+	dsize >>= 9;
 
 	if (dsize < 24)
 		return 2;
@@ -820,17 +813,9 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		free(refsb);
 	}
 
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		unsigned long size;
-		if (ioctl(fd, BLKGETSIZE, &size))
-			return 1;
-		else
-			dsize = size;
-	} else
-		dsize >>= 9;
+	if (!get_dev_size(fd, NULL, &dsize))
+		return 1;
+	dsize >>= 9;
 
 	if (dsize < 24) {
 		close(fd);
@@ -937,7 +922,6 @@ static int compare_super1(void **firstp, void *secondv)
 
 static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 {
-	unsigned long size;
 	unsigned long long dsize;
 	unsigned long long sb_offset;
 	struct mdp_superblock_1 *super;
@@ -978,19 +962,9 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		st->ss = NULL;
 		return 2;
 	}
-#ifdef BLKGETSIZE64
-	if (ioctl(fd, BLKGETSIZE64, &dsize) != 0)
-#endif
-	{
-		if (ioctl(fd, BLKGETSIZE, &size)) {
-			if (devname)
-				fprintf(stderr, Name ": cannot find device size for %s: %s\n",
-					devname, strerror(errno));
-			return 1;
-		}
-		dsize = size;
-	} else
-		dsize >>= 9;
+	if (!get_dev_size(fd, devname, &dsize))
+		return 1;
+	dsize >>= 9;
 
 	if (dsize < 24) {
 		if (devname)

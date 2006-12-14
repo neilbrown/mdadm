@@ -186,6 +186,9 @@ int Manage_subdevs(char *devname, int fd,
 		return 1;
 	}
 	for (dv = devlist ; dv; dv=dv->next) {
+		unsigned long long ldsize;
+		unsigned long dsize;
+
 		if (stat(dv->devname, &stb)) {
 			fprintf(stderr, Name ": cannot find %s: %s\n",
 				dv->devname, strerror(errno));
@@ -202,7 +205,7 @@ int Manage_subdevs(char *devname, int fd,
 				dv->devname, dv->disposition);
 			return 1;
 		case 'a':
-			/* add the device - hot or cold */
+			/* add the device */
 			st = super_by_version(array.major_version,
 					      array.minor_version);
 			if (!st) {
@@ -221,6 +224,20 @@ int Manage_subdevs(char *devname, int fd,
 			if (array.not_persistent==0)
 				st->ss->load_super(st, tfd, &osuper, NULL);
 			/* will use osuper later */
+#ifdef BLKGETSIZE64
+			if (ioctl(tfd, BLKGETSIZE64, &ldsize)==0)
+				;
+			else
+#endif
+			if (ioctl(tfd, BLKGETSIZE, &dsize)) {
+				fprintf(stderr, Name ": Cannot get size of %s: %s\n",
+					dv->devname, strerror(errno));
+				close(tfd);
+				return 1;
+			} else {
+				ldsize = dsize;
+				ldsize <<= 9;
+			}
 			close(tfd);
 
 			if (array.major_version == 0 &&
@@ -239,6 +256,14 @@ int Manage_subdevs(char *devname, int fd,
 			}
 
 			if (array.not_persistent == 0) {
+
+				/* Make sure device is large enough */
+				if (st->ss->avail_size(st, ldsize/512) <
+				    array.size) {
+					fprintf(stderr, Name ": %s not large enough to join array\n",
+						dv->devname);
+					return 1;
+				}
 
 				/* need to find a sample superblock to copy, and
 				 * a spare slot to use 
@@ -302,6 +327,15 @@ int Manage_subdevs(char *devname, int fd,
 						}
 						/* fall back on normal-add */
 					}
+				}
+			} else {
+				/* non-persistent. Must ensure that new drive
+				 * is at least array.size big.
+				 */
+				if (ldsize/512 < array.size) {
+					fprintf(stderr, Name ": %s not large enough to join array\n",
+						dv->devname);
+					return 1;
 				}
 			}
 			/* in 2.6.17 and earlier, version-1 superblocks won't

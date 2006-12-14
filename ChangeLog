@@ -23,6 +23,8 @@ Changes Prior to this release
     -   If two drives in a raid5 disappear at the same time, then "-Af"
         will add them both in rather than just one and forcing the array
 	to 'clean'.  This is slightly safer in some cases.
+    -   Check device is large enough before hot-add: this improves quality
+	of error message.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

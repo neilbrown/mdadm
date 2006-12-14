@@ -111,6 +111,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	 *    START_ARRAY
 	 *
 	 */
+	int clean = 0;
 	int must_close = 0;
 	int old_linux = 0;
 	int vers = 0; /* Keep gcc quite - it really is initialised */
@@ -583,6 +584,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	}
 
 	st->ss->getinfo_super(&info, first_super);
+	clean = info.array.state & 1;
 
 	/* now we have some devices that might be suitable.
 	 * I wonder how many
@@ -617,7 +619,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 	}
 	while (force && !enough(info.array.level, info.array.raid_disks,
-				info.array.layout,
+				info.array.layout, 1,
 				avail, okcnt)) {
 		/* Choose the newest best drive which is
 		 * not up-to-date, update the superblock
@@ -758,6 +760,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		change += st->ss->update_super(&info, super, "force-array",
 					devices[chosen_drive].devname, verbose,
 					       0, NULL);
+		clean = 1;
 	}
 
 	if (change) {
@@ -894,7 +897,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		
 		if (runstop == 1 ||
 		    (runstop <= 0 &&
-		     ( enough(info.array.level, info.array.raid_disks, info.array.layout, avail, okcnt) &&
+		     ( enough(info.array.level, info.array.raid_disks,
+			      info.array.layout, clean, avail, okcnt) &&
 		       (okcnt >= req_cnt || start_partial_ok)
 			     ))) {
 			if (ioctl(mdfd, RUN_ARRAY, NULL)==0) {
@@ -937,6 +941,19 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			}
 			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",
 				mddev, strerror(errno));
+
+			if (!enough(info.array.level, info.array.raid_disks,
+				    info.array.layout, 1, avail, okcnt))
+				fprintf(stderr, Name ": Not enough devices to "
+					"start the array.\n");
+			else if (!enough(info.array.level,
+					 info.array.raid_disks,
+					 info.array.layout, clean,
+					 avail, okcnt))
+				fprintf(stderr, Name ": Not enough devices to "
+					"start the array while not clean "
+					"- consider --force.\n");
+
 			if (must_close) close(mdfd);
 			return 1;
 		}
@@ -953,8 +970,16 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": %s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
 			if (sparecnt)
 				fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
-			if (!enough(info.array.level, info.array.raid_disks, info.array.layout, avail, okcnt))
+			if (!enough(info.array.level, info.array.raid_disks,
+				    info.array.layout, 1, avail, okcnt))
 				fprintf(stderr, " - not enough to start the array.\n");
+			else if (!enough(info.array.level,
+					 info.array.raid_disks,
+					 info.array.layout, clean,
+					 avail, okcnt))
+				fprintf(stderr, " - not enough to start the "
+					"array while not clean - consider "
+					"--force.\n");
 			else {
 				if (req_cnt == info.array.raid_disks)
 					fprintf(stderr, " - need all %d to start it", req_cnt);

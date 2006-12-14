@@ -10,6 +10,8 @@ Changes Prior to this release
 	can change size.
     -   Default to --auto=yes so the array devices with 'standard' names
 	get created automatically, as this is almost always what is wanted.
+    -   Give useful message if raid4/5/6 cannot be started because it is
+	not clean and is also degraded.
 
 Changes Prior to 2.5.6 release
     -   Fix bug which meant "bitmap=xxx" in mdadm.conf was not handled

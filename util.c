@@ -170,7 +170,7 @@ void remove_partitions(int fd)
 #endif
 }
 
-int enough(int level, int raid_disks, int layout,
+int enough(int level, int raid_disks, int layout, int clean,
 	   char *avail, int avail_disks)
 {
 	int copies, first;
@@ -205,9 +205,15 @@ int enough(int level, int raid_disks, int layout,
 		return avail_disks >= 1;
 	case 4:
 	case 5:
-		return avail_disks >= raid_disks-1;
+		if (clean)
+			return avail_disks >= raid_disks-1;
+		else
+			return avail_disks >= raid_disks;
 	case 6:
-		return avail_disks >= raid_disks-2;
+		if (clean)
+			return avail_disks >= raid_disks-2;
+		else
+			return avail_disks >= raid_disks;
 	default:
 		return 0;
 	}

@@ -320,6 +320,7 @@ static void getinfo_super0(struct mdinfo *info, void *sbv)
 	info->array.ctime = sb->ctime;
 	info->array.utime = sb->utime;
 	info->array.chunk_size = sb->chunk_size;
+	info->array.state = sb->state;
 	info->component_size = sb->size*2;
 
 	info->disk.state = sb->this_disk.state;

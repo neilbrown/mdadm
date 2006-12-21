@@ -391,6 +391,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
+	avail = NULL;
 	active_disks = count_active(st, mdfd, &avail, &info);
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,

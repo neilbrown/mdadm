@@ -14,6 +14,7 @@ ANNOUNCE-2.5.3
 ANNOUNCE-2.5.4
 ANNOUNCE-2.5.5
 ANNOUNCE-2.5.6
+ANNOUNCE-2.6
 Assemble.c
 bitmap.c
 bitmap.h
@@ -27,12 +28,17 @@ dlink.c
 dlink.h
 Examine.c
 Grow.c
+Incremental.c
 INSTALL
 inventory
+kernel-patch-2.6.18
+kernel-patch-2.6.18.6
+kernel-patch-2.6.19
 Kill.c
 makedist
 Makefile
 Manage.c
+mapfile.c
 md.4
 md5.h
 mdadm.8
@@ -102,6 +108,7 @@ tests/05r6-bitmapfile
 tests/06name
 tests/06r5swap
 tests/06sysfs
+tests/06update-uuid
 tests/06wrmostly
 tests/07testreshape5
 tests/check

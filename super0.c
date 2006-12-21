@@ -703,7 +703,6 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	 *  1 on cannot get superblock
 	 *  2 on superblock meaningless
 	 */
-	unsigned long size;
 	unsigned long long dsize;
 	unsigned long long offset;
 	mdp_super_t *super;
@@ -715,8 +714,9 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 
 	if (dsize < MD_RESERVED_SECTORS*512 * 2) {
 		if (devname)
-			fprintf(stderr, Name ": %s is too small for md: size is %ld sectors.\n",
-				devname, size);
+			fprintf(stderr, Name
+			    ": %s is too small for md: size is %llu sectors.\n",
+				devname, dsize);
 		return 1;
 	}
 

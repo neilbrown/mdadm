@@ -338,7 +338,7 @@ int Monitor(mddev_dev_t devlist,
 			close(fd);
 
 			for (i=0; i<MaxDisks; i++) {
-				mdu_disk_info_t disc;
+				mdu_disk_info_t disc = {0};
 				int newstate=0;
 				int change;
 				char *dv = NULL;

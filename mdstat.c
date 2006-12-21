@@ -251,3 +251,15 @@ void mdstat_wait(int seconds)
 	tm.tv_usec = 0;
 	select(mdstat_fd >2 ? mdstat_fd+1:3, NULL, NULL, &fds, &tm);
 }
+
+int mddev_busy(int devnum)
+{
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
+	struct mdstat_ent *me;
+
+	for (me = mdstat ; me ; me = me->next)
+		if (me->devnum == devnum)
+			break;
+	free_mdstat(mdstat);
+	return me != NULL;
+}

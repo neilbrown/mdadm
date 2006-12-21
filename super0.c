@@ -110,6 +110,9 @@ static void examine_super0(void *sbv, char *homehost)
 	} else
 		printf("           UUID : %08x\n", sb->set_uuid0);
 
+	if (sb->not_persistent)
+		printf("           Eedk : not persistent\n");
+
 	atime = sb->ctime;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, sb->level);

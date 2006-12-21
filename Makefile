@@ -68,10 +68,14 @@ MAN8DIR = $(MANDIR)/man8
 
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
-	mdopen.o super0.o super1.o bitmap.o restripe.o sysfs.o sha1.o
+	Incremental.o \
+	mdopen.o super0.o super1.o bitmap.o restripe.o sysfs.o sha1.o \
+	mapfile.o
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
-	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c sha1.c
+	Incremental.c \
+	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c sha1.c \
+	mapfile.c
 
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o

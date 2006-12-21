@@ -815,6 +815,14 @@ int get_dev_size(int fd, char *dname, unsigned long long *sizep)
 	return 1;
 }
 
+void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
+{
+	int d;
+	ioctl(mdfd, GET_ARRAY_INFO, ainf);
+	for (d = 0 ; d < ainf->raid_disks + ainf->nr_disks ; d++)
+		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0)
+			return;
+}
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */
 unsigned int __invalid_size_argument_for_IOC = 0;

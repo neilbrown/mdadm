@@ -88,7 +88,7 @@ provides a layer over a true device that can be used to inject faults.
 '''with a different format and a different purpose.
 
 .SH MODES
-mdadm has 7 major modes of operation:
+mdadm has several major modes of operation:
 .TP
 .B Assemble
 Assemble the parts of a previously created
@@ -132,6 +132,16 @@ of component devices in RAID level 1/4/5/6 and changing the number of
 active devices in RAID1.
 
 .TP
+.B "Incremental Assembly"
+Add a single device to an appropriate array.  If the addition of the
+device makes the array runnable, the array will be started.
+This provides a convenient interface to a
+.I hot-plug
+system.  As each device is detected,
+.I mdadm
+has a chance to include it in some array as appropriate.
+
+.TP
 .B Manage
 This is for doing things to specific components of an array such as
 adding new spares and removing faulty devices.
@@ -169,6 +179,11 @@ mode.
 .TP
 .BR -G ", " --grow
 Change the size or shape of an active array.
+
+.TP
+.BE -I ", " --incremental
+Add a single device into an appropriate array, and possibly start the array.
+
 .P
 If a device is given before any options, or if the first option is
 .BR --add ,
@@ -939,6 +954,32 @@ activity to finish before returning.
 will return with success if it actually waited for every device
 listed, otherwise it will return failure.
 
+.SH For Incremental Assembly mode:
+.TP
+.BR --rebuild-map ", " -r
+Rebuild the map file
+.RB ( /var/run/mdadm/map )
+that
+.I mdadm
+uses to help track which arrays are currently being assembled.
+
+.TP
+.BR --run ", " -R
+Run any array assembled as soon as a minimal number of devices are
+available, rather than waiting until all expected devices are present.
+
+.TP
+.BR --scan ", " -s
+Only meaningful with
+.B -R
+this will scan the
+.B map
+file for arrays that are being incrementally assembled and will try to
+start any that are not already started.  If any such array is listed
+in
+.B mdadm.conf
+as requiring an external bitmap, that bitmap will be attached first.
+
 .SH For Monitor mode:
 .TP
 .BR -m ", " --mail
@@ -1680,6 +1721,153 @@ can be added.  Note that if you add a bitmap stored in a file which is
 in a filesystem that is on the raid array being affected, the system
 will deadlock.  The bitmap must be on a separate filesystem.
 
+.SH INCREMENTAL MODE
+
+.HP 12
+Usage:
+.B mdadm --incremental
+.RB [ --run ]
+.RB [ --quiet ]
+.I component-device
+.HP 12
+Usage:
+.B mdadm --incremental --rebuild
+.HP 12
+Usage:
+.B mdadm --incremental --run --scan
+
+
+.PP
+This mode is designed to be used in conjunction with a device
+discovery system.  As devices are found in a system, they can be
+passed to
+.B "mdadm --incremental"
+to be conditionally added to an appropriate array.
+
+.I mdadm
+performs a number of tests to determine if the device is part of an
+array, and which array is should be part of.  If an appropriate array
+is found, or can be created,
+.I mdadm
+adds the device to the array and conditionally starts the array.
+
+Note that
+.I mdadm
+will only add devices to an array which were previously working
+(active or spare) parts of that array.  It does not currently support
+automatic inclusion of a new drive as a spare in some array.
+
+.B "mdadm --incremental"
+requires a bug present in all kernels through 2.6.19, to be fixed.
+Hopefully this will be fixed in 2.6.20.  Alternately apply the patch
+which is included with the mdadm source distribution.  If
+.I mdadm
+detects that this bug is present, it will abort any attempt to use
+.BR --incremental .
+
+The tests that
+.I mdadm
+makes are as follow:
+.IP +
+Is the device permitted by
+.BR mdadm.conf ?
+That is, is it listed in a
+.B DEVICES
+line in that file.  If
+.B DEVICES
+is absent then the default it to allow any device.  Similar if
+.B DEVICES
+contains the special word
+.B partitions
+then any device is allowed.  Otherwise the device name given to
+.I mdadm
+must match one of the names or patterns in a
+.B DEVICES
+line.
+
+.IP +
+Does the device have a valid md superblock.  If a specific metadata
+version is request with
+.B --metadata
+or
+.B -e
+then only that style of metadata is accepted, otherwise
+.I mdadm
+finds any known version of metadata.  If no
+.I md
+metadata is found, the device is rejected.
+
+.IP +
+Does the metadata match an expected array?
+The metadata can match in two ways.  Either there is an array listed
+in
+.B mdadm.conf
+which identifies the array (either by UUID, by name, by device list,
+or by minor-number), the array was created with a
+.B homehost
+specified, and that
+.B homehost
+matches that which is given in
+.B mdadm.conf
+or on the command line.
+If
+.I mdadm
+is not able to positively identify the array as belonging to the
+current host, the device will be rejected.
+
+.IP +
+.I mdadm
+keeps a list of arrays that is has partly assembled in
+.B /var/run/mdadm/map
+(or
+.B /var/run/mdadm.map
+if the directory doesn't exist).  If no array exists which matches
+the metadata on the new device,
+.I mdadm
+must choose a device name and unit number.  It does this based on any
+name given in
+.B mdadm.conf
+or any name information stored in the metadata.  If this name
+suggests a unit number, that number will be used, otherwise a free
+unit number will be chosen.  Normally
+.I mdadm
+will prefer to create a partitionable array, however if the
+.B CREATE
+line in
+.B mdadm.conf
+suggests that a non-partitionable array is preferred, that will be
+honoured.
+
+.IP +
+Once an appropriate array is found or created and the device is added,
+.I mdadm
+must decide if the array is ready to be started.  It will
+normally compare the number of available (non-spare) devices to the
+number of devices that the metadata suggests need to be active.  If
+there are at least that many, the array will be started.  This means
+that if any devices are missing the array will not be restarted.
+
+As an alternative,
+.B --run
+may be passed to
+.B mdadm
+in which case the array will be run as soon as there are enough
+devices present for the data to be accessible.  For a raid1, that
+means one device will start the array.  For a clean raid5, the array
+will be started as soon as all but one drive is present.
+
+Note that neither of these approaches is really ideal.  If it is can
+be known that all device discovery has completed, then
+.br
+.B "   mdadm -IRs"
+.br
+can be run which will try to start all arrays that are being
+incrementally assembled.  They are started in "read-auto" mode in
+which they are read-only until the first write request.  This means
+that no metadata updates are made and no attempt at resync or recovery
+happens.  Further devices that are found before the first write can
+still be added safely.
+
 .SH EXAMPLES
 
 .B "  mdadm --query /dev/name-of-device"
@@ -1755,6 +1943,16 @@ the background in monitor mode monitoring all md devices.  Also write
 pid of mdadm daemon to
 .BR /var/run/mdadm .
 
+.B "  mdadm -Iq /dev/somedevice"
+.br
+Try to incorporate newly discovered device into some array as
+appropriate.
+
+.B "  mdadm --incremental --rebuild --run --scan"
+.br
+Rebuild the array map from any current arrays, and then start any that
+can be started.
+
 .B "  mdadm --create --help"
 .br
 Provide help about the Create mode.
@@ -1791,6 +1989,16 @@ they contain MD super block, and gives identifying information
 (e.g. UUID) about known MD arrays.  See
 .BR mdadm.conf (5)
 for more details.
+
+.SS /var/run/mdadm/map
+When
+.I --incremental
+mode is used. this file gets a list of arrays currently being created.
+If
+.B /var/run/mdadm
+does not exist as a directory, then
+.B /var/run/mdadm.map
+is used instead.
 
 .SH DEVICE NAMES
 

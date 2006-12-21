@@ -86,7 +86,7 @@ char *keywords[] = {
 	[Mailaddr] = "mailaddr",
 	[Mailfrom] = "mailfrom",
 	[Program]  = "program",
-	[CreateDev]   = "create",
+	[CreateDev]= "create",
 	[Homehost] = "homehost",
 	[LTEnd]    = NULL
 };
@@ -746,6 +746,22 @@ mddev_dev_t conf_get_devs()
 
 	return dlist;
 }
+
+int conf_test_dev(char *devname)
+{
+	struct conf_dev *cd;
+	if (cdevlist == NULL)
+		/* allow anything by default */
+		return 1;
+	for (cd = cdevlist ; cd ; cd = cd->next) {
+		if (strcasecmp(cd->name, "partitions") == 0)
+			return 1;
+		if (fnmatch(cd->name, devname, FNM_PATHNAME) == 0)
+			return 1;
+	}
+	return 0;
+}
+
 
 int match_oneof(char *devices, char *devname)
 {

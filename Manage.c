@@ -106,7 +106,11 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				devname, strerror(errno));
 			return 1;
 		}
+		if (quiet <= 0)
+			fprintf(stderr, Name ": started %s\n", devname);
 	} else if (runstop < 0){
+		struct map_ent *map = NULL;
+		struct stat stb;
 		if (ioctl(fd, STOP_ARRAY, NULL)) {
 			if (quiet==0)
 				fprintf(stderr, Name ": fail to stop array %s: %s\n",
@@ -115,6 +119,16 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		}
 		if (quiet <= 0)
 			fprintf(stderr, Name ": stopped %s\n", devname);
+		if (fstat(fd, &stb) == 0) {
+			int devnum;
+			if (major(stb.st_rdev) == MD_MAJOR)
+				devnum = minor(stb.st_rdev);
+			else
+				devnum = -1-(minor(stb.st_rdev)>>6);
+			map_delete(&map, devnum);
+			map_write(map);
+			map_free(map);
+		}
 	}
 	return 0;
 }

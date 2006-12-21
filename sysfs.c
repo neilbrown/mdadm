@@ -42,6 +42,18 @@ int load_sys(char *path, char *buf)
 	return 0;
 }
 
+void sysfs_free(struct sysarray *sra)
+{
+	if (!sra)
+		return;
+	while (sra->devs) {
+		struct sysdev *d = sra->devs;
+		sra->devs = d->next;
+		free(d);
+	}
+	free(sra);
+}
+
 struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 {
 	/* Longest possible name in sysfs, mounted at /sys, is
@@ -81,6 +93,16 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 	base = fname + strlen(fname);
 
 	sra->devs = NULL;
+	if (options & GET_VERSION) {
+		strcpy(base, "metadata_version");
+		if (load_sys(fname, buf))
+			goto abort;
+		if (strncmp(buf, "none", 4) == 0)
+			sra->major_version = sra->minor_version = -1;
+		else
+			sscanf(buf, "%d.%d",
+			       &sra->major_version, &sra->minor_version);
+	}
 	if (options & GET_LEVEL) {
 		strcpy(base, "level");
 		if (load_sys(fname, buf))
@@ -144,6 +166,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 			goto abort;
 		dev->next = sra->devs;
 		sra->devs = dev;
+		strcpy(dev->name, de->d_name);
 
 		/* Always get slot, major, minor */
 		strcpy(dbase, "slot");
@@ -191,12 +214,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 	return sra;
 
  abort:
-	while (sra && sra->devs) {
-		dev = sra->devs;
-		sra->devs = dev->next;
-		free(dev);
-	}
-	if(sra) free(sra);
+	sysfs_free(sra);
 	return NULL;
 }
 

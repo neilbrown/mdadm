@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
 	int re_add = 0;
 	char *shortopt = short_options;
 	int dosyslog = 0;
+	int rebuild_map = 0;
 	int auto_update_home = 0;
 
 	int copies;
@@ -191,6 +192,7 @@ int main(int argc, char *argv[])
 		case 'C': newmode = CREATE; shortopt = short_bitmap_auto_options; break;
 		case 'F': newmode = MONITOR;break;
 		case 'G': newmode = GROW; shortopt = short_bitmap_auto_options; break;
+		case 'I': newmode = INCREMENTAL; break;
 
 		case '#':
 		case 'D':
@@ -269,6 +271,7 @@ int main(int argc, char *argv[])
 		case 'C':
 		case 'F':
 		case 'G':
+		case 'I':
 			continue;
 		}
 		if (opt == 1) {
@@ -321,6 +324,7 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,AutoHomeHost):
 			auto_update_home = 1;
 			continue;
+		case O(INCREMENTAL, 'e'):
 		case O(CREATE,'e'):
 		case O(ASSEMBLE,'e'):
 		case O(MISC,'e'): /* set metadata (superblock) information */
@@ -628,6 +632,7 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'s'): /* scan */
 		case O(MISC,'s'):
 		case O(MONITOR,'s'):
+		case O(INCREMENTAL,'s'):
 			scan = 1;
 			continue;
 
@@ -702,6 +707,7 @@ int main(int argc, char *argv[])
 		case O(MANAGE,'f'): /* set faulty */
 			devmode = 'f';
 			continue;
+		case O(INCREMENTAL,'R'):
 		case O(MANAGE,'R'):
 		case O(ASSEMBLE,'R'):
 		case O(BUILD,'R'):
@@ -833,6 +839,10 @@ int main(int argc, char *argv[])
 				}
 			}
 			continue;
+
+		case O(INCREMENTAL, 'r'):
+			rebuild_map = 1;
+			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -861,6 +871,7 @@ int main(int argc, char *argv[])
 			case MISC     : help_text = Help_misc; break;
 			case MONITOR  : help_text = Help_monitor; break;
 			case GROW     : help_text = Help_grow; break;
+			case INCREMENTAL:help_text= Help_incr; break;
 			}
 		fputs(help_text,stderr);
 		exit(0);
@@ -1289,6 +1300,34 @@ int main(int argc, char *argv[])
 		} else
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;
+	case INCREMENTAL:
+		if (rebuild_map) {
+			RebuildMap();
+		}
+		if (scan) {
+			if (runstop <= 0) {
+				fprintf(stderr, Name
+			 ": --incremental --scan meaningless without --run.\n");
+				break;
+			}
+			rv = IncrementalScan(verbose);
+		}
+		if (!devlist) {
+			if (!rebuild_map && !scan) {
+				fprintf(stderr, Name
+					": --incremental requires a device.\n");
+				rv = 1;
+			}
+			break;
+		}
+		if (devlist->next) {
+			fprintf(stderr, Name
+			       ": --incremental can only handle one device.\n");
+			rv = 1;
+			break;
+		}
+		rv = Incremental(devlist->devname, verbose-quiet, runstop,
+				 ss, homehost, autof);
 	}
 	exit(rv);
 }

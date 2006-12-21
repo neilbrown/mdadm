@@ -292,3 +292,51 @@ int open_mddev(char *dev, int autof)
 	return mdfd;
 }
 
+
+int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
+{
+	/* Open the md device with number 'devnum', possibly using 'devname',
+	 * possibly constructing a name with 'name', but in any case, copying
+	 * the name into 'chosen_name'
+	 */
+	int major, minor;
+	struct stat stb;
+
+	if (devname)
+		strcpy(chosen_name, devname);
+	else if (name && strchr(name,'/') == NULL) {
+		char *n = strchr(name, ':');
+		if (n) n++; else n = name;
+		if (isdigit(*n) && devnum < 0)
+			sprintf(chosen_name, "/dev/md/d%s", n);
+		else
+			sprintf(chosen_name, "/dev/md/%s", n);
+	} else {
+		if (devnum >= 0)
+			sprintf(chosen_name, "/dev/md%d", devnum);
+		else
+			sprintf(chosen_name, "/dev/md/d%d", -1-devnum);
+	}
+	if (devnum >= 0) {
+		major = MD_MAJOR;
+		minor = devnum;
+	} else {
+		major = get_mdp_major();
+		minor = (-1-devnum) << 6;
+	}
+	if (stat(chosen_name, &stb) == 0) {
+		/* It already exists.  Check it is right. */
+		if ( ! S_ISBLK(stb.st_mode) ||
+		     stb.st_rdev != makedev(major, minor)) {
+			errno = EEXIST;
+			return -1;
+		}
+	} else {
+		if (mknod(chosen_name, S_IFBLK | 0600,
+			  makedev(major, minor)) != 0) {
+			return -1;
+		}
+		/* FIXME chown/chmod ?? */
+	}
+	return open(chosen_name, O_RDWR);
+}

@@ -146,6 +146,7 @@ enum mode {
 	MISC,
 	MONITOR,
 	GROW,
+	INCREMENTAL,
 };
 
 extern char short_options[];
@@ -153,6 +154,7 @@ extern char short_bitmap_auto_options[];
 extern struct option long_options[];
 extern char Version[], Usage[], Help[], OptionHelp[],
 	Help_create[], Help_build[], Help_assemble[], Help_grow[],
+	Help_incr[],
 	Help_manage[], Help_misc[], Help_monitor[], Help_config[];
 
 /* for option that don't have short equivilents, we assign arbitrary
@@ -238,6 +240,24 @@ struct mdstat_ent {
 extern struct mdstat_ent *mdstat_read(int hold, int start);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
+extern int mddev_busy(int devnum);
+
+struct map_ent {
+	struct map_ent *next;
+	int	devnum;
+	int	major,minor;
+	int	uuid[4];
+	char	*path;
+};
+extern int map_update(struct map_ent **mpp, int devnum, int major, int minor,
+		      int uuid[4], char *path);
+extern struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4]);
+extern void map_read(struct map_ent **melp);
+extern int map_write(struct map_ent *mel);
+extern void map_delete(struct map_ent **mapp, int devnum);
+extern void map_free(struct map_ent *map);
+extern void map_add(struct map_ent **melp,
+		    int devnum, int major, int minor, int uuid[4], char *path);
 
 /* Data structure for holding info read from sysfs */
 struct sysdev {
@@ -259,6 +279,7 @@ struct sysarray {
 	int	spares;
 	int	cache_size;
 	int	mismatch_cnt;
+	int	major_version, minor_version;
 };
 /* various details can be requested */
 #define	GET_LEVEL	1
@@ -267,6 +288,7 @@ struct sysarray {
 #define	GET_CHUNK	8
 #define GET_CACHE	16
 #define	GET_MISMATCH	32
+#define	GET_VERSION	64
 
 #define	GET_DEVS	1024 /* gets role, major, minor */
 #define	GET_OFFSET	2048
@@ -277,6 +299,7 @@ struct sysarray {
 /* If fd >= 0, get the array it is open on,
  * else use devnum. >=0 -> major9. <0.....
  */
+extern void sysfs_free(struct sysarray *sra);
 extern struct sysarray *sysfs_read(int fd, int devnum, unsigned long options);
 extern int sysfs_set_str(struct sysarray *sra, struct sysdev *dev,
 			 char *name, char *val);
@@ -345,6 +368,8 @@ struct supertype {
 extern struct supertype *super_by_version(int vers, int minor);
 extern struct supertype *guess_super(int fd);
 extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);
+extern void get_one_disk(int mdfd, mdu_array_info_t *ainf,
+			 mdu_disk_info_t *disk);
 
 #if __GNUC__ < 3
 struct stat64;
@@ -426,6 +451,11 @@ extern int Monitor(mddev_dev_t devlist,
 extern int Kill(char *dev, int force, int quiet);
 extern int Wait(char *dev);
 
+extern int Incremental(char *devname, int verbose, int runstop,
+		       struct supertype *st, char *homehost, int autof);
+extern void RebuildMap(void);
+extern int IncrementalScan(int verbose);
+
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,
 			unsigned long write_behind,
@@ -448,6 +478,7 @@ extern int is_standard(char *dev, int *nump);
 extern int parse_auto(char *str, char *msg, int config);
 extern mddev_ident_t conf_get_ident(char *dev);
 extern mddev_dev_t conf_get_devs(void);
+extern int conf_test_dev(char *devname);
 extern struct createinfo *conf_get_create_info(void);
 extern void set_conffile(char *file);
 extern char *conf_get_mailaddr(void);
@@ -479,6 +510,8 @@ extern char *get_md_name(int dev);
 extern char DefaultConfFile[];
 
 extern int open_mddev(char *dev, int autof);
+extern int open_mddev_devnum(char *devname, int devnum, char *name,
+			     char *chosen_name);
 
 
 #define	LEVEL_MULTIPATH		(-4)

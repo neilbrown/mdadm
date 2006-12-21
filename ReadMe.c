@@ -91,8 +91,9 @@ char Version[] = Name " - v2.5.6 - 9 November 2006\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGQhVXWvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
-char short_bitmap_auto_options[]="-ABCDEFGQhVXWvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1tye:";
+char short_options[]="-ABCDEFGIQhVXWvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
+char short_bitmap_auto_options[]=
+                   "-ABCDEFGIQhVXWvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1tye:";
 
 struct option long_options[] = {
     {"manage",    0, 0, '@'},
@@ -104,6 +105,7 @@ struct option long_options[] = {
     {"examine",   0, 0, 'E'},
     {"follow",    0, 0, 'F'},
     {"grow",      0, 0, 'G'},
+    {"incremental",0,0, 'I'},
     {"zero-superblock", 0, 0, 'K'}, /* deliberately no a short_option */
     {"query",	  0, 0, 'Q'},
     {"examine-bitmap", 0, 0, 'X'},
@@ -179,7 +181,9 @@ struct option long_options[] = {
     {"syslog",    0, 0, 'y'},
     /* For Grow */
     {"backup-file", 1,0, BackupFile},
-    
+
+    /* For Incremental */
+    {"rebuild-map", 0, 0, 'r'},
     {0, 0, 0, 0}
 };
 
@@ -201,6 +205,10 @@ char Help[] =
 "            make changes to an existing array.\n"
 "       mdadm --misc options... devices\n"
 "            report on or modify various md related devices.\n"
+"       mdadm --grow options device\n"
+"            resize/reshape an active array\n"
+"       mdadm --incremental device\n"
+"            add a device to an array as appropriate\n"
 "       mdadm --monitor options...\n"
 "            Monitor one or more array for significant changes.\n"
 "       mdadm device options...\n"
@@ -240,6 +248,8 @@ char OptionHelp[] =
 "  --examine     -E   : Examine superblock on an array component\n"
 "  --examine-bitmap -X: Display the detail of a bitmap file\n"
 "  --monitor     -F   : monitor (follow) some arrays\n"
+"  --grow        -G   : resize/ reshape and array\n"
+"  --incremental -I   : add a single device to an array as appropriate\n"
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
 ;
@@ -506,7 +516,22 @@ char Help_grow[] =
 "                      : array.\n"
 ;
 
-
+char Help_incr[] =
+"Usage: mdadm --incremental [-Rqrs] device\n"
+"\n"
+"This usage allows for incremental assembly of md arrays.  Devices can be\n"
+"added one at a time as they are discovered.  Once an array has all expected\n"
+"devices, it will be started.\n"
+"\n"
+"Options that are valid with incremental assembly (-I --incremental) more are:\n"
+"  --run       -R  : run arrays as soon as a minimal number of devices are\n"
+"                  : present rather than waiting for all expected.\n"
+"  --quiet     -q  : Don't print any information messages, just errors.\n"
+"  --rebuild   -r  : Rebuild the 'map' file that mdadm uses for tracking\n"
+"                  : partial arrays.\n"
+"  --scan      -s  : Use with -R to start any arrays that have the minimal\n"
+"                  : required number of devices, but are not yet started.\n"
+;
 
 char Help_config[] =
 "The /etc/mdadm.conf config file:\n\n"
@@ -590,6 +615,7 @@ mapping_t modes[] = {
 	{ "misc", MISC},
 	{ "monitor", MONITOR},
 	{ "grow", GROW},
+	{ "incremental", INCREMENTAL},
 };
 
 mapping_t faultylayout[] = {

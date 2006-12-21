@@ -601,7 +601,7 @@ int Wait(char *dev)
 	if (major(stb.st_rdev) == MD_MAJOR)
 		devnum = minor(stb.st_rdev);
 	else
-		devnum = -minor(stb.st_rdev)/16;
+		devnum = -1-(minor(stb.st_rdev)/64);
 
 	while(1) {
 		struct mdstat_ent *ms = mdstat_read(1, 0);

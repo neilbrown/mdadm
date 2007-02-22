@@ -383,7 +383,7 @@ int Monitor(mddev_dev_t devlist,
 						)
 						alert("SpareActive", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
 				}
-				st->devstate[i] = disc.state;
+				st->devstate[i] = newstate;
 				st->devid[i] = makedev(disc.major, disc.minor);
 			}
 			st->active = array.active_disks;

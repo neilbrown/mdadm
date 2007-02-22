@@ -1,3 +1,6 @@
+Changes Prior to this release
+    -   --monitor was producing some meaningless warnings due to a bug.
+
 Changes Prior to 2.6 release
     -   Fixed UUID printing in "--detail --brief" for version1 metadata.
     -   --update=resync did exactly the wrong thing for version1 metadata.

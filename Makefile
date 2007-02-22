@@ -89,7 +89,8 @@ endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
-everything: all mdadm.static mdadm.uclibc swap_super test_stripe  mdassemble mdassemble.uclibc mdassemble.static mdassemble.man
+everything: all mdadm.static swap_super test_stripe  mdassemble mdassemble.static mdassemble.man
+# mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
 
 mdadm : $(OBJS)

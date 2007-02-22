@@ -31,6 +31,10 @@
 #include	<unistd.h>
 #ifndef __dietlibc__
 extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
+#else
+# ifdef __NO_STAT64
+# define lseek64 lseek
+# endif
 #endif
 
 #include	<sys/types.h>

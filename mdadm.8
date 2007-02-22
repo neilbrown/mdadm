@@ -129,7 +129,7 @@ missing, spare, or failed drives, so there is nothing to monitor.
 Grow (or shrink) an array, or otherwise reshape it in some way.
 Currently supported growth options including changing the active size
 of component devices in RAID level 1/4/5/6 and changing the number of
-active devices in RAID1.
+active devices in RAID1/5/6.
 
 .TP
 .B "Incremental Assembly"
@@ -346,7 +346,8 @@ multipath, raid0 and raid1.  It is never allowed for raid4 or raid5.
 .br
 This number can only be changed using
 .B --grow
-for RAID1 arrays, and only on kernels which provide necessary support.
+for RAID1, RAID5 and RAID6 arrays, and only on kernels which provide
+necessary support.
 
 .TP
 .BR -x ", " --spare-devices=
@@ -1660,7 +1661,7 @@ Currently the only support available is to
 change the "size" attribute
 for RAID1, RAID5 and RAID6.
 .IP \(bu 4
-increase the "raid-disks" attribute of RAID1 and RAID5.
+increase the "raid-disks" attribute of RAID1, RAID5, and RAID6.
 .IP \(bu 4
 add a write-intent bitmap to any array which support these bitmaps, or
 remove a write-intent bitmap from such an array.

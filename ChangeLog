@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 2.6.1 release
     -   --monitor was producing some meaningless warnings due to a bug.
     -   Fix some compiler warnings.
     -   Fully support --grow for raid6.  If a reshape crashed during the

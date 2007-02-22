@@ -32,8 +32,10 @@
 
 static int geo_map(int block, unsigned long long stripe, int raid_disks, int level, int layout)
 {
-	/* On the given stripe, find which disk in the array with have
+	/* On the given stripe, find which disk in the array will have
 	 * block numbered 'block'.
+	 * '-1' means the parity block.
+	 * '-2' means the Q syndrome.
 	 */
 	int pd;
 
@@ -71,6 +73,7 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 	case 600 + ALGORITHM_LEFT_ASYMMETRIC:
 		pd = raid_disks - 1 - (stripe % raid_disks);
 		if (block == -1) return pd;
+		if (block == -2) return (pd+1) % raid_disks;
 		if (pd == raid_disks - 1)
 			return block+1;
 		if (block >= pd)
@@ -80,6 +83,7 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 	case 600 + ALGORITHM_RIGHT_ASYMMETRIC:
 		pd = stripe % raid_disks;
 		if (block == -1) return pd;
+		if (block == -2) return (pd+1) % raid_disks;
 		if (pd == raid_disks - 1)
 			return block+1;
 		if (block >= pd)
@@ -89,11 +93,13 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 	case 600 + ALGORITHM_LEFT_SYMMETRIC:
 		pd = raid_disks - 1 - (stripe % raid_disks);
 		if (block == -1) return pd;
+		if (block == -2) return (pd+1) % raid_disks;
 		return (pd + 2 + block) % raid_disks;
 
 	case 600 + ALGORITHM_RIGHT_SYMMETRIC:
 		pd = stripe % raid_disks;
 		if (block == -1) return pd;
+		if (block == -2) return (pd+1) % raid_disks;
 		return (pd + 2 + block) % raid_disks;
 	}
 	return -1;
@@ -112,10 +118,30 @@ static void xor_blocks(char *target, char **sources, int disks, int size)
 	}
 }
 
+static void qsyndrome(char *p, char *q, char **sources, int disks, int size)
+{
+	int d, z;
+	char wq0, wp0, wd0, w10, w20;
+	for ( d = 0; d < size; d++) {
+		wq0 = wp0 = sources[disks-1][d];
+		for ( z = disks-2 ; z >= 0 ; z-- ) {
+			wd0 = sources[z][d];
+			wp0 ^= wd0;
+			w20 = (wq0&0x80) ? 0xff : 0x00;
+			w10 = (wq0 << 1) & 0xff;
+			w20 &= 0x1d;
+			w10 ^= w20;
+			wq0 = w10 ^ wd0;
+		}
+		p[d] = wp0;
+		q[d] = wq0;
+	}
+}
+
 /* Save data:
  * We are given:
  *  A list of 'fds' of the active disks.  For now we require all to be present.
- *  A geomtry: raid_disks, chunk_size, level, layout
+ *  A geometry: raid_disks, chunk_size, level, layout
  *  A list of 'fds' for mirrored targets.  They are already seeked to
  *    right (Write) location
  *  A start and length
@@ -193,6 +219,7 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 	while (length > 0) {
 		int len = data_disks * chunk_size;
 		unsigned long long offset;
+		int disk, qdisk;
 		if (length < len)
 			return -3;
 		for (i=0; i < data_disks; i++) {
@@ -207,11 +234,22 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		}
 		/* We have the data, now do the parity */
 		offset = (start/chunk_size/data_disks) * chunk_size;
-		if (level >= 4) {
-			int disk = geo_map(-1, start/chunk_size/data_disks,
+		switch (level) {
+		case 4:
+		case 5:
+			disk = geo_map(-1, start/chunk_size/data_disks,
 					   raid_disks, level, layout);
 			xor_blocks(stripes[disk], blocks, data_disks, chunk_size);
-			/* FIXME need to do raid6 Q as well */
+			break;
+		case 6:
+			disk = geo_map(-1, start/chunk_size/data_disks,
+				       raid_disks, level, layout);
+			qdisk = geo_map(-2, start/chunk_size/data_disks,
+				       raid_disks, level, layout);
+
+			qsyndrome(stripes[disk], stripes[qdisk], blocks,
+				  data_disks, chunk_size);
+			break;
 		}
 		for (i=0; i < raid_disks ; i++)
 			if (dest[i] >= 0) {
@@ -227,6 +265,58 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 }
 
 #ifdef MAIN
+
+int test_stripes(int *source, unsigned long long *offsets,
+		 int raid_disks, int chunk_size, int level, int layout,
+		 unsigned long long start, unsigned long long length)
+{
+	/* ready the data and p (and q) blocks, and check we got them right */
+	char *stripe_buf = malloc(raid_disks * chunk_size);
+	char **stripes = malloc(raid_disks * sizeof(char*));
+	char **blocks = malloc(raid_disks * sizeof(char*));
+	char *p = malloc(chunk_size);
+	char *q = malloc(chunk_size);
+
+	int i;
+	int data_disks = raid_disks - (level == 5 ? 1: 2);
+	for ( i = 0 ; i < raid_disks ; i++)
+		stripes[i] = stripe_buf + i * chunk_size;
+
+	while (length > 0) {
+		int disk;
+
+		for (i = 0 ; i < raid_disks ; i++) {
+			lseek64(source[i], offsets[i]+start, 0);
+			read(source[i], stripes[i], chunk_size);
+		}
+		for (i = 0 ; i < data_disks ; i++) {
+			int disk = geo_map(i, start/chunk_size, raid_disks,
+					   level, layout);
+			blocks[i] = stripes[disk];
+			printf("%d->%d\n", i, disk);
+		}
+		switch(level) {
+		case 6:
+			qsyndrome(p, q, blocks, data_disks, chunk_size);
+			disk = geo_map(-1, start/chunk_size, raid_disks,
+				       level, layout);
+			if (memcmp(p, stripes[disk], chunk_size) != 0) {
+				printf("P(%d) wrong at %llu\n", disk,
+				       start / chunk_size);
+			}
+			disk = geo_map(-2, start/chunk_size, raid_disks,
+				       level, layout);
+			if (memcmp(q, stripes[disk], chunk_size) != 0) {
+				printf("Q(%d) wrong at %llu\n", disk,
+				       start / chunk_size);
+			}
+			break;
+		}
+		length -= chunk_size;
+		start += chunk_size;
+	}
+	return 0;
+}
 
 unsigned long long getnum(char *str, char **err)
 {
@@ -262,6 +352,8 @@ main(int argc, char *argv[])
 		save = 1;
 	else if (strcmp(argv[1], "restore") == 0)
 		save = 0;
+	else if (strcmp(argv[1], "test") == 0)
+		save = 2;
 	else {
 		fprintf(stderr, "test_stripe: must give 'save' or 'restore'.\n");
 		exit(2);
@@ -302,13 +394,23 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (save) {
+	if (save == 1) {
 		int rv = save_stripes(fds, offsets,
 				      raid_disks, chunk_size, level, layout,
 				      1, &storefd,
 				      start, length);
 		if (rv != 0) {
-			fprintf(stderr, "test_stripe: save_stripes returned %d\n", rv);
+			fprintf(stderr,
+				"test_stripe: save_stripes returned %d\n", rv);
+			exit(1);
+		}
+	} else if (save == 2) {
+		int rv = test_stripes(fds, offsets,
+				      raid_disks, chunk_size, level, layout,
+				      start, length);
+		if (rv != 0) {
+			fprintf(stderr,
+				"test_stripe: test_stripes returned %d\n", rv);
 			exit(1);
 		}
 	} else {
@@ -317,7 +419,9 @@ main(int argc, char *argv[])
 					 storefd, 0ULL,
 					 start, length);
 		if (rv != 0) {
-			fprintf(stderr, "test_stripe: restore_stripes returned %d\n", rv);
+			fprintf(stderr,
+				"test_stripe: restore_stripes returned %d\n",
+				rv);
 			exit(1);
 		}
 	}

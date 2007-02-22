@@ -576,10 +576,12 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 		/* set data_size to device size less data_offset */
 		struct misc_dev_info *misc = (struct misc_dev_info*)
 			(sbv + 1024 + sizeof(struct bitmap_super_s));
-		printf("Size was %llu\n", __le64_to_cpu(sb->data_size));
+		printf("Size was %llu\n", (unsigned long long)
+		       __le64_to_cpu(sb->data_size));
 		sb->data_size = __cpu_to_le64(
 			misc->device_size - __le64_to_cpu(sb->data_offset));
-		printf("Size is %llu\n", __le64_to_cpu(sb->data_size));
+		printf("Size is %llu\n", (unsigned long long)
+		       __le64_to_cpu(sb->data_size));
 	}
 	if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);

@@ -1203,6 +1203,8 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 			}
 		}
 		break;
+	default:
+		return 0;
 	}
 
 	if (chunk == UnSet && room > 128*2)

@@ -468,10 +468,6 @@ int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, 
 	return ftw(path, add_dev_1, nopenfd);
 }
 #else
-int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
-{
-	return 0;
-}
 int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
 {
 	return 0;

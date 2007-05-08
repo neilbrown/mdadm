@@ -393,6 +393,28 @@ static void brief_detail_super1(void *sbv)
 	}
 }
 
+static void export_super1(void *sbv)
+{
+	struct mdp_superblock_1 *sb = sbv;
+	int i;
+	int len = 32;
+
+	for (i=0; i<32; i++)
+		if (sb->set_name[i] == '\n' ||
+		    sb->set_name[i] == '\0') {
+			len = i;
+			break;
+		}
+	if (len)
+		printf("MD_NAME=%.*s\n", len, sb->set_name);
+	printf("MD_UUID=");
+	for (i=0; i<16; i++) {
+		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->set_uuid[i]);
+	}
+	printf("\n");
+}
+
 #endif
 
 static int match_home1(void *sbv, char *homehost)
@@ -1300,6 +1322,7 @@ struct superswitch super1 = {
 	.brief_examine_super = brief_examine_super1,
 	.detail_super = detail_super1,
 	.brief_detail_super = brief_detail_super1,
+	.export_super = export_super1,
 #endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,

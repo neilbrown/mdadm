@@ -31,7 +31,7 @@
 #include	"md_p.h"
 #include	"md_u.h"
 
-int Detail(char *dev, int brief, int test, char *homehost)
+int Detail(char *dev, int brief, int export, int test, char *homehost)
 {
 	/*
 	 * Print out details for an md array by using
@@ -128,7 +128,18 @@ int Detail(char *dev, int brief, int test, char *homehost)
 
 	/* Ok, we have some info to print... */
 	c = map_num(pers, array.level);
-	if (brief) 
+
+	if (export) {
+		if (c)
+			printf("MD_LEVEL=%s\n", c);
+		printf("MD_DEVICES=%d\n", array.raid_disks);
+		printf("MD_METADATA=%d.%d\n", array.major_version,
+		       array.minor_version);
+		st->ss->export_super(super);
+		goto out;
+	}
+
+	if (brief)
 		printf("ARRAY %s level=%s num-devices=%d", dev, c?c:"-unknown-",array.raid_disks );
 	else {
 		mdu_bitmap_file_t bmf;
@@ -360,6 +371,7 @@ This is pretty boring
 
 	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
+out:
 	if (test && (rv&2)) rv &= ~1;
 	close(fd);
 	return rv;

@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 	int brief = 0;
 	int force = 0;
 	int test = 0;
+	int export = 0;
 	int assume_clean = 0;
 	char *symlinks = NULL;
 	/* autof indicates whether and how to create device node.
@@ -157,6 +158,9 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": -b cannot have any extra immediately after it, sorry.\n");
 				exit(2);
 			}
+			continue;
+
+		case 'Y': export++;
 			continue;
 
 		case HomeHost:
@@ -1189,7 +1193,8 @@ int main(int argc, char *argv[])
 								e->dev);
 							continue;
 						}
-						rv |= Detail(name, verbose>1?0:verbose+1, test, homehost);
+						rv |= Detail(name, verbose>1?0:verbose+1,
+							     export, test, homehost);
 						put_md_name(name);
 					}
 				} else	if (devmode == 'S' && scan) {
@@ -1234,7 +1239,10 @@ int main(int argc, char *argv[])
 			for (dv=devlist ; dv; dv=dv->next) {
 				switch(dv->disposition) {
 				case 'D':
-					rv |= Detail(dv->devname, brief?1+verbose:0, test, homehost); continue;
+					rv |= Detail(dv->devname,
+						     brief?1+verbose:0,
+						     export, test, homehost);
+					continue;
 				case 'K': /* Zero superblock */
 					rv |= Kill(dv->devname, force, quiet); continue;
 				case 'Q':

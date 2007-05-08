@@ -280,6 +280,18 @@ static void brief_detail_super0(void *sbv)
 	else
 		printf("%08x", sb->set_uuid0);
 }
+
+static void export_super0(void *sbv)
+{
+	mdp_super_t *sb = sbv;
+	printf("MD_UUID=");
+	if (sb->minor_version >= 90)
+		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
+		       sb->set_uuid2, sb->set_uuid3);
+	else
+		printf("%08x", sb->set_uuid0);
+	printf("\n");
+}
 #endif
 
 static int match_home0(void *sbv, char *homehost)
@@ -940,6 +952,7 @@ struct superswitch super0 = {
 	.brief_examine_super = brief_examine_super0,
 	.detail_super = detail_super0,
 	.brief_detail_super = brief_detail_super0,
+	.export_super = export_super0,
 #endif
 	.match_home = match_home0,
 	.uuid_from_super = uuid_from_super0,

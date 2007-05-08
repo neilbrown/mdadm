@@ -166,6 +166,7 @@ struct option long_options[] = {
 
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},
+    {"export",	  0, 0, 'Y'},
     {"sparc2.2",  0, 0, Sparc22},
     {"test",      0, 0, 't'},
 
@@ -239,6 +240,8 @@ char OptionHelp[] =
 "  --verbose     -v   : Be more verbose about what is happening\n"
 "  --quiet       -q   : Don't print un-necessary messages\n"
 "  --brief       -b   : Be less verbose, more brief\n"
+"  --export      -Y   : With --detail, use key=value format for easy\n"
+"                       import into environment\n"
 "  --force       -f   : Override normal checks and be more forceful\n"
 "\n"
 "  --assemble    -A   : Assemble an array\n"

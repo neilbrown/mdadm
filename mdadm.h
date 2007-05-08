@@ -339,6 +339,7 @@ extern struct superswitch {
 	void (*examine_super)(void *sbv, char *homehost);
 	void (*brief_examine_super)(void *sbv);
 	void (*detail_super)(void *sbv, char *homehost);
+	void (*export_super)(void *sbv);
 	void (*brief_detail_super)(void *sbv);
 	void (*uuid_from_super)(int uuid[4], void *sbv);
 	void (*getinfo_super)(struct mdinfo *info, void *sbv);
@@ -443,7 +444,7 @@ extern int Create(struct supertype *st, char *mddev, int mdfd,
 		  int runstop, int verbose, int force, int assume_clean,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay);
 
-extern int Detail(char *dev, int brief, int test, char *homehost);
+extern int Detail(char *dev, int brief, int export, int test, char *homehost);
 extern int Query(char *dev);
 extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust,
 		   struct supertype *forcest, char *homehost);

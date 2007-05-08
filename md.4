@@ -370,9 +370,9 @@ writes to an area of the array, the corresponding bit will be cleared.
 
 This bitmap is used for two optimisations.
 
-Firstly, after an unclear shutdown, the resync process will consult
+Firstly, after an unclean shutdown, the resync process will consult
 the bitmap and only resync those blocks that correspond to bits in the
-bitmap that are set.  This can dramatically increase resync time.
+bitmap that are set.  This can dramatically reduce resync time.
 
 Secondly, when a drive fails and is removed from the array, md stops
 clearing bits in the intent log.  If that same drive is re-added to

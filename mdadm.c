@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 
 	int copies;
 	int print_help = 0;
+	FILE *outf;
 
 	int mdfd = -1;
 
@@ -226,7 +227,7 @@ int main(int argc, char *argv[])
 			if (opt == 'c' && 
 			    ( strncmp(optarg, "--h", 3)==0 ||
 			      strncmp(optarg, "-h", 2)==0)) {
-				fputs(Help_config, stderr);
+				fputs(Help_config, stdout);
 				exit(0);
 			}
 
@@ -604,17 +605,24 @@ int main(int argc, char *argv[])
 
 				continue;
 			}
-			if (strcmp(update,"?") == 0 || strcmp(update, "help") == 0)
-				fprintf(stderr, Name ": ");
-			else
-				fprintf(stderr, Name ": '--update=%s' is invalid.  ", update);
-			fprintf(stderr, "Valid --update options are:\n"
+			if (strcmp(update,"?") == 0 ||
+			    strcmp(update, "help") == 0) {
+				outf = stdout;
+				fprintf(outf, Name ": ");
+			} else {
+				outf = stderr;
+				fprintf(outf,
+					Name ": '--update=%s' is invalid.  ",
+					update);
+			}
+			fprintf(outf, "Valid --update options are:\n"
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
 		"     'summaries', 'homehost', 'byteorder', 'devicesize'.\n");
-			exit(2);
+			exit(outf == stdout ? 0 : 2);
 
 		case O(ASSEMBLE,NoDegraded): /* --no-degraded */
-			runstop = -1; /* --stop isn't allowed for --assemble, so we overload slightly */
+			runstop = -1; /* --stop isn't allowed for --assemble,
+				       * so we overload slightly */
 			continue;
 
 		case O(ASSEMBLE,'c'): /* config file */
@@ -873,7 +881,7 @@ int main(int argc, char *argv[])
 			case GROW     : help_text = Help_grow; break;
 			case INCREMENTAL:help_text= Help_incr; break;
 			}
-		fputs(help_text,stderr);
+		fputs(help_text,stdout);
 		exit(0);
 	}
 

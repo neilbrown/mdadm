@@ -159,37 +159,37 @@ information gathering operations.
 .SH Options for selecting a mode are:
 
 .TP
-.BR -A ", " --assemble
+.BR \-A ", " \-\-assemble
 Assemble a pre-existing array.
 
 .TP
-.BR -B ", " --build
+.BR \-B ", " \-\-build
 Build a legacy array without superblocks.
 
 .TP
-.BR -C ", " --create
+.BR \-C ", " \-\-create
 Create a new array.
 
 .TP
-.BR -F ", " --follow ", " --monitor
+.BR \-F ", " \-\-follow ", " \-\-monitor
 Select
 .B Monitor
 mode.
 
 .TP
-.BR -G ", " --grow
+.BR \-G ", " \-\-grow
 Change the size or shape of an active array.
 
 .TP
-.BE -I ", " --incremental
+.BE \-I ", " \-\-incremental
 Add a single device into an appropriate array, and possibly start the array.
 
 .P
 If a device is given before any options, or if the first option is
-.BR --add ,
-.BR --fail ,
+.BR \-\-add ,
+.BR \-\-fail ,
 or
-.BR --remove ,
+.BR \-\-remove ,
 then the MANAGE mode is assume.
 Anything other than these will cause the
 .B Misc
@@ -198,53 +198,53 @@ mode to be assumed.
 .SH Options that are not mode-specific are:
 
 .TP
-.BR -h ", " --help
+.BR \-h ", " \-\-help
 Display general help message or, after one of the above options, a
 mode specific help message.
 
 .TP
-.B --help-options
+.B \-\-help\-options
 Display more detailed help about command line parsing and some commonly
 used options.
 
 .TP
-.BR -V ", " --version
+.BR \-V ", " \-\-version
 Print version information for mdadm.
 
 .TP
-.BR -v ", " --verbose
+.BR \-v ", " \-\-verbose
 Be more verbose about what is happening.  This can be used twice to be
 extra-verbose.
 The extra verbosity currently only affects
-.B --detail --scan
+.B \-\-detail \-\-scan
 and
-.BR "--examine --scan" .
+.BR "\-\-examine \-\-scan" .
 
 .TP
-.BR -q ", " --quiet
+.BR \-q ", " \-\-quiet
 Avoid printing purely informative messages.  With this,
 .B mdadm
 will be silent unless there is something really important to report.
 
 .TP
-.BR -b ", " --brief
+.BR \-b ", " \-\-brief
 Be less verbose.  This is used with
-.B --detail
+.B \-\-detail
 and
-.BR --examine .
+.BR \-\-examine .
 Using
-.B --brief
+.B \-\-brief
 with
-.B --verbose
+.B \-\-verbose
 gives an intermediate level of verbosity.
 
 .TP
-.BR -f ", " --force
+.BR \-f ", " \-\-force
 Be more forceful about certain operations.  See the various modes of
 the exact meaning of this option in different contexts.
 
 .TP
-.BR -c ", " --config=
+.BR \-c ", " \-\-config=
 Specify the config file.  Default is to use
 .BR /etc/mdadm.conf ,
 or if that is missing, then
@@ -265,7 +265,7 @@ is given for the config file, then
 will act as though the config file were empty.
 
 .TP
-.BR -s ", " --scan
+.BR \-s ", " \-\-scan
 scan config file or
 .B /proc/mdstat
 for missing information.
@@ -276,19 +276,19 @@ array devices, array identities, and alert destination from the
 configuration file:
 .BR /etc/mdadm.conf .
 One exception is MISC mode when using
-.B --detail
+.B \-\-detail
 or
-.B --stop
+.B \-\-stop
 in which case
-.B --scan
+.B \-\-scan
 says to get a list of array devices from
 .BR /proc/mdstat .
 
 .TP
-.B -e ", " --metadata=
+.B \-e ", " \-\-metadata=
 Declare the style of superblock (raid metadata) to be used.  The
 default is 0.90 for
-.BR --create ,
+.BR \-\-create ,
 and to guess for other operations.
 The default can be overridden by setting the
 .B metadata
@@ -311,7 +311,7 @@ on the device, either at the end (for 1.0), at the start (for 1.1) or
 .RE
 
 .TP
-.B --homehost=
+.B \-\-homehost=
 This will override any
 .B HOMEHOST
 setting in the config file and provides the identify of the host which
@@ -333,26 +333,26 @@ will be assembled.
 .SH For create, build, or grow:
 
 .TP
-.BR -n ", " --raid-devices=
+.BR \-n ", " \-\-raid\-devices=
 Specify the number of active devices in the array.  This, plus the
 number of spare devices (see below) must equal the number of
 .I component-devices
 (including "\fBmissing\fP" devices)
 that are listed on the command line for
-.BR  --create .
+.BR  \-\-create .
 Setting a value of 1 is probably
 a mistake and so requires that
-.B --force
+.B \-\-force
 be specified first.  A value of 1 will then be allowed for linear,
 multipath, raid0 and raid1.  It is never allowed for raid4 or raid5.
 .br
 This number can only be changed using
-.B --grow
+.B \-\-grow
 for RAID1, RAID5 and RAID6 arrays, and only on kernels which provide
 necessary support.
 
 .TP
-.BR -x ", " --spare-devices=
+.BR \-x ", " \-\-spare\-devices=
 Specify the number of spare (eXtra) devices in the initial array.
 Spares can also be added
 and removed later.  The number of component devices listed
@@ -361,7 +361,7 @@ number of spare devices.
 
 
 .TP
-.BR -z ", " --size=
+.BR \-z ", " \-\-size=
 Amount (in Kibibytes) of space to use from each drive in RAID1/4/5/6.
 This must be a multiple of the chunk size, and must leave about 128Kb
 of space at the end of the drive for the RAID superblock.
@@ -371,61 +371,61 @@ size, though if there is a variance among the drives of greater than 1%, a warni
 issued.
 
 This value can be set with
-.B --grow
+.B \-\-grow
 for RAID level 1/4/5/6. If the array was created with a size smaller
 than the currently active drives, the extra space can be accessed
 using
-.BR --grow .
+.BR \-\-grow .
 The size can be given as
 .B max
 which means to choose the largest size that fits on all current drives.
 
 .TP
-.BR -c ", " --chunk=
+.BR \-c ", " \-\-chunk=
 Specify chunk size of kibibytes.  The default is 64.
 
 .TP
-.BR --rounding=
+.BR \-\-rounding=
 Specify rounding factor for linear array (==chunk size)
 
 .TP
-.BR -l ", " --level=
+.BR \-l ", " \-\-level=
 Set raid level.  When used with
-.BR --create ,
+.BR \-\-create ,
 options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
 raid5, 5, raid6, 6, raid10, 10, multipath, mp, faulty.  Obviously some of these are synonymous.
 
 When used with
-.BR --build ,
+.BR \-\-build ,
 only linear, stripe, raid0, 0, raid1, multipath, mp, and faulty are valid.
 
 Not yet supported with
-.BR --grow .
+.BR \-\-grow .
 
 .TP
-.BR -p ", " --layout=
+.BR \-p ", " \-\-layout=
 This option configures the fine details of data layout for raid5,
 and raid10 arrays, and controls the failure modes for
 .IR faulty .
 
 The layout of the raid5 parity block can be one of
-.BR left-asymmetric ,
-.BR left-symmetric ,
-.BR right-asymmetric ,
-.BR right-symmetric ,
+.BR left\-asymmetric ,
+.BR left\-symmetric ,
+.BR right\-asymmetric ,
+.BR right\-symmetric ,
 .BR la ", " ra ", " ls ", " rs .
 The default is
-.BR left-symmetric .
+.BR left\-symmetric .
 
 When setting the failure mode for
 .I faulty
 the options are:
-.BR write-transient ", " wt ,
-.BR read-transient ", " rt ,
-.BR write-persistent ", " wp ,
-.BR read-persistent ", " rp ,
-.BR write-all ,
-.BR read-fixable ", " rf ,
+.BR write\-transient ", " wt ,
+.BR read\-transient ", " rt ,
+.BR write\-persistent ", " wp ,
+.BR read\-persistent ", " rp ,
+.BR write\-all ,
+.BR read\-fixable ", " rf ,
 .BR clear ", " flush ", " none .
 
 Each mode can be followed by a number which is used as a period
@@ -435,14 +435,14 @@ generated after that many request, and will continue to be generated
 every time the period elapses.
 
 Multiple failure modes can be current simultaneously by using the
-.B --grow
+.B \-\-grow
 option to set subsequent failure modes.
 
 "clear" or "none" will remove any pending or periodic failure modes,
 and "flush" will clear any persistent faults.
 
 To set the parity with
-.BR --grow ,
+.BR \-\-grow ,
 the level of the array ("faulty")
 must be specified before the fault mode is specified.
 
@@ -472,17 +472,17 @@ number (e.g. it is perfectly legal to have an 'n2' layout for an array
 with an odd number of devices).
 
 .TP
-.BR --parity=
+.BR \-\-parity=
 same as
-.B --layout
+.B \-\-layout
 (thus explaining the p of
-.BR -p ).
+.BR \-p ).
 
 .TP
-.BR -b ", " --bitmap=
+.BR \-b ", " \-\-bitmap=
 Specify a file to store a write-intent bitmap in.  The file should not
 exist unless
-.B --force
+.B \-\-force
 is also given.  The same file should be provided
 when assembling the array.  If the word
 .B internal
@@ -490,7 +490,7 @@ is given, then the bitmap is stored with the metadata on the array,
 and so is replicated on all devices.  If the word
 .B none
 is given with
-.B --grow
+.B \-\-grow
 mode, then any bitmap that is present is removed.
 
 To help catch typing errors, the filename must contain at least one
@@ -500,7 +500,7 @@ Note: external bitmaps are only known to work on ext2 and ext3.
 Storing bitmap files on other filesystems may result in serious problems.
 
 .TP
-.BR --bitmap-chunk=
+.BR \-\-bitmap\-chunk=
 Set the chunksize of the bitmap. Each bit corresponds to that many
 Kilobytes of storage.
 When using a file based bitmap, the default is to use the smallest
@@ -512,19 +512,19 @@ available space.
 
 
 .TP
-.BR -W ", " --write-mostly
+.BR \-W ", " \-\-write\-mostly
 subsequent devices lists in a
-.BR --build ,
-.BR --create ,
+.BR \-\-build ,
+.BR \-\-create ,
 or
-.B --add
+.B \-\-add
 command will be flagged as 'write-mostly'.  This is valid for RAID1
 only and means that the 'md' driver will avoid reading from these
 devices if at all possible.  This can be useful if mirroring over a
 slow link.
 
 .TP
-.BR --write-behind=
+.BR \-\-write\-behind=
 Specify that write-behind mode should be enabled (valid for RAID1
 only). If an argument is specified, it will set the maximum number
 of outstanding writes allowed. The default value is 256.
@@ -533,7 +533,7 @@ mode, and write-behind is only attempted on drives marked as
 .IR write-mostly .
 
 .TP
-.BR --assume-clean
+.BR \-\-assume\-clean
 Tell
 .I mdadm
 that the array pre-existed and is known to be clean.  It can be useful
@@ -544,16 +544,16 @@ initial resync, however this practice \(em while normally safe \(em is not
 recommended.   Use this ony if you really know what you are doing.
 
 .TP
-.BR --backup-file=
+.BR \-\-backup\-file=
 This is needed when
-.B --grow
+.B \-\-grow
 is used to increase the number of
 raid-devices in a RAID5 if there  are no spare devices available.
 See the section below on RAID_DEVICE CHANGES.  The file should be
 stored on a separate device, not on the raid array being reshaped.
 
 .TP
-.BR -N ", " --name=
+.BR \-N ", " \-\-name=
 Set a
 .B name
 for the array.  This is currently only effective when creating an
@@ -561,7 +561,7 @@ array with a version-1 superblock.  The name is a simple textual
 string that can be used to identify array components when assembling.
 
 .TP
-.BR -R ", " --run
+.BR \-R ", " \-\-run
 Insist that
 .I mdadm
 run the array, even if some of the components
@@ -571,7 +571,7 @@ will ask for confirmation before including such components in an
 array.  This option causes that question to be suppressed.
 
 .TP
-.BR -f ", " --force
+.BR \-f ", " \-\-force
 Insist that
 .I mdadm
 accept the geometry and layout specified without question.  Normally
@@ -579,12 +579,12 @@ accept the geometry and layout specified without question.  Normally
 will not allow creation of an array with only one device, and will try
 to create a raid5 array with one missing drive (as this makes the
 initial resync work faster).  With
-.BR --force ,
+.BR \-\-force ,
 .I mdadm
 will not try to be so clever.
 
 .TP
-.BR -a ", " "--auto{=no,yes,md,mdp,part,p}{NN}"
+.BR \-a ", " "\-\-auto{=no,yes,md,mdp,part,p}{NN}"
 Instruct mdadm to create the device file if needed, possibly allocating
 an unused minor number.  "md" causes a non-partitionable array
 to be used.  "mdp", "part" or "p" causes a partitionable array (2.6 and
@@ -593,20 +593,20 @@ a 'standard' format, and the type and minor number will be determined
 from this.  See DEVICE NAMES below.
 
 The argument can also come immediately after
-"-a".  e.g. "-ap".
+"\-a".  e.g. "\-ap".
 
 If
-.B --auto
+.B \-\-auto
 is not given on the command line or in the config file, then
 the default will be
-.BR --auto=yes .
+.BR \-\-auto=yes .
 
 If
-.B --scan
+.B \-\-scan
 is also given, then any
 .I auto=
 entries in the config file will override the
-.B --auto
+.B \-\-auto
 instruction given on the command line.
 
 For partitionable arrays,
@@ -614,7 +614,7 @@ For partitionable arrays,
 will create the device file for the whole array and for the first 4
 partitions.  A different number of partitions can be specified at the
 end of this option (e.g.
-.BR --auto=p7 ).
+.BR \-\-auto=p7 ).
 If the device name ends with a digit, the partition names add a 'p',
 and a number, e.g. "/dev/home1p3".  If there is no
 trailing digit, then the partition names just have a number added,
@@ -629,9 +629,9 @@ number, and there is no entry in /dev for that number and with a
 non-standard name.
 
 .TP
-.BR --symlink = no
+.BR \-\-symlink = no
 Normally when
-.B --auto
+.B \-\-auto
 causes
 .I mdadm
 to create devices in
@@ -643,9 +643,9 @@ with names starting with
 or
 .BR md_ .
 Use
-.B --symlink=no
+.B \-\-symlink=no
 to suppress this, or
-.B --symlink=yes
+.B \-\-symlink=yes
 to enforce this even if it is suppressing
 .IR mdadm.conf .
 
@@ -653,29 +653,29 @@ to enforce this even if it is suppressing
 .SH For assemble:
 
 .TP
-.BR -u ", " --uuid=
+.BR \-u ", " \-\-uuid=
 uuid of array to assemble. Devices which don't have this uuid are
 excluded
 
 .TP
-.BR -m ", " --super-minor=
+.BR \-m ", " \-\-super\-minor=
 Minor number of device that array was created for.  Devices which
 don't have this minor number are excluded.  If you create an array as
 /dev/md1, then all superblocks will contain the minor number 1, even if
 the array is later assembled as /dev/md2.
 
 Giving the literal word "dev" for
-.B --super-minor
+.B \-\-super\-minor
 will cause
 .I mdadm
 to use the minor number of the md device that is being assembled.
 e.g. when assembling
 .BR /dev/md0 ,
-.M --super-minor=dev
+.M \-\-super\-minor=dev
 will look for super blocks with a minor number of 0.
 
 .TP
-.BR -N ", " --name=
+.BR \-N ", " \-\-name=
 Specify the name of the array to assemble.  This must be the name
 that was specified when creating the array.  It must either match
 then name stored in the superblock exactly, or it must match
@@ -684,54 +684,54 @@ with the current
 is added to the start of the given name.
 
 .TP
-.BR -f ", " --force
+.BR \-f ", " \-\-force
 Assemble the array even if some superblocks appear out-of-date
 
 .TP
-.BR -R ", " --run
+.BR \-R ", " \-\-run
 Attempt to start the array even if fewer drives were given than were
 present last time the array was active.  Normally if not all the
 expected drives are found and
-.B --scan
+.B \-\-scan
 is not used, then the array will be assembled but not started.
 With
-.B --run
+.B \-\-run
 an attempt will be made to start it anyway.
 
 .TP
-.B --no-degraded
+.B \-\-no\-degraded
 This is the reverse of
-.B --run
+.B \-\-run
 in that it inhibits the started if array unless all expected drives
 are present.  This is only needed with
-.B --scan
+.B \-\-scan
 and can be used if you physical connections to devices are
 not as reliable as you would like.
 
 .TP
-.BR -a ", " "--auto{=no,yes,md,mdp,part}"
+.BR \-a ", " "\-\-auto{=no,yes,md,mdp,part}"
 See this option under Create and Build options.
 
 .TP
-.BR -b ", " --bitmap=
+.BR \-b ", " \-\-bitmap=
 Specify the bitmap file that was given when the array was created.  If
 an array has an
 .B internal
 bitmap, there is no need to specify this when assembling the array.
 
 .TP
-.BR --backup-file=
+.BR \-\-backup\-file=
 If
-.B --backup-file
+.B \-\-backup\-file
 was used to grow the number of raid-devices in a RAID5, and the system
 crashed during the critical section, then the same
-.B --backup-file
+.B \-\-backup\-file
 must be presented to
-.B --assemble
+.B \-\-assemble
 to allow possibly corrupted data to be restored.
 
 .TP
-.BR -U ", " --update=
+.BR \-U ", " \-\-update=
 Update the superblock on each device while assembling the array.  The
 argument given to this flag can be one of
 .BR sparc2.2 ,
@@ -743,28 +743,28 @@ argument given to this flag can be one of
 .BR byteorder ,
 .BR devicesize ,
 or
-.BR super-minor .
+.BR super\-minor .
 
 The
 .B sparc2.2
 option will adjust the superblock of an array what was created on a Sparc
 machine running a patched 2.2 Linux kernel.  This kernel got the
 alignment of part of the superblock wrong.  You can use the
-.B "--examine --sparc2.2"
+.B "\-\-examine \-\-sparc2.2"
 option to
 .I mdadm
 to see what effect this would have.
 
 The
-.B super-minor
+.B super\-minor
 option will update the
 .B "preferred minor"
 field on each superblock to match the minor number of the array being
 assembled.
 This can be useful if
-.B --examine
+.B \-\-examine
 reports a different "Preferred Minor" to
-.BR --detail .
+.BR \-\-detail .
 In some cases this update will be performed automatically
 by the kernel driver. In particular the update happens automatically
 at the first write to an array with redundancy (RAID level 1 or
@@ -773,12 +773,12 @@ greater) on a 2.6 (or later) kernel.
 The
 .B uuid
 option will change the uuid of the array.  If a UUID is given with the
-.B --uuid
+.B \-\-uuid
 option that UUID will be used as a new UUID and will
 .B NOT
 be used to help identify the devices in the array.
 If no
-.B --uuid
+.B \-\-uuid
 is given, a random UUID is chosen.
 
 The
@@ -810,7 +810,7 @@ The
 option allows arrays to be moved between machines with different
 byte-order.
 When assembling such an array for the first time after a move, giving
-.B "--update=byteorder"
+.B "\-\-update=byteorder"
 will cause
 .I mdadm
 to expect superblocks to have their byteorder reversed, and will
@@ -832,14 +832,14 @@ can be used to store data, so if a device in a version 1.1 or 1.2
 array becomes larger, the metadata will still be visible, but the
 extra space will not.  In this case it might be useful to assemble the
 array with
-.BR --update=devicesize .
+.BR \-\-update=devicesize .
 This will cause
 .I mdadm
 to determine the maximum usable amount of space on each device and
 update the relevant field in the metadata.
 
 .TP
-.B --auto-update-homehost
+.B \-\-auto\-update\-homehost
 This flag is only meaning with auto-assembly (see discussion below).
 In that situation, if no suitable arrays are found for this homehost,
 .I mdadm
@@ -849,26 +849,26 @@ homehost to match the current host.
 .SH For Manage mode:
 
 .TP
-.BR -a ", " --add
+.BR \-a ", " \-\-add
 hot-add listed devices.
 
 .TP
-.BR --re-add
+.BR \-\-re\-add
 re-add a device that was recently removed from an array.
 
 .TP
-.BR -r ", " --remove
+.BR \-r ", " \-\-remove
 remove listed devices.  They must not be active.  i.e. they should
 be failed or spare devices.
 
 .TP
-.BR -f ", " --fail
+.BR \-f ", " \-\-fail
 mark listed devices as faulty.
 
 .TP
-.BR --set-faulty
+.BR \-\-set\-faulty
 same as
-.BR --fail .
+.BR \-\-fail .
 
 .P
 Each of these options require that the first device list is the array
@@ -876,7 +876,7 @@ to be acted upon and the remainder are component devices to be added,
 removed, or marked as fault.  Several different operations can be
 specified for different devices, e.g.
 .in +5
-mdadm /dev/md0 --add /dev/sda1 --fail /dev/sdb1 --remove /dev/sdb1
+mdadm /dev/md0 \-\-add /dev/sda1 \-\-fail /dev/sdb1 \-\-remove /dev/sdb1
 .in -5
 Each operation applies to all devices listed until the next
 operations.
@@ -886,9 +886,9 @@ been removed can be re-added in a way that avoids a full
 reconstruction but instead just updated the blocks that have changed
 since the device was removed.  For arrays with persistent metadata
 (superblocks) this is done automatically.  For arrays created with
-.B --build
+.B \-\-build
 mdadm needs to be told that this device we removed recently with
-.BR --re-add .
+.BR \-\-re\-add .
 
 Devices can only be removed from an array if they are not in active
 use.  i.e. that must be spares or failed devices.  To remove an active
@@ -899,69 +899,69 @@ first.
 .SH For Misc mode:
 
 .TP
-.BR -Q ", " --query
+.BR \-Q ", " \-\-query
 Examine a device to see
 (1) if it is an md device and (2) if it is a component of an md
 array.
 Information about what is discovered is presented.
 
 .TP
-.BR -D ", " --detail
+.BR \-D ", " \-\-detail
 Print detail of one or more md devices.
 
 .TP
-.BR -E ", " --examine
+.BR \-E ", " \-\-examine
 Print content of md superblock on device(s).
 .TP
-.B --sparc2.2
+.B \-\-sparc2.2
 If an array was created on a 2.2 Linux kernel patched with RAID
 support, the superblock will have been created incorrectly, or at
 least incompatibly with 2.4 and later kernels.  Using the
-.B --sparc2.2
+.B \-\-sparc2.2
 flag with
-.B --examine
+.B \-\-examine
 will fix the superblock before displaying it.  If this appears to do
 the right thing, then the array can be successfully assembled using
-.BR "--assemble --update=sparc2.2" .
+.BR "\-\-assemble \-\-update=sparc2.2" .
 
 .TP
-.BR -X ", " --examine-bitmap
+.BR \-X ", " \-\-examine\-bitmap
 Report information about a bitmap file.
 
 .TP
-.BR -R ", " --run
+.BR \-R ", " \-\-run
 start a partially built array.
 
 .TP
-.BR -S ", " --stop
+.BR \-S ", " \-\-stop
 deactivate array, releasing all resources.
 
 .TP
-.BR -o ", " --readonly
+.BR \-o ", " \-\-readonly
 mark array as readonly.
 
 .TP
-.BR -w ", " --readwrite
+.BR \-w ", " \-\-readwrite
 mark array as readwrite.
 
 .TP
-.B --zero-superblock
+.B \-\-zero\-superblock
 If the device contains a valid md superblock, the block is
 overwritten with zeros.  With
-.B --force
+.B \-\-force
 the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
 
 .TP
-.BR -t ", " --test
+.BR \-t ", " \-\-test
 When used with
-.BR --detail ,
+.BR \-\-detail ,
 the exit status of
 .I mdadm
 is set to reflect the status of the device.
 
 .TP
-.BR -W ", " --wait
+.BR \-W ", " \-\-wait
 For each md device given, wait for any resync, recovery, or reshape
 activity to finish before returning.
 .I mdadm
@@ -970,7 +970,7 @@ listed, otherwise it will return failure.
 
 .SH For Incremental Assembly mode:
 .TP
-.BR --rebuild-map ", " -r
+.BR \-\-rebuild\-map ", " \-r
 Rebuild the map file
 .RB ( /var/run/mdadm/map )
 that
@@ -978,14 +978,14 @@ that
 uses to help track which arrays are currently being assembled.
 
 .TP
-.BR --run ", " -R
+.BR \-\-run ", " \-R
 Run any array assembled as soon as a minimal number of devices are
 available, rather than waiting until all expected devices are present.
 
 .TP
-.BR --scan ", " -s
+.BR \-\-scan ", " \-s
 Only meaningful with
-.B -R
+.B \-R
 this will scan the
 .B map
 file for arrays that are being incrementally assembled and will try to
@@ -996,46 +996,46 @@ as requiring an external bitmap, that bitmap will be attached first.
 
 .SH For Monitor mode:
 .TP
-.BR -m ", " --mail
+.BR \-m ", " \-\-mail
 Give a mail address to send alerts to.
 
 .TP
-.BR -p ", " --program ", " --alert
+.BR \-p ", " \-\-program ", " \-\-alert
 Give a program to be run whenever an event is detected.
 
 .TP
-.BR -y ", " --syslog
+.BR \-y ", " \-\-syslog
 Cause all events to be reported through 'syslog'.  The messages have
 facility of 'daemon' and varying priorities.
 
 .TP
-.BR -d ", " --delay
+.BR \-d ", " \-\-delay
 Give a delay in seconds.
 .B mdadm
 polls the md arrays and then waits this many seconds before polling
 again.  The default is 60 seconds.
 
 .TP
-.BR -f ", " --daemonise
+.BR \-f ", " \-\-daemonise
 Tell
 .B mdadm
 to run as a background daemon if it decides to monitor anything.  This
 causes it to fork and run in the child, and to disconnect form the
 terminal.  The process id of the child is written to stdout.
 This is useful with
-.B --scan
+.B \-\-scan
 which will only continue monitoring if a mail address or alert program
 is found in the config file.
 
 .TP
-.BR -i ", " --pid-file
+.BR \-i ", " \-\-pid\-file
 When
 .B mdadm
 is running in daemon mode, write the pid of the daemon process to
 the specified file, instead of printing it on standard output.
 
 .TP
-.BR -1 ", " --oneshot
+.BR \-1 ", " \-\-oneshot
 Check arrays only once.  This will generate
 .B NewArray
 events and more significantly
@@ -1044,12 +1044,12 @@ and
 .B SparesMissing
 events.  Running
 .in +5
-.B "   mdadm --monitor --scan -1"
+.B "   mdadm \-\-monitor \-\-scan \-1"
 .in -5
 from a cron script will ensure regular notification of any degraded arrays.
 
 .TP
-.BR -t ", " --test
+.BR \-t ", " \-\-test
 Generate a
 .B TestMessage
 alert for every array found at startup.  This alert gets mailed and
@@ -1060,15 +1060,15 @@ message do get through successfully.
 
 .HP 12
 Usage:
-.B mdadm --assemble
+.B mdadm \-\-assemble
 .I md-device options-and-component-devices...
 .HP 12
 Usage:
-.B mdadm --assemble --scan
+.B mdadm \-\-assemble \-\-scan
 .I  md-devices-and-options...
 .HP 12
 Usage:
-.B mdadm --assemble --scan
+.B mdadm \-\-assemble \-\-scan
 .I  options...
 
 .PP
@@ -1077,7 +1077,7 @@ For each array, mdadm needs to know the md device, the identity of the
 array, and a number of component-devices. These can be found in a number of ways.
 
 In the first usage example (without the
-.BR --scan )
+.BR \-\-scan )
 the first device given is the md device.
 In the second usage example, all devices listed are treated as md
 devices and assembly is attempted.
@@ -1085,51 +1085,51 @@ In the third (where no devices are listed) all md devices that are
 listed in the configuration file are assembled.
 
 If precisely one device is listed, but
-.B --scan
+.B \-\-scan
 is not given, then
 .I mdadm
 acts as though
-.B --scan
+.B \-\-scan
 was given and identify information is extracted from the configuration file.
 
 The identity can be given with the
-.B --uuid
+.B \-\-uuid
 option, with the
-.B --super-minor
+.B \-\-super\-minor
 option, can be found  in the config file, or will be taken from the
 super block on the first component-device listed on the command line.
 
 Devices can be given on the
-.B --assemble
+.B \-\-assemble
 command line or in the config file. Only devices which have an md
 superblock which contains the right identity will be considered for
 any array.
 
 The config file is only used if explicitly named with
-.B --config
+.B \-\-config
 or requested with (a possibly implicit)
-.BR --scan .
+.BR \-\-scan .
 In the later case,
 .B /etc/mdadm.conf
 is used.
 
 If
-.B --scan
+.B \-\-scan
 is not given, then the config file will only be used to find the
 identity of md arrays.
 
 Normally the array will be started after it is assembled.  However if
-.B --scan
+.B \-\-scan
 is not given and insufficient drives were listed to start a complete
 (non-degraded) array, then the array is not started (to guard against
 usage errors).  To insist that the array be started in this case (as
 may work for RAID1, 4, 5, 6, or 10), give the
-.B --run
+.B \-\-run
 flag.
 
 If the md device does not exist, then it will be created providing the
 intent is clear. i.e. the name must be in a standard form, or the
-.B --auto
+.B \-\-auto
 option must be given to clarify how and whether the device should be
 created.
 
@@ -1161,16 +1161,16 @@ string to the device name, with an intervening "p" if the device name
 ends with a digit.
 
 The
-.B --auto
+.B \-\-auto
 option is also available in Build and Create modes.  As those modes do
 not use a config file, the "auto=" config option does not apply to
 these modes.
 
 .SS Auto Assembly
 When
-.B --assemble
+.B \-\-assemble
 is used with
-.B --scan
+.B \-\-scan
 and no devices are listed,
 .I mdadm
 will first attempt to assemble all the arrays listed in the config
@@ -1207,12 +1207,12 @@ The name will have any 'host' prefix stripped first.
 If
 .I mdadm
 cannot find any array for the given host at all, and if
-.B --auto-update-homehost
+.B \-\-auto\-update\-homehost
 is given, then
 .I mdadm
 will search again for any array (not just an array created for this
 host) and will assemble each assuming
-.BR --update=homehost .
+.BR \-\-update=homehost .
 This will change the host tag in the superblock so that on the next run,
 these arrays will be found without the second pass.  The intention of
 this feature is to support transitioning a set of md arrays to using
@@ -1226,16 +1226,16 @@ devices from one host to another.
 
 .HP 12
 Usage:
-.B mdadm --build
+.B mdadm \-\-build
 .I device
-.BI --chunk= X
-.BI --level= Y
-.BI --raid-devices= Z
+.BI \-\-chunk= X
+.BI \-\-level= Y
+.BI \-\-raid\-devices= Z
 .I devices
 
 .PP
 This usage is similar to
-.BR --create .
+.BR \-\-create .
 The difference is that it creates an array without a superblock. With
 these arrays there is no difference between initially creating the array and
 subsequently assembling the array, except that hopefully there is useful
@@ -1249,12 +1249,12 @@ once complete.
 
 .HP 12
 Usage:
-.B mdadm --create
+.B mdadm \-\-create
 .I device
-.BI --chunk= X
-.BI --level= Y
+.BI \-\-chunk= X
+.BI \-\-level= Y
 .br
-.BI --raid-devices= Z
+.BI \-\-raid\-devices= Z
 .I  devices
 
 .PP
@@ -1262,7 +1262,7 @@ This usage will initialise a new md array, associate some devices with
 it, and activate the array.
 
 If the
-.B --auto
+.B \-\-auto
 option is given (as described in more detail in the section on
 Assemble mode), then the md device will be created with a suitable
 device number if necessary.
@@ -1273,7 +1273,7 @@ device size exceeds 1%.
 
 If any discrepancy is found, the array will not automatically be run, though
 the presence of a
-.B --run
+.B \-\-run
 can override this caution.
 
 To create a "degraded" array in which some devices are missing, simply
@@ -1293,13 +1293,13 @@ will automatically create a degraded array with an extra spare drive.
 This is because building the spare into a degraded array is in general faster than resyncing
 the parity on a non-degraded, but not clean, array.  This feature can
 be overridden with the
-.B --force
+.B \-\-force
 option.
 
 When creating an array with version-1 metadata a name for the host is
 required.
 If this is not given with the
-.B --name
+.B \-\-name
 option,
 .I mdadm
 will chose a name based on the last component of the name of the
@@ -1317,32 +1317,32 @@ will be used.
 A new array will normally get a randomly assigned 128bit UUID which is
 very likely to be unique.  If you have a specific need, you can choose
 a UUID for the array by giving the
-.B --uuid=
+.B \-\-uuid=
 option.  Be warned that creating two arrays with the same UUID is a
 recipe for disaster.  Also, using
-.B --uuid=
+.B \-\-uuid=
 when creating a v0.90 array will silently override any
-.B --homehost=
+.B \-\-homehost=
 setting.
 '''If the
-'''.B --size
+'''.B \-\-size
 '''option is given, it is not necessary to list any component-devices in this command.
 '''They can be added later, before a
-'''.B --run.
+'''.B \-\-run.
 '''If no
-'''.B --size
+'''.B \-\-size
 '''is given, the apparent size of the smallest drive given is used.
 
 The General Management options that are valid with
-.B --create
+.B \-\-create
 are:
 .TP
-.B --run
+.B \-\-run
 insist on running the array even if some devices look like they might
 be in use.
 
 .TP
-.B --readonly
+.B \-\-readonly
 start the array readonly \(em not supported yet.
 
 
@@ -1358,7 +1358,7 @@ This usage will allow individual devices in an array to be failed,
 removed or added.  It is possible to perform multiple operations with
 on command. For example:
 .br
-.B "  mdadm /dev/md0 -f /dev/hda1 -r /dev/hda1 -a /dev/hda1"
+.B "  mdadm /dev/md0 \-f /dev/hda1 \-r /dev/hda1 \-a /dev/hda1"
 .br
 will firstly mark
 .B /dev/hda1
@@ -1379,20 +1379,20 @@ Usage:
 MISC mode includes a number of distinct operations that
 operate on distinct devices.  The operations are:
 .TP
---query
+\-\-query
 The device is examined to see if it is
 (1) an active md array, or
 (2) a component of an md array.
 The information discovered is reported.
 
 .TP
---detail
+\-\-detail
 The device should be an active md device.
 .B   mdadm
 will display a detailed description of the array.
-.B --brief
+.B \-\-brief
 or
-.B --scan
+.B \-\-scan
 will cause the output to be less detailed and the format to be
 suitable for inclusion in
 .BR /etc/mdadm.conf .
@@ -1401,7 +1401,7 @@ The exit status of
 will normally be 0 unless
 .I mdadm
 failed to get useful information about the device(s).  However if the
-.B --test
+.B \-\-test
 option is given, then the exit status will be:
 .RS
 .TP
@@ -1420,54 +1420,54 @@ There was an error while trying to get information about the device.
 .RE
 
 .TP
---examine
+\-\-examine
 The device should be a component of an md array.
 .B mdadm
 will read the md superblock of the device and display the contents.
 If
-.B --brief
+.B \-\-brief
 is given, or
-.B --scan
+.B \-\-scan
 then multiple devices that are components of the one array
 are grouped together and reported in a single entry suitable
 for inclusion in
 .BR /etc/mdadm.conf .
 
 Having
-.B --scan
+.B \-\-scan
 without listing any devices will cause all devices listed in the
 config file to be examined.
 
 .TP
---stop
+\-\-stop
 The devices should be active md arrays which will be deactivated, as
 long as they are not currently in use.
 
 .TP
---run
+\-\-run
 This will fully activate a partially assembled md array.
 
 .TP
---readonly
+\-\-readonly
 This will mark an active array as read-only, providing that it is
 not currently being used.
 
 .TP
---readwrite
+\-\-readwrite
 This will change a
 .B readonly
 array back to being read/write.
 
 .TP
---scan
+\-\-scan
 For all operations except
-.BR --examine ,
-.B --scan
+.BR \-\-examine ,
+.B \-\-scan
 will cause the operation to be applied to all arrays listed in
 .BR /proc/mdstat .
 For
-.BR --examine,
-.B --scan
+.BR \-\-examine,
+.B \-\-scan
 causes all devices listed in the config file to be examined.
 
 
@@ -1475,7 +1475,7 @@ causes all devices listed in the config file to be examined.
 
 .HP 12
 Usage:
-.B mdadm --monitor
+.B mdadm \-\-monitor
 .I options... devices...
 
 .PP
@@ -1498,7 +1498,7 @@ If any devices are listed on the command line,
 .B mdadm
 will only monitor those devices. Otherwise all arrays listed in the
 configuration file will be monitored.  Further, if
-.B --scan
+.B \-\-scan
 is given, then any other md devices that appear in
 .B /proc/mdstat
 will also be monitored.
@@ -1514,13 +1514,13 @@ md device which is affected, and the third is the name of a related
 device if relevant, such as a component device that has failed.
 
 If
-.B --scan
+.B \-\-scan
 is given, then a program or an E-mail address must be specified on the
 command line or in the config file.  If neither are available, then
 .B mdadm
 will not monitor anything.
 Without
-.B --scan
+.B \-\-scan
 .B mdadm
 will continue monitoring as long as something was found to monitor.  If
 no program or email is given, then each event is reported to
@@ -1615,7 +1615,7 @@ message.
 .TP
 .B TestMessage
 An array was found at startup, and the
-.B --test
+.B \-\-test
 flag was given.
 (syslog priority: Info)
 .RE
@@ -1723,10 +1723,10 @@ this "critical section" is reshaped, and takes a backup of the data
 that is in that section.  This backup is normally stored in any spare
 devices that the array has, however it can also be stored in a
 separate file specified with the
-.B --backup-file
+.B \-\-backup\-file
 option.  If this option is used, and the system does crash during the
 critical period, the same file must be passed to
-.B --assemble
+.B \-\-assemble
 to restore the backup and reassemble the array.
 
 .SS BITMAP CHANGES
@@ -1741,23 +1741,23 @@ will deadlock.  The bitmap must be on a separate filesystem.
 
 .HP 12
 Usage:
-.B mdadm --incremental
-.RB [ --run ]
-.RB [ --quiet ]
+.B mdadm \-\-incremental
+.RB [ \-\-run ]
+.RB [ \-\-quiet ]
 .I component-device
 .HP 12
 Usage:
-.B mdadm --incremental --rebuild
+.B mdadm \-\-incremental \-\-rebuild
 .HP 12
 Usage:
-.B mdadm --incremental --run --scan
+.B mdadm \-\-incremental \-\-run \-\-scan
 
 
 .PP
 This mode is designed to be used in conjunction with a device
 discovery system.  As devices are found in a system, they can be
 passed to
-.B "mdadm --incremental"
+.B "mdadm \-\-incremental"
 to be conditionally added to an appropriate array.
 
 .I mdadm
@@ -1773,13 +1773,13 @@ will only add devices to an array which were previously working
 (active or spare) parts of that array.  It does not currently support
 automatic inclusion of a new drive as a spare in some array.
 
-.B "mdadm --incremental"
+.B "mdadm \-\-incremental"
 requires a bug present in all kernels through 2.6.19, to be fixed.
 Hopefully this will be fixed in 2.6.20.  Alternately apply the patch
 which is included with the mdadm source distribution.  If
 .I mdadm
 detects that this bug is present, it will abort any attempt to use
-.BR --incremental .
+.BR \-\-incremental .
 
 The tests that
 .I mdadm
@@ -1804,9 +1804,9 @@ line.
 .IP +
 Does the device have a valid md superblock.  If a specific metadata
 version is request with
-.B --metadata
+.B \-\-metadata
 or
-.B -e
+.B \-e
 then only that style of metadata is accepted, otherwise
 .I mdadm
 finds any known version of metadata.  If no
@@ -1864,7 +1864,7 @@ there are at least that many, the array will be started.  This means
 that if any devices are missing the array will not be restarted.
 
 As an alternative,
-.B --run
+.B \-\-run
 may be passed to
 .B mdadm
 in which case the array will be run as soon as there are enough
@@ -1875,7 +1875,7 @@ will be started as soon as all but one drive is present.
 Note that neither of these approaches is really ideal.  If it is can
 be known that all device discovery has completed, then
 .br
-.B "   mdadm -IRs"
+.B "   mdadm \-IRs"
 .br
 can be run which will try to start all arrays that are being
 incrementally assembled.  They are started in "read-auto" mode in
@@ -1886,45 +1886,45 @@ still be added safely.
 
 .SH EXAMPLES
 
-.B "  mdadm --query /dev/name-of-device"
+.B "  mdadm \-\-query /dev/name-of-device"
 .br
 This will find out if a given device is a raid array, or is part of
 one, and will provide brief information about the device.
 
-.B "  mdadm --assemble --scan"
+.B "  mdadm \-\-assemble \-\-scan"
 .br
 This will assemble and start all arrays listed in the standard config file
 file.  This command will typically go in a system startup file.
 
-.B "  mdadm --stop --scan"
+.B "  mdadm \-\-stop \-\-scan"
 .br
 This will shut down all array that can be shut down (i.e. are not
 currently in use).  This will typically go in a system shutdown script.
 
-.B "  mdadm --follow --scan --delay=120"
+.B "  mdadm \-\-follow \-\-scan \-\-delay=120"
 .br
 If (and only if) there is an Email address or program given in the
 standard config file, then
 monitor the status of all arrays listed in that file by
 polling them ever 2 minutes.
 
-.B "  mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/hd[ac]1"
+.B "  mdadm \-\-create /dev/md0 \-\-level=1 \-\-raid\-devices=2 /dev/hd[ac]1"
 .br
 Create /dev/md0 as a RAID1 array consisting of /dev/hda1 and /dev/hdc1.
 
 .br
-.B "  echo 'DEVICE /dev/hd*[0-9] /dev/sd*[0-9]' > mdadm.conf"
+.B "  echo 'DEVICE /dev/hd*[0\-9] /dev/sd*[0\-9]' > mdadm.conf"
 .br
-.B "  mdadm --detail --scan >> mdadm.conf"
+.B "  mdadm \-\-detail \-\-scan >> mdadm.conf"
 .br
 This will create a prototype config file that describes currently
 active arrays that are known to be made from partitions of IDE or SCSI drives.
 This file should be reviewed before being used as it may
 contain unwanted detail.
 
-.B "  echo 'DEVICE /dev/hd[a-z] /dev/sd*[a-z]' > mdadm.conf"
+.B "  echo 'DEVICE /dev/hd[a\-z] /dev/sd*[a\-z]' > mdadm.conf"
 .br
-.B "  mdadm --examine --scan --config=mdadm.conf >> mdadm.conf"
+.B "  mdadm \-\-examine \-\-scan \-\-config=mdadm.conf >> mdadm.conf"
 .ber
 This will find what arrays could be assembled from existing IDE and
 SCSI whole drives (not partitions) and store the information is the
@@ -1935,16 +1935,16 @@ the
 entries.  It should be reviewed and edited before being used as an
 actual config file.
 
-.B "  mdadm --examine --brief --scan --config=partitions"
+.B "  mdadm \-\-examine \-\-brief \-\-scan \-\-config=partitions"
 .br
-.B "  mdadm -Ebsc partitions"
+.B "  mdadm \-Ebsc partitions"
 .br
 Create a list of devices by reading
 .BR /proc/partitions ,
 scan these for RAID superblocks, and printout a brief listing of all
 that was found.
 
-.B "  mdadm -Ac partitions -m 0 /dev/md0"
+.B "  mdadm \-Ac partitions \-m 0 /dev/md0"
 .br
 Scan all partitions and devices listed in
 .BR /proc/partitions
@@ -1952,32 +1952,32 @@ and assemble
 .B /dev/md0
 out of all such devices with a RAID superblock with a minor number of 0.
 
-.B "  mdadm --monitor --scan --daemonise > /var/run/mdadm"
+.B "  mdadm \-\-monitor \-\-scan \-\-daemonise > /var/run/mdadm"
 .br
 If config file contains a mail address or alert program, run mdadm in
 the background in monitor mode monitoring all md devices.  Also write
 pid of mdadm daemon to
 .BR /var/run/mdadm .
 
-.B "  mdadm -Iq /dev/somedevice"
+.B "  mdadm \-Iq /dev/somedevice"
 .br
 Try to incorporate newly discovered device into some array as
 appropriate.
 
-.B "  mdadm --incremental --rebuild --run --scan"
+.B "  mdadm \-\-incremental \-\-rebuild \-\-run \-\-scan"
 .br
 Rebuild the array map from any current arrays, and then start any that
 can be started.
 
-.B "  mdadm --create --help"
+.B "  mdadm \-\-create \-\-help"
 .br
 Provide help about the Create mode.
 
-.B "  mdadm --config --help"
+.B "  mdadm \-\-config \-\-help"
 .br
 Provide help about the format of the config file.
 
-.B "  mdadm --help"
+.B "  mdadm \-\-help"
 .br
 Provide general help.
 
@@ -1993,7 +1993,7 @@ filesystem,
 lists all active md devices with information about them.
 .B mdadm
 uses this to find arrays when
-.B --scan
+.B \-\-scan
 is given in Misc mode, and to monitor array reconstruction
 on Monitor mode.
 
@@ -2008,7 +2008,7 @@ for more details.
 
 .SS /var/run/mdadm/map
 When
-.B --incremental
+.B \-\-incremental
 mode is used. this file gets a list of arrays currently being created.
 If
 .B /var/run/mdadm
@@ -2022,7 +2022,7 @@ While entries in the /dev directory can have any format you like,
 .I mdadm
 has an understanding of 'standard' formats which it uses to guide its
 behaviour when creating device files via the
-.B --auto
+.B \-\-auto
 option.
 
 The standard names for non-partitioned arrays (the only sort of md
@@ -2059,8 +2059,8 @@ For information on the various levels of
 RAID, check out:
 
 .IP
-.UR   http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
-http://ostenfeld.dk/~jakob/Software-RAID.HOWTO/
+.UR   http://ostenfeld.dk/~jakob/Software\-RAID.HOWTO/
+http://ostenfeld.dk/~jakob/Software\-RAID.HOWTO/
 .UE
 '''.PP
 '''for new releases of the RAID driver check out:

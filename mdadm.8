@@ -18,7 +18,7 @@ Linux Software Raid.
 .SH DESCRIPTION
 RAID devices are virtual devices created from two or more
 real block devices. This allows multiple devices (typically disk
-drives or partitions there-of) to be combined into a single device to
+drives or partitions thereof) to be combined into a single device to
 hold (for example) a single filesystem.
 Some RAID levels include redundancy and so can survive some degree of
 device failure.
@@ -310,7 +310,7 @@ on the device, either at the end (for 1.0), at the start (for 1.1) or
 
 .TP
 .B --homehost=
-This will over-ride any
+This will override any
 .B HOMEHOST
 setting in the config file and provides the identify of the host which
 should be considered the home for any arrays.
@@ -597,7 +597,7 @@ If
 .I --scan
 is also given, then any
 .I auto=
-entries in the config file will over-ride the
+entries in the config file will override the
 .I --auto
 instruction given on the command line.
 
@@ -934,9 +934,9 @@ mark array as readwrite.
 .TP
 .B --zero-superblock
 If the device contains a valid md superblock, the block is
-over-written with zeros.  With
+overwritten with zeros.  With
 --force
-the block where the superblock would be is over-written even if it
+the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
 
 .TP
@@ -1279,7 +1279,7 @@ When creating a RAID5 array,
 will automatically create a degraded array with an extra spare drive.
 This is because building the spare into a degraded array is in general faster than resyncing
 the parity on a non-degraded, but not clean, array.  This feature can
-be over-ridden with the
+be overridden with the
 .I --force
 option.
 

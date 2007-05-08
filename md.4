@@ -326,7 +326,7 @@ undetectably corrupted.  The 2.4 md driver
 .B does not
 alert the operator to this condition.  The 2.6 md driver will fail to
 start an array in this condition without manual intervention, though
-this behaviour can be over-ridden by a kernel parameter.
+this behaviour can be overridden by a kernel parameter.
 
 .SS RECOVERY
 
@@ -427,7 +427,7 @@ As of Linux 2.6.17, md can reshape a raid5 array to have more
 devices.  Other possibilities may follow in future kernels.
 
 During any stripe process there is a 'critical section' during which
-live data is being over-written on disk.  For the operation of
+live data is being overwritten on disk.  For the operation of
 increasing the number of drives in a raid5, this critical section
 covers the first few stripes (the number being the product of the old
 and new number of devices).  After this critical section is passed,

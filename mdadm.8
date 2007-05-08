@@ -287,7 +287,9 @@ says to get a list of array devices from
 .TP
 .B -e ", " --metadata=
 Declare the style of superblock (raid metadata) to be used.  The
-default is 0.90 for --create, and to guess for other operations.
+default is 0.90 for
+.BR --create ,
+and to guess for other operations.
 The default can be overridden by setting the
 .B metadata
 value for the
@@ -389,16 +391,16 @@ Specify rounding factor for linear array (==chunk size)
 .TP
 .BR -l ", " --level=
 Set raid level.  When used with
-.IR --create ,
+.BR --create ,
 options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
 raid5, 5, raid6, 6, raid10, 10, multipath, mp, faulty.  Obviously some of these are synonymous.
 
 When used with
-.IR --build ,
+.BR --build ,
 only linear, stripe, raid0, 0, raid1, multipath, mp, and faulty are valid.
 
 Not yet supported with
-.IR --grow .
+.BR --grow .
 
 .TP
 .BR -p ", " --layout=
@@ -407,29 +409,24 @@ and raid10 arrays, and controls the failure modes for
 .IR faulty .
 
 The layout of the raid5 parity block can be one of
-left-asymmetric,
-left-symmetric,
-right-asymmetric,
-right-symmetric,
-la, ra, ls, rs.  The default is left-symmetric.
+.BR left-asymmetric ,
+.BR left-symmetric ,
+.BR right-asymmetric ,
+.BR right-symmetric ,
+.BR la ", " ra ", " ls ", " rs .
+The default is
+.BR left-symmetric .
 
 When setting the failure mode for
 .I faulty
 the options are:
-write-transient,
-wt,
-read-transient,
-rt,
-write-persistent,
-wp,
-read-persistent,
-rp,
-write-all,
-read-fixable,
-rf,
-clear,
-flush,
-none.
+.BR write-transient ", " wt ,
+.BR read-transient ", " rt ,
+.BR write-persistent ", " wp ,
+.BR read-persistent ", " rp ,
+.BR write-all ,
+.BR read-fixable ", " rf ,
+.BR clear ", " flush ", " none .
 
 Each mode can be followed by a number which is used as a period
 between fault generation.  Without a number, the fault is generated
@@ -438,12 +435,15 @@ generated after that many request, and will continue to be generated
 every time the period elapses.
 
 Multiple failure modes can be current simultaneously by using the
-"--grow" option to set subsequent failure modes.
+.B --grow
+option to set subsequent failure modes.
 
 "clear" or "none" will remove any pending or periodic failure modes,
 and "flush" will clear any persistent faults.
 
-To set the parity with "--grow", the level of the array ("faulty")
+To set the parity with
+.BR --grow ,
+the level of the array ("faulty")
 must be specified before the fault mode is specified.
 
 Finally, the layout options for RAID10 are one of 'n', 'o' or 'p' followed
@@ -473,13 +473,17 @@ with an odd number of devices).
 
 .TP
 .BR --parity=
-same as --layout (thus explaining the p of
-.IR -p ).
+same as
+.B --layout
+(thus explaining the p of
+.BR -p ).
 
 .TP
 .BR -b ", " --bitmap=
 Specify a file to store a write-intent bitmap in.  The file should not
-exist unless --force is also given.  The same file should be provided
+exist unless
+.B --force
+is also given.  The same file should be provided
 when assembling the array.  If the word
 .B internal
 is given, then the bitmap is stored with the metadata on the array,
@@ -541,7 +545,9 @@ recommended.   Use this ony if you really know what you are doing.
 
 .TP
 .BR --backup-file=
-This is needed when --grow is used to increase the number of
+This is needed when
+.B --grow
+is used to increase the number of
 raid-devices in a RAID5 if there  are no spare devices available.
 See the section below on RAID_DEVICE CHANGES.  The file should be
 stored on a separate device, not on the raid array being reshaped.
@@ -589,16 +595,18 @@ from this.  See DEVICE NAMES below.
 The argument can also come immediately after
 "-a".  e.g. "-ap".
 
-If --auto is not given on the command line or in the config file, then
+If
+.B --auto
+is not given on the command line or in the config file, then
 the default will be
 .BR --auto=yes .
 
 If
-.I --scan
+.B --scan
 is also given, then any
 .I auto=
 entries in the config file will override the
-.I --auto
+.B --auto
 instruction given on the command line.
 
 For partitionable arrays,
@@ -718,8 +726,9 @@ If
 was used to grow the number of raid-devices in a RAID5, and the system
 crashed during the critical section, then the same
 .B --backup-file
-must be presented to --assemble to allow possibly corrupted data to be
-restored.
+must be presented to
+.B --assemble
+to allow possibly corrupted data to be restored.
 
 .TP
 .BR -U ", " --update=
@@ -764,10 +773,13 @@ greater) on a 2.6 (or later) kernel.
 The
 .B uuid
 option will change the uuid of the array.  If a UUID is given with the
-"--uuid" option that UUID will be used as a new UUID and will
+.B --uuid
+option that UUID will be used as a new UUID and will
 .B NOT
 be used to help identify the devices in the array.
-If no "--uuid" is given, a random uuid is chosen.
+If no
+.B --uuid
+is given, a random UUID is chosen.
 
 The
 .B name
@@ -855,7 +867,8 @@ mark listed devices as faulty.
 
 .TP
 .BR --set-faulty
-same as --fail.
+same as
+.BR --fail .
 
 .P
 Each of these options require that the first device list is the array
@@ -875,7 +888,7 @@ since the device was removed.  For arrays with persistent metadata
 (superblocks) this is done automatically.  For arrays created with
 .B --build
 mdadm needs to be told that this device we removed recently with
-.B --re-add.
+.BR --re-add .
 
 Devices can only be removed from an array if they are not in active
 use.  i.e. that must be spares or failed devices.  To remove an active
@@ -935,7 +948,7 @@ mark array as readwrite.
 .B --zero-superblock
 If the device contains a valid md superblock, the block is
 overwritten with zeros.  With
---force
+.B --force
 the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
 
@@ -1095,7 +1108,7 @@ any array.
 The config file is only used if explicitly named with
 .B --config
 or requested with (a possibly implicit)
-.B --scan.
+.BR --scan .
 In the later case,
 .B /etc/mdadm.conf
 is used.
@@ -1116,7 +1129,7 @@ flag.
 
 If the md device does not exist, then it will be created providing the
 intent is clear. i.e. the name must be in a standard form, or the
-.I --auto
+.B --auto
 option must be given to clarify how and whether the device should be
 created.
 
@@ -1199,7 +1212,7 @@ is given, then
 .I mdadm
 will search again for any array (not just an array created for this
 host) and will assemble each assuming
-.IR --update=homehost .
+.BR --update=homehost .
 This will change the host tag in the superblock so that on the next run,
 these arrays will be found without the second pass.  The intention of
 this feature is to support transitioning a set of md arrays to using
@@ -1280,7 +1293,7 @@ will automatically create a degraded array with an extra spare drive.
 This is because building the spare into a degraded array is in general faster than resyncing
 the parity on a non-degraded, but not clean, array.  This feature can
 be overridden with the
-.I --force
+.B --force
 option.
 
 When creating an array with version-1 metadata a name for the host is
@@ -1320,7 +1333,9 @@ setting.
 '''.B --size
 '''is given, the apparent size of the smallest drive given is used.
 
-The General Management options that are valid with --create are:
+The General Management options that are valid with
+.B --create
+are:
 .TP
 .B --run
 insist on running the array even if some devices look like they might
@@ -1993,7 +2008,7 @@ for more details.
 
 .SS /var/run/mdadm/map
 When
-.I --incremental
+.B --incremental
 mode is used. this file gets a list of arrays currently being created.
 If
 .B /var/run/mdadm
@@ -2007,7 +2022,7 @@ While entries in the /dev directory can have any format you like,
 .I mdadm
 has an understanding of 'standard' formats which it uses to guide its
 behaviour when creating device files via the
-.I --auto
+.B --auto
 option.
 
 The standard names for non-partitioned arrays (the only sort of md

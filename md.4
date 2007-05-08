@@ -49,7 +49,7 @@ provides support for two different formats of this superblock, and
 other formats can be added.  Prior to this release, only one format is
 supported.
 
-The common format - known as version 0.90 - has
+The common format \(em known as version 0.90 \(em has
 a superblock that is 4K long and is written into a 64K aligned block that
 starts at least 64K and less than 128K from the end of the device
 (i.e. to get the address of the superblock round the size of the
@@ -61,7 +61,7 @@ This superblock stores multi-byte fields in a processor-dependant
 manner, so arrays cannot easily be moved between computers with
 different processors.
 
-The new format - known as version 1 - has a superblock that is
+The new format \(em known as version 1 \(em has a superblock that is
 normally 1K long, but can be longer.  It is normally stored between 8K
 and 12K from the end of the device, on a 4K boundary, though
 variations can be stored at the start of the device (version 1.1) or 4K from
@@ -432,7 +432,7 @@ increasing the number of drives in a raid5, this critical section
 covers the first few stripes (the number being the product of the old
 and new number of devices).  After this critical section is passed,
 data is only written to areas of the array which no longer hold live
-data - the live data has already been located away.
+data \(em the live data has already been located away.
 
 md is not able to ensure data preservation if there is a crash
 (e.g. power failure) during the critical section.  If md is asked to

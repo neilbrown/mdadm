@@ -536,7 +536,7 @@ that the array pre-existed and is known to be clean.  It can be useful
 when trying to recover from a major failure as you can be sure that no
 data will be affected unless you actually write to the array.  It can
 also be used when creating a RAID1 or RAID10 if you want to avoid the
-initial resync, however this practice - while normally safe - is not
+initial resync, however this practice \(em while normally safe \(em is not
 recommended.   Use this ony if you really know what you are doing.
 
 .TP
@@ -1121,7 +1121,7 @@ option must be given to clarify how and whether the device should be
 created.
 
 This can be useful for handling partitioned devices (which don't have
-a stable device number - it can change after a reboot) and when using
+a stable device number \(em it can change after a reboot) and when using
 "udev" to manage your
 .B /dev
 tree (udev cannot handle md devices because of the unusual device
@@ -1328,7 +1328,7 @@ be in use.
 
 .TP
 .B --readonly
-start the array readonly - not supported yet.
+start the array readonly \(em not supported yet.
 
 
 .SH MANAGE MODE

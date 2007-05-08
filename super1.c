@@ -175,8 +175,8 @@ static void examine_super1(void *sbv, char *homehost)
 	printf("   Raid Devices : %d\n", __le32_to_cpu(sb->raid_disks));
 	printf("\n");
 	printf("  Used Dev Size : %llu%s\n",
-	       (unsigned long long)sb->data_size,
-	       human_size(sb->data_size<<9));
+	       (unsigned long long)__le64_to_cpu(sb->data_size),
+	       human_size(__le64_to_cpu(sb->data_size)<<9));
 	if (__le32_to_cpu(sb->level) >= 0) {
 		int ddsks=0;
 		switch(__le32_to_cpu(sb->level)) {
@@ -759,6 +759,18 @@ static int store_super1(struct supertype *st, int fd, void *sbv)
 
 static int load_super1(struct supertype *st, int fd, void **sbp, char *devname);
 
+static unsigned long choose_bm_space(unsigned long devsize)
+{
+	/* if the device is bigger than 8Gig, save 64k for bitmap usage,
+	 * if bigger than 200Gig, save 128k
+	 */
+	if (devsize - 64*2 >= 200*1024*1024*2)
+		return 128*2;
+	if (devsize - 4*2 > 8*1024*1024*2)
+		return 64*2;
+	return 4*2;
+}
+
 static int write_init_super1(struct supertype *st, void *sbv,
 			     mdu_disk_info_t *dinfo, char *devname)
 {
@@ -769,7 +781,6 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	int rv;
 	int bm_space;
 
-	unsigned long space;
 	unsigned long long dsize, array_size;
 	long long sb_offset;
 
@@ -832,12 +843,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	 */
 	array_size = __le64_to_cpu(sb->size);
 	/* work out how much space we left of a bitmap */
-	if (array_size >= 200*1024*1024*2)
-		bm_space = 128*2;
-	else if (array_size > 8*1024*1024*2)
-		bm_space = 64*2;
-	else
-		bm_space = 0;
+	bm_space = choose_bm_space(array_size);
 
 	switch(st->minor_version) {
 	case 0:
@@ -855,10 +861,6 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		break;
 	case 2:
 		sb_offset = 4*2;
-		if (dsize - 4*2 - 64*2 >= array_size && array_size > 8*1024*1024*2)
-			space = 64*2;
-		else
-			space = 4*2;
 		sb->super_offset = __cpu_to_le64(4*2);
 		sb->data_offset = __cpu_to_le64(4*2 + 4*2 + bm_space);
 		sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2 - bm_space );
@@ -1103,13 +1105,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 	if (devsize < 24)
 		return 0;
 
-	/* if the device is bigger than 8Gig, save 64k for bitmap usage,
-	 * if bigger than 200Gig, save 128k
-	 */
-	if (devsize-64*2 >= 200*1024*1024*2)
-		devsize -= 128*2;
-	else if (devsize >= 8*1024*1024*2)
-		devsize -= 64*2;
+	devsize -= choose_bm_space(devsize);
 
 	switch(st->minor_version) {
 	case 0:
@@ -1161,11 +1157,9 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 			 * been left.
 			 */
 			offset = 0;
-			if (__le64_to_cpu(sb->size) >= 200*1024*1024*2)
-				room = 128*2;
-			else if (__le64_to_cpu(sb->size) > 8*1024*1024*2)
-				room = 64*2;
-			else {
+			room = choose_bm_space(__le64_to_cpu(sb->size));
+			if (room == 4*2) {
+				/* make it 3K after the superblock */
 				room = 3*2;
 				offset = 2;
 			}
@@ -1187,12 +1181,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	case 2: /* between superblock and data */
 		if (may_change) {
 			offset = 4*2;
-			if (__le64_to_cpu(sb->size) >= 200*1024*1024*2)
-				room = 128*2;
-			else if (__le64_to_cpu(sb->size) > 8*1024*1024*2)
-				room = 64*2;
-			else
-				room = 3*2;
+			room = choose_bm_space(__le64_to_cpu(sb->size));
 		} else {
 			room = __le64_to_cpu(sb->data_offset)
 				- __le64_to_cpu(sb->super_offset);

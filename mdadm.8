@@ -859,11 +859,29 @@ re-add a device that was recently removed from an array.
 .TP
 .BR \-r ", " \-\-remove
 remove listed devices.  They must not be active.  i.e. they should
-be failed or spare devices.
+be failed or spare devices.  As well as the name of a device file
+(e.g.
+.BR /dev/sda1 )
+the words
+.B failed
+and
+.B detached
+can be given to
+.BR \-\-remove .
+The first causes all failed device to be removed.  The second causes
+any device which is no longer connected to the system (i.e and open
+returns
+.BR ENXIO )
+to be removed.  This will only succeed for devices that are spares or
+have already been marked as failed.
 
 .TP
 .BR \-f ", " \-\-fail
 mark listed devices as faulty.
+As well as the name of a device file, the word
+.B detached
+can be given.  This will cause any device that has been detached from
+the system to be marked as failed.  It can then be removed.
 
 .TP
 .BR \-\-set\-faulty
@@ -1976,6 +1994,11 @@ appropriate.
 .br
 Rebuild the array map from any current arrays, and then start any that
 can be started.
+
+.B "  mdadm /dev/md4 --fail detached --remove detached"
+.br
+Any devices which are components of /dev/md4 will be marked as faulty
+and then remove from the array.
 
 .B "  mdadm \-\-create \-\-help"
 .br

@@ -180,13 +180,17 @@ int Manage_subdevs(char *devname, int fd,
 	 *	   try HOT_ADD_DISK
 	 *         If that fails EINVAL, try ADD_NEW_DISK
 	 *  'r' - remove the device HOT_REMOVE_DISK
+	 *        device can be 'faulty' or 'detached' in which case all
+	 *	  matching devices are removed.
 	 *  'f' - set the device faulty SET_DISK_FAULTY
+	 *        device can be 'detached' in which case any device that
+	 *	  is inaccessible will be marked faulty.
 	 */
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
-	mddev_dev_t dv;
+	mddev_dev_t dv, next = NULL;
 	struct stat stb;
-	int j;
+	int j, jnext = 0;
 	int tfd;
 	struct supertype *st;
 	void *dsuper = NULL;
@@ -199,18 +203,86 @@ int Manage_subdevs(char *devname, int fd,
 			devname);
 		return 1;
 	}
-	for (dv = devlist ; dv; dv=dv->next) {
+	for (dv = devlist, j=0 ; dv; dv = next, j = jnext) {
 		unsigned long long ldsize;
+		char dvname[20];
+		char *dnprintable = dv->devname;
 
-		if (stat(dv->devname, &stb)) {
-			fprintf(stderr, Name ": cannot find %s: %s\n",
-				dv->devname, strerror(errno));
-			return 1;
-		}
-		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			fprintf(stderr, Name ": %s is not a block device.\n",
-				dv->devname);
-			return 1;
+		next = dv->next;
+		jnext = 0;
+
+		if (strcmp(dv->devname, "failed")==0 ||
+		    strcmp(dv->devname, "faulty")==0) {
+			if (dv->disposition != 'r') {
+				fprintf(stderr, Name ": %s only meaningful "
+					"with -r, not -%c\n",
+					dv->devname, dv->disposition);
+				return 1;
+			}
+			for (; j < array.raid_disks + array.nr_disks ; j++) {
+				disc.number = j;
+				if (ioctl(fd, GET_DISK_INFO, &disc))
+					continue;
+				if (disc.major == 0 && disc.minor == 0)
+					continue;
+				if ((disc.state & 1) == 0) /* faulty */
+					continue;
+				stb.st_rdev = makedev(disc.major, disc.minor);
+				next = dv;
+				jnext = j+1;
+				sprintf(dvname,"%d:%d", disc.major, disc.minor);
+				dnprintable = dvname;
+				break;
+			}
+			if (jnext == 0)
+				continue;
+		} else if (strcmp(dv->devname, "detached") == 0) {
+			if (dv->disposition != 'r' && dv->disposition != 'f') {
+				fprintf(stderr, Name ": %s only meaningful "
+					"with -r of -f, not -%c\n",
+					dv->devname, dv->disposition);
+				return 1;
+			}
+			for (; j < array.raid_disks + array.nr_disks; j++) {
+				int sfd;
+				disc.number = j;
+				if (ioctl(fd, GET_DISK_INFO, &disc))
+					continue;
+				if (disc.major == 0 && disc.minor == 0)
+					continue;
+				sprintf(dvname,"%d:%d", disc.major, disc.minor);
+				sfd = dev_open(dvname, O_RDONLY);
+				if (sfd >= 0) {
+					close(sfd);
+					continue;
+				}
+				if (dv->disposition == 'f' &&
+				    (disc.state & 1) == 1) /* already faulty */
+					continue;
+				if (errno != ENXIO)
+					continue;
+				stb.st_rdev = makedev(disc.major, disc.minor);
+				next = dv;
+				jnext = j+1;
+				dnprintable = dvname;
+				break;
+			}
+			if (jnext == 0)
+				continue;
+		} else {
+			j = 0;
+
+			if (stat(dv->devname, &stb)) {
+				fprintf(stderr, Name ": cannot find %s: %s\n",
+					dv->devname, strerror(errno));
+				return 1;
+			}
+			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
+				fprintf(stderr, Name ": %s is not a "
+					"block device.\n",
+					dv->devname);
+				return 1;
+			}
 		}
 		switch(dv->disposition){
 		default:
@@ -409,24 +481,26 @@ int Manage_subdevs(char *devname, int fd,
 			/* hot remove */
 			/* FIXME check that it is a current member */
 			if (ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev)) {
-				fprintf(stderr, Name ": hot remove failed for %s: %s\n",
-					dv->devname, strerror(errno));
+				fprintf(stderr, Name ": hot remove failed "
+					"for %s: %s\n",	dnprintable,
+					strerror(errno));
 				return 1;
 			}
 			if (verbose >= 0)
-				fprintf(stderr, Name ": hot removed %s\n", dv->devname);
+				fprintf(stderr, Name ": hot removed %s\n",
+					dnprintable);
 			break;
 
 		case 'f': /* set faulty */
 			/* FIXME check current member */
 			if (ioctl(fd, SET_DISK_FAULTY, (unsigned long) stb.st_rdev)) {
 				fprintf(stderr, Name ": set device faulty failed for %s:  %s\n",
-					dv->devname, strerror(errno));
+					dnprintable, strerror(errno));
 				return 1;
 			}
 			if (verbose >= 0)
 				fprintf(stderr, Name ": set %s faulty in %s\n",
-					dv->devname, devname);
+					dnprintable, devname);
 			break;
 		}
 	}

@@ -1,3 +1,12 @@
+Changes Prior to this release
+    -   --fail detached and --remove faulty can be used to fail and
+	remove devices that are no longer physically present.
+    -   --export option for --detail or present information in a format
+	that can be processed by udev.
+    -   fix internal bitmap allocation problems with v1.1, v1.2 metadata.
+    -   --help now goes to stdout so you can direct it to a pager.
+    -   Various manpage updates.
+
 Changes Prior to 2.6.1 release
     -   --monitor was producing some meaningless warnings due to a bug.
     -   Fix some compiler warnings.

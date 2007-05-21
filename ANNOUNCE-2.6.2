@@ -1,0 +1,37 @@
+Subject:  ANNOUNCE: mdadm 2.6.2 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.6.2
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   countrycode=xx.
+   http://www.${countrycode}kernel.org/pub/linux/utils/raid/mdadm/
+and via git at
+   git://neil.brown.name/mdadm
+   http://neil.brown.name/git?p=mdadm
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.6.2  adds a  few minor bug  fixes to 2.6.1
+
+Changelog Entries:
+    -   --fail detached and --remove faulty can be used to fail and
+	remove devices that are no longer physically present.
+    -   --export option for --detail or present information in a format
+	that can be processed by udev.
+    -   fix internal bitmap allocation problems with v1.1, v1.2 metadata.
+    -   --help now goes to stdout so you can direct it to a pager.
+    -   Various manpage updates.
+    -   Make "--grow --add" for linear arrays really work.
+    -   --auto-detect to trigger in-kernel autodetect.
+    -   Make return code for "--detail --test" more reliable.  Missing
+	devices as well as failed devices cause an error.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  21st May 2007

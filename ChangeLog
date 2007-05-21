@@ -1,4 +1,4 @@
-Changes Prior to this release
+Changes Prior to 2.6.2 release
     -   --fail detached and --remove faulty can be used to fail and
 	remove devices that are no longer physically present.
     -   --export option for --detail or present information in a format

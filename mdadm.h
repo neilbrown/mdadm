@@ -32,7 +32,7 @@
 #ifndef __dietlibc__
 extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #else
-# ifdef __NO_STAT64
+# if defined(__NO_STAT64) || __WORDSIZE != 32
 # define lseek64 lseek
 # endif
 #endif

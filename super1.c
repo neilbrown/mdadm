@@ -809,6 +809,7 @@ static unsigned long choose_bm_space(unsigned long devsize)
 	/* if the device is bigger than 8Gig, save 64k for bitmap usage,
 	 * if bigger than 200Gig, save 128k
 	 */
+	if (devsize < 64*2) return 0;
 	if (devsize - 64*2 >= 200*1024*1024*2)
 		return 128*2;
 	if (devsize - 4*2 > 8*1024*1024*2)

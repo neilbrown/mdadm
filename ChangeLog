@@ -6,6 +6,7 @@ Changes Prior to this release
     -   fix internal bitmap allocation problems with v1.1, v1.2 metadata.
     -   --help now goes to stdout so you can direct it to a pager.
     -   Various manpage updates.
+    -   Make "--grow --add" for linear arrays really work.
 
 Changes Prior to 2.6.1 release
     -   --monitor was producing some meaningless warnings due to a bug.

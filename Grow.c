@@ -121,10 +121,12 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	info.disk.minor = minor(stb.st_rdev);
 	info.disk.raid_disk = d;
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-	st->ss->update_super(&info, super, "grow", newdev, 0, 0, NULL);
+	st->ss->update_super(&info, super, "linear-grow-new", newdev,
+			     0, 0, NULL);
 
 	if (st->ss->store_super(st, nfd, super)) {
-		fprintf(stderr, Name ": Cannot store new superblock on %s\n", newdev);
+		fprintf(stderr, Name ": Cannot store new superblock on %s\n",
+			newdev);
 		close(nfd);
 		return 1;
 	}
@@ -174,12 +176,9 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		info.array.nr_disks = nd+1;
 		info.array.active_disks = nd+1;
 		info.array.working_disks = nd+1;
-		info.disk.number = nd;
-		info.disk.major = major(stb.st_rdev);
-		info.disk.minor = minor(stb.st_rdev);
-		info.disk.raid_disk = nd;
-		info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-		st->ss->update_super(&info, super, "grow", dv, 0, 0, NULL);
+
+		st->ss->update_super(&info, super, "linear-grow-update", dv,
+				     0, 0, NULL);
 		
 		if (st->ss->store_super(st, fd2, super)) {
 			fprintf(stderr, Name ": Cannot store new superblock on %s\n", dv);

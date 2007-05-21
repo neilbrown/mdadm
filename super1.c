@@ -549,11 +549,34 @@ static int update_super1(struct mdinfo *info, void *sbv, char *update,
 			rv = 1;
 		}
 	}
-	if (strcmp(update, "grow") == 0) {
+	if (strcmp(update, "linear-grow-new") == 0) {
+		int i;
+		int rfd;
+		int max = __le32_to_cpu(sb->max_dev);
+
+		for (i=0 ; i < max ; i++)
+			if (__le16_to_cpu(sb->dev_roles[i]) >= 0xfffe)
+				break;
+		sb->dev_number = __cpu_to_le32(i);
+		info->disk.number = i;
+		if (max >= __le32_to_cpu(sb->max_dev))
+			sb->max_dev = __cpu_to_le32(max+1);
+
+		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+		    read(rfd, sb->device_uuid, 16) != 16) {
+			*(__u32*)(sb->device_uuid) = random();
+			*(__u32*)(sb->device_uuid+4) = random();
+			*(__u32*)(sb->device_uuid+8) = random();
+			*(__u32*)(sb->device_uuid+12) = random();
+		}
+
+		sb->dev_roles[i] =
+			__cpu_to_le16(info->disk.raid_disk);
+	}
+	if (strcmp(update, "linear-grow-update") == 0) {
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
-		/* As we are just adding a spare, there is no need to
-		 * make any change to the dev_roles array
-		 */
+		sb->dev_roles[info->disk.number] =
+			__cpu_to_le16(info->disk.raid_disk);
 	}
 	if (strcmp(update, "resync") == 0) {
 		/* make sure resync happens */

@@ -459,7 +459,16 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 			rv = 1;
 		}
 	}
-	if (strcmp(update, "grow") == 0) {
+	if (strcmp(update, "linear-grow-new") == 0) {
+		memset(&sb->disks[info->disk.number], 0, sizeof(sb->disks[0]));
+		sb->disks[info->disk.number].number = info->disk.number;
+		sb->disks[info->disk.number].major = info->disk.major;
+		sb->disks[info->disk.number].minor = info->disk.minor;
+		sb->disks[info->disk.number].raid_disk = info->disk.raid_disk;
+		sb->disks[info->disk.number].state = info->disk.state;
+		sb->this_disk = sb->disks[info->disk.number];
+	}
+	if (strcmp(update, "linear-grow-update") == 0) {
 		sb->raid_disks = info->array.raid_disks;
 		sb->nr_disks = info->array.nr_disks;
 		sb->active_disks = info->array.active_disks;
@@ -470,8 +479,6 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 		sb->disks[info->disk.number].minor = info->disk.minor;
 		sb->disks[info->disk.number].raid_disk = info->disk.raid_disk;
 		sb->disks[info->disk.number].state = info->disk.state;
-		if (sb->this_disk.number == info->disk.number)
-			sb->this_disk = sb->disks[info->disk.number];
 	}
 	if (strcmp(update, "resync") == 0) {
 		/* make sure resync happens */

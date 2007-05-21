@@ -89,7 +89,9 @@ endif
 
 all : mdadm mdadm.man md.man mdadm.conf.man
 
-everything: all mdadm.static swap_super test_stripe  mdassemble mdassemble.static mdassemble.man
+everything: all mdadm.static swap_super test_stripe \
+	mdassemble mdassemble.static mdassemble.man \
+	mdadm.Os mdadm.O2
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
 
@@ -102,12 +104,18 @@ mdadm.static : $(OBJS) $(STATICOBJS)
 mdadm.tcc : $(SRCS) mdadm.h
 	$(TCC) -o mdadm.tcc $(SRCS)
 
-mdadm.uclibc : $(SRCS) mdadm.h
+dadm.uclibc : $(SRCS) mdadm.h
 	$(UCLIBC_GCC) -DUCLIBC -DHAVE_STDINT_H -o mdadm.uclibc $(SRCS) $(STATICSRC)
 
 mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
 	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
+
+mdadm.Os : $(SRCS) mdadm.h
+	gcc -o mdadm.Os $(CFLAGS)  -DHAVE_STDINT_H -Os $(SRCS)
+
+mdadm.O2 : $(SRCS) mdadm.h
+	gcc -o mdadm.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 $(SRCS)
 
 test_stripe : restripe.c mdadm.h
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe -DMAIN restripe.c
@@ -169,8 +177,12 @@ install-man: mdadm.8 md.4 mdadm.conf.5
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 md.4 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm
 
+test: mdadm test_stripe swap_super
+	@echo "Please run 'sh ./test' as root"
+
 clean : 
 	rm -f mdadm $(OBJS) $(STATICOBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
+	mdadm.Os mdadm.O2 \
 	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super \
 	init.cpio.gz mdadm.uclibc.static test_stripe
 

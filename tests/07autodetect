@@ -1,0 +1,25 @@
+
+#
+# Test in-kernel autodetect.
+# Create a partitionable array on each of two devices,
+# put a partition on each, create an array, and see if we can
+# use autodetect to restart the array.
+
+mdadm -CR $mdp0 -l0 -f -n1 $dev0
+mdadm -CR $mdp1 -l0 -f -n1 $dev1
+sfdisk $mdp0 >&2 << END
+,,FD
+END
+sfdisk $mdp1 >&2 << END
+,,FD
+END
+mdadm -CR $md0 -l1 -n2 ${mdp0}p1 ${mdp1}p1
+check resync
+check raid1
+check wait
+mdadm -S $md0
+mdadm --auto-detect
+check raid1
+
+mdadm -Ss
+exit 0

@@ -151,6 +151,7 @@ enum mode {
 	MONITOR,
 	GROW,
 	INCREMENTAL,
+	AUTODETECT,
 };
 
 extern char short_options[];
@@ -175,6 +176,7 @@ enum special_options {
 	HomeHost,
 	AutoHomeHost,
 	Symlinks,
+	AutoDetect,
 };
 
 /* structures read from config file */
@@ -415,6 +417,7 @@ extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_reconfig(char *devname, int fd, int layout);
 extern int Manage_subdevs(char *devname, int fd,
 			  mddev_dev_t devlist, int verbose);
+extern int autodetect(void);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);
 extern int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,

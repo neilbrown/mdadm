@@ -109,6 +109,7 @@ struct option long_options[] = {
     {"zero-superblock", 0, 0, 'K'}, /* deliberately no a short_option */
     {"query",	  0, 0, 'Q'},
     {"examine-bitmap", 0, 0, 'X'},
+    {"auto-detect", 0, 0, AutoDetect},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
@@ -255,6 +256,7 @@ char OptionHelp[] =
 "  --incremental -I   : add a single device to an array as appropriate\n"
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
+"  --auto-detect      : Start arrays auto-detected by the kernel\n"
 ;
 /*
 "\n"
@@ -624,6 +626,7 @@ mapping_t modes[] = {
 	{ "monitor", MONITOR},
 	{ "grow", GROW},
 	{ "incremental", INCREMENTAL},
+	{ "auto-detect", AUTODETECT},
 };
 
 mapping_t faultylayout[] = {

@@ -21,6 +21,8 @@ fi
 
 # assume md0, md1, md2 exist in /dev
 md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
+mdp0=/dev/md_d0
+mdp1=/dev/md_d1
 
 # We test mdadm on loop-back block devices.
 # dir for storing files should be settable by command line maybe

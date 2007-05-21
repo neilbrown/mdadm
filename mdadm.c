@@ -198,6 +198,8 @@ int main(int argc, char *argv[])
 		case 'F': newmode = MONITOR;break;
 		case 'G': newmode = GROW; shortopt = short_bitmap_auto_options; break;
 		case 'I': newmode = INCREMENTAL; break;
+		case AutoDetect:
+			newmode = AUTODETECT; break;
 
 		case '#':
 		case 'D':
@@ -277,6 +279,7 @@ int main(int argc, char *argv[])
 		case 'F':
 		case 'G':
 		case 'I':
+		case AutoDetect:
 			continue;
 		}
 		if (opt == 1) {
@@ -1344,6 +1347,10 @@ int main(int argc, char *argv[])
 		}
 		rv = Incremental(devlist->devname, verbose-quiet, runstop,
 				 ss, homehost, autof);
+		break;
+	case AUTODETECT:
+		autodetect();
+		break;
 	}
 	exit(rv);
 }

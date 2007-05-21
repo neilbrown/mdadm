@@ -154,6 +154,10 @@ information gathering operations.
 '''This mode allows operations on independent devices such as examine MD
 '''superblocks, erasing old superblocks and stopping active arrays.
 
+.TP
+.B Auto-detect
+This mode does not act on a specific device or array, but rather it
+requests the Linux Kernel to activate any auto-detected arrays.
 .SH OPTIONS
 
 .SH Options for selecting a mode are:
@@ -181,8 +185,23 @@ mode.
 Change the size or shape of an active array.
 
 .TP
-.BE \-I ", " \-\-incremental
+.BR \-I ", " \-\-incremental
 Add a single device into an appropriate array, and possibly start the array.
+
+.TP
+.B \-\-auto-detect
+Request that the kernel starts any auto-detected arrays.  This can only
+work if
+.I md
+is compiled into the kernel \(em not if it is a module.
+Arrays can be auto-detected by the kernel if all the components are in
+primary MS-DOS partitions with partition type
+.BR FD .
+In-kernel autodetect is not recommended for new installations.  Using
+.I mdadm
+to detect and assemble arrays \(em possibly in an
+.I initrd
+\(em is substantially more flexible and should be preferred.
 
 .P
 If a device is given before any options, or if the first option is

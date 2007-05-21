@@ -507,4 +507,17 @@ int Manage_subdevs(char *devname, int fd,
 	return 0;
 	
 }
+
+int autodetect(void)
+{
+	/* Open any md device, and issue the RAID_AUTORUN ioctl */
+	int rv = 1;
+	int fd = dev_open("9:0", O_RDONLY);
+	if (fd >= 0) {
+		if (ioctl(fd, RAID_AUTORUN, 0) == 0)
+			rv = 0;
+		close(fd);
+	}
+	return rv;
+}
 #endif

@@ -377,12 +377,12 @@ This is pretty boring
 
 	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
-out:
 	if (test &&
 	    !enough(array.level, array.raid_disks, array.layout,
 		    1, avail, avail_disks))
 		rv = 2;
 
+out:
 	close(fd);
 	return rv;
 }

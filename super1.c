@@ -215,7 +215,7 @@ static void examine_super1(void *sbv, char *homehost)
 	printf("\n");
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 		printf("Internal Bitmap : %ld sectors from superblock\n",
-		       (long)__le32_to_cpu(sb->bitmap_offset));
+		       (long)(int32_t)__le32_to_cpu(sb->bitmap_offset));
 	}
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
 		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)__le64_to_cpu(sb->reshape_position)/2,
@@ -1276,7 +1276,7 @@ static void locate_bitmap1(struct supertype *st, int fd, void *sbv)
 	sb = sbv;
 
 	offset = __le64_to_cpu(sb->super_offset);
-	offset += (long) __le32_to_cpu(sb->bitmap_offset);
+	offset += (int32_t) __le32_to_cpu(sb->bitmap_offset);
 	if (mustfree)
 		free(sb);
 	lseek64(fd, offset<<9, 0);

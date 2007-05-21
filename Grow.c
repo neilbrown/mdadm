@@ -254,6 +254,11 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			devname);
 		return 1;
 	}
+	if (array.level <= 0) {
+		fprintf(stderr, Name ": Bitmaps not meaningful with level %s\n",
+			map_num(pers, array.level)?:"of this array");
+		return 1;
+	}
 	bitmapsize = array.size;
 	bitmapsize <<= 1;
 	if (get_dev_size(fd, NULL, &array_size) &&

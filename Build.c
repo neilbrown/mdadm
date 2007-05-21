@@ -146,6 +146,12 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		fprintf(stderr, Name ": bitmaps not supported with this kernel\n");
 		return 1;
 	}
+
+	if (bitmap_file && level <= 0) {
+		fprintf(stderr, Name ": bitmaps not meaningful with level %s\n",
+			map_num(pers, level)?:"given");
+		return 1;
+	}
 	/* now add the devices */
 	for ((i=0), (dv = devlist) ; dv ; i++, dv=dv->next) {
 		unsigned long long dsize;

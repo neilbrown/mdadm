@@ -1141,6 +1141,11 @@ int main(int argc, char *argv[])
 			rv = 1;
 			break;
 		}
+		if (raiddisks == 0) {
+			fprintf(stderr, Name ": no raid-disks specified.\n");
+			rv = 1;
+			break;
+		}
 
 		if (bitmap_file) {
 			if (strcmp(bitmap_file, "internal")==0) {
@@ -1157,6 +1162,11 @@ int main(int argc, char *argv[])
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (write_behind && !bitmap_file) {
 			fprintf(stderr, Name ": write-behind mode requires a bitmap.\n");
+			rv = 1;
+			break;
+		}
+		if (raiddisks == 0) {
+			fprintf(stderr, Name ": no raid-disks specified.\n");
 			rv = 1;
 			break;
 		}

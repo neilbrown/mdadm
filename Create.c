@@ -87,11 +87,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			Name ": a RAID level is needed to create an array.\n");
 		return 1;
 	}
-	if (raiddisks < 1) {
-		fprintf(stderr,
-			Name ": a number of --raid-devices must be given to create an array\n");
-		return 1;
-	}
 	if (raiddisks < 4 && level == 6) {
 		fprintf(stderr,
 			Name ": at least 4 raid-devices needed for level 6\n");
@@ -113,6 +108,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	}
 	if (subdevs < raiddisks+sparedisks) {
 		fprintf(stderr, Name ": You haven't given enough devices (real or missing) to create this array\n");
+		return 1;
+	}
+	if (bitmap_file && level <= 0) {
+		fprintf(stderr, Name ": bitmaps not meaningful with level %s\n",
+			map_num(pers, level)?:"given");
 		return 1;
 	}
 

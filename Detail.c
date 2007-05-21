@@ -58,6 +58,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 
 	void *super = NULL;
 	int rv = test ? 4 : 1;
+	int avail_disks = 0;
+	char *avail;
 
 	if (fd < 0) {
 		fprintf(stderr, Name ": cannot open %s: %s\n",
@@ -301,6 +303,7 @@ This is pretty boring
 			disks[next++] = disk;
 	}
 
+	avail = calloc(array.raid_disks, 1);
 	for (d= 0; d < max_disks; d++) {
 		char *dv;
 		mdu_disk_info_t disk = disks[d];
@@ -347,10 +350,13 @@ This is pretty boring
 			}
 		}
 		if (disk.state == 0) spares++;
-		if (test && d < array.raid_disks && disk.state & (1<<MD_DISK_FAULTY)) {
-			if ((rv & 1) && (array.level ==4 || array.level == 5))
-				rv |= 2;
+		if (test && d < array.raid_disks
+		    && !(disk.state & (1<<MD_DISK_SYNC)))
 			rv |= 1;
+		if (d < array.raid_disks
+		    && (disk.state & (1<<MD_DISK_SYNC))) {
+			avail_disks ++;
+			avail[d] = 1;
 		}
 		if ((dv=map_dev(disk.major, disk.minor, 0))) {
 			if (brief) {
@@ -372,7 +378,11 @@ This is pretty boring
 	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");
 out:
-	if (test && (rv&2)) rv &= ~1;
+	if (test &&
+	    !enough(array.level, array.raid_disks, array.layout,
+		    1, avail, avail_disks))
+		rv = 2;
+
 	close(fd);
 	return rv;
 }

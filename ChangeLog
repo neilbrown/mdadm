@@ -8,6 +8,8 @@ Changes Prior to this release
     -   Various manpage updates.
     -   Make "--grow --add" for linear arrays really work.
     -   --auto-detect to trigger in-kernel autodetect.
+    -   Make return code for "--detail --test" more reliable.  Missing
+	devices as well as failed devices cause an error.
 
 Changes Prior to 2.6.1 release
     -   --monitor was producing some meaningless warnings due to a bug.

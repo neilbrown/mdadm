@@ -114,6 +114,8 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		f = fopen("/proc/mdstat", "r");
 	if (f == NULL)
 		return NULL;
+	else
+		fcntl(fileno(f), F_SETFD, FD_CLOEXEC);
 
 	all = NULL;
 	end = &all;
@@ -221,8 +223,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			end = &ent->next;
 		}
 	}
-	if (hold && mdstat_fd == -1)
+	if (hold && mdstat_fd == -1) {
 		mdstat_fd = dup(fileno(f));
+		fcntl(mdstat_fd, F_SETFD, FD_CLOEXEC);
+	}
 	fclose(f);
 
 	/* If we might want to start array,

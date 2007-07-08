@@ -234,6 +234,7 @@ int Monitor(mddev_dev_t devlist,
 */				st->err=1;
 				continue;
 			}
+			fcntl(fd, F_SETFD, FD_CLOEXEC);
 			if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, NULL,

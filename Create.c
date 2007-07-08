@@ -81,6 +81,15 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (vers < 9000) {
 		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");
 		return 1;
+	} else {
+		mdu_array_info_t inf;
+		memset(&inf, 0, sizeof(inf));
+		ioctl(mdfd, GET_ARRAY_INFO, &inf);
+		if (inf.working_disks != 0) {
+			fprintf(stderr, Name ": another array by this name"
+				" is already running.\n");
+			return 1;
+		}
 	}
 	if (level == UnSet) {
 		fprintf(stderr,
@@ -225,7 +234,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			}
 			if (st->ss->major != 0 ||
 			    st->minor_version != 90)
-				fprintf(stderr, Name ": Defaulting to verion %d.%d metadata\n",
+				fprintf(stderr, Name ": Defaulting to version"
+					" %d.%d metadata\n",
 					st->ss->major,
 					st->minor_version);
 		}

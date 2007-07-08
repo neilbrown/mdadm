@@ -152,9 +152,17 @@ static void examine_super1(void *sbv, char *homehost)
 	char *c;
 	int l = homehost ? strlen(homehost) : 0;
 	int layout;
+	unsigned long long sb_offset;
 
 	printf("          Magic : %08x\n", __le32_to_cpu(sb->magic));
-	printf("        Version : %02d\n", 1);
+	printf("        Version : 1");
+	sb_offset = __le64_to_cpu(sb->super_offset);
+	if (sb_offset <= 4)
+		printf(".1\n");
+	else if (sb_offset <= 8)
+		printf(".2\n");
+	else
+		printf(".0\n");
 	printf("    Feature Map : 0x%x\n", __le32_to_cpu(sb->feature_map));
 	printf("     Array UUID : ");
 	for (i=0; i<16; i++) {
@@ -337,6 +345,7 @@ static void brief_examine_super1(void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
+	unsigned long long sb_offset;
 	char *nm;
 	char *c=map_num(pers, __le32_to_cpu(sb->level));
 
@@ -348,9 +357,15 @@ static void brief_examine_super1(void *sbv)
 	else
 		nm = "??";
 
-	printf("ARRAY /dev/md/%s level=%s metadata=1 num-devices=%d UUID=",
-	       nm,
-	       c?c:"-unknown-", __le32_to_cpu(sb->raid_disks));
+	printf("ARRAY /dev/md/%s level=%s ", nm, c?c:"-unknown-");
+	sb_offset = __le64_to_cpu(sb->super_offset);
+	if (sb_offset <= 4)
+		printf("metadata=1.1 ");
+	else if (sb_offset <= 8)
+		printf("metadata=1.2 ");
+	else
+		printf("metadata=1.0 ");
+	printf("num-devices=%d UUID=", __le32_to_cpu(sb->raid_disks));
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
 		printf("%02x", sb->set_uuid[i]);
@@ -975,7 +990,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	struct misc_dev_info *misc;
 
 
-	if (st->ss == NULL) {
+	if (st->ss == NULL || st->minor_version == -1) {
 		int bestvers = -1;
 		__u64 bestctime = 0;
 		/* guess... choose latest ctime */
@@ -1123,9 +1138,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 
 	st->ss = &super1;
 	st->max_devs = 384;
-	if (strcmp(arg, "1") == 0 ||
-	    strcmp(arg, "1.0") == 0 ||
-	    strcmp(arg, "default/large") == 0) {
+	if (strcmp(arg, "1.0") == 0) {
 		st->minor_version = 0;
 		return st;
 	}
@@ -1135,6 +1148,11 @@ static struct supertype *match_metadata_desc1(char *arg)
 	}
 	if (strcmp(arg, "1.2") == 0) {
 		st->minor_version = 2;
+		return st;
+	}
+	if (strcmp(arg, "1") == 0 ||
+	    strcmp(arg, "default/large") == 0) {
+		st->minor_version = -1;
 		return st;
 	}
 
@@ -1154,6 +1172,9 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 	devsize -= choose_bm_space(devsize);
 
 	switch(st->minor_version) {
+	case -1: /* no specified.  Now time to set default */
+		st->minor_version = 0;
+		/* FALL THROUGH */
 	case 0:
 		/* at end */
 		return ((devsize - 8*2 ) & ~(4*2-1));

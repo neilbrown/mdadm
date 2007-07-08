@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 		switch(opt) {
 		case '@': /* just incase they say --manage */
 			newmode = MANAGE;
-			shortopt = short_bitmap_auto_options;
+			shortopt = short_bitmap_options;
 			break;
 		case 'a':
 		case 'r':
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
 		case ReAdd: /* re-add */
 			if (!mode) {
 				newmode = MANAGE;
-				shortopt = short_bitmap_auto_options;
+				shortopt = short_bitmap_options;
 			}
 			break;
 
@@ -196,7 +196,9 @@ int main(int argc, char *argv[])
 		case 'B': newmode = BUILD; shortopt = short_bitmap_auto_options; break;
 		case 'C': newmode = CREATE; shortopt = short_bitmap_auto_options; break;
 		case 'F': newmode = MONITOR;break;
-		case 'G': newmode = GROW; shortopt = short_bitmap_auto_options; break;
+		case 'G': newmode = GROW;
+			shortopt = short_bitmap_options;
+			break;
 		case 'I': newmode = INCREMENTAL; break;
 		case AutoDetect:
 			newmode = AUTODETECT; break;

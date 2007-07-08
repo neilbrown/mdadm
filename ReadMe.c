@@ -87,6 +87,8 @@ char Version[] = Name " - v2.6.2 - 21st May 2007\n";
  */
 
 char short_options[]="-ABCDEFGIQhVXWvqbc:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
+char short_bitmap_options[]=
+                   "-ABCDEFGIQhVXWvqb:c:i:l:p:m:n:x:u:c:d:z:U:sarfRSow1tye:";
 char short_bitmap_auto_options[]=
                    "-ABCDEFGIQhVXWvqb:c:i:l:p:m:n:x:u:c:d:z:U:sa:rfRSow1tye:";
 

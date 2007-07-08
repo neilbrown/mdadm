@@ -155,6 +155,7 @@ enum mode {
 };
 
 extern char short_options[];
+extern char short_bitmap_options[];
 extern char short_bitmap_auto_options[];
 extern struct option long_options[];
 extern char Version[], Usage[], Help[], OptionHelp[],

@@ -328,6 +328,7 @@ int Monitor(mddev_dev_t devlist,
 			for (i=0; i<MaxDisks && i <= array.raid_disks + array.nr_disks;
 			     i++) {
 				mdu_disk_info_t disc;
+				disc.number = i;
 				if (ioctl(fd, GET_DISK_INFO, &disc) >= 0) {
 					info[i].state = disc.state;
 					info[i].major = disc.major;

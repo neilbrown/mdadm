@@ -844,6 +844,7 @@ int main(int argc, char *argv[])
 			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 1024 : 512;
 			continue;
 
+		case O(GROW, WriteBehind):
 		case O(BUILD, WriteBehind):
 		case O(CREATE, WriteBehind): /* write-behind mode */
 			write_behind = DEFAULT_MAX_WRITE_BEHIND;

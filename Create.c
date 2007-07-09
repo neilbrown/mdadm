@@ -315,12 +315,13 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 	}
 
-	/* If this is  raid5, we want to configure the last active slot
+	/* If this is raid4/5, we want to configure the last active slot
 	 * as missing, so that a reconstruct happens (faster than re-parity)
 	 * FIX: Can we do this for raid6 as well?
 	 */
 	if (assume_clean==0 && force == 0 && first_missing >= raiddisks) {
 		switch ( level ) {
+		case 4:
 		case 5:
 			insert_point = raiddisks-1;
 			sparedisks++;
@@ -345,7 +346,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		array.md_minor = minor(stb.st_rdev);
 	array.not_persistent = 0;
 	/*** FIX: Need to do something about RAID-6 here ***/
-	if ( ( (level == 5) &&
+	if ( ( (level == 4 || level == 5) &&
 	       (insert_point < raiddisks || first_missing < raiddisks) )
 	     ||
 	     ( level == 6 && missing_disks == 2)

@@ -8,7 +8,7 @@ mdadm -S $md0
 
 # now with version-1 superblock
 mdadm -CR $md0 -e1 --level=raid4 -n4 $dev0 $dev1 $dev2 $dev3 
-check resync; check raid[45]
+check recovery; check raid[45]
 testdev $md0 3 $mdsize1 64
 mdadm -S $md0
 

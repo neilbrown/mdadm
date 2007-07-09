@@ -245,8 +245,10 @@ int Monitor(mddev_dev_t devlist,
 				close(fd);
 				continue;
 			}
-			if (array.level != 1 && array.level != 5 && array.level != -4 &&
-				array.level != 6 && array.level != 10) {
+			/* It's much easier to list what array levels can't
+			 * have a device disappear than all of them that can
+			 */
+			if (array.level == 0 || array.level == -1) {
 				if (!st->err)
 					alert("DeviceDisappeared", dev, "Wrong-Level",
 					      mailaddr, mailfrom, alert_cmd, dosyslog);
@@ -401,9 +403,8 @@ int Monitor(mddev_dev_t devlist,
 			struct mdstat_ent *mse;
 			for (mse=mdstat; mse; mse=mse->next) 
 				if (mse->devnum != MAXINT &&
-				    (strcmp(mse->level, "raid1")==0 ||
-				     strcmp(mse->level, "raid5")==0 ||
-				     strcmp(mse->level, "multipath")==0)
+				    (strcmp(mse->level, "raid0")!=0 &&
+				     strcmp(mse->level, "linear")!=0)
 					) {
 					struct state *st = malloc(sizeof *st);
 					mdu_array_info_t array;

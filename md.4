@@ -6,7 +6,7 @@
 ''' See file COPYING in distribution for details.
 .TH MD 4
 .SH NAME
-md \- Multiple Device driver aka Linux Software Raid
+md \- Multiple Device driver aka Linux Software RAID
 .SH SYNOPSIS
 .BI /dev/md n
 .br
@@ -29,7 +29,7 @@ supports RAID levels
 If some number of underlying devices fails while using one of these
 levels, the array will continue to function; this number is one for
 RAID levels 4 and 5, two for RAID level 6, and all but one (N-1) for
-RAID level 1, and dependant on configuration for level 10.
+RAID level 1, and dependent on configuration for level 10.
 .PP
 .B md
 also supports a number of pseudo RAID (non-redundant) configurations
@@ -57,7 +57,7 @@ device down to a multiple of 64K and then subtract 64K).
 The available size of each device is the amount of space before the
 super block, so between 64K and 128K is lost when a device in
 incorporated into an MD array.
-This superblock stores multi-byte fields in a processor-dependant
+This superblock stores multi-byte fields in a processor-dependent
 manner, so arrays cannot easily be moved between computers with
 different processors.
 
@@ -67,7 +67,7 @@ and 12K from the end of the device, on a 4K boundary, though
 variations can be stored at the start of the device (version 1.1) or 4K from
 the start of the device (version 1.2).
 This superblock format stores multibyte data in a
-processor-independent format and has supports up to hundreds of
+processor-independent format and supports up to hundreds of
 component devices (version 0.90 only supports 28).
 
 The superblock contains, among other things:
@@ -78,7 +78,7 @@ The manner in which the devices are arranged into the array
 .TP
 UUID
 a 128 bit Universally Unique Identifier that identifies the array that
-this device is part of.
+contains this device.
 
 When a version 0.90 array is being reshaped (e.g. adding extra devices
 to a RAID5), the version number is temporarily set to 0.91.  This
@@ -90,8 +90,8 @@ that can complete the reshape processes is used.
 
 .SS ARRAYS WITHOUT SUPERBLOCKS
 While it is usually best to create arrays with superblocks so that
-they can be assembled reliably, there are some circumstances where an
-array without superblocks in preferred.  This include:
+they can be assembled reliably, there are some circumstances when an
+array without superblocks is preferred.  These include:
 .TP
 LEGACY ARRAYS
 Early versions of the
@@ -114,19 +114,19 @@ a MULTIPATH array with no superblock makes sense.
 .TP
 RAID1
 In some configurations it might be desired to create a raid1
-configuration that does use a superblock, and to maintain the state of
+configuration that does not use a superblock, and to maintain the state of
 the array elsewhere.  While not encouraged for general us, it does
 have special-purpose uses and is supported.
 
 .SS LINEAR
 
 A linear array simply catenates the available space on each
-drive together to form one large virtual drive.
+drive to form one large virtual drive.
 
 One advantage of this arrangement over the more common RAID0
 arrangement is that the array may be reconfigured at a later time with
-an extra drive and so the array is made bigger without disturbing the
-data that is on the array.  However this cannot be done on a live
+an extra drive, so the array is made bigger without disturbing the
+data that is on the array.  This can even be done on a live
 array.
 
 If a chunksize is given with a LINEAR array, the usable space on each
@@ -145,7 +145,7 @@ device, the second chunk to the second device, and so on until all
 drives have been assigned one chunk.  This collection of chunks forms
 a
 .BR stripe .
-Further chunks are gathered into stripes in the same way which are
+Further chunks are gathered into stripes in the same way, and are
 assigned to the remaining space in the drives.
 
 If devices in the array are not all the same size, then once the
@@ -166,7 +166,7 @@ requests across all devices to maximise performance.
 
 All devices in a RAID1 array should be the same size.  If they are
 not, then only the amount of space available on the smallest device is
-used.  Any extra space on other devices is wasted.
+used (any extra space on other devices is wasted).
 
 .SS RAID4
 
@@ -176,10 +176,10 @@ array. Unlike RAID0, RAID4 also requires that all stripes span all
 drives, so extra space on devices that are larger than the smallest is
 wasted.
 
-When any block in a RAID4 array is modified the parity block for that
+When any block in a RAID4 array is modified, the parity block for that
 stripe (i.e. the block in the parity device at the same device offset
 as the stripe) is also modified so that the parity block always
-contains the "parity" for the whole stripe.  i.e. its contents is
+contains the "parity" for the whole stripe.  I.e. its content is
 equivalent to the result of performing an exclusive-or operation
 between all the data blocks in the stripe.
 
@@ -192,10 +192,10 @@ parity block and the other data blocks.
 RAID5 is very similar to RAID4.  The difference is that the parity
 blocks for each stripe, instead of being on a single device, are
 distributed across all devices.  This allows more parallelism when
-writing as two different block updates will quite possibly affect
+writing, as two different block updates will quite possibly affect
 parity blocks on different devices so there is less contention.
 
-This also allows more parallelism when reading as read requests are
+This also allows more parallelism when reading, as read requests are
 distributed over all the devices in the array instead of all but one.
 
 .SS RAID6
@@ -210,12 +210,12 @@ disk failure mode, however.
 
 .SS RAID10
 
-RAID10 provides a combination of RAID1 and RAID0, and sometimes known
+RAID10 provides a combination of RAID1 and RAID0, and is sometimes known
 as RAID1+0.  Every datablock is duplicated some number of times, and
 the resulting collection of datablocks are distributed over multiple
 drives.
 
-When configuring a RAID10 array it is necessary to specify the number
+When configuring a RAID10 array, it is necessary to specify the number
 of replicas of each data block that are required (this will normally
 be 2) and whether the replicas should be 'near', 'offset' or 'far'.
 (Note that the 'offset' layout is only available from 2.6.18).
@@ -243,7 +243,7 @@ suitably large chunk size is used, but without as much seeking for
 writes.
 
 It should be noted that the number of devices in a RAID10 array need
-not be a multiple of the number of replica of each data block, those
+not be a multiple of the number of replica of each data block; however,
 there must be at least as many devices as replicas.
 
 If, for example, an array is created with 5 devices and 2 replicas,
@@ -251,7 +251,7 @@ then space equivalent to 2.5 of the devices will be available, and
 every block will be stored on two different devices.
 
 Finally, it is possible to have an array with both 'near' and 'far'
-copies.  If and array is configured with 2 near copies and 2 far
+copies.  If an array is configured with 2 near copies and 2 far
 copies, then there will be a total of 4 copies of each block, each on
 a different drive.  This is an artifact of the implementation and is
 unlikely to be of real value.
@@ -283,7 +283,7 @@ read/write at the address will probably succeed) or persistent
 faults can be "fixable" meaning that they persist until a write
 request at the same address.
 
-Fault types can be requested with a period.  In this case the fault
+Fault types can be requested with a period.  In this case, the fault
 will recur repeatedly after the given number of requests of the
 relevant type.  For example if persistent read faults have a period of
 100, then every 100th read request would generate a fault, and the
@@ -301,8 +301,8 @@ failure modes can be cleared.
 
 When changes are made to a RAID1, RAID4, RAID5, RAID6, or RAID10 array
 there is a possibility of inconsistency for short periods of time as
-each update requires are least two block to be written to different
-devices, and these writes probably wont happen at exactly the same
+each update requires at least two block to be written to different
+devices, and these writes probably won't happen at exactly the same
 time.  Thus if a system with one of these arrays is shutdown in the
 middle of a write operation (e.g. due to power failure), the array may
 not be consistent.
@@ -320,7 +320,7 @@ known as "resynchronising" or "resync" is performed in the background.
 The array can still be used, though possibly with reduced performance.
 
 If a RAID4, RAID5 or RAID6 array is degraded (missing at least one
-drive) when it is restarted after an unclean shutdown, it cannot
+drive, two for RAID6) when it is restarted after an unclean shutdown, it cannot
 recalculate parity, and so it is possible that data might be
 undetectably corrupted.  The 2.4 md driver
 .B does not
@@ -333,11 +333,11 @@ this behaviour can be overridden by a kernel parameter.
 If the md driver detects a write error on a device in a RAID1, RAID4,
 RAID5, RAID6, or RAID10 array, it immediately disables that device
 (marking it as faulty) and continues operation on the remaining
-devices.  If there is a spare drive, the driver will start recreating
-on one of the spare drives the data what was on that failed drive,
+devices.  If there are spare drives, the driver will start recreating
+on one of the spare drives the data which was on that failed drive,
 either by copying a working drive in a RAID1 configuration, or by
 doing calculations with the parity block on RAID4, RAID5 or RAID6, or
-by finding a copying originals for RAID10.
+by finding and copying originals for RAID10.
 
 In kernels prior to about 2.6.15, a read error would cause the same
 effect as a write error.  In later kernels, a read-error will instead
@@ -345,7 +345,7 @@ cause md to attempt a recovery by overwriting the bad block. i.e. it
 will find the correct data from elsewhere, write it over the block
 that failed, and then try to read it back again.  If either the write
 or the re-read fail, md will treat the error the same way that a write
-error is treated and will fail the whole device.
+error is treated, and will fail the whole device.
 
 While this recovery process is happening, the md driver will monitor
 accesses to the array and will slow down the rate of recovery if other
@@ -384,7 +384,7 @@ causing an enormous recovery cost.
 The intent log can be stored in a file on a separate device, or it can
 be stored near the superblocks of an array which has superblocks.
 
-It is possible to add an intent log or an active array, or remove an
+It is possible to add an intent log to an active array, or remove an
 intent log if one is present.
 
 In 2.6.13, intent bitmaps are only supported with RAID1.  Other levels
@@ -419,9 +419,9 @@ also known as
 .IR Reshaping ,
 is the processes of re-arranging the data stored in each stripe into a
 new layout.  This might involve changing the number of devices in the
-array (so the stripes are wider) changing the chunk size (so stripes
+array (so the stripes are wider), changing the chunk size (so stripes
 are deeper or shallower), or changing the arrangement of data and
-parity, possibly changing the raid level (e.g. 1 to 5 or 5 to 6).
+parity (possibly changing the raid level, e.g. 1 to 5 or 5 to 6).
 
 As of Linux 2.6.17, md can reshape a raid5 array to have more
 devices.  Other possibilities may follow in future kernels.
@@ -445,29 +445,29 @@ Disable writes to that section of the array (using the
 .B sysfs
 interface),
 .IP \(bu 4
-Take a copy of the data somewhere (i.e. make a backup)
+take a copy of the data somewhere (i.e. make a backup),
 .IP \(bu 4
-Allow the process to continue and invalidate the backup and restore
+allow the process to continue and invalidate the backup and restore
 write access once the critical section is passed, and
 .IP \(bu 4
-Provide for restoring the critical data before restarting the array
+provide for restoring the critical data before restarting the array
 after a system crash.
 .PP
 
 .B mdadm
-version 2.4 and later will do this for growing a RAID5  array.
+versions from 2.4 do this for growing a RAID5 array.
 
 For operations that do not change the size of the array, like simply
 increasing chunk size, or converting RAID5 to RAID6 with one extra
-device, the entire process is the critical section. In this case the
-restripe will need to progress in stages as a section is suspended,
+device, the entire process is the critical section.  In this case, the
+restripe will need to progress in stages, as a section is suspended,
 backed up,
-restriped, and released.  This is not yet implemented.
+restriped, and released; this is not yet implemented.
 
 .SS SYSFS INTERFACE
-All block devices appear as a directory in
+Each block device appears as a directory in
 .I sysfs
-(usually mounted at
+(which is usually mounted at
 .BR /sys ).
 For MD devices, this directory will contain a subdirectory called
 .B md
@@ -486,8 +486,8 @@ This value, if set, overrides the system-wide setting in
 .B /proc/sys/dev/raid/speed_limit_min
 for this array only.
 Writing the value
-.B system
-to this file cause the system-wide setting to have effect.
+.B "system"
+to this file will cause the system-wide setting to have effect.
 
 .TP
 .B md/sync_speed_max
@@ -561,7 +561,7 @@ operation is started.
 As mentioned above, md will not normally start a RAID4, RAID5, or
 RAID6 that is both dirty and degraded as this situation can imply
 hidden data loss.  This can be awkward if the root filesystem is
-affected.  Using the module parameter allows such arrays to be started
+affected.  Using this module parameter allows such arrays to be started
 at boot time.  It should be understood that there is a real (though
 small) risk of data corruption in this situation.
 
@@ -603,15 +603,15 @@ is ignored (legacy support).
 Contains information about the status of currently running array.
 .TP
 .B /proc/sys/dev/raid/speed_limit_min
-A readable and writable file that reflects the current goal rebuild
+A readable and writable file that reflects the current "goal" rebuild
 speed for times when non-rebuild activity is current on an array.
 The speed is in Kibibytes per second, and is a per-device rate, not a
-per-array rate (which means that an array with more disc will shuffle
+per-array rate (which means that an array with more disks will shuffle
 more data for a given speed).   The default is 100.
 
 .TP
 .B /proc/sys/dev/raid/speed_limit_max
-A readable and writable file that reflects the current goal rebuild
+A readable and writable file that reflects the current "goal" rebuild
 speed for times when no non-rebuild activity is current on an array.
 The default is 100,000.
 

@@ -6,7 +6,7 @@
 ''' See file COPYING in distribution for details.
 .TH MDADM.CONF 5
 .SH NAME
-mdadm.conf \- configuration for management of Software Raid with mdadm
+mdadm.conf \- configuration for management of Software RAID with mdadm
 .SH SYNOPSIS
 /etc/mdadm.conf
 .SH DESCRIPTION
@@ -211,7 +211,7 @@ line and it should have only one address.
 .B MAILFROM
 The
 .B mailfrom
-line (which can only be abbreviate at leat 5 characters) gives an
+line (which can only be abbreviated to at least 5 characters) gives an
 address to appear in the "From" address for alert mails.  This can be
 useful if you want to explicitly set a domain, as the default from
 address is "root" with no domain.  All words on this line are
@@ -295,7 +295,7 @@ DEVICE /dev/sd[bcdjkl]1
 .br
 DEVICE /dev/hda1 /dev/hdb1
 
-# /dev/md0 is known by it's UID.
+# /dev/md0 is known by its UID.
 .br
 ARRAY /dev/md0 UUID=3aaa0122:29827cfa:5331ad66:ca767371
 .br
@@ -305,7 +305,7 @@ ARRAY /dev/md0 UUID=3aaa0122:29827cfa:5331ad66:ca767371
 .br
 ARRAY /dev/md1 superminor=1
 .br
-# /dev/md2 is made from precisey these two devices
+# /dev/md2 is made from precisely these two devices
 .br
 ARRAY /dev/md2 devices=/dev/hda1,/dev/hdb1
 

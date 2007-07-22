@@ -1423,14 +1423,14 @@ Usage:
 MISC mode includes a number of distinct operations that
 operate on distinct devices.  The operations are:
 .TP
-\-\-query
+.B \-\-query
 The device is examined to see if it is
 (1) an active md array, or
 (2) a component of an md array.
 The information discovered is reported.
 
 .TP
-\-\-detail
+.B \-\-detail
 The device should be an active md device.
 .B   mdadm
 will display a detailed description of the array.
@@ -1463,7 +1463,7 @@ There was an error while trying to get information about the device.
 .RE
 
 .TP
-\-\-examine
+.B \-\-examine
 The device should be a component of an md array.
 .B mdadm
 will read the md superblock of the device and display the contents.
@@ -1482,27 +1482,27 @@ without listing any devices will cause all devices listed in the
 config file to be examined.
 
 .TP
-\-\-stop
+.B \-\-stop
 The devices should be active md arrays which will be deactivated, as
 long as they are not currently in use.
 
 .TP
-\-\-run
+.B \-\-run
 This will fully activate a partially assembled md array.
 
 .TP
-\-\-readonly
+.B \-\-readonly
 This will mark an active array as read-only, providing that it is
 not currently being used.
 
 .TP
-\-\-readwrite
+.B \-\-readwrite
 This will change a
 .B readonly
 array back to being read/write.
 
 .TP
-\-\-scan
+.B \-\-scan
 For all operations except
 .BR \-\-examine ,
 .B \-\-scan

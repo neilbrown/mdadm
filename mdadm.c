@@ -817,9 +817,15 @@ int main(int argc, char *argv[])
 			backup_file = optarg;
 			continue;
 
-		case O(GROW,'b'):
 		case O(BUILD,'b'):
 		case O(CREATE,'b'): /* here we create the bitmap */
+			if (strcmp(optarg, "none") == 0) {
+				fprintf(stderr, Name ": '--bitmap none' only"
+					" support for --grow\n");
+				exit(2);
+			}
+			/* FALL THROUGH */
+		case O(GROW,'b'):
 			if (strcmp(optarg, "internal")== 0 ||
 			    strcmp(optarg, "none")== 0 ||
 			    strchr(optarg, '/') != NULL) {

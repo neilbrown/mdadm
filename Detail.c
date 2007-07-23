@@ -137,7 +137,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		printf("MD_DEVICES=%d\n", array.raid_disks);
 		printf("MD_METADATA=%d.%d\n", array.major_version,
 		       array.minor_version);
-		st->ss->export_super(super);
+		if (super)
+			st->ss->export_super(super);
 		goto out;
 	}
 

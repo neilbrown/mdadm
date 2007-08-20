@@ -867,7 +867,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 {
 	int i, j;
 	int old_disks;
-	int err = 0;
 	unsigned long long *offsets;
 
 	if (info->delta_disks < 0)
@@ -960,7 +959,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    fd, __le64_to_cpu(bsb.devstart)*512,
 				    0, __le64_to_cpu(bsb.length)*512)) {
 			/* didn't succeed, so giveup */
-			return -1;
+			return 1;
 		}
 
 		/* Ok, so the data is restored. Let's update those superblocks. */
@@ -979,5 +978,5 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		/* And we are done! */
 		return 0;
 	}
-	return err;
+	return 1;
 }

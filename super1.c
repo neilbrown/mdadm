@@ -917,12 +917,16 @@ static int write_init_super1(struct supertype *st, void *sbv,
 		break;
 	case 1:
 		sb->super_offset = __cpu_to_le64(0);
+		if (4*2 + bm_space + __le64_to_cpu(sb->size) > dsize)
+			bm_space = dsize - __le64_to_cpu(sb->size) - 4*2;
 		sb->data_offset = __cpu_to_le64(bm_space + 4*2);
 		sb->data_size = __cpu_to_le64(dsize - bm_space - 4*2);
 		break;
 	case 2:
 		sb_offset = 4*2;
 		sb->super_offset = __cpu_to_le64(4*2);
+		if (4*2 + 4*2 + bm_space + __le64_to_cpu(sb->size) > dsize)
+			bm_space = dsize - __le64_to_cpu(sb->size) - 4*2 - 4*2;
 		sb->data_offset = __cpu_to_le64(4*2 + 4*2 + bm_space);
 		sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2 - bm_space );
 		break;

@@ -1,9 +1,9 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     2.6.2
+Version:     2.6.3
 Release:     1
-Source:      http://www.cse.unsw.edu.au/~neilb/source/mdadm/mdadm-%{version}.tgz
-URL:         http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tgz
+URL:         http://neil.brown.name/blog/mdadm
 License:     GPL
 Group:       Utilities/System
 BuildRoot:   %{_tmppath}/%{name}-root

@@ -624,7 +624,7 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
 
-	if (dsize < MD_RESERVED_SECTORS*2*512)
+	if (dsize < MD_RESERVED_SECTORS*512)
 		return 2;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
@@ -731,7 +731,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	if (!get_dev_size(fd, devname, &dsize))
 		return 1;
 
-	if (dsize < MD_RESERVED_SECTORS*512 * 2) {
+	if (dsize < MD_RESERVED_SECTORS*512) {
 		if (devname)
 			fprintf(stderr, Name
 			    ": %s is too small for md: size is %llu sectors.\n",
@@ -835,7 +835,7 @@ static struct supertype *match_metadata_desc0(char *arg)
 
 static __u64 avail_size0(struct supertype *st, __u64 devsize)
 {
-	if (devsize < MD_RESERVED_SECTORS*2)
+	if (devsize < MD_RESERVED_SECTORS)
 		return 0ULL;
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
@@ -893,7 +893,7 @@ void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 	if (!get_dev_size(fd, NULL, &dsize))
 		return;
 
-	if (dsize < MD_RESERVED_SECTORS*512 * 2)
+	if (dsize < MD_RESERVED_SECTORS*512)
 		return;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
@@ -920,8 +920,8 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 		return 1;
 
 
-	if (dsize < MD_RESERVED_SECTORS*512 * 2)
-	return -1;
+	if (dsize < MD_RESERVED_SECTORS*512)
+		return -1;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 

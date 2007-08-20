@@ -3,6 +3,8 @@ Changes Prior to this release
     -   When adding new disk to an array, don't reserve so much bitmap
         space that the disk cannot store the required data. (Needed when
 	1.x array was created with older mdadm).
+    -   When adding a drive that was a little too small, we did not get
+	the correct error message.
 
 Changes Prior to 2.6.2 release
     -   --fail detached and --remove faulty can be used to fail and

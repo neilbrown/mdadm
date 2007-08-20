@@ -8,6 +8,15 @@ Changes Prior to this release
     -   Make sure that if --assemble find an array in the critical region
 	of a reshape, and cannot find the critical data to restart the
 	reshape, it gives an error message.
+    -   Fix segfault with '--detail --export' and non-persistent
+        superblocks.
+    -   Various manpage updates.
+    -   Improved 'raid4' support (--assemble, --monitor)
+    -   Option parsing fixes w.r.t -a
+    -   Interpret "--assemble --metadata=1" to allow any version 1.x
+	metadata, and be more specific in the "metadata=" message printed
+	with --examine --brief
+    -   Fix spare migration in --monitor.
 
 Changes Prior to 2.6.2 release
     -   --fail detached and --remove faulty can be used to fail and

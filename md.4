@@ -168,6 +168,13 @@ All devices in a RAID1 array should be the same size.  If they are
 not, then only the amount of space available on the smallest device is
 used (any extra space on other devices is wasted).
 
+Note that the read balancing done by the driver does not make the RAID1
+performance profile be the same as for RAID0; a single stream of
+sequential input will not be accelerated (e.g. a single dd), but
+multiple sequential streams or a random workload will use more than one
+spindle. In theory, having an N-disk RAID1 will allow N sequential
+threads to read from all disks.
+
 .SS RAID4
 
 A RAID4 array is like a RAID0 array with an extra device for storing

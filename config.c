@@ -29,7 +29,7 @@
 
 #include	"mdadm.h"
 #include	"dlink.h"
-#include	<sys/dir.h>
+#include	<dirent.h>
 #include	<glob.h>
 #include	<fnmatch.h>
 #include	<ctype.h>

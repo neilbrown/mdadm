@@ -29,7 +29,7 @@
 
 #define	_GNU_SOURCE
 #include	<unistd.h>
-#ifndef __dietlibc__
+#if !defined(__dietlibc__) && !defined(__KLIBC__)
 extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #else
 # if defined(__NO_STAT64) || __WORDSIZE != 32
@@ -97,6 +97,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 		     ((x) & 0x00000000ff000000ULL) << 8 | \
 		     ((x) & 0x000000ff00000000ULL) >> 8)
 
+#if !defined(__KLIBC__)
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define	__cpu_to_le16(_x) (_x)
 #define __cpu_to_le32(_x) (_x)
@@ -114,6 +115,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #else
 #  error "unknown endianness."
 #endif
+#endif /* __KLIBC__ */
 
 
 
@@ -396,6 +398,11 @@ struct stat64;
 
 #ifdef __dietlibc__
 # undef HAVE_NFTW
+#endif
+
+#if defined(__KLIBC__)
+# undef HAVE_NFTW
+# undef HAVE_FTW
 #endif
 
 #ifndef HAVE_NFTW

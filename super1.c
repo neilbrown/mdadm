@@ -996,34 +996,35 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 
 	if (st->ss == NULL || st->minor_version == -1) {
 		int bestvers = -1;
+		struct supertype tst;
 		__u64 bestctime = 0;
 		/* guess... choose latest ctime */
-		st->ss = &super1;
-		for (st->minor_version = 0; st->minor_version <= 2 ; st->minor_version++) {
+		tst.ss = &super1;
+		for (tst.minor_version = 0; tst.minor_version <= 2 ; tst.minor_version++) {
 			switch(load_super1(st, fd, sbp, devname)) {
 			case 0: super = *sbp;
 				if (bestvers == -1 ||
 				    bestctime < __le64_to_cpu(super->ctime)) {
-					bestvers = st->minor_version;
+					bestvers = tst.minor_version;
 					bestctime = __le64_to_cpu(super->ctime);
 				}
 				free(super);
 				*sbp = NULL;
 				break;
-			case 1: st->ss = NULL; return 1; /*bad device */
+			case 1: return 1; /*bad device */
 			case 2: break; /* bad, try next */
 			}
 		}
 		if (bestvers != -1) {
 			int rv;
-			st->minor_version = bestvers;
-			st->ss = &super1;
-			st->max_devs = 384;
+			tst.minor_version = bestvers;
+			tst.ss = &super1;
+			tst.max_devs = 384;
 			rv = load_super1(st, fd, sbp, devname);
-			if (rv) st->ss = NULL;
+			if (rv == 0)
+				*st = tst;
 			return rv;
 		}
-		st->ss = NULL;
 		return 2;
 	}
 	if (!get_dev_size(fd, devname, &dsize))

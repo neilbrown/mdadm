@@ -31,7 +31,7 @@
 #include	"md_p.h"
 #include	"md_u.h"
 #include	<sys/wait.h>
-#include	<sys/signal.h>
+#include	<signal.h>
 #include	<values.h>
 #include	<syslog.h>
 

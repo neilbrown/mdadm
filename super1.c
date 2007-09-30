@@ -1001,7 +1001,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		/* guess... choose latest ctime */
 		tst.ss = &super1;
 		for (tst.minor_version = 0; tst.minor_version <= 2 ; tst.minor_version++) {
-			switch(load_super1(st, fd, sbp, devname)) {
+			switch(load_super1(&tst, fd, sbp, devname)) {
 			case 0: super = *sbp;
 				if (bestvers == -1 ||
 				    bestctime < __le64_to_cpu(super->ctime)) {

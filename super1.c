@@ -1020,7 +1020,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 			tst.minor_version = bestvers;
 			tst.ss = &super1;
 			tst.max_devs = 384;
-			rv = load_super1(st, fd, sbp, devname);
+			rv = load_super1(&tst, fd, sbp, devname);
 			if (rv == 0)
 				*st = tst;
 			return rv;

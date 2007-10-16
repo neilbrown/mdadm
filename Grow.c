@@ -868,6 +868,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	int i, j;
 	int old_disks;
 	unsigned long long *offsets;
+	unsigned long long  nstripe, ostripe, last_block;
+	int ndata, odata;
 
 	if (info->delta_disks < 0)
 		return 1; /* cannot handle a shrink */
@@ -978,5 +980,24 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		/* And we are done! */
 		return 0;
 	}
+	/* Didn't find any backup data, try to see if any
+	 * was needed.
+	 */
+	nstripe = ostripe = 0;
+	odata = info->array.raid_disks - info->delta_disks - 1;
+	if (info->array.level == 6) odata--; /* number of data disks */
+	ndata = info->array.raid_disks - 1;
+	if (info->new_level == 6) ndata--;
+	last_block = 0;
+	while (nstripe >= ostripe) {
+		nstripe += info->new_chunk / 512;
+		last_block = nstripe * ndata;
+		ostripe = last_block / odata / (info->array.chunk_size/512) *
+			(info->array.chunk_size/512);
+	}
+
+	if (info->reshape_progress >= last_block)
+		return 0;
+	/* needed to recover critical section! */
 	return 1;
 }

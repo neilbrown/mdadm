@@ -161,6 +161,7 @@ int open_mddev(char *dev, int autof)
 				"not compatable with device named %s\n", dev);
 				return -1;
 			}
+			major_num = get_mdp_major();
 			break;
 		case 5: /* default to md if not standard */
 			break;

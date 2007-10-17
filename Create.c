@@ -111,6 +111,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			Name ": at least 2 raid-devices needed for level 4 or 5\n");
 		return 1;
 	}
+	if (level <= 0 && sparedisks) {
+		fprintf(stderr,
+			Name ": This level does not support spare devices\n");
+		return 1;
+	}
 	if (subdevs > raiddisks+sparedisks) {
 		fprintf(stderr, Name ": You have listed more devices (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
 		return 1;
@@ -167,20 +172,24 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	case 10:
 	case 6:
 	case 0:
-	case -1: /* linear */
+	case LEVEL_LINEAR: /* linear */
 		if (chunk == 0) {
 			chunk = 64;
 			if (verbose > 0)
 				fprintf(stderr, Name ": chunk size defaults to 64K\n");
 		}
 		break;
-	default: /* raid1, multipath */
+	case 1:
+	case LEVEL_MULTIPATH:
 		if (chunk) {
 			chunk = 0;
 			if (verbose > 0)
 				fprintf(stderr, Name ": chunk size ignored for this level\n");
 		}
 		break;
+	default:
+		fprintf(stderr, Name ": unknown level %d\n", level);
+		return 1;
 	}
 
 	/* now look at the subdevs */
@@ -331,6 +340,12 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		default:
 			break;
 		}
+	}
+
+	if (level <= 0 && first_missing != subdevs * 2) {
+		fprintf(stderr,
+			Name ": This level does not support missing devices\n");
+		return 1;
 	}
 	
 	/* Ok, lets try some ioctls */

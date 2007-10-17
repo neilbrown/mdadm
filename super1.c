@@ -182,7 +182,7 @@ static void examine_super1(void *sbv, char *homehost)
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	printf("   Raid Devices : %d\n", __le32_to_cpu(sb->raid_disks));
 	printf("\n");
-	printf("  Used Dev Size : %llu%s\n",
+	printf(" Avail Dev Size : %llu%s\n",
 	       (unsigned long long)__le64_to_cpu(sb->data_size),
 	       human_size(__le64_to_cpu(sb->data_size)<<9));
 	if (__le32_to_cpu(sb->level) >= 0) {
@@ -202,7 +202,7 @@ static void examine_super1(void *sbv, char *homehost)
 			       ddsks*(unsigned long long)__le64_to_cpu(sb->size),
 			       human_size(ddsks*__le64_to_cpu(sb->size)<<9));
 		if (sb->size != sb->data_size)
-			printf("      Used Size : %llu%s\n",
+			printf("  Used Dev Size : %llu%s\n",
 			       (unsigned long long)__le64_to_cpu(sb->size),
 			       human_size(__le64_to_cpu(sb->size)<<9));
 	}

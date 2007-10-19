@@ -1,3 +1,10 @@
+Changes Prior to 2.6.4 release
+    -   Make "--create --auto=mdp" work for non-standard device names.
+    -   Fix restarting of a 'reshape' if it was stopped in the middle.
+    -   Fix a segfault when using v1 superblock.
+    -   Make --write-mostly effective when re-adding a device to an array.
+    -   Various minor fixes
+
 Changes Prior to 2.6.3 release
     -   allow --write-behind to be set for --grow.
     -   When adding new disk to an array, don't reserve so much bitmap

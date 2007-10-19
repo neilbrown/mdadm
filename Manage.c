@@ -306,6 +306,7 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, strerror(errno));
 				return 1;
 			}
+			remove_partitions(tfd);
 			if (array.not_persistent==0)
 				st->ss->load_super(st, tfd, &osuper, NULL);
 			/* will use osuper later */
@@ -361,7 +362,6 @@ int Manage_subdevs(char *devname, int fd,
 						close(dfd);
 						continue;
 					}
-					remove_partitions(dfd);
 					close(dfd);
 					break;
 				}

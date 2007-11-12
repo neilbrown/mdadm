@@ -143,7 +143,10 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	}
 
 	if (brief)
-		printf("ARRAY %s level=%s num-devices=%d", dev, c?c:"-unknown-",array.raid_disks );
+		printf("ARRAY %s level=%s metadata=%d.%d num-devices=%d", dev,
+		       c?c:"-unknown-",
+		       array.major_version, array.minor_version,
+		       array.raid_disks );
 	else {
 		mdu_bitmap_file_t bmf;
 		unsigned long long larray_size;

@@ -180,6 +180,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		break;
 	case 1:
+	case LEVEL_FAULTY:
 	case LEVEL_MULTIPATH:
 		if (chunk) {
 			chunk = 0;

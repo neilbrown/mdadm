@@ -730,7 +730,7 @@ struct supertype *super_by_fd(int fd)
 	int minor;
 	struct supertype *st = NULL;
 	struct mdinfo *sra;
-	char *verstr = NULL;
+	char *verstr;
 	char version[20];
 	int i;
 
@@ -739,11 +739,13 @@ struct supertype *super_by_fd(int fd)
 	if (sra) {
 		vers = sra->array.major_version;
 		minor = sra->array.minor_version;
+		verstr = sra->text_version;
 	} else {
 		if (ioctl(fd, GET_ARRAY_INFO, &array))
 			array.major_version = array.minor_version = 0;
 		vers = array.major_version;
 		minor = array.minor_version;
+		verstr = "";
 	}
 
 	if (vers != -1) {

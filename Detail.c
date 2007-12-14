@@ -55,6 +55,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	struct supertype *st = NULL;
 	int max_disks = MD_SB_DISKS; /* just a default */
 	struct mdinfo info;
+	struct mdinfo *sra;
 
 	int rv = test ? 4 : 1;
 	int avail_disks = 0;
@@ -88,6 +89,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		close(fd);
 		return rv;
 	}
+	sra = sysfs_read(fd, 0, GET_VERSION);
 	st = super_by_fd(fd);
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
@@ -133,19 +135,27 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		if (c)
 			printf("MD_LEVEL=%s\n", c);
 		printf("MD_DEVICES=%d\n", array.raid_disks);
-		printf("MD_METADATA=%d.%d\n", array.major_version,
-		       array.minor_version);
+		if (sra && sra->array.major_version < 0)
+			printf("MD_METADATA=%s\n", sra->text_version);
+		else
+			printf("MD_METADATA=%02d.%02d\n",
+			       array.major_version, array.minor_version);
+
 		if (st && st->sb)
 			st->ss->export_super(st);
 		goto out;
 	}
 
-	if (brief)
-		printf("ARRAY %s level=%s metadata=%d.%d num-devices=%d", dev,
+	if (brief) {
+		printf("ARRAY %s level=%s num-devices=%d", dev,
 		       c?c:"-unknown-",
-		       array.major_version, array.minor_version,
 		       array.raid_disks );
-	else {
+		if (sra && sra->array.major_version < 0)
+			printf(" metadata=%s", sra->text_version);
+		else
+			printf(" metadata=%02d.%02d",
+			       array.major_version, array.minor_version);
+	} else {
 		mdu_bitmap_file_t bmf;
 		unsigned long long larray_size;
 		struct mdstat_ent *ms = mdstat_read(0, 0);
@@ -161,10 +171,16 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			larray_size = 0;
 
 		printf("%s:\n", dev);
-		printf("        Version : %02d.%02d.%02d\n",
-		       array.major_version, array.minor_version, array.patch_version);
+
+		if (sra && sra->array.major_version < 0)
+			printf("        Version : %s\n", sra->text_version);
+		else
+			printf("        Version : %02d.%02d\n",
+			       array.major_version, array.minor_version);
+
 		atime = array.ctime;
 		printf("  Creation Time : %.24s\n", ctime(&atime));
+		if (array.raid_disks == 0) c = "container";
 		printf("     Raid Level : %s\n", c?c:"-unknown-");
 		if (larray_size)
 			printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
@@ -185,8 +201,9 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		printf("   Raid Devices : %d\n", array.raid_disks);
 		printf("  Total Devices : %d\n", array.nr_disks);
 		printf("Preferred Minor : %d\n", array.md_minor);
-		printf("    Persistence : Superblock is %spersistent\n",
-		       array.not_persistent?"not ":"");
+		if (sra == NULL || sra->array.major_version >= 0)
+			printf("    Persistence : Superblock is %spersistent\n",
+			       array.not_persistent?"not ":"");
 		printf("\n");
 		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
 		if (vers >= 9001 &&
@@ -224,7 +241,9 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		case 5:
 		case 10:
 		case 6:
-			printf("     Chunk Size : %dK\n\n", array.chunk_size/1024);
+			if (array.chunk_size)
+				printf("     Chunk Size : %dK\n\n",
+				       array.chunk_size/1024);
 			break;
 		case -1:
 			printf("       Rounding : %dK\n\n", array.chunk_size/1024);

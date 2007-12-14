@@ -106,7 +106,11 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		if (strncmp(buf, "none", 4) == 0)
 			sra->array.major_version =
 				sra->array.minor_version = -1;
-		else
+		else if (strncmp(buf, "external:", 9) == 0) {
+			sra->array.major_version = -1;
+			sra->array.minor_version = -2;
+			strcpy(sra->text_version, buf+9);
+		} else
 			sscanf(buf, "%d.%d",
 			       &sra->array.major_version,
 			       &sra->array.minor_version);

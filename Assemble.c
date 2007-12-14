@@ -251,7 +251,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
 		} else {
-			tst->ss->getinfo_super(&info, super);
+			tst->ss->getinfo_super(tst, &info, super);
 		}
 		if (dfd >= 0) close(dfd);
 
@@ -294,7 +294,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (tst == NULL || super == NULL)
 				continue;
 			if (update == NULL &&
-			    tst->ss->match_home(super, homehost)==0) {
+			    tst->ss->match_home(tst, super, homehost)==0) {
 				if ((inargv && verbose >= 0) || verbose > 0)
 					fprintf(stderr, Name ": %s is not built for host %s.\n",
 						devname, homehost);
@@ -314,7 +314,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (!super) {
 			fprintf(stderr, Name ": %s has no superblock - assembly aborted\n",
 				devname);
-			st->ss->free_super(first_super);
+			st->ss->free_super(st, first_super);
 			return 1;
 		}
 
@@ -331,8 +331,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (mdfd < 0)
 				goto loop;
 			if (homehost) {
-				int first = st->ss->match_home(first_super, homehost);
-				int last = tst->ss->match_home(super, homehost);
+				int first = st->ss->match_home(st, first_super,
+							       homehost);
+				int last = tst->ss->match_home(tst, super,
+							       homehost);
 				if (first+last == 1) {
 					/* We can do something */
 					if (first) {/* just ignore this one */
@@ -355,8 +357,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			}
 			fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",
 				devname);
-			tst->ss->free_super(super);
-			st->ss->free_super(first_super);
+			tst->ss->free_super(tst, super);
+			st->ss->free_super(st, first_super);
 			return 1;
 		}
 
@@ -364,7 +366,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 	loop:
 		if (super)
-			tst->ss->free_super(super);
+			tst->ss->free_super(tst, super);
 		super = NULL;
 	}
 
@@ -378,7 +380,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (!first_super) {
 			return 2;
 		}
-		st->ss->getinfo_super(&info, first_super);
+		st->ss->getinfo_super(st, &info, first_super);
 		c = strchr(info.name, ':');
 		if (c) c++; else c= info.name;
 		if (isdigit(*c) && ((ident->autof & 7)==4 || (ident->autof&7)==6))
@@ -388,7 +390,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			asprintf(&mddev, "/dev/md/%s", c);
 		mdfd = open_mddev(mddev, ident->autof);
 		if (mdfd < 0) {
-			st->ss->free_super(first_super);
+			st->ss->free_super(st, first_super);
 			free(devices);
 			first_super = NULL;
 			goto try_again;
@@ -405,7 +407,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					mddev, tmpdev->devname);
 			close(mdfd);
 			mdfd = -1;
-			st->ss->free_super(first_super);
+			st->ss->free_super(st, first_super);
 			free(devices);
 			first_super = NULL;
 			goto try_again;
@@ -443,13 +445,14 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			remove_partitions(dfd);
 
 			st->ss->load_super(st, dfd, &super, NULL);
-			st->ss->getinfo_super(&info, super);
+			st->ss->getinfo_super(st, &info, super);
 
 			memcpy(info.uuid, ident->uuid, 16);
 			strcpy(info.name, ident->name);
 			info.array.md_minor = minor(stb2.st_rdev);
 
-			st->ss->update_super(&info, super, update, devname, verbose,
+			st->ss->update_super(st, &info, super, update,
+					     devname, verbose,
 					     ident->uuid_set, homehost);
 			if (strcmp(update, "uuid")==0 &&
 			    !ident->uuid_set) {
@@ -481,7 +484,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			remove_partitions(dfd);
 
 			st->ss->load_super(st, dfd, &super, NULL);
-			st->ss->getinfo_super(&info, super);
+			st->ss->getinfo_super(st, &info, super);
 			close(dfd);
 		}
 
@@ -562,7 +565,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		devcnt++;
 
 		if (super)
-			st->ss->free_super(super);
+			st->ss->free_super(st, super);
 		super = NULL;
 	}
 
@@ -572,12 +575,12 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	if (devcnt == 0) {
 		fprintf(stderr, Name ": no devices found for %s\n",
 			mddev);
-		st->ss->free_super(first_super);
+		st->ss->free_super(st, first_super);
 		if (must_close) close(mdfd);
 		return 1;
 	}
 
-	st->ss->getinfo_super(&info, first_super);
+	st->ss->getinfo_super(st, &info, first_super);
 	clean = info.array.state & 1;
 
 	/* now we have some devices that might be suitable.
@@ -655,7 +658,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 		info.events = devices[most_recent].events;
-		st->ss->update_super(&info, super, "force-one",
+		st->ss->update_super(st, &info, super, "force-one",
 				     devices[chosen_drive].devname, verbose,
 				     0, NULL);
 
@@ -664,7 +667,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
 			devices[chosen_drive].events = 0;
-			st->ss->free_super(super);
+			st->ss->free_super(st, super);
 			continue;
 		}
 		close(fd);
@@ -672,7 +675,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		devices[chosen_drive].uptodate = 1;
 		avail[chosen_drive] = 1;
 		okcnt++;
-		st->ss->free_super(super);
+		st->ss->free_super(st, super);
 
 		/* If there are any other drives of the same vintage,
 		 * add them in as well.  We can't lose and we might gain
@@ -726,7 +729,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (must_close) close(mdfd);
 		return 1;
 	}
-	st->ss->getinfo_super(&info, super);
+	st->ss->getinfo_super(st, &info, super);
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
 		unsigned int desired_state;
@@ -745,7 +748,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		info.disk.state = desired_state;
 
 		if (devices[j].uptodate &&
-		    st->ss->update_super(&info, super, "assemble", NULL, verbose, 0, NULL)) {
+		    st->ss->update_super(st, &info, super, "assemble", NULL,
+					 verbose, 0, NULL)) {
 			if (force) {
 				if (verbose >= 0)
 					fprintf(stderr, Name ": "
@@ -771,7 +775,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	    !enough(info.array.level, info.array.raid_disks,
 		    info.array.layout, clean,
 		    avail, okcnt)) {
-		change += st->ss->update_super(&info, super, "force-array",
+		change += st->ss->update_super(st, &info, super, "force-array",
 					devices[chosen_drive].devname, verbose,
 					       0, NULL);
 		clean = 1;

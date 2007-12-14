@@ -141,7 +141,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(dfd);
 		return 1;
 	}
-	st->ss->getinfo_super(&info, super);
+	st->ss->getinfo_super(st, &info, super);
 	close (dfd);
 
 	/* 3/ Check if there is a match in mdadm.conf */
@@ -207,7 +207,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 3a/ if not, check for homehost match.  If no match, reject. */
 	if (!match) {
 		if (homehost == NULL ||
-		    st->ss->match_home(super, homehost) == 0) {
+		    st->ss->match_home(st, super, homehost) == 0) {
 			if (verbose >= 0)
 				fprintf(stderr, Name
 	      ": not found in mdadm.conf and not identified by homehost.\n");
@@ -354,7 +354,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			return 2;
 		}
 		close(dfd2);
-		st->ss->getinfo_super(&info2, super2);
+		st->ss->getinfo_super(st, &info2, super2);
 		if (info.array.level != info2.array.level ||
 		    memcmp(info.uuid, info2.uuid, 16) != 0 ||
 		    info.array.raid_disks != info2.array.raid_disks) {
@@ -501,8 +501,8 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 			close(dfd);
 			continue;
 		}
-		st->ss->getinfo_super(&info, super);
-		st->ss->free_super(super);
+		st->ss->getinfo_super(st, &info, super);
+		st->ss->free_super(st, super);
 		close(dfd);
 
 		if (info.disk.number != number ||
@@ -545,7 +545,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		close(dfd);
 		if (ok != 0)
 			continue;
-		st->ss->getinfo_super(&info, super);
+		st->ss->getinfo_super(st, &info, super);
 		if (info.disk.state & (1<<MD_DISK_SYNC))
 		{
 			if (avail == NULL) {
@@ -574,24 +574,24 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 					if (avail[i])
 						avail[i]--;
 				avail[info.disk.raid_disk] = 2;
-				st->ss->free_super(best_super);
+				st->ss->free_super(st, best_super);
 				best_super = super;
 				super = NULL;
 			} else { /* info.events much bigger */
 				cnt = 1; cnt1 = 0;
 				memset(avail, 0, info.disk.raid_disk);
 				max_events = info.events;
-				st->ss->free_super(best_super);
+				st->ss->free_super(st, best_super);
 				best_super = super;
 				super = NULL;
 			}
 		}
 		if (super)
-			st->ss->free_super(super);
+			st->ss->free_super(st, super);
 	}
 	if (best_super) {
-		st->ss->getinfo_super(bestinfo,best_super);
-		st->ss->free_super(best_super);
+		st->ss->getinfo_super(st, bestinfo,best_super);
+		st->ss->free_super(st, best_super);
 	}
 	return cnt + cnt1;
 }
@@ -628,7 +628,7 @@ void RebuildMap(void)
 			close(dfd);
 			if (ok != 0)
 				continue;
-			st->ss->getinfo_super(&info, super);
+			st->ss->getinfo_super(st, &info, super);
 			if (md->devnum > 0)
 				path = map_dev(MD_MAJOR, md->devnum, 0);
 			else
@@ -636,7 +636,7 @@ void RebuildMap(void)
 			map_add(&map, md->devnum, st->ss->major,
 				st->minor_version,
 				info.uuid, path ? : "/unknown");
-			st->ss->free_super(super);
+			st->ss->free_super(st, super);
 			break;
 		}
 	}

@@ -478,7 +478,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (bitmap_file) {
 		int uuid[4];
 
-		st->ss->uuid_from_super(uuid, super);
+		st->ss->uuid_from_super(st, uuid, super);
 		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
 				 delay, write_behind,
 				 bitmapsize,
@@ -542,7 +542,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			}
 			switch(pass){
 			case 1:
-				st->ss->add_to_super(super, &disk);
+				st->ss->add_to_super(st, super, &disk);
 				break;
 			case 2:
 				if (disk.state == 1) break;
@@ -553,7 +553,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
 						dv->devname, strerror(errno));
-					st->ss->free_super(super);
+					st->ss->free_super(st, super);
 					return 1;
 				}
 
@@ -562,7 +562,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			if (dv == moved_disk && dnum != insert_point) break;
 		}
 	}
-	st->ss->free_super(super);
+	st->ss->free_super(st, super);
 
 	/* param is not actually used */
 	if (runstop == 1 || subdevs >= raiddisks) {

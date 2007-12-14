@@ -373,7 +373,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * and was temporarily removed, and is now being re-added.
 				 * If so, we can simply re-add it.
 				 */
-				st->ss->uuid_from_super(duuid, dsuper);
+				st->ss->uuid_from_super(st, duuid, dsuper);
 
 				/* re-add doesn't work for version-1 superblocks
 				 * before 2.6.18 :-(
@@ -382,14 +382,14 @@ int Manage_subdevs(char *devname, int fd,
 				    get_linux_version() <= 2006018)
 					;
 				else if (osuper) {
-					st->ss->uuid_from_super(ouuid, osuper);
+					st->ss->uuid_from_super(st, ouuid, osuper);
 					if (memcmp(duuid, ouuid, sizeof(ouuid))==0) {
 						/* looks close enough for now.  Kernel
 						 * will worry about whether a bitmap
 						 * based reconstruction is possible.
 						 */
 						struct mdinfo mdi;
-						st->ss->getinfo_super(&mdi, osuper);
+						st->ss->getinfo_super(st, &mdi, osuper);
 						disc.major = major(stb.st_rdev);
 						disc.minor = minor(stb.st_rdev);
 						disc.number = mdi.disk.number;
@@ -436,7 +436,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (array.not_persistent==0) {
 				if (dv->writemostly)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
-				st->ss->add_to_super(dsuper, &disc);
+				st->ss->add_to_super(st, dsuper, &disc);
 				if (st->ss->write_init_super(st, dsuper, &disc, dv->devname))
 					return 1;
 			} else if (dv->re_add) {

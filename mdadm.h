@@ -341,19 +341,20 @@ extern char *map_dev(int major, int minor, int create);
 
 
 extern struct superswitch {
-	void (*examine_super)(void *sbv, char *homehost);
-	void (*brief_examine_super)(void *sbv);
-	void (*detail_super)(void *sbv, char *homehost);
-	void (*export_super)(void *sbv);
-	void (*brief_detail_super)(void *sbv);
-	void (*uuid_from_super)(int uuid[4], void *sbv);
-	void (*getinfo_super)(struct mdinfo *info, void *sbv);
-	int (*match_home)(void *sbv, char *homehost);
-	int (*update_super)(struct mdinfo *info, void *sbv, char *update,
+	void (*examine_super)(struct supertype *st, void *sbv, char *homehost);
+	void (*brief_examine_super)(struct supertype *st, void *sbv);
+	void (*detail_super)(struct supertype *st, void *sbv, char *homehost);
+	void (*export_super)(struct supertype *st, void *sbv);
+	void (*brief_detail_super)(struct supertype *st, void *sbv);
+	void (*uuid_from_super)(struct supertype *st, int uuid[4], void *sbv);
+	void (*getinfo_super)(struct supertype *st, struct mdinfo *info, void *sbv);
+	int (*match_home)(struct supertype *st, void *sbv, char *homehost);
+	int (*update_super)(struct supertype *st, struct mdinfo *info,
+			    void *sbv, char *update,
 			    char *devname, int verbose,
 			    int uuid_set, char *homehost);
 	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name, char *homehost, int *uuid);
-	void (*add_to_super)(void *sbv, mdu_disk_info_t *dinfo);
+	void (*add_to_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo);
 	int (*store_super)(struct supertype *st, int fd, void *sbv);
 	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
 	int (*compare_super)(void **firstp, void *secondv);
@@ -365,7 +366,7 @@ extern struct superswitch {
 				   unsigned long long size, int may_change, int major);
 	void (*locate_bitmap)(struct supertype *st, int fd, void *sbv);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
-	void (*free_super)(void *super);
+	void (*free_super)(struct supertype *st, void *super);
 	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 } super0, super1, *superlist[];

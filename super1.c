@@ -142,7 +142,7 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 }
 
 #ifndef MDASSEMBLE
-static void examine_super1(void *sbv, char *homehost)
+static void examine_super1(struct supertype *st, void *sbv, char *homehost)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	time_t atime;
@@ -341,7 +341,7 @@ static void examine_super1(void *sbv, char *homehost)
 }
 
 
-static void brief_examine_super1(void *sbv)
+static void brief_examine_super1(struct supertype *st, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
@@ -375,7 +375,7 @@ static void brief_examine_super1(void *sbv)
 	printf("\n");
 }
 
-static void detail_super1(void *sbv, char *homehost)
+static void detail_super1(struct supertype *st, void *sbv, char *homehost)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
@@ -394,7 +394,7 @@ static void detail_super1(void *sbv, char *homehost)
 	printf("\n         Events : %llu\n\n", (unsigned long long)__le64_to_cpu(sb->events));
 }
 
-static void brief_detail_super1(void *sbv)
+static void brief_detail_super1(struct supertype *st, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
@@ -408,7 +408,7 @@ static void brief_detail_super1(void *sbv)
 	}
 }
 
-static void export_super1(void *sbv)
+static void export_super1(struct supertype *st, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int i;
@@ -432,7 +432,7 @@ static void export_super1(void *sbv)
 
 #endif
 
-static int match_home1(void *sbv, char *homehost)
+static int match_home1(struct supertype *st, void *sbv, char *homehost)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int l = homehost ? strlen(homehost) : 0;
@@ -442,7 +442,7 @@ static int match_home1(void *sbv, char *homehost)
 		strncmp(sb->set_name, homehost, l) == 0);
 }
 
-static void uuid_from_super1(int uuid[4], void * sbv)
+static void uuid_from_super1(struct supertype *st, int uuid[4], void * sbv)
 {
 	struct mdp_superblock_1 *super = sbv;
 	char *cuuid = (char*)uuid;
@@ -451,7 +451,7 @@ static void uuid_from_super1(int uuid[4], void * sbv)
 		cuuid[i] = super->set_uuid[i];
 }
 
-static void getinfo_super1(struct mdinfo *info, void *sbv)
+static void getinfo_super1(struct supertype *st, struct mdinfo *info, void *sbv)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	int working = 0;
@@ -522,7 +522,8 @@ static void getinfo_super1(struct mdinfo *info, void *sbv)
 	info->array.working_disks = working;
 }
 
-static int update_super1(struct mdinfo *info, void *sbv, char *update,
+static int update_super1(struct supertype *st, struct mdinfo *info,
+			 void *sbv, char *update,
 			 char *devname, int verbose,
 			 int uuid_set, char *homehost)
 {
@@ -734,7 +735,7 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 }
 
 /* Add a device to the superblock being created */
-static void add_to_super1(void *sbv, mdu_disk_info_t *dk)
+static void add_to_super1(struct supertype *st, void *sbv, mdu_disk_info_t *dk)
 {
 	struct mdp_superblock_1 *sb = sbv;
 	__u16 *rp = sb->dev_roles + dk->number;
@@ -1124,7 +1125,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 	    != sizeof(struct bitmap_super_s))
 		goto no_bitmap;
 
-	uuid_from_super1(uuid, super);
+	uuid_from_super1(st, uuid, super);
 	if (__le32_to_cpu(bsb->magic) != BITMAP_MAGIC ||
 	    memcmp(bsb->uuid, uuid, 16) != 0)
 		goto no_bitmap;
@@ -1301,7 +1302,7 @@ add_internal_bitmap1(struct supertype *st, void *sbv,
 	memset(bms, 0, sizeof(*bms));
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
 	bms->version = __cpu_to_le32(major);
-	uuid_from_super1((int*)bms->uuid, sb);
+	uuid_from_super1(st, (int*)bms->uuid, sb);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);
@@ -1366,7 +1367,7 @@ static int write_bitmap1(struct supertype *st, int fd, void *sbv)
 	return rv;
 }
 
-static void free_super1(void *super)
+static void free_super1(struct supertype *st, void *super)
 {
 	if (super)
 		free(super);

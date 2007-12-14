@@ -99,13 +99,15 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			continue;
 
 		if (SparcAdjust)
-			st->ss->update_super(NULL, super, "sparc2.2", devlist->devname, 0, 0, NULL);
+			st->ss->update_super(st, NULL, super, "sparc2.2",
+					     devlist->devname, 0, 0, NULL);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 		if (brief) {
 			struct array *ap;
 			char *d;
 			for (ap=arrays; ap; ap=ap->next) {
-				if (st->ss == ap->st->ss && st->ss->compare_super(&ap->super, super)==0)
+				if (st->ss == ap->st->ss &&
+				    st->ss->compare_super(&ap->super, super)==0)
 					break;
 			}
 			if (!ap) {
@@ -116,10 +118,10 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 				ap->spares = 0;
 				ap->st = st;
 				arrays = ap;
-				st->ss->getinfo_super(&ap->info, super);
+				st->ss->getinfo_super(st, &ap->info, super);
 			} else {
-				st->ss->getinfo_super(&ap->info, super);
-				st->ss->free_super(super);
+				st->ss->getinfo_super(st, &ap->info, super);
+				st->ss->free_super(st, super);
 			}
 			if (!(ap->info.disk.state & MD_DISK_SYNC))
 				ap->spares++;
@@ -127,8 +129,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			dl_add(ap->devs, d);
 		} else {
 			printf("%s:\n",devlist->devname);
-			st->ss->examine_super(super, homehost);
-			st->ss->free_super(super);
+			st->ss->examine_super(st, super, homehost);
+			st->ss->free_super(st, super);
 		}
 	}
 	if (brief) {
@@ -136,7 +138,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
-			ap->st->ss->brief_examine_super(ap->super);
+			ap->st->ss->brief_examine_super(ap->st, ap->super);
 			if (ap->spares) printf("   spares=%d", ap->spares);
 			if (brief > 1) {
 				printf("   devices");
@@ -145,7 +147,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 					sep=',';
 				}
 			}
-			ap->st->ss->free_super(ap->super);
+			ap->st->ss->free_super(ap->st, ap->super);
 			/* FIXME free ap */
 			if (ap->spares || brief > 1)
 				printf("\n");

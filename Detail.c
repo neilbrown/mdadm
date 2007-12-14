@@ -116,10 +116,10 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				int fd2 = dev_open(dv, O_RDONLY);
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, &super, NULL) == 0) {
-					st->ss->getinfo_super(&info, super);
+					st->ss->getinfo_super(st, &info, super);
 					if (info.array.ctime != array.ctime ||
 					    info.array.level != array.level) {
-						st->ss->free_super(super);
+						st->ss->free_super(st, super);
 						super = NULL;
 					}
 				}
@@ -138,7 +138,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		printf("MD_METADATA=%d.%d\n", array.major_version,
 		       array.minor_version);
 		if (super)
-			st->ss->export_super(super);
+			st->ss->export_super(st, super);
 		goto out;
 	}
 
@@ -278,7 +278,7 @@ This is pretty boring
 		} else if (e && e->percent >= 0)
 			printf("\n");
 		if (super && st)
-			st->ss->detail_super(super, homehost);
+			st->ss->detail_super(st, super, homehost);
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
@@ -377,9 +377,9 @@ This is pretty boring
 	}
 	if (spares && brief) printf(" spares=%d", spares);
 	if (super && brief && st)
-		st->ss->brief_detail_super(super);
+		st->ss->brief_detail_super(st, super);
 	if (super)
-		st->ss->free_super(super);
+		st->ss->free_super(st, super);
 
 	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");

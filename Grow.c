@@ -104,7 +104,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 			return 1;
 		}
 		if (super)
-			st->ss->free_super(super);
+			st->ss->free_super(st, super);
 		super= NULL;
 		if (st->ss->load_super(st, fd2, &super, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
@@ -122,7 +122,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	info.disk.minor = minor(stb.st_rdev);
 	info.disk.raid_disk = d;
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-	st->ss->update_super(&info, super, "linear-grow-new", newdev,
+	st->ss->update_super(st, &info, super, "linear-grow-new", newdev,
 			     0, 0, NULL);
 
 	if (st->ss->store_super(st, nfd, super)) {
@@ -178,7 +178,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		info.array.active_disks = nd+1;
 		info.array.working_disks = nd+1;
 
-		st->ss->update_super(&info, super, "linear-grow-update", dv,
+		st->ss->update_super(st, &info, super, "linear-grow-update", dv,
 				     0, 0, NULL);
 
 		if (st->ss->store_super(st, fd2, super)) {
@@ -352,7 +352,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			if (fd2 >= 0 &&
 			    st->ss->load_super(st, fd2, &super, NULL) == 0) {
 				close(fd2);
-				st->ss->uuid_from_super(uuid, super);
+				st->ss->uuid_from_super(st, uuid, super);
 				break;
 			}
 			close(fd2);
@@ -712,7 +712,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 
 		memcpy(bsb.magic, "md_backup_data-1", 16);
-		st->ss->uuid_from_super((int*)&bsb.set_uuid, super);
+		st->ss->uuid_from_super(st, (int*)&bsb.set_uuid, super);
 		bsb.mtime = __cpu_to_le64(time(0));
 		bsb.arraystart = 0;
 		bsb.length = __cpu_to_le64(last_block);
@@ -906,8 +906,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (st->ss->load_super(st, fd, &super, NULL))
 				continue;
 
-			st->ss->getinfo_super(&dinfo, super);
-			st->ss->free_super(super);
+			st->ss->getinfo_super(st, &dinfo, super);
+			st->ss->free_super(st, super);
 			super = NULL;
 			if (lseek64(fd,
 				    (dinfo.data_offset + dinfo.component_size - 8) <<9,
@@ -949,8 +949,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (st->ss->load_super(st, fdlist[j], &super, NULL))
 				/* FIXME should be this be an error */
 				continue;
-			st->ss->getinfo_super(&dinfo, super);
-			st->ss->free_super(super);
+			st->ss->getinfo_super(st, &dinfo, super);
+			st->ss->free_super(st, super);
 			super = NULL;
 			offsets[j] = dinfo.data_offset;
 		}
@@ -973,11 +973,13 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (fdlist[j] < 0) continue;
 			if (st->ss->load_super(st, fdlist[j], &super, NULL))
 				continue;
-			st->ss->getinfo_super(&dinfo, super);
+			st->ss->getinfo_super(st, &dinfo, super);
 			dinfo.reshape_progress = __le64_to_cpu(bsb.length);
-			st->ss->update_super(&dinfo, super, "_reshape_progress",NULL,0, 0, NULL);
+			st->ss->update_super(st, &dinfo, super,
+					     "_reshape_progress",
+					     NULL,0, 0, NULL);
 			st->ss->store_super(st, fdlist[j], super);
-			st->ss->free_super(super);
+			st->ss->free_super(st, super);
 		}
 
 		/* And we are done! */

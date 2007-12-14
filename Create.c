@@ -553,7 +553,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
 						dv->devname, strerror(errno));
-					free(super);
+					st->ss->free_super(super);
 					return 1;
 				}
 
@@ -562,7 +562,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			if (dv == moved_disk && dnum != insert_point) break;
 		}
 	}
-	free(super);
+	st->ss->free_super(super);
 
 	/* param is not actually used */
 	if (runstop == 1 || subdevs >= raiddisks) {

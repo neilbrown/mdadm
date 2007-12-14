@@ -66,7 +66,7 @@ int Kill(char *dev, int force, int quiet)
 	if (rv== 0 || (force && rv >= 2)) {
 		mdu_array_info_t info;
 		info.major_version = -1; /* zero superblock */
-		free(super);
+		st->ss->free_super(super);
 		st->ss->init_super(st, &super, &info, 0, "", NULL, NULL);
 		if (st->ss->store_super(st, fd, super)) {
 			if (!quiet)

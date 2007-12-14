@@ -953,6 +953,12 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	return rv;
 }
 
+static void free_super0(void *super)
+{
+	if (super)
+		free(super);
+}
+
 struct superswitch super0 = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_super0,
@@ -976,6 +982,7 @@ struct superswitch super0 = {
 	.add_internal_bitmap = add_internal_bitmap0,
 	.locate_bitmap = locate_bitmap0,
 	.write_bitmap = write_bitmap0,
+	.free_super = free_super0,
 	.major = 0,
 	.swapuuid = 0,
 };

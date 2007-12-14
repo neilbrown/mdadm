@@ -103,7 +103,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			return 1;
 		}
-		if (super) free(super);
+		if (super)
+			st->ss->free_super(super);
 		super= NULL;
 		if (st->ss->load_super(st, fd2, &super, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
@@ -906,7 +907,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				continue;
 
 			st->ss->getinfo_super(&dinfo, super);
-			free(super); super = NULL;
+			st->ss->free_super(super);
+			super = NULL;
 			if (lseek64(fd,
 				    (dinfo.data_offset + dinfo.component_size - 8) <<9,
 				    0) < 0)
@@ -948,7 +950,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				/* FIXME should be this be an error */
 				continue;
 			st->ss->getinfo_super(&dinfo, super);
-			free(super); super = NULL;
+			st->ss->free_super(super);
+			super = NULL;
 			offsets[j] = dinfo.data_offset;
 		}
 		printf(Name ": restoring critical section\n");
@@ -974,7 +977,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			dinfo.reshape_progress = __le64_to_cpu(bsb.length);
 			st->ss->update_super(&dinfo, super, "_reshape_progress",NULL,0, 0, NULL);
 			st->ss->store_super(st, fdlist[j], super);
-			free(super);
+			st->ss->free_super(super);
 		}
 
 		/* And we are done! */

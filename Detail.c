@@ -119,7 +119,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 					st->ss->getinfo_super(&info, super);
 					if (info.array.ctime != array.ctime ||
 					    info.array.level != array.level) {
-						free(super);
+						st->ss->free_super(super);
 						super = NULL;
 					}
 				}
@@ -378,6 +378,8 @@ This is pretty boring
 	if (spares && brief) printf(" spares=%d", spares);
 	if (super && brief && st)
 		st->ss->brief_detail_super(super);
+	if (super)
+		st->ss->free_super(super);
 
 	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");

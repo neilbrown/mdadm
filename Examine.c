@@ -119,7 +119,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 				st->ss->getinfo_super(&ap->info, super);
 			} else {
 				st->ss->getinfo_super(&ap->info, super);
-				free(super);
+				st->ss->free_super(super);
 			}
 			if (!(ap->info.disk.state & MD_DISK_SYNC))
 				ap->spares++;
@@ -128,7 +128,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 		} else {
 			printf("%s:\n",devlist->devname);
 			st->ss->examine_super(super, homehost);
-			free(super);
+			st->ss->free_super(super);
 		}
 	}
 	if (brief) {
@@ -145,7 +145,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 					sep=',';
 				}
 			}
-			free(ap->super);
+			ap->st->ss->free_super(ap->super);
 			/* FIXME free ap */
 			if (ap->spares || brief > 1)
 				printf("\n");

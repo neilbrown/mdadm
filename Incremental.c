@@ -502,7 +502,7 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 			continue;
 		}
 		st->ss->getinfo_super(&info, super);
-		free(super);
+		st->ss->free_super(super);
 		close(dfd);
 
 		if (info.disk.number != number ||
@@ -574,24 +574,24 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 					if (avail[i])
 						avail[i]--;
 				avail[info.disk.raid_disk] = 2;
-				free(best_super);
+				st->ss->free_super(best_super);
 				best_super = super;
 				super = NULL;
 			} else { /* info.events much bigger */
 				cnt = 1; cnt1 = 0;
 				memset(avail, 0, info.disk.raid_disk);
 				max_events = info.events;
-				free(best_super);
+				st->ss->free_super(best_super);
 				best_super = super;
 				super = NULL;
 			}
 		}
 		if (super)
-			free(super);
+			st->ss->free_super(super);
 	}
 	if (best_super) {
 		st->ss->getinfo_super(bestinfo,best_super);
-		free(best_super);
+		st->ss->free_super(best_super);
 	}
 	return cnt + cnt1;
 }
@@ -636,7 +636,7 @@ void RebuildMap(void)
 			map_add(&map, md->devnum, st->ss->major,
 				st->minor_version,
 				info.uuid, path ? : "/unknown");
-			free(super);
+			st->ss->free_super(super);
 			break;
 		}
 	}

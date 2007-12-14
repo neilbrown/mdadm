@@ -334,7 +334,7 @@ int check_raid(int fd, char *name)
 	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
 		name);
 	st->ss->getinfo_super(&info, super);
-	free(super);
+	st->ss->free_super(super);
 	crtime = info.array.ctime;
 	level = map_num(pers, info.array.level);
 	if (!level) level = "-unknown-";

@@ -365,6 +365,7 @@ extern struct superswitch {
 				   unsigned long long size, int may_change, int major);
 	void (*locate_bitmap)(struct supertype *st, int fd, void *sbv);
 	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
+	void (*free_super)(void *super);
 	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 } super0, super1, *superlist[];

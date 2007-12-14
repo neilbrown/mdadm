@@ -73,33 +73,32 @@ struct blkpg_partition {
  */
 int parse_uuid(char *str, int uuid[4])
 {
-    int hit = 0; /* number of Hex digIT */
-    int i;
-    char c;
-    for (i=0; i<4; i++) uuid[i]=0;
+	int hit = 0; /* number of Hex digIT */
+	int i;
+	char c;
+	for (i=0; i<4; i++) uuid[i]=0;
 
-    while ((c= *str++)) {
-	int n;
-	if (c>='0' && c<='9')
-	    n = c-'0';
-	else if (c>='a' && c <= 'f')
-	    n = 10 + c - 'a';
-	else if (c>='A' && c <= 'F')
-	    n = 10 + c - 'A';
-	else if (strchr(":. -", c))
-	    continue;
-	else return 0;
+	while ((c= *str++)) {
+		int n;
+		if (c>='0' && c<='9')
+			n = c-'0';
+		else if (c>='a' && c <= 'f')
+			n = 10 + c - 'a';
+		else if (c>='A' && c <= 'F')
+			n = 10 + c - 'A';
+		else if (strchr(":. -", c))
+			continue;
+		else return 0;
 
-	if (hit<32) {
-	    uuid[hit/8] <<= 4;
-	    uuid[hit/8] += n;
+		if (hit<32) {
+			uuid[hit/8] <<= 4;
+			uuid[hit/8] += n;
+		}
+		hit++;
 	}
-	hit++;
-    }
-    if (hit == 32)
-	return 1;
-    return 0;
-    
+	if (hit == 32)
+		return 1;
+	return 0;
 }
 
 
@@ -132,7 +131,6 @@ int md_get_version(int fd)
     return -1;
 }
 
-    
 int get_linux_version()
 {
 	struct utsname name;
@@ -224,7 +222,7 @@ int same_uuid(int a[4], int b[4], int swapuuid)
 	if (swapuuid) {
 		/* parse uuids are hostendian.
 		 * uuid's from some superblocks are big-ending
-		 * if there is a difference, we need to swap.. 
+		 * if there is a difference, we need to swap..
 		 */
 		unsigned char *ac = (unsigned char *)a;
 		unsigned char *bc = (unsigned char *)b;
@@ -318,7 +316,7 @@ int check_reiser(int fd, char *name)
 	fprintf(stderr, Name ": %s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
 	fprintf(stderr, "    size = %luK\n", size*4);
-		
+
 	return 1;
 }
 
@@ -391,7 +389,7 @@ int is_standard(char *dev, int *nump)
 {
 	/* tests if dev is a "standard" md dev name.
 	 * i.e if the last component is "/dNN" or "/mdNN",
-	 * where NN is a string of digits 
+	 * where NN is a string of digits
 	 */
 	char *d = strrchr(dev, '/');
 	int type=0;
@@ -546,7 +544,7 @@ unsigned long calc_csum(void *super, int bytes)
 		newcsum+= superc[i];
 	csum = (newcsum& 0xffffffff) + (newcsum>>32);
 #ifdef __alpha__
-/* The in-kernel checksum calculation is always 16bit on 
+/* The in-kernel checksum calculation is always 16bit on
  * the alpha, though it is 32 bit on i386...
  * I wonder what it is elsewhere... (it uses and API in
  * a way that it shouldn't).
@@ -592,7 +590,6 @@ char *human_size(long long bytes)
 char *human_size_brief(long long bytes)
 {
 	static char buf[30];
-	
 
 	if (bytes < 5000*1024)
 		snprintf(buf, sizeof(buf), "%ld.%02ldKiB",
@@ -753,7 +750,7 @@ struct supertype *guess_super(int fd)
 	struct supertype *st;
 	unsigned long besttime = 0;
 	int bestsuper = -1;
-	
+
 	void *sbp = NULL;
 	int i;
 

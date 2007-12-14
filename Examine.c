@@ -55,7 +55,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 	 * If (brief) gather devices for same array and just print a mdadm.conf line including devices=
 	 * if devlist==NULL, use conf_get_devs()
 	 */
-	int fd; 
+	int fd;
 	void *super = NULL;
 	int rv = 0;
 	int err = 0;

@@ -52,7 +52,7 @@ raid5_extend(unsigned long len, int chunksize, int layout, int n, int m, int rfd
     unsigned int blocksperchunk= chunksize/4096;
 
     unsigned long b;
-    
+
     for (b=0; b<blocks; b++) {
 	unsigned long stripe = b / blocksperchunk;
 	unsigned int offset = b - (stripe*blocksperchunk);

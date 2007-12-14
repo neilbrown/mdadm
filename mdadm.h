@@ -195,7 +195,7 @@ enum special_options {
 #define UnSet (0xfffe)
 typedef struct mddev_ident_s {
 	char	*devname;
-	
+
 	int	uuid_set;
 	int	uuid[4];
 	char	name[33];

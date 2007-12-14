@@ -114,7 +114,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 
 
 	vers = md_get_version(mdfd);
-	
+
 	/* looks Ok, go for it */
 	if (vers >= 9000) {
 		mdu_array_info_t array;
@@ -170,7 +170,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		}
 		fd = open(dv->devname, O_RDONLY|O_EXCL);
 		if (fd < 0) {
-			fprintf(stderr, Name ": Cannot open %s: %s\n", 
+			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				dv->devname, strerror(errno));
 			goto abort;
 		}
@@ -232,7 +232,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 						bitmap_file);
 					return 1;
 				}
-			}				
+			}
 			if (bitmap_fd >= 0) {
 				if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {
 					fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
@@ -273,5 +273,4 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	else
 	    ioctl(mdfd, STOP_MD, 0);
 	return 1;
-		
 }

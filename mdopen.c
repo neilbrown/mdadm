@@ -193,7 +193,7 @@ int open_mddev(char *dev, int autof)
 		 * If the device name is in a 'standard' format,
 		 * intuit the minor from that, else
 		 * easiest to read /proc/mdstat, and hunt through for
-		 * an unused number 
+		 * an unused number
 		 */
 		if (num < 0) {
 			/* need to pick an unused number */

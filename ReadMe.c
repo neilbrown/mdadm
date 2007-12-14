@@ -110,7 +110,7 @@ struct option long_options[] = {
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
-	    
+
     /* after those will normally come the name of the md device */
     {"help",      0, 0, 'h'},
     {"help-options",0,0,'h'},

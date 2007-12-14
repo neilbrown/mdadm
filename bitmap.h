@@ -162,7 +162,7 @@ typedef struct bitmap_super_s {
  * (1) This event counter is updated before the eventcounter in the md superblock
  *    When a bitmap is loaded, it is only accepted if this event counter is equal
  *    to, or one greater than, the event counter in the superblock.
- * (2) This event counter is updated when the other one is *if*and*only*if* the 
+ * (2) This event counter is updated when the other one is *if*and*only*if* the
  *    array is not degraded.  As bits are not cleared when the array is degraded,
  *    this represents the last time that any bits were cleared.
  *    If a device is being added that has an event count with this value or
@@ -187,7 +187,7 @@ struct bitmap_page {
 	unsigned int hijacked;
 	/*
 	 * count of dirty bits on the page
-	 */ 
+	 */
 	int count;
 };
 

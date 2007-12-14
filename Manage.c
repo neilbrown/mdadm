@@ -45,7 +45,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 	 *
 	 */
 	mdu_array_info_t array;
-	
+
 	if (md_get_version(fd) < 9000) {
 		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
 		return 1;
@@ -55,7 +55,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 			devname);
 		return 1;
 	}
-	
+
 	if (readonly>0) {
 		if (ioctl(fd, STOP_ARRAY_RO, NULL)) {
 			fprintf(stderr, Name ": failed to set readonly for %s: %s\n",
@@ -69,7 +69,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 			return 1;
 		}
 	}
-	return 0;			
+	return 0;
 }
 
 #ifndef MDASSEMBLE
@@ -88,7 +88,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			return 1;
 		}
 	}
-	
+
 	if (md_get_version(fd) < 9000) {
 		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
 		return 1;
@@ -342,7 +342,7 @@ int Manage_subdevs(char *devname, int fd,
 				}
 
 				/* need to find a sample superblock to copy, and
-				 * a spare slot to use 
+				 * a spare slot to use
 				 */
 				for (j=0; j<st->max_devs; j++) {
 					char *dev;
@@ -507,7 +507,7 @@ int Manage_subdevs(char *devname, int fd,
 		}
 	}
 	return 0;
-	
+
 }
 
 int autodetect(void)

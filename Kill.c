@@ -44,7 +44,7 @@ int Kill(char *dev, int force, int quiet)
 	void *super;
 	int fd, rv = 0;
 	struct supertype *st;
-		
+
 	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
 		if (!quiet)

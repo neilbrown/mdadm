@@ -230,7 +230,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			free(super);
 			super = NULL;
 		}
-		
+
 		dfd = dev_open(devname, O_RDONLY|O_EXCL);
 		if (dfd < 0) {
 			if ((inargv && verbose >= 0) || verbose > 0)
@@ -918,7 +918,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fprintf(stderr, Name ": no uptodate device for slot %d of %s\n",
 					i, mddev);
 		}
-		
+
 		if (runstop == 1 ||
 		    (runstop <= 0 &&
 		     ( enough(info.array.level, info.array.raid_disks,
@@ -1026,7 +1026,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		    fprintf(stderr, Name ": Cannot start array: %s\n",
 			    strerror(errno));
 		}
-		
+
 	}
 	if (must_close) close(mdfd);
 	return 0;

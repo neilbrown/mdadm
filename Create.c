@@ -298,7 +298,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (level > 0 || level == LEVEL_MULTIPATH || level == LEVEL_FAULTY) {
 			/* size is meaningful */
 			if (minsize > 0x100000000ULL && st->ss->major == 0) {
-				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);	
+				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);
 				return 1;
 			}
 			size = minsize;
@@ -348,7 +348,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			Name ": This level does not support missing devices\n");
 		return 1;
 	}
-	
+
 	/* Ok, lets try some ioctls */
 
 	array.level = level;
@@ -467,7 +467,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		inf.major_version = st->ss->major;
 		inf.minor_version = st->minor_version;
 		rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
-	} else 
+	} else
 		rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
 	if (rv) {
 		fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",

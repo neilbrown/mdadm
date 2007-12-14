@@ -233,7 +233,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			break;
 		default: break;
 		}
-	
+
 		if (e && e->percent >= 0) {
 			printf(" Re%s Status : %d%% complete\n",
 			       (super && info.reshape_active)? "shape":"build",
@@ -301,7 +301,7 @@ This is pretty boring
 		}
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
-		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks) 
+		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks)
 			disks[disk.raid_disk] = disk;
 		else if (next < max_disks)
 			disks[next++] = disk;
@@ -319,13 +319,13 @@ This is pretty boring
 		if (!brief) {
 			if (d == array.raid_disks) printf("\n");
 			if (disk.raid_disk < 0)
-				printf("   %5d   %5d    %5d        -     ", 
+				printf("   %5d   %5d    %5d        -     ",
 				       disk.number, disk.major, disk.minor);
 			else
-				printf("   %5d   %5d    %5d    %5d     ", 
+				printf("   %5d   %5d    %5d    %5d     ",
 				       disk.number, disk.major, disk.minor, disk.raid_disk);
-			if (disk.state & (1<<MD_DISK_FAULTY)) { 
-				printf(" faulty"); 
+			if (disk.state & (1<<MD_DISK_FAULTY)) {
+				printf(" faulty");
 				if (disk.raid_disk < array.raid_disks &&
 				    disk.raid_disk >= 0)
 					failed++;

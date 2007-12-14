@@ -38,7 +38,7 @@
 static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom,
 		  char *cmd, int dosyslog);
 
-static char *percentalerts[] = { 
+static char *percentalerts[] = {
 	"RebuildStarted",
 	"Rebuild20",
 	"Rebuild40",
@@ -291,11 +291,11 @@ int Monitor(mddev_dev_t devlist,
 				alert("DegradedArray", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 
 			if (st->utime == 0 && /* new array */
-			    st->expected_spares > 0 && 
-			    array.spare_disks < st->expected_spares) 
+			    st->expected_spares > 0 &&
+			    array.spare_disks < st->expected_spares)
 				alert("SparesMissing", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 			if (mse &&
-			    st->percent == -1 && 
+			    st->percent == -1 &&
 			    mse->percent >= 0)
 				alert("RebuildStarted", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 			if (mse &&
@@ -401,7 +401,7 @@ int Monitor(mddev_dev_t devlist,
 		/* now check if there are any new devices found in mdstat */
 		if (scan) {
 			struct mdstat_ent *mse;
-			for (mse=mdstat; mse; mse=mse->next) 
+			for (mse=mdstat; mse; mse=mse->next)
 				if (mse->devnum != INT_MAX &&
 				    (strcmp(mse->level, "raid0")!=0 &&
 				     strcmp(mse->level, "linear")!=0)
@@ -467,7 +467,7 @@ int Monitor(mddev_dev_t devlist,
 							}
 						}
 						if (dev > 0) {
-							if (ioctl(fd2, HOT_REMOVE_DISK, 
+							if (ioctl(fd2, HOT_REMOVE_DISK,
 								  (unsigned long)dev) == 0) {
 								if (ioctl(fd1, HOT_ADD_DISK,
 									  (unsigned long)dev) == 0) {
@@ -504,7 +504,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 
 	if (!cmd && !mailaddr) {
 		time_t now = time(0);
-	       
+
 		printf("%1.15s: %s on %s %s\n", ctime(&now)+4, event, dev, disc?disc:"unknown device");
 	}
 	if (cmd) {
@@ -520,8 +520,8 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			exit(2);
 		}
 	}
-	if (mailaddr && 
-	    (strncmp(event, "Fail", 4)==0 || 
+	if (mailaddr &&
+	    (strncmp(event, "Fail", 4)==0 ||
 	     strncmp(event, "Test", 4)==0 ||
 	     strncmp(event, "Spares", 6)==0 ||
 	     strncmp(event, "Degrade", 7)==0)) {

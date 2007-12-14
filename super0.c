@@ -38,7 +38,7 @@
  *   - initialising a new superblock
  *   - printing the superblock for --examine
  *   - printing part of the superblock for --detail
- * .. other stuff 
+ * .. other stuff
  */
 
 
@@ -56,7 +56,7 @@ static unsigned long calc_sb0_csum(mdp_super_t *super)
 void super0_swap_endian(struct mdp_superblock_s *sb)
 {
 	/* as super0 superblocks are host-endian, it is sometimes
-	 * useful to be able to swap the endianness 
+	 * useful to be able to swap the endianness
 	 * as (almost) everything is u32's we byte-swap every 4byte
 	 * number.
 	 * We then also have to swap the events_hi and events_lo
@@ -403,14 +403,14 @@ static int update_super0(struct mdinfo *info, void *sbv, char *update,
 	if (strcmp(update, "summaries") == 0) {
 		int i;
 		/* set nr_disks, active_disks, working_disks,
-		 * failed_disks, spare_disks based on disks[] 
+		 * failed_disks, spare_disks based on disks[]
 		 * array in superblock.
 		 * Also make sure extra slots aren't 'failed'
 		 */
 		sb->nr_disks = sb->active_disks =
 			sb->working_disks = sb->failed_disks =
 			sb->spare_disks = 0;
-		for (i=0; i < MD_SB_DISKS ; i++) 
+		for (i=0; i < MD_SB_DISKS ; i++)
 			if (sb->disks[i].major ||
 			    sb->disks[i].minor) {
 				int state = sb->disks[i].state;
@@ -727,7 +727,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	mdp_super_t *super;
 	int uuid[4];
 	struct bitmap_super_s *bsb;
-    
+
 	if (!get_dev_size(fd, devname, &dsize))
 		return 1;
 
@@ -910,7 +910,7 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	unsigned long long dsize;
 	unsigned long long offset;
 	mdp_super_t *sb = sbv;
-    
+
 	int rv = 0;
 
 	int towrite, n;
@@ -938,7 +938,7 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	memset(buf, 0xff, sizeof(buf));
 	while (towrite > 0) {
 		n = towrite;
-		if (n > sizeof(buf)) 
+		if (n > sizeof(buf))
 			n = sizeof(buf);
 		n = write(fd, buf, n);
 		if (n > 0)

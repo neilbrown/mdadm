@@ -52,7 +52,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	int nfd, fd2;
 	int d, nd;
 	struct supertype *st = NULL;
-	
+
 
 	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
 		fprintf(stderr, Name ": cannot get array info for %s\n", devname);
@@ -115,7 +115,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	/* Ok, looks good. Lets update the superblock and write it out to
 	 * newdev.
 	 */
-	
+
 	info.disk.number = d;
 	info.disk.major = major(stb.st_rdev);
 	info.disk.minor = minor(stb.st_rdev);
@@ -179,7 +179,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 
 		st->ss->update_super(&info, super, "linear-grow-update", dv,
 				     0, 0, NULL);
-		
+
 		if (st->ss->store_super(st, fd2, super)) {
 			fprintf(stderr, Name ": Cannot store new superblock on %s\n", dv);
 			close(fd2);
@@ -816,7 +816,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				break;
 			sleep(1);
 		}
-		
+
 		/* invalidate superblocks */
 		memset(&bsb, 0, sizeof(bsb));
 		for (i=odisks; i<d ; i++) {

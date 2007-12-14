@@ -152,7 +152,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	skip = sizeof(info->sb);
 
 	sb_le_to_cpu(&info->sb); /* convert superblock to CPU byte ordering */
-	
+
 	if (brief || info->sb.sync_size == 0)
 		goto out;
 
@@ -219,7 +219,7 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 		if (!st) {
 			/* just look at device... */
 			lseek(fd, 0, 0);
-		} else {	
+		} else {
 			st->ss->locate_bitmap(st, fd, NULL);
 		}
 		ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
@@ -398,7 +398,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 		}
 		bytes -= sizeof(block);
 	}
-	
+
 	rv = 0;
 	fflush(fp);
 	/* make the file be the right size (well, to the nearest byte) */

@@ -118,7 +118,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	struct {
 		char *devname;
 		unsigned int major, minor;
-		unsigned int oldmajor, oldminor;
 		long long events;
 		int uptodate;
 		int state;
@@ -503,8 +502,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		devices[devcnt].devname = devname;
 		devices[devcnt].major = major(stb.st_rdev);
 		devices[devcnt].minor = minor(stb.st_rdev);
-		devices[devcnt].oldmajor = info.disk.major;
-		devices[devcnt].oldminor = info.disk.minor;
 		devices[devcnt].events = info.events;
 		devices[devcnt].raid_disk = info.disk.raid_disk;
 		devices[devcnt].disk_nr = info.disk.number;

@@ -58,7 +58,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		return 1;
 	}
 
-	st = super_by_version(info.array.major_version, info.array.minor_version);
+	st = super_by_fd(fd);
 	if (!st) {
 		fprintf(stderr, Name ": cannot handle arrays with superblock version %d\n", info.array.major_version);
 		return 1;
@@ -277,7 +277,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
 	}
 
-	st = super_by_version(array.major_version, array.minor_version);
+	st = super_by_fd(fd);
 	if (!st) {
 		fprintf(stderr, Name ": Cannot understand version %d.%d\n",
 			array.major_version, array.minor_version);
@@ -519,8 +519,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	case 4:
 	case 5:
 	case 6:
-		st = super_by_version(array.major_version,
-				      array.minor_version);
+		st = super_by_fd(fd);
+
 		/* size can be changed independently.
 		 * layout/chunksize/raid_disks/level can be changed
 		 * though the kernel may not support it all.

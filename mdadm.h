@@ -381,7 +381,7 @@ struct supertype {
 	void *sb;
 };
 
-extern struct supertype *super_by_version(int vers, int minor);
+extern struct supertype *super_by_fd(int fd);
 extern struct supertype *guess_super(int fd);
 extern struct supertype *dup_super(struct supertype *st);
 extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);

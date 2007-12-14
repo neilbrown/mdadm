@@ -88,7 +88,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		close(fd);
 		return rv;
 	}
-	st = super_by_version(array.major_version, array.minor_version);
+	st = super_by_fd(fd);
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
 		stb.st_rdev = 0;

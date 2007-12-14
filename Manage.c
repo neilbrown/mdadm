@@ -202,8 +202,7 @@ int Manage_subdevs(char *devname, int fd,
 		return 1;
 	}
 
-	tst = super_by_version(array.major_version,
-			       array.minor_version);
+	tst = super_by_fd(fd);
 	if (!tst) {
 		fprintf(stderr, Name ": unsupport array - version %d.%d\n",
 			array.major_version, array.minor_version);
@@ -308,8 +307,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			remove_partitions(tfd);
 
-			st = super_by_version(array.major_version,
-					      array.minor_version);
+			st = dup_super(tst);
 
 			if (array.not_persistent==0)
 				st->ss->load_super(st, tfd, NULL);

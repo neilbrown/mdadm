@@ -723,29 +723,63 @@ int dev_open(char *dev, int flags)
 
 struct superswitch *superlist[] = { &super0, &super1, NULL };
 
-struct supertype *super_by_version(int vers, int minor)
+struct supertype *super_by_fd(int fd)
 {
-	struct supertype *st = malloc(sizeof(*st));
-	if (!st) return st;
-	if (vers == 0) {
-		st->ss = &super0;
-		st->max_devs = MD_SB_DISKS;
+	mdu_array_info_t array;
+	int vers;
+	int minor;
+	struct supertype *st = NULL;
+	struct sysarray *sra;
+	char *verstr = NULL;
+	char version[20];
+	int i;
+
+	sra = sysfs_read(fd, 0, GET_VERSION);
+
+	if (sra) {
+		vers = sra->major_version;
+		minor = sra->minor_version;
+	} else {
+		if (ioctl(fd, GET_ARRAY_INFO, &array))
+			array.major_version = array.minor_version = 0;
+		vers = array.major_version;
+		minor = array.minor_version;
 	}
 
-	if (vers == 1) {
-		st->ss = &super1;
-		st->max_devs = 384;
+	if (vers != -1) {
+		sprintf(version, "%d.%d", vers, minor);
+		verstr = version;
 	}
-	st->minor_version = minor;
+	for (i = 0; st == NULL && superlist[i] ; i++)
+		st = superlist[i]->match_metadata_desc(verstr);
+
+	if (sra)
+		sysfs_free(sra);
 	st->sb = NULL;
 	return st;
 }
 
 struct supertype *dup_super(struct supertype *st)
 {
+	struct supertype *stnew = NULL;
+	char *verstr = NULL;
+	char version[20];
+	int i;
+
 	if (!st)
 		return st;
-	return super_by_version(st->ss->major, st->minor_version);
+
+	if (st->minor_version == -1)
+		sprintf(version, "%d", st->ss->major);
+	else
+		sprintf(version, "%d.%d", st->ss->major, st->minor_version);
+	verstr = version;
+
+	for (i = 0; stnew == NULL && superlist[i] ; i++)
+		stnew = superlist[i]->match_metadata_desc(verstr);
+
+	stnew->sb = NULL;
+	return stnew;
 }
 
 struct supertype *guess_super(int fd)

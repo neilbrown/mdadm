@@ -76,7 +76,10 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 
 	if (fd >= 0) {
 		struct stat stb;
-		if (fstat(fd, &stb)) return NULL;
+		mdu_version_t vers;
+ 		if (fstat(fd, &stb)) return NULL;
+		if (ioctl(fd, RAID_VERSION, &vers) != 0)
+			return NULL;
 		if (major(stb.st_rdev)==9)
 			sprintf(sra->name, "md%d", minor(stb.st_rdev));
 		else

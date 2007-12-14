@@ -322,19 +322,18 @@ int check_reiser(int fd, char *name)
 
 int check_raid(int fd, char *name)
 {
-	void *super;
 	struct mdinfo info;
 	time_t crtime;
 	char *level;
 	struct supertype *st = guess_super(fd);
 
 	if (!st) return 0;
-	st->ss->load_super(st, fd, &super, name);
+	st->ss->load_super(st, fd, name);
 	/* Looks like a raid array .. */
 	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
 		name);
-	st->ss->getinfo_super(st, &info, super);
-	st->ss->free_super(st, super);
+	st->ss->getinfo_super(st, &info);
+	st->ss->free_super(st);
 	crtime = info.array.ctime;
 	level = map_num(pers, info.array.level);
 	if (!level) level = "-unknown-";
@@ -738,7 +737,15 @@ struct supertype *super_by_version(int vers, int minor)
 		st->max_devs = 384;
 	}
 	st->minor_version = minor;
+	st->sb = NULL;
 	return st;
+}
+
+struct supertype *dup_super(struct supertype *st)
+{
+	if (!st)
+		return st;
+	return super_by_version(st->ss->major, st->minor_version);
 }
 
 struct supertype *guess_super(int fd)
@@ -750,8 +757,6 @@ struct supertype *guess_super(int fd)
 	struct supertype *st;
 	unsigned long besttime = 0;
 	int bestsuper = -1;
-
-	void *sbp = NULL;
 	int i;
 
 	st = malloc(sizeof(*st));
@@ -760,24 +765,24 @@ struct supertype *guess_super(int fd)
 		int rv;
 		ss = superlist[i];
 		st->ss = NULL;
-		rv = ss->load_super(st, fd, &sbp, NULL);
+		rv = ss->load_super(st, fd, NULL);
 		if (rv == 0) {
 			struct mdinfo info;
-			st->ss->getinfo_super(st, &info, sbp);
+			st->ss->getinfo_super(st, &info);
 			if (bestsuper == -1 ||
 			    besttime < info.array.ctime) {
 				bestsuper = i;
 				besttime = info.array.ctime;
 			}
-			free(sbp);
+			ss->free_super(st);
 		}
 	}
 	if (bestsuper != -1) {
 		int rv;
 		st->ss = NULL;
-		rv = superlist[bestsuper]->load_super(st, fd, &sbp, NULL);
+		rv = superlist[bestsuper]->load_super(st, fd, NULL);
 		if (rv == 0) {
-			free(sbp);
+			ss->free_super(st);
 			return st;
 		}
 	}

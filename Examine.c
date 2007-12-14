@@ -56,12 +56,10 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 	 * if devlist==NULL, use conf_get_devs()
 	 */
 	int fd;
-	void *super = NULL;
 	int rv = 0;
 	int err = 0;
 
 	struct array {
-		void *super;
 		struct supertype *st;
 		struct mdinfo info;
 		void *devs;
@@ -85,7 +83,9 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			if (!st)
 				st = guess_super(fd);
 			if (st)
-				err = st->ss->load_super(st, fd, &super, (brief||scan)?NULL:devlist->devname);
+				err = st->ss->load_super(st, fd,
+							 (brief||scan) ? NULL
+							   :devlist->devname);
 			else {
 				if (!brief) {
 					fprintf(stderr, Name ": No md superblock detected on %s.\n", devlist->devname);
@@ -99,7 +99,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			continue;
 
 		if (SparcAdjust)
-			st->ss->update_super(st, NULL, super, "sparc2.2",
+			st->ss->update_super(st, NULL, "sparc2.2",
 					     devlist->devname, 0, 0, NULL);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 		if (brief) {
@@ -112,16 +112,15 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			}
 			if (!ap) {
 				ap = malloc(sizeof(*ap));
-				ap->super = super;
 				ap->devs = dl_head();
 				ap->next = arrays;
 				ap->spares = 0;
 				ap->st = st;
 				arrays = ap;
-				st->ss->getinfo_super(st, &ap->info, super);
+				st->ss->getinfo_super(st, &ap->info);
 			} else {
-				st->ss->getinfo_super(st, &ap->info, super);
-				st->ss->free_super(st, super);
+				st->ss->getinfo_super(st, &ap->info);
+				st->ss->free_super(st);
 			}
 			if (!(ap->info.disk.state & MD_DISK_SYNC))
 				ap->spares++;
@@ -129,8 +128,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			dl_add(ap->devs, d);
 		} else {
 			printf("%s:\n",devlist->devname);
-			st->ss->examine_super(st, super, homehost);
-			st->ss->free_super(st, super);
+			st->ss->examine_super(st, homehost);
+			st->ss->free_super(st);
 		}
 	}
 	if (brief) {
@@ -138,7 +137,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
-			ap->st->ss->brief_examine_super(ap->st, ap->super);
+			ap->st->ss->brief_examine_super(ap->st);
 			if (ap->spares) printf("   spares=%d", ap->spares);
 			if (brief > 1) {
 				printf("   devices");
@@ -147,7 +146,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 					sep=',';
 				}
 			}
-			ap->st->ss->free_super(ap->st, ap->super);
+			ap->st->ss->free_super(ap->st);
 			/* FIXME free ap */
 			if (ap->spares || brief > 1)
 				printf("\n");

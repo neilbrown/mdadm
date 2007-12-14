@@ -341,32 +341,35 @@ extern char *map_dev(int major, int minor, int create);
 
 
 extern struct superswitch {
-	void (*examine_super)(struct supertype *st, void *sbv, char *homehost);
-	void (*brief_examine_super)(struct supertype *st, void *sbv);
-	void (*detail_super)(struct supertype *st, void *sbv, char *homehost);
-	void (*export_super)(struct supertype *st, void *sbv);
-	void (*brief_detail_super)(struct supertype *st, void *sbv);
-	void (*uuid_from_super)(struct supertype *st, int uuid[4], void *sbv);
-	void (*getinfo_super)(struct supertype *st, struct mdinfo *info, void *sbv);
-	int (*match_home)(struct supertype *st, void *sbv, char *homehost);
+	void (*examine_super)(struct supertype *st, char *homehost);
+	void (*brief_examine_super)(struct supertype *st);
+	void (*detail_super)(struct supertype *st, char *homehost);
+	void (*export_super)(struct supertype *st);
+	void (*brief_detail_super)(struct supertype *st);
+	void (*uuid_from_super)(struct supertype *st, int uuid[4]);
+	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
+	int (*match_home)(struct supertype *st, char *homehost);
 	int (*update_super)(struct supertype *st, struct mdinfo *info,
-			    void *sbv, char *update,
+			    char *update,
 			    char *devname, int verbose,
 			    int uuid_set, char *homehost);
-	int (*init_super)(struct supertype *st, void **sbp, mdu_array_info_t *info, unsigned long long size, char *name, char *homehost, int *uuid);
-	void (*add_to_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo);
-	int (*store_super)(struct supertype *st, int fd, void *sbv);
-	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
+	int (*init_super)(struct supertype *st, mdu_array_info_t *info,
+			  unsigned long long size, char *name,
+			  char *homehost, int *uuid);
+	void (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo);
+	int (*store_super)(struct supertype *st, int fd);
+	int (*write_init_super)(struct supertype *st, mdu_disk_info_t *dinfo,
+				char *devname);
 	int (*compare_super)(struct supertype *st, struct supertype *tst);
-	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
+	int (*load_super)(struct supertype *st, int fd, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
 	__u64 (*avail_size)(struct supertype *st, __u64 size);
-	int (*add_internal_bitmap)(struct supertype *st, void *sbv, int *chunkp,
+	int (*add_internal_bitmap)(struct supertype *st, int *chunkp,
 				   int delay, int write_behind,
 				   unsigned long long size, int may_change, int major);
-	void (*locate_bitmap)(struct supertype *st, int fd, void *sbv);
-	int (*write_bitmap)(struct supertype *st, int fd, void *sbv);
-	void (*free_super)(struct supertype *st, void *super);
+	void (*locate_bitmap)(struct supertype *st, int fd);
+	int (*write_bitmap)(struct supertype *st, int fd);
+	void (*free_super)(struct supertype *st);
 	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 } super0, super1, *superlist[];
@@ -380,6 +383,7 @@ struct supertype {
 
 extern struct supertype *super_by_version(int vers, int minor);
 extern struct supertype *guess_super(int fd);
+extern struct supertype *dup_super(struct supertype *st);
 extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);
 extern void get_one_disk(int mdfd, mdu_array_info_t *ainf,
 			 mdu_disk_info_t *disk);

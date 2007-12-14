@@ -56,7 +56,6 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	int max_disks = MD_SB_DISKS; /* just a default */
 	struct mdinfo info;
 
-	void *super = NULL;
 	int rv = test ? 4 : 1;
 	int avail_disks = 0;
 	char *avail;
@@ -109,19 +108,18 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		    disk.minor == 0)
 			continue;
 		if ((dv=map_dev(disk.major, disk.minor, 1))) {
-			if (!super && (disk.state & (1<<MD_DISK_ACTIVE))) {
+			if ((!st || !st->sb) &&
+			    (disk.state & (1<<MD_DISK_ACTIVE))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
 				int fd2 = dev_open(dv, O_RDONLY);
 				if (fd2 >=0 && st &&
-				    st->ss->load_super(st, fd2, &super, NULL) == 0) {
-					st->ss->getinfo_super(st, &info, super);
+				    st->ss->load_super(st, fd2, NULL) == 0) {
+					st->ss->getinfo_super(st, &info);
 					if (info.array.ctime != array.ctime ||
-					    info.array.level != array.level) {
-						st->ss->free_super(st, super);
-						super = NULL;
-					}
+					    info.array.level != array.level)
+						st->ss->free_super(st);
 				}
 				if (fd2 >= 0) close(fd2);
 			}
@@ -137,8 +135,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		printf("MD_DEVICES=%d\n", array.raid_disks);
 		printf("MD_METADATA=%d.%d\n", array.major_version,
 		       array.minor_version);
-		if (super)
-			st->ss->export_super(st, super);
+		if (st && st->sb)
+			st->ss->export_super(st);
 		goto out;
 	}
 
@@ -236,13 +234,14 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 
 		if (e && e->percent >= 0) {
 			printf(" Re%s Status : %d%% complete\n",
-			       (super && info.reshape_active)? "shape":"build",
+			       (st && st->sb && info.reshape_active)?
+			          "shape":"build",
 			       e->percent);
 			is_rebuilding = 1;
 		}
 		free_mdstat(ms);
 
-		if (super && info.reshape_active) {
+		if (st->sb && info.reshape_active) {
 #if 0
 This is pretty boring
 			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info.reshape_progress<<9,
@@ -277,8 +276,8 @@ This is pretty boring
 			printf("\n");
 		} else if (e && e->percent >= 0)
 			printf("\n");
-		if (super && st)
-			st->ss->detail_super(st, super, homehost);
+		if (st && st->sb)
+			st->ss->detail_super(st, homehost);
 
 		printf("    Number   Major   Minor   RaidDevice State\n");
 	}
@@ -376,10 +375,9 @@ This is pretty boring
 		if (!brief) printf("\n");
 	}
 	if (spares && brief) printf(" spares=%d", spares);
-	if (super && brief && st)
-		st->ss->brief_detail_super(st, super);
-	if (super)
-		st->ss->free_super(st, super);
+	if (brief && st && st->sb)
+		st->ss->brief_detail_super(st);
+	st->ss->free_super(st);
 
 	if (brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (brief) printf("\n");

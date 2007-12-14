@@ -41,7 +41,6 @@ int Kill(char *dev, int force, int quiet)
 	 * Definitely not safe.
 	 */
 
-	void *super;
 	int fd, rv = 0;
 	struct supertype *st;
 
@@ -60,15 +59,15 @@ int Kill(char *dev, int force, int quiet)
 		close(fd);
 		return 1;
 	}
-	rv = st->ss->load_super(st, fd, &super, dev);
+	rv = st->ss->load_super(st, fd, dev);
 	if (force && rv >= 2)
 		rv = 0; /* ignore bad data in superblock */
 	if (rv== 0 || (force && rv >= 2)) {
 		mdu_array_info_t info;
 		info.major_version = -1; /* zero superblock */
-		st->ss->free_super(st, super);
-		st->ss->init_super(st, &super, &info, 0, "", NULL, NULL);
-		if (st->ss->store_super(st, fd, super)) {
+		st->ss->free_super(st);
+		st->ss->init_super(st, &info, 0, "", NULL, NULL);
+		if (st->ss->store_super(st, fd)) {
 			if (!quiet)
 				fprintf(stderr, Name ": Could not zero superblock on %s\n",
 					dev);

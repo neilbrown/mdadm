@@ -220,7 +220,7 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 			/* just look at device... */
 			lseek(fd, 0, 0);
 		} else {
-			st->ss->locate_bitmap(st, fd, NULL);
+			st->ss->locate_bitmap(st, fd);
 		}
 		ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
 		*stp = st;

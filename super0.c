@@ -85,9 +85,9 @@ void super0_swap_endian(struct mdp_superblock_s *sb)
 
 #ifndef MDASSEMBLE
 
-static void examine_super0(struct supertype *st, void *sbv, char *homehost)
+static void examine_super0(struct supertype *st, char *homehost)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	time_t atime;
 	int d;
 	char *c;
@@ -231,9 +231,9 @@ static void examine_super0(struct supertype *st, void *sbv, char *homehost)
 	}
 }
 
-static void brief_examine_super0(struct supertype *st, void *sbv)
+static void brief_examine_super0(struct supertype *st)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	char *c=map_num(pers, sb->level);
 	char devname[20];
 
@@ -250,9 +250,9 @@ static void brief_examine_super0(struct supertype *st, void *sbv)
 	printf("\n");
 }
 
-static void detail_super0(struct supertype *st, void *sbv, char *homehost)
+static void detail_super0(struct supertype *st, char *homehost)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	printf("           UUID : ");
 	if (sb->minor_version >= 90)
 		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
@@ -270,9 +270,9 @@ static void detail_super0(struct supertype *st, void *sbv, char *homehost)
 	printf("\n         Events : %d.%d\n\n", sb->events_hi, sb->events_lo);
 }
 
-static void brief_detail_super0(struct supertype *st, void *sbv)
+static void brief_detail_super0(struct supertype *st)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	printf(" UUID=");
 	if (sb->minor_version >= 90)
 		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
@@ -281,9 +281,9 @@ static void brief_detail_super0(struct supertype *st, void *sbv)
 		printf("%08x", sb->set_uuid0);
 }
 
-static void export_super0(struct supertype *st, void *sbv)
+static void export_super0(struct supertype *st)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	printf("MD_UUID=");
 	if (sb->minor_version >= 90)
 		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
@@ -294,9 +294,9 @@ static void export_super0(struct supertype *st, void *sbv)
 }
 #endif
 
-static int match_home0(struct supertype *st, void *sbv, char *homehost)
+static int match_home0(struct supertype *st, char *homehost)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	char buf[20];
 	char *hash = sha1_buffer(homehost,
 				 strlen(homehost),
@@ -305,9 +305,9 @@ static int match_home0(struct supertype *st, void *sbv, char *homehost)
 	return (memcmp(&sb->set_uuid2, hash, 8)==0);
 }
 
-static void uuid_from_super0(struct supertype *st, int uuid[4], void * sbv)
+static void uuid_from_super0(struct supertype *st, int uuid[4])
 {
-	mdp_super_t *super = sbv;
+	mdp_super_t *super = st->sb;
 	uuid[0] = super->set_uuid0;
 	if (super->minor_version >= 90) {
 		uuid[1] = super->set_uuid1;
@@ -320,9 +320,9 @@ static void uuid_from_super0(struct supertype *st, int uuid[4], void * sbv)
 	}
 }
 
-static void getinfo_super0(struct supertype *st, struct mdinfo *info, void *sbv)
+static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	int working = 0;
 	int i;
 
@@ -348,7 +348,7 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info, void *sbv)
 	info->events = md_event(sb);
 	info->data_offset = 0;
 
-	uuid_from_super0(st, info->uuid, sbv);
+	uuid_from_super0(st, info->uuid);
 
 	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {
 		info->reshape_active = 1;
@@ -373,7 +373,7 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info, void *sbv)
 
 
 static int update_super0(struct supertype *st, struct mdinfo *info,
-			 void *sbv, char *update,
+			 char *update,
 			 char *devname, int verbose,
 			 int uuid_set, char *homehost)
 {
@@ -381,7 +381,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 	 * For others, the return value is ignored.
 	 */
 	int rv = 0;
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	if (strcmp(update, "sparc2.2")==0 ) {
 		/* 2.2 sparc put the events in the wrong place
 		 * So we copy the tail of the superblock
@@ -508,7 +508,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
 			struct bitmap_super_s *bm;
 			bm = (struct bitmap_super_s*)(sb+1);
-			uuid_from_super0(st, (int*)bm->uuid, sbv);
+			uuid_from_super0(st, (int*)bm->uuid);
 		}
 	}
 	if (strcmp(update, "_reshape_progress")==0)
@@ -527,7 +527,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
  */
 
 
-static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
+static int init_super0(struct supertype *st, mdu_array_info_t *info,
 		       unsigned long long size, char *ignored_name, char *homehost,
 		       int *uuid)
 {
@@ -538,7 +538,6 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	st->sb = sb;
 	if (info->major_version == -1) {
 		/* zeroing the superblock */
-		*sbp = sb;
 		return 0;
 	}
 
@@ -600,14 +599,13 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	sb->layout = info->layout;
 	sb->chunk_size = info->chunk_size;
 
-	*sbp = sb;
 	return 1;
 }
 
 /* Add a device to the superblock being created */
-static void add_to_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo)
+static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	mdp_disk_t *dk = &sb->disks[dinfo->number];
 
 	dk->number = dinfo->number;
@@ -617,11 +615,11 @@ static void add_to_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinf
 	dk->state = dinfo->state;
 }
 
-static int store_super0(struct supertype *st, int fd, void *sbv)
+static int store_super0(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	unsigned long long offset;
-	mdp_super_t *super = sbv;
+	mdp_super_t *super = st->sb;
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
@@ -650,9 +648,10 @@ static int store_super0(struct supertype *st, int fd, void *sbv)
 	return 0;
 }
 
-static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname)
+static int write_init_super0(struct supertype *st,
+			     mdu_disk_info_t *dinfo, char *devname)
 {
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	int fd = open(devname, O_RDWR|O_EXCL);
 	int rv;
 
@@ -665,10 +664,10 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);
-	rv = store_super0(st, fd, sb);
+	rv = store_super0(st, fd);
 
 	if (rv == 0 && (sb->state & (1<<MD_SB_BITMAP_PRESENT)))
-		rv = st->ss->write_bitmap(st, fd, sbv);
+		rv = st->ss->write_bitmap(st, fd);
 
 	close(fd);
 	if (rv)
@@ -698,8 +697,8 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 		return 0;
 	}
 
-	uuid_from_super0(NULL, uuid1, first);
-	uuid_from_super0(NULL, uuid2, second);
+	uuid_from_super0(st, uuid1);
+	uuid_from_super0(tst, uuid2);
 	if (!same_uuid(uuid1, uuid2, 0))
 		return 2;
 	if (first->major_version != second->major_version ||
@@ -716,7 +715,9 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 }
 
 
-static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
+static void free_super0(struct supertype *st);
+
+static int load_super0(struct supertype *st, int fd, char *devname)
 {
 	/* try to read in the superblock
 	 * Return:
@@ -729,6 +730,8 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	mdp_super_t *super;
 	int uuid[4];
 	struct bitmap_super_s *bsb;
+
+	free_super0(st);
 
 	if (!get_dev_size(fd, devname, &dsize))
 		return 1;
@@ -783,7 +786,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 		return 2;
 	}
 	st->sb = super;
-	*sbp = super;
+
 	if (st->ss == NULL) {
 		st->ss = &super0;
 		st->minor_version = 90;
@@ -801,7 +804,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 	    != sizeof(struct bitmap_super_s))
 		goto no_bitmap;
 
-	uuid_from_super0(st, uuid, super);
+	uuid_from_super0(st, uuid);
 	bsb = (struct bitmap_super_s *)(super+1);
 	if (__le32_to_cpu(bsb->magic) != BITMAP_MAGIC ||
 	    memcmp(bsb->uuid, uuid, 16) != 0)
@@ -844,7 +847,7 @@ static __u64 avail_size0(struct supertype *st, __u64 devsize)
 	return MD_NEW_SIZE_SECTORS(devsize);
 }
 
-static int add_internal_bitmap0(struct supertype *st, void *sbv, int *chunkp,
+static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 				int delay, int write_behind,
 				unsigned long long size, int may_change,
 				int major)
@@ -859,7 +862,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int *chunkp,
 	unsigned long long max_bits = 60*1024*8;
 	unsigned long long min_chunk;
 	int chunk = *chunkp;
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MD_SB_BYTES);
 
 
@@ -879,7 +882,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int *chunkp,
 	memset(bms, 0, sizeof(*bms));
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
 	bms->version = __cpu_to_le32(major);
-	uuid_from_super0(st, (int*)bms->uuid, sb);
+	uuid_from_super0(st, (int*)bms->uuid);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);
@@ -889,7 +892,7 @@ static int add_internal_bitmap0(struct supertype *st, void *sbv, int *chunkp,
 }
 
 
-void locate_bitmap0(struct supertype *st, int fd, void *sbv)
+void locate_bitmap0(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	unsigned long long offset;
@@ -909,11 +912,11 @@ void locate_bitmap0(struct supertype *st, int fd, void *sbv)
 	lseek64(fd, offset, 0);
 }
 
-int write_bitmap0(struct supertype *st, int fd, void *sbv)
+int write_bitmap0(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	unsigned long long offset;
-	mdp_super_t *sb = sbv;
+	mdp_super_t *sb = st->sb;
 
 	int rv = 0;
 
@@ -957,10 +960,11 @@ int write_bitmap0(struct supertype *st, int fd, void *sbv)
 	return rv;
 }
 
-static void free_super0(struct supertype *st, void *super)
+static void free_super0(struct supertype *st)
 {
-	if (super)
-		free(super);
+	if (st->sb)
+		free(st->sb);
+	st->sb = NULL;
 }
 
 struct superswitch super0 = {

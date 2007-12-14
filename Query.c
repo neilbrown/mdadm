@@ -43,7 +43,6 @@ int Query(char *dev)
 	int superror, superrno;
 	struct mdinfo info;
 	mdu_array_info_t array;
-	void *super;
 	struct supertype *st = NULL;
 
 	unsigned long long larray_size;
@@ -89,14 +88,14 @@ int Query(char *dev)
 	}
 	st = guess_super(fd);
 	if (st) {
-		superror = st->ss->load_super(st, fd, &super, dev);
+		superror = st->ss->load_super(st, fd, dev);
 		superrno = errno;
 	} else
 		superror = -1;
 	close(fd);
 	if (superror == 0) {
 		/* array might be active... */
-		st->ss->getinfo_super(st, &info, super);
+		st->ss->getinfo_super(st, &info);
 		if (st->ss->major == 0) {
 			mddev = get_md_name(info.array.md_minor);
 			disc.number = info.disk.number;

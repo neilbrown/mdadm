@@ -74,7 +74,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	 *   start the array (auto-readonly).
 	 */
 	struct stat stb;
-	void *super, *super2;
 	struct mdinfo info, info2;
 	struct mddev_ident_s *array_list, *match;
 	char chosen_name[1024];
@@ -134,14 +133,14 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(dfd);
 		return 1;
 	}
-	if (st->ss->load_super(st, dfd, &super, NULL)) {
+	if (st->ss->load_super(st, dfd, NULL)) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": no RAID superblock on %s.\n",
 				devname);
 		close(dfd);
 		return 1;
 	}
-	st->ss->getinfo_super(st, &info, super);
+	st->ss->getinfo_super(st, &info);
 	close (dfd);
 
 	/* 3/ Check if there is a match in mdadm.conf */
@@ -207,7 +206,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 3a/ if not, check for homehost match.  If no match, reject. */
 	if (!match) {
 		if (homehost == NULL ||
-		    st->ss->match_home(st, super, homehost) == 0) {
+		    st->ss->match_home(st, homehost) == 0) {
 			if (verbose >= 0)
 				fprintf(stderr, Name
 	      ": not found in mdadm.conf and not identified by homehost.\n");
@@ -330,6 +329,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		mdu_disk_info_t disk;
 		int err;
 		struct sysarray *sra;
+		struct supertype *st2;
 		sra = sysfs_read(mdfd, devnum, (GET_VERSION | GET_DEVS |
 						GET_STATE));
 		if (sra->major_version != st->ss->major ||
@@ -345,7 +345,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		sprintf(dn, "%d:%d", sra->devs->major, sra->devs->minor);
 		dfd2 = dev_open(dn, O_RDONLY);
-		if (st->ss->load_super(st, dfd2,&super2, NULL)) {
+		st2 = dup_super(st);
+		if (st2->ss->load_super(st2, dfd2, NULL)) {
 			fprintf(stderr, Name
 				": Strange error loading metadata for %s.\n",
 				chosen_name);
@@ -354,7 +355,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			return 2;
 		}
 		close(dfd2);
-		st->ss->getinfo_super(st, &info2, super2);
+		st2->ss->getinfo_super(st2, &info2);
+		st2->ss->free_super(st2);
 		if (info.array.level != info2.array.level ||
 		    memcmp(info.uuid, info2.uuid, 16) != 0 ||
 		    info.array.raid_disks != info2.array.raid_disks) {
@@ -478,7 +480,7 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 			int number, __u64 events, int verbose,
 			char *array_name)
 {
-	/* Find an device attached to this array with a disk.number of number
+	/* Find a device attached to this array with a disk.number of number
 	 * and events less than the passed events, and remove the device.
 	 */
 	struct sysdev *d;
@@ -491,18 +493,17 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 	for (d = sra->devs; d ; d = d->next) {
 		char dn[10];
 		int dfd;
-		void *super;
 		struct mdinfo info;
 		sprintf(dn, "%d:%d", d->major, d->minor);
 		dfd = dev_open(dn, O_RDONLY);
 		if (dfd < 0)
 			continue;
-		if (st->ss->load_super(st, dfd, &super, NULL)) {
+		if (st->ss->load_super(st, dfd, NULL)) {
 			close(dfd);
 			continue;
 		}
-		st->ss->getinfo_super(st, &info, super);
-		st->ss->free_super(st, super);
+		st->ss->getinfo_super(st, &info);
+		st->ss->free_super(st);
 		close(dfd);
 
 		if (info.disk.number != number ||
@@ -526,14 +527,12 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 	struct sysdev *d;
 	int cnt = 0, cnt1 = 0;
 	__u64 max_events = 0;
-	void *best_super = NULL;
 	struct sysarray *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
 	char *avail = NULL;
 
 	for (d = sra->devs ; d ; d = d->next) {
 		char dn[30];
 		int dfd;
-		void *super;
 		int ok;
 		struct mdinfo info;
 
@@ -541,11 +540,11 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		dfd = dev_open(dn, O_RDONLY);
 		if (dfd < 0)
 			continue;
-		ok =  st->ss->load_super(st, dfd, &super, NULL);
+		ok =  st->ss->load_super(st, dfd, NULL);
 		close(dfd);
 		if (ok != 0)
 			continue;
-		st->ss->getinfo_super(st, &info, super);
+		st->ss->getinfo_super(st, &info);
 		if (info.disk.state & (1<<MD_DISK_SYNC))
 		{
 			if (avail == NULL) {
@@ -556,7 +555,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 				cnt++;
 				max_events = info.events;
 				avail[info.disk.raid_disk] = 2;
-				best_super = super; super = NULL;
+				st->ss->getinfo_super(st, bestinfo);
 			} else if (info.events == max_events) {
 				cnt++;
 				avail[info.disk.raid_disk] = 2;
@@ -574,24 +573,15 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 					if (avail[i])
 						avail[i]--;
 				avail[info.disk.raid_disk] = 2;
-				st->ss->free_super(st, best_super);
-				best_super = super;
-				super = NULL;
+				st->ss->getinfo_super(st, bestinfo);
 			} else { /* info.events much bigger */
 				cnt = 1; cnt1 = 0;
 				memset(avail, 0, info.disk.raid_disk);
 				max_events = info.events;
-				st->ss->free_super(st, best_super);
-				best_super = super;
-				super = NULL;
+				st->ss->getinfo_super(st, bestinfo);
 			}
 		}
-		if (super)
-			st->ss->free_super(st, super);
-	}
-	if (best_super) {
-		st->ss->getinfo_super(st, bestinfo,best_super);
-		st->ss->free_super(st, best_super);
+		st->ss->free_super(st);
 	}
 	return cnt + cnt1;
 }
@@ -613,7 +603,6 @@ void RebuildMap(void)
 			int ok;
 			struct supertype *st;
 			char *path;
-			void *super;
 			struct mdinfo info;
 
 			sprintf(dn, "%d:%d", sd->major, sd->minor);
@@ -624,11 +613,11 @@ void RebuildMap(void)
 			if ( st == NULL)
 				ok = -1;
 			else
-				ok = st->ss->load_super(st, dfd, &super, NULL);
+				ok = st->ss->load_super(st, dfd, NULL);
 			close(dfd);
 			if (ok != 0)
 				continue;
-			st->ss->getinfo_super(st, &info, super);
+			st->ss->getinfo_super(st, &info);
 			if (md->devnum > 0)
 				path = map_dev(MD_MAJOR, md->devnum, 0);
 			else
@@ -636,7 +625,7 @@ void RebuildMap(void)
 			map_add(&map, md->devnum, st->ss->major,
 				st->minor_version,
 				info.uuid, path ? : "/unknown");
-			st->ss->free_super(st, super);
+			st->ss->free_super(st);
 			break;
 		}
 	}

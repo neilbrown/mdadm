@@ -65,7 +65,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int first_missing = subdevs * 2;
 	int missing_disks = 0;
 	int insert_point = subdevs * 2; /* where to insert a missing drive */
-	void *super;
 	int pass;
 	int vers;
 	int rv;
@@ -434,7 +433,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				name += 2;
 		}
 	}
-	if (!st->ss->init_super(st, &super, &array, size, name, homehost, uuid))
+	if (!st->ss->init_super(st, &array, size, name, homehost, uuid))
 		return 1;
 
 	if (bitmap_file && vers < 9003) {
@@ -450,7 +449,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
 			return 1;
 		}
-		if (!st->ss->add_internal_bitmap(st, super, &bitmap_chunk,
+		if (!st->ss->add_internal_bitmap(st, &bitmap_chunk,
 						 delay, write_behind,
 						 bitmapsize, 1, major_num)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
@@ -478,7 +477,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (bitmap_file) {
 		int uuid[4];
 
-		st->ss->uuid_from_super(st, uuid, super);
+		st->ss->uuid_from_super(st, uuid);
 		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
 				 delay, write_behind,
 				 bitmapsize,
@@ -542,18 +541,19 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			}
 			switch(pass){
 			case 1:
-				st->ss->add_to_super(st, super, &disk);
+				st->ss->add_to_super(st, &disk);
 				break;
 			case 2:
 				if (disk.state == 1) break;
 				Kill(dv->devname, 0, 1); /* Just be sure it is clean */
 				Kill(dv->devname, 0, 1); /* and again, there could be two superblocks */
-				st->ss->write_init_super(st, super, &disk, dv->devname);
+				st->ss->write_init_super(st, &disk,
+							 dv->devname);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
 						dv->devname, strerror(errno));
-					st->ss->free_super(st, super);
+					st->ss->free_super(st);
 					return 1;
 				}
 
@@ -562,7 +562,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			if (dv == moved_disk && dnum != insert_point) break;
 		}
 	}
-	st->ss->free_super(st, super);
+	st->ss->free_super(st);
 
 	/* param is not actually used */
 	if (runstop == 1 || subdevs >= raiddisks) {

@@ -131,6 +131,10 @@ struct mdinfo {
 	int			reshape_active;
 	unsigned long long	reshape_progress;
 	int			new_level, delta_disks, new_layout, new_chunk;
+	int			errors;
+
+	char 		sys_name[20];
+	struct mdinfo *next;
 };
 
 struct createinfo {
@@ -268,19 +272,9 @@ extern void map_free(struct map_ent *map);
 extern void map_add(struct map_ent **melp,
 		    int devnum, int major, int minor, int uuid[4], char *path);
 
-/* Data structure for holding info read from sysfs */
-struct sysdev {
-	char	name[20];
-	int	role;
-	int	major, minor;
-	unsigned long long offset, size;
-	int	state;
-	int	errors;
-	struct sysdev *next;
-};
 struct sysarray {
 	char	name[20];
-	struct sysdev *devs;
+	struct mdinfo *devs;
 	int	chunk;
 	unsigned long long component_size;
 	int	layout;
@@ -310,11 +304,11 @@ struct sysarray {
  */
 extern void sysfs_free(struct sysarray *sra);
 extern struct sysarray *sysfs_read(int fd, int devnum, unsigned long options);
-extern int sysfs_set_str(struct sysarray *sra, struct sysdev *dev,
+extern int sysfs_set_str(struct sysarray *sra, struct mdinfo *dev,
 			 char *name, char *val);
-extern int sysfs_set_num(struct sysarray *sra, struct sysdev *dev,
+extern int sysfs_set_num(struct sysarray *sra, struct mdinfo *dev,
 			 char *name, unsigned long long val);
-extern int sysfs_get_ll(struct sysarray *sra, struct sysdev *dev,
+extern int sysfs_get_ll(struct sysarray *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
 
 

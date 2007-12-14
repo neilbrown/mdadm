@@ -306,7 +306,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			return 2;
 		}
 		sra = sysfs_read(mdfd, devnum, GET_DEVS);
-		if (!sra || !sra->devs || sra->devs->role >= 0) {
+		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
 			 * kernel, and mdadm -I may not be able to complete.
 			 * So reject it.
@@ -343,7 +343,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(mdfd);
 			return 1;
 		}
-		sprintf(dn, "%d:%d", sra->devs->major, sra->devs->minor);
+		sprintf(dn, "%d:%d", sra->devs->disk.major,
+			sra->devs->disk.minor);
 		dfd2 = dev_open(dn, O_RDONLY);
 		st2 = dup_super(st);
 		if (st2->ss->load_super(st2, dfd2, NULL)) {
@@ -483,7 +484,7 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 	/* Find a device attached to this array with a disk.number of number
 	 * and events less than the passed events, and remove the device.
 	 */
-	struct sysdev *d;
+	struct mdinfo *d;
 	mdu_array_info_t ra;
 
 	if (ioctl(mdfd, GET_ARRAY_INFO, &ra) == 0)
@@ -494,7 +495,7 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 		char dn[10];
 		int dfd;
 		struct mdinfo info;
-		sprintf(dn, "%d:%d", d->major, d->minor);
+		sprintf(dn, "%d:%d", d->disk.major, d->disk.minor);
 		dfd = dev_open(dn, O_RDONLY);
 		if (dfd < 0)
 			continue;
@@ -510,13 +511,13 @@ static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
 		    info.events >= events)
 			continue;
 
-		if (d->role > -1)
+		if (d->disk.raid_disk > -1)
 			sysfs_set_str(sra, d, "slot", "none");
 		if (sysfs_set_str(sra, d, "state", "remove") == 0)
 			if (verbose >= 0)
 				fprintf(stderr, Name
 					": removing old device %s from %s\n",
-					d->name+4, array_name);
+					d->sys_name+4, array_name);
 	}
 }
 
@@ -524,7 +525,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 			struct mdinfo *bestinfo)
 {
 	/* count how many devices in sra think they are active */
-	struct sysdev *d;
+	struct mdinfo *d;
 	int cnt = 0, cnt1 = 0;
 	__u64 max_events = 0;
 	struct sysarray *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
@@ -536,7 +537,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		int ok;
 		struct mdinfo info;
 
-		sprintf(dn, "%d:%d", d->major, d->minor);
+		sprintf(dn, "%d:%d", d->disk.major, d->disk.minor);
 		dfd = dev_open(dn, O_RDONLY);
 		if (dfd < 0)
 			continue;
@@ -595,7 +596,7 @@ void RebuildMap(void)
 
 	for (md = mdstat ; md ; md = md->next) {
 		struct sysarray *sra = sysfs_read(-1, md->devnum, GET_DEVS);
-		struct sysdev *sd;
+		struct mdinfo *sd;
 
 		for (sd = sra->devs ; sd ; sd = sd->next) {
 			char dn[30];
@@ -605,7 +606,7 @@ void RebuildMap(void)
 			char *path;
 			struct mdinfo info;
 
-			sprintf(dn, "%d:%d", sd->major, sd->minor);
+			sprintf(dn, "%d:%d", sd->disk.major, sd->disk.minor);
 			dfd = dev_open(dn, O_RDONLY);
 			if (dfd < 0)
 				continue;

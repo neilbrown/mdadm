@@ -436,7 +436,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	int err;
 
 	struct sysarray *sra;
-	struct sysdev *sd;
+	struct mdinfo *sd;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
 		fprintf(stderr, Name ": %s is not an active md array - aborting\n",
@@ -650,22 +650,25 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			fdlist[d] = -1;
 		d = array.raid_disks;
 		for (sd = sra->devs; sd; sd=sd->next) {
-			if (sd->state & (1<<MD_DISK_FAULTY))
+			if (sd->disk.state & (1<<MD_DISK_FAULTY))
 				continue;
-			if (sd->state & (1<<MD_DISK_SYNC)) {
-				char *dn = map_dev(sd->major, sd->minor, 1);
-				fdlist[sd->role] = dev_open(dn, O_RDONLY);
-				offsets[sd->role] = sd->offset;
-				if (fdlist[sd->role] < 0) {
+			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
+				char *dn = map_dev(sd->disk.major,
+						   sd->disk.minor, 1);
+				fdlist[sd->disk.raid_disk]
+					= dev_open(dn, O_RDONLY);
+				offsets[sd->disk.raid_disk] = sd->data_offset;
+				if (fdlist[sd->disk.raid_disk] < 0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",
 						devname, dn?dn:"-unknown-");
 					goto abort;
 				}
 			} else {
 				/* spare */
-				char *dn = map_dev(sd->major, sd->minor, 1);
+				char *dn = map_dev(sd->disk.major,
+						   sd->disk.minor, 1);
 				fdlist[d] = dev_open(dn, O_RDWR);
-				offsets[d] = sd->offset;
+				offsets[d] = sd->data_offset;
 				if (fdlist[d]<0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",
 						devname, dn?dn:"-unknown");

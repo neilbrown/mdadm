@@ -357,7 +357,7 @@ extern struct superswitch {
 	void (*add_to_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo);
 	int (*store_super)(struct supertype *st, int fd, void *sbv);
 	int (*write_init_super)(struct supertype *st, void *sbv, mdu_disk_info_t *dinfo, char *devname);
-	int (*compare_super)(void **firstp, void *secondv);
+	int (*compare_super)(struct supertype *st, struct supertype *tst);
 	int (*load_super)(struct supertype *st, int fd, void **sbp, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
 	__u64 (*avail_size)(struct supertype *st, __u64 size);
@@ -375,6 +375,7 @@ struct supertype {
 	struct superswitch *ss;
 	int minor_version;
 	int max_devs;
+	void *sb;
 };
 
 extern struct supertype *super_by_version(int vers, int minor);
@@ -510,7 +511,6 @@ extern int match_oneof(char *devices, char *devname);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);
 extern int same_uuid(int a[4], int b[4], int swapuuid);
 extern void copy_uuid(void *a, int b[4], int swapuuid);
-/* extern int compare_super(mdp_super_t *first, mdp_super_t *second);*/
 extern unsigned long calc_csum(void *super, int bytes);
 extern int enough(int level, int raid_disks, int layout, int clean,
 		   char *avail, int avail_disks);

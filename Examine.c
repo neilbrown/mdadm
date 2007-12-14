@@ -107,7 +107,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			char *d;
 			for (ap=arrays; ap; ap=ap->next) {
 				if (st->ss == ap->st->ss &&
-				    st->ss->compare_super(&ap->super, super)==0)
+				    st->ss->compare_super(ap->st, st)==0)
 					break;
 			}
 			if (!ap) {

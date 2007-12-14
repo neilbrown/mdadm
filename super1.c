@@ -661,6 +661,7 @@ static int init_super1(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	char defname[10];
 	memset(sb, 0, 1024);
 
+	st->sb = sb;
 	if (info->major_version == -1) {
 		/* zeroing superblock */
 		*sbp = sb;
@@ -947,7 +948,7 @@ static int write_init_super1(struct supertype *st, void *sbv,
 	return rv;
 }
 
-static int compare_super1(void **firstp, void *secondv)
+static int compare_super1(struct supertype *st, struct supertype *tst)
 {
 	/*
 	 * return:
@@ -956,8 +957,8 @@ static int compare_super1(void **firstp, void *secondv)
 	 *  2 wrong uuid
 	 *  3 wrong other info
 	 */
-	struct mdp_superblock_1 *first = *firstp;
-	struct mdp_superblock_1 *second = secondv;
+	struct mdp_superblock_1 *first = st->sb;
+	struct mdp_superblock_1 *second = tst->sb;
 
 	if (second->magic != __cpu_to_le32(MD_SB_MAGIC))
 		return 1;
@@ -969,7 +970,7 @@ static int compare_super1(void **firstp, void *secondv)
 			       sizeof(struct misc_dev_info));
 		memcpy(first, second, 1024+sizeof(bitmap_super_t) +
 		       sizeof(struct misc_dev_info));
-		*firstp = first;
+		st->sb = first;
 		return 0;
 	}
 	if (memcmp(first->set_uuid, second->set_uuid, 16)!= 0)
@@ -1106,6 +1107,7 @@ static int load_super1(struct supertype *st, int fd, void **sbp, char *devname)
 		free(super);
 		return 2;
 	}
+	st->sb = super;
 	*sbp = super;
 
 	bsb = (struct bitmap_super_s *)(((char*)super)+1024);
@@ -1144,6 +1146,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 
 	st->ss = &super1;
 	st->max_devs = 384;
+	st->sb = NULL;
 	if (strcmp(arg, "1.0") == 0) {
 		st->minor_version = 0;
 		return st;

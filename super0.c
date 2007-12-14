@@ -535,6 +535,7 @@ static int init_super0(struct supertype *st, void **sbp, mdu_array_info_t *info,
 	int spares;
 	memset(sb, 0, MD_SB_BYTES + sizeof(bitmap_super_t));
 
+	st->sb = sb;
 	if (info->major_version == -1) {
 		/* zeroing the superblock */
 		*sbp = sb;
@@ -675,7 +676,7 @@ static int write_init_super0(struct supertype *st, void *sbv, mdu_disk_info_t *d
 	return rv;
 }
 
-static int compare_super0(void **firstp, void *secondv)
+static int compare_super0(struct supertype *st, struct supertype *tst)
 {
 	/*
 	 * return:
@@ -684,16 +685,16 @@ static int compare_super0(void **firstp, void *secondv)
 	 *  2 wrong uuid
 	 *  3 wrong other info
 	 */
-	mdp_super_t *first = *firstp;
-	mdp_super_t *second = secondv;
-
+	mdp_super_t *first = st->sb;
+	mdp_super_t *second = tst->sb;
 	int uuid1[4], uuid2[4];
+
 	if (second->md_magic != MD_SB_MAGIC)
 		return 1;
 	if (!first) {
 		first = malloc(MD_SB_BYTES + sizeof(struct bitmap_super_s));
 		memcpy(first, second, MD_SB_BYTES + sizeof(struct bitmap_super_s));
-		*firstp = first;
+		st->sb = first;
 		return 0;
 	}
 
@@ -781,6 +782,7 @@ static int load_super0(struct supertype *st, int fd, void **sbp, char *devname)
 		free(super);
 		return 2;
 	}
+	st->sb = super;
 	*sbp = super;
 	if (st->ss == NULL) {
 		st->ss = &super0;
@@ -820,6 +822,7 @@ static struct supertype *match_metadata_desc0(char *arg)
 	st->ss = &super0;
 	st->minor_version = 90;
 	st->max_devs = MD_SB_DISKS;
+	st->sb = NULL;
 	if (strcmp(arg, "0") == 0 ||
 	    strcmp(arg, "0.90") == 0 ||
 	    strcmp(arg, "default") == 0

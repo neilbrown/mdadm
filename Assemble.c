@@ -322,7 +322,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			st = tst;
 		if (st->ss != tst->ss ||
 		    st->minor_version != tst->minor_version ||
-		    st->ss->compare_super(&first_super, super) != 0) {
+		    st->ss->compare_super(st, tst) != 0) {
 			/* Some mismatch. If exactly one array matches this host,
 			 * we can resolve on that one.
 			 * Or, if we are auto assembling, we just ignore the second

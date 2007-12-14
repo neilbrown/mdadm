@@ -132,8 +132,12 @@ struct mdinfo {
 	unsigned long long	reshape_progress;
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;
+	int			cache_size; /* size of raid456 stripe cache*/
+	int			mismatch_cnt;
+	char			text_version[50];
 
 	char 		sys_name[20];
+	struct mdinfo *devs;
 	struct mdinfo *next;
 };
 
@@ -272,18 +276,6 @@ extern void map_free(struct map_ent *map);
 extern void map_add(struct map_ent **melp,
 		    int devnum, int major, int minor, int uuid[4], char *path);
 
-struct sysarray {
-	char	name[20];
-	struct mdinfo *devs;
-	int	chunk;
-	unsigned long long component_size;
-	int	layout;
-	int	level;
-	int	spares;
-	int	cache_size;
-	int	mismatch_cnt;
-	int	major_version, minor_version;
-};
 /* various details can be requested */
 #define	GET_LEVEL	1
 #define	GET_LAYOUT	2
@@ -302,13 +294,13 @@ struct sysarray {
 /* If fd >= 0, get the array it is open on,
  * else use devnum. >=0 -> major9. <0.....
  */
-extern void sysfs_free(struct sysarray *sra);
-extern struct sysarray *sysfs_read(int fd, int devnum, unsigned long options);
-extern int sysfs_set_str(struct sysarray *sra, struct mdinfo *dev,
+extern void sysfs_free(struct mdinfo *sra);
+extern struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options);
+extern int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, char *val);
-extern int sysfs_set_num(struct sysarray *sra, struct mdinfo *dev,
+extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, unsigned long long val);
-extern int sysfs_get_ll(struct sysarray *sra, struct mdinfo *dev,
+extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
 
 

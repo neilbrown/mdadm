@@ -312,7 +312,7 @@ int Monitor(mddev_dev_t devlist,
 				 * If there is a number in /mismatch_cnt,
 				 * we should report that.
 				 */
-				struct sysarray *sra =
+				struct mdinfo *sra =
 				       sysfs_read(-1, st->devnum, GET_MISMATCH);
 				if (sra && sra->mismatch_cnt > 0) {
 					char cnt[40];

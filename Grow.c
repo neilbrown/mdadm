@@ -435,7 +435,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	int nrdisks;
 	int err;
 
-	struct sysarray *sra;
+	struct mdinfo *sra;
 	struct mdinfo *sd;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
@@ -631,13 +631,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				devname);
 			return 1;
 		}
-		if (sra->spares == 0 && backup_file == NULL) {
+		if (sra->array.spare_disks == 0 && backup_file == NULL) {
 			fprintf(stderr, Name ": %s: Cannot grow - need a spare or backup-file to backup critical section\n",
 				devname);
 			return 1;
 		}
 
-		nrdisks = array.nr_disks + sra->spares;
+		nrdisks = array.nr_disks + sra->array.spare_disks;
 		/* Now we need to open all these devices so we can read/write.
 		 */
 		fdlist = malloc((1+nrdisks) * sizeof(int));
@@ -683,7 +683,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 					" --grow aborted\n", devname, i);
 				goto abort;
 			}
-		spares = sra->spares;
+		spares = sra->array.spare_disks;
 		if (backup_file) {
 			fdlist[d] = open(backup_file, O_RDWR|O_CREAT|O_EXCL, 0600);
 			if (fdlist[d] < 0) {

@@ -42,19 +42,21 @@ int load_sys(char *path, char *buf)
 	return 0;
 }
 
-void sysfs_free(struct sysarray *sra)
+void sysfs_free(struct mdinfo *sra)
 {
-	if (!sra)
-		return;
-	while (sra->devs) {
-		struct mdinfo *d = sra->devs;
-		sra->devs = d->next;
-		free(d);
+	while (sra) {
+		struct mdinfo *sra2 = sra->next;
+		while (sra->devs) {
+			struct mdinfo *d = sra->devs;
+			sra->devs = d->next;
+			free(d);
+		}
+		free(sra);
+		sra = sra2;
 	}
-	free(sra);
 }
 
-struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
+struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 {
 	/* Longest possible name in sysfs, mounted at /sys, is
 	 *  /sys/block/md_dXXX/md/dev-XXXXX/block/dev
@@ -65,7 +67,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 	char buf[1024];
 	char *base;
 	char *dbase;
-	struct sysarray *sra;
+	struct mdinfo *sra;
 	struct mdinfo *dev;
 	DIR *dir;
 	struct dirent *de;
@@ -73,6 +75,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 	sra = malloc(sizeof(*sra));
 	if (sra == NULL)
 		return sra;
+	sra->next = NULL;
 
 	if (fd >= 0) {
 		struct stat stb;
@@ -81,18 +84,18 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 		if (ioctl(fd, RAID_VERSION, &vers) != 0)
 			return NULL;
 		if (major(stb.st_rdev)==9)
-			sprintf(sra->name, "md%d", minor(stb.st_rdev));
+			sprintf(sra->sys_name, "md%d", minor(stb.st_rdev));
 		else
-			sprintf(sra->name, "md_d%d",
+			sprintf(sra->sys_name, "md_d%d",
 				minor(stb.st_rdev)>>MdpMinorShift);
 	} else {
 		if (devnum >= 0)
-			sprintf(sra->name, "md%d", devnum);
+			sprintf(sra->sys_name, "md%d", devnum);
 		else
-			sprintf(sra->name, "md_d%d",
+			sprintf(sra->sys_name, "md_d%d",
 				-1-devnum);
 	}
-	sprintf(fname, "/sys/block/%s/md/", sra->name);
+	sprintf(fname, "/sys/block/%s/md/", sra->sys_name);
 	base = fname + strlen(fname);
 
 	sra->devs = NULL;
@@ -101,22 +104,24 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 		if (load_sys(fname, buf))
 			goto abort;
 		if (strncmp(buf, "none", 4) == 0)
-			sra->major_version = sra->minor_version = -1;
+			sra->array.major_version =
+				sra->array.minor_version = -1;
 		else
 			sscanf(buf, "%d.%d",
-			       &sra->major_version, &sra->minor_version);
+			       &sra->array.major_version,
+			       &sra->array.minor_version);
 	}
 	if (options & GET_LEVEL) {
 		strcpy(base, "level");
 		if (load_sys(fname, buf))
 			goto abort;
-		sra->level = map_name(pers, buf);
+		sra->array.level = map_name(pers, buf);
 	}
 	if (options & GET_LAYOUT) {
 		strcpy(base, "layout");
 		if (load_sys(fname, buf))
 			goto abort;
-		sra->layout = strtoul(buf, NULL, 0);
+		sra->array.layout = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_COMPONENT) {
 		strcpy(base, "component_size");
@@ -130,7 +135,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 		strcpy(base, "chunk_size");
 		if (load_sys(fname, buf))
 			goto abort;
-		sra->chunk = strtoul(buf, NULL, 0);
+		sra->array.chunk_size = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_CACHE) {
 		strcpy(base, "stripe_cache_size");
@@ -153,7 +158,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 	dir = opendir(fname);
 	if (!dir)
 		goto abort;
-	sra->spares = 0;
+	sra->array.spare_disks = 0;
 
 	while ((de = readdir(dir)) != NULL) {
 		char *ep;
@@ -205,7 +210,7 @@ struct sysarray *sysfs_read(int fd, int devnum, unsigned long options)
 			if (strstr(buf, "faulty"))
 				dev->disk.state |= (1<<MD_DISK_FAULTY);
 			if (dev->disk.state == 0)
-				sra->spares++;
+				sra->array.spare_disks++;
 		}
 		if (options & GET_ERROR) {
 			strcpy(buf, "errors");
@@ -251,14 +256,14 @@ unsigned long long get_component_size(int fd)
 	return strtoull(fname, NULL, 10) * 2;
 }
 
-int sysfs_set_str(struct sysarray *sra, struct mdinfo *dev,
+int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 		  char *name, char *val)
 {
 	char fname[50];
 	int n;
 	int fd;
 	sprintf(fname, "/sys/block/%s/md/%s/%s",
-		sra->name, dev?dev->sys_name:"", name);
+		sra->sys_name, dev?dev->sys_name:"", name);
 	fd = open(fname, O_WRONLY);
 	if (fd < 0)
 		return -1;
@@ -269,7 +274,7 @@ int sysfs_set_str(struct sysarray *sra, struct mdinfo *dev,
 	return 0;
 }
 
-int sysfs_set_num(struct sysarray *sra, struct mdinfo *dev,
+int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 		  char *name, unsigned long long val)
 {
 	char valstr[50];
@@ -277,7 +282,7 @@ int sysfs_set_num(struct sysarray *sra, struct mdinfo *dev,
 	return sysfs_set_str(sra, dev, name, valstr);
 }
 
-int sysfs_get_ll(struct sysarray *sra, struct mdinfo *dev,
+int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 		       char *name, unsigned long long *val)
 {
 	char fname[50];
@@ -286,7 +291,7 @@ int sysfs_get_ll(struct sysarray *sra, struct mdinfo *dev,
 	int fd;
 	char *ep;
 	sprintf(fname, "/sys/block/%s/md/%s/%s",
-		sra->name, dev?dev->sys_name:"", name);
+		sra->sys_name, dev?dev->sys_name:"", name);
 	fd = open(fname, O_RDONLY);
 	if (fd < 0)
 		return -1;

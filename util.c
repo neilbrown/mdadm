@@ -729,7 +729,7 @@ struct supertype *super_by_fd(int fd)
 	int vers;
 	int minor;
 	struct supertype *st = NULL;
-	struct sysarray *sra;
+	struct mdinfo *sra;
 	char *verstr = NULL;
 	char version[20];
 	int i;
@@ -737,8 +737,8 @@ struct supertype *super_by_fd(int fd)
 	sra = sysfs_read(fd, 0, GET_VERSION);
 
 	if (sra) {
-		vers = sra->major_version;
-		minor = sra->minor_version;
+		vers = sra->array.major_version;
+		minor = sra->array.minor_version;
 	} else {
 		if (ioctl(fd, GET_ARRAY_INFO, &array))
 			array.major_version = array.minor_version = 0;

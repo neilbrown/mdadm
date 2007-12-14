@@ -32,7 +32,7 @@
 
 static int count_active(struct supertype *st, int mdfd, char **availp,
 			struct mdinfo *info);
-static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
+static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			int number, __u64 events, int verbose,
 			char *array_name);
 
@@ -279,7 +279,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		mdu_array_info_t ainf;
 		mdu_disk_info_t disk;
 		char md[20];
-		struct sysarray *sra;
+		struct mdinfo *sra;
 
 		memset(&ainf, 0, sizeof(ainf));
 		ainf.major_version = st->ss->major;
@@ -328,17 +328,18 @@ int Incremental(char *devname, int verbose, int runstop,
 		int dfd2;
 		mdu_disk_info_t disk;
 		int err;
-		struct sysarray *sra;
+		struct mdinfo *sra;
 		struct supertype *st2;
 		sra = sysfs_read(mdfd, devnum, (GET_VERSION | GET_DEVS |
 						GET_STATE));
-		if (sra->major_version != st->ss->major ||
-		    sra->minor_version != st->minor_version) {
+		if (sra->array.major_version != st->ss->major ||
+		    sra->array.minor_version != st->minor_version) {
 			if (verbose >= 0)
 				fprintf(stderr, Name
 	      ": %s has different metadata to chosen array %s %d.%d %d.%d.\n",
 					devname, chosen_name,
-					sra->major_version, sra->minor_version,
+					sra->array.major_version,
+					sra->array.minor_version,
 					st->ss->major, st->minor_version);
 			close(mdfd);
 			return 1;
@@ -427,7 +428,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	}
 }
 	if (runstop > 0 || active_disks >= info.array.working_disks) {
-		struct sysarray *sra;
+		struct mdinfo *sra;
 		/* Let's try to start it */
 		if (match && match->bitmap_file) {
 			int bmfd = open(match->bitmap_file, O_RDWR);
@@ -477,7 +478,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	return rv;
 }
 
-static void find_reject(int mdfd, struct supertype *st, struct sysarray *sra,
+static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			int number, __u64 events, int verbose,
 			char *array_name)
 {
@@ -528,7 +529,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 	struct mdinfo *d;
 	int cnt = 0, cnt1 = 0;
 	__u64 max_events = 0;
-	struct sysarray *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
+	struct mdinfo *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
 	char *avail = NULL;
 
 	for (d = sra->devs ; d ; d = d->next) {
@@ -595,7 +596,7 @@ void RebuildMap(void)
 	int mdp = get_mdp_major();
 
 	for (md = mdstat ; md ; md = md->next) {
-		struct sysarray *sra = sysfs_read(-1, md->devnum, GET_DEVS);
+		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS);
 		struct mdinfo *sd;
 
 		for (sd = sra->devs ; sd ; sd = sd->next) {
@@ -654,7 +655,7 @@ int IncrementalScan(int verbose)
 		char path[1024];
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
-		struct sysarray *sra;
+		struct mdinfo *sra;
 		int mdfd = open_mddev_devnum(me->path, me->devnum, NULL, path);
 		if (mdfd < 0)
 			continue;

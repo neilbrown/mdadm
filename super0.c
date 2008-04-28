@@ -179,7 +179,9 @@ static void examine_super0(struct supertype *st, char *homehost)
 		printf("       Checksum : %x - correct\n", sb->sb_csum);
 	else
 		printf("       Checksum : %x - expected %lx\n", sb->sb_csum, calc_sb0_csum(sb));
-	printf("         Events : %d.%d\n", sb->events_hi, sb->events_lo);
+	printf("         Events : %llu\n",
+	       ((unsigned long long)sb->events_hi << 32)
+	       + sb->events_lo);
 	printf("\n");
 	if (sb->level == 5) {
 		c = map_num(r5layout, sb->layout);

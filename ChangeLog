@@ -3,6 +3,8 @@ Changes Prior to this release
 	arrays.
     -   Fix problem with failing to add devices to v.large (>4TB) arrays,
 	cause by problems with device-size overflow.
+    -   For v0.90 superblocks, print the 'Events' count as a real count,
+	not 2 numbers separated by a dot.
 
 Changes Prior to 2.6.4 release
     -   Make "--create --auto=mdp" work for non-standard device names.

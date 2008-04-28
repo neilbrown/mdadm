@@ -191,7 +191,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				if (dsize > 0)
 					printf("  Used Dev Size : %llu%s\n",
 					       dsize,
-					 human_size((long long)array.size<<10));
+					 human_size((long long)dsize<<10));
 				else
 					printf("  Used Dev Size : unknown\n");
 			} else

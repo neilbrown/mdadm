@@ -188,6 +188,7 @@ int Manage_subdevs(char *devname, int fd,
 	 */
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
+	unsigned long long array_size;
 	mddev_dev_t dv, next = NULL;
 	struct stat stb;
 	int j, jnext = 0;
@@ -201,6 +202,14 @@ int Manage_subdevs(char *devname, int fd,
 			devname);
 		return 1;
 	}
+
+	/* array.size is only 32 bit and may be truncated.
+	 * So read from sysfs if possible, and record number of sectors
+	 */
+
+	array_size = get_component_size(fd);
+	if (array_size <= 0)
+		array_size = array.size * 2;
 
 	tst = super_by_fd(fd);
 	if (!tst) {
@@ -337,7 +346,7 @@ int Manage_subdevs(char *devname, int fd,
 
 				/* Make sure device is large enough */
 				if (tst->ss->avail_size(tst, ldsize/512) <
-				    array.size) {
+				    array_size) {
 					fprintf(stderr, Name ": %s not large enough to join array\n",
 						dv->devname);
 					return 1;
@@ -412,7 +421,7 @@ int Manage_subdevs(char *devname, int fd,
 				/* non-persistent. Must ensure that new drive
 				 * is at least array.size big.
 				 */
-				if (ldsize/512 < array.size) {
+				if (ldsize/512 < array_size) {
 					fprintf(stderr, Name ": %s not large enough to join array\n",
 						dv->devname);
 					return 1;

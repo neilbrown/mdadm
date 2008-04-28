@@ -1,3 +1,7 @@
+Changes Prior to this release
+    -   Avoid segfault when parsing /proc/mdstat with auto-read-only
+	arrays.
+
 Changes Prior to 2.6.4 release
     -   Make "--create --auto=mdp" work for non-standard device names.
     -   Fix restarting of a 'reshape' if it was stopped in the middle.

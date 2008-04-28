@@ -332,6 +332,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st2;
 		sra = sysfs_read(mdfd, devnum, (GET_VERSION | GET_DEVS |
 						GET_STATE));
+
 		if (sra->array.major_version != st->ss->major ||
 		    sra->array.minor_version != st->minor_version) {
 			if (verbose >= 0)

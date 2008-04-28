@@ -161,11 +161,24 @@ char *conf_word(FILE *file, int allow_key)
 					word[len++] = c;
 				}
 				c = getc(file);
+				/* Hack for broken kernels (2.6.14-.24) that put
+				 *        "active(auto-read-only)"
+				 * in /proc/mdstat instead of
+				 *        "active (auto-read-only)"
+				 */
+				if (c == '(' && len >= 6
+				    && strncmp(word+len-6, "active", 6) == 0)
+					c = ' ';
 			}
 		}
 		if (c != EOF) ungetc(c, file);
 	}
 	word[len] = 0;
+
+	/* Further HACK for broken kernels.. 2.6.14-2.6.24 */
+	if (strcmp(word, "auto-read-only)") == 0)
+		strcpy(word, "(auto-read-only)");
+
 /*    printf("word is <%s>\n", word); */
 	if (!wordfound) {
 		free(word);

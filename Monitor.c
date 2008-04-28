@@ -403,6 +403,7 @@ int Monitor(mddev_dev_t devlist,
 			struct mdstat_ent *mse;
 			for (mse=mdstat; mse; mse=mse->next)
 				if (mse->devnum != INT_MAX &&
+				    mse->level &&
 				    (strcmp(mse->level, "raid0")!=0 &&
 				     strcmp(mse->level, "linear")!=0)
 					) {

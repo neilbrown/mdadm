@@ -63,6 +63,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int fail=0, warn=0;
 	struct stat stb;
 	int first_missing = subdevs * 2;
+	int second_missing = subdevs * 2;
 	int missing_disks = 0;
 	int insert_point = subdevs * 2; /* where to insert a missing drive */
 	int pass;
@@ -203,6 +204,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
 				first_missing = dnum;
+			if (second_missing > dnum && dnum > first_missing)
+				second_missing = dnum;
 			missing_disks ++;
 			continue;
 		}
@@ -341,6 +344,18 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			break;
 		}
 	}
+	/* For raid6, if creating with 1 missing drive, make a good drive
+	 * into a spare, else the create will fail
+	 */
+	if (assume_clean == 0 && force == 0 && first_missing < raiddisks &&
+	    second_missing >= raiddisks && level == 6) {
+		insert_point = raiddisks - 1;
+		if (insert_point == first_missing)
+			insert_point--;
+		sparedisks ++;
+		info.array.active_disks--;
+		missing_disks++;
+	}
 
 	if (level <= 0 && first_missing != subdevs * 2) {
 		fprintf(stderr,
@@ -360,11 +375,12 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (fstat(mdfd, &stb)==0)
 		info.array.md_minor = minor(stb.st_rdev);
 	info.array.not_persistent = 0;
-	/*** FIX: Need to do something about RAID-6 here ***/
+
 	if ( ( (level == 4 || level == 5) &&
 	       (insert_point < raiddisks || first_missing < raiddisks) )
 	     ||
-	     ( level == 6 && missing_disks == 2)
+	     ( level == 6 && (insert_point < raiddisks
+			      || second_missing < raiddisks))
 	     ||
 	     assume_clean
 		)

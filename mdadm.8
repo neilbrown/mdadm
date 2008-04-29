@@ -1,10 +1,10 @@
 .\" -*- nroff -*-
-''' Copyright Neil Brown and others.
-'''   This program is free software; you can redistribute it and/or modify
-'''   it under the terms of the GNU General Public License as published by
-'''   the Free Software Foundation; either version 2 of the License, or
-'''   (at your option) any later version.
-''' See file COPYING in distribution for details.
+.\" Copyright Neil Brown and others.
+.\"   This program is free software; you can redistribute it and/or modify
+.\"   it under the terms of the GNU General Public License as published by
+.\"   the Free Software Foundation; either version 2 of the License, or
+.\"   (at your option) any later version.
+.\" See file COPYING in distribution for details.
 .TH MDADM 8 "" v2.6.4
 .SH NAME
 mdadm \- manage MD devices
@@ -50,41 +50,41 @@ each device is a path to one common physical storage device.
 is also not true RAID, and it only involves one device.  It
 provides a layer over a true device that can be used to inject faults.
 
-'''.B mdadm
-'''is a program that can be used to create, manage, and monitor
-'''MD devices.  As
-'''such it provides a similar set of functionality to the
-'''.B raidtools
-'''packages.
-'''The key differences between
-'''.B mdadm
-'''and
-'''.B raidtools
-'''are:
-'''.IP \(bu 4
-'''.B mdadm
-'''is a single program and not a collection of programs.
-'''.IP \(bu 4
-'''.B mdadm
-'''can perform (almost) all of its functions without having a
-'''configuration file and does not use one by default.  Also
-'''.B mdadm
-'''helps with management of the configuration
-'''file.
-'''.IP \(bu 4
-'''.B mdadm
-'''can provide information about your arrays (through Query, Detail, and Examine)
-'''that
-'''.B  raidtools
-'''cannot.
-'''.P
-'''.I mdadm
-'''does not use
-'''.IR /etc/raidtab ,
-'''the
-'''.B raidtools
-'''configuration file, at all.  It has a different configuration file
-'''with a different format and a different purpose.
+.\".B mdadm
+.\"is a program that can be used to create, manage, and monitor
+.\"MD devices.  As
+.\"such it provides a similar set of functionality to the
+.\".B raidtools
+.\"packages.
+.\"The key differences between
+.\".B mdadm
+.\"and
+.\".B raidtools
+.\"are:
+.\".IP \(bu 4
+.\".B mdadm
+.\"is a single program and not a collection of programs.
+.\".IP \(bu 4
+.\".B mdadm
+.\"can perform (almost) all of its functions without having a
+.\"configuration file and does not use one by default.  Also
+.\".B mdadm
+.\"helps with management of the configuration
+.\"file.
+.\".IP \(bu 4
+.\".B mdadm
+.\"can provide information about your arrays (through Query, Detail, and Examine)
+.\"that
+.\".B  raidtools
+.\"cannot.
+.\".P
+.\".I mdadm
+.\"does not use
+.\".IR /etc/raidtab ,
+.\"the
+.\".B raidtools
+.\"configuration file, at all.  It has a different configuration file
+.\"with a different format and a different purpose.
 
 .SH MODES
 mdadm has several major modes of operation:
@@ -113,8 +113,8 @@ what you are doing.
 .TP
 .B Create
 Create a new array with per-device superblocks.
-'''It can progress
-'''in several step create-add-add-run or it can all happen with one command.
+.\"It can progress
+.\"in several step create-add-add-run or it can all happen with one command.
 
 .TP
 .B "Follow or Monitor"
@@ -150,8 +150,8 @@ adding new spares and removing faulty devices.
 This is an 'everything else' mode that supports operations on active
 arrays, operations on component devices such as erasing old superblocks, and
 information gathering operations.
-'''This mode allows operations on independent devices such as examine MD
-'''superblocks, erasing old superblocks and stopping active arrays.
+.\"This mode allows operations on independent devices such as examine MD
+.\"superblocks, erasing old superblocks and stopping active arrays.
 
 .TP
 .B Auto-detect
@@ -1368,14 +1368,14 @@ recipe for disaster.  Also, using
 when creating a v0.90 array will silently override any
 .B \-\-homehost=
 setting.
-'''If the
-'''.B \-\-size
-'''option is given, it is not necessary to list any component-devices in this command.
-'''They can be added later, before a
-'''.B \-\-run.
-'''If no
-'''.B \-\-size
-'''is given, the apparent size of the smallest drive given is used.
+.\"If the
+.\".B \-\-size
+.\"option is given, it is not necessary to list any component-devices in this command.
+.\"They can be added later, before a
+.\".B \-\-run.
+.\"If no
+.\".B \-\-size
+.\"is given, the apparent size of the smallest drive given is used.
 
 The General Management options that are valid with
 .B \-\-create
@@ -2114,19 +2114,19 @@ http://unthought.net/Software\-RAID.HOWTO/
 .UR http://linux-raid.osdl.org/
 http://linux\-raid.osdl.org/
 .UE
-'''.PP
-'''for new releases of the RAID driver check out:
-'''
-'''.IP
-'''.UR  ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
-'''ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
-'''.UE
-'''.PP
-'''or
-'''.IP
-'''.UR http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
-'''http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
-'''.UE
+.\".PP
+.\"for new releases of the RAID driver check out:
+.\"
+.\".IP
+.\".UR  ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
+.\"ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
+.\".UE
+.\".PP
+.\"or
+.\".IP
+.\".UR http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
+.\"http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
+.\".UE
 .PP
 The latest version of
 .I mdadm

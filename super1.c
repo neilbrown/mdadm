@@ -905,7 +905,7 @@ static int write_init_super1(struct supertype *st,
 	 * for a bitmap.
 	 */
 	array_size = __le64_to_cpu(sb->size);
-	/* work out how much space we left of a bitmap */
+	/* work out how much space we left for a bitmap */
 	bm_space = choose_bm_space(array_size);
 
 	switch(st->minor_version) {
@@ -915,6 +915,8 @@ static int write_init_super1(struct supertype *st,
 		sb_offset &= ~(4*2-1);
 		sb->super_offset = __cpu_to_le64(sb_offset);
 		sb->data_offset = __cpu_to_le64(0);
+		if (sb_offset - bm_space < array_size)
+			bm_space = sb_offset - array_size;
 		sb->data_size = __cpu_to_le64(sb_offset - bm_space);
 		break;
 	case 1:

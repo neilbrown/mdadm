@@ -830,6 +830,11 @@ struct supertype *guess_super(int fd)
 int get_dev_size(int fd, char *dname, unsigned long long *sizep)
 {
 	unsigned long long ldsize;
+	struct stat st;
+
+	if (fstat(fd, &st) != -1 && S_ISREG(st.st_mode))
+		ldsize = (unsigned long long)st.st_size;
+	else
 #ifdef BLKGETSIZE64
 	if (ioctl(fd, BLKGETSIZE64, &ldsize) != 0)
 #endif

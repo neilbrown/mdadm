@@ -28,6 +28,7 @@
  */
 
 #define	_GNU_SOURCE
+#define _FILE_OFFSET_BITS 64
 #include	<unistd.h>
 #if !defined(__dietlibc__) && !defined(__KLIBC__)
 extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));

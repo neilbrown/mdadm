@@ -199,7 +199,8 @@ int main(int argc, char *argv[])
 		case 'G': newmode = GROW;
 			shortopt = short_bitmap_options;
 			break;
-		case 'I': newmode = INCREMENTAL; break;
+		case 'I': newmode = INCREMENTAL;
+			shortopt = short_bitmap_auto_options; break;
 		case AutoDetect:
 			newmode = AUTODETECT; break;
 
@@ -511,6 +512,7 @@ int main(int argc, char *argv[])
 
 		case O(CREATE,'a'):
 		case O(BUILD,'a'):
+		case O(INCREMENTAL,'a'):
 		case O(ASSEMBLE,'a'): /* auto-creation of device node */
 			autof = parse_auto(optarg, "--auto flag", 0);
 			continue;

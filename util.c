@@ -884,11 +884,14 @@ int find_free_devnum(int use_partitions)
 	for (devnum = 127; devnum != 128;
 	     devnum = devnum ? devnum-1 : (1<<22)-1) {
 		char *dn;
-		if (mddev_busy(use_partitions ? (-1-devnum) : devnum))
+		int _devnum;
+
+		_devnum = use_partitions ? (-1-devnum) : devnum;
+		if (mddev_busy(_devnum))
 			continue;
 		/* make sure it is new to /dev too, at least as a
 		 * non-standard */
-		dn = map_dev(dev2major(devnum), dev2minor(devnum), 0);
+		dn = map_dev(dev2major(_devnum), dev2minor(_devnum), 0);
 		if (dn && ! is_standard(dn, NULL))
 			continue;
 		break;

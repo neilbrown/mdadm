@@ -862,6 +862,43 @@ void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
 		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0)
 			return;
 }
+
+static int dev2major(int d)
+{
+	if (d >= 0)
+		return MD_MAJOR;
+	else
+		return get_mdp_major();
+}
+
+static int dev2minor(int d)
+{
+	if (d >= 0)
+		return d;
+	return (-1-d) << MdpMinorShift;
+}
+
+int find_free_devnum(int use_partitions)
+{
+	int devnum;
+	for (devnum = 127; devnum != 128;
+	     devnum = devnum ? devnum-1 : (1<<22)-1) {
+		char *dn;
+		if (mddev_busy(use_partitions ? (-1-devnum) : devnum))
+			continue;
+		/* make sure it is new to /dev too, at least as a
+		 * non-standard */
+		dn = map_dev(dev2major(devnum), dev2minor(devnum), 0);
+		if (dn && ! is_standard(dn, NULL))
+			continue;
+		break;
+	}
+	if (devnum == 128)
+		return NoMdDev;
+	return use_partitions ? (-1-devnum) : devnum;
+}
+
+
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */
 unsigned int __invalid_size_argument_for_IOC = 0;

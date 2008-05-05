@@ -513,6 +513,9 @@ extern void remove_partitions(int fd);
 extern char *human_size(long long bytes);
 char *human_size_brief(long long bytes);
 
+#define NoMdDev (1<<23)
+extern int find_free_devnum(int use_partitions);
+
 extern void put_md_name(char *name);
 extern char *get_md_name(int dev);
 

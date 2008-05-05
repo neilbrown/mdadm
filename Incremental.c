@@ -246,20 +246,15 @@ int Incremental(char *devname, int verbose, int runstop,
 
 		if (devnum < 0) {
 			/* Haven't found anything yet, choose something free */
-			/* There is similar code in mdopen.c - should unify */
-			for (devnum = 127 ; devnum != 128 ;
-			     devnum = devnum ? devnum-1 : (1<<22)-1) {
-				if (mddev_busy(use_partitions ?
-					       (-1-devnum) : devnum))
-					break;
-			}
-			if (devnum == 128) {
+			devnum = find_free_devnum(use_partitions);
+
+			if (devnum == NoMdDev) {
 				fprintf(stderr, Name
 					": No spare md devices!!\n");
 				return 2;
 			}
-		}
-		devnum = use_partitions ? (-1-devnum) : devnum;
+		} else
+			devnum = use_partitions ? (-1-devnum) : devnum;
 	}
 	mdfd = open_mddev_devnum(match ? match->devname : NULL,
 				 devnum,

@@ -113,7 +113,6 @@ int open_mddev(char *dev, int autof)
 	int major_num = MD_MAJOR;
 	int minor_num = 0;
 	int must_remove = 0;
-	struct mdstat_ent *mdlist;
 	int num;
 	struct createinfo *ci = conf_get_create_info();
 	int parts;
@@ -197,37 +196,12 @@ int open_mddev(char *dev, int autof)
 		 */
 		if (num < 0) {
 			/* need to pick an unused number */
-			mdlist = mdstat_read(0, 0);
-			/* Choose a large number.  Start from 127 and search down,
-			 * but if nothing is found, start really big
-			 */
-			for (num = 127 ; num != 128 ; num = num ? num-1 : (1<<22)-1) {
-				struct mdstat_ent *me;
-				int devnum = num;
-				if (major_num != MD_MAJOR)
-					devnum = -1-num;
+			int num = find_free_devnum(major_num != MD_MAJOR);
 
-				for (me=mdlist; me; me=me->next)
-					if (me->devnum == devnum)
-						break;
-				if (!me) {
-					/* doesn't exist in mdstat.
-					 * make sure it is new to /dev too
-					 */
-					char *dn;
-					if (major_num != MD_MAJOR)
-						minor_num = num << MdpMinorShift;
-					else
-						minor_num = num;
-					dn = map_dev(major_num,minor_num, 0);
-					if (dn==NULL || is_standard(dn, NULL)) {
-						/* this number only used by a 'standard' name,
-						 * so it is safe to use
-						 */
-						break;
-					}
-				}
-			}
+			if (major_num == MD_MAJOR)
+				minor_num = num;
+			else
+				minor_num = (-1-num) << MdpMinorShift;
 		} else if (major_num == MD_MAJOR)
 			minor_num = num;
 		else

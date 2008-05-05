@@ -302,6 +302,7 @@ int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
 	 */
 	int major_num, minor_num;
 	struct stat stb;
+	int i;
 
 	if (devname)
 		strcpy(chosen_name, devname);
@@ -353,5 +354,17 @@ int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
 		}
 		/* FIXME chown/chmod ?? */
 	}
-	return open(chosen_name, O_RDWR);
+
+	/* Simple locking to avoid --incr being called for the same
+	 * array multiple times in parallel.
+	 */
+	for (i = 0; i < 25 ; i++) {
+		int fd;
+
+		fd = open(chosen_name, O_RDWR|O_EXCL);
+		if (fd >= 0 || errno != EBUSY)
+			return fd;
+		usleep(200000);
+	}
+	return -1;
 }

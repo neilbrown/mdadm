@@ -818,7 +818,7 @@ struct supertype *guess_super(int fd)
 		st->ss = NULL;
 		rv = superlist[bestsuper]->load_super(st, fd, NULL);
 		if (rv == 0) {
-			ss->free_super(st);
+			superlist[bestsuper]->free_super(st);
 			return st;
 		}
 	}

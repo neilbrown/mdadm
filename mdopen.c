@@ -333,6 +333,20 @@ int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
 			return -1;
 		}
 	} else {
+		/* special case: if --incremental is suggesting a name
+		 * in /dev/md/, we make sure the directory exists.
+		 */
+		if (strncmp(chosen_name, "/dev/md/", 8) == 0) {
+			struct createinfo *ci = conf_get_create_info();
+			if (mkdir("/dev/md",0700)==0) {
+				if (chown("/dev/md", ci->uid, ci->gid))
+					perror("chown /dev/md");
+				if (chmod("/dev/md", ci->mode|
+					          ((ci->mode>>2) & 0111)))
+					perror("chmod /dev/md");
+			}
+		}
+
 		if (mknod(chosen_name, S_IFBLK | 0600,
 			  makedev(major_num, minor_num)) != 0) {
 			return -1;

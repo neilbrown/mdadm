@@ -268,7 +268,8 @@ int open_mddev(char *dev, int autof)
 }
 
 
-int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
+int open_mddev_devnum(char *devname, int devnum, char *name,
+		      char *chosen_name, int parts)
 {
 	/* Open the md device with number 'devnum', possibly using 'devname',
 	 * possibly constructing a name with 'name', but in any case, copying
@@ -277,6 +278,7 @@ int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
 	int major_num, minor_num;
 	struct stat stb;
 	int i;
+	struct createinfo *ci = conf_get_create_info();
 
 	if (devname)
 		strcpy(chosen_name, devname);
@@ -312,7 +314,6 @@ int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
 		 * in /dev/md/, we make sure the directory exists.
 		 */
 		if (strncmp(chosen_name, "/dev/md/", 8) == 0) {
-			struct createinfo *ci = conf_get_create_info();
 			if (mkdir("/dev/md",0700)==0) {
 				if (chown("/dev/md", ci->uid, ci->gid))
 					perror("chown /dev/md");
@@ -336,8 +337,11 @@ int open_mddev_devnum(char *devname, int devnum, char *name, char *chosen_name)
 		int fd;
 
 		fd = open(chosen_name, O_RDWR|O_EXCL);
-		if (fd >= 0 || errno != EBUSY)
+		if (fd >= 0 || errno != EBUSY) {
+			if (devnum < 0)
+				make_parts(chosen_name, parts, ci->symlinks);
 			return fd;
+		}
 		usleep(200000);
 	}
 	return -1;

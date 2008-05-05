@@ -523,7 +523,7 @@ extern char DefaultConfFile[];
 
 extern int open_mddev(char *dev, int autof);
 extern int open_mddev_devnum(char *devname, int devnum, char *name,
-			     char *chosen_name);
+			     char *chosen_name, int parts);
 
 
 #define	LEVEL_MULTIPATH		(-4)

@@ -259,7 +259,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	mdfd = open_mddev_devnum(match ? match->devname : NULL,
 				 devnum,
 				 info.name,
-				 chosen_name);
+				 chosen_name, autof >> 3);
 	if (mdfd < 0) {
 		fprintf(stderr, Name ": failed to open %s: %s.\n",
 			chosen_name, strerror(errno));
@@ -652,7 +652,8 @@ int IncrementalScan(int verbose)
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = open_mddev_devnum(me->path, me->devnum, NULL, path);
+		int mdfd = open_mddev_devnum(me->path, me->devnum,
+					     NULL, path, 0);
 		if (mdfd < 0)
 			continue;
 		if (ioctl(mdfd, GET_ARRAY_INFO, &array) == 0 ||

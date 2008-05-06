@@ -330,9 +330,10 @@ extern char *map_dev(int major, int minor, int create);
 extern struct superswitch {
 	void (*examine_super)(struct supertype *st, char *homehost);
 	void (*brief_examine_super)(struct supertype *st);
+	void (*export_examine_super)(struct supertype *st);
 	void (*detail_super)(struct supertype *st, char *homehost);
-	void (*export_super)(struct supertype *st);
 	void (*brief_detail_super)(struct supertype *st);
+	void (*export_detail_super)(struct supertype *st);
 	void (*uuid_from_super)(struct supertype *st, int uuid[4]);
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
 	int (*match_home)(struct supertype *st, char *homehost);
@@ -451,8 +452,8 @@ extern int Create(struct supertype *st, char *mddev, int mdfd,
 
 extern int Detail(char *dev, int brief, int export, int test, char *homehost);
 extern int Query(char *dev);
-extern int Examine(mddev_dev_t devlist, int brief, int scan, int SparcAdjust,
-		   struct supertype *forcest, char *homehost);
+extern int Examine(mddev_dev_t devlist, int brief, int export, int scan,
+		   int SparcAdjust, struct supertype *forcest, char *homehost);
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,

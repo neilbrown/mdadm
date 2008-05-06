@@ -375,6 +375,40 @@ static void brief_examine_super1(struct supertype *st)
 	printf("\n");
 }
 
+static void export_examine_super1(struct supertype *st)
+{
+	struct mdp_superblock_1 *sb = st->sb;
+	int i;
+	int len = 32;
+
+	printf("MD_LEVEL=%s\n", map_num(pers, __le32_to_cpu(sb->level)));
+	printf("MD_DEVICES=%d\n", __le32_to_cpu(sb->raid_disks));
+	for (i=0; i<32; i++)
+		if (sb->set_name[i] == '\n' ||
+		    sb->set_name[i] == '\0') {
+			len = i;
+			break;
+		}
+	if (len)
+		printf("MD_NAME=%.*s\n", len, sb->set_name);
+	printf("MD_UUID=");
+	for (i=0; i<16; i++) {
+		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->set_uuid[i]);
+	}
+	printf("\n");
+	printf("MD_UPDATE_TIME=%llu\n",
+	       __le64_to_cpu(sb->utime) & 0xFFFFFFFFFFULL);
+	printf("MD_DEV_UUID=");
+	for (i=0; i<16; i++) {
+		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02x", sb->device_uuid[i]);
+	}
+	printf("\n");
+	printf("MD_EVENTS=%llu\n",
+	       (unsigned long long)__le64_to_cpu(sb->events));
+}
+
 static void detail_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
@@ -408,7 +442,7 @@ static void brief_detail_super1(struct supertype *st)
 	}
 }
 
-static void export_super1(struct supertype *st)
+static void export_detail_super1(struct supertype *st)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	int i;
@@ -1386,9 +1420,10 @@ struct superswitch super1 = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_super1,
 	.brief_examine_super = brief_examine_super1,
+	.export_examine_super = export_examine_super1,
 	.detail_super = detail_super1,
 	.brief_detail_super = brief_detail_super1,
-	.export_super = export_super1,
+	.export_detail_super = export_detail_super1,
 #endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,

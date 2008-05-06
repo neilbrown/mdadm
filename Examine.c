@@ -35,7 +35,7 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(mddev_dev_t devlist, int brief, int scan,
+int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 	    int SparcAdjust, struct supertype *forcest,
 	    char *homehost)
 {
@@ -102,6 +102,7 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 			st->ss->update_super(st, NULL, "sparc2.2",
 					     devlist->devname, 0, 0, NULL);
 		/* Ok, its good enough to try, though the checksum could be wrong */
+
 		if (brief) {
 			struct array *ap;
 			char *d;
@@ -126,6 +127,8 @@ int Examine(mddev_dev_t devlist, int brief, int scan,
 				ap->spares++;
 			d = dl_strdup(devlist->devname);
 			dl_add(ap->devs, d);
+		} else if (export) {
+			st->ss->export_examine_super(st);
 		} else {
 			printf("%s:\n",devlist->devname);
 			st->ss->examine_super(st, homehost);

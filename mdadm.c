@@ -1202,7 +1202,9 @@ int main(int argc, char *argv[])
 			}
 			if (brief && verbose)
 				brief = 2;
-			rv = Examine(devlist, scan?(verbose>1?0:verbose+1):brief, scan, SparcAdjust, ss, homehost);
+			rv = Examine(devlist, scan?(verbose>1?0:verbose+1):brief,
+				     export, scan,
+				     SparcAdjust, ss, homehost);
 		} else {
 			if (devlist == NULL) {
 				if (devmode=='D' && scan) {

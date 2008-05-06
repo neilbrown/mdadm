@@ -142,7 +142,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			       array.major_version, array.minor_version);
 
 		if (st && st->sb)
-			st->ss->export_super(st);
+			st->ss->export_detail_super(st);
 		goto out;
 	}
 

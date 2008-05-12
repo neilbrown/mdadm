@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
 			test = 1;
 			continue;
 		case O(MONITOR,'y'): /* log messages to syslog */
-			openlog("mdadm", 0, SYSLOG_FACILITY);
+			openlog("mdadm", LOG_PID, SYSLOG_FACILITY);
 			dosyslog = 1;
 			continue;
 

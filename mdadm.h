@@ -380,7 +380,7 @@ extern struct superswitch {
 	char *text_version;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
-} super0, super1, *superlist[];
+} super0, super1, super_ddf, super_ddf_bvd, super_ddf_svd, *superlist[];
 
 struct supertype {
 	struct superswitch *ss;
@@ -546,6 +546,7 @@ extern char DefaultConfFile[];
 extern int open_mddev(char *dev, int autof);
 extern int open_mddev_devnum(char *devname, int devnum, char *name,
 			     char *chosen_name, int parts);
+extern int open_container(int fd);
 
 
 #define	LEVEL_MULTIPATH		(-4)
@@ -554,6 +555,7 @@ extern int open_mddev_devnum(char *devname, int devnum, char *name,
 
 /* kernel module doesn't know about these */
 #define LEVEL_CONTAINER		(-100)
+#define	LEVEL_UNSUPPORTED	(-200)
 
 
 /* faulty stuff */

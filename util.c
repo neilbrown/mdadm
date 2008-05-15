@@ -31,6 +31,7 @@
 #include	"md_p.h"
 #include	<sys/utsname.h>
 #include	<ctype.h>
+#include	<dirent.h>
 
 /*
  * following taken from linux/blkpg.h because they aren't
@@ -759,7 +760,7 @@ int dev_open(char *dev, int flags)
 	return fd;
 }
 
-struct superswitch *superlist[] = { &super0, &super1, NULL };
+struct superswitch *superlist[] = { &super0, &super1, &super_ddf, NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 struct supertype *super_by_fd(int fd)
@@ -906,6 +907,55 @@ void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
 	for (d = 0 ; d < ainf->raid_disks + ainf->nr_disks ; d++)
 		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0)
 			return;
+}
+
+int open_container(int fd)
+{
+	/* 'fd' is a block device.  Find out if it is in use
+	 * by a container, and return an open fd on that container.
+	 */
+	char path[256];
+	char *e;
+	DIR *dir;
+	struct dirent *de;
+	int dfd, n;
+	char buf[200];
+	int major, minor;
+	struct stat st;
+
+	if (fstat(fd, &st) != 0)
+		return -1;
+	sprintf(path, "/sys/dev/block/%d:%d/holders",
+		(int)major(st.st_rdev), (int)minor(st.st_rdev));
+	e = path + strlen(path);
+
+	dir = opendir(path);
+	if (!dir)
+		return -1;
+	while ((de = readdir(dir))) {
+		if (de->d_ino == 0)
+			continue;
+		if (de->d_name[0] == '.')
+			continue;
+		sprintf(e, "/%s/dev", de->d_name);
+		dfd = open(path, O_RDONLY);
+		if (dfd < 0)
+			continue;
+		n = read(dfd, buf, sizeof(buf));
+		close(dfd);
+		if (n <= 0 || n >= sizeof(buf))
+			continue;
+		buf[n] = 0;
+		if (sscanf(buf, "%d:%d", &major, &minor) != 2)
+			continue;
+		sprintf(buf, "%d:%d", major, minor);
+		dfd = dev_open(buf, O_RDONLY);
+		if (dfd >= 0) {
+			closedir(dir);
+			return dfd;
+		}
+	}
+	return -1;
 }
 
 #ifdef __TINYC__

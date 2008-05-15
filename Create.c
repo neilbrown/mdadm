@@ -93,6 +93,14 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 	}
 	if (level == UnSet) {
+		/* "ddf" metadata only supports one level - should possibly
+		 * push this into metadata handler??
+		 */
+		if (st && st->ss == &super_ddf)
+			level = LEVEL_CONTAINER;
+	}
+
+	if (level == UnSet) {
 		fprintf(stderr,
 			Name ": a RAID level is needed to create an array.\n");
 		return 1;

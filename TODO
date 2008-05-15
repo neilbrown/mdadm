@@ -1,3 +1,38 @@
+ - add 'name' field to metadata type and use it.
+ - use validate_geometry more
+ - metadata should be able to check/reject bitmap stuff.
+
+DDF:
+  Three new metadata types:
+    ddf - used only to create a container.
+    ddf-bvd - used to create an array in a container
+    ddf-svd - used to create a secondary array from bvds.
+
+  Usage:
+    mdadm -C /dev/ddf1 /dev/sd[abcdef]
+    mdadm -C /dev/md1 -e ddf /dev/sd[a-f]
+    mdadm -C /dev/md1 -l container /dev/sd[a-f]
+
+        Each of these create a new ddf container using all those
+	devices.  The name 'ddf*' signals that ddf metadata should be used.
+	'-e ddf' only supports one level - 'container'.  'container' is only
+	supported by ddf.
+
+    mdadm -C /dev/md1 -l0 -n4 /dev/ddf1 # or maybe not ???
+    mdadm -C /dev/md1 -l1 -n2 /dev/sda /dev/sdb
+	If exactly one device is given, and it is a container, we select
+	devices from that container.
+	If devices are given that are already in use, they must be in use by
+	a container, and the array is created in the container.
+	If devices given are bvds, we slip under the hood to make
+	  the svd arrays.
+
+    mdadm -A /dev/ddf ......
+	base drives make a container.  Anything in that container is started
+	 auto-read-only.
+	 if /dev/ddf is already assembled, we assemble bvds and svds inside it.
+
+
 2005-dec-20
   Want an incremental assembly mode to work nicely with udev.
   Core usage would be something like

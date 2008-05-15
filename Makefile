@@ -69,18 +69,19 @@ MAN8DIR = $(MANDIR)/man8
 OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
 	Incremental.o \
-	mdopen.o super0.o super1.o bitmap.o restripe.o sysfs.o sha1.o \
-	mapfile.o crc32.o
+	mdopen.o super0.o super1.o super-ddf.o bitmap.o restripe.o sysfs.o \
+	sha1.o mapfile.o crc32.o
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
 	Incremental.c \
-	mdopen.c super0.c super1.c bitmap.c restripe.c sysfs.c sha1.c \
-	mapfile.c crc32.c
+	mdopen.c super0.c super1.c super-ddf.c bitmap.c restripe.c sysfs.c \
+	sha1.c mapfile.c crc32.c
 
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
-ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c super0.c super1.c sha1.c
+ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c \
+	super0.c super1.c super-ddf.c sha1.c crc32.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += mdopen.c mdstat.c

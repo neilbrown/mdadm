@@ -694,7 +694,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 	int rv;
 
 #ifndef MDASSEMBLE
-	if (load_super_ddf_all(st, fd, &st->sb, devname, 0) == 0)
+	if (load_super_ddf_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
 

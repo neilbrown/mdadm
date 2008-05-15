@@ -70,6 +70,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int vers;
 	int rv;
 	int bitmap_fd;
+	int have_container = 0;
 	unsigned long long bitmapsize;
 	struct mdinfo *sra;
 	struct mdinfo info;
@@ -125,11 +126,47 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			Name ": This level does not support spare devices\n");
 		return 1;
 	}
+
+	if (subdevs == 1 && strcmp(devlist->devname, "missing") != 0) {
+		/* If given a single device, it might be a container, and we can
+		 * extract a device list from there
+		 */
+		mdu_array_info_t inf;
+		int fd;
+
+		memset(&inf, 0, sizeof(inf));
+		fd = open(devlist->devname, O_RDONLY, 0);
+		if (fd >= 0 &&
+		    ioctl(fd, GET_ARRAY_INFO, &inf) == 0 &&
+		    inf.raid_disks == 0) {
+			/* yep, looks like a container */
+			if (st) {
+				rv = st->ss->load_super(st, fd,
+							devlist->devname);
+				if (rv == 0)
+					have_container = 1;
+			} else {
+				st = guess_super(fd);
+				if (st && !(rv = st->ss->
+					    load_super(st, fd,
+						       devlist->devname)))
+					have_container = 1;
+				else
+					st = NULL;
+			}
+		}
+		if (fd >= 0)
+			close(fd);
+		if (have_container) {
+			subdevs = 0;
+			devlist = NULL;
+		}
+	}
 	if (subdevs > raiddisks+sparedisks) {
 		fprintf(stderr, Name ": You have listed more devices (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
 		return 1;
 	}
-	if (subdevs < raiddisks+sparedisks) {
+	if (!have_container && subdevs < raiddisks+sparedisks) {
 		fprintf(stderr, Name ": You haven't given enough devices (real or missing) to create this array\n");
 		return 1;
 	}
@@ -311,11 +348,13 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 	}
 	if (size == 0) {
-		if (mindisc == NULL) {
+		if (mindisc == NULL && !have_container) {
 			fprintf(stderr, Name ": no size and no drives given - aborting create.\n");
 			return 1;
 		}
-		if (level > 0 || level == LEVEL_MULTIPATH || level == LEVEL_FAULTY) {
+		if (level > 0 || level == LEVEL_MULTIPATH
+		    || level == LEVEL_FAULTY
+		    || (st && st->ss->external) ) {
 			/* size is meaningful */
 			if (minsize > 0x100000000ULL && st->ss->major == 0) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);
@@ -375,7 +414,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		missing_disks++;
 	}
 
-	if (level <= 0 && first_missing != subdevs * 2) {
+	if (level <= 0 && first_missing < subdevs * 2) {
 		fprintf(stderr,
 			Name ": This level does not support missing devices\n");
 		return 1;
@@ -571,7 +610,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			    strcasecmp(dv->devname, "missing")==0)
 				continue;
 
-			fd = open(dv->devname, O_RDWR|O_EXCL, 0);
+			if (st->ss->external == 2)
+				fd = open(dv->devname, O_RDWR, 0);
+			else
+				fd = open(dv->devname, O_RDWR|O_EXCL,0);
+
 			if (fd < 0) {
 				fprintf(stderr, Name ": failed to open %s "
 					"after earlier success - aborting\n",

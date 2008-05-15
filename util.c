@@ -609,6 +609,23 @@ char *human_size_brief(long long bytes)
 }
 #endif
 
+unsigned long long calc_array_size(int level, int raid_disks, int layout,
+				   int chunksize, unsigned long long devsize)
+{
+	int data_disks = 0;
+	switch (level) {
+	case 0: data_disks = raid_disks; break;
+	case 1: data_disks = 1; break;
+	case 4:
+	case 5: data_disks = raid_disks - 1; break;
+	case 6: data_disks = raid_disks - 2; break;
+	case 10: data_disks = raid_disks / (layout & 255) / ((layout>>8)&255);
+		break;
+	}
+	devsize &= ~(unsigned long long)((chunksize>>9)-1);
+	return data_disks * devsize;
+}
+
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 int get_mdp_major(void)
 {

@@ -315,7 +315,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (!tst || !tst->sb) {
 			fprintf(stderr, Name ": %s has no superblock - assembly aborted\n",
 				devname);
-			st->ss->free_super(st);
+			if (st)
+				st->ss->free_super(st);
 			return 1;
 		}
 

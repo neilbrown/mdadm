@@ -780,7 +780,7 @@ int dev_open(char *dev, int flags)
 	return fd;
 }
 
-struct superswitch *superlist[] = { &super0, &super1, &super_ddf, NULL };
+struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 struct supertype *super_by_fd(int fd)

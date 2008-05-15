@@ -34,7 +34,7 @@
 #include	"md_u.h"
 #include	"md_p.h"
 
-int Kill(char *dev, int force, int quiet)
+int Kill(char *dev, int force, int quiet, int noexcl)
 {
 	/*
 	 * Nothing fancy about Kill.  It just zeroes out a superblock
@@ -44,7 +44,7 @@ int Kill(char *dev, int force, int quiet)
 	int fd, rv = 0;
 	struct supertype *st;
 
-	fd = open(dev, O_RDWR|O_EXCL);
+	fd = open(dev, noexcl ? O_RDWR : (O_RDWR|O_EXCL));
 	if (fd < 0) {
 		if (!quiet)
 			fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",

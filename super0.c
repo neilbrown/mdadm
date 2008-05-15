@@ -623,17 +623,35 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	return 1;
 }
 
+struct devinfo {
+	int fd;
+	char *devname;
+	mdu_disk_info_t disk;
+	struct devinfo *next;
+};
 /* Add a device to the superblock being created */
-static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo)
+static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
+			  int fd, char *devname)
 {
 	mdp_super_t *sb = st->sb;
 	mdp_disk_t *dk = &sb->disks[dinfo->number];
+	struct devinfo *di, **dip;
 
 	dk->number = dinfo->number;
 	dk->major = dinfo->major;
 	dk->minor = dinfo->minor;
 	dk->raid_disk = dinfo->raid_disk;
 	dk->state = dinfo->state;
+
+	dip = (struct devinfo **)&st->info;
+	while (*dip)
+		dip = &(*dip)->next;
+	di = malloc(sizeof(struct devinfo));
+	di->fd = fd;
+	di->devname = devname;
+	di->disk = *dinfo;
+	di->next = NULL;
+	*dip = di;
 }
 
 static int store_super0(struct supertype *st, int fd)
@@ -669,32 +687,39 @@ static int store_super0(struct supertype *st, int fd)
 	return 0;
 }
 
-static int write_init_super0(struct supertype *st,
-			     mdu_disk_info_t *dinfo, char *devname)
+#ifndef MDASSEMBLE
+static int write_init_super0(struct supertype *st)
 {
 	mdp_super_t *sb = st->sb;
-	int fd = open(devname, O_RDWR|O_EXCL);
-	int rv;
+	int rv = 0;
+	struct devinfo *di;
 
-	if (fd < 0) {
-		fprintf(stderr, Name ": Failed to open %s to write superblock\n", devname);
-		return -1;
+	for (di = st->info ; di && ! rv ; di = di->next) {
+
+		if (di->disk.state == 1)
+			continue;
+		Kill(di->devname, 0, 1, 1);
+		Kill(di->devname, 0, 1, 1);
+
+		sb->disks[di->disk.number].state &= ~(1<<MD_DISK_FAULTY);
+
+		sb->this_disk = sb->disks[di->disk.number];
+		sb->sb_csum = calc_sb0_csum(sb);
+		rv = store_super0(st, di->fd);
+
+		if (rv == 0 && (sb->state & (1<<MD_SB_BITMAP_PRESENT)))
+			rv = st->ss->write_bitmap(st, di->fd);
+
+		if (rv)
+			fprintf(stderr,
+				Name ": failed to write superblock to %s\n",
+				di->devname);
+		close(di->fd);
+		di->fd = -1;
 	}
-
-	sb->disks[dinfo->number].state &= ~(1<<MD_DISK_FAULTY);
-
-	sb->this_disk = sb->disks[dinfo->number];
-	sb->sb_csum = calc_sb0_csum(sb);
-	rv = store_super0(st, fd);
-
-	if (rv == 0 && (sb->state & (1<<MD_SB_BITMAP_PRESENT)))
-		rv = st->ss->write_bitmap(st, fd);
-
-	close(fd);
-	if (rv)
-		fprintf(stderr, Name ": failed to write superblock to %s\n", devname);
 	return rv;
 }
+#endif
 
 static int compare_super0(struct supertype *st, struct supertype *tst)
 {
@@ -812,6 +837,7 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 		st->ss = &super0;
 		st->minor_version = super->minor_version;
 		st->max_devs = MD_SB_DISKS;
+		st->info = NULL;
 	}
 
 	/* Now check on the bitmap superblock */
@@ -844,6 +870,7 @@ static struct supertype *match_metadata_desc0(char *arg)
 	if (!st) return st;
 
 	st->ss = &super0;
+	st->info = NULL;
 	st->minor_version = 90;
 	st->max_devs = MD_SB_DISKS;
 	st->sb = NULL;
@@ -1036,6 +1063,7 @@ struct superswitch super0 = {
 	.detail_super = detail_super0,
 	.brief_detail_super = brief_detail_super0,
 	.export_detail_super = export_detail_super0,
+	.write_init_super = write_init_super0,
 #endif
 	.match_home = match_home0,
 	.uuid_from_super = uuid_from_super0,
@@ -1044,7 +1072,6 @@ struct superswitch super0 = {
 	.init_super = init_super0,
 	.add_to_super = add_to_super0,
 	.store_super = store_super0,
-	.write_init_super = write_init_super0,
 	.compare_super = compare_super0,
 	.load_super = load_super0,
 	.match_metadata_desc = match_metadata_desc0,

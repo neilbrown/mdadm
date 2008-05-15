@@ -547,33 +547,28 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				info.disk.state |= (1<<MD_DISK_WRITEMOSTLY);
 
 			if (dnum == insert_point ||
-			    strcasecmp(dv->devname, "missing")==0) {
-				info.disk.major = 0;
-				info.disk.minor = 0;
-				info.disk.state = (1<<MD_DISK_FAULTY);
-			} else {
-				fd = open(dv->devname, O_RDONLY|O_EXCL, 0);
-				if (fd < 0) {
-					fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
-						dv->devname);
-					return 1;
-				}
-				fstat(fd, &stb);
-				info.disk.major = major(stb.st_rdev);
-				info.disk.minor = minor(stb.st_rdev);
-				remove_partitions(fd);
-				close(fd);
+			    strcasecmp(dv->devname, "missing")==0)
+				continue;
+
+			fd = open(dv->devname, O_RDWR|O_EXCL, 0);
+			if (fd < 0) {
+				fprintf(stderr, Name ": failed to open %s "
+					"after earlier success - aborting\n",
+					dv->devname);
+				return 1;
 			}
+			fstat(fd, &stb);
+			info.disk.major = major(stb.st_rdev);
+			info.disk.minor = minor(stb.st_rdev);
+
 			switch(pass){
 			case 1:
-				st->ss->add_to_super(st, &info.disk);
+				remove_partitions(fd);
+				st->ss->add_to_super(st, &info.disk,
+						     fd, dv->devname);
 				break;
 			case 2:
-				if (info.disk.state == 1) break;
-				Kill(dv->devname, 0, 1); /* Just be sure it is clean */
-				Kill(dv->devname, 0, 1); /* and again, there could be two superblocks */
-				st->ss->write_init_super(st, &info.disk,
-							 dv->devname);
+				close(fd);
 
 				if (ioctl(mdfd, ADD_NEW_DISK, &info.disk)) {
 					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
@@ -586,6 +581,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			}
 			if (dv == moved_disk && dnum != insert_point) break;
 		}
+		if (pass == 1)
+			st->ss->write_init_super(st);
 	}
 	st->ss->free_super(st);
 

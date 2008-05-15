@@ -446,11 +446,14 @@ int Manage_subdevs(char *devname, int fd,
 			disc.number =j;
 			disc.state = 0;
 			if (array.not_persistent==0) {
+				int dfd;
 				if (dv->writemostly)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
-				tst->ss->add_to_super(tst, &disc);
-				if (tst->ss->write_init_super(tst, &disc,
-							      dv->devname))
+				dfd = open(dv->devname, O_RDWR | O_EXCL);
+				tst->ss->add_to_super(tst, &disc, dfd,
+						      dv->devname);
+				/* write_init_super will close 'dfd' */
+				if (tst->ss->write_init_super(tst))
 					return 1;
 			} else if (dv->re_add) {
 				/*  this had better be raid1.

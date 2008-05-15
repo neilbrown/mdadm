@@ -767,17 +767,36 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	return 1;
 }
 
+struct devinfo {
+	int fd;
+	char *devname;
+	mdu_disk_info_t disk;
+	struct devinfo *next;
+};
 /* Add a device to the superblock being created */
-static void add_to_super1(struct supertype *st, mdu_disk_info_t *dk)
+static void add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
+			  int fd, char *devname)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	__u16 *rp = sb->dev_roles + dk->number;
+	struct devinfo *di, **dip;
+
 	if ((dk->state & 6) == 6) /* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
 	else if ((dk->state & ~2) == 0) /* active or idle -> spare */
 		*rp = 0xffff;
 	else
 		*rp = 0xfffe;
+
+	dip = (struct devinfo **)&st->info;
+	while (*dip)
+		dip = &(*dip)->next;
+	di = malloc(sizeof(struct devinfo));
+	di->fd = fd;
+	di->devname = devname;
+	di->disk = *dk;
+	di->next = NULL;
+	*dip = di;
 }
 
 static void locate_bitmap1(struct supertype *st, int fd);
@@ -866,123 +885,137 @@ static unsigned long choose_bm_space(unsigned long devsize)
 	return 4*2;
 }
 
-static int write_init_super1(struct supertype *st,
-			     mdu_disk_info_t *dinfo, char *devname)
+#ifndef MDASSEMBLE
+static int write_init_super1(struct supertype *st)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	struct supertype refst;
-	int fd = open(devname, O_RDWR | O_EXCL);
 	int rfd;
-	int rv;
+	int rv = 0;
 	int bm_space;
-
+	struct devinfo *di;
 	unsigned long long dsize, array_size;
 	long long sb_offset;
 
+	for (di = st->info; di && ! rv ; di = di->next) {
+		if (di->disk.state == 1)
+			continue;
 
-	if (fd < 0) {
-		fprintf(stderr, Name ": Failed to open %s to write superblock\n",
-			devname);
-		return -1;
-	}
+		Kill(di->devname, 0, 1, 1);
+		Kill(di->devname, 0, 1, 1);
 
-	sb->dev_number = __cpu_to_le32(dinfo->number);
-	if (dinfo->state & (1<<MD_DISK_WRITEMOSTLY))
-		sb->devflags |= __cpu_to_le32(WriteMostly1);
-
-	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-	    read(rfd, sb->device_uuid, 16) != 16) {
-		*(__u32*)(sb->device_uuid) = random();
-		*(__u32*)(sb->device_uuid+4) = random();
-		*(__u32*)(sb->device_uuid+8) = random();
-		*(__u32*)(sb->device_uuid+12) = random();
-	}
-	if (rfd >= 0) close(rfd);
-	sb->events = 0;
-
-	refst =*st;
-	refst.sb = NULL;
-	if (load_super1(&refst, fd, NULL)==0) {
-		struct mdp_superblock_1 *refsb = refst.sb;
-
-		memcpy(sb->device_uuid, refsb->device_uuid, 16);
-		if (memcmp(sb->set_uuid, refsb->set_uuid, 16)==0) {
-			/* same array, so preserve events and dev_number */
-			sb->events = refsb->events;
-			/* bugs in 2.6.17 and earlier mean the dev_number
-			 * chosen in Manage must be preserved
-			 */
-			if (get_linux_version() >= 2006018)
-				sb->dev_number = refsb->dev_number;
+		if (di->fd < 0) {
+			fprintf(stderr,
+				Name": Failed to open %s to write superblock\n",
+				di->devname);
+			return -1;
 		}
-		free(refsb);
-	}
+		sb->dev_number = __cpu_to_le32(di->disk.number);
+		if (di->disk.state & (1<<MD_DISK_WRITEMOSTLY))
+			sb->devflags |= __cpu_to_le32(WriteMostly1);
 
-	if (!get_dev_size(fd, NULL, &dsize))
-		return 1;
-	dsize >>= 9;
+		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+		    read(rfd, sb->device_uuid, 16) != 16) {
+			*(__u32*)(sb->device_uuid) = random();
+			*(__u32*)(sb->device_uuid+4) = random();
+			*(__u32*)(sb->device_uuid+8) = random();
+			*(__u32*)(sb->device_uuid+12) = random();
+		}
+		if (rfd >= 0) close(rfd);
+		sb->events = 0;
 
-	if (dsize < 24) {
-		close(fd);
-		return 2;
-	}
+		refst =*st;
+		refst.sb = NULL;
+		if (load_super1(&refst, di->fd, NULL)==0) {
+			struct mdp_superblock_1 *refsb = refst.sb;
+
+			memcpy(sb->device_uuid, refsb->device_uuid, 16);
+			if (memcmp(sb->set_uuid, refsb->set_uuid, 16)==0) {
+				/* same array, so preserve events and
+				 * dev_number */
+				sb->events = refsb->events;
+				/* bugs in 2.6.17 and earlier mean the
+				 * dev_number chosen in Manage must be preserved
+				 */
+				if (get_linux_version() >= 2006018)
+					sb->dev_number = refsb->dev_number;
+			}
+			free(refsb);
+		}
+
+		if (!get_dev_size(di->fd, NULL, &dsize))
+			return 1;
+		dsize >>= 9;
+
+		if (dsize < 24) {
+			close(di->fd);
+			return 2;
+		}
 
 
-	/*
-	 * Calculate the position of the superblock.
-	 * It is always aligned to a 4K boundary and
-	 * depending on minor_version, it can be:
-	 * 0: At least 8K, but less than 12K, from end of device
-	 * 1: At start of device
-	 * 2: 4K from start of device.
-	 * Depending on the array size, we might leave extra space
-	 * for a bitmap.
-	 */
-	array_size = __le64_to_cpu(sb->size);
-	/* work out how much space we left for a bitmap */
-	bm_space = choose_bm_space(array_size);
+		/*
+		 * Calculate the position of the superblock.
+		 * It is always aligned to a 4K boundary and
+		 * depending on minor_version, it can be:
+		 * 0: At least 8K, but less than 12K, from end of device
+		 * 1: At start of device
+		 * 2: 4K from start of device.
+		 * Depending on the array size, we might leave extra space
+		 * for a bitmap.
+		 */
+		array_size = __le64_to_cpu(sb->size);
+		/* work out how much space we left for a bitmap */
+		bm_space = choose_bm_space(array_size);
 
-	switch(st->minor_version) {
-	case 0:
-		sb_offset = dsize;
-		sb_offset -= 8*2;
-		sb_offset &= ~(4*2-1);
-		sb->super_offset = __cpu_to_le64(sb_offset);
-		sb->data_offset = __cpu_to_le64(0);
+		switch(st->minor_version) {
+		case 0:
+			sb_offset = dsize;
+			sb_offset -= 8*2;
+			sb_offset &= ~(4*2-1);
+			sb->super_offset = __cpu_to_le64(sb_offset);
+			sb->data_offset = __cpu_to_le64(0);
 		if (sb_offset - bm_space < array_size)
 			bm_space = sb_offset - array_size;
-		sb->data_size = __cpu_to_le64(sb_offset - bm_space);
-		break;
-	case 1:
-		sb->super_offset = __cpu_to_le64(0);
-		if (4*2 + bm_space + __le64_to_cpu(sb->size) > dsize)
-			bm_space = dsize - __le64_to_cpu(sb->size) - 4*2;
-		sb->data_offset = __cpu_to_le64(bm_space + 4*2);
-		sb->data_size = __cpu_to_le64(dsize - bm_space - 4*2);
-		break;
-	case 2:
-		sb_offset = 4*2;
-		sb->super_offset = __cpu_to_le64(4*2);
-		if (4*2 + 4*2 + bm_space + __le64_to_cpu(sb->size) > dsize)
-			bm_space = dsize - __le64_to_cpu(sb->size) - 4*2 - 4*2;
-		sb->data_offset = __cpu_to_le64(4*2 + 4*2 + bm_space);
-		sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2 - bm_space );
-		break;
-	default:
-		return -EINVAL;
+			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
+			break;
+		case 1:
+			sb->super_offset = __cpu_to_le64(0);
+			if (4*2 + bm_space + __le64_to_cpu(sb->size) > dsize)
+				bm_space = dsize - __le64_to_cpu(sb->size) -4*2;
+			sb->data_offset = __cpu_to_le64(bm_space + 4*2);
+			sb->data_size = __cpu_to_le64(dsize - bm_space - 4*2);
+			break;
+		case 2:
+			sb_offset = 4*2;
+			sb->super_offset = __cpu_to_le64(4*2);
+			if (4*2 + 4*2 + bm_space + __le64_to_cpu(sb->size)
+			    > dsize)
+				bm_space = dsize - __le64_to_cpu(sb->size)
+					- 4*2 - 4*2;
+			sb->data_offset = __cpu_to_le64(4*2 + 4*2 + bm_space);
+			sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2
+						      - bm_space );
+			break;
+		default:
+			return -EINVAL;
+		}
+
+
+		sb->sb_csum = calc_sb_1_csum(sb);
+		rv = store_super1(st, di->fd);
+		if (rv)
+			fprintf(stderr,
+				Name ": failed to write superblock to %s\n",
+				di->devname);
+
+		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
+			rv = st->ss->write_bitmap(st, di->fd);
+		close(di->fd);
+		di->fd = -1;
 	}
-
-
-	sb->sb_csum = calc_sb_1_csum(sb);
-	rv = store_super1(st, fd);
-	if (rv)
-		fprintf(stderr, Name ": failed to write superblock to %s\n", devname);
-
-	if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
-		rv = st->ss->write_bitmap(st, fd);
-	close(fd);
 	return rv;
 }
+#endif
 
 static int compare_super1(struct supertype *st, struct supertype *tst)
 {
@@ -1453,6 +1486,7 @@ struct superswitch super1 = {
 	.detail_super = detail_super1,
 	.brief_detail_super = brief_detail_super1,
 	.export_detail_super = export_detail_super1,
+	.write_init_super = write_init_super1,
 #endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,
@@ -1461,7 +1495,6 @@ struct superswitch super1 = {
 	.init_super = init_super1,
 	.add_to_super = add_to_super1,
 	.store_super = store_super1,
-	.write_init_super = write_init_super1,
 	.compare_super = compare_super1,
 	.load_super = load_super1,
 	.match_metadata_desc = match_metadata_desc1,

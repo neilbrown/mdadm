@@ -358,10 +358,10 @@ extern struct superswitch {
 	int (*init_super)(struct supertype *st, mdu_array_info_t *info,
 			  unsigned long long size, char *name,
 			  char *homehost, int *uuid);
-	void (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo);
+	void (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo,
+			     int fd, char *devname);
 	int (*store_super)(struct supertype *st, int fd);
-	int (*write_init_super)(struct supertype *st, mdu_disk_info_t *dinfo,
-				char *devname);
+	int (*write_init_super)(struct supertype *st);
 	int (*compare_super)(struct supertype *st, struct supertype *tst);
 	int (*load_super)(struct supertype *st, int fd, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
@@ -385,6 +385,7 @@ struct supertype {
 	int minor_version;
 	int max_devs;
 	void *sb;
+	void *info;
 };
 
 extern struct supertype *super_by_fd(int fd);
@@ -477,7 +478,7 @@ extern int Monitor(mddev_dev_t devlist,
 		   int period, int daemonise, int scan, int oneshot,
 		   int dosyslog, int test, char *pidfile);
 
-extern int Kill(char *dev, int force, int quiet);
+extern int Kill(char *dev, int force, int quiet, int noexcl);
 extern int Wait(char *dev);
 
 extern int Incremental(char *devname, int verbose, int runstop,

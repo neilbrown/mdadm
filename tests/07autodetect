@@ -5,6 +5,13 @@
 # put a partition on each, create an array, and see if we can
 # use autodetect to restart the array.
 
+if lsmod | grep md_mod > /dev/null 2>&1
+then
+  echo md is a module - cannot test autodetect
+  exit 0
+fi
+
+
 mdadm -CR $mdp0 -l0 -f -n1 $dev0
 mdadm -CR $mdp1 -l0 -f -n1 $dev1
 sfdisk $mdp0 >&2 << END

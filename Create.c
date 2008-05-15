@@ -205,7 +205,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	for (dv=devlist; dv; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
 		unsigned long long freesize;
-		int fd;
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
 				first_missing = dnum;
@@ -217,13 +216,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		info.array.working_disks++;
 		if (dnum < raiddisks)
 			info.array.active_disks++;
-		fd = open(dname, O_RDONLY|O_EXCL, 0);
-		if (fd <0 ) {
-			fprintf(stderr, Name ": Cannot open %s: %s\n",
-				dname, strerror(errno));
-			fail=1;
-			continue;
-		}
 		if (st == NULL) {
 			struct createinfo *ci = conf_get_create_info();
 			if (ci)
@@ -281,7 +273,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				" %lluK < %lluK + metadata\n",
 				dname, freesize, size);
 			fail = 1;
-			close(fd);
 			continue;
 		}
 		if (maxdisc == NULL || (maxdisc && freesize > maxsize)) {
@@ -293,11 +284,18 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			minsize = freesize;
 		}
 		if (runstop != 1 || verbose >= 0) {
+			int fd = open(dname, O_RDONLY, 0);
+			if (fd <0 ) {
+				fprintf(stderr, Name ": Cannot open %s: %s\n",
+					dname, strerror(errno));
+				fail=1;
+				continue;
+			}
 			warn |= check_ext2(fd, dname);
 			warn |= check_reiser(fd, dname);
 			warn |= check_raid(fd, dname);
+			close(fd);
 		}
-		close(fd);
 	}
 	if (fail) {
 		fprintf(stderr, Name ": create aborted\n");

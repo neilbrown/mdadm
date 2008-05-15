@@ -317,6 +317,11 @@ extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, unsigned long long val);
 extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
+extern int sysfs_set_array(struct mdinfo *sra,
+			   struct mdinfo *array);
+extern int sysfs_add_disk(struct mdinfo *sra, int fd, struct mdinfo *sd);
+
+
 
 
 extern int save_stripes(int *source, unsigned long long *offsets,

@@ -546,7 +546,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				"support external metadata.\n");
 			return 1;
 		}
-		rv = 0;
+		rv = sysfs_set_array(sra, &info);
 	} else	if ((vers % 100) >= 1) { /* can use different versions */
 		mdu_array_info_t inf;
 		memset(&inf, 0, sizeof(inf));
@@ -632,18 +632,19 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 						     fd, dv->devname);
 				break;
 			case 2:
-				close(fd);
+				info.component_size = info.array.size * 2;
+				info.errors = 0;
+				rv = 0;
 
 				if (st->ss->external) {
-					char dv[100];
-					sprintf(dv, "%d:%d\n",
-						info.disk.major,
-						info.disk.minor);
-					sysfs_set_str(sra, NULL, "new_dev", dv);
-					/* FIXME check error */
-					/*FIXME find that device and set it up*/
-				} else if (ioctl(mdfd, ADD_NEW_DISK,
-						 &info.disk)) {
+					rv = sysfs_add_disk(sra, fd, &info);
+					close(fd);
+				} else {
+					close(fd);
+					rv = ioctl(mdfd, ADD_NEW_DISK,
+						 &info.disk);
+				}
+				if (rv) {
 					fprintf(stderr,
 						Name ": ADD_NEW_DISK for %s "
 						"failed: %s\n",

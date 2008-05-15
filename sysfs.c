@@ -310,3 +310,56 @@ int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 		return -1;
 	return 0;
 }
+
+int sysfs_set_array(struct mdinfo *sra,
+		    struct mdinfo *info)
+{
+	int rv = 0;
+	sra->array = info->array;
+	if (info->array.level < 0)
+		return 0; /* FIXME */
+	rv |= sysfs_set_str(sra, NULL, "level",
+			    map_num(pers, info->array.level));
+	rv |= sysfs_set_num(sra, NULL, "raid_disks", info->array.raid_disks);
+	rv |= sysfs_set_num(sra, NULL, "chunk_size", info->array.chunk_size);
+	rv |= sysfs_set_num(sra, NULL, "layout", info->array.layout);
+	rv |= sysfs_set_num(sra, NULL, "component_size", info->component_size);
+	sra->array = info->array;
+	return rv;
+}
+
+int sysfs_add_disk(struct mdinfo *sra, int fd, struct mdinfo *sd)
+{
+	char dv[100];
+	char nm[100];
+	struct mdinfo *sd2;
+	char *dname;
+	int rv;
+
+	sprintf(dv, "%d:%d", sd->disk.major, sd->disk.minor);
+	rv = sysfs_set_str(sra, NULL, "new_dev", dv);
+	if (rv)
+		return rv;
+
+	memset(nm, 0, sizeof(nm));
+	sprintf(dv, "/sys/dev/block/%d:%d", sd->disk.major, sd->disk.minor);
+	if (readlink(dv, nm, sizeof(nm)) < 0)
+		return -1;
+	dname = strrchr(nm, '/');
+	if (dname) dname++;
+	strcpy(sd->sys_name, "dev-");
+	strcpy(sd->sys_name+4, dname);
+
+	rv |= sysfs_set_num(sra, sd, "offset", sd->data_offset);
+	rv |= sysfs_set_num(sra, sd, "size", (sd->component_size+1) / 2);
+	if (sra->array.level != LEVEL_CONTAINER) {
+		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
+//		rv |= sysfs_set_str(sra, sd, "state", "in_sync");
+	}
+	sd2 = malloc(sizeof(*sd2));
+	*sd2 = *sd;
+	sd2->next = sra->devs;
+	sra->devs = sd2;
+
+	return rv;
+}

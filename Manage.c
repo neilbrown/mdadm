@@ -171,6 +171,54 @@ int Manage_reconfig(char *devname, int fd, int layout)
 	return 0;
 }
 
+static int
+add_remove_device_container(int fd, int add_remove, struct stat *stb)
+{
+	int devnum = fd2devnum(fd);
+	char *devname = devnum2devname(devnum);
+	int sfd = devname ? connect_monitor(devname) : -1;
+	struct md_message msg;
+	int err = 0;
+
+	if (devname && sfd < 0) {
+		fprintf(stderr, Name ": Cannot connect to monitor for %s: %s\n",
+			devname, strerror(errno));
+		free(devname);
+		return 1;
+	} else if (sfd < 0) {
+		fprintf(stderr, Name ": Cannot determine container name for"
+			" device number %d\n", devnum);
+		return 1;
+	}
+
+	if (add_remove)
+		ack(sfd, 0, 0);
+	else if (send_remove_device(sfd, stb->st_rdev, 0, 0) != 0) {
+		fprintf(stderr, Name ": Failed to send \'%s device\'"
+			" message to the container monitor\n",
+			add_remove ? "add" : "remove");
+		err = 1;
+	}
+
+	/* check the reply */
+	if (!err && receive_message(sfd, &msg, 0) != 0) {
+		fprintf(stderr, Name ": Failed to receive an acknowledgement"
+			" from the container monitor\n");
+		err = 1;
+	}
+
+	if (!err && msg.seq != 0) {
+		fprintf(stderr, Name ": %s device failed error code %d\n",
+			add_remove ? "Add" : "Remove", msg.seq);
+		err = 1;
+	}
+
+	free(devname);
+	close(sfd);
+
+	return err;
+}
+
 int Manage_subdevs(char *devname, int fd,
 		   mddev_dev_t devlist, int verbose)
 {
@@ -306,7 +354,13 @@ int Manage_subdevs(char *devname, int fd,
 			return 1;
 		case 'a':
 			/* add the device */
-
+			if (tst == &supertype_container_member) {
+				fprintf(stderr, Name ": Cannot add disks to a"
+					" \'member\' array, perform this"
+					" operation on the parent container\n");
+				return 1;
+			} else if (tst->ss->external)
+				return add_remove_device_container(fd, 1, &stb);
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd < 0) {
@@ -497,6 +551,13 @@ int Manage_subdevs(char *devname, int fd,
 
 		case 'r':
 			/* hot remove */
+			if (tst == &supertype_container_member) {
+				fprintf(stderr, Name ": Cannot remove disks from a"
+					" \'member\' array, perform this"
+					" operation on the parent container\n");
+				return 1;
+			} else if (tst->ss->external)
+				return add_remove_device_container(fd, 0, &stb);
 			/* FIXME check that it is a current member */
 			if (ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev)) {
 				fprintf(stderr, Name ": hot remove failed "

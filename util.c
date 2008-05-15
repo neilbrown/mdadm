@@ -783,6 +783,9 @@ int dev_open(char *dev, int flags)
 struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
+
+struct supertype supertype_container_member;
+
 struct supertype *super_by_fd(int fd)
 {
 	mdu_array_info_t array;
@@ -812,8 +815,11 @@ struct supertype *super_by_fd(int fd)
 		sprintf(version, "%d.%d", vers, minor);
 		verstr = version;
 	}
-	for (i = 0; st == NULL && superlist[i] ; i++)
-		st = superlist[i]->match_metadata_desc(verstr);
+	if (minor == -2 && verstr[0] == '/')
+		st = &supertype_container_member;
+	else
+		for (i = 0; st == NULL && superlist[i] ; i++)
+			st = superlist[i]->match_metadata_desc(verstr);
 
 	if (sra)
 		sysfs_free(sra);

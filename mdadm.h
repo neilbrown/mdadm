@@ -76,6 +76,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	"md_u.h"
 #include	"md_p.h"
 #include	"bitmap.h"
+#include	"msg.h"
 
 #include <endian.h>
 /* Redhat don't like to #include <asm/byteorder.h>, and
@@ -407,6 +408,7 @@ struct supertype {
 	void *info;
 };
 
+extern struct supertype supertype_container_member;
 extern struct supertype *super_by_fd(int fd);
 extern struct supertype *guess_super(int fd);
 extern struct supertype *dup_super(struct supertype *st);

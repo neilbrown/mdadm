@@ -1053,6 +1053,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		this->array.chunk_size = __le16_to_cpu(map->blocks_per_strip) << 9;
 		this->array.state = !vol->dirty;
 		this->container_member = i;
+		if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty)
+			this->resync_start = 0;
+		else
+			this->resync_start = ~0ULL;
+
 		strncpy(this->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
 		this->name[MAX_RAID_SERIAL_LEN] = 0;
 

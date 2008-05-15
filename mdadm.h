@@ -147,6 +147,7 @@ struct mdinfo {
 						 */
 	int			reshape_active;
 	unsigned long long	reshape_progress;
+	unsigned long long	resync_start;
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;
 	int			cache_size; /* size of raid456 stripe cache*/

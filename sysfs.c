@@ -325,6 +325,7 @@ int sysfs_set_array(struct mdinfo *sra,
 	rv |= sysfs_set_num(sra, NULL, "chunk_size", info->array.chunk_size);
 	rv |= sysfs_set_num(sra, NULL, "layout", info->array.layout);
 	rv |= sysfs_set_num(sra, NULL, "component_size", info->component_size);
+	rv |= sysfs_set_num(sra, NULL, "resync_start", info->resync_start);
 	sra->array = info->array;
 	return rv;
 }

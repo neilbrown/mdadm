@@ -856,7 +856,8 @@ static struct supertype *match_metadata_desc0(char *arg)
 		return st;
 
 	st->minor_version = 9; /* flag for 'byte-swapped' */
-	if (strcmp(arg, "0.swap")==0)
+	if (strcmp(arg, "0.swap")==0 ||
+	    strcmp(arg, "0.9") == 0) /* For dup_super support */
 		return st;
 
 	free(st);

@@ -781,7 +781,8 @@ struct supertype *dup_super(struct supertype *st)
 	for (i = 0; stnew == NULL && superlist[i] ; i++)
 		stnew = superlist[i]->match_metadata_desc(verstr);
 
-	stnew->sb = NULL;
+	if (stnew)
+		stnew->sb = NULL;
 	return stnew;
 }
 

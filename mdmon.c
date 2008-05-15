@@ -34,6 +34,7 @@
 #include	<errno.h>
 #include	<string.h>
 #include	<fcntl.h>
+#include	<signal.h>
 
 #include	<sched.h>
 
@@ -76,20 +77,54 @@ static struct superswitch *find_metadata_methods(char *vers)
 }
 
 
-static int make_pidfile(char *devname)
+static int make_pidfile(char *devname, int o_excl)
 {
 	char path[100];
 	char pid[10];
 	int fd;
 	sprintf(path, "/var/run/mdadm/%s.pid", devname);
 
-	fd = open(path, O_RDWR|O_CREAT|O_EXCL, 0600);
+	fd = open(path, O_RDWR|O_CREAT|o_excl, 0600);
 	if (fd < 0)
 		return -1;
 	sprintf(pid, "%d\n", getpid());
 	write(fd, pid, strlen(pid));
 	close(fd);
 	return 0;
+}
+
+static void try_kill_monitor(char *devname)
+{
+	char buf[100];
+	int fd;
+	pid_t pid;
+
+	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		return;
+
+	if (read(fd, buf, sizeof(buf)) < 0) {
+		close(fd);
+		return;
+	}
+
+	close(fd);
+	pid = strtoul(buf, NULL, 10);
+
+	/* kill this process if it is mdmon */
+	sprintf(buf, "/proc/%lu/cmdline", (unsigned long) pid);
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		return;
+
+	if (read(fd, buf, sizeof(buf)) < 0) {
+		close(fd);
+		return;
+	}
+
+	if (strstr(buf, "mdmon") != NULL)
+		kill(pid, SIGTERM);
 }
 
 static int make_control_sock(char *devname)
@@ -150,10 +185,20 @@ int main(int argc, char *argv[])
 	/* If this fails, we hope it already exists */
 	mkdir("/var/run/mdadm", 0600);
 	/* pid file lives in /var/run/mdadm/mdXX.pid */
-	if (make_pidfile(container->devname) < 0) {
-		fprintf(stderr, "md-manage: %s already managed\n",
-			container->devname);
-		exit(3);
+	if (make_pidfile(container->devname, O_EXCL) < 0) {
+		if (ping_monitor(container->devname) == 0) {
+			fprintf(stderr, "mdmon: %s already managed\n",
+				container->devname);
+			exit(3);
+		} else {
+			/* cleanup the old monitor, this one is taking over */
+			try_kill_monitor(container->devname);
+			if (make_pidfile(container->devname, 0) < 0) {
+				fprintf(stderr, "mdmon: %s Cannot create pidfile\n",
+					container->devname);
+				exit(3);
+			}
+		}
 	}
 
 	container->sock = make_control_sock(container->devname);

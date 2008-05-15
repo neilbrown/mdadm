@@ -79,7 +79,7 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 
 MON_OBJS = mdmon.o monitor.o managemon.o util.o mdstat.o sysfs.o config.o \
 	Kill.o sg_io.o dlink.o ReadMe.o super0.o super1.o super-intel.o \
-	super-ddf.o sha1.o crc32.o
+	super-ddf.o sha1.o crc32.o msg.o
 
 
 STATICSRC = pwgr.c
@@ -125,6 +125,7 @@ mdadm.O2 : $(SRCS) mdadm.h
 
 mdmon : $(MON_OBJS)
 	$(CC) $(LDFLAGS) -o mdmon $(MON_OBJS) $(LDLIBS)
+msg.o: msg.c msg.h
 
 test_stripe : restripe.c mdadm.h
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe -DMAIN restripe.c

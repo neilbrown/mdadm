@@ -74,6 +74,7 @@
 #endif
 #include	"mdadm.h"
 #include	"mdmon.h"
+#include	"msg.h"
 #include	<sys/socket.h>
 
 
@@ -302,12 +303,35 @@ void manage(struct mdstat_ent *mdstat, struct active_array *aa,
 void read_sock(int pfd)
 {
 	int fd;
+	struct md_message msg;
+	int terminate = 0;
+	long fl;
+	int tmo = 3; /* 3 second timeout before hanging up the socket */
 
-	// FIXME set non-blocking
 	fd = accept(pfd, NULL, NULL);
 	if (fd < 0)
 		return;
-	// FIXME do something useful
+
+	fl = fcntl(fd, F_GETFL, 0);
+	fl |= O_NONBLOCK;
+	fcntl(fd, F_SETFL, fl);
+
+	do {
+		msg.buf = NULL;
+
+		/* read and validate the message */
+		if (receive_message(fd, &msg, tmo) == 0) {
+			// FIXME: handle message contents
+			ack(fd, msg.seq, tmo);
+		} else {
+			terminate = 1;
+			nack(fd, -1, tmo);
+		}
+
+		if (msg.buf)
+			free(msg.buf);
+	} while (!terminate);
+
 	close(fd);
 }
 void do_manager(struct supertype *container)

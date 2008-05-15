@@ -2354,6 +2354,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		memset(this->uuid, 0, sizeof(this->uuid));
 		this->component_size = __be64_to_cpu(vc->conf.blocks);
 		this->array.size = this->component_size / 2;
+		this->container_member = i;
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
 		for (i=0 ; i < mppe ; i++) {

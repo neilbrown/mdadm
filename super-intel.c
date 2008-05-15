@@ -443,7 +443,45 @@ static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 			     char *update, char *devname, int verbose,
 			     int uuid_set, char *homehost)
 {
-	return 0;
+	/* FIXME */
+
+	/* For 'assemble' and 'force' we need to return non-zero if any
+	 * change was made.  For others, the return value is ignored.
+	 * Update options are:
+	 *  force-one : This device looks a bit old but needs to be included,
+	 *        update age info appropriately.
+	 *  assemble: clear any 'faulty' flag to allow this device to
+	 *		be assembled.
+	 *  force-array: Array is degraded but being forced, mark it clean
+	 *	   if that will be needed to assemble it.
+	 *
+	 *  newdev:  not used ????
+	 *  grow:  Array has gained a new device - this is currently for
+	 *		linear only
+	 *  resync: mark as dirty so a resync will happen.
+	 *  name:  update the name - preserving the homehost
+	 *
+	 * Following are not relevant for this imsm:
+	 *  sparc2.2 : update from old dodgey metadata
+	 *  super-minor: change the preferred_minor number
+	 *  summaries:  update redundant counters.
+	 *  uuid:  Change the uuid of the array to match watch is given
+	 *  homehost:  update the recorded homehost
+	 *  _reshape_progress: record new reshape_progress position.
+	 */
+	int rv = 0;
+	//struct intel_super *super = st->sb;
+	//struct imsm_super *mpb = super->mpb;
+
+	if (strcmp(update, "grow") == 0) {
+	}
+	if (strcmp(update, "resync") == 0) {
+		/* dev->vol.dirty = 1; */
+	}
+
+	/* IMSM has no concept of UUID or homehost */
+
+	return rv;
 }
 
 static __u64 avail_size_imsm(struct supertype *st, __u64 size)
@@ -904,9 +942,18 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	return 0;
 }
 
-static void getinfo_super_n_container(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_n_imsm_container(struct supertype *st, struct mdinfo *info)
 {
-	printf("%s\n", __FUNCTION__);
+	/* just need offset and size...
+	 * of the metadata??
+	 */
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->mpb;
+	struct imsm_disk *disk = get_imsm_disk(mpb, info->disk.number);
+	int sect = mpb_sectors(mpb);
+
+	info->data_offset = __le32_to_cpu(disk->total_blocks) - (2 + sect - 1);
+	info->component_size = sect;
 }
 
 static void getinfo_super_n_raid(struct supertype *st, struct mdinfo *info)
@@ -973,7 +1020,7 @@ struct superswitch super_imsm = {
 	.store_super	= store_zero_imsm,
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
-	.getinfo_super_n  = getinfo_super_n_container,
+	.getinfo_super_n  = getinfo_super_n_imsm_container,
 
 	.validate_geometry = validate_geometry_imsm,
 	.major		= 2000,
@@ -992,7 +1039,7 @@ struct superswitch super_imsm_container = {
 	.add_to_super	= add_to_super_imsm,
 	.write_init_super = write_init_super_imsm,
 	.getinfo_super  = getinfo_super_imsm,
-	.getinfo_super_n  = getinfo_super_n_container,
+	.getinfo_super_n  = getinfo_super_n_imsm_container,
 	.load_super	= load_super_imsm,
 
 #ifndef MDASSEMBLE

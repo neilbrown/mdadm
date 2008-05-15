@@ -597,6 +597,8 @@ static int load_ddf_global(int fd, struct ddf_super *super, char *devname)
 	    !super->virt) {
 		free(super->phys);
 		free(super->virt);
+		super->phys = NULL;
+		super->virt = NULL;
 		return 2;
 	}
 	super->conflist = NULL;
@@ -727,6 +729,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 			sizeof(*super));
 		return 1;
 	}
+	memset(super, 0, sizeof(*super));
 
 	rv = load_ddf_headers(fd, super, devname);
 	if (rv) {
@@ -2251,6 +2254,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	super = malloc(sizeof(*super));
 	if (!super)
 		return 1;
+	memset(super, 0, sizeof(*super));
 
 	/* first, try each device, and choose the best ddf */
 	for (sd = sra->devs ; sd ; sd = sd->next) {

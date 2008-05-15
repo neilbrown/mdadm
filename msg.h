@@ -17,8 +17,8 @@
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _MSG_H
-#define _MSG_H
+
+struct mdinfo;
 
 struct mdinfo;
 struct md_message {
@@ -60,4 +60,3 @@ extern int connect_monitor(char *devname);
 extern int ping_monitor(char *devname);
 extern int send_remove_device(int fd, dev_t rdev, int seq, int tmo);
 
-#endif

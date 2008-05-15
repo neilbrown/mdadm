@@ -44,6 +44,7 @@
 struct active_array *array_list;
 struct active_array *discard_this;
 struct active_array *pending_discard;
+struct md_generic_cmd *active_cmd;
 
 int run_child(void *v)
 {
@@ -54,19 +55,32 @@ int run_child(void *v)
 
 int clone_monitor(struct supertype *container)
 {
-	int pfd[2];
 	static char stack[4096];
 	int rv;
 
-	pipe(container->pipe);
+	rv = pipe(container->mgr_pipe);
+	if (rv < 0)
+		return rv;
+	rv = pipe(container->mon_pipe);
+	if (rv < 0)
+		goto err_mon_pipe;
 
 	rv = clone(run_child, stack+4096-64,
 		   CLONE_FS|CLONE_FILES|CLONE_VM|CLONE_SIGHAND|CLONE_THREAD,
 		   container);
-
 	if (rv < 0)
+		goto err_clone;
+	else
 		return rv;
-	return pfd[1];
+
+ err_clone:
+	close(container->mon_pipe[0]);
+	close(container->mon_pipe[1]);
+ err_mon_pipe:
+	close(container->mgr_pipe[0]);
+	close(container->mgr_pipe[1]);
+
+	return rv;
 }
 
 static struct superswitch *find_metadata_methods(char *vers)
@@ -156,7 +170,6 @@ static int make_control_sock(char *devname)
 int main(int argc, char *argv[])
 {
 	int mdfd;
-	int pipefd;
 	struct mdinfo *mdi, *di;
 	struct supertype *container;
 	if (argc != 2) {
@@ -254,8 +267,7 @@ int main(int argc, char *argv[])
 
 	mlockall(MCL_FUTURE);
 
-	pipefd = clone_monitor(container);
-	if (pipefd < 0) {
+	if (clone_monitor(container) < 0) {
 		fprintf(stderr, "md-manage: failed to start monitor process: %s\n",
 			strerror(errno));
 		exit(2);

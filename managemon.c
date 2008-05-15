@@ -74,9 +74,7 @@
 #endif
 #include	"mdadm.h"
 #include	"mdmon.h"
-#include	"msg.h"
 #include	<sys/socket.h>
-
 
 static void close_aa(struct active_array *aa)
 {
@@ -108,7 +106,14 @@ static void free_aa(struct active_array *aa)
 
 static void write_wakeup(struct supertype *c)
 {
-	write(c->pipe[1], "PING", 4);
+	static struct md_generic_cmd cmd = { .action = md_action_ping_monitor };
+	int err;
+
+	active_cmd = &cmd;
+
+	/* send the monitor thread a pointer to the ping action */
+	write(c->mgr_pipe[1], &err, 1);
+	read(c->mon_pipe[0], &err, 1);
 }
 
 static void replace_array(struct supertype *container,
@@ -300,7 +305,29 @@ void manage(struct mdstat_ent *mdstat, struct active_array *aa,
 	}
 }
 
-void read_sock(int pfd)
+static int handle_message(struct supertype *container, struct md_message *msg)
+{
+	int err;
+	struct md_generic_cmd *cmd = msg->buf;
+
+	if (!cmd)
+		return 0;
+
+	switch (cmd->action) {
+	case md_action_remove_device:
+
+		/* forward to the monitor */
+		active_cmd = cmd;
+		write(container->mgr_pipe[1], &err, 1);
+		read(container->mon_pipe[0], &err, 1);
+		return err;
+
+	default:
+		return -1;
+	}
+}
+
+void read_sock(struct supertype *container)
 {
 	int fd;
 	struct md_message msg;
@@ -308,7 +335,7 @@ void read_sock(int pfd)
 	long fl;
 	int tmo = 3; /* 3 second timeout before hanging up the socket */
 
-	fd = accept(pfd, NULL, NULL);
+	fd = accept(container->sock, NULL, NULL);
 	if (fd < 0)
 		return;
 
@@ -317,12 +344,17 @@ void read_sock(int pfd)
 	fcntl(fd, F_SETFL, fl);
 
 	do {
+		int err;
+
 		msg.buf = NULL;
 
 		/* read and validate the message */
 		if (receive_message(fd, &msg, tmo) == 0) {
-			// FIXME: handle message contents
-			ack(fd, msg.seq, tmo);
+			err = handle_message(container, &msg);
+			if (!err)
+				ack(fd, msg.seq, tmo);
+			else
+				nack(fd, err, tmo);
 		} else {
 			terminate = 1;
 			nack(fd, -1, tmo);
@@ -343,7 +375,7 @@ void do_manager(struct supertype *container)
 
 		manage(mdstat, array_list, container);
 
-		read_sock(container->sock);
+		read_sock(container);
 
 		mdstat_wait_fd(container->sock);
 	} while(1);

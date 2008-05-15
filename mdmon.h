@@ -31,6 +31,7 @@ extern struct active_array *container;
 extern struct active_array *array_list;
 extern struct active_array *discard_this;
 extern struct active_array *pending_discard;
+extern struct md_generic_cmd *active_cmd;
 
 
 void do_monitor(struct supertype *container);

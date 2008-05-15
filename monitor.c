@@ -377,7 +377,60 @@ static void reconcile_failed(struct active_array *aa, struct mdinfo *failed)
 	}
 }
 
-static int wait_and_act(struct active_array *aa, int pfd, int nowait)
+static int handle_remove_device(struct md_remove_device_cmd *cmd, struct active_array *aa)
+{
+	struct active_array *a;
+	struct mdinfo *victim;
+	int rv;
+
+	/* scan all arrays for the given device, if ->state_fd is closed (-1)
+	 * in all cases then mark the disk as removed in the metadata.
+	 * Otherwise reply that it is busy.
+	 */
+
+	/* pass1 check that it is not in use anywhere */
+	/* note: we are safe from re-adds as long as the device exists in the
+	 * container
+	 */
+	for (a = aa; a; a = a->next) {
+		if (!a->container)
+			continue;
+		victim = find_device(a, major(cmd->rdev), minor(cmd->rdev));
+		if (!victim)
+			continue;
+		if (victim->state_fd > 0)
+			return -EBUSY;
+	}
+
+	/* pass2 schedule and process removal per array */
+	for (a = aa; a; a = a->next) {
+		if (!a->container)
+			continue;
+		victim = find_device(a, major(cmd->rdev), minor(cmd->rdev));
+		if (!victim)
+			continue;
+		victim->curr_state |= DS_REMOVE;
+		rv = read_and_act(a);
+		if (rv < 0)
+			return rv;
+	}
+
+	return 0;
+}
+
+static int handle_pipe(struct md_generic_cmd *cmd, struct active_array *aa)
+{
+	switch (cmd->action) {
+	case md_action_ping_monitor:
+		return 0;
+	case md_action_remove_device:
+		return handle_remove_device((void *) cmd, aa);
+	}
+
+	return -1;
+}
+
+static int wait_and_act(struct active_array *aa, int pfd, int monfd, int nowait)
 {
 	fd_set rfds;
 	int maxfd = 0;
@@ -408,9 +461,11 @@ static int wait_and_act(struct active_array *aa, int pfd, int nowait)
 			return rv;
 
 		if (FD_ISSET(pfd, &rfds)) {
-			char buf[4];
-			read(pfd, buf, 4);
-			; // FIXME read from the pipe
+			int err = -1;
+
+			if (read(pfd, &err, 1) > 0)
+				err = handle_pipe(active_cmd, aa);
+			write(monfd, &err, 1);
 		}
 	}
 
@@ -446,7 +501,8 @@ void do_monitor(struct supertype *container)
 	int rv;
 	int first = 1;
 	do {
-		rv = wait_and_act(container->arrays, container->pipe[0], first);
+		rv = wait_and_act(container->arrays, container->mgr_pipe[0],
+				  container->mon_pipe[1], first);
 		first = 0;
 	} while (rv >= 0);
 }

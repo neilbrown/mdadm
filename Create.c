@@ -94,10 +94,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 	}
 	if (level == UnSet) {
-		/* "ddf" metadata only supports one level - should possibly
+		/* "ddf" and "imsm" metadata only supports one level - should possibly
 		 * push this into metadata handler??
 		 */
-		if (st && st->ss == &super_ddf)
+		if (st && (st->ss == &super_ddf || st->ss == &super_imsm))
 			level = LEVEL_CONTAINER;
 	}
 

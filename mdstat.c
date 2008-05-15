@@ -95,6 +95,7 @@ void free_mdstat(struct mdstat_ent *ms)
 		if (ms->dev) free(ms->dev);
 		if (ms->level) free(ms->level);
 		if (ms->pattern) free(ms->pattern);
+		if (ms->metadata_version) free(ms->metadata_version);
 		t = ms;
 		ms = ms->next;
 		free(t);

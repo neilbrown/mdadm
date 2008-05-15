@@ -259,6 +259,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->sync_pos_fd = sysfs_open(new->devnum, NULL, "sync_completed");
 	new->sync_pos = 0;
 
+	sysfs_free(mdi);
 	// finds and compares.
 	if (container->ss->open_new(container, new, inst) < 0) {
 		// FIXME close all those files
@@ -376,6 +377,8 @@ void do_manager(struct supertype *container)
 		manage(mdstat, array_list, container);
 
 		read_sock(container);
+
+		free_mdstat(mdstat);
 
 		mdstat_wait_fd(container->sock);
 	} while(1);

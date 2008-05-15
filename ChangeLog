@@ -7,6 +7,14 @@ Changes Prior to this release
 	not 2 numbers separated by a dot.
     -   Updates some URLs in the man page.
     -   Allow creation of a RAID6 with exactly one missing device.
+    -   Use LOG_PID for syslog, so you get the pid of mdadm in the log
+	files.
+    -   --export now works with --examine too (not just --detail)
+    -   Improve auto-creation of device special file when using
+        --incremental
+    -   Simple locking for --incremental so mdadm doesn't get confused
+	when run concurrently with itself.
+    -   Make --incremental cope better with arrays that are being reshaped.
 
 Changes Prior to 2.6.4 release
     -   Make "--create --auto=mdp" work for non-standard device names.

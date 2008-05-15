@@ -18,6 +18,7 @@
  */
 
 #include "mdadm.h"
+#include "mdmon.h"
 #include <values.h>
 #include <scsi/sg.h>
 #include <ctype.h>
@@ -124,6 +125,7 @@ struct intel_super {
 		struct imsm_super *mpb;
 		void *buf;
 	};
+	int updates_pending;
 	struct dl {
 		struct dl *next;
 		int index;
@@ -1124,17 +1126,129 @@ static int imsm_open_new(struct supertype *c, struct active_array *a, int inst)
 
 static void imsm_mark_clean(struct active_array *a, unsigned long long sync_pos)
 {
-	fprintf(stderr, "imsm: mark clean %llu\n", sync_pos);
+	int inst = a->info.container_member;
+	struct intel_super *super = a->container->sb;
+	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
+
+	if (dev->vol.dirty) {
+		fprintf(stderr, "imsm: mark clean %llu\n", sync_pos);
+		dev->vol.dirty = 0;
+		super->updates_pending++;
+	}
 }
 
 static void imsm_mark_dirty(struct active_array *a)
 {
-	fprintf(stderr, "imsm: mark dirty\n");
+	int inst = a->info.container_member;
+	struct intel_super *super = a->container->sb;
+	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
+
+	if (!dev->vol.dirty) {
+		fprintf(stderr, "imsm: mark dirty\n");
+		dev->vol.dirty = 1;
+		super->updates_pending++;
+	}
+}
+
+static __u8 imsm_check_degraded(struct imsm_super *mpb, int n, int failed)
+{
+	struct imsm_dev *dev = get_imsm_dev(mpb, n);
+	struct imsm_map *map = dev->vol.map;
+
+	if (!failed)
+		return map->map_state;
+
+	switch (get_imsm_raid_level(map)) {
+	case 0:
+		return IMSM_T_STATE_FAILED;
+		break;
+	case 1:
+		if (failed < map->num_members)
+			return IMSM_T_STATE_DEGRADED;
+		else
+			return IMSM_T_STATE_FAILED;
+		break;
+	case 10:
+	{
+		/**
+		 * check to see if any mirrors have failed,
+		 * otherwise we are degraded
+		 */
+		int device_per_mirror = 2; /* FIXME is this always the case?
+					    * and are they always adjacent?
+					    */
+		int failed = 0;
+		int i;
+
+		for (i = 0; i < map->num_members; i++) {
+			int idx = get_imsm_disk_idx(map, i);
+			struct imsm_disk *disk = get_imsm_disk(mpb, idx);
+
+			if (__le32_to_cpu(disk->status) & FAILED_DISK)
+				failed++;
+
+			if (failed >= device_per_mirror)
+				return IMSM_T_STATE_FAILED;
+
+			/* reset 'failed' for next mirror set */
+			if (!((i + 1) % device_per_mirror))
+				failed = 0;
+		}
+
+		return IMSM_T_STATE_DEGRADED;
+	}
+	case 5:
+		if (failed < 2)
+			return IMSM_T_STATE_DEGRADED;
+		else
+			return IMSM_T_STATE_FAILED;
+		break;
+	default:
+		break;
+	}
+
+	return map->map_state;
+}
+
+static int imsm_count_failed(struct imsm_super *mpb, struct imsm_map *map)
+{
+	int i;
+	int failed = 0;
+	struct imsm_disk *disk;
+
+	for (i = 0; i < map->num_members; i++) {
+		int idx = get_imsm_disk_idx(map, i);
+
+		disk = get_imsm_disk(mpb, idx);
+		if (__le32_to_cpu(disk->status) & FAILED_DISK)
+			failed++;
+	}
+
+	return failed;
 }
 
 static void imsm_mark_sync(struct active_array *a, unsigned long long resync)
 {
+	int inst = a->info.container_member;
+	struct intel_super *super = a->container->sb;
+	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
+	struct imsm_map *map = dev->vol.map;
+	int failed;
+	__u8 map_state;
+
+	if (resync != ~0ULL)
+		return;
+
 	fprintf(stderr, "imsm: mark sync\n");
+
+	failed = imsm_count_failed(super->mpb, map);
+	map_state = imsm_check_degraded(super->mpb, inst, failed);
+	if (!failed)
+		map_state = IMSM_T_STATE_NORMAL;
+	if (map->map_state != map_state) {
+		map->map_state = map_state;
+		super->updates_pending++;
+	}
 }
 
 static void imsm_set_disk(struct active_array *a, int n)
@@ -1142,9 +1256,68 @@ static void imsm_set_disk(struct active_array *a, int n)
 	fprintf(stderr, "imsm: set_disk %d\n", n);
 }
 
+static int store_imsm_mpb(int fd, struct intel_super *super)
+{
+	struct imsm_super *mpb = super->mpb;
+	__u32 mpb_size = __le32_to_cpu(mpb->mpb_size);
+	unsigned long long dsize;
+	unsigned long long sectors;
+
+	get_dev_size(fd, NULL, &dsize);
+
+	/* first block is stored on second to last sector of the disk */
+	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0)
+		return 1;
+
+	if (write(fd, super->buf, 512) != 512)
+		return 1;
+
+	if (mpb_size <= 512)
+		return 0;
+
+	/* -1 because we already wrote a sector */
+	sectors = mpb_sectors(mpb) - 1;
+
+	/* write the extended mpb to the sectors preceeding the anchor */
+	if (lseek64(fd, dsize - (512 * (2 + sectors)), SEEK_SET) < 0)
+		return 1;
+
+	if (write(fd, super->buf + 512, mpb_size - 512) != mpb_size - 512)
+		return 1;
+
+	fsync(fd);
+
+	return 0;
+}
+
 static void imsm_sync_metadata(struct active_array *a)
 {
+	struct intel_super *super = a->container->sb;
+	struct imsm_super *mpb = super->mpb;
+	struct dl *d;
+	__u32 generation;
+	__u32 sum;
+
+	if (!super->updates_pending)
+		return;
+
 	fprintf(stderr, "imsm: sync_metadata\n");
+
+	/* 'generation' is incremented everytime the metadata is written */
+	generation = __le32_to_cpu(mpb->generation_num);
+	generation++;
+	mpb->generation_num = __cpu_to_le32(generation);
+
+	/* recalculate checksum */
+	sum = gen_imsm_checksum(mpb);
+	mpb->check_sum = __cpu_to_le32(sum);
+
+	for (d = super->disks; d ; d = d->next)
+		if (store_imsm_mpb(d->fd, super))
+			fprintf(stderr, "%s: failed for device %d:%d %s\n",
+				__func__, d->major, d->minor, strerror(errno));
+
+	super->updates_pending = 0;
 }
 
 struct superswitch super_imsm = {

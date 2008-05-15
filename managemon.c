@@ -232,6 +232,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	}
 	new->action_fd = sysfs_open(new->devnum, NULL, "sync_action");
 	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
+	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
 	new->sync_pos_fd = sysfs_open(new->devnum, NULL, "sync_completed");
 	new->sync_pos = 0;
 

@@ -64,6 +64,19 @@ static int get_sync_pos(struct active_array *a)
 	return 1;
 }
 
+static int get_resync_start(struct active_array *a)
+{
+	char buf[30];
+	int n;
+
+	n = read_attr(buf, 30, a->resync_start_fd);
+	if (n <= 0)
+		return n;
+
+	a->resync_start = strtoull(buf, NULL, 10);
+
+	return 1;
+}
 
 static int attr_match(const char *attr, const char *str)
 {
@@ -191,12 +204,10 @@ int read_dev_state(int fd)
  *    Start recovery.
  *
  *  deal with resync
- *    This only happens on finding a new array....
- *      Maybe this is done by mdadm before passing the array to us?
- *
- *    If array is 'clean' but metadata is 'dirty', start a resync
- *    and mark array as 'dirty'.
- *
+ *    This only happens on finding a new array... mdadm will have set
+ *    'resync_start' to the correct value.  If 'resync_start' indicates that an
+ *    resync needs to occur set the array to the 'active' state rather than the
+ *    initial read-auto state.
  *
  *
  *
@@ -252,7 +263,13 @@ static int read_and_act(struct active_array *a)
 		 * read-auto is OK. FIXME what if we really want
 		 * readonly ???
 		 */
-		a->next_state = read_auto;
+		get_resync_start(a);
+		if (a->resync_start == ~0ULL)
+			a->next_state = read_auto; /* array is clean */
+		else {
+			a->container->ss->mark_dirty(a);
+			a->next_state = active;
+		}
 	}
 
 	if (a->curr_action == idle &&

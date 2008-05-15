@@ -12,6 +12,7 @@ struct active_array {
 
 	int action_fd;
 	int sync_pos_fd;
+	int resync_start_fd;
 
 	enum array_state prev_state, curr_state, next_state;
 	enum sync_action prev_action, curr_action, next_action;
@@ -19,6 +20,7 @@ struct active_array {
 	int devnum;
 
 	unsigned long long sync_pos;
+	unsigned long long resync_start;
 };
 
 

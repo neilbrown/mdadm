@@ -692,6 +692,44 @@ void put_md_name(char *name)
 	if (strncmp(name, "/dev/.tmp.md", 12)==0)
 		unlink(name);
 }
+
+static int dev2major(int d)
+{
+	if (d >= 0)
+		return MD_MAJOR;
+	else
+		return get_mdp_major();
+}
+
+static int dev2minor(int d)
+{
+	if (d >= 0)
+		return d;
+	return (-1-d) << MdpMinorShift;
+}
+
+int find_free_devnum(int use_partitions)
+{
+	int devnum;
+	for (devnum = 127; devnum != 128;
+	     devnum = devnum ? devnum-1 : (1<<22)-1) {
+		char *dn;
+		int _devnum;
+
+		_devnum = use_partitions ? (-1-devnum) : devnum;
+		if (mddev_busy(_devnum))
+			continue;
+		/* make sure it is new to /dev too, at least as a
+		 * non-standard */
+		dn = map_dev(dev2major(_devnum), dev2minor(_devnum), 0);
+		if (dn && ! is_standard(dn, NULL))
+			continue;
+		break;
+	}
+	if (devnum == 128)
+		return NoMdDev;
+	return use_partitions ? (-1-devnum) : devnum;
+}
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
 int dev_open(char *dev, int flags)
@@ -723,6 +761,7 @@ int dev_open(char *dev, int flags)
 
 struct superswitch *superlist[] = { &super0, &super1, NULL };
 
+#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 struct supertype *super_by_fd(int fd)
 {
 	mdu_array_info_t array;
@@ -761,6 +800,8 @@ struct supertype *super_by_fd(int fd)
 		st->sb = NULL;
 	return st;
 }
+#endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
+
 
 struct supertype *dup_super(struct supertype *st)
 {
@@ -864,45 +905,6 @@ void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
 		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0)
 			return;
 }
-
-static int dev2major(int d)
-{
-	if (d >= 0)
-		return MD_MAJOR;
-	else
-		return get_mdp_major();
-}
-
-static int dev2minor(int d)
-{
-	if (d >= 0)
-		return d;
-	return (-1-d) << MdpMinorShift;
-}
-
-int find_free_devnum(int use_partitions)
-{
-	int devnum;
-	for (devnum = 127; devnum != 128;
-	     devnum = devnum ? devnum-1 : (1<<22)-1) {
-		char *dn;
-		int _devnum;
-
-		_devnum = use_partitions ? (-1-devnum) : devnum;
-		if (mddev_busy(_devnum))
-			continue;
-		/* make sure it is new to /dev too, at least as a
-		 * non-standard */
-		dn = map_dev(dev2major(_devnum), dev2minor(_devnum), 0);
-		if (dn && ! is_standard(dn, NULL))
-			continue;
-		break;
-	}
-	if (devnum == 128)
-		return NoMdDev;
-	return use_partitions ? (-1-devnum) : devnum;
-}
-
 
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */

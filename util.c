@@ -978,6 +978,29 @@ int open_container(int fd)
 	return -1;
 }
 
+char *devnum2devname(int num)
+{
+	char name[100];
+	if (num > 0)
+		sprintf(name, "md%d", num);
+	else
+		sprintf(name, "md_d%d", -1-num);
+	return strdup(name);
+}
+
+int fd2devnum(int fd)
+{
+	struct stat stb;
+	if (fstat(fd, &stb) == 0 &&
+	    (S_IFMT&stb.st_mode)==S_IFBLK) {
+		if (major(stb.st_rdev) == MD_MAJOR)
+			return minor(stb.st_rdev);
+		else
+			return -1- (minor(stb.st_rdev)>>6);
+	}
+	return -1;
+}
+
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */
 unsigned int __invalid_size_argument_for_IOC = 0;

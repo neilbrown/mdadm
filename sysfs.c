@@ -34,7 +34,7 @@ int load_sys(char *path, char *buf)
 		return -1;
 	n = read(fd, buf, 1024);
 	close(fd);
-	if (n <=0 || n >= 1024)
+	if (n <0 || n >= 1024)
 		return -1;
 	buf[n] = 0;
 	if (buf[n-1] == '\n')
@@ -316,6 +316,7 @@ int sysfs_set_array(struct mdinfo *sra,
 {
 	int rv = 0;
 	sra->array = info->array;
+
 	if (info->array.level < 0)
 		return 0; /* FIXME */
 	rv |= sysfs_set_str(sra, NULL, "level",

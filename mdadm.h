@@ -397,6 +397,8 @@ struct supertype {
 	struct superswitch *ss;
 	int minor_version;
 	int max_devs;
+	int container_dev;    /* devnum of container */
+	int container_member; /* numerical position in container */
 	void *sb;
 	void *info;
 };
@@ -563,6 +565,8 @@ extern int open_mddev_devnum(char *devname, int devnum, char *name,
 			     char *chosen_name, int parts);
 extern int open_container(int fd);
 
+extern char *devnum2devname(int num);
+extern int fd2devnum(int fd);
 
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)

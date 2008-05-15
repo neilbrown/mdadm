@@ -537,7 +537,15 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 	if (st->ss->external) {
 		char ver[100];
-		strcat(strcpy(ver, "external:"), st->ss->text_version);
+		if (st->ss->external == 1)
+			/* container */
+			strcat(strcpy(ver, "external:"), st->ss->text_version);
+		else {
+			/* member */
+			sprintf(ver, "external:/%s/%d",
+				devnum2devname(st->container_dev),
+				st->container_member);
+		}
 		if ((vers % 100) < 2 ||
 		    sra == NULL ||
 		    sysfs_set_str(sra, NULL, "metadata_version",

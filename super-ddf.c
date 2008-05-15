@@ -416,7 +416,7 @@ struct ddf_super {
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
-struct superswitch super_ddf_container, super_ddf_bvd;
+extern struct superswitch super_ddf_container, super_ddf_bvd;
 
 static int calc_crc(void *buf, int len)
 {
@@ -1657,6 +1657,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 		return 0;
 	}
 	ve = &ddf->virt->entries[venum];
+	st->container_member = venum;
 
 	/* A Virtual Disk GUID contains the T10 Vendor ID, controller type,
 	 * timestamp, random number
@@ -2023,6 +2024,8 @@ int validate_geometry_ddf(struct supertype *st,
 		st->ss = &super_ddf_bvd;
 		if (load_super_ddf_all(st, cfd, (void **)&ddf, NULL, 1) == 0) {
 			st->sb = ddf;
+			st->container_dev = fd2devnum(cfd);
+			st->container_member = 27; // FIXME
 			close(cfd);
 			return st->ss->validate_geometry(st, level, layout,
 							 raiddisks, chunk, size,

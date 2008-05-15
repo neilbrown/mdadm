@@ -407,6 +407,7 @@ extern struct superswitch {
 	int (*open_new)(struct supertype *c, struct active_array *a, int inst);
 	void (*mark_clean)(struct active_array *a, unsigned long long sync_pos);
 	void (*mark_dirty)(struct active_array *a);
+	void (*mark_sync)(struct active_array *a, unsigned long long resync);
 	void (*set_disk)(struct active_array *a, int n);
 	void (*sync_metadata)(struct active_array *a);
 

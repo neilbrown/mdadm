@@ -274,10 +274,9 @@ static int read_and_act(struct active_array *a)
 
 	if (a->curr_action == idle &&
 	    a->prev_action == resync) {
-		/* check resync_start to see if it is 'max'.
-		 * Do I open here, or have it open the whole time?
-		 */
-		get_sync_pos(a);
+		/* check resync_start to see if it is 'max' */
+		get_resync_start(a);
+		a->container->ss->mark_sync(a, a->resync_start);
 		check_degraded = 1;
 	}
 

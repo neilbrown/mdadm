@@ -2459,6 +2459,11 @@ static void ddf_mark_dirty(struct active_array *a)
 	fprintf(stderr, "ddf: mark dirty\n");
 }
 
+static void ddf_mark_sync(struct active_array *a, unsigned long long resync)
+{
+	fprintf(stderr, "ddf: mark sync\n");
+}
+
 static void ddf_set_disk(struct active_array *a, int n)
 {
 	fprintf(stderr, "ddf: set_disk %d\n", n);
@@ -2504,6 +2509,7 @@ struct superswitch super_ddf = {
 	.load_super     = load_super_ddf,
 	.mark_clean     = ddf_mark_clean,
 	.mark_dirty     = ddf_mark_dirty,
+	.mark_sync	= ddf_mark_sync,
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
 

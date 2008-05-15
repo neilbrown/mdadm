@@ -1132,6 +1132,11 @@ static void imsm_mark_dirty(struct active_array *a)
 	fprintf(stderr, "imsm: mark dirty\n");
 }
 
+static void imsm_mark_sync(struct active_array *a, unsigned long long resync)
+{
+	fprintf(stderr, "imsm: mark sync\n");
+}
+
 static void imsm_set_disk(struct active_array *a, int n)
 {
 	fprintf(stderr, "imsm: set_disk %d\n", n);
@@ -1176,6 +1181,7 @@ struct superswitch super_imsm = {
 	.load_super	= load_super_imsm,
 	.mark_clean	= imsm_mark_clean,
 	.mark_dirty	= imsm_mark_dirty,
+	.mark_sync	= imsm_mark_sync,
 	.set_disk	= imsm_set_disk,
 	.sync_metadata	= imsm_sync_metadata,
 };

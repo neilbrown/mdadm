@@ -1115,6 +1115,33 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 	return rest;
 }
 
+
+static int imsm_open_new(struct supertype *c, struct active_array *a, int inst)
+{
+	fprintf(stderr, "imsm: open_new %d\n", inst);
+	return 0;
+}
+
+static void imsm_mark_clean(struct active_array *a, unsigned long long sync_pos)
+{
+	fprintf(stderr, "imsm: mark clean %llu\n", sync_pos);
+}
+
+static void imsm_mark_dirty(struct active_array *a)
+{
+	fprintf(stderr, "imsm: mark dirty\n");
+}
+
+static void imsm_set_disk(struct active_array *a, int n)
+{
+	fprintf(stderr, "imsm: set_disk %d\n", n);
+}
+
+static void imsm_sync_metadata(struct active_array *a)
+{
+	fprintf(stderr, "imsm: sync_metadata\n");
+}
+
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_imsm,
@@ -1143,6 +1170,14 @@ struct superswitch super_imsm = {
 	.swapuuid	= 0,
 	.external	= 1,
 	.text_version	= "imsm",
+
+/* for mdmon */
+	.open_new	= imsm_open_new,
+	.load_super	= load_super_imsm,
+	.mark_clean	= imsm_mark_clean,
+	.mark_dirty	= imsm_mark_dirty,
+	.set_disk	= imsm_set_disk,
+	.sync_metadata	= imsm_sync_metadata,
 };
 
 /* super_imsm_container is set by validate_geometry_imsm when given a

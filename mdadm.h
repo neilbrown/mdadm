@@ -106,6 +106,13 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define	__le16_to_cpu(_x) (_x)
 #define __le32_to_cpu(_x) (_x)
 #define __le64_to_cpu(_x) (_x)
+
+#define	__cpu_to_be16(_x) bswap_16(_x)
+#define __cpu_to_be32(_x) bswap_32(_x)
+#define __cpu_to_be64(_x) bswap_64(_x)
+#define	__be16_to_cpu(_x) bswap_16(_x)
+#define __be32_to_cpu(_x) bswap_32(_x)
+#define __be64_to_cpu(_x) bswap_64(_x)
 #elif BYTE_ORDER == BIG_ENDIAN
 #define	__cpu_to_le16(_x) bswap_16(_x)
 #define __cpu_to_le32(_x) bswap_32(_x)
@@ -113,6 +120,13 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define	__le16_to_cpu(_x) bswap_16(_x)
 #define __le32_to_cpu(_x) bswap_32(_x)
 #define __le64_to_cpu(_x) bswap_64(_x)
+
+#define	__cpu_to_be16(_x) (_x)
+#define __cpu_to_be32(_x) (_x)
+#define __cpu_to_be64(_x) (_x)
+#define	__be16_to_cpu(_x) (_x)
+#define __be32_to_cpu(_x) (_x)
+#define __be64_to_cpu(_x) (_x)
 #else
 #  error "unknown endianness."
 #endif

@@ -757,7 +757,8 @@ struct supertype *super_by_fd(int fd)
 
 	if (sra)
 		sysfs_free(sra);
-	st->sb = NULL;
+	if (st)
+		st->sb = NULL;
 	return st;
 }
 

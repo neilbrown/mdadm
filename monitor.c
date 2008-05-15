@@ -175,7 +175,9 @@ int read_dev_state(int fd)
  *    detected by rd-N/state reporting "faulty"
  *    mark device as 'failed' in metadata, let the kernel release the
  *    device by writing '-blocked' to rd/state, and finally write 'remove' to
- *    rd/state
+ *    rd/state.  Before a disk can be replaced it must be failed and removed
+ *    from all container members, this will be preemptive for the other
+ *    arrays... safe?
  *
  *  sync completes
  *    sync_action was 'resync' and becomes 'idle' and resync_start becomes
@@ -346,19 +348,47 @@ static int read_and_act(struct active_array *a)
 	return 1;
 }
 
+static struct mdinfo *
+find_device(struct active_array *a, int major, int minor)
+{
+	struct mdinfo *mdi;
+
+	for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
+		if (mdi->disk.major == major && mdi->disk.minor == minor)
+			return mdi;
+
+	return NULL;
+}
+
+static void reconcile_failed(struct active_array *aa, struct mdinfo *failed)
+{
+	struct active_array *a;
+	struct mdinfo *victim;
+
+	for (a = aa; a; a = a->next) {
+		if (!a->container)
+			continue;
+		victim = find_device(a, failed->disk.major, failed->disk.minor);
+		if (!victim)
+			continue;
+
+		if (!(victim->curr_state & DS_FAULTY))
+			write_attr("faulty", victim->state_fd);
+	}
+}
+
 static int wait_and_act(struct active_array *aa, int pfd, int nowait)
 {
 	fd_set rfds;
 	int maxfd = 0;
 	struct active_array *a;
 	int rv;
+	struct mdinfo *mdi;
 
 	FD_ZERO(&rfds);
 
 	add_fd(&rfds, &maxfd, pfd);
 	for (a = aa ; a ; a = a->next) {
-		struct mdinfo *mdi;
-
 		/* once an array has been deactivated only the manager
 		 * thread can make us care about it again
 		 */
@@ -398,6 +428,16 @@ static int wait_and_act(struct active_array *aa, int pfd, int nowait)
 		if (a->container)
 			rv += read_and_act(a);
 	}
+
+	/* propagate failures across container members */
+	for (a = aa; a ; a = a->next) {
+		if (!a->container)
+			continue;
+		for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
+			if (mdi->curr_state & DS_FAULTY)
+				reconcile_failed(aa, mdi);
+	}
+
 	return rv;
 }
 

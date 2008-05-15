@@ -843,6 +843,24 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
 		int rv;
+
+#ifndef MDASSEMBLE
+		struct mdinfo *sra;
+		if (st->ss->external) {
+			char ver[100];
+			strcat(strcpy(ver, "external:"), st->ss->text_version);
+			sra = sysfs_read(mdfd, 0, 0);
+			if ((vers % 100) < 2 ||
+			    sra == NULL ||
+			    sysfs_set_str(sra, NULL, "metadata_version",
+					  ver) < 0) {
+				fprintf(stderr, Name ": This kernel does not "
+					"support external metadata.\n");
+				return 1;
+			}
+			rv = sysfs_set_array(sra, &info);
+		} else
+#endif
 		if ((vers % 100) >= 1) { /* can use different versions */
 			mdu_array_info_t inf;
 			memset(&inf, 0, sizeof(inf));
@@ -893,8 +911,22 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				j = chosen_drive;
 
 			if (j >= 0 /* && devices[j].uptodate */) {
-				if (ioctl(mdfd, ADD_NEW_DISK,
-					  &devices[j].i.disk)!=0) {
+#ifndef MDASSEMBLE
+				if (st->ss->external) {
+					int fd = dev_open(devices[j].devname,
+							  O_RDONLY);
+					if (fd < 0)
+						rv = 1;
+					else {
+						rv = sysfs_add_disk(sra, fd,
+							      &devices[j].i);
+						close(fd);
+					}
+				} else
+#endif
+					rv = ioctl(mdfd, ADD_NEW_DISK,
+					  &devices[j].i.disk);
+				if (rv) {
 					fprintf(stderr, Name ": failed to add "
 						        "%s to %s: %s\n",
 						devices[j].devname,

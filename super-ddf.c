@@ -1149,6 +1149,7 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 {
 	struct ddf_super *ddf = st->sb;
+	int i;
 
 	info->array.major_version = 1000;
 	info->array.minor_version = 0; /* FIXME use ddf->revision somehow */
@@ -1167,9 +1168,17 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
-//	info->disk.number = __be32_to_cpu(ddf->disk.refnum);
+	info->disk.number = __be32_to_cpu(ddf->dlist->disk.refnum);
 //	info->disk.raid_disk = find refnum in the table and use index;
-//	info->disk.state = ???;
+	info->disk.raid_disk = -1;
+	for (i = 0; i < __be16_to_cpu(ddf->phys->max_pdes) ; i++)
+		if (ddf->phys->entries[i].refnum == ddf->dlist->disk.refnum) {
+			info->disk.raid_disk = i;
+			break;
+		}
+	info->disk.state = (1 << MD_DISK_SYNC);
+
+	info->reshape_active = 0;
 
 //	uuid_from_super_ddf(info->uuid, sbv);
 
@@ -2248,6 +2257,31 @@ static int store_zero_ddf(struct supertype *st, int fd)
 	return 0;
 }
 
+static int compare_super_ddf(struct supertype *st, struct supertype *tst)
+{
+	/*
+	 * return:
+	 *  0 same, or first was empty, and second was copied
+	 *  1 second had wrong number
+	 *  2 wrong uuid
+	 *  3 wrong other info
+	 */
+	struct ddf_super *first = st->sb;
+	struct ddf_super *second = tst->sb;
+
+	if (!first) {
+		st->sb = tst->sb;
+		tst->sb = NULL;
+		return 0;
+	}
+
+	if (memcmp(first->anchor.guid, second->anchor.guid, DDF_GUID_LEN) != 0)
+		return 2;
+
+	/* FIXME should I look at anything else? */
+	return 0;
+}
+
 struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
@@ -2262,6 +2296,8 @@ struct superswitch super_ddf = {
 	.update_super	= update_super_ddf,
 
 	.avail_size	= avail_size_ddf,
+
+	.compare_super	= compare_super_ddf,
 
 	.load_super	= load_super_ddf,
 	.init_super	= init_zero_ddf,

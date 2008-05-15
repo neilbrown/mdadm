@@ -637,6 +637,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				rv = 0;
 
 				if (st->ss->external) {
+					st->ss->getinfo_super_n(st, &info);
 					rv = sysfs_add_disk(sra, fd, &info);
 					close(fd);
 				} else {
@@ -666,12 +667,27 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		/* No need to start */
 		;
 	else if (runstop == 1 || subdevs >= raiddisks) {
-		mdu_param_t param;
-		if (ioctl(mdfd, RUN_ARRAY, &param)) {
-			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
-				strerror(errno));
-			Manage_runstop(mddev, mdfd, -1, 0);
-			return 1;
+		if (st->ss->external) {
+			switch(level) {
+			case LEVEL_LINEAR:
+			case LEVEL_MULTIPATH:
+			case 0:
+				sysfs_set_str(sra, NULL, "array_state",
+					      "active");
+				break;
+			default:
+				sysfs_set_str(sra, NULL, "array_state",
+					      "readonly");
+				break;
+			}
+		} else {
+			mdu_param_t param;
+			if (ioctl(mdfd, RUN_ARRAY, &param)) {
+				fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
+					strerror(errno));
+				Manage_runstop(mddev, mdfd, -1, 0);
+				return 1;
+			}
 		}
 		if (verbose >= 0)
 			fprintf(stderr, Name ": array %s started.\n", mddev);

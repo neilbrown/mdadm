@@ -40,7 +40,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st, char *homehost, int autof)
 {
 	/* Add this device to an array, creating the array if necessary
-	 * and starting the array if sensibe or - if runstop>0 - if possible.
+	 * and starting the array if sensible or - if runstop>0 - if possible.
 	 *
 	 * This has several steps:
 	 *
@@ -140,9 +140,17 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(dfd);
 		return 1;
 	}
-	st->ss->getinfo_super(st, &info);
 	close (dfd);
 
+	if (st->ss->container_content) {
+		/* This is a pre-built container array, so we do something
+		 * rather different.
+		 */
+		return Incremental_container(st, devname, verbose, runstop,
+					     autof);
+	}
+
+	st->ss->getinfo_super(st, &info);
 	/* 3/ Check if there is a match in mdadm.conf */
 
 	array_list = conf_get_ident(NULL);
@@ -707,4 +715,91 @@ int IncrementalScan(int verbose)
 		}
 	}
 	return rv;
+}
+
+int Incremental_container(struct supertype *st, char *devname, int verbose,
+			  int runstop, int autof)
+{
+	/* Collect the contents of this container and for each
+	 * array, choose a device name and assemble the array.
+	 */
+
+	struct mdinfo *list = st->ss->container_content(st);
+	struct mdinfo *ra;
+
+	for (ra = list ; ra ; ra = ra->next) {
+		struct mdinfo *sra;
+		struct mdinfo *dev;
+		int devnum = -1;
+		int mdfd;
+		char chosen_name[1024];
+		int usepart = 1;
+		char *n;
+		int working = 0;
+
+		if ((autof&7) == 3 || (autof&7) == 5)
+			usepart = 0;
+
+		n = ra->name;
+		if (*n == 'd')
+			n++;
+		if (*n) {
+			devnum = strtoul(n, &n, 10);
+			if (devnum >= 0 && (*n == 0 || *n == ' ')) {
+				/* Use this devnum */
+				usepart = (ra->name[0] == 'd');
+				if (mddev_busy(usepart ? (-1-devnum) : devnum))
+					devnum = -1;
+			} else
+				devnum = -1;
+		}
+
+		if (devnum >= 0)
+			devnum = usepart ? (-1-devnum) : devnum;
+		else
+			devnum = find_free_devnum(usepart);
+		mdfd = open_mddev_devnum(NULL, devnum, ra->name,
+					 chosen_name, autof>>3);
+
+		if (mdfd < 0) {
+			fprintf(stderr, Name ": failed to open %s: %s.\n",
+				chosen_name, strerror(errno));
+			return 2;
+		}
+
+		sra = sysfs_read(mdfd, 0, 0);
+
+		sysfs_set_array(sra, ra);
+		for (dev = ra->devs; dev; dev = dev->next) {
+			char buf[20];
+			int dfd;
+			sprintf(buf, "%d:%d", dev->disk.major, dev->disk.minor);
+			dfd = dev_open(buf, O_RDONLY);
+			if (sysfs_add_disk(sra, dfd, dev) == 0)
+				working++;
+		}
+		if (runstop > 0 || working >= ra->array.working_disks) {
+			switch(ra->array.level) {
+			case LEVEL_LINEAR:
+			case LEVEL_MULTIPATH:
+			case 0:
+				sysfs_set_str(sra, NULL, "array_state",
+					      "active");
+				break;
+			default:
+				sysfs_set_str(sra, NULL, "array_state",
+					      "readonly");
+				break;
+			}
+			if (verbose >= 0)
+				printf("Started %s with %d devices\n",
+				       chosen_name, working);
+		} else
+			if (verbose >= 0)
+				printf("%s assembled with %d devices but "
+				       "not started\n",
+				       chosen_name, working);
+		close(mdfd);
+	}
+	return 0;
 }

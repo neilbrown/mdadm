@@ -142,7 +142,9 @@ struct mdinfo {
 	int			uuid[4];
 	char			name[33];
 	unsigned long long	data_offset;
-	unsigned long long	component_size;
+	unsigned long long	component_size; /* same as array.size, except in
+						 * sectors and up to 64bits.
+						 */
 	int			reshape_active;
 	unsigned long long	reshape_progress;
 	int			new_level, delta_disks, new_layout, new_chunk;
@@ -318,7 +320,7 @@ extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
 extern int sysfs_set_array(struct mdinfo *sra,
-			   struct mdinfo *array);
+			   struct mdinfo *info);
 extern int sysfs_add_disk(struct mdinfo *sra, int fd, struct mdinfo *sd);
 
 
@@ -355,6 +357,7 @@ extern struct superswitch {
 	void (*export_detail_super)(struct supertype *st);
 	void (*uuid_from_super)(struct supertype *st, int uuid[4]);
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
+	void (*getinfo_super_n)(struct supertype *st, struct mdinfo *info);
 	int (*match_home)(struct supertype *st, char *homehost);
 	int (*update_super)(struct supertype *st, struct mdinfo *info,
 			    char *update,
@@ -381,6 +384,9 @@ extern struct superswitch {
 				 int raiddisks,
 				 int chunk, unsigned long long size,
 				 char *subdev, unsigned long long *freesize);
+
+	struct mdinfo *(*container_content)(struct supertype *st);
+
 	int major;
 	char *text_version;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
@@ -490,6 +496,8 @@ extern int Wait(char *dev);
 
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int autof);
+extern int Incremental_container(struct supertype *st, char *devname,
+				 int verbose, int runstop, int autof);
 extern void RebuildMap(void);
 extern int IncrementalScan(int verbose);
 

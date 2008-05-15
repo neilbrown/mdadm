@@ -288,8 +288,10 @@ struct vd_config {
 	__u8	sec_elmnt_count;
 	__u8	sec_elmnt_seq;
 	__u8	srl;
-	__u64	blocks;
-	__u64	array_blocks;
+	__u64	blocks;		/* blocks per component could be different
+				 * on different component devices...(only
+				 * for concat I hope) */
+	__u64	array_blocks;	/* blocks in array */
 	__u8	pad1[8];
 	__u32	spare_refs[8];
 	__u8	cache_pol[8];
@@ -609,6 +611,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	char *conf;
 	int i;
 	int conflen;
+	int mppe;
 
 	/* First the local disk info */
 	super->max_part = __be16_to_cpu(super->active->max_partitions);
@@ -620,6 +623,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 		     super->active->data_section_length,
 		     0);
 	dl->devname = devname ? strdup(devname) : NULL;
+
 	fstat(fd, &stb);
 	dl->major = major(stb.st_rdev);
 	dl->minor = minor(stb.st_rdev);
@@ -667,8 +671,9 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			super->conflist = vcl;
 		}
 		memcpy(&vcl->conf, vd, conflen*512);
+		mppe = __be16_to_cpu(super->anchor.max_primary_element_entries);
 		vcl->lba_offset = (__u64*)
-			&vcl->conf.phys_refnum[super->max_part+1];
+			&vcl->conf.phys_refnum[mppe];
 		dl->vlist[i/conflen] = vcl;
 	}
 	free(conf);
@@ -1044,7 +1049,9 @@ static void examine_super_ddf(struct supertype *st, char *homehost)
 
 	printf("          Magic : %08x\n", __be32_to_cpu(sb->anchor.magic));
 	printf("        Version : %.8s\n", sb->anchor.revision);
-	printf("Controller GUID : "); print_guid(sb->anchor.guid, 1);
+	printf("Controller GUID : "); print_guid(sb->controller.guid, 0);
+	printf("\n");
+	printf(" Container GUID : "); print_guid(sb->anchor.guid, 1);
 	printf("\n");
 	printf("            Seq : %08x\n", __be32_to_cpu(sb->active->seq));
 	printf("  Redundant hdr : %s\n", sb->secondary.magic == DDF_HEADER_MAGIC
@@ -1185,6 +1192,18 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 //	info->name[] ?? ;
 }
 
+static void getinfo_super_n_container(struct supertype *st, struct mdinfo *info)
+{
+	/* just need offset and size */
+	struct ddf_super *ddf = st->sb;
+	int n = info->disk.number;
+
+	info->data_offset = __be64_to_cpu(ddf->phys->entries[n].config_size);
+	info->component_size = 32*1024*1024 / 512;
+}
+
+static int rlq_to_layout(int rlq, int prl, int raiddisks);
+
 static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 {
 	struct ddf_super *ddf = st->sb;
@@ -1197,7 +1216,8 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	info->array.patch_version = 0;
 	info->array.raid_disks    = __be16_to_cpu(vd->prim_elmnt_count);
 	info->array.level	  = map_num1(ddf_level_num, vd->prl);
-	info->array.layout	  = vd->rlq; /* FIXME should this be mapped */
+	info->array.layout	  = rlq_to_layout(vd->rlq, vd->prl,
+						  info->array.raid_disks);
 	info->array.md_minor	  = -1;
 	info->array.ctime	  = DECADE + __be32_to_cpu(*(__u32*)(vd->guid+16));
 	info->array.utime	  = DECADE + __be32_to_cpu(vd->timestamp);
@@ -1215,6 +1235,18 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	uuid_from_super_ddf(st, info->uuid);
 
 //	info->name[] ?? ;
+}
+
+static void getinfo_super_n_bvd(struct supertype *st, struct mdinfo *info)
+{
+	/* Find the particular details for info->disk.raid_disk.
+	 * This includes data_offset, component_size,
+	 */
+	struct ddf_super *ddf = st->sb;
+	__u64 *lba_offset = ddf->newconf->lba_offset;
+	struct vd_config *conf = &ddf->newconf->conf;
+	info->data_offset = __be64_to_cpu(lba_offset[info->disk.raid_disk]);
+	info->component_size = __be64_to_cpu(conf->blocks);
 }
 
 static int update_super_ddf(struct supertype *st, struct mdinfo *info,
@@ -1558,6 +1590,38 @@ static int layout_to_rlq(int level, int layout, int raiddisks)
 	return -1;
 }
 
+static int rlq_to_layout(int rlq, int prl, int raiddisks)
+{
+	switch(prl) {
+	case DDF_RAID0:
+		return 0; /* hopefully rlq == DDF_RAID0_SIMPLE */
+	case DDF_RAID1:
+		return 0; /* hopefully rlq == SIMPLE or MULTI depending
+			     on raiddisks*/
+	case DDF_RAID4:
+		switch(rlq) {
+		case DDF_RAID4_N:
+			return 0;
+		default:
+			/* not supported */
+			return -1; /* FIXME this isn't checked */
+		}
+	case DDF_RAID5:
+	case DDF_RAID6:
+		switch(rlq) {
+		case DDF_RAID5_N_RESTART:
+			return ALGORITHM_LEFT_ASYMMETRIC;
+		case DDF_RAID5_0_RESTART:
+			return ALGORITHM_RIGHT_ASYMMETRIC;
+		case DDF_RAID5_N_CONTINUE:
+			return ALGORITHM_LEFT_SYMMETRIC;
+		default:
+			return -1;
+		}
+	}
+	return -1;
+}
+
 static int init_super_ddf_bvd(struct supertype *st,
 			      mdu_array_info_t *info,
 			      unsigned long long size,
@@ -1616,7 +1680,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 	/* Now create a new vd_config */
 	conflen =  __be16_to_cpu(ddf->active->config_record_len);
 	vcl = malloc(offsetof(struct vcl, conf) + conflen * 512);
-	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->max_part+1];
+	mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
+	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[mppe];
 
 	vc = &vcl->conf;
 
@@ -1655,7 +1720,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	memset(vc->v2, 0xff, 16);
 	memset(vc->v3, 0xff, 16);
 	memset(vc->vendor, 0xff, 32);
-	mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
+
 	memset(vc->phys_refnum, 0xff, 4*mppe);
 	memset(vc->phys_refnum+mppe, 0x00, 8*mppe);
 
@@ -2223,7 +2288,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	}
 	*sbp = super;
 	if (st->ss == NULL) {
-		st->ss = &super_ddf;
+		st->ss = &super_ddf_container;
 		st->minor_version = 0;
 		st->max_devs = 512;
 	}
@@ -2232,6 +2297,97 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 #endif
 
 
+
+static struct mdinfo *container_content_ddf(struct supertype *st)
+{
+	/* Given a container loaded by load_super_ddf_all,
+	 * extract information about all the arrays into
+	 * an mdinfo tree.
+	 *
+	 * For each vcl in conflist: create an mdinfo, fill it in,
+	 *  then look for matching devices (phys_refnum) in dlist
+	 *  and create appropriate device mdinfo.
+	 */
+	struct ddf_super *ddf = st->sb;
+	struct mdinfo *rest = NULL;
+	struct vcl *vc;
+
+	for (vc = ddf->conflist ; vc ; vc=vc->next)
+	{
+		int mppe;
+		int i;
+		struct mdinfo *this;
+		this = malloc(sizeof(*this));
+		memset(this, 0, sizeof(*this));
+		this->next = rest;
+		rest = this;
+
+		this->array.major_version = 1000;
+		this->array.minor_version = 0;
+		this->array.patch_version = 0;
+		this->array.level = map_num1(ddf_level_num, vc->conf.prl);
+		this->array.raid_disks =
+			__be16_to_cpu(vc->conf.prim_elmnt_count);
+		/* FIXME this should be mapped */
+		this->array.layout = vc->conf.rlq;
+		this->array.md_minor      = -1;
+		this->array.ctime         = DECADE +
+			__be32_to_cpu(*(__u32*)(vc->conf.guid+16));
+		this->array.utime	  = DECADE +
+			__be32_to_cpu(vc->conf.timestamp);
+		this->array.chunk_size	  = 512 << vc->conf.chunk_shift;
+
+		for (i=0; i < __be16_to_cpu(ddf->virt->populated_vdes); i++)
+			if (memcmp(ddf->virt->entries[i].guid,
+				   vc->conf.guid, DDF_GUID_LEN) == 0)
+				break;
+		if (ddf->virt->entries[i].state & DDF_state_inconsistent)
+			this->array.state = 0;
+		else
+			this->array.state = 1;
+		memcpy(this->name, ddf->virt->entries[i].name, 32);
+		this->name[33]=0;
+
+		memset(this->uuid, 0, sizeof(this->uuid));
+		this->component_size = __be64_to_cpu(vc->conf.blocks);
+		this->array.size = this->component_size / 2;
+
+		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
+		for (i=0 ; i < mppe ; i++) {
+			struct mdinfo *dev;
+			struct dl *d;
+
+			if (vc->conf.phys_refnum[i] == 0xFFFFFFFF)
+				continue;
+
+			this->array.working_disks++;
+
+			for (d = ddf->dlist; d ; d=d->next)
+				if (d->disk.refnum == vc->conf.phys_refnum[i])
+					break;
+			if (d == NULL)
+				break;
+
+			dev = malloc(sizeof(*dev));
+			memset(dev, 0, sizeof(*dev));
+			dev->next = this->devs;
+			this->devs = dev;
+
+			dev->disk.number = __be32_to_cpu(d->disk.refnum);
+			dev->disk.major = d->major;
+			dev->disk.minor = d->minor;
+			dev->disk.raid_disk = i;
+			dev->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
+
+			dev->events = __le32_to_cpu(ddf->primary.seq);
+			dev->data_offset = vc->lba_offset[i];
+			dev->component_size = __be64_to_cpu(vc->conf.blocks);
+			if (d->devname)
+				strcpy(dev->name, d->devname);
+		}
+	}
+	return rest;
+}
 
 static int init_zero_ddf(struct supertype *st,
 			 mdu_array_info_t *info,
@@ -2304,6 +2460,7 @@ struct superswitch super_ddf = {
 	.store_super	= store_zero_ddf,
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf,
+	.getinfo_super_n  = getinfo_super_n_container,
 
 
 	.major		= 1000,
@@ -2326,6 +2483,8 @@ struct superswitch super_ddf_container = {
 
 	.free_super	= free_super_ddf,
 
+	.container_content = container_content_ddf,
+
 	.major		= 1000,
 	.swapuuid	= 0,
 	.external	= 1,
@@ -2343,6 +2502,7 @@ struct superswitch super_ddf_bvd = {
 	.init_super	= init_super_ddf_bvd,
 	.add_to_super	= add_to_super_ddf_bvd,
 	.getinfo_super  = getinfo_super_ddf_bvd,
+	.getinfo_super_n  = getinfo_super_n_bvd,
 
 	.load_super	= load_super_ddf,
 	.free_super	= free_super_ddf,

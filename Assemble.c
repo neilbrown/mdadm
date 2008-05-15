@@ -918,6 +918,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					if (fd < 0)
 						rv = 1;
 					else {
+						devices[j].i.disk.number =
+							devices[j].i.disk.raid_disk;
+						st->ss->getinfo_super_n(st,
+							       &devices[j].i);
 						rv = sysfs_add_disk(sra, fd,
 							      &devices[j].i);
 						close(fd);
@@ -948,6 +952,21 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					i, mddev);
 		}
 
+		if (info.array.level == LEVEL_CONTAINER) {
+			if (verbose >= 0) {
+				fprintf(stderr, Name ": Container %s has been "
+					"assembled with %d drive%s",
+					mddev, okcnt, okcnt==1?"":"s");
+				if (okcnt < info.array.raid_disks)
+					fprintf(stderr, " (out of %d)",
+						info.array.raid_disks);
+				fprintf(stderr, "\n");
+			}
+			if (must_close)
+				close(mdfd);
+			return 0;
+		}
+
 		if (runstop == 1 ||
 		    (runstop <= 0 &&
 		     ( enough(info.array.level, info.array.raid_disks,
@@ -970,7 +989,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					/* There is a nasty race with 'mdadm --monitor'.
 					 * If it opens this device before we close it,
 					 * it gets an incomplete open on which IO
-					 * doesn't work and the capacity if wrong.
+					 * doesn't work and the capacity is
+					 * wrong.
 					 * If we reopen (to check for layered devices)
 					 * before --monitor closes, we loose.
 					 *

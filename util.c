@@ -390,6 +390,9 @@ int is_standard(char *dev, int *nump)
 	/* tests if dev is a "standard" md dev name.
 	 * i.e if the last component is "/dNN" or "/mdNN",
 	 * where NN is a string of digits
+	 * Returns 1 if a partitionable standard,
+	 *   -1 if non-partitonable,
+	 *   0 if not a standard name.
 	 */
 	char *d = strrchr(dev, '/');
 	int type=0;

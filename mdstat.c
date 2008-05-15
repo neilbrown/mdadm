@@ -86,6 +86,7 @@
 #include	"mdadm.h"
 #include	"dlink.h"
 #include	<sys/select.h>
+#include	<ctype.h>
 
 void free_mdstat(struct mdstat_ent *ms)
 {
@@ -158,6 +159,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		ent->percent = -1;
 		ent->active = -1;
 		ent->resync = 0;
+		ent->metadata_version = NULL;
+		ent->raid_disks = 0;
+		ent->chunk_size = 0;
+		ent->devcnt = 0;
 
 		ent->dev = strdup(line);
 		ent->devnum = devnum;
@@ -176,22 +181,32 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				in_devs = 1;
 			} else if (in_devs && strcmp(w, "blocks")==0)
 				in_devs = 0;
-			else if (in_devs && strncmp(w, "md", 2)==0) {
-				/* This has an md device as a component.
-				 * If that device is already in the list,
-				 * make sure we insert before there.
-				 */
-				struct mdstat_ent **ih;
-				int dn2;
-				if (strncmp(w, "md_d", 4)==0)
-					dn2 = -1-strtoul(w+4, &ep, 10);
-				else
-					dn2 = strtoul(w+2, &ep, 10);
-				ih = &all;
-				while (ih != insert_here && *ih &&
-				       (*ih)->devnum != dn2)
-					ih = & (*ih)->next;
-				insert_here = ih;
+			else if (in_devs) {
+				ent->devcnt++;
+				if (strncmp(w, "md", 2)==0) {
+					/* This has an md device as a component.
+					 * If that device is already in the
+					 * list, make sure we insert before
+					 * there.
+					 */
+					struct mdstat_ent **ih;
+					int dn2;
+					if (strncmp(w, "md_d", 4)==0)
+						dn2 = -1-strtoul(w+4, &ep, 10);
+					else
+						dn2 = strtoul(w+2, &ep, 10);
+					ih = &all;
+					while (ih != insert_here && *ih &&
+					       (*ih)->devnum != dn2)
+						ih = & (*ih)->next;
+					insert_here = ih;
+				}
+			} else if (strcmp(w, "super") == 0 &&
+				   dl_next(w) != line) {
+				w = dl_next(w);
+				ent->metadata_version = strdup(w);
+			} else if (w[0] == '[' && isdigit(w[1])) {
+				ent->raid_disks = atoi(w+1);
 			} else if (!ent->pattern &&
 				 w[0] == '[' &&
 				 (w[1] == 'U' || w[1] == '_')) {
@@ -254,6 +269,19 @@ void mdstat_wait(int seconds)
 	tm.tv_sec = seconds;
 	tm.tv_usec = 0;
 	select(mdstat_fd >2 ? mdstat_fd+1:3, NULL, NULL, &fds, &tm);
+}
+
+void mdstat_wait_fd(int fd)
+{
+	fd_set fds, rfds;
+
+	FD_ZERO(&fds);
+	FD_ZERO(&rfds);
+	if (mdstat_fd >= 0)
+		FD_SET(mdstat_fd, &fds);
+	FD_SET(fd, &rfds);
+
+	select(mdstat_fd >2 ? mdstat_fd+1:3, &rfds, NULL, &fds, NULL);
 }
 
 int mddev_busy(int devnum)

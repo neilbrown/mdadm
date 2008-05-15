@@ -27,6 +27,7 @@
 
 #define HAVE_STDINT_H 1
 #include "mdadm.h"
+#include "mdmon.h"
 #include "sha1.h"
 #include <values.h>
 
@@ -416,7 +417,7 @@ struct ddf_super {
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
-extern struct superswitch super_ddf_container, super_ddf_bvd;
+extern struct superswitch super_ddf_container, super_ddf_bvd, super_ddf;
 
 static int calc_crc(void *buf, int len)
 {
@@ -2442,6 +2443,32 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	return 0;
 }
 
+static int ddf_open_new(struct supertype *c, struct active_array *a, int inst)
+{
+	fprintf(stderr, "ddf: open_new %d\n", inst);
+	return 0;
+}
+
+static void ddf_mark_clean(struct active_array *a, unsigned long long sync_pos)
+{
+	fprintf(stderr, "ddf: mark clean %llu\n", sync_pos);
+}
+
+static void ddf_mark_dirty(struct active_array *a)
+{
+	fprintf(stderr, "ddf: mark dirty\n");
+}
+
+static void ddf_set_disk(struct active_array *a, int n)
+{
+	fprintf(stderr, "ddf: set_disk %d\n", n);
+}
+
+static void ddf_sync_metadata(struct active_array *a)
+{
+	fprintf(stderr, "ddf: sync_metadata\n");
+}
+
 struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
@@ -2471,6 +2498,16 @@ struct superswitch super_ddf = {
 	.swapuuid	= 0,
 	.external	= 1,
 	.text_version	= "ddf",
+
+/* for mdmon */
+	.open_new       = ddf_open_new,
+	.load_super     = load_super_ddf,
+	.mark_clean     = ddf_mark_clean,
+	.mark_dirty     = ddf_mark_dirty,
+	.set_disk       = ddf_set_disk,
+	.sync_metadata  = ddf_sync_metadata,
+
+
 };
 
 /* Super_ddf_container is set by validate_geometry_ddf when given a

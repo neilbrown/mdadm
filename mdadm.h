@@ -159,6 +159,11 @@ struct mdinfo {
 	char 		sys_name[20];
 	struct mdinfo *devs;
 	struct mdinfo *next;
+
+	/* Device info for mdmon: */
+	int state_fd;
+	int prev_state, curr_state, next_state;
+
 };
 
 struct createinfo {
@@ -271,12 +276,17 @@ struct mdstat_ent {
 	char		*pattern; /* U or up, _ for down */
 	int		percent; /* -1 if no resync */
 	int		resync; /* 1 if resync, 0 if recovery */
+	int		devcnt;
+	int		raid_disks;
+	int		chunk_size;
+	char *		metadata_version;
 	struct mdstat_ent *next;
 };
 
 extern struct mdstat_ent *mdstat_read(int hold, int start);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
+extern void mdstat_wait_fd(int fd);
 extern int mddev_busy(int devnum);
 
 struct map_ent {
@@ -304,6 +314,7 @@ extern void map_add(struct map_ent **melp,
 #define GET_CACHE	16
 #define	GET_MISMATCH	32
 #define	GET_VERSION	64
+#define	GET_DISKS	128
 
 #define	GET_DEVS	1024 /* gets role, major, minor */
 #define	GET_OFFSET	2048
@@ -314,6 +325,7 @@ extern void map_add(struct map_ent **melp,
 /* If fd >= 0, get the array it is open on,
  * else use devnum. >=0 -> major9. <0.....
  */
+extern int sysfs_open(int devnum, char *devname, char *attr);
 extern void sysfs_free(struct mdinfo *sra);
 extern struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options);
 extern int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
@@ -350,6 +362,7 @@ extern mapping_t r5layout[], pers[], modes[], faultylayout[];
 
 extern char *map_dev(int major, int minor, int create);
 
+struct active_array;
 
 extern struct superswitch {
 	void (*examine_super)(struct supertype *st, char *homehost);
@@ -390,6 +403,14 @@ extern struct superswitch {
 
 	struct mdinfo *(*container_content)(struct supertype *st);
 
+/* for mdmon */
+	int (*open_new)(struct supertype *c, struct active_array *a, int inst);
+	void (*mark_clean)(struct active_array *a, unsigned long long sync_pos);
+	void (*mark_dirty)(struct active_array *a);
+	void (*set_disk)(struct active_array *a, int n);
+	void (*sync_metadata)(struct active_array *a);
+
+
 	int major;
 	char *text_version;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
@@ -406,6 +427,20 @@ struct supertype {
 	int container_member; /* numerical position in container */
 	void *sb;
 	void *info;
+
+	/* extra stuff used by mdmon */
+	struct active_array *arrays;
+	int devfd;
+	int sock; /* listen to external programs */
+	int pipe[2]; /* communicate between threads */
+	int devnum;
+	char *devname; /* e.g. md0.  This appears in metadata_verison:
+			*  external:/md0/12
+			*/
+	int devcnt;
+
+	struct mdinfo *devs;
+
 };
 
 extern struct supertype supertype_container_member;

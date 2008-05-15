@@ -77,6 +77,11 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	mdopen.c super0.c super1.c super-ddf.c super-intel.c bitmap.c \
 	restripe.c sysfs.c sha1.c mapfile.c crc32.c sg_io.c msg.c
 
+MON_OBJS = mdmon.o monitor.o managemon.o util.o mdstat.o sysfs.o config.o \
+	Kill.o sg_io.o dlink.o ReadMe.o super0.o super1.o super-intel.o \
+	super-ddf.o sha1.o crc32.o
+
+
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
@@ -88,7 +93,7 @@ ASSEMBLE_SRCS += mdopen.c mdstat.c
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
-all : mdadm mdadm.man md.man mdadm.conf.man
+all : mdadm mdmon mdadm.man md.man mdadm.conf.man
 
 everything: all mdadm.static swap_super test_stripe \
 	mdassemble mdassemble.static mdassemble.man \
@@ -117,6 +122,9 @@ mdadm.Os : $(SRCS) mdadm.h
 
 mdadm.O2 : $(SRCS) mdadm.h
 	gcc -o mdadm.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 $(SRCS)
+
+mdmon : $(MON_OBJS)
+	$(CC) $(LDFLAGS) -o mdmon $(MON_OBJS) $(LDLIBS)
 
 test_stripe : restripe.c mdadm.h
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe -DMAIN restripe.c
@@ -182,7 +190,8 @@ test: mdadm test_stripe swap_super
 	@echo "Please run 'sh ./test' as root"
 
 clean : 
-	rm -f mdadm $(OBJS) $(STATICOBJS) core *.man mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
+	rm -f mdadm mdmon $(OBJS) $(MON_OBJS) $(STATICOBJS) core *.man \
+	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
 	mdadm.Os mdadm.O2 \
 	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super \
 	init.cpio.gz mdadm.uclibc.static test_stripe

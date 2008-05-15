@@ -56,6 +56,29 @@ void sysfs_free(struct mdinfo *sra)
 	}
 }
 
+int sysfs_open(int devnum, char *devname, char *attr)
+{
+	char fname[50];
+	char sys_name[16];
+	int fd;
+	if (devnum >= 0)
+		sprintf(sys_name, "md%d", devnum);
+	else
+		sprintf(sys_name, "md_d%d",
+			-1-devnum);
+
+	sprintf(fname, "/sys/block/%s/md/", sys_name);
+	if (devname) {
+		strcat(fname, devname);
+		strcat(fname, "/");
+	}
+	strcat(fname, attr);
+	fd = open(fname, O_RDWR);
+	if (fd < 0 && errno == -EACCES)
+		fd = open(fname, O_RDONLY);
+	return fd;
+}
+
 struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 {
 	/* Longest possible name in sysfs, mounted at /sys, is
@@ -127,6 +150,12 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		if (load_sys(fname, buf))
 			goto abort;
 		sra->array.layout = strtoul(buf, NULL, 0);
+	}
+	if (options & GET_DISKS) {
+		strcpy(base, "raid_disks");
+		if (load_sys(fname, buf))
+			goto abort;
+		sra->array.raid_disks = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_COMPONENT) {
 		strcpy(base, "component_size");

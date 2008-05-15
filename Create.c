@@ -71,6 +71,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int rv;
 	int bitmap_fd;
 	unsigned long long bitmapsize;
+	struct mdinfo *sra;
 	struct mdinfo info;
 
 	int major_num = BITMAP_MAJOR_HI;
@@ -485,8 +486,21 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	}
 
 
+	sra = sysfs_read(mdfd, 0, 0);
 
-	if ((vers % 100) >= 1) { /* can use different versions */
+	if (st->ss->external) {
+		char ver[100];
+		strcat(strcpy(ver, "external:"), st->ss->text_version);
+		if ((vers % 100) < 2 ||
+		    sra == NULL ||
+		    sysfs_set_str(sra, NULL, "metadata_version",
+				  ver) < 0) {
+			fprintf(stderr, Name ": This kernel does not "
+				"support external metadata.\n");
+			return 1;
+		}
+		rv = 0;
+	} else	if ((vers % 100) >= 1) { /* can use different versions */
 		mdu_array_info_t inf;
 		memset(&inf, 0, sizeof(inf));
 		inf.major_version = st->ss->major;
@@ -522,7 +536,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			return 1;
 		}
 	}
-
 
 
 	for (pass=1; pass <=2 ; pass++) {
@@ -570,13 +583,23 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			case 2:
 				close(fd);
 
-				if (ioctl(mdfd, ADD_NEW_DISK, &info.disk)) {
-					fprintf(stderr, Name ": ADD_NEW_DISK for %s failed: %s\n",
+				if (st->ss->external) {
+					char dv[100];
+					sprintf(dv, "%d:%d\n",
+						info.disk.major,
+						info.disk.minor);
+					sysfs_set_str(sra, NULL, "new_dev", dv);
+					/* FIXME check error */
+					/*FIXME find that device and set it up*/
+				} else if (ioctl(mdfd, ADD_NEW_DISK,
+						 &info.disk)) {
+					fprintf(stderr,
+						Name ": ADD_NEW_DISK for %s "
+						"failed: %s\n",
 						dv->devname, strerror(errno));
 					st->ss->free_super(st);
 					return 1;
 				}
-
 				break;
 			}
 			if (dv == moved_disk && dnum != insert_point) break;

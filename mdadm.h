@@ -377,7 +377,9 @@ extern struct superswitch {
 				 int chunk, unsigned long long size,
 				 char *subdev, unsigned long long *freesize);
 	int major;
+	char *text_version;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
+	int external;
 } super0, super1, *superlist[];
 
 struct supertype {

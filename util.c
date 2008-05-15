@@ -813,7 +813,9 @@ struct supertype *dup_super(struct supertype *st)
 	if (!st)
 		return st;
 
-	if (st->minor_version == -1)
+	if (st->ss->text_version)
+		strcpy(version, st->ss->text_version);
+	else if (st->minor_version == -1)
 		sprintf(version, "%d", st->ss->major);
 	else
 		sprintf(version, "%d.%d", st->ss->major, st->minor_version);

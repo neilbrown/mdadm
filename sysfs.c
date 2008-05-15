@@ -103,10 +103,11 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		strcpy(base, "metadata_version");
 		if (load_sys(fname, buf))
 			goto abort;
-		if (strncmp(buf, "none", 4) == 0)
+		if (strncmp(buf, "none", 4) == 0) {
 			sra->array.major_version =
 				sra->array.minor_version = -1;
-		else if (strncmp(buf, "external:", 9) == 0) {
+			strcpy(sra->text_version, "");
+		} else if (strncmp(buf, "external:", 9) == 0) {
 			sra->array.major_version = -1;
 			sra->array.minor_version = -2;
 			strcpy(sra->text_version, buf+9);

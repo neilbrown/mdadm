@@ -850,7 +850,8 @@ static struct supertype *match_metadata_desc0(char *arg)
 	if (strcmp(arg, "0") == 0 ||
 	    strcmp(arg, "0.90") == 0 ||
 	    strcmp(arg, "0.91") == 0 ||
-	    strcmp(arg, "default") == 0
+	    strcmp(arg, "default") == 0 ||
+	    strcmp(arg, "") == 0 /* no metadata */
 		)
 		return st;
 

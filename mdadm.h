@@ -162,6 +162,12 @@ struct mdinfo {
 
 	/* Device info for mdmon: */
 	int state_fd;
+	#define DS_FAULTY	1
+	#define	DS_INSYNC	2
+	#define	DS_WRITE_MOSTLY	4
+	#define	DS_SPARE	8
+	#define DS_BLOCKED	16
+	#define	DS_REMOVE	1024
 	int prev_state, curr_state, next_state;
 
 };
@@ -408,7 +414,7 @@ extern struct superswitch {
 	void (*mark_clean)(struct active_array *a, unsigned long long sync_pos);
 	void (*mark_dirty)(struct active_array *a);
 	void (*mark_sync)(struct active_array *a, unsigned long long resync);
-	void (*set_disk)(struct active_array *a, int n);
+	void (*set_disk)(struct active_array *a, int n, int state);
 	void (*sync_metadata)(struct active_array *a);
 
 

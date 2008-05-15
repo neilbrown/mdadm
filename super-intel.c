@@ -1251,9 +1251,48 @@ static void imsm_mark_sync(struct active_array *a, unsigned long long resync)
 	}
 }
 
-static void imsm_set_disk(struct active_array *a, int n)
+static void imsm_set_disk(struct active_array *a, int n, int state)
 {
-	fprintf(stderr, "imsm: set_disk %d\n", n);
+	int inst = a->info.container_member;
+	struct intel_super *super = a->container->sb;
+	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
+	struct imsm_map *map = dev->vol.map;
+	struct imsm_disk *disk;
+	__u32 status;
+	int failed = 0;
+	int new_failure = 0;
+
+	if (n > map->num_members)
+		fprintf(stderr, "imsm: set_disk %d out of range 0..%d\n",
+			n, map->num_members - 1);
+
+	if (n < 0)
+		return;
+
+	fprintf(stderr, "imsm: set_disk %d:%x\n", n, state);
+
+	disk = get_imsm_disk(super->mpb, get_imsm_disk_idx(map, n));
+
+	/* check if we have seen this failure before */
+	status = __le32_to_cpu(disk->status);
+	if ((state & DS_FAULTY) && !(status & FAILED_DISK)) {
+		status |= FAILED_DISK;
+		disk->status = __cpu_to_le32(status);
+		new_failure = 1;
+	}
+
+	/**
+	 * the number of failures have changed, count up 'failed' to determine
+	 * degraded / failed status
+	 */
+	if (new_failure && map->map_state != IMSM_T_STATE_FAILED)
+		failed = imsm_count_failed(super->mpb, map);
+
+	if (failed)
+		map->map_state = imsm_check_degraded(super->mpb, inst, failed);
+
+	if (new_failure)
+		super->updates_pending++;
 }
 
 static int store_imsm_mpb(int fd, struct intel_super *super)

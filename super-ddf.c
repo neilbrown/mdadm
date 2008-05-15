@@ -2464,7 +2464,7 @@ static void ddf_mark_sync(struct active_array *a, unsigned long long resync)
 	fprintf(stderr, "ddf: mark sync\n");
 }
 
-static void ddf_set_disk(struct active_array *a, int n)
+static void ddf_set_disk(struct active_array *a, int n, int state)
 {
 	fprintf(stderr, "ddf: set_disk %d\n", n);
 }

@@ -123,12 +123,6 @@ static enum sync_action read_action( int fd)
 	return (enum sync_action) match_word(buf, sync_actions);
 }
 
-#define DS_FAULTY	1
-#define	DS_INSYNC	2
-#define	DS_WRITE_MOSTLY	4
-#define	DS_SPARE	8
-#define	DS_REMOVE	1024
-
 int read_dev_state(int fd)
 {
 	char buf[60];
@@ -141,14 +135,16 @@ int read_dev_state(int fd)
 
 	cp = buf;
 	while (cp) {
-		if (attr_match("faulty", cp))
+		if (attr_match(cp, "faulty"))
 			rv |= DS_FAULTY;
-		if (attr_match("in_sync", cp))
+		if (attr_match(cp, "in_sync"))
 			rv |= DS_INSYNC;
-		if (attr_match("write_mostly", cp))
+		if (attr_match(cp, "write_mostly"))
 			rv |= DS_WRITE_MOSTLY;
-		if (attr_match("spare", cp))
+		if (attr_match(cp, "spare"))
 			rv |= DS_SPARE;
+		if (attr_match(cp, "blocked"))
+			rv |= DS_BLOCKED;
 		cp = strchr(cp, ',');
 		if (cp)
 			cp++;
@@ -177,8 +173,9 @@ int read_dev_state(int fd)
  *
  *  device fails
  *    detected by rd-N/state reporting "faulty"
- *    mark device as 'failed' in metadata, the remove device
- *    by writing 'remove' to rd/state.
+ *    mark device as 'failed' in metadata, let the kernel release the
+ *    device by writing '-blocked' to rd/state, and finally write 'remove' to
+ *    rd/state
  *
  *  sync completes
  *    sync_action was 'resync' and becomes 'idle' and resync_start becomes
@@ -238,7 +235,8 @@ static int read_and_act(struct active_array *a)
 	a->curr_action = read_action(a->action_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
-		mdi->curr_state = read_dev_state(mdi->state_fd);
+		if (mdi->state_fd > 0)
+			mdi->curr_state = read_dev_state(mdi->state_fd);
 	}
 
 	if (a->curr_state <= inactive &&
@@ -285,7 +283,8 @@ static int read_and_act(struct active_array *a)
 	if (a->curr_action == idle &&
 	    a->prev_action == recover) {
 		for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {
-			a->container->ss->set_disk(a, mdi->disk.raid_disk);
+			a->container->ss->set_disk(a, mdi->disk.raid_disk,
+						   mdi->curr_state);
 			if (! (mdi->curr_state & DS_INSYNC))
 				check_degraded = 1;
 		}
@@ -294,7 +293,8 @@ static int read_and_act(struct active_array *a)
 
 	for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {
 		if (mdi->curr_state & DS_FAULTY) {
-			a->container->ss->set_disk(a, mdi->disk.raid_disk);
+			a->container->ss->set_disk(a, mdi->disk.raid_disk,
+						   mdi->curr_state);
 			check_degraded = 1;
 			mdi->next_state = DS_REMOVE;
 		}
@@ -312,8 +312,20 @@ static int read_and_act(struct active_array *a)
 	if (a->next_action != bad_action)
 		write_attr(sync_actions[a->next_action], a->action_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
-		if (mdi->next_state == DS_REMOVE)
-			write_attr("remove", mdi->state_fd);
+		if (mdi->next_state == DS_REMOVE && mdi->state_fd > 0) {
+			int remove_err;
+
+			write_attr("-blocked", mdi->state_fd);
+			/* the kernel may not be able to immediately remove the
+			 * disk, we can simply wait until the next event to try
+			 * again.
+			 */
+			remove_err = write_attr("remove", mdi->state_fd);
+			if (!remove_err) {
+				close(mdi->state_fd);
+				mdi->state_fd = -1;
+			}
+		}
 		if (mdi->next_state & DS_INSYNC)
 			write_attr("+in_sync", mdi->state_fd);
 	}

@@ -77,17 +77,37 @@
 #include	<sys/socket.h>
 
 
+static void close_aa(struct active_array *aa)
+{
+	struct mdinfo *d;
+
+	for (d = aa->info.devs; d; d = d->next)
+		close(d->state_fd);
+
+	close(aa->action_fd);
+	close(aa->info.state_fd);
+	close(aa->resync_start_fd);
+	close(aa->sync_pos_fd);
+}
+
 static void free_aa(struct active_array *aa)
 {
-	/* Note that this doesn't close fds, as they may be in used
-	 * by a clone.  Use close_aa for that.
+	/* Note that this doesn't close fds if they are being used
+	 * by a clone.  ->container will be set for a clone
 	 */
+	if (!aa->container)
+		close_aa(aa);
 	while (aa->info.devs) {
 		struct mdinfo *d = aa->info.devs;
 		aa->info.devs = d->next;
 		free(d);
 	}
 	free(aa);
+}
+
+static void write_wakeup(struct supertype *c)
+{
+	write(c->pipe[1], "PING", 4);
 }
 
 static void replace_array(struct supertype *container,
@@ -115,6 +135,7 @@ static void replace_array(struct supertype *container,
 	new->replaces = old;
 	new->next = container->arrays;
 	container->arrays = new;
+	write_wakeup(container);
 }
 
 
@@ -158,13 +179,9 @@ static void manage_member(struct mdstat_ent *mdstat,
 
 }
 
-static void write_wakeup(struct supertype *c)
-{
-	write(c->pipe[1], "PING", 4);
-}
-
 static void manage_new(struct mdstat_ent *mdstat,
-		       struct supertype *container)
+		       struct supertype *container,
+		       struct active_array *victim)
 {
 	/* A new array has appeared in this container.
 	 * Hopefully it is already recorded in the metadata.
@@ -200,7 +217,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 		 * Mark it to be ignored by setting container to NULL
 		 */
 		new->container = NULL;
-		replace_array(container, NULL, new);
+		replace_array(container, victim, new);
 		return;
 	}
 
@@ -240,11 +257,10 @@ static void manage_new(struct mdstat_ent *mdstat,
 	if (container->ss->open_new(container, new, inst) < 0) {
 		// FIXME close all those files
 		new->container = NULL;
-		replace_array(container, NULL, new);
+		replace_array(container, victim, new);
 		return;
 	}
-	replace_array(container, NULL, new);
-	write_wakeup(container);
+	replace_array(container, victim, new);
 	return;
 }
 
@@ -278,8 +294,8 @@ void manage(struct mdstat_ent *mdstat, struct active_array *aa,
 				break;
 			}
 		}
-		if (a == NULL)
-			manage_new(mdstat, container);
+		if (a == NULL || !a->container)
+			manage_new(mdstat, container, a);
 	}
 }
 

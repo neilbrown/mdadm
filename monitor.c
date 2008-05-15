@@ -228,6 +228,7 @@ int read_dev_state(int fd)
 static int read_and_act(struct active_array *a)
 {
 	int check_degraded;
+	int deactivate = 0;
 	struct mdinfo *mdi;
 
 	a->next_state = bad_word;
@@ -246,6 +247,7 @@ static int read_and_act(struct active_array *a)
 		get_sync_pos(a);
 		a->container->ss->mark_clean(a, a->sync_pos);
 		a->next_state = clear;
+		deactivate = 1;
 	}
 	if (a->curr_state == write_pending) {
 		a->container->ss->mark_dirty(a);
@@ -326,6 +328,9 @@ static int read_and_act(struct active_array *a)
 		mdi->next_state = 0;
 	}
 
+	if (deactivate)
+		a->container = NULL;
+
 	return 1;
 }
 
@@ -341,6 +346,12 @@ static int wait_and_act(struct active_array *aa, int pfd, int nowait)
 	add_fd(&rfds, &maxfd, pfd);
 	for (a = aa ; a ; a = a->next) {
 		struct mdinfo *mdi;
+
+		/* once an array has been deactivated only the manager
+		 * thread can make us care about it again
+		 */
+		if (!a->container)
+			continue;
 
 		add_fd(&rfds, &maxfd, a->info.state_fd);
 		add_fd(&rfds, &maxfd, a->action_fd);
@@ -362,7 +373,7 @@ static int wait_and_act(struct active_array *aa, int pfd, int nowait)
 	}
 
 	for (a = aa; a ; a = a->next) {
-		if (a->replaces) {
+		if (a->replaces && !discard_this) {
 			struct active_array **ap;
 			for (ap = &a->next; *ap && *ap != a->replaces;
 			     ap = & (*ap)->next)
@@ -372,7 +383,8 @@ static int wait_and_act(struct active_array *aa, int pfd, int nowait)
 			discard_this = a->replaces;
 			a->replaces = NULL;
 		}
-		rv += read_and_act(a);
+		if (a->container)
+			rv += read_and_act(a);
 	}
 	return rv;
 }

@@ -1199,7 +1199,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 		return st;
 	}
 	if (strcmp(arg, "1") == 0 ||
-	    strcmp(arg, "default/large") == 0) {
+	    strcmp(arg, "default") == 0) {
 		st->minor_version = -1;
 		return st;
 	}
@@ -1416,6 +1416,35 @@ static void free_super1(struct supertype *st)
 	st->sb = NULL;
 }
 
+static int validate_geometry1(struct supertype *st, int level,
+			      int layout, int raiddisks,
+			      int chunk, unsigned long long size,
+			      char *subdev, unsigned long long *freesize)
+{
+	unsigned long long ldsize;
+	int fd;
+
+	if (level == LEVEL_CONTAINER)
+		return 0;
+	if (!subdev)
+		return 1;
+
+	fd = open(subdev, O_RDONLY|O_EXCL, 0);
+	if (fd < 0) {
+		fprintf(stderr, Name ": Cannot open %s: %s\n",
+			subdev, strerror(errno));
+		return 0;
+	}
+	if (!get_dev_size(fd, subdev, &ldsize)) {
+		close(fd);
+		return 0;
+	}
+	close(fd);
+
+	*freesize = avail_size1(st, ldsize >> 9);
+	return 1;
+}
+
 struct superswitch super1 = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_super1,
@@ -1441,6 +1470,7 @@ struct superswitch super1 = {
 	.locate_bitmap = locate_bitmap1,
 	.write_bitmap = write_bitmap1,
 	.free_super = free_super1,
+	.validate_geometry = validate_geometry1,
 	.major = 1,
 #if __BYTE_ORDER == BIG_ENDIAN
 	.swapuuid = 0,

@@ -610,6 +610,7 @@ mapping_t pers[] = {
 	{ "raid10", 10},
 	{ "10", 10},
 	{ "faulty", LEVEL_FAULTY},
+	{ "container", LEVEL_CONTAINER},
 	{ NULL, 0}
 };
 

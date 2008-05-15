@@ -358,6 +358,10 @@ extern struct superswitch {
 	void (*locate_bitmap)(struct supertype *st, int fd);
 	int (*write_bitmap)(struct supertype *st, int fd);
 	void (*free_super)(struct supertype *st);
+	int (*validate_geometry)(struct supertype *st, int level, int layout,
+				 int raiddisks,
+				 int chunk, unsigned long long size,
+				 char *subdev, unsigned long long *freesize);
 	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 } super0, super1, *superlist[];
@@ -530,6 +534,9 @@ extern int open_mddev_devnum(char *devname, int devnum, char *name,
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)
 #define	LEVEL_FAULTY		(-5)
+
+/* kernel module doesn't know about these */
+#define LEVEL_CONTAINER		(-100)
 
 
 /* faulty stuff */

@@ -991,6 +991,43 @@ static void free_super0(struct supertype *st)
 	st->sb = NULL;
 }
 
+static int validate_geometry0(struct supertype *st, int level,
+			      int layout, int raiddisks,
+			      int chunk, unsigned long long size,
+			      char *subdev, unsigned long long *freesize)
+{
+	unsigned long long ldsize;
+	int fd;
+
+	if (level == LEVEL_CONTAINER)
+		return 0;
+	if (raiddisks > MD_SB_DISKS)
+		return 0;
+	if (size > (0x7fffffffULL<<10))
+		return 0;
+	if (!subdev)
+		return 1;
+
+	fd = open(subdev, O_RDONLY|O_EXCL, 0);
+	if (fd < 0) {
+		fprintf(stderr, Name ": Cannot open %s: %s\n",
+			subdev, strerror(errno));
+		return 0;
+	}
+	if (!get_dev_size(fd, subdev, &ldsize)) {
+		close(fd);
+		return 0;
+	}
+	close(fd);
+
+	if (ldsize < MD_RESERVED_SECTORS * 512)
+		return 0;
+	if (size > (0x7fffffffULL<<10))
+		return 0;
+	*freesize = MD_NEW_SIZE_SECTORS(ldsize >> 9);
+	return 1;
+}
+
 struct superswitch super0 = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_super0,
@@ -1016,6 +1053,7 @@ struct superswitch super0 = {
 	.locate_bitmap = locate_bitmap0,
 	.write_bitmap = write_bitmap0,
 	.free_super = free_super0,
+	.validate_geometry = validate_geometry0,
 	.major = 0,
 	.swapuuid = 0,
 };

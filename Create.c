@@ -182,6 +182,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	case 1:
 	case LEVEL_FAULTY:
 	case LEVEL_MULTIPATH:
+	case LEVEL_CONTAINER:
 		if (chunk) {
 			chunk = 0;
 			if (verbose > 0)
@@ -193,13 +194,17 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 	}
 
+	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
+					      chunk, size, NULL, NULL))
+		return 1;
+
 	/* now look at the subdevs */
 	info.array.active_disks = 0;
 	info.array.working_disks = 0;
 	dnum = 0;
 	for (dv=devlist; dv; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
-		unsigned long long ldsize, freesize;
+		unsigned long long freesize;
 		int fd;
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
@@ -219,11 +224,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			fail=1;
 			continue;
 		}
-		if (!get_dev_size(fd, dname, &ldsize)) {
-			fail = 1;
-			close(fd);
-			continue;
-		}
 		if (st == NULL) {
 			struct createinfo *ci = conf_get_create_info();
 			if (ci)
@@ -231,17 +231,22 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (st == NULL) {
 			/* Need to choose a default metadata, which is different
-			 * depending on the sizes of devices
+			 * depending on geometry of array.
 			 */
 			int i;
 			char *name = "default";
-			if (level >= 1 && ldsize > (0x7fffffffULL<<10))
-				name = "default/large";
-			for(i=0; !st && superlist[i]; i++)
+			for(i=0; !st && superlist[i]; i++) {
 				st = superlist[i]->match_metadata_desc(name);
+				if (st && !st->ss->validate_geometry
+					    	(st, level, layout, raiddisks,
+						 chunk, size, dname, &freesize))
+					st = NULL;
+			}
 
 			if (!st) {
-				fprintf(stderr, Name ": internal error - no default metadata style\n");
+				fprintf(stderr, Name ": device %s not suitable "
+					"for any style of array\n",
+					dname);
 				exit(2);
 			}
 			if (st->ss->major != 0 ||
@@ -250,14 +255,19 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 					" %d.%d metadata\n",
 					st->ss->major,
 					st->minor_version);
-		}
-		freesize = st->ss->avail_size(st, ldsize >> 9);
-		if (freesize == 0) {
-			fprintf(stderr, Name ": %s is too small: %luK\n",
-				dname, (unsigned long)(ldsize>>10));
-			fail = 1;
-			close(fd);
-			continue;
+		} else {
+			if (!st->ss->validate_geometry(st, level, layout,
+						       raiddisks,
+						       chunk, size, dname,
+						       &freesize)) {
+
+				fprintf(stderr,
+					Name ": %s is not suitable for "
+					"this array.\n",
+					dname);
+				fail = 1;
+				continue;
+			}
 		}
 
 		freesize /= 2; /* convert to K */
@@ -268,7 +278,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 		if (size && freesize < size) {
 			fprintf(stderr, Name ": %s is smaller that given size."
-				" %lluK < %lluK + superblock\n", dname, freesize, size);
+				" %lluK < %lluK + metadata\n",
+				dname, freesize, size);
 			fail = 1;
 			close(fd);
 			continue;
@@ -581,7 +592,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	st->ss->free_super(st);
 
 	/* param is not actually used */
-	if (runstop == 1 || subdevs >= raiddisks) {
+	if (level == LEVEL_CONTAINER)
+		/* No need to start */
+		;
+	else if (runstop == 1 || subdevs >= raiddisks) {
 		mdu_param_t param;
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",

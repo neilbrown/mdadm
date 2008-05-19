@@ -1,3 +1,8 @@
+Changes Prior to 2.6.6 release
+    -   "make everything" now make mdassemble.auto
+    -   fix compile problem with mdassemble.auto
+    -   Update FAQ URLs in man page again.
+
 Changes Prior to 2.6.5 release
     -   Avoid segfault when parsing /proc/mdstat with auto-read-only
 	arrays.

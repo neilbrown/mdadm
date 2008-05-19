@@ -80,10 +80,12 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
-ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c super0.c super1.c sha1.c
+ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c \
+	super0.c super1.c sha1.c
+ASSEMBLE_AUTO_SRCS := mdopen.c mdstat.c sysfs.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
-ASSEMBLE_SRCS += mdopen.c mdstat.c
+ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
@@ -128,7 +130,7 @@ mdassemble.static : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
 	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
 
-mdassemble.auto : $(ASSEMBLE_SRCS) mdadm.h mdopen.c mdstat.c
+mdassemble.auto : $(ASSEMBLE_SRCS) mdadm.h $(ASSEMBLE_AUTO_SRCS)
 	rm -f mdassemble.static
 	$(MAKE) MDASSEMBLE_AUTO=1 mdassemble.static
 	mv mdassemble.static mdassemble.auto

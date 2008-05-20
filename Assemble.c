@@ -377,7 +377,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		 */
 		mdu_array_info_t inf;
 		char *c;
-		if (!st->sb) {
+		if (!st || !st->sb) {
 			return 2;
 		}
 		st->ss->getinfo_super(st, &info);
@@ -975,7 +975,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 					"start the array while not clean "
 					"- consider --force.\n");
 
-			if (must_close) close(mdfd);
+			if (must_close) {
+				ioctl(mdfd, STOP_ARRAY, NULL);
+				close(mdfd);
+			}
 			return 1;
 		}
 		if (runstop == -1) {
@@ -1009,7 +1012,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				fprintf(stderr, " (use --run to insist).\n");
 			}
 		}
-		if (must_close) close(mdfd);
+		if (must_close) {
+			ioctl(mdfd, STOP_ARRAY, NULL);
+			close(mdfd);
+		}
 		return 1;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has

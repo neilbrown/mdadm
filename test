@@ -30,6 +30,8 @@ targetdir=/var/tmp
 size=20000
 # super0, round down to multiple of 64 and substract 64
 mdsize0=19904
+# super00 is nested, subtract 128
+mdsize00=19840
 # super1.0 round down to multiple of 2, subtract 8
 mdsize1=19992
 # subtract another 4 for bitmaps

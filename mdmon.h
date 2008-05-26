@@ -33,6 +33,7 @@ extern struct active_array *pending_discard;
 extern struct md_generic_cmd *active_cmd;
 
 
+void remove_pidfile(char *devname);
 void do_monitor(struct supertype *container);
 void do_manager(struct supertype *container);
 
@@ -41,3 +42,5 @@ int read_dev_state(int fd);
 struct mdstat_ent *mdstat_read(int hold, int start);
 
 extern struct superswitch super_ddf, super_ddf_bvd, super_ddf_svd;
+
+extern int exit_now, manager_ready;

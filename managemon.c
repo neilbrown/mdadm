@@ -382,6 +382,8 @@ void wake_me(int sig)
 	woke = 1;
 }
 
+int exit_now = 0;
+int manager_ready = 0;
 void do_manager(struct supertype *container)
 {
 	struct mdstat_ent *mdstat;
@@ -395,6 +397,9 @@ void do_manager(struct supertype *container)
 	do {
 		woke = 0;
 
+		if (exit_now)
+			exit(0);
+
 		mdstat = mdstat_read(1, 0);
 
 		manage(mdstat, container);
@@ -405,6 +410,7 @@ void do_manager(struct supertype *container)
 
 		remove_old();
 
+		manager_ready = 1;
 		sigprocmask(SIG_SETMASK, &block, &orig);
 		if (woke == 0)
 			mdstat_wait_fd(container->sock, &orig);

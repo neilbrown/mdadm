@@ -146,6 +146,14 @@ static void try_kill_monitor(char *devname)
 		kill(pid, SIGTERM);
 }
 
+void remove_pidfile(char *devname)
+{
+	char buf[100];
+
+	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
+	unlink(buf);
+}
+
 static int make_control_sock(char *devname)
 {
 	char path[100];
@@ -198,6 +206,7 @@ int main(int argc, char *argv[])
 	container = malloc(sizeof(*container));
 	container->devnum = fd2devnum(mdfd);
 	container->devname = devnum2devname(container->devnum);
+	container->device_name = argv[1];
 
 	/* If this fails, we hope it already exists */
 	mkdir("/var/run/mdadm", 0600);
@@ -267,7 +276,7 @@ int main(int argc, char *argv[])
 			argv[1]);
 		exit(3);
 	}
-
+	close(mdfd);
 	close(mdfd);
 
 	mlockall(MCL_FUTURE);

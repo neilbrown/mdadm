@@ -436,11 +436,12 @@ static int handle_pipe(struct md_generic_cmd *cmd, struct active_array *aa)
 	return -1;
 }
 
-static int wait_and_act(struct active_array **aap, int pfd,
+static int wait_and_act(struct supertype *container, int pfd,
 			int monfd, int nowait)
 {
 	fd_set rfds;
 	int maxfd = 0;
+	struct active_array **aap = &container->arrays;
 	struct active_array *a, **ap;
 	int rv;
 	struct mdinfo *mdi;
@@ -471,6 +472,22 @@ static int wait_and_act(struct active_array **aap, int pfd,
 			add_fd(&rfds, &maxfd, mdi->state_fd);
 
 		ap = &(*ap)->next;
+	}
+
+	if (manager_ready && *aap == NULL) {
+		/* No interesting arrays. Lets see about exiting.
+		 * Note that blocking at this point is not a problem
+		 * as there are no active arrays, there is nothing that
+		 * we need to be ready to do.
+		 */
+		int fd = open(container->device_name, O_RDONLY|O_EXCL);
+		if (fd >= 0 || errno != EBUSY) {
+			/* OK, we are safe to leave */
+			exit_now = 1;
+			signal_manager();
+			remove_pidfile(container->devname);
+			exit(0);
+		}
 	}
 
 	if (!nowait) {
@@ -521,7 +538,7 @@ void do_monitor(struct supertype *container)
 	int rv;
 	int first = 1;
 	do {
-		rv = wait_and_act(&container->arrays, container->mgr_pipe[0],
+		rv = wait_and_act(container, container->mgr_pipe[0],
 				  container->mon_pipe[1], first);
 		first = 0;
 	} while (rv >= 0);

@@ -460,6 +460,7 @@ struct supertype {
 			*  external:/md0/12
 			*/
 	int devcnt;
+	char *device_name; /* e.g. /dev/md/whatever */
 
 	struct mdinfo *devs;
 

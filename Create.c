@@ -71,6 +71,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int rv;
 	int bitmap_fd;
 	int have_container = 0;
+	int container_fd;
+	int need_mdmon = 0;
 	unsigned long long bitmapsize;
 	struct mdinfo *sra;
 	struct mdinfo info;
@@ -545,6 +547,31 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			sprintf(ver, "external:/%s/%d",
 				devnum2devname(st->container_dev),
 				st->container_member);
+			/* When creating a member, we need to be careful
+			 * to negotiate with mdmon properly.
+			 * If it is already running, we cannot write to
+			 * the devices and must ask it to do that part.
+			 * If it isn't running, we write to the devices,
+			 * and then start it.
+			 * We hold an exclusive open on the container
+			 * device to make sure mdmon doesn't exit after
+			 * we checked that it is running.
+			 *
+			 * For now, fail if it is already running.
+			 */
+			container_fd = open_dev_excl(st->container_dev);
+			if (container_fd < 0) {
+				fprintf(stderr, Name ": Cannot get exclusive "
+					"open on container - weird.\n");
+				return 1;
+			}
+			if (mdmon_running(st->container_dev)) {
+				fprintf(stderr, Name ": mdmon already running "
+					"for %s - sorry\n",
+					devnum2devname(st->container_dev));
+				return 1;
+			}
+			need_mdmon = 1;
 		}
 		if ((vers % 100) < 2 ||
 		    sra == NULL ||
@@ -681,6 +708,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			case 0:
 				sysfs_set_str(sra, NULL, "array_state",
 					      "active");
+				need_mdmon = 0;
 				break;
 			default:
 				sysfs_set_str(sra, NULL, "array_state",
@@ -698,6 +726,31 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (verbose >= 0)
 			fprintf(stderr, Name ": array %s started.\n", mddev);
+		if (st->ss->external == 2) {
+			if (need_mdmon) {
+				int dn = st->container_dev;
+				int i;
+				switch(fork()) {
+				case 0:
+					/* FIXME yuk. CLOSE_EXEC?? */
+					for (i=3; i < 100; i++)
+						close(i);
+					execl("./mdmon", "mdmon",
+					      map_dev(dev2major(dn),
+						      dev2minor(dn),
+						      1), NULL);
+					exit(1);
+				case -1: fprintf(stderr, Name ": cannot fork. "
+						 "Array remains readonly\n");
+					return 1;
+				default: ; /* parent - good */
+				}
+			} else
+				signal_mdmon(st->container_dev);
+			/* FIXME wait for mdmon to set array to read-auto */
+			sleep(1);
+			close(container_fd);
+		}
 	} else {
 		fprintf(stderr, Name ": not starting array - not enough devices.\n");
 	}

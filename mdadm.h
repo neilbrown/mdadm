@@ -584,6 +584,7 @@ extern int check_raid(int fd, char *name);
 
 extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
+extern int open_dev_excl(int devnum);
 extern int is_standard(char *dev, int *nump);
 
 extern int parse_auto(char *str, char *msg, int config);
@@ -629,8 +630,26 @@ extern int open_mddev_devnum(char *devname, int devnum, char *name,
 			     char *chosen_name, int parts);
 extern int open_container(int fd);
 
+extern int mdmon_running(int devnum);
+extern int signal_mdmon(int devnum);
+
 extern char *devnum2devname(int num);
 extern int fd2devnum(int fd);
+
+static inline int dev2major(int d)
+{
+	if (d >= 0)
+		return MD_MAJOR;
+	else
+		return get_mdp_major();
+}
+
+static inline int dev2minor(int d)
+{
+	if (d >= 0)
+		return d;
+	return (-1-d) << MdpMinorShift;
+}
 
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)

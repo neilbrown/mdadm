@@ -32,6 +32,7 @@
 #include	<sys/utsname.h>
 #include	<ctype.h>
 #include	<dirent.h>
+#include	<signal.h>
 
 /*
  * following taken from linux/blkpg.h because they aren't
@@ -714,21 +715,6 @@ void put_md_name(char *name)
 		unlink(name);
 }
 
-static int dev2major(int d)
-{
-	if (d >= 0)
-		return MD_MAJOR;
-	else
-		return get_mdp_major();
-}
-
-static int dev2minor(int d)
-{
-	if (d >= 0)
-		return d;
-	return (-1-d) << MdpMinorShift;
-}
-
 int find_free_devnum(int use_partitions)
 {
 	int devnum;
@@ -779,6 +765,23 @@ int dev_open(char *dev, int flags)
 	} else
 		fd = open(dev, flags);
 	return fd;
+}
+
+int open_dev_excl(int devnum)
+{
+	char buf[20];
+	int i;
+
+	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
+	for (i=0 ; i<25 ; i++) {
+		int fd = dev_open(buf, O_RDWR|O_EXCL);
+		if (fd >= 0)
+			return fd;
+		if (errno != EBUSY)
+			return fd;
+		usleep(200000);
+	}
+	return -1;
 }
 
 struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
@@ -1008,6 +1011,48 @@ int fd2devnum(int fd)
 	}
 	return -1;
 }
+
+int mdmon_running(int devnum)
+{
+	char path[100];
+	char pid[10];
+	int fd;
+	int n;
+	sprintf(path, "/var/run/mdadm/%s.pid", devnum2devname(devnum));
+	fd = open(path, O_RDONLY, 0);
+
+	if (fd < 0)
+		return 0;
+	n = read(fd, pid, 9);
+	close(fd);
+	if (n <= 0)
+		return 0;
+	if (kill(atoi(pid), 0) == 0)
+		return 1;
+	return 0;
+}
+
+int signal_mdmon(int devnum)
+{
+	char path[100];
+	char pid[10];
+	int fd;
+	int n;
+	sprintf(path, "/var/run/mdadm/%s.pid", devnum2devname(devnum));
+	fd = open(path, O_RDONLY, 0);
+
+	if (fd < 0)
+		return 0;
+	n = read(fd, pid, 9);
+	close(fd);
+	if (n <= 0)
+		return 0;
+	if (kill(atoi(pid), SIGUSR1) == 0)
+		return 1;
+	return 0;
+}
+
+
 
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */

@@ -203,6 +203,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	new = malloc(sizeof(*new));
 
+	memset(new, 0, sizeof(*new));
+
 	new->devnum = mdstat->devnum;
 
 	new->prev_state = new->curr_state = new->next_state = inactive;

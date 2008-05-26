@@ -793,14 +793,10 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		sysfs_set_str(sra, NULL, "metadata_version", ver);
 
 		sysfs_set_array(sra, ra);
-		for (dev = ra->devs; dev; dev = dev->next) {
-			char buf[20];
-			int dfd;
-			sprintf(buf, "%d:%d", dev->disk.major, dev->disk.minor);
-			dfd = dev_open(buf, O_RDONLY);
-			if (sysfs_add_disk(sra, dfd, dev) == 0)
+		for (dev = ra->devs; dev; dev = dev->next)
+			if (sysfs_add_disk(sra, dev) == 0)
 				working++;
-		}
+
 		if (runstop > 0 || working >= ra->array.working_disks) {
 			switch(ra->array.level) {
 			case LEVEL_LINEAR:

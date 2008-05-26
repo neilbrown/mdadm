@@ -359,7 +359,7 @@ int sysfs_set_array(struct mdinfo *sra,
 	return rv;
 }
 
-int sysfs_add_disk(struct mdinfo *sra, int fd, struct mdinfo *sd)
+int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 {
 	char dv[100];
 	char nm[100];

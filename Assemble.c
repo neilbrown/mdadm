@@ -913,19 +913,12 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (j >= 0 /* && devices[j].uptodate */) {
 #ifndef MDASSEMBLE
 				if (st->ss->external) {
-					int fd = dev_open(devices[j].devname,
-							  O_RDONLY);
-					if (fd < 0)
-						rv = 1;
-					else {
-						devices[j].i.disk.number =
-							devices[j].i.disk.raid_disk;
-						st->ss->getinfo_super_n(st,
-							       &devices[j].i);
-						rv = sysfs_add_disk(sra, fd,
-							      &devices[j].i);
-						close(fd);
-					}
+					devices[j].i.disk.number =
+						devices[j].i.disk.raid_disk;
+					st->ss->getinfo_super_n(st,
+								&devices[j].i);
+					rv = sysfs_add_disk(sra,
+							    &devices[j].i);
 				} else
 #endif
 					rv = ioctl(mdfd, ADD_NEW_DISK,

@@ -342,7 +342,7 @@ extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
 extern int sysfs_set_array(struct mdinfo *sra,
 			   struct mdinfo *info);
-extern int sysfs_add_disk(struct mdinfo *sra, int fd, struct mdinfo *sd);
+extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd);
 
 
 

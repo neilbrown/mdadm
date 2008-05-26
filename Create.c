@@ -640,16 +640,15 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 						     fd, dv->devname);
 				break;
 			case 2:
+				close(fd);
 				info.component_size = info.array.size * 2;
 				info.errors = 0;
 				rv = 0;
 
 				if (st->ss->external) {
 					st->ss->getinfo_super_n(st, &info);
-					rv = sysfs_add_disk(sra, fd, &info);
-					close(fd);
+					rv = sysfs_add_disk(sra, &info);
 				} else {
-					close(fd);
 					rv = ioctl(mdfd, ADD_NEW_DISK,
 						 &info.disk);
 				}

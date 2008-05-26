@@ -982,6 +982,7 @@ int open_container(int fd)
 			return dfd;
 		}
 	}
+	closedir(dir);
 	return -1;
 }
 

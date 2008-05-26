@@ -92,7 +92,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 	char *dbase;
 	struct mdinfo *sra;
 	struct mdinfo *dev;
-	DIR *dir;
+	DIR *dir = NULL;
 	struct dirent *de;
 
 	sra = malloc(sizeof(*sra));
@@ -253,9 +253,12 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			dev->errors = strtoul(buf, NULL, 0);
 		}
 	}
+	closedir(dir);
 	return sra;
 
  abort:
+	if (dir)
+		closedir(dir);
 	sysfs_free(sra);
 	return NULL;
 }

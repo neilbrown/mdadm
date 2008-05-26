@@ -849,11 +849,35 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			default:
 				sysfs_set_str(sra, NULL, "array_state",
 					      "readonly");
+				/* start mdmon if needed. */
+				if (mdmon_running(st->container_dev))
+					signal_mdmon(st->container_dev);
+				else {
+					int dn = st->container_dev;
+					int i;
+					switch(fork()) {
+					case 0:
+						/* FIXME yuk. CLOSE_EXEC?? */
+						for (i=3; i < 100; i++)
+							close(i);
+						execl("./mdmon", "mdmon",
+						      map_dev(dev2major(dn),
+							      dev2minor(dn),
+							      1), NULL);
+						exit(1);
+					case -1: fprintf(stderr, Name
+							 ": cannot fork. "
+						  "Array remains readonly\n");
+						return 1;
+					default: ; /* parent - good */
+					}
+				}
 				break;
 			}
 			if (verbose >= 0)
 				printf("Started %s with %d devices\n",
 				       chosen_name, working);
+			/* FIXME should have an O_EXCL and wait for read-auto */
 		} else
 			if (verbose >= 0)
 				printf("%s assembled with %d devices but "

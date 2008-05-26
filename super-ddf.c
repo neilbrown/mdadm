@@ -2350,6 +2350,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 		st->ss = &super_ddf_container;
 		st->minor_version = 0;
 		st->max_devs = 512;
+		st->container_dev = fd2devnum(fd);
 	}
 	return 0;
 }

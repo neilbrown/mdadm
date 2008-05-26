@@ -203,8 +203,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	struct active_array *new;
 	struct mdinfo *mdi, *di;
-	char *n;
-	int inst;
+	char *inst;
 	int i;
 
 	new = malloc(sizeof(*new));
@@ -218,10 +217,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	new->container = container;
 
-	n = &mdstat->metadata_version[10+strlen(container->devname)+1];
-	inst = atoi(n);
-	if (inst < 0)
-		abort();//FIXME
+	inst = &mdstat->metadata_version[10+strlen(container->devname)+1];
 
 	mdi = sysfs_read(-1, new->devnum,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|

@@ -413,7 +413,8 @@ extern struct superswitch {
 	struct mdinfo *(*container_content)(struct supertype *st);
 
 /* for mdmon */
-	int (*open_new)(struct supertype *c, struct active_array *a, int inst);
+	int (*open_new)(struct supertype *c, struct active_array *a,
+			char *inst);
 
 	/* Tell the metadata handler the current state of the array.
 	 * This covers whether it is known to be consistent (no pending writes)

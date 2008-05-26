@@ -1128,9 +1128,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 }
 
 
-static int imsm_open_new(struct supertype *c, struct active_array *a, int inst)
+static int imsm_open_new(struct supertype *c, struct active_array *a,
+			 char *inst)
 {
-	fprintf(stderr, "imsm: open_new %d\n", inst);
+	fprintf(stderr, "imsm: open_new %s\n", inst);
+	a->info.container_member = atoi(inst);
 	return 0;
 }
 

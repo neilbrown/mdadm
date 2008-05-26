@@ -1201,14 +1201,19 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
-	info->disk.number = __be32_to_cpu(ddf->dlist->disk.refnum);
-//	info->disk.raid_disk = find refnum in the table and use index;
-	info->disk.raid_disk = -1;
-	for (i = 0; i < __be16_to_cpu(ddf->phys->max_pdes) ; i++)
-		if (ddf->phys->entries[i].refnum == ddf->dlist->disk.refnum) {
-			info->disk.raid_disk = i;
-			break;
-		}
+	if (ddf->dlist) {
+		info->disk.number = __be32_to_cpu(ddf->dlist->disk.refnum);
+		info->disk.raid_disk = -1;
+		for (i = 0; i < __be16_to_cpu(ddf->phys->max_pdes) ; i++)
+			if (ddf->phys->entries[i].refnum ==
+			    ddf->dlist->disk.refnum) {
+				info->disk.raid_disk = i;
+				break;
+			}
+	} else {
+		info->disk.number = -1;
+//		info->disk.raid_disk = find refnum in the table and use index;
+	}
 	info->disk.state = (1 << MD_DISK_SYNC);
 
 	info->reshape_active = 0;
@@ -2516,9 +2521,10 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
  * We need to confirm that the array matches the metadata in 'c' so
  * that we don't corrupt any metadata.
  */
-static int ddf_open_new(struct supertype *c, struct active_array *a, int inst)
+static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 {
-	fprintf(stderr, "ddf: open_new %d\n", inst);
+	fprintf(stderr, "ddf: open_new %s\n", inst);
+	a->info.container_member = atoi(inst);
 	return 0;
 }
 

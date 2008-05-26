@@ -272,7 +272,7 @@ void mdstat_wait(int seconds)
 	select(mdstat_fd >2 ? mdstat_fd+1:3, NULL, NULL, &fds, &tm);
 }
 
-void mdstat_wait_fd(int fd)
+void mdstat_wait_fd(int fd, const sigset_t *sigmask)
 {
 	fd_set fds, rfds;
 
@@ -282,7 +282,8 @@ void mdstat_wait_fd(int fd)
 		FD_SET(mdstat_fd, &fds);
 	FD_SET(fd, &rfds);
 
-	select(mdstat_fd >2 ? mdstat_fd+1:3, &rfds, NULL, &fds, NULL);
+	pselect(mdstat_fd >2 ? mdstat_fd+1:3, &rfds, NULL, &fds,
+		NULL, sigmask);
 }
 
 int mddev_busy(int devnum)

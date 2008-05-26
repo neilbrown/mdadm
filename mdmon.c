@@ -48,6 +48,12 @@ struct md_generic_cmd *active_cmd;
 int run_child(void *v)
 {
 	struct supertype *c = v;
+	sigset_t set;
+	/* SIGUSR is sent from child to parent,  So child must block it */
+	sigemptyset(&set);
+	sigaddset(&set, SIGUSR1);
+	sigprocmask(SIG_BLOCK, &set, NULL);
+
 	do_monitor(c);
 	return 0;
 }

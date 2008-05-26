@@ -3,7 +3,7 @@
 #include "mdmon.h"
 
 #include <sys/select.h>
-
+#include <signal.h>
 
 static char *array_states[] = {
 	"clear", "inactive", "suspended", "readonly", "read-auto",
@@ -152,6 +152,10 @@ int read_dev_state(int fd)
 	return rv;
 }
 
+static void signal_manager(void)
+{
+	kill(getpid(), SIGUSR1);
+}
 
 /* Monitor a set of active md arrays - all of which share the
  * same metadata - and respond to events that require
@@ -432,28 +436,41 @@ static int handle_pipe(struct md_generic_cmd *cmd, struct active_array *aa)
 	return -1;
 }
 
-static int wait_and_act(struct active_array *aa, int pfd, int monfd, int nowait)
+static int wait_and_act(struct active_array **aap, int pfd,
+			int monfd, int nowait)
 {
 	fd_set rfds;
 	int maxfd = 0;
-	struct active_array *a;
+	struct active_array *a, **ap;
 	int rv;
 	struct mdinfo *mdi;
 
 	FD_ZERO(&rfds);
 
 	add_fd(&rfds, &maxfd, pfd);
-	for (a = aa ; a ; a = a->next) {
-		/* once an array has been deactivated only the manager
-		 * thread can make us care about it again
+	for (ap = aap ; *ap ;) {
+		a = *ap;
+		/* once an array has been deactivated we want to
+		 * ask the manager to discard it.
 		 */
-		if (!a->container)
+		if (!a->container) {
+			if (discard_this) {
+				ap = &(*ap)->next;
+				continue;
+			}
+			*ap = a->next;
+			a->next = NULL;
+			discard_this = a;
+			signal_manager();
 			continue;
+		}
 
 		add_fd(&rfds, &maxfd, a->info.state_fd);
 		add_fd(&rfds, &maxfd, a->action_fd);
 		for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
 			add_fd(&rfds, &maxfd, mdi->state_fd);
+
+		ap = &(*ap)->next;
 	}
 
 	if (!nowait) {
@@ -466,12 +483,12 @@ static int wait_and_act(struct active_array *aa, int pfd, int monfd, int nowait)
 			int err = -1;
 
 			if (read(pfd, &err, 1) > 0)
-				err = handle_pipe(active_cmd, aa);
+				err = handle_pipe(active_cmd, *aap);
 			write(monfd, &err, 1);
 		}
 	}
 
-	for (a = aa; a ; a = a->next) {
+	for (a = *aap; a ; a = a->next) {
 		if (a->replaces && !discard_this) {
 			struct active_array **ap;
 			for (ap = &a->next; *ap && *ap != a->replaces;
@@ -481,18 +498,19 @@ static int wait_and_act(struct active_array *aa, int pfd, int monfd, int nowait)
 				*ap = (*ap)->next;
 			discard_this = a->replaces;
 			a->replaces = NULL;
+			signal_manager();
 		}
 		if (a->container)
 			rv += read_and_act(a);
 	}
 
 	/* propagate failures across container members */
-	for (a = aa; a ; a = a->next) {
+	for (a = *aap; a ; a = a->next) {
 		if (!a->container)
 			continue;
 		for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
 			if (mdi->curr_state & DS_FAULTY)
-				reconcile_failed(aa, mdi);
+				reconcile_failed(*aap, mdi);
 	}
 
 	return rv;
@@ -503,7 +521,7 @@ void do_monitor(struct supertype *container)
 	int rv;
 	int first = 1;
 	do {
-		rv = wait_and_act(container->arrays, container->mgr_pipe[0],
+		rv = wait_and_act(&container->arrays, container->mgr_pipe[0],
 				  container->mon_pipe[1], first);
 		first = 0;
 	} while (rv >= 0);

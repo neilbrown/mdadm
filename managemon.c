@@ -75,6 +75,7 @@
 #include	"mdadm.h"
 #include	"mdmon.h"
 #include	<sys/socket.h>
+#include	<signal.h>
 
 static void close_aa(struct active_array *aa)
 {
@@ -116,6 +117,17 @@ static void write_wakeup(struct supertype *c)
 	read(c->mon_pipe[0], &err, 1);
 }
 
+static void remove_old(void)
+{
+	if (discard_this) {
+		discard_this->next = NULL;
+		free_aa(discard_this);
+		if (pending_discard == discard_this)
+			pending_discard = NULL;
+		discard_this = NULL;
+	}
+}
+
 static void replace_array(struct supertype *container,
 			  struct active_array *old,
 			  struct active_array *new)
@@ -126,16 +138,12 @@ static void replace_array(struct supertype *container,
 	 * and put it on 'discard_this'.  We take it from there
 	 * and discard it.
 	 */
-
+	remove_old();
 	while (pending_discard) {
+		write_wakeup(container);
 		while (discard_this == NULL)
 			sleep(1);
-		if (discard_this != pending_discard)
-			abort();
-		discard_this->next = NULL;
-		free_aa(discard_this);
-		discard_this = NULL;
-		pending_discard = NULL;
+		remove_old();
 	}
 	pending_discard = old;
 	new->replaces = old;
@@ -143,7 +151,6 @@ static void replace_array(struct supertype *container,
 	container->arrays = new;
 	write_wakeup(container);
 }
-
 
 static void manage_container(struct mdstat_ent *mdstat,
 			     struct supertype *container)
@@ -368,11 +375,26 @@ void read_sock(struct supertype *container)
 
 	close(fd);
 }
+
+static int woke = 0;
+void wake_me(int sig)
+{
+	woke = 1;
+}
+
 void do_manager(struct supertype *container)
 {
 	struct mdstat_ent *mdstat;
+	sigset_t block, orig;
+
+	sigemptyset(&block);
+	sigaddset(&block, SIGUSR1);
+
+	signal(SIGUSR1, wake_me);
 
 	do {
+		woke = 0;
+
 		mdstat = mdstat_read(1, 0);
 
 		manage(mdstat, container);
@@ -381,6 +403,11 @@ void do_manager(struct supertype *container)
 
 		free_mdstat(mdstat);
 
-		mdstat_wait_fd(container->sock);
+		remove_old();
+
+		sigprocmask(SIG_SETMASK, &block, &orig);
+		if (woke == 0)
+			mdstat_wait_fd(container->sock, &orig);
+		sigprocmask(SIG_SETMASK, &orig, NULL);
 	} while(1);
 }

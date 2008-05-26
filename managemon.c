@@ -271,8 +271,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	return;
 }
 
-void manage(struct mdstat_ent *mdstat, struct active_array *aa,
-	    struct supertype *container)
+void manage(struct mdstat_ent *mdstat, struct supertype *container)
 {
 	/* We have just read mdstat and need to compare it with
 	 * the known active arrays.
@@ -294,7 +293,7 @@ void manage(struct mdstat_ent *mdstat, struct active_array *aa,
 			/* Not for this array */
 			continue;
 		/* Looks like a member of this container */
-		for (a = aa; a; a = a->next) {
+		for (a = container->arrays; a; a = a->next) {
 			if (mdstat->devnum == a->devnum) {
 				if (a->container)
 					manage_member(mdstat, a);
@@ -374,7 +373,7 @@ void do_manager(struct supertype *container)
 	do {
 		mdstat = mdstat_read(1, 0);
 
-		manage(mdstat, array_list, container);
+		manage(mdstat, container);
 
 		read_sock(container);
 

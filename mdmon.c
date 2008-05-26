@@ -41,7 +41,6 @@
 #include	"mdadm.h"
 #include	"mdmon.h"
 
-struct active_array *array_list;
 struct active_array *discard_this;
 struct active_array *pending_discard;
 struct md_generic_cmd *active_cmd;

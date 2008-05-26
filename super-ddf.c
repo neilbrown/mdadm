@@ -2447,25 +2447,35 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	return 0;
 }
 
+/*
+ * A new array 'a' has been started which claims to be instance 'inst'
+ * within container 'c'.
+ * We need to confirm that the array matches the metadata in 'c' so
+ * that we don't corrupt any metadata.
+ */
 static int ddf_open_new(struct supertype *c, struct active_array *a, int inst)
 {
 	fprintf(stderr, "ddf: open_new %d\n", inst);
 	return 0;
 }
 
+/*
+ * The array 'a' is to be marked clean in the metadata.
+ * If 'sync_pos' is not ~(unsigned long long)0, then the array is only
+ * clean up to the point (in sectors).  If that cannot be recorded in the
+ * metadata, then leave it as dirty.
+ *
+ * For DDF, we need to clear the DDF_state_inconsistent bit in the
+ * !global! virtual_disk.virtual_entry structure.
+ */
 static void ddf_mark_clean(struct active_array *a, unsigned long long sync_pos)
 {
-	fprintf(stderr, "ddf: mark clean %llu\n", sync_pos);
-}
-
-static void ddf_mark_dirty(struct active_array *a)
-{
-	fprintf(stderr, "ddf: mark dirty\n");
-}
-
-static void ddf_mark_sync(struct active_array *a, unsigned long long resync)
-{
-	fprintf(stderr, "ddf: mark sync\n");
+	struct ddf_super *ddf = a->container->sb;
+	int inst = a->info.container_member;
+	if (sync_pos == ~0ULL)
+		ddf->virt->entries[inst].state |= DDF_state_inconsistent;
+	else
+		ddf->virt->entries[inst].state &= ~DDF_state_inconsistent;
 }
 
 static void ddf_set_disk(struct active_array *a, int n, int state)
@@ -2512,8 +2522,6 @@ struct superswitch super_ddf = {
 	.open_new       = ddf_open_new,
 	.load_super     = load_super_ddf,
 	.mark_clean     = ddf_mark_clean,
-	.mark_dirty     = ddf_mark_dirty,
-	.mark_sync	= ddf_mark_sync,
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
 

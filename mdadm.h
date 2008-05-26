@@ -411,9 +411,16 @@ extern struct superswitch {
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a, int inst);
+	/* This tells the metadata handler that all data up to sync_pos is
+	 * known to be insync, and will stay insync until told otherwise.
+	 * All data beyond sync_pos may not be insync.
+	 * If sync_pos == 0, this marks the array as 'dirty'.
+	 * If sync_pos == ~0, this marks it as fully 'clean'.
+	 * If other numbers cannot be stored, they should be treated as 0.
+	 * mark_clean is always called with a sync_pos of 0 before any
+	 * write to an array with redundancy is allowed.
+	 */
 	void (*mark_clean)(struct active_array *a, unsigned long long sync_pos);
-	void (*mark_dirty)(struct active_array *a);
-	void (*mark_sync)(struct active_array *a, unsigned long long resync);
 	void (*set_disk)(struct active_array *a, int n, int state);
 	void (*sync_metadata)(struct active_array *a);
 

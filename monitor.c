@@ -250,12 +250,12 @@ static int read_and_act(struct active_array *a)
 		deactivate = 1;
 	}
 	if (a->curr_state == write_pending) {
-		a->container->ss->mark_dirty(a);
+		a->container->ss->mark_clean(a, 0);
 		a->next_state = active;
 	}
 	if (a->curr_state == active_idle) {
 		/* Set array to 'clean' FIRST, then
-		 * a->ss->mark_clean(a);
+		 * a->ss->mark_clean(a, ~0ULL);
 		 * just ignore for now.
 		 */
 	}
@@ -269,16 +269,18 @@ static int read_and_act(struct active_array *a)
 		if (a->resync_start == ~0ULL)
 			a->next_state = read_auto; /* array is clean */
 		else {
-			a->container->ss->mark_dirty(a);
+			a->container->ss->mark_clean(a, 0);
 			a->next_state = active;
 		}
 	}
 
 	if (a->curr_action == idle &&
 	    a->prev_action == resync) {
-		/* check resync_start to see if it is 'max' */
-		get_resync_start(a);
-		a->container->ss->mark_sync(a, a->resync_start);
+		/* A resync has finished.  The endpoint is recorded in
+		 * 'sync_start'.  We don't update the metadata
+		 * until the array goes inactive or readonly though.
+		 * Just check if we need to fiddle spares.
+		 */
 		check_degraded = 1;
 	}
 

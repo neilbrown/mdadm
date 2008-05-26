@@ -421,6 +421,14 @@ extern struct superswitch {
 	 * write to an array with redundancy is allowed.
 	 */
 	void (*mark_clean)(struct active_array *a, unsigned long long sync_pos);
+
+	/* When the state of a device might have changed, we call set_disk to
+	 * tell the metadata what the current state is.
+	 * Typically this happens on spare->in_sync and (spare|in_sync)->faulty
+	 * transitions.
+	 * set_disk might be called when the state of the particular disk has
+	 * not in fact changed.
+	 */
 	void (*set_disk)(struct active_array *a, int n, int state);
 	void (*sync_metadata)(struct active_array *a);
 

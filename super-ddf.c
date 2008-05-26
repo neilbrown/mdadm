@@ -255,6 +255,7 @@ struct virtual_disk {
 #define	DDF_state_deleted	0x2
 #define	DDF_state_missing	0x3
 #define	DDF_state_failed	0x4
+#define	DDF_state_part_optimal	0x5
 
 #define	DDF_state_morphing	0x8
 #define	DDF_state_inconsistent	0x10
@@ -262,7 +263,8 @@ struct virtual_disk {
 /* virtual_entry.init_state is a bigendian bitmap */
 #define	DDF_initstate_mask	0x03
 #define	DDF_init_not		0x00
-#define	DDF_init_quick		0x01
+#define	DDF_init_quick		0x01 /* initialisation is progress.
+				      * i.e. 'state_inconsistent' */
 #define	DDF_init_full		0x02
 
 #define	DDF_access_mask		0xc0
@@ -1116,10 +1118,29 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 		ddf->controller.vendor_data[len] == 0);
 }
 
-static struct vd_config *find_vdcr(struct ddf_super *ddf)
+static struct vd_config *find_vdcr(struct ddf_super *ddf, int inst)
 {
-	/* FIXME this just picks off the first one */
-	return &ddf->conflist->conf;
+	struct vcl *v;
+	if (inst < 0 || inst > __be16_to_cpu(ddf->virt->populated_vdes))
+		return NULL;
+	for (v = ddf->conflist; v; v = v->next)
+		if (memcmp(v->conf.guid,
+			   ddf->virt->entries[inst].guid,
+			   DDF_GUID_LEN) == 0)
+			return &v->conf;
+	return NULL;
+}
+
+static int find_phys(struct ddf_super *ddf, __u32 phys_refnum)
+{
+	/* Find the entry in phys_disk which has the given refnum
+	 * and return it's index
+	 */
+	int i;
+	for (i=0; i < __be16_to_cpu(ddf->phys->max_pdes); i++)
+		if (ddf->phys->entries[i].refnum == phys_refnum)
+			return i;
+	return -1;
 }
 
 static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
@@ -1141,7 +1162,7 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	 * The first 16 bytes of the sha1 of these is used.
 	 */
 	struct ddf_super *ddf = st->sb;
-	struct vd_config *vd = find_vdcr(ddf);
+	struct vd_config *vd = find_vdcr(ddf, st->container_member);
 
 	if (!vd)
 		memset(uuid, 0, sizeof (uuid));
@@ -1211,7 +1232,7 @@ static int rlq_to_layout(int rlq, int prl, int raiddisks);
 static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 {
 	struct ddf_super *ddf = st->sb;
-	struct vd_config *vd = find_vdcr(ddf);
+	struct vd_config *vd = find_vdcr(ddf, info->container_member);
 
 	/* FIXME this returns BVD info - what if we want SVD ?? */
 
@@ -1284,7 +1305,7 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 	 */
 	int rv = 0;
 //	struct ddf_super *ddf = st->sb;
-//	struct vd_config *vd = find_vdcr(ddf);
+//	struct vd_config *vd = find_vdcr(ddf, info->container_member);
 //	struct virtual_entry *ve = find_ve(ddf);
 
 
@@ -1671,10 +1692,12 @@ static int init_super_ddf_bvd(struct supertype *st,
 	ve->pad0 = 0xFFFF;
 	ve->guid_crc = crc32(0, (unsigned char*)ddf->anchor.guid, DDF_GUID_LEN);
 	ve->type = 0;
-	ve->state = 0;
-	ve->init_state = 0;
-	if (!(info->state & 1))
-		ve->init_state = DDF_state_inconsistent;
+	ve->state = DDF_state_degraded; /* Will be modified as devices are added */
+	if (info->state & 1) /* clean */
+		ve->init_state = DDF_init_full;
+	else
+		ve->init_state = DDF_init_not;
+
 	memset(ve->pad1, 0xff, 14);
 	memset(ve->name, ' ', 16);
 	if (name)
@@ -1750,6 +1773,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	struct vd_config *vc;
 	__u64 *lba_offset;
 	int mppe;
+	int working;
 
 	for (dl = ddf->dlist; dl ; dl = dl->next)
 		if (dl->major == dk->major &&
@@ -1764,10 +1788,28 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	lba_offset = (__u64*)(vc->phys_refnum + mppe);
 	lba_offset[dk->raid_disk] = 0; /* FIXME */
 
-	dl->vlist[0] =ddf->newconf; /* FIXME */
+	dl->vlist[0] = ddf->newconf; /* FIXME */
 
 	dl->fd = fd;
 	dl->devname = devname;
+
+	/* Check how many working raid_disks, and if we can mark
+	 * array as optimal yet
+	 */
+	working = 0;
+#if 0
+	for (i=0; i < __be16_to_cpu(vc->prim_elmnt_count); i++)
+		if (vc->phys_refnum[i] != 0xffffffff)
+			working++;
+	if (working == __be16_to_cpu(vc->prim_elmnt_count))
+		->entries[xx].state = (->entries[xx].state & ~DDF_state_mask)
+			| DDF_state_optimal;
+
+	if (vc->prl == DDF_RAID6 &&
+	    working+1 == __be16_to_cpu(vc->prim_elmnt_count))
+		->entries[xx].state = (->entries[xx].state & ~DDF_state_mask)
+			| DDF_state_part_optimal;
+#endif
 }
 
 /* add a device to a container, either while creating it or while
@@ -1838,7 +1880,7 @@ static void add_to_super_ddf(struct supertype *st,
  */
 
 #ifndef MDASSEMBLE
-static int write_init_super_ddf(struct supertype *st)
+static int __write_init_super_ddf(struct supertype *st, int do_close)
 {
 
 	struct ddf_super *ddf = st->sb;
@@ -1918,10 +1960,19 @@ static int write_init_super_ddf(struct supertype *st)
 
 		lseek64(fd, (size-1)*512, SEEK_SET);
 		write(fd, &ddf->anchor, 512);
-		close(fd);
+		if (do_close) {
+			close(fd);
+			d->fd = -1;
+		}
 	}
 	return 1;
 }
+
+static int write_init_super_ddf(struct supertype *st)
+{
+	return __write_init_super_ddf(st, 1);
+}
+
 #endif
 
 static __u64 avail_size_ddf(struct supertype *st, __u64 devsize)
@@ -2260,11 +2311,11 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	for (sd = sra->devs ; sd ; sd = sd->next) {
 		int rv;
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
-		dfd = dev_open(nm, keep_fd? O_RDWR : O_RDONLY);
-		if (!dfd)
+		dfd = dev_open(nm, O_RDONLY);
+		if (dfd < 0)
 			return 2;
 		rv = load_ddf_headers(dfd, super, NULL);
-		if (!keep_fd) close(dfd);
+		close(dfd);
 		if (rv == 0) {
 			seq = __be32_to_cpu(super->active->seq);
 			if (super->active->openflag)
@@ -2280,7 +2331,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	/* OK, load this ddf */
 	sprintf(nm, "%d:%d", best->disk.major, best->disk.minor);
 	dfd = dev_open(nm, O_RDONLY);
-	if (!dfd)
+	if (dfd < 0)
 		return 1;
 	load_ddf_headers(dfd, super, NULL);
 	load_ddf_global(dfd, super, NULL);
@@ -2289,7 +2340,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	for (sd = sra->devs ; sd ; sd = sd->next) {
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
 		dfd = dev_open(nm, keep_fd? O_RDWR : O_RDONLY);
-		if (!dfd)
+		if (dfd < 0)
 			return 2;
 		seq = load_ddf_local(dfd, super, NULL, keep_fd);
 		if (!keep_fd) close(dfd);
@@ -2349,7 +2400,9 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			if (memcmp(ddf->virt->entries[i].guid,
 				   vc->conf.guid, DDF_GUID_LEN) == 0)
 				break;
-		if (ddf->virt->entries[i].state & DDF_state_inconsistent)
+		if ((ddf->virt->entries[i].state & DDF_state_inconsistent) ||
+		    (ddf->virt->entries[i].init_state & DDF_initstate_mask) !=
+		    DDF_init_full)
 			this->array.state = 0;
 		else
 			this->array.state = 1;
@@ -2478,13 +2531,110 @@ static void ddf_mark_clean(struct active_array *a, unsigned long long sync_pos)
 		ddf->virt->entries[inst].state &= ~DDF_state_inconsistent;
 }
 
+/*
+ * The state of each disk is stored in the global phys_disk structure
+ * in phys_disk.entries[n].state.
+ * This makes various combinations awkward.
+ * - When a device fails in any array, it must be failed in all arrays
+ *   that include a part of this device.
+ * - When a component is rebuilding, we cannot include it officially in the
+ *   array unless this is the only array that uses the device.
+ *
+ * So: when transitioning:
+ *   Online -> failed,  just set failed flag.  monitor will propagate
+ *   spare -> online,   the device might need to be added to the array.
+ *   spare -> failed,   just set failed.  Don't worry if in array or not.
+ */
 static void ddf_set_disk(struct active_array *a, int n, int state)
 {
+	struct ddf_super *ddf = a->container->sb;
+	int inst = a->info.container_member;
+	struct vd_config *vc = find_vdcr(ddf, inst);
+	int pd = find_phys(ddf, vc->phys_refnum[n]);
+	int i, st, working;
+
+	if (vc == NULL) {
+		fprintf(stderr, "ddf: cannot find instance %d!!\n", inst);
+		return;
+	}
+	if (pd < 0) {
+		/* disk doesn't currently exist. If it is now in_sync,
+		 * insert it. */
+		if ((state & DS_INSYNC) && ! (state & DS_FAULTY)) {
+			/* Find dev 'n' in a->info->devs, determine the
+			 * ddf refnum, and set vc->phys_refnum and update
+			 * phys->entries[]
+			 */
+			/* FIXME */
+		}
+	} else {
+		if (state & DS_FAULTY)
+			ddf->phys->entries[pd].state  |= __cpu_to_be16(DDF_Failed);
+		if (state & DS_INSYNC) {
+			ddf->phys->entries[pd].state  |= __cpu_to_be16(DDF_Online);
+			ddf->phys->entries[pd].state  &= __cpu_to_be16(~DDF_Rebuilding);
+		}
+	}
+
+	/* Now we need to check the state of the array and update
+	 * virtual_disk.entries[n].state.
+	 * It needs to be one of "optimal", "degraded", "failed".
+	 * I don't understand 'deleted' or 'missing'.
+	 */
+	working = 0;
+	for (i=0; i < a->info.array.raid_disks; i++) {
+		pd = find_phys(ddf, vc->phys_refnum[i]);
+		if (pd < 0)
+			continue;
+		st = ddf->phys->entries[pd].state;
+		if ((state & (DDF_Online|DDF_Failed|DDF_Rebuilding))
+		    == DDF_Online)
+			working++;
+	}
+	state = DDF_state_degraded;
+	if (working == a->info.array.raid_disks)
+		state = DDF_state_optimal;
+	else switch(vc->prl) {
+	case DDF_RAID0:
+	case DDF_CONCAT:
+	case DDF_JBOD:
+		state = DDF_state_failed;
+		break;
+	case DDF_RAID1:
+		if (working == 0)
+			state = DDF_state_failed;
+		break;
+	case DDF_RAID4:
+	case DDF_RAID5:
+		if (working < a->info.array.raid_disks-1)
+			state = DDF_state_failed;
+		break;
+	case DDF_RAID6:
+		if (working < a->info.array.raid_disks-2)
+			state = DDF_state_failed;
+		else if (working == a->info.array.raid_disks-1)
+			state = DDF_state_part_optimal;
+		break;
+	}
+
+	ddf->virt->entries[inst].state =
+		(ddf->virt->entries[inst].state & ~DDF_state_mask)
+		| state;
+
 	fprintf(stderr, "ddf: set_disk %d\n", n);
 }
 
 static void ddf_sync_metadata(struct active_array *a)
 {
+
+	/*
+	 * Write all data to all devices.
+	 * Later, we might be able to track whether only local changes
+	 * have been made, or whether any global data has been changed,
+	 * but ddf is sufficiently weird that it probably always
+	 * changes global data ....
+	 */
+	__write_init_super_ddf(a->container, 0);
 	fprintf(stderr, "ddf: sync_metadata\n");
 }
 
@@ -2543,6 +2693,7 @@ struct superswitch super_ddf_container = {
 	.free_super	= free_super_ddf,
 
 	.container_content = container_content_ddf,
+	.getinfo_super_n  = getinfo_super_n_container,
 
 	.major		= 1000,
 	.swapuuid	= 0,

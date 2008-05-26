@@ -237,6 +237,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		/* Have to guess a bit. */
 		int use_partitions = 1;
 		char *np, *ep;
+		char *nm, nbuf[1024];
 		if ((autof&7) == 3 || (autof&7) == 5)
 			use_partitions = 0;
 		np = strchr(info.name, ':');
@@ -251,6 +252,24 @@ int Incremental(char *devname, int verbose, int runstop,
 				devnum = -1;
 		} else
 			devnum = -1;
+
+		if (match)
+			nm = match->devname;
+		else {
+			sprintf(nbuf, "/dev/md/%s", np);
+			nm = nbuf;
+		}
+		if (stat(nm, &stb) == 0 &&
+		    S_ISBLK(stb.st_mode) &&
+		    major(stb.st_rdev) == (use_partitions ?
+					   get_mdp_major() : MD_MAJOR)) {
+			if (use_partitions)
+				devnum = minor(stb.st_rdev) >> MdpMinorShift;
+			else
+				devnum = minor(stb.st_rdev);
+			if (mddev_busy(use_partitions ? (-1-devnum) : devnum))
+				devnum = -1;
+		}
 
 		if (devnum < 0) {
 			/* Haven't found anything yet, choose something free */
@@ -772,6 +791,28 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 					devnum = -1;
 			} else
 				devnum = -1;
+		}
+
+		if (devnum < 0) {
+			char *nm = ra->name;
+			char nbuf[1024];
+			struct stat stb;
+			if (strchr(nm, ':'))
+				nm = strchr(nm, ':')+1;
+			sprintf(nbuf, "/dev/md/%s", nm);
+
+			if (stat(nbuf, &stb) == 0 &&
+			    S_ISBLK(stb.st_mode) &&
+			    major(stb.st_rdev) == (usepart ?
+						   get_mdp_major() : MD_MAJOR)){
+				if (usepart)
+					devnum = minor(stb.st_rdev)
+						>> MdpMinorShift;
+				else
+					devnum = minor(stb.st_rdev);
+				if (mddev_busy(usepart ? (-1-devnum) : devnum))
+					devnum = -1;
+			}
 		}
 
 		if (devnum >= 0)

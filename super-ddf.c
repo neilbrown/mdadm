@@ -2670,7 +2670,6 @@ struct superswitch super_ddf = {
 
 /* for mdmon */
 	.open_new       = ddf_open_new,
-	.load_super     = load_super_ddf,
 	.mark_clean     = ddf_mark_clean,
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
@@ -2687,8 +2686,10 @@ struct superswitch super_ddf_container = {
 	.write_init_super = write_init_super_ddf,
 #endif
 
+	.load_super	= load_super_ddf,
 	.init_super	= init_super_ddf,
 	.add_to_super	= add_to_super_ddf,
+	.getinfo_super  = getinfo_super_ddf,
 
 	.free_super	= free_super_ddf,
 

@@ -770,7 +770,8 @@ int dev_open(char *dev, int flags)
 	if (e > dev && *e == ':' && e[1] &&
 	    (minor = strtoul(e+1, &e, 0)) >= 0 &&
 	    *e == 0) {
-		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d", major, minor);
+		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
+			 (int)getpid(), major, minor);
 		if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
 			fd = open(devname, flags);
 			unlink(devname);

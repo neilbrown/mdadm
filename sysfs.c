@@ -74,7 +74,7 @@ int sysfs_open(int devnum, char *devname, char *attr)
 	}
 	strcat(fname, attr);
 	fd = open(fname, O_RDWR);
-	if (fd < 0 && errno == -EACCES)
+	if (fd < 0 && errno == EACCES)
 		fd = open(fname, O_RDONLY);
 	return fd;
 }

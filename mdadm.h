@@ -411,16 +411,15 @@ extern struct superswitch {
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a, int inst);
-	/* This tells the metadata handler that all data up to sync_pos is
-	 * known to be insync, and will stay insync until told otherwise.
-	 * All data beyond sync_pos may not be insync.
-	 * If sync_pos == 0, this marks the array as 'dirty'.
-	 * If sync_pos == ~0, this marks it as fully 'clean'.
-	 * If other numbers cannot be stored, they should be treated as 0.
-	 * mark_clean is always called with a sync_pos of 0 before any
-	 * write to an array with redundancy is allowed.
+
+	/* Tell the metadata handler the current state of the array.
+	 * This covers whether it is known to be consistent (no pending writes)
+	 * when how far along a resync is known to have progressed
+	 * (in a->resync_start).
+	 * resync status is really irrelevant if the array is not consistent,
+	 * but some metadata (DDF!) have a place to record the distinction.
 	 */
-	void (*mark_clean)(struct active_array *a, unsigned long long sync_pos);
+	void (*set_array_state)(struct active_array *a, int consistent);
 
 	/* When the state of a device might have changed, we call set_disk to
 	 * tell the metadata what the current state is.

@@ -1124,15 +1124,16 @@ static int imsm_open_new(struct supertype *c, struct active_array *a, int inst)
 	return 0;
 }
 
-static void imsm_mark_clean(struct active_array *a, unsigned long long sync_pos)
+static void imsm_set_array_state(struct active_array *a, int consistent)
 {
 	int inst = a->info.container_member;
 	struct intel_super *super = a->container->sb;
 	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
-	int dirty = (sync_pos != ~0ULL);
+	int dirty = !consistent || (a->resync_start != ~0ULL);
 
 	if (dev->vol.dirty != dirty) {
-		fprintf(stderr, "imsm: mark 'clean' %llu\n", sync_pos);
+		fprintf(stderr, "imsm: mark '%s' (%llu)\n",
+			dirty?"dirty":"clean", a->resync_start);
 
 		dev->vol.dirty = dirty;
 		super->updates_pending++;
@@ -1356,7 +1357,7 @@ struct superswitch super_imsm = {
 /* for mdmon */
 	.open_new	= imsm_open_new,
 	.load_super	= load_super_imsm,
-	.mark_clean	= imsm_mark_clean,
+	.set_array_state= imsm_set_array_state,
 	.set_disk	= imsm_set_disk,
 	.sync_metadata	= imsm_sync_metadata,
 };

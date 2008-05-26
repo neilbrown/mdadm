@@ -2403,10 +2403,13 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 				break;
 		if ((ddf->virt->entries[i].state & DDF_state_inconsistent) ||
 		    (ddf->virt->entries[i].init_state & DDF_initstate_mask) !=
-		    DDF_init_full)
+		    DDF_init_full) {
 			this->array.state = 0;
-		else
+			this->resync_start = 0;
+		} else {
 			this->array.state = 1;
+			this->resync_start = ~0ULL;
+		}
 		memcpy(this->name, ddf->virt->entries[i].name, 32);
 		this->name[33]=0;
 
@@ -2515,21 +2518,31 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, int inst)
 
 /*
  * The array 'a' is to be marked clean in the metadata.
- * If 'sync_pos' is not ~(unsigned long long)0, then the array is only
+ * If '->resync_start' is not ~(unsigned long long)0, then the array is only
  * clean up to the point (in sectors).  If that cannot be recorded in the
  * metadata, then leave it as dirty.
  *
  * For DDF, we need to clear the DDF_state_inconsistent bit in the
  * !global! virtual_disk.virtual_entry structure.
  */
-static void ddf_mark_clean(struct active_array *a, unsigned long long sync_pos)
+static void ddf_set_array_state(struct active_array *a, int consistent)
 {
 	struct ddf_super *ddf = a->container->sb;
 	int inst = a->info.container_member;
-	if (sync_pos == ~0ULL)
-		ddf->virt->entries[inst].state |= DDF_state_inconsistent;
-	else
+	if (consistent)
 		ddf->virt->entries[inst].state &= ~DDF_state_inconsistent;
+	else
+		ddf->virt->entries[inst].state |= DDF_state_inconsistent;
+	ddf->virt->entries[inst].init_state &= ~DDF_initstate_mask;
+	if (a->resync_start == ~0ULL)
+		ddf->virt->entries[inst].init_state |= DDF_init_full;
+	else if (a->resync_start == 0)
+		ddf->virt->entries[inst].init_state |= DDF_init_not;
+	else
+		ddf->virt->entries[inst].init_state |= DDF_init_quick;
+
+	printf("ddf mark %s %llu\n", consistent?"clean":"dirty",
+	       a->resync_start);
 }
 
 /*
@@ -2671,7 +2684,7 @@ struct superswitch super_ddf = {
 
 /* for mdmon */
 	.open_new       = ddf_open_new,
-	.mark_clean     = ddf_mark_clean,
+	.set_array_state= ddf_set_array_state,
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
 

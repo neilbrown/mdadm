@@ -232,12 +232,13 @@ static int read_and_act(struct active_array *a)
 	if (a->curr_state <= inactive &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */
-		a->container->ss->mark_clean(a, a->resync_start);
+		a->container->ss->set_array_state(a, 1);
 		a->next_state = clear;
 		deactivate = 1;
 	}
 	if (a->curr_state == write_pending) {
-		a->container->ss->mark_clean(a, 0);
+		get_resync_start(a);
+		a->container->ss->set_array_state(a, 0);
 		a->next_state = active;
 	}
 	if (a->curr_state == active_idle) {
@@ -253,10 +254,11 @@ static int read_and_act(struct active_array *a)
 		 * readonly ???
 		 */
 		get_resync_start(a);
+		printf("Found a readonly array at %llu\n", a->resync_start);
 		if (a->resync_start == ~0ULL)
 			a->next_state = read_auto; /* array is clean */
 		else {
-			a->container->ss->mark_clean(a, 0);
+			a->container->ss->set_array_state(a, 0);
 			a->next_state = active;
 		}
 	}
@@ -269,6 +271,7 @@ static int read_and_act(struct active_array *a)
 		 * Just check if we need to fiddle spares.
 		 */
 		get_resync_start(a);
+		a->container->ss->set_array_state(a, 0);
 		check_degraded = 1;
 	}
 

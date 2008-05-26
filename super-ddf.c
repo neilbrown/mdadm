@@ -899,7 +899,8 @@ static struct num_mapping ddf_level_num[] = {
 	{ DDF_RAID0, 0 },
 	{ DDF_RAID1, 1 },
 	{ DDF_RAID3, LEVEL_UNSUPPORTED },
-	{ DDF_RAID5, 4 },
+	{ DDF_RAID4, 4 },
+	{ DDF_RAID5, 5 },
 	{ DDF_RAID1E, LEVEL_UNSUPPORTED },
 	{ DDF_JBOD, LEVEL_UNSUPPORTED },
 	{ DDF_CONCAT, LEVEL_LINEAR },
@@ -2399,8 +2400,8 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		this->array.level = map_num1(ddf_level_num, vc->conf.prl);
 		this->array.raid_disks =
 			__be16_to_cpu(vc->conf.prim_elmnt_count);
-		/* FIXME this should be mapped */
-		this->array.layout = vc->conf.rlq;
+		this->array.layout = rlq_to_layout(vc->conf.rlq, vc->conf.prl,
+						   this->array.raid_disks);
 		this->array.md_minor      = -1;
 		this->array.ctime         = DECADE +
 			__be32_to_cpu(*(__u32*)(vc->conf.guid+16));
@@ -2428,6 +2429,11 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		this->component_size = __be64_to_cpu(vc->conf.blocks);
 		this->array.size = this->component_size / 2;
 		this->container_member = i;
+
+		sprintf(this->text_version, "/%s/%d",
+			devnum2devname(st->container_dev),
+			this->container_member);
+
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
 		for (i=0 ; i < mppe ; i++) {

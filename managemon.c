@@ -87,7 +87,6 @@ static void close_aa(struct active_array *aa)
 	close(aa->action_fd);
 	close(aa->info.state_fd);
 	close(aa->resync_start_fd);
-	close(aa->sync_pos_fd);
 }
 
 static void free_aa(struct active_array *aa)
@@ -265,8 +264,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->action_fd = sysfs_open(new->devnum, NULL, "sync_action");
 	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
 	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
-	new->sync_pos_fd = sysfs_open(new->devnum, NULL, "sync_completed");
-	new->sync_pos = 0;
+	new->resync_start = 0;
 
 	sysfs_free(mdi);
 	// finds and compares.

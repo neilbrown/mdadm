@@ -47,22 +47,6 @@ static int read_attr(char *buf, int len, int fd)
 	return n;
 }
 
-static int get_sync_pos(struct active_array *a)
-{
-	char buf[30];
-	int n;
-
-	n = read_attr(buf, 30, a->sync_pos_fd);
-	if (n <= 0)
-		return n;
-
-	if (strncmp(buf, "max", 3) == 0) {
-		a->sync_pos = ~(unsigned long long)0;
-		return 1;
-	}
-	a->sync_pos = strtoull(buf, NULL, 10);
-	return 1;
-}
 
 static int get_resync_start(struct active_array *a)
 {
@@ -248,8 +232,7 @@ static int read_and_act(struct active_array *a)
 	if (a->curr_state <= inactive &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */
-		get_sync_pos(a);
-		a->container->ss->mark_clean(a, a->sync_pos);
+		a->container->ss->mark_clean(a, a->resync_start);
 		a->next_state = clear;
 		deactivate = 1;
 	}
@@ -285,6 +268,7 @@ static int read_and_act(struct active_array *a)
 		 * until the array goes inactive or readonly though.
 		 * Just check if we need to fiddle spares.
 		 */
+		get_resync_start(a);
 		check_degraded = 1;
 	}
 

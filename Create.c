@@ -512,6 +512,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (!st->ss->init_super(st, &info.array, size, name, homehost, uuid))
 		return 1;
 
+	st->ss->getinfo_super(st, &info);
+
 	if (bitmap_file && vers < 9003) {
 		major_num = BITMAP_MAJOR_HOSTENDIAN;
 #ifdef __BIG_ENDIAN
@@ -541,7 +543,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		char ver[100];
 		if (st->ss->external == 1)
 			/* container */
-			strcat(strcpy(ver, "external:"), st->ss->text_version);
+			strcat(strcpy(ver, "external:"),
+			       info.text_version);
 		else {
 			/* member */
 			sprintf(ver, "external:/%s/%d",

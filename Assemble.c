@@ -848,7 +848,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		struct mdinfo *sra;
 		if (st->ss->external) {
 			char ver[100];
-			strcat(strcpy(ver, "external:"), st->ss->text_version);
+			strcat(strcpy(ver, "external:"), info.text_version);
 			sra = sysfs_read(mdfd, 0, 0);
 			if ((vers % 100) < 2 ||
 			    sra == NULL ||

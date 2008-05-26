@@ -834,30 +834,19 @@ struct supertype *super_by_fd(int fd)
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
 
-struct supertype *dup_super(struct supertype *st)
+struct supertype *dup_super(struct supertype *orig)
 {
-	struct supertype *stnew = NULL;
-	char *verstr = NULL;
-	char version[20];
-	int i;
+	struct supertype *st;
 
+	st = malloc(sizeof(*st));
 	if (!st)
 		return st;
-
-	if (st->ss->text_version)
-		strcpy(version, st->ss->text_version);
-	else if (st->minor_version == -1)
-		sprintf(version, "%d", st->ss->major);
-	else
-		sprintf(version, "%d.%d", st->ss->major, st->minor_version);
-	verstr = version;
-
-	for (i = 0; stnew == NULL && superlist[i] ; i++)
-		stnew = superlist[i]->match_metadata_desc(verstr);
-
-	if (stnew)
-		stnew->sb = NULL;
-	return stnew;
+	st->ss = orig->ss;
+	st->max_devs = orig->max_devs;
+	st->minor_version = orig->minor_version;
+	st->sb = NULL;
+	st->info = NULL;
+	return st;
 }
 
 struct supertype *guess_super(int fd)

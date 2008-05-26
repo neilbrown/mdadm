@@ -1212,6 +1212,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 
 	info->reshape_active = 0;
 
+	strcpy(info->text_version, "ddf");
+
 //	uuid_from_super_ddf(info->uuid, sbv);
 
 //	info->name[] ?? ;
@@ -1258,6 +1260,10 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 //	info->disk.state = ???;
 
 	uuid_from_super_ddf(st, info->uuid);
+
+	sprintf(info->text_version, "/%s/%d",
+		devnum2devname(st->container_dev),
+		info->container_member);
 
 //	info->name[] ?? ;
 }
@@ -2680,7 +2686,6 @@ struct superswitch super_ddf = {
 	.major		= 1000,
 	.swapuuid	= 0,
 	.external	= 1,
-	.text_version	= "ddf",
 
 /* for mdmon */
 	.open_new       = ddf_open_new,
@@ -2713,7 +2718,6 @@ struct superswitch super_ddf_container = {
 	.major		= 1000,
 	.swapuuid	= 0,
 	.external	= 1,
-	.text_version	= "ddf",
 };
 
 struct superswitch super_ddf_bvd = {
@@ -2737,7 +2741,6 @@ struct superswitch super_ddf_bvd = {
 	.major		= 1001,
 	.swapuuid	= 0,
 	.external	= 2,
-	.text_version	= "ddf",
 };
 
 struct superswitch super_ddf_svd = {
@@ -2756,5 +2759,4 @@ struct superswitch super_ddf_svd = {
 	.major		= 1002,
 	.swapuuid	= 0,
 	.external	= 2,
-	.text_version	= "ddf",
 };

@@ -433,7 +433,6 @@ extern struct superswitch {
 
 
 	int major;
-	char *text_version;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 } super0, super1, super_ddf, super_ddf_bvd, super_ddf_svd, *superlist[];

@@ -443,11 +443,17 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 	info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
 	info->reshape_active = 0;
+
+	strcpy(info->text_version, "imsm");
 }
 
 static void getinfo_super_imsm_raid(struct supertype *st, struct mdinfo *info)
 {
 	printf("%s\n", __FUNCTION__);
+
+	sprintf(info->text_version, "/%s/%d",
+		devnum2devname(st->container_dev),
+		info->container_member); // FIXME is this even set here?
 }
 
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,
@@ -1063,6 +1069,10 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		strncpy(this->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
 		this->name[MAX_RAID_SERIAL_LEN] = 0;
 
+		sprintf(this->text_version, "/%s/%d",
+			devnum2devname(st->container_dev),
+			this->container_member);
+
 		memset(this->uuid, 0, sizeof(this->uuid));
 
 		sz = __le32_to_cpu(dev->size_high);
@@ -1352,7 +1362,6 @@ struct superswitch super_imsm = {
 	.major		= 2000,
 	.swapuuid	= 0,
 	.external	= 1,
-	.text_version	= "imsm",
 
 /* for mdmon */
 	.open_new	= imsm_open_new,
@@ -1389,7 +1398,6 @@ struct superswitch super_imsm_container = {
 	.major		= 2000,
 	.swapuuid	= 0,
 	.external	= 1,
-	.text_version	= "imsm",
 };
 
 struct superswitch super_imsm_raid = {
@@ -1409,5 +1417,4 @@ struct superswitch super_imsm_raid = {
 	.major		= 2001,
 	.swapuuid	= 0,
 	.external	= 2,
-	.text_version	= "imsm",
 };

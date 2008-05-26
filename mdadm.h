@@ -154,7 +154,10 @@ struct mdinfo {
 	int			cache_size; /* size of raid456 stripe cache*/
 	int			mismatch_cnt;
 	char			text_version[50];
-	int container_member; /* for assembling external-metatdata arrays */
+
+	int container_member; /* for assembling external-metatdata arrays
+			       * This is to be used internally by metadata
+			       * handler only */
 
 	char 		sys_name[20];
 	struct mdinfo *devs;
@@ -444,7 +447,6 @@ struct supertype {
 	int minor_version;
 	int max_devs;
 	int container_dev;    /* devnum of container */
-	int container_member; /* numerical position in container */
 	void *sb;
 	void *info;
 

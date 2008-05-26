@@ -541,15 +541,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 	if (st->ss->external) {
 		char ver[100];
-		if (st->ss->external == 1)
-			/* container */
-			strcat(strcpy(ver, "external:"),
-			       info.text_version);
-		else {
+		strcat(strcpy(ver, "external:"),
+		       info.text_version);
+		if (st->ss->external == 2) {
 			/* member */
-			sprintf(ver, "external:/%s/%d",
-				devnum2devname(st->container_dev),
-				st->container_member);
+
 			/* When creating a member, we need to be careful
 			 * to negotiate with mdmon properly.
 			 * If it is already running, we cannot write to

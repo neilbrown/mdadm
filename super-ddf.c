@@ -405,6 +405,7 @@ struct ddf_super {
 					      * the lba table */
 		struct vd_config conf;
 	} *conflist, *newconf;
+	int conf_num; /* Index into 'virt' of entry matching 'newconf' */
 	struct dl {
 		struct dl	*next;
 		struct disk_data disk;
@@ -1162,7 +1163,7 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	 * The first 16 bytes of the sha1 of these is used.
 	 */
 	struct ddf_super *ddf = st->sb;
-	struct vd_config *vd = find_vdcr(ddf, st->container_member);
+	struct vd_config *vd = find_vdcr(ddf, ddf->conf_num);
 
 	if (!vd)
 		memset(uuid, 0, sizeof (uuid));
@@ -1688,7 +1689,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 		return 0;
 	}
 	ve = &ddf->virt->entries[venum];
-	st->container_member = venum;
+	ddf->conf_num = venum;
 
 	/* A Virtual Disk GUID contains the T10 Vendor ID, controller type,
 	 * timestamp, random number
@@ -2086,7 +2087,6 @@ int validate_geometry_ddf(struct supertype *st,
 		if (load_super_ddf_all(st, cfd, (void **)&ddf, NULL, 1) == 0) {
 			st->sb = ddf;
 			st->container_dev = fd2devnum(cfd);
-			st->container_member = 27; // FIXME
 			close(cfd);
 			return st->ss->validate_geometry(st, level, layout,
 							 raiddisks, chunk, size,

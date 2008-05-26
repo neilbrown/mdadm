@@ -830,7 +830,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 		sra = sysfs_read(mdfd, 0, 0);
 
-		sprintf(ver, "external:/%s/%d", mdname, ra->container_member);
+		sprintf(ver, "external:%s", ra->text_version);
 		sysfs_set_str(sra, NULL, "metadata_version", ver);
 
 		sysfs_set_array(sra, ra);

@@ -196,7 +196,6 @@ int main(int argc, char *argv[])
 	/* hopefully it is a container - we'll check later */
 
 	container = malloc(sizeof(*container));
-	container->devfd = mdfd;
 	container->devnum = fd2devnum(mdfd);
 	container->devname = devnum2devname(container->devnum);
 
@@ -269,6 +268,7 @@ int main(int argc, char *argv[])
 		exit(3);
 	}
 
+	close(mdfd);
 
 	mlockall(MCL_FUTURE);
 

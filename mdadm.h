@@ -452,7 +452,6 @@ struct supertype {
 
 	/* extra stuff used by mdmon */
 	struct active_array *arrays;
-	int devfd;
 	int sock; /* listen to external programs */
 	int mgr_pipe[2]; /* communicate between threads */
 	int mon_pipe[2]; /* communicate between threads */

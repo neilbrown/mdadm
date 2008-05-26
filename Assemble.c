@@ -481,7 +481,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		} else
 #endif
 		{
-			struct supertype *tst = dup_super(st);;
+			struct supertype *tst = dup_super(st);
 			int dfd;
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
 

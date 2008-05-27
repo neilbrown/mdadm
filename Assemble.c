@@ -367,7 +367,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		tmpdev->used = 1;
 
 	loop:
-		tst->ss->free_super(tst);
+		if (tst)
+			tst->ss->free_super(tst);
 	}
 
 	if (mdfd < 0) {
@@ -568,16 +569,17 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		devcnt++;
 	}
 
-	if (update && strcmp(update, "byteorder")==0)
-		st->minor_version = 90;
-
 	if (devcnt == 0) {
 		fprintf(stderr, Name ": no devices found for %s\n",
 			mddev);
-		st->ss->free_super(st);
+		if (st)
+			st->ss->free_super(st);
 		if (must_close) close(mdfd);
 		return 1;
 	}
+
+	if (update && strcmp(update, "byteorder")==0)
+		st->minor_version = 90;
 
 	st->ss->getinfo_super(st, &info);
 	clean = info.array.state & 1;

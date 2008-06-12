@@ -225,7 +225,7 @@ static int read_and_act(struct active_array *a)
 	a->curr_action = read_action(a->action_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
-		if (mdi->state_fd > 0)
+		if (mdi->state_fd >= 0)
 			mdi->curr_state = read_dev_state(mdi->state_fd);
 	}
 
@@ -307,16 +307,16 @@ static int read_and_act(struct active_array *a)
 	if (a->next_action != bad_action)
 		write_attr(sync_actions[a->next_action], a->action_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
-		if (mdi->next_state == DS_REMOVE && mdi->state_fd > 0) {
-			int remove_err;
+		if (mdi->next_state == DS_REMOVE && mdi->state_fd >= 0) {
+			int remove_result;
 
 			write_attr("-blocked", mdi->state_fd);
 			/* the kernel may not be able to immediately remove the
 			 * disk, we can simply wait until the next event to try
 			 * again.
 			 */
-			remove_err = write_attr("remove", mdi->state_fd);
-			if (!remove_err) {
+			remove_result = write_attr("remove", mdi->state_fd);
+			if (remove_result > 0) {
 				close(mdi->state_fd);
 				mdi->state_fd = -1;
 			}

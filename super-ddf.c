@@ -2664,8 +2664,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		pd = find_phys(ddf, vc->phys_refnum[i]);
 		if (pd < 0)
 			continue;
-		st = ddf->phys->entries[pd].state;
-		if ((state & (DDF_Online|DDF_Failed|DDF_Rebuilding))
+		st = __be16_to_cpu(ddf->phys->entries[pd].state);
+		if ((st & (DDF_Online|DDF_Failed|DDF_Rebuilding))
 		    == DDF_Online)
 			working++;
 	}

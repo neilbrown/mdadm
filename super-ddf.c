@@ -412,7 +412,8 @@ struct ddf_super {
 		int major, minor;
 		char *devname;
 		int fd;
-		struct vcl *vlist[0]; /* max_part+1 in size */
+		struct spare_assign *spare;
+		struct vcl *vlist[0]; /* max_part in size */
 	} *dlist;
 };
 
@@ -620,10 +621,11 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	struct stat stb;
 	char *conf;
 	int i;
+	int vnum;
 
 	/* First the local disk info */
 	dl = malloc(sizeof(*dl) +
-		    (super->max_part+1) * sizeof(dl->vlist[0]));
+		    (super->max_part) * sizeof(dl->vlist[0]));
 
 	load_section(fd, super, &dl->disk,
 		     super->active->data_section_offset,
@@ -636,7 +638,8 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	dl->minor = minor(stb.st_rdev);
 	dl->next = super->dlist;
 	dl->fd = keep ? fd : -1;
-	for (i=0 ; i < super->max_part + 1 ; i++)
+	dl->spare = NULL;
+	for (i=0 ; i < super->max_part ; i++)
 		dl->vlist[i] = NULL;
 	super->dlist = dl;
 
@@ -651,6 +654,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			    super->active->config_section_length,
 			    0);
 
+	vnum = 0;
 	for (i = 0;
 	     i < __be32_to_cpu(super->active->config_section_length);
 	     i += super->conf_rec_len) {
@@ -658,6 +662,13 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			(struct vd_config *)((char*)conf + i*512);
 		struct vcl *vcl;
 
+		if (vd->magic == DDF_SPARE_ASSIGN_MAGIC) {
+			if (dl->spare)
+				continue;
+			dl->spare = malloc(super->conf_rec_len*512);
+			memcpy(dl->spare, vd, super->conf_rec_len*512);
+			continue;
+		}
 		if (vd->magic != DDF_VD_CONF_MAGIC)
 			continue;
 		for (vcl = super->conflist; vcl; vcl = vcl->next) {
@@ -667,7 +678,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 		}
 
 		if (vcl) {
-			dl->vlist[i/super->conf_rec_len] = vcl;
+			dl->vlist[vnum++] = vcl;
 			if (__be32_to_cpu(vd->seqnum) <=
 			    __be32_to_cpu(vcl->conf.seqnum))
 				continue;
@@ -676,11 +687,11 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 				     offsetof(struct vcl, conf));
 			vcl->next = super->conflist;
 			super->conflist = vcl;
+			dl->vlist[vnum++] = vcl;
 		}
 		memcpy(&vcl->conf, vd, super->conf_rec_len*512);
 		vcl->lba_offset = (__u64*)
 			&vcl->conf.phys_refnum[super->mppe];
-		dl->vlist[i/super->conf_rec_len] = vcl;
 	}
 	free(conf);
 
@@ -784,6 +795,8 @@ static void free_super_ddf(struct supertype *st)
 		ddf->dlist = d->next;
 		if (d->fd >= 0)
 			close(d->fd);
+		if (d->spare)
+			free(d->spare);
 		free(d);
 	}
 	free(ddf);
@@ -1840,12 +1853,13 @@ static void add_to_super_ddf(struct supertype *st,
 	 * a phys_disk entry and a more detailed disk_data entry.
 	 */
 	fstat(fd, &stb);
-	dd = malloc(sizeof(*dd) + sizeof(dd->vlist[0]) * (ddf->max_part+1));
+	dd = malloc(sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part);
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
 	dd->devname = devname;
 	dd->next = ddf->dlist;
 	dd->fd = fd;
+	dd->spare = NULL;
 
 	dd->disk.magic = DDF_PHYS_DATA_MAGIC;
 	now = time(0);
@@ -1861,7 +1875,7 @@ static void add_to_super_ddf(struct supertype *st,
 	memset(dd->disk.vendor, ' ', 32);
 	memcpy(dd->disk.vendor, "Linux", 5);
 	memset(dd->disk.pad, 0xff, 442);
-	for (i = 0; i < ddf->max_part+1 ; i++)
+	for (i = 0; i < ddf->max_part ; i++)
 		dd->vlist[i] = NULL;
 
 	n = __be16_to_cpu(ddf->phys->used_pdes);
@@ -1952,6 +1966,8 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 		conf_size = ddf->conf_rec_len * 512;
 		for (i = 0 ; i <= n_config ; i++) {
 			struct vcl *c = d->vlist[i];
+			if (i == n_config)
+				c = (struct vcl*)d->spare;
 
 			if (c) {
 				c->conf.crc = calc_crc(&c->conf, conf_size);
@@ -2172,7 +2188,7 @@ FIXME ignore DDF_Legacy devices?
 	if (!rv)
 		return NULL;
 
-	for (i = 0; i < ddf->max_part+1; i++) {
+	for (i = 0; i < ddf->max_part; i++) {
 		struct vcl *v = dl->vlist[i];
 		if (v == NULL)
 			continue;

@@ -390,10 +390,11 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
 //		rv |= sysfs_set_str(sra, sd, "state", "in_sync");
 	}
-	sd2 = malloc(sizeof(*sd2));
-	*sd2 = *sd;
-	sd2->next = sra->devs;
-	sra->devs = sd2;
-
+	if (! rv) {
+		sd2 = malloc(sizeof(*sd2));
+		*sd2 = *sd;
+		sd2->next = sra->devs;
+		sra->devs = sd2;
+	}
 	return rv;
 }

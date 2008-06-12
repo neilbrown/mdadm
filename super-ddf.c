@@ -398,7 +398,7 @@ struct ddf_super {
 	struct phys_disk	*phys;
 	struct virtual_disk	*virt;
 	int pdsize, vdsize;
-	int max_part;
+	int max_part, mppe, conf_rec_len;
 	struct vcl {
 		struct vcl	*next;
 		__u64		*lba_offset; /* location in 'conf' of
@@ -606,6 +606,10 @@ static int load_ddf_global(int fd, struct ddf_super *super, char *devname)
 	}
 	super->conflist = NULL;
 	super->dlist = NULL;
+
+	super->max_part = __be16_to_cpu(super->active->max_partitions);
+	super->mppe = __be16_to_cpu(super->active->max_primary_element_entries);
+	super->conf_rec_len = __be16_to_cpu(super->active->config_record_len);
 	return 0;
 }
 
@@ -616,11 +620,8 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	struct stat stb;
 	char *conf;
 	int i;
-	int conflen;
-	int mppe;
 
 	/* First the local disk info */
-	super->max_part = __be16_to_cpu(super->active->max_partitions);
 	dl = malloc(sizeof(*dl) +
 		    (super->max_part+1) * sizeof(dl->vlist[0]));
 
@@ -644,7 +645,6 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	 * probably invalid.  Those which are good need to be copied into
 	 * the conflist
 	 */
-	conflen =  __be16_to_cpu(super->active->config_record_len);
 
 	conf = load_section(fd, super, NULL,
 			    super->active->config_section_offset,
@@ -653,7 +653,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 
 	for (i = 0;
 	     i < __be32_to_cpu(super->active->config_section_length);
-	     i += conflen) {
+	     i += super->conf_rec_len) {
 		struct vd_config *vd =
 			(struct vd_config *)((char*)conf + i*512);
 		struct vcl *vcl;
@@ -667,20 +667,20 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 		}
 
 		if (vcl) {
-			dl->vlist[i/conflen] = vcl;
+			dl->vlist[i/super->conf_rec_len] = vcl;
 			if (__be32_to_cpu(vd->seqnum) <=
 			    __be32_to_cpu(vcl->conf.seqnum))
 				continue;
  		} else {
-			vcl = malloc(conflen*512 + offsetof(struct vcl, conf));
+			vcl = malloc(super->conf_rec_len*512 +
+				     offsetof(struct vcl, conf));
 			vcl->next = super->conflist;
 			super->conflist = vcl;
 		}
-		memcpy(&vcl->conf, vd, conflen*512);
-		mppe = __be16_to_cpu(super->anchor.max_primary_element_entries);
+		memcpy(&vcl->conf, vd, super->conf_rec_len*512);
 		vcl->lba_offset = (__u64*)
-			&vcl->conf.phys_refnum[mppe];
-		dl->vlist[i/conflen] = vcl;
+			&vcl->conf.phys_refnum[super->mppe];
+		dl->vlist[i/super->conf_rec_len] = vcl;
 	}
 	free(conf);
 
@@ -951,7 +951,7 @@ static void print_guid(char *guid, int tstamp)
 
 static void examine_vd(int n, struct ddf_super *sb, char *guid)
 {
-	int crl = __be16_to_cpu(sb->anchor.config_record_len);
+	int crl = sb->conf_rec_len;
 	struct vcl *vcl;
 
 	for (vcl = sb->conflist ; vcl ; vcl = vcl->next) {
@@ -1458,8 +1458,10 @@ static int init_super_ddf(struct supertype *st,
 	ddf->anchor.max_vd_entries = __cpu_to_be16(max_virt_disks); /* ?? */
 	ddf->anchor.max_partitions = __cpu_to_be16(64); /* ?? */
 	ddf->max_part = 64;
-	ddf->anchor.config_record_len = __cpu_to_be16(1 + 256*12/512);
+	ddf->conf_rec_len = 1 + 256 * 12 / 512;
+	ddf->anchor.config_record_len = __cpu_to_be16(ddf->conf_rec_len);
 	ddf->anchor.max_primary_element_entries = __cpu_to_be16(256);
+	ddf->mppe = 256;
 	memset(ddf->anchor.pad3, 0xff, 54);
 
 	/* controller sections is one sector long immediately
@@ -1675,8 +1677,6 @@ static int init_super_ddf_bvd(struct supertype *st,
 	struct virtual_entry *ve;
 	struct vcl *vcl;
 	struct vd_config *vc;
-	int mppe;
-	int conflen;
 
 	if (__be16_to_cpu(ddf->virt->populated_vdes)
 	    >= __be16_to_cpu(ddf->virt->max_vdes)) {
@@ -1719,10 +1719,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 		__cpu_to_be16(__be16_to_cpu(ddf->virt->populated_vdes)+1);
 
 	/* Now create a new vd_config */
-	conflen =  __be16_to_cpu(ddf->active->config_record_len);
-	vcl = malloc(offsetof(struct vcl, conf) + conflen * 512);
-	mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
-	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[mppe];
+	vcl = malloc(offsetof(struct vcl, conf) + ddf->conf_rec_len * 512);
+	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
 
 	vc = &vcl->conf;
 
@@ -1762,8 +1760,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 	memset(vc->v3, 0xff, 16);
 	memset(vc->vendor, 0xff, 32);
 
-	memset(vc->phys_refnum, 0xff, 4*mppe);
-	memset(vc->phys_refnum+mppe, 0x00, 8*mppe);
+	memset(vc->phys_refnum, 0xff, 4*ddf->mppe);
+	memset(vc->phys_refnum+(ddf->mppe * 4), 0x00, 8*ddf->mppe);
 
 	vcl->next = ddf->conflist;
 	ddf->conflist = vcl;
@@ -1785,7 +1783,6 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	struct ddf_super *ddf = st->sb;
 	struct vd_config *vc;
 	__u64 *lba_offset;
-	int mppe;
 	int working;
 
 	for (dl = ddf->dlist; dl ; dl = dl->next)
@@ -1797,8 +1794,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 
 	vc = &ddf->newconf->conf;
 	vc->phys_refnum[dk->raid_disk] = dl->disk.refnum;
-	mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
-	lba_offset = (__u64*)(vc->phys_refnum + mppe);
+	lba_offset = (__u64*)(vc->phys_refnum + ddf->mppe);
 	lba_offset[dk->raid_disk] = 0; /* FIXME */
 
 	dl->vlist[0] = ddf->newconf; /* FIXME */
@@ -1952,8 +1948,8 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 		write(fd, ddf->virt, ddf->vdsize);
 
 		/* Now write lots of config records. */
-		n_config = __be16_to_cpu(ddf->active->max_partitions);
-		conf_size = __be16_to_cpu(ddf->active->config_record_len) * 512;
+		n_config = ddf->max_part;
+		conf_size = ddf->conf_rec_len * 512;
 		for (i = 0 ; i <= n_config ; i++) {
 			struct vcl *c = d->vlist[i];
 
@@ -2386,7 +2382,6 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 
 	for (vc = ddf->conflist ; vc ; vc=vc->next)
 	{
-		int mppe;
 		int i;
 		struct mdinfo *this;
 		this = malloc(sizeof(*this));
@@ -2435,8 +2430,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			this->container_member);
 
 
-		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
-		for (i=0 ; i < mppe ; i++) {
+		for (i=0 ; i < ddf->mppe ; i++) {
 			struct mdinfo *dev;
 			struct dl *d;
 

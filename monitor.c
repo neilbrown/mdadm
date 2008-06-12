@@ -171,24 +171,10 @@ static void signal_manager(void)
  *    sync_action was 'resync' and becomes 'idle' and resync_start becomes
  *    MaxSector
  *    Notify metadata that sync is complete.
- *    "Deal with Degraded"
  *
  *  recovery completes
  *    sync_action changes from 'recover' to 'idle'
  *    Check each device state and mark metadata if 'faulty' or 'in_sync'.
- *    "Deal with Degraded"
- *
- *  deal with degraded array
- *    We only do this when first noticing the array is degraded.
- *    This can be when we first see the array, when sync completes or
- *    when recovery completes.
- *
- *    Check if number of failed devices suggests recovery is needed, and
- *    skip if not.
- *    Ask metadata for a spare device
- *    Add device as not in_sync and give a role
- *    Update metadata.
- *    Start recovery.
  *
  *  deal with resync
  *    This only happens on finding a new array... mdadm will have set
@@ -214,7 +200,7 @@ static void signal_manager(void)
 
 static int read_and_act(struct active_array *a)
 {
-	int check_degraded;
+	int check_degraded = 0;
 	int deactivate = 0;
 	struct mdinfo *mdi;
 
@@ -296,7 +282,9 @@ static int read_and_act(struct active_array *a)
 	}
 
 	if (check_degraded) {
-		// FIXME;
+		/* manager will do the actual check */
+		a->check_degraded = 1;
+		signal_manager();
 	}
 
 	a->container->ss->sync_metadata(a->container);
@@ -514,6 +502,7 @@ static int wait_and_act(struct supertype *container, int pfd,
 				*ap = (*ap)->next;
 			discard_this = a->replaces;
 			a->replaces = NULL;
+			/* FIXME check if device->state_fd need to be cleared?*/
 			signal_manager();
 		}
 		if (a->container)

@@ -26,7 +26,18 @@
  * - When a device is added to the container, we add it to the metadata
  *   as a spare.
  *
- * - assist with activating spares by opening relevant sysfs file.
+ * - Deal with degraded array
+ *    We only do this when first noticing the array is degraded.
+ *    This can be when we first see the array, when sync completes or
+ *    when recovery completes.
+ *
+ *    Check if number of failed devices suggests recovery is needed, and
+ *    skip if not.
+ *    Ask metadata to allocate a spare device
+ *    Add device as not in_sync and give a role
+ *    Update metadata.
+ *    Open sysfs files and pass to monitor.
+ *    Make sure that monitor Starts recovery....
  *
  * - Pass on metadata updates from external programs such as
  *   mdadm creating a new array.
@@ -104,6 +115,32 @@ static void free_aa(struct active_array *aa)
 	free(aa);
 }
 
+static struct active_array *duplicate_aa(struct active_array *aa)
+{
+	struct active_array *newa = malloc(sizeof(*newa));
+	struct mdinfo **dp1, **dp2;
+
+	*newa = *aa;
+	newa->next = NULL;
+	newa->replaces = NULL;
+	newa->info.next = NULL;
+
+	dp2 = &newa->info.devs;
+
+	for (dp1 = &aa->info.devs; *dp1; dp1 = &(*dp1)->next) {
+		struct mdinfo *d;
+		if ((*dp1)->state_fd < 0)
+			continue;
+
+		d = malloc(sizeof(*d));
+		*d = **dp1;
+		*dp2 = d;
+		dp2 = & d->next;
+	}
+
+	return newa;
+}
+
 static void write_wakeup(struct supertype *c)
 {
 	static struct md_generic_cmd cmd = { .action = md_action_ping_monitor };
@@ -171,7 +208,7 @@ void check_update_queue(struct supertype *container)
 	}
 }
 
-void queue_metadata_update(struct metadata_update *mu)
+static void queue_metadata_update(struct metadata_update *mu)
 {
 	struct metadata_update **qp;
 
@@ -198,7 +235,6 @@ static void manage_container(struct mdstat_ent *mdstat,
 	 * array ignoring any metadata on it.
 	 * FIXME should we look for compatible metadata and take hints
 	 * about spare assignment.... probably not.
-	 *
 	 */
 	if (mdstat->devcnt != container->devcnt) {
 		/* read /sys/block/NAME/md/dev-??/block/dev to find out
@@ -222,12 +258,52 @@ static void manage_member(struct mdstat_ent *mdstat,
 	 * being requested.
 	 * Unfortunately decreases in raid_disks don't show up in
 	 * mdstat until the reshape completes FIXME.
+	 *
+	 * Actually, we also want to handle degraded arrays here by
+	 * trying to find and assign a spare.
+	 * We do that whenever the monitor tells us too.
 	 */
 	// FIXME
 	a->info.array.raid_disks = mdstat->raid_disks;
 	a->info.array.chunk_size = mdstat->chunk_size;
 	// MORE
 
+	if (a->check_degraded) {
+		struct metadata_update *updates = NULL;
+		struct mdinfo *newdev;
+		struct active_array *newa;
+		wait_update_handled();
+		a->check_degraded = 0;
+
+		/* The array may not be degraded, this is just a good time
+		 * to check.
+		 */
+		newdev = a->container->ss->activate_spare(a, &updates);
+		if (newdev) {
+			struct mdinfo *d;
+			/* Cool, we can add a device or several. */
+			newa = duplicate_aa(a);
+			/* suspend recovery - maybe not needed */
+
+			/* Add device to array and set offset/size/slot.
+			 * and open files for each newdev */
+			for (d = newdev; d ; d = d->next) {
+				struct mdinfo *newd;
+				if (sysfs_add_disk(&newa->info, d))
+					continue;
+				newd = newa->info.devs;
+				newd->state_fd = sysfs_open(a->devnum,
+							    newd->sys_name,
+							    "state");
+				newd->prev_state
+					= read_dev_state(newd->state_fd);
+				newd->curr_state = newd->prev_state;
+			}
+			queue_metadata_update(updates);
+			replace_array(a->container, a, newa);
+			sysfs_set_str(&a->info, NULL, "sync_action", "repair");
+		}
+	}
 }
 
 static void manage_new(struct mdstat_ent *mdstat,
@@ -289,7 +365,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 						    "state");
 
 			newd->prev_state = read_dev_state(newd->state_fd);
-			newd->curr_state = newd->curr_state;
+			newd->curr_state = newd->prev_state;
 		} else {
 			newd->state_fd = -1;
 		}

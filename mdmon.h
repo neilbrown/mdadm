@@ -16,6 +16,8 @@ struct active_array {
 	enum array_state prev_state, curr_state, next_state;
 	enum sync_action prev_action, curr_action, next_action;
 
+	int check_degraded; /* flag set by mon, read by manage */
+
 	int devnum;
 
 	unsigned long long resync_start;

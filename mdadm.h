@@ -438,6 +438,15 @@ extern struct superswitch {
 	void (*process_update)(struct supertype *st,
 			       struct metadata_update *update);
 
+	/* activate_spare will check if the array is degraded and, if it
+	 * is, try to find some spare space in the container.
+	 * On success, it add appropriate updates (For process_update) to
+	 * to the 'updates' list and returns a list of 'mdinfo' identifying
+	 * the device, or devices as there might be multiple missing
+	 * devices and multiple spares available.
+	 */
+	struct mdinfo *(*activate_spare)(struct active_array *a,
+					 struct metadata_update **updates);
 
 	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */

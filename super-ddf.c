@@ -111,7 +111,7 @@ unsigned long crc32(
 #define DDF_REVISION	"01.00.00"
 
 struct ddf_header {
-	__u32	magic;
+	__u32	magic;		/* DDF_HEADER_MAGIC */
 	__u32	crc;
 	char	guid[DDF_GUID_LEN];
 	char	revision[8];	/* 01.00.00 */
@@ -167,7 +167,7 @@ struct ddf_header {
 
 /* The content of the 'controller section' - global scope */
 struct ddf_controller_data {
-	__u32	magic;
+	__u32	magic;			/* DDF_CONTROLLER_MAGIC */
 	__u32	crc;
 	char	guid[DDF_GUID_LEN];
 	struct controller_type {
@@ -183,7 +183,7 @@ struct ddf_controller_data {
 
 /* The content of phys_section - global scope */
 struct phys_disk {
-	__u32	magic;
+	__u32	magic;		/* DDF_PHYS_RECORDS_MAGIC */
 	__u32	crc;
 	__u16	used_pdes;
 	__u16	max_pdes;
@@ -202,7 +202,7 @@ struct phys_disk {
 /* phys_disk_entry.type is a bitmap - bigendian remember */
 #define	DDF_Forced_PD_GUID		1
 #define	DDF_Active_in_VD		2
-#define	DDF_Global_Spare		4
+#define	DDF_Global_Spare		4 /* VD_CONF records are ignored */
 #define	DDF_Spare			8 /* overrides Global_spare */
 #define	DDF_Foreign			16
 #define	DDF_Legacy			32 /* no DDF on this device */
@@ -224,7 +224,7 @@ struct phys_disk {
 
 /* The content of the virt_section global scope */
 struct virtual_disk {
-	__u32	magic;
+	__u32	magic;		/* DDF_VIRT_RECORDS_MAGIC */
 	__u32	crc;
 	__u16	populated_vdes;
 	__u16	max_vdes;
@@ -278,7 +278,7 @@ struct virtual_disk {
  */
 
 struct vd_config {
-	__u32	magic;
+	__u32	magic;		/* DDF_VD_CONF_MAGIC */
 	__u32	crc;
 	char	guid[DDF_GUID_LEN];
 	__u32	timestamp;
@@ -322,7 +322,7 @@ struct vd_config {
 #define	DDF_cache_rallowed	64	/* enable read caching */
 
 struct spare_assign {
-	__u32	magic;
+	__u32	magic;		/* DDF_SPARE_ASSIGN_MAGIC */
 	__u32	crc;
 	__u32	timestamp;
 	__u8	reserved[7];
@@ -344,7 +344,7 @@ struct spare_assign {
 
 /* The data_section contents - local scope */
 struct disk_data {
-	__u32	magic;
+	__u32	magic;		/* DDF_PHYS_DATA_MAGIC */
 	__u32	crc;
 	char	guid[DDF_GUID_LEN];
 	__u32	refnum;		/* crc of some magic drive data ... */
@@ -2680,6 +2680,126 @@ static void ddf_sync_metadata(struct supertype *st)
 	fprintf(stderr, "ddf: sync_metadata\n");
 }
 
+static void ddf_process_update(struct supertype *st,
+			       struct metadata_update *update)
+{
+	/* Apply this update to the metadata.
+	 * The first 4 bytes are a DDF_*_MAGIC which guides
+	 * our actions.
+	 * Possible update are:
+	 *  DDF_PHYS_RECORDS_MAGIC
+	 *    Add a new physical device.  Changes to this record
+	 *    only happen implicitly.
+	 *    used_pdes is the device number.
+	 *  DDF_VIRT_RECORDS_MAGIC
+	 *    Add a new VD.  Possibly also change the 'access' bits.
+	 *    populated_vdes is the entry number.
+	 *  DDF_VD_CONF_MAGIC
+	 *    New or updated VD.  the VIRT_RECORD must already
+	 *    exist.  For an update, phys_refnum and lba_offset
+	 *    (at least) are updated, and the VD_CONF must
+	 *    be written to precisely those devices listed with
+	 *    a phys_refnum.
+	 *  DDF_SPARE_ASSIGN_MAGIC
+	 *    replacement Spare Assignment Record... but for which device?
+	 *
+	 * So, e.g.:
+	 *  - to create a new array, we send a VIRT_RECORD and
+	 *    a VD_CONF.  Then assemble and start the array.
+	 *  - to activate a spare we send a VD_CONF to add the phys_refnum
+	 *    and offset.  This will also mark the spare as active with
+	 *    a spare-assignment record.
+	 */
+	struct ddf_super *ddf = st->sb;
+	__u32 *magic = (__u32*)update->buf;
+	struct phys_disk *pd;
+	struct virtual_disk *vd;
+	struct vd_config *vc;
+	struct vcl *vcl;
+	struct dl *dl;
+	int mppe;
+	int ent;
+
+	switch (*magic) {
+	case DDF_PHYS_RECORDS_MAGIC:
+
+		if (update->len != (sizeof(struct phys_disk) +
+				    sizeof(struct phys_disk_entry)))
+			return;
+		pd = (struct phys_disk*)update->buf;
+
+		ent = __be16_to_cpu(pd->used_pdes);
+		if (ent >= __be16_to_cpu(ddf->phys->max_pdes))
+			return;
+		if (!all_ff(ddf->phys->entries[ent].guid))
+			return;
+		ddf->phys->entries[ent] = pd->entries[0];
+		ddf->phys->used_pdes = __cpu_to_be16(1 +
+					   __be16_to_cpu(ddf->phys->used_pdes));
+		break;
+
+	case DDF_VIRT_RECORDS_MAGIC:
+
+		if (update->len != (sizeof(struct virtual_disk) +
+				    sizeof(struct virtual_entry)))
+			return;
+		vd = (struct virtual_disk*)update->buf;
+
+		ent = __be16_to_cpu(vd->populated_vdes);
+		if (ent >= __be16_to_cpu(ddf->virt->max_vdes))
+			return;
+		if (!all_ff(ddf->virt->entries[ent].guid))
+			return;
+		ddf->virt->entries[ent] = vd->entries[0];
+		ddf->virt->populated_vdes = __cpu_to_be16(1 +
+			      __be16_to_cpu(ddf->virt->populated_vdes));
+		break;
+
+	case DDF_VD_CONF_MAGIC:
+
+		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
+		if (update->len != ddf->conf_rec_len)
+			return;
+		vc = (struct vd_config*)update->buf;
+		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
+			if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
+				break;
+		if (vcl) {
+			/* An update, just copy the phys_refnum and lba_offset
+			 * fields
+			 */
+			memcpy(vcl->conf.phys_refnum, vc->phys_refnum,
+			       mppe * (sizeof(__u32) + sizeof(__u64)));
+		} else {
+			/* A new VD_CONF */
+			vcl = update->space;
+			update->space = NULL;
+			vcl->next = ddf->conflist;
+			vcl->conf = *vc;
+			vcl->lba_offset = (__u64*)
+				&vcl->conf.phys_refnum[mppe];
+			ddf->conflist = vcl;
+		}
+		/* Now make sure vlist is correct for each dl. */
+		for (dl = ddf->dlist; dl; dl = dl->next) {
+			int dn;
+			int vn = 0;
+			for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
+				for (dn=0; dn < ddf->mppe ; dn++)
+					if (vcl->conf.phys_refnum[dn] ==
+					    dl->disk.refnum) {
+						dl->vlist[vn++] = vcl;
+						break;
+					}
+			while (vn < ddf->max_part)
+				dl->vlist[vn++] = NULL;
+		}
+		break;
+	case DDF_SPARE_ASSIGN_MAGIC:
+	default: break;
+	}
+}
+
 struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
@@ -2714,7 +2834,7 @@ struct superswitch super_ddf = {
 	.set_array_state= ddf_set_array_state,
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
-
+	.process_update	= ddf_process_update,
 
 };
 

@@ -372,6 +372,7 @@ extern mapping_t r5layout[], pers[], modes[], faultylayout[];
 extern char *map_dev(int major, int minor, int create);
 
 struct active_array;
+struct metadata_update;
 
 extern struct superswitch {
 	void (*examine_super)(struct supertype *st, char *homehost);
@@ -433,7 +434,9 @@ extern struct superswitch {
 	 * not in fact changed.
 	 */
 	void (*set_disk)(struct active_array *a, int n, int state);
-	void (*sync_metadata)(struct active_array *a);
+	void (*sync_metadata)(struct supertype *st);
+	void (*process_update)(struct supertype *st,
+			       struct metadata_update *update);
 
 
 	int major;

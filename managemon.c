@@ -151,6 +151,45 @@ static void replace_array(struct supertype *container,
 	write_wakeup(container);
 }
 
+struct metadata_update *update_queue = NULL;
+struct metadata_update *update_queue_handled = NULL;
+struct metadata_update *update_queue_pending = NULL;
+
+void check_update_queue(struct supertype *container)
+{
+	while (update_queue_handled) {
+		struct metadata_update *this = update_queue_handled;
+		update_queue_handled = this->next;
+		free(this->buf);
+		free(this);
+	}
+	if (update_queue == NULL &&
+	    update_queue_pending) {
+		update_queue = update_queue_pending;
+		update_queue_pending = NULL;
+		write_wakeup(container);
+	}
+}
+
+void queue_metadata_update(struct metadata_update *mu)
+{
+	struct metadata_update **qp;
+
+	qp = &update_queue_pending;
+	while (*qp)
+		qp = & ((*qp)->next);
+	*qp = mu;
+}
+
+void wait_update_handled(void)
+{
+	/* Wait for any pending update to be handled by monitor.
+	 * i.e. wait until update_queue is NULL
+	 */
+	while (update_queue)
+		usleep(100 * 1000);
+}
+
 static void manage_container(struct mdstat_ent *mdstat,
 			     struct supertype *container)
 {
@@ -403,6 +442,8 @@ void do_manager(struct supertype *container)
 		free_mdstat(mdstat);
 
 		remove_old();
+
+		check_update_queue(container);
 
 		manager_ready = 1;
 		sigprocmask(SIG_SETMASK, &block, &orig);

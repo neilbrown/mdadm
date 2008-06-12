@@ -1307,9 +1307,9 @@ static int store_imsm_mpb(int fd, struct intel_super *super)
 	return 0;
 }
 
-static void imsm_sync_metadata(struct active_array *a)
+static void imsm_sync_metadata(struct supertype *container)
 {
-	struct intel_super *super = a->container->sb;
+	struct intel_super *super = container->sb;
 	struct imsm_super *mpb = super->mpb;
 	struct dl *d;
 	__u32 generation;

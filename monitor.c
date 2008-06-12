@@ -299,7 +299,7 @@ static int read_and_act(struct active_array *a)
 		// FIXME;
 	}
 
-	a->container->ss->sync_metadata(a);
+	a->container->ss->sync_metadata(a->container);
 
 	/* Effect state changes in the array */
 	if (a->next_state != bad_word)
@@ -490,6 +490,18 @@ static int wait_and_act(struct supertype *container, int pfd,
 				err = handle_pipe(active_cmd, *aap);
 			write(monfd, &err, 1);
 		}
+	}
+
+	if (update_queue) {
+		struct metadata_update *this;
+
+		for (this = update_queue; this ; this = this->next)
+			container->ss->process_update(container, this);
+
+		update_queue_handled = update_queue;
+		update_queue = NULL;
+		signal_manager();
+		container->ss->sync_metadata(container);
 	}
 
 	for (a = *aap; a ; a = a->next) {

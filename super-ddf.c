@@ -2666,7 +2666,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	fprintf(stderr, "ddf: set_disk %d\n", n);
 }
 
-static void ddf_sync_metadata(struct active_array *a)
+static void ddf_sync_metadata(struct supertype *st)
 {
 
 	/*
@@ -2676,7 +2676,7 @@ static void ddf_sync_metadata(struct active_array *a)
 	 * but ddf is sufficiently weird that it probably always
 	 * changes global data ....
 	 */
-	__write_init_super_ddf(a->container, 0);
+	__write_init_super_ddf(st, 0);
 	fprintf(stderr, "ddf: sync_metadata\n");
 }
 

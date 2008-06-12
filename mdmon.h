@@ -21,7 +21,24 @@ struct active_array {
 	unsigned long long resync_start;
 };
 
-
+/*
+ * Metadata updates are handled by the monitor thread,
+ * as it has exclusive access to the metadata.
+ * When the manager want to updates metadata, either
+ * for it's own reason (e.g. committing a spare) or
+ * on behalf of mdadm, it creates a metadata_update
+ * structure and queues it to the monitor.
+ * Updates are created and processed by code under the
+ * superswitch.  All common code sees them as opaque
+ * blobs.
+ */
+struct metadata_update {
+	int	len;
+	char	*buf;
+	void	*space; /* allocated space that monitor will use */
+	struct metadata_update *next;
+};
+extern struct metadata_update *update_queue, *update_queue_handled;
 
 #define MD_MAJOR 9
 

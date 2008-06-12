@@ -412,6 +412,7 @@ struct ddf_super {
 		int major, minor;
 		char *devname;
 		int fd;
+		int pdnum;	/* index in ->phys */
 		struct spare_assign *spare;
 		struct vcl *vlist[0]; /* max_part in size */
 	} *dlist;
@@ -642,6 +643,12 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	for (i=0 ; i < super->max_part ; i++)
 		dl->vlist[i] = NULL;
 	super->dlist = dl;
+	dl->pdnum = 0;
+	for (i=0; i < __be16_to_cpu(super->active->max_pd_entries); i++)
+		if (memcmp(super->phys->entries[i].guid,
+			   dl->disk.guid, DDF_GUID_LEN) == 0)
+			dl->pdnum = i;
+
 
 	/* Now the config list. */
 	/* 'conf' is an array of config entries, some of which are
@@ -1790,13 +1797,15 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	 * We need to find suitable free space in that device and update
 	 * the phys_refnum and lba_offset for the newly created vd_config.
 	 * We might also want to update the type in the phys_disk
-	 * section. FIXME
+	 * section.
 	 */
 	struct dl *dl;
 	struct ddf_super *ddf = st->sb;
 	struct vd_config *vc;
 	__u64 *lba_offset;
 	int working;
+	int i;
+	int max_virt_disks;
 
 	for (dl = ddf->dlist; dl ; dl = dl->next)
 		if (dl->major == dk->major &&
@@ -1806,11 +1815,16 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		return;
 
 	vc = &ddf->newconf->conf;
+	lba_offset = ddf->newconf->lba_offset;
 	vc->phys_refnum[dk->raid_disk] = dl->disk.refnum;
-	lba_offset = (__u64*)(vc->phys_refnum + ddf->mppe);
 	lba_offset[dk->raid_disk] = 0; /* FIXME */
 
-	dl->vlist[0] = ddf->newconf; /* FIXME */
+	for (i=0; i < ddf->max_part ; i++)
+		if (dl->vlist[i] == NULL)
+			break;
+	if (i == ddf->max_part)
+		return;
+	dl->vlist[i] = ddf->newconf;
 
 	dl->fd = fd;
 	dl->devname = devname;
@@ -1819,19 +1833,31 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	 * array as optimal yet
 	 */
 	working = 0;
-#if 0
+
 	for (i=0; i < __be16_to_cpu(vc->prim_elmnt_count); i++)
 		if (vc->phys_refnum[i] != 0xffffffff)
 			working++;
+	/* Find which virtual_entry */
+	max_virt_disks = __be16_to_cpu(ddf->active->max_vd_entries);
+	for (i=0; i < max_virt_disks ; i++)
+		if (memcmp(ddf->virt->entries[i].guid,
+			   vc->guid, DDF_GUID_LEN)==0)
+			break;
+	if (i == max_virt_disks)
+		return;
 	if (working == __be16_to_cpu(vc->prim_elmnt_count))
-		->entries[xx].state = (->entries[xx].state & ~DDF_state_mask)
+		ddf->virt->entries[i].state =
+			(ddf->virt->entries[i].state & ~DDF_state_mask)
 			| DDF_state_optimal;
 
 	if (vc->prl == DDF_RAID6 &&
 	    working+1 == __be16_to_cpu(vc->prim_elmnt_count))
-		->entries[xx].state = (->entries[xx].state & ~DDF_state_mask)
+		ddf->virt->entries[i].state =
+			(ddf->virt->entries[i].state & ~DDF_state_mask)
 			| DDF_state_part_optimal;
-#endif
+
+	ddf->phys->entries[dl->pdnum].type &= ~__cpu_to_be16(DDF_Global_Spare);
+	ddf->phys->entries[dl->pdnum].type |= __cpu_to_be16(DDF_Active_in_VD);
 }
 
 /* add a device to a container, either while creating it or while
@@ -1880,12 +1906,14 @@ static void add_to_super_ddf(struct supertype *st,
 
 	n = __be16_to_cpu(ddf->phys->used_pdes);
 	pde = &ddf->phys->entries[n];
+	dd->pdnum = n;
+
 	n++;
 	ddf->phys->used_pdes = __cpu_to_be16(n);
 
 	memcpy(pde->guid, dd->disk.guid, DDF_GUID_LEN);
 	pde->refnum = dd->disk.refnum;
-	pde->type = __cpu_to_be16(DDF_Forced_PD_GUID |DDF_Global_Spare);
+	pde->type = __cpu_to_be16(DDF_Forced_PD_GUID | DDF_Global_Spare);
 	pde->state = __cpu_to_be16(DDF_Online);
 	get_dev_size(fd, NULL, &size);
 	/* We are required to reserve 32Meg, and record the size in sectors */

@@ -1286,6 +1286,14 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 //	info->disk.raid_disk = find refnum in the table and use index;
 //	info->disk.state = ???;
 
+	info->resync_start = 0;
+	if (!(ddf->virt->entries[info->container_member].state
+	      & DDF_state_inconsistent)  &&
+	    (ddf->virt->entries[info->container_member].init_state
+	     & DDF_initstate_mask)
+	    == DDF_init_full)
+		info->resync_start = ~0ULL;
+
 	uuid_from_super_ddf(st, info->uuid);
 
 	sprintf(info->text_version, "/%s/%d",

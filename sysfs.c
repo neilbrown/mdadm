@@ -299,6 +299,7 @@ int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 	char fname[50];
 	int n;
 	int fd;
+
 	sprintf(fname, "/sys/block/%s/md/%s/%s",
 		sra->sys_name, dev?dev->sys_name:"", name);
 	fd = open(fname, O_WRONLY);

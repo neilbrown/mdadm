@@ -137,6 +137,7 @@ static struct active_array *duplicate_aa(struct active_array *aa)
 		*dp2 = d;
 		dp2 = & d->next;
 	}
+	*dp2 = NULL;
 
 	return newa;
 }
@@ -197,7 +198,7 @@ void check_update_queue(struct supertype *container)
 	while (update_queue_handled) {
 		struct metadata_update *this = update_queue_handled;
 		update_queue_handled = this->next;
-		free(this->buf);
+//		free(this->buf);
 		free(this);
 	}
 	if (update_queue == NULL &&
@@ -326,6 +327,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	memset(new, 0, sizeof(*new));
 
 	new->devnum = mdstat->devnum;
+	strcpy(new->info.sys_name, devnum2devname(new->devnum));
 
 	new->prev_state = new->curr_state = new->next_state = inactive;
 	new->prev_action= new->curr_action= new->next_action= idle;
@@ -358,8 +360,6 @@ static void manage_new(struct mdstat_ent *mdstat,
 		if (di) {
 			memcpy(newd, di, sizeof(*newd));
 
-			sprintf(newd->sys_name, "rd%d", i);
-
 			newd->state_fd = sysfs_open(new->devnum,
 						    newd->sys_name,
 						    "state");
@@ -368,7 +368,11 @@ static void manage_new(struct mdstat_ent *mdstat,
 			newd->curr_state = newd->prev_state;
 		} else {
 			newd->state_fd = -1;
+			newd->disk.raid_disk = i;
+			newd->prev_state = DS_REMOVE;
+			newd->curr_state = DS_REMOVE;
 		}
+		sprintf(newd->sys_name, "rd%d", i);
 		newd->next = new->info.devs;
 		new->info.devs = newd;
 	}

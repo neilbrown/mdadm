@@ -271,7 +271,6 @@ static int read_and_act(struct active_array *a)
 		}
 	}
 
-
 	for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {
 		if (mdi->curr_state & DS_FAULTY) {
 			a->container->ss->set_disk(a, mdi->disk.raid_disk,
@@ -279,12 +278,6 @@ static int read_and_act(struct active_array *a)
 			check_degraded = 1;
 			mdi->next_state = DS_REMOVE;
 		}
-	}
-
-	if (check_degraded) {
-		/* manager will do the actual check */
-		a->check_degraded = 1;
-		signal_manager();
 	}
 
 	a->container->ss->sync_metadata(a->container);
@@ -321,6 +314,12 @@ static int read_and_act(struct active_array *a)
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->prev_state = mdi->curr_state;
 		mdi->next_state = 0;
+	}
+
+	if (check_degraded) {
+		/* manager will do the actual check */
+		a->check_degraded = 1;
+		signal_manager();
 	}
 
 	if (deactivate)

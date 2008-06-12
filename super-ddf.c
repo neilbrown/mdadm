@@ -2200,7 +2200,7 @@ int cmp_extent(const void *av, const void *bv)
 struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 {
 	/* find a list of used extents on the give physical device
-	 * (dnum) or the given ddf.
+	 * (dnum) of the given ddf.
 	 * Return a malloced array of 'struct extent'
 
 FIXME ignore DDF_Legacy devices?
@@ -2211,6 +2211,7 @@ FIXME ignore DDF_Legacy devices?
 	int dnum;
 	int i, j;
 
+	/* FIXME this is dl->pdnum */
 	for (dnum = 0; dnum < ddf->phys->used_pdes; dnum++)
 		if (memcmp(dl->disk.guid,
 			   ddf->phys->entries[dnum].guid,
@@ -2274,6 +2275,7 @@ int validate_geometry_ddf_bvd(struct supertype *st,
 		for (dl = ddf->dlist; dl ; dl = dl->next)
 		{
 			int found = 0;
+			pos = 0;
 
 			i = 0;
 			e = get_extents(ddf, dl);
@@ -2654,6 +2656,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		}
 	}
 
+	fprintf(stderr, "ddf: set_disk %d to %x\n", n, state);
+
 	/* Now we need to check the state of the array and update
 	 * virtual_disk.entries[n].state.
 	 * It needs to be one of "optimal", "degraded", "failed".
@@ -2699,7 +2703,6 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		(ddf->virt->entries[inst].state & ~DDF_state_mask)
 		| state;
 
-	fprintf(stderr, "ddf: set_disk %d\n", n);
 }
 
 static void ddf_sync_metadata(struct supertype *st)
@@ -2756,6 +2759,8 @@ static void ddf_process_update(struct supertype *st,
 	int mppe;
 	int ent;
 
+	printf("Process update %x\n", *magic);
+
 	switch (*magic) {
 	case DDF_PHYS_RECORDS_MAGIC:
 
@@ -2792,6 +2797,7 @@ static void ddf_process_update(struct supertype *st,
 		break;
 
 	case DDF_VD_CONF_MAGIC:
+		printf("len %d %d\n", update->len, ddf->conf_rec_len);
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
 		if (update->len != ddf->conf_rec_len)
@@ -2800,6 +2806,7 @@ static void ddf_process_update(struct supertype *st,
 		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 			if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
 				break;
+		printf("vcl = %p\n", vcl);
 		if (vcl) {
 			/* An update, just copy the phys_refnum and lba_offset
 			 * fields
@@ -2824,16 +2831,237 @@ static void ddf_process_update(struct supertype *st,
 				for (dn=0; dn < ddf->mppe ; dn++)
 					if (vcl->conf.phys_refnum[dn] ==
 					    dl->disk.refnum) {
+						printf("dev %d has %p at %d\n",
+						       dl->pdnum, vcl, vn);
 						dl->vlist[vn++] = vcl;
 						break;
 					}
 			while (vn < ddf->max_part)
 				dl->vlist[vn++] = NULL;
+			if (dl->vlist[0]) {
+				ddf->phys->entries[dl->pdnum].type &=
+					~__cpu_to_be16(DDF_Global_Spare);
+				ddf->phys->entries[dl->pdnum].type |=
+					__cpu_to_be16(DDF_Active_in_VD);
+			}
+			if (dl->spare) {
+				ddf->phys->entries[dl->pdnum].type &=
+					~__cpu_to_be16(DDF_Global_Spare);
+				ddf->phys->entries[dl->pdnum].type |=
+					__cpu_to_be16(DDF_Spare);
+			}
+			if (!dl->vlist[0] && !dl->spare) {
+				ddf->phys->entries[dl->pdnum].type |=
+					__cpu_to_be16(DDF_Global_Spare);
+				ddf->phys->entries[dl->pdnum].type &=
+					~__cpu_to_be16(DDF_Spare |
+						       DDF_Active_in_VD);
+			}
 		}
 		break;
 	case DDF_SPARE_ASSIGN_MAGIC:
 	default: break;
 	}
+}
+
+/*
+ * Check if the array 'a' is degraded but not failed.
+ * If it is, find as many spares as are available and needed and
+ * arrange for their inclusion.
+ * We only choose devices which are not already in the array,
+ * and prefer those with a spare-assignment to this array.
+ * otherwise we choose global spares - assuming always that
+ * there is enough room.
+ * For each spare that we assign, we return an 'mdinfo' which
+ * describes the position for the device in the array.
+ * We also add to 'updates' a DDF_VD_CONF_MAGIC update with
+ * the new phys_refnum and lba_offset values.
+ *
+ * Only worry about BVDs at the moment.
+ */
+static struct mdinfo *ddf_activate_spare(struct active_array *a,
+					 struct metadata_update **updates)
+{
+	int working = 0;
+	struct mdinfo *d;
+	struct ddf_super *ddf = a->container->sb;
+	int global_ok = 0;
+	struct mdinfo *rv = NULL;
+	struct mdinfo *di;
+	struct metadata_update *mu;
+	struct dl *dl;
+	int i;
+	struct vd_config *vc;
+	__u64 *lba;
+
+/* FIXME, If there is a DS_FAULTY, we want to wait for it to be
+ * removed.  Then only look at DS_REMOVE devices.
+ * What about !DS_INSYNC - how can that happen?
+ */
+	for (d = a->info.devs ; d ; d = d->next) {
+		if ((d->curr_state & DS_FAULTY) &&
+			d->state_fd >= 0)
+			/* wait for Removal to happen */
+			return NULL;
+		if (d->state_fd >= 0)
+			working ++;
+	}
+
+	printf("ddf_activate: working=%d (%d) level=%d\n", working, a->info.array.raid_disks,
+	       a->info.array.level);
+	if (working == a->info.array.raid_disks)
+		return NULL; /* array not degraded */
+	switch (a->info.array.level) {
+	case 1:
+		if (working == 0)
+			return NULL; /* failed */
+		break;
+	case 4:
+	case 5:
+		if (working < a->info.array.raid_disks - 1)
+			return NULL; /* failed */
+		break;
+	case 6:
+		if (working < a->info.array.raid_disks - 2)
+			return NULL; /* failed */
+		break;
+	default: /* concat or stripe */
+		return NULL; /* failed */
+	}
+
+	/* For each slot, if it is not working, find a spare */
+	dl = ddf->dlist;
+	for (i = 0; i < a->info.array.raid_disks; i++) {
+		for (d = a->info.devs ; d ; d = d->next)
+			if (d->disk.raid_disk == i)
+				break;
+		printf("found %d: %p %x\n", i, d, d?d->curr_state:0);
+		if (d && (d->state_fd >= 0))
+			continue;
+
+		/* OK, this device needs recovery.  Find a spare */
+	again:
+		for ( ; dl ; dl = dl->next) {
+			unsigned long long esize;
+			unsigned long long pos;
+			struct mdinfo *d2;
+			int is_global = 0;
+			int is_dedicated = 0;
+			struct extent *ex;
+			int j;
+			/* If in this array, skip */
+			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
+				if (d2->disk.major == dl->major &&
+				    d2->disk.minor == dl->minor) {
+					printf("%x:%x already in array\n", dl->major, dl->minor);
+					break;
+				}
+			if (d2)
+				continue;
+			if (ddf->phys->entries[dl->pdnum].type &
+			    __cpu_to_be16(DDF_Spare)) {
+				/* Check spare assign record */
+				if (dl->spare) {
+					if (dl->spare->type & DDF_spare_dedicated) {
+						/* check spare_ents for guid */
+						for (j = 0 ;
+						     j < __be16_to_cpu(dl->spare->populated);
+						     j++) {
+							if (memcmp(dl->spare->spare_ents[j].guid,
+								   ddf->virt->entries[a->info.container_member].guid,
+								   DDF_GUID_LEN) == 0)
+								is_dedicated = 1;
+						}
+					} else
+						is_global = 1;
+				}
+			} else if (ddf->phys->entries[dl->pdnum].type &
+				   __cpu_to_be16(DDF_Global_Spare)) {
+				is_global = 1;
+			}
+			if ( ! (is_dedicated ||
+				(is_global && global_ok))) {
+				printf("%x:%x not suitable: %d %d\n", dl->major, dl->minor,
+				       is_dedicated, is_global);
+				continue;
+			}
+
+			/* We are allowed to use this device - is there space?
+			 * We need a->info.component_size sectors */
+			ex = get_extents(ddf, dl);
+			if (!ex) {
+				printf("cannot get extents\n");
+				continue;
+			}
+			j = 0; pos = 0;
+			esize = 0;
+
+			do {
+				esize = ex[j].start - pos;
+				if (esize >= a->info.component_size)
+					break;
+				pos = ex[i].start + ex[i].size;
+				i++;
+			} while (ex[i-1].size);
+
+			free(ex);
+			if (esize < a->info.component_size) {
+				printf("%x:%x has no room: %llu %llu\n", dl->major, dl->minor,
+				       esize, a->info.component_size);
+				/* No room */
+				continue;
+			}
+
+			/* Cool, we have a device with some space at pos */
+			di = malloc(sizeof(*di));
+			memset(di, 0, sizeof(*di));
+			di->disk.number = i;
+			di->disk.raid_disk = i;
+			di->disk.major = dl->major;
+			di->disk.minor = dl->minor;
+			di->disk.state = 0;
+			di->data_offset = pos;
+			di->component_size = a->info.component_size;
+			di->container_member = dl->pdnum;
+			di->next = rv;
+			rv = di;
+			printf("%x:%x to be %d at %llu\n", dl->major, dl->minor,
+			       i, pos);
+
+			break;
+		}
+		if (!dl && ! global_ok) {
+			/* not enough dedicated spares, try global */
+			global_ok = 1;
+			dl = ddf->dlist;
+			goto again;
+		}
+	}
+
+	if (!rv)
+		/* No spares found */
+		return rv;
+	/* Now 'rv' has a list of devices to return.
+	 * Create a metadata_update record to update the
+	 * phys_refnum and lba_offset values
+	 */
+	mu = malloc(sizeof(*mu) + ddf->conf_rec_len * 512);
+	mu->buf = (char*)(mu+1);
+	mu->space = malloc(sizeof(struct vcl));
+	mu->len = ddf->conf_rec_len;
+	mu->next = *updates;
+	vc = find_vdcr(ddf, a->info.container_member);
+	memcpy(mu->buf, vc, ddf->conf_rec_len * 512);
+
+	vc = (struct vd_config*)mu->buf;
+	lba = (__u64*)&vc->phys_refnum[ddf->mppe];
+	for (di = rv ; di ; di = di->next) {
+		vc->phys_refnum[di->disk.raid_disk] =
+			ddf->phys->entries[dl->pdnum].refnum;
+		lba[di->disk.raid_disk] = di->data_offset;
+	}
+	*updates = mu;
+	return rv;
 }
 
 struct superswitch super_ddf = {
@@ -2871,6 +3099,7 @@ struct superswitch super_ddf = {
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
 	.process_update	= ddf_process_update,
+	.activate_spare = ddf_activate_spare,
 
 };
 

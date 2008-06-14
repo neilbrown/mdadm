@@ -112,11 +112,14 @@ struct imsm_super {
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
 #endif
 
-static unsigned long long mpb_sectors(struct imsm_super *mpb)
+static unsigned int sector_count(__u32 bytes)
 {
-	__u32 size = __le32_to_cpu(mpb->mpb_size);
+	return ((bytes + (512-1)) & (~(512-1))) / 512;
+}
 
-	return ((size + (512-1)) & (~(512-1))) / 512;
+static unsigned int mpb_sectors(struct imsm_super *mpb)
+{
+	return sector_count(__le32_to_cpu(mpb->mpb_size));
 }
 
 /* internal representation of IMSM metadata */
@@ -328,6 +331,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	sum = __le32_to_cpu(mpb->check_sum);
 	printf("       Checksum : %08x %s\n", sum,
 		gen_imsm_checksum(mpb) == sum ? "correct" : "incorrect");
+	printf("    MPB Sectors : %d\n", mpb_sectors(mpb));
 	printf("          Disks : %d\n", mpb->num_disks);
 	printf("   RAID Devices : %d\n", mpb->num_raid_devs);
 	print_imsm_disk(mpb, super->disks->index);

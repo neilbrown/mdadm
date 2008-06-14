@@ -2147,9 +2147,9 @@ int validate_geometry_ddf(struct supertype *st,
 							 dev, freesize);
 		}
 		close(cfd);
-	}
-	fprintf(stderr, Name ": Cannot use %s: Already in use\n",
-		dev);
+	} else /* device may belong to a different container */
+		return 0;
+
 	return 1;
 }
 

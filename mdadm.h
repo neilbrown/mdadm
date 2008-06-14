@@ -453,7 +453,7 @@ extern struct superswitch {
 	int external;
 } super0, super1, super_ddf, super_ddf_bvd, super_ddf_svd, *superlist[];
 
-extern struct superswitch super_imsm, super_imsm_raid;
+extern struct superswitch super_imsm, super_imsm_volume;
 
 struct supertype {
 	struct superswitch *ss;

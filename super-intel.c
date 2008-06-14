@@ -156,18 +156,18 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 	return st;
 }
 
-static struct supertype *match_metadata_desc_imsm_raid(char *arg)
+static struct supertype *match_metadata_desc_imsm_volume(char *arg)
 {
 	struct supertype *st;
 
-	if (strcmp(arg, "imsm/raid") != 0 &&
+	if (strcmp(arg, "imsm/volume") != 0 &&
 	    strcmp(arg, "raid") != 0 &&
 	    strcmp(arg, "default") != 0
 		)
 		return NULL;
 
 	st = malloc(sizeof(*st));
-	st->ss = &super_imsm_raid;
+	st->ss = &super_imsm_volume;
 	st->max_devs = IMSM_MAX_DEVICES;
 	st->minor_version = 0;
 	st->sb = NULL;
@@ -451,7 +451,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	strcpy(info->text_version, "imsm");
 }
 
-static void getinfo_super_imsm_raid(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 {
 	printf("%s\n", __FUNCTION__);
 
@@ -922,9 +922,9 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	return 0;
 }
 
-static int init_super_imsm_raid(struct supertype *st, mdu_array_info_t *info,
-				unsigned long long size, char *name,
-				char *homehost, int *uuid)
+static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
+				  unsigned long long size, char *name,
+				  char *homehost, int *uuid)
 {
 	printf("%s\n", __FUNCTION__);
 
@@ -937,8 +937,8 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dinfo,
 	printf("%s\n", __FUNCTION__);
 }
 
-static void add_to_super_imsm_raid(struct supertype *st, mdu_disk_info_t *dinfo,
-				   int fd, char *devname)
+static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dinfo,
+				     int fd, char *devname)
 {
 	printf("%s\n", __FUNCTION__);
 }
@@ -971,7 +971,7 @@ static void getinfo_super_n_imsm_container(struct supertype *st, struct mdinfo *
 	info->component_size = sect;
 }
 
-static void getinfo_super_n_raid(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_n_imsm_volume(struct supertype *st, struct mdinfo *info)
 {
 	printf("%s\n", __FUNCTION__);
 }
@@ -995,10 +995,10 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	return 0;
 }
 
-static int validate_geometry_imsm_raid(struct supertype *st, int level,
-				       int layout, int raiddisks, int chunk,
-				       unsigned long long size, char *subdev,
-				       unsigned long long *freesize)
+static int validate_geometry_imsm_volume(struct supertype *st, int level,
+					 int layout, int raiddisks, int chunk,
+					 unsigned long long size, char *subdev,
+					 unsigned long long *freesize)
 {
 	printf("%s\n", __FUNCTION__);
 
@@ -1400,20 +1400,20 @@ struct superswitch super_imsm_container = {
 	.external	= 1,
 };
 
-struct superswitch super_imsm_raid = {
+struct superswitch super_imsm_volume = {
 	.update_super	= update_super_imsm,
-	.init_super	= init_super_imsm_raid,
-	.add_to_super	= add_to_super_imsm_raid,
-	.getinfo_super  = getinfo_super_imsm_raid,
-	.getinfo_super_n  = getinfo_super_n_raid,
+	.init_super	= init_super_imsm_volume,
+	.add_to_super	= add_to_super_imsm_volume,
+	.getinfo_super  = getinfo_super_imsm_volume,
+	.getinfo_super_n  = getinfo_super_n_imsm_volume,
 	.write_init_super = write_init_super_imsm,
 
 	.load_super	= load_super_imsm,
 	.free_super	= free_super_imsm,
-	.match_metadata_desc = match_metadata_desc_imsm_raid,
+	.match_metadata_desc = match_metadata_desc_imsm_volume,
 
 
-	.validate_geometry = validate_geometry_imsm_raid,
+	.validate_geometry = validate_geometry_imsm_volume,
 	.major		= 2001,
 	.swapuuid	= 0,
 	.external	= 2,

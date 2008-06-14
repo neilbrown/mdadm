@@ -2178,7 +2178,7 @@ int validate_geometry_ddf_container(struct supertype *st,
 	}
 	close(fd);
 
-	*freesize = avail_size_ddf(st, ldsize);
+	*freesize = avail_size_ddf(st, ldsize >> 9);
 
 	return 1;
 }

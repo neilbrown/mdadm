@@ -347,7 +347,7 @@ extern int sysfs_set_array(struct mdinfo *sra,
 			   struct mdinfo *info);
 extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd);
 extern int sysfs_disk_to_sg(int fd);
-
+extern int sysfs_disk_to_scsi_id(int fd, __u32 *id);
 
 
 extern int save_stripes(int *source, unsigned long long *offsets,

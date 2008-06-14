@@ -544,26 +544,19 @@ static int imsm_read_serial(int fd, char *devname,
 			    __u8 serial[MAX_RAID_SERIAL_LEN])
 {
 	unsigned char scsi_serial[255];
-	struct stat stb;
 	int sg_fd;
-	int minor;
-	char sg_path[20];
 	int rv;
 	int rsp_len;
 	int i, cnt;
 
 	memset(scsi_serial, 0, sizeof(scsi_serial));
-	fstat(fd, &stb);
-	minor = minor(stb.st_rdev);
-	minor /= 16;
 
-	sprintf(sg_path, "/dev/sg%d", minor);
-	sg_fd = open(sg_path, O_RDONLY);
+	sg_fd = sysfs_disk_to_sg(fd);
 	if (sg_fd < 0) {
 		if (devname)
 			fprintf(stderr,
-				Name ": Failed to open %s for %s: %s\n",
-				sg_path,  devname, strerror(errno));
+				Name ": Failed to open sg interface for %s: %s\n",
+				devname, strerror(errno));
 		return 1;
 	}
 

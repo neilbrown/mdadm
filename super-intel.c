@@ -858,6 +858,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		st->ss = &super_imsm_container;
 		st->minor_version = 0;
 		st->max_devs = IMSM_MAX_DEVICES;
+		st->container_dev = fd2devnum(fd);
 	}
 
 	return 0;

@@ -494,7 +494,6 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	struct imsm_super *mpb = super->mpb;
 	struct imsm_disk *disk;
 	__u32 s;
-	int i, j;
 
 	info->array.major_version = 2000;
 	get_imsm_numerical_version(mpb, &info->array.minor_version,
@@ -515,32 +514,15 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.number = -1;
 	info->disk.state = 0;
 
-	if (!super->disks)
-		return;
-
-	info->disk.number = super->disks->index;
-	/* is this disk a member of a raid device? */
-	for (i = 0; i < mpb->num_raid_devs; i++) {
-		struct imsm_dev *dev = get_imsm_dev(mpb, i);
-		struct imsm_map *map = dev->vol.map;
-
-		for (j = 0; j < map->num_members; j++) {
-			__u32 index = get_imsm_disk_idx(map, j);
-
-			if (index == super->disks->index) {
-				info->disk.raid_disk = super->disks->index;
-				break;
-			}
-		}
-		if (info->disk.raid_disk != -1)
-			break;
+	if (super->disks) {
+		info->disk.number = super->disks->index;
+		info->disk.raid_disk = super->disks->index;
+		disk = get_imsm_disk(mpb, super->disks->index);
+		s = __le32_to_cpu(disk->status);
+		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
+		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
+		info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
 	}
-	disk = get_imsm_disk(mpb, super->disks->index);
-	s = __le32_to_cpu(disk->status);
-	info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
-	info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
-	info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
-
 }
 
 static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)

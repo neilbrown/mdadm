@@ -1031,8 +1031,7 @@ static int init_zero_imsm(struct supertype *st, mdu_array_info_t *info,
 			  unsigned long long size, char *name,
 			  char *homehost, int *uuid)
 {
-	printf("%s\n", __FUNCTION__);
-
+	st->sb = NULL;
 	return 0;
 }
 
@@ -1269,7 +1268,18 @@ static int write_init_super_imsm(struct supertype *st)
 
 static int store_zero_imsm(struct supertype *st, int fd)
 {
-	printf("%s\n", __FUNCTION__);
+	unsigned long long dsize;
+	char buf[512];
+
+	get_dev_size(fd, NULL, &dsize);
+
+	/* first block is stored on second to last sector of the disk */
+	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0)
+		return 1;
+
+	memset(buf, 0, sizeof(buf));
+	if (write(fd, buf, sizeof(buf)) != sizeof(buf))
+		return 1;
 
 	return 0;
 }

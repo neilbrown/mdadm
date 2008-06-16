@@ -1649,22 +1649,6 @@ static int imsm_open_new(struct supertype *c, struct active_array *a,
 	return 0;
 }
 
-static void imsm_set_array_state(struct active_array *a, int consistent)
-{
-	int inst = a->info.container_member;
-	struct intel_super *super = a->container->sb;
-	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
-	int dirty = !consistent || (a->resync_start != ~0ULL);
-
-	if (dev->vol.dirty != dirty) {
-		fprintf(stderr, "imsm: mark '%s' (%llu)\n",
-			dirty?"dirty":"clean", a->resync_start);
-
-		dev->vol.dirty = dirty;
-		super->updates_pending++;
-	}
-}
-
 static __u8 imsm_check_degraded(struct imsm_super *mpb, int n, int failed)
 {
 	struct imsm_dev *dev = get_imsm_dev(mpb, n);
@@ -1740,6 +1724,38 @@ static int imsm_count_failed(struct imsm_super *mpb, struct imsm_map *map)
 	}
 
 	return failed;
+}
+
+static void imsm_set_array_state(struct active_array *a, int consistent)
+{
+	int inst = a->info.container_member;
+	struct intel_super *super = a->container->sb;
+	struct imsm_dev *dev = get_imsm_dev(super->mpb, inst);
+	struct imsm_map *map = &dev->vol.map[0];
+	int dirty = !consistent;
+	int failed;
+	__u8 map_state;
+
+	if (a->resync_start == ~0ULL) {
+		failed = imsm_count_failed(super->mpb, map);
+		map_state = imsm_check_degraded(super->mpb, inst, failed);
+		if (!failed)
+			map_state = IMSM_T_STATE_NORMAL;
+		if (map->map_state != map_state) {
+			fprintf(stderr, "imsm: map_state %d: %d\n",
+				inst, map_state);
+			map->map_state = map_state;
+			super->updates_pending++;
+		}
+	}
+
+	if (dev->vol.dirty != dirty) {
+		fprintf(stderr, "imsm: mark '%s' (%llu)\n",
+			dirty?"dirty":"clean", a->resync_start);
+
+		dev->vol.dirty = dirty;
+		super->updates_pending++;
+	}
 }
 
 static void imsm_set_disk(struct active_array *a, int n, int state)

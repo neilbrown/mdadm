@@ -1795,24 +1795,23 @@ static int store_imsm_mpb(int fd, struct intel_super *super)
 
 	get_dev_size(fd, NULL, &dsize);
 
+	if (mpb_size > 512) {
+		/* -1 to account for anchor */
+		sectors = mpb_sectors(mpb) - 1;
+
+		/* write the extended mpb to the sectors preceeding the anchor */
+		if (lseek64(fd, dsize - (512 * (2 + sectors)), SEEK_SET) < 0)
+			return 1;
+
+		if (write(fd, super->buf + 512, mpb_size - 512) != mpb_size - 512)
+			return 1;
+	}
+
 	/* first block is stored on second to last sector of the disk */
 	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0)
 		return 1;
 
 	if (write(fd, super->buf, 512) != 512)
-		return 1;
-
-	if (mpb_size <= 512)
-		return 0;
-
-	/* -1 because we already wrote a sector */
-	sectors = mpb_sectors(mpb) - 1;
-
-	/* write the extended mpb to the sectors preceeding the anchor */
-	if (lseek64(fd, dsize - (512 * (2 + sectors)), SEEK_SET) < 0)
-		return 1;
-
-	if (write(fd, super->buf + 512, mpb_size - 512) != mpb_size - 512)
 		return 1;
 
 	fsync(fd);

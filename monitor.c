@@ -281,12 +281,17 @@ static int read_and_act(struct active_array *a)
 	}
 
 	a->container->ss->sync_metadata(a->container);
+	dprintf("%s: update[%d]: (", __func__, a->info.container_member);
 
 	/* Effect state changes in the array */
-	if (a->next_state != bad_word)
+	if (a->next_state != bad_word) {
+		dprintf(" state:%s", array_states[a->next_state]);
 		write_attr(array_states[a->next_state], a->info.state_fd);
-	if (a->next_action != bad_action)
+	}
+	if (a->next_action != bad_action) {
 		write_attr(sync_actions[a->next_action], a->action_fd);
+		dprintf(" action:%s", array_states[a->next_state]);
+	}
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		if (mdi->next_state == DS_REMOVE && mdi->state_fd >= 0) {
 			int remove_result;
@@ -296,15 +301,20 @@ static int read_and_act(struct active_array *a)
 			 * disk, we can simply wait until the next event to try
 			 * again.
 			 */
+			dprintf(" %d:-blocked", mdi->disk.raid_disk);
 			remove_result = write_attr("remove", mdi->state_fd);
 			if (remove_result > 0) {
+				dprintf(" %d:removed", mdi->disk.raid_disk);
 				close(mdi->state_fd);
 				mdi->state_fd = -1;
 			}
 		}
-		if (mdi->next_state & DS_INSYNC)
+		if (mdi->next_state & DS_INSYNC) {
 			write_attr("+in_sync", mdi->state_fd);
+			dprintf(" %d:+in_sync", mdi->disk.raid_disk);
+		}
 	}
+	dprintf(" )\n");
 
 	/* move curr_ to prev_ */
 	a->prev_state = a->curr_state;
@@ -410,6 +420,36 @@ static int handle_pipe(struct md_generic_cmd *cmd, struct active_array *aa)
 	return -1;
 }
 
+#ifdef DEBUG
+static void dprint_wake_reasons(fd_set *fds)
+{
+	int i;
+	char proc_path[256];
+	char link[256];
+	char *basename;
+	int rv;
+
+	fprintf(stderr, "monitor: wake ( ");
+	for (i = 0; i < FD_SETSIZE; i++) {
+		if (FD_ISSET(i, fds)) {
+			sprintf(proc_path, "/proc/%d/fd/%d",
+				(int) getpid(), i);
+
+			rv = readlink(proc_path, link, sizeof(link) - 1);
+			if (rv < 0) {
+				fprintf(stderr, "%d:unknown ", i);
+				continue;
+			}
+			link[rv] = '\0';
+			basename = strrchr(link, '/');
+			fprintf(stderr, "%d:%s ",
+				i, basename ? ++basename : link);
+		}
+	}
+	fprintf(stderr, ")\n");
+}
+#endif
+
 static int wait_and_act(struct supertype *container, int pfd,
 			int monfd, int nowait)
 {
@@ -457,6 +497,7 @@ static int wait_and_act(struct supertype *container, int pfd,
 		int fd = open(container->device_name, O_RDONLY|O_EXCL);
 		if (fd >= 0 || errno != EBUSY) {
 			/* OK, we are safe to leave */
+			dprintf("no arrays to monitor... exiting\n");
 			exit_now = 1;
 			signal_manager();
 			remove_pidfile(container->devname);
@@ -466,6 +507,10 @@ static int wait_and_act(struct supertype *container, int pfd,
 
 	if (!nowait) {
 		rv = select(maxfd+1, &rfds, NULL, NULL, NULL);
+
+		#ifdef DEBUG
+		dprint_wake_reasons(&rfds);
+		#endif
 
 		if (rv <= 0)
 			return rv;

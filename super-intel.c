@@ -1644,7 +1644,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 static int imsm_open_new(struct supertype *c, struct active_array *a,
 			 char *inst)
 {
-	fprintf(stderr, "imsm: open_new %s\n", inst);
+	dprintf("imsm: open_new %s\n", inst);
 	a->info.container_member = atoi(inst);
 	return 0;
 }
@@ -1742,7 +1742,7 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 		if (!failed)
 			map_state = IMSM_T_STATE_NORMAL;
 		if (map->map_state != map_state) {
-			fprintf(stderr, "imsm: map_state %d: %d\n",
+			dprintf("imsm: map_state %d: %d\n",
 				inst, map_state);
 			map->map_state = map_state;
 			super->updates_pending++;
@@ -1750,7 +1750,7 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 	}
 
 	if (dev->vol.dirty != dirty) {
-		fprintf(stderr, "imsm: mark '%s' (%llu)\n",
+		dprintf("imsm: mark '%s' (%llu)\n",
 			dirty?"dirty":"clean", a->resync_start);
 
 		dev->vol.dirty = dirty;
@@ -1776,7 +1776,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	if (n < 0)
 		return;
 
-	fprintf(stderr, "imsm: set_disk %d:%x\n", n, state);
+	dprintf("imsm: set_disk %d:%x\n", n, state);
 
 	disk = get_imsm_disk(super->mpb, get_imsm_disk_idx(map, n));
 

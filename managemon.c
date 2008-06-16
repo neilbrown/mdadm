@@ -105,6 +105,7 @@ static void free_aa(struct active_array *aa)
 	/* Note that this doesn't close fds if they are being used
 	 * by a clone.  ->container will be set for a clone
 	 */
+	dprintf("%s: devnum: %d\n", __func__, aa->devnum);
 	if (!aa->container)
 		close_aa(aa);
 	while (aa->info.devs) {
@@ -380,6 +381,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
 	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
 	new->resync_start = 0;
+	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
+		new->action_fd, new->info.state_fd);
 
 	sysfs_free(mdi);
 	// finds and compares.

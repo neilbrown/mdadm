@@ -656,7 +656,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 		}
 		tst = dup_super(st);
-		if (tst->ss->load_super(st,fd, NULL)) {
+		if (tst->ss->load_super(tst,fd, NULL)) {
 			close(fd);
 			fprintf(stderr, Name ": RAID superblock disappeared from %s - not updating.\n",
 				devices[chosen_drive].devname);

@@ -399,3 +399,117 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 	}
 	return rv;
 }
+
+int sysfs_disk_to_sg(int fd)
+{
+	/* from an open block device, try find and open its corresponding
+	 * scsi_generic interface
+	 */
+	struct stat st;
+	char path[256];
+	char sg_path[256];
+	char sg_major_minor[8];
+	char *c;
+	DIR *dir;
+	struct dirent *de;
+	int major, minor, rv;
+
+	if (fstat(fd, &st))
+		return -1;
+
+	snprintf(path, sizeof(path), "/sys/dev/block/%d:%d/device",
+		 major(st.st_rdev), minor(st.st_rdev));
+
+	dir = opendir(path);
+	if (!dir)
+		return -1;
+
+	de = readdir(dir);
+	while (de) {
+		if (strncmp("scsi_generic:", de->d_name,
+			    strlen("scsi_generic:")) == 0)
+			break;
+		de = readdir(dir);
+	}
+	closedir(dir);
+
+	if (!de)
+		return -1;
+
+	snprintf(sg_path, sizeof(sg_path), "%s/%s/dev", path, de->d_name);
+	fd = open(sg_path, O_RDONLY);
+	if (fd < 0)
+		return fd;
+
+	rv = read(fd, sg_major_minor, sizeof(sg_major_minor));
+	close(fd);
+	if (rv < 0)
+		return -1;
+	else
+		sg_major_minor[rv - 1] = '\0';
+
+	c = strchr(sg_major_minor, ':');
+	*c = '\0';
+	c++;
+	major = strtol(sg_major_minor, NULL, 10);
+	minor = strtol(c, NULL, 10);
+	snprintf(path, sizeof(path), "/dev/.tmp.md.%d:%d:%d",
+		 (int) getpid(), major, minor);
+	if (mknod(path, S_IFCHR|0600, makedev(major, minor))==0) {
+			fd = open(path, O_RDONLY);
+			unlink(path);
+			return fd;
+	}
+
+	return -1;
+}
+
+int sysfs_disk_to_scsi_id(int fd, __u32 *id)
+{
+	/* from an open block device, try to retrieve it scsi_id */
+	struct stat st;
+	char path[256];
+	char *c1, *c2;
+	DIR *dir;
+	struct dirent *de;
+
+	if (fstat(fd, &st))
+		return 1;
+
+	snprintf(path, sizeof(path), "/sys/dev/block/%d:%d/device",
+		 major(st.st_rdev), minor(st.st_rdev));
+
+	dir = opendir(path);
+	if (!dir)
+		return 1;
+
+	de = readdir(dir);
+	while (de) {
+		if (strncmp("scsi_disk:", de->d_name,
+			    strlen("scsi_disk:")) == 0)
+			break;
+		de = readdir(dir);
+	}
+	closedir(dir);
+
+	if (!de)
+		return 1;
+
+	c1 = strchr(de->d_name, ':');
+	c1++;
+	c2 = strchr(c1, ':');
+	*c2 = '\0';
+	*id = strtol(c1, NULL, 10) << 24; /* host */
+	c1 = c2 + 1;
+	c2 = strchr(c1, ':');
+	*c2 = '\0';
+	*id |= strtol(c1, NULL, 10) << 16; /* channel */
+	c1 = c2 + 1;
+	c2 = strchr(c1, ':');
+	*c2 = '\0';
+	*id |= strtol(c1, NULL, 10) << 8; /* lun */
+	c1 = c2 + 1;
+	*id |= strtol(c1, NULL, 10); /* id */
+
+	return 0;
+}

@@ -1561,8 +1561,8 @@ static int init_super_ddf(struct supertype *st,
 	 * Remaining 16 are serial number.... maybe a hostname would do?
 	 */
 	memcpy(ddf->controller.guid, T10, sizeof(T10));
-	gethostname(hostname, 17);
-	hostname[17] = 0;
+	gethostname(hostname, sizeof(hostname));
+	hostname[sizeof(hostname) - 1] = 0;
 	hostlen = strlen(hostname);
 	memcpy(ddf->controller.guid + 24 - hostlen, hostname, hostlen);
 	for (i = strlen(T10) ; i+hostlen < 24; i++)
@@ -2147,9 +2147,9 @@ int validate_geometry_ddf(struct supertype *st,
 							 dev, freesize);
 		}
 		close(cfd);
-	}
-	fprintf(stderr, Name ": Cannot use %s: Already in use\n",
-		dev);
+	} else /* device may belong to a different container */
+		return 0;
+
 	return 1;
 }
 
@@ -2178,7 +2178,7 @@ int validate_geometry_ddf_container(struct supertype *st,
 	}
 	close(fd);
 
-	*freesize = avail_size_ddf(st, ldsize);
+	*freesize = avail_size_ddf(st, ldsize >> 9);
 
 	return 1;
 }

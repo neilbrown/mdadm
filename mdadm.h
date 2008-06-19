@@ -346,8 +346,8 @@ extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 extern int sysfs_set_array(struct mdinfo *sra,
 			   struct mdinfo *info);
 extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd);
-
-
+extern int sysfs_disk_to_sg(int fd);
+extern int sysfs_disk_to_scsi_id(int fd, __u32 *id);
 
 
 extern int save_stripes(int *source, unsigned long long *offsets,
@@ -453,7 +453,7 @@ extern struct superswitch {
 	int external;
 } super0, super1, super_ddf, super_ddf_bvd, super_ddf_svd, *superlist[];
 
-extern struct superswitch super_imsm, super_imsm_raid;
+extern struct superswitch super_imsm, super_imsm_volume;
 
 struct supertype {
 	struct superswitch *ss;

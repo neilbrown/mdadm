@@ -849,10 +849,13 @@ static struct supertype *match_metadata_desc0(char *arg)
 	st->sb = NULL;
 	if (strcmp(arg, "0") == 0 ||
 	    strcmp(arg, "0.90") == 0 ||
-	    strcmp(arg, "0.91") == 0 ||
 	    strcmp(arg, "default") == 0 ||
 	    strcmp(arg, "") == 0 /* no metadata */
 		)
+		return st;
+
+	st->minor_version = 91; /* reshape in progress */
+	if (strcmp(arg, "0.91") == 0) /* For dup_super support */
 		return st;
 
 	st->minor_version = 9; /* flag for 'byte-swapped' */

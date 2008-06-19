@@ -87,16 +87,17 @@ STATICOBJS = pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c \
 	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c
+ASSEMBLE_AUTO_SRCS := mdopen.c mdstat.c sysfs.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
-ASSEMBLE_SRCS += mdopen.c mdstat.c
+ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
 all : mdadm mdmon mdadm.man md.man mdadm.conf.man
 
 everything: all mdadm.static swap_super test_stripe \
-	mdassemble mdassemble.static mdassemble.man \
+	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
 	mdadm.Os mdadm.O2
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
@@ -137,6 +138,11 @@ mdassemble : $(ASSEMBLE_SRCS) mdadm.h
 mdassemble.static : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
 	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
+
+mdassemble.auto : $(ASSEMBLE_SRCS) mdadm.h $(ASSEMBLE_AUTO_SRCS)
+	rm -f mdassemble.static
+	$(MAKE) MDASSEMBLE_AUTO=1 mdassemble.static
+	mv mdassemble.static mdassemble.auto
 
 mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OJS)
@@ -194,7 +200,8 @@ clean :
 	rm -f mdadm mdmon $(OBJS) $(MON_OBJS) $(STATICOBJS) core *.man \
 	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
 	mdadm.Os mdadm.O2 \
-	mdassemble mdassemble.static mdassemble.uclibc mdassemble.klibc swap_super \
+	mdassemble mdassemble.static mdassemble.auto mdassemble.uclibc \
+	mdassemble.klibc swap_super \
 	init.cpio.gz mdadm.uclibc.static test_stripe
 
 dist : clean

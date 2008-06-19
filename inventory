@@ -20,6 +20,8 @@ ANNOUNCE-2.6.2
 ANNOUNCE-2.6.3
 ANNOUNCE-2.6.4
 ANNOUNCE-2.6.5
+ANNOUNCE-2.6.6
+ANNOUNCE-2.6.7
 Assemble.c
 bitmap.c
 bitmap.h
@@ -116,6 +118,7 @@ tests/06r5swap
 tests/06sysfs
 tests/06update-uuid
 tests/06wrmostly
+tests/07autoassemble
 tests/07autodetect
 tests/07testreshape5
 tests/check

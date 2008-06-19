@@ -1100,11 +1100,12 @@ int main(int argc, char *argv[])
 				int acnt;
 				ident.autof = autof;
 				do {
+					mddev_dev_t devlist = conf_get_devs();
 					acnt = 0;
 					do {
 						rv2 = Assemble(ss, NULL, -1,
 							       &ident,
-							       NULL, NULL,
+							       devlist, NULL,
 							       readonly, runstop, NULL, homehost, verbose-quiet, force);
 						if (rv2==0) {
 							cnt++;
@@ -1138,7 +1139,8 @@ int main(int argc, char *argv[])
 				if (cnt == 0 && rv == 0) {
 					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
 					rv = 1;
-				}
+				} else if (cnt)
+					rv = 0;
 			} else if (cnt == 0 && rv == 0) {
 				fprintf(stderr, Name ": No arrays found in config file\n");
 				rv = 1;

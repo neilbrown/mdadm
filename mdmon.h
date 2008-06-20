@@ -1,3 +1,10 @@
+#ifdef DEBUG
+#define dprintf(fmt, arg...) \
+	fprintf(stderr, fmt, ##arg)
+#else
+#define dprintf(fmt, arg...) \
+        ({ if (0) fprintf(stderr, fmt, ##arg); 0; })
+#endif
 
 enum array_state { clear, inactive, suspended, readonly, read_auto,
 		   clean, active, write_pending, active_idle, bad_word};

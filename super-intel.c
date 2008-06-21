@@ -1039,6 +1039,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	unsigned long long array_blocks;
 	unsigned long long sz;
 	__u32 offset = 0;
+	size_t size_old, size_new;
 
 	if (mpb->num_raid_devs >= 2) {
 		fprintf(stderr, Name": This imsm-container already has the "
@@ -1046,6 +1047,24 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		return 0;
 	}
 
+	/* ensure the mpb is large enough for the new data */
+	size_old = __le32_to_cpu(mpb->mpb_size);
+	size_new = disks_to_mpb_size(info->nr_disks);
+	if (size_new > size_old) {
+		void *mpb_new;
+		size_t size_round = ROUND_UP(size_new, 512);
+
+		if (posix_memalign(&mpb_new, 512, size_round) != 0) {
+			fprintf(stderr, Name": could not allocate new mpb\n");
+			return 0;
+		}
+		memcpy(mpb_new, mpb, size_old);
+		free(mpb);
+		mpb = mpb_new;
+		super->mpb = mpb_new;
+		mpb->mpb_size = __cpu_to_le32(size_new);
+		memset(mpb_new + size_old, 0, size_round - size_old);
+	}
 	super->current_vol = idx;
 	sprintf(st->subarray, "%d", idx);
 	mpb->num_raid_devs++;

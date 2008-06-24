@@ -124,8 +124,6 @@ static unsigned int mpb_sectors(struct imsm_super *mpb)
 	return sector_count(__le32_to_cpu(mpb->mpb_size));
 }
 
-static struct superswitch super_imsm_volume;
-
 /* internal representation of IMSM metadata */
 struct intel_super {
 	union {
@@ -134,7 +132,7 @@ struct intel_super {
 	};
 	int updates_pending; /* count of pending updates for mdmon */
 	int creating_imsm; /* flag to indicate container creation */
-	int creating_dev; /* index of raid device undergoing creation */
+	int current_vol; /* index of raid device undergoing creation */
 	struct dl {
 		struct dl *next;
 		int index;
@@ -161,25 +159,6 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 	st = malloc(sizeof(*st));
 	memset(st, 0, sizeof(*st));
 	st->ss = &super_imsm;
-	st->max_devs = IMSM_MAX_DEVICES;
-	st->minor_version = 0;
-	st->sb = NULL;
-	return st;
-}
-
-static struct supertype *match_metadata_desc_imsm_volume(char *arg)
-{
-	struct supertype *st;
-
-	if (strcmp(arg, "imsm/volume") != 0 &&
-	    strcmp(arg, "raid") != 0 &&
-	    strcmp(arg, "default") != 0
-		)
-		return NULL;
-
-	st = malloc(sizeof(*st));
-	memset(st, 0, sizeof(*st));
-	st->ss = &super_imsm_volume;
 	st->max_devs = IMSM_MAX_DEVICES;
 	st->minor_version = 0;
 	st->sb = NULL;
@@ -494,53 +473,14 @@ static int imsm_level_to_layout(int level)
 	return -1;
 }
 
-static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
-{
-	struct intel_super *super = st->sb;
-	struct imsm_super *mpb = super->mpb;
-	struct imsm_disk *disk;
-	int sect = mpb_sectors(mpb);
-	__u32 s;
-
-	info->array.raid_disks    = mpb->num_disks;
-	info->array.level         = LEVEL_CONTAINER;
-	info->array.layout        = 0;
-	info->array.md_minor      = -1;
-	info->array.ctime         = 0; /* N/A for imsm */ 
-	info->array.utime         = 0;
-	info->array.chunk_size    = 0;
-
-	info->disk.major = 0;
-	info->disk.minor = 0;
-	info->disk.raid_disk = -1;
-	info->reshape_active = 0;
-	strcpy(info->text_version, "imsm");
-	info->disk.number = -1;
-	info->disk.state = 0;
-
-	info->data_offset = __le32_to_cpu(get_imsm_disk(super->mpb,
-							super->disks->index)
-					  ->total_blocks) - (2 + sect - 1);
-	info->component_size = sect;
-
-	if (super->disks) {
-		info->disk.number = super->disks->index;
-		info->disk.raid_disk = super->disks->index;
-		disk = get_imsm_disk(mpb, super->disks->index);
-		s = __le32_to_cpu(disk->status);
-		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
-		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
-		info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
-	}
-}
-
 static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 {
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->mpb;
-	struct imsm_dev *dev = get_imsm_dev(mpb, info->container_member);
+	struct imsm_dev *dev = get_imsm_dev(mpb, super->current_vol);
 	struct imsm_map *map = &dev->vol.map[0];
 
+	info->container_member	  = super->current_vol;
 	info->array.raid_disks    = map->num_members;
 	info->array.level	  = get_imsm_raid_level(map);
 	info->array.layout	  = imsm_level_to_layout(info->array.level);
@@ -558,6 +498,48 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	sprintf(info->text_version, "/%s/%d",
 		devnum2devname(st->container_dev),
 		info->container_member);
+}
+
+
+static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
+{
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->mpb;
+	struct imsm_disk *disk;
+	__u32 s;
+
+	if (super->current_vol >= 0) {
+		getinfo_super_imsm_volume(st, info);
+		return;
+	}
+	info->array.raid_disks    = mpb->num_disks;
+	info->array.level         = LEVEL_CONTAINER;
+	info->array.layout        = 0;
+	info->array.md_minor      = -1;
+	info->array.ctime         = 0; /* N/A for imsm */ 
+	info->array.utime         = 0;
+	info->array.chunk_size    = 0;
+
+	info->disk.major = 0;
+	info->disk.minor = 0;
+	info->disk.raid_disk = -1;
+	info->reshape_active = 0;
+	strcpy(info->text_version, "imsm");
+	info->disk.number = -1;
+	info->disk.state = 0;
+
+	if (super->disks) {
+		disk = get_imsm_disk(mpb, super->disks->index);
+		info->disk.number = super->disks->index;
+		info->disk.raid_disk = super->disks->index;
+		info->data_offset = __le32_to_cpu(disk->total_blocks) -
+				    (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS);
+		info->component_size = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+		s = __le32_to_cpu(disk->status);
+		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
+		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
+		info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
+	}
 }
 
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,
@@ -765,7 +747,6 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	struct imsm_super *anchor;
 	__u32 check_sum;
 
-	memset(super, 0, sizeof(*super));
 	get_dev_size(fd, NULL, &dsize);
 
 	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0) {
@@ -844,8 +825,6 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	return load_imsm_disk(fd, super, devname, 0);
 }
 
-struct superswitch super_imsm_container;
-
 static void free_imsm_disks(struct intel_super *super)
 {
 	while (super->disks) {
@@ -887,7 +866,7 @@ static struct intel_super *alloc_super(int creating_imsm)
 	if (super) {
 		memset(super, 0, sizeof(*super));
 		super->creating_imsm = creating_imsm;
-		super->creating_dev = -1;
+		super->current_vol = -1;
 	}
 
 	return super;
@@ -979,12 +958,15 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 
 	if (st->subarray[0]) {
-		/* FIXME */
+		if (atoi(st->subarray) <= super->mpb->num_raid_devs)
+			super->current_vol = atoi(st->subarray);
+		else
+			return 1;
 	}
 
 	*sbp = super;
 	if (st->ss == NULL) {
-		st->ss = &super_imsm_container;
+		st->ss = &super_imsm;
 		st->minor_version = 0;
 		st->max_devs = IMSM_MAX_DEVICES;
 		st->container_dev = fd2devnum(fd);
@@ -1035,51 +1017,6 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	return 0;
 }
 
-static int init_zero_imsm(struct supertype *st, mdu_array_info_t *info,
-			  unsigned long long size, char *name,
-			  char *homehost, int *uuid)
-{
-	st->sb = NULL;
-	return 0;
-}
-
-static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
-			   unsigned long long size, char *name,
-			   char *homehost, int *uuid)
-{
-	/* This is primarily called by Create when creating a new array.
-	 * We will then get add_to_super called for each component, and then
-	 * write_init_super called to write it out to each device.
-	 * For IMSM, Create can create on fresh devices or on a pre-existing
-	 * array.
-	 * To create on a pre-existing array a different method will be called.
-	 * This one is just for fresh drives.
-	 */
-	struct intel_super *super;
-	struct imsm_super *mpb;
-	size_t mpb_size;
-
-	super = alloc_super(1);
-	if (!super)
-		return 0;
-	mpb_size = disks_to_mpb_size(info->nr_disks);
-	posix_memalign((void**)&mpb, 512, mpb_size);
-	if (!mpb) {
-		free(super);
-		return 0;
-	}
-	memset(mpb, 0, mpb_size); 
-
-	memcpy(mpb->sig, MPB_SIGNATURE, strlen(MPB_SIGNATURE));
-	memcpy(mpb->sig + strlen(MPB_SIGNATURE), MPB_VERSION_RAID5,
-	       strlen(MPB_VERSION_RAID5)); 
-	mpb->mpb_size = mpb_size;
-
-	super->mpb = mpb;
-	st->sb = super;
-	return 1;
-}
-
 static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				  unsigned long long size, char *name,
 				  char *homehost, int *uuid)
@@ -1104,7 +1041,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		return 0;
 	}
 
-	super->creating_dev = idx;
+	super->current_vol = idx;
+	sprintf(st->subarray, "%d", idx);
 	mpb->num_raid_devs++;
 	dev = get_imsm_dev(mpb, idx);
 	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
@@ -1147,6 +1085,78 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	return 1;
 }
 
+static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
+			   unsigned long long size, char *name,
+			   char *homehost, int *uuid)
+{
+	/* This is primarily called by Create when creating a new array.
+	 * We will then get add_to_super called for each component, and then
+	 * write_init_super called to write it out to each device.
+	 * For IMSM, Create can create on fresh devices or on a pre-existing
+	 * array.
+	 * To create on a pre-existing array a different method will be called.
+	 * This one is just for fresh drives.
+	 */
+	struct intel_super *super;
+	struct imsm_super *mpb;
+	size_t mpb_size;
+
+	if (!info) {
+		st->sb = NULL;
+		return 0;
+	}
+	if (st->sb)
+		return init_super_imsm_volume(st, info, size, name, homehost,
+					      uuid);
+
+	super = alloc_super(1);
+	if (!super)
+		return 0;
+	mpb_size = disks_to_mpb_size(info->nr_disks);
+	if (posix_memalign((void**)&mpb, 512, mpb_size) != 0) {
+		free(super);
+		return 0;
+	}
+	memset(mpb, 0, mpb_size); 
+
+	memcpy(mpb->sig, MPB_SIGNATURE, strlen(MPB_SIGNATURE));
+	memcpy(mpb->sig + strlen(MPB_SIGNATURE), MPB_VERSION_RAID5,
+	       strlen(MPB_VERSION_RAID5)); 
+	mpb->mpb_size = mpb_size;
+
+	super->mpb = mpb;
+	st->sb = super;
+	return 1;
+}
+
+static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
+				     int fd, char *devname)
+{
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->mpb;
+	struct dl *dl;
+	struct imsm_dev *dev;
+	struct imsm_map *map;
+	struct imsm_disk *disk;
+	__u32 status;
+
+	dev = get_imsm_dev(mpb, super->current_vol);
+	map = &dev->vol.map[0];
+
+	for (dl = super->disks; dl ; dl = dl->next)
+		if (dl->major == dk->major &&
+		    dl->minor == dk->minor)
+			break;
+	if (!dl || ! (dk->state & (1<<MD_DISK_SYNC)))
+		return;
+
+	map->disk_ord_tbl[dk->number] = __cpu_to_le32(dl->index);
+
+	disk = get_imsm_disk(mpb, dl->index);
+	status = CONFIGURED_DISK | USABLE_DISK;
+	disk->status = __cpu_to_le32(status);
+}
+
 static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 			      int fd, char *devname)
 {
@@ -1158,6 +1168,11 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	__u32 status, id;
 	int rv;
 	struct stat stb;
+
+	if (super->current_vol >= 0) {
+		add_to_super_imsm_volume(st, dk, fd, devname);
+		return;
+	}
 
 	fstat(fd, &stb);
 	dd = malloc(sizeof(*dd));
@@ -1201,39 +1216,6 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		mpb->family_num = __cpu_to_le32(gen_imsm_checksum(mpb));
 	
 	super->disks = dd;
-}
-
-static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
-				     int fd, char *devname)
-{
-	struct intel_super *super = st->sb;
-	struct imsm_super *mpb = super->mpb;
-	struct dl *dl;
-	struct imsm_dev *dev;
-	struct imsm_map *map;
-	struct imsm_disk *disk;
-	__u32 status;
-
-	if (super->creating_dev == -1) {
-		fprintf(stderr, Name ": no active raid device\n");
-		abort();
-	}
-
-	dev = get_imsm_dev(mpb, super->creating_dev);
-	map = &dev->vol.map[0];
-
-	for (dl = super->disks; dl ; dl = dl->next)
-		if (dl->major == dk->major &&
-		    dl->minor == dk->minor)
-			break;
-	if (!dl || ! (dk->state & (1<<MD_DISK_SYNC)))
-		return;
-
-	map->disk_ord_tbl[dk->number] = __cpu_to_le32(dl->index);
-
-	disk = get_imsm_disk(mpb, dl->index);
-	status = CONFIGURED_DISK | USABLE_DISK;
-	disk->status = __cpu_to_le32(status);
 }
 
 static int store_imsm_mpb(int fd, struct intel_super *super);
@@ -1290,113 +1272,6 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf))
 		return 1;
 	return 0;
-}
-
-static int validate_geometry_imsm(struct supertype *st, int level, int layout,
-				  int raiddisks, int chunk, unsigned long long size,
-				  char *dev, unsigned long long *freesize,
-				  int verbose)
-{
-	int fd, cfd;
-	struct mdinfo *sra;
-
-	/* if given unused devices create a container 
-	 * if given given devices in a container create a member volume
-	 */
-	if (level == LEVEL_CONTAINER) {
-		st->ss = &super_imsm_container;
-		if (dev) {
-			/* validate the container, dev == NULL */
-			int rv = st->ss->validate_geometry(st, level, layout,
-							   raiddisks, chunk,
-							   size,
-							   NULL, freesize,
-							   verbose);
-			if (rv)
-				return rv;
-		}
-		return st->ss->validate_geometry(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize,
-						 verbose);
-	}
-	
-	if (st->sb) {
-		/* creating in a given container */
-		st->ss = &super_imsm_volume;
-		if (dev) {
-			int rv = st->ss->validate_geometry(st, level, layout,
-							   raiddisks, chunk,
-							   size,
-							   NULL, freesize,
-							   verbose);
-			if (rv)
-				return rv;
-		}
-		return st->ss->validate_geometry(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize,
-						 verbose);
-	}
-
-	/* limit creation to the following levels */
-	if (!dev)
-		switch (level) {
-		case 0:
-		case 1:
-		case 10:
-		case 5:
-			break;
-		default:
-			return 1;
-		}
-
-	/* This device needs to be a device in an 'imsm' container */
-	fd = open(dev, O_RDONLY|O_EXCL, 0);
-	if (fd >= 0) {
-		if (verbose)
-			fprintf(stderr,
-				Name ": imsm: Cannot create this array on "
-				"device %s\n", dev);
-		close(fd);
-		return 0;
-	}
-	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
-		if (verbose)
-			fprintf(stderr, Name ": imsm: Cannot open %s: %s\n",
-				dev, strerror(errno));
-		return 0;
-	}
-	/* Well, it is in use by someone, maybe an 'imsm' container. */
-	cfd = open_container(fd);
-	if (cfd < 0) {
-		close(fd);
-		if (verbose)
-			fprintf(stderr, Name ": imsm: Cannot use %s: %s\n",
-				dev, strerror(EBUSY));
-		return 0;
-	}
-	sra = sysfs_read(cfd, 0, GET_VERSION);
-	close(fd);
-	if (sra && sra->array.major_version == -1 &&
-	    strcmp(sra->text_version, "imsm") == 0) {
-		/* This is a member of a imsm container.  Load the container
-		 * and try to create a volume
-		 */
-		struct intel_super *super;
-		st->ss = &super_imsm_volume;
-		if (load_super_imsm_all(st, cfd, (void **) &super, NULL, 1) == 0) {
-			st->sb = super;
-			st->container_dev = fd2devnum(cfd);
-			close(cfd);
-			return st->ss->validate_geometry(st, level, layout,
-							 raiddisks, chunk, size,
-							 dev, freesize,
-							 verbose);
-		}
-		close(cfd);
-	} else /* may belong to another container */
-		return 0;
-
-	return 1;
 }
 
 static int validate_geometry_imsm_container(struct supertype *st, int level,
@@ -1473,6 +1348,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		for (dl = super->disks; dl ; dl = dl->next) {
 			int found = 0;
 
+			pos = 0;
 			i = 0;
 			e = get_extents(super, dl);
 			if (!e) continue;
@@ -1526,6 +1402,94 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		i++;
 	} while (e[i-1].size);
 	*freesize = maxsize;
+
+	return 1;
+}
+
+static int validate_geometry_imsm(struct supertype *st, int level, int layout,
+				  int raiddisks, int chunk, unsigned long long size,
+				  char *dev, unsigned long long *freesize,
+				  int verbose)
+{
+	int fd, cfd;
+	struct mdinfo *sra;
+
+	/* if given unused devices create a container 
+	 * if given given devices in a container create a member volume
+	 */
+	if (level == LEVEL_CONTAINER) {
+		/* Must be a fresh device to add to a container */
+		return validate_geometry_imsm_container(st, level, layout,
+							raiddisks, chunk, size,
+							dev, freesize,
+							verbose);
+	}
+	
+	if (st->sb) {
+		/* creating in a given container */
+		return validate_geometry_imsm_volume(st, level, layout,
+						     raiddisks, chunk, size,
+						     dev, freesize, verbose);
+	}
+
+	/* limit creation to the following levels */
+	if (!dev)
+		switch (level) {
+		case 0:
+		case 1:
+		case 10:
+		case 5:
+			break;
+		default:
+			return 1;
+		}
+
+	/* This device needs to be a device in an 'imsm' container */
+	fd = open(dev, O_RDONLY|O_EXCL, 0);
+	if (fd >= 0) {
+		if (verbose)
+			fprintf(stderr,
+				Name ": Cannot create this array on device %s\n",
+				dev);
+		close(fd);
+		return 0;
+	}
+	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
+		if (verbose)
+			fprintf(stderr, Name ": Cannot open %s: %s\n",
+				dev, strerror(errno));
+		return 0;
+	}
+	/* Well, it is in use by someone, maybe an 'imsm' container. */
+	cfd = open_container(fd);
+	if (cfd < 0) {
+		close(fd);
+		if (verbose)
+			fprintf(stderr, Name ": Cannot use %s: It is busy\n",
+				dev);
+		return 0;
+	}
+	sra = sysfs_read(cfd, 0, GET_VERSION);
+	close(fd);
+	if (sra && sra->array.major_version == -1 &&
+	    strcmp(sra->text_version, "imsm") == 0) {
+		/* This is a member of a imsm container.  Load the container
+		 * and try to create a volume
+		 */
+		struct intel_super *super;
+
+		if (load_super_imsm_all(st, cfd, (void **) &super, NULL, 1) == 0) {
+			st->sb = super;
+			st->container_dev = fd2devnum(cfd);
+			close(cfd);
+			return validate_geometry_imsm_volume(st, level, layout,
+							     raiddisks, chunk,
+							     size, dev,
+							     freesize, verbose);
+		}
+		close(cfd);
+	} else /* may belong to another container */
+		return 0;
 
 	return 1;
 }
@@ -1846,6 +1810,7 @@ struct superswitch super_imsm = {
 	.brief_examine_super = brief_examine_super_imsm,
 	.detail_super	= detail_super_imsm,
 	.brief_detail_super = brief_detail_super_imsm,
+	.write_init_super = write_init_super_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
@@ -1857,10 +1822,12 @@ struct superswitch super_imsm = {
 	.compare_super	= compare_super_imsm,
 
 	.load_super	= load_super_imsm,
-	.init_super	= init_zero_imsm,
+	.init_super	= init_super_imsm,
+	.add_to_super	= add_to_super_imsm,
 	.store_super	= store_zero_imsm,
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
+	.container_content = container_content_imsm,
 
 	.validate_geometry = validate_geometry_imsm,
 	.external	= 1,
@@ -1871,46 +1838,4 @@ struct superswitch super_imsm = {
 	.set_array_state= imsm_set_array_state,
 	.set_disk	= imsm_set_disk,
 	.sync_metadata	= imsm_sync_metadata,
-};
-
-/* super_imsm_container is set by validate_geometry_imsm when given a
- * device that is not part of any array
- */
-struct superswitch super_imsm_container = {
-
-	.validate_geometry = validate_geometry_imsm_container,
-	.init_super	= init_super_imsm,
-	.add_to_super	= add_to_super_imsm,
-	.write_init_super = write_init_super_imsm,
-	.getinfo_super  = getinfo_super_imsm,
-	.load_super	= load_super_imsm,
-
-#ifndef MDASSEMBLE
-	.examine_super	= examine_super_imsm,
-	.brief_examine_super = brief_examine_super_imsm,
-	.detail_super	= detail_super_imsm,
-	.brief_detail_super = brief_detail_super_imsm,
-#endif
-
-	.free_super	= free_super_imsm,
-
-	.container_content = container_content_imsm,
-
-	.external	= 1,
-};
-
-static struct superswitch super_imsm_volume = {
-	.update_super	= update_super_imsm,
-	.init_super	= init_super_imsm_volume,
-	.add_to_super	= add_to_super_imsm_volume,
-	.getinfo_super  = getinfo_super_imsm_volume,
-	.write_init_super = write_init_super_imsm,
-
-	.load_super	= load_super_imsm,
-	.free_super	= free_super_imsm,
-	.match_metadata_desc = match_metadata_desc_imsm_volume,
-
-
-	.validate_geometry = validate_geometry_imsm_volume,
-	.external	= 2,
 };

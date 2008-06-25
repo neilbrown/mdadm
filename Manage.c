@@ -112,9 +112,14 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		struct map_ent *map = NULL;
 		struct stat stb;
 		if (ioctl(fd, STOP_ARRAY, NULL)) {
-			if (quiet==0)
+			if (quiet==0) {
 				fprintf(stderr, Name ": fail to stop array %s: %s\n",
 					devname, strerror(errno));
+				if (errno == EBUSY)
+					fprintf(stderr, "Perhaps a running "
+						"process, mounted filesystem "
+						"or active volume group?\n");
+			}
 			return 1;
 		}
 		if (quiet <= 0)

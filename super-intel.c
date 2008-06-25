@@ -1022,6 +1022,24 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	return 0;
 }
 
+static __u16 info_to_blocks_per_strip(mdu_array_info_t *info)
+{
+	if (info->level == 1)
+		return 128;
+	return info->chunk_size >> 9;
+}
+
+static __u32 info_to_num_data_stripes(mdu_array_info_t *info)
+{
+	__u32 num_stripes;
+
+	num_stripes = (info->size * 2) / info_to_blocks_per_strip(info);
+	if (info->level == 1)
+		num_stripes /= 2;
+
+	return num_stripes;
+}
+
 static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				  unsigned long long size, char *name,
 				  char *homehost, int *uuid)
@@ -1037,7 +1055,6 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	int idx = mpb->num_raid_devs;
 	int i;
 	unsigned long long array_blocks;
-	unsigned long long sz;
 	__u32 offset = 0;
 	size_t size_old, size_new;
 
@@ -1090,16 +1107,22 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	}
 	map = &vol->map[0];
 	map->pba_of_lba0 = __cpu_to_le32(offset);
-	sz = info->size * 2;
-	map->blocks_per_member = __cpu_to_le32(sz);
-	map->blocks_per_strip = __cpu_to_le16(info->chunk_size >> 9);
-	map->num_data_stripes = __cpu_to_le32(sz / (info->chunk_size >> 9));
+	map->blocks_per_member = __cpu_to_le32(info->size * 2);
+	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
+	map->num_data_stripes = __cpu_to_le32(info_to_num_data_stripes(info));
 	map->map_state = info->level ? IMSM_T_STATE_UNINITIALIZED :
 				       IMSM_T_STATE_NORMAL;
+
+	if (info->level == 1 && info->raid_disks > 2) {
+		fprintf(stderr, Name": imsm does not support more than 2 disks"
+				"in a raid1 volume\n");
+		return 0;
+	}
 	if (info->level == 10)
 		map->raid_level = 1;
 	else
 		map->raid_level = info->level;
+
 	map->num_members = info->raid_disks;
 	for (i = 0; i < map->num_members; i++) {
 		/* initialized in add_to_super */

@@ -11,7 +11,7 @@ mdadm.conf \- configuration for management of Software RAID with mdadm
 /etc/mdadm.conf
 .SH DESCRIPTION
 .PP
-.B mdadm
+.I mdadm
 is a tool for creating, managing, and monitoring RAID devices using the
 .B md
 driver in Linux.
@@ -40,7 +40,7 @@ A
 line lists the devices (whole devices or partitions) that might contain
 a component of an MD array.  When looking for the components of an
 array,
-.B mdadm
+.I mdadm
 will scan these devices (or any devices listed on the command line).
 
 The
@@ -150,7 +150,7 @@ the same
 .B spare\-group
 name are considered to be part of the same group.  The significance of
 a group of arrays is that
-.B mdadm
+.I mdadm
 will, when monitoring the arrays, move a spare drive from one array in
 a group to another array in that group if the first array had a failed
 or missing drive but no spare.
@@ -158,7 +158,7 @@ or missing drive but no spare.
 .TP
 .B auto=
 This option declares to
-.B mdadm
+.I mdadm
 that it should try to create the device file of the array if it
 doesn't already exist, or exists but with the wrong device number.
 
@@ -197,7 +197,7 @@ The
 .B mailaddr
 line gives an E-mail address that alerts should be
 sent to when
-.M mdadm
+.I mdadm
 is running in
 .B \-\-monitor
 mode (and was given the

@@ -12,14 +12,14 @@ do
   do dd if=/dev/urandom of=$d bs=1024 || true
   done
 
-  $mdadm -CR $md0 -amd -l5 -n$disks --assume-clean $devs
-  $mdadm $md0 --add $dev6
+  mdadm -CR $md0 -amd -l5 -n$disks --assume-clean $devs
+  mdadm $md0 --add $dev6
   echo 20 > /proc/sys/dev/raid/speed_limit_max
-  $mdadm --grow $md0 -n $[disks+1]
+  mdadm --grow $md0 -n $[disks+1]
   check reshape
   check state $st
-  $mdadm --stop $md0
-  $mdadm --assemble $md0 $devs $dev6
+  mdadm --stop $md0
+  mdadm --assemble $md0 $devs $dev6
   check reshape
   echo 2000 > /proc/sys/dev/raid/speed_limit_max
   check wait
@@ -29,5 +29,5 @@ do
   if [ $mm -gt 0 ]
   then echo >&2 "ERROR mismatch_cnt non-zero : $mm" ; exit 1
   fi
-  $mdadm -S $md0
+  mdadm -S $md0
 done

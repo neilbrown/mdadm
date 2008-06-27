@@ -615,7 +615,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			last_block = nstripe * ndata;
 			ostripe = last_block / odata / (ochunk/512) * (ochunk/512);
 		}
-		printf("mdadm: Need to backup %lluK of critical section..\n", last_block/2);
+		fprintf(stderr, Name ": Need to backup %lluK of critical "
+			"section..\n", last_block/2);
 
 		sra = sysfs_read(fd, 0,
 				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
@@ -837,7 +838,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		if (backup_file)
 			unlink(backup_file);
 
-		printf(Name ": ... critical section passed.\n");
+		fprintf(stderr, Name ": ... critical section passed.\n");
 		break;
 	}
 	return 0;

@@ -441,6 +441,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	     ( level == 6 && (insert_point < raiddisks
 			      || second_missing < raiddisks))
 	     ||
+	     ( level <= 0 )
+	     ||
 	     assume_clean
 		)
 		info.array.state = 1; /* clean, but one+ drive will be missing*/

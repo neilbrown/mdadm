@@ -65,6 +65,4 @@ int read_dev_state(int fd);
 
 struct mdstat_ent *mdstat_read(int hold, int start);
 
-extern struct superswitch super_ddf, super_ddf_bvd, super_ddf_svd;
-
 extern int exit_now, manager_ready;

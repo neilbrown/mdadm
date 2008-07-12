@@ -425,7 +425,7 @@ struct ddf_super {
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
-extern struct superswitch super_ddf_container, super_ddf_bvd, super_ddf;
+static struct superswitch super_ddf_container, super_ddf_bvd, super_ddf_svd;
 
 static int calc_crc(void *buf, int len)
 {
@@ -3135,7 +3135,7 @@ struct superswitch super_ddf = {
 /* Super_ddf_container is set by validate_geometry_ddf when given a
  * device that is not part of any array
  */
-struct superswitch super_ddf_container = {
+static struct superswitch super_ddf_container = {
 #ifndef MDASSEMBLE
 	.validate_geometry = validate_geometry_ddf_container,
 	.write_init_super = write_init_super_ddf,
@@ -3155,7 +3155,7 @@ struct superswitch super_ddf_container = {
 	.external	= 1,
 };
 
-struct superswitch super_ddf_bvd = {
+static struct superswitch super_ddf_bvd = {
 #ifndef	MDASSEMBLE
 //	.detail_super	= detail_super_ddf_bvd,
 //	.brief_detail_super = brief_detail_super_ddf_bvd,
@@ -3176,7 +3176,7 @@ struct superswitch super_ddf_bvd = {
 	.external	= 2,
 };
 
-struct superswitch super_ddf_svd = {
+static struct superswitch super_ddf_svd = {
 #ifndef	MDASSEMBLE
 //	.detail_super	= detail_super_ddf_svd,
 //	.brief_detail_super = brief_detail_super_ddf_svd,

@@ -124,6 +124,8 @@ static unsigned int mpb_sectors(struct imsm_super *mpb)
 	return sector_count(__le32_to_cpu(mpb->mpb_size));
 }
 
+static struct superswitch super_imsm_volume;
+
 /* internal representation of IMSM metadata */
 struct intel_super {
 	union {
@@ -1912,7 +1914,7 @@ struct superswitch super_imsm_container = {
 	.external	= 1,
 };
 
-struct superswitch super_imsm_volume = {
+static struct superswitch super_imsm_volume = {
 	.update_super	= update_super_imsm,
 	.init_super	= init_super_imsm_volume,
 	.add_to_super	= add_to_super_imsm_volume,

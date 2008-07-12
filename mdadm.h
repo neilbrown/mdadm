@@ -450,9 +450,9 @@ extern struct superswitch {
 
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
-} super0, super1, super_ddf, super_ddf_bvd, super_ddf_svd, *superlist[];
+} super0, super1, super_ddf, *superlist[];
 
-extern struct superswitch super_imsm, super_imsm_volume;
+extern struct superswitch super_imsm;
 
 struct supertype {
 	struct superswitch *ss;

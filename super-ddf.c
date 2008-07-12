@@ -1226,9 +1226,6 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 {
 	struct ddf_super *ddf = st->sb;
 
-	info->array.major_version = 1000;
-	info->array.minor_version = 0; /* FIXME use ddf->revision somehow */
-	info->array.patch_version = 0;
 	info->array.raid_disks    = __be16_to_cpu(ddf->phys->used_pdes);
 	info->array.level	  = LEVEL_CONTAINER;
 	info->array.layout	  = 0;
@@ -1280,9 +1277,6 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 
 	/* FIXME this returns BVD info - what if we want SVD ?? */
 
-	info->array.major_version = 1000;
-	info->array.minor_version = 0; /* FIXME use ddf->revision somehow */
-	info->array.patch_version = 0;
 	info->array.raid_disks    = __be16_to_cpu(vd->prim_elmnt_count);
 	info->array.level	  = map_num1(ddf_level_num, vd->prl);
 	info->array.layout	  = rlq_to_layout(vd->rlq, vd->prl,
@@ -2495,9 +2489,6 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		this->next = rest;
 		rest = this;
 
-		this->array.major_version = 1000;
-		this->array.minor_version = 0;
-		this->array.patch_version = 0;
 		this->array.level = map_num1(ddf_level_num, vc->conf.prl);
 		this->array.raid_disks =
 			__be16_to_cpu(vc->conf.prim_elmnt_count);

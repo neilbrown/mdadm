@@ -451,6 +451,7 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	printf("%s\n", __FUNCTION__);
 }
 
+#if 0
 static void
 get_imsm_numerical_version(struct imsm_super *mpb, int *m, int *p)
 {
@@ -476,6 +477,7 @@ get_imsm_numerical_version(struct imsm_super *mpb, int *m, int *p)
 	*m = strtol(minor, NULL, 0);
 	*p = strtol(patch, NULL, 0);
 }
+#endif
 
 static int imsm_level_to_layout(int level)
 {
@@ -499,9 +501,6 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	struct imsm_disk *disk;
 	__u32 s;
 
-	info->array.major_version = 2000;
-	get_imsm_numerical_version(mpb, &info->array.minor_version,
-				   &info->array.patch_version);
 	info->array.raid_disks    = mpb->num_disks;
 	info->array.level         = LEVEL_CONTAINER;
 	info->array.layout        = 0;
@@ -536,9 +535,6 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	struct imsm_dev *dev = get_imsm_dev(mpb, info->container_member);
 	struct imsm_map *map = &dev->vol.map[0];
 
-	info->array.major_version = 2000;
-	get_imsm_numerical_version(mpb, &info->array.minor_version,
-				   &info->array.patch_version);
 	info->array.raid_disks    = map->num_members;
 	info->array.level	  = get_imsm_raid_level(map);
 	info->array.layout	  = imsm_level_to_layout(info->array.level);
@@ -1572,9 +1568,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		this->next = rest;
 		rest = this;
 
-		this->array.major_version = 2000;
-		get_imsm_numerical_version(mpb, &this->array.minor_version,
-					   &this->array.patch_version);
 		this->array.level = get_imsm_raid_level(map);
 		this->array.raid_disks = map->num_members;
 		this->array.layout = imsm_level_to_layout(this->array.level);

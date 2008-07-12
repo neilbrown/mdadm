@@ -900,16 +900,12 @@ static int write_init_super1(struct supertype *st)
 	for (di = st->info; di && ! rv ; di = di->next) {
 		if (di->disk.state == 1)
 			continue;
+		if (di->fd < 0)
+			continue;
 
 		Kill(di->devname, 0, 1, 1);
 		Kill(di->devname, 0, 1, 1);
 
-		if (di->fd < 0) {
-			fprintf(stderr,
-				Name": Failed to open %s to write superblock\n",
-				di->devname);
-			return -1;
-		}
 		sb->dev_number = __cpu_to_le32(di->disk.number);
 		if (di->disk.state & (1<<MD_DISK_WRITEMOSTLY))
 			sb->devflags |= __cpu_to_le32(WriteMostly1);

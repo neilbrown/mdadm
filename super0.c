@@ -698,6 +698,8 @@ static int write_init_super0(struct supertype *st)
 
 		if (di->disk.state == 1)
 			continue;
+		if (di->fd == -1)
+			continue;
 		Kill(di->devname, 0, 1, 1);
 		Kill(di->devname, 0, 1, 1);
 

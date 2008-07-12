@@ -515,3 +515,66 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 
 	return 0;
 }
+
+
+int sysfs_unique_holder(int devnum, long rdev)
+{
+	/* Check that devnum is a holder of rdev,
+	 * and is the only holder.
+	 * we should be locked against races by
+	 * an O_EXCL on devnum
+	 */
+	DIR *dir;
+	struct dirent *de;
+	char dirname[100];
+	char l;
+	int found = 0;
+	sprintf(dirname, "/sys/dev/block/%d:%d/holders",
+		major(rdev), minor(rdev));
+	dir = opendir(dirname);
+	errno = ENOENT;
+	if (!dir)
+		return 0;
+	l = strlen(dirname);
+	while ((de = readdir(dir)) != NULL) {
+		char buf[10];
+		int n;
+		int mj, mn;
+		char c;
+		int fd;
+
+		if (de->d_ino == 0)
+			continue;
+		if (de->d_name[0] == '.')
+			continue;
+		strcpy(dirname+l, "/");
+		strcat(dirname+l, de->d_name);
+		strcat(dirname+l, "/dev");
+		fd = open(dirname, O_RDONLY);
+		if (fd < 0) {
+			errno = ENOENT;
+			break;
+		}
+		n = read(fd, buf, sizeof(buf)-1);
+		close(fd);
+		buf[n] = 0;
+		if (sscanf(buf, "%d:%d%c", &mj, &mn, &c) != 3 ||
+		    c != '\n') {
+			errno = ENOENT;
+			break;
+		}
+		if (mj != MD_MAJOR)
+			mn = -1-(mn>>6);
+
+		if (devnum != mn) {
+			errno = EEXIST;
+			break;
+		}
+		found = 1;
+	}
+	closedir(dir);
+	if (de)
+		return 0;
+	else
+		return found;
+}

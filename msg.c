@@ -185,19 +185,6 @@ int nack(int fd, int err, int tmo)
 	return send_message(fd, &msg, tmo);
 }
 
-int send_remove_device(int fd, dev_t rdev, int seq, int tmo)
-{
-	struct md_remove_device_cmd cmd = { .action = md_action_remove_device,
-					    .rdev = rdev
-					  };
-	struct md_message msg = { .seq = seq,
-				  .num_bytes = sizeof(cmd),
-				  .buf = &cmd
-				};
-
-	return send_message(fd, &msg, tmo);
-}
-
 int connect_monitor(char *devname)
 {
 	char path[100];

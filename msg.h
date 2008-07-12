@@ -29,16 +29,10 @@ struct md_message {
 
 enum md_message_action {
 	md_action_ping_monitor,
-	md_action_remove_device,
 };
 
 struct md_generic_cmd {
 	enum md_message_action action;
-};
-
-struct md_remove_device_cmd {
-	enum md_message_action action;
-	dev_t rdev;
 };
 
 /* union of all known command types, used to sanity check ->num_bytes
@@ -46,7 +40,6 @@ struct md_remove_device_cmd {
  */
 union md_message_commands {
 	struct md_generic_cmd generic;
-	struct md_remove_device_cmd remove;
 };
 
 extern const int start_magic;
@@ -58,5 +51,4 @@ extern int ack(int fd, int seq, int tmo);
 extern int nack(int fd, int err, int tmo);
 extern int connect_monitor(char *devname);
 extern int ping_monitor(char *devname);
-extern int send_remove_device(int fd, dev_t rdev, int seq, int tmo);
 

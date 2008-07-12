@@ -171,54 +171,6 @@ int Manage_reconfig(char *devname, int fd, int layout)
 	return 0;
 }
 
-static int
-add_remove_device_container(int fd, int add_remove, struct stat *stb)
-{
-	int devnum = fd2devnum(fd);
-	char *devname = devnum2devname(devnum);
-	int sfd = devname ? connect_monitor(devname) : -1;
-	struct md_message msg;
-	int err = 0;
-
-	if (devname && sfd < 0) {
-		fprintf(stderr, Name ": Cannot connect to monitor for %s: %s\n",
-			devname, strerror(errno));
-		free(devname);
-		return 1;
-	} else if (sfd < 0) {
-		fprintf(stderr, Name ": Cannot determine container name for"
-			" device number %d\n", devnum);
-		return 1;
-	}
-
-	if (add_remove)
-		ack(sfd, 0, 0);
-	else if (send_remove_device(sfd, stb->st_rdev, 0, 0) != 0) {
-		fprintf(stderr, Name ": Failed to send \'%s device\'"
-			" message to the container monitor\n",
-			add_remove ? "add" : "remove");
-		err = 1;
-	}
-
-	/* check the reply */
-	if (!err && receive_message(sfd, &msg, 0) != 0) {
-		fprintf(stderr, Name ": Failed to receive an acknowledgement"
-			" from the container monitor\n");
-		err = 1;
-	}
-
-	if (!err && msg.seq != 0) {
-		fprintf(stderr, Name ": %s device failed error code %d\n",
-			add_remove ? "Add" : "Remove", msg.seq);
-		err = 1;
-	}
-
-	free(devname);
-	close(sfd);
-
-	return err;
-}
-
 int Manage_subdevs(char *devname, int fd,
 		   mddev_dev_t devlist, int verbose)
 {
@@ -244,6 +196,7 @@ int Manage_subdevs(char *devname, int fd,
 	struct supertype *st, *tst;
 	int duuid[4];
 	int ouuid[4];
+	int lfd = -1;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
@@ -270,6 +223,7 @@ int Manage_subdevs(char *devname, int fd,
 		unsigned long long ldsize;
 		char dvname[20];
 		char *dnprintable = dv->devname;
+		int err;
 
 		next = dv->next;
 		jnext = 0;
@@ -359,8 +313,7 @@ int Manage_subdevs(char *devname, int fd,
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
 				return 1;
-			} else if (tst->ss->external)
-				return add_remove_device_container(fd, 1, &stb);
+			}
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd < 0) {
@@ -381,7 +334,9 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			close(tfd);
 
-			if (array.major_version == 0 &&
+
+			if (!tst->ss->external &&
+			    array.major_version == 0 &&
 			    md_get_version(fd)%100 < 2) {
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
@@ -556,15 +511,65 @@ int Manage_subdevs(char *devname, int fd,
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
 				return 1;
-			} else if (tst->ss->external)
-				return add_remove_device_container(fd, 0, &stb);
+			}
+			if (tst->ss->external) {
+				/* To remove a device from a container, we must
+				 * check that it isn't in use in an array.
+				 * This involves looking in the 'holders'
+				 * directory - there must be just one entry,
+				 * the container.
+				 * To ensure that it doesn't get used as a
+				 * hold spare while we are checking, we
+				 * get an O_EXCL open on the container
+				 */
+				int dnum = fd2devnum(fd);
+				lfd = open_dev_excl(dnum);
+				if (lfd < 0) {
+					fprintf(stderr, Name
+						": Cannot get exclusive access "
+						" to container - odd\n");
+					return 1;
+				}
+				if (!sysfs_unique_holder(dnum, stb.st_rdev)) {
+					fprintf(stderr, Name
+						": %s is %s, cannot remove.\n",
+						dnprintable,
+						errno == EEXIST ? "still in use":
+						"not a member");
+					close(lfd);
+					return 1;
+				}
+			}
 			/* FIXME check that it is a current member */
-			if (ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev)) {
+			err = ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev);
+			if (err && errno == ENODEV) {
+				/* Old kernels rejected this if no personality
+				 * registered */
+				struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
+				struct mdinfo *dv = NULL;
+				if (sra)
+					dv = sra->devs;
+				for ( ; dv ; dv=dv->next)
+					if (dv->disk.major == major(stb.st_rdev) &&
+					    dv->disk.minor == minor(stb.st_rdev))
+						break;
+				if (dv)
+					err = sysfs_set_str(sra, dv,
+							    "state", "remove");
+				else
+					err = -1;
+				if (sra)
+					sysfs_free(sra);
+			}
+			if (err) {
 				fprintf(stderr, Name ": hot remove failed "
 					"for %s: %s\n",	dnprintable,
 					strerror(errno));
+				if (lfd >= 0)
+					close(lfd);
 				return 1;
 			}
+			close(lfd);
 			if (verbose >= 0)
 				fprintf(stderr, Name ": hot removed %s\n",
 					dnprintable);

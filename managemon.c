@@ -434,20 +434,12 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 
 static int handle_message(struct supertype *container, struct md_message *msg)
 {
-	int err;
 	struct md_generic_cmd *cmd = msg->buf;
 
 	if (!cmd)
 		return 0;
 
 	switch (cmd->action) {
-	case md_action_remove_device:
-
-		/* forward to the monitor */
-		active_cmd = cmd;
-		write(container->mgr_pipe[1], &err, 1);
-		read(container->mon_pipe[0], &err, 1);
-		return err;
 
 	default:
 		return -1;

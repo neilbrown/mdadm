@@ -53,7 +53,7 @@ static unsigned long calc_sb0_csum(mdp_super_t *super)
 }
 
 
-void super0_swap_endian(struct mdp_superblock_s *sb)
+static void super0_swap_endian(struct mdp_superblock_s *sb)
 {
 	/* as super0 superblocks are host-endian, it is sometimes
 	 * useful to be able to swap the endianness
@@ -957,7 +957,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 }
 
 
-void locate_bitmap0(struct supertype *st, int fd)
+static void locate_bitmap0(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	unsigned long long offset;
@@ -977,7 +977,7 @@ void locate_bitmap0(struct supertype *st, int fd)
 	lseek64(fd, offset, 0);
 }
 
-int write_bitmap0(struct supertype *st, int fd)
+static int write_bitmap0(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	unsigned long long offset;

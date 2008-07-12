@@ -457,7 +457,8 @@ static int wait_and_act(struct supertype *container, int nowait)
 		sigprocmask(SIG_UNBLOCK, NULL, &set);
 		sigdelset(&set, SIGUSR1);
 		rv = pselect(maxfd+1, &rfds, NULL, NULL, NULL, &set);
-
+		if (rv == -1 && errno == EINTR)
+			rv = 0;
 		#ifdef DEBUG
 		dprint_wake_reasons(&rfds);
 		#endif

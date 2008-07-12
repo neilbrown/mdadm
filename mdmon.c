@@ -177,6 +177,7 @@ int main(int argc, char *argv[])
 	struct mdinfo *mdi, *di;
 	struct supertype *container;
 	sigset_t set;
+	struct sigaction act;
 
 	if (argc != 2) {
 		fprintf(stderr, "Usage: md-manage /device/name/for/container\n");
@@ -280,7 +281,11 @@ int main(int argc, char *argv[])
 	sigemptyset(&set);
 	sigaddset(&set, SIGUSR1);
 	sigprocmask(SIG_BLOCK, &set, NULL);
-	signal(SIGUSR1, wake_me);
+	act.sa_handler = wake_me;
+	act.sa_flags = 0;
+	sigaction(SIGUSR1, &act, NULL);
+	act.sa_handler = SIG_IGN;
+	sigaction(SIGPIPE, &act, NULL);
 
 	if (clone_monitor(container) < 0) {
 		fprintf(stderr, "md-manage: failed to start monitor process: %s\n",

@@ -428,7 +428,7 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 	}
 }
 
-static int handle_message(struct supertype *container, struct md_message *msg)
+static int handle_message(struct supertype *container, struct metadata_update *msg)
 {
 	return -1;
 }
@@ -436,7 +436,7 @@ static int handle_message(struct supertype *container, struct md_message *msg)
 void read_sock(struct supertype *container)
 {
 	int fd;
-	struct md_message msg;
+	struct metadata_update msg;
 	int terminate = 0;
 	long fl;
 	int tmo = 3; /* 3 second timeout before hanging up the socket */
@@ -450,21 +450,15 @@ void read_sock(struct supertype *container)
 	fcntl(fd, F_SETFL, fl);
 
 	do {
-		int err;
-
 		msg.buf = NULL;
 
 		/* read and validate the message */
 		if (receive_message(fd, &msg, tmo) == 0) {
-			err = handle_message(container, &msg);
-			if (!err)
-				ack(fd, msg.seq, tmo);
-			else
-				nack(fd, err, tmo);
-		} else {
+			handle_message(container, &msg);
+			if (ack(fd, tmo) < 0)
+				terminate = 1;
+		} else
 			terminate = 1;
-			nack(fd, -1, tmo);
-		}
 
 		if (msg.buf)
 			free(msg.buf);

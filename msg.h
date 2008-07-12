@@ -19,21 +19,13 @@
 
 
 struct mdinfo;
+struct metadata_update;
 
-struct mdinfo;
-struct md_message {
-	int seq;
-	int num_bytes;
-	void *buf;
-};
-
-extern const int start_magic;
-extern const int end_magic;
-
-extern int receive_message(int fd, struct md_message *msg, int tmo);
-extern int send_message(int fd, struct md_message *msg, int tmo);
-extern int ack(int fd, int seq, int tmo);
-extern int nack(int fd, int err, int tmo);
+extern int receive_message(int fd, struct metadata_update *msg, int tmo);
+extern int send_message(int fd, struct metadata_update *msg, int tmo);
+extern int ack(int fd, int tmo);
+extern int wait_reply(int fd, int tmo);
 extern int connect_monitor(char *devname);
 extern int ping_monitor(char *devname);
 
+#define MSG_MAX_LEN (4*1024*1024)

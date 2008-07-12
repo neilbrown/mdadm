@@ -242,7 +242,7 @@ static int read_and_act(struct active_array *a)
 		 * readonly ???
 		 */
 		get_resync_start(a);
-		printf("Found a readonly array at %llu\n", a->resync_start);
+//		printf("Found a readonly array at %llu\n", a->resync_start);
 		if (a->resync_start == ~0ULL)
 			a->next_state = read_auto; /* array is clean */
 		else {

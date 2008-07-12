@@ -2796,7 +2796,7 @@ static void ddf_process_update(struct supertype *st,
 	int mppe;
 	int ent;
 
-	printf("Process update %x\n", *magic);
+//	printf("Process update %x\n", *magic);
 
 	switch (*magic) {
 	case DDF_PHYS_RECORDS_MAGIC:
@@ -2834,7 +2834,7 @@ static void ddf_process_update(struct supertype *st,
 		break;
 
 	case DDF_VD_CONF_MAGIC:
-		printf("len %d %d\n", update->len, ddf->conf_rec_len);
+//		printf("len %d %d\n", update->len, ddf->conf_rec_len);
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
 		if (update->len != ddf->conf_rec_len * 512)
@@ -2843,7 +2843,7 @@ static void ddf_process_update(struct supertype *st,
 		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 			if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
 				break;
-		printf("vcl = %p\n", vcl);
+//		printf("vcl = %p\n", vcl);
 		if (vcl) {
 			/* An update, just copy the phys_refnum and lba_offset
 			 * fields
@@ -2868,8 +2868,8 @@ static void ddf_process_update(struct supertype *st,
 				for (dn=0; dn < ddf->mppe ; dn++)
 					if (vcl->conf.phys_refnum[dn] ==
 					    dl->disk.refnum) {
-						printf("dev %d has %p at %d\n",
-						       dl->pdnum, vcl, vn);
+//						printf("dev %d has %p at %d\n",
+//						       dl->pdnum, vcl, vn);
 						dl->vlist[vn++] = vcl;
 						break;
 					}
@@ -2954,8 +2954,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			working ++;
 	}
 
-	printf("ddf_activate: working=%d (%d) level=%d\n", working, a->info.array.raid_disks,
-	       a->info.array.level);
+//	printf("ddf_activate: working=%d (%d) level=%d\n", working, a->info.array.raid_disks,
+//	       a->info.array.level);
 	if (working == a->info.array.raid_disks)
 		return NULL; /* array not degraded */
 	switch (a->info.array.level) {

@@ -826,10 +826,7 @@ struct supertype *super_by_fd(int fd)
 		int devnum;
 		if (subarray)
 			*subarray++ = '\0';
-		if (strncmp(dev, "md_d", 4) == 0)
-			devnum = -1-atoi(dev+4);
-		else
-			devnum = atoi(dev+2);
+		devnum = devname2devnum(dev);
 		subarray = strdup(subarray);
 		if (sra)
 			sysfs_free(sra);
@@ -1011,6 +1008,17 @@ char *devnum2devname(int num)
 	else
 		sprintf(name, "md_d%d", -1-num);
 	return strdup(name);
+}
+
+int devname2devnum(char *name)
+{
+	char *ep;
+	int num;
+	if (strncmp(name, "md_d", 4)==0)
+		num = -1-strtoul(name+4, &ep, 10);
+	else
+		num = strtoul(name+2, &ep, 10);
+	return num;
 }
 
 int fd2devnum(int fd)

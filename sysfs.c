@@ -59,15 +59,9 @@ void sysfs_free(struct mdinfo *sra)
 int sysfs_open(int devnum, char *devname, char *attr)
 {
 	char fname[50];
-	char sys_name[16];
 	int fd;
-	if (devnum >= 0)
-		sprintf(sys_name, "md%d", devnum);
-	else
-		sprintf(sys_name, "md_d%d",
-			-1-devnum);
 
-	sprintf(fname, "/sys/block/%s/md/", sys_name);
+	sprintf(fname, "/sys/block/%s/md/", devnum2devname(devnum));
 	if (devname) {
 		strcat(fname, devname);
 		strcat(fname, "/");

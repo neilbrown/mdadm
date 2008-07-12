@@ -191,11 +191,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					 * there.
 					 */
 					struct mdstat_ent **ih;
-					int dn2;
-					if (strncmp(w, "md_d", 4)==0)
-						dn2 = -1-strtoul(w+4, &ep, 10);
-					else
-						dn2 = strtoul(w+2, &ep, 10);
+					int dn2 = devname2devnum(w);
 					ih = &all;
 					while (ih != insert_here && *ih &&
 					       (*ih)->devnum != dn2)

@@ -31,11 +31,6 @@
 #include "sha1.h"
 #include <values.h>
 
-static inline int ROUND_UP(int a, int base)
-{
-	return ((a+base-1)/base)*base;
-}
-
 /* a non-official T10 name for creation GUIDs */
 static char T10[] = "Linux-MD";
 
@@ -395,8 +390,9 @@ struct bad_block_log {
  * built in Create or Assemble to describe the whole array.
  */
 struct ddf_super {
-	struct ddf_header anchor, primary, secondary, *active;
+	struct ddf_header anchor, primary, secondary;
 	struct ddf_controller_data controller;
+	struct ddf_header *active;
 	struct phys_disk	*phys;
 	struct virtual_disk	*virt;
 	int pdsize, vdsize;
@@ -404,22 +400,32 @@ struct ddf_super {
 	int currentdev;
 	int updates_pending;
 	struct vcl {
-		struct vcl	*next;
-		__u64		*lba_offset; /* location in 'conf' of
-					      * the lba table */
-		int	vcnum; /* index into ->virt */
-		__u64		*block_sizes; /* NULL if all the same */
+		union {
+			char space[512];
+			struct {
+				struct vcl	*next;
+				__u64		*lba_offset; /* location in 'conf' of
+							      * the lba table */
+				int	vcnum; /* index into ->virt */
+				__u64		*block_sizes; /* NULL if all the same */
+			};
+		};
 		struct vd_config conf;
 	} *conflist, *currentconf;
 	struct dl {
-		struct dl	*next;
+		union {
+			char space[512];
+			struct {
+				struct dl	*next;
+				int major, minor;
+				char *devname;
+				int fd;
+				unsigned long long size; /* sectors */
+				int pdnum;	/* index in ->phys */
+				struct spare_assign *spare;
+			};
+		};
 		struct disk_data disk;
-		int major, minor;
-		char *devname;
-		int fd;
-		unsigned long long size; /* sectors */
-		int pdnum;	/* index in ->phys */
-		struct spare_assign *spare;
 		struct vcl *vlist[0]; /* max_part in size */
 	} *dlist;
 };
@@ -497,8 +503,10 @@ static void *load_section(int fd, struct ddf_super *super, void *buf,
 		/* All pre-allocated sections are a single block */
 		if (len != 1)
 			return NULL;
-	} else
-		buf = malloc(len<<9);
+	} else {
+		posix_memalign(&buf, 512, len<<9);
+	}
+
 	if (!buf)
 		return NULL;
 
@@ -633,8 +641,9 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	unsigned long long dsize;
 
 	/* First the local disk info */
-	dl = malloc(sizeof(*dl) +
-		    (super->max_part) * sizeof(dl->vlist[0]));
+	posix_memalign((void**)&dl, 512,
+		       sizeof(*dl) +
+		       (super->max_part) * sizeof(dl->vlist[0]));
 
 	load_section(fd, super, &dl->disk,
 		     super->active->data_section_offset,
@@ -683,7 +692,8 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 		if (vd->magic == DDF_SPARE_ASSIGN_MAGIC) {
 			if (dl->spare)
 				continue;
-			dl->spare = malloc(super->conf_rec_len*512);
+			posix_memalign((void**)&dl->spare, 512,
+				       super->conf_rec_len*512);
 			memcpy(dl->spare, vd, super->conf_rec_len*512);
 			continue;
 		}
@@ -701,8 +711,9 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			    __be32_to_cpu(vcl->conf.seqnum))
 				continue;
 		} else {
-			vcl = malloc(super->conf_rec_len*512 +
-				     offsetof(struct vcl, conf));
+			posix_memalign((void**)&vcl, 512,
+				       (super->conf_rec_len*512 +
+					offsetof(struct vcl, conf)));
 			vcl->next = super->conflist;
 			vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 			super->conflist = vcl;
@@ -766,8 +777,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 		}
 	}
 
-	super = malloc(sizeof(*super));
-	if (!super) {
+	if (posix_memalign((void**)&super, 512, sizeof(*super))!= 0) {
 		fprintf(stderr, Name ": malloc of %zu failed.\n",
 			sizeof(*super));
 		return 1;
@@ -1443,7 +1453,7 @@ static int init_super_ddf(struct supertype *st,
 		return init_super_ddf_bvd(st, info, size, name, homehost,
 					  uuid);
 
-	ddf = malloc(sizeof(*ddf));
+	posix_memalign((void**)&ddf, 512, sizeof(*ddf));
 	memset(ddf, 0, sizeof(*ddf));
 	ddf->dlist = NULL; /* no physical disks yet */
 	ddf->conflist = NULL; /* No virtual disks yet */
@@ -1570,7 +1580,8 @@ static int init_super_ddf(struct supertype *st,
 	memset(ddf->controller.pad, 0xff, 8);
 	memset(ddf->controller.vendor_data, 0xff, 448);
 
-	pd = ddf->phys = malloc(pdsize);
+	posix_memalign((void**)&pd, 512, pdsize);
+	ddf->phys = pd;
 	ddf->pdsize = pdsize;
 
 	memset(pd, 0xff, pdsize);
@@ -1580,7 +1591,8 @@ static int init_super_ddf(struct supertype *st,
 	pd->max_pdes = __cpu_to_be16(max_phys_disks);
 	memset(pd->pad, 0xff, 52);
 
-	vd = ddf->virt = malloc(vdsize);
+	posix_memalign((void**)&vd, 512, vdsize);
+	ddf->virt = vd;
 	ddf->vdsize = vdsize;
 	memset(vd, 0, vdsize);
 	vd->magic = DDF_VIRT_RECORDS_MAGIC;
@@ -1805,7 +1817,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 		__cpu_to_be16(__be16_to_cpu(ddf->virt->populated_vdes)+1);
 
 	/* Now create a new vd_config */
-	vcl = malloc(offsetof(struct vcl, conf) + ddf->conf_rec_len * 512);
+	posix_memalign((void**)&vcl, 512,
+		       (offsetof(struct vcl, conf) + ddf->conf_rec_len * 512));
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
 	vcl->vcnum = venum;
 	sprintf(st->subarray, "%d", venum);
@@ -1974,7 +1987,8 @@ static void add_to_super_ddf(struct supertype *st,
 	 * a phys_disk entry and a more detailed disk_data entry.
 	 */
 	fstat(fd, &stb);
-	dd = malloc(sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part);
+	posix_memalign((void**)&dd, 512,
+		       sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part);
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
 	dd->devname = devname;
@@ -2037,7 +2051,7 @@ static void add_to_super_ddf(struct supertype *st,
 
 #ifndef MDASSEMBLE
 
-static unsigned char null_conf[4096];
+static unsigned char null_conf[4096+512];
 
 static int __write_init_super_ddf(struct supertype *st, int do_close)
 {
@@ -2109,14 +2123,15 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 				c->conf.crc = calc_crc(&c->conf, conf_size);
 				write(fd, &c->conf, conf_size);
 			} else {
+				char *null_aligned = (char*)((((unsigned long)null_conf)+511)&~511UL);
 				if (null_conf[0] != 0xff)
 					memset(null_conf, 0xff, sizeof(null_conf));
 				int togo = conf_size;
-				while (togo > sizeof(null_conf)) {
-					write(fd, null_conf, sizeof(null_conf));
-					togo -= sizeof(null_conf);
+				while (togo > sizeof(null_conf)-512) {
+					write(fd, null_aligned, sizeof(null_conf)-512);
+					togo -= sizeof(null_conf)-512;
 				}
-				write(fd, null_conf, togo);
+				write(fd, null_aligned, togo);
 			}
 		}
 		d->disk.crc = calc_crc(&d->disk, 512);
@@ -2425,8 +2440,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	    strcmp(sra->text_version, "ddf") != 0)
 		return 1;
 
-	super = malloc(sizeof(*super));
-	if (!super)
+	if (posix_memalign((void**)&super, 512, sizeof(*super)) != 0)
 		return 1;
 	memset(super, 0, sizeof(*super));
 
@@ -2584,14 +2598,17 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 static int store_zero_ddf(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
-	char buf[512];
-	memset(buf, 0, 512);
+	void *buf;
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
 
+	posix_memalign(&buf, 512, 512);
+	memset(buf, 0, 512);
+
 	lseek64(fd, dsize-512, 0);
 	write(fd, buf, 512);
+	free(buf);
 	return 0;
 }
 
@@ -2948,8 +2965,9 @@ static void ddf_prepare_update(struct supertype *st,
 	struct ddf_super *ddf = st->sb;
 	__u32 *magic = (__u32*)update->buf;
 	if (*magic == DDF_VD_CONF_MAGIC)
-		update->space = malloc(offsetof(struct vcl, conf)
-				       + ddf->conf_rec_len * 512);
+		posix_memalign(&update->space, 512,
+			       offsetof(struct vcl, conf)
+			       + ddf->conf_rec_len * 512);
 }
 
 /*
@@ -3131,7 +3149,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	 */
 	mu = malloc(sizeof(*mu));
 	mu->buf = malloc(ddf->conf_rec_len * 512);
-	mu->space = malloc(sizeof(struct vcl));
+	posix_memalign(&mu->space, 512, sizeof(struct vcl));
 	mu->len = ddf->conf_rec_len;
 	mu->next = *updates;
 	vc = find_vdcr(ddf, a->info.container_member);

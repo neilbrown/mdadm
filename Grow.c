@@ -69,7 +69,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		return 1;
 	}
 
-	nfd = open(newdev, O_RDWR|O_EXCL);
+	nfd = open(newdev, O_RDWR|O_EXCL|O_DIRECT);
 	if (nfd < 0) {
 		fprintf(stderr, Name ": cannot open %s\n", newdev);
 		return 1;

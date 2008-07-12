@@ -761,11 +761,11 @@ int dev_open(char *dev, int flags)
 		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
 			 (int)getpid(), major, minor);
 		if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
-			fd = open(devname, flags);
+			fd = open(devname, flags|O_DIRECT);
 			unlink(devname);
 		}
 	} else
-		fd = open(dev, flags);
+		fd = open(dev, flags|O_DIRECT);
 	return fd;
 }
 

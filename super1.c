@@ -671,7 +671,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	    __le64_to_cpu(sb->data_offset)) {
 		/* set data_size to device size less data_offset */
 		struct misc_dev_info *misc = (struct misc_dev_info*)
-			(st->sb + 1024 + sizeof(struct bitmap_super_s));
+			(st->sb + 1024 + 512);
 		printf("Size was %llu\n", (unsigned long long)
 		       __le64_to_cpu(sb->data_size));
 		sb->data_size = __cpu_to_le64(
@@ -689,11 +689,13 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 static int init_super1(struct supertype *st, mdu_array_info_t *info,
 		       unsigned long long size, char *name, char *homehost, int *uuid)
 {
-	struct mdp_superblock_1 *sb = malloc(1024 + sizeof(bitmap_super_t) +
-					     sizeof(struct misc_dev_info));
+	struct mdp_superblock_1 *sb;
 	int spares;
 	int rfd;
 	char defname[10];
+
+	posix_memalign((void**)&sb, 512, (1024 + 512 + 
+					  sizeof(struct misc_dev_info)));
 	memset(sb, 0, 1024);
 
 	st->sb = sb;
@@ -857,6 +859,7 @@ static int store_super1(struct supertype *st, int fd)
 		return 3;
 
 	sbsize = sizeof(*sb) + 2 * __le32_to_cpu(sb->max_dev);
+	sbsize = (sbsize+511)&(~511UL);
 
 	if (write(fd, sb, sbsize) != sbsize)
 		return 4;
@@ -866,7 +869,8 @@ static int store_super1(struct supertype *st, int fd)
 			(((char*)sb)+1024);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC) {
 			locate_bitmap1(st, fd);
-			if (write(fd, bm, sizeof(*bm)) != sizeof(*bm))
+			if (write(fd, bm, ROUND_UP(sizeof(*bm),512)) !=
+			    ROUND_UP(sizeof(*bm),512))
 			    return 5;
 		}
 	}
@@ -1035,9 +1039,10 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 		return 1;
 
 	if (!first) {
-		first = malloc(1024+sizeof(bitmap_super_t) +
+		posix_memalign((void**)&first, 512,
+			       1024 + 512 +
 			       sizeof(struct misc_dev_info));
-		memcpy(first, second, 1024+sizeof(bitmap_super_t) +
+		memcpy(first, second, 1024 + 512 + 
 		       sizeof(struct misc_dev_info));
 		st->sb = first;
 		return 0;
@@ -1150,7 +1155,8 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	super = malloc(1024 + sizeof(bitmap_super_t) +
+	posix_memalign((void**)&super, 512,
+		       1024 + 512 +
 		       sizeof(struct misc_dev_info));
 
 	if (read(fd, super, 1024) != 1024) {
@@ -1187,7 +1193,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	bsb = (struct bitmap_super_s *)(((char*)super)+1024);
 
-	misc = (struct misc_dev_info*) (bsb+1);
+	misc = (struct misc_dev_info*) (((char*)super)+1024+512);
 	misc->device_size = dsize;
 
 	/* Now check on the bitmap superblock */
@@ -1198,8 +1204,8 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 	 * should get that written out.
 	 */
 	locate_bitmap1(st, fd);
-	if (read(fd, ((char*)super)+1024, sizeof(struct bitmap_super_s))
-	    != sizeof(struct bitmap_super_s))
+	if (read(fd, ((char*)super)+1024, 512)
+	    != 512)
 		goto no_bitmap;
 
 	uuid_from_super1(st, uuid);
@@ -1419,25 +1425,28 @@ static int write_bitmap1(struct supertype *st, int fd)
 	int rv = 0;
 
 	int towrite, n;
-	char buf[4096];
+	char abuf[4096+512];
+	char *buf = (char*)(((long)(abuf+512))&~511UL);
 
 	locate_bitmap1(st, fd);
 
-	if (write(fd, ((char*)sb)+1024, sizeof(bitmap_super_t)) !=
-	    sizeof(bitmap_super_t))
-		return -2;
+	memset(buf, 0xff, 4096);
+	memcpy(buf, ((char*)sb)+1024, sizeof(bitmap_super_t));
+
 	towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
 	towrite = (towrite+7) >> 3; /* bits to bytes */
-	memset(buf, 0xff, sizeof(buf));
+	towrite += sizeof(bitmap_super_t);
+	towrite = ROUND_UP(towrite, 512);
 	while (towrite > 0) {
 		n = towrite;
-		if (n > sizeof(buf))
-			n = sizeof(buf);
+		if (n > 4096)
+			n = 4096;
 		n = write(fd, buf, n);
 		if (n > 0)
 			towrite -= n;
 		else
 			break;
+		memset(buf, 0xff, 4096);
 	}
 	fsync(fd);
 	if (towrite)

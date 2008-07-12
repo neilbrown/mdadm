@@ -762,7 +762,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	size_t len, mpb_size;
 	unsigned long long sectors;
 	struct stat;
-	struct imsm_super anchor;
+	struct imsm_super *anchor;
 	__u32 check_sum;
 
 	memset(super, 0, sizeof(*super));
@@ -776,44 +776,40 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 		return 1;
 	}
 
-	len = sizeof(anchor);
-	if (read(fd, &anchor, len) != len) {
+	len = 512;
+	posix_memalign((void**)&anchor, 512, len);
+	if (read(fd, anchor, len) != len) {
 		if (devname)
 			fprintf(stderr,
 				Name ": Cannot read anchor block on %s: %s\n",
 				devname, strerror(errno));
+		free(anchor);
 		return 1;
 	}
 
-	if (strncmp((char *) anchor.sig, MPB_SIGNATURE, MPB_SIG_LEN) != 0) {
+	if (strncmp((char *) anchor->sig, MPB_SIGNATURE, MPB_SIG_LEN) != 0) {
 		if (devname)
 			fprintf(stderr,
 				Name ": no IMSM anchor on %s\n", devname);
+		free(anchor);
 		return 2;
 	}
 
-	mpb_size = __le32_to_cpu(anchor.mpb_size);
-	super->mpb = malloc(mpb_size < 512 ? 512 : mpb_size);
+	mpb_size = __le32_to_cpu(anchor->mpb_size);
+	mpb_size = ROUND_UP(mpb_size, 512);
+	posix_memalign((void**)&super->mpb, 512, mpb_size);
 	if (!super->mpb) {
 		if (devname)
 			fprintf(stderr,
 				Name ": unable to allocate %zu byte mpb buffer\n",
 				mpb_size);
+		free(anchor);
 		return 2;
 	}
-	memcpy(super->buf, &anchor, sizeof(anchor));
+	memcpy(super->buf, anchor, len);
 
-	/* read the rest of the first block */
-	len = 512 - sizeof(anchor);
-	if (read(fd, super->buf + sizeof(anchor), len) != len) {
-		if (devname)
-			fprintf(stderr,
-				Name ": Cannot read anchor remainder on %s: %s\n",
-				devname, strerror(errno));
-		return 2;
-	}
-
-	sectors = mpb_sectors(&anchor) - 1;
+	sectors = mpb_sectors(anchor) - 1;
+	free(anchor);
 	if (!sectors)
 		return load_imsm_disk(fd, super, devname, 0);
 
@@ -1067,7 +1063,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	if (!super)
 		return 0;
 	mpb_size = disks_to_mpb_size(info->nr_disks);
-	mpb = malloc(mpb_size);
+	posix_memalign((void**)&mpb, 512, mpb_size);
 	if (!mpb) {
 		free(super);
 		return 0;
@@ -1281,7 +1277,7 @@ static int write_init_super_imsm(struct supertype *st)
 static int store_zero_imsm(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
-	char buf[512];
+	void *buf;
 
 	get_dev_size(fd, NULL, &dsize);
 
@@ -1289,6 +1285,7 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0)
 		return 1;
 
+	posix_memalign(&buf, 512, 512);
 	memset(buf, 0, sizeof(buf));
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf))
 		return 1;

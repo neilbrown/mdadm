@@ -315,7 +315,7 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 			/* Make sure it isn't in use (in 2.6 or later) */
-			tfd = open(dv->devname, O_RDONLY|O_EXCL);
+			tfd = open(dv->devname, O_RDONLY|O_EXCL|O_DIRECT);
 			if (tfd < 0) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
@@ -458,7 +458,7 @@ int Manage_subdevs(char *devname, int fd,
 				int dfd;
 				if (dv->writemostly)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
-				dfd = open(dv->devname, O_RDWR | O_EXCL);
+				dfd = open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
 				tst->ss->add_to_super(tst, &disc, dfd,
 						      dv->devname);
 				/* write_init_super will close 'dfd' */

@@ -791,6 +791,11 @@ static inline int dev2minor(int d)
 	return (-1-d) << MdpMinorShift;
 }
 
+static inline int ROUND_UP(int a, int base)
+{
+	return ((a+base-1)/base)*base;
+}
+
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)
 #define	LEVEL_FAULTY		(-5)

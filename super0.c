@@ -554,8 +554,10 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 		       unsigned long long size, char *ignored_name, char *homehost,
 		       int *uuid)
 {
-	mdp_super_t *sb = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
+	mdp_super_t *sb;
 	int spares;
+
+	posix_memalign((void**)&sb, 512, MD_SB_BYTES + sizeof(bitmap_super_t));
 	memset(sb, 0, MD_SB_BYTES + sizeof(bitmap_super_t));
 
 	st->sb = sb;
@@ -684,7 +686,8 @@ static int store_super0(struct supertype *st, int fd)
 	if (super->state & (1<<MD_SB_BITMAP_PRESENT)) {
 		struct bitmap_super_s * bm = (struct bitmap_super_s*)(super+1);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC)
-			if (write(fd, bm, sizeof(*bm)) != sizeof(*bm))
+			if (write(fd, bm, ROUND_UP(sizeof(*bm),512)) != 
+			    ROUND_UP(sizeof(*bm),512))
 			    return 5;
 	}
 
@@ -744,7 +747,8 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 	if (second->md_magic != MD_SB_MAGIC)
 		return 1;
 	if (!first) {
-		first = malloc(MD_SB_BYTES + sizeof(struct bitmap_super_s));
+		posix_memalign((void**)&first, 512, 
+			       MD_SB_BYTES + sizeof(struct bitmap_super_s));
 		memcpy(first, second, MD_SB_BYTES + sizeof(struct bitmap_super_s));
 		st->sb = first;
 		return 0;
@@ -813,7 +817,7 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	super = malloc(MD_SB_BYTES + sizeof(bitmap_super_t));
+	posix_memalign((void**)&super, 512, MD_SB_BYTES + sizeof(bitmap_super_t)+512);
 
 	if (read(fd, super, sizeof(*super)) != MD_SB_BYTES) {
 		if (devname)
@@ -857,8 +861,8 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 	 * valid.  If it doesn't clear the bit.  An --assemble --force
 	 * should get that written out.
 	 */
-	if (read(fd, super+1, sizeof(struct bitmap_super_s))
-	    != sizeof(struct bitmap_super_s))
+	if (read(fd, super+1, ROUND_UP(sizeof(struct bitmap_super_s),512))
+	    != ROUND_UP(sizeof(struct bitmap_super_s),512))
 		goto no_bitmap;
 
 	uuid_from_super0(st, uuid);
@@ -986,7 +990,8 @@ static int write_bitmap0(struct supertype *st, int fd)
 	int rv = 0;
 
 	int towrite, n;
-	char buf[4096];
+	char abuf[4096+512];
+	char *buf = (char*)(((long)(abuf+512))&~511UL);
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
@@ -1002,21 +1007,19 @@ static int write_bitmap0(struct supertype *st, int fd)
 	if (lseek64(fd, offset + 4096, 0)< 0LL)
 		return 3;
 
-
-	if (write(fd, ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t)) !=
-	    sizeof(bitmap_super_t))
-		return -2;
-	towrite = 64*1024 - MD_SB_BYTES - sizeof(bitmap_super_t);
-	memset(buf, 0xff, sizeof(buf));
+	memset(buf, 0xff, 4096);
+	memcpy(buf,  ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
+	towrite = 64*1024;
 	while (towrite > 0) {
 		n = towrite;
-		if (n > sizeof(buf))
-			n = sizeof(buf);
+		if (n > 4096)
+			n = 4096;
 		n = write(fd, buf, n);
 		if (n > 0)
 			towrite -= n;
 		else
 			break;
+		memset(buf, 0xff, 4096);
 	}
 	fsync(fd);
 	if (towrite)

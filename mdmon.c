@@ -270,8 +270,6 @@ int main(int argc, char *argv[])
 			argv[1]);
 		exit(3);
 	}
-	close(mdfd);
-	close(mdfd);
 
 	mlockall(MCL_FUTURE);
 

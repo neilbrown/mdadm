@@ -1073,8 +1073,8 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		struct supertype tst;
 		__u64 bestctime = 0;
 		/* guess... choose latest ctime */
+		memset(&tst, 0, sizeof(tst));
 		tst.ss = &super1;
-		tst.sb = NULL;
 		for (tst.minor_version = 0; tst.minor_version <= 2 ; tst.minor_version++) {
 			switch(load_super1(&tst, fd, devname)) {
 			case 0: super = tst.sb;
@@ -1216,6 +1216,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 	struct supertype *st = malloc(sizeof(*st));
 	if (!st) return st;
 
+	memset(st, 0, sizeof(*st));
 	st->ss = &super1;
 	st->max_devs = 384;
 	st->sb = NULL;

@@ -820,6 +820,7 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 		return NULL;
 
 	st = malloc(sizeof(*st));
+	memset(st, 0, sizeof(*st));
 	st->ss = &super_ddf;
 	st->max_devs = 512;
 	st->minor_version = 0;
@@ -837,6 +838,7 @@ static struct supertype *match_metadata_desc_ddf_bvd(char *arg)
 		return NULL;
 
 	st = malloc(sizeof(*st));
+	memset(st, 0, sizeof(*st));
 	st->ss = &super_ddf_bvd;
 	st->max_devs = 512;
 	st->minor_version = 0;
@@ -853,6 +855,7 @@ static struct supertype *match_metadata_desc_ddf_svd(char *arg)
 		return NULL;
 
 	st = malloc(sizeof(*st));
+	memset(st, 0, sizeof(*st));
 	st->ss = &super_ddf_svd;
 	st->max_devs = 512;
 	st->minor_version = 0;

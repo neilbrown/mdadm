@@ -869,6 +869,7 @@ static struct supertype *match_metadata_desc0(char *arg)
 	struct supertype *st = malloc(sizeof(*st));
 	if (!st) return st;
 
+	memset(st, 0, sizeof(*st));
 	st->ss = &super0;
 	st->info = NULL;
 	st->minor_version = 90;

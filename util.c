@@ -841,6 +841,7 @@ struct supertype *dup_super(struct supertype *orig)
 	st = malloc(sizeof(*st));
 	if (!st)
 		return st;
+	memset(st, 0, sizeof(*st));
 	st->ss = orig->ss;
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
@@ -861,11 +862,10 @@ struct supertype *guess_super(int fd)
 	int i;
 
 	st = malloc(sizeof(*st));
-	memset(st, 0, sizeof(*st));
 	for (i=0 ; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];
-		st->ss = NULL;
+		memset(st, 0, sizeof(*st));
 		rv = ss->load_super(st, fd, NULL);
 		if (rv == 0) {
 			struct mdinfo info;
@@ -880,7 +880,7 @@ struct supertype *guess_super(int fd)
 	}
 	if (bestsuper != -1) {
 		int rv;
-		st->ss = NULL;
+		memset(st, 0, sizeof(*st));
 		rv = superlist[bestsuper]->load_super(st, fd, NULL);
 		if (rv == 0) {
 			superlist[bestsuper]->free_super(st);

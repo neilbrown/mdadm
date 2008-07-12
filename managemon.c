@@ -428,9 +428,25 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 	}
 }
 
-static int handle_message(struct supertype *container, struct metadata_update *msg)
+static void handle_message(struct supertype *container, struct metadata_update *msg)
 {
-	return -1;
+	/* queue this metadata update through to the monitor */
+
+	struct metadata_update *mu;
+
+	if (msg->len == 0) {
+		wait_update_handled();
+	} else {
+		mu = malloc(sizeof(*mu));
+		mu->len = msg->len;
+		mu->buf = msg->buf;
+		msg->buf = NULL;
+		mu->space = NULL;
+		mu->next = NULL;
+		if (container->ss->prepare_update)
+			container->ss->prepare_update(container, mu);
+		queue_metadata_update(mu);
+	}
 }
 
 void read_sock(struct supertype *container)
@@ -460,8 +476,6 @@ void read_sock(struct supertype *container)
 		} else
 			terminate = 1;
 
-		if (msg.buf)
-			free(msg.buf);
 	} while (!terminate);
 
 	close(fd);

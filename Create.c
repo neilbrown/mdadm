@@ -573,12 +573,13 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				return 1;
 			}
 			if (mdmon_running(st->container_dev)) {
-				fprintf(stderr, Name ": mdmon already running "
-					"for %s - sorry\n",
-					devnum2devname(st->container_dev));
-				return 1;
-			}
-			need_mdmon = 1;
+				if (verbose)
+					fprintf(stderr, Name ": reusing mdmon "
+						"for %s.\n",
+						devnum2devname(st->container_dev));
+				st->update_tail = &st->updates;
+			} else
+				need_mdmon = 1;
 		}
 		if ((vers % 100) < 2 ||
 		    sra == NULL ||
@@ -707,8 +708,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			}
 			if (dv == moved_disk && dnum != insert_point) break;
 		}
-		if (pass == 1)
+		if (pass == 1) {
 			st->ss->write_init_super(st);
+			flush_metadata_updates(st);
+		}
 	}
 	free(infos);
 	st->ss->free_super(st);

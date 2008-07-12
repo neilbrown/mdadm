@@ -41,12 +41,6 @@ struct active_array {
  * superswitch.  All common code sees them as opaque
  * blobs.
  */
-struct metadata_update {
-	int	len;
-	char	*buf;
-	void	*space; /* allocated space that monitor will use */
-	struct metadata_update *next;
-};
 extern struct metadata_update *update_queue, *update_queue_handled;
 
 #define MD_MAJOR 9

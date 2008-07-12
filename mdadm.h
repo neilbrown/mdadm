@@ -542,6 +542,8 @@ extern struct superswitch {
 	void (*sync_metadata)(struct supertype *st);
 	void (*process_update)(struct supertype *st,
 			       struct metadata_update *update);
+	void (*prepare_update)(struct supertype *st,
+			       struct metadata_update *update);
 
 	/* activate_spare will check if the array is degraded and, if it
 	 * is, try to find some spare space in the container.
@@ -558,6 +560,13 @@ extern struct superswitch {
 } super0, super1, super_ddf, *superlist[];
 
 extern struct superswitch super_imsm;
+
+struct metadata_update {
+	int	len;
+	char	*buf;
+	void	*space; /* allocated space that monitor will use */
+	struct metadata_update *next;
+};
 
 /* A supertype holds a particular collection of metadata.
  * It identifies the metadata type by the superswitch, and the particular
@@ -578,6 +587,9 @@ struct supertype {
 	char subarray[32];	/* name of array inside container */
 	void *sb;
 	void *info;
+
+	struct metadata_update *updates;
+	struct metadata_update **update_tail;
 
 	/* extra stuff used by mdmon */
 	struct active_array *arrays;
@@ -738,6 +750,8 @@ extern unsigned long long get_component_size(int fd);
 extern void remove_partitions(int fd);
 extern unsigned long long calc_array_size(int level, int raid_disks, int layout,
 				   int chunksize, unsigned long long devsize);
+extern int flush_metadata_updates(struct supertype *st);
+extern void append_metadata_update(struct supertype *st, void *buf, int len);
 
 
 extern char *human_size(long long bytes);

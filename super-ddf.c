@@ -2122,7 +2122,32 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 
 static int write_init_super_ddf(struct supertype *st)
 {
-	return __write_init_super_ddf(st, 1);
+
+	if (st->update_tail) {
+		/* queue the virtual_disk and vd_config as metadata updates */
+		struct virtual_disk *vd;
+		struct vd_config *vc;
+		struct ddf_super *ddf = st->sb;
+		int len;
+
+		/* First the virtual disk.  We have a slightly fake header */
+		len = sizeof(struct virtual_disk) + sizeof(struct virtual_entry);
+		vd = malloc(len);
+		*vd = *ddf->virt;
+		vd->entries[0] = ddf->virt->entries[ddf->currentconf->vcnum];
+		vd->populated_vdes = __cpu_to_be16(ddf->currentconf->vcnum);
+		append_metadata_update(st, vd, len);
+
+		/* Then the vd_config */
+		len = ddf->conf_rec_len * 512;
+		vc = malloc(len);
+		memcpy(vc, &ddf->currentconf->conf, len);
+		append_metadata_update(st, vc, len);
+
+		/* FIXME I need to close the fds! */
+		return 0;
+	} else 
+		return __write_init_super_ddf(st, 1);
 }
 
 #endif
@@ -2812,7 +2837,7 @@ static void ddf_process_update(struct supertype *st,
 		printf("len %d %d\n", update->len, ddf->conf_rec_len);
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
-		if (update->len != ddf->conf_rec_len)
+		if (update->len != ddf->conf_rec_len * 512)
 			return;
 		vc = (struct vd_config*)update->buf;
 		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
@@ -2830,7 +2855,7 @@ static void ddf_process_update(struct supertype *st,
 			vcl = update->space;
 			update->space = NULL;
 			vcl->next = ddf->conflist;
-			vcl->conf = *vc;
+			memcpy(&vcl->conf, vc, update->len);
 			vcl->lba_offset = (__u64*)
 				&vcl->conf.phys_refnum[mppe];
 			ddf->conflist = vcl;
@@ -2874,6 +2899,20 @@ static void ddf_process_update(struct supertype *st,
 	case DDF_SPARE_ASSIGN_MAGIC:
 	default: break;
 	}
+}
+
+static void ddf_prepare_update(struct supertype *st,
+			       struct metadata_update *update)
+{
+	/* This update arrived at managemon.
+	 * We are about to pass it to monitor.
+	 * If a malloc is needed, do it here.
+	 */
+	struct ddf_super *ddf = st->sb;
+	__u32 *magic = (__u32*)update->buf;
+	if (*magic == DDF_VD_CONF_MAGIC)
+		update->space = malloc(offsetof(struct vcl, conf)
+				       + ddf->conf_rec_len * 512);
 }
 
 /*
@@ -3106,6 +3145,7 @@ struct superswitch super_ddf = {
 	.set_disk       = ddf_set_disk,
 	.sync_metadata  = ddf_sync_metadata,
 	.process_update	= ddf_process_update,
+	.prepare_update	= ddf_prepare_update,
 	.activate_spare = ddf_activate_spare,
 
 };

@@ -29,7 +29,9 @@
 
 #include	"mdadm.h"
 #include	"md_p.h"
+#include	<sys/socket.h>
 #include	<sys/utsname.h>
+#include	<sys/un.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<signal.h>
@@ -1064,6 +1066,47 @@ int signal_mdmon(int devnum)
 	return 0;
 }
 
+
+int flush_metadata_updates(struct supertype *st)
+{
+	int sfd;
+	if (!st->updates) {
+		st->update_tail = NULL;
+		return -1;
+	}
+
+	sfd = connect_monitor(devnum2devname(st->container_dev));
+	if (sfd < 0)
+		return -1;
+
+	while (st->updates) {
+		struct metadata_update *mu = st->updates;
+		st->updates = mu->next;
+
+		send_message(sfd, mu, 0);
+		wait_reply(sfd, 0);
+		free(mu->buf);
+		free(mu);
+	}
+	ack(sfd, 0);
+	wait_reply(sfd, 0);
+	close(sfd);
+	st->update_tail = NULL;
+	return 0;
+}
+
+void append_metadata_update(struct supertype *st, void *buf, int len)
+{
+
+	struct metadata_update *mu = malloc(sizeof(*mu));
+
+	mu->buf = buf;
+	mu->len = len;
+	mu->space = NULL;
+	mu->next = NULL;
+	*st->update_tail = mu;
+	st->update_tail = &mu->next;
+}
 
 
 #ifdef __TINYC__

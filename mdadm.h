@@ -374,27 +374,120 @@ extern char *map_dev(int major, int minor, int create);
 struct active_array;
 struct metadata_update;
 
+/* A superswitch provides entry point the a metadata handler.
+ *
+ * The super_switch primarily operates on some "metadata" that
+ * is accessed via the 'supertype'.
+ * This metadata has one of three possible sources.
+ * 1/ It is read from a single device.  In this case it may not completely
+ *    describe the array or arrays as some information might be on other
+ *    devices.
+ * 2/ It is read from all devices in a container.  In this case all
+ *    information is present.
+ * 3/ It is created by ->init_super / ->add_to_super.  In this case it will
+ *    be complete once enough ->add_to_super calls have completed.
+ *
+ * When creating an array inside a container, the metadata will be
+ * formed by a combination of 2 and 3.  The metadata or the array is read,
+ * then new information is added.
+ *
+ * The metadata must sometimes have a concept of a 'current' array
+ * and a 'current' device.
+ * The 'current' array is set by init_super to be the newly created array,
+ * or is set by super_by_fd when it finds it is looking at an array inside
+ * a container.
+ *
+ * The 'current' device is either the device that the metadata was read from
+ * in case 1, or the last device added by add_to_super in case 3.
+ * Case 2 does not identify a 'current' device.
+ */
 extern struct superswitch {
+
+	/* Used to report details of metadata read from a component
+	 * device. ->load_super has been called.
+	 */
 	void (*examine_super)(struct supertype *st, char *homehost);
 	void (*brief_examine_super)(struct supertype *st);
 	void (*export_examine_super)(struct supertype *st);
+
+	/* Used to report details of an active array.
+	 * ->load_super was possibly given a 'component' string.
+	 */
 	void (*detail_super)(struct supertype *st, char *homehost);
 	void (*brief_detail_super)(struct supertype *st);
 	void (*export_detail_super)(struct supertype *st);
+
+	/* Used:
+	 *   to get uuid to storing in bitmap metadata
+	 *   and 'reshape' backup-data metadata
+	 *   To see if a device is being re-added to an array it was part of.
+	 */
 	void (*uuid_from_super)(struct supertype *st, int uuid[4]);
+
+	/* Extra generic details from metadata.  This could be details about
+	 * the container, or about an individual array within the container.
+	 * The determination is made either by:
+	 *   load_super being given a 'component' string.
+	 *   validate_geometry determining what to create.
+	 * getinfo_super_n really needs to be removed..
+	 */
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
 	void (*getinfo_super_n)(struct supertype *st, struct mdinfo *info);
+
+	/* Check if the given metadata is flagged as belonging to "this"
+	 * host.  For arrays that don't determine a minor-number, this
+	 * can always be true (??)
+	 */
 	int (*match_home)(struct supertype *st, char *homehost);
+
+	/* Make one of several generic modifications to metadata
+	 * prior to assembly (or other times).
+	 *   sparc2.2  - first bug in early 0.90 metadata
+	 *   super-minor - change name of 0.90 metadata
+	 *   summaries - 'correct' any redundant data
+	 *   resync - mark array as dirty to trigger a resync.
+	 *   uuid - set new uuid - only 0.90 or 1.x
+	 *   name - change the name of the array (where supported)
+	 *   homehost - change which host this array is tied to.
+	 *   devicesize - If metadata is at start of device, change recorded
+	 *               device size to match actual device size
+	 *   byteorder - swap bytes for 0.90 metadata
+	 *
+	 *   force-one  - mark that device as uptodate, not old or failed.
+	 *   force-array - mark array as clean if it would not otherwise
+	 *               assemble
+	 *   assemble   - not sure how this is different from force-one...
+	 *   linear-grow-new - add a new device to a linear array, but don't
+	 *                   change the size: so superblock still matches
+	 *   linear-grow-update - now change the size of the array.
+	 */
 	int (*update_super)(struct supertype *st, struct mdinfo *info,
 			    char *update,
 			    char *devname, int verbose,
 			    int uuid_set, char *homehost);
+
+	/* Create new metadata for new array as described.  This could
+	 * be a new container, or an array in a pre-existing container.
+	 * Also used to zero metadata prior to writing it to invalidate old
+	 * metadata.
+	 */
 	int (*init_super)(struct supertype *st, mdu_array_info_t *info,
 			  unsigned long long size, char *name,
 			  char *homehost, int *uuid);
+
+	/* update the metadata to include new device, either at create or
+	 * when hot-adding a spare.
+	 */
 	void (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo,
 			     int fd, char *devname);
+
+	/* Write metadata to one device when fixing problems or adding
+	 * a new device.
+	 */
 	int (*store_super)(struct supertype *st, int fd);
+
+	/*  Write all metadata for this array.
+	 */
 	int (*write_init_super)(struct supertype *st);
 	int (*compare_super)(struct supertype *st, struct supertype *tst);
 	int (*load_super)(struct supertype *st, int fd, char *devname);
@@ -454,6 +547,17 @@ extern struct superswitch {
 
 extern struct superswitch super_imsm;
 
+/* A supertype holds a particular collection of metadata.
+ * It identifies the metadata type by the superswitch, and the particular
+ * sub-version of that metadata type.
+ * metadata read in or created is stored in 'sb' and 'info'.
+ * There are also fields used by mdmon to track containers.
+ *
+ * A supertype is created by:
+ *   super_by_fd
+ *   guess_super
+ *   dup_super
+ */
 struct supertype {
 	struct superswitch *ss;
 	int minor_version;

@@ -134,10 +134,12 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			sra->array.major_version = -1;
 			sra->array.minor_version = -2;
 			strcpy(sra->text_version, buf+9);
-		} else
+		} else {
 			sscanf(buf, "%d.%d",
 			       &sra->array.major_version,
 			       &sra->array.minor_version);
+			strcpy(sra->text_version, buf);
+		}
 	}
 	if (options & GET_LEVEL) {
 		strcpy(base, "level");

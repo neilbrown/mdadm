@@ -542,8 +542,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			    == devices[devcnt].i.events
 			    && (devices[best[i]].i.disk.minor
 				!= devices[devcnt].i.disk.minor)
-			    && st->ss->major == 0
-			    && info.array.level != -4) {
+			    && st->ss == &super0
+			    && info.array.level != LEVEL_MULTIPATH) {
 				/* two different devices with identical superblock.
 				 * Could be a mis-detection caused by overlapping
 				 * partitions.  fail-safe.
@@ -866,8 +866,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if ((vers % 100) >= 1) { /* can use different versions */
 			mdu_array_info_t inf;
 			memset(&inf, 0, sizeof(inf));
-			inf.major_version = st->ss->major;
-			inf.minor_version = st->minor_version;
+			inf.major_version = info.array.major_version;
+			inf.minor_version = info.array.minor_version;
 			rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
 		} else
 			rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);

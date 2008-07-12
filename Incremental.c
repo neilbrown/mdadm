@@ -300,12 +300,11 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* - add the device */
 		mdu_array_info_t ainf;
 		mdu_disk_info_t disk;
-		char md[20];
 		struct mdinfo *sra;
 
 		memset(&ainf, 0, sizeof(ainf));
-		ainf.major_version = st->ss->major;
-		ainf.minor_version = st->minor_version;
+		ainf.major_version = info.array.major_version;
+		ainf.minor_version = info.array.minor_version;
 		if (ioctl(mdfd, SET_ARRAY_INFO, &ainf) != 0) {
 			fprintf(stderr, Name
 				": SET_ARRAY_INFO failed for %s: %s\b",
@@ -313,9 +312,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(mdfd);
 			return 2;
 		}
-		sprintf(md, "%d.%d\n", st->ss->major, st->minor_version);
 		sra = sysfs_read(mdfd, devnum, GET_VERSION);
-		sysfs_set_str(sra, NULL, "metadata_version", md);
+		sysfs_set_str(sra, NULL, "metadata_version", info.text_version);
 		memset(&disk, 0, sizeof(disk));
 		disk.major = major(stb.st_rdev);
 		disk.minor = minor(stb.st_rdev);
@@ -352,29 +350,18 @@ int Incremental(char *devname, int verbose, int runstop,
 		int err;
 		struct mdinfo *sra;
 		struct supertype *st2;
-		sra = sysfs_read(mdfd, devnum, (GET_VERSION | GET_DEVS |
-						GET_STATE));
+		sra = sysfs_read(mdfd, devnum, (GET_DEVS | GET_STATE));
 
-		if (sra->array.major_version != st->ss->major ||
-		    sra->array.minor_version != st->minor_version) {
-			if (verbose >= 0)
-				fprintf(stderr, Name
-	      ": %s has different metadata to chosen array %s %d.%d %d.%d.\n",
-					devname, chosen_name,
-					sra->array.major_version,
-					sra->array.minor_version,
-					st->ss->major, st->minor_version);
-			close(mdfd);
-			return 1;
-		}
 		sprintf(dn, "%d:%d", sra->devs->disk.major,
 			sra->devs->disk.minor);
 		dfd2 = dev_open(dn, O_RDONLY);
 		st2 = dup_super(st);
-		if (st2->ss->load_super(st2, dfd2, NULL)) {
+		if (st2->ss->load_super(st2, dfd2, NULL) ||
+		    st->ss->compare_super(st, st2) != 0) {
 			fprintf(stderr, Name
-				": Strange error loading metadata for %s.\n",
-				chosen_name);
+				": metadata mismatch between %s and "
+				"chosen array %s\n",
+				devname, chosen_name);
 			close(mdfd);
 			close(dfd2);
 			return 2;

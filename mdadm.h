@@ -448,7 +448,6 @@ extern struct superswitch {
 	struct mdinfo *(*activate_spare)(struct active_array *a,
 					 struct metadata_update **updates);
 
-	int major;
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 } super0, super1, super_ddf, super_ddf_bvd, super_ddf_svd, *superlist[];

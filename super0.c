@@ -1089,6 +1089,5 @@ struct superswitch super0 = {
 	.write_bitmap = write_bitmap0,
 	.free_super = free_super0,
 	.validate_geometry = validate_geometry0,
-	.major = 0,
 	.swapuuid = 0,
 };

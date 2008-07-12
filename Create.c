@@ -76,6 +76,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	unsigned long long bitmapsize;
 	struct mdinfo *sra;
 	struct mdinfo info;
+	int did_default = 0;
 
 	int major_num = BITMAP_MAJOR_HI;
 
@@ -289,12 +290,9 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 					dname);
 				exit(2);
 			}
-			if (st->ss->major != 0 ||
+			if (st->ss != &super0 ||
 			    st->minor_version != 90)
-				fprintf(stderr, Name ": Defaulting to version"
-					" %d.%d metadata\n",
-					st->ss->major,
-					st->minor_version);
+				did_default = 1;
 		} else {
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
@@ -356,9 +354,12 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (level > 0 || level == LEVEL_MULTIPATH
 		    || level == LEVEL_FAULTY
-		    || (st && st->ss->external) ) {
+		    || st->ss->external ) {
 			/* size is meaningful */
-			if (minsize > 0x100000000ULL && st->ss->major == 0) {
+			if (!st->ss->validate_geometry(st, level, layout,
+						       raiddisks,
+						       chunk, minsize,
+						       NULL, NULL)) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);
 				return 1;
 			}
@@ -485,7 +486,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		+ info.array.failed_disks;
 	info.array.layout = layout;
 	info.array.chunk_size = chunk*1024;
-	info.array.major_version = st->ss->major;
+	info.array.major_version = 0; /* Flag to say "not zeroing superblock" */
 
 	if (name == NULL || *name == 0) {
 		/* base name on mddev */
@@ -515,6 +516,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 
 	st->ss->getinfo_super(st, &info);
+
+	if (did_default)
+		fprintf(stderr, Name ": Defaulting to version"
+			" %s metadata\n", info.text_version);
 
 	if (bitmap_file && vers < 9003) {
 		major_num = BITMAP_MAJOR_HOSTENDIAN;
@@ -586,8 +591,8 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	} else	if ((vers % 100) >= 1) { /* can use different versions */
 		mdu_array_info_t inf;
 		memset(&inf, 0, sizeof(inf));
-		inf.major_version = st->ss->major;
-		inf.minor_version = st->minor_version;
+		inf.major_version = info.array.major_version;
+		inf.minor_version = info.array.minor_version;
 		rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
 	} else
 		rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);

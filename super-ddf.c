@@ -3119,7 +3119,6 @@ struct superswitch super_ddf = {
 	.match_metadata_desc = match_metadata_desc_ddf,
 	.getinfo_super_n  = getinfo_super_n_container,
 
-	.major		= 1000,
 	.swapuuid	= 0,
 	.external	= 1,
 
@@ -3152,7 +3151,6 @@ struct superswitch super_ddf_container = {
 	.container_content = container_content_ddf,
 	.getinfo_super_n  = getinfo_super_n_container,
 
-	.major		= 1000,
 	.swapuuid	= 0,
 	.external	= 1,
 };
@@ -3174,7 +3172,6 @@ struct superswitch super_ddf_bvd = {
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf_bvd,
 
-	.major		= 1001,
 	.swapuuid	= 0,
 	.external	= 2,
 };
@@ -3192,7 +3189,6 @@ struct superswitch super_ddf_svd = {
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf_svd,
 
-	.major		= 1002,
 	.swapuuid	= 0,
 	.external	= 2,
 };

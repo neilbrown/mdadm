@@ -1873,7 +1873,6 @@ struct superswitch super_imsm = {
 	.getinfo_super_n  = getinfo_super_n_imsm_container,
 
 	.validate_geometry = validate_geometry_imsm,
-	.major		= 2000,
 	.swapuuid	= 0,
 	.external	= 1,
 
@@ -1909,7 +1908,6 @@ struct superswitch super_imsm_container = {
 
 	.container_content = container_content_imsm,
 
-	.major		= 2000,
 	.swapuuid	= 0,
 	.external	= 1,
 };
@@ -1928,7 +1926,6 @@ struct superswitch super_imsm_volume = {
 
 
 	.validate_geometry = validate_geometry_imsm_volume,
-	.major		= 2001,
 	.swapuuid	= 0,
 	.external	= 2,
 };

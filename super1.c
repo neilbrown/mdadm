@@ -493,7 +493,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 	int role;
 
 	info->array.major_version = 1;
-	info->array.minor_version = __le32_to_cpu(sb->feature_map);
+	info->array.minor_version = st->minor_version;
 	info->array.patch_version = 0;
 	info->array.raid_disks = __le32_to_cpu(sb->raid_disks);
 	info->array.level = __le32_to_cpu(sb->level);
@@ -1502,7 +1502,6 @@ struct superswitch super1 = {
 	.write_bitmap = write_bitmap1,
 	.free_super = free_super1,
 	.validate_geometry = validate_geometry1,
-	.major = 1,
 #if __BYTE_ORDER == BIG_ENDIAN
 	.swapuuid = 0,
 #else

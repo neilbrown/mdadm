@@ -96,7 +96,7 @@ int Query(char *dev)
 	if (superror == 0) {
 		/* array might be active... */
 		st->ss->getinfo_super(st, &info);
-		if (st->ss->major == 0) {
+		if (st->ss == &super0) {
 			mddev = get_md_name(info.array.md_minor);
 			disc.number = info.disk.number;
 			activity = "undetected";
@@ -121,7 +121,7 @@ int Query(char *dev)
 		       activity,
 		       map_num(pers, info.array.level),
 		       mddev);
-		if (st->ss->major == 0)
+		if (st->ss == &super0)
 			put_md_name(mddev);
 	}
 	return 0;

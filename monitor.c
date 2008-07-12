@@ -445,9 +445,9 @@ static int wait_and_act(struct supertype *container, int nowait)
 		if (fd >= 0 || errno != EBUSY) {
 			/* OK, we are safe to leave */
 			dprintf("no arrays to monitor... exiting\n");
+			remove_pidfile(container->devname);
 			exit_now = 1;
 			signal_manager();
-			remove_pidfile(container->devname);
 			exit(0);
 		}
 	}

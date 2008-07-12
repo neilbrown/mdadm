@@ -71,7 +71,7 @@ unsigned long crc32(
 #define	DDF_CONCAT	0x1f
 #define	DDF_RAID5E	0x15
 #define	DDF_RAID5EE	0x25
-#define	DDF_RAID6	0x16	/* Vendor unique layout */
+#define	DDF_RAID6	0x06
 
 /* Raid Level Qualifier (RLQ) */
 #define	DDF_RAID0_SIMPLE	0x00
@@ -83,6 +83,7 @@ unsigned long crc32(
 #define	DDF_RAID4_N		0x01 /* parity in last extent */
 /* these apply to raid5e and raid5ee as well */
 #define	DDF_RAID5_0_RESTART	0x00 /* same as 'right asymmetric' - layout 1 */
+#define	DDF_RAID6_0_RESTART	0x01 /* raid6 different from raid5 here!!! */
 #define	DDF_RAID5_N_RESTART	0x02 /* same as 'left asymmetric' - layout 0 */
 #define	DDF_RAID5_N_CONTINUE	0x03 /* same as 'left symmetric' - layout 2 */
 
@@ -108,13 +109,14 @@ unsigned long crc32(
 #define	DDF_BBM_LOG_MAGIC	__cpu_to_be32(0xABADB10C)
 
 #define	DDF_GUID_LEN	24
-#define DDF_REVISION	"01.00.00"
+#define DDF_REVISION_0	"01.00.00"
+#define DDF_REVISION_2	"01.02.00"
 
 struct ddf_header {
 	__u32	magic;		/* DDF_HEADER_MAGIC */
 	__u32	crc;
 	char	guid[DDF_GUID_LEN];
-	char	revision[8];	/* 01.00.00 */
+	char	revision[8];	/* 01.02.00 */
 	__u32	seq;		/* starts at '1' */
 	__u32	timestamp;
 	__u8	openflag;
@@ -403,9 +405,10 @@ struct ddf_super {
 		struct vcl	*next;
 		__u64		*lba_offset; /* location in 'conf' of
 					      * the lba table */
+		int	vcnum; /* index into ->virt */
+		__u64		*block_sizes; /* NULL if all the same */
 		struct vd_config conf;
 	} *conflist, *newconf;
-	int conf_num; /* Index into 'virt' of entry matching 'newconf' */
 	struct dl {
 		struct dl	*next;
 		struct disk_data disk;
@@ -547,11 +550,12 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 				devname);
 		return 2;
 	}
-	if (memcmp(super->anchor.revision, DDF_REVISION, 8) != 0) {
+	if (memcmp(super->anchor.revision, DDF_REVISION_0, 8) != 0 &&
+	    memcmp(super->anchor.revision, DDF_REVISION_2, 8) != 0) {
 		if (devname)
 			fprintf(stderr, Name ": can only support super revision"
-				" %.8s, not %.8s on %s\n",
-				DDF_REVISION, super->anchor.revision, devname);
+				" %.8s and earlier, not %.8s on %s\n",
+				DDF_REVISION_2, super->anchor.revision,devname);
 		return 2;
 	}
 	if (load_ddf_header(fd, __be64_to_cpu(super->anchor.primary_lba),
@@ -623,6 +627,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	char *conf;
 	int i;
 	int vnum;
+	int max_virt_disks = __be16_to_cpu(super->active->max_vd_entries);
 
 	/* First the local disk info */
 	dl = malloc(sizeof(*dl) +
@@ -643,12 +648,11 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	for (i=0 ; i < super->max_part ; i++)
 		dl->vlist[i] = NULL;
 	super->dlist = dl;
-	dl->pdnum = 0;
+	dl->pdnum = -1;
 	for (i=0; i < __be16_to_cpu(super->active->max_pd_entries); i++)
 		if (memcmp(super->phys->entries[i].guid,
 			   dl->disk.guid, DDF_GUID_LEN) == 0)
 			dl->pdnum = i;
-
 
 	/* Now the config list. */
 	/* 'conf' is an array of config entries, some of which are
@@ -689,16 +693,24 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			if (__be32_to_cpu(vd->seqnum) <=
 			    __be32_to_cpu(vcl->conf.seqnum))
 				continue;
- 		} else {
+		} else {
 			vcl = malloc(super->conf_rec_len*512 +
 				     offsetof(struct vcl, conf));
 			vcl->next = super->conflist;
+			vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 			super->conflist = vcl;
 			dl->vlist[vnum++] = vcl;
 		}
 		memcpy(&vcl->conf, vd, super->conf_rec_len*512);
 		vcl->lba_offset = (__u64*)
 			&vcl->conf.phys_refnum[super->mppe];
+
+		for (i=0; i < max_virt_disks ; i++)
+			if (memcmp(super->virt->entries[i].guid,
+				   vcl->conf.guid, DDF_GUID_LEN)==0)
+				break;
+		if (i < max_virt_disks)
+			vcl->vcnum = i;
 	}
 	free(conf);
 
@@ -717,6 +729,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 	int rv;
 
 #ifndef MDASSEMBLE
+	/* if 'fd' is a container, load metadata from all the devices */
 	if (load_super_ddf_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
@@ -795,6 +808,8 @@ static void free_super_ddf(struct supertype *st)
 	while (ddf->conflist) {
 		struct vcl *v = ddf->conflist;
 		ddf->conflist = v->next;
+		if (v->block_sizes)
+			free(v->block_sizes);
 		free(v);
 	}
 	while (ddf->dlist) {
@@ -947,29 +962,36 @@ static void print_guid(char *guid, int tstamp)
 {
 	/* A GUIDs are part (or all) ASCII and part binary.
 	 * They tend to be space padded.
-	 * We ignore trailing spaces and print numbers
-	 * <0x20 and >=0x7f as \xXX
-	 * Some GUIDs have a time stamp in bytes 16-19.
-	 * We print that if appropriate
+	 * We print the GUID in HEX, then in parentheses add
+	 * any initial ASCII sequence, and a possible
+	 * time stamp from bytes 16-19
 	 */
 	int l = DDF_GUID_LEN;
 	int i;
+
+	for (i=0 ; i<DDF_GUID_LEN ; i++) {
+		if ((i&3)==0 && i != 0) printf(":");
+		printf("%02X", guid[i]&255);
+	}
+
+	printf(" (");
 	while (l && guid[l-1] == ' ')
 		l--;
 	for (i=0 ; i<l ; i++) {
 		if (guid[i] >= 0x20 && guid[i] < 0x7f)
 			fputc(guid[i], stdout);
 		else
-			fprintf(stdout, "\\x%02x", guid[i]&255);
+			break;
 	}
 	if (tstamp) {
 		time_t then = __be32_to_cpu(*(__u32*)(guid+16)) + DECADE;
 		char tbuf[100];
 		struct tm *tm;
 		tm = localtime(&then);
-		strftime(tbuf, 100, " (%D %T)",tm);
+		strftime(tbuf, 100, " %D %T",tm);
 		fputs(tbuf, stdout);
 	}
+	printf(")");
 }
 
 static void examine_vd(int n, struct ddf_super *sb, char *guid)
@@ -1098,11 +1120,11 @@ static void brief_examine_super_ddf(struct supertype *st)
 	 */
 	struct ddf_super *ddf = st->sb;
 	int i;
-	printf("ARRAY /dev/ddf UUID=");
+	printf("ARRAY /dev/ddf metadata=ddf UUID=");
 	for (i = 0; i < DDF_GUID_LEN; i++) {
-		printf("%02x", ddf->anchor.guid[i]);
 		if ((i&3) == 0 && i != 0)
 			printf(":");
+		printf("%02X", 255&ddf->anchor.guid[i]);
 	}
 	printf("\n");
 }
@@ -1124,8 +1146,6 @@ static void brief_detail_super_ddf(struct supertype *st)
 	 */
 //	struct ddf_super *ddf = st->sb;
 }
-
-
 #endif
 
 static int match_home_ddf(struct supertype *st, char *homehost)
@@ -1146,12 +1166,9 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 static struct vd_config *find_vdcr(struct ddf_super *ddf, int inst)
 {
 	struct vcl *v;
-	if (inst < 0 || inst > __be16_to_cpu(ddf->virt->populated_vdes))
-		return NULL;
+
 	for (v = ddf->conflist; v; v = v->next)
-		if (memcmp(v->conf.guid,
-			   ddf->virt->entries[inst].guid,
-			   DDF_GUID_LEN) == 0)
+		if (inst == v->vcnum)
 			return &v->conf;
 	return NULL;
 }
@@ -1187,7 +1204,7 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	 * The first 16 bytes of the sha1 of these is used.
 	 */
 	struct ddf_super *ddf = st->sb;
-	struct vd_config *vd = find_vdcr(ddf, ddf->conf_num);
+	struct vd_config *vd = &ddf->newconf->conf;
 
 	if (!vd)
 		memset(uuid, 0, sizeof (uuid));
@@ -1206,7 +1223,6 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 {
 	struct ddf_super *ddf = st->sb;
-	int i;
 
 	info->array.major_version = 1000;
 	info->array.minor_version = 0; /* FIXME use ddf->revision somehow */
@@ -1227,13 +1243,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 	info->disk.minor = 0;
 	if (ddf->dlist) {
 		info->disk.number = __be32_to_cpu(ddf->dlist->disk.refnum);
-		info->disk.raid_disk = -1;
-		for (i = 0; i < __be16_to_cpu(ddf->phys->max_pdes) ; i++)
-			if (ddf->phys->entries[i].refnum ==
-			    ddf->dlist->disk.refnum) {
-				info->disk.raid_disk = i;
-				break;
-			}
+		info->disk.raid_disk = find_phys(ddf, ddf->dlist->disk.refnum);
 	} else {
 		info->disk.number = -1;
 //		info->disk.raid_disk = find refnum in the table and use index;
@@ -1337,7 +1347,7 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 	 *  grow:  Array has gained a new device - this is currently for
 	 *		linear only
 	 *  resync: mark as dirty so a resync will happen.
-	 *  uuid:  Change the uuid of the array to match watch is given
+	 *  uuid:  Change the uuid of the array to match what is given
 	 *  homehost:  update the recorded homehost
 	 *  name:  update the name - preserving the homehost
 	 *  _reshape_progress: record new reshape_progress position.
@@ -1351,7 +1361,6 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 //	struct ddf_super *ddf = st->sb;
 //	struct vd_config *vd = find_vdcr(ddf, info->container_member);
 //	struct virtual_entry *ve = find_ve(ddf);
-
 
 	/* we don't need to handle "force-*" or "assemble" as
 	 * there is no need to 'trick' the kernel.  We the metadata is
@@ -1413,6 +1422,7 @@ static void make_header_guid(char *guid)
 	memcpy(guid+20, &stamp, 4);
 	if (rfd >= 0) close(rfd);
 }
+
 static int init_super_ddf(struct supertype *st,
 			  mdu_array_info_t *info,
 			  unsigned long long size, char *name, char *homehost,
@@ -1468,7 +1478,7 @@ static int init_super_ddf(struct supertype *st,
 	ddf->anchor.magic = DDF_HEADER_MAGIC;
 	make_header_guid(ddf->anchor.guid);
 
-	memcpy(ddf->anchor.revision, DDF_REVISION, 8);
+	memcpy(ddf->anchor.revision, DDF_REVISION_2, 8);
 	ddf->anchor.seq = __cpu_to_be32(1);
 	ddf->anchor.timestamp = __cpu_to_be32(time(0) - DECADE);
 	ddf->anchor.openflag = 0xFF;
@@ -1490,12 +1500,11 @@ static int init_super_ddf(struct supertype *st,
 	ddf->anchor.max_vd_entries = __cpu_to_be16(max_virt_disks); /* ?? */
 	ddf->anchor.max_partitions = __cpu_to_be16(64); /* ?? */
 	ddf->max_part = 64;
-	ddf->conf_rec_len = 1 + 256 * 12 / 512;
-	ddf->anchor.config_record_len = __cpu_to_be16(ddf->conf_rec_len);
-	ddf->anchor.max_primary_element_entries = __cpu_to_be16(256);
 	ddf->mppe = 256;
+	ddf->conf_rec_len = 1 + ROUND_UP(ddf->mppe * (4+8), 512)/512;
+	ddf->anchor.config_record_len = __cpu_to_be16(ddf->conf_rec_len);
+	ddf->anchor.max_primary_element_entries = __cpu_to_be16(ddf->mppe);
 	memset(ddf->anchor.pad3, 0xff, 54);
-
 	/* controller sections is one sector long immediately
 	 * after the ddf header */
 	sector = 1;
@@ -1529,7 +1538,7 @@ static int init_super_ddf(struct supertype *st,
 		__cpu_to_be32(vdsize/512); /* max_vd_entries/8 */
 	sector += vdsize/512;
 
-	clen = (1 + 256*12/512) * (64+1);
+	clen = ddf->conf_rec_len * (ddf->max_part+1);
 	ddf->anchor.config_section_offset = __cpu_to_be32(sector);
 	ddf->anchor.config_section_length = __cpu_to_be32(clen);
 	sector += clen;
@@ -1652,7 +1661,10 @@ static int layout_to_rlq(int level, int layout, int raiddisks)
 		case ALGORITHM_LEFT_ASYMMETRIC:
 			return DDF_RAID5_N_RESTART;
 		case ALGORITHM_RIGHT_ASYMMETRIC:
-			return DDF_RAID5_0_RESTART;
+			if (level == 5)
+				return DDF_RAID5_0_RESTART;
+			else
+				return DDF_RAID6_0_RESTART;
 		case ALGORITHM_LEFT_SYMMETRIC:
 			return DDF_RAID5_N_CONTINUE;
 		case ALGORITHM_RIGHT_SYMMETRIC:
@@ -1679,7 +1691,6 @@ static int rlq_to_layout(int rlq, int prl, int raiddisks)
 			return -1; /* FIXME this isn't checked */
 		}
 	case DDF_RAID5:
-	case DDF_RAID6:
 		switch(rlq) {
 		case DDF_RAID5_N_RESTART:
 			return ALGORITHM_LEFT_ASYMMETRIC;
@@ -1690,8 +1701,70 @@ static int rlq_to_layout(int rlq, int prl, int raiddisks)
 		default:
 			return -1;
 		}
+	case DDF_RAID6:
+		switch(rlq) {
+		case DDF_RAID5_N_RESTART:
+			return ALGORITHM_LEFT_ASYMMETRIC;
+		case DDF_RAID6_0_RESTART:
+			return ALGORITHM_RIGHT_ASYMMETRIC;
+		case DDF_RAID5_N_CONTINUE:
+			return ALGORITHM_LEFT_SYMMETRIC;
+		default:
+			return -1;
+		}
 	}
 	return -1;
+}
+
+struct extent {
+	unsigned long long start, size;
+};
+int cmp_extent(const void *av, const void *bv)
+{
+	const struct extent *a = av;
+	const struct extent *b = bv;
+	if (a->start < b->start)
+		return -1;
+	if (a->start > b->start)
+		return 1;
+	return 0;
+}
+
+struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
+{
+	/* find a list of used extents on the give physical device
+	 * (dnum) of the given ddf.
+	 * Return a malloced array of 'struct extent'
+
+FIXME ignore DDF_Legacy devices?
+
+	 */
+	struct extent *rv;
+	int n = 0;
+	int i, j;
+
+	rv = malloc(sizeof(struct extent) * (ddf->max_part + 2));
+	if (!rv)
+		return NULL;
+
+	for (i = 0; i < ddf->max_part; i++) {
+		struct vcl *v = dl->vlist[i];
+		if (v == NULL)
+			continue;
+		for (j=0; j < v->conf.prim_elmnt_count; j++)
+			if (v->conf.phys_refnum[j] == dl->disk.refnum) {
+				/* This device plays role 'j' in  'v'. */
+				rv[n].start = __be64_to_cpu(v->lba_offset[j]);
+				rv[n].size = __be64_to_cpu(v->conf.blocks);
+				n++;
+				break;
+			}
+	}
+	qsort(rv, n, sizeof(*rv), cmp_extent);
+
+	rv[n].start = __be64_to_cpu(ddf->phys->entries[dl->pdnum].config_size);
+	rv[n].size = 0;
+	return rv;
 }
 
 static int init_super_ddf_bvd(struct supertype *st,
@@ -1727,7 +1800,6 @@ static int init_super_ddf_bvd(struct supertype *st,
 		return 0;
 	}
 	ve = &ddf->virt->entries[venum];
-	ddf->conf_num = venum;
 
 	/* A Virtual Disk GUID contains the T10 Vendor ID, controller type,
 	 * timestamp, random number
@@ -1753,6 +1825,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 	/* Now create a new vd_config */
 	vcl = malloc(offsetof(struct vcl, conf) + ddf->conf_rec_len * 512);
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
+	vcl->vcnum = venum;
+	vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 
 	vc = &vcl->conf;
 
@@ -1817,7 +1891,8 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	__u64 *lba_offset;
 	int working;
 	int i;
-	int max_virt_disks;
+	unsigned long long blocks, pos, esize;
+	struct extent *ex;
 
 	for (dl = ddf->dlist; dl ; dl = dl->next)
 		if (dl->major == dk->major &&
@@ -1828,8 +1903,30 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 
 	vc = &ddf->newconf->conf;
 	lba_offset = ddf->newconf->lba_offset;
+
+	ex = get_extents(ddf, dl);
+	if (!ex)
+		return;
+
+	i = 0; pos = 0;
+	blocks = __be64_to_cpu(vc->blocks);
+	if (ddf->newconf->block_sizes)
+		blocks = ddf->newconf->block_sizes[dk->raid_disk];
+
+	do {
+		esize = ex[i].start - pos;
+		if (esize >= blocks)
+			break;
+		pos = ex[i].start + ex[i].size;
+		i++;
+	} while (ex[i-1].size);
+
+	free(ex);
+	if (esize < blocks)
+		return;
+
 	vc->phys_refnum[dk->raid_disk] = dl->disk.refnum;
-	lba_offset[dk->raid_disk] = 0; /* FIXME */
+	lba_offset[dk->raid_disk] = __cpu_to_be64(pos);
 
 	for (i=0; i < ddf->max_part ; i++)
 		if (dl->vlist[i] == NULL)
@@ -1849,14 +1946,9 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	for (i=0; i < __be16_to_cpu(vc->prim_elmnt_count); i++)
 		if (vc->phys_refnum[i] != 0xffffffff)
 			working++;
+
 	/* Find which virtual_entry */
-	max_virt_disks = __be16_to_cpu(ddf->active->max_vd_entries);
-	for (i=0; i < max_virt_disks ; i++)
-		if (memcmp(ddf->virt->entries[i].guid,
-			   vc->guid, DDF_GUID_LEN)==0)
-			break;
-	if (i == max_virt_disks)
-		return;
+	i = ddf->newconf->vcnum;
 	if (working == __be16_to_cpu(vc->prim_elmnt_count))
 		ddf->virt->entries[i].state =
 			(ddf->virt->entries[i].state & ~DDF_state_mask)
@@ -1907,7 +1999,15 @@ static void add_to_super_ddf(struct supertype *st,
 	*(__u32*)(dd->disk.guid + 16) = random();
 	*(__u32*)(dd->disk.guid + 20) = random();
 
-	dd->disk.refnum = random(); /* and hope for the best FIXME check this is unique!!*/
+	do {
+		/* Cannot be bothered finding a CRC of some irrelevant details*/
+		dd->disk.refnum = random();
+		for (i = __be16_to_cpu(ddf->active->max_pd_entries) - 1;
+		     i >= 0; i--)
+			if (ddf->phys->entries[i].refnum == dd->disk.refnum)
+				break;
+	} while (i >= 0);
+
 	dd->disk.forced_ref = 1;
 	dd->disk.forced_guid = 1;
 	memset(dd->disk.vendor, ' ', 32);
@@ -2187,68 +2287,6 @@ int validate_geometry_ddf_container(struct supertype *st,
 	return 1;
 }
 
-struct extent {
-	unsigned long long start, size;
-};
-int cmp_extent(const void *av, const void *bv)
-{
-	const struct extent *a = av;
-	const struct extent *b = bv;
-	if (a->start < b->start)
-		return -1;
-	if (a->start > b->start)
-		return 1;
-	return 0;
-}
-
-struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
-{
-	/* find a list of used extents on the give physical device
-	 * (dnum) of the given ddf.
-	 * Return a malloced array of 'struct extent'
-
-FIXME ignore DDF_Legacy devices?
-
-	 */
-	struct extent *rv;
-	int n = 0;
-	int dnum;
-	int i, j;
-
-	/* FIXME this is dl->pdnum */
-	for (dnum = 0; dnum < ddf->phys->used_pdes; dnum++)
-		if (memcmp(dl->disk.guid,
-			   ddf->phys->entries[dnum].guid,
-			   DDF_GUID_LEN) == 0)
-			break;
-
-	if (dnum == ddf->phys->used_pdes)
-		return NULL;
-
-	rv = malloc(sizeof(struct extent) * (ddf->max_part + 2));
-	if (!rv)
-		return NULL;
-
-	for (i = 0; i < ddf->max_part; i++) {
-		struct vcl *v = dl->vlist[i];
-		if (v == NULL)
-			continue;
-		for (j=0; j < v->conf.prim_elmnt_count; j++)
-			if (v->conf.phys_refnum[j] == dl->disk.refnum) {
-				/* This device plays role 'j' in  'v'. */
-				rv[n].start = __be64_to_cpu(v->lba_offset[j]);
-				rv[n].size = __be64_to_cpu(v->conf.blocks);
-				n++;
-				break;
-			}
-	}
-	qsort(rv, n, sizeof(*rv), cmp_extent);
-
-	rv[n].start = __be64_to_cpu(ddf->phys->entries[dnum].config_size);
-	rv[n].size = 0;
-	return rv;
-}
-
 int validate_geometry_ddf_bvd(struct supertype *st,
 			      int level, int layout, int raiddisks,
 			      int chunk, unsigned long long size,
@@ -2335,6 +2373,7 @@ int validate_geometry_ddf_bvd(struct supertype *st,
 
 	return 1;
 }
+
 int validate_geometry_ddf_svd(struct supertype *st,
 			      int level, int layout, int raiddisks,
 			      int chunk, unsigned long long size,
@@ -2347,7 +2386,6 @@ int validate_geometry_ddf_svd(struct supertype *st,
 		return 0;
 	return 1;
 }
-
 
 static int load_super_ddf_all(struct supertype *st, int fd,
 			      void **sbp, char *devname, int keep_fd)
@@ -2422,8 +2460,6 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 }
 #endif
 
-
-
 static struct mdinfo *container_content_ddf(struct supertype *st)
 {
 	/* Given a container loaded by load_super_ddf_all,
@@ -2462,10 +2498,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			__be32_to_cpu(vc->conf.timestamp);
 		this->array.chunk_size	  = 512 << vc->conf.chunk_shift;
 
-		for (i=0; i < __be16_to_cpu(ddf->virt->populated_vdes); i++)
-			if (memcmp(ddf->virt->entries[i].guid,
-				   vc->conf.guid, DDF_GUID_LEN) == 0)
-				break;
+		i = vc->vcnum;
 		if ((ddf->virt->entries[i].state & DDF_state_inconsistent) ||
 		    (ddf->virt->entries[i].init_state & DDF_initstate_mask) !=
 		    DDF_init_full) {
@@ -2486,7 +2519,6 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		sprintf(this->text_version, "/%s/%d",
 			devnum2devname(st->container_dev),
 			this->container_member);
-
 
 		for (i=0 ; i < ddf->mppe ; i++) {
 			struct mdinfo *dev;
@@ -2538,7 +2570,6 @@ static int store_zero_ddf(struct supertype *st, int fd)
 	unsigned long long dsize;
 	char buf[512];
 	memset(buf, 0, 512);
-
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
@@ -2898,10 +2929,6 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	struct vd_config *vc;
 	__u64 *lba;
 
-/* FIXME, If there is a DS_FAULTY, we want to wait for it to be
- * removed.  Then only look at DS_REMOVE devices.
- * What about !DS_INSYNC - how can that happen?
- */
 	for (d = a->info.devs ; d ; d = d->next) {
 		if ((d->curr_state & DS_FAULTY) &&
 			d->state_fd >= 0)
@@ -3092,7 +3119,6 @@ struct superswitch super_ddf = {
 	.match_metadata_desc = match_metadata_desc_ddf,
 	.getinfo_super_n  = getinfo_super_n_container,
 
-
 	.major		= 1000,
 	.swapuuid	= 0,
 	.external	= 1,
@@ -3147,7 +3173,6 @@ struct superswitch super_ddf_bvd = {
 	.load_super	= load_super_ddf,
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf_bvd,
-
 
 	.major		= 1001,
 	.swapuuid	= 0,

@@ -487,7 +487,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		+ info.array.failed_disks;
 	info.array.layout = layout;
 	info.array.chunk_size = chunk*1024;
-	info.array.major_version = 0; /* Flag to say "not zeroing superblock" */
 
 	if (name == NULL || *name == 0) {
 		/* base name on mddev */

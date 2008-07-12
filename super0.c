@@ -559,7 +559,7 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	memset(sb, 0, MD_SB_BYTES + sizeof(bitmap_super_t));
 
 	st->sb = sb;
-	if (info->major_version == -1) {
+	if (info == NULL) {
 		/* zeroing the superblock */
 		return 0;
 	}

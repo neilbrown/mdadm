@@ -1455,6 +1455,11 @@ static int init_super_ddf(struct supertype *st,
 	struct phys_disk *pd;
 	struct virtual_disk *vd;
 
+	if (!info) {
+		st->sb = NULL;
+		return 0;
+	}
+
 	ddf = malloc(sizeof(*ddf));
 	memset(ddf, 0, sizeof(*ddf));
 	ddf->dlist = NULL; /* no physical disks yet */
@@ -2558,15 +2563,6 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 	return rest;
 }
 
-static int init_zero_ddf(struct supertype *st,
-			 mdu_array_info_t *info,
-			 unsigned long long size, char *name,
-			 char *homehost, int *uuid)
-{
-	st->sb = NULL;
-	return 0;
-}
-
 static int store_zero_ddf(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
@@ -3115,7 +3111,7 @@ struct superswitch super_ddf = {
 	.compare_super	= compare_super_ddf,
 
 	.load_super	= load_super_ddf,
-	.init_super	= init_zero_ddf,
+	.init_super	= init_super_ddf,
 	.store_super	= store_zero_ddf,
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf,

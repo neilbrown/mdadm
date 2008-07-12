@@ -697,7 +697,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	memset(sb, 0, 1024);
 
 	st->sb = sb;
-	if (info->major_version == -1) {
+	if (info == NULL) {
 		/* zeroing superblock */
 		return 0;
 	}

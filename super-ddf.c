@@ -3045,8 +3045,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	 * Create a metadata_update record to update the
 	 * phys_refnum and lba_offset values
 	 */
-	mu = malloc(sizeof(*mu) + ddf->conf_rec_len * 512);
-	mu->buf = (char*)(mu+1);
+	mu = malloc(sizeof(*mu));
+	mu->buf = malloc(ddf->conf_rec_len * 512);
 	mu->space = malloc(sizeof(struct vcl));
 	mu->len = ddf->conf_rec_len;
 	mu->next = *updates;

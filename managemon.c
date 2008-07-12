@@ -199,7 +199,9 @@ void check_update_queue(struct supertype *container)
 	while (update_queue_handled) {
 		struct metadata_update *this = update_queue_handled;
 		update_queue_handled = this->next;
-//		free(this->buf);
+		free(this->buf);
+		if (this->space)
+			free(this->space);
 		free(this);
 	}
 	if (update_queue == NULL &&

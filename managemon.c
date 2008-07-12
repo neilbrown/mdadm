@@ -152,7 +152,6 @@ static void write_wakeup(struct supertype *c)
 
 	/* send the monitor thread a pointer to the ping action */
 	write(c->mgr_pipe[1], &err, 1);
-	read(c->mon_pipe[0], &err, 1);
 }
 
 static void remove_old(void)

@@ -66,9 +66,6 @@ int clone_monitor(struct supertype *container)
 	rv = pipe(container->mgr_pipe);
 	if (rv < 0)
 		return rv;
-	rv = pipe(container->mon_pipe);
-	if (rv < 0)
-		goto err_mon_pipe;
 
 	rv = clone(run_child, stack+4096-64,
 		   CLONE_FS|CLONE_FILES|CLONE_VM|CLONE_SIGHAND|CLONE_THREAD,
@@ -79,9 +76,6 @@ int clone_monitor(struct supertype *container)
 		return rv;
 
  err_clone:
-	close(container->mon_pipe[0]);
-	close(container->mon_pipe[1]);
- err_mon_pipe:
 	close(container->mgr_pipe[0]);
 	close(container->mgr_pipe[1]);
 

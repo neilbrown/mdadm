@@ -408,7 +408,7 @@ static void dprint_wake_reasons(fd_set *fds)
 #endif
 
 static int wait_and_act(struct supertype *container, int pfd,
-			int monfd, int nowait)
+			int nowait)
 {
 	fd_set rfds;
 	int maxfd = 0;
@@ -477,7 +477,6 @@ static int wait_and_act(struct supertype *container, int pfd,
 
 			if (read(pfd, &err, 1) > 0)
 				err = handle_pipe(active_cmd, *aap);
-			write(monfd, &err, 1);
 		}
 	}
 
@@ -528,7 +527,7 @@ void do_monitor(struct supertype *container)
 	int first = 1;
 	do {
 		rv = wait_and_act(container, container->mgr_pipe[0],
-				  container->mon_pipe[1], first);
+				  first);
 		first = 0;
 	} while (rv >= 0);
 }

@@ -2190,20 +2190,24 @@ static __u64 avail_size_ddf(struct supertype *st, __u64 devsize)
 }
 
 #ifndef MDASSEMBLE
-static int validate_geometry_ddf_container(struct supertype *st,
-				    int level, int layout, int raiddisks,
-				    int chunk, unsigned long long size,
-				    char *dev, unsigned long long *freesize);
+static int
+validate_geometry_ddf_container(struct supertype *st,
+				int level, int layout, int raiddisks,
+				int chunk, unsigned long long size,
+				char *dev, unsigned long long *freesize,
+				int verbose);
 
 static int validate_geometry_ddf_bvd(struct supertype *st,
 				     int level, int layout, int raiddisks,
 				     int chunk, unsigned long long size,
-				     char *dev, unsigned long long *freesize);
+				     char *dev, unsigned long long *freesize,
+				     int verbose);
 
 static int validate_geometry_ddf(struct supertype *st,
-			  int level, int layout, int raiddisks,
-			  int chunk, unsigned long long size,
-			  char *dev, unsigned long long *freesize)
+				 int level, int layout, int raiddisks,
+				 int chunk, unsigned long long size,
+				 char *dev, unsigned long long *freesize,
+				 int verbose)
 {
 	int fd;
 	struct mdinfo *sra;
@@ -2219,8 +2223,9 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
-					       raiddisks,
-					       chunk, size, dev, freesize);
+						       raiddisks, chunk,
+						       size, dev, freesize,
+						       verbose);
 	}
 
 	if (st->sb) {
@@ -2229,7 +2234,8 @@ static int validate_geometry_ddf(struct supertype *st,
 		 * Should make a distinction one day.
 		 */
 		return validate_geometry_ddf_bvd(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize);
+						 chunk, size, dev, freesize,
+						 verbose);
 	}
 	if (!dev) {
 		/* Initial sanity check.  Exclude illegal levels. */
@@ -2263,22 +2269,26 @@ static int validate_geometry_ddf(struct supertype *st,
 			/* Somehow return the fact that we have enough */
 		}
 
-		fprintf(stderr,
-			Name ": Cannot create this array on device %s\n",
-			dev);
+		if (verbose)
+			fprintf(stderr,
+				Name ": ddf: Cannot create this array "
+				"on device %s\n",
+				dev);
 		return 0;
 	}
 	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
-		fprintf(stderr, Name ": Cannot open %s: %s\n",
-			dev, strerror(errno));
+		if (verbose)
+			fprintf(stderr, Name ": ddf: Cannot open %s: %s\n",
+				dev, strerror(errno));
 		return 0;
 	}
 	/* Well, it is in use by someone, maybe a 'ddf' container. */
 	cfd = open_container(fd);
 	if (cfd < 0) {
 		close(fd);
-		fprintf(stderr, Name ": Cannot use %s: It is busy\n",
-			dev);
+		if (verbose)
+			fprintf(stderr, Name ": ddf: Cannot use %s: %s\n",
+				dev, strerror(EBUSY));
 		return 0;
 	}
 	sra = sysfs_read(cfd, 0, GET_VERSION);
@@ -2295,7 +2305,8 @@ static int validate_geometry_ddf(struct supertype *st,
 			close(cfd);
 			return validate_geometry_ddf_bvd(st, level, layout,
 							 raiddisks, chunk, size,
-							 dev, freesize);
+							 dev, freesize,
+							 verbose);
 		}
 		close(cfd);
 	} else /* device may belong to a different container */
@@ -2304,10 +2315,12 @@ static int validate_geometry_ddf(struct supertype *st,
 	return 1;
 }
 
-static int validate_geometry_ddf_container(struct supertype *st,
-				   int level, int layout, int raiddisks,
-				   int chunk, unsigned long long size,
-				   char *dev, unsigned long long *freesize)
+static int
+validate_geometry_ddf_container(struct supertype *st,
+				int level, int layout, int raiddisks,
+				int chunk, unsigned long long size,
+				char *dev, unsigned long long *freesize,
+				int verbose)
 {
 	int fd;
 	unsigned long long ldsize;
@@ -2319,8 +2332,9 @@ static int validate_geometry_ddf_container(struct supertype *st,
 
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
-		fprintf(stderr, Name ": Cannot open %s: %s\n",
-			dev, strerror(errno));
+		if (verbose)
+			fprintf(stderr, Name ": ddf: Cannot open %s: %s\n",
+				dev, strerror(errno));
 		return 0;
 	}
 	if (!get_dev_size(fd, dev, &ldsize)) {
@@ -2337,7 +2351,8 @@ static int validate_geometry_ddf_container(struct supertype *st,
 static int validate_geometry_ddf_bvd(struct supertype *st,
 				     int level, int layout, int raiddisks,
 				     int chunk, unsigned long long size,
-				     char *dev, unsigned long long *freesize)
+				     char *dev, unsigned long long *freesize,
+				     int verbose)
 {
 	struct stat stb;
 	struct ddf_super *ddf = st->sb;
@@ -2382,9 +2397,11 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 			free(e);
 		}
 		if (dcnt < raiddisks) {
-			fprintf(stderr, Name ": Not enough devices with space "
-				"for this array (%d < %d)\n",
-				dcnt, raiddisks);
+			if (verbose)
+				fprintf(stderr,
+					Name ": ddf: Not enough devices with "
+					"space for this array (%d < %d)\n",
+					dcnt, raiddisks);
 			return 0;
 		}
 		return 1;
@@ -2400,8 +2417,10 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 			break;
 	}
 	if (!dl) {
-		fprintf(stderr, Name ": %s is not in the same DDF set\n",
-			dev);
+		if (verbose)
+			fprintf(stderr, Name ": ddf: %s is not in the "
+				"same DDF set\n",
+				dev);
 		return 0;
 	}
 	e = get_extents(ddf, dl);
@@ -2645,7 +2664,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
  */
 static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 {
-	fprintf(stderr, "ddf: open_new %s\n", inst);
+	dprintf("ddf: open_new %s\n", inst);
 	a->info.container_member = atoi(inst);
 	return 0;
 }
@@ -2682,8 +2701,8 @@ static void ddf_set_array_state(struct active_array *a, int consistent)
 	if (old != ddf->virt->entries[inst].init_state)
 		ddf->updates_pending = 1;
 
-	printf("ddf mark %d %s %llu\n", inst, consistent?"clean":"dirty",
-	       a->resync_start);
+	dprintf("ddf mark %d %s %llu\n", inst, consistent?"clean":"dirty",
+		a->resync_start);
 }
 
 /*
@@ -2709,7 +2728,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	int i, st, working;
 
 	if (vc == NULL) {
-		fprintf(stderr, "ddf: cannot find instance %d!!\n", inst);
+		dprintf("ddf: cannot find instance %d!!\n", inst);
 		return;
 	}
 	if (pd < 0) {
@@ -2734,7 +2753,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 			ddf->updates_pending = 1;
 	}
 
-	fprintf(stderr, "ddf: set_disk %d to %x\n", n, state);
+	dprintf("ddf: set_disk %d to %x\n", n, state);
 
 	/* Now we need to check the state of the array and update
 	 * virtual_disk.entries[n].state.
@@ -2804,7 +2823,7 @@ static void ddf_sync_metadata(struct supertype *st)
 		return;
 	ddf->updates_pending = 0;
 	__write_init_super_ddf(st, 0);
-	fprintf(stderr, "ddf: sync_metadata\n");
+	dprintf("ddf: sync_metadata\n");
 }
 
 static void ddf_process_update(struct supertype *st,
@@ -2847,7 +2866,7 @@ static void ddf_process_update(struct supertype *st,
 	int mppe;
 	int ent;
 
-//	printf("Process update %x\n", *magic);
+	dprintf("Process update %x\n", *magic);
 
 	switch (*magic) {
 	case DDF_PHYS_RECORDS_MAGIC:
@@ -2887,7 +2906,7 @@ static void ddf_process_update(struct supertype *st,
 		break;
 
 	case DDF_VD_CONF_MAGIC:
-//		printf("len %d %d\n", update->len, ddf->conf_rec_len);
+		dprintf("len %d %d\n", update->len, ddf->conf_rec_len);
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
 		if (update->len != ddf->conf_rec_len * 512)
@@ -2896,7 +2915,7 @@ static void ddf_process_update(struct supertype *st,
 		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 			if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
 				break;
-//		printf("vcl = %p\n", vcl);
+		dprintf("vcl = %p\n", vcl);
 		if (vcl) {
 			/* An update, just copy the phys_refnum and lba_offset
 			 * fields
@@ -2921,8 +2940,8 @@ static void ddf_process_update(struct supertype *st,
 				for (dn=0; dn < ddf->mppe ; dn++)
 					if (vcl->conf.phys_refnum[dn] ==
 					    dl->disk.refnum) {
-//						printf("dev %d has %p at %d\n",
-//						       dl->pdnum, vcl, vn);
+						dprintf("dev %d has %p at %d\n",
+							dl->pdnum, vcl, vn);
 						dl->vlist[vn++] = vcl;
 						break;
 					}
@@ -3009,8 +3028,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			working ++;
 	}
 
-//	printf("ddf_activate: working=%d (%d) level=%d\n", working, a->info.array.raid_disks,
-//	       a->info.array.level);
+	dprintf("ddf_activate: working=%d (%d) level=%d\n", working, a->info.array.raid_disks,
+		a->info.array.level);
 	if (working == a->info.array.raid_disks)
 		return NULL; /* array not degraded */
 	switch (a->info.array.level) {
@@ -3037,7 +3056,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 		for (d = a->info.devs ; d ; d = d->next)
 			if (d->disk.raid_disk == i)
 				break;
-		printf("found %d: %p %x\n", i, d, d?d->curr_state:0);
+		dprintf("found %d: %p %x\n", i, d, d?d->curr_state:0);
 		if (d && (d->state_fd >= 0))
 			continue;
 
@@ -3055,7 +3074,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
 				if (d2->disk.major == dl->major &&
 				    d2->disk.minor == dl->minor) {
-					printf("%x:%x already in array\n", dl->major, dl->minor);
+					dprintf("%x:%x already in array\n", dl->major, dl->minor);
 					break;
 				}
 			if (d2)
@@ -3083,7 +3102,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			}
 			if ( ! (is_dedicated ||
 				(is_global && global_ok))) {
-				printf("%x:%x not suitable: %d %d\n", dl->major, dl->minor,
+				dprintf("%x:%x not suitable: %d %d\n", dl->major, dl->minor,
 				       is_dedicated, is_global);
 				continue;
 			}
@@ -3092,7 +3111,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			 * We need a->info.component_size sectors */
 			ex = get_extents(ddf, dl);
 			if (!ex) {
-				printf("cannot get extents\n");
+				dprintf("cannot get extents\n");
 				continue;
 			}
 			j = 0; pos = 0;
@@ -3108,8 +3127,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 
 			free(ex);
 			if (esize < a->info.component_size) {
-				printf("%x:%x has no room: %llu %llu\n", dl->major, dl->minor,
-				       esize, a->info.component_size);
+				dprintf("%x:%x has no room: %llu %llu\n", dl->major, dl->minor,
+					esize, a->info.component_size);
 				/* No room */
 				continue;
 			}
@@ -3127,8 +3146,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			di->container_member = dl->pdnum;
 			di->next = rv;
 			rv = di;
-			printf("%x:%x to be %d at %llu\n", dl->major, dl->minor,
-			       i, pos);
+			dprintf("%x:%x to be %d at %llu\n", dl->major, dl->minor,
+				i, pos);
 
 			break;
 		}

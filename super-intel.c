@@ -1294,7 +1294,8 @@ static int store_zero_imsm(struct supertype *st, int fd)
 
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				  int raiddisks, int chunk, unsigned long long size,
-				  char *dev, unsigned long long *freesize)
+				  char *dev, unsigned long long *freesize,
+				  int verbose)
 {
 	int fd, cfd;
 	struct mdinfo *sra;
@@ -1309,12 +1310,14 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			int rv = st->ss->validate_geometry(st, level, layout,
 							   raiddisks, chunk,
 							   size,
-							   NULL, freesize);
+							   NULL, freesize,
+							   verbose);
 			if (rv)
 				return rv;
 		}
 		return st->ss->validate_geometry(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize);
+						 chunk, size, dev, freesize,
+						 verbose);
 	}
 	
 	if (st->sb) {
@@ -1324,12 +1327,14 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			int rv = st->ss->validate_geometry(st, level, layout,
 							   raiddisks, chunk,
 							   size,
-							   NULL, freesize);
+							   NULL, freesize,
+							   verbose);
 			if (rv)
 				return rv;
 		}
 		return st->ss->validate_geometry(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize);
+						 chunk, size, dev, freesize,
+						 verbose);
 	}
 
 	/* limit creation to the following levels */
@@ -1347,23 +1352,26 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	/* This device needs to be a device in an 'imsm' container */
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {
-		fprintf(stderr,
-			Name ": Cannot create this array on device %s\n",
-			dev);
+		if (verbose)
+			fprintf(stderr,
+				Name ": imsm: Cannot create this array on "
+				"device %s\n", dev);
 		close(fd);
 		return 0;
 	}
 	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
-		fprintf(stderr, Name ": Cannot open %s: %s\n",
-			dev, strerror(errno));
+		if (verbose)
+			fprintf(stderr, Name ": imsm: Cannot open %s: %s\n",
+				dev, strerror(errno));
 		return 0;
 	}
 	/* Well, it is in use by someone, maybe an 'imsm' container. */
 	cfd = open_container(fd);
 	if (cfd < 0) {
 		close(fd);
-		fprintf(stderr, Name ": Cannot use %s: It is busy\n",
-			dev);
+		if (verbose)
+			fprintf(stderr, Name ": imsm: Cannot use %s: %s\n",
+				dev, strerror(EBUSY));
 		return 0;
 	}
 	sra = sysfs_read(cfd, 0, GET_VERSION);
@@ -1381,7 +1389,8 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			close(cfd);
 			return st->ss->validate_geometry(st, level, layout,
 							 raiddisks, chunk, size,
-							 dev, freesize);
+							 dev, freesize,
+							 verbose);
 		}
 		close(cfd);
 	} else /* may belong to another container */
@@ -1393,7 +1402,8 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 static int validate_geometry_imsm_container(struct supertype *st, int level,
 					    int layout, int raiddisks, int chunk,
 					    unsigned long long size, char *dev,
-					    unsigned long long *freesize)
+					    unsigned long long *freesize,
+					    int verbose)
 {
 	int fd;
 	unsigned long long ldsize;
@@ -1405,8 +1415,9 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
-		fprintf(stderr, Name ": Cannot open %s: %s\n",
-			dev, strerror(errno));
+		if (verbose)
+			fprintf(stderr, Name ": imsm: Cannot open %s: %s\n",
+				dev, strerror(errno));
 		return 0;
 	}
 	if (!get_dev_size(fd, dev, &ldsize)) {
@@ -1426,7 +1437,8 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 static int validate_geometry_imsm_volume(struct supertype *st, int level,
 					 int layout, int raiddisks, int chunk,
 					 unsigned long long size, char *dev,
-					 unsigned long long *freesize)
+					 unsigned long long *freesize,
+					 int verbose)
 {
 	struct stat stb;
 	struct intel_super *super = st->sb;
@@ -1440,8 +1452,9 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		return 0;
 
 	if (level == 1 && raiddisks > 2) {
-		fprintf(stderr, Name ": imsm does not support more than 2 "
-			"in a raid1 configuration\n");
+		if (verbose)
+			fprintf(stderr, Name ": imsm does not support more "
+				"than 2 in a raid1 configuration\n");
 		return 0;
 	}
 
@@ -1476,9 +1489,11 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 			free(e);
 		}
 		if (dcnt < raiddisks) {
-			fprintf(stderr, Name ": Not enough devices with space "
-				"for this array (%d < %d)\n",
-				dcnt, raiddisks);
+			if (verbose)
+				fprintf(stderr, Name ": imsm: Not enough "
+					"devices with space for this array "
+					"(%d < %d)\n",
+					dcnt, raiddisks);
 			return 0;
 		}
 		return 1;
@@ -1494,8 +1509,9 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 			break;
 	}
 	if (!dl) {
-		fprintf(stderr, Name ": %s is not in the same imsm set\n",
-			dev);
+		if (verbose)
+			fprintf(stderr, Name ": %s is not in the "
+				"same imsm set\n", dev);
 		return 0;
 	}
 	e = get_extents(super, dl);

@@ -1038,7 +1038,8 @@ static void free_super0(struct supertype *st)
 static int validate_geometry0(struct supertype *st, int level,
 			      int layout, int raiddisks,
 			      int chunk, unsigned long long size,
-			      char *subdev, unsigned long long *freesize)
+			      char *subdev, unsigned long long *freesize,
+			      int verbose)
 {
 	unsigned long long ldsize;
 	int fd;
@@ -1054,10 +1055,12 @@ static int validate_geometry0(struct supertype *st, int level,
 
 	fd = open(subdev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
-		fprintf(stderr, Name ": Cannot open %s: %s\n",
-			subdev, strerror(errno));
+		if (verbose)
+			fprintf(stderr, Name ": super0.90 cannot open %s: %s\n",
+				subdev, strerror(errno));
 		return 0;
 	}
+
 	if (!get_dev_size(fd, subdev, &ldsize)) {
 		close(fd);
 		return 0;

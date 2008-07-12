@@ -727,7 +727,7 @@ static char *container2devname(char *devname)
 	int fd = open(devname, O_RDONLY);
 	char *mdname = NULL;
 
-	if (fd > 0) {
+	if (fd >= 0) {
 		mdname = devnum2devname(fd2devnum(fd));
 		close(fd);
 	}

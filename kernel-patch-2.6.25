@@ -121,7 +121,7 @@ diff .prev/drivers/md/raid10.c ./drivers/md/raid10.c
  	int mirror;
  	mirror_info_t *p;
 +	int first = 0;
-+	int last = mddev->raid_disks;
++	int last = mddev->raid_disks - 1;
  
  	if (mddev->recovery_cp < MaxSector)
  		/* only hot-add to in-sync arrays, as recovery is

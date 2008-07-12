@@ -171,6 +171,8 @@ do
   if [ -f "$script" ]
   then
    rm -f $targetdir/stderr
+   # stop all arrays, just incase some script left an array active.
+   mdadm -Ssq
    # source script in a subshell, so it has access to our
    # namespace, but cannot change it.
    if ( set -ex ; . $script )  2> $targetdir/log

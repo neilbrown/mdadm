@@ -1257,6 +1257,16 @@ int main(int argc, char *argv[])
 
 							put_md_name(name);
 						}
+						/* This is a bit of a hack.
+						 * When we stop an array in a container, it
+						 * takes a moment for mdmon to let go.
+						 * So just pause briefly incase that is
+						 * happening.  Maybe we should do something
+						 * more deterministic via the socket.
+						 */
+						if (progress && err)
+							usleep(50000);
+
 					} while (!last && err);
 					if (err) rv |= 1;
 				} else {

@@ -159,6 +159,7 @@ static void remove_old(void)
 		if (pending_discard == discard_this)
 			pending_discard = NULL;
 		discard_this = NULL;
+		wakeup_monitor();
 	}
 }
 
@@ -174,7 +175,6 @@ static void replace_array(struct supertype *container,
 	 */
 	remove_old();
 	while (pending_discard) {
-		wakeup_monitor();
 		while (discard_this == NULL)
 			sleep(1);
 		remove_old();

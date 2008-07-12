@@ -402,6 +402,7 @@ struct ddf_super {
 	int pdsize, vdsize;
 	int max_part, mppe, conf_rec_len;
 	int currentdev;
+	int updates_pending;
 	struct vcl {
 		struct vcl	*next;
 		__u64		*lba_offset; /* location in 'conf' of
@@ -1590,6 +1591,7 @@ static int init_super_ddf(struct supertype *st,
 		memset(&vd->entries[i], 0xff, sizeof(struct virtual_entry));
 
 	st->sb = ddf;
+	ddf->updates_pending = 1;
 	return 1;
 }
 
@@ -1852,6 +1854,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	vcl->next = ddf->conflist;
 	ddf->conflist = vcl;
 	ddf->currentconf = vcl;
+	ddf->updates_pending = 1;
 	return 1;
 }
 
@@ -1943,6 +1946,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 
 	ddf->phys->entries[dl->pdnum].type &= ~__cpu_to_be16(DDF_Global_Spare);
 	ddf->phys->entries[dl->pdnum].type |= __cpu_to_be16(DDF_Active_in_VD);
+	ddf->updates_pending = 1;
 }
 
 /* add a device to a container, either while creating it or while
@@ -2021,6 +2025,7 @@ static void add_to_super_ddf(struct supertype *st,
 
 	dd->size = size >> 9;
 	ddf->dlist = dd;
+	ddf->updates_pending = 1;
 }
 
 /*
@@ -2030,6 +2035,9 @@ static void add_to_super_ddf(struct supertype *st,
  */
 
 #ifndef MDASSEMBLE
+
+static unsigned char null_conf[4096];
+
 static int __write_init_super_ddf(struct supertype *st, int do_close)
 {
 
@@ -2100,9 +2108,14 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 				c->conf.crc = calc_crc(&c->conf, conf_size);
 				write(fd, &c->conf, conf_size);
 			} else {
-				__u32 sig = 0xffffffff;
-				write(fd, &sig, 4);
-				lseek64(fd, conf_size-4, SEEK_CUR);
+				if (null_conf[0] != 0xff)
+					memset(null_conf, 0xff, sizeof(null_conf));
+				int togo = conf_size;
+				while (togo > sizeof(null_conf)) {
+					write(fd, null_conf, sizeof(null_conf));
+					togo -= sizeof(null_conf);
+				}
+				write(fd, null_conf, togo);
 			}
 		}
 		d->disk.crc = calc_crc(&d->disk, 512);
@@ -2632,10 +2645,15 @@ static void ddf_set_array_state(struct active_array *a, int consistent)
 {
 	struct ddf_super *ddf = a->container->sb;
 	int inst = a->info.container_member;
+	int old = ddf->virt->entries[inst].state;
 	if (consistent)
 		ddf->virt->entries[inst].state &= ~DDF_state_inconsistent;
 	else
 		ddf->virt->entries[inst].state |= DDF_state_inconsistent;
+	if (old != ddf->virt->entries[inst].state)
+		ddf->updates_pending = 1;
+
+	old = ddf->virt->entries[inst].init_state;
 	ddf->virt->entries[inst].init_state &= ~DDF_initstate_mask;
 	if (a->resync_start == ~0ULL)
 		ddf->virt->entries[inst].init_state |= DDF_init_full;
@@ -2643,8 +2661,10 @@ static void ddf_set_array_state(struct active_array *a, int consistent)
 		ddf->virt->entries[inst].init_state |= DDF_init_not;
 	else
 		ddf->virt->entries[inst].init_state |= DDF_init_quick;
+	if (old != ddf->virt->entries[inst].init_state)
+		ddf->updates_pending = 1;
 
-	printf("ddf mark %s %llu\n", consistent?"clean":"dirty",
+	printf("ddf mark %d %s %llu\n", inst, consistent?"clean":"dirty",
 	       a->resync_start);
 }
 
@@ -2685,12 +2705,15 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 			/* FIXME */
 		}
 	} else {
+		int old = ddf->phys->entries[pd].state;
 		if (state & DS_FAULTY)
 			ddf->phys->entries[pd].state  |= __cpu_to_be16(DDF_Failed);
 		if (state & DS_INSYNC) {
 			ddf->phys->entries[pd].state  |= __cpu_to_be16(DDF_Online);
 			ddf->phys->entries[pd].state  &= __cpu_to_be16(~DDF_Rebuilding);
 		}
+		if (old != ddf->phys->entries[pd].state)
+			ddf->updates_pending = 1;
 	}
 
 	fprintf(stderr, "ddf: set_disk %d to %x\n", n, state);
@@ -2736,9 +2759,15 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		break;
 	}
 
-	ddf->virt->entries[inst].state =
-		(ddf->virt->entries[inst].state & ~DDF_state_mask)
-		| state;
+	if (ddf->virt->entries[inst].state !=
+	    ((ddf->virt->entries[inst].state & ~DDF_state_mask)
+	     | state)) {
+
+		ddf->virt->entries[inst].state =
+			(ddf->virt->entries[inst].state & ~DDF_state_mask)
+			| state;
+		ddf->updates_pending = 1;
+	}
 
 }
 
@@ -2752,6 +2781,10 @@ static void ddf_sync_metadata(struct supertype *st)
 	 * but ddf is sufficiently weird that it probably always
 	 * changes global data ....
 	 */
+	struct ddf_super *ddf = st->sb;
+	if (!ddf->updates_pending)
+		return;
+	ddf->updates_pending = 0;
 	__write_init_super_ddf(st, 0);
 	fprintf(stderr, "ddf: sync_metadata\n");
 }
@@ -2814,6 +2847,7 @@ static void ddf_process_update(struct supertype *st,
 		ddf->phys->entries[ent] = pd->entries[0];
 		ddf->phys->used_pdes = __cpu_to_be16(1 +
 					   __be16_to_cpu(ddf->phys->used_pdes));
+		ddf->updates_pending = 1;
 		break;
 
 	case DDF_VIRT_RECORDS_MAGIC:
@@ -2831,6 +2865,7 @@ static void ddf_process_update(struct supertype *st,
 		ddf->virt->entries[ent] = vd->entries[0];
 		ddf->virt->populated_vdes = __cpu_to_be16(1 +
 			      __be16_to_cpu(ddf->virt->populated_vdes));
+		ddf->updates_pending = 1;
 		break;
 
 	case DDF_VD_CONF_MAGIC:
@@ -2895,6 +2930,7 @@ static void ddf_process_update(struct supertype *st,
 						       DDF_Active_in_VD);
 			}
 		}
+		ddf->updates_pending = 1;
 		break;
 	case DDF_SPARE_ASSIGN_MAGIC:
 	default: break;

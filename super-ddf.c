@@ -1286,9 +1286,10 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 
 	uuid_from_super_ddf(st, info->uuid);
 
-	sprintf(info->text_version, "/%s/%d",
+	info->container_member = atoi(st->subarray);
+	sprintf(info->text_version, "/%s/%s",
 		devnum2devname(st->container_dev),
-		info->container_member);
+		st->subarray);
 
 //	info->name[] ?? ;
 }

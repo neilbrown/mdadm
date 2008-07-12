@@ -66,6 +66,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int second_missing = subdevs * 2;
 	int missing_disks = 0;
 	int insert_point = subdevs * 2; /* where to insert a missing drive */
+	int total_slots;
 	int pass;
 	int vers;
 	int rv;
@@ -75,7 +76,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int need_mdmon = 0;
 	unsigned long long bitmapsize;
 	struct mdinfo *sra;
-	struct mdinfo info;
+	struct mdinfo info, *infos;
 	int did_default = 0;
 
 	int major_num = BITMAP_MAJOR_HI;
@@ -515,6 +516,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (!st->ss->init_super(st, &info.array, size, name, homehost, uuid))
 		return 1;
 
+	total_slots = info.array.nr_disks;
 	st->ss->getinfo_super(st, &info);
 
 	if (did_default)
@@ -625,6 +627,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 	}
 
+	infos = malloc(sizeof(*infos) * total_slots);
 
 	for (pass=1; pass <=2 ; pass++) {
 		mddev_dev_t moved_disk = NULL; /* the disk that was moved out of the insert point */
@@ -633,58 +636,66 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		     dv=(dv->next)?(dv->next):moved_disk, dnum++) {
 			int fd;
 			struct stat stb;
+			struct mdinfo *inf = &infos[dnum];
 
-			info.disk.number = dnum;
+			if (dnum >= total_slots)
+				abort();
 			if (dnum == insert_point) {
 				moved_disk = dv;
 			}
-			info.disk.raid_disk = info.disk.number;
-			if (info.disk.raid_disk < raiddisks)
-				info.disk.state = (1<<MD_DISK_ACTIVE) |
-						(1<<MD_DISK_SYNC);
-			else
-				info.disk.state = 0;
-			if (dv->writemostly)
-				info.disk.state |= (1<<MD_DISK_WRITEMOSTLY);
-
 			if (dnum == insert_point ||
 			    strcasecmp(dv->devname, "missing")==0)
 				continue;
 
-			if (st->ss->external && st->subarray[0])
-				fd = open(dv->devname, O_RDWR, 0);
-			else
-				fd = open(dv->devname, O_RDWR|O_EXCL,0);
-
-			if (fd < 0) {
-				fprintf(stderr, Name ": failed to open %s "
-					"after earlier success - aborting\n",
-					dv->devname);
-				return 1;
-			}
-			fstat(fd, &stb);
-			info.disk.major = major(stb.st_rdev);
-			info.disk.minor = minor(stb.st_rdev);
-
-			switch(pass){
+			switch(pass) {
 			case 1:
+				*inf = info;
+
+				inf->disk.number = dnum;
+				inf->disk.raid_disk = dnum;
+				if (inf->disk.raid_disk < raiddisks)
+					inf->disk.state = (1<<MD_DISK_ACTIVE) |
+						(1<<MD_DISK_SYNC);
+				else
+					inf->disk.state = 0;
+
+				if (dv->writemostly)
+					inf->disk.state |= (1<<MD_DISK_WRITEMOSTLY);
+
+				if (st->ss->external && st->subarray[0])
+					fd = open(dv->devname, O_RDWR, 0);
+				else
+					fd = open(dv->devname, O_RDWR|O_EXCL,0);
+
+				if (fd < 0) {
+					fprintf(stderr, Name ": failed to open %s "
+						"after earlier success - aborting\n",
+						dv->devname);
+					return 1;
+				}
+				fstat(fd, &stb);
+				inf->disk.major = major(stb.st_rdev);
+				inf->disk.minor = minor(stb.st_rdev);
+
 				remove_partitions(fd);
-				st->ss->add_to_super(st, &info.disk,
+				st->ss->add_to_super(st, &inf->disk,
 						     fd, dv->devname);
+				st->ss->getinfo_super(st, inf);
+
+				/* getinfo_super might have lost these ... */
+				inf->disk.major = major(stb.st_rdev);
+				inf->disk.minor = minor(stb.st_rdev);
 				break;
 			case 2:
-				close(fd);
-				info.component_size = info.array.size * 2;
-				info.errors = 0;
+				inf->errors = 0;
 				rv = 0;
 
-				if (st->ss->external) {
-					st->ss->getinfo_super_n(st, &info);
-					rv = sysfs_add_disk(sra, &info);
-				} else {
+				if (st->ss->external)
+					rv = sysfs_add_disk(sra, inf);
+				else
 					rv = ioctl(mdfd, ADD_NEW_DISK,
-						 &info.disk);
-				}
+						   &inf->disk);
+
 				if (rv) {
 					fprintf(stderr,
 						Name ": ADD_NEW_DISK for %s "
@@ -700,6 +711,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (pass == 1)
 			st->ss->write_init_super(st);
 	}
+	free(infos);
 	st->ss->free_super(st);
 
 	/* param is not actually used */

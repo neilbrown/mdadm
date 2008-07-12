@@ -429,10 +429,12 @@ extern struct superswitch {
 	 * The determination is made either by:
 	 *   load_super being given a 'component' string.
 	 *   validate_geometry determining what to create.
-	 * getinfo_super_n really needs to be removed..
+	 * The info includes both array information and device information.
+	 * The particular device should be:
+	 *   The last device added by add_to_super
+	 *   The device the metadata was loaded from by load_super
 	 */
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
-	void (*getinfo_super_n)(struct supertype *st, struct mdinfo *info);
 
 	/* Check if the given metadata is flagged as belonging to "this"
 	 * host.  For arrays that don't determine a minor-number, this

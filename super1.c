@@ -789,6 +789,9 @@ static void add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	else
 		*rp = 0xfffe;
 
+	sb->dev_number = __cpu_to_le32(dk->number);
+	sb->sb_csum = calc_sb_1_csum(sb);
+
 	dip = (struct devinfo **)&st->info;
 	while (*dip)
 		dip = &(*dip)->next;

@@ -499,6 +499,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->mpb;
 	struct imsm_disk *disk;
+	int sect = mpb_sectors(mpb);
 	__u32 s;
 
 	info->array.raid_disks    = mpb->num_disks;
@@ -516,6 +517,11 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	strcpy(info->text_version, "imsm");
 	info->disk.number = -1;
 	info->disk.state = 0;
+
+	info->data_offset = __le32_to_cpu(get_imsm_disk(super->mpb,
+							super->disks->index)
+					  ->total_blocks) - (2 + sect - 1);
+	info->component_size = sect;
 
 	if (super->disks) {
 		info->disk.number = super->disks->index;
@@ -1286,36 +1292,7 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	memset(buf, 0, sizeof(buf));
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf))
 		return 1;
-
 	return 0;
-}
-
-static void getinfo_super_n_imsm_container(struct supertype *st, struct mdinfo *info)
-{
-	/* just need offset and size...
-	 * of the metadata
-	 */
-	struct intel_super *super = st->sb;
-	struct imsm_super *mpb = super->mpb;
-	struct imsm_disk *disk = get_imsm_disk(mpb, info->disk.number);
-
-	info->data_offset = __le32_to_cpu(disk->total_blocks) -
-			    (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS);
-	info->component_size = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
-}
-
-static void getinfo_super_n_imsm_volume(struct supertype *st, struct mdinfo *info)
-{
-	/* Find the particular details for info->disk.raid_disk.
-	 * This includes data_offset, component_size,
-	 */
-	struct intel_super *super = st->sb;
-	struct imsm_super *mpb = super->mpb;
-	struct imsm_dev *dev = get_imsm_dev(mpb, super->creating_dev);
-	struct imsm_map *map = &dev->vol.map[0];
-
-	info->data_offset = __le32_to_cpu(map->pba_of_lba0);
-	info->component_size = __le32_to_cpu(map->blocks_per_member);
 }
 
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,
@@ -1871,10 +1848,8 @@ struct superswitch super_imsm = {
 	.store_super	= store_zero_imsm,
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
-	.getinfo_super_n  = getinfo_super_n_imsm_container,
 
 	.validate_geometry = validate_geometry_imsm,
-	.swapuuid	= 0,
 	.external	= 1,
 
 /* for mdmon */
@@ -1895,7 +1870,6 @@ struct superswitch super_imsm_container = {
 	.add_to_super	= add_to_super_imsm,
 	.write_init_super = write_init_super_imsm,
 	.getinfo_super  = getinfo_super_imsm,
-	.getinfo_super_n  = getinfo_super_n_imsm_container,
 	.load_super	= load_super_imsm,
 
 #ifndef MDASSEMBLE
@@ -1909,7 +1883,6 @@ struct superswitch super_imsm_container = {
 
 	.container_content = container_content_imsm,
 
-	.swapuuid	= 0,
 	.external	= 1,
 };
 
@@ -1918,7 +1891,6 @@ static struct superswitch super_imsm_volume = {
 	.init_super	= init_super_imsm_volume,
 	.add_to_super	= add_to_super_imsm_volume,
 	.getinfo_super  = getinfo_super_imsm_volume,
-	.getinfo_super_n  = getinfo_super_n_imsm_volume,
 	.write_init_super = write_init_super_imsm,
 
 	.load_super	= load_super_imsm,
@@ -1927,6 +1899,5 @@ static struct superswitch super_imsm_volume = {
 
 
 	.validate_geometry = validate_geometry_imsm_volume,
-	.swapuuid	= 0,
 	.external	= 2,
 };

@@ -914,14 +914,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 			if (j >= 0 /* && devices[j].uptodate */) {
 #ifndef MDASSEMBLE
-				if (st->ss->external) {
-					devices[j].i.disk.number =
-						devices[j].i.disk.raid_disk;
-					st->ss->getinfo_super_n(st,
-								&devices[j].i);
-					rv = sysfs_add_disk(sra,
-							    &devices[j].i);
-				} else
+				if (st->ss->external)
+					rv = sysfs_add_disk(sra, &devices[j].i);
+				else
 #endif
 					rv = ioctl(mdfd, ADD_NEW_DISK,
 					  &devices[j].i.disk);

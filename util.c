@@ -858,6 +858,8 @@ struct supertype *dup_super(struct supertype *orig)
 {
 	struct supertype *st;
 
+	if (!orig)
+		return orig;
 	st = malloc(sizeof(*st));
 	if (!st)
 		return st;

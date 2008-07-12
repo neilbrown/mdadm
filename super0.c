@@ -645,6 +645,9 @@ static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 	dk->raid_disk = dinfo->raid_disk;
 	dk->state = dinfo->state;
 
+	sb->this_disk = sb->disks[dinfo->number];
+	sb->sb_csum = calc_sb0_csum(sb);
+
 	dip = (struct devinfo **)&st->info;
 	while (*dip)
 		dip = &(*dip)->next;
@@ -1092,5 +1095,4 @@ struct superswitch super0 = {
 	.write_bitmap = write_bitmap0,
 	.free_super = free_super0,
 	.validate_geometry = validate_geometry0,
-	.swapuuid = 0,
 };

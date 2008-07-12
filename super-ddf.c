@@ -1453,6 +1453,7 @@ static int init_super_ddf(struct supertype *st,
 	struct virtual_disk *vd;
 
 	ddf = malloc(sizeof(*ddf));
+	memset(ddf, 0, sizeof(*ddf));
 	ddf->dlist = NULL; /* no physical disks yet */
 	ddf->conflist = NULL; /* No virtual disks yet */
 

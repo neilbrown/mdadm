@@ -582,7 +582,6 @@ struct supertype {
 	/* extra stuff used by mdmon */
 	struct active_array *arrays;
 	int sock; /* listen to external programs */
-	int mgr_pipe[2]; /* communicate between threads */
 	int devnum;
 	char *devname; /* e.g. md0.  This appears in metadata_verison:
 			*  external:/md0/12

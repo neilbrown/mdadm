@@ -66,3 +66,4 @@ int read_dev_state(int fd);
 struct mdstat_ent *mdstat_read(int hold, int start);
 
 extern int exit_now, manager_ready;
+extern int mon_tid, mgr_tid;

@@ -1,7 +1,7 @@
 
 #include "mdadm.h"
 #include "mdmon.h"
-
+#include <sys/syscall.h>
 #include <sys/select.h>
 #include <signal.h>
 
@@ -138,7 +138,9 @@ int read_dev_state(int fd)
 
 static void signal_manager(void)
 {
-	kill(getpid(), SIGUSR1);
+	/* tgkill(getpid(), mon_tid, SIGUSR1); */
+	int pid = getpid();
+	syscall(SYS_tgkill, pid, mgr_tid, SIGUSR1);
 }
 
 /* Monitor a set of active md arrays - all of which share the
@@ -367,16 +369,6 @@ static void reconcile_failed(struct active_array *aa, struct mdinfo *failed)
 	}
 }
 
-static int handle_pipe(struct md_generic_cmd *cmd, struct active_array *aa)
-{
-	switch (cmd->action) {
-	case md_action_ping_monitor:
-		return 0;
-	}
-
-	return -1;
-}
-
 #ifdef DEBUG
 static void dprint_wake_reasons(fd_set *fds)
 {
@@ -407,8 +399,7 @@ static void dprint_wake_reasons(fd_set *fds)
 }
 #endif
 
-static int wait_and_act(struct supertype *container, int pfd,
-			int nowait)
+static int wait_and_act(struct supertype *container, int nowait)
 {
 	fd_set rfds;
 	int maxfd = 0;
@@ -419,7 +410,6 @@ static int wait_and_act(struct supertype *container, int pfd,
 
 	FD_ZERO(&rfds);
 
-	add_fd(&rfds, &maxfd, pfd);
 	for (ap = aap ; *ap ;) {
 		a = *ap;
 		/* once an array has been deactivated we want to
@@ -463,21 +453,15 @@ static int wait_and_act(struct supertype *container, int pfd,
 	}
 
 	if (!nowait) {
-		rv = select(maxfd+1, &rfds, NULL, NULL, NULL);
+		sigset_t set;
+		sigprocmask(SIG_UNBLOCK, NULL, &set);
+		sigdelset(&set, SIGUSR1);
+		rv = pselect(maxfd+1, &rfds, NULL, NULL, NULL, &set);
 
 		#ifdef DEBUG
 		dprint_wake_reasons(&rfds);
 		#endif
 
-		if (rv <= 0)
-			return rv;
-
-		if (FD_ISSET(pfd, &rfds)) {
-			int err = -1;
-
-			if (read(pfd, &err, 1) > 0)
-				err = handle_pipe(active_cmd, *aap);
-		}
 	}
 
 	if (update_queue) {
@@ -526,8 +510,7 @@ void do_monitor(struct supertype *container)
 	int rv;
 	int first = 1;
 	do {
-		rv = wait_and_act(container, container->mgr_pipe[0],
-				  first);
+		rv = wait_and_act(container, first);
 		first = 0;
 	} while (rv >= 0);
 }

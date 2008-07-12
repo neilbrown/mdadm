@@ -26,10 +26,12 @@
 
 #include	<unistd.h>
 #include	<stdlib.h>
+#include	<sys/types.h>
 #include	<sys/stat.h>
 #include	<sys/socket.h>
 #include	<sys/un.h>
 #include	<sys/mman.h>
+#include	<sys/syscall.h>
 #include	<stdio.h>
 #include	<errno.h>
 #include	<string.h>
@@ -43,17 +45,14 @@
 
 struct active_array *discard_this;
 struct active_array *pending_discard;
-struct md_generic_cmd *active_cmd;
+
+int mon_tid, mgr_tid;
 
 int run_child(void *v)
 {
 	struct supertype *c = v;
-	sigset_t set;
-	/* SIGUSR is sent from child to parent,  So child must block it */
-	sigemptyset(&set);
-	sigaddset(&set, SIGUSR1);
-	sigprocmask(SIG_BLOCK, &set, NULL);
 
+	mon_tid = syscall(SYS_gettid);
 	do_monitor(c);
 	return 0;
 }
@@ -63,22 +62,13 @@ int clone_monitor(struct supertype *container)
 	static char stack[4096];
 	int rv;
 
-	rv = pipe(container->mgr_pipe);
-	if (rv < 0)
-		return rv;
 
 	rv = clone(run_child, stack+4096-64,
 		   CLONE_FS|CLONE_FILES|CLONE_VM|CLONE_SIGHAND|CLONE_THREAD,
 		   container);
-	if (rv < 0)
-		goto err_clone;
-	else
-		return rv;
 
- err_clone:
-	close(container->mgr_pipe[0]);
-	close(container->mgr_pipe[1]);
-
+	mgr_tid = syscall(SYS_gettid);
+	
 	return rv;
 }
 
@@ -176,11 +166,18 @@ static int make_control_sock(char *devname)
 	return sfd;
 }
 
+static void wake_me(int sig)
+{
+
+}
+
 int main(int argc, char *argv[])
 {
 	int mdfd;
 	struct mdinfo *mdi, *di;
 	struct supertype *container;
+	sigset_t set;
+
 	if (argc != 2) {
 		fprintf(stderr, "Usage: md-manage /device/name/for/container\n");
 		exit(2);
@@ -276,6 +273,14 @@ int main(int argc, char *argv[])
 	close(mdfd);
 
 	mlockall(MCL_FUTURE);
+
+	/* SIGUSR is sent between parent and child.  So both block it
+	 * and enable it only with pselect.
+	 */
+	sigemptyset(&set);
+	sigaddset(&set, SIGUSR1);
+	sigprocmask(SIG_BLOCK, &set, NULL);
+	signal(SIGUSR1, wake_me);
 
 	if (clone_monitor(container) < 0) {
 		fprintf(stderr, "md-manage: failed to start monitor process: %s\n",

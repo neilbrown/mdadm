@@ -27,21 +27,6 @@ struct md_message {
 	void *buf;
 };
 
-enum md_message_action {
-	md_action_ping_monitor,
-};
-
-struct md_generic_cmd {
-	enum md_message_action action;
-};
-
-/* union of all known command types, used to sanity check ->num_bytes
- * on the receive path
- */
-union md_message_commands {
-	struct md_generic_cmd generic;
-};
-
 extern const int start_magic;
 extern const int end_magic;
 

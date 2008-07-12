@@ -85,6 +85,7 @@
 #endif
 #include	"mdadm.h"
 #include	"mdmon.h"
+#include	<sys/syscall.h>
 #include	<sys/socket.h>
 #include	<signal.h>
 
@@ -143,15 +144,11 @@ static struct active_array *duplicate_aa(struct active_array *aa)
 	return newa;
 }
 
-static void write_wakeup(struct supertype *c)
+static void wakeup_monitor(void)
 {
-	static struct md_generic_cmd cmd = { .action = md_action_ping_monitor };
-	int err;
-
-	active_cmd = &cmd;
-
-	/* send the monitor thread a pointer to the ping action */
-	write(c->mgr_pipe[1], &err, 1);
+	/* tgkill(getpid(), mon_tid, SIGUSR1); */
+	int pid = getpid();
+	syscall(SYS_tgkill, pid, mon_tid, SIGUSR1);
 }
 
 static void remove_old(void)
@@ -177,7 +174,7 @@ static void replace_array(struct supertype *container,
 	 */
 	remove_old();
 	while (pending_discard) {
-		write_wakeup(container);
+		wakeup_monitor();
 		while (discard_this == NULL)
 			sleep(1);
 		remove_old();
@@ -186,7 +183,7 @@ static void replace_array(struct supertype *container,
 	new->replaces = old;
 	new->next = container->arrays;
 	container->arrays = new;
-	write_wakeup(container);
+	wakeup_monitor();
 }
 
 struct metadata_update *update_queue = NULL;
@@ -207,7 +204,7 @@ void check_update_queue(struct supertype *container)
 	    update_queue_pending) {
 		update_queue = update_queue_pending;
 		update_queue_pending = NULL;
-		write_wakeup(container);
+		wakeup_monitor();
 	}
 }
 
@@ -433,16 +430,7 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 
 static int handle_message(struct supertype *container, struct md_message *msg)
 {
-	struct md_generic_cmd *cmd = msg->buf;
-
-	if (!cmd)
-		return 0;
-
-	switch (cmd->action) {
-
-	default:
-		return -1;
-	}
+	return -1;
 }
 
 void read_sock(struct supertype *container)
@@ -485,26 +473,17 @@ void read_sock(struct supertype *container)
 	close(fd);
 }
 
-static int woke = 0;
-void wake_me(int sig)
-{
-	woke = 1;
-}
-
 int exit_now = 0;
 int manager_ready = 0;
 void do_manager(struct supertype *container)
 {
 	struct mdstat_ent *mdstat;
-	sigset_t block, orig;
+	sigset_t set;
 
-	sigemptyset(&block);
-	sigaddset(&block, SIGUSR1);
-
-	signal(SIGUSR1, wake_me);
+	sigprocmask(SIG_UNBLOCK, NULL, &set);
+	sigdelset(&set, SIGUSR1);
 
 	do {
-		woke = 0;
 
 		if (exit_now)
 			exit(0);
@@ -522,9 +501,7 @@ void do_manager(struct supertype *container)
 		check_update_queue(container);
 
 		manager_ready = 1;
-		sigprocmask(SIG_SETMASK, &block, &orig);
-		if (woke == 0)
-			mdstat_wait_fd(container->sock, &orig);
-		sigprocmask(SIG_SETMASK, &orig, NULL);
+
+		mdstat_wait_fd(container->sock, &set);
 	} while(1);
 }

@@ -88,7 +88,7 @@ tx_rx_message(int fd, struct md_message *msg, int recv_send, int tmo)
 				break;
 			case TX_RX_NUM_BYTES:
 				if (msg->num_bytes >
-				    sizeof(union md_message_commands))
+				    1024*1024)
 					state = TX_RX_ERR;
 				else if (recv_send && msg->num_bytes) {
 					msg->buf = malloc(msg->num_bytes);

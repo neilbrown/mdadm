@@ -412,8 +412,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	}
 	/* 6/ Make sure /var/run/mdadm.map contains this array. */
 	map_update(&map, devnum,
-		   info.array.major_version,
-		   info.array.minor_version,
+		   info.text_version,
 		   info.uuid, chosen_name);
 
 	/* 7/ Is there enough devices to possibly start the array? */
@@ -647,8 +646,8 @@ void RebuildMap(void)
 				path = map_dev(MD_MAJOR, md->devnum, 0);
 			else
 				path = map_dev(mdp, (-1-md->devnum)<< 6, 0);
-			map_add(&map, md->devnum, st->ss->major,
-				st->minor_version,
+			map_add(&map, md->devnum,
+				info.text_version,
 				info.uuid, path ? : "/unknown");
 			st->ss->free_super(st);
 			break;

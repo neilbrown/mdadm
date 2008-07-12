@@ -369,6 +369,8 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 	info->events = md_event(sb);
 	info->data_offset = 0;
 
+	sprintf(info->text_version, "0.%d", sb->minor_version);
+
 	uuid_from_super0(st, info->uuid);
 
 	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {

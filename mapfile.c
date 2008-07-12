@@ -33,8 +33,8 @@
  * also allows the array device name to be easily found.
  *
  * The map file is line based with space separated fields.  The fields are:
- *  Device id  -  mdX or mdpX  where is a number.
- *  metadata   -  0.90 1.0 1.1 1.2
+ *  Device id  -  mdX or mdpX  where X is a number.
+ *  metadata   -  0.90 1.0 1.1 1.2 ddf ...
  *  UUID       -  uuid of the array
  *  path       -  path where device created: /dev/md/home
  *
@@ -62,7 +62,7 @@ int map_write(struct map_ent *mel)
 			fprintf(f, "mdp%d ", -1-mel->devnum);
 		else
 			fprintf(f, "md%d ", mel->devnum);
-		fprintf(f, "%d.%d ", mel->major, mel->minor);
+		fprintf(f, "%s ", mel->metadata);
 		fprintf(f, "%08x:%08x:%08x:%08x ", mel->uuid[0],
 			mel->uuid[1], mel->uuid[2], mel->uuid[3]);
 		fprintf(f, "%s\n", mel->path);
@@ -87,13 +87,12 @@ int map_write(struct map_ent *mel)
 }
 
 void map_add(struct map_ent **melp,
-	    int devnum, int major, int minor, int uuid[4], char *path)
+	    int devnum, char *metadata, int uuid[4], char *path)
 {
 	struct map_ent *me = malloc(sizeof(*me));
 
 	me->devnum = devnum;
-	me->major = major;
-	me->minor = minor;
+	strcpy(me->metadata, metadata);
 	memcpy(me->uuid, uuid, 16);
 	me->path = strdup(path);
 	me->next = *melp;
@@ -105,7 +104,8 @@ void map_read(struct map_ent **melp)
 	FILE *f;
 	char buf[8192];
 	char path[200];
-	int devnum, major, minor, uuid[4];
+	int devnum, uuid[4];
+	char metadata[30];
 	char nam[4];
 
 	*melp = NULL;
@@ -117,12 +117,12 @@ void map_read(struct map_ent **melp)
 		return;
 
 	while (fgets(buf, sizeof(buf), f)) {
-		if (sscanf(buf, " md%1[p]%d %d.%d %x:%x:%x:%x %200s",
-			   nam, &devnum, &major, &minor, uuid, uuid+1,
+		if (sscanf(buf, " md%1[p]%d %s %x:%x:%x:%x %200s",
+			   nam, &devnum, metadata, uuid, uuid+1,
 			   uuid+2, uuid+3, path) == 9) {
 			if (nam[0] == 'p')
 				devnum = -1 - devnum;
-			map_add(melp, devnum, major, minor, uuid, path);
+			map_add(melp, devnum, metadata, uuid, path);
 		}
 	}
 	fclose(f);
@@ -138,7 +138,7 @@ void map_free(struct map_ent *map)
 	}
 }
 
-int map_update(struct map_ent **mpp, int devnum, int major, int minor,
+int map_update(struct map_ent **mpp, int devnum, char *metadata,
 	       int *uuid, char *path)
 {
 	struct map_ent *map, *mp;
@@ -151,15 +151,14 @@ int map_update(struct map_ent **mpp, int devnum, int major, int minor,
 
 	for (mp = map ; mp ; mp=mp->next)
 		if (mp->devnum == devnum) {
-			mp->major = major;
-			mp->minor = minor;
+			strcpy(mp->metadata, metadata);
 			memcpy(mp->uuid, uuid, 16);
 			free(mp->path);
 			mp->path = strdup(path);
 			break;
 		}
 	if (!mp)
-		map_add(&map, devnum, major, minor, uuid, path);
+		map_add(&map, devnum, metadata, uuid, path);
 	*mpp = NULL;
 	rv = map_write(map);
 	map_free(map);

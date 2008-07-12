@@ -531,6 +531,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 		info->disk.raid_disk = role;
 	}
 	info->events = __le64_to_cpu(sb->events);
+	sprintf(info->text_version, "1.%d", st->minor_version);
 
 	memcpy(info->uuid, sb->set_uuid, 16);
 

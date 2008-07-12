@@ -301,11 +301,11 @@ extern int mddev_busy(int devnum);
 struct map_ent {
 	struct map_ent *next;
 	int	devnum;
-	int	major,minor;
+	char	metadata[20];
 	int	uuid[4];
 	char	*path;
 };
-extern int map_update(struct map_ent **mpp, int devnum, int major, int minor,
+extern int map_update(struct map_ent **mpp, int devnum, char *metadata,
 		      int uuid[4], char *path);
 extern struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4]);
 extern void map_read(struct map_ent **melp);
@@ -313,7 +313,7 @@ extern int map_write(struct map_ent *mel);
 extern void map_delete(struct map_ent **mapp, int devnum);
 extern void map_free(struct map_ent *map);
 extern void map_add(struct map_ent **melp,
-		    int devnum, int major, int minor, int uuid[4], char *path);
+		    int devnum, char *metadata, int uuid[4], char *path);
 
 /* various details can be requested */
 #define	GET_LEVEL	1

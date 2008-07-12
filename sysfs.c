@@ -234,7 +234,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			strcpy(dbase, "size");
 			if (load_sys(fname, buf))
 				goto abort;
-			dev->component_size = strtoull(buf, NULL, 0);
+			dev->component_size = strtoull(buf, NULL, 0) * 2;
 		}
 		if (options & GET_STATE) {
 			dev->disk.state = 0;
@@ -359,7 +359,7 @@ int sysfs_set_array(struct mdinfo *sra,
 	rv |= sysfs_set_num(sra, NULL, "raid_disks", info->array.raid_disks);
 	rv |= sysfs_set_num(sra, NULL, "chunk_size", info->array.chunk_size);
 	rv |= sysfs_set_num(sra, NULL, "layout", info->array.layout);
-	rv |= sysfs_set_num(sra, NULL, "component_size", info->component_size);
+	rv |= sysfs_set_num(sra, NULL, "component_size", info->component_size/2);
 	rv |= sysfs_set_num(sra, NULL, "resync_start", info->resync_start);
 	sra->array = info->array;
 	return rv;

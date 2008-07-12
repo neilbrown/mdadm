@@ -427,7 +427,6 @@ struct ddf_super {
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
-static struct superswitch super_ddf_container, super_ddf_bvd, super_ddf_svd;
 
 static int calc_crc(void *buf, int len)
 {
@@ -852,40 +851,6 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 	return st;
 }
 
-static struct supertype *match_metadata_desc_ddf_bvd(char *arg)
-{
-	struct supertype *st;
-	if (strcmp(arg, "ddf/bvd") != 0 &&
-	    strcmp(arg, "bvd") != 0 &&
-	    strcmp(arg, "default") != 0
-		)
-		return NULL;
-
-	st = malloc(sizeof(*st));
-	memset(st, 0, sizeof(*st));
-	st->ss = &super_ddf_bvd;
-	st->max_devs = 512;
-	st->minor_version = 0;
-	st->sb = NULL;
-	return st;
-}
-static struct supertype *match_metadata_desc_ddf_svd(char *arg)
-{
-	struct supertype *st;
-	if (strcmp(arg, "ddf/svd") != 0 &&
-	    strcmp(arg, "svd") != 0 &&
-	    strcmp(arg, "default") != 0
-		)
-		return NULL;
-
-	st = malloc(sizeof(*st));
-	memset(st, 0, sizeof(*st));
-	st->ss = &super_ddf_svd;
-	st->max_devs = 512;
-	st->minor_version = 0;
-	st->sb = NULL;
-	return st;
-}
 
 #ifndef MDASSEMBLE
 
@@ -1229,9 +1194,16 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	}
 }
 
+static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info);
+
 static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 {
 	struct ddf_super *ddf = st->sb;
+
+	if (ddf->currentconf) {
+		getinfo_super_ddf_bvd(st, info);
+		return;
+	}
 
 	info->array.raid_disks    = __be16_to_cpu(ddf->phys->used_pdes);
 	info->array.level	  = LEVEL_CONTAINER;
@@ -1416,6 +1388,12 @@ static void make_header_guid(char *guid)
 	if (rfd >= 0) close(rfd);
 }
 
+static int init_super_ddf_bvd(struct supertype *st,
+			      mdu_array_info_t *info,
+			      unsigned long long size,
+			      char *name, char *homehost,
+			      int *uuid);
+
 static int init_super_ddf(struct supertype *st,
 			  mdu_array_info_t *info,
 			  unsigned long long size, char *name, char *homehost,
@@ -1459,6 +1437,9 @@ static int init_super_ddf(struct supertype *st,
 		st->sb = NULL;
 		return 0;
 	}
+	if (st->sb)
+		return init_super_ddf_bvd(st, info, size, name, homehost,
+					  uuid);
 
 	ddf = malloc(sizeof(*ddf));
 	memset(ddf, 0, sizeof(*ddf));
@@ -1717,7 +1698,7 @@ static int rlq_to_layout(int rlq, int prl, int raiddisks)
 struct extent {
 	unsigned long long start, size;
 };
-int cmp_extent(const void *av, const void *bv)
+static int cmp_extent(const void *av, const void *bv)
 {
 	const struct extent *a = av;
 	const struct extent *b = bv;
@@ -1728,7 +1709,7 @@ int cmp_extent(const void *av, const void *bv)
 	return 0;
 }
 
-struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
+static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 {
 	/* find a list of used extents on the give physical device
 	 * (dnum) of the given ddf.
@@ -1979,6 +1960,11 @@ static void add_to_super_ddf(struct supertype *st,
 	int n, i;
 	struct stat stb;
 
+	if (ddf->currentconf) {
+		add_to_super_ddf_bvd(st, dk, fd, devname);
+		return;
+	}
+
 	/* This is device numbered dk->number.  We need to create
 	 * a phys_disk entry and a more detailed disk_data entry.
 	 */
@@ -2150,7 +2136,17 @@ static __u64 avail_size_ddf(struct supertype *st, __u64 devsize)
 }
 
 #ifndef MDASSEMBLE
-int validate_geometry_ddf(struct supertype *st,
+static int validate_geometry_ddf_container(struct supertype *st,
+				    int level, int layout, int raiddisks,
+				    int chunk, unsigned long long size,
+				    char *dev, unsigned long long *freesize);
+
+static int validate_geometry_ddf_bvd(struct supertype *st,
+				     int level, int layout, int raiddisks,
+				     int chunk, unsigned long long size,
+				     char *dev, unsigned long long *freesize);
+
+static int validate_geometry_ddf(struct supertype *st,
 			  int level, int layout, int raiddisks,
 			  int chunk, unsigned long long size,
 			  char *dev, unsigned long long *freesize)
@@ -2167,53 +2163,50 @@ int validate_geometry_ddf(struct supertype *st,
 	 */
 
 	if (level == LEVEL_CONTAINER) {
-		st->ss = &super_ddf_container;
-		if (dev) {
-			int rv =st->ss->validate_geometry(st, level, layout,
-							  raiddisks, chunk,
-							  size,
-							  NULL, freesize);
-			if (rv)
-				return rv;
-		}
-		return st->ss->validate_geometry(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize);
+		/* Must be a fresh device to add to a container */
+		return validate_geometry_ddf_container(st, level, layout,
+					       raiddisks,
+					       chunk, size, dev, freesize);
 	}
 
 	if (st->sb) {
-		/* creating in a given container */
-		st->ss = &super_ddf_bvd;
-		if (dev) {
-			int rv =st->ss->validate_geometry(st, level, layout,
-							  raiddisks, chunk,
-							  size,
-							  NULL, freesize);
-			if (rv)
-				return rv;
-		}
-		return st->ss->validate_geometry(st, level, layout, raiddisks,
+		/* A container has already been opened, so we are
+		 * creating in there.  Maybe a BVD, maybe an SVD.
+		 * Should make a distinction one day.
+		 */
+		return validate_geometry_ddf_bvd(st, level, layout, raiddisks,
 						 chunk, size, dev, freesize);
 	}
-	/* FIXME should exclude MULTIPATH, or more appropriately, allow
-	 * only known levels.
-	 */
-	if (!dev)
+	if (!dev) {
+		/* Initial sanity check.  Exclude illegal levels. */
+		int i;
+		for (i=0; ddf_level_num[i].num1 != MAXINT; i++)
+			if (ddf_level_num[i].num2 == level)
+				break;
+		if (ddf_level_num[i].num1 == MAXINT)
+			return 0;
+		/* Should check layout? etc */
 		return 1;
+	}
 
-	/* This device needs to be either a device in a 'ddf' container,
-	 * or it needs to be a 'ddf-bvd' array.
+	/* This is the first device for the array.
+	 * If it is a container, we read it in and do automagic allocations,
+	 * no other devices should be given.
+	 * Otherwise it must be a member device of a container, and we
+	 * do manual allocation.
+	 * Later we should check for a BVD and make an SVD.
 	 */
-
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {
 		sra = sysfs_read(fd, 0, GET_VERSION);
 		close(fd);
 		if (sra && sra->array.major_version == -1 &&
-		    strcmp(sra->text_version, "ddf-bvd") == 0) {
-			st->ss = &super_ddf_svd;
-			return st->ss->validate_geometry(st, level, layout,
-							 raiddisks, chunk, size,
-							 dev, freesize);
+		    strcmp(sra->text_version, "ddf") == 0) {
+
+			/* load super */
+			/* find space for 'n' devices. */
+			/* remember the devices */
+			/* Somehow return the fact that we have enough */
 		}
 
 		fprintf(stderr,
@@ -2242,12 +2235,11 @@ int validate_geometry_ddf(struct supertype *st,
 		 * and try to create a bvd
 		 */
 		struct ddf_super *ddf;
-		st->ss = &super_ddf_bvd;
 		if (load_super_ddf_all(st, cfd, (void **)&ddf, NULL, 1) == 0) {
 			st->sb = ddf;
 			st->container_dev = fd2devnum(cfd);
 			close(cfd);
-			return st->ss->validate_geometry(st, level, layout,
+			return validate_geometry_ddf_bvd(st, level, layout,
 							 raiddisks, chunk, size,
 							 dev, freesize);
 		}
@@ -2258,10 +2250,10 @@ int validate_geometry_ddf(struct supertype *st,
 	return 1;
 }
 
-int validate_geometry_ddf_container(struct supertype *st,
-				    int level, int layout, int raiddisks,
-				    int chunk, unsigned long long size,
-				    char *dev, unsigned long long *freesize)
+static int validate_geometry_ddf_container(struct supertype *st,
+				   int level, int layout, int raiddisks,
+				   int chunk, unsigned long long size,
+				   char *dev, unsigned long long *freesize)
 {
 	int fd;
 	unsigned long long ldsize;
@@ -2288,10 +2280,10 @@ int validate_geometry_ddf_container(struct supertype *st,
 	return 1;
 }
 
-int validate_geometry_ddf_bvd(struct supertype *st,
-			      int level, int layout, int raiddisks,
-			      int chunk, unsigned long long size,
-			      char *dev, unsigned long long *freesize)
+static int validate_geometry_ddf_bvd(struct supertype *st,
+				     int level, int layout, int raiddisks,
+				     int chunk, unsigned long long size,
+				     char *dev, unsigned long long *freesize)
 {
 	struct stat stb;
 	struct ddf_super *ddf = st->sb;
@@ -2375,19 +2367,6 @@ int validate_geometry_ddf_bvd(struct supertype *st,
 	return 1;
 }
 
-int validate_geometry_ddf_svd(struct supertype *st,
-			      int level, int layout, int raiddisks,
-			      int chunk, unsigned long long size,
-			      char *dev, unsigned long long *freesize)
-{
-	/* dd/svd only supports striped, mirrored, concat, spanned... */
-	if (level != LEVEL_LINEAR &&
-	    level != 0 &&
-	    level != 1)
-		return 0;
-	return 1;
-}
-
 static int load_super_ddf_all(struct supertype *st, int fd,
 			      void **sbp, char *devname, int keep_fd)
 {
@@ -2461,7 +2440,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	}
 	*sbp = super;
 	if (st->ss == NULL) {
-		st->ss = &super_ddf_container;
+		st->ss = &super_ddf;
 		st->minor_version = 0;
 		st->max_devs = 512;
 		st->container_dev = fd2devnum(fd);
@@ -3100,6 +3079,7 @@ struct superswitch super_ddf = {
 	.detail_super	= detail_super_ddf,
 	.brief_detail_super = brief_detail_super_ddf,
 	.validate_geometry = validate_geometry_ddf,
+	.write_init_super = write_init_super_ddf,
 #endif
 	.match_home	= match_home_ddf,
 	.uuid_from_super= uuid_from_super_ddf,
@@ -3115,6 +3095,8 @@ struct superswitch super_ddf = {
 	.store_super	= store_zero_ddf,
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf,
+	.add_to_super	= add_to_super_ddf,
+	.container_content = container_content_ddf,
 
 	.external	= 1,
 
@@ -3126,60 +3108,4 @@ struct superswitch super_ddf = {
 	.process_update	= ddf_process_update,
 	.activate_spare = ddf_activate_spare,
 
-};
-
-/* Super_ddf_container is set by validate_geometry_ddf when given a
- * device that is not part of any array
- */
-static struct superswitch super_ddf_container = {
-#ifndef MDASSEMBLE
-	.validate_geometry = validate_geometry_ddf_container,
-	.write_init_super = write_init_super_ddf,
-#endif
-
-	.load_super	= load_super_ddf,
-	.init_super	= init_super_ddf,
-	.add_to_super	= add_to_super_ddf,
-	.getinfo_super  = getinfo_super_ddf,
-
-	.free_super	= free_super_ddf,
-
-	.container_content = container_content_ddf,
-
-	.external	= 1,
-};
-
-static struct superswitch super_ddf_bvd = {
-#ifndef	MDASSEMBLE
-//	.detail_super	= detail_super_ddf_bvd,
-//	.brief_detail_super = brief_detail_super_ddf_bvd,
-	.validate_geometry = validate_geometry_ddf_bvd,
-	.write_init_super = write_init_super_ddf,
-#endif
-	.update_super	= update_super_ddf,
-	.init_super	= init_super_ddf_bvd,
-	.add_to_super	= add_to_super_ddf_bvd,
-	.getinfo_super  = getinfo_super_ddf_bvd,
-
-	.load_super	= load_super_ddf,
-	.free_super	= free_super_ddf,
-	.match_metadata_desc = match_metadata_desc_ddf_bvd,
-
-	.external	= 2,
-};
-
-static struct superswitch super_ddf_svd = {
-#ifndef	MDASSEMBLE
-//	.detail_super	= detail_super_ddf_svd,
-//	.brief_detail_super = brief_detail_super_ddf_svd,
-	.validate_geometry = validate_geometry_ddf_svd,
-#endif
-	.update_super	= update_super_ddf,
-	.init_super	= init_super_ddf,
-
-	.load_super	= load_super_ddf,
-	.free_super	= free_super_ddf,
-	.match_metadata_desc = match_metadata_desc_ddf_svd,
-
-	.external	= 2,
 };

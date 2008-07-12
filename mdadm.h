@@ -501,6 +501,15 @@ extern struct superswitch {
 	void (*locate_bitmap)(struct supertype *st, int fd);
 	int (*write_bitmap)(struct supertype *st, int fd);
 	void (*free_super)(struct supertype *st);
+
+	/* validate_geometry is called with an st returned by
+	 * match_metadata_desc.
+	 * It should check that the geometry described in compatible with
+	 * the metadata type.  It will be called repeatedly as devices
+	 * added to validate changing size and new devices.  If there are
+	 * inter-device dependencies, it should record sufficient details
+	 * so these can be validated.
+	 */
 	int (*validate_geometry)(struct supertype *st, int level, int layout,
 				 int raiddisks,
 				 int chunk, unsigned long long size,

@@ -1065,6 +1065,9 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	free_super1(st);
 
+	if (st->subarray[0])
+		return 1;
+
 	if (st->ss == NULL || st->minor_version == -1) {
 		int bestvers = -1;
 		struct supertype tst;

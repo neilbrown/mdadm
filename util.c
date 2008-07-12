@@ -788,8 +788,6 @@ struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, N
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 
-struct supertype supertype_container_member;
-
 struct supertype *super_by_fd(int fd)
 {
 	mdu_array_info_t array;
@@ -800,6 +798,7 @@ struct supertype *super_by_fd(int fd)
 	char *verstr;
 	char version[20];
 	int i;
+	char *subarray = NULL;
 
 	sra = sysfs_read(fd, 0, GET_VERSION);
 
@@ -819,16 +818,37 @@ struct supertype *super_by_fd(int fd)
 		sprintf(version, "%d.%d", vers, minor);
 		verstr = version;
 	}
-	if (minor == -2 && verstr[0] == '/')
-		st = &supertype_container_member;
-	else
-		for (i = 0; st == NULL && superlist[i] ; i++)
-			st = superlist[i]->match_metadata_desc(verstr);
+	if (minor == -2 && verstr[0] == '/') {
+		char *dev = verstr+1;
+		subarray = strchr(dev, '/');
+		int devnum;
+		if (subarray)
+			*subarray++ = '\0';
+		if (strncmp(dev, "md_d", 4) == 0)
+			devnum = -1-atoi(dev+4);
+		else
+			devnum = atoi(dev+2);
+		subarray = strdup(subarray);
+		if (sra)
+			sysfs_free(sra);
+		sra = sysfs_read(-1, devnum, GET_VERSION);
+		verstr = sra->text_version ? : "-no-metadata-";
+	}
+
+	for (i = 0; st == NULL && superlist[i] ; i++)
+		st = superlist[i]->match_metadata_desc(verstr);
 
 	if (sra)
 		sysfs_free(sra);
-	if (st)
+	if (st) {
 		st->sb = NULL;
+		if (subarray) {
+			strncpy(st->subarray, subarray, 32);
+			st->subarray[31] = 0;
+			free(subarray);
+		} else
+			st->subarray[0] = 0;
+	}
 	return st;
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
@@ -845,6 +865,7 @@ struct supertype *dup_super(struct supertype *orig)
 	st->ss = orig->ss;
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
+	strcpy(st->subarray, orig->subarray);
 	st->sb = NULL;
 	st->info = NULL;
 	return st;

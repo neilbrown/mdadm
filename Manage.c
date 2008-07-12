@@ -354,7 +354,7 @@ int Manage_subdevs(char *devname, int fd,
 			return 1;
 		case 'a':
 			/* add the device */
-			if (tst == &supertype_container_member) {
+			if (tst->subarray[0]) {
 				fprintf(stderr, Name ": Cannot add disks to a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
@@ -551,7 +551,7 @@ int Manage_subdevs(char *devname, int fd,
 
 		case 'r':
 			/* hot remove */
-			if (tst == &supertype_container_member) {
+			if (tst->subarray[0]) {
 				fprintf(stderr, Name ": Cannot remove disks from a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");

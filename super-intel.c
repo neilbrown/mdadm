@@ -980,6 +980,10 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 			close(dfd);
 	}
 
+	if (st->subarray[0]) {
+		/* FIXME */
+	}
+
 	*sbp = super;
 	if (st->ss == NULL) {
 		st->ss = &super_imsm_container;
@@ -1001,6 +1005,8 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	if (load_super_imsm_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
+	if (st->subarray[0])
+		return 1; /* FIXME */
 
 	super = alloc_super(0);
 	if (!super) {

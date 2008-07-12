@@ -550,7 +550,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		char ver[100];
 		strcat(strcpy(ver, "external:"),
 		       info.text_version);
-		if (st->ss->external == 2) {
+		if (st->ss->external && st->subarray[0]) {
 			/* member */
 
 			/* When creating a member, we need to be careful
@@ -651,7 +651,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			    strcasecmp(dv->devname, "missing")==0)
 				continue;
 
-			if (st->ss->external == 2)
+			if (st->ss->external && st->subarray[0])
 				fd = open(dv->devname, O_RDWR, 0);
 			else
 				fd = open(dv->devname, O_RDWR|O_EXCL,0);
@@ -732,7 +732,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (verbose >= 0)
 			fprintf(stderr, Name ": array %s started.\n", mddev);
-		if (st->ss->external == 2) {
+		if (st->ss->external && st->subarray[0]) {
 			if (need_mdmon) {
 				int dn = st->container_dev;
 				int i;

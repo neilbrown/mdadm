@@ -733,6 +733,8 @@ static int load_super_ddf(struct supertype *st, int fd,
 	if (load_super_ddf_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
+	if (st->subarray[0])
+		return 1; /* FIXME Is this correct */
 
 	if (get_dev_size(fd, devname, &dsize) == 0)
 		return 1;
@@ -1826,6 +1828,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	vcl = malloc(offsetof(struct vcl, conf) + ddf->conf_rec_len * 512);
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
 	vcl->vcnum = venum;
+	sprintf(st->subarray, "%d", venum);
 	vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 
 	vc = &vcl->conf;
@@ -2448,6 +2451,15 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 			return 2;
 		seq = load_ddf_local(dfd, super, NULL, keep_fd);
 		if (!keep_fd) close(dfd);
+	}
+	if (st->subarray[0]) {
+		struct vcl *v;
+
+		for (v = super->conflist; v; v = v->next)
+			if (v->vcnum == atoi(st->subarray))
+				super->newconf = v;
+		if (!super->newconf)
+			return 1;
 	}
 	*sbp = super;
 	if (st->ss == NULL) {

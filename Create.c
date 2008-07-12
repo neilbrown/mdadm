@@ -520,9 +520,27 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	total_slots = info.array.nr_disks;
 	st->ss->getinfo_super(st, &info);
 
-	if (did_default)
-		fprintf(stderr, Name ": Defaulting to version"
-			" %s metadata\n", info.text_version);
+	if (did_default && verbose >= 0) {
+		if (info.text_version[0] == '/') {
+			int dnum = devname2devnum(info.text_version+1);
+			char *path;
+			int mdp = get_mdp_major();
+			struct mdinfo *mdi;
+			if (dnum > 0)
+				path = map_dev(MD_MAJOR, dnum, 1);
+			else
+				path = map_dev(mdp, (-1-dnum)<< 6, 1);
+
+			mdi = sysfs_read(-1, dnum, GET_VERSION);
+
+			fprintf(stderr, Name ": Creating array inside "
+				"%s container %s\n", 
+				mdi?mdi->text_version:"managed", path);
+			sysfs_free(mdi);
+		} else
+			fprintf(stderr, Name ": Defaulting to version"
+				" %s metadata\n", info.text_version);
+	}
 
 	if (bitmap_file && vers < 9003) {
 		major_num = BITMAP_MAJOR_HOSTENDIAN;

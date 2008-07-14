@@ -251,7 +251,8 @@ static int read_and_act(struct active_array *a)
 		}
 	}
 
-	if (a->curr_action == idle &&
+	if (!deactivate &&
+	    a->curr_action == idle &&
 	    a->prev_action == resync) {
 		/* A resync has finished.  The endpoint is recorded in
 		 * 'sync_start'.  We don't update the metadata
@@ -263,7 +264,8 @@ static int read_and_act(struct active_array *a)
 		check_degraded = 1;
 	}
 
-	if (a->curr_action == idle &&
+	if (!deactivate &&
+	    a->curr_action == idle &&
 	    a->prev_action == recover) {
 		/* A recovery has finished.  Some disks may be in sync now,
 		 * and the array may no longer be degraded

@@ -758,7 +758,13 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	}
 
 	len = 512;
-	posix_memalign((void**)&anchor, 512, len);
+	if (posix_memalign((void**)&anchor, 512, len) != 0) {
+		if (devname)
+			fprintf(stderr,
+				Name ": Failed to allocate imsm anchor buffer"
+				" on %s\n", devname);
+		return 1;
+	}
 	if (read(fd, anchor, len) != len) {
 		if (devname)
 			fprintf(stderr,
@@ -778,8 +784,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 
 	mpb_size = __le32_to_cpu(anchor->mpb_size);
 	mpb_size = ROUND_UP(mpb_size, 512);
-	posix_memalign((void**)&super->mpb, 512, mpb_size);
-	if (!super->mpb) {
+	if (posix_memalign((void**)&super->mpb, 512, mpb_size) != 0) {
 		if (devname)
 			fprintf(stderr,
 				Name ": unable to allocate %zu byte mpb buffer\n",
@@ -1267,7 +1272,9 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0)
 		return 1;
 
-	posix_memalign(&buf, 512, 512);
+	if (posix_memalign(&buf, 512, 512) != 0)
+		return 1;
+
 	memset(buf, 0, sizeof(buf));
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf))
 		return 1;

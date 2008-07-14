@@ -336,7 +336,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	inst = &mdstat->metadata_version[10+strlen(container->devname)+1];
 
 	mdi = sysfs_read(-1, new->devnum,
-			 GET_LEVEL|GET_CHUNK|GET_DISKS|
+			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
 			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 	if (!mdi) {
 		/* Eeek. Cannot monitor this array.
@@ -348,6 +348,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	}
 
 	new->info.array = mdi->array;
+	new->info.component_size = mdi->component_size;
 
 	for (i = 0; i < new->info.array.raid_disks; i++) {
 		struct mdinfo *newd = malloc(sizeof(*newd));

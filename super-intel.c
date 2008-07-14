@@ -1388,9 +1388,11 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 
 	if (!dev) {
 		/* General test:  make sure there is space for
-		 * 'raiddisks' device extents of size 'size'.
+		 * 'raiddisks' device extents of size 'size' at a given
+		 * offset
 		 */
 		unsigned long long minsize = size*2 /* convert to blocks */;
+		unsigned long long start_offset = ~0ULL;
 		int dcnt = 0;
 		if (minsize == 0)
 			minsize = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
@@ -1406,6 +1408,13 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 				esize = e[i].start - pos;
 				if (esize >= minsize)
 					found = 1;
+				if (found && start_offset == ~0ULL) {
+					start_offset = pos;
+					break;
+				} else if (found && pos != start_offset) {
+					found = 0;
+					break;
+				}
 				pos = e[i].start + e[i].size;
 				i++;
 			} while (e[i-1].size);

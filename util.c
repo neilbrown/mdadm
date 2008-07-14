@@ -1074,6 +1074,16 @@ int signal_mdmon(int devnum)
 	return 0;
 }
 
+int env_no_mdmon(void)
+{
+	char *val = getenv("MDADM_NO_MDMON");
+
+	if (val && atoi(val) == 1)
+		return 1;
+
+	return 0;
+}
+
 
 int flush_metadata_updates(struct supertype *st)
 {

@@ -838,7 +838,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 				/* start mdmon if needed. */
 				if (mdmon_running(st->container_dev))
 					signal_mdmon(st->container_dev);
-				else {
+				else if (!env_no_mdmon()) {
 					int dn = st->container_dev;
 					int i;
 					switch(fork()) {

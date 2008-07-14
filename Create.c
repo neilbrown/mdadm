@@ -767,7 +767,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (verbose >= 0)
 			fprintf(stderr, Name ": array %s started.\n", mddev);
 		if (st->ss->external && st->subarray[0]) {
-			if (need_mdmon) {
+			if (need_mdmon && !env_no_mdmon()) {
 				int dn = st->container_dev;
 				int i;
 				switch(fork()) {

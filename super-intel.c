@@ -1812,7 +1812,7 @@ static int store_imsm_mpb(int fd, struct intel_super *super)
 		if (lseek64(fd, dsize - (512 * (2 + sectors)), SEEK_SET) < 0)
 			return 1;
 
-		if (write(fd, super->buf + 512, mpb_size - 512) != mpb_size - 512)
+		if (write(fd, super->buf + 512, 512 * sectors) != 512 * sectors)
 			return 1;
 	}
 

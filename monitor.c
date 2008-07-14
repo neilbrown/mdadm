@@ -265,12 +265,16 @@ static int read_and_act(struct active_array *a)
 
 	if (a->curr_action == idle &&
 	    a->prev_action == recover) {
+		/* A recovery has finished.  Some disks may be in sync now,
+		 * and the array may no longer be degraded
+		 */
 		for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {
 			a->container->ss->set_disk(a, mdi->disk.raid_disk,
 						   mdi->curr_state);
 			if (! (mdi->curr_state & DS_INSYNC))
 				check_degraded = 1;
 		}
+		a->container->ss->set_array_state(a, 0);
 	}
 
 	for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {

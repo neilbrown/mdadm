@@ -2042,6 +2042,112 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	return rv;
 }
 
+static int weight(unsigned int field)
+{
+	int weight;
+
+	for (weight = 0; field; weight++)
+		field &= field - 1;
+
+	return weight;
+}
+
+static void imsm_process_update(struct supertype *st,
+			        struct metadata_update *update)
+{
+	/**
+	 * crack open the metadata_update envelope to find the update record
+	 * update can be one of:
+	 * 	update_activate_spare - a spare device has replaced a failed
+	 * 	device in an array, update the disk_ord_tbl.  If this disk is
+	 * 	present in all member arrays then also clear the SPARE_DISK
+	 * 	flag
+	 */
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->mpb;
+	enum imsm_update_type type = *(enum imsm_update_type *) update->buf;
+
+	switch (type) {
+	case update_activate_spare: {
+		struct imsm_update_activate_spare *u = (void *) update->buf; 
+		struct imsm_dev *dev = get_imsm_dev(mpb, u->array);
+		struct imsm_map *map = &dev->vol.map[0];
+		struct active_array *a;
+		struct imsm_disk *disk;
+		__u32 status;
+		struct dl *dl;
+		struct mdinfo *d;
+		unsigned int members;
+		unsigned int found;
+		int victim;
+		int i;
+
+		for (dl = super->disks; dl; dl = dl->next)
+			if (dl->index == u->disk_idx)
+				break;
+
+		if (!dl) {
+			fprintf(stderr, "error: imsm_activate_spare passed "
+				"an unknown disk_idx: %d\n", u->disk_idx);
+			return;
+		}
+
+		super->updates_pending++;
+
+		victim = get_imsm_disk_idx(map, u->slot);
+		map->disk_ord_tbl[u->slot] = __cpu_to_le32(u->disk_idx);
+		disk = get_imsm_disk(mpb, u->disk_idx);
+		status = __le32_to_cpu(disk->status);
+		status |= CONFIGURED_DISK;
+		disk->status = __cpu_to_le32(status);
+
+		/* map unique/live arrays using the spare */
+		members = 0;
+		found = 0;
+		for (a = st->arrays; a; a = a->next) {
+			int inst = a->info.container_member;
+
+			dev = get_imsm_dev(mpb, inst);
+			map = &dev->vol.map[0];
+			if (map->raid_level > 0)
+				members |= 1 << inst;
+			for (d = a->info.devs; d; d = d->next)
+				if (d->disk.major == dl->major &&
+				    d->disk.minor == dl->minor)
+					found |= 1 << inst;
+		}
+
+		/* until all arrays that can absorb this disk have absorbed
+		 * this disk it can still be considered a spare
+		 */
+		if (weight(found) >= weight(members)) {
+			status = __le32_to_cpu(disk->status);
+			status &= ~SPARE_DISK;
+			disk->status = __cpu_to_le32(status);
+		}
+
+		/* count arrays using the victim in the metadata */
+		found = 0;
+		for (a = st->arrays; a ; a = a->next) {
+			dev = get_imsm_dev(mpb, a->info.container_member);
+			map = &dev->vol.map[0];
+			for (i = 0; i < map->num_members; i++)
+				if (victim == get_imsm_disk_idx(map, i))
+					found++;
+		}
+
+		/* clear some flags if the victim is no longer being
+		 * utilized anywhere
+		 */
+		disk = get_imsm_disk(mpb, victim);
+		if (!found) {
+			status = __le32_to_cpu(disk->status);
+			status &= ~(CONFIGURED_DISK | USABLE_DISK);
+			disk->status = __cpu_to_le32(status);
+		}
+	}
+	}
+}
 
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
@@ -2078,4 +2184,5 @@ struct superswitch super_imsm = {
 	.set_disk	= imsm_set_disk,
 	.sync_metadata	= imsm_sync_metadata,
 	.activate_spare = imsm_activate_spare,
+	.process_update = imsm_process_update,
 };

@@ -289,7 +289,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 			 * and open files for each newdev */
 			for (d = newdev; d ; d = d->next) {
 				struct mdinfo *newd;
-				if (sysfs_add_disk(&newa->info, d))
+				if (sysfs_add_disk(&newa->info, d) < 0)
 					continue;
 				newd = newa->info.devs;
 				newd->state_fd = sysfs_open(a->devnum,

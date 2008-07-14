@@ -52,7 +52,6 @@ int run_child(void *v)
 {
 	struct supertype *c = v;
 
-	mon_tid = syscall(SYS_gettid);
 	do_monitor(c);
 	return 0;
 }
@@ -60,16 +59,14 @@ int run_child(void *v)
 int clone_monitor(struct supertype *container)
 {
 	static char stack[4096];
-	int rv;
 
-
-	rv = clone(run_child, stack+4096-64,
+	mon_tid = clone(run_child, stack+4096-64,
 		   CLONE_FS|CLONE_FILES|CLONE_VM|CLONE_SIGHAND|CLONE_THREAD,
 		   container);
 
 	mgr_tid = syscall(SYS_gettid);
-	
-	return rv;
+
+	return mon_tid;
 }
 
 static struct superswitch *find_metadata_methods(char *vers)

@@ -1813,8 +1813,6 @@ static int store_imsm_mpb(int fd, struct intel_super *super)
 	if (write(fd, super->buf, 512) != 512)
 		return 1;
 
-	fsync(fd);
-
 	return 0;
 }
 

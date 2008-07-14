@@ -1627,6 +1627,15 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 static int imsm_open_new(struct supertype *c, struct active_array *a,
 			 char *inst)
 {
+	struct intel_super *super = c->sb;
+	struct imsm_super *mpb = super->mpb;
+	
+	if (atoi(inst) + 1 > mpb->num_raid_devs) {
+		fprintf(stderr, "%s: subarry index %d, out of range\n",
+			__func__, atoi(inst));
+		return -ENODEV;
+	}
+
 	dprintf("imsm: open_new %s\n", inst);
 	a->info.container_member = atoi(inst);
 	return 0;

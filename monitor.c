@@ -48,7 +48,7 @@ static int read_attr(char *buf, int len, int fd)
 }
 
 
-static int get_resync_start(struct active_array *a)
+int get_resync_start(struct active_array *a)
 {
 	char buf[30];
 	int n;

@@ -1286,6 +1286,8 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 //	info->disk.raid_disk = find refnum in the table and use index;
 //	info->disk.state = ???;
 
+	info->container_member = ddf->currentconf->vcnum;
+
 	info->resync_start = 0;
 	if (!(ddf->virt->entries[info->container_member].state
 	      & DDF_state_inconsistent)  &&

@@ -448,11 +448,13 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	     ( level <= 0 )
 	     ||
 	     assume_clean
-		)
+		) {
 		info.array.state = 1; /* clean, but one+ drive will be missing*/
-	else
+		info.resync_start = ~0ULL;
+	} else {
 		info.array.state = 0; /* not clean, but no errors */
-
+		info.resync_start = 0;
+	}
 	if (level == 10) {
 		/* for raid10, the bitmap size is the capacity of the array,
 		 * which is array.size * raid_disks / ncopies;

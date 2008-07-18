@@ -56,6 +56,7 @@ void do_monitor(struct supertype *container);
 void do_manager(struct supertype *container);
 
 int read_dev_state(int fd);
+int get_resync_start(struct active_array *a);
 
 struct mdstat_ent *mdstat_read(int hold, int start);
 

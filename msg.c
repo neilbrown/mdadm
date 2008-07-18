@@ -173,11 +173,11 @@ int ping_monitor(char *devname)
 		return sfd;
 
 	/* try to ping existing socket */
-	if (ack(sfd, 0) != 0)
+	if (ack(sfd, 20) != 0)
 		err = -1;
 
 	/* check the reply */
-	if (!err && wait_reply(sfd, 0) != 0)
+	if (!err && wait_reply(sfd, 20) != 0)
 		err = -1;
 
 	close(sfd);

@@ -144,6 +144,15 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			ping_monitor(mdi->text_version+1);
 
 			fd = open(devname, O_RDONLY);
+		} else if (mdi &&
+			   mdi->array.major_version == -1 &&
+			   mdi->array.minor_version == -2 &&
+			   mdi->text_version[0] != '/') {
+			/* container, possibly mdmon-managed.
+			 * Make sure mdmon isn't opening it, which
+			 * would interfere with the 'stop'
+			 */
+			ping_monitor(mdi->sys_name);
 		}
 		if (mdi)
 			sysfs_free(mdi);

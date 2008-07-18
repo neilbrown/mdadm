@@ -2604,8 +2604,8 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			dev->disk.raid_disk = i;
 			dev->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
 
-			dev->events = __le32_to_cpu(ddf->primary.seq);
-			dev->data_offset = vc->lba_offset[i];
+			dev->events = __be32_to_cpu(ddf->primary.seq);
+			dev->data_offset = __be64_to_cpu(vc->lba_offset[i]);
 			dev->component_size = __be64_to_cpu(vc->conf.blocks);
 			if (d->devname)
 				strcpy(dev->name, d->devname);

@@ -111,15 +111,49 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 	} else if (runstop < 0){
 		struct map_ent *map = NULL;
 		struct stat stb;
-		if (ioctl(fd, STOP_ARRAY, NULL)) {
+		struct mdinfo *mdi;
+		/* If this is an mdmon managed array, just write 'inactive'
+		 * to the array state and let mdmon clear up.
+		 */
+		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
+		if (mdi &&
+		    mdi->array.level > 0 &&
+		    mdi->text_version[0] == '/') {
+			char *cp;
+
+			/* This is mdmon managed. */
+			close(fd);
+			if (sysfs_set_str(mdi, NULL,
+					  "array_state", "inactive") < 0) {
+				if (quiet==0)
+					fprintf(stderr, Name
+						": fail to stop array %s: %s\n",
+						devname, strerror(errno));
+				return 1;
+			}
+
+			/* Give monitor a chance to act */
+			cp = strchr(mdi->text_version+1, '/');
+			if (*cp)
+				*cp = 0;
+			ping_monitor(mdi->text_version+1);
+
+			fd = open(devname, O_RDONLY);
+		}
+		if (mdi)
+			sysfs_free(mdi);
+
+		if (fd >= 0 && ioctl(fd, STOP_ARRAY, NULL)) {
 			if (quiet==0)
-				fprintf(stderr, Name ": fail to stop array %s: %s\n",
+				fprintf(stderr, Name
+					": fail to stop array %s: %s\n",
 					devname, strerror(errno));
 			return 1;
 		}
+
 		if (quiet <= 0)
 			fprintf(stderr, Name ": stopped %s\n", devname);
-		if (fstat(fd, &stb) == 0) {
+		if (fd >= 0 && fstat(fd, &stb) == 0) {
 			int devnum;
 			if (major(stb.st_rdev) == MD_MAJOR)
 				devnum = minor(stb.st_rdev);

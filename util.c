@@ -1077,19 +1077,42 @@ int signal_mdmon(int devnum)
 int start_mdmon(int devnum)
 {
 	int i;
+	int len;
+	char pathbuf[1024];
+	char *paths[4] = {
+		pathbuf,
+		"/sbin/mdmon",
+		"mdmon",
+		NULL
+	};
 
 	if (env_no_mdmon())
 		return 0;
+
+	len = readlink("/proc/self/exe", pathbuf, sizeof(pathbuf));
+	if (len > 0) {
+		char *sl;
+		pathbuf[len] = 0;
+		sl = strrchr(pathbuf, '/');
+		if (sl)
+			sl++;
+		else
+			sl = pathbuf;
+		strcpy(sl, "mdmon");
+	} else
+		pathbuf[0] = '\0';
 
 	switch(fork()) {
 	case 0:
 		/* FIXME yuk. CLOSE_EXEC?? */
 		for (i=3; i < 100; i++)
 			close(i);
-		execl("./mdmon", "mdmon",
-		      map_dev(dev2major(devnum),
-			      dev2minor(devnum),
-			      1), NULL);
+		for (i=0; paths[i]; i++)
+			if (paths[i][0])
+				execl(paths[i], "mdmon",
+				      map_dev(dev2major(devnum),
+					      dev2minor(devnum),
+					      1), NULL);
 		exit(1);
 	case -1: fprintf(stderr, Name ": cannot run mdmon. "
 			 "Array remains readonly\n");

@@ -220,6 +220,7 @@ static int read_and_act(struct active_array *a)
 	if (a->curr_state <= inactive &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */
+		get_resync_start(a);
 		a->container->ss->set_array_state(a, 1);
 		a->next_state = clear;
 		deactivate = 1;

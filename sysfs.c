@@ -374,14 +374,16 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 
 	memset(nm, 0, sizeof(nm));
 	sprintf(dv, "/sys/dev/block/%d:%d", sd->disk.major, sd->disk.minor);
-	if (readlink(dv, nm, sizeof(nm)) < 0)
+	rv = readlink(dv, nm, sizeof(nm));
+	if (rv <= 0)
 		return -1;
+	nm[rv] = '\0';
 	dname = strrchr(nm, '/');
 	if (dname) dname++;
 	strcpy(sd->sys_name, "dev-");
 	strcpy(sd->sys_name+4, dname);
 
-	rv |= sysfs_set_num(sra, sd, "offset", sd->data_offset);
+	rv = sysfs_set_num(sra, sd, "offset", sd->data_offset);
 	rv |= sysfs_set_num(sra, sd, "size", (sd->component_size+1) / 2);
 	if (sra->array.level != LEVEL_CONTAINER) {
 		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);

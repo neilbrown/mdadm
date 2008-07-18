@@ -436,7 +436,15 @@ static void handle_message(struct supertype *container, struct metadata_update *
 	struct metadata_update *mu;
 
 	if (msg->len == 0) {
+		int cnt = monitor_loop_cnt;
+		if (cnt & 1)
+			cnt += 2; /* wait until next pselect */
+		else
+			cnt += 3; /* wait for 2 pselects */
+		wakeup_monitor();
 		wait_update_handled();
+		while (monitor_loop_cnt - cnt < 0)
+			usleep(10 * 1000);
 	} else {
 		mu = malloc(sizeof(*mu));
 		mu->len = msg->len;

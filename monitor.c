@@ -405,6 +405,8 @@ static void dprint_wake_reasons(fd_set *fds)
 }
 #endif
 
+int monitor_loop_cnt;
+
 static int wait_and_act(struct supertype *container, int nowait)
 {
 	fd_set rfds;
@@ -462,7 +464,9 @@ static int wait_and_act(struct supertype *container, int nowait)
 		sigset_t set;
 		sigprocmask(SIG_UNBLOCK, NULL, &set);
 		sigdelset(&set, SIGUSR1);
+		monitor_loop_cnt |= 1;
 		rv = pselect(maxfd+1, &rfds, NULL, NULL, NULL, &set);
+		monitor_loop_cnt += 1;
 		if (rv == -1 && errno == EINTR)
 			rv = 0;
 		#ifdef DEBUG

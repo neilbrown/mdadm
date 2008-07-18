@@ -1074,6 +1074,31 @@ int signal_mdmon(int devnum)
 	return 0;
 }
 
+int start_mdmon(int devnum)
+{
+	int i;
+
+	if (env_no_mdmon())
+		return 0;
+
+	switch(fork()) {
+	case 0:
+		/* FIXME yuk. CLOSE_EXEC?? */
+		for (i=3; i < 100; i++)
+			close(i);
+		execl("./mdmon", "mdmon",
+		      map_dev(dev2major(devnum),
+			      dev2minor(devnum),
+			      1), NULL);
+		exit(1);
+	case -1: fprintf(stderr, Name ": cannot run mdmon. "
+			 "Array remains readonly\n");
+		return -1;
+	default: ; /* parent - good */
+	}
+	return 0;
+}
+
 int env_no_mdmon(void)
 {
 	char *val = getenv("MDADM_NO_MDMON");

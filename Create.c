@@ -769,28 +769,10 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (verbose >= 0)
 			fprintf(stderr, Name ": array %s started.\n", mddev);
 		if (st->ss->external && st->subarray[0]) {
-			if (need_mdmon && !env_no_mdmon()) {
-				int dn = st->container_dev;
-				int i;
-				switch(fork()) {
-				case 0:
-					/* FIXME yuk. CLOSE_EXEC?? */
-					for (i=3; i < 100; i++)
-						close(i);
-					execl("./mdmon", "mdmon",
-					      map_dev(dev2major(dn),
-						      dev2minor(dn),
-						      1), NULL);
-					exit(1);
-				case -1: fprintf(stderr, Name ": cannot fork. "
-						 "Array remains readonly\n");
-					return 1;
-				default: ; /* parent - good */
-				}
-			} else
-				signal_mdmon(st->container_dev);
-			/* FIXME wait for mdmon to set array to read-auto */
-			sleep(1);
+			if (need_mdmon)
+				start_mdmon(st->container_dev);
+
+			ping_monitor(devnum2devname(st->container_dev));
 			close(container_fd);
 		}
 	} else {

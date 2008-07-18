@@ -31,6 +31,7 @@
 #include	"md_p.h"
 #include	<sys/socket.h>
 #include	<sys/utsname.h>
+#include	<sys/wait.h>
 #include	<sys/un.h>
 #include	<ctype.h>
 #include	<dirent.h>
@@ -1078,6 +1079,8 @@ int start_mdmon(int devnum)
 {
 	int i;
 	int len;
+	pid_t pid;	
+	int status;
 	char pathbuf[1024];
 	char *paths[4] = {
 		pathbuf,
@@ -1117,7 +1120,10 @@ int start_mdmon(int devnum)
 	case -1: fprintf(stderr, Name ": cannot run mdmon. "
 			 "Array remains readonly\n");
 		return -1;
-	default: ; /* parent - good */
+	default: /* parent - good */
+		pid = wait(&status);
+		if (pid < 0 || status != 0)
+			return -1;
 	}
 	return 0;
 }

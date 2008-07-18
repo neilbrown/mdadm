@@ -32,6 +32,7 @@
 #include	<sys/un.h>
 #include	<sys/mman.h>
 #include	<sys/syscall.h>
+#include	<sys/wait.h>
 #include	<stdio.h>
 #include	<errno.h>
 #include	<string.h>
@@ -175,6 +176,8 @@ int main(int argc, char *argv[])
 	struct supertype *container;
 	sigset_t set;
 	struct sigaction act;
+	int pfd[2];
+	int status;
 
 	if (argc != 2) {
 		fprintf(stderr, "Usage: md-manage /device/name/for/container\n");
@@ -192,6 +195,24 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	/* Fork, and have the child tell us when they are ready */
+	pipe(pfd);
+	switch(fork()){
+	case -1:
+		fprintf(stderr, "mdmon: failed to fork: %s\n",
+			strerror(errno));
+		exit(1);
+	case 0: /* child */
+		close(pfd[0]);
+		break;
+	default: /* parent */
+		close(pfd[1]);
+		if (read(pfd[0], &status, sizeof(status)) != sizeof(status)) {
+			wait(&status);
+			status = WEXITSTATUS(status);
+		}
+		exit(status);
+	}
 	/* hopefully it is a container - we'll check later */
 
 	container = malloc(sizeof(*container));
@@ -267,6 +288,23 @@ int main(int argc, char *argv[])
 			argv[1]);
 		exit(3);
 	}
+
+	/* Ok, this is close enough.  We can say goodbye to our parent now.
+	 */
+	status = 0;
+	write(pfd[1], &status, sizeof(status));
+	close(pfd[1]);
+
+	chdir("/");
+	setsid();
+	close(0);
+	open("/dev/null", O_RDWR);
+	close(1);
+	dup(0);
+#ifndef DEBUG
+	close(2);
+	dup(0);
+#endif
 
 	mlockall(MCL_FUTURE);
 

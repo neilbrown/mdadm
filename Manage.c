@@ -78,13 +78,18 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 {
 	/* Run or stop the array. array must already be configured
 	 * required >= 0.90.0
+	 * Only print failure messages if quiet == 0;
+	 * quiet > 0 means really be quiet
+	 * quiet < 0 means we will try again if it fails.
 	 */
 	mdu_param_t param; /* unused */
 
 	if (runstop == -1 && md_get_version(fd) < 9000) {
 		if (ioctl(fd, STOP_MD, 0)) {
-			if (!quiet) fprintf(stderr, Name ": stopping device %s failed: %s\n",
-					    devname, strerror(errno));
+			if (quiet == 0) fprintf(stderr,
+						Name ": stopping device %s "
+						"failed: %s\n",
+						devname, strerror(errno));
 			return 1;
 		}
 	}
@@ -125,9 +130,9 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			close(fd);
 			if (sysfs_set_str(mdi, NULL,
 					  "array_state", "inactive") < 0) {
-				if (quiet==0)
+				if (quiet == 0)
 					fprintf(stderr, Name
-						": fail to stop array %s: %s\n",
+						": failed to stop array %s: %s\n",
 						devname, strerror(errno));
 				return 1;
 			}
@@ -144,9 +149,9 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			sysfs_free(mdi);
 
 		if (fd >= 0 && ioctl(fd, STOP_ARRAY, NULL)) {
-			if (quiet==0)
+			if (quiet == 0)
 				fprintf(stderr, Name
-					": fail to stop array %s: %s\n",
+					": failed to stop array %s: %s\n",
 					devname, strerror(errno));
 			return 1;
 		}

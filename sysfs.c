@@ -37,7 +37,7 @@ int load_sys(char *path, char *buf)
 	if (n <0 || n >= 1024)
 		return -1;
 	buf[n] = 0;
-	if (buf[n-1] == '\n')
+	if (n && buf[n-1] == '\n')
 		buf[n-1] = 0;
 	return 0;
 }

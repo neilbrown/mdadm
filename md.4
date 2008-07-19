@@ -526,19 +526,22 @@ Finally, "idle" can be written to stop the check/repair process.
 .B md/stripe_cache_size
 This is only available on RAID5 and RAID6.  It records the size (in
 pages per device) of the  stripe cache which is used for synchronising
-all read and write operations to the array.  The default is 128.
+all write operations to the array and all read operations if the array
+is degraded.  The default is 256.  Valid values are 17 to 32768.
 Increasing this number can increase performance in some situations, at
-some cost in system memory.
+some cost in system memory.  Note, setting this value too high can
+result in an "out of memory" condition for the system.
+
+memory_consumed = system_page_size * nr_disks * stripe_cache_size
 
 .TP
 .B md/preread_bypass_threshold
 This is only available on RAID5 and RAID6.  This variable sets the
 number of times MD will service a full-stripe-write before servicing a
 stripe that requires some "prereading".  For fairness this defaults to
-1.  Setting this to 0 maximizes sequential-write throughput at the cost
-of fairness to threads doing small or random writes.  Valid values are 0
-to stripe_cache_size.
-
+1.  Valid values are 0 to stripe_cache_size.  Setting this to 0
+maximizes sequential-write throughput at the cost of fairness to threads
+doing small or random writes.  
 
 .SS KERNEL PARAMETERS
 

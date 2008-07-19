@@ -1929,6 +1929,16 @@ that no metadata updates are made and no attempt at resync or recovery
 happens.  Further devices that are found before the first write can
 still be added safely.
 
+
+.SH ENVIRONMENT
+This section describes environment variables that affect how mdadm
+operates.
+
+.TP
+.B MDADM_NO_MDMON
+Setting this value to 1 will prevent mdadm from automatically launching
+mdmon.  This variable is intended primarily for debugging mdadm/mdmon.
+
 .SH EXAMPLES
 
 .B "  mdadm \-\-query /dev/name-of-device"

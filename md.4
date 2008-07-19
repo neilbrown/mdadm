@@ -530,6 +530,15 @@ all read and write operations to the array.  The default is 128.
 Increasing this number can increase performance in some situations, at
 some cost in system memory.
 
+.TP
+.B md/preread_bypass_threshold
+This is only available on RAID5 and RAID6.  This variable sets the
+number of times MD will service a full-stripe-write before servicing a
+stripe that requires some "prereading".  For fairness this defaults to
+1.  Setting this to 0 maximizes sequential-write throughput at the cost
+of fairness to threads doing small or random writes.  Valid values are 0
+to stripe_cache_size.
+
 
 .SS KERNEL PARAMETERS
 

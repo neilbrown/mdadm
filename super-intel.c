@@ -1944,6 +1944,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			struct imsm_disk *disk;
 			int j;
 			int found;
+			__u32 array_start;
 
 			/* If in this array, skip */
 			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
@@ -1970,18 +1971,22 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			found = 0;
 			j = 0;
 			pos = 0;
-			esize = 0;
+			array_start = __le32_to_cpu(map->pba_of_lba0);
 
 			do {
+				/* check that we can start at pba_of_lba0 with
+				 * a->info.component_size of space
+				 */
 				esize = ex[j].start - pos;
-				if (esize >= a->info.component_size &&
-				    pos == __le32_to_cpu(map->pba_of_lba0)) {
-					found = 1;
+				if (array_start >= pos &&
+				    array_start + a->info.component_size < ex[j].start) {
+			    		found = 1;
 					break;
 				}
-				pos = ex[i].start + ex[i].size;
-				i++;
-			} while (ex[i-1].size);
+				pos = ex[j].start + ex[j].size;
+				j++;
+				    
+			} while (ex[j-1].size);
 
 			free(ex);
 			if (!found) {
@@ -1993,7 +1998,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 				continue;
 			}
 
-			/* Cool, we have a device with some space at pos */
+			/* found a usable disk with enough space */
 			di = malloc(sizeof(*di));
 			memset(di, 0, sizeof(*di));
 			di->disk.number = dl->index;
@@ -2001,7 +2006,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			di->disk.major = dl->major;
 			di->disk.minor = dl->minor;
 			di->disk.state = 0;
-			di->data_offset = pos;
+			di->data_offset = array_start;
 			di->component_size = a->info.component_size;
 			di->container_member = inst;
 			di->next = rv;

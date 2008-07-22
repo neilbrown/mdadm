@@ -797,7 +797,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 
 	mpb_size = __le32_to_cpu(anchor->mpb_size);
 	mpb_size = ROUND_UP(mpb_size, 512);
-	if (posix_memalign((void**)&super->mpb, 512, mpb_size) != 0) {
+	if (posix_memalign(&super->buf, 512, mpb_size) != 0) {
 		if (devname)
 			fprintf(stderr,
 				Name ": unable to allocate %zu byte mpb buffer\n",
@@ -1173,10 +1173,11 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	if (!super)
 		return 0;
 	mpb_size = disks_to_mpb_size(info->nr_disks);
-	if (posix_memalign((void**)&mpb, 512, mpb_size) != 0) {
+	if (posix_memalign(&super->buf, 512, mpb_size) != 0) {
 		free(super);
 		return 0;
 	}
+	mpb = super->buf;
 	memset(mpb, 0, mpb_size); 
 
 	memcpy(mpb->sig, MPB_SIGNATURE, strlen(MPB_SIGNATURE));
@@ -1184,7 +1185,6 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	       strlen(MPB_VERSION_RAID5)); 
 	mpb->mpb_size = mpb_size;
 
-	super->mpb = mpb;
 	st->sb = super;
 	return 1;
 }

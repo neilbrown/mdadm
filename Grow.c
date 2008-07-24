@@ -686,7 +686,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			}
 		spares = sra->array.spare_disks;
 		if (backup_file) {
-			fdlist[d] = open(backup_file, O_RDWR|O_CREAT|O_EXCL, 0600);
+			fdlist[d] = open(backup_file, O_RDWR|O_CREAT|O_EXCL, S_IRUSR | S_IWUSR);
 			if (fdlist[d] < 0) {
 				fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
 					devname, backup_file, strerror(errno));

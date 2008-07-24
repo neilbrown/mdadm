@@ -212,7 +212,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		info.array.working_disks++;
 		if (dnum < raiddisks)
 			info.array.active_disks++;
-		fd = open(dname, O_RDONLY|O_EXCL, 0);
+		fd = open(dname, O_RDONLY|O_EXCL);
 		if (fd <0 ) {
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				dname, strerror(errno));
@@ -543,7 +543,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				info.disk.minor = 0;
 				info.disk.state = (1<<MD_DISK_FAULTY);
 			} else {
-				fd = open(dv->devname, O_RDONLY|O_EXCL, 0);
+				fd = open(dv->devname, O_RDONLY|O_EXCL);
 				if (fd < 0) {
 					fprintf(stderr, Name ": failed to open %s after earlier success - aborting\n",
 						dv->devname);

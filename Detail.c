@@ -38,7 +38,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	 * GET_ARRAY_INFO and GET_DISK_INFO ioctl calls
 	 */
 
-	int fd = open(dev, O_RDONLY, 0);
+	int fd = open(dev, O_RDONLY);
 	int vers;
 	mdu_array_info_t array;
 	mdu_disk_info_t *disks;

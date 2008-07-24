@@ -37,7 +37,7 @@ int Query(char *dev)
 	 * whether it is an md device and whether it has
 	 * a superblock
 	 */
-	int fd = open(dev, O_RDONLY, 0);
+	int fd = open(dev, O_RDONLY);
 	int vers;
 	int ioctlerr;
 	int superror, superrno;

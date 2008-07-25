@@ -373,6 +373,9 @@ static void print_imsm_disk(struct imsm_super *mpb, int index)
 	__u32 s;
 	__u64 sz;
 
+	if (index < 0)
+		return;
+
 	printf("\n");
 	snprintf(str, MAX_RAID_SERIAL_LEN, "%s", disk->serial);
 	printf("  Disk%02d Serial : %s\n", index, str);
@@ -550,6 +553,11 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 
 	if (super->disks) {
 		disk = get_imsm_disk(mpb, super->disks->index);
+		if (!disk) {
+			info->disk.number = -1;
+			info->disk.raid_disk = -1;
+			return;
+		}
 		info->disk.number = super->disks->index;
 		info->disk.raid_disk = super->disks->index;
 		info->data_offset = __le32_to_cpu(disk->total_blocks) -
@@ -747,8 +755,13 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 			break;
 	}
 
-	if (i > mpb->num_disks)
-		return 2;
+	if (i > mpb->num_disks - 1) {
+		if (devname)
+			fprintf(stderr,
+				Name ": failed to match serial \'%s\' for %s\n",
+				dl->serial, devname);
+		return 0;
+	}
 
 	dl->index = i;
 

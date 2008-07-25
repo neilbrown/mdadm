@@ -167,6 +167,17 @@ struct imsm_update_create_array {
 	int dev_idx;
 };
 
+static int imsm_env_devname_as_serial(void)
+{
+	char *val = getenv("IMSM_DEVNAME_AS_SERIAL");
+
+	if (val && atoi(val) == 1)
+		return 1;
+
+	return 0;
+}
+
+
 static struct supertype *match_metadata_desc_imsm(char *arg)
 {
 	struct supertype *st;
@@ -668,6 +679,31 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	return 0;
 }
 
+static void fd2devname(int fd, char *name)
+{
+	struct stat st;
+	char path[256];
+	char dname[100];
+	char *nm;
+	int rv;
+
+	name[0] = '\0';
+	if (fstat(fd, &st) != 0)
+		return;
+	sprintf(path, "/sys/dev/block/%d:%d",
+		major(st.st_rdev), minor(st.st_rdev));
+
+	rv = readlink(path, dname, sizeof(dname));
+	if (rv <= 0)
+		return;
+	
+	dname[rv] = '\0';
+	nm = strrchr(dname, '/');
+	nm++;
+	snprintf(name, MAX_RAID_SERIAL_LEN, "/dev/%s", nm);
+}
+
+
 extern int scsi_get_serial(int fd, void *buf, size_t buf_len);
 
 static int imsm_read_serial(int fd, char *devname,
@@ -688,6 +724,14 @@ static int imsm_read_serial(int fd, char *devname,
 				Name ": Failed to open sg interface for %s: %s\n",
 				devname, strerror(errno));
 		return 1;
+	}
+
+	if (imsm_env_devname_as_serial()) {
+		char name[MAX_RAID_SERIAL_LEN];
+		
+		fd2devname(fd, name);
+		strcpy((char *) serial, name);
+		return 0;
 	}
 
 	rv = scsi_get_serial(sg_fd, scsi_serial, sizeof(scsi_serial));
@@ -1271,9 +1315,8 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	rv = imsm_read_serial(fd, devname, dd->serial);
 	if (rv) {
 		fprintf(stderr,
-			Name ": failed to retrieve scsi serial "
-			"using \'%s\' instead\n", devname);
-		strcpy((char *) dd->serial, devname);
+			Name ": failed to retrieve scsi serial, aborting\n");
+		abort();
 	}
 
 	if (mpb->num_disks <= dk->number)

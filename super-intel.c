@@ -710,21 +710,11 @@ static int imsm_read_serial(int fd, char *devname,
 			    __u8 serial[MAX_RAID_SERIAL_LEN])
 {
 	unsigned char scsi_serial[255];
-	int sg_fd;
 	int rv;
 	int rsp_len;
 	int i, cnt;
 
 	memset(scsi_serial, 0, sizeof(scsi_serial));
-
-	sg_fd = sysfs_disk_to_sg(fd);
-	if (sg_fd < 0) {
-		if (devname)
-			fprintf(stderr,
-				Name ": Failed to open sg interface for %s: %s\n",
-				devname, strerror(errno));
-		return 1;
-	}
 
 	if (imsm_env_devname_as_serial()) {
 		char name[MAX_RAID_SERIAL_LEN];
@@ -734,8 +724,7 @@ static int imsm_read_serial(int fd, char *devname,
 		return 0;
 	}
 
-	rv = scsi_get_serial(sg_fd, scsi_serial, sizeof(scsi_serial));
-	close(sg_fd);
+	rv = scsi_get_serial(fd, scsi_serial, sizeof(scsi_serial));
 
 	if (rv != 0) {
 		if (devname)

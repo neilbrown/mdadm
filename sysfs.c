@@ -398,6 +398,7 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 	return rv;
 }
 
+#if 0
 int sysfs_disk_to_sg(int fd)
 {
 	/* from an open block device, try find and open its corresponding
@@ -461,6 +462,7 @@ int sysfs_disk_to_sg(int fd)
 
 	return -1;
 }
+#endif
 
 int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 {

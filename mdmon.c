@@ -169,6 +169,19 @@ static void wake_me(int sig)
 
 }
 
+/* if we are debugging and starting mdmon by hand then don't fork */
+static int do_fork(void)
+{
+	#ifdef DEBUG
+	if (env_no_mdmon())
+		return 0;
+	#endif
+
+	return 1;
+}
+
+
+
 int main(int argc, char *argv[])
 {
 	int mdfd;
@@ -196,23 +209,26 @@ int main(int argc, char *argv[])
 	}
 
 	/* Fork, and have the child tell us when they are ready */
-	pipe(pfd);
-	switch(fork()){
-	case -1:
-		fprintf(stderr, "mdmon: failed to fork: %s\n",
-			strerror(errno));
-		exit(1);
-	case 0: /* child */
-		close(pfd[0]);
-		break;
-	default: /* parent */
-		close(pfd[1]);
-		if (read(pfd[0], &status, sizeof(status)) != sizeof(status)) {
-			wait(&status);
-			status = WEXITSTATUS(status);
+	if (do_fork()) {
+		pipe(pfd);
+		switch(fork()) {
+		case -1:
+			fprintf(stderr, "mdmon: failed to fork: %s\n",
+				strerror(errno));
+			exit(1);
+		case 0: /* child */
+			close(pfd[0]);
+			break;
+		default: /* parent */
+			close(pfd[1]);
+			if (read(pfd[0], &status, sizeof(status)) != sizeof(status)) {
+				wait(&status);
+				status = WEXITSTATUS(status);
+			}
+			exit(status);
 		}
-		exit(status);
-	}
+	} else
+		pfd[0] = pfd[1] = -1;
 	/* hopefully it is a container - we'll check later */
 
 	container = malloc(sizeof(*container));

@@ -150,6 +150,7 @@ struct extent {
 /* definition of messages passed to imsm_process_update */
 enum imsm_update_type {
 	update_activate_spare,
+	update_create_array,
 };
 
 struct imsm_update_activate_spare {
@@ -158,6 +159,12 @@ struct imsm_update_activate_spare {
 	int slot;
 	int array;
 	struct imsm_update_activate_spare *next;
+};
+
+struct imsm_update_create_array {
+	enum imsm_update_type type;
+	struct imsm_dev dev;
+	int dev_idx;
 };
 
 static struct supertype *match_metadata_desc_imsm(char *arg)
@@ -1313,7 +1320,48 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 
 static int write_init_super_imsm(struct supertype *st)
 {
-	return write_super_imsm(st->sb, 1);
+	if (st->update_tail) {
+		/* queue the recently created array as a metadata update */
+		size_t len;
+		struct imsm_update_create_array *u;
+		struct intel_super *super = st->sb;
+		struct imsm_super *mpb = super->mpb;
+		struct imsm_dev *dev;
+		struct imsm_map *map;
+		struct dl *d;
+
+		if (super->current_vol < 0 ||
+		    !(dev = get_imsm_dev(mpb, super->current_vol))) {
+			fprintf(stderr, "%s: could not determine sub-array\n",
+				__func__);
+			return 1;
+		}
+
+
+		map = &dev->vol.map[0];
+		len = sizeof(*u) + sizeof(__u32) * (map->num_members - 1);
+		u = malloc(len);
+		if (!u) {
+			fprintf(stderr, "%s: failed to allocate update buffer\n",
+				__func__);
+			return 1;
+		}
+
+		u->type = update_create_array;
+		u->dev_idx = super->current_vol;
+		memcpy(&u->dev, dev, sizeof(*dev));
+		memcpy(u->dev.vol.map[0].disk_ord_tbl, map->disk_ord_tbl,
+		       sizeof(__u32) * map->num_members);
+		append_metadata_update(st, u, len);
+
+		for (d = super->disks; d ; d = d->next) {
+			close(d->fd);
+			d->fd = -1;
+		}
+
+		return 0;
+	} else
+		return write_super_imsm(st->sb, 1);
 }
 
 static int store_zero_imsm(struct supertype *st, int fd)
@@ -2057,6 +2105,22 @@ static int weight(unsigned int field)
 	return weight;
 }
 
+static int disks_overlap(struct imsm_map *m1, struct imsm_map *m2)
+{
+	int i;
+	int j;
+	int idx;
+
+	for (i = 0; i < m1->num_members; i++) {
+		idx = get_imsm_disk_idx(m1, i);
+		for (j = 0; j < m2->num_members; j++)
+			if (idx == get_imsm_disk_idx(m2, j))
+				return 1;
+	}
+
+	return 0;
+}
+
 static void imsm_process_update(struct supertype *st,
 			        struct metadata_update *update)
 {
@@ -2150,8 +2214,110 @@ static void imsm_process_update(struct supertype *st,
 			status &= ~(CONFIGURED_DISK | USABLE_DISK);
 			disk->status = __cpu_to_le32(status);
 		}
+		break;
+	}
+	case update_create_array: {
+		/* someone wants to create a new array, we need to be aware of
+		 * a few races/collisions:
+		 * 1/ 'Create' called by two separate instances of mdadm
+		 * 2/ 'Create' versus 'activate_spare': mdadm has chosen
+		 *     devices that have since been assimilated via
+		 *     activate_spare.
+		 * In the event this update can not be carried out mdadm will
+		 * (FIX ME) notice that its update did not take hold.
+		 */
+		struct imsm_update_create_array *u = (void *) update->buf;
+		struct imsm_dev *dev;
+		struct imsm_map *map, *new_map;
+		unsigned long long start, end;
+		unsigned long long new_start, new_end;
+		int i;
+		int overlap = 0;
+
+		/* handle racing creates: first come first serve */
+		if (u->dev_idx < mpb->num_raid_devs) {
+			dprintf("%s: subarray %d already defined\n",
+				__func__, u->dev_idx);
+			return;
+		}
+
+		/* check update is next in sequence */
+		if (u->dev_idx != mpb->num_raid_devs) {
+			dprintf("%s: can not create arrays out of sequence\n",
+				__func__);
+			return;
+		}
+
+		new_map = &u->dev.vol.map[0];
+		new_start = __le32_to_cpu(new_map->pba_of_lba0);
+		new_end = new_start + __le32_to_cpu(new_map->blocks_per_member);
+
+		/* handle activate_spare versus create race:
+		 * check to make sure that overlapping arrays do not include
+		 * overalpping disks
+		 */
+		for (i = 0; i < mpb->num_raid_devs; i++) {
+			dev = get_imsm_dev(mpb, i);
+			map = &dev->vol.map[0];
+			start = __le32_to_cpu(map->pba_of_lba0);
+			end = start + __le32_to_cpu(map->blocks_per_member);
+			if ((new_start >= start && new_start <= end) ||
+			    (start >= new_start && start <= new_end))
+				overlap = 1;
+			if (overlap && disks_overlap(map, new_map)) {
+				dprintf("%s: arrays overlap\n", __func__);
+				return;
+			}
+		}
+		/* check num_members sanity */
+		if (new_map->num_members > mpb->num_disks) {
+			dprintf("%s: num_disks out of range\n", __func__);
+			return;
+		}
+
+		super->updates_pending++;
+		mpb->num_raid_devs++;
+		dev = get_imsm_dev(mpb, u->dev_idx);
+		memcpy(dev, &u->dev, sizeof(*dev));
+		map = &dev->vol.map[0];
+		memcpy(map->disk_ord_tbl, new_map->disk_ord_tbl,
+		       sizeof(__u32) * new_map->num_members);
+
+		/* fix up flags, if arrays overlap then the drives can not be
+		 * spares
+		 */
+		for (i = 0; i < map->num_members; i++) {
+			struct imsm_disk *disk;
+			__u32 status;
+
+			disk = get_imsm_disk(mpb, get_imsm_disk_idx(map, i));
+			status = __le32_to_cpu(disk->status);
+			status |= CONFIGURED_DISK;
+			if (overlap)
+				status &= ~SPARE_DISK;
+			disk->status = __cpu_to_le32(status);
+		}
+		break;
 	}
 	}
+}
+
+static void imsm_prepare_update(struct supertype *st,
+				struct metadata_update *update)
+{
+	/* Allocate space to hold a new mpb if necessary.  We currently
+	 * allocate enough to hold 2 subarrays for the given number of disks.
+	 * This may not be sufficient iff reshaping.
+	 *
+	 * FIX ME handle the reshape case.
+	 *
+	 * The monitor will be able to safely change super->mpb by arranging
+	 * for it to be freed in check_update_queue().  I.e. the monitor thread
+	 * will start using the new pointer and the manager can continue to use
+	 * the old value until check_update_queue() runs.
+	 */
+
+	return;
 }
 
 struct superswitch super_imsm = {
@@ -2190,4 +2356,5 @@ struct superswitch super_imsm = {
 	.sync_metadata	= imsm_sync_metadata,
 	.activate_spare = imsm_activate_spare,
 	.process_update = imsm_process_update,
+	.prepare_update = imsm_prepare_update,
 };

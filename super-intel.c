@@ -1106,6 +1106,11 @@ static __u32 info_to_num_data_stripes(mdu_array_info_t *info)
 	return num_stripes;
 }
 
+static __u32 info_to_blocks_per_member(mdu_array_info_t *info)
+{
+	return (info->size * 2) & ~(info_to_blocks_per_strip(info) - 1);
+}
+
 static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				  unsigned long long size, char *name,
 				  char *homehost, int *uuid)
@@ -1173,7 +1178,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	}
 	map = &vol->map[0];
 	map->pba_of_lba0 = __cpu_to_le32(offset);
-	map->blocks_per_member = __cpu_to_le32(info->size * 2);
+	map->blocks_per_member = __cpu_to_le32(info_to_blocks_per_member(info));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->num_data_stripes = __cpu_to_le32(info_to_num_data_stripes(info));
 	map->map_state = info->level ? IMSM_T_STATE_UNINITIALIZED :

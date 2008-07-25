@@ -1434,8 +1434,8 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	if (posix_memalign(&buf, 512, 512) != 0)
 		return 1;
 
-	memset(buf, 0, sizeof(buf));
-	if (write(fd, buf, sizeof(buf)) != sizeof(buf))
+	memset(buf, 0, 512);
+	if (write(fd, buf, 512) != 512)
 		return 1;
 	return 0;
 }

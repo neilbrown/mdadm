@@ -1683,7 +1683,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		struct imsm_vol *vol = &dev->vol;
 		struct imsm_map *map = vol->map;
 		struct mdinfo *this;
-		__u64 sz;
 		int slot;
 
 		this = malloc(sizeof(*this));
@@ -1714,11 +1713,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 
 		memset(this->uuid, 0, sizeof(this->uuid));
 
-		sz = __le32_to_cpu(dev->size_high);
-		sz <<= 32;
-		sz += __le32_to_cpu(dev->size_low);
-		this->component_size = sz;
-		this->array.size = this->component_size / 2;
+		this->component_size = __le32_to_cpu(map->blocks_per_member);
 
 		for (slot = 0 ; slot <  map->num_members; slot++) {
 			struct imsm_disk *disk;

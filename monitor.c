@@ -277,7 +277,6 @@ static int read_and_act(struct active_array *a)
 			if (! (mdi->curr_state & DS_INSYNC))
 				check_degraded = 1;
 		}
-		a->container->ss->set_array_state(a, 0);
 	}
 
 	for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {

@@ -1865,26 +1865,37 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	disk = get_imsm_disk(super->mpb, get_imsm_disk_idx(map, n));
 
-	/* check if we have seen this failure before */
+	/* check for new failures */
 	status = __le32_to_cpu(disk->status);
 	if ((state & DS_FAULTY) && !(status & FAILED_DISK)) {
 		status |= FAILED_DISK;
 		disk->status = __cpu_to_le32(status);
 		new_failure = 1;
+		super->updates_pending++;
 	}
 
-	/**
-	 * the number of failures have changed, count up 'failed' to determine
+	/* the number of failures have changed, count up 'failed' to determine
 	 * degraded / failed status
 	 */
 	if (new_failure && map->map_state != IMSM_T_STATE_FAILED)
 		failed = imsm_count_failed(super->mpb, map);
 
+	/* determine map_state based on failed or in_sync count */
 	if (failed)
 		map->map_state = imsm_check_degraded(super->mpb, inst, failed);
+	else if (map->map_state == IMSM_T_STATE_DEGRADED) {
+		struct mdinfo *d;
+		int working = 0;
 
-	if (new_failure)
-		super->updates_pending++;
+		for (d = a->info.devs ; d ; d = d->next)
+			if (d->curr_state & DS_INSYNC)
+				working++;
+
+		if (working == a->info.array.raid_disks) {
+			map->map_state = IMSM_T_STATE_NORMAL;
+			super->updates_pending++;
+		}
+	}
 }
 
 static int store_imsm_mpb(int fd, struct intel_super *super)

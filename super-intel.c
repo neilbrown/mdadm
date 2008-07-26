@@ -870,6 +870,8 @@ static int parse_raid_devices(struct intel_super *super)
 	return 0;
 }
 
+static void __free_imsm(struct intel_super *super);
+
 /* load_imsm_mpb - read matrix metadata
  * allocates super->mpb to be freed by free_super
  */
@@ -916,6 +918,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 		return 2;
 	}
 
+	__free_imsm(super);
 	super->len = __le32_to_cpu(anchor->mpb_size);
 	super->len = ROUND_UP(anchor->mpb_size, 512);
 	if (posix_memalign(&super->buf, 512, super->len) != 0) {
@@ -991,19 +994,28 @@ static void free_imsm_disks(struct intel_super *super)
 		}
 }
 
-static void free_imsm(struct intel_super *super)
+/* free all the pieces hanging off of a super pointer */
+static void __free_imsm(struct intel_super *super)
 {
 	int i;
 
-	if (super->buf)
+	if (super->buf) {
 		free(super->buf);
+		super->buf = NULL;
+	}
 	free_imsm_disks(super);
 	for (i = 0; i < IMSM_MAX_RAID_DEVS; i++)
-		if (super->dev_tbl[i])
+		if (super->dev_tbl[i]) {
 			free(super->dev_tbl[i]);
-	free(super);
+			super->dev_tbl[i] = NULL;
+		}
 }
 
+static void free_imsm(struct intel_super *super)
+{
+	__free_imsm(super);
+	free(super);
+}
 
 static void free_super_imsm(struct supertype *st)
 {

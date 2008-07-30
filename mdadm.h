@@ -171,6 +171,7 @@ struct mdinfo {
 	#define	DS_SPARE	8
 	#define DS_BLOCKED	16
 	#define	DS_REMOVE	1024
+	#define	DS_UNBLOCK	2048
 	int prev_state, curr_state, next_state;
 
 };

@@ -284,12 +284,25 @@ static int read_and_act(struct active_array *a)
 		}
 	}
 
+	/* Check for failures and if found:
+	 * 1/ Record the failure in the metadata and unblock the device.
+	 *    FIXME update the kernel to stop notifying on failed drives when
+	 *    the array is readonly and we have cleared 'blocked'
+	 * 2/ Try to remove the device if the array is writable, or can be
+	 *    made writable.
+	 */
 	for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {
 		if (mdi->curr_state & DS_FAULTY) {
 			a->container->ss->set_disk(a, mdi->disk.raid_disk,
 						   mdi->curr_state);
 			check_degraded = 1;
-			mdi->next_state = DS_REMOVE;
+			mdi->next_state |= DS_UNBLOCK;
+			if (a->curr_state == read_auto) {
+				a->container->ss->set_array_state(a, 0);
+				a->next_state = active;
+			}
+			if (a->curr_state > readonly)
+				mdi->next_state |= DS_REMOVE;
 		}
 	}
 
@@ -306,15 +319,18 @@ static int read_and_act(struct active_array *a)
 		dprintf(" action:%s", array_states[a->next_state]);
 	}
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
-		if (mdi->next_state == DS_REMOVE && mdi->state_fd >= 0) {
+		if (mdi->next_state & DS_UNBLOCK) {
+			dprintf(" %d:-blocked", mdi->disk.raid_disk);
+			write_attr("-blocked", mdi->state_fd);
+		}
+
+		if ((mdi->next_state & DS_REMOVE) && mdi->state_fd >= 0) {
 			int remove_result;
 
-			write_attr("-blocked", mdi->state_fd);
 			/* the kernel may not be able to immediately remove the
 			 * disk, we can simply wait until the next event to try
 			 * again.
 			 */
-			dprintf(" %d:-blocked", mdi->disk.raid_disk);
 			remove_result = write_attr("remove", mdi->state_fd);
 			if (remove_result > 0) {
 				dprintf(" %d:removed", mdi->disk.raid_disk);

@@ -100,15 +100,42 @@ struct imsm_super {
 	__u32 mpb_size;			/* 0x24 - 0x27 Size of MPB */
 	__u32 family_num;		/* 0x28 - 0x2B Checksum from first time this config was written */
 	__u32 generation_num;		/* 0x2C - 0x2F Incremented each time this array's MPB is written */
-	__u32 reserved[2];		/* 0x30 - 0x37 */
+	__u32 error_log_size;		/* 0x30 - 0x33 in bytes */
+	__u32 attributes;		/* 0x34 - 0x37 */
 	__u8 num_disks;			/* 0x38 Number of configured disks */
 	__u8 num_raid_devs;		/* 0x39 Number of configured volumes */
-	__u8 fill[2];			/* 0x3A - 0x3B */
-#define IMSM_FILLERS 39
-	__u32 filler[IMSM_FILLERS];	/* 0x3C - 0xD7 RAID_MPB_FILLERS */
+	__u8 error_log_pos;		/* 0x3A  */
+	__u8 fill[1];			/* 0x3B */
+	__u32 cache_size;		/* 0x3c - 0x40 in mb */
+	__u32 orig_family_num;		/* 0x40 - 0x43 original family num */
+	__u32 pwr_cycle_count;		/* 0x44 - 0x47 simulated power cycle count for array */
+	__u32 bbm_log_size;		/* 0x48 - 0x4B - size of bad Block Mgmt Log in bytes */
+#define IMSM_FILLERS 35
+	__u32 filler[IMSM_FILLERS];	/* 0x4C - 0xD7 RAID_MPB_FILLERS */
 	struct imsm_disk disk[1];	/* 0xD8 diskTbl[numDisks] */
 	/* here comes imsm_dev[num_raid_devs] */
+	/* here comes BBM logs */
 } __attribute__ ((packed));
+
+#define BBM_LOG_MAX_ENTRIES 254
+
+struct bbm_log_entry {
+	__u64 defective_block_start;
+#define UNREADABLE 0xFFFFFFFF
+	__u32 spare_block_offset;
+	__u16 remapped_marked_count;
+	__u16 disk_ordinal;
+} __attribute__ ((__packed__));
+
+struct bbm_log {
+	__u32 signature; /* 0xABADB10C */
+	__u32 entry_count;
+	__u32 reserved_spare_block_count; /* 0 */
+	__u32 reserved; /* 0xFFFF */
+	__u64 first_spare_lba;
+	struct bbm_log_entry mapped_block_entries[BBM_LOG_MAX_ENTRIES];
+} __attribute__ ((__packed__));
+
 
 #ifndef MDASSEMBLE
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
@@ -146,6 +173,7 @@ struct intel_super {
 		char *devname;
 		int fd;
 	} *disks;
+    struct bbm_log *bbm_log;
 };
 
 struct extent {
@@ -447,6 +475,17 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("          Disks : %d\n", mpb->num_disks);
 	printf("   RAID Devices : %d\n", mpb->num_raid_devs);
 	print_imsm_disk(mpb, super->disks->index);
+	if (super->bbm_log) {
+		struct bbm_log *log = super->bbm_log;
+
+		printf("\n");
+		printf("Bad Block Management Log:\n");
+		printf("       Log Size : %d\n", __le32_to_cpu(mpb->bbm_log_size));
+		printf("      Signature : %x\n", __le32_to_cpu(log->signature));
+		printf("    Entry Count : %d\n", __le32_to_cpu(log->entry_count));
+		printf("   Spare Blocks : %d\n",  __le32_to_cpu(log->reserved_spare_block_count));
+		printf("    First Spare : %llx\n", __le64_to_cpu(log->first_spare_lba));
+	}
 	for (i = 0; i < mpb->num_raid_devs; i++)
 		print_imsm_dev(__get_imsm_dev(mpb, i), super->disks->index);
 	for (i = 0; i < mpb->num_disks; i++) {
@@ -870,6 +909,19 @@ static int parse_raid_devices(struct intel_super *super)
 	return 0;
 }
 
+/* retrieve a pointer to the bbm log which starts after all raid devices */
+struct bbm_log *__get_imsm_bbm_log(struct imsm_super *mpb)
+{
+	void *ptr = NULL;
+
+	if (__le32_to_cpu(mpb->bbm_log_size)) {
+		ptr = mpb;
+		ptr += mpb->mpb_size - __le32_to_cpu(mpb->bbm_log_size);
+	} 
+
+	return ptr;
+}
+
 static void __free_imsm(struct intel_super *super);
 
 /* load_imsm_mpb - read matrix metadata
@@ -966,6 +1018,12 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 				devname);
 		return 2;
 	}
+
+	/* FIXME the BBM log is disk specific so we cannot use this global
+	 * buffer for all disks.  Ok for now since we only look at the global
+	 * bbm_log_size parameter to gate assembly
+	 */
+	super->bbm_log = __get_imsm_bbm_log(super->anchor);
 
 	rc = load_imsm_disk(fd, super, devname, 0);
 	if (rc == 0)
@@ -1692,6 +1750,11 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	return 1;
 }
 
+int imsm_bbm_log_size(struct imsm_super *mpb)
+{
+	return __le32_to_cpu(mpb->bbm_log_size);
+}
+
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				  int raiddisks, int chunk, unsigned long long size,
 				  char *dev, unsigned long long *freesize,
@@ -1794,6 +1857,13 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 	struct imsm_super *mpb = super->anchor;
 	struct mdinfo *rest = NULL;
 	int i;
+
+	/* do not assemble arrays that might have bad blocks */
+	if (imsm_bbm_log_size(super->anchor)) {
+		fprintf(stderr, Name ": BBM log found in metadata. "
+				"Cannot activate array(s).\n");
+		return NULL;
+	}
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);

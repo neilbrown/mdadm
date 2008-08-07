@@ -306,6 +306,27 @@ static void manage_member(struct mdstat_ent *mdstat,
 	}
 }
 
+static int aa_ready(struct active_array *aa)
+{
+	struct mdinfo *d;
+	int level = aa->info.array.level;
+
+	for (d = aa->info.devs; d; d = d->next)
+		if (d->state_fd < 0)
+			return 0;
+
+	if (aa->info.state_fd < 0)
+		return 0;
+
+	if (level > 0 && (aa->action_fd < 0 || aa->resync_start_fd < 0))
+		return 0;
+
+	if (!aa->container)
+		return 0;
+
+	return 1;
+}
+
 static void manage_new(struct mdstat_ent *mdstat,
 		       struct supertype *container,
 		       struct active_array *victim)
@@ -321,8 +342,23 @@ static void manage_new(struct mdstat_ent *mdstat,
 	char *inst;
 	int i;
 
+	/* check if array is ready to be monitored */
+	if (!mdstat->active)
+		return;
+
+	mdi = sysfs_read(-1, mdstat->devnum,
+			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
+			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
+
 	new = malloc(sizeof(*new));
 
+	if (!new || !mdi) {
+		if (mdi)
+			sysfs_free(mdi);
+		if (new)
+			free(new);
+		return;
+	}
 	memset(new, 0, sizeof(*new));
 
 	new->devnum = mdstat->devnum;
@@ -334,18 +370,6 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->container = container;
 
 	inst = &mdstat->metadata_version[10+strlen(container->devname)+1];
-
-	mdi = sysfs_read(-1, new->devnum,
-			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
-			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
-	if (!mdi) {
-		/* Eeek. Cannot monitor this array.
-		 * Mark it to be ignored by setting container to NULL
-		 */
-		new->container = NULL;
-		replace_array(container, victim, new);
-		return;
-	}
 
 	new->info.array = mdi->array;
 	new->info.component_size = mdi->component_size;
@@ -367,15 +391,15 @@ static void manage_new(struct mdstat_ent *mdstat,
 			newd->prev_state = read_dev_state(newd->state_fd);
 			newd->curr_state = newd->prev_state;
 		} else {
-			newd->state_fd = -1;
-			newd->disk.raid_disk = i;
-			newd->prev_state = DS_REMOVE;
-			newd->curr_state = DS_REMOVE;
+			/* we cannot properly monitor without all raid_disks */
+			new->container = NULL;
+			break;
 		}
 		sprintf(newd->sys_name, "rd%d", i);
 		newd->next = new->info.devs;
 		new->info.devs = newd;
 	}
+
 	new->action_fd = sysfs_open(new->devnum, NULL, "sync_action");
 	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
 	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
@@ -384,15 +408,17 @@ static void manage_new(struct mdstat_ent *mdstat,
 		new->action_fd, new->info.state_fd);
 
 	sysfs_free(mdi);
-	// finds and compares.
-	if (container->ss->open_new(container, new, inst) < 0) {
-		// FIXME close all those files
+
+	/* if everything checks out tell the metadata handler we want to
+	 * manage this instance
+	 */
+	if (!aa_ready(new) || container->ss->open_new(container, new, inst) < 0) {
+		fprintf(stderr, "mdmon: failed to monitor %s\n",
+			mdstat->metadata_version);
 		new->container = NULL;
+		free_aa(new);
+	} else
 		replace_array(container, victim, new);
-		return;
-	}
-	replace_array(container, victim, new);
-	return;
 }
 
 void manage(struct mdstat_ent *mdstat, struct supertype *container)

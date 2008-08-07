@@ -301,7 +301,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 			}
 			queue_metadata_update(updates);
 			replace_array(a->container, a, newa);
-			sysfs_set_str(&a->info, NULL, "sync_action", "repair");
+			sysfs_set_str(&a->info, NULL, "sync_action", "recover");
 		}
 	}
 }

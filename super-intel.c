@@ -523,7 +523,7 @@ static int imsm_level_to_layout(int level)
 		return 0;
 	case 5:
 	case 6:
-		return ALGORITHM_LEFT_SYMMETRIC;
+		return ALGORITHM_LEFT_ASYMMETRIC;
 	case 10:
 		return 0x102; //FIXME is this correct?
 	}

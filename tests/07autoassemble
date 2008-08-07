@@ -21,3 +21,4 @@ mdadm -Ss
 mdadm -As -c /dev/null --homehost=testing -vvv
 testdev $md1 1 $mdsize0 64
 testdev $md0 1 $[mdsize0+mdsize00] 64
+mdadm -Ss

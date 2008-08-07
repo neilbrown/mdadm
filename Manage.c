@@ -158,10 +158,15 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			sysfs_free(mdi);
 
 		if (fd >= 0 && ioctl(fd, STOP_ARRAY, NULL)) {
-			if (quiet == 0)
+			if (quiet == 0) {
 				fprintf(stderr, Name
 					": failed to stop array %s: %s\n",
 					devname, strerror(errno));
+				if (errno == EBUSY)
+					fprintf(stderr, "Perhaps a running "
+						"process, mounted filesystem "
+						"or active volume group?\n");
+			}
 			return 1;
 		}
 

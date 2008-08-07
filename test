@@ -67,6 +67,9 @@ done
 path0=$dev6
 path1=$dev7
 
+echo 2000 > /proc/sys/dev/raid/speed_limit_max
+echo 0 > /sys/module/md_mod/parameters/start_ro
+
 if [ " $1" = " setup" ]
 then trap 0 ; exit 0
 fi
@@ -95,7 +98,7 @@ check() {
       grep -s "active $1 " /proc/mdstat > /dev/null || {
    		echo >&2 "ERROR active $1 not found" ; cat /proc/mdstat ; exit 1;}
      ;;
-    resync | recovery )
+    resync | recovery | reshape)
       sleep 0.5
       grep -s $1 /proc/mdstat > /dev/null || {
    		echo >&2 ERROR no $1 happening; cat /proc/mdstat; exit 1; }
@@ -103,14 +106,14 @@ check() {
    
      nosync )
        sleep 0.5
-       if grep -s 're[synccovery]* =' > /dev/null /proc/mdstat ; then
+       if grep -s -E '(resync|recovery|reshape) =' > /dev/null /proc/mdstat ; then
    	   echo >&2 "ERROR resync or recovery is happening!"; cat /proc/mdstat ; exit 1; 
        fi
      ;;
    
     wait )
       sleep 0.1
-      while grep 're[synccovery]* =' > /dev/null /proc/mdstat
+      while grep -E '(resync|recovery|reshape|check|repair) =' > /dev/null /proc/mdstat
       do sleep 2;
       done
       ;;

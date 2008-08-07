@@ -213,3 +213,9 @@ testdist : everything clean
 
 TAGS :
 	etags *.h *.c
+
+DISTRO_MAKEFILE := $(wildcard distropkg/Makefile)
+ifdef DISTRO_MAKEFILE
+include $(DISTRO_MAKEFILE)
+endif
+

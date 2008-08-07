@@ -20,7 +20,7 @@ do
       # test restore: make a raid5 from a file, then do a compare
       dd if=/dev/urandom of=/tmp/RandFile bs=1024 count=$size
       $dir/test_stripe restore /tmp/RandFile $disks $[chunk*1024] 5 $nlayout 0 $[size*1024] $devs
-      $mdadm -CR $md0 -amd -l5 -n$disks --assume-clean -c $chunk -p $layout $devs
+      mdadm -CR $md0 -amd -l5 -n$disks --assume-clean -c $chunk -p $layout $devs
       cmp -s -n $[size*1024] $md0 /tmp/RandFile || { echo cmp failed ; exit 2; }
 
       # FIXME check parity
@@ -30,7 +30,7 @@ do
       > /tmp/NewRand
       $dir/test_stripe save /tmp/NewRand $disks $[chunk*1024] 5 $nlayout 0 $[size*1024] $devs
       cmp -s -n $[size*1024] $md0 /tmp/NewRand || { echo cmp failed ; exit 2; }
-      $mdadm -S $md0
+      mdadm -S $md0
     done
   done
 done

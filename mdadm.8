@@ -50,29 +50,29 @@ each device is a path to one common physical storage device.
 is also not true RAID, and it only involves one device.  It
 provides a layer over a true device that can be used to inject faults.
 
-.\".B mdadm
+.\".I mdadm
 .\"is a program that can be used to create, manage, and monitor
 .\"MD devices.  As
 .\"such it provides a similar set of functionality to the
 .\".B raidtools
 .\"packages.
 .\"The key differences between
-.\".B mdadm
+.\".I mdadm
 .\"and
 .\".B raidtools
 .\"are:
 .\".IP \(bu 4
-.\".B mdadm
+.\".I mdadm
 .\"is a single program and not a collection of programs.
 .\".IP \(bu 4
-.\".B mdadm
+.\".I mdadm
 .\"can perform (almost) all of its functions without having a
 .\"configuration file and does not use one by default.  Also
-.\".B mdadm
+.\".I mdadm
 .\"helps with management of the configuration
 .\"file.
 .\".IP \(bu 4
-.\".B mdadm
+.\".I mdadm
 .\"can provide information about your arrays (through Query, Detail, and Examine)
 .\"that
 .\".B  raidtools
@@ -93,7 +93,7 @@ mdadm has several major modes of operation:
 Assemble the components of a previously created
 array into an active array. Components can be explicitly given
 or can be searched for.
-.B mdadm
+.I mdadm
 checks that the components
 do form a bona fide array, and can, on request, fiddle superblock
 information so as to assemble a faulty array.
@@ -241,7 +241,7 @@ and
 .TP
 .BR \-q ", " \-\-quiet
 Avoid printing purely informative messages.  With this,
-.B mdadm
+.I mdadm
 will be silent unless there is something really important to report.
 
 .TP
@@ -288,7 +288,7 @@ Scan config file or
 .B /proc/mdstat
 for missing information.
 In general, this option gives
-.B mdadm
+.I mdadm
 permission to get any missing information (like component devices,
 array devices, array identities, and alert destination) from the
 configuration file (see previous option);
@@ -688,7 +688,7 @@ will cause
 to use the minor number of the md device that is being assembled.
 e.g. when assembling
 .BR /dev/md0 ,
-.M \-\-super\-minor=dev
+.B \-\-super\-minor=dev
 will look for super blocks with a minor number of 0.
 
 .TP
@@ -1057,14 +1057,14 @@ facility of 'daemon' and varying priorities.
 .TP
 .BR \-d ", " \-\-delay
 Give a delay in seconds.
-.B mdadm
+.I mdadm
 polls the md arrays and then waits this many seconds before polling
 again.  The default is 60 seconds.
 
 .TP
 .BR \-f ", " \-\-daemonise
 Tell
-.B mdadm
+.I mdadm
 to run as a background daemon if it decides to monitor anything.  This
 causes it to fork and run in the child, and to disconnect form the
 terminal.  The process id of the child is written to stdout.
@@ -1076,7 +1076,7 @@ is found in the config file.
 .TP
 .BR \-i ", " \-\-pid\-file
 When
-.B mdadm
+.I mdadm
 is running in daemon mode, write the pid of the daemon process to
 the specified file, instead of printing it on standard output.
 
@@ -1325,7 +1325,7 @@ can override this caution.
 To create a "degraded" array in which some devices are missing, simply
 give the word "\fBmissing\fP"
 in place of a device name.  This will cause
-.B mdadm
+.I mdadm
 to leave the corresponding slot in the array empty.
 For a RAID4 or RAID5 array at most one slot can be
 "\fBmissing\fP"; for a RAID6 array at most two slots.
@@ -1334,7 +1334,7 @@ others can be
 "\fBmissing\fP".
 
 When creating a RAID5 array,
-.B mdadm
+.I mdadm
 will automatically create a degraded array with an extra spare drive.
 This is because building the spare into a degraded array is in general faster than resyncing
 the parity on a non-degraded, but not clean, array.  This feature can
@@ -1342,13 +1342,13 @@ be overridden with the
 .B \-\-force
 option.
 
-When creating an array with version-1 metadata a name for the host is
+When creating an array with version-1 metadata a name for the array is
 required.
 If this is not given with the
 .B \-\-name
 option,
 .I mdadm
-will chose a name based on the last component of the name of the
+will choose a name based on the last component of the name of the
 device being created.  So if
 .B /dev/md3
 is being created, then the name
@@ -1359,6 +1359,14 @@ If
 is being created, then the name
 .B home
 will be used.
+
+When creating a partition based array, using 
+.I mdadm 
+with version-1.x metadata, the partition type should be set to 
+.B 0xDA
+(non fs-data). This type selection allows for greater precision since
+using any other [RAID auto-detect (0xFD) or a GNU/Linux partition (0x83)],
+might create problems in the event of array recovery through a live cdrom.
 
 A new array will normally get a randomly assigned 128bit UUID which is
 very likely to be unique.  If you have a specific need, you can choose
@@ -1467,7 +1475,7 @@ There was an error while trying to get information about the device.
 .TP
 .B \-\-examine
 The device should be a component of an md array.
-.B mdadm
+.I mdadm
 will read the md superblock of the device and display the contents.
 If
 .B \-\-brief
@@ -1525,22 +1533,22 @@ Usage:
 
 .PP
 This usage causes
-.B mdadm
+.I mdadm
 to periodically poll a number of md arrays and to report on any events
 noticed.
-.B mdadm
+.I mdadm
 will never exit once it decides that there are arrays to be checked,
 so it should normally be run in the background.
 
 As well as reporting events,
-.B mdadm
+.I mdadm
 may move a spare drive from one array to another if they are in the
 same
 .B spare-group
 and if the destination array has a failed drive but no spares.
 
 If any devices are listed on the command line,
-.B mdadm
+.I mdadm
 will only monitor those devices. Otherwise all arrays listed in the
 configuration file will be monitored.  Further, if
 .B \-\-scan
@@ -1562,11 +1570,11 @@ If
 .B \-\-scan
 is given, then a program or an E-mail address must be specified on the
 command line or in the config file.  If neither are available, then
-.B mdadm
+.I mdadm
 will not monitor anything.
 Without
 .B \-\-scan,
-.B mdadm
+.I mdadm
 will continue monitoring as long as something was found to monitor.  If
 no program or email is given, then each event is reported to
 .BR stdout .
@@ -1689,7 +1697,7 @@ For
 the second device is the array that the spare was moved from.
 
 For
-.B mdadm
+.I mdadm
 to move spares from one array to another, the different arrays need to
 be labeled with the same
 .B spare-group
@@ -1699,7 +1707,7 @@ name can be any string; it is only necessary that different spare
 groups use different names.
 
 When
-.B mdadm
+.I mdadm
 detects that an array in a spare group has fewer active
 devices than necessary for the complete array, and has no spare
 devices, it will look for another array in the same spare group that
@@ -1721,7 +1729,7 @@ Currently the only support available is to
 change the "size" attribute
 for RAID1, RAID5 and RAID6.
 .IP \(bu 4
-increase the "raid-disks" attribute of RAID1, RAID5, and RAID6.
+increase the "raid\-devices" attribute of RAID1, RAID5, and RAID6.
 .IP \(bu 4
 add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
@@ -1911,7 +1919,7 @@ that if any devices are missing the array will not be restarted.
 As an alternative,
 .B \-\-run
 may be passed to
-.B mdadm
+.I mdadm
 in which case the array will be run as soon as there are enough
 devices present for the data to be accessible.  For a raid1, that
 means one device will start the array.  For a clean raid5, the array
@@ -2051,7 +2059,7 @@ If you're using the
 filesystem,
 .B /proc/mdstat
 lists all active md devices with information about them.
-.B mdadm
+.I mdadm
 uses this to find arrays when
 .B \-\-scan
 is given in Misc mode, and to monitor array reconstruction
@@ -2103,13 +2111,13 @@ onwards) are either of
 Partition numbers should be indicated by added "pMM" to these, thus "/dev/md/d1p2".
 
 .SH NOTE
-.B mdadm
+.I mdadm
 was previously known as
-.BR mdctl .
+.IR mdctl .
 .P
-.B mdadm
+.I mdadm
 is completely separate from the
-.B raidtools
+.I raidtools
 package, and does not use the
 .I /etc/raidtab
 configuration file at all.

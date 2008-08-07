@@ -139,7 +139,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		int fd;
 
 		memset(&inf, 0, sizeof(inf));
-		fd = open(devlist->devname, O_RDONLY, 0);
+		fd = open(devlist->devname, O_RDONLY);
 		if (fd >= 0 &&
 		    ioctl(fd, GET_ARRAY_INFO, &inf) == 0 &&
 		    inf.raid_disks == 0) {
@@ -333,7 +333,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			minsize = freesize;
 		}
 		if (runstop != 1 || verbose >= 0) {
-			int fd = open(dname, O_RDONLY, 0);
+			int fd = open(dname, O_RDONLY);
 			if (fd <0 ) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dname, strerror(errno));
@@ -685,9 +685,9 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 					inf->disk.state |= (1<<MD_DISK_WRITEMOSTLY);
 
 				if (st->ss->external && st->subarray[0])
-					fd = open(dv->devname, O_RDWR, 0);
+					fd = open(dv->devname, O_RDWR);
 				else
-					fd = open(dv->devname, O_RDWR|O_EXCL,0);
+					fd = open(dv->devname, O_RDWR|O_EXCL);
 
 				if (fd < 0) {
 					fprintf(stderr, Name ": failed to open %s "

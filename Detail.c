@@ -38,7 +38,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	 * GET_ARRAY_INFO and GET_DISK_INFO ioctl calls
 	 */
 
-	int fd = open(dev, O_RDONLY, 0);
+	int fd = open(dev, O_RDONLY);
 	int vers;
 	mdu_array_info_t array;
 	mdu_disk_info_t *disks;
@@ -147,6 +147,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	}
 
 	if (brief) {
+		mdu_bitmap_file_t bmf;
 		printf("ARRAY %s level=%s num-devices=%d", dev,
 		       c?c:"-unknown-",
 		       array.raid_disks );
@@ -155,6 +156,13 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		else
 			printf(" metadata=%02d.%02d",
 			       array.major_version, array.minor_version);
+
+		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
+		if (vers >= 9001 &&
+		    ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 &&
+		    bmf.pathname[0]) {
+			printf(" bitmap=%s", bmf.pathname);
+		}
 	} else {
 		mdu_bitmap_file_t bmf;
 		unsigned long long larray_size;

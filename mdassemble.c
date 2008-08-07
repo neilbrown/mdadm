@@ -57,7 +57,7 @@ mapping_t pers[] = {
 /* from mdopen.c */
 int open_mddev(char *dev, int autof/*unused */)
 {
-	int mdfd = open(dev, O_RDWR, 0);
+	int mdfd = open(dev, O_RDWR);
 	if (mdfd < 0)
 		fprintf(stderr, Name ": error opening %s: %s\n",
 			dev, strerror(errno));

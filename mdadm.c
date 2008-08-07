@@ -1155,7 +1155,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		if (raiddisks == 0) {
-			fprintf(stderr, Name ": no raid-disks specified.\n");
+			fprintf(stderr, Name ": no raid-devices specified.\n");
 			rv = 1;
 			break;
 		}
@@ -1179,7 +1179,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		if (raiddisks == 0) {
-			fprintf(stderr, Name ": no raid-disks specified.\n");
+			fprintf(stderr, Name ": no raid-devices specified.\n");
 			rv = 1;
 			break;
 		}

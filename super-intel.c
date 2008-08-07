@@ -1986,6 +1986,7 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 	if (a->resync_start == ~0ULL) {
 		failed = imsm_count_failed(super, map);
 		map_state = imsm_check_degraded(super, inst, failed);
+		/* complete recovery or initial resync */
 		if (!failed)
 			map_state = IMSM_T_STATE_NORMAL;
 		if (map->map_state != map_state) {
@@ -1994,13 +1995,20 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 			map->map_state = map_state;
 			super->updates_pending++;
 		}
+
+		/* complete resync */
+		if (!dirty && dev->vol.dirty) {
+			dprintf("imsm: mark 'clean'\n");
+			dev->vol.dirty = 0;
+			super->updates_pending++;
+
+		}
 	}
 
-	if (dev->vol.dirty != dirty) {
-		dprintf("imsm: mark '%s' (%llu)\n",
-			dirty?"dirty":"clean", a->resync_start);
-
-		dev->vol.dirty = dirty;
+	/* mark dirty */
+	if (dirty && !dev->vol.dirty) {
+		dprintf("imsm: mark 'dirty' (%llu)\n", a->resync_start);
+		dev->vol.dirty = 1;
 		super->updates_pending++;
 	}
 }

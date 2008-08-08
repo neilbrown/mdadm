@@ -161,8 +161,6 @@ struct intel_super {
 	int updates_pending; /* count of pending updates for mdmon */
 	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
-	#define IMSM_MAX_DISKS 6
-	struct imsm_disk *disk_tbl[IMSM_MAX_DISKS];
 	#define IMSM_MAX_RAID_DEVS 2
 	struct imsm_dev *dev_tbl[IMSM_MAX_RAID_DEVS];
 	struct dl {
@@ -171,6 +169,7 @@ struct intel_super {
 		__u8 serial[MAX_RAID_SERIAL_LEN];
 		int major, minor;
 		char *devname;
+		struct imsm_disk disk;
 		int fd;
 	} *disks;
     struct bbm_log *bbm_log;
@@ -244,11 +243,16 @@ static struct imsm_disk *__get_imsm_disk(struct imsm_super *mpb, __u8 index)
 	return &mpb->disk[index];
 }
 
+/* retrieve a disk from the parsed metadata */
 static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
 {
-	if (index >= super->anchor->num_disks)
-		return NULL;
-	return super->disk_tbl[index];
+	struct dl *d;
+
+	for (d = super->disks; d; d = d->next)
+		if (d->index == index)
+			return &d->disk;
+	
+	return NULL;
 }
 
 /* generate a checksum directly from the anchor when the anchor is known to be
@@ -344,14 +348,9 @@ static int cmp_extent(const void *av, const void *bv)
 static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 {
 	/* find a list of used extents on the given physical device */
-	struct imsm_disk *disk;
 	struct extent *rv, *e;
 	int i, j;
 	int memberships = 0;
-
-	disk = get_imsm_disk(super, dl->index);
-	if (!disk)
-		return NULL;
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
@@ -385,7 +384,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	}
 	qsort(rv, memberships, sizeof(*rv), cmp_extent);
 
-	e->start = __le32_to_cpu(disk->total_blocks) -
+	e->start = __le32_to_cpu(dl->disk.total_blocks) -
 		   (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS);
 	e->size = 0;
 	return rv;
@@ -623,12 +622,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.state = 0;
 
 	if (super->disks) {
-		disk = get_imsm_disk(super, super->disks->index);
-		if (!disk) {
-			info->disk.number = -1;
-			info->disk.raid_disk = -1;
-			return;
-		}
+		disk = &super->disks->disk;
 		info->disk.number = super->disks->index;
 		info->disk.raid_disk = super->disks->index;
 		info->data_offset = __le32_to_cpu(disk->total_blocks) -
@@ -812,25 +806,18 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 {
 	struct dl *dl;
 	struct stat stb;
-	struct imsm_disk *disk;
 	int rv;
 	int i;
 
 	dl = malloc(sizeof(*dl));
-	disk = malloc(sizeof(*disk));
-	if (!dl || !disk) {
+	if (!dl) {
 		if (devname)
 			fprintf(stderr,
 				Name ": failed to allocate disk buffer for %s\n",
 				devname);
-		if (disk)
-			free(disk);
-		if (dl)
-			free(dl);
 		return 2;
 	}
 	memset(dl, 0, sizeof(*dl));
-	memset(disk, 0, sizeof(*disk));
 
 	fstat(fd, &stb);
 	dl->major = major(stb.st_rdev);
@@ -853,8 +840,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 
 		if (memcmp(disk_iter->serial, dl->serial,
 			   MAX_RAID_SERIAL_LEN) == 0) {
-			*disk = *disk_iter;
-			super->disk_tbl[i] = disk;
+			dl->disk = *disk_iter;
 			dl->index = i;
 			break;
 		}
@@ -865,7 +851,6 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 			fprintf(stderr,
 				Name ": failed to match serial \'%s\' for %s\n",
 				dl->serial, devname);
-		free(disk);
 		return 0;
 	}
 
@@ -1033,8 +1018,6 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 
 static void free_imsm_disks(struct intel_super *super)
 {
-	int i;
-
 	while (super->disks) {
 		struct dl *d = super->disks;
 
@@ -1045,11 +1028,6 @@ static void free_imsm_disks(struct intel_super *super)
 			free(d->devname);
 		free(d);
 	}
-	for (i = 0; i < IMSM_MAX_DISKS; i++)
-		if (super->disk_tbl[i]) {
-			free(super->disk_tbl[i]);
-			super->disk_tbl[i] = NULL;
-		}
 }
 
 /* free all the pieces hanging off of a super pointer */
@@ -1454,21 +1432,15 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 
 	fstat(fd, &stb);
 	dd = malloc(sizeof(*dd));
-	disk = malloc(sizeof(*disk));
-	if (!dd || !disk) {
+	if (!dd) {
 		fprintf(stderr,
 			Name ": malloc failed %s:%d.\n", __func__, __LINE__);
-		if (!dd)
-			free(dd);
-		if (!disk)
-			free(disk);
 		abort();
 	}
 	memset(dd, 0, sizeof(*dd));
-	memset(disk, 0, sizeof(*disk));
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
-	dd->index = dk->number;
+	dd->index = -1;
 	dd->devname = devname ? strdup(devname) : NULL;
 	dd->next = super->disks;
 	dd->fd = fd;
@@ -1477,7 +1449,6 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		fprintf(stderr,
 			Name ": failed to retrieve scsi serial, aborting\n");
 		free(dd);
-		free(disk);
 		abort();
 	}
 
@@ -1487,19 +1458,18 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	get_dev_size(fd, NULL, &size);
 	size /= 512;
 	status = USABLE_DISK | SPARE_DISK;
-	strcpy((char *) disk->serial, (char *) dd->serial);
-	disk->total_blocks = __cpu_to_le32(size);
-	disk->status = __cpu_to_le32(status);
+	strcpy((char *) dd->disk.serial, (char *) dd->serial);
+	dd->disk.total_blocks = __cpu_to_le32(size);
+	dd->disk.status = __cpu_to_le32(status);
 	if (sysfs_disk_to_scsi_id(fd, &id) == 0)
-		disk->scsi_id = __cpu_to_le32(id);
+		dd->disk.scsi_id = __cpu_to_le32(id);
 	else
-		disk->scsi_id = __cpu_to_le32(0);
-	super->disk_tbl[dd->index] = disk;
+		dd->disk.scsi_id = __cpu_to_le32(0);
 
 	/* update the family number if we are creating a container */
 	if (super->creating_imsm) {
 		disk = __get_imsm_disk(mpb, dd->index);
-		*disk = *super->disk_tbl[dd->index]; /* copy in new disk */
+		*disk = dd->disk;
 		mpb->family_num = __cpu_to_le32(__gen_imsm_checksum(mpb));
 	}
 	
@@ -1521,8 +1491,9 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	generation++;
 	mpb->generation_num = __cpu_to_le32(generation);
 
-	for (i = 0; i < mpb->num_disks; i++)
-		mpb->disk[i] = *super->disk_tbl[i];
+	for (d = super->disks; d; d = d->next)
+		mpb->disk[d->index] = d->disk;
+
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 
@@ -1903,7 +1874,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		this->component_size = __le32_to_cpu(map->blocks_per_member);
 
 		for (slot = 0 ; slot <  map->num_members; slot++) {
-			struct imsm_disk *disk;
 			struct mdinfo *info_d;
 			struct dl *d;
 			int idx;
@@ -1924,8 +1894,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			info_d->next = this->devs;
 			this->devs = info_d;
 
-			disk = get_imsm_disk(super, idx);
-			s = __le32_to_cpu(disk->status);
+			s = __le32_to_cpu(d->disk.status);
 
 			info_d->disk.number = d->index;
 			info_d->disk.major = d->major;

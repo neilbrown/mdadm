@@ -270,18 +270,34 @@ static __u32 __gen_imsm_checksum(struct imsm_super *mpb)
         return sum - __le32_to_cpu(mpb->check_sum);
 }
 
+static size_t sizeof_imsm_map(struct imsm_map *map)
+{
+	return sizeof(struct imsm_map) + sizeof(__u32) * (map->num_members - 1);
+}
+
+struct imsm_map *get_imsm_map(struct imsm_dev *dev, int second_map)
+{
+	struct imsm_map *map = &dev->vol.map[0];
+
+	if (second_map && !dev->vol.migr_state)
+		return NULL;
+	else if (second_map) {
+		void *ptr = map;
+
+		return ptr + sizeof_imsm_map(map);
+	} else
+		return map;
+		
+}
+
 static size_t sizeof_imsm_dev(struct imsm_dev *dev)
 {
-	size_t size = sizeof(*dev);
-
-	/* each map has disk_ord_tbl[num_members - 1] additional space */
-	size += sizeof(__u32) * (dev->vol.map[0].num_members - 1);
+	size_t size = sizeof(*dev) - sizeof(struct imsm_map) +
+		      sizeof_imsm_map(get_imsm_map(dev, 0));
 
 	/* migrating means an additional map */
-	if (dev->vol.migr_state) {
-		size += sizeof(struct imsm_map);
-		size += sizeof(__u32) * (dev->vol.map[1].num_members - 1);
-	}
+	if (dev->vol.migr_state)
+		size += sizeof_imsm_map(get_imsm_map(dev, 1));
 
 	return size;
 }
@@ -354,7 +370,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
-		struct imsm_map *map = dev->vol.map;
+		struct imsm_map *map = get_imsm_map(dev, 0);
 
 		for (j = 0; j < map->num_members; j++) {
 			__u32 index = get_imsm_disk_idx(map, j);
@@ -370,7 +386,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
-		struct imsm_map *map = dev->vol.map;
+		struct imsm_map *map = get_imsm_map(dev, 0);
 
 		for (j = 0; j < map->num_members; j++) {
 			__u32 index = get_imsm_disk_idx(map, j);
@@ -395,7 +411,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 {
 	__u64 sz;
 	int slot;
-	struct imsm_map *map = dev->vol.map;
+	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	printf("\n");
 	printf("[%s]:\n", dev->volume);
@@ -569,7 +585,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 {
 	struct intel_super *super = st->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
-	struct imsm_map *map = &dev->vol.map[0];
+	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	info->container_member	  = super->current_vol;
 	info->array.raid_disks    = map->num_members;
@@ -906,19 +922,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 
 static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
 {
-	int i;
-
-	*dest = *src;
-
-	for (i = 0; i < src->vol.map[0].num_members; i++)
-		dest->vol.map[0].disk_ord_tbl[i] = src->vol.map[0].disk_ord_tbl[i];
-
-	if (!src->vol.migr_state)
-		return;
-
-	dest->vol.map[1] = src->vol.map[1];
-	for (i = 0; i < src->vol.map[1].num_members; i++)
-		dest->vol.map[1].disk_ord_tbl[i] = src->vol.map[1].disk_ord_tbl[i];
+	memcpy(dest, src, sizeof_imsm_dev(src));
 }
 
 static int parse_raid_devices(struct intel_super *super)
@@ -1362,12 +1366,12 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	vol->dirty = 0;
 	for (i = 0; i < idx; i++) {
 		struct imsm_dev *prev = get_imsm_dev(super, i);
-		struct imsm_map *pmap = &prev->vol.map[0];
+		struct imsm_map *pmap = get_imsm_map(prev, 0);
 
 		offset += __le32_to_cpu(pmap->blocks_per_member);
 		offset += IMSM_RESERVED_SECTORS;
 	}
-	map = &vol->map[0];
+	map = get_imsm_map(dev, 0);
 	map->pba_of_lba0 = __cpu_to_le32(offset);
 	map->blocks_per_member = __cpu_to_le32(info_to_blocks_per_member(info));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
@@ -1451,7 +1455,7 @@ static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	__u32 status;
 
 	dev = get_imsm_dev(super, super->current_vol);
-	map = &dev->vol.map[0];
+	map = get_imsm_map(dev, 0);
 
 	for (dl = super->disks; dl ; dl = dl->next)
 		if (dl->major == dk->major &&
@@ -1957,7 +1961,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 		struct imsm_vol *vol = &dev->vol;
-		struct imsm_map *map = vol->map;
+		struct imsm_map *map = get_imsm_map(dev, 0);
 		struct mdinfo *this;
 		int slot;
 
@@ -2056,7 +2060,7 @@ static int imsm_open_new(struct supertype *c, struct active_array *a,
 static __u8 imsm_check_degraded(struct intel_super *super, int n, int failed)
 {
 	struct imsm_dev *dev = get_imsm_dev(super, n);
-	struct imsm_map *map = dev->vol.map;
+	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	if (!failed)
 		return map->map_state;
@@ -2135,7 +2139,7 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 	int inst = a->info.container_member;
 	struct intel_super *super = a->container->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, inst);
-	struct imsm_map *map = &dev->vol.map[0];
+	struct imsm_map *map = get_imsm_map(dev, 0);
 	int dirty = !consistent;
 	int failed;
 	__u8 map_state;
@@ -2175,7 +2179,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	int inst = a->info.container_member;
 	struct intel_super *super = a->container->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, inst);
-	struct imsm_map *map = dev->vol.map;
+	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct imsm_disk *disk;
 	__u32 status;
 	int failed = 0;
@@ -2291,7 +2295,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	struct intel_super *super = a->container->sb;
 	int inst = a->info.container_member;
 	struct imsm_dev *dev = get_imsm_dev(super, inst);
-	struct imsm_map *map = dev->vol.map;
+	struct imsm_map *map = get_imsm_map(dev, 0);
 	int failed = a->info.array.raid_disks;
 	struct mdinfo *rv = NULL;
 	struct mdinfo *d;
@@ -2482,7 +2486,7 @@ static void imsm_process_update(struct supertype *st,
 	case update_activate_spare: {
 		struct imsm_update_activate_spare *u = (void *) update->buf; 
 		struct imsm_dev *dev = get_imsm_dev(super, u->array);
-		struct imsm_map *map = &dev->vol.map[0];
+		struct imsm_map *map = get_imsm_map(dev, 0);
 		struct active_array *a;
 		struct imsm_disk *disk;
 		__u32 status;
@@ -2521,7 +2525,7 @@ static void imsm_process_update(struct supertype *st,
 		found = 0;
 		for (a = st->arrays; a ; a = a->next) {
 			dev = get_imsm_dev(super, a->info.container_member);
-			map = &dev->vol.map[0];
+			map = get_imsm_map(dev, 0);
 			for (i = 0; i < map->num_members; i++)
 				if (victim == get_imsm_disk_idx(map, i))
 					found++;
@@ -2575,7 +2579,7 @@ static void imsm_process_update(struct supertype *st,
 			return;
 		}
 
-		new_map = &u->dev.vol.map[0];
+		new_map = get_imsm_map(&u->dev, 0);
 		new_start = __le32_to_cpu(new_map->pba_of_lba0);
 		new_end = new_start + __le32_to_cpu(new_map->blocks_per_member);
 
@@ -2585,7 +2589,7 @@ static void imsm_process_update(struct supertype *st,
 		 */
 		for (i = 0; i < mpb->num_raid_devs; i++) {
 			dev = get_imsm_dev(super, i);
-			map = &dev->vol.map[0];
+			map = get_imsm_map(dev, 0);
 			start = __le32_to_cpu(map->pba_of_lba0);
 			end = start + __le32_to_cpu(map->blocks_per_member);
 			if ((new_start >= start && new_start <= end) ||

@@ -1611,6 +1611,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	int spares = 0;
 	int raid_disks = 0;
 	int i;
+	__u32 mpb_size = sizeof(struct imsm_super) - sizeof(struct imsm_disk);
 
 	/* 'generation' is incremented everytime the metadata is written */
 	generation = __le32_to_cpu(mpb->generation_num);
@@ -1623,6 +1624,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 		else {
 			raid_disks++;
 			mpb->disk[d->index] = d->disk;
+			mpb_size += sizeof(struct imsm_disk);
 		}
 	}
 	if (raid_disks != mpb->num_disks) {
@@ -1635,7 +1637,10 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 
 		imsm_copy_dev(dev, super->dev_tbl[i]);
+		mpb_size += sizeof_imsm_dev(dev, 0);
 	}
+	mpb_size += __le32_to_cpu(mpb->bbm_log_size);
+	mpb->mpb_size = __cpu_to_le32(mpb_size);
 
 	/* recalculate checksum */
 	sum = __gen_imsm_checksum(mpb);

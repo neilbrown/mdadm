@@ -496,10 +496,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 
 static void brief_examine_super_imsm(struct supertype *st)
 {
-	struct intel_super *super = st->sb;
-
-	printf("ARRAY /dev/imsm family=%08x metadata=external:imsm\n",
-		__le32_to_cpu(super->anchor->family_num));
+	printf("ARRAY /dev/imsm metadata=imsm\n");
 }
 
 static void detail_super_imsm(struct supertype *st, char *homehost)

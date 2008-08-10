@@ -290,7 +290,10 @@ struct imsm_map *get_imsm_map(struct imsm_dev *dev, int second_map)
 		
 }
 
-static size_t sizeof_imsm_dev(struct imsm_dev *dev)
+/* return the size of the device.
+ * migr_state increases the returned size if map[0] were to be duplicated
+ */
+static size_t sizeof_imsm_dev(struct imsm_dev *dev, int migr_state)
 {
 	size_t size = sizeof(*dev) - sizeof(struct imsm_map) +
 		      sizeof_imsm_map(get_imsm_map(dev, 0));
@@ -298,6 +301,8 @@ static size_t sizeof_imsm_dev(struct imsm_dev *dev)
 	/* migrating means an additional map */
 	if (dev->vol.migr_state)
 		size += sizeof_imsm_map(get_imsm_map(dev, 1));
+	else if (migr_state)
+		size += sizeof_imsm_map(get_imsm_map(dev, 0));
 
 	return size;
 }
@@ -318,7 +323,7 @@ static struct imsm_dev *__get_imsm_dev(struct imsm_super *mpb, __u8 index)
 		if (i == index)
 			return _mpb + offset;
 		else
-			offset += sizeof_imsm_dev(_mpb + offset);
+			offset += sizeof_imsm_dev(_mpb + offset, 0);
 
 	return NULL;
 }
@@ -439,9 +444,17 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	printf("     Chunk Size : %u KiB\n",
 		__le16_to_cpu(map->blocks_per_strip) / 2);
 	printf("       Reserved : %d\n", __le32_to_cpu(dev->reserved_blocks));
-	printf("  Migrate State : %s\n", dev->vol.migr_state ? "migrating" : "idle");
+	printf("  Migrate State : %s", dev->vol.migr_state ? "migrating" : "idle");
+	if (dev->vol.migr_state)
+		printf(": %s", dev->vol.migr_type ? "rebuilding" : "initializing");
+	printf("\n");
+	printf("      Map State : %s", map_state_str[map->map_state]);
+	if (dev->vol.migr_state) {
+		struct imsm_map *map = get_imsm_map(dev, 1);
+		printf(", %s", map_state_str[map->map_state]);
+	}
+	printf("\n");
 	printf("    Dirty State : %s\n", dev->vol.dirty ? "dirty" : "clean");
-	printf("      Map State : %s\n", map_state_str[map->map_state]);
 }
 
 static void print_imsm_disk(struct imsm_super *mpb, int index)
@@ -922,7 +935,15 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 
 static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
 {
-	memcpy(dest, src, sizeof_imsm_dev(src));
+	memcpy(dest, src, sizeof_imsm_dev(src, 0));
+}
+
+static void dup_map(struct imsm_dev *dev)
+{
+	struct imsm_map *dest = get_imsm_map(dev, 1);
+	struct imsm_map *src = get_imsm_map(dev, 0);
+
+	memcpy(dest, src, sizeof_imsm_map(src));
 }
 
 static int parse_raid_devices(struct intel_super *super)
@@ -934,7 +955,7 @@ static int parse_raid_devices(struct intel_super *super)
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev_iter = __get_imsm_dev(super->anchor, i);
 
-		len = sizeof_imsm_dev(dev_iter);
+		len = sizeof_imsm_dev(dev_iter, 1);
 		dev_new = malloc(len);
 		if (!dev_new)
 			return 1;
@@ -1659,7 +1680,7 @@ static int write_init_super_imsm(struct supertype *st)
 		}
 
 
-		len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev);
+		len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0);
 		u = malloc(len);
 		if (!u) {
 			fprintf(stderr, "%s: failed to allocate update buffer\n",
@@ -2063,7 +2084,8 @@ static __u8 imsm_check_degraded(struct intel_super *super, int n, int failed)
 	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	if (!failed)
-		return map->map_state;
+		return map->map_state == IMSM_T_STATE_UNINITIALIZED ? 
+			IMSM_T_STATE_UNINITIALIZED : IMSM_T_STATE_NORMAL;
 
 	switch (get_imsm_raid_level(map)) {
 	case 0:
@@ -2144,32 +2166,39 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 	int failed;
 	__u8 map_state;
 
+	failed = imsm_count_failed(super, map);
+	map_state = imsm_check_degraded(super, inst, failed);
+
 	if (a->resync_start == ~0ULL) {
-		failed = imsm_count_failed(super, map);
-		map_state = imsm_check_degraded(super, inst, failed);
 		/* complete recovery or initial resync */
-		if (!failed)
-			map_state = IMSM_T_STATE_NORMAL;
 		if (map->map_state != map_state) {
 			dprintf("imsm: map_state %d: %d\n",
 				inst, map_state);
 			map->map_state = map_state;
 			super->updates_pending++;
 		}
-
-		/* complete resync */
-		if (!dirty && dev->vol.dirty) {
-			dprintf("imsm: mark 'clean'\n");
-			dev->vol.dirty = 0;
+		if (dev->vol.migr_state) {
+			dprintf("imsm: mark resync complete\n");
+			dev->vol.migr_state = 0;
+			dev->vol.migr_type = 0;
 			super->updates_pending++;
-
 		}
+	} else if (!dev->vol.migr_state) {
+		dprintf("imsm: mark '%s' (%llu)\n",
+			failed ? "rebuild" : "initializing", a->resync_start);
+		/* mark that we are rebuilding */
+		map->map_state = failed ? map_state : IMSM_T_STATE_NORMAL;
+		dev->vol.migr_state = 1;
+		dev->vol.migr_type = failed ? 1 : 0;
+		dup_map(dev);
+		super->updates_pending++;
 	}
 
-	/* mark dirty */
-	if (dirty && !dev->vol.dirty) {
-		dprintf("imsm: mark 'dirty' (%llu)\n", a->resync_start);
-		dev->vol.dirty = 1;
+	/* mark dirty / clean */
+	if (dirty != dev->vol.dirty) {
+		dprintf("imsm: mark '%s' (%llu)\n",
+			dirty ? "dirty" : "clean", a->resync_start);
+		dev->vol.dirty = dirty;
 		super->updates_pending++;
 	}
 }
@@ -2230,6 +2259,8 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 		if (working == a->info.array.raid_disks) {
 			map->map_state = IMSM_T_STATE_NORMAL;
+			dev->vol.migr_state = 0;
+			dev->vol.migr_type = 0;
 			super->updates_pending++;
 		}
 	}
@@ -2659,7 +2690,7 @@ static void imsm_prepare_update(struct supertype *st,
 	switch (type) {
 	case update_create_array: {
 		struct imsm_update_create_array *u = (void *) update->buf;
-		size_t len = sizeof_imsm_dev(&u->dev);
+		size_t len = sizeof_imsm_dev(&u->dev, 1);
 
 		update->space = malloc(len);
 		break;

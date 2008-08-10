@@ -2203,6 +2203,12 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		new_failure = 1;
 		super->updates_pending++;
 	}
+	/* check if in_sync */
+	if ((state & DS_INSYNC) && !(status & USABLE_DISK)) {
+		status |= USABLE_DISK;
+		disk->status = __cpu_to_le32(status);
+		super->updates_pending++;
+	}
 
 	/* the number of failures have changed, count up 'failed' to determine
 	 * degraded / failed status
@@ -2511,7 +2517,7 @@ static void imsm_process_update(struct supertype *st,
 		disk = &dl->disk;
 		status = __le32_to_cpu(disk->status);
 		status |= CONFIGURED_DISK;
-		status &= ~SPARE_DISK;
+		status &= ~(SPARE_DISK | USABLE_DISK);
 		disk->status = __cpu_to_le32(status);
 
 		/* count arrays using the victim in the metadata */

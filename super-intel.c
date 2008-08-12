@@ -195,8 +195,8 @@ struct imsm_update_activate_spare {
 
 struct imsm_update_create_array {
 	enum imsm_update_type type;
-	struct imsm_dev dev;
 	int dev_idx;
+	struct imsm_dev dev;
 };
 
 static int imsm_env_devname_as_serial(void)
@@ -2652,8 +2652,8 @@ static void imsm_process_update(struct supertype *st,
 
 		/* check update is next in sequence */
 		if (u->dev_idx != mpb->num_raid_devs) {
-			dprintf("%s: can not create arrays out of sequence\n",
-				__func__);
+			dprintf("%s: can not create array %d expected index %d\n",
+				__func__, u->dev_idx, mpb->num_raid_devs);
 			return;
 		}
 

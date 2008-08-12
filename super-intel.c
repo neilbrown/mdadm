@@ -1994,7 +1994,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		this = malloc(sizeof(*this));
 		memset(this, 0, sizeof(*this));
 		this->next = rest;
-		rest = this;
 
 		this->array.level = get_imsm_raid_level(map);
 		this->array.raid_disks = map->num_members;
@@ -2005,7 +2004,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		this->array.chunk_size = __le16_to_cpu(map->blocks_per_strip) << 9;
 		this->array.state = !vol->dirty;
 		this->container_member = i;
-		if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty)
+		if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
+		    dev->vol.dirty || dev->vol.migr_state)
 			this->resync_start = 0;
 		else
 			this->resync_start = ~0ULL;
@@ -2025,32 +2025,51 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			struct mdinfo *info_d;
 			struct dl *d;
 			int idx;
+			int skip;
 			__u32 s;
 
+			skip = 0;
 			idx = get_imsm_disk_idx(map, slot);
 			for (d = super->disks; d ; d = d->next)
 				if (d->index == idx)
                                         break;
 
 			if (d == NULL)
-				break; /* shouldn't this be continue ?? */
+				skip = 1;
+
+			s = d ? __le32_to_cpu(d->disk.status) : 0;
+			if (s & FAILED_DISK)
+				skip = 1;
+			if (!(s & USABLE_DISK))
+				skip = 1;
+
+			/* 
+			 * if we skip some disks the array will be assmebled degraded;
+			 * reset resync start to avoid a dirty-degraded situation
+			 *
+			 * FIXME handle dirty degraded
+			 */
+			if (skip && !dev->vol.dirty)
+				this->resync_start = ~0ULL;
+			if (skip)
+				continue;
 
 			info_d = malloc(sizeof(*info_d));
-			if (!info_d)
-				break; /* ditto ?? */
+			if (!info_d) {
+				fprintf(stderr, Name ": failed to allocate disk"
+					" for volume %s\n", (char *) dev->volume);
+				free(this);
+				this = rest;
+				break;
+			}
 			memset(info_d, 0, sizeof(*info_d));
 			info_d->next = this->devs;
 			this->devs = info_d;
-
-			s = __le32_to_cpu(d->disk.status);
 
 			info_d->disk.number = d->index;
 			info_d->disk.major = d->major;
 			info_d->disk.minor = d->minor;
 			info_d->disk.raid_disk = slot;
-			info_d->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
-			info_d->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
-			info_d->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
 
 			this->array.working_disks++;
 
@@ -2060,6 +2079,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			if (d->devname)
 				strcpy(info_d->name, d->devname);
 		}
+		rest = this;
 	}
 
 	return rest;
@@ -2350,6 +2370,7 @@ static struct dl *imsm_add_spare(struct intel_super *super, int idx, struct acti
 	int j;
 	int found;
 	__u32 array_start;
+	__u32 status;
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next) {
@@ -2362,6 +2383,16 @@ static struct dl *imsm_add_spare(struct intel_super *super, int idx, struct acti
 			}
 		if (d)
 			continue;
+
+		/* skip marked in use or failed drives */
+		status = __le32_to_cpu(dl->disk.status);
+		if (status & FAILED_DISK || status & CONFIGURED_DISK) {
+			dprintf("%x:%x status ( %s%s)\n",
+			dl->major, dl->minor,
+			status & FAILED_DISK ? "failed " : "",
+			status & CONFIGURED_DISK ? "configured " : "");
+			continue;
+		}
 
 		/* Does this unused device have the requisite free space?
 		 * We need a->info.component_size sectors

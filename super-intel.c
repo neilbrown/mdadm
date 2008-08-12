@@ -1590,7 +1590,7 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 			fprintf(stderr, "%s: failed for device %d:%d %s\n",
 				__func__, d->major, d->minor, strerror(errno));
 			*mpb = mpb_save;
-			return 0;
+			return 1;
 		}
 		if (doclose) {
 			close(d->fd);
@@ -1599,7 +1599,7 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 	}
 
 	*mpb = mpb_save;
-	return 1;
+	return 0;
 }
 
 static int write_super_imsm(struct intel_super *super, int doclose)
@@ -1630,7 +1630,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	if (raid_disks != mpb->num_disks) {
 		fprintf(stderr, "%s: expected %d disks only found %d\n",
 			__func__, mpb->num_disks, raid_disks);
-		return 0;
+		return 1;
 	}
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
@@ -1653,7 +1653,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 		if (store_imsm_mpb(d->fd, super)) {
 			fprintf(stderr, "%s: failed for device %d:%d %s\n",
 				__func__, d->major, d->minor, strerror(errno));
-			return 0;
+			return 1;
 		}
 		if (doclose) {
 			close(d->fd);
@@ -1664,7 +1664,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	if (spares)
 		return write_super_imsm_spares(super, doclose);
 
-	return 1;
+	return 0;
 }
 
 static int write_init_super_imsm(struct supertype *st)

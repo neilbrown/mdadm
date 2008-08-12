@@ -2169,6 +2169,10 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 	failed = imsm_count_failed(super, map);
 	map_state = imsm_check_degraded(super, inst, failed);
 
+	if (consistent && !dev->vol.dirty &&
+	    (dev->vol.migr_state || map_state != IMSM_T_STATE_NORMAL))
+		a->resync_start = 0ULL;
+
 	if (a->resync_start == ~0ULL) {
 		/* complete recovery or initial resync */
 		if (map->map_state != map_state) {
@@ -2191,6 +2195,7 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 		dev->vol.migr_state = 1;
 		dev->vol.migr_type = failed ? 1 : 0;
 		dup_map(dev);
+		a->check_degraded = 1;
 		super->updates_pending++;
 	}
 
@@ -2309,6 +2314,93 @@ static void imsm_sync_metadata(struct supertype *container)
 	super->updates_pending = 0;
 }
 
+static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_array *a)
+{
+	struct imsm_dev *dev = get_imsm_dev(super, a->info.container_member);
+	struct imsm_map *map = get_imsm_map(dev, 0);
+	int i = get_imsm_disk_idx(map, idx);
+	struct dl *dl;
+
+	for (dl = super->disks; dl; dl = dl->next)
+		if (dl->index == i)
+			break;
+
+	if (__le32_to_cpu(dl->disk.status) & FAILED_DISK)
+		dl = NULL;
+
+	if (dl)
+		dprintf("%s: found %x:%x\n", __func__, dl->major, dl->minor);
+
+	return dl;
+}
+
+static struct dl *imsm_add_spare(struct intel_super *super, int idx, struct active_array *a)
+{
+	struct imsm_dev *dev = get_imsm_dev(super, a->info.container_member);
+	struct imsm_map *map = get_imsm_map(dev, 0);
+	unsigned long long esize;
+	unsigned long long pos;
+	struct mdinfo *d;
+	struct extent *ex;
+	int j;
+	int found;
+	__u32 array_start;
+	struct dl *dl;
+
+	for (dl = super->disks; dl; dl = dl->next) {
+		/* If in this array, skip */
+		for (d = a->info.devs ; d ; d = d->next)
+			if (d->disk.major == dl->major &&
+			    d->disk.minor == dl->minor) {
+				dprintf("%x:%x already in array\n", dl->major, dl->minor);
+				break;
+			}
+		if (d)
+			continue;
+
+		/* Does this unused device have the requisite free space?
+		 * We need a->info.component_size sectors
+		 */
+		ex = get_extents(super, dl);
+		if (!ex) {
+			dprintf("cannot get extents\n");
+			continue;
+		}
+		found = 0;
+		j = 0;
+		pos = 0;
+		array_start = __le32_to_cpu(map->pba_of_lba0);
+
+		do {
+			/* check that we can start at pba_of_lba0 with
+			 * a->info.component_size of space
+			 */
+			esize = ex[j].start - pos;
+			if (array_start >= pos &&
+			    array_start + a->info.component_size < ex[j].start) {
+				found = 1;
+				break;
+			}
+			pos = ex[j].start + ex[j].size;
+			j++;
+			    
+		} while (ex[j-1].size);
+
+		free(ex);
+		if (!found) {
+			dprintf("%x:%x does not have %llu at %d\n",
+				dl->major, dl->minor,
+				a->info.component_size,
+				__le32_to_cpu(map->pba_of_lba0));
+			/* No room */
+			continue;
+		} else
+			break;
+	}
+
+	return dl;
+}
+
 static struct mdinfo *imsm_activate_spare(struct active_array *a,
 					  struct metadata_update **updates)
 {
@@ -2352,7 +2444,6 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		return NULL;
 
 	/* For each slot, if it is not working, find a spare */
-	dl = super->disks;
 	for (i = 0; i < a->info.array.raid_disks; i++) {
 		for (d = a->info.devs ; d ; d = d->next)
 			if (d->disk.raid_disk == i)
@@ -2361,96 +2452,47 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		if (d && (d->state_fd >= 0))
 			continue;
 
-		/* OK, this device needs recovery.  Find a spare */
-		for ( ; dl ; dl = dl->next) {
-			unsigned long long esize;
-			unsigned long long pos;
-			struct mdinfo *d2;
-			struct extent *ex;
-			int j;
-			int found;
-			__u32 array_start;
+		/*
+		 * OK, this device needs recovery.  Try to re-add the previous
+		 * occupant of this slot, if this fails add a new spare
+		 */
+		dl = imsm_readd(super, i, a);
+		if (!dl)
+			dl = imsm_add_spare(super, i, a);
+		if (!dl)
+			continue;
+ 
+		/* found a usable disk with enough space */
+		di = malloc(sizeof(*di));
+		memset(di, 0, sizeof(*di));
 
-			/* If in this array, skip */
-			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
-				if (d2->disk.major == dl->major &&
-				    d2->disk.minor == dl->minor) {
-					dprintf("%x:%x already in array\n", dl->major, dl->minor);
-					break;
-				}
-			if (d2)
-				continue;
+		/* dl->index will be -1 in the case we are activating a
+		 * pristine spare.  imsm_process_update() will create a
+		 * new index in this case.  Once a disk is found to be
+		 * failed in all member arrays it is kicked from the
+		 * metadata
+		 */
+		di->disk.number = dl->index;
 
-			/* Does this unused device have the requisite free space?
-			 * We need a->info.component_size sectors
-			 */
-			ex = get_extents(super, dl);
-			if (!ex) {
-				dprintf("cannot get extents\n");
-				continue;
-			}
-			found = 0;
-			j = 0;
-			pos = 0;
-			array_start = __le32_to_cpu(map->pba_of_lba0);
+		/* (ab)use di->devs to store a pointer to the device
+		 * we chose
+		 */
+		di->devs = (struct mdinfo *) dl;
 
-			do {
-				/* check that we can start at pba_of_lba0 with
-				 * a->info.component_size of space
-				 */
-				esize = ex[j].start - pos;
-				if (array_start >= pos &&
-				    array_start + a->info.component_size < ex[j].start) {
-			    		found = 1;
-					break;
-				}
-				pos = ex[j].start + ex[j].size;
-				j++;
-				    
-			} while (ex[j-1].size);
+		di->disk.raid_disk = i;
+		di->disk.major = dl->major;
+		di->disk.minor = dl->minor;
+		di->disk.state = 0;
+		di->data_offset = __le32_to_cpu(map->pba_of_lba0);
+		di->component_size = a->info.component_size;
+		di->container_member = inst;
+		di->next = rv;
+		rv = di;
+		num_spares++;
+		dprintf("%x:%x to be %d at %llu\n", dl->major, dl->minor,
+			i, di->data_offset);
 
-			free(ex);
-			if (!found) {
-				dprintf("%x:%x does not have %llu at %d\n",
-					dl->major, dl->minor,
-					a->info.component_size,
-					__le32_to_cpu(map->pba_of_lba0));
-				/* No room */
-				continue;
-			}
-
-			/* found a usable disk with enough space */
-			di = malloc(sizeof(*di));
-			memset(di, 0, sizeof(*di));
-
-			/* dl->index will be -1 in the case we are activating a
-			 * pristine spare.  imsm_process_update() will create a
-			 * new index in this case.  Once a disk is found to be
-			 * failed in all member arrays it is kicked from the
-			 * metadata
-			 */
-			di->disk.number = dl->index;
-
-			/* (ab)use di->devs to store a pointer to the device
-			 * we chose
-			 */
-			di->devs = (struct mdinfo *) dl;
-
-			di->disk.raid_disk = i;
-			di->disk.major = dl->major;
-			di->disk.minor = dl->minor;
-			di->disk.state = 0;
-			di->data_offset = array_start;
-			di->component_size = a->info.component_size;
-			di->container_member = inst;
-			di->next = rv;
-			rv = di;
-			num_spares++;
-			dprintf("%x:%x to be %d at %llu\n", dl->major, dl->minor,
-				i, pos);
-
-			break;
-		}
+		break;
 	}
 
 	if (!rv)

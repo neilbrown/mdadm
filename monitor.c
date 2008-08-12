@@ -243,10 +243,15 @@ static int read_and_act(struct active_array *a)
 		 * readonly ???
 		 */
 		get_resync_start(a);
-//		printf("Found a readonly array at %llu\n", a->resync_start);
-		if (a->resync_start == ~0ULL)
+		if (a->resync_start == ~0ULL) {
 			a->next_state = read_auto; /* array is clean */
-		else {
+			/* give the metadata a chance to force active if
+			 * we have some recovery to do.  metadata sets
+			 * resync_start to !MaxSector in this case
+			 */
+			a->container->ss->set_array_state(a, 1);
+		}
+		if (a->resync_start != ~0ULL) {
 			a->container->ss->set_array_state(a, 0);
 			a->next_state = active;
 		}

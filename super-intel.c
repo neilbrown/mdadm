@@ -68,8 +68,10 @@ struct imsm_map {
 	__u8  num_members;	/* number of member disks */
 	__u8  reserved[3];
 	__u32 filler[7];	/* expansion area */
+#define IMSM_ORD_REBUILD (1 << 24)
 	__u32 disk_ord_tbl[1];	/* disk_ord_tbl[num_members],
-				   top byte special */
+				 * top byte contains some flags
+				 */
 } __attribute__ ((packed));
 
 struct imsm_vol {
@@ -339,8 +341,22 @@ static __u32 get_imsm_disk_idx(struct imsm_map *map, int slot)
 {
 	__u32 *ord_tbl = &map->disk_ord_tbl[slot];
 
-	/* top byte is 'special' */
+	/* top byte identifies disk under rebuild
+	 * why not just use the USABLE bit... oh well.
+	 */
 	return __le32_to_cpu(*ord_tbl & ~(0xff << 24));
+}
+
+static __u32 get_imsm_ord_tbl_ent(struct imsm_dev *dev, int slot)
+{
+	struct imsm_map *map;
+
+	if (dev->vol.migr_state)
+		map = get_imsm_map(dev, 0);
+	else
+		map = get_imsm_map(dev, 1);
+
+	return map->disk_ord_tbl[slot];
 }
 
 static int get_imsm_raid_level(struct imsm_map *map)
@@ -2027,9 +2043,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			int idx;
 			int skip;
 			__u32 s;
+			__u32 ord;
 
 			skip = 0;
 			idx = get_imsm_disk_idx(map, slot);
+			ord = get_imsm_ord_tbl_ent(dev, slot); 
 			for (d = super->disks; d ; d = d->next)
 				if (d->index == idx)
                                         break;
@@ -2041,6 +2059,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			if (s & FAILED_DISK)
 				skip = 1;
 			if (!(s & USABLE_DISK))
+				skip = 1;
+			if (ord & IMSM_ORD_REBUILD)
 				skip = 1;
 
 			/* 

@@ -2196,6 +2196,8 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_map *map)
 		disk = get_imsm_disk(super, idx);
 		if (__le32_to_cpu(disk->status) & FAILED_DISK)
 			failed++;
+		else if (!(__le32_to_cpu(disk->status) & USABLE_DISK))
+			failed++;
 	}
 
 	return failed;

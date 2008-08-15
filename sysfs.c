@@ -153,6 +153,12 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			goto abort;
 		sra->array.raid_disks = strtoul(buf, NULL, 0);
 	}
+	if (options & GET_DEGRADED) {
+		strcpy(base, "degraded");
+		if (load_sys(fname, buf))
+			goto abort;
+		sra->array.failed_disks = strtoul(buf, NULL, 0);
+	}
 	if (options & GET_COMPONENT) {
 		strcpy(base, "component_size");
 		if (load_sys(fname, buf))

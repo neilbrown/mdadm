@@ -341,6 +341,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	struct mdinfo *mdi, *di;
 	char *inst;
 	int i;
+	int failed = 0;
 
 	/* check if array is ready to be monitored */
 	if (!mdstat->active)
@@ -348,7 +349,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	mdi = sysfs_read(-1, mdstat->devnum,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
-			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
+			 GET_DEGRADED|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 
 	new = malloc(sizeof(*new));
 
@@ -390,10 +391,14 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 			newd->prev_state = read_dev_state(newd->state_fd);
 			newd->curr_state = newd->prev_state;
-		} else {
-			/* we cannot properly monitor without all raid_disks */
+		} else if (failed + 1 > new->info.array.failed_disks) {
+			/* we cannot properly monitor without all working disks */
 			new->container = NULL;
 			break;
+		} else {
+			failed++;
+			free(newd);
+			continue;
 		}
 		sprintf(newd->sys_name, "rd%d", i);
 		newd->next = new->info.devs;

@@ -324,6 +324,7 @@ extern void map_add(struct map_ent **melp,
 #define	GET_MISMATCH	32
 #define	GET_VERSION	64
 #define	GET_DISKS	128
+#define	GET_DEGRADED	256
 
 #define	GET_DEVS	1024 /* gets role, major, minor */
 #define	GET_OFFSET	2048

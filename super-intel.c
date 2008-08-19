@@ -789,10 +789,6 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	    sec->anchor->num_raid_devs > 0) {
 		if (first->anchor->family_num != sec->anchor->family_num)
 			return 3;
-		if (first->anchor->mpb_size != sec->anchor->mpb_size)
-			return 3;
-		if (first->anchor->check_sum != sec->anchor->check_sum)
-			return 3;
 	}
 
 	return 0;
@@ -910,6 +906,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		dl->fd = keep_fd ? fd : -1;
 		dl->devname = devname ? strdup(devname) : NULL;
 		strncpy((char *) dl->serial, (char *) serial, MAX_RAID_SERIAL_LEN);
+		dl->index = -3;
 	} else if (keep_fd) {
 		close(dl->fd);
 		dl->fd = fd;
@@ -930,7 +927,9 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 			/* only set index on disks that are a member of a
 			 * populated contianer, i.e. one with raid_devs
 			 */
-			if (status & SPARE_DISK)
+			if (status & FAILED_DISK)
+				dl->index = -2;
+			else if (status & SPARE_DISK)
 				dl->index = -1;
 			else
 				dl->index = i;
@@ -938,26 +937,16 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		}
 	}
 
-	if (i == super->anchor->num_disks && alloc) {
-		if (devname)
-			fprintf(stderr,
-				Name ": failed to load disk with serial \'%s\' for %s\n",
-				dl->serial, devname);
-		free(dl);
-		return 1;
-	}
-	if (i == super->anchor->num_disks && dl->index >= 0) {
-		if (devname)
-			fprintf(stderr,
-				Name ": confused... disk %d with serial \'%s\' "
-				"is not listed in the current anchor\n",
-				dl->index, dl->serial);
-		return 1;
+	if (dl->index == -3) {
+		fprintf(stderr, Name ": device %x:%x with serial %s"
+			" does not belong to this container\n",
+			dl->major, dl->minor, (char *) serial);
+		return 2;
 	}
 
 	if (alloc)
 		super->disks = dl;
-		
+
 	return 0;
 }
 

@@ -404,8 +404,7 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 
-			if (array.not_persistent == 0) {
-
+			if (array.not_persistent == 0 || tst->ss->external) {
 				/* Make sure device is large enough */
 				if (tst->ss->avail_size(tst, ldsize/512) <
 				    array_size) {
@@ -415,9 +414,13 @@ int Manage_subdevs(char *devname, int fd,
 				}
 
 				/* need to find a sample superblock to copy, and
-				 * a spare slot to use
+				 * a spare slot to use.
+				 * For 'external' array (well, container based),
+				 * We can just load the metadata for the array.
 				 */
-				for (j = 0; j < tst->max_devs; j++) {
+				if (tst->ss->external) {
+					tst->ss->load_super(tst, fd, NULL);
+				} else for (j = 0; j < tst->max_devs; j++) {
 					char *dev;
 					int dfd;
 					disc.number = j;
@@ -439,6 +442,7 @@ int Manage_subdevs(char *devname, int fd,
 					close(dfd);
 					break;
 				}
+				/* FIXME this is a bad test to be using */
 				if (!tst->sb) {
 					fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
 					return 1;
@@ -507,7 +511,7 @@ int Manage_subdevs(char *devname, int fd,
 			disc.minor = minor(stb.st_rdev);
 			disc.number =j;
 			disc.state = 0;
-			if (array.not_persistent==0) {
+			if (array.not_persistent==0 || tst->ss->external) {
 				int dfd;
 				if (dv->writemostly)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
@@ -515,7 +519,10 @@ int Manage_subdevs(char *devname, int fd,
 				tst->ss->add_to_super(tst, &disc, dfd,
 						      dv->devname);
 				/* write_init_super will close 'dfd' */
-				if (tst->ss->write_init_super(tst))
+				if (tst->ss->external)
+					/* mdmon will write the metadata */
+					close(dfd);
+				else if (tst->ss->write_init_super(tst))
 					return 1;
 			} else if (dv->re_add) {
 				/*  this had better be raid1.
@@ -548,7 +555,52 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (dv->writemostly)
 				disc.state |= (1 << MD_DISK_WRITEMOSTLY);
-			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
+			if (tst->ss->external) {
+				/* add a disk to an external metadata container
+				 * only if mdmon is around to see it
+				 */
+				struct mdinfo new_mdi;
+				struct mdinfo *sra;
+				int container_fd;
+				int devnum = fd2devnum(fd);
+
+				container_fd = open_dev_excl(devnum);
+				if (container_fd < 0) {
+					fprintf(stderr, Name ": add failed for %s:"
+						" could not get exclusive access to container\n",
+						dv->devname);
+					return 1;
+				}
+
+				if (!mdmon_running(devnum)) {
+					fprintf(stderr, Name ": add failed for %s: mdmon not running\n",
+						dv->devname);
+					close(container_fd);
+					return 1;
+				}
+
+				sra = sysfs_read(container_fd, -1, 0);
+				if (!sra) {
+					fprintf(stderr, Name ": add failed for %s: sysfs_read failed\n",
+						dv->devname);
+					close(container_fd);
+					return 1;
+				}
+				sra->array.level = LEVEL_CONTAINER;
+				/* Need to set data_offset and component_size */
+				tst->ss->getinfo_super(tst, &new_mdi);
+				new_mdi.disk.major = disc.major;
+				new_mdi.disk.minor = disc.minor;
+				if (sysfs_add_disk(sra, &new_mdi) != 0) {
+					fprintf(stderr, Name ": add new device to external metadata"
+						" failed for %s\n", dv->devname);
+					close(container_fd);
+					return 1;
+				}
+				ping_monitor(devnum2devname(devnum));
+				sysfs_free(sra);
+				close(container_fd);
+			} else if (ioctl(fd, ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
 					dv->devname, j, strerror(errno));
 				return 1;

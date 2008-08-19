@@ -218,6 +218,34 @@ static void queue_metadata_update(struct metadata_update *mu)
 	*qp = mu;
 }
 
+static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
+{
+	int dfd;
+	char nm[20];
+	struct metadata_update *update = NULL;
+	mdu_disk_info_t dk = {
+		.number = -1,
+		.major = sd->disk.major,
+		.minor = sd->disk.minor,
+		.raid_disk = -1,
+		.state = 0,
+	};
+
+	dprintf("%s: add %d:%d to container\n",
+		__func__, sd->disk.major, sd->disk.minor);
+
+	sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
+	dfd = dev_open(nm, O_RDWR);
+	if (dfd < 0)
+		return;
+
+	st->update_tail = &update;
+	st->ss->add_to_super(st, &dk, dfd, NULL);
+	st->ss->write_init_super(st);
+	queue_metadata_update(update);
+	st->update_tail = NULL;
+}
+
 static void manage_container(struct mdstat_ent *mdstat,
 			     struct supertype *container)
 {
@@ -255,6 +283,16 @@ static void manage_container(struct mdstat_ent *mdstat,
 				free(cd);
 			} else
 				cdp = &(*cdp)->next;
+		}
+
+		/* check for additions */
+		for (di = mdi->devs; di; di = di->next) {
+			for (cd = container->devs; cd; cd = cd->next)
+				if (di->disk.major == cd->disk.major &&
+				    di->disk.minor == cd->disk.minor)
+					break;
+			if (!cd)
+				add_disk_to_container(container, di);
 		}
 		sysfs_free(mdi);
 		container->devcnt = mdstat->devcnt;

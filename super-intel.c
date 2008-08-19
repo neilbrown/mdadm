@@ -174,7 +174,8 @@ struct intel_super {
 		struct imsm_disk disk;
 		int fd;
 	} *disks;
-    struct bbm_log *bbm_log;
+	struct dl *add; /* list of disks to add while mdmon active */
+	struct bbm_log *bbm_log;
 };
 
 struct extent {
@@ -185,6 +186,7 @@ struct extent {
 enum imsm_update_type {
 	update_activate_spare,
 	update_create_array,
+	update_add_disk,
 };
 
 struct imsm_update_activate_spare {
@@ -199,6 +201,10 @@ struct imsm_update_create_array {
 	enum imsm_update_type type;
 	int dev_idx;
 	struct imsm_dev dev;
+};
+
+struct imsm_update_add_disk {
+	enum imsm_update_type type;
 };
 
 static int imsm_env_devname_as_serial(void)
@@ -564,7 +570,13 @@ static int match_home_imsm(struct supertype *st, char *homehost)
 
 static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 {
-	printf("%s\n", __FUNCTION__);
+	/* imsm does not track uuid's so just make sure we never return
+	 * the same value twice to break uuid matching in Manage_subdevs
+	 * FIXME what about the use of uuid's with bitmap's?
+	 */
+	static int dummy_id = 0;
+
+	uuid[0] = dummy_id++;
 }
 
 #if 0
@@ -1264,11 +1276,11 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 
 	*sbp = super;
+	st->container_dev = fd2devnum(fd);
 	if (st->ss == NULL) {
 		st->ss = &super_imsm;
 		st->minor_version = 0;
 		st->max_devs = IMSM_MAX_DEVICES;
-		st->container_dev = fd2devnum(fd);
 	}
 
 	return 0;
@@ -1556,7 +1568,6 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	dd->minor = minor(stb.st_rdev);
 	dd->index = -1;
 	dd->devname = devname ? strdup(devname) : NULL;
-	dd->next = super->disks;
 	dd->fd = fd;
 	rv = imsm_read_serial(fd, devname, dd->serial);
 	if (rv) {
@@ -1576,7 +1587,14 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		dd->disk.scsi_id = __cpu_to_le32(id);
 	else
 		dd->disk.scsi_id = __cpu_to_le32(0);
-	super->disks = dd;
+
+	if (st->update_tail) {
+		dd->next = super->add;
+		super->add = dd;
+	} else {
+		dd->next = super->disks;
+		super->disks = dd;
+	}
 }
 
 static int store_imsm_mpb(int fd, struct intel_super *super);
@@ -1688,43 +1706,76 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	return 0;
 }
 
+static int create_array(struct supertype *st)
+{
+	size_t len;
+	struct imsm_update_create_array *u;
+	struct intel_super *super = st->sb;
+	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
+
+	len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0);
+	u = malloc(len);
+	if (!u) {
+		fprintf(stderr, "%s: failed to allocate update buffer\n",
+			__func__);
+		return 1;
+	}
+
+	u->type = update_create_array;
+	u->dev_idx = super->current_vol;
+	imsm_copy_dev(&u->dev, dev);
+	append_metadata_update(st, u, len);
+
+	return 0;
+}
+
+static int add_disk(struct supertype *st)
+{
+	struct intel_super *super = st->sb;
+	size_t len;
+	struct imsm_update_add_disk *u;
+
+	if (!super->add)
+		return 0;
+
+	len = sizeof(*u);
+	u = malloc(len);
+	if (!u) {
+		fprintf(stderr, "%s: failed to allocate update buffer\n",
+			__func__);
+		return 1;
+	}
+
+	u->type = update_add_disk;
+	append_metadata_update(st, u, len);
+
+	return 0;
+}
+
 static int write_init_super_imsm(struct supertype *st)
 {
 	if (st->update_tail) {
-		/* queue the recently created array as a metadata update */
-		size_t len;
-		struct imsm_update_create_array *u;
+		/* queue the recently created array / added disk
+		 * as a metadata update */
 		struct intel_super *super = st->sb;
-		struct imsm_dev *dev;
 		struct dl *d;
+		int rv;
 
-		if (super->current_vol < 0 ||
-		    !(dev = get_imsm_dev(super, super->current_vol))) {
-			fprintf(stderr, "%s: could not determine sub-array\n",
-				__func__);
-			return 1;
-		}
-
-
-		len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0);
-		u = malloc(len);
-		if (!u) {
-			fprintf(stderr, "%s: failed to allocate update buffer\n",
-				__func__);
-			return 1;
-		}
-
-		u->type = update_create_array;
-		u->dev_idx = super->current_vol;
-		imsm_copy_dev(&u->dev, dev);
-		append_metadata_update(st, u, len);
+		/* determine if we are creating a volume or adding a disk */
+		if (super->current_vol < 0) {
+			/* in the add disk case we are running in mdmon
+			 * context, so don't close fd's
+			 */
+			return add_disk(st);
+		} else
+			rv = create_array(st);
 
 		for (d = super->disks; d ; d = d->next) {
 			close(d->fd);
 			d->fd = -1;
 		}
 
-		return 0;
+		return rv;
 	} else
 		return write_super_imsm(st->sb, 1);
 }
@@ -2779,6 +2830,36 @@ static void imsm_process_update(struct supertype *st,
 		}
 		break;
 	}
+	case update_add_disk:
+
+		/* we may be able to repair some arrays if disks are
+		 * being added */
+		if (super->add) {
+			struct active_array *a;
+ 			for (a = st->arrays; a; a = a->next)
+				a->check_degraded = 1;
+		}
+		/* check if we can add / replace some disks in the
+		 * metadata */
+		while (super->add) {
+			struct dl **dlp, *dl, *al;
+			al = super->add;
+			super->add = al->next;
+			for (dlp = &super->disks; *dlp ; ) {
+				if (memcmp(al->serial, (*dlp)->serial,
+					   MAX_RAID_SERIAL_LEN) == 0) {
+					dl = *dlp;
+					*dlp = (*dlp)->next;
+					__free_imsm_disk(dl);
+					break;
+				} else
+					dlp = &(*dlp)->next;
+			}
+			al->next = super->disks;
+			super->disks = al;
+		}
+
+		break;
 	}
 }
 

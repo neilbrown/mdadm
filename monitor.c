@@ -243,18 +243,10 @@ static int read_and_act(struct active_array *a)
 		 * readonly ???
 		 */
 		get_resync_start(a);
-		if (a->resync_start == ~0ULL) {
+		if (a->container->ss->set_array_state(a, 2))
 			a->next_state = read_auto; /* array is clean */
-			/* give the metadata a chance to force active if
-			 * we have some recovery to do.  metadata sets
-			 * resync_start to !MaxSector in this case
-			 */
-			a->container->ss->set_array_state(a, 1);
-		}
-		if (a->resync_start != ~0ULL) {
-			a->container->ss->set_array_state(a, 0);
-			a->next_state = active;
-		}
+		else
+			a->next_state = active; /* Now active for recovery etc */
 	}
 
 	if (!deactivate &&

@@ -2203,7 +2203,7 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_map *map)
 	return failed;
 }
 
-static void imsm_set_array_state(struct active_array *a, int consistent)
+static int imsm_set_array_state(struct active_array *a, int consistent)
 {
 	int inst = a->info.container_member;
 	struct intel_super *super = a->container->sb;
@@ -2219,6 +2219,8 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 	if (consistent && !dev->vol.dirty &&
 	    (dev->vol.migr_state || map_state != IMSM_T_STATE_NORMAL))
 		a->resync_start = 0ULL;
+	if (consistent == 2 && a->resync_start != ~0ULL)
+		consistent = 0;
 
 	if (a->resync_start == ~0ULL) {
 		/* complete recovery or initial resync */
@@ -2253,6 +2255,7 @@ static void imsm_set_array_state(struct active_array *a, int consistent)
 		dev->vol.dirty = dirty;
 		super->updates_pending++;
 	}
+	return consistent;
 }
 
 static void imsm_set_disk(struct active_array *a, int n, int state)

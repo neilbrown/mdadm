@@ -2680,11 +2680,17 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
  * For DDF, we need to clear the DDF_state_inconsistent bit in the
  * !global! virtual_disk.virtual_entry structure.
  */
-static void ddf_set_array_state(struct active_array *a, int consistent)
+static int ddf_set_array_state(struct active_array *a, int consistent)
 {
 	struct ddf_super *ddf = a->container->sb;
 	int inst = a->info.container_member;
 	int old = ddf->virt->entries[inst].state;
+	if (consistent == 2) {
+		/* Should check if a recovery should be started FIXME */
+		consistent = 1;
+		if (a->resync_start != ~0ULL)
+			consistent = 0;
+	}
 	if (consistent)
 		ddf->virt->entries[inst].state &= ~DDF_state_inconsistent;
 	else
@@ -2705,6 +2711,7 @@ static void ddf_set_array_state(struct active_array *a, int consistent)
 
 	dprintf("ddf mark %d %s %llu\n", inst, consistent?"clean":"dirty",
 		a->resync_start);
+	return consistent;
 }
 
 /*

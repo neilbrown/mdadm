@@ -526,12 +526,16 @@ extern struct superswitch {
 
 	/* Tell the metadata handler the current state of the array.
 	 * This covers whether it is known to be consistent (no pending writes)
-	 * when how far along a resync is known to have progressed
+	 * and how far along a resync is known to have progressed
 	 * (in a->resync_start).
 	 * resync status is really irrelevant if the array is not consistent,
 	 * but some metadata (DDF!) have a place to record the distinction.
+	 * If 'consistent' is '2', then the array can mark it dirty if a 
+	 * resync/recovery/whatever is required, or leave it clean if not.
+	 * Return value is 0 dirty (not consistent) and 1 if clean.
+	 * it is only really important if consistent is passed in as '2'.
 	 */
-	void (*set_array_state)(struct active_array *a, int consistent);
+	int (*set_array_state)(struct active_array *a, int consistent);
 
 	/* When the state of a device might have changed, we call set_disk to
 	 * tell the metadata what the current state is.

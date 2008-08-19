@@ -2533,6 +2533,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 		dfd = dev_open(nm, keep_fd? O_RDWR : O_RDONLY);
 		if (dfd < 0)
 			return 2;
+		load_ddf_headers(dfd, super, NULL);
 		seq = load_ddf_local(dfd, super, NULL, keep_fd);
 		if (!keep_fd) close(dfd);
 	}

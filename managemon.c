@@ -228,12 +228,35 @@ static void manage_container(struct mdstat_ent *mdstat,
 	 * about spare assignment.... probably not.
 	 */
 	if (mdstat->devcnt != container->devcnt) {
+		struct mdinfo **cdp, *cd, *di, *mdi;
+		int found;
+
 		/* read /sys/block/NAME/md/dev-??/block/dev to find out
 		 * what is there, and compare with container->info.devs
 		 * To see what is removed and what is added.
 		 * These need to be remove from, or added to, the array
 		 */
-		// FIXME
+		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS);
+		if (!mdi)
+			return;
+
+		/* check for removals */
+		for (cdp = &container->devs; *cdp; ) {
+			found = 0;
+			for (di = mdi->devs; di; di = di->next)
+				if (di->disk.major == (*cdp)->disk.major &&
+				    di->disk.minor == (*cdp)->disk.minor) {
+					found = 1;
+					break;
+				}
+			if (!found) {
+				cd = *cdp;
+				*cdp = (*cdp)->next;
+				free(cd);
+			} else
+				cdp = &(*cdp)->next;
+		}
+		sysfs_free(mdi);
 		container->devcnt = mdstat->devcnt;
 	}
 }

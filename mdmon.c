@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
 	container->devs = NULL;
 	for (di = mdi->devs; di; di = di->next) {
 		struct mdinfo *cd = malloc(sizeof(*cd));
-		cd = di;
+		*cd = *di;
 		cd->next = container->devs;
 		container->devs = cd;
 	}

@@ -396,7 +396,8 @@ struct mdp_backup_super {
 	__u64	arraystart;
 	__u64	length;
 	__u32	sb_csum;	/* csum of preceeding bytes. */
-};
+	__u8 pad[512-68];
+} __attribute__((aligned(512))) bsb;
 
 int bsb_csum(char *buf, int len)
 {
@@ -420,7 +421,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	struct mdu_array_info_s array;
 	char *c;
 
-	struct mdp_backup_super bsb;
 	struct supertype *st;
 
 	int nlevel, olevel;
@@ -720,7 +720,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * a leading superblock 4K earlier.
 		 */
 		for (i=array.raid_disks; i<d; i++) {
-			char buf[4096];
+			char abuf[4096+512];
+			char *buf = (char*)(((unsigned long)abuf+511)& ~511);
 			if (i==d-1 && backup_file) {
 				/* This is the backup file */
 				offsets[i] = 8;
@@ -731,7 +732,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				fprintf(stderr, Name ": could not seek...\n");
 				goto abort;
 			}
-			memset(buf, 0, sizeof(buf));
+			memset(buf, 0, 4096);
 			bsb.devstart = __cpu_to_le64(offsets[i]);
 			bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
 			memcpy(buf, &bsb, sizeof(bsb));
@@ -793,7 +794,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			if (lseek64(fdlist[i], (offsets[i]+last_block)<<9, 0) < 0 ||
 			    write(fdlist[i], &bsb, sizeof(bsb)) != sizeof(bsb) ||
 			    fsync(fdlist[i]) != 0) {
-				fprintf(stderr, Name ": %s: fail to save metadata for critical region backups.\n",
+				fprintf(stderr, Name ": %s: failed to save metadata for critical region backups.\n",
 					devname);
 				goto abort_resume;
 			}
@@ -882,7 +883,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 
 	for (i=old_disks-(backup_file?1:0); i<cnt; i++) {
 		struct mdinfo dinfo;
-		struct mdp_backup_super bsb;
 		char buf[4096];
 		int fd;
 

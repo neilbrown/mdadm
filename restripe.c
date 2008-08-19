@@ -152,7 +152,8 @@ int save_stripes(int *source, unsigned long long *offsets,
 		 int nwrites, int *dest,
 		 unsigned long long start, unsigned long long length)
 {
-	char buf[8192];
+	char abuf[8192+512];
+	char *buf = (char*)(((unsigned long)abuf+511)&~511UL);
 	int cpos = start % chunk_size; /* where in chunk we are up to */
 	int len;
 	int data_disks = raid_disks - (level == 0 ? 0 : level <=5 ? 1 : 2);
@@ -162,7 +163,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 		unsigned long long offset;
 		int i;
 		len = chunk_size - cpos;
-		if (len > sizeof(buf)) len = sizeof(buf);
+		if (len > 8192) len = 8192;
 		if (len > length) len = length;
 		/* len bytes to be moved from one device */
 

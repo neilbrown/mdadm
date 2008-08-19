@@ -260,25 +260,31 @@ void mdstat_wait(int seconds)
 {
 	fd_set fds;
 	struct timeval tm;
+	int maxfd = 0;
 	FD_ZERO(&fds);
-	if (mdstat_fd >= 0)
+	if (mdstat_fd >= 0) {
 		FD_SET(mdstat_fd, &fds);
+		maxfd = mdstat_fd;
+	}
 	tm.tv_sec = seconds;
 	tm.tv_usec = 0;
-	select(mdstat_fd >2 ? mdstat_fd+1:3, NULL, NULL, &fds, &tm);
+	select(maxfd + 1, NULL, NULL, &fds, &tm);
 }
 
 void mdstat_wait_fd(int fd, const sigset_t *sigmask)
 {
 	fd_set fds, rfds;
+	int maxfd = fd;
 
 	FD_ZERO(&fds);
 	FD_ZERO(&rfds);
 	if (mdstat_fd >= 0)
 		FD_SET(mdstat_fd, &fds);
 	FD_SET(fd, &rfds);
+	if (mdstat_fd > maxfd)
+		maxfd = mdstat_fd;
 
-	pselect(mdstat_fd >2 ? mdstat_fd+1:3, &rfds, NULL, &fds,
+	pselect(maxfd + 1, &rfds, NULL, &fds,
 		NULL, sigmask);
 }
 

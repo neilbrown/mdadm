@@ -426,8 +426,9 @@ struct ddf_super {
 			};
 		};
 		struct disk_data disk;
+		void *mdupdate; /* hold metadata update */
 		struct vcl *vlist[0]; /* max_part in size */
-	} *dlist;
+	} *dlist, *add_list;
 };
 
 #ifndef offsetof
@@ -1994,7 +1995,6 @@ static void add_to_super_ddf(struct supertype *st,
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
 	dd->devname = devname;
-	dd->next = ddf->dlist;
 	dd->fd = fd;
 	dd->spare = NULL;
 
@@ -2027,8 +2027,20 @@ static void add_to_super_ddf(struct supertype *st,
 	pde = &ddf->phys->entries[n];
 	dd->pdnum = n;
 
-	n++;
-	ddf->phys->used_pdes = __cpu_to_be16(n);
+	if (st->update_tail) {
+		int len = (sizeof(struct phys_disk) +
+			   sizeof(struct phys_disk_entry));
+		struct phys_disk *pd;
+
+		pd = malloc(len);
+		pd->magic = DDF_PHYS_RECORDS_MAGIC;
+		pd->used_pdes = __cpu_to_be16(n);
+		pde = &pd->entries[0];
+		dd->mdupdate = pd;
+	} else {
+		n++;
+		ddf->phys->used_pdes = __cpu_to_be16(n);
+	}
 
 	memcpy(pde->guid, dd->disk.guid, DDF_GUID_LEN);
 	pde->refnum = dd->disk.refnum;
@@ -2041,8 +2053,14 @@ static void add_to_super_ddf(struct supertype *st,
 	memset(pde->pad, 0xff, 6);
 
 	dd->size = size >> 9;
-	ddf->dlist = dd;
-	ddf->updates_pending = 1;
+	if (st->update_tail) {
+		dd->next = ddf->add_list;
+		ddf->add_list = dd;
+	} else {
+		dd->next = ddf->dlist;
+		ddf->dlist = dd;
+		ddf->updates_pending = 1;
+	}
 }
 
 /*
@@ -2160,6 +2178,21 @@ static int write_init_super_ddf(struct supertype *st)
 		struct vd_config *vc;
 		struct ddf_super *ddf = st->sb;
 		int len;
+
+		if (!ddf->currentconf) {
+			int len = (sizeof(struct phys_disk) +
+				   sizeof(struct phys_disk_entry));
+
+			/* adding a disk to the container. */
+			if (!ddf->add_list)
+				return 0;
+
+			append_metadata_update(st, ddf->add_list->mdupdate, len);
+			ddf->add_list->mdupdate = NULL;
+			return 0;
+		}
+
+		/* Newly created VD */
 
 		/* First the virtual disk.  We have a slightly fake header */
 		len = sizeof(struct virtual_disk) + sizeof(struct virtual_entry);
@@ -2894,6 +2927,20 @@ static void ddf_process_update(struct supertype *st,
 		ddf->phys->used_pdes = __cpu_to_be16(1 +
 					   __be16_to_cpu(ddf->phys->used_pdes));
 		ddf->updates_pending = 1;
+		if (ddf->add_list) {
+			struct active_array *a;
+			struct dl *al = ddf->add_list;
+			ddf->add_list = al->next;
+
+			al->next = ddf->dlist;
+			ddf->dlist = al;
+
+			/* As a device has been added, we should check
+			 * for any degraded devices that might make
+			 * use of this spare */
+			for (a = st->arrays ; a; a=a->next)
+				a->check_degraded = 1;
+		}
 		break;
 
 	case DDF_VIRT_RECORDS_MAGIC:

@@ -218,15 +218,6 @@ static void queue_metadata_update(struct metadata_update *mu)
 	*qp = mu;
 }
 
-void wait_update_handled(void)
-{
-	/* Wait for any pending update to be handled by monitor.
-	 * i.e. wait until update_queue is NULL
-	 */
-	while (update_queue)
-		usleep(100 * 1000);
-}
-
 static void manage_container(struct mdstat_ent *mdstat,
 			     struct supertype *container)
 {
@@ -272,7 +263,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		struct metadata_update *updates = NULL;
 		struct mdinfo *newdev;
 		struct active_array *newa;
-		wait_update_handled();
+
 		a->check_degraded = 0;
 
 		/* The array may not be degraded, this is just a good time
@@ -467,13 +458,20 @@ static void handle_message(struct supertype *container, struct metadata_update *
 	struct metadata_update *mu;
 
 	if (msg->len == 0) {
-		int cnt = monitor_loop_cnt;
+		int cnt;
+		
+		while (update_queue_pending || update_queue) {
+			check_update_queue(container);
+			usleep(15*1000);
+		}
+
+		cnt = monitor_loop_cnt;
 		if (cnt & 1)
 			cnt += 2; /* wait until next pselect */
 		else
 			cnt += 3; /* wait for 2 pselects */
 		wakeup_monitor();
-		wait_update_handled();
+
 		while (monitor_loop_cnt - cnt < 0)
 			usleep(10 * 1000);
 	} else {
@@ -536,20 +534,29 @@ void do_manager(struct supertype *container)
 		if (exit_now)
 			exit(0);
 
-		mdstat = mdstat_read(1, 0);
+		/* Can only 'manage' things if 'monitor' is not making
+		 * structural changes to metadata, so need to check
+		 * update_queue
+		 */
+		if (update_queue == NULL) {
+			mdstat = mdstat_read(1, 0);
 
-		manage(mdstat, container);
+			manage(mdstat, container);
 
-		read_sock(container);
+			read_sock(container);
 
-		free_mdstat(mdstat);
-
+			free_mdstat(mdstat);
+		}
 		remove_old();
 
 		check_update_queue(container);
 
 		manager_ready = 1;
 
-		mdstat_wait_fd(container->sock, &set);
+		if (update_queue == NULL)
+			mdstat_wait_fd(container->sock, &set);
+		else
+			/* If an update is happening, just wait for signal */
+			pselect(0, NULL, NULL, NULL, NULL, &set);
 	} while(1);
 }

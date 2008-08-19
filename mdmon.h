@@ -19,6 +19,7 @@ struct active_array {
 
 	int action_fd;
 	int resync_start_fd;
+	int metadata_fd; /* for monitoring rw/ro status */
 
 	enum array_state prev_state, curr_state, next_state;
 	enum sync_action prev_action, curr_action, next_action;

@@ -807,7 +807,14 @@ static inline int ROUND_UP(int a, int base)
 
 static inline int is_subarray(char *vers)
 {
-	return (*vers == '/');
+	/* The version string for a 'subarray' (an array in a container)
+	 * is 
+	 *    /containername/componentname    for normal read-write arrays
+	 *    -containername/componentname    for read-only arrays.
+	 * containername is e.g. md0, md_d1
+	 * componentname is dependant on the metadata. e.g. '1' 'S1' ...
+	 */
+	return (*vers == '/' || *vers == '-');
 }
 
 #define	LEVEL_MULTIPATH		(-4)

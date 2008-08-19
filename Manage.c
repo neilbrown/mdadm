@@ -45,11 +45,54 @@ int Manage_ro(char *devname, int fd, int readonly)
 	 *
 	 */
 	mdu_array_info_t array;
+	struct mdinfo *mdi;
 
 	if (md_get_version(fd) < 9000) {
 		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
 		return 1;
 	}
+	/* If this is an externally-manage array, we need to modify the
+	 * metadata_version so that mdmon doesn't undo our change.
+	 */
+	mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
+	if (mdi &&
+	    mdi->array.major_version == -1 &&
+	    mdi->array.level > 0 &&
+	    is_subarray(mdi->text_version)) {
+		char vers[64];
+		strcpy(vers, "external:");
+		strcat(vers, mdi->text_version);
+		if (readonly > 0) {
+			int rv;
+			/* We set readonly ourselves. */
+			vers[9] = '-';
+			sysfs_set_str(mdi, NULL, "metadata_version", vers);
+
+			close(fd);
+			rv = sysfs_set_str(mdi, NULL, "array_state", "readonly");
+
+			if (rv < 0) {
+				fprintf(stderr, Name ": failed to set readonly for %s: %s\n",
+					devname, strerror(errno));
+
+				vers[9] = mdi->text_version[0];
+				sysfs_set_str(mdi, NULL, "metadata_version", vers);
+				return 1;
+			}
+		} else {
+			char *cp;
+			/* We cannot set read/write - must signal mdmon */
+			vers[9] = '/';
+			sysfs_set_str(mdi, NULL, "metadata_version", vers);
+
+			cp = strchr(vers+10, '/');
+			if (*cp)
+				*cp = 0;
+			ping_monitor(vers+10);
+		}
+		return 0;
+	}
+
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": %s does not appear to be active.\n",
 			devname);

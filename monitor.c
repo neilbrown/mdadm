@@ -238,15 +238,21 @@ static int read_and_act(struct active_array *a)
 	}
 
 	if (a->curr_state == readonly) {
-		/* Well, I'm ready to handle things, so
-		 * read-auto is OK. FIXME what if we really want
-		 * readonly ???
+		/* Well, I'm ready to handle things.  If readonly
+		 * wasn't requested, transition to read-auto.
 		 */
-		get_resync_start(a);
-		if (a->container->ss->set_array_state(a, 2))
-			a->next_state = read_auto; /* array is clean */
-		else
-			a->next_state = active; /* Now active for recovery etc */
+		char buf[64];
+		read_attr(buf, sizeof(buf), a->metadata_fd);
+		if (strncmp(buf, "external:-", 10) == 0) {
+			/* explicit request for readonly array.  Leave it alone */
+			;
+		} else {
+			get_resync_start(a);
+			if (a->container->ss->set_array_state(a, 2))
+				a->next_state = read_auto; /* array is clean */
+			else
+				a->next_state = active; /* Now active for recovery etc */
+		}
 	}
 
 	if (!deactivate &&

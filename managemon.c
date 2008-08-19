@@ -492,7 +492,8 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 			continue;
 		}
 		if (mdstat->metadata_version == NULL ||
-		    strncmp(mdstat->metadata_version, "external:/", 10) != 0 ||
+		    strncmp(mdstat->metadata_version, "external:", 9) != 0 ||
+		    !is_subarray(mdstat->metadata_version+9) ||
 		    strncmp(mdstat->metadata_version+10, container->devname,
 			    strlen(container->devname)) != 0 ||
 		    mdstat->metadata_version[10+strlen(container->devname)]

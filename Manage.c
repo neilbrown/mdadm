@@ -123,7 +123,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
 		if (mdi &&
 		    mdi->array.level > 0 &&
-		    mdi->text_version[0] == '/') {
+		    is_subarray(mdi->text_version)) {
 			char *cp;
 
 			/* This is mdmon managed. */
@@ -147,7 +147,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		} else if (mdi &&
 			   mdi->array.major_version == -1 &&
 			   mdi->array.minor_version == -2 &&
-			   mdi->text_version[0] != '/') {
+			   !is_subarray(mdi->text_version)) {
 			/* container, possibly mdmon-managed.
 			 * Make sure mdmon isn't opening it, which
 			 * would interfere with the 'stop'

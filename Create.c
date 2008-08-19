@@ -523,7 +523,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	st->ss->getinfo_super(st, &info);
 
 	if (did_default && verbose >= 0) {
-		if (info.text_version[0] == '/') {
+		if (is_subarray(info.text_version)) {
 			int dnum = devname2devnum(info.text_version+1);
 			char *path;
 			int mdp = get_mdp_major();

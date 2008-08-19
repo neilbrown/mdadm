@@ -821,7 +821,7 @@ struct supertype *super_by_fd(int fd)
 		sprintf(version, "%d.%d", vers, minor);
 		verstr = version;
 	}
-	if (minor == -2 && verstr[0] == '/') {
+	if (minor == -2 && is_subarray(verstr)) {
 		char *dev = verstr+1;
 		subarray = strchr(dev, '/');
 		int devnum;

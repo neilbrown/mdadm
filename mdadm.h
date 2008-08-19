@@ -805,6 +805,11 @@ static inline int ROUND_UP(int a, int base)
 	return ((a+base-1)/base)*base;
 }
 
+static inline int is_subarray(char *vers)
+{
+	return (*vers == '/');
+}
+
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)
 #define	LEVEL_FAULTY		(-5)

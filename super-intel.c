@@ -2185,9 +2185,8 @@ static int imsm_open_new(struct supertype *c, struct active_array *a,
 	return 0;
 }
 
-static __u8 imsm_check_degraded(struct intel_super *super, int n, int failed)
+static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev, int failed)
 {
-	struct imsm_dev *dev = get_imsm_dev(super, n);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	if (!failed)
@@ -2281,7 +2280,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	__u8 map_state;
 
 	failed = imsm_count_failed(super, dev);
-	map_state = imsm_check_degraded(super, inst, failed);
+	map_state = imsm_check_degraded(super, dev, failed);
 
 	if (consistent && !dev->vol.dirty &&
 	    (dev->vol.migr_state || map_state != IMSM_T_STATE_NORMAL))
@@ -2372,7 +2371,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	/* determine map_state based on failed or in_sync count */
 	if (failed)
-		map->map_state = imsm_check_degraded(super, inst, failed);
+		map->map_state = imsm_check_degraded(super, dev, failed);
 	else if (map->map_state == IMSM_T_STATE_DEGRADED) {
 		struct mdinfo *d;
 		int working = 0;
@@ -2569,7 +2568,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 
 	dprintf("imsm: activate spare: inst=%d failed=%d (%d) level=%d\n",
 		inst, failed, a->info.array.raid_disks, a->info.array.level);
-	if (imsm_check_degraded(super, inst, failed) != IMSM_T_STATE_DEGRADED)
+	if (imsm_check_degraded(super, dev, failed) != IMSM_T_STATE_DEGRADED)
 		return NULL;
 
 	/* For each slot, if it is not working, find a spare */

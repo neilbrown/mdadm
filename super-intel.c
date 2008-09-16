@@ -2833,12 +2833,11 @@ static void imsm_process_update(struct supertype *st,
 		dev = update->space;
 		update->space = NULL;
 		imsm_copy_dev(dev, &u->dev);
+		map = get_imsm_map(dev, 0);
 		super->dev_tbl[u->dev_idx] = dev;
 		mpb->num_raid_devs++;
 
-		/* fix up flags, if arrays overlap then the drives can not be
-		 * spares
-		 */
+		/* fix up flags */
 		for (i = 0; i < map->num_members; i++) {
 			struct imsm_disk *disk;
 			__u32 status;
@@ -2846,8 +2845,7 @@ static void imsm_process_update(struct supertype *st,
 			disk = get_imsm_disk(super, get_imsm_disk_idx(map, i));
 			status = __le32_to_cpu(disk->status);
 			status |= CONFIGURED_DISK;
-			if (overlap)
-				status &= ~SPARE_DISK;
+			status &= ~SPARE_DISK;
 			disk->status = __cpu_to_le32(status);
 		}
 		break;

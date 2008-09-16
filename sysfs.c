@@ -346,6 +346,19 @@ int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 	return 0;
 }
 
+int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms)
+{
+	unsigned long sec;
+	unsigned long msec;
+	char delay[30];
+
+	sec = ms / 1000;
+	msec = ms - (sec * 1000);
+
+	sprintf(delay, "%ld.%ld", sec, msec);
+	return sysfs_set_str(sra, NULL, "safe_mode_delay", delay);
+}
+
 int sysfs_set_array(struct mdinfo *sra,
 		    struct mdinfo *info)
 {

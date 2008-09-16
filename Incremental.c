@@ -841,6 +841,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 				ping_monitor(devnum2devname(st->container_dev));
 				break;
 			}
+			sysfs_set_safemode(sra, ra->safe_mode_delay);
 			if (verbose >= 0)
 				printf("Started %s with %d devices\n",
 				       chosen_name, working);

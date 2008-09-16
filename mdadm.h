@@ -346,6 +346,7 @@ extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, unsigned long long val);
 extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
+extern int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms);
 extern int sysfs_set_array(struct mdinfo *sra,
 			   struct mdinfo *info);
 extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd);

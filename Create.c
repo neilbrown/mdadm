@@ -78,6 +78,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	struct mdinfo *sra;
 	struct mdinfo info, *infos;
 	int did_default = 0;
+	unsigned long safe_mode_delay = 0;
 
 	int major_num = BITMAP_MAJOR_HI;
 
@@ -703,6 +704,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				st->ss->add_to_super(st, &inf->disk,
 						     fd, dv->devname);
 				st->ss->getinfo_super(st, inf);
+				safe_mode_delay = inf->safe_mode_delay;
 
 				/* getinfo_super might have lost these ... */
 				inf->disk.major = major(stb.st_rdev);
@@ -757,6 +759,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 					      "readonly");
 				break;
 			}
+			sysfs_set_safemode(sra, safe_mode_delay);
 		} else {
 			mdu_param_t param;
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {

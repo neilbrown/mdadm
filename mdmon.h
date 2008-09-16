@@ -55,6 +55,9 @@ extern struct md_generic_cmd *active_cmd;
 void remove_pidfile(char *devname);
 void do_monitor(struct supertype *container);
 void do_manager(struct supertype *container);
+int make_control_sock(char *devname);
+int make_pidfile(char *devname, int o_excl);
+extern int socket_hup_requested;
 
 int read_dev_state(int fd);
 int get_resync_start(struct active_array *a);

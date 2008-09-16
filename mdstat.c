@@ -280,7 +280,8 @@ void mdstat_wait_fd(int fd, const sigset_t *sigmask)
 	FD_ZERO(&rfds);
 	if (mdstat_fd >= 0)
 		FD_SET(mdstat_fd, &fds);
-	FD_SET(fd, &rfds);
+	if (fd >= 0)
+		FD_SET(fd, &rfds);
 	if (mdstat_fd > maxfd)
 		maxfd = mdstat_fd;
 

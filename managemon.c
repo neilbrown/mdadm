@@ -605,6 +605,7 @@ void do_manager(struct supertype *container)
 
 	sigprocmask(SIG_UNBLOCK, NULL, &set);
 	sigdelset(&set, SIGUSR1);
+	sigdelset(&set, SIGHUP);
 
 	do {
 
@@ -621,6 +622,13 @@ void do_manager(struct supertype *container)
 			manage(mdstat, container);
 
 			read_sock(container);
+
+			if (socket_hup_requested) {
+				close(container->sock);
+				container->sock = make_control_sock(container->devname);
+				make_pidfile(container->devname, 0);
+				socket_hup_requested = 0;
+			}
 
 			free_mdstat(mdstat);
 		}

@@ -80,7 +80,7 @@ static struct superswitch *find_metadata_methods(char *vers)
 }
 
 
-static int make_pidfile(char *devname, int o_excl)
+int make_pidfile(char *devname, int o_excl)
 {
 	char path[100];
 	char pid[10];
@@ -89,7 +89,7 @@ static int make_pidfile(char *devname, int o_excl)
 
 	fd = open(path, O_RDWR|O_CREAT|o_excl, 0600);
 	if (fd < 0)
-		return -1;
+		return -errno;
 	sprintf(pid, "%d\n", getpid());
 	write(fd, pid, strlen(pid));
 	close(fd);
@@ -138,7 +138,7 @@ void remove_pidfile(char *devname)
 	unlink(buf);
 }
 
-static int make_control_sock(char *devname)
+int make_control_sock(char *devname)
 {
 	char path[100];
 	int sfd;
@@ -162,6 +162,12 @@ static int make_control_sock(char *devname)
 	fl |= O_NONBLOCK;
 	fcntl(sfd, F_SETFL, fl);
 	return sfd;
+}
+
+int socket_hup_requested;
+static void hup(int sig)
+{
+	socket_hup_requested = 1;
 }
 
 static void wake_me(int sig)
@@ -245,21 +251,29 @@ int main(int argc, char *argv[])
 				container->devname);
 			exit(3);
 		} else {
+			int err;
+
 			/* cleanup the old monitor, this one is taking over */
 			try_kill_monitor(container->devname);
-			if (make_pidfile(container->devname, 0) < 0) {
+			err = make_pidfile(container->devname, 0);
+			if (err < 0) {
 				fprintf(stderr, "mdmon: %s Cannot create pidfile\n",
 					container->devname);
-				exit(3);
+				if (err == -EROFS) {
+					/* FIXME implement a mechanism to
+					 * prevent duplicate monitor instances
+					 */
+					fprintf(stderr,
+						"mdmon: continuing on read-only file system\n");
+				} else
+					exit(3);
 			}
 		}
 	}
 
 	container->sock = make_control_sock(container->devname);
-	if (container->sock < 0) {
+	if (container->sock < 0)
 		fprintf(stderr, "mdmon: Cannot create socket in /var/run/mdadm\n");
-		exit(3);
-	}
 	container->arrays = NULL;
 
 	mdi = sysfs_read(mdfd, container->devnum,
@@ -329,15 +343,18 @@ int main(int argc, char *argv[])
 	 */
 	sigemptyset(&set);
 	sigaddset(&set, SIGUSR1);
+	sigaddset(&set, SIGHUP);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	act.sa_handler = wake_me;
 	act.sa_flags = 0;
 	sigaction(SIGUSR1, &act, NULL);
+	act.sa_handler = hup;
+	sigaction(SIGHUP, &act, NULL);
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
 	if (clone_monitor(container) < 0) {
-		fprintf(stderr, "md-manage: failed to start monitor process: %s\n",
+		fprintf(stderr, "mdmon: failed to start monitor process: %s\n",
 			strerror(errno));
 		exit(2);
 	}

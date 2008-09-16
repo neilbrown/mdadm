@@ -161,6 +161,7 @@ struct option long_options[] = {
     {"readwrite", 0, 0, 'w'},
     {"no-degraded",0,0,  NoDegraded },
     {"wait",	  0, 0, 'W'},
+    {"wait-clean", 0, 0, Waitclean },
 
     /* For Detail/Examine */
     {"brief",	  0, 0, 'b'},

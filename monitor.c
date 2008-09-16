@@ -47,7 +47,6 @@ static int read_attr(char *buf, int len, int fd)
 	return n;
 }
 
-
 int get_resync_start(struct active_array *a)
 {
 	char buf[30];
@@ -62,30 +61,6 @@ int get_resync_start(struct active_array *a)
 	return 1;
 }
 
-static int attr_match(const char *attr, const char *str)
-{
-	/* See if attr, read from a sysfs file, matches
-	 * str.  They must either be the same, or attr can
-	 * have a trailing newline or comma
-	 */
-	while (*attr && *str && *attr == *str) {
-		attr++;
-		str++;
-	}
-
-	if (*str || (*attr && *attr != ',' && *attr != '\n'))
-		return 0;
-	return 1;
-}
-
-static int match_word(const char *word, char **list)
-{
-	int n;
-	for (n=0; list[n]; n++)
-		if (attr_match(word, list[n]))
-			break;
-	return n;
-}
 
 static enum array_state read_state(int fd)
 {
@@ -94,7 +69,7 @@ static enum array_state read_state(int fd)
 
 	if (n <= 0)
 		return bad_word;
-	return (enum array_state) match_word(buf, array_states);
+	return (enum array_state) sysfs_match_word(buf, array_states);
 }
 
 static enum sync_action read_action( int fd)
@@ -104,7 +79,7 @@ static enum sync_action read_action( int fd)
 
 	if (n <= 0)
 		return bad_action;
-	return (enum sync_action) match_word(buf, sync_actions);
+	return (enum sync_action) sysfs_match_word(buf, sync_actions);
 }
 
 int read_dev_state(int fd)
@@ -119,15 +94,15 @@ int read_dev_state(int fd)
 
 	cp = buf;
 	while (cp) {
-		if (attr_match(cp, "faulty"))
+		if (sysfs_attr_match(cp, "faulty"))
 			rv |= DS_FAULTY;
-		if (attr_match(cp, "in_sync"))
+		if (sysfs_attr_match(cp, "in_sync"))
 			rv |= DS_INSYNC;
-		if (attr_match(cp, "write_mostly"))
+		if (sysfs_attr_match(cp, "write_mostly"))
 			rv |= DS_WRITE_MOSTLY;
-		if (attr_match(cp, "spare"))
+		if (sysfs_attr_match(cp, "spare"))
 			rv |= DS_SPARE;
-		if (attr_match(cp, "blocked"))
+		if (sysfs_attr_match(cp, "blocked"))
 			rv |= DS_BLOCKED;
 		cp = strchr(cp, ',');
 		if (cp)

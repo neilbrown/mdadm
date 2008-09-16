@@ -1014,6 +1014,12 @@ activity to finish before returning.
 will return with success if it actually waited for every device
 listed, otherwise it will return failure.
 
+.TP
+.BR \-\-wait\-clean
+For each md device given, wait for the array to be marked clean before
+returning.  For native arrays this returns immediately as the kernel
+handles dirty-clean transistions at shutdown.  
+
 .SH For Incremental Assembly mode:
 .TP
 .BR \-\-rebuild\-map ", " \-r

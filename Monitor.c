@@ -628,3 +628,91 @@ int Wait(char *dev)
 		mdstat_wait(5);
 	}
 }
+
+static char *clean_states[] = {
+	"clear", "inactive", "readonly", "read-auto", "clean", NULL };
+
+int WaitClean(char *dev)
+{
+	int fd;
+	struct mdinfo *mdi;
+	int rv = 1;
+	int devnum;
+
+	fd = open(dev, O_RDONLY); 
+	if (fd < 0) {
+		fprintf(stderr, Name ": Couldn't open %s: %s\n", dev, strerror(errno));
+		return 1;
+	}
+
+	devnum = fd2devnum(fd);
+	mdi = sysfs_read(fd, devnum, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
+	if (!mdi) {
+		fprintf(stderr, Name ": Failed to read sysfs attributes for "
+			"%s\n", dev);
+		close(fd);
+		return 0;
+	}
+
+	switch(mdi->array.level) {
+	case LEVEL_LINEAR:
+	case LEVEL_MULTIPATH:
+	case 0:
+		/* safemode delay is irrelevant for these levels */
+		rv = 0;
+		
+	}
+
+	/* for internal metadata the kernel handles the final clean
+	 * transition, containers can never be dirty
+	 */
+	if (!is_subarray(mdi->text_version))
+		rv = 0;
+
+	/* safemode disabled ? */
+	if (mdi->safe_mode_delay == 0)
+		rv = 0;
+
+	if (rv) {
+		int state_fd = sysfs_open(fd2devnum(fd), NULL, "array_state");
+		unsigned long secs;
+		char buf[20];
+
+		secs = mdi->safe_mode_delay / 1000;
+		if (mdi->safe_mode_delay - secs * 1000)
+			secs++;
+		secs *= 2;
+
+		for (; secs; secs--) {
+			rv = read(state_fd, buf, sizeof(buf));
+			if (rv < 0)
+				break;
+			if (sysfs_match_word(buf, clean_states) <= 4)
+				break;
+			sleep(1);
+			lseek(state_fd, 0, SEEK_SET);
+		}
+		if (rv < 0)
+			rv = 1;
+		else if (secs) {
+			/* we need to ping to close the window between array
+			 * state transitioning to clean and the metadata being
+			 * marked clean
+			 */
+			if (ping_monitor(mdi->text_version) == 0)
+				rv = 0;
+		}
+		if (rv)
+			fprintf(stderr, Name ": Error waiting for %s to be clean\n",
+				dev);
+
+		close(state_fd);
+	}
+
+	sysfs_free(mdi);		
+	close(fd);
+
+	return rv;
+}
+
+

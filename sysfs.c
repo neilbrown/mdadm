@@ -25,6 +25,7 @@
 
 #include	"mdadm.h"
 #include	<dirent.h>
+#include	<ctype.h>
 
 int load_sys(char *path, char *buf)
 {
@@ -185,6 +186,35 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			goto abort;
 		sra->mismatch_cnt = strtoul(buf, NULL, 0);
 	}
+	if (options & GET_SAFEMODE) {
+		int scale = 1;
+		int dot = 0;
+		int i;
+		unsigned long msec;
+		size_t len;
+
+		strcpy(base, "safe_mode_delay");
+		if (load_sys(fname, buf))
+			goto abort;
+
+		/* remove a period, and count digits after it */
+		len = strlen(buf);
+		for (i = 0; i < len; i++) {
+			if (dot) {
+				if (isdigit(buf[i])) {
+					buf[i-1] = buf[i];
+					scale *= 10;
+				}
+				buf[i] = 0;
+			} else if (buf[i] == '.') {
+				dot=1;
+				buf[i] = 0;
+			}
+		}
+		msec = strtoul(buf, NULL, 10);
+		msec = (msec * 1000) / scale;
+		sra->safe_mode_delay = msec;
+	}
 
 	if (! (options & GET_DEVS))
 		return sra;
@@ -263,6 +293,31 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		closedir(dir);
 	sysfs_free(sra);
 	return NULL;
+}
+
+int sysfs_attr_match(const char *attr, const char *str)
+{
+	/* See if attr, read from a sysfs file, matches
+	 * str.  They must either be the same, or attr can
+	 * have a trailing newline or comma
+	 */
+	while (*attr && *str && *attr == *str) {
+		attr++;
+		str++;
+	}
+
+	if (*str || (*attr && *attr != ',' && *attr != '\n'))
+		return 0;
+	return 1;
+}
+
+int sysfs_match_word(const char *word, char **list)
+{
+	int n;
+	for (n=0; list[n]; n++)
+		if (sysfs_attr_match(word, list[n]))
+			break;
+	return n;
 }
 
 unsigned long long get_component_size(int fd)

@@ -224,6 +224,7 @@ enum special_options {
 	AutoHomeHost,
 	Symlinks,
 	AutoDetect,
+	Waitclean,
 };
 
 /* structures read from config file */
@@ -327,6 +328,7 @@ extern void map_add(struct map_ent **melp,
 #define	GET_VERSION	64
 #define	GET_DISKS	128
 #define	GET_DEGRADED	256
+#define	GET_SAFEMODE	512
 
 #define	GET_DEVS	1024 /* gets role, major, minor */
 #define	GET_OFFSET	2048
@@ -340,6 +342,8 @@ extern void map_add(struct map_ent **melp,
 extern int sysfs_open(int devnum, char *devname, char *attr);
 extern void sysfs_free(struct mdinfo *sra);
 extern struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options);
+extern int sysfs_attr_match(const char *attr, const char *str);
+extern int sysfs_match_word(const char *word, char **list);
 extern int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, char *val);
 extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
@@ -705,6 +709,7 @@ extern int Monitor(mddev_dev_t devlist,
 
 extern int Kill(char *dev, int force, int quiet, int noexcl);
 extern int Wait(char *dev);
+extern int WaitClean(char *dev);
 
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int autof);

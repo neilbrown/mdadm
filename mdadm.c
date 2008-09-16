@@ -214,6 +214,7 @@ int main(int argc, char *argv[])
 		case 'o':
 		case 'w':
 		case 'W':
+		case Waitclean:
 		case 'K': if (!mode) newmode = MISC; break;
 		}
 		if (mode && newmode == mode) {
@@ -770,6 +771,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'o'):
 		case O(MISC,'w'):
 		case O(MISC,'W'):
+		case O(MISC, Waitclean):
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
 				fprintf(stderr, Name ": --examine/-E cannot be given with -%c\n",
@@ -1280,6 +1282,8 @@ int main(int argc, char *argv[])
 					rv |= ExamineBitmap(dv->devname, brief, ss); continue;
 				case 'W':
 					rv |= Wait(dv->devname); continue;
+				case Waitclean:
+					rv |= WaitClean(dv->devname); continue;
 				}
 				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {

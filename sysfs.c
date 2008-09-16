@@ -238,14 +238,33 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		dev = malloc(sizeof(*dev));
 		if (!dev)
 			goto abort;
-		dev->next = sra->devs;
-		sra->devs = dev;
-		strcpy(dev->sys_name, de->d_name);
 
 		/* Always get slot, major, minor */
 		strcpy(dbase, "slot");
-		if (load_sys(fname, buf))
-			goto abort;
+		if (load_sys(fname, buf)) {
+			/* hmm... unable to read 'slot' maybe the device
+			 * is going away?
+			 */
+			strcpy(dbase, "block");
+			if (readlink(fname, buf, sizeof(buf)) < 0 &&
+			    errno != ENAMETOOLONG) {
+				/* ...yup device is gone */
+				free(dev);
+				continue;
+			} else {
+				/* slot is unreadable but 'block' link
+				 * still intact... something bad is happening
+				 * so abort
+				 */
+				free(dev);
+				goto abort;
+			}
+			
+		}
+		dev->next = sra->devs;
+		sra->devs = dev;
+
+		strcpy(dev->sys_name, de->d_name);
 		dev->disk.raid_disk = strtoul(buf, &ep, 10);
 		if (*ep) dev->disk.raid_disk = -1;
 

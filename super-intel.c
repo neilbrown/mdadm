@@ -366,6 +366,11 @@ static __u32 get_imsm_disk_idx(struct imsm_dev *dev, int slot)
 	return ord_to_idx(ord);
 }
 
+static void set_imsm_ord_tbl_ent(struct imsm_map *map, int slot, __u32 ord)
+{
+	map->disk_ord_tbl[slot] = __cpu_to_le32(ord);
+}
+
 static int get_imsm_raid_level(struct imsm_map *map)
 {
 	if (map->raid_level == 1) {
@@ -1461,7 +1466,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->num_members = info->raid_disks;
 	for (i = 0; i < map->num_members; i++) {
 		/* initialized in add_to_super */
-		map->disk_ord_tbl[i] = __cpu_to_le32(0);
+		set_imsm_ord_tbl_ent(map, i, 0);
 	}
 	mpb->num_raid_devs++;
 	super->dev_tbl[super->current_vol] = dev;
@@ -1539,7 +1544,7 @@ static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		dl->index = super->anchor->num_disks;
 		super->anchor->num_disks++;
 	}
-	map->disk_ord_tbl[dk->number] = __cpu_to_le32(dl->index);
+	set_imsm_ord_tbl_ent(map, dk->number, dl->index);
 	status = CONFIGURED_DISK | USABLE_DISK;
 	dl->disk.status = __cpu_to_le32(status);
 
@@ -2737,7 +2742,7 @@ static void imsm_process_update(struct supertype *st,
 			super->anchor->num_disks++;
 		}
 		victim = get_imsm_disk_idx(dev, u->slot);
-		map->disk_ord_tbl[u->slot] = __cpu_to_le32(dl->index);
+		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
 		disk = &dl->disk;
 		status = __le32_to_cpu(disk->status);
 		status |= CONFIGURED_DISK;
@@ -2967,7 +2972,7 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp)
 			int idx = get_imsm_disk_idx(dev, j);
 
 			if (idx > dl->index)
-				map->disk_ord_tbl[j] = __cpu_to_le32(idx - 1);
+				set_imsm_ord_tbl_ent(map, j, idx - 1);
 		}
 	}
 

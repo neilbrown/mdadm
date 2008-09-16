@@ -265,8 +265,11 @@ static void manage_container(struct mdstat_ent *mdstat,
 		 * These need to be remove from, or added to, the array
 		 */
 		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS);
-		if (!mdi)
+		if (!mdi) {
+			/* invalidate the current count so we can try again */
+			container->devcnt = -1;
 			return;
+		}
 
 		/* check for removals */
 		for (cdp = &container->devs; *cdp; ) {
@@ -525,14 +528,15 @@ static void handle_message(struct supertype *container, struct metadata_update *
 
 	struct metadata_update *mu;
 
-	if (msg->len == 0) {
-		int cnt;
-		
+	if (msg->len <= 0)
 		while (update_queue_pending || update_queue) {
 			check_update_queue(container);
 			usleep(15*1000);
 		}
 
+	if (msg->len == 0) { /* ping_monitor */
+		int cnt;
+		
 		cnt = monitor_loop_cnt;
 		if (cnt & 1)
 			cnt += 2; /* wait until next pselect */
@@ -542,6 +546,11 @@ static void handle_message(struct supertype *container, struct metadata_update *
 
 		while (monitor_loop_cnt - cnt < 0)
 			usleep(10 * 1000);
+	} else if (msg->len == -1) { /* ping_manager */
+		struct mdstat_ent *mdstat = mdstat_read(1, 0);
+
+		manage(mdstat, container);
+		free_mdstat(mdstat);
 	} else {
 		mu = malloc(sizeof(*mu));
 		mu->len = msg->len;

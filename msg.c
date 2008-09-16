@@ -81,12 +81,12 @@ static int recv_buf(int fd, void* buf, int len, int tmo)
 
 int send_message(int fd, struct metadata_update *msg, int tmo)
 {
-	__u32 len = msg->len;
+	__s32 len = msg->len;
 	int rv;
 
 	rv = send_buf(fd, &start_magic, 4, tmo);
 	rv = rv ?: send_buf(fd, &len, 4, tmo);
-	if (len)
+	if (len > 0)
 		rv = rv ?: send_buf(fd, msg->buf, msg->len, tmo);
 	rv = send_buf(fd, &end_magic, 4, tmo);
 
@@ -96,7 +96,7 @@ int send_message(int fd, struct metadata_update *msg, int tmo)
 int receive_message(int fd, struct metadata_update *msg, int tmo)
 {
 	__u32 magic;
-	__u32 len;
+	__s32 len;
 	int rv;
 
 	rv = recv_buf(fd, &magic, 4, tmo);
@@ -105,7 +105,7 @@ int receive_message(int fd, struct metadata_update *msg, int tmo)
 	rv = recv_buf(fd, &len, 4, tmo);
 	if (rv < 0 || len > MSG_MAX_LEN)
 		return -1;
-	if (len) {
+	if (len > 0) {
 		msg->buf = malloc(len);
 		if (msg->buf == NULL)
 			return -1;
@@ -177,6 +177,7 @@ int connect_monitor(char *devname)
 	return sfd;
 }
 
+/* give the monitor a chance to update the metadata */
 int ping_monitor(char *devname)
 {
 	int sfd = connect_monitor(devname);
@@ -188,6 +189,30 @@ int ping_monitor(char *devname)
 	/* try to ping existing socket */
 	if (ack(sfd, 20) != 0)
 		err = -1;
+
+	/* check the reply */
+	if (!err && wait_reply(sfd, 20) != 0)
+		err = -1;
+
+	close(sfd);
+	return err;
+}
+
+/* give the manager a chance to view the updated container state.  This
+ * would naturally happen due to the manager noticing a change in
+ * /proc/mdstat; however, pinging encourages this detection to happen
+ * while an exclusive open() on the container is active
+ */
+int ping_manager(char *devname)
+{
+	int sfd = connect_monitor(devname);
+	struct metadata_update msg = { .len = -1 };
+	int err = 0;
+
+	if (sfd < 0)
+		return sfd;
+
+	err = send_message(sfd, &msg, 20);
 
 	/* check the reply */
 	if (!err && wait_reply(sfd, 20) != 0)

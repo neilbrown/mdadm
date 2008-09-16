@@ -712,6 +712,23 @@ int Manage_subdevs(char *devname, int fd,
 					close(lfd);
 				return 1;
 			}
+			if (tst->ss->external) {
+				/*
+				 * Before dropping our exclusive open we make an
+				 * attempt at preventing mdmon from seeing an
+				 * 'add' event before reconciling this 'remove'
+				 * event.
+				 */
+				char *name = devnum2devname(fd2devnum(fd));
+
+				if (!name) {
+					fprintf(stderr, Name ": unable to get container name\n");
+					return 1;
+				}
+
+				ping_manager(name);
+				free(name);
+			}
 			close(lfd);
 			if (verbose >= 0)
 				fprintf(stderr, Name ": hot removed %s\n",

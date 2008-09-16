@@ -2680,7 +2680,7 @@ static int disks_overlap(struct imsm_dev *d1, struct imsm_dev *d2)
 	return 0;
 }
 
-static void imsm_delete(struct intel_super *super, struct dl **dlp);
+static void imsm_delete(struct intel_super *super, struct dl **dlp, int index);
 
 static void imsm_process_update(struct supertype *st,
 			        struct metadata_update *update)
@@ -2763,22 +2763,19 @@ static void imsm_process_update(struct supertype *st,
 					found++;
 		}
 
-		/* clear some flags if the victim is no longer being
+		/* delete the victim if it is no longer being
 		 * utilized anywhere
 		 */
 		if (!found) {
 			struct dl **dlp;
-			for (dlp = &super->disks; *dlp; )
+
+			for (dlp = &super->disks; *dlp; dlp = &(*dlp)->next)
 				if ((*dlp)->index == victim)
 					break;
-			disk = &(*dlp)->disk;
-			status = __le32_to_cpu(disk->status);
-			status &= ~CONFIGURED_DISK;
-			disk->status = __cpu_to_le32(status);
 			/* We know that 'manager' isn't touching anything,
 			 * so it is safe to:
 			 */
-			imsm_delete(super, dlp);
+			imsm_delete(super, dlp, victim);
 		}
 		break;
 	}
@@ -2952,39 +2949,52 @@ static void imsm_prepare_update(struct supertype *st,
 }
 
 /* must be called while manager is quiesced */
-static void imsm_delete(struct intel_super *super, struct dl **dlp)
+static void imsm_delete(struct intel_super *super, struct dl **dlp, int index)
 {
 	struct imsm_super *mpb = super->anchor;
-	struct dl *dl = *dlp;
 	struct dl *iter;
 	struct imsm_dev *dev;
 	struct imsm_map *map;
-	int i, j;
+	int i, j, num_members;
+	__u32 ord;
 
-	dprintf("%s: deleting device %x:%x from imsm_super\n",
-		__func__, dl->major, dl->minor);
+	dprintf("%s: deleting device[%d] from imsm_super\n",
+		__func__, index);
 
 	/* shift all indexes down one */
 	for (iter = super->disks; iter; iter = iter->next)
-		if (iter->index > dl->index)
+		if (iter->index > index)
 			iter->index--;
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		dev = get_imsm_dev(super, i);
 		map = get_imsm_map(dev, 0);
+		num_members = map->num_members;
+		for (j = 0; j < num_members; j++) {
+			/* update ord entries being careful not to propagate
+			 * ord-flags to the first map
+			 */
+			ord = get_imsm_ord_tbl_ent(dev, j);
 
-		for (j = 0; j < map->num_members; j++) {
-			int idx = get_imsm_disk_idx(dev, j);
+			if (ord_to_idx(ord) <= index)
+				continue;
 
-			if (idx > dl->index)
-				set_imsm_ord_tbl_ent(map, j, idx - 1);
+			map = get_imsm_map(dev, 0);
+			set_imsm_ord_tbl_ent(map, j, ord_to_idx(ord - 1));
+			map = get_imsm_map(dev, 1);
+			if (map)
+				set_imsm_ord_tbl_ent(map, j, ord - 1);
 		}
 	}
 
 	mpb->num_disks--;
 	super->updates_pending++;
-	*dlp = (*dlp)->next;
-	__free_imsm_disk(dl);
+	if (*dlp) {
+		struct dl *dl = *dlp;
+
+		*dlp = (*dlp)->next;
+		__free_imsm_disk(dl);
+	}
 }
 
 struct superswitch super_imsm = {

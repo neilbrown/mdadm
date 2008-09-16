@@ -967,12 +967,31 @@ static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
 	memcpy(dest, src, sizeof_imsm_dev(src, 0));
 }
 
-static void dup_map(struct imsm_dev *dev)
+/* When migrating map0 contains the 'destination' state while map1
+ * contains the current state.  When not migrating map0 contains the
+ * current state.  This routine assumes that map[0].map_state is set to
+ * the current array state before being called.
+ *
+ * Migration is indicated by one of the following states
+ * 1/ Idle (migr_state=0 map0state=normal||unitialized||degraded||failed)
+ * 2/ Initialize (migr_state=1 migr_type=0 map0state=normal
+ *    map1state=unitialized)
+ * 3/ Verify (Resync) (migr_state=1 migr_type=1 map0state=normal
+ *    map1state=normal)
+ * 4/ Rebuild (migr_state=1 migr_type=1 map0state=normal
+ *    map1state=degraded)
+ */
+static void migrate(struct imsm_dev *dev, __u8 to_state, int rebuild_resync)
 {
-	struct imsm_map *dest = get_imsm_map(dev, 1);
+	struct imsm_map *dest;
 	struct imsm_map *src = get_imsm_map(dev, 0);
 
+	dev->vol.migr_state = 1;
+	dev->vol.migr_type = rebuild_resync;
+	dest = get_imsm_map(dev, 1);
+
 	memcpy(dest, src, sizeof_imsm_map(src));
+	src->map_state = to_state;
 }
 
 static int parse_raid_devices(struct intel_super *super)
@@ -2276,56 +2295,89 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 	return failed;
 }
 
+static int is_resyncing(struct imsm_dev *dev)
+{
+	struct imsm_map *migr_map;
+
+	if (!dev->vol.migr_state)
+		return 0;
+
+	if (dev->vol.migr_type == 0)
+		return 1;
+
+	migr_map = get_imsm_map(dev, 1);
+
+	if (migr_map->map_state == IMSM_T_STATE_NORMAL)
+		return 1;
+	else
+		return 0;
+}
+
+static int is_rebuilding(struct imsm_dev *dev)
+{
+	struct imsm_map *migr_map;
+
+	if (!dev->vol.migr_state)
+		return 0;
+
+	if (dev->vol.migr_type == 0)
+		return 0;
+
+	migr_map = get_imsm_map(dev, 1);
+
+	if (migr_map->map_state == IMSM_T_STATE_DEGRADED)
+		return 1;
+	else
+		return 0;
+}
+
+/* Handle dirty -> clean transititions and resync.  Degraded and rebuild
+ * states are handled in imsm_set_disk() with one exception, when a
+ * resync is stopped due to a new failure this routine will set the
+ * 'degraded' state for the array.
+ */
 static int imsm_set_array_state(struct active_array *a, int consistent)
 {
 	int inst = a->info.container_member;
 	struct intel_super *super = a->container->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, inst);
 	struct imsm_map *map = get_imsm_map(dev, 0);
-	int dirty = !consistent;
-	int failed;
-	__u8 map_state;
+	int failed = imsm_count_failed(super, dev);
+	__u8 map_state = imsm_check_degraded(super, dev, failed);
 
-	failed = imsm_count_failed(super, dev);
-	map_state = imsm_check_degraded(super, dev, failed);
-
-	if (consistent && !dev->vol.dirty &&
-	    (dev->vol.migr_state || map_state != IMSM_T_STATE_NORMAL))
-		a->resync_start = 0ULL;
-	if (consistent == 2 && a->resync_start != ~0ULL)
+	if (consistent == 2 &&
+	    (a->resync_start != ~0ULL ||
+	     map_state != IMSM_T_STATE_NORMAL ||
+	     dev->vol.migr_state))
 		consistent = 0;
 
 	if (a->resync_start == ~0ULL) {
-		/* complete recovery or initial resync */
-		if (map->map_state != map_state) {
-			dprintf("imsm: map_state %d: %d\n",
-				inst, map_state);
+		/* complete intialization / resync,
+		 * recovery is completed in ->set_disk
+		 */
+		if (is_resyncing(dev)) {
+			dprintf("imsm: mark resync done\n");
+			dev->vol.migr_state = 0;
 			map->map_state = map_state;
 			super->updates_pending++;
 		}
-		if (dev->vol.migr_state) {
-			dprintf("imsm: mark resync complete\n");
-			dev->vol.migr_state = 0;
-			dev->vol.migr_type = 0;
-			super->updates_pending++;
-		}
-	} else if (!dev->vol.migr_state) {
-		dprintf("imsm: mark '%s' (%llu)\n",
-			failed ? "rebuild" : "initializing", a->resync_start);
-		/* mark that we are rebuilding */
-		map->map_state = failed ? map_state : IMSM_T_STATE_NORMAL;
-		dev->vol.migr_state = 1;
-		dev->vol.migr_type = failed ? 1 : 0;
-		dup_map(dev);
-		a->check_degraded = 1;
+	} else if (!is_resyncing(dev) && !failed) {
+		/* mark the start of the init process if nothing is failed */
+		dprintf("imsm: mark resync start (%llu)\n", a->resync_start);
+		map->map_state = map_state;
+		migrate(dev, IMSM_T_STATE_NORMAL,
+			map->map_state == IMSM_T_STATE_NORMAL);
 		super->updates_pending++;
 	}
 
 	/* mark dirty / clean */
-	if (dirty != dev->vol.dirty) {
+	if (dev->vol.dirty != !consistent) {
 		dprintf("imsm: mark '%s' (%llu)\n",
-			dirty ? "dirty" : "clean", a->resync_start);
-		dev->vol.dirty = dirty;
+			consistent ? "clean" : "dirty", a->resync_start);
+		if (consistent)
+			dev->vol.dirty = 0;
+		else
+			dev->vol.dirty = 1;
 		super->updates_pending++;
 	}
 	return consistent;
@@ -2338,10 +2390,10 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	struct imsm_dev *dev = get_imsm_dev(super, inst);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct imsm_disk *disk;
+	int failed;
 	__u32 status;
-	int failed = 0;
-	int new_failure = 0;
 	__u32 ord;
+	__u8 map_state;
 
 	if (n > map->num_members)
 		fprintf(stderr, "imsm: set_disk %d out of range 0..%d\n",
@@ -2362,7 +2414,6 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		disk->status = __cpu_to_le32(status);
 		disk->scsi_id = __cpu_to_le32(~0UL);
 		memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
-		new_failure = 1;
 		super->updates_pending++;
 	}
 	/* check if in_sync */
@@ -2373,29 +2424,26 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		super->updates_pending++;
 	}
 
-	/* the number of failures have changed, count up 'failed' to determine
-	 * degraded / failed status
-	 */
-	if (new_failure && map->map_state != IMSM_T_STATE_FAILED)
-		failed = imsm_count_failed(super, dev);
+	failed = imsm_count_failed(super, dev);
+	map_state = imsm_check_degraded(super, dev, failed);
 
-	/* determine map_state based on failed or in_sync count */
-	if (failed)
-		map->map_state = imsm_check_degraded(super, dev, failed);
-	else if (map->map_state == IMSM_T_STATE_DEGRADED) {
-		struct mdinfo *d;
-		int working = 0;
-
-		for (d = a->info.devs ; d ; d = d->next)
-			if (d->curr_state & DS_INSYNC)
-				working++;
-
-		if (working == a->info.array.raid_disks) {
-			map->map_state = IMSM_T_STATE_NORMAL;
-			dev->vol.migr_state = 0;
-			dev->vol.migr_type = 0;
-			super->updates_pending++;
-		}
+	/* check if recovery complete, newly degraded, or failed */
+	if (map_state == IMSM_T_STATE_NORMAL && is_rebuilding(dev)) {
+		map->map_state = map_state;
+		dev->vol.migr_state = 0;
+		super->updates_pending++;
+	} else if (map_state == IMSM_T_STATE_DEGRADED &&
+		   map->map_state != map_state &&
+		   !dev->vol.migr_state) {
+		dprintf("imsm: mark degraded\n");
+		map->map_state = map_state;
+		super->updates_pending++;
+	} else if (map_state == IMSM_T_STATE_FAILED &&
+		   map->map_state != map_state) {
+		dprintf("imsm: mark failed\n");
+		dev->vol.migr_state = 0;
+		map->map_state = map_state;
+		super->updates_pending++;
 	}
 }
 
@@ -2720,12 +2768,15 @@ static void imsm_process_update(struct supertype *st,
 		struct imsm_update_activate_spare *u = (void *) update->buf; 
 		struct imsm_dev *dev = get_imsm_dev(super, u->array);
 		struct imsm_map *map = get_imsm_map(dev, 0);
+		struct imsm_map *migr_map;
 		struct active_array *a;
 		struct imsm_disk *disk;
 		__u32 status;
+		__u8 to_state;
 		struct dl *dl;
 		unsigned int found;
-		int victim;
+		int failed;
+		int victim = get_imsm_disk_idx(dev, u->slot);
 		int i;
 
 		for (dl = super->disks; dl; dl = dl->next)
@@ -2741,18 +2792,37 @@ static void imsm_process_update(struct supertype *st,
 
 		super->updates_pending++;
 
+		/* count failures (excluding rebuilds and the victim)
+		 * to determine map[0] state
+		 */
+		failed = 0;
+		for (i = 0; i < map->num_members; i++) {
+			if (i == u->slot)
+				continue;
+			disk = get_imsm_disk(super, get_imsm_disk_idx(dev, i));
+			if (!disk ||
+			    __le32_to_cpu(disk->status) & FAILED_DISK)
+				failed++;
+		}
+
 		/* adding a pristine spare, assign a new index */
 		if (dl->index < 0) {
 			dl->index = super->anchor->num_disks;
 			super->anchor->num_disks++;
 		}
-		victim = get_imsm_disk_idx(dev, u->slot);
-		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
 		disk = &dl->disk;
 		status = __le32_to_cpu(disk->status);
 		status |= CONFIGURED_DISK;
 		status &= ~SPARE_DISK;
 		disk->status = __cpu_to_le32(status);
+
+		/* mark rebuild */
+		to_state = imsm_check_degraded(super, dev, failed);
+		map->map_state = IMSM_T_STATE_DEGRADED;
+		migrate(dev, to_state, 1);
+		migr_map = get_imsm_map(dev, 1);
+		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
+		set_imsm_ord_tbl_ent(migr_map, u->slot, dl->index | IMSM_ORD_REBUILD);
 
 		/* count arrays using the victim in the metadata */
 		found = 0;

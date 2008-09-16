@@ -445,6 +445,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	__u64 sz;
 	int slot;
 	struct imsm_map *map = get_imsm_map(dev, 0);
+	__u32 ord;
 
 	printf("\n");
 	printf("[%s]:\n", dev->volume);
@@ -453,9 +454,11 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	for (slot = 0; slot < map->num_members; slot++)
 		if (index == get_imsm_disk_idx(dev, slot))
 			break;
-	if (slot < map->num_members)
-		printf("      This Slot : %d\n", slot);
-	else
+	if (slot < map->num_members) {
+		ord = get_imsm_ord_tbl_ent(dev, slot);
+		printf("      This Slot : %d%s\n", slot,
+		       ord & IMSM_ORD_REBUILD ? " (out-of-sync)" : "");
+	} else
 		printf("      This Slot : ?\n");
 	sz = __le32_to_cpu(dev->size_high);
 	sz <<= 32;
@@ -479,7 +482,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	printf("      Map State : %s", map_state_str[map->map_state]);
 	if (dev->vol.migr_state) {
 		struct imsm_map *map = get_imsm_map(dev, 1);
-		printf(", %s", map_state_str[map->map_state]);
+		printf(" <-- %s", map_state_str[map->map_state]);
 	}
 	printf("\n");
 	printf("    Dirty State : %s\n", dev->vol.dirty ? "dirty" : "clean");
@@ -2260,14 +2263,13 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	for (i = 0; i < map->num_members; i++) {
-		int idx = get_imsm_disk_idx(dev, i);
+		__u32 ord = get_imsm_ord_tbl_ent(dev, i);
+		int idx = ord_to_idx(ord);
 
 		disk = get_imsm_disk(super, idx);
-		if (!disk)
-			failed++;
-		else if (__le32_to_cpu(disk->status) & FAILED_DISK)
-			failed++;
-		else if (!(__le32_to_cpu(disk->status) & USABLE_DISK))
+		if (!disk ||
+		    __le32_to_cpu(disk->status) & FAILED_DISK ||
+		    ord & IMSM_ORD_REBUILD)
 			failed++;
 	}
 
@@ -2339,6 +2341,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	__u32 status;
 	int failed = 0;
 	int new_failure = 0;
+	__u32 ord;
 
 	if (n > map->num_members)
 		fprintf(stderr, "imsm: set_disk %d out of range 0..%d\n",
@@ -2349,7 +2352,8 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	dprintf("imsm: set_disk %d:%x\n", n, state);
 
-	disk = get_imsm_disk(super, get_imsm_disk_idx(dev, n));
+	ord = get_imsm_ord_tbl_ent(dev, n);
+	disk = get_imsm_disk(super, ord_to_idx(ord));
 
 	/* check for new failures */
 	status = __le32_to_cpu(disk->status);
@@ -2362,9 +2366,10 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		super->updates_pending++;
 	}
 	/* check if in_sync */
-	if ((state & DS_INSYNC) && !(status & USABLE_DISK)) {
-		status |= USABLE_DISK;
-		disk->status = __cpu_to_le32(status);
+	if (state & DS_INSYNC && ord & IMSM_ORD_REBUILD) {
+		struct imsm_map *migr_map = get_imsm_map(dev, 1);
+
+		set_imsm_ord_tbl_ent(migr_map, n, ord_to_idx(ord));
 		super->updates_pending++;
 	}
 
@@ -2746,7 +2751,7 @@ static void imsm_process_update(struct supertype *st,
 		disk = &dl->disk;
 		status = __le32_to_cpu(disk->status);
 		status |= CONFIGURED_DISK;
-		status &= ~(SPARE_DISK | USABLE_DISK);
+		status &= ~SPARE_DISK;
 		disk->status = __cpu_to_le32(status);
 
 		/* count arrays using the victim in the metadata */
@@ -2768,7 +2773,7 @@ static void imsm_process_update(struct supertype *st,
 					break;
 			disk = &(*dlp)->disk;
 			status = __le32_to_cpu(disk->status);
-			status &= ~(CONFIGURED_DISK | USABLE_DISK);
+			status &= ~CONFIGURED_DISK;
 			disk->status = __cpu_to_le32(status);
 			/* We know that 'manager' isn't touching anything,
 			 * so it is safe to:

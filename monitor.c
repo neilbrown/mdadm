@@ -268,7 +268,7 @@ static int read_and_act(struct active_array *a)
 		 * Just check if we need to fiddle spares.
 		 */
 		get_resync_start(a);
-		a->container->ss->set_array_state(a, 0);
+		a->container->ss->set_array_state(a, a->curr_state <= clean);
 		check_degraded = 1;
 	}
 

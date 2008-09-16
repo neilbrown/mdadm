@@ -644,13 +644,24 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	info->array.md_minor	  = -1;
 	info->array.ctime	  = 0;
 	info->array.utime	  = 0;
-	info->array.chunk_size	  = __le16_to_cpu(map->blocks_per_strip * 512);
-
-	info->data_offset	  = __le32_to_cpu(map->pba_of_lba0);
-	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
+	info->array.chunk_size	  = __le16_to_cpu(map->blocks_per_strip) << 9;
+	info->array.state	  = !dev->vol.dirty;
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
+
+	info->data_offset	  = __le32_to_cpu(map->pba_of_lba0);
+	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
+	memset(info->uuid, 0, sizeof(info->uuid));
+
+	if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
+	    dev->vol.dirty || dev->vol.migr_state)
+		info->resync_start = 0;
+	else
+		info->resync_start = ~0ULL;
+
+	strncpy(info->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
+	info->name[MAX_RAID_SERIAL_LEN] = 0;
 
 	sprintf(info->text_version, "/%s/%d",
 		devnum2devname(st->container_dev),
@@ -2106,7 +2117,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
-		struct imsm_vol *vol = &dev->vol;
 		struct imsm_map *map = get_imsm_map(dev, 0);
 		struct mdinfo *this;
 		int slot;
@@ -2115,32 +2125,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		memset(this, 0, sizeof(*this));
 		this->next = rest;
 
-		this->array.level = get_imsm_raid_level(map);
-		this->array.raid_disks = map->num_members;
-		this->array.layout = imsm_level_to_layout(this->array.level);
-		this->array.md_minor = -1;
-		this->array.ctime = 0;
-		this->array.utime = 0;
-		this->array.chunk_size = __le16_to_cpu(map->blocks_per_strip) << 9;
-		this->array.state = !vol->dirty;
-		this->container_member = i;
-		if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
-		    dev->vol.dirty || dev->vol.migr_state)
-			this->resync_start = 0;
-		else
-			this->resync_start = ~0ULL;
-
-		strncpy(this->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
-		this->name[MAX_RAID_SERIAL_LEN] = 0;
-
-		sprintf(this->text_version, "/%s/%d",
-			devnum2devname(st->container_dev),
-			this->container_member);
-
-		memset(this->uuid, 0, sizeof(this->uuid));
-
-		this->component_size = __le32_to_cpu(map->blocks_per_member);
-
+		super->current_vol = i;
+		getinfo_super_imsm_volume(st, this);
 		for (slot = 0 ; slot <  map->num_members; slot++) {
 			struct mdinfo *info_d;
 			struct dl *d;

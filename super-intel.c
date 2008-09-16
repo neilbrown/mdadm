@@ -160,6 +160,8 @@ struct intel_super {
 		struct imsm_super *anchor; /* immovable parameters */
 	};
 	size_t len; /* size of the 'buf' allocation */
+	void *next_buf; /* for realloc'ing buf from the manager */
+	size_t next_len;
 	int updates_pending; /* count of pending updates for mdmon */
 	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
@@ -967,19 +969,41 @@ static int parse_raid_devices(struct intel_super *super)
 {
 	int i;
 	struct imsm_dev *dev_new;
-	size_t len;
+	size_t len, len_migr;
+	size_t space_needed = 0;
+	struct imsm_super *mpb = super->anchor;
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev_iter = __get_imsm_dev(super->anchor, i);
 
-		len = sizeof_imsm_dev(dev_iter, 1);
-		dev_new = malloc(len);
+		len = sizeof_imsm_dev(dev_iter, 0);
+		len_migr = sizeof_imsm_dev(dev_iter, 1);
+		if (len_migr > len)
+			space_needed += len_migr - len;
+		
+		dev_new = malloc(len_migr);
 		if (!dev_new)
 			return 1;
 		imsm_copy_dev(dev_new, dev_iter);
 		super->dev_tbl[i] = dev_new;
 	}
 
+	/* ensure that super->buf is large enough when all raid devices
+	 * are migrating
+	 */
+	if (__le32_to_cpu(mpb->mpb_size) + space_needed > super->len) {
+		void *buf;
+
+		len = ROUND_UP(__le32_to_cpu(mpb->mpb_size) + space_needed, 512);
+		if (posix_memalign(&buf, 512, len) != 0)
+			return 1;
+
+		memcpy(buf, super->buf, len);
+		free(super->buf);
+		super->buf = buf;
+		super->len = len;
+	}
+		
 	return 0;
 }
 
@@ -1045,7 +1069,6 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	}
 
 	__free_imsm(super, 0);
-	super->len = __le32_to_cpu(anchor->mpb_size);
 	super->len = ROUND_UP(anchor->mpb_size, 512);
 	if (posix_memalign(&super->buf, 512, super->len) != 0) {
 		if (devname)
@@ -1102,6 +1125,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	rc = load_imsm_disk(fd, super, devname, 0);
 	if (rc == 0)
 		rc = parse_raid_devices(super);
+
 	return rc;
 }
 
@@ -2660,8 +2684,26 @@ static void imsm_process_update(struct supertype *st,
 	 * 	flag
 	 */
 	struct intel_super *super = st->sb;
-	struct imsm_super *mpb = super->anchor;
+	struct imsm_super *mpb;
 	enum imsm_update_type type = *(enum imsm_update_type *) update->buf;
+
+	/* update requires a larger buf but the allocation failed */
+	if (super->next_len && !super->next_buf) {
+		super->next_len = 0;
+		return;
+	}
+
+	if (super->next_buf) {
+		memcpy(super->next_buf, super->buf, super->len);
+		free(super->buf);
+		super->len = super->next_len;
+		super->buf = super->next_buf;
+
+		super->next_len = 0;
+		super->next_buf = NULL;
+	}
+
+	mpb = super->anchor;
 
 	switch (type) {
 	case update_activate_spare: {
@@ -2856,25 +2898,23 @@ static void imsm_prepare_update(struct supertype *st,
 				struct metadata_update *update)
 {
 	/**
-	 * Allocate space to hold new disk entries, raid-device entries or a
-	 * new mpb if necessary.  We currently maintain an mpb large enough to
-	 * hold 2 subarrays for the given number of disks.  This may not be
-	 * sufficient when reshaping.
-	 *
-	 * FIX ME handle the reshape case.
-	 *
-	 * The monitor will be able to safely change super->mpb by arranging
-	 * for it to be freed in check_update_queue().  I.e. the monitor thread
-	 * will start using the new pointer and the manager can continue to use
-	 * the old value until check_update_queue() runs.
+	 * Allocate space to hold new disk entries, raid-device entries or a new
+	 * mpb if necessary.  The manager synchronously waits for updates to
+	 * complete in the monitor, so new mpb buffers allocated here can be
+	 * integrated by the monitor thread without worrying about live pointers
+	 * in the manager thread.
 	 */
 	enum imsm_update_type type = *(enum imsm_update_type *) update->buf;
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->anchor;
+	size_t buf_len;
+	size_t len = 0;
 
 	switch (type) {
 	case update_create_array: {
 		struct imsm_update_create_array *u = (void *) update->buf;
-		size_t len = sizeof_imsm_dev(&u->dev, 1);
 
+		len = sizeof_imsm_dev(&u->dev, 1);
 		update->space = malloc(len);
 		break;
 	default:
@@ -2882,7 +2922,25 @@ static void imsm_prepare_update(struct supertype *st,
 	}
 	}
 
-	return;
+	/* check if we need a larger metadata buffer */
+	if (super->next_buf)
+		buf_len = super->next_len;
+	else
+		buf_len = super->len;
+
+	if (__le32_to_cpu(mpb->mpb_size) + len > buf_len) {
+		/* ok we need a larger buf than what is currently allocated
+		 * if this allocation fails process_update will notice that
+		 * ->next_len is set and ->next_buf is NULL
+		 */
+		buf_len = ROUND_UP(__le32_to_cpu(mpb->mpb_size) + len, 512);
+		if (super->next_buf)
+			free(super->next_buf);
+
+		super->next_len = buf_len;
+		if (posix_memalign(&super->next_buf, buf_len, 512) != 0)
+			super->next_buf = NULL;
+	}
 }
 
 /* must be called while manager is quiesced */

@@ -785,6 +785,7 @@ extern int start_mdmon(int devnum);
 
 extern char *devnum2devname(int num);
 extern int devname2devnum(char *name);
+extern int stat2devnum(struct stat *st);
 extern int fd2devnum(int fd);
 
 static inline int dev2major(int d)

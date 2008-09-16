@@ -144,8 +144,21 @@ int connect_monitor(char *devname)
 	int sfd;
 	long fl;
 	struct sockaddr_un addr;
+	int pos;
+	char *c;
 
-	sprintf(path, "/var/run/mdadm/%s.sock", devname);
+	pos = sprintf(path, "/var/run/mdadm/");
+	if (is_subarray(devname)) {
+		devname++;
+		c = strchr(devname, '/');
+		if (!c)
+			return -1;
+		snprintf(&path[pos], c - devname + 1, "%s", devname);
+		pos += c - devname;
+	} else
+		pos += sprintf(&path[pos], "%s", devname);
+	sprintf(&path[pos], ".sock");
+
 	sfd = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sfd < 0)
 		return -1;

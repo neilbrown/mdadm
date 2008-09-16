@@ -602,10 +602,7 @@ int Wait(char *dev)
 			strerror(errno));
 		return 2;
 	}
-	if (major(stb.st_rdev) == MD_MAJOR)
-		devnum = minor(stb.st_rdev);
-	else
-		devnum = -1-(minor(stb.st_rdev)/64);
+	devnum = stat2devnum(&stb);
 
 	while(1) {
 		struct mdstat_ent *ms = mdstat_read(1, 0);
@@ -616,6 +613,13 @@ int Wait(char *dev)
 				break;
 
 		if (!e || e->percent < 0) {
+			if (e &&
+			    strncmp(e->metadata_version, "external:", 9) == 0) {
+				if (is_subarray(&e->metadata_version[9]))
+					ping_monitor(&e->metadata_version[9]);
+				else
+					ping_monitor(devnum2devname(devnum));
+			}
 			free_mdstat(ms);
 			return rv;
 		}

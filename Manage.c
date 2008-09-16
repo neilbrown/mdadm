@@ -167,8 +167,6 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		if (mdi &&
 		    mdi->array.level > 0 &&
 		    is_subarray(mdi->text_version)) {
-			char *cp;
-
 			/* This is mdmon managed. */
 			close(fd);
 			if (sysfs_set_str(mdi, NULL,
@@ -181,10 +179,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			}
 
 			/* Give monitor a chance to act */
-			cp = strchr(mdi->text_version+1, '/');
-			if (*cp)
-				*cp = 0;
-			ping_monitor(mdi->text_version+1);
+			ping_monitor(mdi->text_version);
 
 			fd = open(devname, O_RDONLY);
 		} else if (mdi &&

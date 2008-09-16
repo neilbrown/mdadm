@@ -1022,16 +1022,23 @@ int devname2devnum(char *name)
 	return num;
 }
 
+int stat2devnum(struct stat *st)
+{
+	if ((S_IFMT & st->st_mode) == S_IFBLK) {
+		if (major(st->st_rdev) == MD_MAJOR)
+			return minor(st->st_rdev);
+		else
+			return -1- (minor(st->st_rdev)>>6);
+	}
+	return -1;
+
+}
+
 int fd2devnum(int fd)
 {
 	struct stat stb;
-	if (fstat(fd, &stb) == 0 &&
-	    (S_IFMT&stb.st_mode)==S_IFBLK) {
-		if (major(stb.st_rdev) == MD_MAJOR)
-			return minor(stb.st_rdev);
-		else
-			return -1- (minor(stb.st_rdev)>>6);
-	}
+	if (fstat(fd, &stb) == 0)
+		return stat2devnum(&stb);
 	return -1;
 }
 

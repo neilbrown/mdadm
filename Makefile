@@ -165,7 +165,8 @@ mdadm.conf.man : mdadm.conf.5
 mdassemble.man : mdassemble.8
 	nroff -man mdassemble.8 > mdassemble.man
 
-$(OBJS) : mdadm.h bitmap.h
+$(OBJS) : mdadm.h mdmon.h bitmap.h
+$(MON_OBJS) : mdadm.h mdmon.h bitmap.h
 
 sha1.o : sha1.c sha1.h md5.h
 	$(CC) $(CFLAGS) -DHAVE_STDINT_H -o sha1.o -c sha1.c

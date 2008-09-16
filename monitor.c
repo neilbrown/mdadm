@@ -284,7 +284,8 @@ static int read_and_act(struct active_array *a)
 	}
 
 	a->container->ss->sync_metadata(a->container);
-	dprintf("%s: update[%d]: (", __func__, a->info.container_member);
+	dprintf("%s(%d): state:%s action:%s next(", __func__, a->info.container_member,
+		array_states[a->curr_state], sync_actions[a->curr_action]);
 
 	/* Effect state changes in the array */
 	if (a->next_state != bad_word) {
@@ -293,7 +294,7 @@ static int read_and_act(struct active_array *a)
 	}
 	if (a->next_action != bad_action) {
 		write_attr(sync_actions[a->next_action], a->action_fd);
-		dprintf(" action:%s", array_states[a->next_state]);
+		dprintf(" action:%s", sync_actions[a->next_action]);
 	}
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		if (mdi->next_state & DS_UNBLOCK) {

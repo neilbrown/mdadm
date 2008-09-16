@@ -532,6 +532,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 	}
 	info->events = __le64_to_cpu(sb->events);
 	sprintf(info->text_version, "1.%d", st->minor_version);
+	info->safe_mode_delay = 200;
 
 	memcpy(info->uuid, sb->set_uuid, 16);
 

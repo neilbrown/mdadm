@@ -1247,6 +1247,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 	info->reshape_active = 0;
 
 	strcpy(info->text_version, "ddf");
+	info->safe_mode_delay = 0;
 
 //	uuid_from_super_ddf(info->uuid, sbv);
 
@@ -1303,6 +1304,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	sprintf(info->text_version, "/%s/%s",
 		devnum2devname(st->container_dev),
 		st->subarray);
+	info->safe_mode_delay = 200;
 
 //	info->name[] ?? ;
 }

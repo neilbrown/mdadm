@@ -655,6 +655,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	sprintf(info->text_version, "/%s/%d",
 		devnum2devname(st->container_dev),
 		info->container_member);
+	info->safe_mode_delay = 4000;  /* 4 secs like the Matrix driver */
 }
 
 
@@ -685,6 +686,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.raid_disk = -1;
 	info->reshape_active = 0;
 	strcpy(info->text_version, "imsm");
+	info->safe_mode_delay = 0;
 	info->disk.number = -1;
 	info->disk.state = 0;
 

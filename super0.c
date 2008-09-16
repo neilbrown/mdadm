@@ -370,6 +370,7 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 	info->data_offset = 0;
 
 	sprintf(info->text_version, "0.%d", sb->minor_version);
+	info->safe_mode_delay = 200;
 
 	uuid_from_super0(st, info->uuid);
 

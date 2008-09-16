@@ -231,10 +231,14 @@ static int read_and_act(struct active_array *a)
 		a->next_state = active;
 	}
 	if (a->curr_state == active_idle) {
-		/* Set array to 'clean' FIRST, then
-		 * a->ss->mark_clean(a, ~0ULL);
-		 * just ignore for now.
+		/* Set array to 'clean' FIRST, then mark clean
+		 * in the metadata
 		 */
+		a->next_state = clean;
+	}
+	if (a->curr_state == clean) {
+		get_resync_start(a);
+		a->container->ss->set_array_state(a, 1);
 	}
 
 	if (a->curr_state == readonly) {

@@ -358,9 +358,9 @@ static __u32 get_imsm_ord_tbl_ent(struct imsm_dev *dev, int slot)
 	struct imsm_map *map;
 
 	if (dev->vol.migr_state)
-		map = get_imsm_map(dev, 0);
-	else
 		map = get_imsm_map(dev, 1);
+	else
+		map = get_imsm_map(dev, 0);
 
 	return map->disk_ord_tbl[slot];
 }

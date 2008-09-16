@@ -849,15 +849,13 @@ static int imsm_read_serial(int fd, char *devname,
 
 	memset(scsi_serial, 0, sizeof(scsi_serial));
 
-	if (imsm_env_devname_as_serial()) {
-		char name[MAX_RAID_SERIAL_LEN];
-		
-		fd2devname(fd, name);
-		strcpy((char *) serial, name);
+	rv = scsi_get_serial(fd, scsi_serial, sizeof(scsi_serial));
+
+	if (rv && imsm_env_devname_as_serial()) {
+		memset(serial, 0, MAX_RAID_SERIAL_LEN);
+		fd2devname(fd, (char *) serial);
 		return 0;
 	}
-
-	rv = scsi_get_serial(fd, scsi_serial, sizeof(scsi_serial));
 
 	if (rv != 0) {
 		if (devname)

@@ -491,7 +491,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 static void print_imsm_disk(struct imsm_super *mpb, int index)
 {
 	struct imsm_disk *disk = __get_imsm_disk(mpb, index);
-	char str[MAX_RAID_SERIAL_LEN];
+	char str[MAX_RAID_SERIAL_LEN + 1];
 	__u32 s;
 	__u64 sz;
 
@@ -499,7 +499,7 @@ static void print_imsm_disk(struct imsm_super *mpb, int index)
 		return;
 
 	printf("\n");
-	snprintf(str, MAX_RAID_SERIAL_LEN, "%s", disk->serial);
+	snprintf(str, MAX_RAID_SERIAL_LEN + 1, "%s", disk->serial);
 	printf("  Disk%02d Serial : %s\n", index, str);
 	s = __le32_to_cpu(disk->status);
 	printf("          State :%s%s%s%s\n", s&SPARE_DISK ? " spare" : "",
@@ -845,7 +845,8 @@ static int imsm_read_serial(int fd, char *devname,
 	unsigned char scsi_serial[255];
 	int rv;
 	int rsp_len;
-	int i, cnt;
+	int len;
+	char *c, *rsp_buf;
 
 	memset(scsi_serial, 0, sizeof(scsi_serial));
 
@@ -865,17 +866,32 @@ static int imsm_read_serial(int fd, char *devname,
 		return rv;
 	}
 
+	/* trim whitespace */
 	rsp_len = scsi_serial[3];
-	for (i = 0, cnt = 0; i < rsp_len; i++) {
-		if (!isspace(scsi_serial[4 + i]))
-			serial[cnt++] = scsi_serial[4 + i];
-		if (cnt == MAX_RAID_SERIAL_LEN)
-			break;
-	}
-
-	serial[MAX_RAID_SERIAL_LEN - 1] = '\0';
+	rsp_buf = (char *) &scsi_serial[4];
+	c = rsp_buf;
+	while (isspace(*c))
+		c++;
+	if (c + MAX_RAID_SERIAL_LEN > rsp_buf + rsp_len)
+		len = rsp_len - (c - rsp_buf);
+	else
+		len = MAX_RAID_SERIAL_LEN;
+	memcpy(serial, c, len);
+	c = (char *) &serial[len - 1];
+	while (isspace(*c) || *c == '\0')
+		*c-- = '\0';
 
 	return 0;
+}
+
+static int serialcmp(__u8 *s1, __u8 *s2)
+{
+	return strncmp((char *) s1, (char *) s2, MAX_RAID_SERIAL_LEN);
+}
+
+static void serialcpy(__u8 *dest, __u8 *src)
+{
+	strncpy((char *) dest, (char *) src, MAX_RAID_SERIAL_LEN);
 }
 
 static int
@@ -898,7 +914,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	 * check if we need to update dl->index
 	 */
 	for (dl = super->disks; dl; dl = dl->next)
-		if (memcmp(dl->serial, serial, MAX_RAID_SERIAL_LEN) == 0)
+		if (serialcmp(dl->serial, serial) == 0)
 			break;
 
 	if (!dl)
@@ -921,7 +937,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		dl->next = super->disks;
 		dl->fd = keep_fd ? fd : -1;
 		dl->devname = devname ? strdup(devname) : NULL;
-		strncpy((char *) dl->serial, (char *) serial, MAX_RAID_SERIAL_LEN);
+		serialcpy(dl->serial, serial);
 		dl->index = -2;
 	} else if (keep_fd) {
 		close(dl->fd);
@@ -934,8 +950,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 
 		disk_iter = __get_imsm_disk(super->anchor, i);
 
-		if (memcmp(disk_iter->serial, dl->serial,
-			   MAX_RAID_SERIAL_LEN) == 0) {
+		if (serialcmp(disk_iter->serial, dl->serial) == 0) {
 			__u32 status;
 
 			dl->disk = *disk_iter;
@@ -1620,7 +1635,7 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	get_dev_size(fd, NULL, &size);
 	size /= 512;
 	status = USABLE_DISK | SPARE_DISK;
-	strcpy((char *) dd->disk.serial, (char *) dd->serial);
+	serialcpy(dd->disk.serial, dd->serial);
 	dd->disk.total_blocks = __cpu_to_le32(size);
 	dd->disk.status = __cpu_to_le32(status);
 	if (sysfs_disk_to_scsi_id(fd, &id) == 0)
@@ -2783,8 +2798,8 @@ static void imsm_process_update(struct supertype *st,
 
 		if (!dl) {
 			fprintf(stderr, "error: imsm_activate_spare passed "
-				"an unknown disk (index: %d serial: %s)\n",
-				u->dl->index, u->dl->serial);
+				"an unknown disk (index: %d)\n",
+				u->dl->index);
 			return;
 		}
 
@@ -2950,8 +2965,7 @@ static void imsm_process_update(struct supertype *st,
 			al = super->add;
 			super->add = al->next;
 			for (dlp = &super->disks; *dlp ; ) {
-				if (memcmp(al->serial, (*dlp)->serial,
-					   MAX_RAID_SERIAL_LEN) == 0) {
+				if (serialcmp(al->serial, (*dlp)->serial) == 0) {
 					dl = *dlp;
 					*dlp = (*dlp)->next;
 					__free_imsm_disk(dl);

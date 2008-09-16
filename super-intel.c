@@ -2510,9 +2510,10 @@ static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_a
 	return dl;
 }
 
-static struct dl *imsm_add_spare(struct intel_super *super, int idx, struct active_array *a)
+static struct dl *imsm_add_spare(struct intel_super *super, int slot, struct active_array *a)
 {
 	struct imsm_dev *dev = get_imsm_dev(super, a->info.container_member);
+	int idx = get_imsm_disk_idx(dev, slot);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	unsigned long long esize;
 	unsigned long long pos;
@@ -2527,7 +2528,8 @@ static struct dl *imsm_add_spare(struct intel_super *super, int idx, struct acti
 	for (dl = super->disks; dl; dl = dl->next) {
 		/* If in this array, skip */
 		for (d = a->info.devs ; d ; d = d->next)
-			if (d->disk.major == dl->major &&
+			if (d->state_fd >= 0 &&
+			    d->disk.major == dl->major &&
 			    d->disk.minor == dl->minor) {
 				dprintf("%x:%x already in array\n", dl->major, dl->minor);
 				break;
@@ -2535,13 +2537,13 @@ static struct dl *imsm_add_spare(struct intel_super *super, int idx, struct acti
 		if (d)
 			continue;
 
-		/* skip marked in use or failed drives */
+		/* skip in use or failed drives */
 		status = __le32_to_cpu(dl->disk.status);
-		if (status & FAILED_DISK || status & CONFIGURED_DISK) {
+		if (status & FAILED_DISK || idx == dl->index) {
 			dprintf("%x:%x status ( %s%s)\n",
 			dl->major, dl->minor,
 			status & FAILED_DISK ? "failed " : "",
-			status & CONFIGURED_DISK ? "configured " : "");
+			idx == dl->index ? "in use " : "");
 			continue;
 		}
 
@@ -2946,23 +2948,16 @@ static void imsm_process_update(struct supertype *st,
  			for (a = st->arrays; a; a = a->next)
 				a->check_degraded = 1;
 		}
-		/* check if we can add / replace some disks in the
-		 * metadata */
+		/* add some spares to the metadata */
 		while (super->add) {
-			struct dl **dlp, *dl, *al;
+			struct dl *al;
+
 			al = super->add;
 			super->add = al->next;
-			for (dlp = &super->disks; *dlp ; ) {
-				if (serialcmp(al->serial, (*dlp)->serial) == 0) {
-					dl = *dlp;
-					*dlp = (*dlp)->next;
-					__free_imsm_disk(dl);
-					break;
-				} else
-					dlp = &(*dlp)->next;
-			}
 			al->next = super->disks;
 			super->disks = al;
+			dprintf("%s: added %x:%x\n",
+				__func__, al->major, al->minor);
 		}
 
 		break;

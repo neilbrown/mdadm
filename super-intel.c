@@ -908,7 +908,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		dl->fd = keep_fd ? fd : -1;
 		dl->devname = devname ? strdup(devname) : NULL;
 		strncpy((char *) dl->serial, (char *) serial, MAX_RAID_SERIAL_LEN);
-		dl->index = -3;
+		dl->index = -2;
 	} else if (keep_fd) {
 		close(dl->fd);
 		dl->fd = fd;
@@ -935,15 +935,9 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 				dl->index = -1;
 			else
 				dl->index = i;
+
 			break;
 		}
-	}
-
-	if (dl->index == -3) {
-		fprintf(stderr, Name ": device %x:%x with serial %s"
-			" does not belong to this container\n",
-			dl->major, dl->minor, (char *) serial);
-		return 2;
 	}
 
 	if (alloc)
@@ -1629,7 +1623,7 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 	mpb->generation_num = __cpu_to_le32(1UL);
 
 	for (d = super->disks; d; d = d->next) {
-		if (d->index >= 0)
+		if (d->index != -1)
 			continue;
 
 		mpb->disk[0] = d->disk;
@@ -1661,7 +1655,6 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	__u32 generation;
 	__u32 sum;
 	int spares = 0;
-	int raid_disks = 0;
 	int i;
 	__u32 mpb_size = sizeof(struct imsm_super) - sizeof(struct imsm_disk);
 
@@ -1671,18 +1664,12 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	mpb->generation_num = __cpu_to_le32(generation);
 
 	for (d = super->disks; d; d = d->next) {
-		if (d->index < 0)
+		if (d->index == -1)
 			spares++;
 		else {
-			raid_disks++;
 			mpb->disk[d->index] = d->disk;
 			mpb_size += sizeof(struct imsm_disk);
 		}
-	}
-	if (raid_disks != mpb->num_disks) {
-		fprintf(stderr, "%s: expected %d disks only found %d\n",
-			__func__, mpb->num_disks, raid_disks);
-		return 1;
 	}
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
@@ -1702,11 +1689,9 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	for (d = super->disks; d ; d = d->next) {
 		if (d->index < 0)
 			continue;
-		if (store_imsm_mpb(d->fd, super)) {
+		if (store_imsm_mpb(d->fd, super))
 			fprintf(stderr, "%s: failed for device %d:%d %s\n",
 				__func__, d->major, d->minor, strerror(errno));
-			return 1;
-		}
 		if (doclose) {
 			close(d->fd);
 			d->fd = -1;
@@ -2220,22 +2205,24 @@ static __u8 imsm_check_degraded(struct intel_super *super, int n, int failed)
 		int device_per_mirror = 2; /* FIXME is this always the case?
 					    * and are they always adjacent?
 					    */
-		int failed = 0;
+		int r10fail = 0;
 		int i;
 
 		for (i = 0; i < map->num_members; i++) {
 			int idx = get_imsm_disk_idx(map, i);
 			struct imsm_disk *disk = get_imsm_disk(super, idx);
 
-			if (__le32_to_cpu(disk->status) & FAILED_DISK)
-				failed++;
+			if (!disk)
+				r10fail++;
+			else if (__le32_to_cpu(disk->status) & FAILED_DISK)
+				r10fail++;
 
-			if (failed >= device_per_mirror)
+			if (r10fail >= device_per_mirror)
 				return IMSM_T_STATE_FAILED;
 
-			/* reset 'failed' for next mirror set */
+			/* reset 'r10fail' for next mirror set */
 			if (!((i + 1) % device_per_mirror))
-				failed = 0;
+				r10fail = 0;
 		}
 
 		return IMSM_T_STATE_DEGRADED;
@@ -2263,7 +2250,9 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_map *map)
 		int idx = get_imsm_disk_idx(map, i);
 
 		disk = get_imsm_disk(super, idx);
-		if (__le32_to_cpu(disk->status) & FAILED_DISK)
+		if (!disk)
+			failed++;
+		else if (__le32_to_cpu(disk->status) & FAILED_DISK)
 			failed++;
 		else if (!(__le32_to_cpu(disk->status) & USABLE_DISK))
 			failed++;
@@ -2354,6 +2343,8 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	if ((state & DS_FAULTY) && !(status & FAILED_DISK)) {
 		status |= FAILED_DISK;
 		disk->status = __cpu_to_le32(status);
+		disk->scsi_id = __cpu_to_le32(~0UL);
+		memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
 		new_failure = 1;
 		super->updates_pending++;
 	}
@@ -2444,7 +2435,7 @@ static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_a
 		if (dl->index == i)
 			break;
 
-	if (__le32_to_cpu(dl->disk.status) & FAILED_DISK)
+	if (dl && __le32_to_cpu(dl->disk.status) & FAILED_DISK)
 		dl = NULL;
 
 	if (dl)

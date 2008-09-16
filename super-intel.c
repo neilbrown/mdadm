@@ -345,16 +345,6 @@ static struct imsm_dev *get_imsm_dev(struct intel_super *super, __u8 index)
 	return super->dev_tbl[index];
 }
 
-static __u32 get_imsm_disk_idx(struct imsm_map *map, int slot)
-{
-	__u32 *ord_tbl = &map->disk_ord_tbl[slot];
-
-	/* top byte identifies disk under rebuild
-	 * why not just use the USABLE bit... oh well.
-	 */
-	return __le32_to_cpu(*ord_tbl & ~(0xff << 24));
-}
-
 static __u32 get_imsm_ord_tbl_ent(struct imsm_dev *dev, int slot)
 {
 	struct imsm_map *map;
@@ -364,7 +354,16 @@ static __u32 get_imsm_ord_tbl_ent(struct imsm_dev *dev, int slot)
 	else
 		map = get_imsm_map(dev, 0);
 
-	return map->disk_ord_tbl[slot];
+	/* top byte identifies disk under rebuild */
+	return __le32_to_cpu(map->disk_ord_tbl[slot]);
+}
+
+#define ord_to_idx(ord) (((ord) << 8) >> 8)
+static __u32 get_imsm_disk_idx(struct imsm_dev *dev, int slot)
+{
+	__u32 ord = get_imsm_ord_tbl_ent(dev, slot);
+
+	return ord_to_idx(ord);
 }
 
 static int get_imsm_raid_level(struct imsm_map *map)
@@ -402,7 +401,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 		struct imsm_map *map = get_imsm_map(dev, 0);
 
 		for (j = 0; j < map->num_members; j++) {
-			__u32 index = get_imsm_disk_idx(map, j);
+			__u32 index = get_imsm_disk_idx(dev, j);
 
 			if (index == dl->index)
 				memberships++;
@@ -418,7 +417,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 		struct imsm_map *map = get_imsm_map(dev, 0);
 
 		for (j = 0; j < map->num_members; j++) {
-			__u32 index = get_imsm_disk_idx(map, j);
+			__u32 index = get_imsm_disk_idx(dev, j);
 
 			if (index == dl->index) {
 				e->start = __le32_to_cpu(map->pba_of_lba0);
@@ -447,7 +446,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	printf("     RAID Level : %d\n", get_imsm_raid_level(map));
 	printf("        Members : %d\n", map->num_members);
 	for (slot = 0; slot < map->num_members; slot++)
-		if (index == get_imsm_disk_idx(map, slot))
+		if (index == get_imsm_disk_idx(dev, slot))
 			break;
 	if (slot < map->num_members)
 		printf("      This Slot : %d\n", slot);
@@ -2109,7 +2108,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			__u32 ord;
 
 			skip = 0;
-			idx = get_imsm_disk_idx(map, slot);
+			idx = get_imsm_disk_idx(dev, slot);
 			ord = get_imsm_ord_tbl_ent(dev, slot); 
 			for (d = super->disks; d ; d = d->next)
 				if (d->index == idx)
@@ -2218,7 +2217,7 @@ static __u8 imsm_check_degraded(struct intel_super *super, int n, int failed)
 		int i;
 
 		for (i = 0; i < map->num_members; i++) {
-			int idx = get_imsm_disk_idx(map, i);
+			int idx = get_imsm_disk_idx(dev, i);
 			struct imsm_disk *disk = get_imsm_disk(super, idx);
 
 			if (!disk)
@@ -2249,14 +2248,15 @@ static __u8 imsm_check_degraded(struct intel_super *super, int n, int failed)
 	return map->map_state;
 }
 
-static int imsm_count_failed(struct intel_super *super, struct imsm_map *map)
+static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 {
 	int i;
 	int failed = 0;
 	struct imsm_disk *disk;
+	struct imsm_map *map = get_imsm_map(dev, 0);
 
 	for (i = 0; i < map->num_members; i++) {
-		int idx = get_imsm_disk_idx(map, i);
+		int idx = get_imsm_disk_idx(dev, i);
 
 		disk = get_imsm_disk(super, idx);
 		if (!disk)
@@ -2280,7 +2280,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	int failed;
 	__u8 map_state;
 
-	failed = imsm_count_failed(super, map);
+	failed = imsm_count_failed(super, dev);
 	map_state = imsm_check_degraded(super, inst, failed);
 
 	if (consistent && !dev->vol.dirty &&
@@ -2345,7 +2345,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	dprintf("imsm: set_disk %d:%x\n", n, state);
 
-	disk = get_imsm_disk(super, get_imsm_disk_idx(map, n));
+	disk = get_imsm_disk(super, get_imsm_disk_idx(dev, n));
 
 	/* check for new failures */
 	status = __le32_to_cpu(disk->status);
@@ -2368,7 +2368,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	 * degraded / failed status
 	 */
 	if (new_failure && map->map_state != IMSM_T_STATE_FAILED)
-		failed = imsm_count_failed(super, map);
+		failed = imsm_count_failed(super, dev);
 
 	/* determine map_state based on failed or in_sync count */
 	if (failed)
@@ -2436,8 +2436,7 @@ static void imsm_sync_metadata(struct supertype *container)
 static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_array *a)
 {
 	struct imsm_dev *dev = get_imsm_dev(super, a->info.container_member);
-	struct imsm_map *map = get_imsm_map(dev, 0);
-	int i = get_imsm_disk_idx(map, idx);
+	int i = get_imsm_disk_idx(dev, idx);
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next)
@@ -2654,16 +2653,18 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	return rv;
 }
 
-static int disks_overlap(struct imsm_map *m1, struct imsm_map *m2)
+static int disks_overlap(struct imsm_dev *d1, struct imsm_dev *d2)
 {
+	struct imsm_map *m1 = get_imsm_map(d1, 0);
+	struct imsm_map *m2 = get_imsm_map(d2, 0);
 	int i;
 	int j;
 	int idx;
 
 	for (i = 0; i < m1->num_members; i++) {
-		idx = get_imsm_disk_idx(m1, i);
+		idx = get_imsm_disk_idx(d1, i);
 		for (j = 0; j < m2->num_members; j++)
-			if (idx == get_imsm_disk_idx(m2, j))
+			if (idx == get_imsm_disk_idx(d2, j))
 				return 1;
 	}
 
@@ -2736,7 +2737,7 @@ static void imsm_process_update(struct supertype *st,
 			dl->index = super->anchor->num_disks;
 			super->anchor->num_disks++;
 		}
-		victim = get_imsm_disk_idx(map, u->slot);
+		victim = get_imsm_disk_idx(dev, u->slot);
 		map->disk_ord_tbl[u->slot] = __cpu_to_le32(dl->index);
 		disk = &dl->disk;
 		status = __le32_to_cpu(disk->status);
@@ -2748,9 +2749,8 @@ static void imsm_process_update(struct supertype *st,
 		found = 0;
 		for (a = st->arrays; a ; a = a->next) {
 			dev = get_imsm_dev(super, a->info.container_member);
-			map = get_imsm_map(dev, 0);
 			for (i = 0; i < map->num_members; i++)
-				if (victim == get_imsm_disk_idx(map, i))
+				if (victim == get_imsm_disk_idx(dev, i))
 					found++;
 		}
 
@@ -2821,7 +2821,7 @@ static void imsm_process_update(struct supertype *st,
 			if ((new_start >= start && new_start <= end) ||
 			    (start >= new_start && start <= new_end))
 				overlap = 1;
-			if (overlap && disks_overlap(map, new_map)) {
+			if (overlap && disks_overlap(dev, &u->dev)) {
 				dprintf("%s: arrays overlap\n", __func__);
 				return;
 			}
@@ -2840,6 +2840,7 @@ static void imsm_process_update(struct supertype *st,
 
 		super->updates_pending++;
 		dev = update->space;
+		map = get_imsm_map(dev, 0);
 		update->space = NULL;
 		imsm_copy_dev(dev, &u->dev);
 		map = get_imsm_map(dev, 0);
@@ -2851,7 +2852,7 @@ static void imsm_process_update(struct supertype *st,
 			struct imsm_disk *disk;
 			__u32 status;
 
-			disk = get_imsm_disk(super, get_imsm_disk_idx(map, i));
+			disk = get_imsm_disk(super, get_imsm_disk_idx(dev, i));
 			status = __le32_to_cpu(disk->status);
 			status |= CONFIGURED_DISK;
 			status &= ~SPARE_DISK;
@@ -2964,7 +2965,7 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp)
 		map = get_imsm_map(dev, 0);
 
 		for (j = 0; j < map->num_members; j++) {
-			int idx = get_imsm_disk_idx(map, j);
+			int idx = get_imsm_disk_idx(dev, j);
 
 			if (idx > dl->index)
 				map->disk_ord_tbl[j] = __cpu_to_le32(idx - 1);

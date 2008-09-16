@@ -793,6 +793,15 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 			return 3;
 	}
 
+	/* if 'first' is a spare promote it to a populated mpb with sec's
+	 * family number
+	 */
+	if (first->anchor->num_raid_devs == 0 &&
+	    sec->anchor->num_raid_devs > 0) {
+		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
+		first->anchor->family_num = sec->anchor->family_num;
+	}
+
 	return 0;
 }
 

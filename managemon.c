@@ -475,8 +475,13 @@ static void manage_new(struct mdstat_ent *mdstat,
 			mdstat->metadata_version);
 		new->container = NULL;
 		free_aa(new);
-	} else
+	} else {
 		replace_array(container, victim, new);
+		if (failed) {
+			new->check_degraded = 1;
+			manage_member(mdstat, new);
+		}
+	}
 }
 
 void manage(struct mdstat_ent *mdstat, struct supertype *container)

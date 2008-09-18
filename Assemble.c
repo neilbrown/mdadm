@@ -140,6 +140,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	char *avail;
 	int nextspare = 0;
 
+	memset(&info, 0, sizeof(info));
+
 	if (get_linux_version() < 2004000)
 		old_linux = 1;
 
@@ -736,6 +738,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 	}
 	st->ss->getinfo_super(st, &info);
+#ifndef MDASSEMBLE
+	sysfs_init(&info, mdfd, 0);
+#endif
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
 		unsigned int desired_state;
@@ -844,36 +849,11 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
-		struct mdinfo *sra = NULL;
 		int rv;
 
-#ifndef MDASSEMBLE
-		if (st->ss->external) {
-			char ver[100];
-			strcat(strcpy(ver, "external:"), info.text_version);
-			sra = sysfs_read(mdfd, 0, 0);
-			if ((vers % 100) < 2 ||
-			    sra == NULL ||
-			    sysfs_set_str(sra, NULL, "metadata_version",
-					  ver) < 0) {
-				fprintf(stderr, Name ": This kernel does not "
-					"support external metadata.\n");
-				return 1;
-			}
-			rv = sysfs_set_array(sra, &info);
-		} else
-#endif
-		if ((vers % 100) >= 1) { /* can use different versions */
-			mdu_array_info_t inf;
-			memset(&inf, 0, sizeof(inf));
-			inf.major_version = info.array.major_version;
-			inf.minor_version = info.array.minor_version;
-			rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
-		} else
-			rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
-
+		rv = set_array_info(mdfd, st, &info);
 		if (rv) {
-			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
+			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
 				mddev, strerror(errno));
 			if (must_close) close(mdfd);
 			return 1;
@@ -913,7 +893,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				j = chosen_drive;
 
 			if (j >= 0 /* && devices[j].uptodate */) {
-				rv = add_disk(mdfd, st, sra, &devices[j].i);
+				rv = add_disk(mdfd, st, &info, &devices[j].i);
 
 				if (rv) {
 					fprintf(stderr, Name ": failed to add "

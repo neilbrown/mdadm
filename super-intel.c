@@ -667,6 +667,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	strncpy(info->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
 	info->name[MAX_RAID_SERIAL_LEN] = 0;
 
+	info->array.major_version = -1;
+	info->array.minor_version = -2;
 	sprintf(info->text_version, "/%s/%d",
 		devnum2devname(st->container_dev),
 		info->container_member);
@@ -700,6 +702,8 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.minor = 0;
 	info->disk.raid_disk = -1;
 	info->reshape_active = 0;
+	info->array.major_version = -1;
+	info->array.minor_version = -2;
 	strcpy(info->text_version, "imsm");
 	info->safe_mode_delay = 0;
 	info->disk.number = -1;

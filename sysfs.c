@@ -74,6 +74,29 @@ int sysfs_open(int devnum, char *devname, char *attr)
 	return fd;
 }
 
+void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
+{
+	if (fd >= 0) {
+		struct stat stb;
+		mdu_version_t vers;
+ 		if (fstat(fd, &stb))
+			return;
+		if (ioctl(fd, RAID_VERSION, &vers) != 0)
+			return;
+		if (major(stb.st_rdev)==9)
+			sprintf(mdi->sys_name, "md%d", (int)minor(stb.st_rdev));
+		else
+			sprintf(mdi->sys_name, "md_d%d",
+				(int)minor(stb.st_rdev)>>MdpMinorShift);
+	} else {
+		if (devnum >= 0)
+			sprintf(mdi->sys_name, "md%d", devnum);
+		else
+			sprintf(mdi->sys_name, "md_d%d",
+				-1-devnum);
+	}
+}
+
 struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 {
 	/* Longest possible name in sysfs, mounted at /sys, is
@@ -93,26 +116,9 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 	sra = malloc(sizeof(*sra));
 	if (sra == NULL)
 		return sra;
-	sra->next = NULL;
+	memset(sra, 0, sizeof(*sra));
+	sysfs_init(sra, fd, devnum);
 
-	if (fd >= 0) {
-		struct stat stb;
-		mdu_version_t vers;
- 		if (fstat(fd, &stb)) return NULL;
-		if (ioctl(fd, RAID_VERSION, &vers) != 0)
-			return NULL;
-		if (major(stb.st_rdev)==9)
-			sprintf(sra->sys_name, "md%d", (int)minor(stb.st_rdev));
-		else
-			sprintf(sra->sys_name, "md_d%d",
-				(int)minor(stb.st_rdev)>>MdpMinorShift);
-	} else {
-		if (devnum >= 0)
-			sprintf(sra->sys_name, "md%d", devnum);
-		else
-			sprintf(sra->sys_name, "md_d%d",
-				-1-devnum);
-	}
 	sprintf(fname, "/sys/block/%s/md/", sra->sys_name);
 	base = fname + strlen(fname);
 
@@ -433,22 +439,34 @@ int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms)
 	return sysfs_set_str(sra, NULL, "safe_mode_delay", delay);
 }
 
-int sysfs_set_array(struct mdinfo *sra,
-		    struct mdinfo *info)
+int sysfs_set_array(struct mdinfo *info, int vers)
 {
 	int rv = 0;
-	sra->array = info->array;
+	char ver[100];
 
+	ver[0] = 0;
+	if (info->array.major_version == -1 &&
+	    info->array.minor_version == -2) {
+		strcat(strcpy(ver, "external:"), info->text_version);
+
+		if ((vers % 100) < 2 ||
+		    sysfs_set_str(info, NULL, "metadata_version",
+				  ver) < 0) {
+			fprintf(stderr, Name ": This kernel does not "
+				"support external metadata.\n");
+			return 1;
+		}
+	}
 	if (info->array.level < 0)
 		return 0; /* FIXME */
-	rv |= sysfs_set_str(sra, NULL, "level",
+	rv |= sysfs_set_str(info, NULL, "level",
 			    map_num(pers, info->array.level));
-	rv |= sysfs_set_num(sra, NULL, "raid_disks", info->array.raid_disks);
-	rv |= sysfs_set_num(sra, NULL, "chunk_size", info->array.chunk_size);
-	rv |= sysfs_set_num(sra, NULL, "layout", info->array.layout);
-	rv |= sysfs_set_num(sra, NULL, "component_size", info->component_size/2);
-	rv |= sysfs_set_num(sra, NULL, "resync_start", info->resync_start);
-	sra->array = info->array;
+	rv |= sysfs_set_num(info, NULL, "raid_disks", info->array.raid_disks);
+	rv |= sysfs_set_num(info, NULL, "chunk_size", info->array.chunk_size);
+	rv |= sysfs_set_num(info, NULL, "layout", info->array.layout);
+	rv |= sysfs_set_num(info, NULL, "component_size", info->component_size/2);
+	if (info->array.level > 0)
+		rv |= sysfs_set_num(info, NULL, "resync_start", info->resync_start);
 	return rv;
 }
 

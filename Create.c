@@ -75,7 +75,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int container_fd = -1;
 	int need_mdmon = 0;
 	unsigned long long bitmapsize;
-	struct mdinfo *sra;
 	struct mdinfo info, *infos;
 	int did_default = 0;
 	unsigned long safe_mode_delay = 0;
@@ -521,6 +520,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 
 	total_slots = info.array.nr_disks;
+	sysfs_init(&info, mdfd, 0);
 	st->ss->getinfo_super(st, &info);
 
 	if (did_default && verbose >= 0) {
@@ -568,61 +568,41 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	}
 
 
-	sra = sysfs_read(mdfd, 0, 0);
+	sysfs_init(&info, mdfd, 0);
 
-	if (st->ss->external) {
-		char ver[100];
-		strcat(strcpy(ver, "external:"),
-		       info.text_version);
-		if (st->ss->external && st->subarray[0]) {
-			/* member */
+	if (st->ss->external && st->subarray[0]) {
+		/* member */
 
-			/* When creating a member, we need to be careful
-			 * to negotiate with mdmon properly.
-			 * If it is already running, we cannot write to
-			 * the devices and must ask it to do that part.
-			 * If it isn't running, we write to the devices,
-			 * and then start it.
-			 * We hold an exclusive open on the container
-			 * device to make sure mdmon doesn't exit after
-			 * we checked that it is running.
-			 *
-			 * For now, fail if it is already running.
-			 */
-			container_fd = open_dev_excl(st->container_dev);
-			if (container_fd < 0) {
-				fprintf(stderr, Name ": Cannot get exclusive "
-					"open on container - weird.\n");
-				return 1;
-			}
-			if (mdmon_running(st->container_dev)) {
-				if (verbose)
-					fprintf(stderr, Name ": reusing mdmon "
-						"for %s.\n",
-						devnum2devname(st->container_dev));
-				st->update_tail = &st->updates;
-			} else
-				need_mdmon = 1;
-		}
-		if ((vers % 100) < 2 ||
-		    sra == NULL ||
-		    sysfs_set_str(sra, NULL, "metadata_version",
-				  ver) < 0) {
-			fprintf(stderr, Name ": This kernel does not "
-				"support external metadata.\n");
+		/* When creating a member, we need to be careful
+		 * to negotiate with mdmon properly.
+		 * If it is already running, we cannot write to
+		 * the devices and must ask it to do that part.
+		 * If it isn't running, we write to the devices,
+		 * and then start it.
+		 * We hold an exclusive open on the container
+		 * device to make sure mdmon doesn't exit after
+		 * we checked that it is running.
+		 *
+		 * For now, fail if it is already running.
+		 */
+		container_fd = open_dev_excl(st->container_dev);
+		if (container_fd < 0) {
+			fprintf(stderr, Name ": Cannot get exclusive "
+				"open on container - weird.\n");
 			return 1;
 		}
-		rv = sysfs_set_array(sra, &info);
-	} else	if ((vers % 100) >= 1) { /* can use different versions */
-		mdu_array_info_t inf;
-		memset(&inf, 0, sizeof(inf));
-		inf.major_version = info.array.major_version;
-		inf.minor_version = info.array.minor_version;
-		rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
-	} else
-		rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
+		if (mdmon_running(st->container_dev)) {
+			if (verbose)
+				fprintf(stderr, Name ": reusing mdmon "
+					"for %s.\n",
+					devnum2devname(st->container_dev));
+			st->update_tail = &st->updates;
+		} else
+			need_mdmon = 1;
+	}
+	rv = set_array_info(mdfd, st, &info);
 	if (rv) {
-		fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
+		fprintf(stderr, Name ": failed to set array info for %s: %s\n",
 			mddev, strerror(errno));
 		return 1;
 	}
@@ -714,7 +694,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				inf->errors = 0;
 				rv = 0;
 
-				rv = add_disk(mdfd, st, sra, inf);
+				rv = add_disk(mdfd, st, &info, inf);
 
 				if (rv) {
 					fprintf(stderr,
@@ -746,16 +726,16 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			case LEVEL_LINEAR:
 			case LEVEL_MULTIPATH:
 			case 0:
-				sysfs_set_str(sra, NULL, "array_state",
+				sysfs_set_str(&info, NULL, "array_state",
 					      "active");
 				need_mdmon = 0;
 				break;
 			default:
-				sysfs_set_str(sra, NULL, "array_state",
+				sysfs_set_str(&info, NULL, "array_state",
 					      "readonly");
 				break;
 			}
-			sysfs_set_safemode(sra, safe_mode_delay);
+			sysfs_set_safemode(&info, safe_mode_delay);
 		} else {
 			mdu_param_t param;
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {

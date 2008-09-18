@@ -1009,14 +1009,44 @@ int add_disk(int mdfd, struct supertype *st,
 		rv = sysfs_add_disk(sra, info);
 		if (! rv) {
 			struct mdinfo *sd2;
-			sd2 = malloc(sizeof(*sd2));
-			*sd2 = *info;
-			sd2->next = sra->devs;
-			sra->devs = sd2;
+			for (sd2 = sra->devs; sd2; sd2=sd2->next)
+				if (sd2 == info)
+					break;
+			if (sd2 == NULL) {
+				sd2 = malloc(sizeof(*sd2));
+				*sd2 = *info;
+				sd2->next = sra->devs;
+				sra->devs = sd2;
+			}
 		}
 	} else
 #endif
 		rv = ioctl(mdfd, ADD_NEW_DISK, &info->disk);
+	return rv;
+}
+
+int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
+{
+	/* Initialise kernel's knowledge of array.
+	 * This varies between externally managed arrays
+	 * and older kernels
+	 */
+	int vers = md_get_version(mdfd);
+	int rv;
+
+#ifndef MDASSEMBLE
+	if (st->ss->external)
+		rv = sysfs_set_array(info, vers);
+	else
+#endif
+		if ((vers % 100) >= 1) { /* can use different versions */
+		mdu_array_info_t inf;
+		memset(&inf, 0, sizeof(inf));
+		inf.major_version = info->array.major_version;
+		inf.minor_version = info->array.minor_version;
+		rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
+	} else
+		rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
 	return rv;
 }
 

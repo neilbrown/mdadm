@@ -340,6 +340,7 @@ extern void map_add(struct map_ent **melp,
  * else use devnum. >=0 -> major9. <0.....
  */
 extern int sysfs_open(int devnum, char *devname, char *attr);
+extern void sysfs_init(struct mdinfo *mdi, int fd, int devnum);
 extern void sysfs_free(struct mdinfo *sra);
 extern struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options);
 extern int sysfs_attr_match(const char *attr, const char *str);
@@ -351,8 +352,7 @@ extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
 extern int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms);
-extern int sysfs_set_array(struct mdinfo *sra,
-			   struct mdinfo *info);
+extern int sysfs_set_array(struct mdinfo *info, int vers);
 extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd);
 extern int sysfs_disk_to_scsi_id(int fd, __u32 *id);
 extern int sysfs_unique_holder(int devnum, long rdev);
@@ -769,6 +769,7 @@ extern void append_metadata_update(struct supertype *st, void *buf, int len);
 
 extern int add_disk(int mdfd, struct supertype *st,
 		    struct mdinfo *sra, struct mdinfo *info);
+extern int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info);
 
 extern char *human_size(long long bytes);
 char *human_size_brief(long long bytes);

@@ -74,7 +74,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 *   start the array (auto-readonly).
 	 */
 	struct stat stb;
-	struct mdinfo info, info2;
+	struct mdinfo info;
 	struct mddev_ident_s *array_list, *match;
 	char chosen_name[1024];
 	int rv;
@@ -150,6 +150,7 @@ int Incremental(char *devname, int verbose, int runstop,
 					     autof);
 	}
 
+	memset(&info, 0, sizeof(info));
 	st->ss->getinfo_super(st, &info);
 	/* 3/ Check if there is a match in mdadm.conf */
 
@@ -292,40 +293,32 @@ int Incremental(char *devname, int verbose, int runstop,
 			chosen_name, strerror(errno));
 		return 2;
 	}
+	sysfs_init(&info, mdfd, 0);
+
 	/* 5/ Find out if array already exists */
 	if (! mddev_busy(devnum)) {
 	/* 5a/ if it does not */
 	/* - choose a name, from mdadm.conf or 'name' field in array. */
 	/* - create the array */
 	/* - add the device */
-		mdu_array_info_t ainf;
 		struct mdinfo *sra;
 
-		memset(&ainf, 0, sizeof(ainf));
-		ainf.major_version = info.array.major_version;
-		ainf.minor_version = info.array.minor_version;
-		if (ioctl(mdfd, SET_ARRAY_INFO, &ainf) != 0) {
-			fprintf(stderr, Name
-				": SET_ARRAY_INFO failed for %s: %s\b",
+		if (set_array_info(mdfd, st, &info) != 0) {
+			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
 				chosen_name, strerror(errno));
 			close(mdfd);
 			return 2;
 		}
-		sra = sysfs_read(mdfd, devnum, GET_VERSION);
-		sysfs_set_str(sra, NULL, "metadata_version", info.text_version);
 
-		st->ss->getinfo_super(st, &info);
 		info.disk.major = major(stb.st_rdev);
 		info.disk.minor = minor(stb.st_rdev);
-		if (add_disk(mdfd, st, sra, &info) != 0) {
+		if (add_disk(mdfd, st, &info, &info) != 0) {
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",
 				devname, chosen_name, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, 0);
 			close(mdfd);
-			sysfs_free(sra);
 			return 2;
 		}
-		sysfs_free(sra);
 		sra = sysfs_read(mdfd, devnum, GET_DEVS);
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
@@ -340,6 +333,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			sysfs_free(sra);
 			return 2;
 		}
+		sysfs_free(sra);
 	} else {
 	/* 5b/ if it does */
 	/* - check one drive in array to make sure metadata is a reasonably */
@@ -350,6 +344,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		int err;
 		struct mdinfo *sra;
 		struct supertype *st2;
+		struct mdinfo info2;
 		sra = sysfs_read(mdfd, devnum, (GET_DEVS | GET_STATE));
 
 		sprintf(dn, "%d:%d", sra->devs->disk.major,
@@ -367,6 +362,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			return 2;
 		}
 		close(dfd2);
+		memset(&info2, 0, sizeof(info2));
 		st2->ss->getinfo_super(st2, &info2);
 		st2->ss->free_super(st2);
 		if (info.array.level != info2.array.level ||
@@ -751,7 +747,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 	}
 
 	for (ra = list ; ra ; ra = ra->next) {
-		struct mdinfo *sra;
 		struct mdinfo *dev;
 		int devnum = -1;
 		int mdfd;
@@ -759,7 +754,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		int usepart = 1;
 		char *n;
 		int working = 0;
-		char ver[100];
 
 		if ((autof&7) == 3 || (autof&7) == 5)
 			usepart = 0;
@@ -813,14 +807,10 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			return 2;
 		}
 
-		sra = sysfs_read(mdfd, 0, 0);
-
-		sprintf(ver, "external:%s", ra->text_version);
-		sysfs_set_str(sra, NULL, "metadata_version", ver);
-
-		sysfs_set_array(sra, ra);
+		sysfs_init(ra, mdfd, 0);
+		sysfs_set_array(ra, md_get_version(mdfd));
 		for (dev = ra->devs; dev; dev = dev->next)
-			if (sysfs_add_disk(sra, dev) == 0)
+			if (sysfs_add_disk(ra, dev) == 0)
 				working++;
 
 		if (runstop > 0 || working >= ra->array.working_disks) {
@@ -828,11 +818,11 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			case LEVEL_LINEAR:
 			case LEVEL_MULTIPATH:
 			case 0:
-				sysfs_set_str(sra, NULL, "array_state",
+				sysfs_set_str(ra, NULL, "array_state",
 					      "active");
 				break;
 			default:
-				sysfs_set_str(sra, NULL, "array_state",
+				sysfs_set_str(ra, NULL, "array_state",
 					      "readonly");
 				/* start mdmon if needed. */
 				if (!mdmon_running(st->container_dev))
@@ -840,7 +830,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 				ping_monitor(devnum2devname(st->container_dev));
 				break;
 			}
-			sysfs_set_safemode(sra, ra->safe_mode_delay);
+			sysfs_set_safemode(ra, ra->safe_mode_delay);
 			if (verbose >= 0)
 				printf("Started %s with %d devices\n",
 				       chosen_name, working);

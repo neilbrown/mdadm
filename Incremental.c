@@ -783,7 +783,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 	}
 
 	for (ra = list ; ra ; ra = ra->next) {
-		struct mdinfo *dev;
+		struct mdinfo *dev, *sra;
 		int devnum = -1;
 		int mdfd;
 		char chosen_name[1024];
@@ -903,8 +903,16 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			return 2;
 		}
 
+
 		sysfs_init(ra, mdfd, 0);
-		sysfs_set_array(ra, md_get_version(mdfd));
+
+		sra = sysfs_read(mdfd, 0, GET_VERSION);
+		if (sra == NULL || strcmp(sra->text_version, ra->text_version) != 0)
+			if (sysfs_set_array(ra, md_get_version(mdfd)) != 0)
+				return 1;
+		if (sra)
+			sysfs_free(sra);
+
 		for (dev = ra->devs; dev; dev = dev->next)
 			if (sysfs_add_disk(ra, dev) == 0)
 				working++;

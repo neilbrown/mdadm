@@ -233,7 +233,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	mp = map_by_uuid(&map, info.uuid);
 
 	if (uuid_for_name && ! mp) {
-		name_to_use = fname_from_uuid(st, &info, nbuf);
+		name_to_use = fname_from_uuid(st, &info, nbuf, '-');
 		if (verbose >= 0)
 			fprintf(stderr, Name
 		": not found in mdadm.conf and not identified by homehost"
@@ -804,7 +804,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		    ! *name_to_use ||
 		    (*devname != '/' || strncmp("UUID-", strrchr(devname,'/')+1,5) == 0)
 			)
-			name_to_use = fname_from_uuid(st, ra, nbuf);
+			name_to_use = fname_from_uuid(st, ra, nbuf, '-');
 		    
 		if (mp)
 			devnum = mp->devnum;

@@ -401,7 +401,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		st->ss->getinfo_super(st, &info);
 		if (uuid_for_name)
-			c = fname_from_uuid(st, &info, nbuf);
+			c = fname_from_uuid(st, &info, nbuf, '-');
 		else {
 			c = strchr(info.name, ':');
 			if (c) c++; else c= info.name;

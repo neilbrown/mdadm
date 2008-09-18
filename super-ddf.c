@@ -1100,20 +1100,18 @@ static void examine_super_ddf(struct supertype *st, char *homehost)
 	examine_pds(sb);
 }
 
+static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info);
+
+
 static void brief_examine_super_ddf(struct supertype *st)
 {
 	/* We just write a generic DDF ARRAY entry
-	 * The uuid is all hex, 6 groups of 4 bytes
 	 */
-	struct ddf_super *ddf = st->sb;
-	int i;
-	printf("ARRAY /dev/ddf metadata=ddf UUID=");
-	for (i = 0; i < DDF_GUID_LEN; i++) {
-		if ((i&3) == 0 && i != 0)
-			printf(":");
-		printf("%02X", 255&ddf->anchor.guid[i]);
-	}
-	printf("\n");
+	struct mdinfo info;
+	char nbuf[64];
+	getinfo_super_ddf(st, &info);
+	fname_from_uuid(st, &info, nbuf, ':');
+	printf("ARRAY /dev/ddf metadata=ddf UUID=%s\n", nbuf + 5);
 }
 
 static void detail_super_ddf(struct supertype *st, char *homehost)
@@ -1132,6 +1130,11 @@ static void brief_detail_super_ddf(struct supertype *st)
 	 * Can that be stored in ddf_super??
 	 */
 //	struct ddf_super *ddf = st->sb;
+	struct mdinfo info;
+	char nbuf[64];
+	getinfo_super_ddf(st, &info);
+	fname_from_uuid(st, &info, nbuf,':');
+	printf(" UUID=%s", nbuf + 5);
 }
 #endif
 

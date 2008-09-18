@@ -269,7 +269,7 @@ void copy_uuid(void *a, int b[4], int swapuuid)
 		memcpy(a, b, 16);
 }
 
-char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf)
+char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char sep)
 {
 	int i;
 	char uuid[16];
@@ -278,10 +278,8 @@ char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf)
 	c += strlen(c);
 	copy_uuid(uuid, info->uuid, st->ss->swapuuid);
 	for (i=0; i<16; i++) {
-		if (i && (i&3)==0) {
-			strcpy(c, "-");
-			c++;
-		}
+		if (i && (i&3)==0)
+			*c++ = sep;
 		sprintf(c,"%02x", (unsigned char)uuid[i]);
 		c+= 2;
 	}

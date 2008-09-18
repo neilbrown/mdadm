@@ -128,7 +128,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			continue;
 		if ((dv=map_dev(disk.major, disk.minor, 1))) {
 			if ((!st || !st->sb) &&
-			    (disk.state & (1<<MD_DISK_ACTIVE))) {
+			    (array.raid_disks == 0 || 
+			     (disk.state & (1<<MD_DISK_ACTIVE)))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
@@ -136,8 +137,9 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, NULL) == 0) {
 					st->ss->getinfo_super(st, &info);
-					if (info.array.ctime != array.ctime ||
-					    info.array.level != array.level)
+					if (array.raid_disks != 0 && /* container */
+					    (info.array.ctime != array.ctime ||
+					     info.array.level != array.level))
 						st->ss->free_super(st);
 				}
 				if (fd2 >= 0) close(fd2);

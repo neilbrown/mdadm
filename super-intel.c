@@ -560,9 +560,18 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	}
 }
 
+static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
+
 static void brief_examine_super_imsm(struct supertype *st)
 {
-	printf("ARRAY /dev/imsm metadata=imsm\n");
+	/* We just write a generic DDF ARRAY entry
+	 */
+	struct mdinfo info;
+	char nbuf[64];
+
+	getinfo_super_imsm(st, &info);
+	fname_from_uuid(st, &info, nbuf,'-');
+	printf("ARRAY /dev/imsm metadata=imsm UUID=%s\n", nbuf + 5);
 }
 
 static void detail_super_imsm(struct supertype *st, char *homehost)
@@ -572,7 +581,11 @@ static void detail_super_imsm(struct supertype *st, char *homehost)
 
 static void brief_detail_super_imsm(struct supertype *st)
 {
-	printf("%s\n", __FUNCTION__);
+	struct mdinfo info;
+	char nbuf[64];
+	getinfo_super_imsm(st, &info);
+	fname_from_uuid(st, &info, nbuf,'-');
+	printf(" UUID=%s", nbuf + 5);
 }
 #endif
 

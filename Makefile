@@ -31,7 +31,10 @@
 # e.g.  make CXFLAGS=-O to optimise
 TCC = tcc
 UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
-DIET_GCC = diet gcc
+#DIET_GCC = diet gcc
+# sorry, but diet-libc doesn't know about posix_memalign, 
+# so we cannot use it any more.
+DIET_GCC = gcc -DHAVE_STDINT_H
 
 KLIBC=/home/src/klibc/klibc-0.77
 

@@ -446,8 +446,7 @@ extern struct superswitch {
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
 
 	/* Check if the given metadata is flagged as belonging to "this"
-	 * host.  For arrays that don't determine a minor-number, this
-	 * can always be true (??)
+	 * host.  0 for 'no', 1 for 'yes', -1 for "Don't record homehost"
 	 */
 	int (*match_home)(struct supertype *st, char *homehost);
 

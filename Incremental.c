@@ -217,7 +217,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 3a/ if not, check for homehost match.  If no match, reject. */
 	if (!match) {
 		if (homehost == NULL ||
-		    st->ss->match_home(st, homehost) == 0) {
+		    st->ss->match_home(st, homehost) != 1) {
 			if (verbose >= 0)
 				fprintf(stderr, Name
 	      ": not found in mdadm.conf and not identified by homehost.\n");

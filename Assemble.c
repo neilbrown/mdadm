@@ -339,7 +339,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (homehost) {
 				int first = st->ss->match_home(st, homehost);
 				int last = tst->ss->match_home(tst, homehost);
-				if (first+last == 1) {
+				if (first != last &&
+				    (first == 1 || last == 1)) {
 					/* We can do something */
 					if (first) {/* just ignore this one */
 						if ((inargv && verbose >= 0) || verbose > 0)

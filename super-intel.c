@@ -578,7 +578,7 @@ static int match_home_imsm(struct supertype *st, char *homehost)
 {
 	printf("%s\n", __FUNCTION__);
 
-	return 0;
+	return -1;
 }
 
 static void uuid_from_super_imsm(struct supertype *st, int uuid[4])

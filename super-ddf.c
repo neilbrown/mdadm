@@ -1180,11 +1180,14 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	 *  uuid to put into bitmap file (Create, Grow)
 	 *  uuid for backup header when saving critical section (Grow)
 	 *  comparing uuids when re-adding a device into an array
+	 *    In these cases the uuid required is that of the data-array,
+	 *    not the device-set.
+	 *  uuid to recognise same set when adding a missing device back
+	 *    to an array.   This is a uuid for the device-set.
+	 *  
 	 * For each of these we can make do with a truncated
 	 * or hashed uuid rather than the original, as long as
 	 * everyone agrees.
-	 * In each case the uuid required is that of the data-array,
-	 * not the device-set.
 	 * In the case of SVD we assume the BVD is of interest,
 	 * though that might be the case if a bitmap were made for
 	 * a mirrored SVD - worry about that later.

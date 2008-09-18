@@ -17,8 +17,10 @@
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#define HAVE_STDINT_H 1
 #include "mdadm.h"
 #include "mdmon.h"
+#include "sha1.h"
 #include <values.h>
 #include <scsi/sg.h>
 #include <ctype.h>
@@ -583,13 +585,46 @@ static int match_home_imsm(struct supertype *st, char *homehost)
 
 static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 {
-	/* imsm does not track uuid's so just make sure we never return
-	 * the same value twice to break uuid matching in Manage_subdevs
-	 * FIXME what about the use of uuid's with bitmap's?
+	/* The uuid returned here is used for:
+	 *  uuid to put into bitmap file (Create, Grow)
+	 *  uuid for backup header when saving critical section (Grow)
+	 *  comparing uuids when re-adding a device into an array
+	 *    In these cases the uuid required is that of the data-array,
+	 *    not the device-set.
+	 *  uuid to recognise same set when adding a missing device back
+	 *    to an array.   This is a uuid for the device-set.
+	 *  
+	 * For each of these we can make do with a truncated
+	 * or hashed uuid rather than the original, as long as
+	 * everyone agrees.
+	 * In each case the uuid required is that of the data-array,
+	 * not the device-set.
 	 */
-	static int dummy_id = 0;
+	/* imsm does not track uuid's so we synthesis one using sha1 on
+	 * - The signature (Which is constant for all imsm array, but no matter)
+	 * - the family_num of the container
+	 * - the index number of the volume
+	 * - the 'serial' number of the volume.
+	 * Hopefully these are all constant.
+	 */
+	struct intel_super *super = st->sb;
 
-	uuid[0] = dummy_id++;
+	char buf[20];
+	struct sha1_ctx ctx;
+	struct imsm_dev *dev = NULL;
+
+	sha1_init_ctx(&ctx);
+	sha1_process_bytes(super->anchor->sig, MAX_SIGNATURE_LENGTH, &ctx);
+	sha1_process_bytes(&super->anchor->family_num, sizeof(__u32), &ctx);
+	if (super->current_vol >= 0)
+		dev = get_imsm_dev(super, super->current_vol);
+	if (dev) {
+		__u32 vol = super->current_vol;
+		sha1_process_bytes(&vol, sizeof(vol), &ctx);
+		sha1_process_bytes(dev->volume, MAX_RAID_SERIAL_LEN, &ctx);
+	}
+	sha1_finish_ctx(&ctx, buf);
+	memcpy(uuid, buf, 4*4);
 }
 
 #if 0
@@ -673,6 +708,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 		devnum2devname(st->container_dev),
 		info->container_member);
 	info->safe_mode_delay = 4000;  /* 4 secs like the Matrix driver */
+	uuid_from_super_imsm(st, info->uuid);
 }
 
 
@@ -722,6 +758,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 		info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
 	}
+	uuid_from_super_imsm(st, info->uuid);
 }
 
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,

@@ -166,6 +166,12 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 			devlist = NULL;
 		}
 	}
+	if (st && st->ss->external && sparedisks) {
+		fprintf(stderr,
+			Name ": This metadata type does not support "
+			"spare disks are create time\n");
+		return 1;
+	}
 	if (subdevs > raiddisks+sparedisks) {
 		fprintf(stderr, Name ": You have listed more devices (%d) than are in the array(%d)!\n", subdevs, raiddisks+sparedisks);
 		return 1;
@@ -411,6 +417,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	 * into a spare, else the create will fail
 	 */
 	if (assume_clean == 0 && force == 0 && first_missing < raiddisks &&
+	    st->ss->external == 0 &&
 	    second_missing >= raiddisks && level == 6) {
 		insert_point = raiddisks - 1;
 		if (insert_point == first_missing)

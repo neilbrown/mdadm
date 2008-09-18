@@ -893,6 +893,9 @@ static struct supertype *match_metadata_desc0(char *arg)
 	st->minor_version = 90;
 	st->max_devs = MD_SB_DISKS;
 	st->sb = NULL;
+	/* we sometimes get 00.90 */
+	while (arg[0] == '0' && arg[1] == '0')
+		arg++;
 	if (strcmp(arg, "0") == 0 ||
 	    strcmp(arg, "0.90") == 0 ||
 	    strcmp(arg, "default") == 0 ||

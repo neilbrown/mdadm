@@ -139,6 +139,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	struct mdinfo info;
 	char *avail;
 	int nextspare = 0;
+	int uuid_for_name = 0;
 
 	memset(&info, 0, sizeof(info));
 
@@ -296,15 +297,28 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (mdfd < 0) {
 			if (tst == NULL || tst->sb == NULL)
 				continue;
-			if (update == NULL &&
-			    tst->ss->match_home(tst, homehost)==0) {
+			switch(tst->ss->match_home(tst, homehost))
+			{
+			case 1: /* happy with match. */
+				break;
+			case -1: /* cannot match */
+				uuid_for_name = 1;
+				break;
+			case 0: /* Doesn't match */
+				if (update)
+					/* We are changing the name*/
+					break;
 				if ((inargv && verbose >= 0) || verbose > 0)
-					fprintf(stderr, Name ": %s is not built for host %s.\n",
+					fprintf(stderr, Name ": %s is not built for "
+						"host %s - using UUID for "
+						"device name.\n",
 						devname, homehost);
+				
 				/* Auto-assemble, and this is not a usable host */
 				/* if update != NULL, we are updating the host
 				 * name... */
-				goto loop;
+				uuid_for_name = 1;
+				break;
 			}
 		}
 		/* If we are this far, then we are nearly commited to this device.
@@ -381,12 +395,17 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		 */
 		mdu_array_info_t inf;
 		char *c;
+		char nbuf[64];
 		if (!st || !st->sb) {
 			return 2;
 		}
 		st->ss->getinfo_super(st, &info);
-		c = strchr(info.name, ':');
-		if (c) c++; else c= info.name;
+		if (uuid_for_name)
+			c = fname_from_uuid(st, &info, nbuf);
+		else {
+			c = strchr(info.name, ':');
+			if (c) c++; else c= info.name;
+		}
 		if (isdigit(*c) && ((ident->autof & 7)==4 || (ident->autof&7)==6))
 			/* /dev/md/d0 style for partitionable */
 			asprintf(&mddev, "/dev/md/d%s", c);

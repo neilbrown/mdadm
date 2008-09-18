@@ -85,7 +85,9 @@ int Incremental(char *devname, int verbose, int runstop,
 	int dfd, mdfd;
 	char *avail;
 	int active_disks;
-
+	int uuid_for_name = 0;
+	char *name_to_use;
+	char nbuf[64];
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -217,12 +219,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 3a/ if not, check for homehost match.  If no match, reject. */
 	if (!match) {
 		if (homehost == NULL ||
-		    st->ss->match_home(st, homehost) != 1) {
-			if (verbose >= 0)
-				fprintf(stderr, Name
-	      ": not found in mdadm.conf and not identified by homehost.\n");
-			return 2;
-		}
+		       st->ss->match_home(st, homehost) != 1)
+			uuid_for_name = 1;
 	}
 	/* 4/ Determine device number. */
 	/* - If in mdadm.conf with std name, use that */
@@ -232,9 +230,20 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* - Choose a free, high number. */
 	/* - Use a partitioned device unless strong suggestion not to. */
 	/*         e.g. auto=md */
+	mp = map_by_uuid(&map, info.uuid);
+
+	if (uuid_for_name && ! mp) {
+		name_to_use = fname_from_uuid(st, &info, nbuf);
+		if (verbose >= 0)
+			fprintf(stderr, Name
+		": not found in mdadm.conf and not identified by homehost"
+				" - using uuid based name\n");
+	} else
+		name_to_use = info.name;
+
 	if (match && is_standard(match->devname, &devnum))
 		/* We have devnum now */;
-	else if ((mp = map_by_uuid(&map, info.uuid)) != NULL)
+	else if (mp != NULL)
 		devnum = mp->devnum;
 	else {
 		/* Have to guess a bit. */
@@ -247,11 +256,11 @@ int Incremental(char *devname, int verbose, int runstop,
 			use_partitions = 0;
 		if (st->ss->external)
 			use_partitions = 0;
-		np = strchr(info.name, ':');
+		np = strchr(name_to_use, ':');
 		if (np)
 			np++;
 		else
-			np = info.name;
+			np = name_to_use;
 		devnum = strtoul(np, &ep, 10);
 		if (ep > np && *ep == 0) {
 			/* This is a number.  Let check that it is unused. */
@@ -290,9 +299,10 @@ int Incremental(char *devname, int verbose, int runstop,
 		} else
 			devnum = use_partitions ? (-1-devnum) : devnum;
 	}
-	mdfd = open_mddev_devnum(match ? match->devname : NULL,
+
+	mdfd = open_mddev_devnum(match ? match->devname : mp ? mp->path : NULL,
 				 devnum,
-				 info.name,
+				 name_to_use,
 				 chosen_name, autof >> 3);
 	if (mdfd < 0) {
 		fprintf(stderr, Name ": failed to open %s: %s.\n",
@@ -781,23 +791,33 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		char *n;
 		int working = 0, preexist = 0;
 		struct map_ent *mp, *map = NULL;
+		char nbuf[64];
+		char *name_to_use;
 
 		if ((autof&7) == 3 || (autof&7) == 5)
 			usepart = 0;
 
 		mp = map_by_uuid(&map, ra->uuid);
+
+		name_to_use = ra->name;
+		if (! name_to_use ||
+		    ! *name_to_use ||
+		    (*devname != '/' || strncmp("UUID-", strrchr(devname,'/')+1,5) == 0)
+			)
+			name_to_use = fname_from_uuid(st, ra, nbuf);
+		    
 		if (mp)
 			devnum = mp->devnum;
 		else {
 
-			n = ra->name;
+			n = name_to_use;
 			if (*n == 'd')
 				n++;
 			if (*n && devnum < 0) {
 				devnum = strtoul(n, &n, 10);
 				if (devnum >= 0 && (*n == 0 || *n == ' ')) {
 					/* Use this devnum */
-					usepart = (ra->name[0] == 'd');
+					usepart = (name_to_use[0] == 'd');
 					if (mddev_busy(usepart ? (-1-devnum) : devnum))
 						devnum = -1;
 				} else
@@ -805,7 +825,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			}
 
 			if (devnum < 0) {
-				char *nm = ra->name;
+				char *nm = name_to_use;
 				char nbuf[1024];
 				struct stat stb;
 				if (strchr(nm, ':'))
@@ -831,7 +851,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			else
 				devnum = find_free_devnum(usepart);
 		}
-		mdfd = open_mddev_devnum(mp ? mp->path : NULL, devnum, ra->name,
+		mdfd = open_mddev_devnum(mp ? mp->path : NULL, devnum, name_to_use,
 					 chosen_name, autof>>3);
 
 		if (mdfd < 0) {
@@ -870,7 +890,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			sysfs_set_safemode(ra, ra->safe_mode_delay);
 			if (verbose >= 0) {
 				fprintf(stderr, Name
-					"Started %s with %d devices",
+					": Started %s with %d devices",
 					chosen_name, working + preexist);
 				if (preexist)
 					fprintf(stderr, " (%d new)", working);
@@ -880,7 +900,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		} else
 			if (verbose >= 0)
 				fprintf(stderr, Name
-					"%s assembled with %d devices but "
+					": %s assembled with %d devices but "
 					"not started\n",
 					chosen_name, working);
 		close(mdfd);

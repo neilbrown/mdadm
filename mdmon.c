@@ -136,6 +136,8 @@ void remove_pidfile(char *devname)
 
 	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
 	unlink(buf);
+	sprintf(buf, "/var/run/mdadm/%s.sock", devname);
+	unlink(buf);
 }
 
 int make_control_sock(char *devname)

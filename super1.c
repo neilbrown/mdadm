@@ -456,12 +456,6 @@ static void export_detail_super1(struct supertype *st)
 		}
 	if (len)
 		printf("MD_NAME=%.*s\n", len, sb->set_name);
-	printf("MD_UUID=");
-	for (i=0; i<16; i++) {
-		if ((i&3)==0 && i != 0) printf(":");
-		printf("%02x", sb->set_uuid[i]);
-	}
-	printf("\n");
 }
 
 #endif

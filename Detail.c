@@ -169,9 +169,17 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				printf("MD_METADATA=%02d.%02d\n",
 				       array.major_version, array.minor_version);
 		}
+		
+		if (st && st->sb) {
+			struct mdinfo info;
+			char nbuf[64];
+			st->ss->getinfo_super(st, &info);
+			fname_from_uuid(st, &info, nbuf, ':');
+			printf("MD_UUID=%s\n", nbuf+5);
 
-		if (st && st->sb)
-			st->ss->export_detail_super(st);
+			if (st->ss->export_detail_super)
+				st->ss->export_detail_super(st);
+		}
 		goto out;
 	}
 

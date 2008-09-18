@@ -301,18 +301,6 @@ static void brief_detail_super0(struct supertype *st)
 	else
 		printf("%08x", sb->set_uuid0);
 }
-
-static void export_detail_super0(struct supertype *st)
-{
-	mdp_super_t *sb = st->sb;
-	printf("MD_UUID=");
-	if (sb->minor_version >= 90)
-		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
-		       sb->set_uuid2, sb->set_uuid3);
-	else
-		printf("%08x", sb->set_uuid0);
-	printf("\n");
-}
 #endif
 
 static int match_home0(struct supertype *st, char *homehost)
@@ -1091,7 +1079,6 @@ struct superswitch super0 = {
 	.export_examine_super = export_examine_super0,
 	.detail_super = detail_super0,
 	.brief_detail_super = brief_detail_super0,
-	.export_detail_super = export_detail_super0,
 	.write_init_super = write_init_super0,
 	.validate_geometry = validate_geometry0,
 	.add_to_super = add_to_super0,

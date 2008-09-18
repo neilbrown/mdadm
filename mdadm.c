@@ -638,6 +638,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(ASSEMBLE,'c'): /* config file */
+		case O(INCREMENTAL, 'c'):
 		case O(MISC, 'c'):
 		case O(MONITOR,'c'):
 			if (configfile) {

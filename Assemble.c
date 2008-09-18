@@ -844,10 +844,10 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
+		struct mdinfo *sra = NULL;
 		int rv;
 
 #ifndef MDASSEMBLE
-		struct mdinfo *sra = NULL;
 		if (st->ss->external) {
 			char ver[100];
 			strcat(strcpy(ver, "external:"), info.text_version);
@@ -913,13 +913,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 				j = chosen_drive;
 
 			if (j >= 0 /* && devices[j].uptodate */) {
-#ifndef MDASSEMBLE
-				if (st->ss->external)
-					rv = sysfs_add_disk(sra, &devices[j].i);
-				else
-#endif
-					rv = ioctl(mdfd, ADD_NEW_DISK,
-					  &devices[j].i.disk);
+				rv = add_disk(mdfd, st, sra, &devices[j].i);
+
 				if (rv) {
 					fprintf(stderr, Name ": failed to add "
 						        "%s to %s: %s\n",

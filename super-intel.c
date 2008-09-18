@@ -1796,7 +1796,7 @@ static int create_array(struct supertype *st)
 	return 0;
 }
 
-static int add_disk(struct supertype *st)
+static int _add_disk(struct supertype *st)
 {
 	struct intel_super *super = st->sb;
 	size_t len;
@@ -1833,7 +1833,7 @@ static int write_init_super_imsm(struct supertype *st)
 			/* in the add disk case we are running in mdmon
 			 * context, so don't close fd's
 			 */
-			return add_disk(st);
+			return _add_disk(st);
 		} else
 			rv = create_array(st);
 

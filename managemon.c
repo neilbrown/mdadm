@@ -346,7 +346,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 				struct mdinfo *newd;
 				if (sysfs_add_disk(&newa->info, d) < 0)
 					continue;
-				newd = newa->info.devs;
+				newd = malloc(sizeof(*newd));
+				*newd = *d;
+				newd->next = newa->info.devs;
+				newa->info.devs = newd;
+
 				newd->state_fd = sysfs_open(a->devnum,
 							    newd->sys_name,
 							    "state");

@@ -299,7 +299,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* - create the array */
 	/* - add the device */
 		mdu_array_info_t ainf;
-		mdu_disk_info_t disk;
 		struct mdinfo *sra;
 
 		memset(&ainf, 0, sizeof(ainf));
@@ -314,17 +313,19 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		sra = sysfs_read(mdfd, devnum, GET_VERSION);
 		sysfs_set_str(sra, NULL, "metadata_version", info.text_version);
-		memset(&disk, 0, sizeof(disk));
-		disk.major = major(stb.st_rdev);
-		disk.minor = minor(stb.st_rdev);
-		sysfs_free(sra);
-		if (ioctl(mdfd, ADD_NEW_DISK, &disk) != 0) {
+
+		st->ss->getinfo_super(st, &info);
+		info.disk.major = major(stb.st_rdev);
+		info.disk.minor = minor(stb.st_rdev);
+		if (add_disk(mdfd, st, sra, &info) != 0) {
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",
 				devname, chosen_name, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, 0);
 			close(mdfd);
+			sysfs_free(sra);
 			return 2;
 		}
+		sysfs_free(sra);
 		sra = sysfs_read(mdfd, devnum, GET_DEVS);
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
@@ -346,7 +347,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* - add the device */
 		char dn[20];
 		int dfd2;
-		mdu_disk_info_t disk;
 		int err;
 		struct mdinfo *sra;
 		struct supertype *st2;
@@ -378,17 +378,16 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(mdfd);
 			return 2;
 		}
-		memset(&disk, 0, sizeof(disk));
-		disk.major = major(stb.st_rdev);
-		disk.minor = minor(stb.st_rdev);
-		err = ioctl(mdfd, ADD_NEW_DISK, &disk);
+		info2.disk.major = major(stb.st_rdev);
+		info2.disk.minor = minor(stb.st_rdev);
+		err = add_disk(mdfd, st2, sra, &info2);
 		if (err < 0 && errno == EBUSY) {
 			/* could be another device present with the same
 			 * disk.number. Find and reject any such
 			 */
 			find_reject(mdfd, st, sra, info.disk.number,
 				    info.events, verbose, chosen_name);
-			err = ioctl(mdfd, ADD_NEW_DISK, &disk);
+			err = add_disk(mdfd, st2, sra, &info2);
 		}
 		if (err < 0) {
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",

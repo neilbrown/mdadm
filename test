@@ -155,6 +155,7 @@ testdev() {
    dsize=$[dvsize/chunk]
    dsize=$[dsize*chunk]
    rasize=$[dsize*2*cnt]
+   if [ `/sbin/blockdev --getsize $dev` -eq 0 ]; then sleep 2 ; fi
    if [ $rasize -ne `/sbin/blockdev --getsize $dev` ]
    then
      echo "ERROR: size is wrong for $dev: $cnt * $dvsize (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize $dev`"

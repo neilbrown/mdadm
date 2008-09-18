@@ -714,11 +714,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				inf->errors = 0;
 				rv = 0;
 
-				if (st->ss->external)
-					rv = sysfs_add_disk(sra, inf);
-				else
-					rv = ioctl(mdfd, ADD_NEW_DISK,
-						   &inf->disk);
+				rv = add_disk(mdfd, st, sra, inf);
 
 				if (rv) {
 					fprintf(stderr,

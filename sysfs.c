@@ -456,7 +456,6 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 {
 	char dv[100];
 	char nm[100];
-	struct mdinfo *sd2;
 	char *dname;
 	int rv;
 
@@ -481,12 +480,6 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 	if (sra->array.level != LEVEL_CONTAINER) {
 		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
 //		rv |= sysfs_set_str(sra, sd, "state", "in_sync");
-	}
-	if (! rv) {
-		sd2 = malloc(sizeof(*sd2));
-		*sd2 = *sd;
-		sd2->next = sra->devs;
-		sra->devs = sd2;
 	}
 	return rv;
 }

@@ -129,3 +129,10 @@ echo "  metadata=1 devices=$dev0,$dev1,$dev2" >> $conf
 mdadm --assemble --scan --config=$conf $md2 
 $tst
 mdadm -S $md2
+
+# Now use incremental assembly.
+mdadm -I --config=$conf $dev0
+mdadm -I --config=$conf $dev1
+mdadm -I --config=$conf $dev2
+$tst
+mdadm -S $md2

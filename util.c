@@ -999,6 +999,27 @@ int open_container(int fd)
 	return -1;
 }
 
+int add_disk(int mdfd, struct supertype *st,
+	     struct mdinfo *sra, struct mdinfo *info)
+{
+	/* Add a device to an array, in one of 2 ways. */
+	int rv;
+#ifndef MDASSEMBLE
+	if (st->ss->external) {
+		rv = sysfs_add_disk(sra, info);
+		if (! rv) {
+			struct mdinfo *sd2;
+			sd2 = malloc(sizeof(*sd2));
+			*sd2 = *info;
+			sd2->next = sra->devs;
+			sra->devs = sd2;
+		}
+	} else
+#endif
+		rv = ioctl(mdfd, ADD_NEW_DISK, &info->disk);
+	return rv;
+}
+
 char *devnum2devname(int num)
 {
 	char name[100];

@@ -767,6 +767,8 @@ extern unsigned long long calc_array_size(int level, int raid_disks, int layout,
 extern int flush_metadata_updates(struct supertype *st);
 extern void append_metadata_update(struct supertype *st, void *buf, int len);
 
+extern int add_disk(int mdfd, struct supertype *st,
+		    struct mdinfo *sra, struct mdinfo *info);
 
 extern char *human_size(long long bytes);
 char *human_size_brief(long long bytes);

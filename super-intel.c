@@ -238,10 +238,12 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 	return st;
 }
 
+#ifndef MDASSEMBLE
 static __u8 *get_imsm_version(struct imsm_super *mpb)
 {
 	return &mpb->sig[MPB_SIG_LEN];
 }
+#endif 
 
 /* retrieve a disk directly from the anchor when the anchor is known to be
  * up-to-date, currently only at load time
@@ -253,6 +255,7 @@ static struct imsm_disk *__get_imsm_disk(struct imsm_super *mpb, __u8 index)
 	return &mpb->disk[index];
 }
 
+#ifndef MDASSEMBLE
 /* retrieve a disk from the parsed metadata */
 static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
 {
@@ -264,6 +267,7 @@ static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
 	
 	return NULL;
 }
+#endif
 
 /* generate a checksum directly from the anchor when the anchor is known to be
  * up-to-date, currently only at load or write_super after coalescing
@@ -383,6 +387,7 @@ static int get_imsm_raid_level(struct imsm_map *map)
 	return map->raid_level;
 }
 
+#ifndef MDASSEMBLE
 static int cmp_extent(const void *av, const void *bv)
 {
 	const struct extent *a = av;
@@ -439,7 +444,6 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	return rv;
 }
 
-#ifndef MDASSEMBLE
 static void print_imsm_dev(struct imsm_dev *dev, int index)
 {
 	__u64 sz;
@@ -993,6 +997,7 @@ static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
 	memcpy(dest, src, sizeof_imsm_dev(src, 0));
 }
 
+#ifndef MDASSEMBLE
 /* When migrating map0 contains the 'destination' state while map1
  * contains the current state.  When not migrating map0 contains the
  * current state.  This routine assumes that map[0].map_state is set to
@@ -1019,6 +1024,7 @@ static void migrate(struct imsm_dev *dev, __u8 to_state, int rebuild_resync)
 	memcpy(dest, src, sizeof_imsm_map(src));
 	src->map_state = to_state;
 }
+#endif
 
 static int parse_raid_devices(struct intel_super *super)
 {
@@ -1566,6 +1572,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	return 1;
 }
 
+#ifndef MDASSEMBLE
 static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 				     int fd, char *devname)
 {
@@ -1765,6 +1772,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	return 0;
 }
 
+
 static int create_array(struct supertype *st)
 {
 	size_t len;
@@ -1838,6 +1846,7 @@ static int write_init_super_imsm(struct supertype *st)
 	} else
 		return write_super_imsm(st->sb, 1);
 }
+#endif
 
 static int store_zero_imsm(struct supertype *st, int fd)
 {
@@ -1859,6 +1868,12 @@ static int store_zero_imsm(struct supertype *st, int fd)
 	return 0;
 }
 
+static int imsm_bbm_log_size(struct imsm_super *mpb)
+{
+	return __le32_to_cpu(mpb->bbm_log_size);
+}
+
+#ifndef MDASSEMBLE
 static int validate_geometry_imsm_container(struct supertype *st, int level,
 					    int layout, int raiddisks, int chunk,
 					    unsigned long long size, char *dev,
@@ -2000,11 +2015,6 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	return 1;
 }
 
-int imsm_bbm_log_size(struct imsm_super *mpb)
-{
-	return __le32_to_cpu(mpb->bbm_log_size);
-}
-
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				  int raiddisks, int chunk, unsigned long long size,
 				  char *dev, unsigned long long *freesize,
@@ -2092,6 +2102,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 
 	return 1;
 }
+#endif /* MDASSEMBLE */
 
 static struct mdinfo *container_content_imsm(struct supertype *st)
 {
@@ -2196,6 +2207,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 }
 
 
+#ifndef MDASSEMBLE
 static int imsm_open_new(struct supertype *c, struct active_array *a,
 			 char *inst)
 {
@@ -3061,6 +3073,7 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, int index)
 		__free_imsm_disk(dl);
 	}
 }
+#endif /* MDASSEMBLE */
 
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
@@ -3069,6 +3082,8 @@ struct superswitch super_imsm = {
 	.detail_super	= detail_super_imsm,
 	.brief_detail_super = brief_detail_super_imsm,
 	.write_init_super = write_init_super_imsm,
+	.validate_geometry = validate_geometry_imsm,
+	.add_to_super	= add_to_super_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
@@ -3081,15 +3096,14 @@ struct superswitch super_imsm = {
 
 	.load_super	= load_super_imsm,
 	.init_super	= init_super_imsm,
-	.add_to_super	= add_to_super_imsm,
 	.store_super	= store_zero_imsm,
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
 
-	.validate_geometry = validate_geometry_imsm,
 	.external	= 1,
 
+#ifndef MDASSEMBLE
 /* for mdmon */
 	.open_new	= imsm_open_new,
 	.load_super	= load_super_imsm,
@@ -3099,4 +3113,5 @@ struct superswitch super_imsm = {
 	.activate_spare = imsm_activate_spare,
 	.process_update = imsm_process_update,
 	.prepare_update = imsm_prepare_update,
+#endif /* MDASSEMBLE */
 };

@@ -634,6 +634,8 @@ struct devinfo {
 	mdu_disk_info_t disk;
 	struct devinfo *next;
 };
+
+#ifndef MDASSEMBLE
 /* Add a device to the superblock being created */
 static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 			  int fd, char *devname)
@@ -661,6 +663,7 @@ static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 	di->next = NULL;
 	*dip = di;
 }
+#endif
 
 static int store_super0(struct supertype *st, int fd)
 {
@@ -1036,6 +1039,7 @@ static void free_super0(struct supertype *st)
 	st->sb = NULL;
 }
 
+#ifndef MDASSEMBLE
 static int validate_geometry0(struct supertype *st, int level,
 			      int layout, int raiddisks,
 			      int chunk, unsigned long long size,
@@ -1075,6 +1079,7 @@ static int validate_geometry0(struct supertype *st, int level,
 	*freesize = MD_NEW_SIZE_SECTORS(ldsize >> 9);
 	return 1;
 }
+#endif /* MDASSEMBLE */
 
 struct superswitch super0 = {
 #ifndef MDASSEMBLE
@@ -1085,13 +1090,14 @@ struct superswitch super0 = {
 	.brief_detail_super = brief_detail_super0,
 	.export_detail_super = export_detail_super0,
 	.write_init_super = write_init_super0,
+	.validate_geometry = validate_geometry0,
+	.add_to_super = add_to_super0,
 #endif
 	.match_home = match_home0,
 	.uuid_from_super = uuid_from_super0,
 	.getinfo_super = getinfo_super0,
 	.update_super = update_super0,
 	.init_super = init_super0,
-	.add_to_super = add_to_super0,
 	.store_super = store_super0,
 	.compare_super = compare_super0,
 	.load_super = load_super0,
@@ -1101,5 +1107,4 @@ struct superswitch super0 = {
 	.locate_bitmap = locate_bitmap0,
 	.write_bitmap = write_bitmap0,
 	.free_super = free_super0,
-	.validate_geometry = validate_geometry0,
 };

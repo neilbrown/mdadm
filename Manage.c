@@ -45,12 +45,15 @@ int Manage_ro(char *devname, int fd, int readonly)
 	 *
 	 */
 	mdu_array_info_t array;
+#ifndef MDASSEMBLE
 	struct mdinfo *mdi;
+#endif
 
 	if (md_get_version(fd) < 9000) {
 		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
 		return 1;
 	}
+#ifndef MDASSEMBLE
 	/* If this is an externally-manage array, we need to modify the
 	 * metadata_version so that mdmon doesn't undo our change.
 	 */
@@ -92,7 +95,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 		}
 		return 0;
 	}
-
+#endif
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": %s does not appear to be active.\n",
 			devname);

@@ -72,7 +72,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	int rv;
 	int bitmap_fd;
 	int have_container = 0;
-	int container_fd;
+	int container_fd = -1;
 	int need_mdmon = 0;
 	unsigned long long bitmapsize;
 	struct mdinfo *sra;

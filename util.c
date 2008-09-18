@@ -633,7 +633,6 @@ unsigned long long calc_array_size(int level, int raid_disks, int layout,
 	return data_disks * devsize;
 }
 
-#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 int get_mdp_major(void)
 {
 static int mdp_major = -1;
@@ -662,8 +661,7 @@ static int mdp_major = -1;
 	return mdp_major;
 }
 
-
-
+#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 char *get_md_name(int dev)
 {
 	/* find /dev/md%d or /dev/md/%d or make a device /dev/.tmp.md%d */
@@ -1145,7 +1143,7 @@ int env_no_mdmon(void)
 	return 0;
 }
 
-
+#ifndef MDASSEMBLE
 int flush_metadata_updates(struct supertype *st)
 {
 	int sfd;
@@ -1186,7 +1184,7 @@ void append_metadata_update(struct supertype *st, void *buf, int len)
 	*st->update_tail = mu;
 	st->update_tail = &mu->next;
 }
-
+#endif /* MDASSEMBLE */
 
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */

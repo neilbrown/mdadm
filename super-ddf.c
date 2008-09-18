@@ -1149,6 +1149,7 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 		ddf->controller.vendor_data[len] == 0);
 }
 
+#ifndef MDASSEMBLE
 static struct vd_config *find_vdcr(struct ddf_super *ddf, int inst)
 {
 	struct vcl *v;
@@ -1158,6 +1159,7 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, int inst)
 			return &v->conf;
 	return NULL;
 }
+#endif
 
 static int find_phys(struct ddf_super *ddf, __u32 phys_refnum)
 {
@@ -1715,6 +1717,7 @@ static int rlq_to_layout(int rlq, int prl, int raiddisks)
 	return -1;
 }
 
+#ifndef MDASSEMBLE
 struct extent {
 	unsigned long long start, size;
 };
@@ -1765,6 +1768,7 @@ FIXME ignore DDF_Legacy devices?
 	rv[n].size = 0;
 	return rv;
 }
+#endif
 
 static int init_super_ddf_bvd(struct supertype *st,
 			      mdu_array_info_t *info,
@@ -1877,6 +1881,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	return 1;
 }
 
+#ifndef MDASSEMBLE
 static void add_to_super_ddf_bvd(struct supertype *st,
 				 mdu_disk_info_t *dk, int fd, char *devname)
 {
@@ -2070,8 +2075,6 @@ static void add_to_super_ddf(struct supertype *st,
  * called when creating a container or adding another device to a
  * container.
  */
-
-#ifndef MDASSEMBLE
 
 static unsigned char null_conf[4096+512];
 
@@ -2557,7 +2560,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	}
 	return 0;
 }
-#endif
+#endif /* MDASSEMBLE */
 
 static struct mdinfo *container_content_ddf(struct supertype *st)
 {
@@ -2605,7 +2608,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			this->resync_start = ~0ULL;
 		}
 		memcpy(this->name, ddf->virt->entries[i].name, 32);
-		this->name[33]=0;
+		this->name[32]=0;
 
 		memset(this->uuid, 0, sizeof(this->uuid));
 		this->component_size = __be64_to_cpu(vc->conf.blocks);
@@ -2694,6 +2697,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	return 0;
 }
 
+#ifndef MDASSEMBLE
 /*
  * A new array 'a' has been started which claims to be instance 'inst'
  * within container 'c'.
@@ -3243,6 +3247,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	*updates = mu;
 	return rv;
 }
+#endif /* MDASSEMBLE */
 
 struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
@@ -3252,6 +3257,7 @@ struct superswitch super_ddf = {
 	.brief_detail_super = brief_detail_super_ddf,
 	.validate_geometry = validate_geometry_ddf,
 	.write_init_super = write_init_super_ddf,
+	.add_to_super	= add_to_super_ddf,
 #endif
 	.match_home	= match_home_ddf,
 	.uuid_from_super= uuid_from_super_ddf,
@@ -3267,11 +3273,11 @@ struct superswitch super_ddf = {
 	.store_super	= store_zero_ddf,
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf,
-	.add_to_super	= add_to_super_ddf,
 	.container_content = container_content_ddf,
 
 	.external	= 1,
 
+#ifndef MDASSEMBLE
 /* for mdmon */
 	.open_new       = ddf_open_new,
 	.set_array_state= ddf_set_array_state,
@@ -3280,5 +3286,5 @@ struct superswitch super_ddf = {
 	.process_update	= ddf_process_update,
 	.prepare_update	= ddf_prepare_update,
 	.activate_spare = ddf_activate_spare,
-
+#endif
 };

@@ -847,7 +847,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		int rv;
 
 #ifndef MDASSEMBLE
-		struct mdinfo *sra;
+		struct mdinfo *sra = NULL;
 		if (st->ss->external) {
 			char ver[100];
 			strcat(strcpy(ver, "external:"), info.text_version);

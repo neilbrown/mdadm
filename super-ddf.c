@@ -1194,19 +1194,21 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	 */
 	struct ddf_super *ddf = st->sb;
 	struct vcl *vcl = ddf->currentconf;
+	char *guid;
+	char buf[20];
+	struct sha1_ctx ctx;
 
-	if (!vcl)
-		memset(uuid, 0, sizeof (uuid));
-	else {
-		char buf[20];
-		struct sha1_ctx ctx;
-		sha1_init_ctx(&ctx);
-		sha1_process_bytes(&vcl->conf.guid, DDF_GUID_LEN, &ctx);
-		if (vcl->conf.sec_elmnt_count > 1)
-			sha1_process_bytes(&vcl->conf.sec_elmnt_seq, 1, &ctx);
-		sha1_finish_ctx(&ctx, buf);
-		memcpy(uuid, buf, sizeof(uuid));
-	}
+	if (vcl)
+		guid = vcl->conf.guid;
+	else
+		guid = ddf->anchor.guid;
+
+	sha1_init_ctx(&ctx);
+	sha1_process_bytes(guid, DDF_GUID_LEN, &ctx);
+	if (vcl && vcl->conf.sec_elmnt_count > 1)
+		sha1_process_bytes(&vcl->conf.sec_elmnt_seq, 1, &ctx);
+	sha1_finish_ctx(&ctx, buf);
+	memcpy(uuid, buf, 4*4);
 }
 
 static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info);
@@ -1248,15 +1250,15 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 
 
 	info->reshape_active = 0;
+	info->name[0] = 0;
 
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
 	strcpy(info->text_version, "ddf");
 	info->safe_mode_delay = 0;
 
-//	uuid_from_super_ddf(info->uuid, sbv);
+	uuid_from_super_ddf(st, info->uuid);
 
-//	info->name[] ?? ;
 }
 
 static int rlq_to_layout(int rlq, int prl, int raiddisks);
@@ -1313,7 +1315,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 		st->subarray);
 	info->safe_mode_delay = 200;
 
-//	info->name[] ?? ;
+	info->name[0] = 0;
 }
 
 
@@ -2622,6 +2624,10 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		this->component_size = __be64_to_cpu(vc->conf.blocks);
 		this->array.size = this->component_size / 2;
 		this->container_member = i;
+
+		ddf->currentconf = vc;
+		uuid_from_super_ddf(st, this->uuid);
+		ddf->currentconf = NULL;
 
 		sprintf(this->text_version, "/%s/%d",
 			devnum2devname(st->container_dev),

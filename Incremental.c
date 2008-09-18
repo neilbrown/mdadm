@@ -241,6 +241,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		int use_partitions = 1;
 		char *np, *ep;
 		char *nm, nbuf[1024];
+		struct stat stb2;
+
 		if ((autof&7) == 3 || (autof&7) == 5)
 			use_partitions = 0;
 		if (st->ss->external)
@@ -264,14 +266,14 @@ int Incremental(char *devname, int verbose, int runstop,
 			sprintf(nbuf, "/dev/md/%s", np);
 			nm = nbuf;
 		}
-		if (stat(nm, &stb) == 0 &&
-		    S_ISBLK(stb.st_mode) &&
-		    major(stb.st_rdev) == (use_partitions ?
-					   get_mdp_major() : MD_MAJOR)) {
+		if (stat(nm, &stb2) == 0 &&
+		    S_ISBLK(stb2.st_mode) &&
+		    major(stb2.st_rdev) == (use_partitions ?
+					    get_mdp_major() : MD_MAJOR)) {
 			if (use_partitions)
-				devnum = minor(stb.st_rdev) >> MdpMinorShift;
+				devnum = minor(stb2.st_rdev) >> MdpMinorShift;
 			else
-				devnum = minor(stb.st_rdev);
+				devnum = minor(stb2.st_rdev);
 			if (mddev_busy(use_partitions ? (-1-devnum) : devnum))
 				devnum = -1;
 		}
@@ -306,6 +308,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* - create the array */
 	/* - add the device */
 		struct mdinfo *sra;
+		struct mdinfo dinfo;
 
 		if (set_array_info(mdfd, st, &info) != 0) {
 			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
@@ -314,9 +317,10 @@ int Incremental(char *devname, int verbose, int runstop,
 			return 2;
 		}
 
-		info.disk.major = major(stb.st_rdev);
-		info.disk.minor = minor(stb.st_rdev);
-		if (add_disk(mdfd, st, &info, &info) != 0) {
+		dinfo = info;
+		dinfo.disk.major = major(stb.st_rdev);
+		dinfo.disk.minor = minor(stb.st_rdev);
+		if (add_disk(mdfd, st, &info, &dinfo) != 0) {
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",
 				devname, chosen_name, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, 0);
@@ -337,6 +341,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			sysfs_free(sra);
 			return 2;
 		}
+		info.array.working_disks = 1;
 		sysfs_free(sra);
 	} else {
 	/* 5b/ if it does */
@@ -348,7 +353,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		int err;
 		struct mdinfo *sra;
 		struct supertype *st2;
-		struct mdinfo info2;
+		struct mdinfo info2, *d;
 		sra = sysfs_read(mdfd, devnum, (GET_DEVS | GET_STATE));
 
 		sprintf(dn, "%d:%d", sra->devs->disk.major,
@@ -380,6 +385,9 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		info2.disk.major = major(stb.st_rdev);
 		info2.disk.minor = minor(stb.st_rdev);
+		/* add disk needs to know about containers */
+		if (st->ss->external)
+			sra->array.level = LEVEL_CONTAINER;
 		err = add_disk(mdfd, st2, sra, &info2);
 		if (err < 0 && errno == EBUSY) {
 			/* could be another device present with the same
@@ -395,6 +403,10 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(mdfd);
 			return 2;
 		}
+		info.array.working_disks = 0;
+		for (d = sra->devs; d; d=d->next)
+			info.array.working_disks ++;
+			
 	}
 	/* 6/ Make sure /var/run/mdadm.map contains this array. */
 	map_update(&map, devnum,
@@ -405,6 +417,11 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 7a/ if not, finish with success. */
 	if (info.array.level == LEVEL_CONTAINER) {
 		/* Try to assemble within the container */
+		close(mdfd);
+		if (verbose >= 0)
+			fprintf(stderr, Name
+				": container %s now has %d devices\n",
+				chosen_name, info.array.working_disks);
 		return Incremental(chosen_name, verbose, runstop,
 				   NULL, homehost, autof);
 	}
@@ -762,52 +779,59 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		char chosen_name[1024];
 		int usepart = 1;
 		char *n;
-		int working = 0;
+		int working = 0, preexist = 0;
+		struct map_ent *mp, *map = NULL;
 
 		if ((autof&7) == 3 || (autof&7) == 5)
 			usepart = 0;
 
-		n = ra->name;
-		if (*n == 'd')
-			n++;
-		if (*n) {
-			devnum = strtoul(n, &n, 10);
-			if (devnum >= 0 && (*n == 0 || *n == ' ')) {
-				/* Use this devnum */
-				usepart = (ra->name[0] == 'd');
-				if (mddev_busy(usepart ? (-1-devnum) : devnum))
-					devnum = -1;
-			} else
-				devnum = -1;
-		}
+		mp = map_by_uuid(&map, ra->uuid);
+		if (mp)
+			devnum = mp->devnum;
+		else {
 
-		if (devnum < 0) {
-			char *nm = ra->name;
-			char nbuf[1024];
-			struct stat stb;
-			if (strchr(nm, ':'))
-				nm = strchr(nm, ':')+1;
-			sprintf(nbuf, "/dev/md/%s", nm);
-
-			if (stat(nbuf, &stb) == 0 &&
-			    S_ISBLK(stb.st_mode) &&
-			    major(stb.st_rdev) == (usepart ?
-						   get_mdp_major() : MD_MAJOR)){
-				if (usepart)
-					devnum = minor(stb.st_rdev)
-						>> MdpMinorShift;
-				else
-					devnum = minor(stb.st_rdev);
-				if (mddev_busy(usepart ? (-1-devnum) : devnum))
+			n = ra->name;
+			if (*n == 'd')
+				n++;
+			if (*n && devnum < 0) {
+				devnum = strtoul(n, &n, 10);
+				if (devnum >= 0 && (*n == 0 || *n == ' ')) {
+					/* Use this devnum */
+					usepart = (ra->name[0] == 'd');
+					if (mddev_busy(usepart ? (-1-devnum) : devnum))
+						devnum = -1;
+				} else
 					devnum = -1;
 			}
-		}
 
-		if (devnum >= 0)
-			devnum = usepart ? (-1-devnum) : devnum;
-		else
-			devnum = find_free_devnum(usepart);
-		mdfd = open_mddev_devnum(NULL, devnum, ra->name,
+			if (devnum < 0) {
+				char *nm = ra->name;
+				char nbuf[1024];
+				struct stat stb;
+				if (strchr(nm, ':'))
+					nm = strchr(nm, ':')+1;
+				sprintf(nbuf, "/dev/md/%s", nm);
+
+				if (stat(nbuf, &stb) == 0 &&
+				    S_ISBLK(stb.st_mode) &&
+				    major(stb.st_rdev) == (usepart ?
+							   get_mdp_major() : MD_MAJOR)){
+					if (usepart)
+						devnum = minor(stb.st_rdev)
+							>> MdpMinorShift;
+					else
+						devnum = minor(stb.st_rdev);
+					if (mddev_busy(usepart ? (-1-devnum) : devnum))
+						devnum = -1;
+				}
+			}
+
+			if (devnum >= 0)
+				devnum = usepart ? (-1-devnum) : devnum;
+			else
+				devnum = find_free_devnum(usepart);
+		}
+		mdfd = open_mddev_devnum(mp ? mp->path : NULL, devnum, ra->name,
 					 chosen_name, autof>>3);
 
 		if (mdfd < 0) {
@@ -821,8 +845,12 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		for (dev = ra->devs; dev; dev = dev->next)
 			if (sysfs_add_disk(ra, dev) == 0)
 				working++;
-
-		if (runstop > 0 || working >= ra->array.working_disks) {
+			else if (errno == EEXIST)
+				preexist++;
+		if (working == 0)
+			/* Nothing new, don't try to start */ ;
+		else if (runstop > 0 ||
+			 (working + preexist) >= ra->array.working_disks) {
 			switch(ra->array.level) {
 			case LEVEL_LINEAR:
 			case LEVEL_MULTIPATH:
@@ -840,16 +868,25 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 				break;
 			}
 			sysfs_set_safemode(ra, ra->safe_mode_delay);
-			if (verbose >= 0)
-				printf("Started %s with %d devices\n",
-				       chosen_name, working);
+			if (verbose >= 0) {
+				fprintf(stderr, Name
+					"Started %s with %d devices",
+					chosen_name, working + preexist);
+				if (preexist)
+					fprintf(stderr, " (%d new)", working);
+				fprintf(stderr, "\n");
+			}
 			/* FIXME should have an O_EXCL and wait for read-auto */
 		} else
 			if (verbose >= 0)
-				printf("%s assembled with %d devices but "
-				       "not started\n",
-				       chosen_name, working);
+				fprintf(stderr, Name
+					"%s assembled with %d devices but "
+					"not started\n",
+					chosen_name, working);
 		close(mdfd);
+		map_update(&map, devnum,
+			   ra->text_version,
+			   ra->uuid, chosen_name);
 	}
 	return 0;
 }

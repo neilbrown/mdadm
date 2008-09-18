@@ -117,10 +117,12 @@ void map_read(struct map_ent **melp)
 		return;
 
 	while (fgets(buf, sizeof(buf), f)) {
-		if (sscanf(buf, " md%1[p]%d %s %x:%x:%x:%x %200s",
+		if (sscanf(buf, " %3[mdp]%d %s %x:%x:%x:%x %200s",
 			   nam, &devnum, metadata, uuid, uuid+1,
-			   uuid+2, uuid+3, path) == 9) {
-			if (nam[0] == 'p')
+			   uuid+2, uuid+3, path) == 8) {
+			if (strncmp(nam, "md", 2) != 0)
+				continue;
+			if (nam[2] == 'p')
 				devnum = -1 - devnum;
 			map_add(melp, devnum, metadata, uuid, path);
 		}

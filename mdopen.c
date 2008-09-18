@@ -282,7 +282,7 @@ int open_mddev_devnum(char *devname, int devnum, char *name,
 
 	if (devname)
 		strcpy(chosen_name, devname);
-	else if (name && strchr(name,'/') == NULL) {
+	else if (name && name[0] && strchr(name,'/') == NULL) {
 		char *n = strchr(name, ':');
 		if (n) n++; else n = name;
 		if (isdigit(*n) && devnum < 0)

@@ -708,6 +708,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->safe_mode_delay = 0;
 	info->disk.number = -1;
 	info->disk.state = 0;
+	info->name[0] = 0;
 
 	if (super->disks) {
 		disk = &super->disks->disk;

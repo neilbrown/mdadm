@@ -814,6 +814,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 		st->minor_version = 0;
 		st->max_devs = 512;
 	}
+	st->loaded_container = 0;
 	return 0;
 
 }
@@ -2562,6 +2563,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 		st->max_devs = 512;
 		st->container_dev = fd2devnum(fd);
 	}
+	st->loaded_container = 1;
 	return 0;
 }
 #endif /* MDASSEMBLE */

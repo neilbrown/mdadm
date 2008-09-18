@@ -1360,6 +1360,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		st->minor_version = 0;
 		st->max_devs = IMSM_MAX_DEVICES;
 	}
+	st->loaded_container = 1;
 
 	return 0;
 }
@@ -1402,6 +1403,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 		st->minor_version = 0;
 		st->max_devs = IMSM_MAX_DEVICES;
 	}
+	st->loaded_container = 0;
 
 	return 0;
 }

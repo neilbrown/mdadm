@@ -587,6 +587,12 @@ struct metadata_update {
  * metadata read in or created is stored in 'sb' and 'info'.
  * There are also fields used by mdmon to track containers.
  *
+ * A supertype may refer to:
+ *   Just an array, possibly in a container
+ *   A container, not identifying any particular array
+ *   Info read from just one device, not yet fully describing the array/container.
+ *
+ *
  * A supertype is created by:
  *   super_by_fd
  *   guess_super
@@ -600,6 +606,8 @@ struct supertype {
 	char subarray[32];	/* name of array inside container */
 	void *sb;
 	void *info;
+	int loaded_container;	/* Set if load_super found a container,
+				 * not just one device */
 
 	struct metadata_update *updates;
 	struct metadata_update **update_tail;

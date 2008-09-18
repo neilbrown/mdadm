@@ -56,6 +56,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * - Choose a free, high number.
 	 * - Use a partitioned device unless strong suggestion not to.
 	 *         e.g. auto=md
+	 *   Don't choose partitioned for containers.
 	 * 5/ Find out if array already exists
 	 * 5a/ if it does not
 	 * - choose a name, from mdadm.conf or 'name' field in array.
@@ -67,6 +68,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * - add the device
 	 * 6/ Make sure /var/run/mdadm.map contains this array.
 	 * 7/ Is there enough devices to possibly start the array?
+	 *     For a container, this means running Incremental_container.
 	 * 7a/ if not, finish with success.
 	 * 7b/ if yes,
 	 * - read all metadata and arrange devices like -A does
@@ -90,7 +92,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (autof == 0)
 		autof = ci->autof;
 
-	/* 1/ Check if devices is permitted by mdadm.conf */
+	/* 1/ Check if device is permitted by mdadm.conf */
 
 	if (!conf_test_dev(devname)) {
 		if (verbose >= 0)
@@ -142,7 +144,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	}
 	close (dfd);
 
-	if (st->ss->container_content) {
+	if (st->ss->container_content && st->loaded_container) {
 		/* This is a pre-built container array, so we do something
 		 * rather different.
 		 */
@@ -240,6 +242,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		char *np, *ep;
 		char *nm, nbuf[1024];
 		if ((autof&7) == 3 || (autof&7) == 5)
+			use_partitions = 0;
+		if (st->ss->external)
 			use_partitions = 0;
 		np = strchr(info.name, ':');
 		if (np)
@@ -399,6 +403,11 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
+	if (info.array.level == LEVEL_CONTAINER) {
+		/* Try to assemble within the container */
+		return Incremental(chosen_name, verbose, runstop,
+				   NULL, homehost, autof);
+	}
 	avail = NULL;
 	active_disks = count_active(st, mdfd, &avail, &info);
 	if (enough(info.array.level, info.array.raid_disks,

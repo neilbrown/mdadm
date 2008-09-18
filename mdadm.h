@@ -259,6 +259,12 @@ typedef struct mddev_ident_s {
 	char	*bitmap_file;
 	int	bitmap_fd;
 
+	char	*container;	/* /dev/whatever name of container.  You
+				 * would expect this to be the 'devname'
+				 * of some other entry.
+				 */
+	char	*member;	/* subarray within a container */
+
 	struct mddev_ident_s *next;
 } *mddev_ident_t;
 

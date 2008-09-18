@@ -516,6 +516,12 @@ void arrayline(char *line)
 		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
 			/* whether to create device special files as needed */
 			mis.autof = parse_auto(w+5, "auto type", 0);
+		} else if (strncasecmp(w, "member=", 7) == 0) {
+			/* subarray within a container */
+			mis.member = strdup(w+7);
+		} else if (strncasecmp(w, "container=", 10) == 0) {
+			/* the container holding this subarray */
+			mis.container = strdup(w+10);
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
 				w);

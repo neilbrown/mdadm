@@ -793,6 +793,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		struct map_ent *mp, *map = NULL;
 		char nbuf[64];
 		char *name_to_use;
+		struct mddev_ident_s *match = NULL;
 
 		if ((autof&7) == 3 || (autof&7) == 5)
 			usepart = 0;
@@ -806,10 +807,51 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			)
 			name_to_use = fname_from_uuid(st, ra, nbuf, '-');
 		    
-		if (mp)
-			devnum = mp->devnum;
-		else {
+		if (!mp) {
 
+			/* Check in mdadm.conf for devices == devname and
+			 * member == ra->text_version after second slash.
+			 */
+			char *sub = strchr(ra->text_version+1, '/');
+			struct mddev_ident_s *array_list;
+			if (sub) {
+				sub++;
+				array_list = conf_get_ident(NULL);
+			} else
+				array_list = NULL;
+			for(; array_list ; array_list = array_list->next) {
+				int fd;
+				char *dn;
+				if (array_list->member == NULL ||
+				    array_list->container == NULL)
+					continue;
+				if (strcmp(array_list->member, sub) != 0)
+					continue;
+				fd = open(array_list->container, O_RDONLY);
+				if (fd < 0)
+					continue;
+				dn = devnum2devname(fd2devnum(fd));
+				close(fd);
+				if (strncmp(dn, ra->text_version+1,
+					    strlen(dn)) != 0 ||
+				    ra->text_version[strlen(dn)+1] != '/') {
+					free(dn);
+					continue;
+				}
+				free(dn);
+				/* we have a match */
+				match = array_list;
+				break;
+			}
+		}
+
+		if (match && is_standard(match->devname, &devnum))
+			/* we have devnum now */;
+		else if (mp)
+			devnum = mp->devnum;
+		else if (is_standard(name_to_use, &devnum))
+			/* have devnum */;
+		else {
 			n = name_to_use;
 			if (*n == 'd')
 				n++;
@@ -851,7 +893,8 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			else
 				devnum = find_free_devnum(usepart);
 		}
-		mdfd = open_mddev_devnum(mp ? mp->path : NULL, devnum, name_to_use,
+		mdfd = open_mddev_devnum(mp ? mp->path : match ? match->devname : NULL,
+					 devnum, name_to_use,
 					 chosen_name, autof>>3);
 
 		if (mdfd < 0) {

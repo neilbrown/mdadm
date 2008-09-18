@@ -2413,7 +2413,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	if ((state & DS_FAULTY) && !(status & FAILED_DISK)) {
 		status |= FAILED_DISK;
 		disk->status = __cpu_to_le32(status);
-		disk->scsi_id = __cpu_to_le32(~0UL);
+		disk->scsi_id = __cpu_to_le32(~(__u32)0);
 		memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
 		super->updates_pending++;
 	}

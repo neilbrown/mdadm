@@ -389,8 +389,11 @@ int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 		return -1;
 	n = write(fd, val, strlen(val));
 	close(fd);
-	if (n != strlen(val))
+	if (n != strlen(val)) {
+		dprintf(Name ": failed to write '%s' to '%s' (%s)\n",
+			val, fname, strerror(errno));
 		return -1;
+	}
 	return 0;
 }
 

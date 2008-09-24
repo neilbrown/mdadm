@@ -844,6 +844,14 @@ static inline int is_subarray(char *vers)
 	return (*vers == '/' || *vers == '-');
 }
 
+#ifdef DEBUG
+#define dprintf(fmt, arg...) \
+	fprintf(stderr, fmt, ##arg)
+#else
+#define dprintf(fmt, arg...) \
+        ({ if (0) fprintf(stderr, fmt, ##arg); 0; })
+#endif
+
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)
 #define	LEVEL_FAULTY		(-5)

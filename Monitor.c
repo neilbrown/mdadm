@@ -675,41 +675,52 @@ int WaitClean(char *dev)
 
 	if (rv) {
 		int state_fd = sysfs_open(fd2devnum(fd), NULL, "array_state");
-		unsigned long secs;
 		char buf[20];
+		fd_set fds;
+		struct timeval tm;
 
-		secs = mdi->safe_mode_delay / 1000;
-		if (mdi->safe_mode_delay - secs * 1000)
-			secs++;
-		secs *= 2;
+		/* minimize the safe_mode_delay and prepare to wait up to 5s
+		 * for writes to quiesce
+		 */
+		sysfs_set_safemode(mdi, 1);
+		tm.tv_sec = 5;
+		tm.tv_usec = 0;
 
-		for (; secs; secs--) {
+		FD_ZERO(&fds);
+
+		/* wait for array_state to be clean */
+		while (1) {
 			rv = read(state_fd, buf, sizeof(buf));
 			if (rv < 0)
 				break;
 			if (sysfs_match_word(buf, clean_states) <= 4)
 				break;
-			sleep(1);
+			FD_SET(state_fd, &fds);
+			rv = select(state_fd + 1, &fds, NULL, NULL, &tm);
+			if (rv < 0 && errno != EINTR)
+				break;
 			lseek(state_fd, 0, SEEK_SET);
 		}
 		if (rv < 0)
 			rv = 1;
-		else if (secs) {
+		else if (ping_monitor(mdi->text_version) == 0) {
 			/* we need to ping to close the window between array
 			 * state transitioning to clean and the metadata being
 			 * marked clean
 			 */
-			if (ping_monitor(mdi->text_version) == 0)
-				rv = 0;
-		}
+			rv = 0;
+		} else
+			rv = 1;
 		if (rv)
 			fprintf(stderr, Name ": Error waiting for %s to be clean\n",
 				dev);
 
+		/* restore the original safe_mode_delay */
+		sysfs_set_safemode(mdi, mdi->safe_mode_delay);
 		close(state_fd);
 	}
 
-	sysfs_free(mdi);		
+	sysfs_free(mdi);
 	close(fd);
 
 	return rv;

@@ -1097,6 +1097,13 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		}
 	}
 
+	/* no match, maybe a stale failed drive */
+	if (i == super->anchor->num_disks && dl->index >= 0) {
+		dl->disk = *__get_imsm_disk(super->anchor, dl->index);
+		if (__le32_to_cpu(dl->disk.status) & FAILED_DISK)
+			dl->index = -2;
+	}
+
 	if (alloc)
 		super->disks = dl;
 

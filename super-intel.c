@@ -1854,13 +1854,12 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	generation++;
 	mpb->generation_num = __cpu_to_le32(generation);
 
+	mpb_size += sizeof(struct imsm_disk) * mpb->num_disks;
 	for (d = super->disks; d; d = d->next) {
 		if (d->index == -1)
 			spares++;
-		else {
+		else
 			mpb->disk[d->index] = d->disk;
-			mpb_size += sizeof(struct imsm_disk);
-		}
 	}
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {

@@ -3287,6 +3287,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 
 			/* Cool, we have a device with some space at pos */
 			di = malloc(sizeof(*di));
+			if (!di)
+				continue;
 			memset(di, 0, sizeof(*di));
 			di->disk.number = i;
 			di->disk.raid_disk = i;
@@ -3319,8 +3321,21 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	 * phys_refnum and lba_offset values
 	 */
 	mu = malloc(sizeof(*mu));
+	if (mu && posix_memalign(&mu->space, 512, sizeof(struct vcl)) != 0) {
+		free(mu);
+		mu = NULL;
+	}
+	if (!mu) {
+		while (rv) {
+			struct mdinfo *n = rv->next;
+
+			free(rv);
+			rv = n;
+		}
+		return NULL;
+	}
+		
 	mu->buf = malloc(ddf->conf_rec_len * 512);
-	posix_memalign(&mu->space, 512, sizeof(struct vcl));
 	mu->len = ddf->conf_rec_len;
 	mu->next = *updates;
 	vc = find_vdcr(ddf, a->info.container_member);

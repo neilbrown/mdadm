@@ -2884,6 +2884,8 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
  
 		/* found a usable disk with enough space */
 		di = malloc(sizeof(*di));
+		if (!di)
+			continue;
 		memset(di, 0, sizeof(*di));
 
 		/* dl->index will be -1 in the case we are activating a
@@ -2923,7 +2925,23 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	 * disk_ord_tbl for the array
 	 */
 	mu = malloc(sizeof(*mu));
-	mu->buf = malloc(sizeof(struct imsm_update_activate_spare) * num_spares);
+	if (mu) {
+		mu->buf = malloc(sizeof(struct imsm_update_activate_spare) * num_spares);
+		if (mu->buf == NULL) {
+			free(mu);
+			mu = NULL;
+		}
+	}
+	if (!mu) {
+		while (rv) {
+			struct mdinfo *n = rv->next;
+
+			free(rv);
+			rv = n;
+		}
+		return NULL;
+	}
+			
 	mu->space = NULL;
 	mu->len = sizeof(struct imsm_update_activate_spare) * num_spares;
 	mu->next = *updates;

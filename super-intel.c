@@ -77,7 +77,8 @@ struct imsm_map {
 } __attribute__ ((packed));
 
 struct imsm_vol {
-	__u32 reserved[2];
+	__u32 curr_migr_unit;
+	__u32 reserved;
 	__u8  migr_state;	/* Normal or Migrating */
 	__u8  migr_type;	/* Initializing, Rebuilding, ... */
 	__u8  dirty;
@@ -751,9 +752,10 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
 	memset(info->uuid, 0, sizeof(info->uuid));
 
-	if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
-	    dev->vol.dirty || dev->vol.migr_state)
+	if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty)
 		info->resync_start = 0;
+	else if (dev->vol.migr_state)
+		info->resync_start = __le32_to_cpu(dev->vol.curr_migr_unit);
 	else
 		info->resync_start = ~0ULL;
 
@@ -1127,10 +1129,20 @@ static void migrate(struct imsm_dev *dev, __u8 to_state, int rebuild_resync)
 
 	dev->vol.migr_state = 1;
 	dev->vol.migr_type = rebuild_resync;
+	dev->vol.curr_migr_unit = 0;
 	dest = get_imsm_map(dev, 1);
 
 	memcpy(dest, src, sizeof_imsm_map(src));
 	src->map_state = to_state;
+}
+
+static void end_migration(struct imsm_dev *dev, __u8 map_state)
+{
+	struct imsm_map *map = get_imsm_map(dev, 0);
+
+	dev->vol.migr_state = 0;
+	dev->vol.curr_migr_unit = 0;
+	map->map_state = map_state;
 }
 #endif
 
@@ -1602,6 +1614,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	vol->migr_state = 0;
 	vol->migr_type = 0;
 	vol->dirty = 0;
+	vol->curr_migr_unit = 0;
 	for (i = 0; i < idx; i++) {
 		struct imsm_dev *prev = get_imsm_dev(super, i);
 		struct imsm_map *pmap = get_imsm_map(prev, 0);
@@ -2485,8 +2498,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		 */
 		if (is_resyncing(dev)) {
 			dprintf("imsm: mark resync done\n");
-			dev->vol.migr_state = 0;
-			map->map_state = map_state;
+			end_migration(dev, map_state);
 			super->updates_pending++;
 		}
 	} else if (!is_resyncing(dev) && !failed) {
@@ -2495,6 +2507,14 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		map->map_state = map_state;
 		migrate(dev, IMSM_T_STATE_NORMAL,
 			map->map_state == IMSM_T_STATE_NORMAL);
+		super->updates_pending++;
+	}
+
+	/* check if we can update the migration checkpoint */
+	if (dev->vol.migr_state &&
+	    __le32_to_cpu(dev->vol.curr_migr_unit) != a->resync_start) {
+		dprintf("imsm: checkpoint migration (%llu)\n", a->resync_start);
+		dev->vol.curr_migr_unit = __cpu_to_le32(a->resync_start);
 		super->updates_pending++;
 	}
 
@@ -2557,8 +2577,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	/* check if recovery complete, newly degraded, or failed */
 	if (map_state == IMSM_T_STATE_NORMAL && is_rebuilding(dev)) {
-		map->map_state = map_state;
-		dev->vol.migr_state = 0;
+		end_migration(dev, map_state);
 		super->updates_pending++;
 	} else if (map_state == IMSM_T_STATE_DEGRADED &&
 		   map->map_state != map_state &&
@@ -2569,8 +2588,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	} else if (map_state == IMSM_T_STATE_FAILED &&
 		   map->map_state != map_state) {
 		dprintf("imsm: mark failed\n");
-		dev->vol.migr_state = 0;
-		map->map_state = map_state;
+		end_migration(dev, map_state);
 		super->updates_pending++;
 	}
 }

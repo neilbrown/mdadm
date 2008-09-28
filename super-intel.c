@@ -180,6 +180,7 @@ struct intel_super {
 		int fd;
 	} *disks;
 	struct dl *add; /* list of disks to add while mdmon active */
+	struct dl *missing; /* disks removed while we weren't looking */
 	struct bbm_log *bbm_log;
 };
 
@@ -1321,12 +1322,19 @@ static void __free_imsm_disk(struct dl *d)
 }
 static void free_imsm_disks(struct intel_super *super)
 {
-	while (super->disks) {
-		struct dl *d = super->disks;
+	struct dl *d;
 
+	while (super->disks) {
+		d = super->disks;
 		super->disks = d->next;
 		__free_imsm_disk(d);
 	}
+	while (super->missing) {
+		d = super->missing;
+		super->missing = d->next;
+		__free_imsm_disk(d);
+	}
+
 }
 
 /* free all the pieces hanging off of a super pointer */
@@ -1378,6 +1386,49 @@ static struct intel_super *alloc_super(int creating_imsm)
 }
 
 #ifndef MDASSEMBLE
+/* find_missing - helper routine for load_super_imsm_all that identifies
+ * disks that have disappeared from the system.  This routine relies on
+ * the mpb being uptodate, which it is at load time.
+ */
+static int find_missing(struct intel_super *super)
+{
+	int i;
+	struct imsm_super *mpb = super->anchor;
+	struct dl *dl;
+	struct imsm_disk *disk;
+	__u32 status;
+
+	for (i = 0; i < mpb->num_disks; i++) {
+		disk = __get_imsm_disk(mpb, i);
+		for (dl = super->disks; dl; dl = dl->next)
+			if (serialcmp(dl->disk.serial, disk->serial) == 0)
+				break;
+		if (dl)
+			continue;
+		/* ok we have a 'disk' without a live entry in
+		 * super->disks
+		 */
+		status = __le32_to_cpu(disk->status);
+		if (status & FAILED_DISK || !(status & USABLE_DISK))
+			continue; /* never mind, already marked */
+
+		dl = malloc(sizeof(*dl));
+		if (!dl)
+			return 1;
+		dl->major = 0;
+		dl->minor = 0;
+		dl->fd = -1;
+		dl->devname = strdup("missing");
+		dl->index = i;
+		serialcpy(dl->serial, disk->serial);
+		dl->disk = *disk;
+		dl->next = super->missing;
+		super->missing = dl;
+	}
+
+	return 0;
+}
+
 static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 			       char *devname, int keep_fd)
 {
@@ -1460,6 +1511,12 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		load_imsm_disk(dfd, super, NULL, keep_fd);
 		if (!keep_fd)
 			close(dfd);
+	}
+
+
+	if (find_missing(super) != 0) {
+		free_imsm(super);
+		return 2;
 	}
 
 	if (st->subarray[0]) {
@@ -1861,6 +1918,8 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 		else
 			mpb->disk[d->index] = d->disk;
 	}
+	for (d = super->missing; d; d = d->next)
+		mpb->disk[d->index] = d->disk;
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
@@ -2471,6 +2530,18 @@ static int is_rebuilding(struct imsm_dev *dev)
 		return 0;
 }
 
+static void mark_failure(struct imsm_disk *disk)
+{
+	__u32 status = __le32_to_cpu(disk->status);
+
+	if (status & FAILED_DISK)
+		return;
+	status |= FAILED_DISK;
+	disk->status = __cpu_to_le32(status);
+	disk->scsi_id = __cpu_to_le32(~(__u32)0);
+	memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
+}
+
 /* Handle dirty -> clean transititions and resync.  Degraded and rebuild
  * states are handled in imsm_set_disk() with one exception, when a
  * resync is stopped due to a new failure this routine will set the
@@ -2485,6 +2556,17 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	int failed = imsm_count_failed(super, dev);
 	__u8 map_state = imsm_check_degraded(super, dev, failed);
 
+	/* before we activate this array handle any missing disks */
+	if (consistent == 2 && super->missing) {
+		struct dl *dl;
+
+		dprintf("imsm: mark missing\n");
+		end_migration(dev, map_state);
+		for (dl = super->missing; dl; dl = dl->next)
+			mark_failure(&dl->disk);
+		super->updates_pending++;
+	}
+		
 	if (consistent == 2 &&
 	    (!is_resync_complete(a) ||
 	     map_state != IMSM_T_STATE_NORMAL ||
@@ -2557,12 +2639,10 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	/* check for new failures */
 	status = __le32_to_cpu(disk->status);
 	if ((state & DS_FAULTY) && !(status & FAILED_DISK)) {
-		status |= FAILED_DISK;
-		disk->status = __cpu_to_le32(status);
-		disk->scsi_id = __cpu_to_le32(~(__u32)0);
-		memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
+		mark_failure(disk);
 		super->updates_pending++;
 	}
+
 	/* check if in_sync */
 	if (state & DS_INSYNC && ord & IMSM_ORD_REBUILD) {
 		struct imsm_map *migr_map = get_imsm_map(dev, 1);
@@ -2986,12 +3066,18 @@ static void imsm_process_update(struct supertype *st,
 		if (!found) {
 			struct dl **dlp;
 
+			/* We know that 'manager' isn't touching anything,
+			 * so it is safe to delete
+			 */
 			for (dlp = &super->disks; *dlp; dlp = &(*dlp)->next)
 				if ((*dlp)->index == victim)
 					break;
-			/* We know that 'manager' isn't touching anything,
-			 * so it is safe to:
-			 */
+
+			/* victim may be on the missing list */
+			if (!*dlp)
+				for (dlp = &super->missing; *dlp; dlp = &(*dlp)->next)
+					if ((*dlp)->index == victim)
+						break;
 			imsm_delete(super, dlp, victim);
 		}
 		break;
@@ -3172,6 +3258,9 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, int index)
 
 	/* shift all indexes down one */
 	for (iter = super->disks; iter; iter = iter->next)
+		if (iter->index > index)
+			iter->index--;
+	for (iter = super->missing; iter; iter = iter->next)
 		if (iter->index > index)
 			iter->index--;
 

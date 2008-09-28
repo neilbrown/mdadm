@@ -2139,15 +2139,20 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 	struct dl *d;
 	int n_config;
 	int conf_size;
-
+	int attempts = 0;
+	int successes = 0;
 	unsigned long long size, sector;
 
+	/* try to write updated metadata,
+	 * if we catch a failure move on to the next disk
+	 */
 	for (d = ddf->dlist; d; d=d->next) {
 		int fd = d->fd;
 
 		if (fd < 0)
 			continue;
 
+		attempts++;
 		/* We need to fill in the primary, (secondary) and workspace
 		 * lba's in the headers, set their checksums,
 		 * Also checksum phys, virt....
@@ -2177,17 +2182,21 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 
 		sector = size - 16*1024*2;
 		lseek64(fd, sector<<9, 0);
-		write(fd, &ddf->primary, 512);
+		if (write(fd, &ddf->primary, 512) < 0)
+			continue;
 
 		ddf->controller.crc = calc_crc(&ddf->controller, 512);
-		write(fd, &ddf->controller, 512);
+		if (write(fd, &ddf->controller, 512) < 0)
+			continue;
 
 		ddf->phys->crc = calc_crc(ddf->phys, ddf->pdsize);
 
-		write(fd, ddf->phys, ddf->pdsize);
+		if (write(fd, ddf->phys, ddf->pdsize) < 0)
+			continue;
 
 		ddf->virt->crc = calc_crc(ddf->virt, ddf->vdsize);
-		write(fd, ddf->virt, ddf->vdsize);
+		if (write(fd, ddf->virt, ddf->vdsize) < 0)
+			continue;
 
 		/* Now write lots of config records. */
 		n_config = ddf->max_part;
@@ -2199,32 +2208,43 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 
 			if (c) {
 				c->conf.crc = calc_crc(&c->conf, conf_size);
-				write(fd, &c->conf, conf_size);
+				if (write(fd, &c->conf, conf_size) < 0)
+					break;
 			} else {
 				char *null_aligned = (char*)((((unsigned long)null_conf)+511)&~511UL);
 				if (null_conf[0] != 0xff)
 					memset(null_conf, 0xff, sizeof(null_conf));
 				int togo = conf_size;
 				while (togo > sizeof(null_conf)-512) {
-					write(fd, null_aligned, sizeof(null_conf)-512);
+					if (write(fd, null_aligned, sizeof(null_conf)-512) < 0)
+						break;
 					togo -= sizeof(null_conf)-512;
 				}
-				write(fd, null_aligned, togo);
+				if (write(fd, null_aligned, togo) < 0)
+					break;
 			}
 		}
+		if (i <= n_config)
+			continue;
 		d->disk.crc = calc_crc(&d->disk, 512);
-		write(fd, &d->disk, 512);
+		if (write(fd, &d->disk, 512) < 0)
+			continue;
 
 		/* Maybe do the same for secondary */
 
 		lseek64(fd, (size-1)*512, SEEK_SET);
-		write(fd, &ddf->anchor, 512);
-		if (do_close) {
-			close(fd);
+		if (write(fd, &ddf->anchor, 512) < 0)
+			continue;
+		successes++;
+	}
+
+	if (do_close)
+		for (d = ddf->dlist; d; d=d->next) {
+			close(d->fd);
 			d->fd = -1;
 		}
-	}
-	return 1;
+
+	return attempts != successes;
 }
 
 static int write_init_super_ddf(struct supertype *st)

@@ -686,6 +686,9 @@ int WaitClean(char *dev)
 		tm.tv_sec = 5;
 		tm.tv_usec = 0;
 
+		/* give mdmon a chance to checkpoint resync */
+		sysfs_set_str(mdi, NULL, "sync_action", "idle");
+
 		FD_ZERO(&fds);
 
 		/* wait for array_state to be clean */

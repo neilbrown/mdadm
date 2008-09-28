@@ -389,7 +389,6 @@ static int get_imsm_raid_level(struct imsm_map *map)
 	return map->raid_level;
 }
 
-#ifndef MDASSEMBLE
 static int cmp_extent(const void *av, const void *bv)
 {
 	const struct extent *a = av;
@@ -407,6 +406,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	struct extent *rv, *e;
 	int i, j;
 	int memberships = 0;
+	__u32 reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
@@ -440,12 +440,57 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	}
 	qsort(rv, memberships, sizeof(*rv), cmp_extent);
 
-	e->start = __le32_to_cpu(dl->disk.total_blocks) -
-		   (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS);
+	/* determine the start of the metadata 
+	 * when no raid devices are defined use the default
+	 * ...otherwise allow the metadata to truncate the value
+	 * as is the case with older versions of imsm
+	 */
+	if (memberships) {
+		struct extent *last = &rv[memberships - 1];
+		__u32 remainder;
+
+		remainder = __le32_to_cpu(dl->disk.total_blocks) - 
+			    (last->start + last->size);
+		if (reservation > remainder)
+			reservation = remainder;
+	}
+	e->start = __le32_to_cpu(dl->disk.total_blocks) - reservation;
 	e->size = 0;
 	return rv;
 }
 
+/* try to determine how much space is reserved for metadata from
+ * the last get_extents() entry, otherwise fallback to the
+ * default
+ */
+static __u32 imsm_reserved_sectors(struct intel_super *super, struct dl *dl)
+{
+	struct extent *e;
+	int i;
+	__u32 rv;
+
+	/* for spares just return a minimal reservation which will grow
+	 * once the spare is picked up by an array
+	 */
+	if (dl->index == -1)
+		return MPB_SECTOR_CNT;
+
+	e = get_extents(super, dl);
+	if (!e)
+		return MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+
+	/* scroll to last entry */
+	for (i = 0; e[i].size; i++)
+		continue;
+
+	rv = __le32_to_cpu(dl->disk.total_blocks) - e[i].start;
+
+	free(e);
+
+	return rv;
+}
+
+#ifndef MDASSEMBLE
 static void print_imsm_dev(struct imsm_dev *dev, int index)
 {
 	__u64 sz;
@@ -494,7 +539,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	printf("    Dirty State : %s\n", dev->vol.dirty ? "dirty" : "clean");
 }
 
-static void print_imsm_disk(struct imsm_super *mpb, int index)
+static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 {
 	struct imsm_disk *disk = __get_imsm_disk(mpb, index);
 	char str[MAX_RAID_SERIAL_LEN + 1];
@@ -513,8 +558,7 @@ static void print_imsm_disk(struct imsm_super *mpb, int index)
 					      s&FAILED_DISK ? " failed" : "",
 					      s&USABLE_DISK ? " usable" : "");
 	printf("             Id : %08x\n", __le32_to_cpu(disk->scsi_id));
-	sz = __le32_to_cpu(disk->total_blocks) -
-	     (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS * mpb->num_raid_devs);
+	sz = __le32_to_cpu(disk->total_blocks) - reserved;
 	printf("    Usable Size : %llu%s\n", (unsigned long long)sz,
 	       human_size(sz * 512));
 }
@@ -526,6 +570,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	char str[MAX_SIGNATURE_LENGTH];
 	int i;
 	__u32 sum;
+	__u32 reserved = imsm_reserved_sectors(super, super->disks);
 
 	snprintf(str, MPB_SIG_LEN, "%s", mpb->sig);
 	printf("          Magic : %s\n", str);
@@ -539,7 +584,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("    MPB Sectors : %d\n", mpb_sectors(mpb));
 	printf("          Disks : %d\n", mpb->num_disks);
 	printf("   RAID Devices : %d\n", mpb->num_raid_devs);
-	print_imsm_disk(mpb, super->disks->index);
+	print_imsm_disk(mpb, super->disks->index, reserved);
 	if (super->bbm_log) {
 		struct bbm_log *log = super->bbm_log;
 
@@ -556,7 +601,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	for (i = 0; i < mpb->num_disks; i++) {
 		if (i == super->disks->index)
 			continue;
-		print_imsm_disk(mpb, i);
+		print_imsm_disk(mpb, i, reserved);
 	}
 }
 
@@ -760,12 +805,13 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->name[0] = 0;
 
 	if (super->disks) {
+		__u32 reserved = imsm_reserved_sectors(super, super->disks);
+
 		disk = &super->disks->disk;
 		info->disk.number = super->disks->index;
 		info->disk.raid_disk = super->disks->index;
-		info->data_offset = __le32_to_cpu(disk->total_blocks) -
-				    (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS);
-		info->component_size = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+		info->data_offset = __le32_to_cpu(disk->total_blocks) - reserved;
+		info->component_size = reserved;
 		s = __le32_to_cpu(disk->status);
 		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
 		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;

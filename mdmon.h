@@ -59,3 +59,14 @@ struct mdstat_ent *mdstat_read(int hold, int start);
 extern int exit_now, manager_ready;
 extern int mon_tid, mgr_tid;
 extern int monitor_loop_cnt;
+
+/* helper routine to determine resync completion since MaxSector is a
+ * moving target
+ */
+static inline int is_resync_complete(struct active_array *a)
+{
+	if (a->resync_start >= a->info.component_size)
+		return 1;
+	return 0;
+}
+

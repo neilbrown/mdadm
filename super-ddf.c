@@ -2748,7 +2748,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	if (consistent == 2) {
 		/* Should check if a recovery should be started FIXME */
 		consistent = 1;
-		if (a->resync_start != ~0ULL)
+		if (!is_resync_complete(a))
 			consistent = 0;
 	}
 	if (consistent)
@@ -2760,7 +2760,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 
 	old = ddf->virt->entries[inst].init_state;
 	ddf->virt->entries[inst].init_state &= ~DDF_initstate_mask;
-	if (a->resync_start == ~0ULL)
+	if (is_resync_complete(a))
 		ddf->virt->entries[inst].init_state |= DDF_init_full;
 	else if (a->resync_start == 0)
 		ddf->virt->entries[inst].init_state |= DDF_init_not;

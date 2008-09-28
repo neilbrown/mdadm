@@ -2474,12 +2474,12 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	__u8 map_state = imsm_check_degraded(super, dev, failed);
 
 	if (consistent == 2 &&
-	    (a->resync_start != ~0ULL ||
+	    (!is_resync_complete(a) ||
 	     map_state != IMSM_T_STATE_NORMAL ||
 	     dev->vol.migr_state))
 		consistent = 0;
 
-	if (a->resync_start == ~0ULL) {
+	if (is_resync_complete(a)) {
 		/* complete intialization / resync,
 		 * recovery is completed in ->set_disk
 		 */

@@ -3076,6 +3076,8 @@ static void ddf_process_update(struct supertype *st,
 			       mppe * (sizeof(__u32) + sizeof(__u64)));
 		} else {
 			/* A new VD_CONF */
+			if (!update->space)
+				return;
 			vcl = update->space;
 			update->space = NULL;
 			vcl->next = ddf->conflist;
@@ -3136,9 +3138,10 @@ static void ddf_prepare_update(struct supertype *st,
 	struct ddf_super *ddf = st->sb;
 	__u32 *magic = (__u32*)update->buf;
 	if (*magic == DDF_VD_CONF_MAGIC)
-		posix_memalign(&update->space, 512,
+		if (posix_memalign(&update->space, 512,
 			       offsetof(struct vcl, conf)
-			       + ddf->conf_rec_len * 512);
+			       + ddf->conf_rec_len * 512) != 0)
+			update->space = NULL;
 }
 
 /*

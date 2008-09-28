@@ -43,6 +43,9 @@ KLIBC_GCC = gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIB
 CC = $(CROSS_COMPILE)gcc
 CXFLAGS = -ggdb
 CWFLAGS = -Wall -Werror -Wstrict-prototypes
+ifdef WARN_UNUSED
+CWFLAGS += -Wp,-D_FORTIFY_SOURCE=2 -O
+endif
 
 ifdef DEBIAN
 CPPFLAGS= -DDEBIAN

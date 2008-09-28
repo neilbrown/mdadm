@@ -396,6 +396,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		mdu_array_info_t inf;
 		char *c;
 		char nbuf[64];
+		int rc;
+
 		if (!st || !st->sb) {
 			return 2;
 		}
@@ -408,10 +410,13 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		}
 		if (isdigit(*c) && ((ident->autof & 7)==4 || (ident->autof&7)==6))
 			/* /dev/md/d0 style for partitionable */
-			asprintf(&mddev, "/dev/md/d%s", c);
+			rc = asprintf(&mddev, "/dev/md/d%s", c);
 		else
-			asprintf(&mddev, "/dev/md/%s", c);
-		mdfd = open_mddev(mddev, ident->autof);
+			rc = asprintf(&mddev, "/dev/md/%s", c);
+		if (rc < 0)
+			mdfd = -1;
+		else
+			mdfd = open_mddev(mddev, ident->autof);
 		if (mdfd < 0) {
 			st->ss->free_super(st);
 			free(devices);

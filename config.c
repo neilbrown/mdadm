@@ -564,10 +564,12 @@ void mailfromline(char *line)
 		if (alert_mail_from == NULL)
 			alert_mail_from = strdup(w);
 		else {
-			char *t= NULL;
-			asprintf(&t, "%s %s", alert_mail_from, w);
-			free(alert_mail_from);
-			alert_mail_from = t;
+			char *t = NULL;
+
+			if (asprintf(&t, "%s %s", alert_mail_from, w) > 0) {
+				free(alert_mail_from);
+				alert_mail_from = t;
+			}
 		}
 	}
 }

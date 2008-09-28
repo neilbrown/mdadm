@@ -85,14 +85,18 @@ int make_pidfile(char *devname, int o_excl)
 	char path[100];
 	char pid[10];
 	int fd;
+	int n;
+
 	sprintf(path, "/var/run/mdadm/%s.pid", devname);
 
 	fd = open(path, O_RDWR|O_CREAT|o_excl, 0600);
 	if (fd < 0)
 		return -errno;
 	sprintf(pid, "%d\n", getpid());
-	write(fd, pid, strlen(pid));
+	n = write(fd, pid, strlen(pid));
 	close(fd);
+	if (n < 0)
+		return -errno;
 	return 0;
 }
 
@@ -199,6 +203,7 @@ int main(int argc, char *argv[])
 	struct sigaction act;
 	int pfd[2];
 	int status;
+	int ignore;
 
 	if (argc != 2) {
 		fprintf(stderr, "Usage: md-manage /device/name/for/container\n");
@@ -218,7 +223,10 @@ int main(int argc, char *argv[])
 
 	/* Fork, and have the child tell us when they are ready */
 	if (do_fork()) {
-		pipe(pfd);
+		if (pipe(pfd) != 0) {
+			fprintf(stderr, "mdmon: failed to create pipe\n");
+			exit(1);
+		}
 		switch(fork()) {
 		case -1:
 			fprintf(stderr, "mdmon: failed to fork: %s\n",
@@ -324,18 +332,20 @@ int main(int argc, char *argv[])
 	/* Ok, this is close enough.  We can say goodbye to our parent now.
 	 */
 	status = 0;
-	write(pfd[1], &status, sizeof(status));
+	if (write(pfd[1], &status, sizeof(status)) < 0)
+		fprintf(stderr, "mdmon: failed to notify our parent: %d\n",
+			getppid());
 	close(pfd[1]);
 
-	chdir("/");
+	ignore = chdir("/");
 	setsid();
 	close(0);
 	open("/dev/null", O_RDWR);
 	close(1);
-	dup(0);
+	ignore = dup(0);
 #ifndef DEBUG
 	close(2);
-	dup(0);
+	ignore = dup(0);
 #endif
 
 	mlockall(MCL_FUTURE);

@@ -504,9 +504,8 @@ static void *load_section(int fd, struct ddf_super *super, void *buf,
 		/* All pre-allocated sections are a single block */
 		if (len != 1)
 			return NULL;
-	} else {
-		posix_memalign(&buf, 512, len<<9);
-	}
+	} else if (posix_memalign(&buf, 512, len<<9) != 0)
+		buf = NULL;
 
 	if (!buf)
 		return NULL;
@@ -642,9 +641,13 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	unsigned long long dsize;
 
 	/* First the local disk info */
-	posix_memalign((void**)&dl, 512,
+	if (posix_memalign((void**)&dl, 512,
 		       sizeof(*dl) +
-		       (super->max_part) * sizeof(dl->vlist[0]));
+		       (super->max_part) * sizeof(dl->vlist[0])) != 0) {
+		fprintf(stderr, Name ": %s could not allocate disk info buffer\n",
+			__func__);
+		return 1;
+	}
 
 	load_section(fd, super, &dl->disk,
 		     super->active->data_section_offset,
@@ -693,8 +696,14 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 		if (vd->magic == DDF_SPARE_ASSIGN_MAGIC) {
 			if (dl->spare)
 				continue;
-			posix_memalign((void**)&dl->spare, 512,
-				       super->conf_rec_len*512);
+			if (posix_memalign((void**)&dl->spare, 512,
+				       super->conf_rec_len*512) != 0) {
+				fprintf(stderr, Name
+					": %s could not allocate spare info buf\n",
+					__func__);
+				return 1;
+			}
+				
 			memcpy(dl->spare, vd, super->conf_rec_len*512);
 			continue;
 		}
@@ -712,9 +721,14 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			    __be32_to_cpu(vcl->conf.seqnum))
 				continue;
 		} else {
-			posix_memalign((void**)&vcl, 512,
+			if (posix_memalign((void**)&vcl, 512,
 				       (super->conf_rec_len*512 +
-					offsetof(struct vcl, conf)));
+					offsetof(struct vcl, conf))) != 0) {
+				fprintf(stderr, Name
+					": %s could not allocate vcl buf\n",
+					__func__);
+				return 1;
+			}
 			vcl->next = super->conflist;
 			vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 			super->conflist = vcl;
@@ -804,7 +818,16 @@ static int load_super_ddf(struct supertype *st, int fd,
 		return rv;
 	}
 
-	load_ddf_local(fd, super, devname, 0);
+	rv = load_ddf_local(fd, super, devname, 0);
+
+	if (rv) {
+		if (devname)
+			fprintf(stderr,
+				Name ": Failed to load all information "
+				"sections on %s\n", devname);
+		free(super);
+		return rv;
+	}
 
 	/* Should possibly check the sections .... */
 
@@ -1473,7 +1496,10 @@ static int init_super_ddf(struct supertype *st,
 		return init_super_ddf_bvd(st, info, size, name, homehost,
 					  uuid);
 
-	posix_memalign((void**)&ddf, 512, sizeof(*ddf));
+	if (posix_memalign((void**)&ddf, 512, sizeof(*ddf)) != 0) {
+		fprintf(stderr, Name ": %s could not allocate superblock\n", __func__);
+		return 0;
+	}
 	memset(ddf, 0, sizeof(*ddf));
 	ddf->dlist = NULL; /* no physical disks yet */
 	ddf->conflist = NULL; /* No virtual disks yet */
@@ -1600,7 +1626,10 @@ static int init_super_ddf(struct supertype *st,
 	memset(ddf->controller.pad, 0xff, 8);
 	memset(ddf->controller.vendor_data, 0xff, 448);
 
-	posix_memalign((void**)&pd, 512, pdsize);
+	if (posix_memalign((void**)&pd, 512, pdsize) != 0) {
+		fprintf(stderr, Name ": %s could not allocate pd\n", __func__);
+		return 0;
+	}
 	ddf->phys = pd;
 	ddf->pdsize = pdsize;
 
@@ -1611,7 +1640,10 @@ static int init_super_ddf(struct supertype *st,
 	pd->max_pdes = __cpu_to_be16(max_phys_disks);
 	memset(pd->pad, 0xff, 52);
 
-	posix_memalign((void**)&vd, 512, vdsize);
+	if (posix_memalign((void**)&vd, 512, vdsize) != 0) {
+		fprintf(stderr, Name ": %s could not allocate vd\n", __func__);
+		return 0;
+	}
 	ddf->virt = vd;
 	ddf->vdsize = vdsize;
 	memset(vd, 0, vdsize);
@@ -1839,8 +1871,11 @@ static int init_super_ddf_bvd(struct supertype *st,
 		__cpu_to_be16(__be16_to_cpu(ddf->virt->populated_vdes)+1);
 
 	/* Now create a new vd_config */
-	posix_memalign((void**)&vcl, 512,
-		       (offsetof(struct vcl, conf) + ddf->conf_rec_len * 512));
+	if (posix_memalign((void**)&vcl, 512,
+		           (offsetof(struct vcl, conf) + ddf->conf_rec_len * 512)) != 0) {
+		fprintf(stderr, Name ": %s could not allocate vd_config\n", __func__);
+		return 0;
+	}
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
 	vcl->vcnum = venum;
 	sprintf(st->subarray, "%d", venum);
@@ -2010,8 +2045,13 @@ static void add_to_super_ddf(struct supertype *st,
 	 * a phys_disk entry and a more detailed disk_data entry.
 	 */
 	fstat(fd, &stb);
-	posix_memalign((void**)&dd, 512,
-		       sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part);
+	if (posix_memalign((void**)&dd, 512,
+		           sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part) != 0) {
+		fprintf(stderr, Name
+			": %s could allocate buffer for new disk, aborting\n",
+			__func__);
+		abort();
+	}
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
 	dd->devname = devname;
@@ -2547,13 +2587,18 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	close(dfd);
 	/* Now we need the device-local bits */
 	for (sd = sra->devs ; sd ; sd = sd->next) {
+		int rv;
+
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
 		dfd = dev_open(nm, keep_fd? O_RDWR : O_RDONLY);
 		if (dfd < 0)
 			return 2;
-		load_ddf_headers(dfd, super, NULL);
-		seq = load_ddf_local(dfd, super, NULL, keep_fd);
+		rv = load_ddf_headers(dfd, super, NULL);
+		if (rv == 0)
+			rv = load_ddf_local(dfd, super, NULL, keep_fd);
 		if (!keep_fd) close(dfd);
+		if (rv)
+			return 1;
 	}
 	if (st->subarray[0]) {
 		struct vcl *v;
@@ -2679,16 +2724,20 @@ static int store_zero_ddf(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	void *buf;
+	int rc;
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
 
-	posix_memalign(&buf, 512, 512);
+	if (posix_memalign(&buf, 512, 512) != 0)
+		return 1;
 	memset(buf, 0, 512);
 
 	lseek64(fd, dsize-512, 0);
-	write(fd, buf, 512);
+	rc = write(fd, buf, 512);
 	free(buf);
+	if (rc < 0)
+		return 1;
 	return 0;
 }
 

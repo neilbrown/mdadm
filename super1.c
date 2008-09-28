@@ -689,8 +689,12 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	int rfd;
 	char defname[10];
 
-	posix_memalign((void**)&sb, 512, (1024 + 512 + 
-					  sizeof(struct misc_dev_info)));
+	if (posix_memalign((void**)&sb, 512, (1024 + 512 + 
+			   sizeof(struct misc_dev_info))) != 0) {
+		fprintf(stderr, Name
+			": %s could not allocate superblock\n", __func__);
+		return 0;
+	}
 	memset(sb, 0, 1024);
 
 	st->sb = sb;
@@ -1036,9 +1040,13 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 		return 1;
 
 	if (!first) {
-		posix_memalign((void**)&first, 512,
+		if (posix_memalign((void**)&first, 512,
 			       1024 + 512 +
-			       sizeof(struct misc_dev_info));
+			       sizeof(struct misc_dev_info)) != 0) {
+			fprintf(stderr, Name
+				": %s could not allocate superblock\n", __func__);
+			return 1;
+		}
 		memcpy(first, second, 1024 + 512 + 
 		       sizeof(struct misc_dev_info));
 		st->sb = first;
@@ -1152,9 +1160,13 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	posix_memalign((void**)&super, 512,
+	if (posix_memalign((void**)&super, 512,
 		       1024 + 512 +
-		       sizeof(struct misc_dev_info));
+		       sizeof(struct misc_dev_info)) != 0) {
+		fprintf(stderr, Name ": %s could not allocate superblock\n",
+			__func__);
+		return 1;
+	}
 
 	if (read(fd, super, 1024) != 1024) {
 		if (devname)

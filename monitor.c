@@ -486,6 +486,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		container->ss->sync_metadata(container);
 	}
 
+	rv = 0;
 	for (a = *aap; a ; a = a->next) {
 		if (a->replaces && !discard_this) {
 			struct active_array **ap;

@@ -38,6 +38,7 @@
 #include	<string.h>
 #include	<fcntl.h>
 #include	<signal.h>
+#include	<dirent.h>
 
 #include	<sched.h>
 
@@ -233,7 +234,11 @@ static int do_fork(void)
 	return 1;
 }
 
-
+void usage(void)
+{
+	fprintf(stderr, "Usage: mdmon [--switch-root dir] /device/name/for/container\n");
+	exit(2);
+}
 
 int main(int argc, char *argv[])
 {
@@ -245,20 +250,34 @@ int main(int argc, char *argv[])
 	int pfd[2];
 	int status;
 	int ignore;
+	char *container_name = NULL;
+	char *switchroot = NULL;
 
-	if (argc != 2) {
-		fprintf(stderr, "Usage: md-manage /device/name/for/container\n");
-		exit(2);
+	switch (argc) {
+	case 2:
+		container_name = argv[1];
+		break;
+	case 4:
+		if (strcmp(argv[1], "--switch-root") != 0) {
+			fprintf(stderr, "mdmon: unknown argument %s\n", argv[1]);
+			usage();
+		}
+		switchroot = argv[2];
+		container_name = argv[3];
+		break;
+	default:
+		usage();
 	}
-	mdfd = open(argv[1], O_RDWR);
+
+	mdfd = open(container_name, O_RDWR);
 	if (mdfd < 0) {
-		fprintf(stderr, "md-manage: %s: %s\n", argv[1],
+		fprintf(stderr, "mdmon: %s: %s\n", container_name,
 			strerror(errno));
 		exit(1);
 	}
 	if (md_get_version(mdfd) < 0) {
-		fprintf(stderr, "md-manage: %s: Not an md device\n",
-			argv[1]);
+		fprintf(stderr, "mdmon: %s: Not an md device\n",
+			container_name);
 		exit(1);
 	}
 
@@ -286,12 +305,53 @@ int main(int argc, char *argv[])
 		}
 	} else
 		pfd[0] = pfd[1] = -1;
-	/* hopefully it is a container - we'll check later */
 
 	container = malloc(sizeof(*container));
 	container->devnum = fd2devnum(mdfd);
 	container->devname = devnum2devname(container->devnum);
-	container->device_name = argv[1];
+	container->device_name = container_name;
+	container->arrays = NULL;
+
+	if (!container->devname) {
+		fprintf(stderr, "mdmon: failed to allocate container name string\n");
+		exit(3);
+	}
+
+	mdi = sysfs_read(mdfd, container->devnum,
+			 GET_VERSION|GET_LEVEL|GET_DEVS);
+
+	if (!mdi) {
+		fprintf(stderr, "mdmon: failed to load sysfs info for %s\n",
+			container->devname);
+		exit(3);
+	}
+	if (mdi->array.level != UnSet) {
+		fprintf(stderr, "mdmon: %s is not a container - cannot monitor\n",
+			container_name);
+		exit(3);
+	}
+	if (mdi->array.major_version != -1 ||
+	    mdi->array.minor_version != -2) {
+		fprintf(stderr, "mdmon: %s does not use external metadata - cannot monitor\n",
+			container_name);
+		exit(3);
+	}
+
+	container->ss = find_metadata_methods(mdi->text_version);
+	if (container->ss == NULL) {
+		fprintf(stderr, "mdmon: %s uses unknown metadata: %s\n",
+			container_name, mdi->text_version);
+		exit(3);
+	}
+
+	container->devs = NULL;
+	for (di = mdi->devs; di; di = di->next) {
+		struct mdinfo *cd = malloc(sizeof(*cd));
+		*cd = *di;
+		cd->next = container->devs;
+		container->devs = cd;
+	}
+	sysfs_free(mdi);
 
 	/* SIGUSR is sent between parent and child.  So both block it
 	 * and enable it only with pselect.
@@ -313,9 +373,28 @@ int main(int argc, char *argv[])
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
-	/* If this fails, we hope it already exists */
+	if (switchroot) {
+		/* we assume we assume that /sys /proc /dev are available in
+		 * the new root (see nash:setuproot)
+		 *
+		 * kill any monitors in the current namespace and change
+		 * to the new one
+		 */
+		try_kill_monitor(container->devname);
+		if (chroot(switchroot) != 0) {
+			fprintf(stderr, "mdmon: failed to chroot to '%s': %s\n",
+				switchroot, strerror(errno));
+			exit(4);
+		}
+	}
+
+	/* If this fails, we hope it already exists 
+	 * pid file lives in /var/run/mdadm/mdXX.pid
+	 */
+	mkdir("/var", 0600);
+	mkdir("/var/run", 0600);
 	mkdir("/var/run/mdadm", 0600);
-	/* pid file lives in /var/run/mdadm/mdXX.pid */
+	ignore = chdir("/");
 	if (make_pidfile(container->devname, O_EXCL) < 0) {
 		if (ping_monitor(container->devname) == 0) {
 			fprintf(stderr, "mdmon: %s already managed\n",
@@ -341,50 +420,11 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-
 	container->sock = make_control_sock(container->devname);
-	container->arrays = NULL;
 
-	mdi = sysfs_read(mdfd, container->devnum,
-			 GET_VERSION|GET_LEVEL|GET_DEVS);
-
-	if (!mdi) {
-		fprintf(stderr, "mdmon: failed to load sysfs info for %s\n",
-			container->devname);
-		exit(3);
-	}
-	if (mdi->array.level != UnSet) {
-		fprintf(stderr, "mdmon: %s is not a container - cannot monitor\n",
-			argv[1]);
-		exit(3);
-	}
-	if (mdi->array.major_version != -1 ||
-	    mdi->array.minor_version != -2) {
-		fprintf(stderr, "mdmon: %s does not use external metadata - cannot monitor\n",
-			argv[1]);
-		exit(3);
-	}
-
-	container->ss = find_metadata_methods(mdi->text_version);
-	if (container->ss == NULL) {
-		fprintf(stderr, "mdmon: %s uses unknown metadata: %s\n",
-			argv[1], mdi->text_version);
-		exit(3);
-	}
-
-	container->devs = NULL;
-	for (di = mdi->devs; di; di = di->next) {
-		struct mdinfo *cd = malloc(sizeof(*cd));
-		*cd = *di;
-		cd->next = container->devs;
-		container->devs = cd;
-	}
-	sysfs_free(mdi);
-
-
-	if (container->ss->load_super(container, mdfd, argv[1])) {
+	if (container->ss->load_super(container, mdfd, container_name)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",
-			argv[1]);
+			container_name);
 		exit(3);
 	}
 
@@ -396,7 +436,6 @@ int main(int argc, char *argv[])
 			getppid());
 	close(pfd[1]);
 
-	ignore = chdir("/");
 	setsid();
 	close(0);
 	open("/dev/null", O_RDWR);

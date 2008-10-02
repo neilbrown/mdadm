@@ -493,6 +493,8 @@ static __u32 imsm_reserved_sectors(struct intel_super *super, struct dl *dl)
 }
 
 #ifndef MDASSEMBLE
+static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
+
 static void print_imsm_dev(struct imsm_dev *dev, int index)
 {
 	__u64 sz;
@@ -571,8 +573,11 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	struct imsm_super *mpb = super->anchor;
 	char str[MAX_SIGNATURE_LENGTH];
 	int i;
+	struct mdinfo info;
+	char nbuf[64];
 	__u32 sum;
 	__u32 reserved = imsm_reserved_sectors(super, super->disks);
+
 
 	snprintf(str, MPB_SIG_LEN, "%s", mpb->sig);
 	printf("          Magic : %s\n", str);
@@ -580,6 +585,9 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("        Version : %s\n", get_imsm_version(mpb));
 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
 	printf("     Generation : %08x\n", __le32_to_cpu(mpb->generation_num));
+	getinfo_super_imsm(st, &info);
+	fname_from_uuid(st, &info, nbuf,'-');
+	printf("           UUID : %s\n", nbuf + 5);
 	sum = __le32_to_cpu(mpb->check_sum);
 	printf("       Checksum : %08x %s\n", sum,
 		__gen_imsm_checksum(mpb) == sum ? "correct" : "incorrect");
@@ -611,14 +619,13 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
 
 static void brief_examine_super_imsm(struct supertype *st)
 {
-	/* We just write a generic DDF ARRAY entry
-	 */
+	/* We just write a generic IMSM ARRAY entry */
 	struct mdinfo info;
 	char nbuf[64];
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf,'-');
-	printf("ARRAY /dev/imsm metadata=imsm UUID=%s\n", nbuf + 5);
+	printf("ARRAY /dev/imsm metadata=imsm auto=md UUID=%s\n", nbuf + 5);
 }
 
 static void detail_super_imsm(struct supertype *st, char *homehost)

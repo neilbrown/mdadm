@@ -54,6 +54,7 @@ extern int sigterm;
 
 int read_dev_state(int fd);
 int get_resync_start(struct active_array *a);
+int is_container_member(struct mdstat_ent *mdstat, char *container);
 
 struct mdstat_ent *mdstat_read(int hold, int start);
 

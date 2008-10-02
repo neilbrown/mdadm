@@ -504,13 +504,7 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 			manage_container(mdstat, container);
 			continue;
 		}
-		if (mdstat->metadata_version == NULL ||
-		    strncmp(mdstat->metadata_version, "external:", 9) != 0 ||
-		    !is_subarray(mdstat->metadata_version+9) ||
-		    strncmp(mdstat->metadata_version+10, container->devname,
-			    strlen(container->devname)) != 0 ||
-		    mdstat->metadata_version[10+strlen(container->devname)]
-		      != '/')
+		if (!is_container_member(mdstat, container->devname))
 			/* Not for this array */
 			continue;
 		/* Looks like a member of this container */

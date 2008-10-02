@@ -85,7 +85,7 @@ SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 
 MON_OBJS = mdmon.o monitor.o managemon.o util.o mdstat.o sysfs.o config.o \
 	Kill.o sg_io.o dlink.o ReadMe.o super0.o super1.o super-intel.o \
-	super-ddf.o sha1.o crc32.o msg.o
+	super-ddf.o sha1.o crc32.o msg.o Monitor.o
 
 
 STATICSRC = pwgr.c

@@ -105,11 +105,25 @@ int make_pidfile(char *devname, int o_excl)
 	return 0;
 }
 
+int is_container_member(struct mdstat_ent *mdstat, char *container)
+{
+	if (mdstat->metadata_version == NULL ||
+	    strncmp(mdstat->metadata_version, "external:", 9) != 0 ||
+	    !is_subarray(mdstat->metadata_version+9) ||
+	    strncmp(mdstat->metadata_version+10, container, strlen(container)) != 0 ||
+	    mdstat->metadata_version[10+strlen(container)] != '/')
+		return 0;
+
+	return 1;
+}
+
+void remove_pidfile(char *devname);
 static void try_kill_monitor(char *devname)
 {
 	char buf[100];
 	int fd;
 	pid_t pid;
+	struct mdstat_ent *mdstat;
 
 	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
 	fd = open(buf, O_RDONLY);
@@ -135,8 +149,19 @@ static void try_kill_monitor(char *devname)
 		return;
 	}
 
-	if (strstr(buf, "mdmon") != NULL)
-		kill(pid, SIGTERM);
+	if (!strstr(buf, "mdmon"))
+		return;
+
+	kill(pid, SIGTERM);
+
+	mdstat = mdstat_read(0, 0);
+	for ( ; mdstat; mdstat = mdstat->next)
+		if (is_container_member(mdstat, devname)) {
+			sprintf(buf, "/dev/%s", mdstat->dev);
+			WaitClean(buf);
+		}
+	free_mdstat(mdstat);
+	remove_pidfile(devname);
 }
 
 void remove_pidfile(char *devname)
@@ -268,6 +293,26 @@ int main(int argc, char *argv[])
 	container->devname = devnum2devname(container->devnum);
 	container->device_name = argv[1];
 
+	/* SIGUSR is sent between parent and child.  So both block it
+	 * and enable it only with pselect.
+	 */
+	sigemptyset(&set);
+	sigaddset(&set, SIGUSR1);
+	sigaddset(&set, SIGHUP);
+	sigaddset(&set, SIGALRM);
+	sigaddset(&set, SIGTERM);
+	sigprocmask(SIG_BLOCK, &set, NULL);
+	act.sa_handler = wake_me;
+	act.sa_flags = 0;
+	sigaction(SIGUSR1, &act, NULL);
+	sigaction(SIGALRM, &act, NULL);
+	act.sa_handler = hup;
+	sigaction(SIGHUP, &act, NULL);
+	act.sa_handler = term;
+	sigaction(SIGTERM, &act, NULL);
+	act.sa_handler = SIG_IGN;
+	sigaction(SIGPIPE, &act, NULL);
+
 	/* If this fails, we hope it already exists */
 	mkdir("/var/run/mdadm", 0600);
 	/* pid file lives in /var/run/mdadm/mdXX.pid */
@@ -363,26 +408,6 @@ int main(int argc, char *argv[])
 #endif
 
 	mlockall(MCL_FUTURE);
-
-	/* SIGUSR is sent between parent and child.  So both block it
-	 * and enable it only with pselect.
-	 */
-	sigemptyset(&set);
-	sigaddset(&set, SIGUSR1);
-	sigaddset(&set, SIGHUP);
-	sigaddset(&set, SIGALRM);
-	sigaddset(&set, SIGTERM);
-	sigprocmask(SIG_BLOCK, &set, NULL);
-	act.sa_handler = wake_me;
-	act.sa_flags = 0;
-	sigaction(SIGUSR1, &act, NULL);
-	sigaction(SIGALRM, &act, NULL);
-	act.sa_handler = hup;
-	sigaction(SIGHUP, &act, NULL);
-	act.sa_handler = term;
-	sigaction(SIGTERM, &act, NULL);
-	act.sa_handler = SIG_IGN;
-	sigaction(SIGPIPE, &act, NULL);
 
 	if (clone_monitor(container) < 0) {
 		fprintf(stderr, "mdmon: failed to start monitor process: %s\n",

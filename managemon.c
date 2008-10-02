@@ -555,7 +555,7 @@ static void handle_message(struct supertype *container, struct metadata_update *
 
 		manage(mdstat, container);
 		free_mdstat(mdstat);
-	} else {
+	} else if (!sigterm) {
 		mu = malloc(sizeof(*mu));
 		mu->len = msg->len;
 		mu->buf = msg->buf;
@@ -612,6 +612,7 @@ void do_manager(struct supertype *container)
 	sigdelset(&set, SIGUSR1);
 	sigdelset(&set, SIGHUP);
 	sigdelset(&set, SIGALRM);
+	sigdelset(&set, SIGTERM);
 	proc_fd = open("/proc/mounts", O_RDONLY);
 
 	do {
@@ -646,6 +647,9 @@ void do_manager(struct supertype *container)
 		check_update_queue(container);
 
 		manager_ready = 1;
+
+		if (sigterm)
+			wakeup_monitor();
 
 		if (update_queue == NULL) {
 			if (container->sock < 0)

@@ -49,6 +49,8 @@ struct active_array *pending_discard;
 
 int mon_tid, mgr_tid;
 
+int sigterm;
+
 int run_child(void *v)
 {
 	struct supertype *c = v;
@@ -86,6 +88,9 @@ int make_pidfile(char *devname, int o_excl)
 	char pid[10];
 	int fd;
 	int n;
+
+	if (sigterm)
+		return -1;
 
 	sprintf(path, "/var/run/mdadm/%s.pid", devname);
 
@@ -138,6 +143,9 @@ void remove_pidfile(char *devname)
 {
 	char buf[100];
 
+	if (sigterm)
+		return;
+
 	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
 	unlink(buf);
 	sprintf(buf, "/var/run/mdadm/%s.sock", devname);
@@ -150,6 +158,9 @@ int make_control_sock(char *devname)
 	int sfd;
 	long fl;
 	struct sockaddr_un addr;
+
+	if (sigterm)
+		return -1;
 
 	sprintf(path, "/var/run/mdadm/%s.sock", devname);
 	unlink(path);
@@ -174,6 +185,11 @@ int socket_hup_requested;
 static void hup(int sig)
 {
 	socket_hup_requested = 1;
+}
+
+static void term(int sig)
+{
+	sigterm = 1;
 }
 
 static void wake_me(int sig)
@@ -355,6 +371,7 @@ int main(int argc, char *argv[])
 	sigaddset(&set, SIGUSR1);
 	sigaddset(&set, SIGHUP);
 	sigaddset(&set, SIGALRM);
+	sigaddset(&set, SIGTERM);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	act.sa_handler = wake_me;
 	act.sa_flags = 0;
@@ -362,6 +379,8 @@ int main(int argc, char *argv[])
 	sigaction(SIGALRM, &act, NULL);
 	act.sa_handler = hup;
 	sigaction(SIGHUP, &act, NULL);
+	act.sa_handler = term;
+	sigaction(SIGTERM, &act, NULL);
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 

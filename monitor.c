@@ -414,6 +414,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 	struct active_array *a, **ap;
 	int rv;
 	struct mdinfo *mdi;
+	static unsigned int dirty_arrays = ~0; /* start at some non-zero value */
 
 	FD_ZERO(&rfds);
 
@@ -442,16 +443,20 @@ static int wait_and_act(struct supertype *container, int nowait)
 		ap = &(*ap)->next;
 	}
 
-	if (manager_ready && *aap == NULL) {
-		/* No interesting arrays. Lets see about exiting.
-		 * Note that blocking at this point is not a problem
-		 * as there are no active arrays, there is nothing that
-		 * we need to be ready to do.
+	if (manager_ready && (*aap == NULL || (sigterm && !dirty_arrays))) {
+		/* No interesting arrays, or we have been told to
+		 * terminate and everything is clean.  Lets see about
+		 * exiting.  Note that blocking at this point is not a
+		 * problem as there are no active arrays, there is
+		 * nothing that we need to be ready to do.
 		 */
 		int fd = open(container->device_name, O_RDONLY|O_EXCL);
 		if (fd >= 0 || errno != EBUSY) {
 			/* OK, we are safe to leave */
-			dprintf("no arrays to monitor... exiting\n");
+			if (sigterm && !dirty_arrays)
+				dprintf("caught sigterm, all clean... exiting\n");
+			else
+				dprintf("no arrays to monitor... exiting\n");
 			remove_pidfile(container->devname);
 			exit_now = 1;
 			signal_manager();
@@ -487,7 +492,10 @@ static int wait_and_act(struct supertype *container, int nowait)
 	}
 
 	rv = 0;
+	dirty_arrays = 0;
 	for (a = *aap; a ; a = a->next) {
+		int is_dirty;
+
 		if (a->replaces && !discard_this) {
 			struct active_array **ap;
 			for (ap = &a->next; *ap && *ap != a->replaces;
@@ -502,6 +510,30 @@ static int wait_and_act(struct supertype *container, int nowait)
 		}
 		if (a->container)
 			rv += read_and_act(a);
+		else
+			continue;
+
+		/* when terminating stop manipulating the array after it is
+		 * clean, but make sure read_and_act() is given a chance to
+		 * handle 'active_idle'
+		 */
+		switch (read_state(a->info.state_fd)) {
+			case active:
+			case active_idle:
+			case suspended:
+			case bad_word:
+				is_dirty = 1;
+				break;
+			default:
+				if (a->curr_state == active_idle)
+					is_dirty = 1;
+				else
+					is_dirty = 0;
+				break;
+		}
+		dirty_arrays += is_dirty;
+		if (sigterm && !is_dirty)
+			a->container = NULL; /* stop touching this array */
 	}
 
 	/* propagate failures across container members */

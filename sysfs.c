@@ -61,8 +61,12 @@ int sysfs_open(int devnum, char *devname, char *attr)
 {
 	char fname[50];
 	int fd;
+	char *mdname = devnum2devname(devnum);
 
-	sprintf(fname, "/sys/block/%s/md/", devnum2devname(devnum));
+	if (!mdname)
+		return -1;
+
+	sprintf(fname, "/sys/block/%s/md/", mdname);
 	if (devname) {
 		strcat(fname, devname);
 		strcat(fname, "/");
@@ -71,6 +75,7 @@ int sysfs_open(int devnum, char *devname, char *attr)
 	fd = open(fname, O_RDWR);
 	if (fd < 0 && errno == EACCES)
 		fd = open(fname, O_RDONLY);
+	free(mdname);
 	return fd;
 }
 

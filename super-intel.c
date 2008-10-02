@@ -819,8 +819,6 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		__u32 reserved = imsm_reserved_sectors(super, super->disks);
 
 		disk = &super->disks->disk;
-		info->disk.number = super->disks->index;
-		info->disk.raid_disk = super->disks->index;
 		info->data_offset = __le32_to_cpu(disk->total_blocks) - reserved;
 		info->component_size = reserved;
 		s = __le32_to_cpu(disk->status);

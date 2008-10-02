@@ -946,7 +946,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			if (verbose >= 0) {
 				fprintf(stderr, Name ": Container %s has been "
 					"assembled with %d drive%s",
-					mddev, okcnt, okcnt==1?"":"s");
+					mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
 				if (okcnt < info.array.raid_disks)
 					fprintf(stderr, " (out of %d)",
 						info.array.raid_disks);

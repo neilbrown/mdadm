@@ -159,7 +159,7 @@ static void try_kill_monitor(char *devname)
 	for ( ; mdstat; mdstat = mdstat->next)
 		if (is_container_member(mdstat, devname)) {
 			sprintf(buf, "/dev/%s", mdstat->dev);
-			WaitClean(buf);
+			WaitClean(buf, 0);
 		}
 	free_mdstat(mdstat);
 	remove_pidfile(devname);

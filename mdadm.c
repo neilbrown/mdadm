@@ -1284,7 +1284,7 @@ int main(int argc, char *argv[])
 				case 'W':
 					rv |= Wait(dv->devname); continue;
 				case Waitclean:
-					rv |= WaitClean(dv->devname); continue;
+					rv |= WaitClean(dv->devname, verbose-quiet); continue;
 				}
 				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {

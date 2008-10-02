@@ -632,7 +632,7 @@ int Wait(char *dev)
 static char *clean_states[] = {
 	"clear", "inactive", "readonly", "read-auto", "clean", NULL };
 
-int WaitClean(char *dev)
+int WaitClean(char *dev, int verbose)
 {
 	int fd;
 	struct mdinfo *mdi;
@@ -641,15 +641,17 @@ int WaitClean(char *dev)
 
 	fd = open(dev, O_RDONLY); 
 	if (fd < 0) {
-		fprintf(stderr, Name ": Couldn't open %s: %s\n", dev, strerror(errno));
+		if (verbose)
+			fprintf(stderr, Name ": Couldn't open %s: %s\n", dev, strerror(errno));
 		return 1;
 	}
 
 	devnum = fd2devnum(fd);
 	mdi = sysfs_read(fd, devnum, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
 	if (!mdi) {
-		fprintf(stderr, Name ": Failed to read sysfs attributes for "
-			"%s\n", dev);
+		if (verbose)
+			fprintf(stderr, Name ": Failed to read sysfs attributes for "
+				"%s\n", dev);
 		close(fd);
 		return 0;
 	}
@@ -714,7 +716,7 @@ int WaitClean(char *dev)
 			rv = 0;
 		} else
 			rv = 1;
-		if (rv)
+		if (rv && verbose)
 			fprintf(stderr, Name ": Error waiting for %s to be clean\n",
 				dev);
 

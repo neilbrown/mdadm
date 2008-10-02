@@ -785,6 +785,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	struct intel_super *super = st->sb;
 	struct imsm_disk *disk;
 	__u32 s;
+	int is_spare = 0;
 
 	if (super->current_vol >= 0) {
 		getinfo_super_imsm_volume(st, info);
@@ -826,8 +827,13 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
 		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 		info->disk.state |= s & USABLE_DISK ? (1 << MD_DISK_SYNC) : 0;
+		if (s & SPARE_DISK)
+			is_spare = 1;
 	}
-	uuid_from_super_imsm(st, info->uuid);
+	if (is_spare)
+		memcpy(info->uuid, uuid_match_any, sizeof(int[4]));
+	else
+		uuid_from_super_imsm(st, info->uuid);
 }
 
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,

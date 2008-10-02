@@ -767,6 +767,7 @@ extern char *conf_word(FILE *file, int allow_key);
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);
+extern const int uuid_match_any[4];
 extern int same_uuid(int a[4], int b[4], int swapuuid);
 extern void copy_uuid(void *a, int b[4], int swapuuid);
 extern char *fname_from_uuid(struct supertype *st,

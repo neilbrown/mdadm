@@ -606,10 +606,13 @@ void do_manager(struct supertype *container)
 {
 	struct mdstat_ent *mdstat;
 	sigset_t set;
+	int proc_fd;
 
 	sigprocmask(SIG_UNBLOCK, NULL, &set);
 	sigdelset(&set, SIGUSR1);
 	sigdelset(&set, SIGHUP);
+	sigdelset(&set, SIGALRM);
+	proc_fd = open("/proc/mounts", O_RDONLY);
 
 	do {
 
@@ -627,12 +630,14 @@ void do_manager(struct supertype *container)
 
 			read_sock(container);
 
-			if (socket_hup_requested) {
+			if (container->sock < 0 || socket_hup_requested) {
 				close(container->sock);
 				container->sock = make_control_sock(container->devname);
 				make_pidfile(container->devname, 0);
 				socket_hup_requested = 0;
 			}
+			if (container->sock < 0)
+				alarm(30);
 
 			free_mdstat(mdstat);
 		}
@@ -642,9 +647,12 @@ void do_manager(struct supertype *container)
 
 		manager_ready = 1;
 
-		if (update_queue == NULL)
-			mdstat_wait_fd(container->sock, &set);
-		else
+		if (update_queue == NULL) {
+			if (container->sock < 0)
+				mdstat_wait_fd(proc_fd, &set);
+			else
+				mdstat_wait_fd(container->sock, &set);
+		} else
 			/* If an update is happening, just wait for signal */
 			pselect(0, NULL, NULL, NULL, NULL, &set);
 	} while(1);

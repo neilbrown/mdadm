@@ -282,8 +282,6 @@ int main(int argc, char *argv[])
 	}
 
 	container->sock = make_control_sock(container->devname);
-	if (container->sock < 0)
-		fprintf(stderr, "mdmon: Cannot create socket in /var/run/mdadm\n");
 	container->arrays = NULL;
 
 	mdi = sysfs_read(mdfd, container->devnum,
@@ -356,10 +354,12 @@ int main(int argc, char *argv[])
 	sigemptyset(&set);
 	sigaddset(&set, SIGUSR1);
 	sigaddset(&set, SIGHUP);
+	sigaddset(&set, SIGALRM);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	act.sa_handler = wake_me;
 	act.sa_flags = 0;
 	sigaction(SIGUSR1, &act, NULL);
+	sigaction(SIGALRM, &act, NULL);
 	act.sa_handler = hup;
 	sigaction(SIGHUP, &act, NULL);
 	act.sa_handler = SIG_IGN;

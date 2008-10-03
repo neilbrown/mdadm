@@ -139,6 +139,10 @@ static void try_kill_monitor(char *devname)
 	close(fd);
 	pid = strtoul(buf, NULL, 10);
 
+	/* first rule of survival... don't off yourself */
+	if (pid == getpid())
+		return;
+
 	/* kill this process if it is mdmon */
 	sprintf(buf, "/proc/%lu/cmdline", (unsigned long) pid);
 	fd = open(buf, O_RDONLY);

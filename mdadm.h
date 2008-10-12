@@ -474,6 +474,7 @@ extern int CreateBitmap(char *filename, int force, char uuid[16],
 			int major);
 extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
 extern int bitmap_update_uuid(int fd, int *uuid, int swap);
+extern unsigned long bitmap_sectors(struct bitmap_super_s *bsb);
 
 extern int md_get_version(int fd);
 extern int get_linux_version(void);

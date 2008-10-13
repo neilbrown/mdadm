@@ -1214,10 +1214,21 @@ static struct supertype *match_metadata_desc1(char *arg)
  */
 static __u64 avail_size1(struct supertype *st, __u64 devsize)
 {
+	struct mdp_superblock_1 *super = st->sb;
 	if (devsize < 24)
 		return 0;
 
-	devsize -= choose_bm_space(devsize);
+	if (super == NULL)
+		/* creating:  allow suitable space for bitmap */
+		devsize -= choose_bm_space(devsize);
+#ifndef MDASSEMBLE
+	else if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
+		/* hot-add. allow for actual size of bitmap */
+		struct bitmap_super_s *bsb;
+		bsb = (struct bitmap_super_s *)(((char*)super)+1024);
+		devsize -= bitmap_sectors(bsb);
+	}
+#endif
 
 	switch(st->minor_version) {
 	case -1: /* no specified.  Now time to set default */

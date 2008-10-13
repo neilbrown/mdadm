@@ -606,6 +606,23 @@ char *human_size_brief(long long bytes)
 			);
 	return buf;
 }
+
+void print_r10_layout(int layout)
+{
+	int near = layout & 255;
+	int far = (layout >> 8) & 255;
+	int offset = (layout&0x10000);
+	char *sep = "";
+
+	if (near != 1) {
+		printf("%s near=%d", sep, near);
+		sep = ",";
+	}
+	if (far != 1)
+		printf("%s %s=%d", sep, offset?"offset":"far", far);
+	if (near*far == 1)
+		printf("NO REDUNDANCY");
+}
 #endif
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)

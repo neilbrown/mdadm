@@ -513,7 +513,8 @@ extern void remove_partitions(int fd);
 
 
 extern char *human_size(long long bytes);
-char *human_size_brief(long long bytes);
+extern char *human_size_brief(long long bytes);
+extern void print_r10_layout(int layout);
 
 #define NoMdDev (1<<23)
 extern int find_free_devnum(int use_partitions);

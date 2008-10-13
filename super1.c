@@ -248,10 +248,9 @@ static void examine_super1(struct supertype *st, char *homehost)
 				printf("     New Layout : %s\n", c?c:"-unknown-");
 			}
 			if (__le32_to_cpu(sb->level) == 10) {
-				printf("     New Layout : near=%d, %s=%d\n",
-				       __le32_to_cpu(sb->new_layout)&255,
-				       (__le32_to_cpu(sb->new_layout)&0x10000)?"offset":"far",
-				       (__le32_to_cpu(sb->new_layout)>>8)&255);
+				printf("     New Layout :");
+				print_r10_layout(__le32_to_cpu(sb->new_layout));
+				printf("\n");
 			}
 		}
 		if (__le32_to_cpu(sb->new_chunk) != __le32_to_cpu(sb->chunksize))
@@ -281,10 +280,9 @@ static void examine_super1(struct supertype *st, char *homehost)
 	}
 	if (__le32_to_cpu(sb->level) == 10) {
 		int lo = __le32_to_cpu(sb->layout);
-		printf("         Layout : near=%d, %s=%d\n",
-		       lo&255,
-		       (lo&0x10000)?"offset":"far",
-		       (lo>>8)&255);
+		printf("         Layout :");
+		print_r10_layout(lo);
+		printf("\n");
 	}
 	switch(__le32_to_cpu(sb->level)) {
 	case 0:

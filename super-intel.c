@@ -678,7 +678,7 @@ static int imsm_level_to_layout(int level)
 	case 6:
 		return ALGORITHM_LEFT_ASYMMETRIC;
 	case 10:
-		return 0x102; //FIXME is this correct?
+		return 0x102;
 	}
 	return -1;
 }
@@ -2310,30 +2310,35 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 	case 10:
 	{
 		/**
-		 * check to see if any mirrors have failed,
-		 * otherwise we are degraded
+		 * check to see if any mirrors have failed, otherwise we
+		 * are degraded.  Even numbered slots are mirrored on
+		 * slot+1
 		 */
-		int device_per_mirror = 2; /* FIXME is this always the case?
-					    * and are they always adjacent?
-					    */
-		int r10fail = 0;
 		int i;
+		int insync;
 
 		for (i = 0; i < map->num_members; i++) {
-			int idx = get_imsm_disk_idx(dev, i);
-			struct imsm_disk *disk = get_imsm_disk(super, idx);
+			__u32 ord = get_imsm_ord_tbl_ent(dev, i);
+			int idx = ord_to_idx(ord);
+			struct imsm_disk *disk;
 
-			if (!disk)
-				r10fail++;
-			else if (__le32_to_cpu(disk->status) & FAILED_DISK)
-				r10fail++;
+			/* reset the potential in-sync count on even-numbered
+			 * slots.  num_copies is always 2 for imsm raid10 
+			 */
+			if ((i & 1) == 0)
+				insync = 2;
 
-			if (r10fail >= device_per_mirror)
+			disk = get_imsm_disk(super, idx);
+			if (!disk ||
+			    __le32_to_cpu(disk->status) & FAILED_DISK ||
+			    ord & IMSM_ORD_REBUILD)
+				insync--;
+
+			/* no in-sync disks left in this mirror the
+			 * array has failed
+			 */
+			if (insync == 0)
 				return IMSM_T_STATE_FAILED;
-
-			/* reset 'r10fail' for next mirror set */
-			if (!((i + 1) % device_per_mirror))
-				r10fail = 0;
 		}
 
 		return IMSM_T_STATE_DEGRADED;

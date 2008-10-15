@@ -599,7 +599,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	}
 	if (strcmp(update, "linear-grow-new") == 0) {
 		int i;
-		int rfd;
+		int rfd, fd;
 		int max = __le32_to_cpu(sb->max_dev);
 
 		for (i=0 ; i < max ; i++)
@@ -620,6 +620,25 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 
 		sb->dev_roles[i] =
 			__cpu_to_le16(info->disk.raid_disk);
+
+		fd = open(devname, O_RDONLY);
+		if (fd >= 0) {
+			unsigned long long ds;
+			get_dev_size(fd, devname, &ds);
+			close(fd);
+			ds >>= 9;
+			if (__le64_to_cpu(sb->super_offset) <
+			    __le64_to_cpu(sb->data_offset)) {
+				sb->data_size = __cpu_to_le64(
+					ds - __le64_to_cpu(sb->data_offset));
+			} else {
+				ds -= 8*2;
+				ds &= ~(unsigned long long)(4*2-1);
+				sb->super_offset = __cpu_to_le64(ds);
+				sb->data_size = __cpu_to_le64(
+					ds - __le64_to_cpu(sb->data_offset));
+			}
+		}
 	}
 	if (strcmp(update, "linear-grow-update") == 0) {
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);

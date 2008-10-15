@@ -938,17 +938,24 @@ static int imsm_read_serial(int fd, char *devname,
 		return rv;
 	}
 
-	/* trim whitespace */
+	/* trim leading whitespace */
 	rsp_len = scsi_serial[3];
 	rsp_buf = (char *) &scsi_serial[4];
 	c = rsp_buf;
 	while (isspace(*c))
 		c++;
+
+	/* truncate len to the end of rsp_buf if necessary */
 	if (c + MAX_RAID_SERIAL_LEN > rsp_buf + rsp_len)
 		len = rsp_len - (c - rsp_buf);
 	else
 		len = MAX_RAID_SERIAL_LEN;
+
+	/* initialize the buffer and copy rsp_buf characters */
+	memset(serial, 0, MAX_RAID_SERIAL_LEN);
 	memcpy(serial, c, len);
+
+	/* trim trailing whitespace starting with the last character copied */
 	c = (char *) &serial[len - 1];
 	while (isspace(*c) || *c == '\0')
 		*c-- = '\0';

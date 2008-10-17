@@ -300,9 +300,9 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			printf("         Layout : %s\n", c?c:"-unknown-");
 		}
 		if (array.level == 10) {
-			printf("         Layout : near=%d, %s=%d\n",
-			       array.layout&255, (array.layout&0x10000)?"offset":"far",
-			       (array.layout>>8)&255);
+			printf("         Layout :");
+			print_r10_layout(array.layout);
+			printf("\n");
 		}
 		switch (array.level) {
 		case 0:

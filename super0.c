@@ -188,10 +188,9 @@ static void examine_super0(struct supertype *st, char *homehost)
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
 	if (sb->level == 10) {
-		printf("         Layout : near=%d, %s=%d\n",
-		       sb->layout&255,
-		       (sb->layout&0x10000)?"offset":"far",
-		       (sb->layout>>8)&255);
+		printf("         Layout :");
+		print_r10_layout(sb->layout);
+		printf("\n");
 	}
 	switch(sb->level) {
 	case 0:

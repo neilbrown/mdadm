@@ -739,6 +739,7 @@ extern int CreateBitmap(char *filename, int force, char uuid[16],
 			int major);
 extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
 extern int bitmap_update_uuid(int fd, int *uuid, int swap);
+extern unsigned long bitmap_sectors(struct bitmap_super_s *bsb);
 
 extern int md_get_version(int fd);
 extern int get_linux_version(void);
@@ -788,7 +789,8 @@ extern int add_disk(int mdfd, struct supertype *st,
 extern int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info);
 
 extern char *human_size(long long bytes);
-char *human_size_brief(long long bytes);
+extern char *human_size_brief(long long bytes);
+extern void print_r10_layout(int layout);
 
 #define NoMdDev (1<<23)
 extern int find_free_devnum(int use_partitions);

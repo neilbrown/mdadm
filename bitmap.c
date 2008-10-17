@@ -115,6 +115,15 @@ unsigned long long bitmap_bits(unsigned long long array_size,
 	return (array_size * 512 + chunksize - 1) / chunksize;
 }
 
+unsigned long bitmap_sectors(struct bitmap_super_s *bsb)
+{
+	unsigned long long bits = bitmap_bits(__le64_to_cpu(bsb->sync_size),
+					      __le32_to_cpu(bsb->chunksize));
+	int bits_per_sector = 8*512;
+	return (bits + bits_per_sector - 1) / bits_per_sector;
+}
+
+
 bitmap_info_t *bitmap_fd_read(int fd, int brief)
 {
 	/* Note: fd might be open O_DIRECT, so we must be

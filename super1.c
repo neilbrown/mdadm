@@ -248,10 +248,9 @@ static void examine_super1(struct supertype *st, char *homehost)
 				printf("     New Layout : %s\n", c?c:"-unknown-");
 			}
 			if (__le32_to_cpu(sb->level) == 10) {
-				printf("     New Layout : near=%d, %s=%d\n",
-				       __le32_to_cpu(sb->new_layout)&255,
-				       (__le32_to_cpu(sb->new_layout)&0x10000)?"offset":"far",
-				       (__le32_to_cpu(sb->new_layout)>>8)&255);
+				printf("     New Layout :");
+				print_r10_layout(__le32_to_cpu(sb->new_layout));
+				printf("\n");
 			}
 		}
 		if (__le32_to_cpu(sb->new_chunk) != __le32_to_cpu(sb->chunksize))
@@ -281,10 +280,9 @@ static void examine_super1(struct supertype *st, char *homehost)
 	}
 	if (__le32_to_cpu(sb->level) == 10) {
 		int lo = __le32_to_cpu(sb->layout);
-		printf("         Layout : near=%d, %s=%d\n",
-		       lo&255,
-		       (lo&0x10000)?"offset":"far",
-		       (lo>>8)&255);
+		printf("         Layout :");
+		print_r10_layout(lo);
+		printf("\n");
 	}
 	switch(__le32_to_cpu(sb->level)) {
 	case 0:
@@ -597,7 +595,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	}
 	if (strcmp(update, "linear-grow-new") == 0) {
 		int i;
-		int rfd;
+		int rfd, fd;
 		int max = __le32_to_cpu(sb->max_dev);
 
 		for (i=0 ; i < max ; i++)
@@ -618,6 +616,25 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 
 		sb->dev_roles[i] =
 			__cpu_to_le16(info->disk.raid_disk);
+
+		fd = open(devname, O_RDONLY);
+		if (fd >= 0) {
+			unsigned long long ds;
+			get_dev_size(fd, devname, &ds);
+			close(fd);
+			ds >>= 9;
+			if (__le64_to_cpu(sb->super_offset) <
+			    __le64_to_cpu(sb->data_offset)) {
+				sb->data_size = __cpu_to_le64(
+					ds - __le64_to_cpu(sb->data_offset));
+			} else {
+				ds -= 8*2;
+				ds &= ~(unsigned long long)(4*2-1);
+				sb->super_offset = __cpu_to_le64(ds);
+				sb->data_size = __cpu_to_le64(
+					ds - __le64_to_cpu(sb->data_offset));
+			}
+		}
 	}
 	if (strcmp(update, "linear-grow-update") == 0) {
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
@@ -1272,10 +1289,21 @@ static struct supertype *match_metadata_desc1(char *arg)
  */
 static __u64 avail_size1(struct supertype *st, __u64 devsize)
 {
+	struct mdp_superblock_1 *super = st->sb;
 	if (devsize < 24)
 		return 0;
 
-	devsize -= choose_bm_space(devsize);
+	if (super == NULL)
+		/* creating:  allow suitable space for bitmap */
+		devsize -= choose_bm_space(devsize);
+#ifndef MDASSEMBLE
+	else if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
+		/* hot-add. allow for actual size of bitmap */
+		struct bitmap_super_s *bsb;
+		bsb = (struct bitmap_super_s *)(((char*)super)+1024);
+		devsize -= bitmap_sectors(bsb);
+	}
+#endif
 
 	switch(st->minor_version) {
 	case -1: /* no specified.  Now time to set default */

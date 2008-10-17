@@ -446,13 +446,6 @@ int Manage_subdevs(char *devname, int fd,
 			}
 
 			if (array.not_persistent == 0 || tst->ss->external) {
-				/* Make sure device is large enough */
-				if (tst->ss->avail_size(tst, ldsize/512) <
-				    array_size) {
-					fprintf(stderr, Name ": %s not large enough to join array\n",
-						dv->devname);
-					return 1;
-				}
 
 				/* need to find a sample superblock to copy, and
 				 * a spare slot to use.
@@ -488,6 +481,15 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
 					return 1;
 				}
+
+				/* Make sure device is large enough */
+				if (tst->ss->avail_size(tst, ldsize/512) <
+				    array_size) {
+					fprintf(stderr, Name ": %s not large enough to join array\n",
+						dv->devname);
+					return 1;
+				}
+
 				/* Possibly this device was recently part of the array
 				 * and was temporarily removed, and is now being re-added.
 				 * If so, we can simply re-add it.

@@ -534,7 +534,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 						(1<<MD_DISK_SYNC);
 			else
 				info.disk.state = 0;
-			if (dv->writemostly)
+			if (dv->writemostly == 1)
 				info.disk.state |= (1<<MD_DISK_WRITEMOSTLY);
 
 			if (dnum == insert_point ||

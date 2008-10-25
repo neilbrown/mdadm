@@ -360,6 +360,12 @@ int main(int argc, char *argv[])
 			writemostly = 1;
 			continue;
 
+		case O(MANAGE,'w'):
+			/* clear write-mostly for following devices */
+			writemostly = 2;
+			continue;
+
+
 		case O(GROW,'z'):
 		case O(CREATE,'z'): /* size */
 			if (size >= 0) {
@@ -743,21 +749,6 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			runstop = -1;
-			continue;
-
-		case O(MANAGE,'o'):
-			if (readonly < 0) {
-				fprintf(stderr, Name ": Cannot have both readonly and readwrite\n");
-				exit(2);
-			}
-			readonly = 1;
-			continue;
-		case O(MANAGE,'w'):
-			if (readonly > 0) {
-				fprintf(stderr, Name ": Cannot have both readwrite and readonly.\n");
-				exit(2);
-			}
-			readonly = -1;
 			continue;
 
 		case O(MISC,'Q'):

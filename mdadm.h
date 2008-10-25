@@ -232,7 +232,7 @@ typedef struct mddev_dev_s {
 	char disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
 				 * Not set for names read from .config
 				 */
-	char writemostly;
+	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
 	char re_add;
 	char used;		/* set when used */
 	struct mddev_dev_s *next;

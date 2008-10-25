@@ -413,8 +413,10 @@ int Manage_subdevs(char *devname, int fd,
 						disc.number = mdi.disk.number;
 						disc.raid_disk = mdi.disk.raid_disk;
 						disc.state = mdi.disk.state;
-						if (dv->writemostly)
+						if (dv->writemostly == 1)
 							disc.state |= 1 << MD_DISK_WRITEMOSTLY;
+						if (dv->writemostly == 2)
+							disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
 						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
 								fprintf(stderr, Name ": re-added %s\n", dv->devname);
@@ -452,7 +454,7 @@ int Manage_subdevs(char *devname, int fd,
 			disc.number =j;
 			disc.state = 0;
 			if (array.not_persistent==0) {
-				if (dv->writemostly)
+				if (dv->writemostly == 1)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 				tst->ss->add_to_super(tst, &disc);
 				if (tst->ss->write_init_super(tst, &disc,
@@ -487,7 +489,7 @@ int Manage_subdevs(char *devname, int fd,
 						break;
 					}
 			}
-			if (dv->writemostly)
+			if (dv->writemostly == 1)
 				disc.state |= (1 << MD_DISK_WRITEMOSTLY);
 			if (ioctl(fd,ADD_NEW_DISK, &disc)) {
 				fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",

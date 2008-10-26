@@ -516,8 +516,10 @@ int Manage_subdevs(char *devname, int fd,
 						disc.number = mdi.disk.number;
 						disc.raid_disk = mdi.disk.raid_disk;
 						disc.state = mdi.disk.state;
-						if (dv->writemostly)
+						if (dv->writemostly == 1)
 							disc.state |= 1 << MD_DISK_WRITEMOSTLY;
+						if (dv->writemostly == 2)
+							disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
 						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
 								fprintf(stderr, Name ": re-added %s\n", dv->devname);
@@ -556,7 +558,7 @@ int Manage_subdevs(char *devname, int fd,
 			disc.state = 0;
 			if (array.not_persistent==0 || tst->ss->external) {
 				int dfd;
-				if (dv->writemostly)
+				if (dv->writemostly == 1)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 				dfd = open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
 				tst->ss->add_to_super(tst, &disc, dfd,
@@ -596,7 +598,7 @@ int Manage_subdevs(char *devname, int fd,
 						break;
 					}
 			}
-			if (dv->writemostly)
+			if (dv->writemostly == 1)
 				disc.state |= (1 << MD_DISK_WRITEMOSTLY);
 			if (tst->ss->external) {
 				/* add a disk to an external metadata container

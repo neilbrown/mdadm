@@ -669,7 +669,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				else
 					inf->disk.state = 0;
 
-				if (dv->writemostly)
+				if (dv->writemostly == 1)
 					inf->disk.state |= (1<<MD_DISK_WRITEMOSTLY);
 
 				if (st->ss->external && st->subarray[0])

@@ -905,6 +905,17 @@ the system to be marked as failed.  It can then be removed.
 same as
 .BR \-\-fail .
 
+.TP
+.BR \-\-write\-mostly
+Subsequent devices that are added or re-added will have the 'write-mostly'
+flag set.  This is only valid for RAID! and means that the 'md' driver
+will avoid reading from these devices if possible.
+.TP
+.BR \-\-readwrite
+Subsequent devices that are added or re-added will have the 'write-mostly'
+flag cleared.
+
+
 .P
 Each of these options require that the first device listed is the array
 to be acted upon, and the remainder are component devices to be added,

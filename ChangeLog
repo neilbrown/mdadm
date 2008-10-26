@@ -1,3 +1,7 @@
+Changed Prior to this release
+    -   --readwrite can be used with --re-add to clear the writemostly
+        flag.
+
 Changes Prior to 2.6.7 release
     -   Avoid NULL reference calling free_super and elsewhere.
     -   Remove stray semicolon (Causes compile error with gcc-2.95)

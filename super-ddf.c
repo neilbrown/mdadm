@@ -446,7 +446,10 @@ static int calc_crc(void *buf, int len)
 
 	newcrc = crc32(0, buf, len);
 	ddf->crc = oldcrc;
-	return newcrc;
+	/* The crc is store (like everything) bigendian, so convert
+	 * here for simplicity
+	 */
+	return __cpu_to_be32(newcrc);
 }
 
 static int load_ddf_header(int fd, unsigned long long lba,

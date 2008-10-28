@@ -434,6 +434,8 @@ void arrayline(char *line)
 	mis.bitmap_fd = -1;
 	mis.bitmap_file = NULL;
 	mis.name[0] = 0;
+	mis.container = NULL;
+	mis.member = NULL;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
 		if (w[0] == '/') {

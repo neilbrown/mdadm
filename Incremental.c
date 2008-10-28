@@ -827,6 +827,9 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 					continue;
 				if (strcmp(array_list->member, sub) != 0)
 					continue;
+				if (array_list->uuid_set &&
+				    !same_uuid(ra->uuid, array_list->uuid, st->ss->swapuuid))
+					continue;
 				fd = open(array_list->container, O_RDONLY);
 				if (fd < 0)
 					continue;
@@ -841,6 +844,9 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 				free(dn);
 				/* we have a match */
 				match = array_list;
+				if (verbose>0)
+					fprintf(stderr, Name ": match found for member %s\n",
+						array_list->member);
 				break;
 			}
 		}

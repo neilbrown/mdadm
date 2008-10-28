@@ -825,7 +825,11 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 		info->disk.state |= s & SPARE_DISK ? 0 : (1 << MD_DISK_SYNC);
 	}
-	if (info->disk.state & (1 << MD_DISK_SYNC))
+
+	/* only call uuid_from_super_imsm when this disk is part of a populated container,
+	 * ->compare_super may have updated the 'num_raid_devs' field for spares
+	 */
+	if (info->disk.state & (1 << MD_DISK_SYNC) || super->anchor->num_raid_devs)
 		uuid_from_super_imsm(st, info->uuid);
 	else
 		memcpy(info->uuid, uuid_match_any, sizeof(int[4]));

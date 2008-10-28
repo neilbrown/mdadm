@@ -123,7 +123,7 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 				st->ss->getinfo_super(st, &ap->info);
 				st->ss->free_super(st);
 			}
-			if (!(ap->info.disk.state & MD_DISK_SYNC))
+			if (!(ap->info.disk.state & (1<<MD_DISK_SYNC)))
 				ap->spares++;
 			d = dl_strdup(devlist->devname);
 			dl_add(ap->devs, d);

@@ -938,6 +938,24 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	 */
 	if (first->anchor->num_raid_devs == 0 &&
 	    sec->anchor->num_raid_devs > 0) {
+		int i;
+
+		/* we need to copy raid device info from sec if an allocation
+		 * fails here we don't associate the spare
+		 */
+		for (i = 0; i < sec->anchor->num_raid_devs; i++) {
+			first->dev_tbl[i] = malloc(sizeof(struct imsm_dev));
+			if (!first->dev_tbl) {
+				while (--i >= 0) {
+					free(first->dev_tbl[i]);
+					first->dev_tbl[i] = NULL;
+				}
+				fprintf(stderr, "imsm: failed to associate spare\n"); 
+				return 3;
+			}
+			*first->dev_tbl[i] = *sec->dev_tbl[i];
+		}
+
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
 		first->anchor->family_num = sec->anchor->family_num;
 	}

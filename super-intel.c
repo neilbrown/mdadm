@@ -503,7 +503,7 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 	__u32 ord;
 
 	printf("\n");
-	printf("[%s]:\n", dev->volume);
+	printf("[%.16s]:\n", dev->volume);
 	printf("     RAID Level : %d\n", get_imsm_raid_level(map));
 	printf("        Members : %d\n", map->num_members);
 	for (slot = 0; slot < map->num_members; slot++)
@@ -622,10 +622,24 @@ static void brief_examine_super_imsm(struct supertype *st)
 	/* We just write a generic IMSM ARRAY entry */
 	struct mdinfo info;
 	char nbuf[64];
+	struct intel_super *super = st->sb;
+	int i;
+
+	if (!super->anchor->num_raid_devs)
+		return;
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf,'-');
 	printf("ARRAY /dev/imsm metadata=imsm auto=md UUID=%s\n", nbuf + 5);
+	for (i = 0; i < super->anchor->num_raid_devs; i++) {
+		struct imsm_dev *dev = get_imsm_dev(super, i);
+
+		super->current_vol = i;
+		getinfo_super_imsm(st, &info);
+		fname_from_uuid(st, &info, nbuf,'-');
+		printf("ARRAY /dev/md/%.16s container=/dev/imsm member=%d auto=mdp UUID=%s\n",
+		       dev->volume, i, nbuf + 5);
+	}
 }
 
 static void detail_super_imsm(struct supertype *st, char *homehost)

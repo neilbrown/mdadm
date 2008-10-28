@@ -3211,6 +3211,8 @@ static void imsm_process_update(struct supertype *st,
 		 * being added */
 		if (super->add) {
 			struct active_array *a;
+
+			super->updates_pending++;
  			for (a = st->arrays; a; a = a->next)
 				a->check_degraded = 1;
 		}

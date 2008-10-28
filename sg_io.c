@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Intel Corporation
+ * Copyright (C) 2007-2008 Intel Corporation
  *
  * 	Retrieve drive serial numbers for scsi disks
  *

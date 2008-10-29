@@ -1203,6 +1203,9 @@ static struct supertype *match_metadata_desc1(char *arg)
 	st->ss = &super1;
 	st->max_devs = 384;
 	st->sb = NULL;
+	/* Eliminate pointless leading 0 from some versions of mdadm -D */
+	if (strncmp(arg, "01.", 3) == 0)
+		arg++;
 	if (strcmp(arg, "1.0") == 0) {
 		st->minor_version = 0;
 		return st;

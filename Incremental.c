@@ -84,6 +84,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	char *avail;
 	int active_disks;
 	struct createinfo *ci = conf_get_create_info();
+	char *name;
 
 
 	/* 1/ Check if devices is permitted by mdadm.conf */
@@ -199,14 +200,18 @@ int Incremental(char *devname, int verbose, int runstop,
 		match = array_list;
 	}
 
-	/* 3a/ if not, check for homehost match.  If no match, reject. */
+	/* 3a/ if not, check for homehost match.  If no match, continue
+	 * but don't trust the 'name' in the array. Thus a 'random' minor
+	 * number will be assigned, and the device name will be based
+	 * on that. */
+	name = info.name;
 	if (!match) {
 		if (homehost == NULL ||
 		    st->ss->match_home(st, homehost) == 0) {
 			if (verbose >= 0)
 				fprintf(stderr, Name
 	      ": not found in mdadm.conf and not identified by homehost.\n");
-			return 2;
+			name = NULL;
 		}
 	}
 	/* 4/ Determine device number. */
@@ -237,11 +242,11 @@ int Incremental(char *devname, int verbose, int runstop,
 		char *np, *ep;
 		if ((autof&7) == 3 || (autof&7) == 5)
 			use_partitions = 0;
-		np = strchr(info.name, ':');
+		np = name ? strchr(name, ':') : ":NONAME";
 		if (np)
 			np++;
 		else
-			np = info.name;
+			np = name;
 		devnum = strtoul(np, &ep, 10);
 		if (ep > np && *ep == 0) {
 			/* This is a number.  Let check that it is unused. */
@@ -264,7 +269,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	}
 	mdfd = open_mddev_devnum(match ? match->devname : NULL,
 				 devnum,
-				 info.name,
+				 name,
 				 chosen_name, autof >> 3);
 	if (mdfd < 0) {
 		fprintf(stderr, Name ": failed to open %s: %s.\n",
@@ -452,7 +457,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(bmfd);
 		}
 		sra = sysfs_read(mdfd, devnum, 0);
-		if (sra == NULL || active_disks >= info.array.working_disks)
+		if ((sra == NULL || active_disks >= info.array.working_disks)
+		    && name != NULL)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
 		else
 			rv = sysfs_set_str(sra, NULL,

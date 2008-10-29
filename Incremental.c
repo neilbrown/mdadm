@@ -83,12 +83,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	int dfd, mdfd;
 	char *avail;
 	int active_disks;
-
-
 	struct createinfo *ci = conf_get_create_info();
 
-	if (autof == 0)
-		autof = ci->autof;
 
 	/* 1/ Check if devices is permitted by mdadm.conf */
 
@@ -221,6 +217,16 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* - Choose a free, high number. */
 	/* - Use a partitioned device unless strong suggestion not to. */
 	/*         e.g. auto=md */
+
+	/* There are three possible sources for 'autof':  command line,
+	 * ARRAY line in mdadm.conf, or CREATE line in mdadm.conf.
+	 * They have precedence in that order.
+	 */
+	if (autof == 0 && match)
+		autof = match->autof;
+	if (autof == 0)
+		autof = ci->autof;
+
 	if (match && (rv = is_standard(match->devname, &devnum))) {
 		devnum = (rv > 0) ? (-1-devnum) : devnum;
 	} else if ((mp = map_by_uuid(&map, info.uuid)) != NULL)

@@ -543,12 +543,18 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		if (ok != 0)
 			continue;
 		st->ss->getinfo_super(st, &info);
+		if (!avail) {
+			avail = malloc(info.array.raid_disks);
+			if (!avail) {
+				fprintf(stderr, Name ": out of memory.\n");
+				exit(1);
+			}
+			memset(avail, 0, info.array.raid_disks);
+			*availp = avail;
+		}
+
 		if (info.disk.state & (1<<MD_DISK_SYNC))
 		{
-			if (avail == NULL) {
-				avail = malloc(info.array.raid_disks);
-				memset(avail, 0, info.array.raid_disks);
-			}
 			if (cnt == 0) {
 				cnt++;
 				max_events = info.events;

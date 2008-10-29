@@ -214,16 +214,16 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 	}
 	/* 4/ Determine device number. */
-	/* - If in mdadm.conf with std name, use that */
-	/* - UUID in /var/run/mdadm.map  use that */
+	/* - If in mdadm.conf with std name, get number from name. */
+	/* - UUID in /var/run/mdadm.map  get number from mapping */
 	/* - If name is suggestive, use that. unless in use with */
 	/*           different uuid. */
 	/* - Choose a free, high number. */
 	/* - Use a partitioned device unless strong suggestion not to. */
 	/*         e.g. auto=md */
-	if (match && is_standard(match->devname, &devnum))
-		/* We have devnum now */;
-	else if ((mp = map_by_uuid(&map, info.uuid)) != NULL)
+	if (match && (rv = is_standard(match->devname, &devnum))) {
+		devnum = (rv > 0) ? (-1-devnum) : devnum;
+	} else if ((mp = map_by_uuid(&map, info.uuid)) != NULL)
 		devnum = mp->devnum;
 	else {
 		/* Have to guess a bit. */

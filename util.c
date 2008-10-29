@@ -398,7 +398,7 @@ int is_standard(char *dev, int *nump)
 	if (strncmp(d, "/d",2)==0)
 		d += 2, type=1; /* /dev/md/dN{pM} */
 	else if (strncmp(d, "/md_d", 5)==0)
-		d += 5, type=1; /* /dev/md_dNpM */
+		d += 5, type=1; /* /dev/md_dN{pM} */
 	else if (strncmp(d, "/md", 3)==0)
 		d += 3, type=-1; /* /dev/mdN */
 	else if (d-dev > 3 && strncmp(d-2, "md/", 3)==0)

@@ -88,11 +88,34 @@ void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
 			return;
 		if (ioctl(fd, RAID_VERSION, &vers) != 0)
 			return;
-		if (major(stb.st_rdev)==9)
+		if (major(stb.st_rdev) == MD_MAJOR)
 			sprintf(mdi->sys_name, "md%d", (int)minor(stb.st_rdev));
-		else
+		else if (major(stb.st_rdev) == get_mdp_major())
 			sprintf(mdi->sys_name, "md_d%d",
 				(int)minor(stb.st_rdev)>>MdpMinorShift);
+		else {
+			/* must be an extended-minor partition. Look at the
+			 * /sys/dev/block/%d:%d link which must look like
+			 * ../../block/mdXXX/mdXXXpYY
+			 */
+			char path[30];
+			char link[200];
+			char *cp;
+			int n;
+			sprintf(path, "/sys/dev/block/%d:%d", major(stb.st_rdev),
+				minor(stb.st_rdev));
+			n = readlink(path, link, sizeof(link)-1);
+			if (n <= 0)
+				return;
+			link[n] = 0;
+			cp = strrchr(link, '/');
+			if (cp) *cp = 0;
+			cp = strchr(link, '/');
+			if (cp && strncmp(cp, "/md", 3) == 0)
+				strcpy(mdi->sys_name, cp+1);
+			else
+				return;
+		}
 	} else {
 		if (devnum >= 0)
 			sprintf(mdi->sys_name, "md%d", devnum);
@@ -363,7 +386,7 @@ unsigned long long get_component_size(int fd)
 	char fname[50];
 	int n;
 	if (fstat(fd, &stb)) return 0;
-	if (major(stb.st_rdev) == 9)
+	if (major(stb.st_rdev) != get_mdp_major())
 		sprintf(fname, "/sys/block/md%d/md/component_size",
 			(int)minor(stb.st_rdev));
 	else

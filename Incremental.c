@@ -91,8 +91,6 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	struct createinfo *ci = conf_get_create_info();
 
-	if (autof == 0)
-		autof = ci->autof;
 
 	/* 1/ Check if device is permitted by mdadm.conf */
 
@@ -216,15 +214,18 @@ int Incremental(char *devname, int verbose, int runstop,
 		match = array_list;
 	}
 
-	/* 3a/ if not, check for homehost match.  If no match, reject. */
+	/* 3a/ if not, check for homehost match.  If no match, continue
+	 * but don't trust the 'name' in the array. Thus a 'random' minor
+	 * number will be assigned, and the device name will be based
+	 * on that. */
 	if (!match) {
 		if (homehost == NULL ||
 		       st->ss->match_home(st, homehost) != 1)
 			uuid_for_name = 1;
 	}
 	/* 4/ Determine device number. */
-	/* - If in mdadm.conf with std name, use that */
-	/* - UUID in /var/run/mdadm.map  use that */
+	/* - If in mdadm.conf with std name, get number from name. */
+	/* - UUID in /var/run/mdadm.map  get number from mapping */
 	/* - If name is suggestive, use that. unless in use with */
 	/*           different uuid. */
 	/* - Choose a free, high number. */
@@ -241,9 +242,18 @@ int Incremental(char *devname, int verbose, int runstop,
 	} else
 		name_to_use = info.name;
 
-	if (match && is_standard(match->devname, &devnum))
-		/* We have devnum now */;
-	else if (mp != NULL)
+	/* There are three possible sources for 'autof':  command line,
+	 * ARRAY line in mdadm.conf, or CREATE line in mdadm.conf.
+	 * They have precedence in that order.
+	 */
+	if (autof == 0 && match)
+		autof = match->autof;
+	if (autof == 0)
+		autof = ci->autof;
+
+	if (match && (rv = is_standard(match->devname, &devnum))) {
+		devnum = (rv > 0) ? (-1-devnum) : devnum;
+	} else if (mp != NULL)
 		devnum = mp->devnum;
 	else {
 		/* Have to guess a bit. */
@@ -490,7 +500,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(bmfd);
 		}
 		sra = sysfs_read(mdfd, devnum, 0);
-		if (sra == NULL || active_disks >= info.array.working_disks)
+		if ((sra == NULL || active_disks >= info.array.working_disks)
+		    && uuid_for_name == 0)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
 		else
 			rv = sysfs_set_str(sra, NULL,
@@ -587,12 +598,18 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		if (ok != 0)
 			continue;
 		st->ss->getinfo_super(st, &info);
+		if (!avail) {
+			avail = malloc(info.array.raid_disks);
+			if (!avail) {
+				fprintf(stderr, Name ": out of memory.\n");
+				exit(1);
+			}
+			memset(avail, 0, info.array.raid_disks);
+			*availp = avail;
+		}
+
 		if (info.disk.state & (1<<MD_DISK_SYNC))
 		{
-			if (avail == NULL) {
-				avail = malloc(info.array.raid_disks);
-				memset(avail, 0, info.array.raid_disks);
-			}
 			if (cnt == 0) {
 				cnt++;
 				max_events = info.events;

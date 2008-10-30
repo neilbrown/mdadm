@@ -166,7 +166,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			if (sra && sra->array.major_version < 0)
 				printf("MD_METADATA=%s\n", sra->text_version);
 			else
-				printf("MD_METADATA=%02d.%02d\n",
+				printf("MD_METADATA=%d.%02d\n",
 				       array.major_version, array.minor_version);
 		}
 		
@@ -200,7 +200,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			if (sra && sra->array.major_version < 0)
 				printf(" metadata=%s", sra->text_version);
 			else
-				printf(" metadata=%02d.%02d",
+				printf(" metadata=%d.%02d",
 				       array.major_version, array.minor_version);
 		}
 
@@ -233,7 +233,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		if (sra && sra->array.major_version < 0)
 			printf("        Version : %s\n", sra->text_version);
 		else
-			printf("        Version : %02d.%02d\n",
+			printf("        Version : %d.%02d\n",
 			       array.major_version, array.minor_version);
 		}
 

@@ -93,7 +93,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	char *c;
 
 	printf("          Magic : %08x\n", sb->md_magic);
-	printf("        Version : %02d.%02d.%02d\n", sb->major_version, sb->minor_version,
+	printf("        Version : %d.%02d.%02d\n", sb->major_version, sb->minor_version,
 	       sb->patch_version);
 	if (sb->minor_version >= 90) {
 		printf("           UUID : %08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,

@@ -244,9 +244,10 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	/* There are three possible sources for 'autof':  command line,
 	 * ARRAY line in mdadm.conf, or CREATE line in mdadm.conf.
-	 * They have precedence in that order.
+	 * ARRAY takes precedence, then command line, then
+	 * CREATE.
 	 */
-	if (autof == 0 && match)
+	if (match && match->autof)
 		autof = match->autof;
 	if (autof == 0)
 		autof = ci->autof;

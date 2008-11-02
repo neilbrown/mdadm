@@ -40,7 +40,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st, char *homehost, int autof)
 {
 	/* Add this device to an array, creating the array if necessary
-	 * and starting the array if sensibe or - if runstop>0 - if possible.
+	 * and starting the array if sensible or - if runstop>0 - if possible.
 	 *
 	 * This has several steps:
 	 *
@@ -225,9 +225,10 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	/* There are three possible sources for 'autof':  command line,
 	 * ARRAY line in mdadm.conf, or CREATE line in mdadm.conf.
-	 * They have precedence in that order.
+	 * ARRAY takes precedence, then command line, then
+	 * CREATE.
 	 */
-	if (autof == 0 && match)
+	if (match && match->autof)
 		autof = match->autof;
 	if (autof == 0)
 		autof = ci->autof;

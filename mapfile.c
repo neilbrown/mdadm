@@ -53,7 +53,7 @@ int map_write(struct map_ent *mel)
 	f = fopen("/var/run/mdadm/map.new", "w");
 	if (!f) {
 		f = fopen("/var/run/mdadm.map.new", "w");
-		subdir = 1;
+		subdir = 0;
 	}
 	if (!f)
 		return 0;

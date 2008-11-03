@@ -942,16 +942,35 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": --super-minor=dev is incompatible with --auto\n");
 			exit(2);
 		}
-		if (mode == MANAGE || mode == GROW)
+		if (mode == MANAGE || mode == GROW) {
 			mdfd = open_mddev(devlist->devname, 1);
-		else
-			mdfd = create_mddev(devlist->devname, autof);
-		if (mdfd < 0)
+			if (mdfd < 0)
+				exit(1);
+		} else
+			/* non-existent device is OK */
+			mdfd = open_mddev(devlist->devname, 0);
+		if (mdfd == -2) {
+			fprintf(stderr, Name ": device %s exists but is not an "
+				"md array.\n", devlist->devname);
 			exit(1);
+		}
 		if ((int)ident.super_minor == -2) {
 			struct stat stb;
+			if (mdfd < 0) {
+				fprintf(stderr, Name ": --super-minor=dev given, and "
+					"listed device %s doesn't exist.\n",
+					devlist->devname);
+				exit(1);
+			}
 			fstat(mdfd, &stb);
 			ident.super_minor = minor(stb.st_rdev);
+		}
+		if (mdfd >= 0 && mode != MANAGE && mode != GROW) {
+			/* We don't really want this open yet, we just might
+			 * have wanted to check some things
+			 */
+			close(mdfd);
+			mdfd = -1;
 		}
 	}
 
@@ -985,6 +1004,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	ident.autof = autof;
+
 	rv = 0;
 	switch(mode) {
 	case MANAGE:
@@ -1008,15 +1029,17 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": %s not identified in config file.\n",
 					devlist->devname);
 				rv |= 1;
-				close(mdfd);
+				if (mdfd >= 0)
+					close(mdfd);
 			} else {
-				rv |= Assemble(ss, devlist->devname, mdfd, array_ident,
-						       NULL, backup_file,
-						       readonly, runstop, update, homehost, verbose-quiet, force);
-				close(mdfd);
+				if (array_ident->autof == 0)
+					array_ident->autof = autof;
+				rv |= Assemble(ss, devlist->devname, array_ident,
+					       NULL, backup_file,
+					       readonly, runstop, update, homehost, verbose-quiet, force);
 			}
 		} else if (!scan)
-			rv = Assemble(ss, devlist->devname, mdfd, &ident,
+			rv = Assemble(ss, devlist->devname, &ident,
 				      devlist->next, backup_file,
 				      readonly, runstop, update, homehost, verbose-quiet, force);
 		else if (devs_found>0) {
@@ -1036,16 +1059,11 @@ int main(int argc, char *argv[])
 					rv |= 1;
 					continue;
 				}
-				mdfd = create_mddev(dv->devname,
-						  array_ident->autof ?array_ident->autof : autof);
-				if (mdfd < 0) {
-					rv |= 1;
-					continue;
-				}
-				rv |= Assemble(ss, dv->devname, mdfd, array_ident,
+				if (array_ident->autof == 0)
+					array_ident->autof = autof;
+				rv |= Assemble(ss, dv->devname, array_ident,
 					       NULL, backup_file,
 					       readonly, runstop, update, homehost, verbose-quiet, force);
-				close(mdfd);
 			}
 		} else {
 			mddev_ident_t array_list =  conf_get_ident(NULL);
@@ -1064,28 +1082,28 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			for (; array_list; array_list = array_list->next) {
-				mdu_array_info_t array;
-				mdfd = create_mddev(array_list->devname,
-						  array_list->autof ? array_list->autof : autof);
-				if (mdfd < 0) {
-					rv |= 1;
-					continue;
+				mdfd = open_mddev(array_list->devname, 0);
+				if (mdfd >= 0) {
+					mdu_array_info_t array;
+					/* skip if already assembled */
+					if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0) {
+						cnt++;
+						close(mdfd);
+						continue;
+					}
 				}
-				if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0)
-					/* already assembled, skip */
-					cnt++;
-				else {
-					rv |= Assemble(ss, array_list->devname, mdfd,
-						       array_list,
-						       NULL, NULL,
-						       readonly, runstop, NULL, homehost, verbose-quiet, force);
-					if (rv == 0) cnt++;
-				}
-				close(mdfd);
+				if (array_list->autof == 0)
+					array_list->autof = autof;
+				
+				rv |= Assemble(ss, array_list->devname,
+					       array_list,
+					       NULL, NULL,
+					       readonly, runstop, NULL, homehost, verbose-quiet, force);
+				if (rv == 0) cnt++;
 			}
 			if (homehost) {
 				/* Maybe we can auto-assemble something.
-				 * Repeatedly call Assemble in auto-assmble mode
+				 * Repeatedly call Assemble in auto-assemble mode
 				 * until it fails
 				 */
 				int rv2;
@@ -1095,7 +1113,7 @@ int main(int argc, char *argv[])
 					mddev_dev_t devlist = conf_get_devs();
 					acnt = 0;
 					do {
-						rv2 = Assemble(ss, NULL, -1,
+						rv2 = Assemble(ss, NULL,
 							       &ident,
 							       devlist, NULL,
 							       readonly, runstop, NULL, homehost, verbose-quiet, force);
@@ -1116,7 +1134,7 @@ int main(int argc, char *argv[])
 					do {
 						acnt = 0;
 						do {
-							rv2 = Assemble(ss, NULL, -1,
+							rv2 = Assemble(ss, NULL,
 								       &ident,
 								       NULL, NULL,
 								       readonly, runstop, "homehost", homehost, verbose-quiet, force);
@@ -1159,9 +1177,10 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		rv = Build(devlist->devname, mdfd, chunk, level, layout,
+		rv = Build(devlist->devname, chunk, level, layout,
 			   raiddisks, devlist->next, assume_clean,
-			   bitmap_file, bitmap_chunk, write_behind, delay, verbose-quiet);
+			   bitmap_file, bitmap_chunk, write_behind,
+			   delay, verbose-quiet, autof);
 		break;
 	case CREATE:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
@@ -1176,11 +1195,11 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		rv = Create(ss, devlist->devname, mdfd, chunk, level, layout, size<0 ? 0 : size,
+		rv = Create(ss, devlist->devname, chunk, level, layout, size<0 ? 0 : size,
 			    raiddisks, sparedisks, ident.name, homehost,
 			    ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next, runstop, verbose-quiet, force, assume_clean,
-			    bitmap_file, bitmap_chunk, write_behind, delay);
+			    bitmap_file, bitmap_chunk, write_behind, delay, autof);
 		break;
 	case MISC:
 		if (devmode == 'E') {

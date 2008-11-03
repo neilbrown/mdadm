@@ -55,7 +55,7 @@ mapping_t pers[] = {
 
 #ifndef MDASSEMBLE_AUTO
 /* from mdopen.c */
-int create_mddev(char *dev, int autof/*unused */)
+int open_mddev(char *dev, int report_errors/*unused*/)
 {
 	int mdfd = open(dev, O_RDWR);
 	if (mdfd < 0)
@@ -68,6 +68,10 @@ int create_mddev(char *dev, int autof/*unused */)
 		mdfd = -1;
 	}
 	return mdfd;
+}
+int create_mddev(char *dev, int autof/*unused*/)
+{
+	return open_mddev(dev, 0);
 }
 #endif
 
@@ -86,19 +90,16 @@ int main(int argc, char *argv[]) {
 	} else
 		for (; array_list; array_list = array_list->next) {
 			mdu_array_info_t array;
-			mdfd = create_mddev(array_list->devname, array_list->autof);
-			if (mdfd < 0) {
-				rv |= 1;
+			mdfd = open_mddev(array_list->devname, 0);
+			if (mdfd >= 0 && ioctl(mdfd, GET_ARRAY_INFO, &array) == 0) {
+				rv |= Manage_ro(array_list->devname, mdfd, -1); /* make it readwrite */
 				continue;
 			}
-			if (ioctl(mdfd, GET_ARRAY_INFO, &array) < 0) {
-				rv |= Assemble(array_list->st, array_list->devname, mdfd,
-					   array_list, NULL, NULL,
-					   readonly, runstop, NULL, NULL, verbose, force);
-			} else {
-				rv |= Manage_ro(array_list->devname, mdfd, -1); /* make it readwrite */
-			}
-			close(mdfd);
+			if (mdfd >= 0)
+				close(mdfd);
+			rv |= Assemble(array_list->st, array_list->devname,
+				       array_list, NULL, NULL,
+				       readonly, runstop, NULL, NULL, verbose, force);
 		}
 	return rv;
 }

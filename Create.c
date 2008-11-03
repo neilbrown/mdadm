@@ -32,12 +32,12 @@
 #include	"md_p.h"
 #include	<ctype.h>
 
-int Create(struct supertype *st, char *mddev, int mdfd,
+int Create(struct supertype *st, char *mddev,
 	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
 	   char *name, char *homehost, int *uuid,
 	   int subdevs, mddev_dev_t devlist,
 	   int runstop, int verbose, int force, int assume_clean,
-	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay)
+	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof)
 {
 	/*
 	 * Create a new raid array.
@@ -55,6 +55,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	 * if runstop==run, or raiddisks disks were used,
 	 * RUN_ARRAY
 	 */
+	int mdfd;
 	unsigned long long minsize=0, maxsize=0;
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
@@ -83,20 +84,6 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 
 	memset(&info, 0, sizeof(info));
 
-	vers = md_get_version(mdfd);
-	if (vers < 9000) {
-		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");
-		return 1;
-	} else {
-		mdu_array_info_t inf;
-		memset(&inf, 0, sizeof(inf));
-		ioctl(mdfd, GET_ARRAY_INFO, &inf);
-		if (inf.working_disks != 0) {
-			fprintf(stderr, Name ": another array by this name"
-				" is already running.\n");
-			return 1;
-		}
-	}
 	if (level == UnSet) {
 		/* "ddf" and "imsm" metadata only supports one level - should possibly
 		 * push this into metadata handler??
@@ -433,6 +420,25 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		return 1;
 	}
 
+	/* We need to create the device */
+	mdfd = create_mddev(mddev, autof);
+	if (mdfd < 0)
+		return 1;
+
+	vers = md_get_version(mdfd);
+	if (vers < 9000) {
+		fprintf(stderr, Name ": Create requires md driver version 0.90.0 or later\n");
+		goto abort;
+	} else {
+		mdu_array_info_t inf;
+		memset(&inf, 0, sizeof(inf));
+		ioctl(mdfd, GET_ARRAY_INFO, &inf);
+		if (inf.working_disks != 0) {
+			fprintf(stderr, Name ": another array by this name"
+				" is already running.\n");
+			goto abort;
+		}
+	}
 	/* Ok, lets try some ioctls */
 
 	info.array.level = level;
@@ -524,7 +530,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		}
 	}
 	if (!st->ss->init_super(st, &info.array, size, name, homehost, uuid))
-		return 1;
+		goto abort;
 
 	total_slots = info.array.nr_disks;
 	sysfs_init(&info, mdfd, 0);
@@ -563,13 +569,13 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (bitmap_file && strcmp(bitmap_file, "internal")==0) {
 		if ((vers%100) < 2) {
 			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
-			return 1;
+			goto abort;
 		}
 		if (!st->ss->add_internal_bitmap(st, &bitmap_chunk,
 						 delay, write_behind,
 						 bitmapsize, 1, major_num)) {
 			fprintf(stderr, Name ": Given bitmap chunk size not supported.\n");
-			return 1;
+			goto abort;
 		}
 		bitmap_file = NULL;
 	}
@@ -596,7 +602,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 		if (container_fd < 0) {
 			fprintf(stderr, Name ": Cannot get exclusive "
 				"open on container - weird.\n");
-			return 1;
+			goto abort;
 		}
 		if (mdmon_running(st->container_dev)) {
 			if (verbose)
@@ -611,7 +617,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	if (rv) {
 		fprintf(stderr, Name ": failed to set array info for %s: %s\n",
 			mddev, strerror(errno));
-		return 1;
+		goto abort;
 	}
 
 	if (bitmap_file) {
@@ -622,18 +628,18 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				 delay, write_behind,
 				 bitmapsize,
 				 major_num)) {
-			return 1;
+			goto abort;
 		}
 		bitmap_fd = open(bitmap_file, O_RDWR);
 		if (bitmap_fd < 0) {
 			fprintf(stderr, Name ": weird: %s cannot be openned\n",
 				bitmap_file);
-			return 1;
+			goto abort;
 		}
 		if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {
 			fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
 				mddev, strerror(errno));
-			return 1;
+			goto abort;
 		}
 	}
 
@@ -681,7 +687,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 					fprintf(stderr, Name ": failed to open %s "
 						"after earlier success - aborting\n",
 						dv->devname);
-					return 1;
+					goto abort;
 				}
 				fstat(fd, &stb);
 				inf->disk.major = major(stb.st_rdev);
@@ -709,7 +715,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 						"failed: %s\n",
 						dv->devname, strerror(errno));
 					st->ss->free_super(st);
-					return 1;
+					goto abort;
 				}
 				break;
 			}
@@ -749,7 +755,7 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 				fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 					strerror(errno));
 				Manage_runstop(mddev, mdfd, -1, 0);
-				return 1;
+				goto abort;
 			}
 		}
 		if (verbose >= 0)
@@ -764,5 +770,11 @@ int Create(struct supertype *st, char *mddev, int mdfd,
 	} else {
 		fprintf(stderr, Name ": not starting array - not enough devices.\n");
 	}
+	close(mdfd);
 	return 0;
+
+ abort:
+	if (mdfd >= 0)
+		close(mdfd);
+	return 1;
 }

@@ -692,25 +692,25 @@ extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file);
 
 
-extern int Assemble(struct supertype *st, char *mddev, int mdfd,
+extern int Assemble(struct supertype *st, char *mddev,
 		    mddev_ident_t ident,
 		    mddev_dev_t devlist, char *backup_file,
 		    int readonly, int runstop,
 		    char *update, char *homehost,
 		    int verbose, int force);
 
-extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
-		 int raiddisks,
-		 mddev_dev_t devlist, int assume_clean,
-		 char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int verbose);
+extern int Build(char *mddev, int chunk, int level, int layout,
+		 int raiddisks, mddev_dev_t devlist, int assume_clean,
+		 char *bitmap_file, int bitmap_chunk, int write_behind,
+		 int delay, int verbose, int autof);
 
 
-extern int Create(struct supertype *st, char *mddev, int mdfd,
+extern int Create(struct supertype *st, char *mddev,
 		  int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
 		  char *name, char *homehost, int *uuid,
 		  int subdevs, mddev_dev_t devlist,
 		  int runstop, int verbose, int force, int assume_clean,
-		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay);
+		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof);
 
 extern int Detail(char *dev, int brief, int export, int test, char *homehost);
 extern int Query(char *dev);

@@ -111,11 +111,11 @@ int Assemble(struct supertype *st, char *mddev,
 	 *    START_ARRAY
 	 *
 	 */
-	int mdfd = -1;
-	int clean = 0;
+	int mdfd;
+	int clean;
 	int auto_assem = (mddev == NULL);
 	int old_linux = 0;
-	int vers = 0; /* Keep gcc quite - it really is initialised */
+	int vers = vers; /* Keep gcc quite - it really is initialised */
 	struct {
 		char *devname;
 		int uptodate; /* set once we decide that this device is as
@@ -139,6 +139,7 @@ int Assemble(struct supertype *st, char *mddev,
 	unsigned int num_devs;
 	mddev_dev_t tmpdev;
 	struct mdinfo info;
+	mdu_array_info_t tmp_inf;
 	char *avail;
 	int nextspare = 0;
 	int uuid_for_name = 0;
@@ -148,35 +149,6 @@ int Assemble(struct supertype *st, char *mddev,
 	if (get_linux_version() < 2004000)
 		old_linux = 1;
 
-	if (mddev != NULL) {
-		/* We need to create the device */
-		mdfd = create_mddev(mddev, 1);
-		if (mdfd < 0)
-			return 1;
-	}
-
-	if (mdfd >= 0) {
-		vers = md_get_version(mdfd);
-		if (vers <= 0) {
-			fprintf(stderr, Name ": %s appears not to be an md device.\n", mddev);
-			close(mdfd);
-			return 1;
-		}
-		if (vers < 9000) {
-			fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
-				"    Upgrade your kernel or try --build\n");
-			close(mdfd);
-			return 1;
-		}
-
-		if (ioctl(mdfd, GET_ARRAY_INFO, &info.array)>=0) {
-			fprintf(stderr, Name ": device %s already active - cannot assemble it\n",
-				mddev);
-			close(mdfd);
-			return 1;
-		}
-		ioctl(mdfd, STOP_ARRAY, NULL); /* just incase it was started but has no content */
-	}
 	/*
 	 * If any subdevs are listed, then any that don't
 	 * match ident are discarded.  Remainder must all match and
@@ -191,8 +163,6 @@ int Assemble(struct supertype *st, char *mddev,
 	    ident->devices == NULL) {
 		fprintf(stderr, Name ": No identity information available for %s - cannot assemble.\n",
 			mddev ? mddev : "further assembly");
-		if (mdfd >= 0)
-			close(mdfd);
 		return 1;
 	}
 
@@ -247,6 +217,10 @@ int Assemble(struct supertype *st, char *mddev,
 		inargv = 1;
 
  try_again:
+	/* We come back here when doing auto-assembly and attempting some
+	 * set of devices failed.  Those are now marked as ->used==2 and
+	 * we ignore them and try again
+	 */
 
 	tmpdev = devlist; num_devs = 0;
 	while (tmpdev) {
@@ -266,7 +240,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	/* first walk the list of devices to find a consistent set
 	 * that match the criterea, if that is possible.
-	 * We flag the one we like with 'used'.
+	 * We flag the ones we like with 'used'.
 	 */
 	for (tmpdev = devlist;
 	     tmpdev;
@@ -354,7 +328,7 @@ int Assemble(struct supertype *st, char *mddev,
 					devname);
 			goto loop;
 		}
-		if (mdfd < 0) {
+		if (auto_assem) {
 			if (tst == NULL || tst->sb == NULL)
 				continue;
 			switch(tst->ss->match_home(tst, homehost))
@@ -393,8 +367,6 @@ int Assemble(struct supertype *st, char *mddev,
 				devname);
 			if (st)
 				st->ss->free_super(st);
-			if (mdfd >= 0)
-				close(mdfd);
 			return 1;
 		}
 
@@ -410,7 +382,7 @@ int Assemble(struct supertype *st, char *mddev,
 			 * Or, if we are auto assembling, we just ignore the second
 			 * for now.
 			 */
-			if (mdfd < 0)
+			if (auto_assem)
 				goto loop;
 			if (homehost) {
 				int first = st->ss->match_home(st, homehost);
@@ -440,8 +412,6 @@ int Assemble(struct supertype *st, char *mddev,
 				devname);
 			tst->ss->free_super(tst);
 			st->ss->free_super(st);
-			if (mdfd >= 0)
-				close(mdfd);
 			return 1;
 		}
 
@@ -452,19 +422,19 @@ int Assemble(struct supertype *st, char *mddev,
 			tst->ss->free_super(tst);
 	}
 
-	if (mdfd < 0) {
-		/* So... it is up to me to open the device.
-		 * We create a name '/dev/md/XXX' based on the info in the
-		 * superblock, and call create_mddev on that
-		 */
-		mdu_array_info_t inf;
-		char *c;
+	if (!st || !st->sb)
+		return 2;
+
+	/* Now need to open array the device.
+	 * We create a name '/dev/md/XXX' based on the info in the
+	 * superblock, and call create_mddev on that
+	 */
+
+	if (mddev == NULL) {
 		char nbuf[64];
+		char *c;
 		int rc;
 
-		if (!st || !st->sb) {
-			return 2;
-		}
 		st->ss->getinfo_super(st, &info);
 		if (uuid_for_name)
 			c = fname_from_uuid(st, &info, nbuf, '-');
@@ -477,32 +447,47 @@ int Assemble(struct supertype *st, char *mddev,
 			rc = asprintf(&mddev, "/dev/md/d%s", c);
 		else
 			rc = asprintf(&mddev, "/dev/md/%s", c);
-		if (rc < 0)
-			mdfd = -1;
-		else
-			mdfd = create_mddev(mddev, ident->autof);
-		if (mdfd < 0) {
+		if (rc < 0) {
 			st->ss->free_super(st);
 			free(devices);
-			goto try_again;
-		}
-		vers = md_get_version(mdfd);
-		if (ioctl(mdfd, GET_ARRAY_INFO, &inf)==0) {
-			for (tmpdev = devlist ;
-			     tmpdev && tmpdev->used != 1;
-			     tmpdev = tmpdev->next)
-				;
-			fprintf(stderr, Name ": %s already active, cannot restart it!\n", mddev);
-			if (tmpdev)
-				fprintf(stderr, Name ":   %s needed for %s...\n",
-					mddev, tmpdev->devname);
-			close(mdfd);
-			mdfd = -3;
-			st->ss->free_super(st);
-			free(devices);
+			mddev = NULL;
 			goto try_again;
 		}
 	}
+	mdfd = create_mddev(mddev, ident->autof);
+	if (mdfd < 0) {
+		st->ss->free_super(st);
+		free(devices);
+		if (auto_assem)
+			goto try_again;
+		return 1;
+	}
+	vers = md_get_version(mdfd);
+	if (vers < 9000) {
+		fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
+			"    Upgrade your kernel or try --build\n");
+		close(mdfd);
+		return 1;
+	}
+	if (ioctl(mdfd, GET_ARRAY_INFO, &tmp_inf)==0) {
+		fprintf(stderr, Name ": %s already active, cannot restart it!\n",
+			mddev);
+		for (tmpdev = devlist ;
+		     tmpdev && tmpdev->used != 1;
+		     tmpdev = tmpdev->next)
+			;
+		if (tmpdev && auto_assem)
+			fprintf(stderr, Name ":   %s needed for %s...\n",
+				mddev, tmpdev->devname);
+		close(mdfd);
+		mdfd = -3;
+		st->ss->free_super(st);
+		free(devices);
+		if (auto_assem)
+			goto try_again;
+		return 1;
+	}
+	ioctl(mdfd, STOP_ARRAY, NULL); /* just incase it was started but has no content */
 
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	bitmap_done = 0;

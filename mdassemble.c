@@ -55,7 +55,7 @@ mapping_t pers[] = {
 
 #ifndef MDASSEMBLE_AUTO
 /* from mdopen.c */
-int open_mddev(char *dev, int autof/*unused */)
+int create_mddev(char *dev, int autof/*unused */)
 {
 	int mdfd = open(dev, O_RDWR);
 	if (mdfd < 0)
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 	} else
 		for (; array_list; array_list = array_list->next) {
 			mdu_array_info_t array;
-			mdfd = open_mddev(array_list->devname, array_list->autof);
+			mdfd = create_mddev(array_list->devname, array_list->autof);
 			if (mdfd < 0) {
 				rv |= 1;
 				continue;

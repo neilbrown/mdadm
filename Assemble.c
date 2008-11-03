@@ -437,7 +437,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 	if (mdfd < 0) {
 		/* So... it is up to me to open the device.
 		 * We create a name '/dev/md/XXX' based on the info in the
-		 * superblock, and call open_mddev on that
+		 * superblock, and call create_mddev on that
 		 */
 		mdu_array_info_t inf;
 		char *c;
@@ -462,7 +462,7 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (rc < 0)
 			mdfd = -1;
 		else
-			mdfd = open_mddev(mddev, ident->autof);
+			mdfd = create_mddev(mddev, ident->autof);
 		if (mdfd < 0) {
 			st->ss->free_super(st);
 			free(devices);

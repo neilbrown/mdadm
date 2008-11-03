@@ -106,7 +106,7 @@ void make_parts(char *dev, int cnt, int symlinks)
  * If it now doesn't exist, we find a new md array and create the device.
  * Default ownership/mode comes from config file.
  */
-int open_mddev(char *dev, int autof)
+int create_mddev(char *dev, int autof)
 {
 	int mdfd;
 	struct stat stb;
@@ -268,7 +268,7 @@ int open_mddev(char *dev, int autof)
 }
 
 
-int open_mddev_devnum(char *devname, int devnum, char *name,
+int create_mddev_devnum(char *devname, int devnum, char *name,
 		      char *chosen_name, int parts)
 {
 	/* Open the md device with number 'devnum', possibly using 'devname',

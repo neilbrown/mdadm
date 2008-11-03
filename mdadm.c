@@ -944,7 +944,7 @@ int main(int argc, char *argv[])
 		}
 		if (mode == MANAGE || mode == GROW)
 			autof=1; /* Don't create */
-		mdfd = open_mddev(devlist->devname, autof);
+		mdfd = create_mddev(devlist->devname, autof);
 		if (mdfd < 0)
 			exit(1);
 		if ((int)ident.super_minor == -2) {
@@ -1008,7 +1008,7 @@ int main(int argc, char *argv[])
 					devlist->devname);
 				rv |= 1;
 			} else {
-				mdfd = open_mddev(devlist->devname,
+				mdfd = create_mddev(devlist->devname,
 						  array_ident->autof ? array_ident->autof : autof);
 				if (mdfd < 0)
 					rv |= 1;
@@ -1040,7 +1040,7 @@ int main(int argc, char *argv[])
 					rv |= 1;
 					continue;
 				}
-				mdfd = open_mddev(dv->devname,
+				mdfd = create_mddev(dv->devname,
 						  array_ident->autof ?array_ident->autof : autof);
 				if (mdfd < 0) {
 					rv |= 1;
@@ -1069,7 +1069,7 @@ int main(int argc, char *argv[])
 			}
 			for (; array_list; array_list = array_list->next) {
 				mdu_array_info_t array;
-				mdfd = open_mddev(array_list->devname,
+				mdfd = create_mddev(array_list->devname,
 						  array_list->autof ? array_list->autof : autof);
 				if (mdfd < 0) {
 					rv |= 1;
@@ -1242,7 +1242,7 @@ int main(int argc, char *argv[])
 									e->dev);
 								continue;
 							}
-							mdfd = open_mddev(name, 1);
+							mdfd = create_mddev(name, 1);
 							if (mdfd >= 0) {
 								if (Manage_runstop(name, mdfd, -1, quiet?1:last?0:-1))
 									err = 1;
@@ -1279,7 +1279,7 @@ int main(int argc, char *argv[])
 				case Waitclean:
 					rv |= WaitClean(dv->devname, verbose-quiet); continue;
 				}
-				mdfd = open_mddev(dv->devname, 1);
+				mdfd = create_mddev(dv->devname, 1);
 				if (mdfd>=0) {
 					switch(dv->disposition) {
 					case 'R':

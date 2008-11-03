@@ -311,7 +311,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			devnum = use_partitions ? (-1-devnum) : devnum;
 	}
 
-	mdfd = open_mddev_devnum(match ? match->devname : mp ? mp->path : NULL,
+	mdfd = create_mddev_devnum(match ? match->devname : mp ? mp->path : NULL,
 				 devnum,
 				 name_to_use,
 				 chosen_name, autof >> 3);
@@ -714,7 +714,7 @@ int IncrementalScan(int verbose)
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = open_mddev_devnum(me->path, me->devnum,
+		int mdfd = create_mddev_devnum(me->path, me->devnum,
 					     NULL, path, 0);
 		if (mdfd < 0)
 			continue;
@@ -898,7 +898,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			else
 				devnum = find_free_devnum(usepart);
 		}
-		mdfd = open_mddev_devnum(mp ? mp->path : match ? match->devname : NULL,
+		mdfd = create_mddev_devnum(mp ? mp->path : match ? match->devname : NULL,
 					 devnum, name_to_use,
 					 chosen_name, autof>>3);
 

@@ -1209,7 +1209,7 @@ int start_mdmon(int devnum)
 		NULL
 	};
 
-	if (env_no_mdmon())
+	if (check_env("MDADM_NO_MDMON"))
 		return 0;
 
 	len = readlink("/proc/self/exe", pathbuf, sizeof(pathbuf));
@@ -1248,9 +1248,9 @@ int start_mdmon(int devnum)
 	return 0;
 }
 
-int env_no_mdmon(void)
+int check_env(char *name)
 {
-	char *val = getenv("MDADM_NO_MDMON");
+	char *val = getenv(name);
 
 	if (val && atoi(val) == 1)
 		return 1;

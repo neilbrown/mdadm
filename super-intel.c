@@ -213,17 +213,6 @@ struct imsm_update_add_disk {
 	enum imsm_update_type type;
 };
 
-static int imsm_env_devname_as_serial(void)
-{
-	char *val = getenv("IMSM_DEVNAME_AS_SERIAL");
-
-	if (val && atoi(val) == 1)
-		return 1;
-
-	return 0;
-}
-
-
 static struct supertype *match_metadata_desc_imsm(char *arg)
 {
 	struct supertype *st;
@@ -1017,7 +1006,7 @@ static int imsm_read_serial(int fd, char *devname,
 
 	rv = scsi_get_serial(fd, scsi_serial, sizeof(scsi_serial));
 
-	if (rv && imsm_env_devname_as_serial()) {
+	if (rv && check_env("IMSM_DEVNAME_AS_SERIAL")) {
 		memset(serial, 0, MAX_RAID_SERIAL_LEN);
 		fd2devname(fd, (char *) serial);
 		return 0;

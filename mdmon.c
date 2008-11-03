@@ -241,7 +241,7 @@ static void wake_me(int sig)
 static int do_fork(void)
 {
 	#ifdef DEBUG
-	if (env_no_mdmon())
+	if (check_env("MDADM_NO_MDMON"))
 		return 0;
 	#endif
 

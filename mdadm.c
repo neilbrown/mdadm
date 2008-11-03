@@ -124,6 +124,8 @@ int main(int argc, char *argv[])
 	ident.bitmap_fd = -1;
 	ident.bitmap_file = NULL;
 	ident.name[0] = 0;
+	ident.container = NULL;
+	ident.member = NULL;
 
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,

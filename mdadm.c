@@ -1008,17 +1008,12 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": %s not identified in config file.\n",
 					devlist->devname);
 				rv |= 1;
+				close(mdfd);
 			} else {
-				mdfd = create_mddev(devlist->devname,
-						  array_ident->autof ? array_ident->autof : autof);
-				if (mdfd < 0)
-					rv |= 1;
-				else {
-					rv |= Assemble(ss, devlist->devname, mdfd, array_ident,
+				rv |= Assemble(ss, devlist->devname, mdfd, array_ident,
 						       NULL, backup_file,
 						       readonly, runstop, update, homehost, verbose-quiet, force);
-					close(mdfd);
-				}
+				close(mdfd);
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, mdfd, &ident,

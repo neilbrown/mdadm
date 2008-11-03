@@ -254,15 +254,30 @@ int create_mddev(char *dev, int autof)
 				make_parts(dev,parts, ci->symlinks);
 		}
 	}
-	mdfd = open(dev, O_RDWR);
-	if (mdfd < 0)
-		fprintf(stderr, Name ": error opening %s: %s\n",
-			dev, strerror(errno));
-	else if (md_get_version(mdfd) <= 0) {
-		fprintf(stderr, Name ": %s does not appear to be an md device\n",
-			dev);
+	mdfd = open_mddev(dev, 1);
+	return mdfd;
+}
+
+/* Open this and check that it is an md device.
+ * On success, return filedescriptor.
+ * On failure, return -1 if it doesn't exist,
+ * or -2 if it exists but is not an md device.
+ */
+int open_mddev(char *dev, int report_errors)
+{
+	int mdfd = open(dev, O_RDWR);
+	if (mdfd < 0) {
+		if (report_errors)
+			fprintf(stderr, Name ": error opening %s: %s\n",
+				dev, strerror(errno));
+		return -1;
+	}
+	if (md_get_version(mdfd) <= 0) {
 		close(mdfd);
-		mdfd = -1;
+		if (report_errors)
+			fprintf(stderr, Name ": %s does not appear to be "
+				"an md device\n", dev);
+		return -2;
 	}
 	return mdfd;
 }

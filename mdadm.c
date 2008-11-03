@@ -943,8 +943,9 @@ int main(int argc, char *argv[])
 			exit(2);
 		}
 		if (mode == MANAGE || mode == GROW)
-			autof=1; /* Don't create */
-		mdfd = create_mddev(devlist->devname, autof);
+			mdfd = open_mddev(devlist->devname, 1);
+		else
+			mdfd = create_mddev(devlist->devname, autof);
 		if (mdfd < 0)
 			exit(1);
 		if ((int)ident.super_minor == -2) {
@@ -1242,7 +1243,7 @@ int main(int argc, char *argv[])
 									e->dev);
 								continue;
 							}
-							mdfd = create_mddev(name, 1);
+							mdfd = open_mddev(name, 1);
 							if (mdfd >= 0) {
 								if (Manage_runstop(name, mdfd, -1, quiet?1:last?0:-1))
 									err = 1;
@@ -1279,7 +1280,7 @@ int main(int argc, char *argv[])
 				case Waitclean:
 					rv |= WaitClean(dv->devname, verbose-quiet); continue;
 				}
-				mdfd = create_mddev(dv->devname, 1);
+				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {
 					switch(dv->disposition) {
 					case 'R':

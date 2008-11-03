@@ -802,6 +802,7 @@ extern char *get_md_name(int dev);
 extern char DefaultConfFile[];
 
 extern int create_mddev(char *dev, int autof);
+extern int open_mddev(char *dev, int report_errors);
 extern int create_mddev_devnum(char *devname, int devnum, char *name,
 			     char *chosen_name, int parts);
 extern int open_container(int fd);

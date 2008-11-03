@@ -2483,7 +2483,8 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 		 * slot+1
 		 */
 		int i;
-		int insync;
+		/* gcc -Os complains that this is unused */
+		int insync = insync;
 
 		for (i = 0; i < map->num_members; i++) {
 			__u32 ord = get_imsm_ord_tbl_ent(dev, i);

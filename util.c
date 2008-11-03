@@ -1116,13 +1116,34 @@ int devname2devnum(char *name)
 
 int stat2devnum(struct stat *st)
 {
+	char path[30];
+	char link[200];
+	char *cp;
+	int n;
+
 	if ((S_IFMT & st->st_mode) == S_IFBLK) {
 		if (major(st->st_rdev) == MD_MAJOR)
 			return minor(st->st_rdev);
-		else
-			return -1- (minor(st->st_rdev)>>6);
+		else if (major(st->st_rdev) == get_mdp_major())
+			return -1- (minor(st->st_rdev)>>MdpMinorShift);
+
+		/* must be an extended-minor partition. Look at the
+		 * /sys/dev/block/%d:%d link which must look like
+		 * ../../block/mdXXX/mdXXXpYY
+		 */
+		sprintf(path, "/sys/dev/block/%d:%d", major(st->st_rdev),
+			minor(st->st_rdev));
+		n = readlink(path, link, sizeof(link)-1);
+		if (n <= 0)
+			return NoMdDev;
+		link[n] = 0;
+		cp = strrchr(link, '/');
+		if (cp) *cp = 0;
+		cp = strchr(link, '/');
+		if (cp && strncmp(cp, "/md", 3) == 0)
+			return devname2devnum(cp+1);
 	}
-	return -1;
+	return NoMdDev;
 
 }
 
@@ -1131,7 +1152,7 @@ int fd2devnum(int fd)
 	struct stat stb;
 	if (fstat(fd, &stb) == 0)
 		return stat2devnum(&stb);
-	return -1;
+	return NoMdDev;
 }
 
 int mdmon_running(int devnum)

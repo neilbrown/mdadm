@@ -82,48 +82,20 @@ int sysfs_open(int devnum, char *devname, char *attr)
 void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
 {
 	if (fd >= 0) {
-		struct stat stb;
 		mdu_version_t vers;
- 		if (fstat(fd, &stb))
-			return;
 		if (ioctl(fd, RAID_VERSION, &vers) != 0)
 			return;
-		if (major(stb.st_rdev) == MD_MAJOR)
-			sprintf(mdi->sys_name, "md%d", (int)minor(stb.st_rdev));
-		else if (major(stb.st_rdev) == get_mdp_major())
-			sprintf(mdi->sys_name, "md_d%d",
-				(int)minor(stb.st_rdev)>>MdpMinorShift);
-		else {
-			/* must be an extended-minor partition. Look at the
-			 * /sys/dev/block/%d:%d link which must look like
-			 * ../../block/mdXXX/mdXXXpYY
-			 */
-			char path[30];
-			char link[200];
-			char *cp;
-			int n;
-			sprintf(path, "/sys/dev/block/%d:%d", major(stb.st_rdev),
-				minor(stb.st_rdev));
-			n = readlink(path, link, sizeof(link)-1);
-			if (n <= 0)
-				return;
-			link[n] = 0;
-			cp = strrchr(link, '/');
-			if (cp) *cp = 0;
-			cp = strchr(link, '/');
-			if (cp && strncmp(cp, "/md", 3) == 0)
-				strcpy(mdi->sys_name, cp+1);
-			else
-				return;
-		}
-	} else {
-		if (devnum >= 0)
-			sprintf(mdi->sys_name, "md%d", devnum);
-		else
-			sprintf(mdi->sys_name, "md_d%d",
-				-1-devnum);
+		devnum = fd2devnum(fd);
 	}
+	if (devnum == NoMdDev)
+		return;
+	if (devnum >= 0)
+		sprintf(mdi->sys_name, "md%d", devnum);
+	else
+		sprintf(mdi->sys_name, "md_d%d",
+			-1-devnum);
 }
+
 
 struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 {

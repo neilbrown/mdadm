@@ -771,19 +771,6 @@ int IncrementalScan(int verbose)
 	return rv;
 }
 
-static char *container2devname(char *devname)
-{
-	int fd = open(devname, O_RDONLY);
-	char *mdname = NULL;
-
-	if (fd >= 0) {
-		mdname = devnum2devname(fd2devnum(fd));
-		close(fd);
-	}
-
-	return mdname;
-}
-
 int Incremental_container(struct supertype *st, char *devname, int verbose,
 			  int runstop, int autof)
 {
@@ -793,12 +780,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 	struct mdinfo *list = st->ss->container_content(st);
 	struct mdinfo *ra;
-	char *mdname = container2devname(devname);
-
-	if (!mdname) {
-		fprintf(stderr, Name": failed to determine device name\n");
-		return 2;
-	}
 
 	for (ra = list ; ra ; ra = ra->next) {
 		struct mdinfo *dev, *sra;

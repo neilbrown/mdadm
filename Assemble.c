@@ -423,12 +423,13 @@ int Assemble(struct supertype *st, char *mddev,
 			name = info.name;
 		break;
 	case -1:
-		if (info.name[0] == 0 && info.array.level == LEVEL_CONTAINER) {
-			name = info.text_version;
-			trustworthy = METADATA;
-		} else
-			trustworthy = FOREIGN;
+		trustworthy = FOREIGN;
 		break;
+	}
+	if (info.name[0] == 0 &&
+	    info.array.level == LEVEL_CONTAINER) {
+		name = info.text_version;
+		trustworthy = METADATA;
 	}
 	mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
 			    chosen_name);

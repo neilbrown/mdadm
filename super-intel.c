@@ -482,9 +482,7 @@ static __u32 imsm_reserved_sectors(struct intel_super *super, struct dl *dl)
 }
 
 #ifndef MDASSEMBLE
-static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
-
-static void print_imsm_dev(struct imsm_dev *dev, int index)
+static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 {
 	__u64 sz;
 	int slot;
@@ -493,10 +491,11 @@ static void print_imsm_dev(struct imsm_dev *dev, int index)
 
 	printf("\n");
 	printf("[%.16s]:\n", dev->volume);
+	printf("           UUID : %s\n", uuid);
 	printf("     RAID Level : %d\n", get_imsm_raid_level(map));
 	printf("        Members : %d\n", map->num_members);
 	for (slot = 0; slot < map->num_members; slot++)
-		if (index == get_imsm_disk_idx(dev, slot))
+		if (disk_idx== get_imsm_disk_idx(dev, slot))
 			break;
 	if (slot < map->num_members) {
 		ord = get_imsm_ord_tbl_ent(dev, slot);
@@ -556,6 +555,8 @@ static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 	       human_size(sz * 512));
 }
 
+static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
+
 static void examine_super_imsm(struct supertype *st, char *homehost)
 {
 	struct intel_super *super = st->sb;
@@ -595,16 +596,21 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 		printf("   Spare Blocks : %d\n",  __le32_to_cpu(log->reserved_spare_block_count));
 		printf("    First Spare : %llx\n", __le64_to_cpu(log->first_spare_lba));
 	}
-	for (i = 0; i < mpb->num_raid_devs; i++)
-		print_imsm_dev(__get_imsm_dev(mpb, i), super->disks->index);
+	for (i = 0; i < mpb->num_raid_devs; i++) {
+		struct mdinfo info;
+		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
+
+		super->current_vol = i;
+		getinfo_super_imsm(st, &info);
+		fname_from_uuid(st, &info, nbuf, '-');
+		print_imsm_dev(dev, nbuf + 5, super->disks->index);
+	}
 	for (i = 0; i < mpb->num_disks; i++) {
 		if (i == super->disks->index)
 			continue;
 		print_imsm_disk(mpb, i, reserved);
 	}
 }
-
-static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
 
 static void brief_examine_super_imsm(struct supertype *st)
 {
@@ -627,7 +633,8 @@ static void brief_examine_super_imsm(struct supertype *st)
 		super->current_vol = i;
 		getinfo_super_imsm(st, &info);
 		fname_from_uuid(st, &info, nbuf1,'-');
-		printf("ARRAY /dev/md/%.16s container=%s member=%d auto=mdp UUID=%s\n",
+		printf("ARRAY /dev/md/%.16s container=%s\n"
+		       "   member=%d auto=mdp UUID=%s\n",
 		       dev->volume, nbuf + 5, i, nbuf1 + 5);
 	}
 }

@@ -641,7 +641,12 @@ static void brief_examine_super_imsm(struct supertype *st)
 
 static void detail_super_imsm(struct supertype *st, char *homehost)
 {
-	printf("%s\n", __FUNCTION__);
+	struct mdinfo info;
+	char nbuf[64];
+
+	getinfo_super_imsm(st, &info);
+	fname_from_uuid(st, &info, nbuf,'-');
+	printf("\n           UUID : %s\n", nbuf + 5);
 }
 
 static void brief_detail_super_imsm(struct supertype *st)

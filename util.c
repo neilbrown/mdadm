@@ -828,6 +828,20 @@ int open_dev_excl(int devnum)
 	return -1;
 }
 
+int same_dev(char *one, char *two)
+{
+	struct stat st1, st2;
+	if (stat(one, &st1) != 0)
+		return 0;
+	if (stat(two, &st2) != 0)
+		return 0;
+	if ((st1.st_mode & S_IFMT) != S_IFBLK)
+		return 0;
+	if ((st2.st_mode & S_IFMT) != S_IFBLK)
+		return 0;
+	return st1.st_rdev == st2.st_rdev;
+}
+
 struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)

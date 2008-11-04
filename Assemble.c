@@ -50,7 +50,7 @@ static int name_matches(char *found, char *required, char *homehost)
 	return 0;
 }
 
-/*static */ int is_member_busy(char *metadata_version)
+static int is_member_busy(char *metadata_version)
 {
 	/* check if the given member array is active */
 	struct mdstat_ent *mdstat = mdstat_read(1, 0);
@@ -273,6 +273,62 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (dfd >= 0) close(dfd);
 
+		if (tst && tst->sb && tst->ss->container_content
+		    && tst->loaded_container) {
+			/* tmpdev is a container.  We need to be either
+			 * looking for a member, or auto-assembling
+			 */
+			if (st) {
+				/* already found some components, this cannot
+				 * be another one.
+				 */
+				if (report_missmatch)
+					fprintf(stderr, Name ": %s is a container, but we are looking for components\n",
+						devname);
+				goto loop;
+			}
+
+			if (ident->container) {
+				if (ident->container[0] == '/' &&
+				    !same_dev(ident->container, devname)) {
+					if (report_missmatch)
+						fprintf(stderr, Name ": %s is not the container required (%s)\n",
+							devname, ident->container);
+					goto loop;
+				}
+				if (ident->container[0] != '/') {
+					/* we have a uuid */
+					int uuid[4];
+					if (!parse_uuid(ident->container, uuid) ||
+					    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
+						if (report_missmatch)
+							fprintf(stderr, Name ": %s has wrong UUID to be required container\n",
+								devname);
+						goto loop;
+					}
+				}
+			}
+			/* It is worth looking inside this container.
+			 */
+		next_member:
+			if (tmpdev->content)
+				content = tmpdev->content;
+			else
+				content = tst->ss->container_content(tst);
+
+			tmpdev->content = content->next;
+			if (tmpdev->content == NULL)
+				tmpdev->used = 1;
+
+		} else if (ident->container || ident->member) {
+			/* No chance of this matching if we don't have
+			 * a container */
+			if (report_missmatch)
+				fprintf(stderr, Name "%s is not a container, and one is required.\n",
+					devname);
+			goto loop;
+		}
+
 		if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
 		    (!tst || !tst->sb ||
 		     same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0)) {
@@ -332,6 +388,30 @@ int Assemble(struct supertype *st, char *mddev,
 			return 1;
 		}
 
+		if (tst && tst->sb && tst->ss->container_content
+		    && tst->loaded_container) {
+			/* we have the one container we need, don't keep
+			 * looking.  If the chosen member is active, skip.
+			 */
+			if (is_member_busy(content->text_version)) {
+				if (auto_assem)
+					goto loop;
+				fprintf(stderr, Name ": member %s in %s is already assembled\n",
+					content->text_version,
+					devname);
+				tst->ss->free_super(tst);
+				return 1;
+			}
+			st = tst; tst = NULL;
+			if (!auto_assem && tmpdev->next != NULL) {
+				fprintf(stderr, Name ": %s is a container, but is not "
+					"only device given: confused and aborting\n",
+					devname);
+				st->ss->free_super(st);
+				return 1;
+			}
+			break;
+		}
 		if (st == NULL)
 			st = dup_super(tst);
 		if (st->minor_version == -1)
@@ -380,6 +460,8 @@ int Assemble(struct supertype *st, char *mddev,
 		tmpdev->used = 1;
 
 	loop:
+		if (tmpdev->content)
+			goto next_member;
 		if (tst)
 			tst->ss->free_super(tst);
 	}
@@ -458,6 +540,13 @@ int Assemble(struct supertype *st, char *mddev,
 	}
 	ioctl(mdfd, STOP_ARRAY, NULL); /* just incase it was started but has no content */
 
+#ifndef MDASSEMBLE
+	if (content != &info) {
+		/* This is a member of a container.  Try starting the array. */
+		return assemble_container_content(st, mdfd, content, runstop,
+					   chosen_name, verbose);
+	}
+#endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	bitmap_done = 0;
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {

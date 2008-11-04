@@ -261,6 +261,7 @@ mddev_dev_t load_partitions(void)
 		d->devname = strdup(name);
 		d->next = rv;
 		d->used = 0;
+		d->content = NULL;
 		rv = d;
 	}
 	fclose(f);
@@ -290,6 +291,7 @@ mddev_dev_t load_containers(void)
 			}
 			d->next = rv;
 			d->used = 0;
+			d->content = NULL;
 			rv = d;
 		}
 	free_mdstat(mdstat);
@@ -803,6 +805,7 @@ mddev_dev_t conf_get_devs()
 			t->devname = strdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
 			t->used = 0;
+			t->content = NULL;
 			dlist = t;
 /*	printf("one dev is %s\n", t->devname);*/
 		}

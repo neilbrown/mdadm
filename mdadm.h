@@ -278,6 +278,8 @@ typedef struct mddev_dev_s {
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
 	char re_add;
 	char used;		/* set when used */
+	struct mdinfo *content;	/* If devname is a container, this might list
+				 * the remaining member arrays. */
 	struct mddev_dev_s *next;
 } *mddev_dev_t;
 
@@ -758,6 +760,7 @@ extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
 extern int open_dev_excl(int devnum);
 extern int is_standard(char *dev, int *nump);
+extern int same_dev(char *one, char *two);
 
 extern int parse_auto(char *str, char *msg, int config);
 extern mddev_ident_t conf_get_ident(char *dev);

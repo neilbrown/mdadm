@@ -173,9 +173,14 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		if (st && st->sb) {
 			struct mdinfo info;
 			char nbuf[64];
+			struct map_ent *mp, *map = NULL;
 			st->ss->getinfo_super(st, &info);
 			fname_from_uuid(st, &info, nbuf, ':');
 			printf("MD_UUID=%s\n", nbuf+5);
+			mp = map_by_uuid(&map, info.uuid);
+			if (mp && mp->path &&
+			    strncmp(mp->path, "/dev/md/", 8) == 0)
+				printf("MD_DEVNAME=%s\n", mp->path+8);
 
 			if (st->ss->export_detail_super)
 				st->ss->export_detail_super(st);

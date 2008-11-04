@@ -267,6 +267,36 @@ mddev_dev_t load_partitions(void)
 	return rv;
 }
 
+mddev_dev_t load_containers(void)
+{
+	struct mdstat_ent *mdstat = mdstat_read(1, 0);
+	struct mdstat_ent *ent;
+	mddev_dev_t d;
+	mddev_dev_t rv = NULL;
+
+	if (!mdstat)
+		return NULL;
+
+	for (ent = mdstat; ent; ent = ent->next)
+		if (ent->metadata_version &&
+		    strncmp(ent->metadata_version, "external:", 9) == 0 &&
+		    !is_subarray(&ent->metadata_version[9])) {
+			d = malloc(sizeof(*d));
+			if (!d)
+				continue;
+			if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
+				free(d);
+				continue;
+			}
+			d->next = rv;
+			d->used = 0;
+			rv = d;
+		}
+	free_mdstat(mdstat);
+
+	return rv;
+}
+
 struct createinfo createinfo = {
 	.autof = 2, /* by default, create devices with standard names */
 	.symlinks = 1,
@@ -398,7 +428,8 @@ void devline(char *line)
 	struct conf_dev *cd;
 
 	for (w=dl_next(line); w != line; w=dl_next(w)) {
-		if (w[0] == '/' || strcasecmp(w, "partitions") == 0) {
+		if (w[0] == '/' || strcasecmp(w, "partitions") == 0 ||
+		    strcasecmp(w, "containers") == 0) {
 			cd = malloc(sizeof(*cd));
 			cd->name = strdup(w);
 			cd->next = cdevlist;
@@ -726,6 +757,13 @@ mddev_ident_t conf_get_ident(char *dev)
 	return rv;
 }
 
+static void append_dlist(mddev_dev_t *dlp, mddev_dev_t list)
+{
+	while (*dlp)
+		dlp = &(*dlp)->next;
+	*dlp = list;
+}
+
 mddev_dev_t conf_get_devs()
 {
 	glob_t globbuf;
@@ -748,8 +786,10 @@ mddev_dev_t conf_get_devs()
 		dlist = load_partitions();
 
 	for (cd=cdevlist; cd; cd=cd->next) {
-		if (strcasecmp(cd->name, "partitions")==0 && dlist == NULL)
-			dlist = load_partitions();
+		if (strcasecmp(cd->name, "partitions")==0)
+			append_dlist(&dlist, load_partitions());
+		else if (strcasecmp(cd->name, "containers")==0)
+			append_dlist(&dlist, load_containers());
 		else {
 			glob(cd->name, flags, NULL, &globbuf);
 			flags |= GLOB_APPEND;

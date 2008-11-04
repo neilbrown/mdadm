@@ -92,8 +92,8 @@ STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c \
-	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c
-ASSEMBLE_AUTO_SRCS := mdopen.c mdstat.c sysfs.c
+	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c
+ASSEMBLE_AUTO_SRCS := mdopen.c sysfs.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)

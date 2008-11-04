@@ -1216,6 +1216,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		/* Nothing new, don't try to start */ ;
 	else if (runstop > 0 ||
 		 (working + preexist) >= content->array.working_disks) {
+
+		map_update(&map, fd2devnum(mdfd),
+			   content->text_version,
+			   content->uuid, chosen_name);
 		switch(content->array.level) {
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:
@@ -1241,6 +1245,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				fprintf(stderr, " (%d new)", working);
 			fprintf(stderr, "\n");
 		}
+		wait_for(chosen_name);
 		/* FIXME should have an O_EXCL and wait for read-auto */
 	} else
 		if (verbose >= 0)
@@ -1248,9 +1253,6 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				": %s assembled with %d devices but "
 				"not started\n",
 				chosen_name, working);
-	map_update(&map, fd2devnum(mdfd),
-		   content->text_version,
-		   content->uuid, chosen_name);
 
 	return 0;
 }

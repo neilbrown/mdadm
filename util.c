@@ -842,6 +842,18 @@ int same_dev(char *one, char *two)
 	return st1.st_rdev == st2.st_rdev;
 }
 
+void wait_for(char *dev)
+{
+	int i;
+
+	for (i=0 ; i<25 ; i++) {
+		struct stat stb;
+		if (stat(dev, &stb) == 0)
+			return;
+		usleep(200000);
+	}
+}
+
 struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)

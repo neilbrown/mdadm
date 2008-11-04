@@ -784,6 +784,7 @@ int Create(struct supertype *st, char *mddev,
 		fprintf(stderr, Name ": not starting array - not enough devices.\n");
 	}
 	close(mdfd);
+	wait_for(chosen_name);
 	return 0;
 
  abort:

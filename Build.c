@@ -124,6 +124,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 		map_unlock(&map);
 		return 1;
 	}
+	mddev = chosen_name;
 
 	map_update(&map, fd2devnum(mdfd), "none", uuid, chosen_name);
 	map_unlock(&map);
@@ -281,6 +282,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 		fprintf(stderr, Name ": array %s built and started.\n",
 			mddev);
 	close(mdfd);
+	wait_for(mddev);
 	return 0;
 
  abort:

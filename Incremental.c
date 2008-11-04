@@ -390,6 +390,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 				": container %s now has %d devices\n",
 				chosen_name, info.array.working_disks);
+		wait_for(chosen_name);
 		return Incremental(chosen_name, verbose, runstop,
 				   NULL, homehost, autof);
 	}
@@ -461,6 +462,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			   ": %s attached to %s, which has been started.\n",
 					devname, chosen_name);
 			rv = 0;
+			wait_for(chosen_name);
 		} else {
 			fprintf(stderr, Name
                              ": %s attached to %s, but failed to start: %s.\n",

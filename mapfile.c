@@ -245,3 +245,18 @@ struct map_ent *map_by_devnum(struct map_ent **map, int devnum)
 			return mp;
 	return NULL;
 }
+
+struct map_ent *map_by_name(struct map_ent **map, char *name)
+{
+	struct map_ent *mp;
+	if (!*map)
+		map_read(map);
+
+	for (mp = *map ; mp ; mp = mp->next) {
+		if (strncmp(mp->path, "/dev/md/", 8) != 0)
+			continue;
+		if (strcmp(mp->path+8, name) == 0)
+			return mp;
+	}
+	return NULL;
+}

@@ -269,19 +269,33 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		 * reasonable length and remove '/'
 		 */
 		char *cp;
+		struct map_ent *map = NULL;
+		int conflict = 1;
+		int unum = 0;
+		int cnlen;
 		strncpy(cname, name, 200);
 		cname[200] = 0;
 		while ((cp = strchr(cname, '/')) != NULL)
 			*cp = '-';
-		if (trustworthy == METADATA)
-			/* always add device number to metadata */
-			sprintf(cname+strlen(cname), "%d", num);
-		else if (trustworthy == FOREIGN &&
-			 strchr(cname, ':') == NULL)
-			/* add _%d to FOREIGN array that don't have
-			 * a 'host:' prefix
-			 */
-			sprintf(cname+strlen(cname), "_%d", num<0?(-1-num):num);
+		if (trustworthy == LOCAL ||
+		    (trustworthy == FOREIGN && strchr(cname, ':') != NULL)) {
+			/* Only need suffix if there is a conflict */
+			if (map_by_name(&map, cname) == NULL)
+				conflict = 0;
+		}
+		cnlen = strlen(cname);
+		while (conflict) {
+			if (trustworthy == METADATA)
+				sprintf(cname+cnlen, "%d", unum);
+			else
+				/* add _%d to FOREIGN array that don't 
+				 * a 'host:' prefix
+				 */
+				sprintf(cname+cnlen, "_%d", unum);
+			unum++;
+			if (map_by_name(&map, cname) == NULL)
+				conflict = 0;
+		}
 	}
 	if (cname[0] == 0)
 		strcpy(chosen, devname);

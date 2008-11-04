@@ -84,6 +84,10 @@ int map_update(struct map_ent **mpp, int devnum, char *metadata,
 {
 	return 0;
 }
+struct map_ent *map_by_name(struct map_ent **mpp, char *name)
+{
+	return NULL;
+}
 
 int rv;
 int mdfd = -1;

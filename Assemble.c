@@ -167,52 +167,6 @@ int Assemble(struct supertype *st, char *mddev,
 		return 1;
 	}
 
-	/* if the configuration specifies a container then we use that to
-	 * determine the devices and retrieve the array configuration
-	 */
-#ifndef MDASSEMBLE
-	if (ident->container && ident->member) {
-		int cfd = open(ident->container, O_RDWR);
-		struct mdinfo *mdi;
-		struct supertype container;
-
-		if (verbose>0)
-			fprintf(stderr, Name ": looking to assemble member array %s"
-				" inside container %s\n", ident->member, ident->container);
-		if (cfd < 0) {
-			if (verbose>0)
-				fprintf(stderr, Name ": unable to open container %s: %s\n",
-					ident->container, strerror(errno));
-			return 1;
-		}
-
-		mdi = sysfs_read(cfd, fd2devnum(cfd), GET_VERSION);
-		if (!mdi) {
-			close(cfd);
-			if (verbose>0)
-				fprintf(stderr, Name ": unable to read container %s\n",
-					ident->container);
-			return 1;
-		}
-		container.ss = find_metadata_methods(mdi->text_version);
-		sysfs_free(mdi);
-		if (!container.ss) {
-			close(cfd);
-			fprintf(stderr, Name ": %s uses unknown metadata: %s\n",
-				ident->container, mdi->text_version);
-			return 1;
-		}
-		if (container.ss->load_super(&container, cfd, ident->container)) {
-			fprintf(stderr, Name ": Cannot load metadata for container %s\n",
-				ident->container);
-			return 1;
-		}
-
-		return Incremental_container(&container, ident->container,
-					     verbose, runstop, ident->autof,
-					     LOCAL);
-	}
-#endif
 	if (devlist == NULL)
 		devlist = conf_get_devs();
 	else if (mddev)

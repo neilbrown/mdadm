@@ -1299,15 +1299,6 @@ void append_metadata_update(struct supertype *st, void *buf, int len)
 	*st->update_tail = mu;
 	st->update_tail = &mu->next;
 }
-
-struct superswitch *find_metadata_methods(char *vers)
-{
-	if (strcmp(vers, "ddf") == 0)
-		return &super_ddf;
-	if (strcmp(vers, "imsm") == 0)
-		return &super_imsm;
-	return NULL;
-}
 #endif /* MDASSEMBLE */
 
 #ifdef __TINYC__

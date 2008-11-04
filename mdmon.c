@@ -92,6 +92,15 @@ int clone_monitor(struct supertype *container)
 	return mon_tid;
 }
 
+static struct superswitch *find_metadata_methods(char *vers)
+{
+	if (strcmp(vers, "ddf") == 0)
+		return &super_ddf;
+	if (strcmp(vers, "imsm") == 0)
+		return &super_imsm;
+	return NULL;
+}
+
 
 int make_pidfile(char *devname, int o_excl)
 {

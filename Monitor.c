@@ -165,7 +165,10 @@ int Monitor(mddev_dev_t devlist,
 	if (devlist == NULL) {
 		mddev_ident_t mdlist = conf_get_ident(NULL);
 		for (; mdlist; mdlist=mdlist->next) {
-			struct state *st = malloc(sizeof *st);
+			struct state *st;
+			if (mdlist->devname == NULL)
+				continue;
+			st = malloc(sizeof *st);
 			if (st == NULL)
 				continue;
 			st->devname = strdup(mdlist->devname);

@@ -154,7 +154,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		if (array_list->uuid_set &&
 		    same_uuid(array_list->uuid, info.uuid, st->ss->swapuuid)
 		    == 0) {
-			if (verbose >= 2)
+			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
 					": UUID differs from %s.\n",
 					array_list->devname);
@@ -162,7 +162,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		if (array_list->name[0] &&
 		    strcasecmp(array_list->name, info.name) != 0) {
-			if (verbose >= 2)
+			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
 					": Name differs from %s.\n",
 					array_list->devname);
@@ -170,7 +170,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		if (array_list->devices &&
 		    !match_oneof(array_list->devices, devname)) {
-			if (verbose >= 2)
+			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
 					": Not a listed device for %s.\n",
 					array_list->devname);
@@ -178,7 +178,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		if (array_list->super_minor != UnSet &&
 		    array_list->super_minor != info.array.md_minor) {
-			if (verbose >= 2)
+			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
 					": Different super-minor to %s.\n",
 					array_list->devname);
@@ -188,7 +188,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		    !array_list->name[0] &&
 		    !array_list->devices &&
 		    array_list->super_minor == UnSet) {
-			if (verbose  >= 2)
+			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
 			     ": %s doesn't have any identifying information.\n",
 					array_list->devname);
@@ -197,10 +197,15 @@ int Incremental(char *devname, int verbose, int runstop,
 		/* FIXME, should I check raid_disks and level too?? */
 
 		if (match) {
-			if (verbose >= 0)
-				fprintf(stderr, Name
+			if (verbose >= 0) {
+				if (match->devname && array_list->devname)
+					fprintf(stderr, Name
 		   ": we match both %s and %s - cannot decide which to use.\n",
-					match->devname, array_list->devname);
+						match->devname, array_list->devname);
+				else
+					fprintf(stderr, Name
+						": multiple lines in mdadm.conf match\n");
+			}
 			return 2;
 		}
 		match = array_list;
@@ -656,7 +661,8 @@ int IncrementalScan(int verbose)
 		}
 		/* Ok, we can try this one.   Maybe it needs a bitmap */
 		for (mddev = devs ; mddev ; mddev = mddev->next)
-			if (strcmp(mddev->devname, me->path) == 0)
+			if (mddev->devname
+			    && strcmp(mddev->devname, me->path) == 0)
 				break;
 		if (mddev && mddev->bitmap_file) {
 			/*

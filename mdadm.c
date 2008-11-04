@@ -1082,16 +1082,6 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			for (; array_list; array_list = array_list->next) {
-				mdfd = open_mddev(array_list->devname, 0);
-				if (mdfd >= 0) {
-					mdu_array_info_t array;
-					/* skip if already assembled */
-					if (ioctl(mdfd, GET_ARRAY_INFO, &array)>=0) {
-						cnt++;
-						close(mdfd);
-						continue;
-					}
-				}
 				if (array_list->autof == 0)
 					array_list->autof = autof;
 				

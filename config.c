@@ -529,14 +529,12 @@ void arrayline(char *line)
 				w);
 		}
 	}
-	if (mis.devname == NULL)
-		fprintf(stderr, Name ": ARRAY line with no device\n");
-	else if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor == UnSet && mis.name[0] == 0)
+	if (mis.uuid_set == 0 && mis.devices == NULL && mis.super_minor == UnSet && mis.name[0] == 0)
 		fprintf(stderr, Name ": ARRAY line %s has no identity information.\n", mis.devname);
 	else {
 		mi = malloc(sizeof(*mi));
 		*mi = mis;
-		mi->devname = strdup(mis.devname);
+		mi->devname = mis.devname ? strdup(mis.devname) : NULL;
 		mi->next = NULL;
 		*mddevlp = mi;
 		mddevlp = &mi->next;
@@ -721,7 +719,8 @@ mddev_ident_t conf_get_ident(char *dev)
 	mddev_ident_t rv;
 	load_conffile();
 	rv = mddevlist;
-	while (dev && rv && strcmp(dev, rv->devname)!=0)
+	while (dev && rv && (rv->devname == NULL
+			     || strcmp(dev, rv->devname)!=0))
 		rv = rv->next;
 	return rv;
 }

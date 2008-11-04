@@ -970,6 +970,15 @@ static int map_num1(struct num_mapping *map, int num)
 	return map[i].num2;
 }
 
+static int all_ff(char *guid)
+{
+	int i;
+	for (i = 0; i < DDF_GUID_LEN; i++)
+		if (guid[i] != (char)0xff)
+			return 0;
+	return 1;
+}
+
 #ifndef MDASSEMBLE
 static void print_guid(char *guid, int tstamp)
 {
@@ -1128,16 +1137,33 @@ static void examine_super_ddf(struct supertype *st, char *homehost)
 
 static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info);
 
+static void uuid_from_super_ddf(struct supertype *st, int uuid[4]);
 
 static void brief_examine_super_ddf(struct supertype *st)
 {
 	/* We just write a generic DDF ARRAY entry
 	 */
+	struct ddf_super *ddf = st->sb;
 	struct mdinfo info;
+	int i;
 	char nbuf[64];
 	getinfo_super_ddf(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
+
+	for (i=0; i<__be16_to_cpu(ddf->virt->max_vdes); i++) {
+		struct virtual_entry *ve = &ddf->virt->entries[i];
+		struct vcl vcl;
+		char nbuf1[64];
+		if (all_ff(ve->guid))
+			continue;
+		memcpy(vcl.conf.guid, ve->guid, DDF_GUID_LEN);
+		ddf->currentconf =&vcl;
+		uuid_from_super_ddf(st, info.uuid);
+		fname_from_uuid(st, &info, nbuf1, ':');
+		printf("ARRAY container=%s member=%d UUID=%s\n",
+		       nbuf+5, i, nbuf1+5);
+	}
 }
 
 static void detail_super_ddf(struct supertype *st, char *homehost)
@@ -1237,8 +1263,6 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 
 	sha1_init_ctx(&ctx);
 	sha1_process_bytes(guid, DDF_GUID_LEN, &ctx);
-	if (vcl && vcl->conf.sec_elmnt_count > 1)
-		sha1_process_bytes(&vcl->conf.sec_elmnt_seq, 1, &ctx);
 	sha1_finish_ctx(&ctx, buf);
 	memcpy(uuid, buf, 4*4);
 }
@@ -1668,14 +1692,6 @@ static int init_super_ddf(struct supertype *st,
 	return 1;
 }
 
-static int all_ff(char *guid)
-{
-	int i;
-	for (i = 0; i < DDF_GUID_LEN; i++)
-		if (guid[i] != (char)0xff)
-			return 0;
-	return 1;
-}
 static int chunk_to_shift(int chunksize)
 {
 	return ffs(chunksize/512)-1;

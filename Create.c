@@ -313,7 +313,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 
 		if (size && freesize < size) {
-			fprintf(stderr, Name ": %s is smaller that given size."
+			fprintf(stderr, Name ": %s is smaller than given size."
 				" %lluK < %lluK + metadata\n",
 				dname, freesize, size);
 			fail = 1;

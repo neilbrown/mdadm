@@ -180,24 +180,39 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				use_mdp = 0;
 			else
 				use_mdp = 1;
+			/* recreate name: /dev/md/0 or /dev/md/d0 */
+			sprintf(cname, "%s%d", use_mdp?"d":"", num);
 		} else
 			strcpy(cname, dev);
 
-		/* 'cname' must not contain a slash, may not start or end 
-		 * with a digit, and may only be empty if num is present.
+		/* 'cname' must not contain a slash, and may not be
+		 * empty.
 		 */
-		if (strchr(cname, '/') != NULL ||
-		    isdigit(cname[0]) ||
-		    (cname[0] && isdigit(cname[strlen(cname)]))
-			) {
+		if (strchr(cname, '/') != NULL) {
 			fprintf(stderr, Name ": %s is an invalid name "
 				"for an md device.\n", dev);
 			return -1;
 		}
-		if (cname[0] == 0 && num < 0) {
+		if (cname[0] == 0) {
 			fprintf(stderr, Name ": %s is an invalid name "
 				"for an md device (empty!).", dev);
 			return -1;
+		}
+		if (num < 0) {
+			/* If cname  is 'N' or 'dN', we get dev number
+			 * from there.
+			 */
+			char *sp = cname;
+			char *ep;
+			if (cname[0] == 'd')
+				sp++;
+			num = strtoul(sp, &ep, 10);
+			if (ep == sp || *ep || num < 0)
+				num = -1;
+			else if (cname[0] == 'd')
+				use_mdp = 1;
+			else
+				use_mdp = 0;
 		}
 	}
 
@@ -271,8 +286,8 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		strcpy(chosen, devname);
 
 	/* We have a device number and name.
-	 * If we can detect udev, just open the device and we
-	 * are done.
+	 * If we cannot detect udev, we need to make
+	 * devices and links ourselves.
 	 */
 	if (stat("/dev/.udev", &stb) != 0 ||
 	    check_env("MDADM_NO_UDEV")) {

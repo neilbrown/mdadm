@@ -69,7 +69,8 @@ int open_mddev(char *dev, int report_errors/*unused*/)
 	}
 	return mdfd;
 }
-int create_mddev(char *dev, int autof/*unused*/)
+int create_mddev(char *dev, char *name, int autof/*unused*/, int trustworthy,
+		 char *chosen)
 {
 	return open_mddev(dev, 0);
 }

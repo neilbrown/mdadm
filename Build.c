@@ -113,8 +113,8 @@ int Build(char *mddev, int chunk, int level, int layout,
 			break;
 		}
 
-	/* We need to create the device */
-	mdfd = create_mddev(mddev, autof);
+	/* We need to create the device.  It can have no name. */
+	mdfd = create_mddev(mddev, NULL, autof, LOCAL, NULL);
 	if (mdfd < 0)
 		return 1;
 

@@ -142,7 +142,8 @@ int Assemble(struct supertype *st, char *mddev,
 	mdu_array_info_t tmp_inf;
 	char *avail;
 	int nextspare = 0;
-	int uuid_for_name = 0;
+	char *name;
+	int trustworthy;
 
 	memset(&info, 0, sizeof(info));
 
@@ -331,29 +332,6 @@ int Assemble(struct supertype *st, char *mddev,
 		if (auto_assem) {
 			if (tst == NULL || tst->sb == NULL)
 				continue;
-			switch(tst->ss->match_home(tst, homehost))
-			{
-			case 1: /* happy with match. */
-				break;
-			case -1: /* cannot match */
-				uuid_for_name = 1;
-				break;
-			case 0: /* Doesn't match */
-				if (update)
-					/* We are changing the name*/
-					break;
-				if ((inargv && verbose >= 0) || verbose > 0)
-					fprintf(stderr, Name ": %s is not built for "
-						"host %s - using UUID for "
-						"device name.\n",
-						devname, homehost);
-				
-				/* Auto-assemble, and this is not a usable host */
-				/* if update != NULL, we are updating the host
-				 * name... */
-				uuid_for_name = 1;
-				break;
-			}
 		}
 		/* If we are this far, then we are nearly commited to this device.
 		 * If the super_block doesn't exist, or doesn't match others,
@@ -425,36 +403,32 @@ int Assemble(struct supertype *st, char *mddev,
 	if (!st || !st->sb)
 		return 2;
 
-	/* Now need to open array the device.
-	 * We create a name '/dev/md/XXX' based on the info in the
-	 * superblock, and call create_mddev on that
-	 */
+	/* Now need to open array the device.  Use create_mddev */
+	st->ss->getinfo_super(st, &info);
 
-	if (mddev == NULL) {
-		char nbuf[64];
-		char *c;
-		int rc;
-
-		st->ss->getinfo_super(st, &info);
-		if (uuid_for_name)
-			c = fname_from_uuid(st, &info, nbuf, '-');
-		else {
-			c = strchr(info.name, ':');
-			if (c) c++; else c= info.name;
-		}
-		if (isdigit(*c) && ((ident->autof & 7)==4 || (ident->autof&7)==6))
-			/* /dev/md/d0 style for partitionable */
-			rc = asprintf(&mddev, "/dev/md/d%s", c);
+	trustworthy = FOREIGN;
+	switch (st->ss->match_home(st, homehost)) {
+	case 0:
+		trustworthy = FOREIGN;
+		name = info.name;
+		break;
+	case 1:
+		trustworthy = LOCAL;
+		name = strchr(info.name, ':');
+		if (name)
+			name++;
 		else
-			rc = asprintf(&mddev, "/dev/md/%s", c);
-		if (rc < 0) {
-			st->ss->free_super(st);
-			free(devices);
-			mddev = NULL;
-			goto try_again;
-		}
+			name = info.name;
+		break;
+	case -1:
+		if (info.name[0] == 0 && info.array.level == LEVEL_CONTAINER) {
+			name = info.text_version;
+			trustworthy = METADATA;
+		} else
+			trustworthy = FOREIGN;
+		break;
 	}
-	mdfd = create_mddev(mddev, ident->autof);
+	mdfd = create_mddev(mddev, name, ident->autof, trustworthy, NULL);
 	if (mdfd < 0) {
 		st->ss->free_super(st);
 		free(devices);

@@ -421,7 +421,7 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	/* We need to create the device */
-	mdfd = create_mddev(mddev, autof);
+	mdfd = create_mddev(mddev, name, autof, LOCAL, NULL);
 	if (mdfd < 0)
 		return 1;
 
@@ -514,6 +514,7 @@ int Create(struct supertype *st, char *mddev,
 		 *  /dev/md/home -> home
 		 *  /dev/mdhome -> home
 		 */
+		/* FIXME compare this with rules in create_mddev */
 		name = strrchr(mddev, '/');
 		if (name) {
 			name++;

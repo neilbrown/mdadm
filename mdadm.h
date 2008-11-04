@@ -801,7 +801,12 @@ extern char *get_md_name(int dev);
 
 extern char DefaultConfFile[];
 
-extern int create_mddev(char *dev, int autof);
+extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
+			char *chosen);
+/* values for 'trustworthy' */
+#define	LOCAL	1
+#define	FOREIGN	2
+#define	METADATA 3
 extern int open_mddev(char *dev, int report_errors);
 extern int create_mddev_devnum(char *devname, int devnum, char *name,
 			     char *chosen_name, int parts);

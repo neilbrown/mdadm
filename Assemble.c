@@ -50,6 +50,31 @@ static int name_matches(char *found, char *required, char *homehost)
 	return 0;
 }
 
+/*static */ int is_member_busy(char *metadata_version)
+{
+	/* check if the given member array is active */
+	struct mdstat_ent *mdstat = mdstat_read(1, 0);
+	struct mdstat_ent *ent;
+	int busy = 0;
+
+	for (ent = mdstat; ent; ent = ent->next) {
+		if (ent->metadata_version == NULL)
+			continue;
+		if (strncmp(ent->metadata_version, "external:", 9) != 0)
+			continue;
+		if (!is_subarray(&ent->metadata_version[9]))
+			continue;
+		/* Skip first char - it can be '/' or '-' */
+		if (strcmp(&ent->metadata_version[10], metadata_version+1) == 0) {
+			busy = 1;
+			break;
+		}
+	}
+	free_mdstat(mdstat);
+
+	return busy;
+}
+
 int Assemble(struct supertype *st, char *mddev,
 	     mddev_ident_t ident,
 	     mddev_dev_t devlist, char *backup_file,

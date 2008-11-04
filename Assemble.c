@@ -138,7 +138,9 @@ int Assemble(struct supertype *st, char *mddev,
 	 */
 	int mdfd;
 	int clean;
-	int auto_assem = (mddev == NULL);
+	int auto_assem = (mddev == NULL && !ident->uuid_set &&
+			  ident->super_minor == UnSet && ident->name[0] == 0
+			  && ident->container == NULL && ident->member == NULL);
 	int old_linux = 0;
 	int vers = vers; /* Keep gcc quite - it really is initialised */
 	struct {

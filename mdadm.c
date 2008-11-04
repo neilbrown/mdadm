@@ -997,7 +997,7 @@ int main(int argc, char *argv[])
 
 	if (homehost == NULL)
 		homehost = conf_get_homehost();
-	if (homehost && strcmp(homehost, "<system>")==0) {
+	if (homehost == NULL || strcmp(homehost, "<system>")==0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			sys_hostname[sizeof(sys_hostname)-1] = 0;
 			homehost = sys_hostname;

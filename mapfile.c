@@ -161,7 +161,8 @@ int map_update(struct map_ent **mpp, int devnum, char *metadata,
 		}
 	if (!mp)
 		map_add(&map, devnum, metadata, uuid, path);
-	*mpp = NULL;
+	if (mpp)
+		*mpp = NULL;
 	rv = map_write(map);
 	map_free(map);
 	return rv;

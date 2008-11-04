@@ -79,6 +79,7 @@ int Create(struct supertype *st, char *mddev,
 	struct mdinfo info, *infos;
 	int did_default = 0;
 	unsigned long safe_mode_delay = 0;
+	char chosen_name[1024];
 
 	int major_num = BITMAP_MAJOR_HI;
 
@@ -421,7 +422,7 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	/* We need to create the device */
-	mdfd = create_mddev(mddev, name, autof, LOCAL, NULL);
+	mdfd = create_mddev(mddev, name, autof, LOCAL, chosen_name);
 	if (mdfd < 0)
 		return 1;
 
@@ -439,6 +440,7 @@ int Create(struct supertype *st, char *mddev,
 			goto abort;
 		}
 	}
+
 	/* Ok, lets try some ioctls */
 
 	info.array.level = level;
@@ -558,6 +560,9 @@ int Create(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": Defaulting to version"
 				" %s metadata\n", info.text_version);
 	}
+
+	map_update(NULL, fd2devnum(mdfd), info.text_version,
+		   info.uuid, chosen_name);
 
 	if (bitmap_file && vers < 9003) {
 		major_num = BITMAP_MAJOR_HOSTENDIAN;

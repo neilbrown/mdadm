@@ -60,6 +60,8 @@ int Build(char *mddev, int chunk, int level, int layout,
 	unsigned long long size = ~0ULL;
 	unsigned long long bitmapsize;
 	int mdfd;
+	char chosen_name[1024];
+	int uuid[4] = {0,0,0,0};
 
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
@@ -114,9 +116,12 @@ int Build(char *mddev, int chunk, int level, int layout,
 		}
 
 	/* We need to create the device.  It can have no name. */
-	mdfd = create_mddev(mddev, NULL, autof, LOCAL, NULL);
+	mdfd = create_mddev(mddev, NULL, autof, LOCAL,
+			    chosen_name);
 	if (mdfd < 0)
 		return 1;
+
+	map_update(NULL, fd2devnum(mdfd), "none", uuid, chosen_name);
 
 	vers = md_get_version(mdfd);
 

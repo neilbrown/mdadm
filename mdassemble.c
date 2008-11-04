@@ -75,6 +75,11 @@ int create_mddev(char *dev, char *name, int autof/*unused*/, int trustworthy,
 	return open_mddev(dev, 0);
 }
 #endif
+int map_update(struct map_ent **mpp, int devnum, char *metadata,
+	       int *uuid, char *path)
+{
+	return 0;
+}
 
 int rv;
 int mdfd = -1;

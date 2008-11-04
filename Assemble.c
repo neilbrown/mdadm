@@ -144,6 +144,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int nextspare = 0;
 	char *name;
 	int trustworthy;
+	char chosen_name[1024];
 
 	memset(&info, 0, sizeof(info));
 
@@ -429,7 +430,8 @@ int Assemble(struct supertype *st, char *mddev,
 			trustworthy = FOREIGN;
 		break;
 	}
-	mdfd = create_mddev(mddev, name, ident->autof, trustworthy, NULL);
+	mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
+			    chosen_name);
 	if (mdfd < 0) {
 		st->ss->free_super(st);
 		free(devices);
@@ -437,6 +439,7 @@ int Assemble(struct supertype *st, char *mddev,
 			goto try_again;
 		return 1;
 	}
+	mddev = chosen_name;
 	vers = md_get_version(mdfd);
 	if (vers < 9000) {
 		fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
@@ -898,6 +901,12 @@ int Assemble(struct supertype *st, char *mddev,
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
 		int rv;
+
+		/* First, fill in the map, so that udev can find our name
+		 * as soon as we become active.
+		 */
+		map_update(NULL, fd2devnum(mdfd), info.text_version,
+			   info.uuid, chosen_name);
 
 		rv = set_array_info(mdfd, st, &info);
 		if (rv) {

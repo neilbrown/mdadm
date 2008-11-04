@@ -611,6 +611,7 @@ static void brief_examine_super_imsm(struct supertype *st)
 	/* We just write a generic IMSM ARRAY entry */
 	struct mdinfo info;
 	char nbuf[64];
+	char nbuf1[64];
 	struct intel_super *super = st->sb;
 	int i;
 
@@ -619,15 +620,15 @@ static void brief_examine_super_imsm(struct supertype *st)
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf,'-');
-	printf("ARRAY /dev/imsm metadata=imsm auto=md UUID=%s\n", nbuf + 5);
+	printf("ARRAY metadata=imsm auto=md UUID=%s\n", nbuf + 5);
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 
 		super->current_vol = i;
 		getinfo_super_imsm(st, &info);
-		fname_from_uuid(st, &info, nbuf,'-');
-		printf("ARRAY /dev/md/%.16s container=/dev/imsm member=%d auto=mdp UUID=%s\n",
-		       dev->volume, i, nbuf + 5);
+		fname_from_uuid(st, &info, nbuf1,'-');
+		printf("ARRAY /dev/md/%.16s container=%s member=%d auto=mdp UUID=%s\n",
+		       dev->volume, nbuf + 5, i, nbuf1 + 5);
 	}
 }
 

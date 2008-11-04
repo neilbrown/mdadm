@@ -1137,7 +1137,7 @@ static void brief_examine_super_ddf(struct supertype *st)
 	char nbuf[64];
 	getinfo_super_ddf(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
-	printf("ARRAY /dev/ddf metadata=ddf UUID=%s\n", nbuf + 5);
+	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
 }
 
 static void detail_super_ddf(struct supertype *st, char *homehost)

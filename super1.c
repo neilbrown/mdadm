@@ -353,9 +353,11 @@ static void brief_examine_super1(struct supertype *st)
 	else if (sb->set_name[0])
 		nm = sb->set_name;
 	else
-		nm = "??";
+		nm = NULL;
 
-	printf("ARRAY /dev/md/%s level=%s ", nm, c?c:"-unknown-");
+	printf("ARRAY%s%s level=%s ",
+	       nm ? " /dev/md/":"", nm,
+	       c?c:"-unknown-");
 	sb_offset = __le64_to_cpu(sb->super_offset);
 	if (sb_offset <= 4)
 		printf("metadata=1.1 ");

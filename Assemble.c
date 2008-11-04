@@ -1169,6 +1169,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (auto_assem)
 			ioctl(mdfd, STOP_ARRAY, NULL);
+		close(mdfd);
 		return 1;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has

@@ -139,4 +139,5 @@ tests/check
 tests/testdev
 tests/ToTest
 TODO
+udev-md-raid.rules
 util.c

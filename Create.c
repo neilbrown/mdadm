@@ -389,7 +389,8 @@ int Create(struct supertype *st, char *mddev,
 	 * as missing, so that a reconstruct happens (faster than re-parity)
 	 * FIX: Can we do this for raid6 as well?
 	 */
-	if (assume_clean==0 && force == 0 && first_missing >= raiddisks) {
+	if (st->ss->external == 0 &&
+	    assume_clean==0 && force == 0 && first_missing >= raiddisks) {
 		switch ( level ) {
 		case 4:
 		case 5:

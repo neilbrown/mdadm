@@ -180,6 +180,8 @@ do
    rm -f $targetdir/stderr
    # stop all arrays, just incase some script left an array active.
    mdadm -Ssq
+   mdadm --zero $devlist 2> /dev/null
+   mdadm --zero $devlist 2> /dev/null
    # source script in a subshell, so it has access to our
    # namespace, but cannot change it.
    if ( set -ex ; . $script )  2> $targetdir/log

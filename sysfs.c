@@ -81,6 +81,7 @@ int sysfs_open(int devnum, char *devname, char *attr)
 
 void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
 {
+	mdi->sys_name[0] = 0;
 	if (fd >= 0) {
 		mdu_version_t vers;
 		if (ioctl(fd, RAID_VERSION, &vers) != 0)
@@ -118,6 +119,10 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		return sra;
 	memset(sra, 0, sizeof(*sra));
 	sysfs_init(sra, fd, devnum);
+	if (sra->sys_name[0] == 0) {
+		free(sra);
+		return NULL;
+	}
 
 	sprintf(fname, "/sys/block/%s/md/", sra->sys_name);
 	base = fname + strlen(fname);

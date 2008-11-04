@@ -781,9 +781,11 @@ mddev_dev_t conf_get_devs()
 
 	load_conffile();
 
-	if (cdevlist == NULL)
-		/* default to 'partitions */
+	if (cdevlist == NULL) {
+		/* default to 'partitions' and 'containers' */
 		dlist = load_partitions();
+		append_dlist(&dlist, load_containers());
+	}
 
 	for (cd=cdevlist; cd; cd=cd->next) {
 		if (strcasecmp(cd->name, "partitions")==0)

@@ -428,6 +428,7 @@ int Create(struct supertype *st, char *mddev,
 	mdfd = create_mddev(mddev, name, autof, LOCAL, chosen_name);
 	if (mdfd < 0)
 		return 1;
+	mddev = chosen_name;
 
 	vers = md_get_version(mdfd);
 	if (vers < 9000) {

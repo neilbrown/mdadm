@@ -235,10 +235,13 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			use_mdp = 0;
 	}
 	if (num < 0 && trustworthy == LOCAL && name) {
-		/* if name is numeric, us that for num */
+		/* if name is numeric, use that for num
+		 * if it is not already in use */
 		char *ep;
 		num = strtoul(name, &ep, 10);
 		if (ep == name || *ep)
+			num = -1;
+		else if (mddev_busy(use_mdp ? (-1-num) : num))
 			num = -1;
 	}
 

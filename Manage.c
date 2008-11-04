@@ -30,6 +30,7 @@
 #include "mdadm.h"
 #include "md_u.h"
 #include "md_p.h"
+#include <ctype.h>
 
 #define REGISTER_DEV 		_IO (MD_MAJOR, 1)
 #define START_MD     		_IO (MD_MAJOR, 2)
@@ -120,6 +121,52 @@ int Manage_ro(char *devname, int fd, int readonly)
 
 #ifndef MDASSEMBLE
 
+static void remove_devices(int devnum, char *path)
+{
+	/* Remove all 'standard' devices for 'devnum', including
+	 * partitions.  Also remove names at 'path' - possibly with
+	 * partition suffixes - which link to those names.
+	 */
+	char base[40];
+	char *path2;
+	char link[1024];
+	int n;
+	int part;
+	char *be;
+	char *pe;
+
+	if (devnum >= 0)
+		sprintf(base, "/dev/md%d", devnum);
+	else
+		sprintf(base, "/dev/md_d%d", -1-devnum);
+	be = base + strlen(base);
+	if (path) {
+		path2 = malloc(strlen(path)+20);
+		strcpy(path2, path);
+		pe = path2 + strlen(path2);
+	} else
+		path = NULL;
+	
+	for (part = 0; part < 16; part++) {
+		if (part) {
+			sprintf(be, "p%d", part);
+			if (isdigit(pe[-1]))
+				sprintf(pe, "p%d", part);
+			else
+				sprintf(pe, "%d", part);
+		}
+		/* FIXME test if really is md device ?? */
+		unlink(base);
+		if (path) {
+			n = readlink(path2, link, sizeof(link));
+			if (n && strlen(base) == n &&
+			    strncmp(link, base, n) == 0)
+				unlink(path2);
+		}
+	}
+}
+	
+
 int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 {
 	/* Run or stop the array. array must already be configured
@@ -163,9 +210,11 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		struct map_ent *map = NULL;
 		struct stat stb;
 		struct mdinfo *mdi;
+		int devnum;
 		/* If this is an mdmon managed array, just write 'inactive'
 		 * to the array state and let mdmon clear up.
 		 */
+		devnum = fd2devnum(fd);
 		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
 		if (mdi &&
 		    mdi->array.level > 0 &&
@@ -216,14 +265,18 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		if (mdi)
 			sysfs_uevent(mdi, "change");
 
+		
+		if (devnum != NoMdDev &&
+		    (stat("/dev/.udev", &stb) != 0 ||
+		     check_env("MDADM_NO_UDEV"))) {
+			struct map_ent *mp = map_by_devnum(&map, devnum);
+			remove_devices(devnum, mp ? mp->path : NULL);
+		}
+
+
 		if (quiet <= 0)
 			fprintf(stderr, Name ": stopped %s\n", devname);
-		if (fd >= 0 && fstat(fd, &stb) == 0) {
-			int devnum;
-			if (major(stb.st_rdev) == MD_MAJOR)
-				devnum = minor(stb.st_rdev);
-			else
-				devnum = -1-(minor(stb.st_rdev)>>6);
+		if (devnum != NoMdDev) {
 			map_delete(&map, devnum);
 			map_write(map);
 			map_free(map);

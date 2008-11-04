@@ -195,5 +195,16 @@ struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
 		if (memcmp(uuid, mp->uuid, 16) == 0)
 			return mp;
 	return NULL;
+}
 
+struct map_ent *map_by_devnum(struct map_ent **map, int devnum)
+{
+	struct map_ent *mp;
+	if (!*map)
+		map_read(map);
+
+	for (mp = *map ; mp ; mp = mp->next)
+		if (mp->devnum == devnum)
+			return mp;
+	return NULL;
 }

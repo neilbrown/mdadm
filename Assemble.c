@@ -984,6 +984,7 @@ int Assemble(struct supertype *st, char *mddev,
 						info.array.raid_disks);
 				fprintf(stderr, "\n");
 			}
+			sysfs_uevent(&info, "change");
 			close(mdfd);
 			return 0;
 		}

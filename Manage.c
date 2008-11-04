@@ -195,8 +195,6 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			 */
 			ping_monitor(mdi->sys_name);
 		}
-		if (mdi)
-			sysfs_free(mdi);
 
 		if (fd >= 0 && ioctl(fd, STOP_ARRAY, NULL)) {
 			if (quiet == 0) {
@@ -208,8 +206,15 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 						"process, mounted filesystem "
 						"or active volume group?\n");
 			}
+			if (mdi)
+				sysfs_free(mdi);
 			return 1;
 		}
+		/* prior to 2.6.28, KOBJ_CHANGE was not sent when an md array
+		 * was stopped, so We'll do it here just to be sure.
+		 */
+		if (mdi)
+			sysfs_uevent(mdi, "change");
 
 		if (quiet <= 0)
 			fprintf(stderr, Name ": stopped %s\n", devname);

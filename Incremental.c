@@ -376,6 +376,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (info.array.level == LEVEL_CONTAINER) {
 		/* Try to assemble within the container */
 		close(mdfd);
+		sysfs_uevent(&info, "change");
 		if (verbose >= 0)
 			fprintf(stderr, Name
 				": container %s now has %d devices\n",
@@ -625,9 +626,15 @@ void RebuildMap(void)
 			st->ss->free_super(st);
 			break;
 		}
+		sysfs_free(sra);
 	}
 	map_write(map);
 	map_free(map);
+	for (md = mdstat ; md ; md = md->next) {
+		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_VERSION);
+		sysfs_uevent(sra, "change");
+		sysfs_free(sra);
+	}
 }
 
 int IncrementalScan(int verbose)

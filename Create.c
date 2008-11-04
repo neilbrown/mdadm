@@ -735,11 +735,12 @@ int Create(struct supertype *st, char *mddev,
 	free(infos);
 	st->ss->free_super(st);
 
-	/* param is not actually used */
-	if (level == LEVEL_CONTAINER)
-		/* No need to start */
+	if (level == LEVEL_CONTAINER) {
+		/* No need to start.  But we should signal udev to
+		 * create links */
+		sysfs_uevent(&info, "change");
 		;
-	else if (runstop == 1 || subdevs >= raiddisks) {
+	} else if (runstop == 1 || subdevs >= raiddisks) {
 		if (st->ss->external) {
 			switch(level) {
 			case LEVEL_LINEAR:
@@ -756,6 +757,7 @@ int Create(struct supertype *st, char *mddev,
 			}
 			sysfs_set_safemode(&info, safe_mode_delay);
 		} else {
+			/* param is not actually used */
 			mdu_param_t param;
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {
 				fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",

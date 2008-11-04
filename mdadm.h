@@ -356,6 +356,7 @@ extern int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, char *val);
 extern int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 			 char *name, unsigned long long val);
+extern int sysfs_uevent(struct mdinfo *sra, char *event);
 extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
 extern int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms);

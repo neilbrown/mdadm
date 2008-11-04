@@ -405,6 +405,22 @@ int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 	return sysfs_set_str(sra, dev, name, valstr);
 }
 
+int sysfs_uevent(struct mdinfo *sra, char *event)
+{
+	char fname[50];
+	int n;
+	int fd;
+
+	sprintf(fname, "/sys/block/%s/uevent",
+		sra->sys_name);
+	fd = open(fname, O_WRONLY);
+	if (fd < 0)
+		return -1;
+	n = write(fd, event, strlen(event));
+	close(fd);
+	return 0;
+}	
+
 int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 		       char *name, unsigned long long *val)
 {

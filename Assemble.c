@@ -1069,3 +1069,71 @@ int Assemble(struct supertype *st, char *mddev,
 	close(mdfd);
 	return 0;
 }
+
+#ifndef MDASSEMBLE
+int assemble_container_content(struct supertype *st, int mdfd,
+			       struct mdinfo *content, int runstop,
+			       char *chosen_name, int verbose)
+{
+	struct mdinfo *dev, *sra;
+	int working = 0, preexist = 0;
+	struct map_ent *map = NULL;
+
+	sysfs_init(content, mdfd, 0);
+
+	sra = sysfs_read(mdfd, 0, GET_VERSION);
+	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0)
+		if (sysfs_set_array(content, md_get_version(mdfd)) != 0)
+			return 1;
+	if (sra)
+		sysfs_free(sra);
+
+	for (dev = content->devs; dev; dev = dev->next)
+		if (sysfs_add_disk(content, dev) == 0)
+			working++;
+		else if (errno == EEXIST)
+			preexist++;
+	if (working == 0)
+		/* Nothing new, don't try to start */ ;
+	else if (runstop > 0 ||
+		 (working + preexist) >= content->array.working_disks) {
+		switch(content->array.level) {
+		case LEVEL_LINEAR:
+		case LEVEL_MULTIPATH:
+		case 0:
+			sysfs_set_str(content, NULL, "array_state",
+				      "active");
+			break;
+		default:
+			sysfs_set_str(content, NULL, "array_state",
+				      "readonly");
+			/* start mdmon if needed. */
+			if (!mdmon_running(st->container_dev))
+				start_mdmon(st->container_dev);
+			ping_monitor(devnum2devname(st->container_dev));
+			break;
+		}
+		sysfs_set_safemode(content, content->safe_mode_delay);
+		if (verbose >= 0) {
+			fprintf(stderr, Name
+				": Started %s with %d devices",
+				chosen_name, working + preexist);
+			if (preexist)
+				fprintf(stderr, " (%d new)", working);
+			fprintf(stderr, "\n");
+		}
+		/* FIXME should have an O_EXCL and wait for read-auto */
+	} else
+		if (verbose >= 0)
+			fprintf(stderr, Name
+				": %s assembled with %d devices but "
+				"not started\n",
+				chosen_name, working);
+	map_update(&map, fd2devnum(mdfd),
+		   content->text_version,
+		   content->uuid, chosen_name);
+
+	return 0;
+}
+#endif
+

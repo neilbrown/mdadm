@@ -757,12 +757,11 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 	map_lock(&map);
 
 	for (ra = list ; ra ; ra = ra->next) {
-		struct mdinfo *dev, *sra;
 		int mdfd;
 		char chosen_name[1024];
-		int working = 0, preexist = 0;
 		struct map_ent *mp;
 		struct mddev_ident_s *match = NULL;
+		int err;
 
 		mp = map_by_uuid(&map, ra->uuid);
 
@@ -819,61 +818,11 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			return 2;
 		}
 
-
-		sysfs_init(ra, mdfd, 0);
-
-		sra = sysfs_read(mdfd, 0, GET_VERSION);
-		if (sra == NULL || strcmp(sra->text_version, ra->text_version) != 0)
-			if (sysfs_set_array(ra, md_get_version(mdfd)) != 0)
-				return 1;
-		if (sra)
-			sysfs_free(sra);
-
-		for (dev = ra->devs; dev; dev = dev->next)
-			if (sysfs_add_disk(ra, dev) == 0)
-				working++;
-			else if (errno == EEXIST)
-				preexist++;
-		if (working == 0)
-			/* Nothing new, don't try to start */ ;
-		else if (runstop > 0 ||
-			 (working + preexist) >= ra->array.working_disks) {
-			switch(ra->array.level) {
-			case LEVEL_LINEAR:
-			case LEVEL_MULTIPATH:
-			case 0:
-				sysfs_set_str(ra, NULL, "array_state",
-					      "active");
-				break;
-			default:
-				sysfs_set_str(ra, NULL, "array_state",
-					      "readonly");
-				/* start mdmon if needed. */
-				if (!mdmon_running(st->container_dev))
-					start_mdmon(st->container_dev);
-				ping_monitor(devnum2devname(st->container_dev));
-				break;
-			}
-			sysfs_set_safemode(ra, ra->safe_mode_delay);
-			if (verbose >= 0) {
-				fprintf(stderr, Name
-					": Started %s with %d devices",
-					chosen_name, working + preexist);
-				if (preexist)
-					fprintf(stderr, " (%d new)", working);
-				fprintf(stderr, "\n");
-			}
-			/* FIXME should have an O_EXCL and wait for read-auto */
-		} else
-			if (verbose >= 0)
-				fprintf(stderr, Name
-					": %s assembled with %d devices but "
-					"not started\n",
-					chosen_name, working);
-		map_update(&map, fd2devnum(mdfd),
-			   ra->text_version,
-			   ra->uuid, chosen_name);
+		err = assemble_container_content(st, mdfd, ra, runstop,
+						 chosen_name, verbose);
 		close(mdfd);
+		if (err)
+			return err;
 	}
 	map_unlock(&map);
 	return 0;

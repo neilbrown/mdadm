@@ -789,6 +789,9 @@ extern unsigned long long calc_array_size(int level, int raid_disks, int layout,
 				   int chunksize, unsigned long long devsize);
 extern int flush_metadata_updates(struct supertype *st);
 extern void append_metadata_update(struct supertype *st, void *buf, int len);
+extern int assemble_container_content(struct supertype *st, int mdfd,
+				      struct mdinfo *content, int runstop,
+				      char *chosen_name, int verbose);
 
 extern int add_disk(int mdfd, struct supertype *st,
 		    struct mdinfo *sra, struct mdinfo *info);

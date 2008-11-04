@@ -426,6 +426,13 @@ int Assemble(struct supertype *st, char *mddev,
 		trustworthy = FOREIGN;
 		break;
 	}
+	if (!auto_assem && trustworthy == FOREIGN)
+		/* If the array is listed in mdadm or on
+		 * command line, then we trust the name
+		 * even if the array doesn't look local
+		 */
+		trustworthy = LOCAL;
+
 	if (info.name[0] == 0 &&
 	    info.array.level == LEVEL_CONTAINER) {
 		name = info.text_version;

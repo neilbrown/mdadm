@@ -38,8 +38,9 @@ md devices,
 .BR RAID6 ,
 .BR RAID10 ,
 .BR MULTIPATH ,
+.BR FAULTY ,
 and
-.BR FAULTY .
+.BR CONTAINER .
 
 .B MULTIPATH
 is not a Software RAID mechanism, but does involve
@@ -49,6 +50,19 @@ each device is a path to one common physical storage device.
 .B FAULTY
 is also not true RAID, and it only involves one device.  It
 provides a layer over a true device that can be used to inject faults.
+
+B CONTAINER
+is different again.  A CONTAINER is a collection of devices that are
+managed as a set.  This is similar to the set of devices connected to
+a hardware RAID controller.  The set of devices may contain a number
+of different RAID arrays each utilising some (or all) blocks from a
+number of the devices in the set.  For example, two devices in a 5-device set
+might form a RAID1 used the whole devices.  The remaining three might
+have a RAID5 over the first half of each device, and a RAID0 over the
+second half.
+
+With a CONTAINER, there is one set of metadata the describes 
+
 
 .\".I mdadm
 .\"is a program that can be used to create, manage, and monitor

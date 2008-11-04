@@ -32,27 +32,12 @@
 #include <ctype.h>
 
 
-void make_dev_symlink(char *dev)
-{
-	char *new = strdup(dev);
-
-	if (!new) return;
-	/* /dev/md/0 -> /dev/md0
-	 * /dev/md/d0 -> /dev/md_d0
-	 */
-	if (isdigit(new[8]))
-		strcpy(new+7, new+8);
-	else
-		new[7] = '_';
-	if (symlink(dev+5, new))
-		perror(new);
-}
-
-
-void make_parts(char *dev, int cnt, int symlinks)
+void make_parts(char *dev, int cnt)
 {
 	/* make 'cnt' partition devices for 'dev'
-	 * We use the major/minor from dev and add 1..cnt
+	 * If dev is a device name we use the
+	 *  major/minor from dev and add 1..cnt
+	 * If it is a symlink, we make similar symlinks.
 	 * If dev ends with a digit, we add "p%d" else "%d"
 	 * If the name exists, we use it's owner/mode,
 	 * else that of dev
@@ -63,14 +48,24 @@ void make_parts(char *dev, int cnt, int symlinks)
 	int nlen = strlen(dev) + 20;
 	char *name = malloc(nlen);
 	int dig = isdigit(dev[strlen(dev)-1]);
+	char orig[1024];
+	char sym[1024];
+	int odig;
 
 	if (cnt==0) cnt=4;
-	if (stat(dev, &stb)!= 0)
+	if (lstat(dev, &stb)!= 0)
 		return;
-	if (!S_ISBLK(stb.st_mode))
-		return;
-	major_num = major(stb.st_rdev);
-	minor_num = minor(stb.st_rdev);
+	if (S_ISLNK(stb.st_mode)) {
+		int len = readlink(dev, orig, sizeof(orig));
+		if (len < 0 || len > 1000)
+			return;
+		orig[len] = 0;
+		odig = isdigit(orig[len-1]);
+	} else if (S_ISBLK(stb.st_mode)) {
+		major_num = major(stb.st_rdev);
+		minor_num = minor(stb.st_rdev);
+	} else
+		   return;
 	for (i=1; i <= cnt ; i++) {
 		struct stat stb2;
 		snprintf(name, nlen, "%s%s%d", dev, dig?"p":"", i);
@@ -83,14 +78,18 @@ void make_parts(char *dev, int cnt, int symlinks)
 		} else {
 			stb2 = stb;
 		}
-		if (mknod(name, S_IFBLK | 0600, makedev(major_num, minor_num+i)))
-			perror("mknod");
-		if (chown(name, stb2.st_uid, stb2.st_gid))
-			perror("chown");
-		if (chmod(name, stb2.st_mode & 07777))
-			perror("chmod");
-		if (symlinks && strncmp(name, "/dev/md/", 8) == 0)
-			make_dev_symlink(name);
+		if (S_ISBLK(stb.st_mode)) {
+			if (mknod(name, S_IFBLK | 0600,
+				  makedev(major_num, minor_num+i)))
+				perror("mknod");
+			if (chown(name, stb2.st_uid, stb2.st_gid))
+				perror("chown");
+			if (chmod(name, stb2.st_mode & 07777))
+				perror("chmod");
+		} else {
+			snprintf(sym, 10000, "%s%s%d", orig, odig?"p":"", i);
+			symlink(sym, name);
+		}
 		stat(name, &stb2);
 		add_dev(name, &stb2, 0, NULL);
 	}
@@ -300,6 +299,8 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			stat(devname, &stb);
 			add_dev(devname, &stb, 0, NULL);
 		}
+		if (use_mdp == 1)
+			make_parts(devname, parts);
 		if (strcmp(chosen, devname) != 0) {
 
 			if (mkdir("/dev/md",0700)==0) {
@@ -324,6 +325,8 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				}
 			} else
 				symlink(devname, chosen);
+			if (use_mdp && strcmp(chosen, devname) != 0)
+				make_parts(chosen, parts);
 		}
 	}
 	mdfd = open_dev_excl(num);
@@ -430,7 +433,7 @@ int create_mddev_devnum(char *devname, int devnum, char *name,
 		fd = open(chosen_name, O_RDWR|O_EXCL);
 		if (fd >= 0 || errno != EBUSY) {
 			if (devnum < 0)
-				make_parts(chosen_name, parts, ci->symlinks);
+				make_parts(chosen_name, parts);
 			return fd;
 		}
 		usleep(200000);

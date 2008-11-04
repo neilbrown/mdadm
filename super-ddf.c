@@ -1300,6 +1300,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	struct ddf_super *ddf = st->sb;
 	struct vcl *vc = ddf->currentconf;
 	int cd = ddf->currentdev;
+	int j;
 
 	/* FIXME this returns BVD info - what if we want SVD ?? */
 
@@ -1347,7 +1348,11 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 		st->subarray);
 	info->safe_mode_delay = 200;
 
-	info->name[0] = 0;
+	memcpy(info->name, ddf->virt->entries[info->container_member].name, 16);
+	info->name[16]=0;
+	for(j=0; j<16; j++)
+		if (info->name[j] == ' ')
+			info->name[j] = 0;
 }
 
 
@@ -2661,6 +2666,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 	for (vc = ddf->conflist ; vc ; vc=vc->next)
 	{
 		int i;
+		int j;
 		struct mdinfo *this;
 		this = malloc(sizeof(*this));
 		memset(this, 0, sizeof(*this));
@@ -2691,8 +2697,11 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			this->array.state = 1;
 			this->resync_start = ~0ULL;
 		}
-		memcpy(this->name, ddf->virt->entries[i].name, 32);
-		this->name[32]=0;
+		memcpy(this->name, ddf->virt->entries[i].name, 16);
+		this->name[16]=0;
+		for(j=0; j<16; j++)
+			if (this->name[j] == ' ')
+				this->name[j] = 0;
 
 		memset(this->uuid, 0, sizeof(this->uuid));
 		this->component_size = __be64_to_cpu(vc->conf.blocks);

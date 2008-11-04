@@ -158,6 +158,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
+	int report_missmatch;
 	int bitmap_done;
 	int start_partial_ok = (runstop >= 0) && 
 		(force || devlist==NULL || auto_assem);
@@ -197,6 +198,7 @@ int Assemble(struct supertype *st, char *mddev,
 	else if (mddev)
 		inargv = 1;
 
+	report_missmatch = ((inargv && verbose >= 0) || verbose > 0);
  try_again:
 	/* We come back here when doing auto-assembly and attempting some
 	 * set of devices failed.  Those are now marked as ->used==2 and
@@ -235,14 +237,14 @@ int Assemble(struct supertype *st, char *mddev,
 
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
-			if ((inargv && verbose>=0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": %s is not one of %s\n", devname, ident->devices);
 			continue;
 		}
 
 		dfd = dev_open(devname, O_RDONLY|O_EXCL);
 		if (dfd < 0) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": cannot open device %s: %s\n",
 					devname, strerror(errno));
 			tmpdev->used = 2;
@@ -256,12 +258,12 @@ int Assemble(struct supertype *st, char *mddev,
 				devname);
 			tmpdev->used = 2;
 		} else if (!tst && (tst = guess_super(dfd)) == NULL) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": no recogniseable superblock on %s\n",
 					devname);
 			tmpdev->used = 2;
 		} else if (tst->ss->load_super(tst,dfd, NULL)) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf( stderr, Name ": no RAID superblock on %s\n",
 					 devname);
 		} else {
@@ -274,7 +276,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
 		    (!tst || !tst->sb ||
 		     same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0)) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong uuid.\n",
 					devname);
 			goto loop;
@@ -282,7 +284,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
 		    (!tst || !tst->sb ||
 		     name_matches(content->name, ident->name, homehost)==0)) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong name.\n",
 					devname);
 			goto loop;
@@ -290,7 +292,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (ident->super_minor != UnSet &&
 		    (!tst || !tst->sb ||
 		     ident->super_minor != content->array.md_minor)) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong super-minor.\n",
 					devname);
 			goto loop;
@@ -298,7 +300,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (ident->level != UnSet &&
 		    (!tst || !tst->sb ||
 		     ident->level != content->array.level)) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong raid level.\n",
 					devname);
 			goto loop;
@@ -306,7 +308,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (ident->raid_disks != UnSet &&
 		    (!tst || !tst->sb ||
 		     ident->raid_disks!= content->array.raid_disks)) {
-			if ((inargv && verbose >= 0) || verbose > 0)
+			if (report_missmatch)
 				fprintf(stderr, Name ": %s requires wrong number of drives.\n",
 					devname);
 			goto loop;
@@ -351,13 +353,13 @@ int Assemble(struct supertype *st, char *mddev,
 				    (first == 1 || last == 1)) {
 					/* We can do something */
 					if (first) {/* just ignore this one */
-						if ((inargv && verbose >= 0) || verbose > 0)
+						if (report_missmatch)
 							fprintf(stderr, Name ": %s misses out due to wrong homehost\n",
 								devname);
 						goto loop;
 					} else { /* reject all those sofar */
 						mddev_dev_t td;
-						if ((inargv && verbose >= 0) || verbose > 0)
+						if (report_missmatch)
 							fprintf(stderr, Name ": %s overrides previous devices due to good homehost\n",
 								devname);
 						for (td=devlist; td != tmpdev; td=td->next)

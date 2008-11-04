@@ -57,7 +57,9 @@ int map_write(struct map_ent *mel)
 	}
 	if (!f)
 		return 0;
-	while (mel) {
+	for (; mel; mel = mel->next) {
+		if (mel->bad)
+			continue;
 		if (mel->devnum < 0)
 			fprintf(f, "mdp%d ", -1-mel->devnum);
 		else
@@ -66,7 +68,6 @@ int map_write(struct map_ent *mel)
 		fprintf(f, "%08x:%08x:%08x:%08x ", mel->uuid[0],
 			mel->uuid[1], mel->uuid[2], mel->uuid[3]);
 		fprintf(f, "%s\n", mel->path);
-		mel = mel->next;
 	}
 	fflush(f);
 	err = ferror(f);
@@ -133,6 +134,7 @@ void map_add(struct map_ent **melp,
 	memcpy(me->uuid, uuid, 16);
 	me->path = strdup(path);
 	me->next = *melp;
+	me->bad = 0;
 	*melp = me;
 }
 
@@ -228,9 +230,15 @@ struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
 	if (!*map)
 		map_read(map);
 
-	for (mp = *map ; mp ; mp = mp->next)
-		if (memcmp(uuid, mp->uuid, 16) == 0)
-			return mp;
+	for (mp = *map ; mp ; mp = mp->next) {
+		if (memcmp(uuid, mp->uuid, 16) != 0)
+			continue;
+		if (!mddev_busy(mp->devnum)) {
+			mp->bad = 1;
+			continue;
+		}
+		return mp;
+	}
 	return NULL;
 }
 
@@ -240,9 +248,15 @@ struct map_ent *map_by_devnum(struct map_ent **map, int devnum)
 	if (!*map)
 		map_read(map);
 
-	for (mp = *map ; mp ; mp = mp->next)
-		if (mp->devnum == devnum)
-			return mp;
+	for (mp = *map ; mp ; mp = mp->next) {
+		if (mp->devnum != devnum)
+			continue;
+		if (!mddev_busy(mp->devnum)) {
+			mp->bad = 1;
+			continue;
+		}
+		return mp;
+	}
 	return NULL;
 }
 
@@ -255,8 +269,13 @@ struct map_ent *map_by_name(struct map_ent **map, char *name)
 	for (mp = *map ; mp ; mp = mp->next) {
 		if (strncmp(mp->path, "/dev/md/", 8) != 0)
 			continue;
-		if (strcmp(mp->path+8, name) == 0)
-			return mp;
+		if (strcmp(mp->path+8, name) != 0)
+			continue;
+		if (!mddev_busy(mp->devnum)) {
+			mp->bad = 1;
+			continue;
+		}
+		return mp;
 	}
 	return NULL;
 }

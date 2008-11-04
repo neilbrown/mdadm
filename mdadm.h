@@ -315,6 +315,7 @@ struct map_ent {
 	int	devnum;
 	char	metadata[20];
 	int	uuid[4];
+	int	bad;
 	char	*path;
 };
 extern int map_update(struct map_ent **mpp, int devnum, char *metadata,

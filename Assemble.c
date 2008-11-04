@@ -209,7 +209,8 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 
 		return Incremental_container(&container, ident->container,
-					     verbose, runstop, ident->autof);
+					     verbose, runstop, ident->autof,
+					     LOCAL);
 	}
 #endif
 	if (devlist == NULL)

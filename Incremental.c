@@ -48,7 +48,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * 2/ Find metadata, reject if none appropriate (check
 	 *       version/name from args)
 	 * 3/ Check if there is a match in mdadm.conf
-	 * 3a/ if not, check for homehost match.  If no match, reject.
+	 * 3a/ if not, check for homehost match.  If no match, assemble as
+	 *    a 'foreign' array.
 	 * 4/ Determine device number.
 	 * - If in mdadm.conf with std name, use that
 	 * - UUID in /var/run/mdadm.map  use that
@@ -85,9 +86,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	int dfd, mdfd;
 	char *avail;
 	int active_disks;
-	int uuid_for_name = 0;
+	int trustworthy = FOREIGN;
 	char *name_to_use;
-	char nbuf[64];
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -143,14 +143,6 @@ int Incremental(char *devname, int verbose, int runstop,
 		return 1;
 	}
 	close (dfd);
-
-	if (st->ss->container_content && st->loaded_container) {
-		/* This is a pre-built container array, so we do something
-		 * rather different.
-		 */
-		return Incremental_container(st, devname, verbose, runstop,
-					     autof);
-	}
 
 	memset(&info, 0, sizeof(info));
 	st->ss->getinfo_super(st, &info);
@@ -218,28 +210,15 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * but don't trust the 'name' in the array. Thus a 'random' minor
 	 * number will be assigned, and the device name will be based
 	 * on that. */
-	if (!match) {
-		if (homehost == NULL ||
-		       st->ss->match_home(st, homehost) != 1)
-			uuid_for_name = 1;
-	}
-	/* 4/ Determine device number. */
-	/* - If in mdadm.conf with std name, get number from name. */
-	/* - UUID in /var/run/mdadm.map  get number from mapping */
-	/* - If name is suggestive, use that. unless in use with */
-	/*           different uuid. */
-	/* - Choose a free, high number. */
-	/* - Use a partitioned device unless strong suggestion not to. */
-	/*         e.g. auto=md */
-	mp = map_by_uuid(&map, info.uuid);
-
-	if (uuid_for_name && ! mp) {
-		name_to_use = fname_from_uuid(st, &info, nbuf, '-');
-		if (verbose >= 0)
-			fprintf(stderr, Name
-		": not found in mdadm.conf and not identified by homehost"
-				" - using uuid based name\n");
-	} else
+	if (match)
+		trustworthy = LOCAL;
+	else if (homehost == NULL ||
+		 st->ss->match_home(st, homehost) != 1)
+		trustworthy = FOREIGN;
+	name_to_use = strchr(info.name, ':');
+	if (name_to_use)
+		name_to_use++;
+	else
 		name_to_use = info.name;
 
 	/* There are three possible sources for 'autof':  command line,
@@ -252,84 +231,34 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (autof == 0)
 		autof = ci->autof;
 
-	if (match && (rv = is_standard(match->devname, &devnum))) {
-		devnum = (rv > 0) ? (-1-devnum) : devnum;
-	} else if (mp != NULL)
-		devnum = mp->devnum;
-	else {
-		/* Have to guess a bit. */
-		int use_partitions = 1;
-		char *np, *ep;
-		char *nm, nbuf[1024];
-		struct stat stb2;
-
-		if ((autof&7) == 3 || (autof&7) == 5)
-			use_partitions = 0;
-		if (st->ss->external)
-			use_partitions = 0;
-		np = strchr(name_to_use, ':');
-		if (np)
-			np++;
-		else
-			np = name_to_use;
-		devnum = strtoul(np, &ep, 10);
-		if (ep > np && *ep == 0) {
-			/* This is a number.  Let check that it is unused. */
-			if (mddev_busy(use_partitions ? (-1-devnum) : devnum))
-				devnum = -1;
-		} else
-			devnum = -1;
-
-		if (match)
-			nm = match->devname;
-		else {
-			sprintf(nbuf, "/dev/md/%s", np);
-			nm = nbuf;
-		}
-		if (stat(nm, &stb2) == 0 &&
-		    S_ISBLK(stb2.st_mode) &&
-		    major(stb2.st_rdev) == (use_partitions ?
-					    get_mdp_major() : MD_MAJOR)) {
-			if (use_partitions)
-				devnum = minor(stb2.st_rdev) >> MdpMinorShift;
-			else
-				devnum = minor(stb2.st_rdev);
-			if (mddev_busy(use_partitions ? (-1-devnum) : devnum))
-				devnum = -1;
-		}
-
-		if (devnum < 0) {
-			/* Haven't found anything yet, choose something free */
-			devnum = find_free_devnum(use_partitions);
-
-			if (devnum == NoMdDev) {
-				fprintf(stderr, Name
-					": No spare md devices!!\n");
-				return 2;
-			}
-		} else
-			devnum = use_partitions ? (-1-devnum) : devnum;
+	if (st->ss->container_content && st->loaded_container) {
+		/* This is a pre-built container array, so we do something
+		 * rather different.
+		 */
+		return Incremental_container(st, devname, verbose, runstop,
+					     autof, trustworthy);
 	}
+	/* 4/ Check is array exists.
+	 */
+	mp = map_by_uuid(&map, info.uuid);
+	if (mp)
+		mdfd = open_mddev(mp->path, 0);
+	else
+		mdfd = -1;
 
-	mdfd = create_mddev_devnum(match ? match->devname : mp ? mp->path : NULL,
-				 devnum,
-				 name_to_use,
-				 chosen_name, autof >> 3);
 	if (mdfd < 0) {
-		fprintf(stderr, Name ": failed to open %s: %s.\n",
-			chosen_name, strerror(errno));
-		return 2;
-	}
-	sysfs_init(&info, mdfd, 0);
-
-	/* 5/ Find out if array already exists */
-	if (! mddev_busy(devnum)) {
-	/* 5a/ if it does not */
-	/* - choose a name, from mdadm.conf or 'name' field in array. */
-	/* - create the array */
-	/* - add the device */
 		struct mdinfo *sra;
 		struct mdinfo dinfo;
+
+		/* Couldn't find an existing array, maybe make a new one */
+		mdfd = create_mddev(mp ? mp->path : match ? match->devname : NULL,
+				    info.name, autof, trustworthy, chosen_name);
+
+
+		if (mdfd < 0)
+			return 1;
+
+		sysfs_init(&info, mdfd, 0);
 
 		if (set_array_info(mdfd, st, &info) != 0) {
 			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
@@ -375,6 +304,9 @@ int Incremental(char *devname, int verbose, int runstop,
 		struct mdinfo *sra;
 		struct supertype *st2;
 		struct mdinfo info2, *d;
+
+		strcpy(chosen_name, mp->path);
+
 		sra = sysfs_read(mdfd, devnum, (GET_DEVS | GET_STATE));
 
 		sprintf(dn, "%d:%d", sra->devs->disk.major,
@@ -430,7 +362,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			
 	}
 	/* 6/ Make sure /var/run/mdadm.map contains this array. */
-	map_update(&map, devnum,
+	map_update(&map, fd2devnum(mdfd),
 		   info.text_version,
 		   info.uuid, chosen_name);
 
@@ -502,7 +434,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		sra = sysfs_read(mdfd, devnum, 0);
 		if ((sra == NULL || active_disks >= info.array.working_disks)
-		    && uuid_for_name == 0)
+		    && trustworthy != FOREIGN)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
 		else
 			rv = sysfs_set_str(sra, NULL,
@@ -710,12 +642,11 @@ int IncrementalScan(int verbose)
 	devs = conf_get_ident(NULL);
 
 	for (me = mapl ; me ; me = me->next) {
-		char path[1024];
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = create_mddev_devnum(me->path, me->devnum,
-					     NULL, path, 0);
+		int mdfd = open_mddev(me->path, 0);
+
 		if (mdfd < 0)
 			continue;
 		if (ioctl(mdfd, GET_ARRAY_INFO, &array) == 0 ||
@@ -772,7 +703,7 @@ int IncrementalScan(int verbose)
 }
 
 int Incremental_container(struct supertype *st, char *devname, int verbose,
-			  int runstop, int autof)
+			  int runstop, int autof, int trustworthy)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
@@ -783,29 +714,14 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 	for (ra = list ; ra ; ra = ra->next) {
 		struct mdinfo *dev, *sra;
-		int devnum = -1;
 		int mdfd;
 		char chosen_name[1024];
-		int usepart = 1;
-		char *n;
 		int working = 0, preexist = 0;
 		struct map_ent *mp, *map = NULL;
-		char nbuf[64];
-		char *name_to_use;
 		struct mddev_ident_s *match = NULL;
-
-		if ((autof&7) == 3 || (autof&7) == 5)
-			usepart = 0;
 
 		mp = map_by_uuid(&map, ra->uuid);
 
-		name_to_use = ra->name;
-		if (! name_to_use ||
-		    ! *name_to_use ||
-		    (*devname != '/' || strncmp("UUID-", strrchr(devname,'/')+1,5) == 0)
-			)
-			name_to_use = fname_from_uuid(st, ra, nbuf, '-');
-		    
 		if (!mp) {
 
 			/* Check in mdadm.conf for devices == devname and
@@ -850,57 +766,11 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			}
 		}
 
-		if (match && is_standard(match->devname, &devnum))
-			/* we have devnum now */;
-		else if (mp)
-			devnum = mp->devnum;
-		else if (is_standard(name_to_use, &devnum))
-			/* have devnum */;
-		else {
-			n = name_to_use;
-			if (*n == 'd')
-				n++;
-			if (*n && devnum < 0) {
-				devnum = strtoul(n, &n, 10);
-				if (devnum >= 0 && (*n == 0 || *n == ' ')) {
-					/* Use this devnum */
-					usepart = (name_to_use[0] == 'd');
-					if (mddev_busy(usepart ? (-1-devnum) : devnum))
-						devnum = -1;
-				} else
-					devnum = -1;
-			}
-
-			if (devnum < 0) {
-				char *nm = name_to_use;
-				char nbuf[1024];
-				struct stat stb;
-				if (strchr(nm, ':'))
-					nm = strchr(nm, ':')+1;
-				sprintf(nbuf, "/dev/md/%s", nm);
-
-				if (stat(nbuf, &stb) == 0 &&
-				    S_ISBLK(stb.st_mode) &&
-				    major(stb.st_rdev) == (usepart ?
-							   get_mdp_major() : MD_MAJOR)){
-					if (usepart)
-						devnum = minor(stb.st_rdev)
-							>> MdpMinorShift;
-					else
-						devnum = minor(stb.st_rdev);
-					if (mddev_busy(usepart ? (-1-devnum) : devnum))
-						devnum = -1;
-				}
-			}
-
-			if (devnum >= 0)
-				devnum = usepart ? (-1-devnum) : devnum;
-			else
-				devnum = find_free_devnum(usepart);
-		}
-		mdfd = create_mddev_devnum(mp ? mp->path : match ? match->devname : NULL,
-					 devnum, name_to_use,
-					 chosen_name, autof>>3);
+		mdfd = create_mddev(match ? match->devname : NULL,
+				    ra->name,
+				    autof,
+				    trustworthy,
+				    chosen_name);
 
 		if (mdfd < 0) {
 			fprintf(stderr, Name ": failed to open %s: %s.\n",
@@ -959,10 +829,10 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 					": %s assembled with %d devices but "
 					"not started\n",
 					chosen_name, working);
-		close(mdfd);
-		map_update(&map, devnum,
+		map_update(&map, fd2devnum(mdfd),
 			   ra->text_version,
 			   ra->uuid, chosen_name);
+		close(mdfd);
 	}
 	return 0;
 }

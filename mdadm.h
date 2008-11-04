@@ -728,7 +728,8 @@ extern int WaitClean(char *dev, int verbose);
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int autof);
 extern int Incremental_container(struct supertype *st, char *devname,
-				 int verbose, int runstop, int autof);
+				 int verbose, int runstop, int autof,
+				 int trustworthy);
 extern void RebuildMap(void);
 extern int IncrementalScan(int verbose);
 
@@ -808,8 +809,6 @@ extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
 #define	FOREIGN	2
 #define	METADATA 3
 extern int open_mddev(char *dev, int report_errors);
-extern int create_mddev_devnum(char *devname, int devnum, char *name,
-			     char *chosen_name, int parts);
 extern int open_container(int fd);
 
 extern int mdmon_running(int devnum);

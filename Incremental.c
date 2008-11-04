@@ -708,6 +708,31 @@ int IncrementalScan(int verbose)
 	return rv;
 }
 
+static char *container2devname(char *devname)
+{
+	char *mdname = NULL;
+
+	if (devname[0] == '/') {
+		int fd = open(devname, O_RDONLY);
+		if (fd >= 0) {
+			mdname = devnum2devname(fd2devnum(fd));
+			close(fd);
+		}
+	} else {
+		int uuid[4];
+		struct map_ent *mp, *map = NULL;
+					
+		if (!parse_uuid(devname, uuid))
+			return mdname;
+		mp = map_by_uuid(&map, uuid);
+		if (mp)
+			mdname = devnum2devname(mp->devnum);
+		map_free(map);
+	}
+
+	return mdname;
+}
+
 int Incremental_container(struct supertype *st, char *devname, int verbose,
 			  int runstop, int autof, int trustworthy)
 {
@@ -741,7 +766,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			} else
 				array_list = NULL;
 			for(; array_list ; array_list = array_list->next) {
-				int fd;
 				char *dn;
 				if (array_list->member == NULL ||
 				    array_list->container == NULL)
@@ -751,11 +775,9 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 				if (array_list->uuid_set &&
 				    !same_uuid(ra->uuid, array_list->uuid, st->ss->swapuuid))
 					continue;
-				fd = open(array_list->container, O_RDONLY);
-				if (fd < 0)
+				dn = container2devname(array_list->container);
+				if (dn == NULL)
 					continue;
-				dn = devnum2devname(fd2devnum(fd));
-				close(fd);
 				if (strncmp(dn, ra->text_version+1,
 					    strlen(dn)) != 0 ||
 				    ra->text_version[strlen(dn)+1] != '/') {

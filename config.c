@@ -522,7 +522,8 @@ void arrayline(char *line)
 			/* subarray within a container */
 			mis.member = strdup(w+7);
 		} else if (strncasecmp(w, "container=", 10) == 0) {
-			/* the container holding this subarray */
+			/* the container holding this subarray.  Either a device name
+			 * or a uuid */
 			mis.container = strdup(w+10);
 		} else {
 			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",

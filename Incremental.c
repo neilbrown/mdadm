@@ -247,9 +247,16 @@ int Incremental(char *devname, int verbose, int runstop,
 	 */
 	map_lock(&map);
 	mp = map_by_uuid(&map, info.uuid);
-	if (mp)
+	if (mp) {
 		mdfd = open_mddev(mp->path, 0);
-	else
+		if (mdfd < 0 && mddev_busy(mp->devnum)) {
+			/* maybe udev hasn't created it yet. */
+			char buf[50];
+			sprintf(buf, "%d:%d", dev2major(mp->devnum),
+				dev2minor(mp->devnum));
+			mdfd = dev_open(buf, O_RDWR);
+		}
+	} else
 		mdfd = -1;
 
 	if (mdfd < 0) {
@@ -257,7 +264,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		struct mdinfo dinfo;
 
 		/* Couldn't find an existing array, maybe make a new one */
-		mdfd = create_mddev(mp ? mp->path : match ? match->devname : NULL,
+		mdfd = create_mddev(match ? match->devname : NULL,
 				    info.name, autof, trustworthy, chosen_name);
 
 

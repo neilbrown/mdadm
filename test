@@ -78,6 +78,9 @@ fi
 mdadm() {
     rm -f $targetdir/stderr
     case $* in
+       *-S* ) udevsettle;;
+    esac
+    case $* in
        *-C* ) $mdadm 2> $targetdir/stderr --quiet "$@" --auto=yes;;
         * )   $mdadm 2> $targetdir/stderr --quiet "$@"
     esac

@@ -1657,6 +1657,8 @@ static int init_super_ddf(struct supertype *st,
 	memcpy(ddf->controller.product_id, "What Is My PID??", 16);
 	memset(ddf->controller.pad, 0xff, 8);
 	memset(ddf->controller.vendor_data, 0xff, 448);
+	if (homehost && strlen(homehost) < 440)
+		strcpy((char*)ddf->controller.vendor_data, homehost);
 
 	if (posix_memalign((void**)&pd, 512, pdsize) != 0) {
 		fprintf(stderr, Name ": %s could not allocate pd\n", __func__);

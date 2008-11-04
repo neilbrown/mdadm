@@ -260,8 +260,11 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			return 1;
 		}
 		/* prior to 2.6.28, KOBJ_CHANGE was not sent when an md array
-		 * was stopped, so We'll do it here just to be sure.
+		 * was stopped, so We'll do it here just to be sure.  Drop any
+		 * partitions as well...
 		 */
+		if (fd >= 0)
+			ioctl(fd, BLKRRPART, 0);
 		if (mdi)
 			sysfs_uevent(mdi, "change");
 

@@ -184,6 +184,12 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 
 			if (st->ss->export_detail_super)
 				st->ss->export_detail_super(st);
+		} else {
+			struct map_ent *mp, *map = NULL;
+			mp = map_by_devnum(&map, fd2devnum(fd));
+			if (mp && mp->path &&
+			    strncmp(mp->path, "/dev/md/", 8) == 0)
+				printf("MD_DEVNAME=%s\n", mp->path+8);
 		}
 		goto out;
 	}

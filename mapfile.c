@@ -86,6 +86,43 @@ int map_write(struct map_ent *mel)
 			      "/var/run/mdadm.map") == 0;
 }
 
+
+static int lfd = -1;
+static int lsubdir = 0;
+int map_lock(struct map_ent **melp)
+{
+	if (lfd < 0) {
+		lfd = open("/var/run/mdadm/map.lock", O_CREAT|O_RDWR, 0600);
+		if (lfd < 0) {
+			lfd = open("/var/run/mdadm.map.lock", O_CREAT|O_RDWR, 0600);
+			lsubdir = 0;
+		} else
+			lsubdir = 1;
+		if (lfd < 0)
+			return -1;
+		if (lockf(lfd, F_LOCK, 0) != 0) {
+			close(lfd);
+			lfd = -1;
+			return -1;
+		}
+	}
+	if (*melp)
+		map_free(*melp);
+	map_read(melp);
+	return 0;
+}
+
+void map_unlock(struct map_ent **melp)
+{
+	if (lfd >= 0)
+		close(lfd);
+	if (lsubdir)
+		unlink("/var/run/mdadm/map.lock");
+	else
+		unlink("/var/run/mdadm.map.lock");
+	lfd = -1;
+}
+
 void map_add(struct map_ent **melp,
 	    int devnum, char *metadata, int uuid[4], char *path)
 {

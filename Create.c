@@ -80,6 +80,7 @@ int Create(struct supertype *st, char *mddev,
 	int did_default = 0;
 	unsigned long safe_mode_delay = 0;
 	char chosen_name[1024];
+	struct map_ent *map = NULL;
 
 	int major_num = BITMAP_MAJOR_HI;
 
@@ -422,6 +423,7 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	/* We need to create the device */
+	map_lock(&map);
 	mdfd = create_mddev(mddev, name, autof, LOCAL, chosen_name);
 	if (mdfd < 0)
 		return 1;
@@ -561,8 +563,9 @@ int Create(struct supertype *st, char *mddev,
 				" %s metadata\n", info.text_version);
 	}
 
-	map_update(NULL, fd2devnum(mdfd), info.text_version,
+	map_update(&map, fd2devnum(mdfd), info.text_version,
 		   info.uuid, chosen_name);
+	map_unlock(&map);
 
 	if (bitmap_file && vers < 9003) {
 		major_num = BITMAP_MAJOR_HOSTENDIAN;

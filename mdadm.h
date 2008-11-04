@@ -325,6 +325,8 @@ extern void map_delete(struct map_ent **mapp, int devnum);
 extern void map_free(struct map_ent *map);
 extern void map_add(struct map_ent **melp,
 		    int devnum, char *metadata, int uuid[4], char *path);
+extern int map_lock(struct map_ent **melp);
+extern void map_unlock(struct map_ent **melp);
 
 /* various details can be requested */
 #define	GET_LEVEL	1

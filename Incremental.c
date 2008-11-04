@@ -88,6 +88,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	int active_disks;
 	int trustworthy = FOREIGN;
 	char *name_to_use;
+	mdu_array_info_t ainf;
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -243,8 +244,9 @@ int Incremental(char *devname, int verbose, int runstop,
 		return Incremental_container(st, devname, verbose, runstop,
 					     autof, trustworthy);
 	}
-	/* 4/ Check is array exists.
+	/* 4/ Check if array exists.
 	 */
+	map_lock(&map);
 	mp = map_by_uuid(&map, info.uuid);
 	if (mp)
 		mdfd = open_mddev(mp->path, 0);
@@ -298,6 +300,10 @@ int Incremental(char *devname, int verbose, int runstop,
 		}
 		info.array.working_disks = 1;
 		sysfs_free(sra);
+		/* 6/ Make sure /var/run/mdadm.map contains this array. */
+		map_update(&map, fd2devnum(mdfd),
+			   info.text_version,
+			   info.uuid, chosen_name);
 	} else {
 	/* 5b/ if it does */
 	/* - check one drive in array to make sure metadata is a reasonably */
@@ -366,16 +372,13 @@ int Incremental(char *devname, int verbose, int runstop,
 			info.array.working_disks ++;
 			
 	}
-	/* 6/ Make sure /var/run/mdadm.map contains this array. */
-	map_update(&map, fd2devnum(mdfd),
-		   info.text_version,
-		   info.uuid, chosen_name);
 
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
 	if (info.array.level == LEVEL_CONTAINER) {
 		/* Try to assemble within the container */
 		close(mdfd);
+		map_unlock(&map);
 		sysfs_uevent(&info, "change");
 		if (verbose >= 0)
 			fprintf(stderr, Name
@@ -394,6 +397,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 			     ": %s attached to %s, not enough to start (%d).\n",
 				devname, chosen_name, active_disks);
+		map_unlock(&map);
 		close(mdfd);
 		return 0;
 	}
@@ -404,18 +408,18 @@ int Incremental(char *devname, int verbose, int runstop,
 	/*             are enough, */
 	/*   + add any bitmap file  */
 	/*   + start the array (auto-readonly). */
-{
-	mdu_array_info_t ainf;
 
 	if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
 		if (verbose >= 0)
 			fprintf(stderr, Name
 			   ": %s attached to %s which is already active.\n",
 				devname, chosen_name);
-		close (mdfd);
+		close(mdfd);
+		map_unlock(&map);
 		return 0;
 	}
-}
+
+	map_unlock(&map);
 	if (runstop > 0 || active_disks >= info.array.working_disks) {
 		struct mdinfo *sra;
 		/* Let's try to start it */
@@ -749,13 +753,16 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 	struct mdinfo *list = st->ss->container_content(st);
 	struct mdinfo *ra;
+	struct map_ent *map = NULL;
+
+	map_lock(&map);
 
 	for (ra = list ; ra ; ra = ra->next) {
 		struct mdinfo *dev, *sra;
 		int mdfd;
 		char chosen_name[1024];
 		int working = 0, preexist = 0;
-		struct map_ent *mp, *map = NULL;
+		struct map_ent *mp;
 		struct mddev_ident_s *match = NULL;
 
 		mp = map_by_uuid(&map, ra->uuid);
@@ -869,5 +876,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			   ra->uuid, chosen_name);
 		close(mdfd);
 	}
+	map_unlock(&map);
 	return 0;
 }

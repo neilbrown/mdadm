@@ -62,6 +62,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 	int mdfd;
 	char chosen_name[1024];
 	int uuid[4] = {0,0,0,0};
+	struct map_ent *map = NULL;
 
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
@@ -116,12 +117,16 @@ int Build(char *mddev, int chunk, int level, int layout,
 		}
 
 	/* We need to create the device.  It can have no name. */
+	map_lock(&map);
 	mdfd = create_mddev(mddev, NULL, autof, LOCAL,
 			    chosen_name);
-	if (mdfd < 0)
+	if (mdfd < 0) {
+		map_unlock(&map);
 		return 1;
+	}
 
-	map_update(NULL, fd2devnum(mdfd), "none", uuid, chosen_name);
+	map_update(&map, fd2devnum(mdfd), "none", uuid, chosen_name);
+	map_unlock(&map);
 
 	vers = md_get_version(mdfd);
 

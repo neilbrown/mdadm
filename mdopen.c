@@ -43,14 +43,15 @@ void make_parts(char *dev, int cnt)
 	 * else that of dev
 	 */
 	struct stat stb;
-	int major_num, minor_num;
+	int major_num = major_num; /* quiet gcc -Os unitialized warning */
+	int minor_num = minor_num; /* quiet gcc -Os unitialized warning */
+	int odig = odig; /* quiet gcc -Os unitialized warning */
 	int i;
 	int nlen = strlen(dev) + 20;
 	char *name = malloc(nlen);
 	int dig = isdigit(dev[strlen(dev)-1]);
 	char orig[1024];
 	char sym[1024];
-	int odig;
 
 	if (cnt==0) cnt=4;
 	if (lstat(dev, &stb)!= 0)

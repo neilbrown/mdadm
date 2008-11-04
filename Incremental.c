@@ -81,7 +81,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	struct mddev_ident_s *array_list, *match;
 	char chosen_name[1024];
 	int rv;
-	int devnum;
 	struct map_ent *mp, *map = NULL;
 	int dfd, mdfd;
 	char *avail;
@@ -284,7 +283,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			close(mdfd);
 			return 2;
 		}
-		sra = sysfs_read(mdfd, devnum, GET_DEVS);
+		sra = sysfs_read(mdfd, fd2devnum(mdfd), GET_DEVS);
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
 			 * kernel, and mdadm -I may not be able to complete.
@@ -318,7 +317,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 		strcpy(chosen_name, mp->path);
 
-		sra = sysfs_read(mdfd, devnum, (GET_DEVS | GET_STATE));
+		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
 
 		sprintf(dn, "%d:%d", sra->devs->disk.major,
 			sra->devs->disk.minor);
@@ -442,7 +441,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			}
 			close(bmfd);
 		}
-		sra = sysfs_read(mdfd, devnum, 0);
+		sra = sysfs_read(mdfd, fd2devnum(mdfd), 0);
 		if ((sra == NULL || active_disks >= info.array.working_disks)
 		    && trustworthy != FOREIGN)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);

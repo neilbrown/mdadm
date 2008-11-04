@@ -142,7 +142,7 @@ int Assemble(struct supertype *st, char *mddev,
 	mdu_array_info_t tmp_inf;
 	char *avail;
 	int nextspare = 0;
-	char *name;
+	char *name = NULL;
 	int trustworthy;
 	char chosen_name[1024];
 

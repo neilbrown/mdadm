@@ -53,9 +53,20 @@ Also, there may be several device lines present in the file.
 
 Alternatively, a
 .B device
-line can contain the word
+line can contain either of both of the  words
+.B containers
+and
 .BR partitions .
-This will cause
+The word
+.B containers
+will cause
+.I mdadm
+to look for assembled CONTAINER arrays and included them as a source
+for assembling further arrays.
+.PP
+The word
+.I partitions
+will cause
 .I mdadm
 to read
 .I /proc/partitions
@@ -67,7 +78,7 @@ but only the major and minor device numbers.  It scans
 .I /dev
 to find the name that matches the numbers.
 
-If no DEVICE line is present, then "DEVICE partitions" is assumed.
+If no DEVICE line is present, then "DEVICE partitions containers" is assumed.
 
 For example:
 .IP
@@ -82,9 +93,13 @@ DEVICE partitions
 .TP
 .B ARRAY
 The ARRAY lines identify actual arrays.  The second word on the line
-should be the name of the device where the array is normally
+may be the name of the device where the array is normally
 assembled, such as
 .BR  /dev/md1 .
+If no device name is given,
+.I mdadm
+will use various heuristic to determine an appropriate name.
+.PP
 Subsequent words identify the array, or identify the array as a member
 of a group. If multiple identities are given,
 then a component device must match ALL identities to be considered a
@@ -189,6 +204,18 @@ Specify the metadata format that the array has.  This is mainly
 recognised for comparability with the output of
 .BR "mdadm \-Es" .
 
+.TP
+.B container=
+Specify that this array is a member array of some container.  The
+value given can be either a path name in /dev, or a UUID of the
+container array.
+
+.IP
+.B member=
+Specify that this array is a member array of some container.  Each
+type of container has some way to enumerate member arrays, often a
+simple sequence number.  The value identifies which member of a
+container the array is.  It will usually accompany a 'container=' word.
 .RE
 
 .TP

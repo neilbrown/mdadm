@@ -52,7 +52,9 @@ is also not true RAID, and it only involves one device.  It
 provides a layer over a true device that can be used to inject faults.
 
 B CONTAINER
-is different again.  A CONTAINER is a collection of devices that are
+is different again.  A
+.B CONTAINER
+is a collection of devices that are
 managed as a set.  This is similar to the set of devices connected to
 a hardware RAID controller.  The set of devices may contain a number
 of different RAID arrays each utilising some (or all) blocks from a
@@ -61,7 +63,15 @@ might form a RAID1 used the whole devices.  The remaining three might
 have a RAID5 over the first half of each device, and a RAID0 over the
 second half.
 
-With a CONTAINER, there is one set of metadata the describes 
+With a
+.BR CONTAINER ,
+there is one set of metadata that describes all of
+the arrays in the container.  So when
+.I mdadm
+creates a
+.B CONTAINER
+device, it just represents the metadata.  Other normal arrays (RAID1
+etc) can be created inside that container.
 
 
 .\".I mdadm
@@ -153,6 +163,13 @@ This provides a convenient interface to a
 system.  As each device is detected,
 .I mdadm
 has a chance to include it in some array as appropriate.
+.P
+If a
+.B CONTAINER
+is passed to
+.I mdadm
+in this mode, then any arrays within that container will be assembled
+and started.
 
 .TP
 .B Manage
@@ -286,10 +303,12 @@ If the config file given is
 then nothing will be read, but
 .I mdadm
 will act as though the config file contained exactly
-.B "DEVICE partitions"
+.B "DEVICE partitions containers"
 and will read
 .B /proc/partitions
-to find a list of devices to scan.
+to find a list of devices to scan, and
+.B /proc/mdstat
+to find a list of containers to examine.
 If the word
 .B "none"
 is given for the config file, then
@@ -339,6 +358,15 @@ Use the new version-1 format superblock.  This has few restrictions.
 The different sub-versions store the superblock at different locations
 on the device, either at the end (for 1.0), at the start (for 1.1) or
 4K from the start (for 1.2).
+.IP ddf
+Use the "Industry Standard" DDF (Disk Data Format) format.  When
+creating a DDF array a
+.B CONTAINER
+will be created, and normal arrays can be created in that container.
+.IP imsm
+Use the Intel Matrix Storage Manager metadata format.  This creates a
+.B CONTAINER
+which is managed in a similar manner to DDF.
 .RE
 
 .TP
@@ -411,6 +439,10 @@ The size can be given as
 .B max
 which means to choose the largest size that fits on all current drives.
 
+This value can not be used with
+.B CONTAINER
+metadata such as DDF and IMSM.
+
 .TP
 .BR \-c ", " \-\-chunk=
 Specify chunk size of kibibytes.  The default is 64.
@@ -424,7 +456,14 @@ Specify rounding factor for linear array (==chunk size)
 Set raid level.  When used with
 .BR \-\-create ,
 options are: linear, raid0, 0, stripe, raid1, 1, mirror, raid4, 4,
-raid5, 5, raid6, 6, raid10, 10, multipath, mp, faulty.  Obviously some of these are synonymous.
+raid5, 5, raid6, 6, raid10, 10, multipath, mp, faulty, container.
+Obviously some of these are synonymous.
+
+When a
+.B CONTAINER
+metadata type is requested, only the
+.B container
+level is permitted, and it does not need to be explicitly given.
 
 When used with
 .BR \-\-build ,
@@ -647,9 +686,9 @@ partitions.  A different number of partitions can be specified at the
 end of this option (e.g.
 .BR \-\-auto=p7 ).
 If the device name ends with a digit, the partition names add a 'p',
-and a number, e.g. "/dev/home1p3".  If there is no
+and a number, e.g. "/dev/md/home1p3".  If there is no
 trailing digit, then the partition names just have a number added,
-e.g. "/dev/scratch3".
+e.g. "/dev/md/scratch3".
 
 If the md device name is in a 'standard' format as described in DEVICE
 NAMES, then it will be created, if necessary, with the appropriate
@@ -657,29 +696,30 @@ number based on that name.  If the device name is not in one of these
 formats, then a unused minor number will be allocated.  The minor
 number will be considered unused if there is no active array for that
 number, and there is no entry in /dev for that number and with a
-non-standard name.
+non-standard name.  Name that are not in 'standard' format are only
+allowed in "/dev/md/".
 
-.TP
-.BR \-\-symlink = no
-Normally when
-.B \-\-auto
-causes
-.I mdadm
-to create devices in
-.B /dev/md/
-it will also create symlinks from
-.B /dev/
-with names starting with
-.B md
-or
-.BR md_ .
-Use
-.B \-\-symlink=no
-to suppress this, or
-.B \-\-symlink=yes
-to enforce this even if it is suppressing
-.IR mdadm.conf .
-
+\".TP
+\".BR \-\-symlink = no
+\"Normally when
+\".B \-\-auto
+\"causes
+\".I mdadm
+\"to create devices in
+\".B /dev/md/
+\"it will also create symlinks from
+\".B /dev/
+\"with names starting with
+\".B md
+\"or
+\".BR md_ .
+\"Use
+\".B \-\-symlink=no
+\"to suppress this, or
+\".B \-\-symlink=yes
+\"to enforce this even if it is suppressing
+\".IR mdadm.conf .
+\"
 
 .SH For assemble:
 
@@ -1166,7 +1206,8 @@ the first device given is the md device.
 In the second usage example, all devices listed are treated as md
 devices and assembly is attempted.
 In the third (where no devices are listed) all md devices that are
-listed in the configuration file are assembled.
+listed in the configuration file are assembled.  Then any arrays that
+can be found on unused devices will also be assembled.
 
 If precisely one device is listed, but
 .B \-\-scan
@@ -1196,6 +1237,8 @@ or requested with (a possibly implicit)
 .BR \-\-scan .
 In the later case,
 .B /etc/mdadm.conf
+or
+.B /etc/mdadm/mdadm.conf
 is used.
 
 If
@@ -1260,16 +1303,13 @@ and no devices are listed,
 will first attempt to assemble all the arrays listed in the config
 file.
 
-If a
-.B homehost
-has been specified (either in the config file or on the command line),
-.I mdadm
-will look further for possible arrays and will try to assemble
-anything that it finds which is tagged as belonging to the given
-homehost.  This is the only situation where
-.I mdadm
-will assemble arrays without being given specific device name or
-identity information for the array.
+It will then look further for possible arrays and will try to assemble
+anything that it finds. Arrays which are tagged as belonging to the given
+homehost will be assembled and started normally.  Arrays which do not
+obviously belong to this host are given names that are expected not to
+conflict with anything local, and are started "read-auto" so that
+nothing is written to any device until the array is written to. i.e.
+automatic resync etc is delayed.
 
 If
 .I mdadm
@@ -1424,6 +1464,16 @@ setting.
 .\"If no
 .\".B \-\-size
 .\"is given, the apparent size of the smallest drive given is used.
+
+When creating an array within a
+.B CONTAINER
+.I mdadm
+can be given either the list of devices to use, or simply the name of
+the container.  The former case gives control over which devices in
+the container will be used for the array.  The latter case allows
+.I mdadm
+to automatically choose which devices to use based on how much spare
+space is available.
 
 The General Management options that are valid with
 .B \-\-create
@@ -1773,6 +1823,10 @@ add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
 .PP
 
+GROW mode is not currently supported for
+.B CONTAINERS
+or arrays inside containers.
+
 .SS SIZE CHANGES
 Normally when an array is built the "size" it taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a
@@ -1851,6 +1905,13 @@ passed to
 .B "mdadm \-\-incremental"
 to be conditionally added to an appropriate array.
 
+If the device passed is a
+.B CONTAINER
+device created by a previous call to
+.IR mdadm ,
+then rather than trying to add that device to an array, all the arrays
+described by the metadata of the container will be started.
+
 .I mdadm
 performs a number of tests to determine if the device is part of an
 array, and which array it should be part of.  If an appropriate array
@@ -1863,14 +1924,6 @@ Note that
 will only add devices to an array which were previously working
 (active or spare) parts of that array.  It does not currently support
 automatic inclusion of a new drive as a spare in some array.
-
-.B "mdadm \-\-incremental"
-requires a bug-fix in all kernels through 2.6.19.
-Hopefully, this will be fixed in 2.6.20; alternately, apply the patch
-which is included with the mdadm source distribution.  If
-.I mdadm
-detects that this bug is present, it will abort any attempt to use
-.BR \-\-incremental .
 
 The tests that
 .I mdadm
@@ -1985,6 +2038,19 @@ operates.
 Setting this value to 1 will prevent mdadm from automatically launching
 mdmon.  This variable is intended primarily for debugging mdadm/mdmon.
 
+.TP
+.B MDADM_NO_UDEV
+Normally,
+.I mdadm
+does not create any device nodes in /dev, but leaves that task to
+.IR udev .
+If
+.I udev
+appears not to be configured, or if this environment variable is set
+to '1', the
+.I mdadm
+will create and devices that are needed.
+
 .SH EXAMPLES
 
 .B "  mdadm \-\-query /dev/name-of-device"
@@ -2075,6 +2141,24 @@ can be started.
 Any devices which are components of /dev/md4 will be marked as faulty
 and then remove from the array.
 
+.B "  mdadm --create /dev/md/ddf --metadata=ddf --raid-disks 6 /dev/sd[a-f]"
+.br
+Create a DDF array over 6 devices.
+
+.B "  mdadm --create /dev/md/home -n3 -l5 -z 30000000 /dev/md/ddf"
+.br
+Create a raid5 array over any 3 devices in the given DDF set.  Use
+only 30 gigabytes of each device.
+
+.B "  mdadm -A /dev/md/ddf1 /dev/sd[a-f]"
+.br
+Assemble a pre-exist ddf array.
+
+.B "  mdadm -I /dev/md/ddf1"
+.br
+Assemble all arrays contained in the ddf array, assigning names as
+appropriate.
+
 .B "  mdadm \-\-create \-\-help"
 .br
 Provide help about the Create mode.
@@ -2124,29 +2208,51 @@ is used instead.
 
 .SH DEVICE NAMES
 
-While entries in the /dev directory can have any format you like,
 .I mdadm
-has an understanding of 'standard' formats which it uses to guide its
-behaviour when creating device files via the
-.B \-\-auto
-option.
+understand two sorts of names for array devices.
+
+The first is the so-called 'standard' format name, which matches the
+names used by the kernel and which appear in
+.IR /proc/mdstat .
+
+The second sort can be freely chosen, but must reside in
+.IR /dev/md/ .
+When giving a device name to
+.I mdadm
+to create or assemble an array, either full path name such as
+.I /dev/md0
+or
+.I /dev/md/home
+can be given, or just the suffix of the second sort of name, such as
+.I home
+can be given.
+
+When
+.I mdadm
+chooses device names during auto-assembly, it will normally add a
+small sequence number to the end of the name to avoid conflicted
+between multiple arrays that have the same name.  If
+.I mdadm
+can reasonably determine that the array really is meant for this host,
+either by a hostname in the metadata, or by the presence of the array
+in /etc/mdadm.conf, then it will leave of the suffix if possible.
 
 The standard names for non-partitioned arrays (the only sort of md
-array available in 2.4 and earlier) are either of
+array available in 2.4 and earlier) are of the form
 .IP
 /dev/mdNN
-.br
-/dev/md/NN
 .PP
 where NN is a number.
 The standard names for partitionable arrays (as available from 2.6
-onwards) are either of
+onwards) are of the form
 .IP
-/dev/md/dNN
-.br
 /dev/md_dNN
 .PP
 Partition numbers should be indicated by added "pMM" to these, thus "/dev/md/d1p2".
+.PP
+From kernel version, 2.6.28 the "non-partitioned array" can actually
+be partitioned.  So the "md_dNN" names are no longer needed, and
+partitions such as "/dev/mdNNpXX" are possible.
 
 .SH NOTE
 .I mdadm

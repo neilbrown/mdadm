@@ -1216,7 +1216,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		else if (errno == EEXIST)
 			preexist++;
 	if (working == 0)
-		/* Nothing new, don't try to start */ ;
+		return 1;/* Nothing new, don't try to start */
 	else if (runstop > 0 ||
 		 (working + preexist) >= content->array.working_disks) {
 
@@ -1249,15 +1249,16 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			fprintf(stderr, "\n");
 		}
 		wait_for(chosen_name);
+		return 0;
 		/* FIXME should have an O_EXCL and wait for read-auto */
-	} else
+	} else {
 		if (verbose >= 0)
 			fprintf(stderr, Name
 				": %s assembled with %d devices but "
 				"not started\n",
 				chosen_name, working);
-
-	return 0;
+		return 1;
+	}
 }
 #endif
 

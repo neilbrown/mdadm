@@ -320,7 +320,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 			tmpdev->content = content->next;
 			if (tmpdev->content == NULL)
-				tmpdev->used = 1;
+				tmpdev->used = 2;
 
 		} else if (ident->container || ident->member) {
 			/* No chance of this matching if we don't have
@@ -396,12 +396,15 @@ int Assemble(struct supertype *st, char *mddev,
 			 * looking.  If the chosen member is active, skip.
 			 */
 			if (is_member_busy(content->text_version)) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": member %s in %s is already assembled\n",
+						content->text_version,
+						devname);
+				tst->ss->free_super(tst);
+				tst = NULL;
+				content = NULL;
 				if (auto_assem)
 					goto loop;
-				fprintf(stderr, Name ": member %s in %s is already assembled\n",
-					content->text_version,
-					devname);
-				tst->ss->free_super(tst);
 				return 1;
 			}
 			st = tst; tst = NULL;

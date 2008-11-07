@@ -663,7 +663,14 @@ static void brief_detail_super_imsm(struct supertype *st)
 
 static int match_home_imsm(struct supertype *st, char *homehost)
 {
-	printf("%s\n", __FUNCTION__);
+	/* the imsm metadata format does not specify any host
+	 * identification information.  We return -1 since we can never
+	 * confirm nor deny whether a given array is "meant" for this
+	 * host.  We rely on compare_super and the 'family_num' field to
+	 * exclude member disks that do not belong, and we rely on
+	 * mdadm.conf to specify the arrays that should be assembled.
+	 * Auto-assembly may still pick up "foreign" arrays.
+	 */
 
 	return -1;
 }

@@ -88,7 +88,7 @@ void make_parts(char *dev, int cnt)
 			if (chmod(name, stb2.st_mode & 07777))
 				perror("chmod");
 		} else {
-			snprintf(sym, 10000, "%s%s%d", orig, odig?"p":"", i);
+			snprintf(sym, sizeof(sym), "%s%s%d", orig, odig?"p":"", i);
 			symlink(sym, name);
 		}
 		stat(name, &stb2);

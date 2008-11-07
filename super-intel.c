@@ -61,8 +61,8 @@ struct imsm_map {
 	__u8  map_state;	/* Normal, Uninitialized, Degraded, Failed */
 #define IMSM_T_STATE_NORMAL 0
 #define IMSM_T_STATE_UNINITIALIZED 1
-#define IMSM_T_STATE_DEGRADED 2 /* FIXME: is this correct? */
-#define IMSM_T_STATE_FAILED 3 /* FIXME: is this correct? */
+#define IMSM_T_STATE_DEGRADED 2
+#define IMSM_T_STATE_FAILED 3
 	__u8  raid_level;
 #define IMSM_T_RAID0 0
 #define IMSM_T_RAID1 1
@@ -80,6 +80,11 @@ struct imsm_vol {
 	__u32 curr_migr_unit;
 	__u32 reserved;
 	__u8  migr_state;	/* Normal or Migrating */
+#define MIGR_INIT 0
+#define MIGR_REBUILD 1
+#define MIGR_VERIFY 2 /* analagous to echo check > sync_action */
+#define MIGR_GEN_MIGR 3
+#define MIGR_STATE_CHANGE 4
 	__u8  migr_type;	/* Initializing, Rebuilding, ... */
 	__u8  dirty;
 	__u8  fill[1];
@@ -1178,11 +1183,11 @@ static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
  *
  * Migration is indicated by one of the following states
  * 1/ Idle (migr_state=0 map0state=normal||unitialized||degraded||failed)
- * 2/ Initialize (migr_state=1 migr_type=0 map0state=normal
+ * 2/ Initialize (migr_state=1 migr_type=MIGR_INIT map0state=normal
  *    map1state=unitialized)
- * 3/ Verify (Resync) (migr_state=1 migr_type=1 map0state=normal
+ * 3/ Verify (Resync) (migr_state=1 migr_type=MIGR_REBUILD map0state=normal
  *    map1state=normal)
- * 4/ Rebuild (migr_state=1 migr_type=1 map0state=normal
+ * 4/ Rebuild (migr_state=1 migr_type=MIGR_REBUILD map0state=normal
  *    map1state=degraded)
  */
 static void migrate(struct imsm_dev *dev, __u8 to_state, int rebuild_resync)
@@ -1731,7 +1736,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	dev->reserved_blocks = __cpu_to_le32(0);
 	vol = &dev->vol;
 	vol->migr_state = 0;
-	vol->migr_type = 0;
+	vol->migr_type = MIGR_INIT;
 	vol->dirty = 0;
 	vol->curr_migr_unit = 0;
 	for (i = 0; i < idx; i++) {
@@ -2564,7 +2569,7 @@ static int is_resyncing(struct imsm_dev *dev)
 	if (!dev->vol.migr_state)
 		return 0;
 
-	if (dev->vol.migr_type == 0)
+	if (dev->vol.migr_type == MIGR_INIT)
 		return 1;
 
 	migr_map = get_imsm_map(dev, 1);
@@ -2582,7 +2587,7 @@ static int is_rebuilding(struct imsm_dev *dev)
 	if (!dev->vol.migr_state)
 		return 0;
 
-	if (dev->vol.migr_type == 0)
+	if (dev->vol.migr_type != MIGR_REBUILD)
 		return 0;
 
 	migr_map = get_imsm_map(dev, 1);
@@ -2648,9 +2653,10 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	} else if (!is_resyncing(dev) && !failed) {
 		/* mark the start of the init process if nothing is failed */
 		dprintf("imsm: mark resync start (%llu)\n", a->resync_start);
-		map->map_state = map_state;
-		migrate(dev, IMSM_T_STATE_NORMAL,
-			map->map_state == IMSM_T_STATE_NORMAL);
+		if (map->map_state == IMSM_T_STATE_NORMAL)
+			migrate(dev, IMSM_T_STATE_NORMAL, MIGR_REBUILD);
+		else
+			migrate(dev, IMSM_T_STATE_NORMAL, MIGR_INIT);
 		super->updates_pending++;
 	}
 
@@ -3127,7 +3133,7 @@ static void imsm_process_update(struct supertype *st,
 		/* mark rebuild */
 		to_state = imsm_check_degraded(super, dev, failed);
 		map->map_state = IMSM_T_STATE_DEGRADED;
-		migrate(dev, to_state, 1);
+		migrate(dev, to_state, MIGR_REBUILD);
 		migr_map = get_imsm_map(dev, 1);
 		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
 		set_imsm_ord_tbl_ent(migr_map, u->slot, dl->index | IMSM_ORD_REBUILD);

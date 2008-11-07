@@ -829,7 +829,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 		err = assemble_container_content(st, mdfd, ra, runstop,
 						 chosen_name, verbose);
-		close(mdfd);
 		if (err)
 			return err;
 	}

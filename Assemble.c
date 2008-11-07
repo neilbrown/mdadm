@@ -1205,8 +1205,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 	sra = sysfs_read(mdfd, 0, GET_VERSION);
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0)
-		if (sysfs_set_array(content, md_get_version(mdfd)) != 0)
+		if (sysfs_set_array(content, md_get_version(mdfd)) != 0) {
+			close(mdfd);
 			return 1;
+		}
 	if (sra)
 		sysfs_free(sra);
 
@@ -1215,9 +1217,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			working++;
 		else if (errno == EEXIST)
 			preexist++;
-	if (working == 0)
+	if (working == 0) {
+		close(mdfd);
 		return 1;/* Nothing new, don't try to start */
-	else if (runstop > 0 ||
+	} else if (runstop > 0 ||
 		 (working + preexist) >= content->array.working_disks) {
 
 		map_update(&map, fd2devnum(mdfd),
@@ -1249,6 +1252,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			fprintf(stderr, "\n");
 		}
 		wait_for(chosen_name);
+		close(mdfd);
 		return 0;
 		/* FIXME should have an O_EXCL and wait for read-auto */
 	} else {
@@ -1257,6 +1261,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				": %s assembled with %d devices but "
 				"not started\n",
 				chosen_name, working);
+		close(mdfd);
 		return 1;
 	}
 }

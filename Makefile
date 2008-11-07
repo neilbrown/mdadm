@@ -199,7 +199,7 @@ install-man: mdadm.8 md.4 mdadm.conf.5
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 install-udev: udev-md-raid.rules
-	$(INSTALL) -D -m 644 udev-md-raid.rules /lib/udev/rules.d/64-md-raid.rules
+	$(INSTALL) -D -m 644 udev-md-raid.rules $(DESTDIR)/lib/udev/rules.d/64-md-raid.rules
 
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 md.4 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm

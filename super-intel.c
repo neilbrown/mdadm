@@ -271,8 +271,10 @@ static __u32 __gen_imsm_checksum(struct imsm_super *mpb)
 	__u32 *p = (__u32 *) mpb;
 	__u32 sum = 0;
 
-        while (end--)
-                sum += __le32_to_cpu(*p++);
+        while (end--) {
+                sum += __le32_to_cpu(*p);
+		p++;
+	}
 
         return sum - __le32_to_cpu(mpb->check_sum);
 }

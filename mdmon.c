@@ -79,13 +79,25 @@ int run_child(void *v)
 	return 0;
 }
 
-int clone_monitor(struct supertype *container)
+#ifdef __ia64__
+int __clone2(int (*fn)(void *),
+	    void *child_stack_base, size_t stack_size,
+	    int flags, void *arg, ...
+	 /* pid_t *pid, struct user_desc *tls, pid_t *ctid */ );
+#endif
+ int clone_monitor(struct supertype *container)
 {
 	static char stack[4096];
 
+#ifdef __ia64__
+	mon_tid = __clone2(run_child, stack, sizeof(stack),
+		   CLONE_FS|CLONE_FILES|CLONE_VM|CLONE_SIGHAND|CLONE_THREAD,
+		   container);
+#else
 	mon_tid = clone(run_child, stack+4096-64,
 		   CLONE_FS|CLONE_FILES|CLONE_VM|CLONE_SIGHAND|CLONE_THREAD,
 		   container);
+#endif
 
 	mgr_tid = syscall(SYS_gettid);
 

@@ -780,11 +780,11 @@ int Create(struct supertype *st, char *mddev,
 			ping_monitor(devnum2devname(st->container_dev));
 			close(container_fd);
 		}
+		wait_for(chosen_name);
 	} else {
 		fprintf(stderr, Name ": not starting array - not enough devices.\n");
 	}
 	close(mdfd);
-	wait_for(chosen_name);
 	return 0;
 
  abort:

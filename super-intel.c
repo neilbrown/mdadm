@@ -58,11 +58,11 @@ struct imsm_disk {
 	__u8 serial[MAX_RAID_SERIAL_LEN];/* 0xD8 - 0xE7 ascii serial number */
 	__u32 total_blocks;		 /* 0xE8 - 0xEB total blocks */
 	__u32 scsi_id;			 /* 0xEC - 0xEF scsi ID */
+#define SPARE_DISK      __cpu_to_le32(0x01)  /* Spare */
+#define CONFIGURED_DISK __cpu_to_le32(0x02)  /* Member of some RaidDev */
+#define FAILED_DISK     __cpu_to_le32(0x04)  /* Permanent failure */
+#define USABLE_DISK     __cpu_to_le32(0x08)  /* Fully usable unless FAILED_DISK is set */
 	__u32 status;			 /* 0xF0 - 0xF3 */
-#define SPARE_DISK      0x01  /* Spare */
-#define CONFIGURED_DISK 0x02  /* Member of some RaidDev */
-#define FAILED_DISK     0x04  /* Permanent failure */
-#define USABLE_DISK     0x08  /* Fully usable unless FAILED_DISK is set */
 	__u32 owner_cfg_num; /* which config 0,1,2... owns this disk */ 
 #define	IMSM_DISK_FILLERS	4
 	__u32 filler[IMSM_DISK_FILLERS]; /* 0xF4 - 0x107 MPB_DISK_FILLERS for future expansion */
@@ -591,7 +591,7 @@ static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 	printf("\n");
 	snprintf(str, MAX_RAID_SERIAL_LEN + 1, "%s", disk->serial);
 	printf("  Disk%02d Serial : %s\n", index, str);
-	s = __le32_to_cpu(disk->status);
+	s = disk->status;
 	printf("          State :%s%s%s%s\n", s&SPARE_DISK ? " spare" : "",
 					      s&CONFIGURED_DISK ? " active" : "",
 					      s&FAILED_DISK ? " failed" : "",
@@ -890,7 +890,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		disk = &super->disks->disk;
 		info->data_offset = __le32_to_cpu(disk->total_blocks) - reserved;
 		info->component_size = reserved;
-		s = __le32_to_cpu(disk->status);
+		s = disk->status;
 		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
 		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 		info->disk.state |= s & SPARE_DISK ? 0 : (1 << MD_DISK_SYNC);
@@ -1179,16 +1179,13 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		disk_iter = __get_imsm_disk(super->anchor, i);
 
 		if (serialcmp(disk_iter->serial, dl->serial) == 0) {
-			__u32 status;
-
 			dl->disk = *disk_iter;
-			status = __le32_to_cpu(dl->disk.status);
 			/* only set index on disks that are a member of a
 			 * populated contianer, i.e. one with raid_devs
 			 */
-			if (status & FAILED_DISK)
+			if (dl->disk.status & FAILED_DISK)
 				dl->index = -2;
-			else if (status & SPARE_DISK)
+			else if (dl->disk.status & SPARE_DISK)
 				dl->index = -1;
 			else
 				dl->index = i;
@@ -1200,7 +1197,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	/* no match, maybe a stale failed drive */
 	if (i == super->anchor->num_disks && dl->index >= 0) {
 		dl->disk = *__get_imsm_disk(super->anchor, dl->index);
-		if (__le32_to_cpu(dl->disk.status) & FAILED_DISK)
+		if (dl->disk.status & FAILED_DISK)
 			dl->index = -2;
 	}
 
@@ -1503,7 +1500,6 @@ static int find_missing(struct intel_super *super)
 	struct imsm_super *mpb = super->anchor;
 	struct dl *dl;
 	struct imsm_disk *disk;
-	__u32 status;
 
 	for (i = 0; i < mpb->num_disks; i++) {
 		disk = __get_imsm_disk(mpb, i);
@@ -1515,8 +1511,7 @@ static int find_missing(struct intel_super *super)
 		/* ok we have a 'disk' without a live entry in
 		 * super->disks
 		 */
-		status = __le32_to_cpu(disk->status);
-		if (status & FAILED_DISK || !(status & USABLE_DISK))
+		if (disk->status & FAILED_DISK || !(disk->status & USABLE_DISK))
 			continue; /* never mind, already marked */
 
 		dl = malloc(sizeof(*dl));
@@ -1868,7 +1863,6 @@ static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	struct dl *dl;
 	struct imsm_dev *dev;
 	struct imsm_map *map;
-	__u32 status;
 
 	dev = get_imsm_dev(super, super->current_vol);
 	map = get_imsm_map(dev, 0);
@@ -1887,8 +1881,7 @@ static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		super->anchor->num_disks++;
 	}
 	set_imsm_ord_tbl_ent(map, dk->number, dl->index);
-	status = CONFIGURED_DISK | USABLE_DISK;
-	dl->disk.status = __cpu_to_le32(status);
+	dl->disk.status = CONFIGURED_DISK | USABLE_DISK;
 
 	/* if we are creating the first raid device update the family number */
 	if (super->current_vol == 0) {
@@ -1909,7 +1902,7 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	struct intel_super *super = st->sb;
 	struct dl *dd;
 	unsigned long long size;
-	__u32 status, id;
+	__u32 id;
 	int rv;
 	struct stat stb;
 
@@ -1941,10 +1934,9 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 
 	get_dev_size(fd, NULL, &size);
 	size /= 512;
-	status = USABLE_DISK | SPARE_DISK;
 	serialcpy(dd->disk.serial, dd->serial);
 	dd->disk.total_blocks = __cpu_to_le32(size);
-	dd->disk.status = __cpu_to_le32(status);
+	dd->disk.status = USABLE_DISK | SPARE_DISK;
 	if (sysfs_disk_to_scsi_id(fd, &id) == 0)
 		dd->disk.scsi_id = __cpu_to_le32(id);
 	else
@@ -2444,7 +2436,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			if (d == NULL)
 				skip = 1;
 
-			s = d ? __le32_to_cpu(d->disk.status) : 0;
+			s = d ? d->disk.status : 0;
 			if (s & FAILED_DISK)
 				skip = 1;
 			if (!(s & USABLE_DISK))
@@ -2554,8 +2546,7 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 				insync = 2;
 
 			disk = get_imsm_disk(super, idx);
-			if (!disk ||
-			    __le32_to_cpu(disk->status) & FAILED_DISK ||
+			if (!disk || disk->status & FAILED_DISK ||
 			    ord & IMSM_ORD_REBUILD)
 				insync--;
 
@@ -2593,8 +2584,7 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 		int idx = ord_to_idx(ord);
 
 		disk = get_imsm_disk(super, idx);
-		if (!disk ||
-		    __le32_to_cpu(disk->status) & FAILED_DISK ||
+		if (!disk || disk->status & FAILED_DISK ||
 		    ord & IMSM_ORD_REBUILD)
 			failed++;
 	}
@@ -2640,12 +2630,9 @@ static int is_rebuilding(struct imsm_dev *dev)
 
 static void mark_failure(struct imsm_disk *disk)
 {
-	__u32 status = __le32_to_cpu(disk->status);
-
-	if (status & FAILED_DISK)
+	if (disk->status & FAILED_DISK)
 		return;
-	status |= FAILED_DISK;
-	disk->status = __cpu_to_le32(status);
+	disk->status |= FAILED_DISK;
 	disk->scsi_id = __cpu_to_le32(~(__u32)0);
 	memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
 }
@@ -2729,7 +2716,6 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct imsm_disk *disk;
 	int failed;
-	__u32 status;
 	__u32 ord;
 	__u8 map_state;
 
@@ -2746,8 +2732,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	disk = get_imsm_disk(super, ord_to_idx(ord));
 
 	/* check for new failures */
-	status = __le32_to_cpu(disk->status);
-	if ((state & DS_FAULTY) && !(status & FAILED_DISK)) {
+	if ((state & DS_FAULTY) && !(disk->status & FAILED_DISK)) {
 		mark_failure(disk);
 		super->updates_pending++;
 	}
@@ -2834,7 +2819,7 @@ static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_a
 		if (dl->index == i)
 			break;
 
-	if (dl && __le32_to_cpu(dl->disk.status) & FAILED_DISK)
+	if (dl && dl->disk.status & FAILED_DISK)
 		dl = NULL;
 
 	if (dl)
@@ -2855,7 +2840,6 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot, struct act
 	int j;
 	int found;
 	__u32 array_start;
-	__u32 status;
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next) {
@@ -2871,11 +2855,10 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot, struct act
 			continue;
 
 		/* skip in use or failed drives */
-		status = __le32_to_cpu(dl->disk.status);
-		if (status & FAILED_DISK || idx == dl->index) {
+		if (dl->disk.status & FAILED_DISK || idx == dl->index) {
 			dprintf("%x:%x status ( %s%s)\n",
 			dl->major, dl->minor,
-			status & FAILED_DISK ? "failed " : "",
+			dl->disk.status & FAILED_DISK ? "failed " : "",
 			idx == dl->index ? "in use " : "");
 			continue;
 		}
@@ -3125,7 +3108,6 @@ static void imsm_process_update(struct supertype *st,
 		struct imsm_map *migr_map;
 		struct active_array *a;
 		struct imsm_disk *disk;
-		__u32 status;
 		__u8 to_state;
 		struct dl *dl;
 		unsigned int found;
@@ -3154,8 +3136,7 @@ static void imsm_process_update(struct supertype *st,
 			if (i == u->slot)
 				continue;
 			disk = get_imsm_disk(super, get_imsm_disk_idx(dev, i));
-			if (!disk ||
-			    __le32_to_cpu(disk->status) & FAILED_DISK)
+			if (!disk || disk->status & FAILED_DISK)
 				failed++;
 		}
 
@@ -3165,10 +3146,8 @@ static void imsm_process_update(struct supertype *st,
 			super->anchor->num_disks++;
 		}
 		disk = &dl->disk;
-		status = __le32_to_cpu(disk->status);
-		status |= CONFIGURED_DISK;
-		status &= ~SPARE_DISK;
-		disk->status = __cpu_to_le32(status);
+		disk->status |= CONFIGURED_DISK;
+		disk->status &= ~SPARE_DISK;
 
 		/* mark rebuild */
 		to_state = imsm_check_degraded(super, dev, failed);
@@ -3286,13 +3265,10 @@ static void imsm_process_update(struct supertype *st,
 		/* fix up flags */
 		for (i = 0; i < map->num_members; i++) {
 			struct imsm_disk *disk;
-			__u32 status;
 
 			disk = get_imsm_disk(super, get_imsm_disk_idx(dev, i));
-			status = __le32_to_cpu(disk->status);
-			status |= CONFIGURED_DISK;
-			status &= ~SPARE_DISK;
-			disk->status = __cpu_to_le32(status);
+			disk->status |= CONFIGURED_DISK;
+			disk->status &= ~SPARE_DISK;
 		}
 		break;
 	}

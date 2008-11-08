@@ -30,9 +30,25 @@
 #define MPB_SIG_LEN (strlen(MPB_SIGNATURE))
 #define MPB_VERSION_RAID0 "1.0.00"
 #define MPB_VERSION_RAID1 "1.1.00"
+#define MPB_VERSION_MANY_VOLUMES_PER_ARRAY "1.2.00"
+#define MPB_VERSION_3OR4_DISK_ARRAY "1.2.01"
 #define MPB_VERSION_RAID5 "1.2.02"
+#define MPB_VERSION_5OR6_DISK_ARRAY "1.2.04"
+#define MPB_VERSION_CNG "1.2.06"
+#define MPB_VERSION_ATTRIBS "1.3.00"
 #define MAX_SIGNATURE_LENGTH  32
 #define MAX_RAID_SERIAL_LEN   16
+
+#define MPB_ATTRIB_CHECKSUM_VERIFY __cpu_to_le32(0x80000000)
+#define MPB_ATTRIB_PM      __cpu_to_le32(0x40000000)
+#define MPB_ATTRIB_2TB     __cpu_to_le32(0x20000000)
+#define MPB_ATTRIB_RAID0   __cpu_to_le32(0x00000001)
+#define MPB_ATTRIB_RAID1   __cpu_to_le32(0x00000002)
+#define MPB_ATTRIB_RAID10  __cpu_to_le32(0x00000004)
+#define MPB_ATTRIB_RAID1E  __cpu_to_le32(0x00000008)
+#define MPB_ATTRIB_RAID5   __cpu_to_le32(0x00000010)
+#define MPB_ATTRIB_RAIDCNG __cpu_to_le32(0x00000020)
+
 #define MPB_SECTOR_CNT 418
 #define IMSM_RESERVED_SECTORS 4096
 
@@ -47,8 +63,8 @@ struct imsm_disk {
 #define CONFIGURED_DISK 0x02  /* Member of some RaidDev */
 #define FAILED_DISK     0x04  /* Permanent failure */
 #define USABLE_DISK     0x08  /* Fully usable unless FAILED_DISK is set */
-
-#define	IMSM_DISK_FILLERS	5
+	__u32 owner_cfg_num; /* which config 0,1,2... owns this disk */ 
+#define	IMSM_DISK_FILLERS	4
 	__u32 filler[IMSM_DISK_FILLERS]; /* 0xF4 - 0x107 MPB_DISK_FILLERS for future expansion */
 };
 
@@ -68,7 +84,9 @@ struct imsm_map {
 #define IMSM_T_RAID1 1
 #define IMSM_T_RAID5 5		/* since metadata version 1.2.02 ? */
 	__u8  num_members;	/* number of member disks */
-	__u8  reserved[3];
+	__u8  num_domains;	/* number of parity domains */
+	__u8  failed_disk_num;  /* valid only when state is degraded */
+	__u8  reserved[1];
 	__u32 filler[7];	/* expansion area */
 #define IMSM_ORD_REBUILD (1 << 24)
 	__u32 disk_ord_tbl[1];	/* disk_ord_tbl[num_members],
@@ -78,7 +96,7 @@ struct imsm_map {
 
 struct imsm_vol {
 	__u32 curr_migr_unit;
-	__u32 reserved;
+	__u32 checkpoint_id;	/* id to access curr_migr_unit */
 	__u8  migr_state;	/* Normal or Migrating */
 #define MIGR_INIT 0
 #define MIGR_REBUILD 1
@@ -87,19 +105,41 @@ struct imsm_vol {
 #define MIGR_STATE_CHANGE 4
 	__u8  migr_type;	/* Initializing, Rebuilding, ... */
 	__u8  dirty;
-	__u8  fill[1];
-	__u32 filler[5];
+	__u8  fs_state;		/* fast-sync state for CnG (0xff == disabled) */
+	__u16 verify_errors;	/* number of mismatches */
+	__u16 bad_blocks;	/* number of bad blocks during verify */
+	__u32 filler[4];
 	struct imsm_map map[1];
 	/* here comes another one if migr_state */
 } __attribute__ ((packed));
 
 struct imsm_dev {
-	__u8	volume[MAX_RAID_SERIAL_LEN];
+	__u8  volume[MAX_RAID_SERIAL_LEN];
 	__u32 size_low;
 	__u32 size_high;
+#define DEV_BOOTABLE		__cpu_to_le32(0x01)
+#define DEV_BOOT_DEVICE		__cpu_to_le32(0x02)
+#define DEV_READ_COALESCING	__cpu_to_le32(0x04)
+#define DEV_WRITE_COALESCING	__cpu_to_le32(0x08)
+#define DEV_LAST_SHUTDOWN_DIRTY	__cpu_to_le32(0x10)
+#define DEV_HIDDEN_AT_BOOT	__cpu_to_le32(0x20)
+#define DEV_CURRENTLY_HIDDEN	__cpu_to_le32(0x40)
+#define DEV_VERIFY_AND_FIX	__cpu_to_le32(0x80)
+#define DEV_MAP_STATE_UNINIT	__cpu_to_le32(0x100)
+#define DEV_NO_AUTO_RECOVERY	__cpu_to_le32(0x200)
+#define DEV_CLONE_N_GO		__cpu_to_le32(0x400)
+#define DEV_CLONE_MAN_SYNC	__cpu_to_le32(0x800)
+#define DEV_CNG_MASTER_DISK_NUM	__cpu_to_le32(0x1000)
 	__u32 status;	/* Persistent RaidDev status */
 	__u32 reserved_blocks; /* Reserved blocks at beginning of volume */
-#define IMSM_DEV_FILLERS 12
+	__u8  migr_priority;
+	__u8  num_sub_vols;
+	__u8  tid;
+	__u8  cng_master_disk;
+	__u16 cache_policy;
+	__u8  cng_state;
+	__u8  cng_sub_state;
+#define IMSM_DEV_FILLERS 10
 	__u32 filler[IMSM_DEV_FILLERS];
 	struct imsm_vol vol;
 } __attribute__ ((packed));

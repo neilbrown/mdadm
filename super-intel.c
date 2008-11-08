@@ -751,7 +751,7 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	struct imsm_dev *dev = NULL;
 
 	sha1_init_ctx(&ctx);
-	sha1_process_bytes(super->anchor->sig, MAX_SIGNATURE_LENGTH, &ctx);
+	sha1_process_bytes(super->anchor->sig, MPB_SIG_LEN, &ctx);
 	sha1_process_bytes(&super->anchor->family_num, sizeof(__u32), &ctx);
 	if (super->current_vol >= 0)
 		dev = get_imsm_dev(super, super->current_vol);

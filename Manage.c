@@ -150,10 +150,12 @@ static void remove_devices(int devnum, char *path)
 	for (part = 0; part < 16; part++) {
 		if (part) {
 			sprintf(be, "p%d", part);
-			if (isdigit(pe[-1]))
-				sprintf(pe, "p%d", part);
-			else
-				sprintf(pe, "%d", part);
+			if (path) {
+				if (isdigit(pe[-1]))
+					sprintf(pe, "p%d", part);
+				else
+					sprintf(pe, "%d", part);
+			}
 		}
 		/* FIXME test if really is md device ?? */
 		unlink(base);

@@ -1706,6 +1706,53 @@ static __u32 info_to_blocks_per_member(mdu_array_info_t *info)
 	return (info->size * 2) & ~(info_to_blocks_per_strip(info) - 1);
 }
 
+static void imsm_update_version_info(struct intel_super *super)
+{
+	/* update the version and attributes */
+	struct imsm_super *mpb = super->anchor;
+	char *version;
+	struct imsm_dev *dev;
+	struct imsm_map *map;
+	int i;
+
+	for (i = 0; i < mpb->num_raid_devs; i++) {
+		dev = get_imsm_dev(super, i);
+		map = get_imsm_map(dev, 0);
+		if (__le32_to_cpu(dev->size_high) > 0)
+			mpb->attributes |= MPB_ATTRIB_2TB;
+
+		/* FIXME detect when an array spans a port multiplier */
+		#if 0
+		mpb->attributes |= MPB_ATTRIB_PM;
+		#endif
+
+		if (mpb->num_raid_devs > 1 ||
+		    mpb->attributes != MPB_ATTRIB_CHECKSUM_VERIFY) {
+			version = MPB_VERSION_ATTRIBS;
+			switch (get_imsm_raid_level(map)) {
+			case 0: mpb->attributes |= MPB_ATTRIB_RAID0; break;
+			case 1: mpb->attributes |= MPB_ATTRIB_RAID1; break;
+			case 10: mpb->attributes |= MPB_ATTRIB_RAID10; break;
+			case 5: mpb->attributes |= MPB_ATTRIB_RAID5; break;
+			}
+		} else {
+			if (map->num_members >= 5)
+				version = MPB_VERSION_5OR6_DISK_ARRAY;
+			else if (dev->status == DEV_CLONE_N_GO)
+				version = MPB_VERSION_CNG;
+			else if (get_imsm_raid_level(map) == 5)
+				version = MPB_VERSION_RAID5;
+			else if (map->num_members >= 3)
+				version = MPB_VERSION_3OR4_DISK_ARRAY;
+			else if (get_imsm_raid_level(map) == 1)
+				version = MPB_VERSION_RAID1;
+			else
+				version = MPB_VERSION_RAID0;
+		}
+		strcpy(((char *) mpb->sig) + strlen(MPB_SIGNATURE), version);
+	}
+}
+
 static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				  unsigned long long size, char *name,
 				  char *homehost, int *uuid)
@@ -1794,10 +1841,13 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				"in a raid1 volume\n");
 		return 0;
 	}
-	if (info->level == 10)
+	if (info->level == 10) {
 		map->raid_level = 1;
-	else
+		map->num_domains = info->raid_disks / 2;
+	} else {
 		map->raid_level = info->level;
+		map->num_domains = !!map->raid_level;
+	}
 
 	map->num_members = info->raid_disks;
 	for (i = 0; i < map->num_members; i++) {
@@ -1806,6 +1856,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	}
 	mpb->num_raid_devs++;
 	super->dev_tbl[super->current_vol] = dev;
+
+	imsm_update_version_info(super);
 
 	return 1;
 }
@@ -1825,6 +1877,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	struct intel_super *super;
 	struct imsm_super *mpb;
 	size_t mpb_size;
+	char *version;
 
 	if (!info) {
 		st->sb = NULL;
@@ -1845,9 +1898,12 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	mpb = super->buf;
 	memset(mpb, 0, mpb_size); 
 
-	memcpy(mpb->sig, MPB_SIGNATURE, strlen(MPB_SIGNATURE));
-	memcpy(mpb->sig + strlen(MPB_SIGNATURE), MPB_VERSION_RAID5,
-	       strlen(MPB_VERSION_RAID5)); 
+	mpb->attributes = MPB_ATTRIB_CHECKSUM_VERIFY;
+
+	version = (char *) mpb->sig;
+	strcpy(version, MPB_SIGNATURE);
+	version += strlen(MPB_SIGNATURE);
+	strcpy(version, MPB_VERSION_RAID0);
 	mpb->mpb_size = mpb_size;
 
 	st->sb = super;
@@ -3270,6 +3326,9 @@ static void imsm_process_update(struct supertype *st,
 			disk->status |= CONFIGURED_DISK;
 			disk->status &= ~SPARE_DISK;
 		}
+
+		imsm_update_version_info(super);
+
 		break;
 	}
 	case update_add_disk:

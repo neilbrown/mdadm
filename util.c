@@ -433,8 +433,10 @@ int devlist_ready = 0;
 int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 {
 	struct stat st;
+
 	if (S_ISLNK(stb->st_mode)) {
-		stat(name, &st);
+		if (stat(name, &st) != 0)
+			return 0;
 		stb = &st;
 	}
 

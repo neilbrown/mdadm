@@ -1360,6 +1360,14 @@ is being created, then the name
 .B home
 will be used.
 
+When creating a partition based array, using 
+.I mdadm 
+with version-1.x metadata, the partition type should be set to 
+.B 0xDA
+(non fs-data). This type selection allows for greater precision since
+using any other [RAID auto-detect (0xFD) or a GNU/Linux partition (0x83)],
+might create problems in the event of array recovery through a live cdrom.
+
 A new array will normally get a randomly assigned 128bit UUID which is
 very likely to be unique.  If you have a specific need, you can choose
 a UUID for the array by giving the

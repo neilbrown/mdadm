@@ -289,6 +289,24 @@ Give
 to suppress this symlink creation.
 .RE
 
+.TP
+.B HOMEHOST
+The
+.B homehost
+line gives a default value for the
+.B --homehost=
+option to mdadm.  There should be exactly one other word on the line.
+It should either exactly
+.B <system>
+or a host name.
+If
+.B <system>
+is given, then the
+.BR gethostname ( 2 )
+systemcall is used to get the host name.
+When arrays are created, this host name will be stored in the
+metadata.  When arrays are assembled using auto-assembly, only arrays
+with this host name stored in the metadata will be considered.
 
 .SH EXAMPLE
 DEVICE /dev/sd[bcdjkl]1

@@ -813,6 +813,14 @@ int dev_open(char *dev, int flags)
 	return fd;
 }
 
+int open_dev(int devnum)
+{
+	char buf[20];
+
+	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
+	return dev_open(buf, O_RDWR);
+}
+
 int open_dev_excl(int devnum)
 {
 	char buf[20];
@@ -1261,9 +1269,8 @@ int start_mdmon(int devnum)
 		for (i=0; paths[i]; i++)
 			if (paths[i][0])
 				execl(paths[i], "mdmon",
-				      map_dev(dev2major(devnum),
-					      dev2minor(devnum),
-					      1), NULL);
+				      devnum2devname(devnum),
+				      NULL);
 		exit(1);
 	case -1: fprintf(stderr, Name ": cannot run mdmon. "
 			 "Array remains readonly\n");

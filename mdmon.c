@@ -287,6 +287,8 @@ int main(int argc, char *argv[])
 	int ignore;
 	char *container_name = NULL;
 	char *switchroot = NULL;
+	int devnum;
+	char *devname;
 
 	switch (argc) {
 	case 2:
@@ -304,7 +306,14 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	mdfd = open(container_name, O_RDWR);
+	devnum = devname2devnum(container_name);
+	devname = devnum2devname(devnum);
+	if (strcmp(container_name, devname) != 0) {
+		fprintf(stderr, "mdmon: %s is not a valid md device name\n",
+			container_name);
+		exit(1);
+	}
+	mdfd = open_dev(devnum);
 	if (mdfd < 0) {
 		fprintf(stderr, "mdmon: %s: %s\n", container_name,
 			strerror(errno));
@@ -342,9 +351,8 @@ int main(int argc, char *argv[])
 		pfd[0] = pfd[1] = -1;
 
 	container = malloc(sizeof(*container));
-	container->devnum = fd2devnum(mdfd);
-	container->devname = devnum2devname(container->devnum);
-	container->device_name = container_name;
+	container->devnum = devnum;
+	container->devname = devname;
 	container->arrays = NULL;
 
 	if (!container->devname) {
@@ -462,6 +470,7 @@ int main(int argc, char *argv[])
 			container_name);
 		exit(3);
 	}
+	close(mdfd);
 
 	/* Ok, this is close enough.  We can say goodbye to our parent now.
 	 */

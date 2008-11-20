@@ -634,7 +634,6 @@ struct supertype {
 			*  external:/md0/12
 			*/
 	int devcnt;
-	char *device_name; /* e.g. /dev/md/whatever */
 
 	struct mdinfo *devs;
 
@@ -761,6 +760,7 @@ extern int check_raid(int fd, char *name);
 
 extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
+extern int open_dev(int devnum);
 extern int open_dev_excl(int devnum);
 extern int is_standard(char *dev, int *nump);
 extern int same_dev(char *one, char *two);

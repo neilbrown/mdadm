@@ -1092,9 +1092,9 @@ int main(int argc, char *argv[])
 					       array_list,
 					       NULL, NULL,
 					       readonly, runstop, NULL, homehost, verbose-quiet, force);
-				if (rv == 0) cnt++;
+				cnt++;
 			}
-			if (homehost) {
+			if (homehost && cnt == 0) {
 				/* Maybe we can auto-assemble something.
 				 * Repeatedly call Assemble in auto-assemble mode
 				 * until it fails

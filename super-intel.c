@@ -489,6 +489,13 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 
 		remainder = __le32_to_cpu(dl->disk.total_blocks) - 
 			    (last->start + last->size);
+		/* round down to 1k block to satisfy precision of the kernel
+		 * 'size' interface
+		 */
+		remainder &= ~1UL;
+		/* make sure remainder is still sane */
+		if (remainder < ROUND_UP(super->len, 512) >> 9)
+			remainder = ROUND_UP(super->len, 512) >> 9;
 		if (reservation > remainder)
 			reservation = remainder;
 	}

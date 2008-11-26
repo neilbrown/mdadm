@@ -2050,7 +2050,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 /* add a device to a container, either while creating it or while
  * expanding a pre-existing container
  */
-static void add_to_super_ddf(struct supertype *st,
+static int add_to_super_ddf(struct supertype *st,
 			     mdu_disk_info_t *dk, int fd, char *devname)
 {
 	struct ddf_super *ddf = st->sb;
@@ -2064,7 +2064,7 @@ static void add_to_super_ddf(struct supertype *st,
 
 	if (ddf->currentconf) {
 		add_to_super_ddf_bvd(st, dk, fd, devname);
-		return;
+		return 0;
 	}
 
 	/* This is device numbered dk->number.  We need to create
@@ -2076,7 +2076,7 @@ static void add_to_super_ddf(struct supertype *st,
 		fprintf(stderr, Name
 			": %s could allocate buffer for new disk, aborting\n",
 			__func__);
-		abort();
+		return 1;
 	}
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
@@ -2147,6 +2147,8 @@ static void add_to_super_ddf(struct supertype *st,
 		ddf->dlist = dd;
 		ddf->updates_pending = 1;
 	}
+
+	return 0;
 }
 
 /*

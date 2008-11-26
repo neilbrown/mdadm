@@ -627,7 +627,7 @@ struct devinfo {
 
 #ifndef MDASSEMBLE
 /* Add a device to the superblock being created */
-static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
+static int add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 			  int fd, char *devname)
 {
 	mdp_super_t *sb = st->sb;
@@ -652,6 +652,8 @@ static void add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 	di->disk = *dinfo;
 	di->next = NULL;
 	*dip = di;
+
+	return 0;
 }
 #endif
 

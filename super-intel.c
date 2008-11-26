@@ -1911,7 +1911,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 }
 
 #ifndef MDASSEMBLE
-static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
+static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 				     int fd, char *devname)
 {
 	struct intel_super *super = st->sb;
@@ -1929,7 +1929,7 @@ static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 			break;
 
 	if (!dl || ! (dk->state & (1<<MD_DISK_SYNC)))
-		return;
+		return 1;
 
 	/* add a pristine spare to the metadata */
 	if (dl->index < 0) {
@@ -1950,9 +1950,11 @@ static void add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		sum = __gen_imsm_checksum(mpb);
 		mpb->family_num = __cpu_to_le32(sum);
 	}
+
+	return 0;
 }
 
-static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
+static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 			      int fd, char *devname)
 {
 	struct intel_super *super = st->sb;
@@ -1962,17 +1964,15 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	int rv;
 	struct stat stb;
 
-	if (super->current_vol >= 0) {
-		add_to_super_imsm_volume(st, dk, fd, devname);
-		return;
-	}
+	if (super->current_vol >= 0)
+		return add_to_super_imsm_volume(st, dk, fd, devname);
 
 	fstat(fd, &stb);
 	dd = malloc(sizeof(*dd));
 	if (!dd) {
 		fprintf(stderr,
 			Name ": malloc failed %s:%d.\n", __func__, __LINE__);
-		abort();
+		return 1;
 	}
 	memset(dd, 0, sizeof(*dd));
 	dd->major = major(stb.st_rdev);
@@ -2005,6 +2005,8 @@ static void add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		dd->next = super->disks;
 		super->disks = dd;
 	}
+
+	return 0;
 }
 
 static int store_imsm_mpb(int fd, struct intel_super *super);

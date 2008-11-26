@@ -503,7 +503,7 @@ extern struct superswitch {
 	/* update the metadata to include new device, either at create or
 	 * when hot-adding a spare.
 	 */
-	void (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo,
+	int (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo,
 			     int fd, char *devname);
 
 	/* Write metadata to one device when fixing problems or adding

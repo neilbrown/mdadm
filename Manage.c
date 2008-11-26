@@ -624,8 +624,13 @@ int Manage_subdevs(char *devname, int fd,
 				if (dv->writemostly == 1)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 				dfd = open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
-				tst->ss->add_to_super(tst, &disc, dfd,
-						      dv->devname);
+				if (tst->ss->add_to_super(tst, &disc, dfd,
+							  dv->devname)) {
+					fprintf(stderr, Name ": failed to add %s\n",
+						dv->devname);
+					close(dfd);
+					return 1;
+				}
 				/* write_init_super will close 'dfd' */
 				if (tst->ss->external)
 					/* mdmon will write the metadata */

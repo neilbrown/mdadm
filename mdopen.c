@@ -52,6 +52,7 @@ void make_parts(char *dev, int cnt)
 	int dig = isdigit(dev[strlen(dev)-1]);
 	char orig[1024];
 	char sym[1024];
+	int err;
 
 	if (cnt==0) cnt=4;
 	if (lstat(dev, &stb)!= 0)
@@ -87,12 +88,14 @@ void make_parts(char *dev, int cnt)
 				perror("chown");
 			if (chmod(name, stb2.st_mode & 07777))
 				perror("chmod");
+			err = 0;
 		} else {
 			snprintf(sym, sizeof(sym), "%s%s%d", orig, odig?"p":"", i);
-			symlink(sym, name);
+			err = symlink(sym, name);
 		}
-		stat(name, &stb2);
-		add_dev(name, &stb2, 0, NULL);
+
+		if (err == 0 && stat(name, &stb2) == 0)
+			add_dev(name, &stb2, 0, NULL);
 	}
 }
 
@@ -356,8 +359,9 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 						chosen);
 					strcpy(chosen, devname);
 				}
-			} else
-				symlink(devname, chosen);
+			} else if (symlink(devname, chosen) != 0)
+				fprintf(stderr, Name ": failed to create %s: %s\n",
+					chosen, strerror(errno));
 			if (use_mdp && strcmp(chosen, devname) != 0)
 				make_parts(chosen, parts);
 		}

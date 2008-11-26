@@ -1213,10 +1213,14 @@ int main(int argc, char *argv[])
 				     SparcAdjust, ss, homehost);
 		} else {
 			if (devlist == NULL) {
-				if (devmode=='D' && scan) {
-					/* apply --detail to all devices in /proc/mdstat */
+				if ((devmode=='D' || devmode == Waitclean) && scan) {
+					/* apply --detail or --wait-clean to
+					 * all devices in /proc/mdstat
+					 */
 					struct mdstat_ent *ms = mdstat_read(0, 1);
 					struct mdstat_ent *e;
+					int v = verbose>1?0:verbose+1;
+
 					for (e=ms ; e ; e=e->next) {
 						char *name = get_md_name(e->devnum);
 
@@ -1225,8 +1229,12 @@ int main(int argc, char *argv[])
 								e->dev);
 							continue;
 						}
-						rv |= Detail(name, verbose>1?0:verbose+1,
-							     export, test, homehost);
+						if (devmode == 'D')
+							rv |= Detail(name, v,
+								     export, test,
+								     homehost);
+						else
+							rv |= WaitClean(name, v);
 						put_md_name(name);
 					}
 				} else	if (devmode == 'S' && scan) {

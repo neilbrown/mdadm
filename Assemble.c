@@ -632,7 +632,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			int j = best[i];
 			if (j>=0 &&
 			    !devices[j].uptodate &&
-			    devices[j].i.events > 0 &&
 			    (chosen_drive < 0 ||
 			     devices[j].i.events
 			     > devices[chosen_drive].i.events))
@@ -690,7 +689,6 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			int j = best[i];
 			if (j >= 0 &&
 			    !devices[j].uptodate &&
-			    devices[j].i.events > 0 &&
 			    devices[j].i.events == current_events) {
 				chosen_drive = j;
 				goto add_another;

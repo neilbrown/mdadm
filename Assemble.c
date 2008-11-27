@@ -1091,6 +1091,7 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, ".\n");
 				}
 				close(mdfd);
+				wait_for(mddev);
 				if (auto_assem) {
 					int usecs = 1;
 					/* There is a nasty race with 'mdadm --monitor'.

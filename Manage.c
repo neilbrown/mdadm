@@ -626,8 +626,6 @@ int Manage_subdevs(char *devname, int fd,
 				dfd = open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
 				if (tst->ss->add_to_super(tst, &disc, dfd,
 							  dv->devname)) {
-					fprintf(stderr, Name ": failed to add %s\n",
-						dv->devname);
 					close(dfd);
 					return 1;
 				}

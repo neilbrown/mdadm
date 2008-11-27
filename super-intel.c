@@ -1923,13 +1923,21 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	dev = get_imsm_dev(super, super->current_vol);
 	map = get_imsm_map(dev, 0);
 
+	if (! (dk->state & (1<<MD_DISK_SYNC))) {
+		fprintf(stderr, Name ": %s: Cannot add spare devices to IMSM volume\n",
+			devname);
+		return 1;
+	}
+
 	for (dl = super->disks; dl ; dl = dl->next)
 		if (dl->major == dk->major &&
 		    dl->minor == dk->minor)
 			break;
 
-	if (!dl || ! (dk->state & (1<<MD_DISK_SYNC)))
+	if (!dl) {
+		fprintf(stderr, Name ": %s is not a member of the same container\n", devname);
 		return 1;
+	}
 
 	/* add a pristine spare to the metadata */
 	if (dl->index < 0) {

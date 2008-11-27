@@ -706,11 +706,8 @@ int Create(struct supertype *st, char *mddev,
 
 				remove_partitions(fd);
 				if (st->ss->add_to_super(st, &inf->disk,
-							 fd, dv->devname)) {
-					fprintf(stderr, Name ": failed to add %s\n",
-						dv->devname);
+							 fd, dv->devname))
 					goto abort;
-				}
 				st->ss->getinfo_super(st, inf);
 				safe_mode_delay = inf->safe_mode_delay;
 

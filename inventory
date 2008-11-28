@@ -22,6 +22,7 @@ ANNOUNCE-2.6.4
 ANNOUNCE-2.6.5
 ANNOUNCE-2.6.6
 ANNOUNCE-2.6.7
+ANNOUNCE-2.6.8
 Assemble.c
 bitmap.c
 bitmap.h
@@ -120,6 +121,7 @@ tests/06update-uuid
 tests/06wrmostly
 tests/07autoassemble
 tests/07autodetect
+tests/07reshape5intr
 tests/07testreshape5
 tests/check
 tests/testdev

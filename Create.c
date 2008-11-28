@@ -745,7 +745,8 @@ int Create(struct supertype *st, char *mddev,
 		/* No need to start.  But we should signal udev to
 		 * create links */
 		sysfs_uevent(&info, "change");
-		;
+		if (verbose >= 0)
+			fprintf(stderr, Name ": container %s prepared.\n", mddev);
 	} else if (runstop == 1 || subdevs >= raiddisks) {
 		if (st->ss->external) {
 			switch(level) {

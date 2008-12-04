@@ -1026,6 +1026,7 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 	struct vcl *vcl;
 
 	for (vcl = sb->conflist ; vcl ; vcl = vcl->next) {
+		int i;
 		struct vd_config *vc = &vcl->conf;
 
 		if (calc_crc(vc, crl*512) != vc->crc)
@@ -1034,8 +1035,22 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 			continue;
 
 		/* Ok, we know about this VD, let's give more details */
-		printf(" Raid Devices[%d] : %d\n", n,
+		printf(" Raid Devices[%d] : %d (", n,
 		       __be16_to_cpu(vc->prim_elmnt_count));
+		for (i=0; i<__be16_to_cpu(vc->prim_elmnt_count); i++) {
+			int j;
+			int cnt = __be16_to_cpu(sb->phys->used_pdes);
+			for (j=0; j<cnt; j++)
+				if (vc->phys_refnum[i] == sb->phys->entries[j].refnum)
+					break;
+			if (i) printf(" ");
+			if (j < cnt)
+				printf("%d", j);
+			else
+				printf("--");
+		}
+		printf(")\n");
+		if (vc->chunk_shift != 255)
 		printf("   Chunk Size[%d] : %d sectors\n", n,
 		       1 << vc->chunk_shift);
 		printf("   Raid Level[%d] : %s\n", n,
@@ -1061,6 +1076,7 @@ static void examine_vds(struct ddf_super *sb)
 
 	for (i=0; i<cnt; i++) {
 		struct virtual_entry *ve = &sb->virt->entries[i];
+		printf("\n");
 		printf("      VD GUID[%d] : ", i); print_guid(ve->guid, 1);
 		printf("\n");
 		printf("         unit[%d] : %d\n", i, __be16_to_cpu(ve->unit));
@@ -1084,40 +1100,43 @@ static void examine_pds(struct ddf_super *sb)
 	int i;
 	struct dl *dl;
 	printf(" Physical Disks : %d\n", cnt);
+	printf("      Number    RefNo    Size       Device    Type/State\n");
 
 	for (i=0 ; i<cnt ; i++) {
 		struct phys_disk_entry *pd = &sb->phys->entries[i];
 		int type = __be16_to_cpu(pd->type);
 		int state = __be16_to_cpu(pd->state);
 
-		printf("      PD GUID[%d] : ", i); print_guid(pd->guid, 0);
-		printf("\n");
-		printf("          ref[%d] : %08x\n", i,
+		//printf("      PD GUID[%d] : ", i); print_guid(pd->guid, 0);
+		//printf("\n");
+		printf("       %3d    %08x  ", i,
 		       __be32_to_cpu(pd->refnum));
-		printf("         mode[%d] : %s%s%s%s%s\n", i,
+		printf("%lluK ",  __be64_to_cpu(pd->config_size)>>1);
+		for (dl = sb->dlist; dl ; dl = dl->next) {
+			if (dl->disk.refnum == pd->refnum) {
+				char *dv = map_dev(dl->major, dl->minor, 0);
+				if (dv) {
+					printf("%-10s", dv);
+					break;
+				}
+			}
+		}
+		if (!dl)
+			printf("%10s","");
+		printf(" %s%s%s%s%s",
 		       (type&2) ? "active":"",
-		       (type&4) ? "Global Spare":"",
+		       (type&4) ? "Global-Spare":"",
 		       (type&8) ? "spare" : "",
 		       (type&16)? ", foreign" : "",
 		       (type&32)? "pass-through" : "");
-		printf("        state[%d] : %s%s%s%s%s%s%s\n", i,
+		printf("/%s%s%s%s%s%s%s",
 		       (state&1)? "Online": "Offline",
 		       (state&2)? ", Failed": "",
 		       (state&4)? ", Rebuilding": "",
 		       (state&8)? ", in-transition": "",
-		       (state&16)? ", SMART errors": "",
-		       (state&32)? ", Unrecovered Read Errors": "",
+		       (state&16)? ", SMART-errors": "",
+		       (state&32)? ", Unrecovered-Read-Errors": "",
 		       (state&64)? ", Missing" : "");
-		printf("   Avail Size[%d] : %llu K\n", i,
-		       __be64_to_cpu(pd->config_size)>>1);
-		for (dl = sb->dlist; dl ; dl = dl->next) {
-			if (dl->disk.refnum == pd->refnum) {
-				char *dv = map_dev(dl->major, dl->minor, 0);
-				if (dv)
-					printf("       Device[%d] : %s\n",
-					       i, dv);
-			}
-		}
 		printf("\n");
 	}
 }

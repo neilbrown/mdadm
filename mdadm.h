@@ -448,7 +448,7 @@ extern struct superswitch {
 	 */
 	void (*uuid_from_super)(struct supertype *st, int uuid[4]);
 
-	/* Extra generic details from metadata.  This could be details about
+	/* Extract generic details from metadata.  This could be details about
 	 * the container, or about an individual array within the container.
 	 * The determination is made either by:
 	 *   load_super being given a 'component' string.

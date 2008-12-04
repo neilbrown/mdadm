@@ -2387,6 +2387,14 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							verbose);
 	}
 	
+	if (!dev) {
+		if (st->sb && freesize) {
+			/* Should do auto-layout here */
+			fprintf(stderr, Name ": IMSM does not support auto-layout yet\n");
+			return 0;
+		}
+		return 1;
+	}
 	if (st->sb) {
 		/* creating in a given container */
 		return validate_geometry_imsm_volume(st, level, layout,

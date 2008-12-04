@@ -423,10 +423,14 @@ struct ddf_super {
 				unsigned long long size; /* sectors */
 				int pdnum;	/* index in ->phys */
 				struct spare_assign *spare;
+				void *mdupdate; /* hold metadata update */
+
+				/* These fields used by auto-layout */
+				int raiddisk; /* slot to fill in autolayout */
+				__u64 esize;
 			};
 		};
 		struct disk_data disk;
-		void *mdupdate; /* hold metadata update */
 		struct vcl *vlist[0]; /* max_part in size */
 	} *dlist, *add_list;
 };
@@ -1325,6 +1329,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	struct vcl *vc = ddf->currentconf;
 	int cd = ddf->currentdev;
 	int j;
+	struct dl *dl;
 
 	/* FIXME this returns BVD info - what if we want SVD ?? */
 
@@ -1346,8 +1351,15 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 			info->component_size = __be64_to_cpu(vc->conf.blocks);
 	}
 
+	for (dl = ddf->dlist; dl ; dl = dl->next)
+		if (dl->raiddisk == info->disk.raid_disk)
+			break;
 	info->disk.major = 0;
 	info->disk.minor = 0;
+	if (dl) {
+		info->disk.major = dl->major;
+		info->disk.minor = dl->minor;
+	}
 //	info->disk.number = __be32_to_cpu(ddf->disk.refnum);
 //	info->disk.raid_disk = find refnum in the table and use index;
 //	info->disk.state = ???;
@@ -1965,6 +1977,9 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	 * the phys_refnum and lba_offset for the newly created vd_config.
 	 * We might also want to update the type in the phys_disk
 	 * section.
+	 *
+	 * Alternately: fd == -1 and we have already chosen which device to
+	 * use and recorded in dlist->raid_disk;
 	 */
 	struct dl *dl;
 	struct ddf_super *ddf = st->sb;
@@ -1975,10 +1990,16 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	unsigned long long blocks, pos, esize;
 	struct extent *ex;
 
-	for (dl = ddf->dlist; dl ; dl = dl->next)
-		if (dl->major == dk->major &&
-		    dl->minor == dk->minor)
-			break;
+	if (fd == -1) {
+		for (dl = ddf->dlist; dl ; dl = dl->next)
+			if (dl->raiddisk == dk->raid_disk)
+				break;
+	} else {
+		for (dl = ddf->dlist; dl ; dl = dl->next)
+			if (dl->major == dk->major &&
+			    dl->minor == dk->minor)
+				break;
+	}
 	if (!dl || ! (dk->state & (1<<MD_DISK_SYNC)))
 		return;
 
@@ -2017,8 +2038,10 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		return;
 	dl->vlist[i] = ddf->currentconf;
 
-	dl->fd = fd;
-	dl->devname = devname;
+	if (fd >= 0)
+		dl->fd = fd;
+	if (devname)
+		dl->devname = devname;
 
 	/* Check how many working raid_disks, and if we can mark
 	 * array as optimal yet
@@ -2331,6 +2354,96 @@ static __u64 avail_size_ddf(struct supertype *st, __u64 devsize)
 }
 
 #ifndef MDASSEMBLE
+
+static int reserve_space(struct supertype *st, int raiddisks,
+			 unsigned long long size, int chunk,
+			 unsigned long long *freesize)
+{
+	/* Find 'raiddisks' spare extents at least 'size' big (but
+	 * only caring about multiples of 'chunk') and remember
+	 * them.
+	 * If the cannot be found, fail.
+	 */
+	struct dl *dl;
+	struct ddf_super *ddf = st->sb;
+	int cnt = 0;
+
+	for (dl = ddf->dlist; dl ; dl=dl->next) {
+		dl->raiddisk = -1;	
+		dl->esize = 0;
+	}
+	/* Now find largest extent on each device */
+	for (dl = ddf->dlist ; dl ; dl=dl->next) {
+		struct extent *e = get_extents(ddf, dl);
+		unsigned long long pos = 0;
+		int i = 0;
+		int found = 0;
+		unsigned long long minsize = size;
+
+		if (size == 0)
+			minsize = chunk;
+
+		if (!e)
+			continue;
+		do {
+			unsigned long long esize;
+			esize = e[i].start - pos;
+			if (esize >= minsize) {
+				found = 1;
+				minsize = esize;
+			}
+			pos = e[i].start + e[i].size;
+			i++;
+		} while (e[i-1].size);
+		if (found) {
+			cnt++;
+			dl->esize = minsize;
+		}
+		free(e);
+	}
+	if (cnt < raiddisks) {
+		fprintf(stderr, Name ": not enough devices with space to create array.\n");
+		return 0; /* No enough free spaces large enough */
+	}
+	if (size == 0) {
+		/* choose the largest size of which there are at least 'raiddisk' */
+		for (dl = ddf->dlist ; dl ; dl=dl->next) {
+			struct dl *dl2;
+			if (dl->esize <= size)
+				continue;
+			/* This is bigger than 'size', see if there are enough */
+			cnt = 0;
+			for (dl2 = dl; dl2 ; dl2=dl2->next)
+				if (dl2->esize >= dl->esize)
+					cnt++;
+			if (cnt >= raiddisks)
+				size = dl->esize;
+		}
+		if (chunk) {
+			size = size / chunk;
+			size *= chunk;
+		}
+		*freesize = size;
+		if (size < 32) {
+			fprintf(stderr, Name ": not enough spare devices to create array.\n");
+			return 0;
+		}
+	}
+	/* We have a 'size' of which there are enough spaces.
+	 * We simply do a first-fit */
+	cnt = 0;
+	for (dl = ddf->dlist ; dl && cnt < raiddisks ; dl=dl->next) {
+		if (dl->esize < size)
+			continue;
+		
+		dl->raiddisk = cnt;
+		cnt++;
+	}
+	return 1;
+}
+
+
+
 static int
 validate_geometry_ddf_container(struct supertype *st,
 				int level, int layout, int raiddisks,
@@ -2369,15 +2482,6 @@ static int validate_geometry_ddf(struct supertype *st,
 						       verbose);
 	}
 
-	if (st->sb) {
-		/* A container has already been opened, so we are
-		 * creating in there.  Maybe a BVD, maybe an SVD.
-		 * Should make a distinction one day.
-		 */
-		return validate_geometry_ddf_bvd(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize,
-						 verbose);
-	}
 	if (!dev) {
 		/* Initial sanity check.  Exclude illegal levels. */
 		int i;
@@ -2387,9 +2491,29 @@ static int validate_geometry_ddf(struct supertype *st,
 		if (ddf_level_num[i].num1 == MAXINT)
 			return 0;
 		/* Should check layout? etc */
+
+		if (st->sb && freesize) {
+			/* --create was given a container to create in.
+			 * So we need to check that there are enough
+			 * free spaces and return the amount of space.
+			 * We may as well remember which drives were
+			 * chosen so that add_to_super/getinfo_super
+			 * can return them.
+			 */
+			return reserve_space(st, raiddisks, size, chunk, freesize);
+		}
 		return 1;
 	}
 
+	if (st->sb) {
+		/* A container has already been opened, so we are
+		 * creating in there.  Maybe a BVD, maybe an SVD.
+		 * Should make a distinction one day.
+		 */
+		return validate_geometry_ddf_bvd(st, level, layout, raiddisks,
+						 chunk, size, dev, freesize,
+						 verbose);
+	}
 	/* This is the first device for the array.
 	 * If it is a container, we read it in and do automagic allocations,
 	 * no other devices should be given.

@@ -81,6 +81,7 @@ int Create(struct supertype *st, char *mddev,
 	unsigned long safe_mode_delay = 0;
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
+	unsigned long long newsize;
 
 	int major_num = BITMAP_MAJOR_HI;
 
@@ -147,13 +148,11 @@ int Create(struct supertype *st, char *mddev,
 				else
 					st = NULL;
 			}
+			if (have_container)
+				subdevs = raiddisks;
 		}
 		if (fd >= 0)
 			close(fd);
-		if (have_container) {
-			subdevs = 0;
-			devlist = NULL;
-		}
 	}
 	if (st && st->ss->external && sparedisks) {
 		fprintf(stderr,
@@ -238,16 +237,23 @@ int Create(struct supertype *st, char *mddev,
 		fprintf(stderr, Name ": unknown level %d\n", level);
 		return 1;
 	}
-
+	
+	newsize = size * 2;
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
-					      chunk, size*2, NULL, NULL, verbose>=0))
+					      chunk, size*2, NULL, &newsize, verbose>=0))
 		return 1;
+	if (size == 0) {
+		size = newsize / 2;
+		if (size && verbose > 0)
+			fprintf(stderr, Name ": setting size to %lluK\n",
+				(unsigned long long)size);
+	}
 
 	/* now look at the subdevs */
 	info.array.active_disks = 0;
 	info.array.working_disks = 0;
 	dnum = 0;
-	for (dv=devlist; dv; dv=dv->next, dnum++) {
+	for (dv=devlist; dv && !have_container; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
 		unsigned long long freesize;
 		if (strcasecmp(dname, "missing")==0) {
@@ -341,6 +347,8 @@ int Create(struct supertype *st, char *mddev,
 			close(fd);
 		}
 	}
+	if (have_container)
+		info.array.working_disks = raiddisks;
 	if (fail) {
 		fprintf(stderr, Name ": create aborted\n");
 		return 1;
@@ -366,9 +374,9 @@ int Create(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": size set to %lluK\n", size);
 		}
 	}
-	if (level > 0 && ((maxsize-size)*100 > maxsize)) {
+	if (!have_container && level > 0 && ((maxsize-size)*100 > maxsize)) {
 		if (runstop != 1 || verbose >= 0)
-			fprintf(stderr, Name ": largest drive (%s) exceed size (%lluK) by more than 1%%\n",
+			fprintf(stderr, Name ": largest drive (%s) exceeds size (%lluK) by more than 1%%\n",
 				maxdisc, size);
 		warn = 1;
 	}
@@ -669,10 +677,15 @@ int Create(struct supertype *st, char *mddev,
 				abort();
 			if (dnum == insert_point) {
 				moved_disk = dv;
-			}
-			if (dnum == insert_point ||
-			    strcasecmp(dv->devname, "missing")==0)
 				continue;
+			}
+			if (strcasecmp(dv->devname, "missing")==0)
+				continue;
+			if (have_container)
+				moved_disk = NULL;
+			if (have_container && dnum < info.array.raid_disks - 1)
+				/* repeatedly use the container */
+				moved_disk = dv;
 
 			switch(pass) {
 			case 1:
@@ -689,31 +702,43 @@ int Create(struct supertype *st, char *mddev,
 				if (dv->writemostly == 1)
 					inf->disk.state |= (1<<MD_DISK_WRITEMOSTLY);
 
-				if (st->ss->external && st->subarray[0])
-					fd = open(dv->devname, O_RDWR);
-				else
-					fd = open(dv->devname, O_RDWR|O_EXCL);
+				if (have_container)
+					fd = -1;
+				else {
+					if (st->ss->external && st->subarray[0])
+						fd = open(dv->devname, O_RDWR);
+					else
+						fd = open(dv->devname, O_RDWR|O_EXCL);
 
-				if (fd < 0) {
-					fprintf(stderr, Name ": failed to open %s "
-						"after earlier success - aborting\n",
-						dv->devname);
-					goto abort;
+					if (fd < 0) {
+						fprintf(stderr, Name ": failed to open %s "
+							"after earlier success - aborting\n",
+							dv->devname);
+						goto abort;
+					}
+					fstat(fd, &stb);
+					inf->disk.major = major(stb.st_rdev);
+					inf->disk.minor = minor(stb.st_rdev);
 				}
-				fstat(fd, &stb);
-				inf->disk.major = major(stb.st_rdev);
-				inf->disk.minor = minor(stb.st_rdev);
-
-				remove_partitions(fd);
+				if (fd >= 0)
+					remove_partitions(fd);
 				if (st->ss->add_to_super(st, &inf->disk,
 							 fd, dv->devname))
 					goto abort;
 				st->ss->getinfo_super(st, inf);
 				safe_mode_delay = inf->safe_mode_delay;
 
-				/* getinfo_super might have lost these ... */
-				inf->disk.major = major(stb.st_rdev);
-				inf->disk.minor = minor(stb.st_rdev);
+				if (have_container && verbose > 0)
+					fprintf(stderr, Name ": Using %s for device %d\n",
+						map_dev(inf->disk.major,
+							inf->disk.minor,
+							0), dnum);
+
+				if (!have_container) {
+					/* getinfo_super might have lost these ... */
+					inf->disk.major = major(stb.st_rdev);
+					inf->disk.minor = minor(stb.st_rdev);
+				}
 				break;
 			case 2:
 				inf->errors = 0;
@@ -731,7 +756,8 @@ int Create(struct supertype *st, char *mddev,
 				}
 				break;
 			}
-			if (dv == moved_disk && dnum != insert_point) break;
+			if (!have_container &&
+			    dv == moved_disk && dnum != insert_point) break;
 		}
 		if (pass == 1) {
 			st->ss->write_init_super(st);

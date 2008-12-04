@@ -2295,7 +2295,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		 * 'raiddisks' device extents of size 'size' at a given
 		 * offset
 		 */
-		unsigned long long minsize = size*2 /* convert to blocks */;
+		unsigned long long minsize = size;
 		unsigned long long start_offset = ~0ULL;
 		int dcnt = 0;
 		if (minsize == 0)

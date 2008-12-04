@@ -240,7 +240,7 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
-					      chunk, size, NULL, NULL, verbose>=0))
+					      chunk, size*2, NULL, NULL, verbose>=0))
 		return 1;
 
 	/* now look at the subdevs */
@@ -276,7 +276,7 @@ int Create(struct supertype *st, char *mddev,
 				st = superlist[i]->match_metadata_desc(name);
 				if (st && !st->ss->validate_geometry
 					    	(st, level, layout, raiddisks,
-						 chunk, size, dname, &freesize,
+						 chunk, size*2, dname, &freesize,
 						 verbose > 0))
 					st = NULL;
 			}
@@ -293,7 +293,7 @@ int Create(struct supertype *st, char *mddev,
 		} else {
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
-						       chunk, size, dname,
+						       chunk, size*2, dname,
 						       &freesize,
 						       verbose > 0)) {
 
@@ -356,7 +356,7 @@ int Create(struct supertype *st, char *mddev,
 			/* size is meaningful */
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
-						       chunk, minsize,
+						       chunk, minsize*2,
 						       NULL, NULL, 0)) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);
 				return 1;

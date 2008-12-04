@@ -1057,7 +1057,7 @@ static int validate_geometry0(struct supertype *st, int level,
 		return 0;
 	if (raiddisks > MD_SB_DISKS)
 		return 0;
-	if (size > (0x7fffffffULL<<10))
+	if (size > (0x7fffffffULL<<9))
 		return 0;
 	if (!subdev)
 		return 1;
@@ -1078,7 +1078,7 @@ static int validate_geometry0(struct supertype *st, int level,
 
 	if (ldsize < MD_RESERVED_SECTORS * 512)
 		return 0;
-	if (size > (0x7fffffffULL<<10))
+	if (size > (0x7fffffffULL<<9))
 		return 0;
 	*freesize = MD_NEW_SIZE_SECTORS(ldsize >> 9);
 	return 1;

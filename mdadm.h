@@ -532,6 +532,7 @@ extern struct superswitch {
 	 * added to validate changing size and new devices.  If there are
 	 * inter-device dependencies, it should record sufficient details
 	 * so these can be validated.
+	 * Both 'size' and '*freesize' are in sectors.  chunk is bytes.
 	 */
 	int (*validate_geometry)(struct supertype *st, int level, int layout,
 				 int raiddisks,

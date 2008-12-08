@@ -1,0 +1,68 @@
+imsm_check() {
+   case $1 in
+    container )
+      grep -s "$(((418 * $2)/2)) blocks super external:imsm" /proc/mdstat > /dev/null || {
+   		echo >&2 "ERROR correctly formed container not found"; cat /proc/mdstat; exit 1;}
+      ;;
+    member )
+      member=$2
+      num_disks=$3
+      level=$4
+      size=$5
+      offset=$6
+      err=0
+
+      eval `stat -L -c "let major=0x%t; let minor=0x%T;" $member`
+      sysfs=/sys/dev/block/${major}:${minor}
+      if [ ! -f ${sysfs}/md/array_state ]; then
+           echo "member array $member not found" >&2
+           cat /proc/mdstat >&2
+           exit 1
+      fi
+      for i in `seq 0 $((num_disks-1))`
+      do
+         _offset=`cat ${sysfs}/md/rd${i}/offset`
+         if [ $offset -ne $((_offset/2)) ]; then
+	    echo "offset mismatch expected $offset got $_offset" >&2
+            err=$((err+1))
+         fi
+         _size=`cat ${sysfs}/md/rd${i}/size`
+         if [ $size -ne $_size ]; then
+	    echo "offset mismatch expected $size got $_size" >&2
+            err=$((err+1))
+         fi
+      done
+
+      if [ $err -gt 0 ]; then
+          echo "$member failed check" >&2
+          cat /proc/mdstat >&2
+	  mdadm -E /dev/loop0 >&2
+          exit 1
+      fi
+      ;;
+    * ) echo >&2 ERROR unknown check $1 ; exit 1;
+   esac
+}
+
+setup_env() {
+	export IMSM_DEVNAME_AS_SERIAL=1
+	export IMSM_NO_PLATFORM=1
+	container=/dev/md/container
+	member0=/dev/md/vol0
+	member1=/dev/md/vol1
+	member2=/dev/md/vol2
+	member3=/dev/md/vol3
+	member4=/dev/md/vol4
+}
+
+reset_env() {
+	unset IMSM_DEVNAME_AS_SERIAL
+	unset IMSM_NO_PLATFORM
+	unset imsm_check
+	unset container
+	unset member0
+	unset member1
+	unset member2
+	unset member3
+	unset member4
+}

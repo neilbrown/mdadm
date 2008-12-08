@@ -2057,7 +2057,10 @@ static __u32 info_to_num_data_stripes(mdu_array_info_t *info)
 
 static __u32 info_to_blocks_per_member(mdu_array_info_t *info)
 {
-	return (info->size * 2) & ~(info_to_blocks_per_strip(info) - 1);
+	if (info->level == 1)
+		return info->size * 2;
+	else
+		return (info->size * 2) & ~(info_to_blocks_per_strip(info) - 1);
 }
 
 static void imsm_update_version_info(struct intel_super *super)

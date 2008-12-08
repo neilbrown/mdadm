@@ -176,3 +176,64 @@ const struct imsm_orom *find_imsm_orom(void)
 		return &imsm_orom;
 	return NULL;
 }
+
+char *devt_to_devpath(dev_t dev)
+{
+	char device[40];
+
+	sprintf(device, "/sys/dev/block/%d:%d/device", major(dev), minor(dev));
+	return canonicalize_file_name(device);
+}
+
+static char *diskfd_to_devpath(int fd)
+{
+	/* return the device path for a disk, return NULL on error or fd
+	 * refers to a partition
+	 */
+	struct stat st;
+
+	if (fstat(fd, &st) != 0)
+		return NULL;
+	if (!S_ISBLK(st.st_mode))
+		return NULL;
+
+	return devt_to_devpath(st.st_rdev);
+}
+
+int path_attached_to_hba(const char *disk_path, const char *hba_path)
+{
+	int rc;
+
+	if (!disk_path || !hba_path)
+		return 0;
+
+	if (strncmp(disk_path, hba_path, strlen(hba_path)) == 0)
+		rc = 1;
+	else
+		rc = 0;
+
+	return rc;
+}
+
+int devt_attached_to_hba(dev_t dev, const char *hba_path)
+{
+	char *disk_path = devt_to_devpath(dev);
+	int rc = path_attached_to_hba(disk_path, hba_path);
+
+	if (disk_path)
+		free(disk_path);
+
+	return rc;
+}
+
+int disk_attached_to_hba(int fd, const char *hba_path)
+{
+	char *disk_path = diskfd_to_devpath(fd);
+	int rc = path_attached_to_hba(disk_path, hba_path);
+
+	if (disk_path)
+		free(disk_path);
+
+	return rc;
+}
+

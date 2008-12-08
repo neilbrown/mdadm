@@ -87,3 +87,6 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver);
 __u16 devpath_to_vendor(const char *dev_path);
 void free_sys_dev(struct sys_dev **list);
 const struct imsm_orom *find_imsm_orom(void);
+int disk_attached_to_hba(int fd, const char *hba_path);
+char *devt_to_devpath(dev_t dev);
+int path_attached_to_hba(const char *disk_path, const char *hba_path);

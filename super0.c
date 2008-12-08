@@ -1110,4 +1110,5 @@ struct superswitch super0 = {
 	.locate_bitmap = locate_bitmap0,
 	.write_bitmap = write_bitmap0,
 	.free_super = free_super0,
+	.name = "0.90",
 };

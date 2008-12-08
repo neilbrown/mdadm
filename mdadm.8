@@ -51,7 +51,7 @@ each device is a path to one common physical storage device.
 is also not true RAID, and it only involves one device.  It
 provides a layer over a true device that can be used to inject faults.
 
-B CONTAINER
+.B CONTAINER
 is different again.  A
 .B CONTAINER
 is a collection of devices that are
@@ -364,9 +364,13 @@ creating a DDF array a
 .B CONTAINER
 will be created, and normal arrays can be created in that container.
 .IP imsm
-Use the Intel Matrix Storage Manager metadata format.  This creates a
+Use the Intel(R) Matrix Storage Manager metadata format.  This creates a
 .B CONTAINER
-which is managed in a similar manner to DDF.
+which is managed in a similar manner to DDF, and is supported by an
+option-rom on some platforms:
+.IP
+.B http://www.intel.com/design/chipsets/matrixstorage_sb.htm
+.PP
 .RE
 
 .TP
@@ -1009,6 +1013,11 @@ Information about what is discovered is presented.
 Print detail of one or more md devices.
 
 .TP
+.BR \-\-detail\-platform
+Print detail of the platform's raid capabilities (firmware / hardware
+topology) for a given metadata format.
+
+.TP
 .BR \-Y ", " \-\-export
 When used with
 .B \-\-detail
@@ -1559,6 +1568,26 @@ The array has multiple failed devices such that it is unusable.
 .TP
 4
 There was an error while trying to get information about the device.
+.RE
+
+.TP
+.B \-\-detail\-platform
+Print detail of the platform's raid capabilities (firmware / hardware
+topology).  If the metadata is specified with
+.B \-e
+or
+.B \-\-metadata=
+then the return status will be:
+.RS
+.TP
+0
+metadata successfully enumerated its platform components on this system
+.TP
+1
+metadata is platform independent
+.TP
+2
+metadata failed to find its platform components on this system
 .RE
 
 .TP

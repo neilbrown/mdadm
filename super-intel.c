@@ -3808,6 +3808,7 @@ struct superswitch super_imsm = {
 	.container_content = container_content_imsm,
 
 	.external	= 1,
+	.name = "imsm",
 
 #ifndef MDASSEMBLE
 /* for mdmon */

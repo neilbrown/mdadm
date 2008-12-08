@@ -1574,4 +1574,5 @@ struct superswitch super1 = {
 #else
 	.swapuuid = 1,
 #endif
+	.name = "1.0",
 };

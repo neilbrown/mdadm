@@ -225,6 +225,7 @@ enum special_options {
 	Symlinks,
 	AutoDetect,
 	Waitclean,
+	DetailPlatform,
 };
 
 /* structures read from config file */
@@ -441,6 +442,9 @@ extern struct superswitch {
 	void (*brief_detail_super)(struct supertype *st);
 	void (*export_detail_super)(struct supertype *st);
 
+	/* Optional: platform hardware / firmware details */
+	int (*detail_platform)(int verbose);
+
 	/* Used:
 	 *   to get uuid to storing in bitmap metadata
 	 *   and 'reshape' backup-data metadata
@@ -584,6 +588,7 @@ extern struct superswitch {
 
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
+	const char *name; /* canonical metadata name */
 } super0, super1, super_ddf, *superlist[];
 
 extern struct superswitch super_imsm;
@@ -722,6 +727,7 @@ extern int Create(struct supertype *st, char *mddev,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof);
 
 extern int Detail(char *dev, int brief, int export, int test, char *homehost);
+extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);
 extern int Query(char *dev);
 extern int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 		   int SparcAdjust, struct supertype *forcest, char *homehost);

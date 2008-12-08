@@ -530,3 +530,44 @@ out:
 	close(fd);
 	return rv;
 }
+
+int Detail_Platform(struct superswitch *ss, int scan, int verbose)
+{
+	/* display platform capabilities for the given metadata format
+	 * 'scan' in this context means iterate over all metadata types
+	 */
+	int i;
+	int err = 1;
+
+	if (ss && ss->detail_platform)
+		err = ss->detail_platform(verbose);
+	else if (ss) {
+		if (verbose)
+			fprintf(stderr, Name ": %s metadata is platform independent\n",
+				ss->name ? : "[no name]");
+	} else if (!scan) {
+		if (verbose)
+			fprintf(stderr, Name ": specify a metadata type or --scan\n");
+	}
+
+	if (!scan)
+		return err;
+
+	for (i = 0; superlist[i]; i++) {
+		struct superswitch *meta = superlist[i];
+
+		if (meta == ss)
+			continue;
+		if (verbose)
+			fprintf(stderr, Name ": checking metadata %s\n",
+				meta->name ? : "[no name]");
+		if (!meta->detail_platform) {
+			if (verbose)
+				fprintf(stderr, Name ": %s metadata is platform independent\n",
+					meta->name ? : "[no name]");
+		} else
+			err |= meta->detail_platform(verbose);
+	}
+
+	return err;
+}

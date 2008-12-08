@@ -40,7 +40,8 @@ mdsize11=19992
 mdsize12=19988
 
 cleanup() {
-	$mdadm -Ss
+	udevadm settle
+	$mdadm -Ssq
 	for d in 0 1 2 3 4 5 6 7
 	do
            losetup -d /dev/loop$d ; # rm -f $targetdir/mdtest$d

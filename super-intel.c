@@ -25,6 +25,7 @@
 #include <values.h>
 #include <scsi/sg.h>
 #include <ctype.h>
+#include <dirent.h>
 
 /* MPB == Metadata Parameter Block */
 #define MPB_SIGNATURE "Intel Raid ISM Cfg Sig. "
@@ -743,6 +744,252 @@ static void brief_detail_super_imsm(struct supertype *st)
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf,'-');
 	printf(" UUID=%s", nbuf + 5);
+}
+
+static int imsm_read_serial(int fd, char *devname, __u8 *serial);
+static void fd2devname(int fd, char *name);
+
+static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_base, int verbose)
+{
+	/* dump an unsorted list of devices attached to ahci, as well as
+	 * non-connected ports
+	 */
+	int hba_len = strlen(hba_path) + 1;
+	struct dirent *ent;
+	DIR *dir;
+	char *path = NULL;
+	int err = 0;
+	unsigned long port_mask = (1 << port_count) - 1;
+
+	if (port_count > sizeof(port_mask) * 8) {
+		if (verbose)
+			fprintf(stderr, Name ": port_count %d out of range\n", port_count);
+		return 2;
+	}
+
+	/* scroll through /sys/dev/block looking for devices attached to
+	 * this hba
+	 */
+	dir = opendir("/sys/dev/block");
+	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+		int fd;
+		char model[64];
+		char vendor[64];
+		char buf[1024];
+		int major, minor;
+		char *device;
+		char *c;
+		int port;
+		int type;
+
+		if (sscanf(ent->d_name, "%d:%d", &major, &minor) != 2)
+			continue;
+		path = devt_to_devpath(makedev(major, minor));
+		if (!path)
+			continue;
+		if (!path_attached_to_hba(path, hba_path)) {
+			free(path);
+			path = NULL;
+			continue;
+		}
+
+		/* retrieve the scsi device type */
+		if (asprintf(&device, "/sys/dev/block/%d:%d/device/xxxxxxx", major, minor) < 0) {
+			if (verbose)
+				fprintf(stderr, Name ": failed to allocate 'device'\n");
+			err = 2;
+			break;
+		}
+		sprintf(device, "/sys/dev/block/%d:%d/device/type", major, minor);
+		if (load_sys(device, buf) != 0) {
+			if (verbose)
+				fprintf(stderr, Name ": failed to read device type for %s\n",
+					path);
+			err = 2;
+			free(device);
+			break;
+		}
+		type = strtoul(buf, NULL, 10);
+
+		/* if it's not a disk print the vendor and model */
+		if (!(type == 0 || type == 7 || type == 14)) {
+			vendor[0] = '\0';
+			model[0] = '\0';
+			sprintf(device, "/sys/dev/block/%d:%d/device/vendor", major, minor);
+			if (load_sys(device, buf) == 0) {
+				strncpy(vendor, buf, sizeof(vendor));
+				vendor[sizeof(vendor) - 1] = '\0';
+				c = (char *) &vendor[sizeof(vendor) - 1];
+				while (isspace(*c) || *c == '\0')
+					*c-- = '\0';
+
+			}
+			sprintf(device, "/sys/dev/block/%d:%d/device/model", major, minor);
+			if (load_sys(device, buf) == 0) {
+				strncpy(model, buf, sizeof(model));
+				model[sizeof(model) - 1] = '\0';
+				c = (char *) &model[sizeof(model) - 1];
+				while (isspace(*c) || *c == '\0')
+					*c-- = '\0';
+			}
+
+			if (vendor[0] && model[0])
+				sprintf(buf, "%.64s %.64s", vendor, model);
+			else
+				switch (type) { /* numbers from hald/linux/device.c */
+				case 1: sprintf(buf, "tape"); break;
+				case 2: sprintf(buf, "printer"); break;
+				case 3: sprintf(buf, "processor"); break;
+				case 4:
+				case 5: sprintf(buf, "cdrom"); break;
+				case 6: sprintf(buf, "scanner"); break;
+				case 8: sprintf(buf, "media_changer"); break;
+				case 9: sprintf(buf, "comm"); break;
+				case 12: sprintf(buf, "raid"); break;
+				default: sprintf(buf, "unknown");
+				}
+		} else
+			buf[0] = '\0';
+		free(device);
+
+		/* chop device path to 'host%d' and calculate the port number */
+		c = strchr(&path[hba_len], '/');
+		*c = '\0';
+		if (sscanf(&path[hba_len], "host%d", &port) == 1)
+			port -= host_base;
+		else {
+			if (verbose) {
+				*c = '/'; /* repair the full string */
+				fprintf(stderr, Name ": failed to determine port number for %s\n",
+					path);
+			}
+			err = 2;
+			break;
+		}
+
+		/* mark this port as used */
+		port_mask &= ~(1 << port);
+
+		/* print out the device information */
+		if (buf[0]) {
+			printf("          Port%d : - non-disk device (%s) -\n", port, buf);
+			continue;
+		}
+
+		fd = dev_open(ent->d_name, O_RDONLY);
+		if (fd < 0)
+			printf("          Port%d : - disk info unavailable -\n", port);
+		else {
+			fd2devname(fd, buf);
+			printf("          Port%d : %s", port, buf);
+			if (imsm_read_serial(fd, NULL, (__u8 *) buf) == 0)
+				printf(" (%s)\n", buf);
+			else
+				printf("()\n");
+		}
+		close(fd);
+		free(path);
+		path = NULL;
+	}
+	if (path)
+		free(path);
+	if (dir)
+		closedir(dir);
+	if (err == 0) {
+		int i;
+
+		for (i = 0; i < port_count; i++)
+			if (port_mask & (1 << i))
+				printf("          Port%d : - no device attached -\n", i);
+	}
+
+	return err;
+}
+
+static int detail_platform_imsm(int verbose)
+{
+	/* There are two components to imsm platform support, the ahci SATA
+	 * controller and the option-rom.  To find the SATA controller we
+	 * simply look in /sys/bus/pci/drivers/ahci to see if an ahci
+	 * controller with the Intel vendor id is present.  This approach
+	 * allows mdadm to leverage the kernel's ahci detection logic, with the
+	 * caveat that if ahci.ko is not loaded mdadm will not be able to
+	 * detect platform raid capabilities.  The option-rom resides in a
+	 * platform "Adapter ROM".  We scan for its signature to retrieve the
+	 * platform capabilities.  If raid support is disabled in the BIOS the
+	 * option-rom capability structure will not be available.
+	 */
+	const struct imsm_orom *orom;
+	struct sys_dev *list, *hba;
+	DIR *dir;
+	struct dirent *ent;
+	const char *hba_path;
+	int host_base = 0;
+	int port_count = 0;
+
+	list = find_driver_devices("pci", "ahci");
+	for (hba = list; hba; hba = hba->next)
+		if (devpath_to_vendor(hba->path) == 0x8086)
+			break;
+
+	if (!hba) {
+		if (verbose)
+			fprintf(stderr, Name ": unable to find active ahci controller\n");
+		free_sys_dev(&list);
+		return 2;
+	} else if (verbose)
+		fprintf(stderr, Name ": found Intel SATA AHCI Controller\n");
+	hba_path = hba->path;
+	hba->path = NULL;
+	free_sys_dev(&list);
+
+	orom = find_imsm_orom();
+	if (!orom) {
+		if (verbose)
+			fprintf(stderr, Name ": imsm option-rom not found\n");
+		return 2;
+	}
+
+	printf("       Platform : Intel(R) Matrix Storage Manager\n");
+	printf("        Version : %d.%d.%d.%d\n", orom->major_ver, orom->minor_ver,
+	       orom->hotfix_ver, orom->build);
+	printf("    RAID Levels :%s%s%s%s%s\n",
+	       imsm_orom_has_raid0(orom) ? " raid0" : "",
+	       imsm_orom_has_raid1(orom) ? " raid1" : "",
+	       imsm_orom_has_raid1e(orom) ? " raid1e" : "",
+	       imsm_orom_has_raid10(orom) ? " raid10" : "",
+	       imsm_orom_has_raid5(orom) ? " raid5" : "");
+	printf("      Max Disks : %d\n", orom->tds);
+	printf("    Max Volumes : %d\n", orom->vpa);
+	printf(" I/O Controller : %s\n", hba_path);
+
+	/* find the smallest scsi host number to determine a port number base */
+	dir = opendir(hba_path);
+	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+		int host;
+
+		if (sscanf(ent->d_name, "host%d", &host) != 1)
+			continue;
+		if (port_count == 0)
+			host_base = host;
+		else if (host < host_base)
+			host_base = host;
+
+		if (host + 1 > port_count + host_base)
+			port_count = host + 1 - host_base;
+
+	}
+	if (dir)
+		closedir(dir);
+
+	if (!port_count || imsm_enumerate_ports(hba_path, port_count,
+						host_base, verbose) != 0) {
+		if (verbose)
+			fprintf(stderr, Name ": failed to enumerate ports\n");
+		return 2;
+	}
+
+	return 0;
 }
 #endif
 
@@ -3790,6 +4037,7 @@ struct superswitch super_imsm = {
 	.write_init_super = write_init_super_imsm,
 	.validate_geometry = validate_geometry_imsm,
 	.add_to_super	= add_to_super_imsm,
+	.detail_platform = detail_platform_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,

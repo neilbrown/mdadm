@@ -251,6 +251,10 @@ struct imsm_update_activate_spare {
 	struct imsm_update_activate_spare *next;
 };
 
+struct disk_info {
+	__u8 serial[MAX_RAID_SERIAL_LEN];
+};
+
 struct imsm_update_create_array {
 	enum imsm_update_type type;
 	int dev_idx;
@@ -363,6 +367,20 @@ static size_t sizeof_imsm_dev(struct imsm_dev *dev, int migr_state)
 
 	return size;
 }
+
+#ifndef MDASSEMBLE
+/* retrieve disk serial number list from a metadata update */
+static struct disk_info *get_disk_info(struct imsm_update_create_array *update)
+{
+	void *u = update;
+	struct disk_info *inf;
+
+	inf = u + sizeof(*update) - sizeof(struct imsm_dev) +
+	      sizeof_imsm_dev(&update->dev, 0);
+
+	return inf;
+}
+#endif
 
 static struct imsm_dev *__get_imsm_dev(struct imsm_super *mpb, __u8 index)
 {
@@ -1141,6 +1159,17 @@ static void serialcpy(__u8 *dest, __u8 *src)
 	strncpy((char *) dest, (char *) src, MAX_RAID_SERIAL_LEN);
 }
 
+static struct dl *serial_to_dl(__u8 *serial, struct intel_super *super)
+{
+	struct dl *dl;
+
+	for (dl = super->disks; dl; dl = dl->next)
+		if (serialcmp(dl->serial, serial) == 0)
+			break;
+
+	return dl;
+}
+
 static int
 load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 {
@@ -1160,10 +1189,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	 * super->disks while the current anchor believes it is a raid member,
 	 * check if we need to update dl->index
 	 */
-	for (dl = super->disks; dl; dl = dl->next)
-		if (serialcmp(dl->serial, serial) == 0)
-			break;
-
+	dl = serial_to_dl(serial, super);
 	if (!dl)
 		dl = malloc(sizeof(*dl));
 	else
@@ -1526,9 +1552,7 @@ static int find_missing(struct intel_super *super)
 
 	for (i = 0; i < mpb->num_disks; i++) {
 		disk = __get_imsm_disk(mpb, i);
-		for (dl = super->disks; dl; dl = dl->next)
-			if (serialcmp(dl->disk.serial, disk->serial) == 0)
-				break;
+		dl = serial_to_dl(disk->serial, super);
 		if (dl)
 			continue;
 		/* ok we have a 'disk' without a live entry in
@@ -2143,8 +2167,14 @@ static int create_array(struct supertype *st)
 	struct imsm_update_create_array *u;
 	struct intel_super *super = st->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
+	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct disk_info *inf;
+	struct imsm_disk *disk;
+	int i;
+	int idx;
 
-	len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0);
+	len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0) +
+	      sizeof(*inf) * map->num_members;
 	u = malloc(len);
 	if (!u) {
 		fprintf(stderr, "%s: failed to allocate update buffer\n",
@@ -2155,6 +2185,12 @@ static int create_array(struct supertype *st)
 	u->type = update_create_array;
 	u->dev_idx = super->current_vol;
 	imsm_copy_dev(&u->dev, dev);
+	inf = get_disk_info(u);
+	for (i = 0; i < map->num_members; i++) {
+		idx = get_imsm_disk_idx(dev, i);
+		disk = get_imsm_disk(super, idx);
+		serialcpy(inf[i].serial, disk->serial);
+	}
 	append_metadata_update(st, u, len);
 
 	return 0;
@@ -3271,18 +3307,20 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	return rv;
 }
 
-static int disks_overlap(struct imsm_dev *d1, struct imsm_dev *d2)
+static int disks_overlap(struct intel_super *super, int idx, struct imsm_update_create_array *u)
 {
-	struct imsm_map *m1 = get_imsm_map(d1, 0);
-	struct imsm_map *m2 = get_imsm_map(d2, 0);
+	struct imsm_dev *dev = get_imsm_dev(super, idx);
+	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct imsm_map *new_map = get_imsm_map(&u->dev, 0);
+	struct disk_info *inf = get_disk_info(u);
+	struct imsm_disk *disk;
 	int i;
 	int j;
-	int idx;
 
-	for (i = 0; i < m1->num_members; i++) {
-		idx = get_imsm_disk_idx(d1, i);
-		for (j = 0; j < m2->num_members; j++)
-			if (idx == get_imsm_disk_idx(d2, j))
+	for (i = 0; i < map->num_members; i++) {
+		disk = get_imsm_disk(super, get_imsm_disk_idx(dev, i));
+		for (j = 0; j < new_map->num_members; j++)
+			if (serialcmp(disk->serial, inf[j].serial) == 0)
 				return 1;
 	}
 
@@ -3428,7 +3466,8 @@ static void imsm_process_update(struct supertype *st,
 		unsigned long long start, end;
 		unsigned long long new_start, new_end;
 		int i;
-		int overlap = 0;
+		struct disk_info *inf;
+		struct dl *dl;
 
 		/* handle racing creates: first come first serve */
 		if (u->dev_idx < mpb->num_raid_devs) {
@@ -3447,6 +3486,7 @@ static void imsm_process_update(struct supertype *st,
 		new_map = get_imsm_map(&u->dev, 0);
 		new_start = __le32_to_cpu(new_map->pba_of_lba0);
 		new_end = new_start + __le32_to_cpu(new_map->blocks_per_member);
+		inf = get_disk_info(u);
 
 		/* handle activate_spare versus create race:
 		 * check to make sure that overlapping arrays do not include
@@ -3459,16 +3499,14 @@ static void imsm_process_update(struct supertype *st,
 			end = start + __le32_to_cpu(map->blocks_per_member);
 			if ((new_start >= start && new_start <= end) ||
 			    (start >= new_start && start <= new_end))
-				overlap = 1;
-			if (overlap && disks_overlap(dev, &u->dev)) {
+				/* overlap */;
+			else
+				continue;
+
+			if (disks_overlap(super, i, u)) {
 				dprintf("%s: arrays overlap\n", __func__);
 				return;
 			}
-		}
-		/* check num_members sanity */
-		if (new_map->num_members > mpb->num_disks) {
-			dprintf("%s: num_disks out of range\n", __func__);
-			return;
 		}
 
 		/* check that prepare update was successful */
@@ -3477,26 +3515,40 @@ static void imsm_process_update(struct supertype *st,
 			return;
 		}
 
+		/* check that all disks are still active before committing
+		 * changes.  FIXME: could we instead handle this by creating a
+		 * degraded array?  That's probably not what the user expects,
+		 * so better to drop this update on the floor.
+		 */
+		for (i = 0; i < new_map->num_members; i++) {
+			dl = serial_to_dl(inf[i].serial, super);
+			if (!dl) {
+				dprintf("%s: disk disappeared\n", __func__);
+				return;
+			}
+		}
+
 		super->updates_pending++;
+
+		/* convert spares to members and fixup ord_tbl */
+		for (i = 0; i < new_map->num_members; i++) {
+			dl = serial_to_dl(inf[i].serial, super);
+			if (dl->index == -1) {
+				dl->index = mpb->num_disks;
+				mpb->num_disks++;
+				dl->disk.status |= CONFIGURED_DISK;
+				dl->disk.status &= ~SPARE_DISK;
+			}
+			set_imsm_ord_tbl_ent(new_map, i, dl->index);
+		}
+
 		dev = update->space;
-		map = get_imsm_map(dev, 0);
 		update->space = NULL;
 		imsm_copy_dev(dev, &u->dev);
-		map = get_imsm_map(dev, 0);
 		super->dev_tbl[u->dev_idx] = dev;
 		mpb->num_raid_devs++;
 
-		/* fix up flags */
-		for (i = 0; i < map->num_members; i++) {
-			struct imsm_disk *disk;
-
-			disk = get_imsm_disk(super, get_imsm_disk_idx(dev, i));
-			disk->status |= CONFIGURED_DISK;
-			disk->status &= ~SPARE_DISK;
-		}
-
 		imsm_update_version_info(super);
-
 		break;
 	}
 	case update_add_disk:
@@ -3545,9 +3597,31 @@ static void imsm_prepare_update(struct supertype *st,
 	switch (type) {
 	case update_create_array: {
 		struct imsm_update_create_array *u = (void *) update->buf;
+		struct imsm_dev *dev = &u->dev;
+		struct imsm_map *map = get_imsm_map(dev, 0);
+		struct dl *dl;
+		struct disk_info *inf;
+		int i;
+		int activate = 0;
 
-		len = sizeof_imsm_dev(&u->dev, 1);
+		inf = get_disk_info(u);
+		len = sizeof_imsm_dev(dev, 1);
+		/* allocate a new super->dev_tbl entry */
 		update->space = malloc(len);
+
+		/* count how many spares will be converted to members */
+		for (i = 0; i < map->num_members; i++) {
+			dl = serial_to_dl(inf[i].serial, super);
+			if (!dl) {
+				/* hmm maybe it failed?, nothing we can do about
+				 * it here
+				 */
+				continue;
+			}
+			if (count_memberships(dl, super) == 0)
+				activate++;
+		}
+		len += activate * sizeof(struct imsm_disk);
 		break;
 	default:
 		break;

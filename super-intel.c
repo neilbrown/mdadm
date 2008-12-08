@@ -4041,7 +4041,7 @@ static void imsm_prepare_update(struct supertype *st,
 			free(super->next_buf);
 
 		super->next_len = buf_len;
-		if (posix_memalign(&super->next_buf, buf_len, 512) != 0)
+		if (posix_memalign(&super->next_buf, 512, buf_len) != 0)
 			super->next_buf = NULL;
 	}
 }

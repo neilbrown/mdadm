@@ -213,6 +213,7 @@ struct intel_super {
 	int updates_pending; /* count of pending updates for mdmon */
 	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
+	__u32 create_offset; /* common start for 'current_vol' */
 	#define IMSM_MAX_RAID_DEVS 2
 	struct imsm_dev *dev_tbl[IMSM_MAX_RAID_DEVS];
 	struct dl {
@@ -223,6 +224,8 @@ struct intel_super {
 		char *devname;
 		struct imsm_disk disk;
 		int fd;
+		int extent_cnt;
+		struct extent *e; /* for determining freespace @ create */
 	} *disks;
 	struct dl *add; /* list of disks to add while mdmon active */
 	struct dl *missing; /* disks removed while we weren't looking */
@@ -438,13 +441,10 @@ static int cmp_extent(const void *av, const void *bv)
 	return 0;
 }
 
-static struct extent *get_extents(struct intel_super *super, struct dl *dl)
+static int count_memberships(struct dl *dl, struct intel_super *super)
 {
-	/* find a list of used extents on the given physical device */
-	struct extent *rv, *e;
-	int i, j;
 	int memberships = 0;
-	__u32 reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+	int i, j;
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
@@ -457,6 +457,18 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 				memberships++;
 		}
 	}
+
+	return memberships;
+}
+
+static struct extent *get_extents(struct intel_super *super, struct dl *dl)
+{
+	/* find a list of used extents on the given physical device */
+	struct extent *rv, *e;
+	int i, j;
+	int memberships = count_memberships(dl, super);
+	__u32 reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+
 	rv = malloc(sizeof(struct extent) * (memberships + 1));
 	if (!rv)
 		return NULL;
@@ -1174,6 +1186,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		dl->devname = devname ? strdup(devname) : NULL;
 		serialcpy(dl->serial, serial);
 		dl->index = -2;
+		dl->e = NULL;
 	} else if (keep_fd) {
 		close(dl->fd);
 		dl->fd = fd;
@@ -1428,6 +1441,8 @@ static void __free_imsm_disk(struct dl *d)
 		close(d->fd);
 	if (d->devname)
 		free(d->devname);
+	if (d->e)
+		free(d->e);
 	free(d);
 
 }
@@ -1491,6 +1506,7 @@ static struct intel_super *alloc_super(int creating_imsm)
 		memset(super, 0, sizeof(*super));
 		super->creating_imsm = creating_imsm;
 		super->current_vol = -1;
+		super->create_offset = ~((__u32 ) 0);
 	}
 
 	return super;
@@ -1775,7 +1791,6 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	int idx = mpb->num_raid_devs;
 	int i;
 	unsigned long long array_blocks;
-	__u32 offset = 0;
 	size_t size_old, size_new;
 
 	if (mpb->num_raid_devs >= 2) {
@@ -1831,15 +1846,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	vol->migr_type = MIGR_INIT;
 	vol->dirty = 0;
 	vol->curr_migr_unit = 0;
-	for (i = 0; i < idx; i++) {
-		struct imsm_dev *prev = get_imsm_dev(super, i);
-		struct imsm_map *pmap = get_imsm_map(prev, 0);
-
-		offset += __le32_to_cpu(pmap->blocks_per_member);
-		offset += IMSM_RESERVED_SECTORS;
-	}
 	map = get_imsm_map(dev, 0);
-	map->pba_of_lba0 = __cpu_to_le32(offset);
+	map->pba_of_lba0 = __cpu_to_le32(super->create_offset);
 	map->blocks_per_member = __cpu_to_le32(info_to_blocks_per_member(info));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->num_data_stripes = __cpu_to_le32(info_to_num_data_stripes(info));
@@ -2262,6 +2270,108 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	return 1;
 }
 
+static unsigned long long find_size(struct extent *e, int *idx, int num_extents)
+{
+	const unsigned long long base_start = e[*idx].start;
+	unsigned long long end = base_start + e[*idx].size;
+	int i;
+
+	if (base_start == end)
+		return 0;
+
+	*idx = *idx + 1;
+	for (i = *idx; i < num_extents; i++) {
+		/* extend overlapping extents */
+		if (e[i].start >= base_start &&
+		    e[i].start <= end) {
+			if (e[i].size == 0)
+				return 0;
+			if (e[i].start + e[i].size > end)
+				end = e[i].start + e[i].size;
+		} else if (e[i].start > end) {
+			*idx = i;
+			break;
+		}
+	}
+
+	return end - base_start;
+}
+
+static unsigned long long merge_extents(struct intel_super *super, int sum_extents)
+{
+	/* build a composite disk with all known extents and generate a new
+	 * 'maxsize' given the "all disks in an array must share a common start
+	 * offset" constraint
+	 */
+	struct extent *e = calloc(sum_extents, sizeof(*e));
+	struct dl *dl;
+	int i, j;
+	int start_extent;
+	unsigned long long pos;
+	unsigned long long start;
+	unsigned long long maxsize;
+	unsigned long reserve;
+
+	if (!e)
+		return ~0ULL; /* error */
+
+	/* coalesce and sort all extents. also, check to see if we need to
+	 * reserve space between member arrays
+	 */
+	j = 0;
+	for (dl = super->disks; dl; dl = dl->next) {
+		if (!dl->e)
+			continue;
+		for (i = 0; i < dl->extent_cnt; i++)
+			e[j++] = dl->e[i];
+	}
+	qsort(e, sum_extents, sizeof(*e), cmp_extent);
+
+	/* merge extents */
+	i = 0;
+	j = 0;
+	while (i < sum_extents) {
+		e[j].start = e[i].start;
+		e[j].size = find_size(e, &i, sum_extents);
+		j++;
+		if (e[j-1].size == 0)
+			break;
+	}
+
+	pos = 0;
+	maxsize = 0;
+	start_extent = 0;
+	i = 0;
+	do {
+		unsigned long long esize;
+
+		esize = e[i].start - pos;
+		if (esize >= maxsize) {
+			maxsize = esize;
+			start = pos;
+			start_extent = i;
+		}
+		pos = e[i].start + e[i].size;
+		i++;
+	} while (e[i-1].size);
+	free(e);
+
+	if (start_extent > 0)
+		reserve = IMSM_RESERVED_SECTORS; /* gap between raid regions */
+	else
+		reserve = 0;
+
+	if (maxsize < reserve)
+		return ~0ULL;
+
+	super->create_offset = ~((__u32) 0);
+	if (start + reserve > super->create_offset)
+		return ~0ULL; /* start overflows create_offset */
+	super->create_offset = start + reserve;
+
+	return maxsize - reserve;
+}
+
 /* validate_geometry_imsm_volume - lifted from validate_geometry_ddf_bvd 
  * FIX ME add ahci details
  */
@@ -2339,6 +2449,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		}
 		return 1;
 	}
+
 	/* This device must be a member of the set */
 	if (stat(dev, &stb) < 0)
 		return 0;
@@ -2355,17 +2466,54 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 				"same imsm set\n", dev);
 		return 0;
 	}
+
+	/* retrieve the largest free space block */
 	e = get_extents(super, dl);
 	maxsize = 0;
 	i = 0;
-	if (e) do {
-		unsigned long long esize;
-		esize = e[i].start - pos;
-		if (esize >= maxsize)
-			maxsize = esize;
-		pos = e[i].start + e[i].size;
-		i++;
-	} while (e[i-1].size);
+	if (e) {
+		do {
+			unsigned long long esize;
+
+			esize = e[i].start - pos;
+			if (esize >= maxsize)
+				maxsize = esize;
+			pos = e[i].start + e[i].size;
+			i++;
+		} while (e[i-1].size);
+		dl->e = e;
+		dl->extent_cnt = i;
+	} else {
+		if (verbose)
+			fprintf(stderr, Name ": unable to determine free space for: %s\n",
+				dev);
+		return 0;
+	}
+	if (maxsize < size) {
+		if (verbose)
+			fprintf(stderr, Name ": %s not enough space (%llu < %llu)\n",
+				dev, maxsize, size);
+		return 0;
+	}
+
+	/* count total number of extents for merge */
+	i = 0;
+	for (dl = super->disks; dl; dl = dl->next)
+		if (dl->e)
+			i += dl->extent_cnt;
+
+	maxsize = merge_extents(super, i);
+	if (maxsize < size) {
+		if (verbose)
+			fprintf(stderr, Name ": not enough space after merge (%llu < %llu)\n",
+				maxsize, size);
+		return 0;
+	} else if (maxsize == ~0ULL) {
+		if (verbose)
+			fprintf(stderr, Name ": failed to merge %d extents\n", i);
+		return 0;
+	}
+
 	*freesize = maxsize;
 
 	return 1;

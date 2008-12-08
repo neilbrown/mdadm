@@ -203,6 +203,12 @@ static unsigned int mpb_sectors(struct imsm_super *mpb)
 	return sector_count(__le32_to_cpu(mpb->mpb_size));
 }
 
+struct intel_dev {
+	struct imsm_dev *dev;
+	struct intel_dev *next;
+	int index;
+};
+
 /* internal representation of IMSM metadata */
 struct intel_super {
 	union {
@@ -216,8 +222,7 @@ struct intel_super {
 	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
 	__u32 create_offset; /* common start for 'current_vol' */
-	#define IMSM_MAX_RAID_DEVS 2
-	struct imsm_dev *dev_tbl[IMSM_MAX_RAID_DEVS];
+	struct intel_dev *devlist;
 	struct dl {
 		struct dl *next;
 		int index;
@@ -409,9 +414,14 @@ static struct imsm_dev *__get_imsm_dev(struct imsm_super *mpb, __u8 index)
 
 static struct imsm_dev *get_imsm_dev(struct intel_super *super, __u8 index)
 {
+	struct intel_dev *dv;
+
 	if (index >= super->anchor->num_raid_devs)
 		return NULL;
-	return super->dev_tbl[index];
+	for (dv = super->devlist; dv; dv = dv->next)
+		if (dv->index == index)
+			return dv->dev;
+	return NULL;
 }
 
 static __u32 get_imsm_ord_tbl_ent(struct imsm_dev *dev, int slot)
@@ -1260,6 +1270,23 @@ static __u64 avail_size_imsm(struct supertype *st, __u64 devsize)
 	return devsize - (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS);
 }
 
+static void free_devlist(struct intel_super *super)
+{
+	struct intel_dev *dv;
+
+	while (super->devlist) {
+		dv = super->devlist->next;
+		free(super->devlist->dev);
+		free(super->devlist);
+		super->devlist = dv;
+	}
+}
+
+static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
+{
+	memcpy(dest, src, sizeof_imsm_dev(src, 0));
+}
+
 static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 {
 	/*
@@ -1296,22 +1323,34 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	if (first->anchor->num_raid_devs == 0 &&
 	    sec->anchor->num_raid_devs > 0) {
 		int i;
+		struct intel_dev *dv;
+		struct imsm_dev *dev;
 
 		/* we need to copy raid device info from sec if an allocation
 		 * fails here we don't associate the spare
 		 */
 		for (i = 0; i < sec->anchor->num_raid_devs; i++) {
-			first->dev_tbl[i] = malloc(sizeof(struct imsm_dev));
-			if (!first->dev_tbl) {
-				while (--i >= 0) {
-					free(first->dev_tbl[i]);
-					first->dev_tbl[i] = NULL;
-				}
-				fprintf(stderr, "imsm: failed to associate spare\n"); 
-				return 3;
+			dv = malloc(sizeof(*dv));
+			if (!dv)
+				break;
+			dev = malloc(sizeof_imsm_dev(get_imsm_dev(sec, i), 1));
+			if (!dev) {
+				free(dv);
+				break;
 			}
-			*first->dev_tbl[i] = *sec->dev_tbl[i];
+			dv->dev = dev;
+			dv->index = i;
+			dv->next = first->devlist;
+			first->devlist = dv;
 		}
+		if (i <= sec->anchor->num_raid_devs) {
+			/* allocation failure */
+			free_devlist(first);
+			fprintf(stderr, "imsm: failed to associate spare\n"); 
+			return 3;
+		}
+		for (i = 0; i < sec->anchor->num_raid_devs; i++)
+			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
 
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
 		first->anchor->family_num = sec->anchor->family_num;
@@ -1503,11 +1542,6 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	return 0;
 }
 
-static void imsm_copy_dev(struct imsm_dev *dest, struct imsm_dev *src)
-{
-	memcpy(dest, src, sizeof_imsm_dev(src, 0));
-}
-
 #ifndef MDASSEMBLE
 /* When migrating map0 contains the 'destination' state while map1
  * contains the current state.  When not migrating map0 contains the
@@ -1557,17 +1591,26 @@ static int parse_raid_devices(struct intel_super *super)
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev_iter = __get_imsm_dev(super->anchor, i);
+		struct intel_dev *dv;
 
 		len = sizeof_imsm_dev(dev_iter, 0);
 		len_migr = sizeof_imsm_dev(dev_iter, 1);
 		if (len_migr > len)
 			space_needed += len_migr - len;
 		
-		dev_new = malloc(len_migr);
-		if (!dev_new)
+		dv = malloc(sizeof(*dv));
+		if (!dv)
 			return 1;
+		dev_new = malloc(len_migr);
+		if (!dev_new) {
+			free(dv);
+			return 1;
+		}
 		imsm_copy_dev(dev_new, dev_iter);
-		super->dev_tbl[i] = dev_new;
+		dv->dev = dev_new;
+		dv->index = i;
+		dv->next = super->devlist;
+		super->devlist = dv;
 	}
 
 	/* ensure that super->buf is large enough when all raid devices
@@ -1742,19 +1785,13 @@ static void free_imsm_disks(struct intel_super *super)
 /* free all the pieces hanging off of a super pointer */
 static void __free_imsm(struct intel_super *super, int free_disks)
 {
-	int i;
-
 	if (super->buf) {
 		free(super->buf);
 		super->buf = NULL;
 	}
 	if (free_disks)
 		free_imsm_disks(super);
-	for (i = 0; i < IMSM_MAX_RAID_DEVS; i++)
-		if (super->dev_tbl[i]) {
-			free(super->dev_tbl[i]);
-			super->dev_tbl[i] = NULL;
-		}
+	free_devlist(super);
 	if (super->hba) {
 		free((void *) super->hba);
 		super->hba = NULL;
@@ -2079,6 +2116,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	 */
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->anchor;
+	struct intel_dev *dv;
 	struct imsm_dev *dev;
 	struct imsm_vol *vol;
 	struct imsm_map *map;
@@ -2119,8 +2157,14 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	if (super->current_vol == 0)
 		mpb->num_disks = 0;
 	sprintf(st->subarray, "%d", idx);
+	dv = malloc(sizeof(*dv));
+	if (!dv) {
+		fprintf(stderr, Name ": failed to allocate device list entry\n");
+		return 0;
+	}
 	dev = malloc(sizeof(*dev) + sizeof(__u32) * (info->raid_disks - 1));
 	if (!dev) {
+		free(dv);
 		fprintf(stderr, Name": could not allocate raid device\n");
 		return 0;
 	}
@@ -2167,7 +2211,11 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		set_imsm_ord_tbl_ent(map, i, 0);
 	}
 	mpb->num_raid_devs++;
-	super->dev_tbl[super->current_vol] = dev;
+
+	dv->dev = dev;
+	dv->index = super->current_vol;
+	dv->next = super->devlist;
+	super->devlist = dv;
 
 	imsm_update_version_info(super);
 
@@ -2411,7 +2459,7 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 
-		imsm_copy_dev(dev, super->dev_tbl[i]);
+		imsm_copy_dev(dev, get_imsm_dev(super, i));
 		mpb_size += sizeof_imsm_dev(dev, 0);
 	}
 	mpb_size += __le32_to_cpu(mpb->bbm_log_size);
@@ -3787,6 +3835,7 @@ static void imsm_process_update(struct supertype *st,
 		 * (FIX ME) notice that its update did not take hold.
 		 */
 		struct imsm_update_create_array *u = (void *) update->buf;
+		struct intel_dev *dv;
 		struct imsm_dev *dev;
 		struct imsm_map *map, *new_map;
 		unsigned long long start, end;
@@ -3799,14 +3848,14 @@ static void imsm_process_update(struct supertype *st,
 		if (u->dev_idx < mpb->num_raid_devs) {
 			dprintf("%s: subarray %d already defined\n",
 				__func__, u->dev_idx);
-			return;
+			goto create_error;
 		}
 
 		/* check update is next in sequence */
 		if (u->dev_idx != mpb->num_raid_devs) {
 			dprintf("%s: can not create array %d expected index %d\n",
 				__func__, u->dev_idx, mpb->num_raid_devs);
-			return;
+			goto create_error;
 		}
 
 		new_map = get_imsm_map(&u->dev, 0);
@@ -3831,14 +3880,14 @@ static void imsm_process_update(struct supertype *st,
 
 			if (disks_overlap(super, i, u)) {
 				dprintf("%s: arrays overlap\n", __func__);
-				return;
+				goto create_error;
 			}
 		}
 
 		/* check that prepare update was successful */
 		if (!update->space) {
 			dprintf("%s: prepare update failed\n", __func__);
-			return;
+			goto create_error;
 		}
 
 		/* check that all disks are still active before committing
@@ -3850,7 +3899,7 @@ static void imsm_process_update(struct supertype *st,
 			dl = serial_to_dl(inf[i].serial, super);
 			if (!dl) {
 				dprintf("%s: disk disappeared\n", __func__);
-				return;
+				goto create_error;
 			}
 		}
 
@@ -3868,13 +3917,25 @@ static void imsm_process_update(struct supertype *st,
 			set_imsm_ord_tbl_ent(new_map, i, dl->index);
 		}
 
-		dev = update->space;
+		dv = update->space;
+		dev = dv->dev;
 		update->space = NULL;
 		imsm_copy_dev(dev, &u->dev);
-		super->dev_tbl[u->dev_idx] = dev;
+		dv->index = u->dev_idx;
+		dv->next = super->devlist;
+		super->devlist = dv;
 		mpb->num_raid_devs++;
 
 		imsm_update_version_info(super);
+		break;
+ create_error:
+		/* mdmon knows how to release update->space, but not
+		 * ((struct intel_dev *) update->space)->dev
+		 */
+		if (update->space) {
+			dv = update->space;
+			free(dv->dev);
+		}
 		break;
 	}
 	case update_add_disk:
@@ -3923,6 +3984,7 @@ static void imsm_prepare_update(struct supertype *st,
 	switch (type) {
 	case update_create_array: {
 		struct imsm_update_create_array *u = (void *) update->buf;
+		struct intel_dev *dv;
 		struct imsm_dev *dev = &u->dev;
 		struct imsm_map *map = get_imsm_map(dev, 0);
 		struct dl *dl;
@@ -3932,8 +3994,17 @@ static void imsm_prepare_update(struct supertype *st,
 
 		inf = get_disk_info(u);
 		len = sizeof_imsm_dev(dev, 1);
-		/* allocate a new super->dev_tbl entry */
-		update->space = malloc(len);
+		/* allocate a new super->devlist entry */
+		dv = malloc(sizeof(*dv));
+		if (dv) {
+			dv->dev = malloc(len);
+			if (dv->dev)
+				update->space = dv;
+			else {
+				free(dv);
+				update->space = NULL;
+			}
+		}
 
 		/* count how many spares will be converted to members */
 		for (i = 0; i < map->num_members; i++) {

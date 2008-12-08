@@ -21,6 +21,7 @@
 #include "mdadm.h"
 #include "mdmon.h"
 #include "sha1.h"
+#include "platform-intel.h"
 #include <values.h>
 #include <scsi/sg.h>
 #include <ctype.h>
@@ -230,6 +231,8 @@ struct intel_super {
 	struct dl *add; /* list of disks to add while mdmon active */
 	struct dl *missing; /* disks removed while we weren't looking */
 	struct bbm_log *bbm_log;
+	const char *hba; /* device path of the raid controller for this metadata */
+	const struct imsm_orom *orom; /* platform firmware support */
 };
 
 struct extent {
@@ -1505,6 +1508,10 @@ static void __free_imsm(struct intel_super *super, int free_disks)
 			free(super->dev_tbl[i]);
 			super->dev_tbl[i] = NULL;
 		}
+	if (super->hba) {
+		free((void *) super->hba);
+		super->hba = NULL;
+	}
 }
 
 static void free_imsm(struct intel_super *super)
@@ -1533,6 +1540,22 @@ static struct intel_super *alloc_super(int creating_imsm)
 		super->creating_imsm = creating_imsm;
 		super->current_vol = -1;
 		super->create_offset = ~((__u32 ) 0);
+		if (!check_env("IMSM_NO_PLATFORM"))
+			super->orom = find_imsm_orom();
+		if (super->orom) {
+			struct sys_dev *list, *ent;
+
+			/* find the first intel ahci controller */
+			list = find_driver_devices("pci", "ahci");
+			for (ent = list; ent; ent = ent->next)
+				if (devpath_to_vendor(ent->path) == 0x8086)
+					break;
+			if (ent) {
+				super->hba = ent->path;
+				ent->path = NULL;
+			}
+			free_sys_dev(&list);
+		}
 	}
 
 	return super;
@@ -1817,9 +1840,9 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	unsigned long long array_blocks;
 	size_t size_old, size_new;
 
-	if (mpb->num_raid_devs >= 2) {
+	if (super->orom && mpb->num_raid_devs >= super->orom->vpa) {
 		fprintf(stderr, Name": This imsm-container already has the "
-			"maximum of 2 volumes\n");
+			"maximum of %d volumes\n", super->orom->vpa);
 		return 0;
 	}
 
@@ -2013,6 +2036,16 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	__u32 id;
 	int rv;
 	struct stat stb;
+
+	/* if we are on an RAID enabled platform check that the disk is
+	 * attached to the raid controller
+	 */
+	if (super->hba && !disk_attached_to_hba(fd, super->hba)) {
+		fprintf(stderr,
+			Name ": %s is not attached to the raid controller: %s\n",
+			devname ? : "disk", super->hba);
+		return 1;
+	}
 
 	if (super->current_vol >= 0)
 		return add_to_super_imsm_volume(st, dk, fd, devname);
@@ -2282,11 +2315,24 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 {
 	int fd;
 	unsigned long long ldsize;
+	const struct imsm_orom *orom;
 
 	if (level != LEVEL_CONTAINER)
 		return 0;
 	if (!dev)
 		return 1;
+
+	if (check_env("IMSM_NO_PLATFORM"))
+		orom = NULL;
+	else
+		orom = find_imsm_orom();
+	if (orom && raiddisks > orom->tds) {
+		if (verbose)
+			fprintf(stderr, Name ": %d exceeds maximum number of"
+				" platform supported disks: %d\n",
+				raiddisks, orom->tds);
+		return 0;
+	}
 
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
@@ -2408,6 +2454,30 @@ static unsigned long long merge_extents(struct intel_super *super, int sum_exten
 	return maxsize - reserve;
 }
 
+static int is_raid_level_supported(const struct imsm_orom *orom, int level, int raiddisks)
+{
+	if (level < 0 || level == 6 || level == 4)
+		return 0;
+
+	/* if we have an orom prevent invalid raid levels */
+	if (orom)
+		switch (level) {
+		case 0: return imsm_orom_has_raid0(orom);
+		case 1:
+			if (raiddisks > 2)
+				return imsm_orom_has_raid1e(orom);
+			else
+				return imsm_orom_has_raid1(orom);
+		case 10: return imsm_orom_has_raid10(orom);
+		case 5: return imsm_orom_has_raid5(orom);
+		}
+	else
+		return 1; /* not on an Intel RAID platform so anything goes */
+
+	return 0;
+}
+
+#define vprintf(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
 /* validate_geometry_imsm_volume - lifted from validate_geometry_ddf_bvd 
  * FIX ME add ahci details
  */
@@ -2425,19 +2495,28 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	struct extent *e;
 	int i;
 
-	if (level == LEVEL_CONTAINER)
-		return 0;
-
-	if (level == 1 && raiddisks > 2) {
-		if (verbose)
-			fprintf(stderr, Name ": imsm does not support more "
-				"than 2 in a raid1 configuration\n");
-		return 0;
-	}
-
 	/* We must have the container info already read in. */
 	if (!super)
 		return 0;
+
+	if (!is_raid_level_supported(super->orom, level, raiddisks)) {
+		vprintf(": platform does not support raid level: %d\n", level);
+		return 0;
+	}
+	if (super->orom && !imsm_orom_has_chunk(super->orom, chunk)) {
+		vprintf(": platform does not support a chunk size of: %d\n", chunk);
+		return 0;
+	}
+	if (layout != imsm_level_to_layout(level)) {
+		if (level == 5)
+			vprintf(": imsm raid 5 only supports the left-asymmetric layout\n");
+		else if (level == 10)
+			vprintf(": imsm raid 10 only supports the n2 layout\n");
+		else
+			vprintf(": imsm unknown layout %#x for this raid level %d\n",
+				layout, level);
+		return 0;
+	}
 
 	if (!dev) {
 		/* General test:  make sure there is space for

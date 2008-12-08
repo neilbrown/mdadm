@@ -76,23 +76,28 @@ OBJS =  mdadm.o config.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
 	Incremental.o \
 	mdopen.o super0.o super1.o super-ddf.o super-intel.o bitmap.o \
-	restripe.o sysfs.o sha1.o mapfile.o crc32.o sg_io.o msg.o
+	restripe.o sysfs.o sha1.o mapfile.o crc32.o sg_io.o msg.o \
+	platform-intel.o probe_roms.o
+
 SRCS =  mdadm.c config.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
 	Incremental.c \
 	mdopen.c super0.c super1.c super-ddf.c super-intel.c bitmap.c \
-	restripe.c sysfs.c sha1.c mapfile.c crc32.c sg_io.c msg.c
+	restripe.c sysfs.c sha1.c mapfile.c crc32.c sg_io.c msg.c \
+	platform-intel.c probe_roms.c
 
 MON_OBJS = mdmon.o monitor.o managemon.o util.o mdstat.o sysfs.o config.o \
 	Kill.o sg_io.o dlink.o ReadMe.o super0.o super1.o super-intel.o \
-	super-ddf.o sha1.o crc32.o msg.o Monitor.o bitmap.o
+	super-ddf.o sha1.o crc32.o msg.o Monitor.o bitmap.o \
+	platform-intel.o probe_roms.o
 
 
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c \
-	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c
+	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
+	platform-intel.c probe_roms.c
 ASSEMBLE_AUTO_SRCS := mdopen.c sysfs.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO

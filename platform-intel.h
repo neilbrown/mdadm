@@ -17,6 +17,7 @@
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include <asm/types.h>
+#include <strings.h>
 
 /* The IMSM OROM Version Table definition */
 struct imsm_orom {
@@ -77,6 +78,42 @@ struct imsm_orom {
 	__u32 reserved1;
 	__u32 reserved2;
 } __attribute__((packed));
+
+static inline int imsm_orom_has_raid0(const struct imsm_orom *orom)
+{
+	return !!(orom->rlc & IMSM_OROM_RLC_RAID0);
+}
+static inline int imsm_orom_has_raid1(const struct imsm_orom *orom)
+{
+	return !!(orom->rlc & IMSM_OROM_RLC_RAID1);
+}
+static inline int imsm_orom_has_raid1e(const struct imsm_orom *orom)
+{
+	return !!(orom->rlc & IMSM_OROM_RLC_RAID1E);
+}
+static inline int imsm_orom_has_raid10(const struct imsm_orom *orom)
+{
+	return !!(orom->rlc & IMSM_OROM_RLC_RAID10);
+}
+static inline int imsm_orom_has_raid5(const struct imsm_orom *orom)
+{
+	return !!(orom->rlc & IMSM_OROM_RLC_RAID5);
+}
+
+/**
+ * imsm_orom_has_chunk - check if the orom supports the given chunk size
+ * @orom: orom pointer from find_imsm_orom
+ * @chunk: chunk size in kibibytes
+ */
+static inline int imsm_orom_has_chunk(const struct imsm_orom *orom, int chunk)
+{
+	int fs = ffs(chunk);
+
+	if (!fs)
+		return 0;
+	fs--; /* bit num to bit index */
+	return !!(orom->sss & (1 << (fs - 1)));
+}
 
 struct sys_dev {
 	char *path;

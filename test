@@ -63,6 +63,7 @@ do
    eval dev$d=/dev/loop$d
    eval file$d=$targetdir/mdtest$d
    eval devlist=\"\$devlist \$dev$d\"
+   #" <-- add this quote to un-confuse vim syntax highlighting
 done
 path0=$dev6
 path1=$dev7
@@ -171,7 +172,20 @@ rotest() {
   fsck -fn $dev >&2
 }
 
+setup_environment() {
+   if [ -f $1 ]; then
+      . $environment
+      setup_env
+   fi
+}
 
+reset_environment() {
+   if [ -f $1 ]; then
+      reset_env
+      unset setup_env
+      unset reset_env
+   fi
+}
 
 for script in tests/$prefix tests/$prefix*[^~]
 do
@@ -182,14 +196,18 @@ do
    mdadm -Ssq
    mdadm --zero $devlist 2> /dev/null
    mdadm --zero $devlist 2> /dev/null
+   environment="tests/env-`basename $script`"
+   setup_environment $environment
    # source script in a subshell, so it has access to our
    # namespace, but cannot change it.
    if ( set -ex ; . $script )  2> $targetdir/log
    then echo "$script succeeded" 
    else cat $targetdir/log ; cat $targetdir/stderr
         echo "$script failed"
+	reset_environment $environment
        exit 1
    fi
+   reset_environment $environment
   fi
 done
 exit 0

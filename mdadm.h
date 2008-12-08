@@ -383,8 +383,11 @@ struct stat64;
 #define HAVE_NFTW  we assume
 #define HAVE_FTW
 
-#ifdef UCLIBC
+#ifdef __UCLIBC__
 # include <features.h>
+# ifndef __UCLIBC_HAS_LFS__
+#  define lseek64 lseek
+# endif
 # ifndef  __UCLIBC_HAS_FTW__
 #  undef HAVE_FTW
 #  undef HAVE_NFTW

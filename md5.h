@@ -27,7 +27,7 @@
 #if HAVE_INTTYPES_H
 # include <inttypes.h>
 #endif
-#if HAVE_STDINT_H || _LIBC
+#if HAVE_STDINT_H || _LIBC || defined __UCLIBC__
 # include <stdint.h>
 #endif
 

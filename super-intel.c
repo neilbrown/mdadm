@@ -1816,9 +1816,12 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		return 0;
 	}
 	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
-	array_blocks = calc_array_size(info->level, info->raid_disks,
-				       info->layout, info->chunk_size,
-				       info->size*2);
+	if (info->level == 1)
+		array_blocks = info_to_blocks_per_member(info);
+	else
+		array_blocks = calc_array_size(info->level, info->raid_disks,
+					       info->layout, info->chunk_size,
+					       info->size*2);
 	dev->size_low = __cpu_to_le32((__u32) array_blocks);
 	dev->size_high = __cpu_to_le32((__u32) (array_blocks >> 32));
 	dev->status = __cpu_to_le32(0);

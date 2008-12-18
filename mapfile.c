@@ -113,6 +113,12 @@ void map_read(struct map_ent **melp)
 	f = fopen("/var/run/mdadm/map", "r");
 	if (!f)
 		f = fopen("/var/run/mdadm.map", "r");
+	if (!f) {
+		RebuildMap();
+		f = fopen("/var/run/mdadm/map", "r");
+	}
+	if (!f)
+		f = fopen("/var/run/mdadm.map", "r");
 	if (!f)
 		return;
 
@@ -194,4 +200,51 @@ struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
 			return mp;
 	return NULL;
 
+}
+
+void RebuildMap(void)
+{
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
+	struct mdstat_ent *md;
+	struct map_ent *map = NULL;
+	int mdp = get_mdp_major();
+
+	for (md = mdstat ; md ; md = md->next) {
+		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS);
+		struct mdinfo *sd;
+
+		for (sd = sra->devs ; sd ; sd = sd->next) {
+			char dn[30];
+			int dfd;
+			int ok;
+			struct supertype *st;
+			char *path;
+			struct mdinfo info;
+
+			sprintf(dn, "%d:%d", sd->disk.major, sd->disk.minor);
+			dfd = dev_open(dn, O_RDONLY);
+			if (dfd < 0)
+				continue;
+			st = guess_super(dfd);
+			if ( st == NULL)
+				ok = -1;
+			else
+				ok = st->ss->load_super(st, dfd, NULL);
+			close(dfd);
+			if (ok != 0)
+				continue;
+			st->ss->getinfo_super(st, &info);
+			if (md->devnum > 0)
+				path = map_dev(MD_MAJOR, md->devnum, 0);
+			else
+				path = map_dev(mdp, (-1-md->devnum)<< 6, 0);
+			map_add(&map, md->devnum, st->ss->major,
+				st->minor_version,
+				info.uuid, path ? : "/unknown");
+			st->ss->free_super(st);
+			break;
+		}
+	}
+	map_write(map);
+	map_free(map);
 }

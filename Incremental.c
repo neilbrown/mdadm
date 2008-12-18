@@ -603,53 +603,6 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 	return cnt + cnt1;
 }
 
-void RebuildMap(void)
-{
-	struct mdstat_ent *mdstat = mdstat_read(0, 0);
-	struct mdstat_ent *md;
-	struct map_ent *map = NULL;
-	int mdp = get_mdp_major();
-
-	for (md = mdstat ; md ; md = md->next) {
-		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS);
-		struct mdinfo *sd;
-
-		for (sd = sra->devs ; sd ; sd = sd->next) {
-			char dn[30];
-			int dfd;
-			int ok;
-			struct supertype *st;
-			char *path;
-			struct mdinfo info;
-
-			sprintf(dn, "%d:%d", sd->disk.major, sd->disk.minor);
-			dfd = dev_open(dn, O_RDONLY);
-			if (dfd < 0)
-				continue;
-			st = guess_super(dfd);
-			if ( st == NULL)
-				ok = -1;
-			else
-				ok = st->ss->load_super(st, dfd, NULL);
-			close(dfd);
-			if (ok != 0)
-				continue;
-			st->ss->getinfo_super(st, &info);
-			if (md->devnum > 0)
-				path = map_dev(MD_MAJOR, md->devnum, 0);
-			else
-				path = map_dev(mdp, (-1-md->devnum)<< 6, 0);
-			map_add(&map, md->devnum, st->ss->major,
-				st->minor_version,
-				info.uuid, path ? : "/unknown");
-			st->ss->free_super(st);
-			break;
-		}
-	}
-	map_write(map);
-	map_free(map);
-}
-
 int IncrementalScan(int verbose)
 {
 	/* look at every device listed in the 'map' file.

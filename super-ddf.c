@@ -3569,4 +3569,5 @@ struct superswitch super_ddf = {
 	.prepare_update	= ddf_prepare_update,
 	.activate_spare = ddf_activate_spare,
 #endif
+	.name = "ddf",
 };

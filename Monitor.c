@@ -616,7 +616,7 @@ int Wait(char *dev)
 				break;
 
 		if (!e || e->percent < 0) {
-			if (e &&
+			if (e && e->metadata_version &&
 			    strncmp(e->metadata_version, "external:", 9) == 0) {
 				if (is_subarray(&e->metadata_version[9]))
 					ping_monitor(&e->metadata_version[9]);

@@ -107,6 +107,7 @@ struct option long_options[] = {
     {"query",	  0, 0, 'Q'},
     {"examine-bitmap", 0, 0, 'X'},
     {"auto-detect", 0, 0, AutoDetect},
+    {"detail-platform", 0, 0, DetailPlatform},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
@@ -466,6 +467,7 @@ char Help_misc[] =
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
 "  --detail      -D   : Display details of an array\n"
+"  --detail-platform  : Display hardware/firmware details\n"
 "  --examine     -E   : Examine superblock on an array component\n"
 "  --examine-bitmap -X: Display contents of a bitmap file\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"

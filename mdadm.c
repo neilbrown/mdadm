@@ -217,6 +217,7 @@ int main(int argc, char *argv[])
 		case 'w':
 		case 'W':
 		case Waitclean:
+		case DetailPlatform:
 		case 'K': if (!mode) newmode = MISC; break;
 		}
 		if (mode && newmode == mode) {
@@ -769,6 +770,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'w'):
 		case O(MISC,'W'):
 		case O(MISC, Waitclean):
+		case O(MISC, DetailPlatform):
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
 				fprintf(stderr, Name ": --examine/-E cannot be given with -%c\n",
@@ -1211,6 +1213,8 @@ int main(int argc, char *argv[])
 			rv = Examine(devlist, scan?(verbose>1?0:verbose+1):brief,
 				     export, scan,
 				     SparcAdjust, ss, homehost);
+		} else if (devmode == DetailPlatform) {
+			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? scan : 1, verbose);
 		} else {
 			if (devlist == NULL) {
 				if ((devmode=='D' || devmode == Waitclean) && scan) {

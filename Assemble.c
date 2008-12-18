@@ -1070,6 +1070,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, "\n");
 			}
 			sysfs_uevent(content, "change");
+			wait_for(chosen_name);
 			close(mdfd);
 			return 0;
 		}

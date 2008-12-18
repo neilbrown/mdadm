@@ -890,6 +890,8 @@ int Assemble(struct supertype *st, char *mddev,
 			continue;
 
 		devices[j].i.disk.state = desired_state;
+		if (!(devices[j].i.array.state & 1))
+			clean = 0;
 
 		if (st->ss->update_super(st, &devices[j].i, "assemble", NULL,
 					 verbose, 0, NULL)) {
@@ -1087,6 +1089,20 @@ int Assemble(struct supertype *st, char *mddev,
 					if (sparecnt)
 						fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 					fprintf(stderr, ".\n");
+				}
+				if (content->reshape_active &&
+				    content->array.level >= 4 &&
+				    content->array.level <= 6) {
+					/* might need to increase the size
+					 * of the stripe cache - default is 256
+					 */
+					if (256 < 4 * (content->array.chunk_size/4096)) {
+						struct mdinfo *sra = sysfs_read(mdfd, 0, 0);
+						if (sra)
+							sysfs_set_num(sra, NULL,
+								      "stripe_cache_size",
+								      (4 * content->array.chunk_size / 4096) + 1);
+					}
 				}
 				close(mdfd);
 				wait_for(mddev);

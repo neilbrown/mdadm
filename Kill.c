@@ -44,7 +44,7 @@ int Kill(char *dev, int force, int quiet)
 	int fd, rv = 0;
 	struct supertype *st;
 
-	fd = open(dev, O_RDWR|O_EXCL);
+	fd = open(dev, O_RDWR|(force ? 0 : O_EXCL));
 	if (fd < 0) {
 		if (!quiet)
 			fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",

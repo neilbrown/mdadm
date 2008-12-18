@@ -749,6 +749,8 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 			continue;
 
 		devices[j].i.disk.state = desired_state;
+		if (!(devices[j].i.array.state & 1))
+			clean = 0;
 
 		if (st->ss->update_super(st, &devices[j].i, "assemble", NULL,
 					 verbose, 0, NULL)) {

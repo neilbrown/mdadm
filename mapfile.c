@@ -245,6 +245,7 @@ void RebuildMap(void)
 			break;
 		}
 	}
+	free_mdstat(mdstat);
 	map_write(map);
 	map_free(map);
 }

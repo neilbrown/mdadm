@@ -619,7 +619,7 @@ int Wait(char *dev)
 			free_mdstat(ms);
 			return rv;
 		}
-		free(ms);
+		free_mdstat(ms);
 		rv = 0;
 		mdstat_wait(5);
 	}

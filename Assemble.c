@@ -386,9 +386,9 @@ int Assemble(struct supertype *st, char *mddev, int mdfd,
 		if (c) c++; else c= info.name;
 		if (isdigit(*c) && ((ident->autof & 7)==4 || (ident->autof&7)==6))
 			/* /dev/md/d0 style for partitionable */
-			asprintf(&mddev, "/dev/md/d%s", c);
+			xasprintf(&mddev, "/dev/md/d%s", c);
 		else
-			asprintf(&mddev, "/dev/md/%s", c);
+			xasprintf(&mddev, "/dev/md/%s", c);
 		mdfd = open_mddev(mddev, ident->autof);
 		if (mdfd < 0) {
 			st->ss->free_super(st);

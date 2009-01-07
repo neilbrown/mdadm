@@ -528,6 +528,17 @@ extern int open_mddev(char *dev, int autof);
 extern int open_mddev_devnum(char *devname, int devnum, char *name,
 			     char *chosen_name, int parts);
 
+#include <assert.h>
+#include <stdarg.h>
+static inline int xasprintf(char **strp, const char *fmt, ...) {
+	va_list ap;
+	int ret;
+	va_start(ap, fmt);
+	ret = asprintf(strp, fmt, ap);
+	va_end(ap);
+	assert(ret >= 0);
+	return ret;
+}
 
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)

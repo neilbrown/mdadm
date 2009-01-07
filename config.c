@@ -559,7 +559,7 @@ void mailfromline(char *line)
 			alert_mail_from = strdup(w);
 		else {
 			char *t= NULL;
-			asprintf(&t, "%s %s", alert_mail_from, w);
+			xasprintf(&t, "%s %s", alert_mail_from, w);
 			free(alert_mail_from);
 			alert_mail_from = t;
 		}

@@ -600,7 +600,7 @@ void mailfromline(char *line)
 		else {
 			char *t = NULL;
 
-			if (asprintf(&t, "%s %s", alert_mail_from, w) > 0) {
+			if (xasprintf(&t, "%s %s", alert_mail_from, w) > 0) {
 				free(alert_mail_from);
 				alert_mail_from = t;
 			}

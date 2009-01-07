@@ -337,4 +337,5 @@ void RebuildMap(void)
 		sysfs_uevent(sra, "change");
 		sysfs_free(sra);
 	}
+	free_mdstat(mdstat);
 }

@@ -880,6 +880,17 @@ static inline int is_subarray(char *vers)
 #define dprintf(fmt, arg...) \
         ({ if (0) fprintf(stderr, fmt, ##arg); 0; })
 #endif
+#include <assert.h>
+#include <stdarg.h>
+static inline int xasprintf(char **strp, const char *fmt, ...) {
+	va_list ap;
+	int ret;
+	va_start(ap, fmt);
+	ret = asprintf(strp, fmt, ap);
+	va_end(ap);
+	assert(ret >= 0);
+	return ret;
+}
 
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)

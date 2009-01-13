@@ -354,6 +354,7 @@ int main(int argc, char *argv[])
 	container->devnum = devnum;
 	container->devname = devname;
 	container->arrays = NULL;
+	container->subarray[0] = 0;
 
 	if (!container->devname) {
 		fprintf(stderr, "mdmon: failed to allocate container name string\n");

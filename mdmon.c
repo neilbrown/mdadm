@@ -271,7 +271,7 @@ static int do_fork(void)
 
 void usage(void)
 {
-	fprintf(stderr, "Usage: mdmon [--switch-root dir] /device/name/for/container\n");
+	fprintf(stderr, "Usage: mdmon /device/name/for/container [target_dir]\n");
 	exit(2);
 }
 
@@ -287,16 +287,10 @@ int main(int argc, char *argv[])
 	int status = 0;
 
 	switch (argc) {
+	case 3:
+		switchroot = argv[2];
 	case 2:
 		container_name = argv[1];
-		break;
-	case 4:
-		if (strcmp(argv[1], "--switch-root") != 0) {
-			fprintf(stderr, "mdmon: unknown argument %s\n", argv[1]);
-			usage();
-		}
-		switchroot = argv[2];
-		container_name = argv[3];
 		break;
 	default:
 		usage();
@@ -355,6 +349,8 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	int status;
 	int ignore;
 
+	dprintf("starting mdmon for %s in %s\n",
+		devname, switchroot ? : "/");
 	mdfd = open_dev(devnum);
 	if (mdfd < 0) {
 		fprintf(stderr, "mdmon: %s: %s\n", devname,

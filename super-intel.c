@@ -916,7 +916,7 @@ static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_b
 	return err;
 }
 
-static int detail_platform_imsm(int verbose)
+static int detail_platform_imsm(int verbose, int enumerate_only)
 {
 	/* There are two components to imsm platform support, the ahci SATA
 	 * controller and the option-rom.  To find the SATA controller we
@@ -936,6 +936,12 @@ static int detail_platform_imsm(int verbose)
 	const char *hba_path;
 	int host_base = 0;
 	int port_count = 0;
+
+	if (enumerate_only) {
+		if (check_env("IMSM_NO_PLATFORM") || find_imsm_orom())
+			return 0;
+		return 2;
+	}
 
 	list = find_driver_devices("pci", "ahci");
 	for (hba = list; hba; hba = hba->next)

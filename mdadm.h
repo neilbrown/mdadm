@@ -443,7 +443,7 @@ extern struct superswitch {
 	void (*export_detail_super)(struct supertype *st);
 
 	/* Optional: platform hardware / firmware details */
-	int (*detail_platform)(int verbose);
+	int (*detail_platform)(int verbose, int enumerate_only);
 
 	/* Used:
 	 *   to get uuid to storing in bitmap metadata

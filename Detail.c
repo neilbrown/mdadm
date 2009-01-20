@@ -540,7 +540,7 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 	int err = 1;
 
 	if (ss && ss->detail_platform)
-		err = ss->detail_platform(verbose);
+		err = ss->detail_platform(verbose, 0);
 	else if (ss) {
 		if (verbose)
 			fprintf(stderr, Name ": %s metadata is platform independent\n",
@@ -566,7 +566,7 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 				fprintf(stderr, Name ": %s metadata is platform independent\n",
 					meta->name ? : "[no name]");
 		} else
-			err |= meta->detail_platform(verbose);
+			err |= meta->detail_platform(verbose, 0);
 	}
 
 	return err;

@@ -404,6 +404,14 @@ int Create(struct supertype *st, char *mddev,
 		warn = 1;
 	}
 
+	if (st->ss->detail_platform && st->ss->detail_platform(0, 1) != 0) {
+		if (runstop != 1 || verbose >= 0)
+			fprintf(stderr, Name ": %s unable to enumerate platform support\n"
+				"    array may not be compatible with hardware/firmware\n",
+				st->ss->name);
+		warn = 1;
+	}
+
 	if (warn) {
 		if (runstop!= 1) {
 			if (!ask("Continue creating array? ")) {

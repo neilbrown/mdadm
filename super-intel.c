@@ -1101,7 +1101,7 @@ static int imsm_level_to_layout(int level)
 	case 10:
 		return 0x102;
 	}
-	return -1;
+	return UnSet;
 }
 
 static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
@@ -4143,6 +4143,7 @@ struct superswitch super_imsm = {
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
+	.default_layout = imsm_level_to_layout,
 
 	.external	= 1,
 	.name = "imsm",

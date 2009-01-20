@@ -32,6 +32,44 @@
 #include	"md_p.h"
 #include	<ctype.h>
 
+static int default_layout(struct supertype *st, int level, int verbose)
+{
+	int layout = UnSet;
+
+	if (st && st->ss->default_layout)
+		layout = st->ss->default_layout(level);
+
+	if (layout == UnSet)
+		switch(level) {
+		default: /* no layout */
+			layout = 0;
+			break;
+		case 10:
+			layout = 0x102; /* near=2, far=1 */
+			if (verbose > 0)
+				fprintf(stderr,
+					Name ": layout defaults to n1\n");
+			break;
+		case 5:
+		case 6:
+			layout = map_name(r5layout, "default");
+			if (verbose > 0)
+				fprintf(stderr,
+					Name ": layout defaults to %s\n", map_num(r5layout, layout));
+			break;
+		case LEVEL_FAULTY:
+			layout = map_name(faultylayout, "default");
+
+			if (verbose > 0)
+				fprintf(stderr,
+					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
+			break;
+		}
+
+	return layout;
+}
+
+
 int Create(struct supertype *st, char *mddev,
 	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
 	   char *name, char *homehost, int *uuid,
@@ -78,6 +116,7 @@ int Create(struct supertype *st, char *mddev,
 	unsigned long long bitmapsize;
 	struct mdinfo info, *infos;
 	int did_default = 0;
+	int do_default_layout = 0;
 	unsigned long safe_mode_delay = 0;
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
@@ -175,32 +214,12 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	/* now set some defaults */
-	if (layout == UnSet)
-		switch(level) {
-		default: /* no layout */
-			layout = 0;
-			break;
-		case 10:
-			layout = 0x102; /* near=2, far=1 */
-			if (verbose > 0)
-				fprintf(stderr,
-					Name ": layout defaults to n1\n");
-			break;
-		case 5:
-		case 6:
-			layout = map_name(r5layout, "default");
-			if (verbose > 0)
-				fprintf(stderr,
-					Name ": layout defaults to %s\n", map_num(r5layout, layout));
-			break;
-		case LEVEL_FAULTY:
-			layout = map_name(faultylayout, "default");
 
-			if (verbose > 0)
-				fprintf(stderr,
-					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
-			break;
-		}
+
+	if (layout == UnSet) {
+		do_default_layout = 1;
+		layout = default_layout(st, level, verbose);
+	}
 
 	if (level == 10)
 		/* check layout fits in array*/
@@ -280,6 +299,8 @@ int Create(struct supertype *st, char *mddev,
 			char *name = "default";
 			for(i=0; !st && superlist[i]; i++) {
 				st = superlist[i]->match_metadata_desc(name);
+				if (do_default_layout)
+					layout = default_layout(st, level, verbose);
 				if (st && !st->ss->validate_geometry
 					    	(st, level, layout, raiddisks,
 						 chunk, size*2, dname, &freesize,
@@ -297,6 +318,8 @@ int Create(struct supertype *st, char *mddev,
 			    st->minor_version != 90)
 				did_default = 1;
 		} else {
+			if (do_default_layout)
+				layout = default_layout(st, level, verbose);
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
 						       chunk, size*2, dname,

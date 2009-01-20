@@ -2793,6 +2793,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 {
 	struct stat stb;
 	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->anchor;
 	struct dl *dl;
 	unsigned long long pos = 0;
 	unsigned long long maxsize;
@@ -2884,6 +2885,17 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		if (verbose)
 			fprintf(stderr, Name ": %s is not in the "
 				"same imsm set\n", dev);
+		return 0;
+	} else if (super->orom && dl->index < 0 && mpb->num_raid_devs) {
+		/* If a volume is present then the current creation attempt
+		 * cannot incorporate new spares because the orom may not
+		 * understand this configuration (all member disks must be
+		 * members of each array in the container).
+		 */
+		fprintf(stderr, Name ": %s is a spare and a volume"
+			" is already defined for this container\n", dev);
+		fprintf(stderr, Name ": The option-rom requires all member"
+			" disks to be a member of all volumes\n");
 		return 0;
 	}
 
@@ -3480,18 +3492,21 @@ static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_a
 	return dl;
 }
 
-static struct dl *imsm_add_spare(struct intel_super *super, int slot, struct active_array *a)
+static struct dl *imsm_add_spare(struct intel_super *super, int slot,
+				 struct active_array *a, int activate_new)
 {
 	struct imsm_dev *dev = get_imsm_dev(super, a->info.container_member);
 	int idx = get_imsm_disk_idx(dev, slot);
-	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct imsm_super *mpb = super->anchor;
+	struct imsm_map *map;
 	unsigned long long esize;
 	unsigned long long pos;
 	struct mdinfo *d;
 	struct extent *ex;
-	int j;
+	int i, j;
 	int found;
 	__u32 array_start;
+	__u32 blocks;
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next) {
@@ -3515,44 +3530,66 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot, struct act
 			continue;
 		}
 
+		/* skip pure spares when we are looking for partially
+		 * assimilated drives
+		 */
+		if (dl->index == -1 && !activate_new)
+			continue;
+
 		/* Does this unused device have the requisite free space?
-		 * We need a->info.component_size sectors
+		 * It needs to be able to cover all member volumes
 		 */
 		ex = get_extents(super, dl);
 		if (!ex) {
 			dprintf("cannot get extents\n");
 			continue;
 		}
-		found = 0;
-		j = 0;
-		pos = 0;
-		array_start = __le32_to_cpu(map->pba_of_lba0);
+		for (i = 0; i < mpb->num_raid_devs; i++) {
+			dev = get_imsm_dev(super, i);
+			map = get_imsm_map(dev, 0);
 
-		do {
-			/* check that we can start at pba_of_lba0 with
-			 * a->info.component_size of space
+			/* check if this disk is already a member of
+			 * this array
 			 */
-			esize = ex[j].start - pos;
-			if (array_start >= pos &&
-			    array_start + a->info.component_size < ex[j].start) {
-				found = 1;
+			for (j = 0; j < map->num_members; j++)
+				if (get_imsm_disk_idx(dev, j) == dl->index)
+					break;
+			if (j < map->num_members)
+				continue;
+
+			found = 0;
+			j = 0;
+			pos = 0;
+			array_start = __le32_to_cpu(map->pba_of_lba0);
+			blocks = __le32_to_cpu(map->blocks_per_member);
+
+			do {
+				/* check that we can start at pba_of_lba0 with
+				 * blocks_per_member of space
+				 */
+				esize = ex[j].start - pos;
+				if (array_start >= pos &&
+				    array_start + blocks < ex[j].start) {
+					found = 1;
+					break;
+				}
+				pos = ex[j].start + ex[j].size;
+				j++;
+			} while (ex[j-1].size);
+
+			if (!found)
 				break;
-			}
-			pos = ex[j].start + ex[j].size;
-			j++;
-			    
-		} while (ex[j-1].size);
+		}
 
 		free(ex);
-		if (!found) {
-			dprintf("%x:%x does not have %llu at %d\n",
+		if (i < mpb->num_raid_devs) {
+			dprintf("%x:%x does not have %u at %u\n",
 				dl->major, dl->minor,
-				a->info.component_size,
-				__le32_to_cpu(map->pba_of_lba0));
+				blocks, array_start);
 			/* No room */
 			continue;
-		} else
-			break;
+		}
+		return dl;
 	}
 
 	return dl;
@@ -3610,12 +3647,17 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			continue;
 
 		/*
-		 * OK, this device needs recovery.  Try to re-add the previous
-		 * occupant of this slot, if this fails add a new spare
+		 * OK, this device needs recovery.  Try to re-add the
+		 * previous occupant of this slot, if this fails see if
+		 * we can continue the assimilation of a spare that was
+		 * partially assimilated, finally try to activate a new
+		 * spare.
 		 */
 		dl = imsm_readd(super, i, a);
 		if (!dl)
-			dl = imsm_add_spare(super, i, a);
+			dl = imsm_add_spare(super, i, a, 0);
+		if (!dl)
+			dl = imsm_add_spare(super, i, a, 1);
 		if (!dl)
 			continue;
  

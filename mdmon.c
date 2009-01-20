@@ -275,20 +275,16 @@ void usage(void)
 	exit(2);
 }
 
+int mdmon(char *devname, int devnum, int scan, char *switchroot);
+
 int main(int argc, char *argv[])
 {
-	int mdfd;
-	struct mdinfo *mdi, *di;
-	struct supertype *container;
-	sigset_t set;
-	struct sigaction act;
-	int pfd[2];
-	int status;
-	int ignore;
 	char *container_name = NULL;
 	char *switchroot = NULL;
 	int devnum;
 	char *devname;
+	int scan = 0;
+	int status = 0;
 
 	switch (argc) {
 	case 2:
@@ -306,7 +302,24 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	if (strncmp(container_name, "md", 2) == 0) {
+	if (strcmp(container_name, "/proc/mdstat") == 0) {
+		struct mdstat_ent *mdstat, *e;
+
+		/* launch an mdmon instance for each container found */
+		scan = 1;
+		mdstat = mdstat_read(0, 0);
+		for (e = mdstat; e; e = e->next) {
+			if (strncmp(e->metadata_version, "external:", 9) == 0 &&
+			    !is_subarray(&e->metadata_version[9])) {
+				devname = devnum2devname(e->devnum);
+				status |= mdmon(devname, e->devnum, scan,
+						switchroot);
+			}
+		}
+		free_mdstat(mdstat);
+
+		return status;
+	} else if (strncmp(container_name, "md", 2) == 0) {
 		devnum = devname2devnum(container_name);
 		devname = devnum2devname(devnum);
 		if (strcmp(container_name, devname) != 0)
@@ -328,29 +341,43 @@ int main(int argc, char *argv[])
 			container_name);
 		exit(1);
 	}
+	return mdmon(devname, devnum, scan, switchroot);
+}
+
+int mdmon(char *devname, int devnum, int scan, char *switchroot)
+{
+	int mdfd;
+	struct mdinfo *mdi, *di;
+	struct supertype *container;
+	sigset_t set;
+	struct sigaction act;
+	int pfd[2];
+	int status;
+	int ignore;
+
 	mdfd = open_dev(devnum);
 	if (mdfd < 0) {
-		fprintf(stderr, "mdmon: %s: %s\n", container_name,
+		fprintf(stderr, "mdmon: %s: %s\n", devname,
 			strerror(errno));
-		exit(1);
+		return 1;
 	}
 	if (md_get_version(mdfd) < 0) {
 		fprintf(stderr, "mdmon: %s: Not an md device\n",
-			container_name);
-		exit(1);
+			devname);
+		return 1;
 	}
 
 	/* Fork, and have the child tell us when they are ready */
-	if (do_fork()) {
+	if (do_fork() || scan) {
 		if (pipe(pfd) != 0) {
 			fprintf(stderr, "mdmon: failed to create pipe\n");
-			exit(1);
+			return 1;
 		}
 		switch(fork()) {
 		case -1:
 			fprintf(stderr, "mdmon: failed to fork: %s\n",
 				strerror(errno));
-			exit(1);
+			return 1;
 		case 0: /* child */
 			close(pfd[0]);
 			break;
@@ -360,7 +387,7 @@ int main(int argc, char *argv[])
 				wait(&status);
 				status = WEXITSTATUS(status);
 			}
-			exit(status);
+			return status;
 		}
 	} else
 		pfd[0] = pfd[1] = -1;
@@ -386,20 +413,20 @@ int main(int argc, char *argv[])
 	}
 	if (mdi->array.level != UnSet) {
 		fprintf(stderr, "mdmon: %s is not a container - cannot monitor\n",
-			container_name);
+			devname);
 		exit(3);
 	}
 	if (mdi->array.major_version != -1 ||
 	    mdi->array.minor_version != -2) {
 		fprintf(stderr, "mdmon: %s does not use external metadata - cannot monitor\n",
-			container_name);
+			devname);
 		exit(3);
 	}
 
 	container->ss = find_metadata_methods(mdi->text_version);
 	if (container->ss == NULL) {
 		fprintf(stderr, "mdmon: %s uses unknown metadata: %s\n",
-			container_name, mdi->text_version);
+			devname, mdi->text_version);
 		exit(3);
 	}
 
@@ -481,9 +508,9 @@ int main(int argc, char *argv[])
 	}
 	container->sock = make_control_sock(container->devname);
 
-	if (container->ss->load_super(container, mdfd, container_name)) {
+	if (container->ss->load_super(container, mdfd, devname)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",
-			container_name);
+			devname);
 		exit(3);
 	}
 	close(mdfd);

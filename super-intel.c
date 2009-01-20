@@ -2771,10 +2771,9 @@ static int is_raid_level_supported(const struct imsm_orom *orom, int level, int 
 		case 1:
 			if (raiddisks > 2)
 				return imsm_orom_has_raid1e(orom);
-			else
-				return imsm_orom_has_raid1(orom);
-		case 10: return imsm_orom_has_raid10(orom);
-		case 5: return imsm_orom_has_raid5(orom);
+			return imsm_orom_has_raid1(orom) && raiddisks == 2;
+		case 10: return imsm_orom_has_raid10(orom) && raiddisks == 4;
+		case 5: return imsm_orom_has_raid5(orom) && raiddisks > 2;
 		}
 	else
 		return 1; /* not on an Intel RAID platform so anything goes */
@@ -2805,7 +2804,8 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		return 0;
 
 	if (!is_raid_level_supported(super->orom, level, raiddisks)) {
-		pr_vrb(": platform does not support raid level: %d\n", level);
+		pr_vrb(": platform does not support raid%d with %d disk%s\n",
+			level, raiddisks, raiddisks > 1 ? "s" : "");
 		return 0;
 	}
 	if (super->orom && !imsm_orom_has_chunk(super->orom, chunk)) {

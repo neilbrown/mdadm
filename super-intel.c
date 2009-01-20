@@ -1915,7 +1915,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	for (sd = sra->devs; sd; sd = sd->next) {
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
 		dfd = dev_open(nm, keep_fd ? O_RDWR : O_RDONLY);
-		if (!dfd) {
+		if (dfd < 0) {
 			free_imsm(super);
 			return 2;
 		}
@@ -1945,7 +1945,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	/* load the most up to date anchor */
 	sprintf(nm, "%d:%d", best->disk.major, best->disk.minor);
 	dfd = dev_open(nm, O_RDONLY);
-	if (!dfd) {
+	if (dfd < 0) {
 		free_imsm(super);
 		return 1;
 	}
@@ -1960,7 +1960,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	for (sd = sra->devs ; sd ; sd = sd->next) {
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
 		dfd = dev_open(nm, keep_fd? O_RDWR : O_RDONLY);
-		if (!dfd) {
+		if (dfd < 0) {
 			free_imsm(super);
 			return 2;
 		}

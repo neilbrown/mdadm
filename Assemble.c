@@ -168,7 +168,6 @@ int Assemble(struct supertype *st, char *mddev,
 	mddev_dev_t tmpdev;
 	struct mdinfo info;
 	struct mdinfo *content = NULL;
-	mdu_array_info_t tmp_inf;
 	char *avail;
 	int nextspare = 0;
 	char *name = NULL;
@@ -525,7 +524,7 @@ int Assemble(struct supertype *st, char *mddev,
 		close(mdfd);
 		return 1;
 	}
-	if (ioctl(mdfd, GET_ARRAY_INFO, &tmp_inf)==0) {
+	if (mddev_busy(fd2devnum(mdfd))) {
 		fprintf(stderr, Name ": %s already active, cannot restart it!\n",
 			mddev);
 		for (tmpdev = devlist ;

@@ -2782,7 +2782,7 @@ static int is_raid_level_supported(const struct imsm_orom *orom, int level, int 
 	return 0;
 }
 
-#define vprintf(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
+#define pr_vrb(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
 /* validate_geometry_imsm_volume - lifted from validate_geometry_ddf_bvd 
  * FIX ME add ahci details
  */
@@ -2805,20 +2805,20 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		return 0;
 
 	if (!is_raid_level_supported(super->orom, level, raiddisks)) {
-		vprintf(": platform does not support raid level: %d\n", level);
+		pr_vrb(": platform does not support raid level: %d\n", level);
 		return 0;
 	}
 	if (super->orom && !imsm_orom_has_chunk(super->orom, chunk)) {
-		vprintf(": platform does not support a chunk size of: %d\n", chunk);
+		pr_vrb(": platform does not support a chunk size of: %d\n", chunk);
 		return 0;
 	}
 	if (layout != imsm_level_to_layout(level)) {
 		if (level == 5)
-			vprintf(": imsm raid 5 only supports the left-asymmetric layout\n");
+			pr_vrb(": imsm raid 5 only supports the left-asymmetric layout\n");
 		else if (level == 10)
-			vprintf(": imsm raid 10 only supports the n2 layout\n");
+			pr_vrb(": imsm raid 10 only supports the n2 layout\n");
 		else
-			vprintf(": imsm unknown layout %#x for this raid level %d\n",
+			pr_vrb(": imsm unknown layout %#x for this raid level %d\n",
 				layout, level);
 		return 0;
 	}

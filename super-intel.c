@@ -1415,6 +1415,13 @@ static int imsm_read_serial(int fd, char *devname,
 
 	/* trim leading whitespace */
 	rsp_len = scsi_serial[3];
+	if (!rsp_len) {
+		if (devname)
+			fprintf(stderr,
+				Name ": Failed to retrieve serial for %s\n",
+				devname);
+		return 2;
+	}
 	rsp_buf = (char *) &scsi_serial[4];
 	c = rsp_buf;
 	while (isspace(*c))

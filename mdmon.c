@@ -306,9 +306,24 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	devnum = devname2devnum(container_name);
-	devname = devnum2devname(devnum);
-	if (strcmp(container_name, devname) != 0) {
+	if (strncmp(container_name, "md", 2) == 0) {
+		devnum = devname2devnum(container_name);
+		devname = devnum2devname(devnum);
+		if (strcmp(container_name, devname) != 0)
+			devname = NULL;
+	} else {
+		struct stat st;
+
+		devnum = NoMdDev;
+		if (stat(container_name, &st) == 0)
+			devnum = stat2devnum(&st);
+		if (devnum == NoMdDev)
+			devname = NULL;
+		else
+			devname = devnum2devname(devnum);
+	}
+
+	if (!devname) {
 		fprintf(stderr, "mdmon: %s is not a valid md device name\n",
 			container_name);
 		exit(1);

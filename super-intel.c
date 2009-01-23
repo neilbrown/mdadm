@@ -1195,8 +1195,11 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		info->component_size = reserved;
 		s = disk->status;
 		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
-		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 		info->disk.state |= s & SPARE_DISK ? 0 : (1 << MD_DISK_SYNC);
+		if (s & FAILED_DISK || super->disks->index == -2) {
+			info->disk.state |= 1 << MD_DISK_FAULTY;
+			info->disk.raid_disk = -2;
+		}
 	}
 
 	/* only call uuid_from_super_imsm when this disk is part of a populated container,

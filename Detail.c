@@ -198,8 +198,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				unsigned long long dsize = get_component_size(fd);
 				if (dsize > 0)
 					printf("  Used Dev Size : %llu%s\n",
-					       dsize,
-					 human_size((long long)dsize<<10));
+					       dsize/2,
+					 human_size((long long)dsize<<9));
 				else
 					printf("  Used Dev Size : unknown\n");
 			} else

@@ -537,7 +537,7 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 	va_list ap;
 	int ret;
 	va_start(ap, fmt);
-	ret = asprintf(strp, fmt, ap);
+	ret = vasprintf(strp, fmt, ap);
 	va_end(ap);
 	assert(ret >= 0);
 	return ret;

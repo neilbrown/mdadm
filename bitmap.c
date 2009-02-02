@@ -162,7 +162,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 
 	sb_le_to_cpu(&info->sb); /* convert superblock to CPU byte ordering */
 
-	if (brief || info->sb.sync_size == 0)
+	if (brief || info->sb.sync_size == 0 || info->sb.chunksize == 0)
 		goto out;
 
 	/* read the rest of the file counting total bits and dirty bits --

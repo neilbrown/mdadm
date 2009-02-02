@@ -2175,6 +2175,17 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	 */
 	if (super->current_vol == 0)
 		mpb->num_disks = 0;
+
+	for (i = 0; i < super->current_vol; i++) {
+		dev = get_imsm_dev(super, i);
+		if (strncmp((char *) dev->volume, name,
+			     MAX_RAID_SERIAL_LEN) == 0) {
+			fprintf(stderr, Name": '%s' is already defined for this container\n",
+				name);
+			return 0;
+		}
+	}
+
 	sprintf(st->subarray, "%d", idx);
 	dv = malloc(sizeof(*dv));
 	if (!dv) {

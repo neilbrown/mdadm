@@ -2818,7 +2818,8 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 			level, raiddisks, raiddisks > 1 ? "s" : "");
 		return 0;
 	}
-	if (super->orom && !imsm_orom_has_chunk(super->orom, chunk)) {
+	if (super->orom && level != 1 &&
+	    !imsm_orom_has_chunk(super->orom, chunk)) {
 		pr_vrb(": platform does not support a chunk size of: %d\n", chunk);
 		return 0;
 	}

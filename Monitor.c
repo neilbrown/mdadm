@@ -431,6 +431,8 @@ int Monitor(mddev_dev_t devlist,
 					st->spare_group = NULL;
 					st->expected_spares = -1;
 					statelist = st;
+					if (test)
+						alert("TestMessage", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 					alert("NewArray", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 					new_found = 1;
 				}

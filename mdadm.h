@@ -443,7 +443,8 @@ extern int Assemble(struct supertype *st, char *mddev, int mdfd,
 extern int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		 int raiddisks,
 		 mddev_dev_t devlist, int assume_clean,
-		 char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int verbose);
+		 char *bitmap_file, int bitmap_chunk, int write_behind,
+		 int delay, int verbose, unsigned long long size);
 
 
 extern int Create(struct supertype *st, char *mddev, int mdfd,

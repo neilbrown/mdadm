@@ -36,7 +36,8 @@
 int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	  int raiddisks,
 	  mddev_dev_t devlist, int assume_clean,
-	  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int verbose)
+	  char *bitmap_file, int bitmap_chunk, int write_behind, int delay,
+	  int verbose, unsigned long long size)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -57,7 +58,6 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	int subdevs = 0, missing_disks = 0;
 	mddev_dev_t dv;
 	int bitmap_fd;
-	unsigned long long size = ~0ULL;
 	unsigned long long bitmapsize;
 
 	/* scan all devices, make sure they really are block devices */
@@ -119,7 +119,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 	if (vers >= 9000) {
 		mdu_array_info_t array;
 		array.level = level;
-		array.size = 0;
+		array.size = size;
 		array.nr_disks = raiddisks;
 		array.raid_disks = raiddisks;
 		array.md_minor = 0;
@@ -178,7 +178,7 @@ int Build(char *mddev, int mdfd, int chunk, int level, int layout,
 		    (size == 0 || dsize < size))
 				size = dsize;
 		close(fd);
-		if (vers>= 9000) {
+		if (vers >= 9000) {
 			mdu_disk_info_t disk;
 			disk.number = i;
 			disk.raid_disk = i;

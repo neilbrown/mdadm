@@ -1152,6 +1152,32 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	uuid_from_super_imsm(st, info->uuid);
 }
 
+/* check the config file to see if we can return a real uuid for this spare */
+static void fixup_container_spare_uuid(struct mdinfo *inf)
+{
+	struct mddev_ident_s *array_list;
+
+	if (inf->array.level != LEVEL_CONTAINER ||
+	    memcmp(inf->uuid, uuid_match_any, sizeof(int[4])) != 0)
+		return;
+
+	array_list = conf_get_ident(NULL);
+
+	for (; array_list; array_list = array_list->next) {
+		if (array_list->uuid_set) {
+			struct supertype *_sst; /* spare supertype */
+			struct supertype *_cst; /* container supertype */
+
+			_cst = array_list->st;
+			_sst = _cst->ss->match_metadata_desc(inf->text_version);
+			if (_sst) {
+				memcpy(inf->uuid, array_list->uuid, sizeof(int[4]));
+				free(_sst);
+				break;
+			}
+		}
+	}
+}
 
 static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 {
@@ -1207,8 +1233,10 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	 */
 	if (info->disk.state & (1 << MD_DISK_SYNC) || super->anchor->num_raid_devs)
 		uuid_from_super_imsm(st, info->uuid);
-	else
+	else {
 		memcpy(info->uuid, uuid_match_any, sizeof(int[4]));
+		fixup_container_spare_uuid(info);
+	}
 }
 
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,

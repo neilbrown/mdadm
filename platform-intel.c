@@ -162,6 +162,24 @@ const struct imsm_orom *find_imsm_orom(void)
 	if (populated)
 		return &imsm_orom;
 
+	if (check_env("IMSM_TEST_OROM")) {
+		memset(&imsm_orom, 0, sizeof(imsm_orom));
+		imsm_orom.rlc = IMSM_OROM_RLC_RAID0 | IMSM_OROM_RLC_RAID1 |
+				IMSM_OROM_RLC_RAID10 | IMSM_OROM_RLC_RAID5;
+		imsm_orom.sss = IMSM_OROM_SSS_4kB | IMSM_OROM_SSS_8kB |
+				IMSM_OROM_SSS_16kB | IMSM_OROM_SSS_32kB |
+				IMSM_OROM_SSS_64kB | IMSM_OROM_SSS_128kB |
+				IMSM_OROM_SSS_256kB | IMSM_OROM_SSS_512kB |
+				IMSM_OROM_SSS_1MB | IMSM_OROM_SSS_2MB;
+		imsm_orom.dpa = 6;
+		imsm_orom.tds = 6;
+		imsm_orom.vpa = 2;
+		imsm_orom.vphba = 4;
+		imsm_orom.attr = imsm_orom.rlc | IMSM_OROM_ATTR_ChecksumVerify;
+		populated = 1;
+		return &imsm_orom;
+	}
+
 	if (!platform_has_intel_ahci())
 		return NULL;
 

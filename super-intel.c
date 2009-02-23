@@ -1842,7 +1842,7 @@ static struct intel_super *alloc_super(int creating_imsm)
 		super->create_offset = ~((__u32 ) 0);
 		if (!check_env("IMSM_NO_PLATFORM"))
 			super->orom = find_imsm_orom();
-		if (super->orom) {
+		if (super->orom && !check_env("IMSM_TEST_OROM")) {
 			struct sys_dev *list, *ent;
 
 			/* find the first intel ahci controller */

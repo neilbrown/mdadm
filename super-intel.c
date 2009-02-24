@@ -1894,6 +1894,7 @@ static int find_missing(struct intel_super *super)
 		dl->index = i;
 		serialcpy(dl->serial, disk->serial);
 		dl->disk = *disk;
+		dl->e = NULL;
 		dl->next = super->missing;
 		super->missing = dl;
 	}
@@ -2388,6 +2389,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	dd->index = -1;
 	dd->devname = devname ? strdup(devname) : NULL;
 	dd->fd = fd;
+	dd->e = NULL;
 	rv = imsm_read_serial(fd, devname, dd->serial);
 	if (rv) {
 		fprintf(stderr,

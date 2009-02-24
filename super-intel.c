@@ -1221,11 +1221,12 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		info->component_size = reserved;
 		s = disk->status;
 		info->disk.state  = s & CONFIGURED_DISK ? (1 << MD_DISK_ACTIVE) : 0;
+		/* we don't change info->disk.raid_disk here because
+		 * this state will be finalized in mdmon after we have
+		 * found the 'most fresh' version of the metadata
+		 */
+		info->disk.state |= s & FAILED_DISK ? (1 << MD_DISK_FAULTY) : 0;
 		info->disk.state |= s & SPARE_DISK ? 0 : (1 << MD_DISK_SYNC);
-		if (s & FAILED_DISK || super->disks->index == -2) {
-			info->disk.state |= 1 << MD_DISK_FAULTY;
-			info->disk.raid_disk = -2;
-		}
 	}
 
 	/* only call uuid_from_super_imsm when this disk is part of a populated container,
@@ -3573,11 +3574,11 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			continue;
 
 		/* skip in use or failed drives */
-		if (dl->disk.status & FAILED_DISK || idx == dl->index) {
-			dprintf("%x:%x status ( %s%s)\n",
-			dl->major, dl->minor,
-			dl->disk.status & FAILED_DISK ? "failed " : "",
-			idx == dl->index ? "in use " : "");
+		if (dl->disk.status & FAILED_DISK || idx == dl->index ||
+		    dl->index == -2) {
+			dprintf("%x:%x status (failed: %d index: %d)\n",
+				dl->major, dl->minor,
+				(dl->disk.status & FAILED_DISK) == FAILED_DISK, idx);
 			continue;
 		}
 

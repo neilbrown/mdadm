@@ -233,6 +233,7 @@ struct intel_super {
 		int fd;
 		int extent_cnt;
 		struct extent *e; /* for determining freespace @ create */
+		int raiddisk; /* slot to fill in autolayout */
 	} *disks;
 	struct dl *add; /* list of disks to add while mdmon active */
 	struct dl *missing; /* disks removed while we weren't looking */
@@ -1119,7 +1120,11 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	struct intel_super *super = st->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
 	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct dl *dl;
 
+	for (dl = super->disks; dl; dl = dl->next)
+		if (dl->raiddisk == info->disk.raid_disk)
+			break;
 	info->container_member	  = super->current_vol;
 	info->array.raid_disks    = map->num_members;
 	info->array.level	  = get_imsm_raid_level(map);
@@ -1132,6 +1137,10 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
+	if (dl) {
+		info->disk.major = dl->major;
+		info->disk.minor = dl->minor;
+	}
 
 	info->data_offset	  = __le32_to_cpu(map->pba_of_lba0);
 	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
@@ -2398,10 +2407,19 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		return 1;
 	}
 
-	for (dl = super->disks; dl ; dl = dl->next)
-		if (dl->major == dk->major &&
-		    dl->minor == dk->minor)
-			break;
+	if (fd == -1) {
+		/* we're doing autolayout so grab the pre-marked (in
+		 * validate_geometry) raid_disk
+		 */
+		for (dl = super->disks; dl; dl = dl->next)
+			if (dl->raiddisk == dk->raid_disk)
+				break;
+	} else {
+		for (dl = super->disks; dl ; dl = dl->next)
+			if (dl->major == dk->major &&
+			    dl->minor == dk->minor)
+				break;
+	}
 
 	if (!dl) {
 		fprintf(stderr, Name ": %s is not a member of the same container\n", devname);
@@ -3052,6 +3070,78 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	return 1;
 }
 
+static int reserve_space(struct supertype *st, int raiddisks,
+			 unsigned long long size, int chunk,
+			 unsigned long long *freesize)
+{
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->anchor;
+	struct dl *dl;
+	int i;
+	int extent_cnt;
+	struct extent *e;
+	unsigned long long maxsize;
+	unsigned long long minsize;
+	int cnt;
+	int used;
+
+	/* find the largest common start free region of the possible disks */
+	used = 0;
+	extent_cnt = 0;
+	cnt = 0;
+	for (dl = super->disks; dl; dl = dl->next) {
+		dl->raiddisk = -1;
+
+		if (dl->index >= 0)
+			used++;
+
+		/* don't activate new spares if we are orom constrained
+		 * and there is already a volume active in the container
+		 */
+		if (super->orom && dl->index < 0 && mpb->num_raid_devs)
+			continue;
+
+		e = get_extents(super, dl);
+		if (!e)
+			continue;
+		for (i = 1; e[i-1].size; i++)
+			;
+		dl->e = e;
+		dl->extent_cnt = i;
+		extent_cnt += i;
+		cnt++;
+	}
+
+	maxsize = merge_extents(super, extent_cnt);
+	minsize = size;
+	if (size == 0)
+		minsize = chunk;
+
+	if (cnt < raiddisks ||
+	    (super->orom && used && used != raiddisks) ||
+	    maxsize < minsize) {
+		fprintf(stderr, Name ": not enough devices with space to create array.\n");
+		return 0; /* No enough free spaces large enough */
+	}
+
+	if (size == 0) {
+		size = maxsize;
+		if (chunk) {
+			size /= chunk;
+			size *= chunk;
+		}
+	}
+
+	cnt = 0;
+	for (dl = super->disks; dl; dl = dl->next)
+		if (dl->e)
+			dl->raiddisk = cnt++;
+
+	*freesize = size;
+
+	return 1;
+}
+
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				  int raiddisks, int chunk, unsigned long long size,
 				  char *dev, unsigned long long *freesize,
@@ -3073,9 +3163,15 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	
 	if (!dev) {
 		if (st->sb && freesize) {
-			/* Should do auto-layout here */
-			fprintf(stderr, Name ": IMSM does not support auto-layout yet\n");
-			return 0;
+			/* we are being asked to automatically layout a
+			 * new volume based on the current contents of
+			 * the container.  If the the parameters can be
+			 * satisfied reserve_space will record the disks,
+			 * start offset, and size of the volume to be
+			 * created.  add_to_super and getinfo_super
+			 * detect when autolayout is in progress.
+			 */
+			return reserve_space(st, raiddisks, size, chunk, freesize);
 		}
 		return 1;
 	}

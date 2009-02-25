@@ -450,6 +450,20 @@ static void set_imsm_ord_tbl_ent(struct imsm_map *map, int slot, __u32 ord)
 	map->disk_ord_tbl[slot] = __cpu_to_le32(ord);
 }
 
+static int get_imsm_disk_slot(struct imsm_map *map, int idx)
+{
+	int slot;
+	__u32 ord;
+
+	for (slot = 0; slot < map->num_members; slot++) {
+		ord = __le32_to_cpu(map->disk_ord_tbl[slot]);
+		if (ord_to_idx(ord) == idx)
+			return slot;
+	}
+
+	return -1;
+}
+
 static int get_imsm_raid_level(struct imsm_map *map)
 {
 	if (map->raid_level == 1) {
@@ -476,18 +490,14 @@ static int cmp_extent(const void *av, const void *bv)
 static int count_memberships(struct dl *dl, struct intel_super *super)
 {
 	int memberships = 0;
-	int i, j;
+	int i;
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 		struct imsm_map *map = get_imsm_map(dev, 0);
 
-		for (j = 0; j < map->num_members; j++) {
-			__u32 index = get_imsm_disk_idx(dev, j);
-
-			if (index == dl->index)
-				memberships++;
-		}
+		if (get_imsm_disk_slot(map, dl->index) >= 0)
+			memberships++;
 	}
 
 	return memberships;
@@ -497,7 +507,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 {
 	/* find a list of used extents on the given physical device */
 	struct extent *rv, *e;
-	int i, j;
+	int i;
 	int memberships = count_memberships(dl, super);
 	__u32 reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
 
@@ -510,14 +520,10 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 		struct imsm_map *map = get_imsm_map(dev, 0);
 
-		for (j = 0; j < map->num_members; j++) {
-			__u32 index = get_imsm_disk_idx(dev, j);
-
-			if (index == dl->index) {
-				e->start = __le32_to_cpu(map->pba_of_lba0);
-				e->size = __le32_to_cpu(map->blocks_per_member);
-				e++;
-			}
+		if (get_imsm_disk_slot(map, dl->index) >= 0) {
+			e->start = __le32_to_cpu(map->pba_of_lba0);
+			e->size = __le32_to_cpu(map->blocks_per_member);
+			e++;
 		}
 	}
 	qsort(rv, memberships, sizeof(*rv), cmp_extent);
@@ -592,10 +598,8 @@ static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 	printf("           UUID : %s\n", uuid);
 	printf("     RAID Level : %d\n", get_imsm_raid_level(map));
 	printf("        Members : %d\n", map->num_members);
-	for (slot = 0; slot < map->num_members; slot++)
-		if (disk_idx== get_imsm_disk_idx(dev, slot))
-			break;
-	if (slot < map->num_members) {
+	slot = get_imsm_disk_slot(map, disk_idx);
+	if (slot >= 0) {
 		ord = get_imsm_ord_tbl_ent(dev, slot);
 		printf("      This Slot : %d%s\n", slot,
 		       ord & IMSM_ORD_REBUILD ? " (out-of-sync)" : "");
@@ -3603,10 +3607,7 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			/* check if this disk is already a member of
 			 * this array
 			 */
-			for (j = 0; j < map->num_members; j++)
-				if (get_imsm_disk_idx(dev, j) == dl->index)
-					break;
-			if (j < map->num_members)
+			if (get_imsm_disk_slot(map, dl->index) >= 0)
 				continue;
 
 			found = 0;
@@ -3909,9 +3910,10 @@ static void imsm_process_update(struct supertype *st,
 		found = 0;
 		for (a = st->arrays; a ; a = a->next) {
 			dev = get_imsm_dev(super, a->info.container_member);
-			for (i = 0; i < map->num_members; i++)
-				if (victim == get_imsm_disk_idx(dev, i))
-					found++;
+			map = get_imsm_map(dev, 0);
+
+			if (get_imsm_disk_slot(map, victim) >= 0)
+				found++;
 		}
 
 		/* delete the victim if it is no longer being

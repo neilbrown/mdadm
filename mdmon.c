@@ -306,6 +306,13 @@ int main(int argc, char *argv[])
 			if (strncmp(e->metadata_version, "external:", 9) == 0 &&
 			    !is_subarray(&e->metadata_version[9])) {
 				devname = devnum2devname(e->devnum);
+				/* update cmdline so this mdmon instance can be
+				 * distinguished from others in a call to ps(1)
+				 */
+				if (strlen(devname) <= strlen(container_name)) {
+					memset(container_name, 0, strlen(container_name));
+					sprintf(container_name, "%s", devname);
+				}
 				status |= mdmon(devname, e->devnum, scan,
 						switchroot);
 			}

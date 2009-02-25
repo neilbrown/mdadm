@@ -187,8 +187,12 @@ int Create(struct supertype *st, char *mddev,
 				else
 					st = NULL;
 			}
-			if (have_container)
+			if (have_container) {
 				subdevs = raiddisks;
+				first_missing = subdevs * 2;
+				second_missing = subdevs * 2;
+				insert_point = subdevs * 2;
+			}
 		}
 		if (fd >= 0)
 			close(fd);

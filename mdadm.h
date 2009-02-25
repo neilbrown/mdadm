@@ -334,22 +334,24 @@ extern int map_lock(struct map_ent **melp);
 extern void map_unlock(struct map_ent **melp);
 
 /* various details can be requested */
-#define	GET_LEVEL	1
-#define	GET_LAYOUT	2
-#define	GET_COMPONENT	4
-#define	GET_CHUNK	8
-#define GET_CACHE	16
-#define	GET_MISMATCH	32
-#define	GET_VERSION	64
-#define	GET_DISKS	128
-#define	GET_DEGRADED	256
-#define	GET_SAFEMODE	512
-
-#define	GET_DEVS	1024 /* gets role, major, minor */
-#define	GET_OFFSET	2048
-#define	GET_SIZE	4096
-#define	GET_STATE	8192
-#define	GET_ERROR	16384
+enum sysfs_read_flags {
+	GET_LEVEL	= (1 << 0),
+	GET_LAYOUT	= (1 << 1),
+	GET_COMPONENT	= (1 << 2),
+	GET_CHUNK	= (1 << 3),
+	GET_CACHE	= (1 << 4),
+	GET_MISMATCH	= (1 << 5),
+	GET_VERSION	= (1 << 6),
+	GET_DISKS	= (1 << 7),
+	GET_DEGRADED	= (1 << 8),
+	GET_SAFEMODE	= (1 << 9),
+	GET_DEVS	= (1 << 10), /* gets role, major, minor */
+	GET_OFFSET	= (1 << 11),
+	GET_SIZE	= (1 << 12),
+	GET_STATE	= (1 << 13),
+	GET_ERROR	= (1 << 14),
+	SKIP_GONE_DEVS	= (1 << 15),
+};
 
 /* If fd >= 0, get the array it is open on,
  * else use devnum. >=0 -> major9. <0.....

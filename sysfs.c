@@ -272,17 +272,33 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			}
 			
 		}
-		dev->next = sra->devs;
-		sra->devs = dev;
-
 		strcpy(dev->sys_name, de->d_name);
 		dev->disk.raid_disk = strtoul(buf, &ep, 10);
 		if (*ep) dev->disk.raid_disk = -1;
 
 		strcpy(dbase, "block/dev");
-		if (load_sys(fname, buf))
-			goto abort;
+		if (load_sys(fname, buf)) {
+			free(dev);
+			if (options & SKIP_GONE_DEVS)
+				continue;
+			else
+				goto abort;
+		}
 		sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
+
+		/* special case check for block devices that can go 'offline' */
+		if (options & SKIP_GONE_DEVS) {
+			strcpy(dbase, "block/device/state");
+			if (load_sys(fname, buf) == 0 &&
+			    strncmp(buf, "offline", 7) == 0) {
+				free(dev);
+				continue;
+			}
+		}
+
+		/* finally add this disk to the array */
+		dev->next = sra->devs;
+		sra->devs = dev;
 
 		if (options & GET_OFFSET) {
 			strcpy(dbase, "offset");

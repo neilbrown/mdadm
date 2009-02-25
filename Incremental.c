@@ -226,6 +226,14 @@ int Incremental(char *devname, int verbose, int runstop,
 	else
 		name_to_use = info.name;
 
+	if ((!name_to_use || name_to_use[0] == 0) &&
+	    info.array.level == LEVEL_CONTAINER &&
+	    trustworthy == LOCAL) {
+		name_to_use = info.text_version;
+		trustworthy = METADATA;
+	}
+
+
 	/* There are three possible sources for 'autof':  command line,
 	 * ARRAY line in mdadm.conf, or CREATE line in mdadm.conf.
 	 * ARRAY takes precedence, then command line, then
@@ -265,8 +273,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 		/* Couldn't find an existing array, maybe make a new one */
 		mdfd = create_mddev(match ? match->devname : NULL,
-				    info.name, autof, trustworthy, chosen_name);
-
+				    name_to_use, autof, trustworthy, chosen_name);
 
 		if (mdfd < 0)
 			return 1;

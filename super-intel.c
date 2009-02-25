@@ -1606,23 +1606,45 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
  * 4/ Rebuild (migr_state=1 migr_type=MIGR_REBUILD map0state=normal
  *    map1state=degraded)
  */
-static void migrate(struct imsm_dev *dev, __u8 to_state, int rebuild_resync)
+static void migrate(struct imsm_dev *dev, __u8 to_state, int migr_type)
 {
 	struct imsm_map *dest;
 	struct imsm_map *src = get_imsm_map(dev, 0);
 
 	dev->vol.migr_state = 1;
-	dev->vol.migr_type = rebuild_resync;
+	dev->vol.migr_type = migr_type;
 	dev->vol.curr_migr_unit = 0;
 	dest = get_imsm_map(dev, 1);
 
+	/* duplicate and then set the target end state in map[0] */
 	memcpy(dest, src, sizeof_imsm_map(src));
+	if (migr_type == MIGR_REBUILD) {
+		__u32 ord;
+		int i;
+
+		for (i = 0; i < src->num_members; i++) {
+			ord = __le32_to_cpu(src->disk_ord_tbl[i]);
+			set_imsm_ord_tbl_ent(src, i, ord_to_idx(ord));
+		}
+	}
+
 	src->map_state = to_state;
 }
 
 static void end_migration(struct imsm_dev *dev, __u8 map_state)
 {
 	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct imsm_map *prev = get_imsm_map(dev, dev->vol.migr_state);
+	int i;
+
+	/* merge any IMSM_ORD_REBUILD bits that were not successfully
+	 * completed in the last migration.
+	 *
+	 * FIXME add support for online capacity expansion and
+	 * raid-level-migration
+	 */
+	for (i = 0; i < prev->num_members; i++)
+		map->disk_ord_tbl[i] |= prev->disk_ord_tbl[i];
 
 	dev->vol.migr_state = 0;
 	dev->vol.curr_migr_unit = 0;
@@ -1911,11 +1933,6 @@ static int find_missing(struct intel_super *super)
 		dl = serial_to_dl(disk->serial, super);
 		if (dl)
 			continue;
-		/* ok we have a 'disk' without a live entry in
-		 * super->disks
-		 */
-		if (disk->status & FAILED_DISK || !(disk->status & USABLE_DISK))
-			continue; /* never mind, already marked */
 
 		dl = malloc(sizeof(*dl));
 		if (!dl)
@@ -2253,6 +2270,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->blocks_per_member = __cpu_to_le32(info_to_blocks_per_member(info));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->num_data_stripes = __cpu_to_le32(info_to_num_data_stripes(info));
+	map->failed_disk_num = ~0;
 	map->map_state = info->level ? IMSM_T_STATE_UNINITIALIZED :
 				       IMSM_T_STATE_NORMAL;
 
@@ -3298,10 +3316,23 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 	int failed = 0;
 	struct imsm_disk *disk;
 	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct imsm_map *prev = get_imsm_map(dev, dev->vol.migr_state);
+	__u32 ord;
+	int idx;
 
-	for (i = 0; i < map->num_members; i++) {
-		__u32 ord = get_imsm_ord_tbl_ent(dev, i);
-		int idx = ord_to_idx(ord);
+	/* at the beginning of migration we set IMSM_ORD_REBUILD on
+	 * disks that are being rebuilt.  New failures are recorded to
+	 * map[0].  So we look through all the disks we started with and
+	 * see if any failures are still present, or if any new ones
+	 * have arrived
+	 *
+	 * FIXME add support for online capacity expansion and
+	 * raid-level-migration
+	 */
+	for (i = 0; i < prev->num_members; i++) {
+		ord = __le32_to_cpu(prev->disk_ord_tbl[i]);
+		ord |= __le32_to_cpu(map->disk_ord_tbl[i]);
+		idx = ord_to_idx(ord);
 
 		disk = get_imsm_disk(super, idx);
 		if (!disk || disk->status & FAILED_DISK ||
@@ -3348,11 +3379,38 @@ static int is_rebuilding(struct imsm_dev *dev)
 		return 0;
 }
 
-static void mark_failure(struct imsm_disk *disk)
+/* return true if we recorded new information */
+static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 {
-	if (disk->status & FAILED_DISK)
-		return;
+	__u32 ord;
+	int slot;
+	struct imsm_map *map;
+
+	/* new failures are always set in map[0] */
+	map = get_imsm_map(dev, 0);
+
+	slot = get_imsm_disk_slot(map, idx);
+	if (slot < 0)
+		return 0;
+
+	ord = __le32_to_cpu(map->disk_ord_tbl[slot]);
+	if ((disk->status & FAILED_DISK) && (ord & IMSM_ORD_REBUILD))
+		return 0;
+
 	disk->status |= FAILED_DISK;
+	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
+	if (map->failed_disk_num == ~0)
+		map->failed_disk_num = slot;
+	return 1;
+}
+
+static void mark_missing(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
+{
+	mark_failure(dev, disk, idx);
+
+	if (disk->scsi_id == __cpu_to_le32(~(__u32)0))
+		return;
+
 	disk->scsi_id = __cpu_to_le32(~(__u32)0);
 	memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
 }
@@ -3378,7 +3436,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		dprintf("imsm: mark missing\n");
 		end_migration(dev, map_state);
 		for (dl = super->missing; dl; dl = dl->next)
-			mark_failure(&dl->disk);
+			mark_missing(dev, &dl->disk, dl->index);
 		super->updates_pending++;
 	}
 		
@@ -3390,7 +3448,8 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 
 	if (is_resync_complete(a)) {
 		/* complete intialization / resync,
-		 * recovery is completed in ->set_disk
+		 * recovery and interrupted recovery is completed in
+		 * ->set_disk
 		 */
 		if (is_resyncing(dev)) {
 			dprintf("imsm: mark resync done\n");
@@ -3452,13 +3511,13 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	disk = get_imsm_disk(super, ord_to_idx(ord));
 
 	/* check for new failures */
-	if ((state & DS_FAULTY) && !(disk->status & FAILED_DISK)) {
-		mark_failure(disk);
-		super->updates_pending++;
+	if (state & DS_FAULTY) {
+		if (mark_failure(dev, disk, ord_to_idx(ord)))
+			super->updates_pending++;
 	}
 
 	/* check if in_sync */
-	if (state & DS_INSYNC && ord & IMSM_ORD_REBUILD) {
+	if (state & DS_INSYNC && ord & IMSM_ORD_REBUILD && is_rebuilding(dev)) {
 		struct imsm_map *migr_map = get_imsm_map(dev, 1);
 
 		set_imsm_ord_tbl_ent(migr_map, n, ord_to_idx(ord));
@@ -3471,6 +3530,8 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	/* check if recovery complete, newly degraded, or failed */
 	if (map_state == IMSM_T_STATE_NORMAL && is_rebuilding(dev)) {
 		end_migration(dev, map_state);
+		map = get_imsm_map(dev, 0);
+		map->failed_disk_num = ~0;
 		super->updates_pending++;
 	} else if (map_state == IMSM_T_STATE_DEGRADED &&
 		   map->map_state != map_state &&

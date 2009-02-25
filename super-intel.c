@@ -1779,6 +1779,17 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	sectors = mpb_sectors(anchor) - 1;
 	free(anchor);
 	if (!sectors) {
+		check_sum = __gen_imsm_checksum(super->anchor);
+		if (check_sum != __le32_to_cpu(super->anchor->check_sum)) {
+			if (devname)
+				fprintf(stderr,
+					Name ": IMSM checksum %x != %x on %s\n",
+					check_sum,
+					__le32_to_cpu(super->anchor->check_sum),
+					devname);
+			return 2;
+		}
+
 		rc = load_imsm_disk(fd, super, devname, 0);
 		if (rc == 0)
 			rc = parse_raid_devices(super);

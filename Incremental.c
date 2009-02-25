@@ -398,6 +398,8 @@ int Incremental(char *devname, int verbose, int runstop,
 				": container %s now has %d devices\n",
 				chosen_name, info.array.working_disks);
 		wait_for(chosen_name);
+		if (runstop < 0)
+			return 0; /* don't try to assemble */
 		return Incremental(chosen_name, verbose, runstop,
 				   NULL, homehost, autof);
 	}
@@ -405,7 +407,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	active_disks = count_active(st, mdfd, &avail, &info);
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
-		   avail, active_disks) == 0) {
+		   avail, active_disks) == 0 ||
+	    (runstop < 0 && active_disks < info.array.raid_disks)) {
 		free(avail);
 		if (verbose >= 0)
 			fprintf(stderr, Name

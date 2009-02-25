@@ -804,6 +804,7 @@ int Create(struct supertype *st, char *mddev,
 		sysfs_uevent(&info, "change");
 		if (verbose >= 0)
 			fprintf(stderr, Name ": container %s prepared.\n", mddev);
+		wait_for(chosen_name);
 	} else if (runstop == 1 || subdevs >= raiddisks) {
 		if (st->ss->external) {
 			switch(level) {

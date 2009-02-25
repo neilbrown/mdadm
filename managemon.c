@@ -253,6 +253,9 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	dprintf("%s: add %d:%d to container\n",
 		__func__, sd->disk.major, sd->disk.minor);
 
+	sd->next = st->devs;
+	st->devs = sd;
+
 	sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
 	dfd = dev_open(nm, O_RDWR);
 	if (dfd < 0)
@@ -313,8 +316,16 @@ static void manage_container(struct mdstat_ent *mdstat,
 				if (di->disk.major == cd->disk.major &&
 				    di->disk.minor == cd->disk.minor)
 					break;
-			if (!cd)
-				add_disk_to_container(container, di);
+			if (!cd) {
+				struct mdinfo *newd = malloc(sizeof(*newd));
+
+				if (!newd) {
+					container->devcnt = -1;
+					continue;
+				}
+				*newd = *di;
+				add_disk_to_container(container, newd);
+			}
 		}
 		sysfs_free(mdi);
 		container->devcnt = mdstat->devcnt;

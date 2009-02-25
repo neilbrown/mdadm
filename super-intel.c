@@ -1820,7 +1820,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 				Name ": IMSM checksum %x != %x on %s\n",
 				check_sum, __le32_to_cpu(super->anchor->check_sum),
 				devname);
-		return 2;
+		return 3;
 	}
 
 	/* FIXME the BBM log is disk specific so we cannot use this global
@@ -1974,6 +1974,8 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	char nm[20];
 	int dfd;
 	int rv;
+	int devnum = fd2devnum(fd);
+	int retry;
 
 	/* check if this disk is a member of an active array */
 	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
@@ -1998,6 +2000,15 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 			return 2;
 		}
 		rv = load_imsm_mpb(dfd, super, NULL);
+
+		/* retry the load if we might have raced against mdmon */
+		if (rv == 3 && mdmon_running(devnum))
+			for (retry = 0; retry < 3; retry++) {
+				usleep(3000);
+				rv = load_imsm_mpb(dfd, super, NULL);
+				if (rv != 3)
+					break;
+			}
 		if (!keep_fd)
 			close(dfd);
 		if (rv == 0) {
@@ -2011,7 +2022,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 			}
 		} else {
 			free_imsm(super);
-			return 2;
+			return rv;
 		}
 	}
 
@@ -2061,7 +2072,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 
 	*sbp = super;
-	st->container_dev = fd2devnum(fd);
+	st->container_dev = devnum;
 	if (st->ss == NULL) {
 		st->ss = &super_imsm;
 		st->minor_version = 0;

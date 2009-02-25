@@ -400,7 +400,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	}
 
 	mdi = sysfs_read(mdfd, container->devnum,
-			 GET_VERSION|GET_LEVEL|GET_DEVS);
+			 GET_VERSION|GET_LEVEL|GET_DEVS|SKIP_GONE_DEVS);
 
 	if (!mdi) {
 		fprintf(stderr, "mdmon: failed to load sysfs info for %s\n",

@@ -283,7 +283,7 @@ static void manage_container(struct mdstat_ent *mdstat,
 		 * To see what is removed and what is added.
 		 * These need to be remove from, or added to, the array
 		 */
-		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS);
+		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS|SKIP_GONE_DEVS);
 		if (!mdi) {
 			/* invalidate the current count so we can try again */
 			container->devcnt = -1;
@@ -460,7 +460,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 			if (i == di->disk.raid_disk)
 				break;
 
-		if (di) {
+		if (di && newd) {
 			memcpy(newd, di, sizeof(*newd));
 
 			newd->state_fd = sysfs_open(new->devnum,
@@ -469,13 +469,16 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 			newd->prev_state = read_dev_state(newd->state_fd);
 			newd->curr_state = newd->prev_state;
-		} else if (failed + 1 > new->info.array.failed_disks) {
-			/* we cannot properly monitor without all working disks */
-			new->container = NULL;
-			break;
 		} else {
+			if (newd)
+				free(newd);
+
 			failed++;
-			free(newd);
+			if (failed > new->info.array.failed_disks) {
+				/* we cannot properly monitor without all working disks */
+				new->container = NULL;
+				break;
+			}
 			continue;
 		}
 		sprintf(newd->sys_name, "rd%d", i);

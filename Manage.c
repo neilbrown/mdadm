@@ -746,7 +746,14 @@ int Manage_subdevs(char *devname, int fd,
 						" to container - odd\n");
 					return 1;
 				}
-				if (!sysfs_unique_holder(dnum, stb.st_rdev)) {
+				/* in the detached case it is not possible to
+				 * check if we are the unique holder, so just
+				 * rely on the 'detached' checks
+				 */
+				if (strcmp(dv->devname, "detached") == 0 ||
+				    sysfs_unique_holder(dnum, stb.st_rdev))
+					/* pass */;
+				else {
 					fprintf(stderr, Name
 						": %s is %s, cannot remove.\n",
 						dnprintable,

@@ -199,6 +199,7 @@ static int read_and_act(struct active_array *a)
 	int check_degraded = 0;
 	int deactivate = 0;
 	struct mdinfo *mdi;
+	int dirty = 0;
 
 	a->next_state = bad_word;
 	a->next_action = bad_action;
@@ -223,18 +224,23 @@ static int read_and_act(struct active_array *a)
 		get_resync_start(a);
 		a->container->ss->set_array_state(a, 0);
 		a->next_state = active;
+		dirty = 1;
 	}
 	if (a->curr_state == active_idle) {
 		/* Set array to 'clean' FIRST, then mark clean
 		 * in the metadata
 		 */
 		a->next_state = clean;
+		dirty = 1;
 	}
 	if (a->curr_state == clean) {
 		get_resync_start(a);
 		a->container->ss->set_array_state(a, 1);
 	}
-
+	if (a->curr_state == active ||
+	    a->curr_state == suspended ||
+	    a->curr_state == bad_word)
+		dirty = 1;
 	if (a->curr_state == readonly) {
 		/* Well, I'm ready to handle things.  If readonly
 		 * wasn't requested, transition to read-auto.
@@ -248,8 +254,10 @@ static int read_and_act(struct active_array *a)
 			get_resync_start(a);
 			if (a->container->ss->set_array_state(a, 2))
 				a->next_state = read_auto; /* array is clean */
-			else
+			else {
 				a->next_state = active; /* Now active for recovery etc */
+				dirty = 1;
+			}
 		}
 	}
 
@@ -361,7 +369,7 @@ static int read_and_act(struct active_array *a)
 	if (deactivate)
 		a->container = NULL;
 
-	return 1;
+	return dirty;
 }
 
 static struct mdinfo *
@@ -527,32 +535,17 @@ static int wait_and_act(struct supertype *container, int nowait)
 			/* FIXME check if device->state_fd need to be cleared?*/
 			signal_manager();
 		}
-		if (a->container)
-			rv += read_and_act(a);
-		else
-			continue;
-
-		/* when terminating stop manipulating the array after it is
-		 * clean, but make sure read_and_act() is given a chance to
-		 * handle 'active_idle'
-		 */
-		switch (read_state(a->info.state_fd)) {
-			case active:
-			case active_idle:
-			case suspended:
-			case bad_word:
-				is_dirty = 1;
-				break;
-			default:
-				if (a->curr_state == active_idle)
-					is_dirty = 1;
-				else
-					is_dirty = 0;
-				break;
+		if (a->container) {
+			is_dirty = read_and_act(a);
+			rv |= 1;
+			dirty_arrays += is_dirty;
+			/* when terminating stop manipulating the array after it
+			 * is clean, but make sure read_and_act() is given a
+			 * chance to handle 'active_idle'
+			 */
+			if (sigterm && !is_dirty)
+				a->container = NULL; /* stop touching this array */
 		}
-		dirty_arrays += is_dirty;
-		if (sigterm && !is_dirty)
-			a->container = NULL; /* stop touching this array */
 	}
 
 	/* propagate failures across container members */

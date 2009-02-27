@@ -980,6 +980,23 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	       imsm_orom_has_raid1e(orom) ? " raid1e" : "",
 	       imsm_orom_has_raid10(orom) ? " raid10" : "",
 	       imsm_orom_has_raid5(orom) ? " raid5" : "");
+	printf("    Chunk Sizes :%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+	       imsm_orom_has_chunk(orom, 2) ? " 2k" : "",
+	       imsm_orom_has_chunk(orom, 4) ? " 4k" : "",
+	       imsm_orom_has_chunk(orom, 8) ? " 8k" : "",
+	       imsm_orom_has_chunk(orom, 16) ? " 16k" : "",
+	       imsm_orom_has_chunk(orom, 32) ? " 32k" : "",
+	       imsm_orom_has_chunk(orom, 64) ? " 64k" : "",
+	       imsm_orom_has_chunk(orom, 128) ? " 128k" : "",
+	       imsm_orom_has_chunk(orom, 256) ? " 256k" : "",
+	       imsm_orom_has_chunk(orom, 512) ? " 512k" : "",
+	       imsm_orom_has_chunk(orom, 1024*1) ? " 1M" : "",
+	       imsm_orom_has_chunk(orom, 1024*2) ? " 2M" : "",
+	       imsm_orom_has_chunk(orom, 1024*4) ? " 4M" : "",
+	       imsm_orom_has_chunk(orom, 1024*8) ? " 8M" : "",
+	       imsm_orom_has_chunk(orom, 1024*16) ? " 16M" : "",
+	       imsm_orom_has_chunk(orom, 1024*32) ? " 32M" : "",
+	       imsm_orom_has_chunk(orom, 1024*64) ? " 64M" : "");
 	printf("      Max Disks : %d\n", orom->tds);
 	printf("    Max Volumes : %d\n", orom->vpa);
 	printf(" I/O Controller : %s\n", hba_path);

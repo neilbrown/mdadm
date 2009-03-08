@@ -205,7 +205,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	struct mdp_superblock_1 *sb = st->sb;
 	time_t atime;
 	int d;
-	int faulty;
+	int role;
 	int i;
 	char *c;
 	int l = homehost ? strlen(homehost) : 0;
@@ -356,6 +356,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 	default: break;
 	}
 	printf("\n");
+#if 0
+	/* This turns out to just be confusing */
 	printf("    Array Slot : %d (", __le32_to_cpu(sb->dev_number));
 	for (i= __le32_to_cpu(sb->max_dev); i> 0 ; i--)
 		if (__le16_to_cpu(sb->dev_roles[i-1]) != 0xffff)
@@ -368,6 +370,18 @@ static void examine_super1(struct supertype *st, char *homehost)
 		else printf("%d", role);
 	}
 	printf(")\n");
+#endif
+	printf("   Device Role : ");
+	d = __le32_to_cpu(sb->dev_number);
+	if (d < sb->raid_disks)
+		role = __le16_to_cpu(sb->dev_roles[d]);
+	else
+		role = 0xFFFF;
+	if (role >= 0xFFFE)
+		printf("spare\n");
+	else
+		printf("Active device %d\n", role);
+
 	printf("   Array State : ");
 	for (d=0; d<__le32_to_cpu(sb->raid_disks); d++) {
 		int cnt = 0;
@@ -382,10 +396,11 @@ static void examine_super1(struct supertype *st, char *homehost)
 			}
 		}
 		if (cnt > 1) printf("?");
-		else if (cnt == 1 && me) printf("U");
-		else if (cnt == 1) printf("u");
-		else printf ("_");
+		else if (cnt == 1) printf("A");
+		else printf (".");
 	}
+#if 0
+	/* This is confusing too */
 	faulty = 0;
 	for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
 		int role = __le16_to_cpu(sb->dev_roles[i]);
@@ -393,6 +408,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 			faulty++;
 	}
 	if (faulty) printf(" %d failed", faulty);
+#endif
+	printf(" ('A' == active, '.' == missing)");
 	printf("\n");
 }
 

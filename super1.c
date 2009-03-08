@@ -795,6 +795,9 @@ static void add_to_super1(struct supertype *st, mdu_disk_info_t *dk)
 		*rp = 0xffff;
 	else
 		*rp = 0xfffe;
+	if (dk->number >= __le32_to_cpu(sb->max_dev) &&
+	    __le32_to_cpu(sb->max_dev) < 384)
+		sb->max_dev = __cpu_to_le32(dk->number+1);
 }
 
 static void locate_bitmap1(struct supertype *st, int fd);

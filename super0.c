@@ -545,7 +545,8 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	mdp_super_t *sb;
 	int spares;
 
-	if (posix_memalign((void**)&sb, 512, MD_SB_BYTES + sizeof(bitmap_super_t)) != 0) {
+	if (posix_memalign((void**)&sb, 4096,
+			   MD_SB_BYTES + ROUND_UP(sizeof(bitmap_super_t), 4096)) != 0) {
 		fprintf(stderr, Name ": %s could not allocate superblock\n", __func__);
 		return 0;
 	}
@@ -682,8 +683,8 @@ static int store_super0(struct supertype *st, int fd)
 	if (super->state & (1<<MD_SB_BITMAP_PRESENT)) {
 		struct bitmap_super_s * bm = (struct bitmap_super_s*)(super+1);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC)
-			if (write(fd, bm, ROUND_UP(sizeof(*bm),512)) != 
-			    ROUND_UP(sizeof(*bm),512))
+			if (write(fd, bm, ROUND_UP(sizeof(*bm),4096)) != 
+			    ROUND_UP(sizeof(*bm),4096))
 			    return 5;
 	}
 
@@ -743,8 +744,9 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 	if (second->md_magic != MD_SB_MAGIC)
 		return 1;
 	if (!first) {
-		if (posix_memalign((void**)&first, 512, 
-			       MD_SB_BYTES + sizeof(struct bitmap_super_s)) != 0) {
+		if (posix_memalign((void**)&first, 4096,
+			     MD_SB_BYTES + 
+			     ROUND_UP(sizeof(struct bitmap_super_s), 4096)) != 0) {
 			fprintf(stderr, Name
 				": %s could not allocate superblock\n", __func__);
 			return 1;
@@ -817,8 +819,9 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	if (posix_memalign((void**)&super, 512,
-			   MD_SB_BYTES + sizeof(bitmap_super_t)+512) != 0) {
+	if (posix_memalign((void**)&super, 4096,
+			   MD_SB_BYTES +
+			   ROUND_UP(sizeof(bitmap_super_t), 4096)) != 0) {
 		fprintf(stderr, Name
 			": %s could not allocate superblock\n", __func__);
 		return 1;
@@ -866,8 +869,8 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 	 * valid.  If it doesn't clear the bit.  An --assemble --force
 	 * should get that written out.
 	 */
-	if (read(fd, super+1, ROUND_UP(sizeof(struct bitmap_super_s),512))
-	    != ROUND_UP(sizeof(struct bitmap_super_s),512))
+	if (read(fd, super+1, ROUND_UP(sizeof(struct bitmap_super_s),4096))
+	    != ROUND_UP(sizeof(struct bitmap_super_s),4096))
 		goto no_bitmap;
 
 	uuid_from_super0(st, uuid);
@@ -998,8 +1001,8 @@ static int write_bitmap0(struct supertype *st, int fd)
 	int rv = 0;
 
 	int towrite, n;
-	char abuf[4096+512];
-	char *buf = (char*)(((long)(abuf+512))&~511UL);
+	char abuf[4096+4096];
+	char *buf = (char*)(((long)(abuf+4096))&~4095L);
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;

@@ -141,6 +141,64 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 	return __cpu_to_le32(csum);
 }
 
+static char abuf[4096+4096];
+static int aread(int fd, void *buf, int len)
+{
+	/* aligned read.
+	 * On devices with a 4K sector size, we need to read
+	 * the full sector and copy relevant bits into
+	 * the buffer
+	 */
+	int bsize;
+	char *b;
+	int n;
+	if (ioctl(fd, BLKSSZGET, &bsize) != 0 ||
+	    bsize <= len)
+		return read(fd, buf, len);
+	if (bsize > 4096)
+		return -1;
+	b = (char*)(((long)(abuf+4096))&~4095UL);
+
+	n = read(fd, b, bsize);
+	if (n <= 0)
+		return n;
+	lseek(fd, len - n, 1);
+	if (n > len)
+		n = len;
+	memcpy(buf, b, n);
+	return n;
+}
+
+static int awrite(int fd, void *buf, int len)
+{
+	/* aligned write.
+	 * On devices with a 4K sector size, we need to write
+	 * the full sector.  We pre-read if the sector is larger
+	 * than the write.
+	 * The address must be sector-aligned.
+	 */
+	int bsize;
+	char *b;
+	int n;
+	if (ioctl(fd, BLKSSZGET, &bsize) != 0 ||
+	    bsize <= len)
+		return write(fd, buf, len);
+	if (bsize > 4096)
+		return -1;
+	b = (char*)(((long)(abuf+4096))&~4095UL);
+
+	n = read(fd, b, bsize);
+	if (n <= 0)
+		return n;
+	lseek(fd, -n, 1);
+	memcpy(b, buf, len);
+	n = write(fd, b, bsize);
+	if (n <= 0)
+		return n;
+	lseek(fd, len - n, 1);
+	return len;
+}
+
 #ifndef MDASSEMBLE
 static void examine_super1(struct supertype *st, char *homehost)
 {
@@ -883,7 +941,7 @@ static int store_super1(struct supertype *st, int fd)
 	sbsize = sizeof(*sb) + 2 * __le32_to_cpu(sb->max_dev);
 	sbsize = (sbsize+511)&(~511UL);
 
-	if (write(fd, sb, sbsize) != sbsize)
+	if (awrite(fd, sb, sbsize) != sbsize)
 		return 4;
 
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
@@ -891,8 +949,8 @@ static int store_super1(struct supertype *st, int fd)
 			(((char*)sb)+1024);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC) {
 			locate_bitmap1(st, fd);
-			if (write(fd, bm, ROUND_UP(sizeof(*bm),512)) !=
-			    ROUND_UP(sizeof(*bm),512))
+			if (awrite(fd, bm, sizeof(*bm)) !=
+			    sizeof(*bm))
 			    return 5;
 		}
 	}
@@ -1189,7 +1247,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	if (read(fd, super, 1024) != 1024) {
+	if (aread(fd, super, 1024) != 1024) {
 		if (devname)
 			fprintf(stderr, Name ": Cannot read superblock on %s\n",
 				devname);
@@ -1234,7 +1292,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 	 * should get that written out.
 	 */
 	locate_bitmap1(st, fd);
-	if (read(fd, ((char*)super)+1024, 512)
+	if (aread(fd, ((char*)super)+1024, 512)
 	    != 512)
 		goto no_bitmap;
 
@@ -1472,8 +1530,7 @@ static int write_bitmap1(struct supertype *st, int fd)
 	int rv = 0;
 
 	int towrite, n;
-	char abuf[4096+512];
-	char *buf = (char*)(((long)(abuf+512))&~511UL);
+	char *buf = (char*)(((long)(abuf+4096))&~4095UL);
 
 	locate_bitmap1(st, fd);
 

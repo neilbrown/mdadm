@@ -1000,7 +1000,7 @@ static void print_guid(char *guid, int tstamp)
 		printf("%02X", guid[i]&255);
 	}
 
-	printf(" (");
+	printf("\n                  (");
 	while (l && guid[l-1] == ' ')
 		l--;
 	for (i=0 ; i<l ; i++) {

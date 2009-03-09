@@ -128,7 +128,8 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 			d = dl_strdup(devlist->devname);
 			dl_add(ap->devs, d);
 		} else if (export) {
-			st->ss->export_examine_super(st);
+			if (st->ss->export_examine_super)
+				st->ss->export_examine_super(st);
 		} else {
 			printf("%s:\n",devlist->devname);
 			st->ss->examine_super(st, homehost);

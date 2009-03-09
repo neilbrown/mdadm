@@ -1189,6 +1189,18 @@ static void brief_examine_super_ddf(struct supertype *st)
 	}
 }
 
+static void export_examine_super_ddf(struct supertype *st)
+{
+	struct mdinfo info;
+	char nbuf[64];
+	getinfo_super_ddf(st, &info);
+	fname_from_uuid(st, &info, nbuf, ':');
+	printf("MD_METADATA=ddf\n");
+	printf("MD_LEVEL=container\n");
+	printf("MD_UUID=%s\n", nbuf+5);
+}
+	
+
 static void detail_super_ddf(struct supertype *st, char *homehost)
 {
 	/* FIXME later
@@ -3563,6 +3575,7 @@ struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
 	.brief_examine_super = brief_examine_super_ddf,
+	.export_examine_super = export_examine_super_ddf,
 	.detail_super	= detail_super_ddf,
 	.brief_detail_super = brief_detail_super_ddf,
 	.validate_geometry = validate_geometry_ddf,

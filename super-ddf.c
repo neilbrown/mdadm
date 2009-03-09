@@ -1982,7 +1982,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	memset(vc->vendor, 0xff, 32);
 
 	memset(vc->phys_refnum, 0xff, 4*ddf->mppe);
-	memset(vc->phys_refnum+(ddf->mppe * 4), 0x00, 8*ddf->mppe);
+	memset(vc->phys_refnum+ddf->mppe, 0x00, 8*ddf->mppe);
 
 	vcl->next = ddf->conflist;
 	ddf->conflist = vcl;

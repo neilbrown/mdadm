@@ -437,10 +437,17 @@ int main(int argc, char *argv[])
 				exit(2);
 
 			case 5:
-			case 6:
 				layout = map_name(r5layout, optarg);
 				if (layout==UnSet) {
 					fprintf(stderr, Name ": layout %s not understood for raid5.\n",
+						optarg);
+					exit(2);
+				}
+				break;
+			case 6:
+				layout = map_name(r6layout, optarg);
+				if (layout==UnSet) {
+					fprintf(stderr, Name ": layout %s not understood for raid6.\n",
 						optarg);
 					exit(2);
 				}

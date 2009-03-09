@@ -1759,19 +1759,24 @@ static int layout_to_rlq(int level, int layout, int raiddisks)
 		}
 		break;
 	case 5:
-	case 6:
 		switch(layout) {
 		case ALGORITHM_LEFT_ASYMMETRIC:
 			return DDF_RAID5_N_RESTART;
 		case ALGORITHM_RIGHT_ASYMMETRIC:
-			if (level == 5)
-				return DDF_RAID5_0_RESTART;
-			else
-				return DDF_RAID6_0_RESTART;
+			return DDF_RAID5_0_RESTART;
 		case ALGORITHM_LEFT_SYMMETRIC:
 			return DDF_RAID5_N_CONTINUE;
 		case ALGORITHM_RIGHT_SYMMETRIC:
 			return -1; /* not mentioned in standard */
+		}
+	case 6:
+		switch(layout) {
+		case ALGORITHM_ROTATING_N_RESTART:
+			return DDF_RAID5_N_RESTART;
+		case ALGORITHM_ROTATING_ZERO_RESTART:
+			return DDF_RAID6_0_RESTART;
+		case ALGORITHM_ROTATING_N_CONTINUE:
+			return DDF_RAID5_N_CONTINUE;
 		}
 	}
 	return -1;
@@ -1807,11 +1812,11 @@ static int rlq_to_layout(int rlq, int prl, int raiddisks)
 	case DDF_RAID6:
 		switch(rlq) {
 		case DDF_RAID5_N_RESTART:
-			return ALGORITHM_LEFT_ASYMMETRIC;
+			return ALGORITHM_ROTATING_N_RESTART;
 		case DDF_RAID6_0_RESTART:
-			return ALGORITHM_RIGHT_ASYMMETRIC;
+			return ALGORITHM_ROTATING_ZERO_RESTART;
 		case DDF_RAID5_N_CONTINUE:
-			return ALGORITHM_LEFT_SYMMETRIC;
+			return ALGORITHM_ROTATING_N_CONTINUE;
 		default:
 			return -1;
 		}
@@ -3537,6 +3542,23 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 }
 #endif /* MDASSEMBLE */
 
+static int ddf_level_to_layout(int level)
+{
+	switch(level) {
+	case 0:
+	case 1:
+		return 0;
+	case 5:
+		return ALGORITHM_LEFT_SYMMETRIC;
+	case 6:
+		return ALGORITHM_ROTATING_N_CONTINUE;
+	case 10:
+		return 0x102;
+	default:
+		return UnSet;
+	}
+}
+
 struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
@@ -3562,6 +3584,7 @@ struct superswitch super_ddf = {
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf,
 	.container_content = container_content_ddf,
+	.default_layout	= ddf_level_to_layout,
 
 	.external	= 1,
 

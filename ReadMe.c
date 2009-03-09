@@ -584,16 +584,49 @@ char Help_config[] =
 /* name/number mappings */
 
 mapping_t r5layout[] = {
-	{ "left-asymmetric", 0},
-	{ "right-asymmetric", 1},
-	{ "left-symmetric", 2},
-	{ "right-symmetric", 3},
+	{ "left-asymmetric", ALGORITHM_LEFT_ASYMMETRIC},
+	{ "right-asymmetric", ALGORITHM_RIGHT_ASYMMETRIC},
+	{ "left-symmetric", ALGORITHM_LEFT_SYMMETRIC},
+	{ "right-symmetric", ALGORITHM_RIGHT_SYMMETRIC},
 
-	{ "default", 2},
-	{ "la", 0},
-	{ "ra", 1},
-	{ "ls", 2},
-	{ "rs", 3},
+	{ "default", ALGORITHM_LEFT_SYMMETRIC},
+	{ "la", ALGORITHM_LEFT_ASYMMETRIC},
+	{ "ra", ALGORITHM_RIGHT_ASYMMETRIC},
+	{ "ls", ALGORITHM_LEFT_SYMMETRIC},
+	{ "rs", ALGORITHM_RIGHT_SYMMETRIC},
+
+	{ "parity-first", ALGORITHM_PARITY_0},
+	{ "parity-last", ALGORITHM_PARITY_N},
+	{ "ddf-zero-restart", ALGORITHM_RIGHT_ASYMMETRIC},
+	{ "ddf-N-restart", ALGORITHM_LEFT_ASYMMETRIC},
+	{ "ddf-N-continue", ALGORITHM_LEFT_SYMMETRIC},
+
+	{ NULL, 0}
+};
+mapping_t r6layout[] = {
+	{ "left-asymmetric", ALGORITHM_LEFT_ASYMMETRIC},
+	{ "right-asymmetric", ALGORITHM_RIGHT_ASYMMETRIC},
+	{ "left-symmetric", ALGORITHM_LEFT_SYMMETRIC},
+	{ "right-symmetric", ALGORITHM_RIGHT_SYMMETRIC},
+
+	{ "default", ALGORITHM_LEFT_SYMMETRIC},
+	{ "la", ALGORITHM_LEFT_ASYMMETRIC},
+	{ "ra", ALGORITHM_RIGHT_ASYMMETRIC},
+	{ "ls", ALGORITHM_LEFT_SYMMETRIC},
+	{ "rs", ALGORITHM_RIGHT_SYMMETRIC},
+
+	{ "parity-first", ALGORITHM_PARITY_0},
+	{ "parity-last", ALGORITHM_PARITY_N},
+	{ "ddf-zero-restart", ALGORITHM_ROTATING_ZERO_RESTART},
+	{ "ddf-N-restart", ALGORITHM_ROTATING_N_RESTART},
+	{ "ddf-N-continue", ALGORITHM_ROTATING_N_CONTINUE},
+
+	{ "left-asymmetric-6", ALGORITHM_LEFT_ASYMMETRIC_6},
+	{ "right-asymmetric-6", ALGORITHM_RIGHT_ASYMMETRIC_6},
+	{ "left-symmetric-6", ALGORITHM_LEFT_SYMMETRIC_6},
+	{ "right-symmetric-6", ALGORITHM_RIGHT_SYMMETRIC_6},
+	{ "parity-first-6", ALGORITHM_PARITY_0_6},
+
 	{ NULL, 0}
 };
 

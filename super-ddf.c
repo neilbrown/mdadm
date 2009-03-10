@@ -1493,10 +1493,20 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 	return rv;
 }
 
+__u32 random32(void)
+{
+	__u32 rv;
+	int rfd = open("/dev/urandom", O_RDONLY);
+	if (rfd < 0 || read(rfd, &rv, 4) != 4)
+		rv = random();
+	if (rfd >= 0)
+		close(rfd);
+	return rv;
+}
+
 static void make_header_guid(char *guid)
 {
 	__u32 stamp;
-	int rfd;
 	/* Create a DDF Header of Virtual Disk GUID */
 
 	/* 24 bytes of fiction required.
@@ -1511,11 +1521,8 @@ static void make_header_guid(char *guid)
 	memcpy(guid+12, &stamp, 4);
 	stamp = __cpu_to_be32(time(0) - DECADE);
 	memcpy(guid+16, &stamp, 4);
-	rfd = open("/dev/urandom", O_RDONLY);
-	if (rfd < 0 || read(rfd, &stamp, 4) != 4)
-		stamp = random();
+	stamp = random32();
 	memcpy(guid+20, &stamp, 4);
-	if (rfd >= 0) close(rfd);
 }
 
 static int init_super_ddf_bvd(struct supertype *st,
@@ -2148,12 +2155,12 @@ static int add_to_super_ddf(struct supertype *st,
 	tm = localtime(&now);
 	sprintf(dd->disk.guid, "%8s%04d%02d%02d",
 		T10, tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday);
-	*(__u32*)(dd->disk.guid + 16) = random();
-	*(__u32*)(dd->disk.guid + 20) = random();
+	*(__u32*)(dd->disk.guid + 16) = random32();
+	*(__u32*)(dd->disk.guid + 20) = random32();
 
 	do {
 		/* Cannot be bothered finding a CRC of some irrelevant details*/
-		dd->disk.refnum = random();
+		dd->disk.refnum = random32();
 		for (i = __be16_to_cpu(ddf->active->max_pd_entries) - 1;
 		     i >= 0; i--)
 			if (ddf->phys->entries[i].refnum == dd->disk.refnum)

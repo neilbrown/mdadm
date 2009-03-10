@@ -627,7 +627,6 @@ void print_r10_layout(int layout)
 }
 #endif
 
-#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 int get_mdp_major(void)
 {
 static int mdp_major = -1;
@@ -657,6 +656,7 @@ static int mdp_major = -1;
 }
 
 
+#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 
 char *get_md_name(int dev)
 {

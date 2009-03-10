@@ -291,7 +291,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		}
 		cnlen = strlen(cname);
 		while (conflict) {
-			if (trustworthy == METADATA)
+			if (trustworthy == METADATA && !isdigit(cname[cnlen-1]))
 				sprintf(cname+cnlen, "%d", unum);
 			else
 				/* add _%d to FOREIGN array that don't 

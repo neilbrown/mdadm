@@ -733,7 +733,10 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 		mp = map_by_uuid(&map, ra->uuid);
 
-		if (!mp) {
+		if (mp) {
+			mdfd = open_dev(mp->devnum);
+			strcpy(chosen_name, mp->path);
+		} else {
 
 			/* Check in mdadm.conf for devices == devname and
 			 * member == ra->text_version after second slash.
@@ -772,13 +775,13 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 						array_list->member);
 				break;
 			}
-		}
 
-		mdfd = create_mddev(match ? match->devname : NULL,
-				    ra->name,
-				    autof,
-				    trustworthy,
-				    chosen_name);
+			mdfd = create_mddev(match ? match->devname : NULL,
+					    ra->name,
+					    autof,
+					    trustworthy,
+					    chosen_name);
+		}
 
 		if (mdfd < 0) {
 			fprintf(stderr, Name ": failed to open %s: %s.\n",

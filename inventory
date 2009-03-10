@@ -26,6 +26,7 @@ ANNOUNCE-2.6.8
 ANNOUNCE-2.6.9
 ANNOUNCE-3.0-devel1
 ANNOUNCE-3.0-devel2
+ANNOUNCE-3.0-devel3
 Assemble.c
 bitmap.c
 bitmap.h
@@ -66,6 +67,7 @@ mdadm.h
 mdadm.spec
 mdassemble.8
 mdassemble.c
+mdmon.8
 mdmon.c
 mdmon.h
 mdopen.c
@@ -79,6 +81,10 @@ monitor.c
 Monitor.c
 msg.c
 msg.h
+platform-intel.c
+platform-intel.h
+probe_roms.c
+probe_roms.h
 pwgr.c
 Query.c
 raid5extend.c
@@ -139,7 +145,11 @@ tests/07autoassemble
 tests/07autodetect
 tests/07reshape5intr
 tests/07testreshape5
+tests/08imsm-overlap
+tests/09imsm-create-fail-rebuild
 tests/check
+tests/env-08imsm-overlap
+tests/env-09imsm-create-fail-rebuild
 tests/testdev
 tests/ToTest
 TODO

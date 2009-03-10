@@ -2830,7 +2830,7 @@ static unsigned long long merge_extents(struct intel_super *super, int sum_exten
 	int i, j;
 	int start_extent;
 	unsigned long long pos;
-	unsigned long long start;
+	unsigned long long start = 0;
 	unsigned long long maxsize;
 	unsigned long reserve;
 

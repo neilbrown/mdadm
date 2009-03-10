@@ -220,19 +220,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	else if (homehost == NULL ||
 		 st->ss->match_home(st, homehost) != 1)
 		trustworthy = FOREIGN;
-	name_to_use = strchr(info.name, ':');
-	if (name_to_use)
-		name_to_use++;
 	else
-		name_to_use = info.name;
-
-	if ((!name_to_use || name_to_use[0] == 0) &&
-	    info.array.level == LEVEL_CONTAINER &&
-	    trustworthy == LOCAL) {
-		name_to_use = info.text_version;
-		trustworthy = METADATA;
-	}
-
+		trustworthy = LOCAL;
 
 	/* There are three possible sources for 'autof':  command line,
 	 * ARRAY line in mdadm.conf, or CREATE line in mdadm.conf.
@@ -251,6 +240,19 @@ int Incremental(char *devname, int verbose, int runstop,
 		return Incremental_container(st, devname, verbose, runstop,
 					     autof, trustworthy);
 	}
+	name_to_use = strchr(info.name, ':');
+	if (name_to_use)
+		name_to_use++;
+	else
+		name_to_use = info.name;
+
+	if ((!name_to_use || name_to_use[0] == 0) &&
+	    info.array.level == LEVEL_CONTAINER &&
+	    trustworthy == LOCAL) {
+		name_to_use = info.text_version;
+		trustworthy = METADATA;
+	}
+
 	/* 4/ Check if array exists.
 	 */
 	map_lock(&map);

@@ -2916,13 +2916,14 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			if (vc->conf.phys_refnum[i] == 0xFFFFFFFF)
 				continue;
 
-			this->array.working_disks++;
-
 			for (d = ddf->dlist; d ; d=d->next)
 				if (d->disk.refnum == vc->conf.phys_refnum[i])
 					break;
 			if (d == NULL)
-				break;
+				/* Haven't found that one yet, maybe there are others */
+				continue;
+
+			this->array.working_disks++;
 
 			dev = malloc(sizeof(*dev));
 			memset(dev, 0, sizeof(*dev));

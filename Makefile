@@ -97,8 +97,8 @@ STATICOBJS = pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c dlink.c util.c \
 	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
-	platform-intel.c probe_roms.c
-ASSEMBLE_AUTO_SRCS := mdopen.c sysfs.c
+	platform-intel.c probe_roms.c sysfs.c
+ASSEMBLE_AUTO_SRCS := mdopen.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO
 ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
@@ -109,6 +109,9 @@ all : mdadm mdmon mdadm.man md.man mdadm.conf.man
 
 everything: all mdadm.static swap_super test_stripe \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
+	mdadm.Os mdadm.O2
+everything-test: all mdadm.static swap_super test_stripe \
+	mdassemble.auto mdassemble.static mdassemble.man \
 	mdadm.Os mdadm.O2
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
@@ -215,12 +218,12 @@ clean :
 	mdadm.Os mdadm.O2 \
 	mdassemble mdassemble.static mdassemble.auto mdassemble.uclibc \
 	mdassemble.klibc swap_super \
-	init.cpio.gz mdadm.uclibc.static test_stripe
+	init.cpio.gz mdadm.uclibc.static test_stripe mdmon
 
 dist : clean
 	./makedist
 
-testdist : everything clean
+testdist : everything-test clean
 	./makedist test
 
 TAGS :

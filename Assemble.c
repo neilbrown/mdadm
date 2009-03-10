@@ -1237,6 +1237,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		return 1;/* Nothing new, don't try to start */
 	} else if (runstop > 0 ||
 		 (working + preexist) >= content->array.working_disks) {
+		int err;
 
 		map_update(&map, fd2devnum(mdfd),
 			   content->text_version,
@@ -1245,28 +1246,37 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:
 		case 0:
-			sysfs_set_str(content, NULL, "array_state",
-				      "active");
+			err = sysfs_set_str(content, NULL, "array_state",
+					    "active");
 			break;
 		default:
-			sysfs_set_str(content, NULL, "array_state",
+			err = sysfs_set_str(content, NULL, "array_state",
 				      "readonly");
 			/* start mdmon if needed. */
-			if (!mdmon_running(st->container_dev))
-				start_mdmon(st->container_dev);
-			ping_monitor(devnum2devname(st->container_dev));
+			if (!err) {
+				if (!mdmon_running(st->container_dev))
+					start_mdmon(st->container_dev);
+				ping_monitor(devnum2devname(st->container_dev));
+			}
 			break;
 		}
-		sysfs_set_safemode(content, content->safe_mode_delay);
+		if (!err)
+			sysfs_set_safemode(content, content->safe_mode_delay);
 		if (verbose >= 0) {
-			fprintf(stderr, Name
-				": Started %s with %d devices",
-				chosen_name, working + preexist);
+			if (err)
+				fprintf(stderr, Name
+					": array %s now has %d devices",
+					chosen_name, working + preexist);
+			else
+				fprintf(stderr, Name
+					": Started %s with %d devices",
+					chosen_name, working + preexist);
 			if (preexist)
 				fprintf(stderr, " (%d new)", working);
 			fprintf(stderr, "\n");
 		}
-		wait_for(chosen_name);
+		if (!err)
+			wait_for(chosen_name);
 		close(mdfd);
 		return 0;
 		/* FIXME should have an O_EXCL and wait for read-auto */

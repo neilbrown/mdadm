@@ -1335,6 +1335,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 		info->component_size = ddf->dlist->size - info->data_offset;
 	} else {
 		info->disk.number = -1;
+		info->disk.raid_disk = -1;
 //		info->disk.raid_disk = find refnum in the table and use index;
 	}
 	info->disk.state = (1 << MD_DISK_SYNC);

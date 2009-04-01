@@ -1,5 +1,5 @@
 imsm_check_hold() {
-   if [ mdadm --remove $1 $2 -eq 0 ]; then
+   if mdadm --remove $1 $2; then
        echo "$2 removal from $1 should have been blocked" >&2
        cat /proc/mdstat >&2
        mdadm -E $2
@@ -8,7 +8,7 @@ imsm_check_hold() {
 }
 
 imsm_check_removal() {
-   if [ mdadm --remove $1 $2 -ne 0 ]; then
+   if ! mdadm --remove $1 $2 ; then
        echo "$2 removal from $1 should have succeeded" >&2
        cat /proc/mdstat >&2
        mdadm -E $2
@@ -17,6 +17,7 @@ imsm_check_removal() {
 }
 
 imsm_check() {
+   udevadm settle
    case $1 in
     container )
       grep -s "$(((418 * $2)/2)) blocks super external:imsm" /proc/mdstat > /dev/null || {

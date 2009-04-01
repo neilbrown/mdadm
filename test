@@ -86,7 +86,9 @@ mdadm() {
        *-C* ) $mdadm 2> $targetdir/stderr --quiet "$@" --auto=yes;;
         * )   $mdadm 2> $targetdir/stderr --quiet "$@"
     esac
+    rv=$?
     cat >&2 $targetdir/stderr
+    return $rv
 }
 
 # check various things

@@ -209,7 +209,7 @@ install-udev: udev-md-raid.rules
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 md.4 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm
 
-test: mdadm test_stripe swap_super
+test: mdadm mdmon test_stripe swap_super
 	@echo "Please run 'sh ./test' as root"
 
 clean : 

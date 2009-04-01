@@ -466,6 +466,25 @@ int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 	return 0;
 }
 
+int sysfs_get_str(struct mdinfo *sra, struct mdinfo *dev,
+		       char *name, char *val, int size)
+{
+	char fname[50];
+	int n;
+	int fd;
+	sprintf(fname, "/sys/block/%s/md/%s/%s",
+		sra->sys_name, dev?dev->sys_name:"", name);
+	fd = open(fname, O_RDONLY);
+	if (fd < 0)
+		return -1;
+	n = read(fd, val, size);
+	close(fd);
+	if (n <= 0)
+		return -1;
+	val[n] = 0;
+	return n;
+}
+
 int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms)
 {
 	unsigned long sec;

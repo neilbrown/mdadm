@@ -815,6 +815,14 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			}
 			if (comp >= nstripe)
 				break;
+			if (comp == 0) {
+				/* Maybe it finished already */
+				char action[20];
+				if (sysfs_get_str(sra, NULL, "sync_action",
+						  action, 20) > 0 &&
+				    strncmp(action, "reshape", 7) != 0)
+					break;
+			}
 			sleep(1);
 		}
 

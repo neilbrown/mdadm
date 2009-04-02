@@ -781,22 +781,20 @@ static int load_super_ddf(struct supertype *st, int fd,
 
 	/* 32M is a lower bound */
 	if (dsize <= 32*1024*1024) {
-		if (devname) {
+		if (devname)
 			fprintf(stderr,
 				Name ": %s is too small for ddf: "
 				"size is %llu sectors.\n",
 				devname, dsize>>9);
-			return 1;
-		}
+		return 1;
 	}
 	if (dsize & 511) {
-		if (devname) {
+		if (devname)
 			fprintf(stderr,
 				Name ": %s is an odd size for ddf: "
 				"size is %llu bytes.\n",
 				devname, dsize);
-			return 1;
-		}
+		return 1;
 	}
 
 	if (posix_memalign((void**)&super, 512, sizeof(*super))!= 0) {

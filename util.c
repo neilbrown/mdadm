@@ -765,7 +765,7 @@ int find_free_devnum(int use_partitions)
 {
 	int devnum;
 	for (devnum = 127; devnum != 128;
-	     devnum = devnum ? devnum-1 : (1<<22)-1) {
+	     devnum = devnum ? devnum-1 : (1<<20)-1) {
 		char *dn;
 		int _devnum;
 

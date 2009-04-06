@@ -261,6 +261,8 @@ int Create(struct supertype *st, char *mddev,
 		return 1;
 	}
 	
+	if (size && chunk)
+		size &= ~(unsigned long long)(chunk - 1);
 	newsize = size * 2;
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
 					      chunk, size*2, NULL, &newsize, verbose>=0))

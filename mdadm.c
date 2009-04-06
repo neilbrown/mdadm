@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 				shortopt, long_options,
 				&option_index)) != -1) {
 		int newmode = mode;
-		/* firstly, some mode-independant options */
+		/* firstly, some mode-independent options */
 		switch(opt) {
 		case 'h':
 			if (option_index > 0 &&
@@ -1231,10 +1231,17 @@ int main(int argc, char *argv[])
 					 */
 					struct mdstat_ent *ms = mdstat_read(0, 1);
 					struct mdstat_ent *e;
+					struct map_ent *map = NULL;
 					int v = verbose>1?0:verbose+1;
 
 					for (e=ms ; e ; e=e->next) {
-						char *name = get_md_name(e->devnum);
+						char *name;
+						struct map_ent *me;
+						me = map_by_devnum(&map, e->devnum);
+						if (me && me->path)
+							name = me->path;
+						else
+							name = get_md_name(e->devnum);
 
 						if (!name) {
 							fprintf(stderr, Name ": cannot find device file for %s\n",

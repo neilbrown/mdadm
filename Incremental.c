@@ -335,32 +335,34 @@ int Incremental(char *devname, int verbose, int runstop,
 
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
 
-		sprintf(dn, "%d:%d", sra->devs->disk.major,
-			sra->devs->disk.minor);
-		dfd2 = dev_open(dn, O_RDONLY);
-		st2 = dup_super(st);
-		if (st2->ss->load_super(st2, dfd2, NULL) ||
-		    st->ss->compare_super(st, st2) != 0) {
-			fprintf(stderr, Name
-				": metadata mismatch between %s and "
-				"chosen array %s\n",
-				devname, chosen_name);
-			close(mdfd);
+		if (sra->devs) {
+			sprintf(dn, "%d:%d", sra->devs->disk.major,
+				sra->devs->disk.minor);
+			dfd2 = dev_open(dn, O_RDONLY);
+			st2 = dup_super(st);
+			if (st2->ss->load_super(st2, dfd2, NULL) ||
+			    st->ss->compare_super(st, st2) != 0) {
+				fprintf(stderr, Name
+					": metadata mismatch between %s and "
+					"chosen array %s\n",
+					devname, chosen_name);
+				close(mdfd);
+				close(dfd2);
+				return 2;
+			}
 			close(dfd2);
-			return 2;
-		}
-		close(dfd2);
-		memset(&info2, 0, sizeof(info2));
-		st2->ss->getinfo_super(st2, &info2);
-		st2->ss->free_super(st2);
-		if (info.array.level != info2.array.level ||
-		    memcmp(info.uuid, info2.uuid, 16) != 0 ||
-		    info.array.raid_disks != info2.array.raid_disks) {
-			fprintf(stderr, Name
-				": unexpected difference between %s and %s.\n",
-				chosen_name, devname);
-			close(mdfd);
-			return 2;
+			memset(&info2, 0, sizeof(info2));
+			st2->ss->getinfo_super(st2, &info2);
+			st2->ss->free_super(st2);
+			if (info.array.level != info2.array.level ||
+			    memcmp(info.uuid, info2.uuid, 16) != 0 ||
+			    info.array.raid_disks != info2.array.raid_disks) {
+				fprintf(stderr, Name
+					": unexpected difference between %s and %s.\n",
+					chosen_name, devname);
+				close(mdfd);
+				return 2;
+			}
 		}
 		info2.disk.major = major(stb.st_rdev);
 		info2.disk.minor = minor(stb.st_rdev);

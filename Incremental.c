@@ -402,8 +402,14 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(mdfd);
 		if (runstop < 0)
 			return 0; /* don't try to assemble */
-		return Incremental(chosen_name, verbose, runstop,
-				   NULL, homehost, autof);
+		rv = Incremental(chosen_name, verbose, runstop,
+				 NULL, homehost, autof);
+		if (rv == 1)
+			/* Don't fail the whole -I if a subarray didn't
+			 * have enough devices to start yet
+			 */
+			rv = 0;
+		return rv;
 	}
 	avail = NULL;
 	active_disks = count_active(st, mdfd, &avail, &info);
@@ -729,7 +735,6 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 		char chosen_name[1024];
 		struct map_ent *mp;
 		struct mddev_ident_s *match = NULL;
-		int err;
 
 		mp = map_by_uuid(&map, ra->uuid);
 
@@ -789,10 +794,8 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			return 2;
 		}
 
-		err = assemble_container_content(st, mdfd, ra, runstop,
-						 chosen_name, verbose);
-		if (err)
-			return err;
+		assemble_container_content(st, mdfd, ra, runstop,
+					   chosen_name, verbose);
 	}
 	map_unlock(&map);
 	return 0;

@@ -1235,13 +1235,16 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	if (working == 0) {
 		close(mdfd);
 		return 1;/* Nothing new, don't try to start */
-	} else if (runstop > 0 ||
+	}
+	
+	map_update(&map, fd2devnum(mdfd),
+		   content->text_version,
+		   content->uuid, chosen_name);
+
+	if (runstop > 0 ||
 		 (working + preexist) >= content->array.working_disks) {
 		int err;
 
-		map_update(&map, fd2devnum(mdfd),
-			   content->text_version,
-			   content->uuid, chosen_name);
 		switch(content->array.level) {
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:

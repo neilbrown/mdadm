@@ -1099,7 +1099,7 @@ static void examine_pds(struct ddf_super *sb)
 	int i;
 	struct dl *dl;
 	printf(" Physical Disks : %d\n", cnt);
-	printf("      Number    RefNo    Size       Device    Type/State\n");
+	printf("      Number    RefNo      Size       Device      Type/State\n");
 
 	for (i=0 ; i<cnt ; i++) {
 		struct phys_disk_entry *pd = &sb->phys->entries[i];
@@ -1110,18 +1110,18 @@ static void examine_pds(struct ddf_super *sb)
 		//printf("\n");
 		printf("       %3d    %08x  ", i,
 		       __be32_to_cpu(pd->refnum));
-		printf("%lluK ",  __be64_to_cpu(pd->config_size)>>1);
+		printf("%8lluK ",  __be64_to_cpu(pd->config_size)>>1);
 		for (dl = sb->dlist; dl ; dl = dl->next) {
 			if (dl->disk.refnum == pd->refnum) {
 				char *dv = map_dev(dl->major, dl->minor, 0);
 				if (dv) {
-					printf("%-10s", dv);
+					printf("%-15s", dv);
 					break;
 				}
 			}
 		}
 		if (!dl)
-			printf("%10s","");
+			printf("%15s","");
 		printf(" %s%s%s%s%s",
 		       (type&2) ? "active":"",
 		       (type&4) ? "Global-Spare":"",

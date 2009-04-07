@@ -643,6 +643,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	struct stat stb;
 	char *conf;
 	int i;
+	int confsec;
 	int vnum;
 	int max_virt_disks = __be16_to_cpu(super->active->max_vd_entries);
 	unsigned long long dsize;
@@ -693,11 +694,11 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			    0);
 
 	vnum = 0;
-	for (i = 0;
-	     i < __be32_to_cpu(super->active->config_section_length);
-	     i += super->conf_rec_len) {
+	for (confsec = 0;
+	     confsec < __be32_to_cpu(super->active->config_section_length);
+	     confsec += super->conf_rec_len) {
 		struct vd_config *vd =
-			(struct vd_config *)((char*)conf + i*512);
+			(struct vd_config *)((char*)conf + confsec*512);
 		struct vcl *vcl;
 
 		if (vd->magic == DDF_SPARE_ASSIGN_MAGIC) {

@@ -1069,7 +1069,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, "\n");
 			}
 			sysfs_uevent(content, "change");
-			wait_for(chosen_name);
+			wait_for(chosen_name, mdfd);
 			close(mdfd);
 			return 0;
 		}
@@ -1104,8 +1104,8 @@ int Assemble(struct supertype *st, char *mddev,
 								      (4 * content->array.chunk_size / 4096) + 1);
 					}
 				}
+				wait_for(mddev, mdfd);
 				close(mdfd);
-				wait_for(mddev);
 				if (auto_assem) {
 					int usecs = 1;
 					/* There is a nasty race with 'mdadm --monitor'.
@@ -1276,7 +1276,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			fprintf(stderr, "\n");
 		}
 		if (!err)
-			wait_for(chosen_name);
+			wait_for(chosen_name, mdfd);
 		close(mdfd);
 		return 0;
 		/* FIXME should have an O_EXCL and wait for read-auto */

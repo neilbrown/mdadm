@@ -852,13 +852,20 @@ int same_dev(char *one, char *two)
 	return st1.st_rdev == st2.st_rdev;
 }
 
-void wait_for(char *dev)
+void wait_for(char *dev, int fd)
 {
 	int i;
+	struct stat stb_want;
+
+	if (fstat(fd, &stb_want) != 0 ||
+	    (stb_want.st_mode & S_IFMT) != S_IFBLK)
+		return;
 
 	for (i=0 ; i<25 ; i++) {
 		struct stat stb;
-		if (stat(dev, &stb) == 0)
+		if (stat(dev, &stb) == 0 &&
+		    (stb.st_mode & S_IFMT) == S_IFBLK &&
+		    (stb.st_rdev == stb_want.st_rdev))
 			return;
 		usleep(200000);
 	}

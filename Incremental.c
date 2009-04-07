@@ -392,14 +392,14 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 7a/ if not, finish with success. */
 	if (info.array.level == LEVEL_CONTAINER) {
 		/* Try to assemble within the container */
-		close(mdfd);
 		map_unlock(&map);
 		sysfs_uevent(&info, "change");
 		if (verbose >= 0)
 			fprintf(stderr, Name
 				": container %s now has %d devices\n",
 				chosen_name, info.array.working_disks);
-		wait_for(chosen_name);
+		wait_for(chosen_name, mdfd);
+		close(mdfd);
 		if (runstop < 0)
 			return 0; /* don't try to assemble */
 		return Incremental(chosen_name, verbose, runstop,
@@ -474,7 +474,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			   ": %s attached to %s, which has been started.\n",
 					devname, chosen_name);
 			rv = 0;
-			wait_for(chosen_name);
+			wait_for(chosen_name, mdfd);
 		} else {
 			fprintf(stderr, Name
                              ": %s attached to %s, but failed to start: %s.\n",

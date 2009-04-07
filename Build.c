@@ -281,8 +281,8 @@ int Build(char *mddev, int chunk, int level, int layout,
 	if (verbose >= 0)
 		fprintf(stderr, Name ": array %s built and started.\n",
 			mddev);
+	wait_for(mddev, mdfd);
 	close(mdfd);
-	wait_for(mddev);
 	return 0;
 
  abort:

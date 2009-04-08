@@ -1461,7 +1461,10 @@ static int imsm_read_serial(int fd, char *devname,
 	int rv;
 	int rsp_len;
 	int len;
-	char *c, *rsp_buf;
+	char *dest;
+	char *src;
+	char *rsp_buf;
+	int i;
 
 	memset(scsi_serial, 0, sizeof(scsi_serial));
 
@@ -1481,7 +1484,6 @@ static int imsm_read_serial(int fd, char *devname,
 		return rv;
 	}
 
-	/* trim leading whitespace */
 	rsp_len = scsi_serial[3];
 	if (!rsp_len) {
 		if (devname)
@@ -1491,24 +1493,33 @@ static int imsm_read_serial(int fd, char *devname,
 		return 2;
 	}
 	rsp_buf = (char *) &scsi_serial[4];
-	c = rsp_buf;
-	while (isspace(*c))
-		c++;
 
-	/* truncate len to the end of rsp_buf if necessary */
-	if (c + MAX_RAID_SERIAL_LEN > rsp_buf + rsp_len)
-		len = rsp_len - (c - rsp_buf);
-	else
+	/* trim all whitespace and non-printable characters and convert
+	 * ':' to ';'
+	 */
+	for (i = 0, dest = rsp_buf; i < rsp_len; i++) {
+		src = &rsp_buf[i];
+		if (*src > 0x20) {
+			/* ':' is reserved for use in placeholder serial
+			 * numbers for missing disks
+			 */
+			if (*src == ':')
+				*dest++ = ';';
+			else
+				*dest++ = *src;
+		}
+	}
+	len = dest - rsp_buf;
+	dest = rsp_buf;
+
+	/* truncate leading characters */
+	if (len > MAX_RAID_SERIAL_LEN) {
+		dest += len - MAX_RAID_SERIAL_LEN;
 		len = MAX_RAID_SERIAL_LEN;
+	}
 
-	/* initialize the buffer and copy rsp_buf characters */
 	memset(serial, 0, MAX_RAID_SERIAL_LEN);
-	memcpy(serial, c, len);
-
-	/* trim trailing whitespace starting with the last character copied */
-	c = (char *) &serial[len - 1];
-	while (isspace(*c) || *c == '\0')
-		*c-- = '\0';
+	memcpy(serial, dest, len);
 
 	return 0;
 }

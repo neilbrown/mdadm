@@ -2,10 +2,12 @@
 
 SUBSYSTEM!="block", GOTO="md_end"
 ACTION!="add|change", GOTO="md_end"
+ACTION=="change", GOTO="md_no_incr"
 
 # import data from a raid member and activate it
 #ENV{ID_FS_TYPE}=="linux_raid_member", IMPORT{program}="/sbin/mdadm --examine --export $tempnode", RUN+="/sbin/mdadm --incremental $env{DEVNAME}"
 # import data from a raid set
+LABEL="md_no_incr"
 KERNEL!="md*", GOTO="md_end"
 
 # container devices have a metadata version of e.g. 'external:ddf' and

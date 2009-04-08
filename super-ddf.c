@@ -1061,9 +1061,9 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 			       map_num(ddf_sec_level, vc->srl) ?: "-unknown-");
 		}
 		printf("  Device Size[%d] : %llu\n", n,
-		       __be64_to_cpu(vc->blocks)/2);
+		       (unsigned long long)__be64_to_cpu(vc->blocks)/2);
 		printf("   Array Size[%d] : %llu\n", n,
-		       __be64_to_cpu(vc->array_blocks)/2);
+		       (unsigned long long)__be64_to_cpu(vc->array_blocks)/2);
 	}
 }
 
@@ -1110,7 +1110,8 @@ static void examine_pds(struct ddf_super *sb)
 		//printf("\n");
 		printf("       %3d    %08x  ", i,
 		       __be32_to_cpu(pd->refnum));
-		printf("%8lluK ",  __be64_to_cpu(pd->config_size)>>1);
+		printf("%8lluK ", 
+		       (unsigned long long)__be64_to_cpu(pd->config_size)>>1);
 		for (dl = sb->dlist; dl ; dl = dl->next) {
 			if (dl->disk.refnum == pd->refnum) {
 				char *dv = map_dev(dl->major, dl->minor, 0);

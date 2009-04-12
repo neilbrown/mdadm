@@ -2191,13 +2191,12 @@ static __u16 info_to_blocks_per_strip(mdu_array_info_t *info)
 	return info->chunk_size >> 9;
 }
 
-static __u32 info_to_num_data_stripes(mdu_array_info_t *info)
+static __u32 info_to_num_data_stripes(mdu_array_info_t *info, int num_domains)
 {
 	__u32 num_stripes;
 
 	num_stripes = (info->size * 2) / info_to_blocks_per_strip(info);
-	if (info->level == 1)
-		num_stripes /= 2;
+	num_stripes /= num_domains;
 
 	return num_stripes;
 }
@@ -2274,6 +2273,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	int i;
 	unsigned long long array_blocks;
 	size_t size_old, size_new;
+	__u32 num_data_stripes;
 
 	if (super->orom && mpb->num_raid_devs >= super->orom->vpa) {
 		fprintf(stderr, Name": This imsm-container already has the "
@@ -2349,7 +2349,6 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->pba_of_lba0 = __cpu_to_le32(super->create_offset);
 	map->blocks_per_member = __cpu_to_le32(info_to_blocks_per_member(info));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
-	map->num_data_stripes = __cpu_to_le32(info_to_num_data_stripes(info));
 	map->failed_disk_num = ~0;
 	map->map_state = info->level ? IMSM_T_STATE_UNINITIALIZED :
 				       IMSM_T_STATE_NORMAL;
@@ -2364,8 +2363,10 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		map->num_domains = info->raid_disks / 2;
 	} else {
 		map->raid_level = info->level;
-		map->num_domains = !!map->raid_level;
+		map->num_domains = 1;
 	}
+	num_data_stripes = info_to_num_data_stripes(info, map->num_domains);
+	map->num_data_stripes = __cpu_to_le32(num_data_stripes);
 
 	map->num_members = info->raid_disks;
 	for (i = 0; i < map->num_members; i++) {

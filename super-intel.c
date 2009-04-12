@@ -105,6 +105,7 @@ struct imsm_vol {
 #define MIGR_VERIFY 2 /* analagous to echo check > sync_action */
 #define MIGR_GEN_MIGR 3
 #define MIGR_STATE_CHANGE 4
+#define MIGR_REPAIR 5
 	__u8  migr_type;	/* Initializing, Rebuilding, ... */
 	__u8  dirty;
 	__u8  fs_state;		/* fast-sync state for CnG (0xff == disabled) */
@@ -192,6 +193,29 @@ struct bbm_log {
 #ifndef MDASSEMBLE
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
 #endif
+
+static __u8 migr_type(struct imsm_dev *dev)
+{
+	if (dev->vol.migr_type == MIGR_VERIFY &&
+	    dev->status & DEV_VERIFY_AND_FIX)
+		return MIGR_REPAIR;
+	else
+		return dev->vol.migr_type;
+}
+
+static void set_migr_type(struct imsm_dev *dev, __u8 migr_type)
+{
+	/* for compatibility with older oroms convert MIGR_REPAIR, into
+	 * MIGR_VERIFY w/ DEV_VERIFY_AND_FIX status
+	 */
+	if (migr_type == MIGR_REPAIR) {
+		dev->vol.migr_type = MIGR_VERIFY;
+		dev->status |= DEV_VERIFY_AND_FIX;
+	} else {
+		dev->vol.migr_type = migr_type;
+		dev->status &= ~DEV_VERIFY_AND_FIX;
+	}
+}
 
 static unsigned int sector_count(__u32 bytes)
 {
@@ -621,10 +645,23 @@ static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 	printf("     Chunk Size : %u KiB\n",
 		__le16_to_cpu(map->blocks_per_strip) / 2);
 	printf("       Reserved : %d\n", __le32_to_cpu(dev->reserved_blocks));
-	printf("  Migrate State : %s", dev->vol.migr_state ? "migrating" : "idle");
-	if (dev->vol.migr_state)
-		printf(": %s", dev->vol.migr_type ? "rebuilding" : "initializing");
-	printf("\n");
+	printf("  Migrate State : %s", dev->vol.migr_state ? "migrating" : "idle\n");
+	if (dev->vol.migr_state) {
+		if (migr_type(dev) == MIGR_INIT)
+			printf(": initializing\n");
+		else if (migr_type(dev) == MIGR_REBUILD)
+			printf(": rebuilding\n");
+		else if (migr_type(dev) == MIGR_VERIFY)
+			printf(": check\n");
+		else if (migr_type(dev) == MIGR_GEN_MIGR)
+			printf(": general migration\n");
+		else if (migr_type(dev) == MIGR_STATE_CHANGE)
+			printf(": state change\n");
+		else if (migr_type(dev) == MIGR_REPAIR)
+			printf(": repair\n");
+		else
+			printf(": <unknown:%d>\n", migr_type(dev));
+	}
 	printf("      Map State : %s", map_state_str[map->map_state]);
 	if (dev->vol.migr_state) {
 		struct imsm_map *map = get_imsm_map(dev, 1);
@@ -1653,7 +1690,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
  * 1/ Idle (migr_state=0 map0state=normal||unitialized||degraded||failed)
  * 2/ Initialize (migr_state=1 migr_type=MIGR_INIT map0state=normal
  *    map1state=unitialized)
- * 3/ Verify (Resync) (migr_state=1 migr_type=MIGR_REBUILD map0state=normal
+ * 3/ Repair (Resync) (migr_state=1 migr_type=MIGR_REPAIR  map0state=normal
  *    map1state=normal)
  * 4/ Rebuild (migr_state=1 migr_type=MIGR_REBUILD map0state=normal
  *    map1state=degraded)
@@ -1664,7 +1701,7 @@ static void migrate(struct imsm_dev *dev, __u8 to_state, int migr_type)
 	struct imsm_map *src = get_imsm_map(dev, 0);
 
 	dev->vol.migr_state = 1;
-	dev->vol.migr_type = migr_type;
+	set_migr_type(dev, migr_type);
 	dev->vol.curr_migr_unit = 0;
 	dest = get_imsm_map(dev, 1);
 
@@ -2342,7 +2379,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	dev->reserved_blocks = __cpu_to_le32(0);
 	vol = &dev->vol;
 	vol->migr_state = 0;
-	vol->migr_type = MIGR_INIT;
+	set_migr_type(dev, MIGR_INIT);
 	vol->dirty = 0;
 	vol->curr_migr_unit = 0;
 	map = get_imsm_map(dev, 0);
@@ -3518,7 +3555,8 @@ static int is_resyncing(struct imsm_dev *dev)
 	if (!dev->vol.migr_state)
 		return 0;
 
-	if (dev->vol.migr_type == MIGR_INIT)
+	if (migr_type(dev) == MIGR_INIT ||
+	    migr_type(dev) == MIGR_REPAIR)
 		return 1;
 
 	migr_map = get_imsm_map(dev, 1);
@@ -3536,7 +3574,7 @@ static int is_rebuilding(struct imsm_dev *dev)
 	if (!dev->vol.migr_state)
 		return 0;
 
-	if (dev->vol.migr_type != MIGR_REBUILD)
+	if (migr_type(dev) != MIGR_REBUILD)
 		return 0;
 
 	migr_map = get_imsm_map(dev, 1);
@@ -3627,10 +3665,10 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	} else if (!is_resyncing(dev) && !failed) {
 		/* mark the start of the init process if nothing is failed */
 		dprintf("imsm: mark resync start (%llu)\n", a->resync_start);
-		if (map->map_state == IMSM_T_STATE_NORMAL)
-			migrate(dev, IMSM_T_STATE_NORMAL, MIGR_REBUILD);
-		else
+		if (map->map_state == IMSM_T_STATE_UNINITIALIZED)
 			migrate(dev, IMSM_T_STATE_NORMAL, MIGR_INIT);
+		else
+			migrate(dev, IMSM_T_STATE_NORMAL, MIGR_REPAIR);
 		super->updates_pending++;
 	}
 

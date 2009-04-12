@@ -3355,6 +3355,18 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		struct mdinfo *this;
 		int slot;
 
+		/* do not publish arrays that are in the middle of an
+		 * unsupported migration
+		 */
+		if (dev->vol.migr_state &&
+		    (migr_type(dev) == MIGR_GEN_MIGR ||
+		     migr_type(dev) == MIGR_STATE_CHANGE)) {
+			fprintf(stderr, Name ": cannot assemble volume '%.16s':"
+				" unsupported migration in progress\n",
+				dev->volume);
+			continue;
+		}
+
 		this = malloc(sizeof(*this));
 		memset(this, 0, sizeof(*this));
 		this->next = rest;
@@ -3401,7 +3413,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			info_d = malloc(sizeof(*info_d));
 			if (!info_d) {
 				fprintf(stderr, Name ": failed to allocate disk"
-					" for volume %s\n", (char *) dev->volume);
+					" for volume %.16s\n", dev->volume);
 				free(this);
 				this = rest;
 				break;

@@ -89,7 +89,7 @@ struct imsm_map {
 	__u8  num_members;	/* number of member disks */
 	__u8  num_domains;	/* number of parity domains */
 	__u8  failed_disk_num;  /* valid only when state is degraded */
-	__u8  reserved[1];
+	__u8  ddf;
 	__u32 filler[7];	/* expansion area */
 #define IMSM_ORD_REBUILD (1 << 24)
 	__u32 disk_ord_tbl[1];	/* disk_ord_tbl[num_members],
@@ -2397,6 +2397,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->failed_disk_num = ~0;
 	map->map_state = info->level ? IMSM_T_STATE_UNINITIALIZED :
 				       IMSM_T_STATE_NORMAL;
+	map->ddf = 1;
 
 	if (info->level == 1 && info->raid_disks > 2) {
 		fprintf(stderr, Name": imsm does not support more than 2 disks"

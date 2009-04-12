@@ -1218,7 +1218,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty)
 		info->resync_start = 0;
 	else if (dev->vol.migr_state)
-		info->resync_start = __le32_to_cpu(dev->vol.curr_migr_unit);
+		/* FIXME add curr_migr_unit to resync_start conversion */
+		info->resync_start = 0;
 	else
 		info->resync_start = ~0ULL;
 
@@ -3684,13 +3685,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		super->updates_pending++;
 	}
 
-	/* check if we can update the migration checkpoint */
-	if (dev->vol.migr_state &&
-	    __le32_to_cpu(dev->vol.curr_migr_unit) != a->resync_start) {
-		dprintf("imsm: checkpoint migration (%llu)\n", a->resync_start);
-		dev->vol.curr_migr_unit = __cpu_to_le32(a->resync_start);
-		super->updates_pending++;
-	}
+	 /* FIXME check if we can update curr_migr_unit from resync_start */
 
 	/* mark dirty / clean */
 	if (dev->vol.dirty != !consistent) {

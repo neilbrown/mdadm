@@ -742,6 +742,21 @@ static void brief_examine_super_imsm(struct supertype *st)
 	}
 }
 
+static void export_examine_super_imsm(struct supertype *st)
+{
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->anchor;
+	struct mdinfo info;
+	char nbuf[64];
+
+	getinfo_super_imsm(st, &info);
+	fname_from_uuid(st, &info, nbuf, ':');
+	printf("MD_METADATA=imsm\n");
+	printf("MD_LEVEL=container\n");
+	printf("MD_UUID=%s\n", nbuf+5);
+	printf("MD_DEVICES=%u\n", mpb->num_disks);
+}
+
 static void detail_super_imsm(struct supertype *st, char *homehost)
 {
 	struct mdinfo info;
@@ -4429,6 +4444,7 @@ struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_imsm,
 	.brief_examine_super = brief_examine_super_imsm,
+	.export_examine_super = export_examine_super_imsm,
 	.detail_super	= detail_super_imsm,
 	.brief_detail_super = brief_detail_super_imsm,
 	.write_init_super = write_init_super_imsm,

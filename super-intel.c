@@ -1746,7 +1746,8 @@ static int parse_raid_devices(struct intel_super *super)
 		if (posix_memalign(&buf, 512, len) != 0)
 			return 1;
 
-		memcpy(buf, super->buf, len);
+		memcpy(buf, super->buf, super->len);
+		memset(buf + super->len, 0, len - super->len);
 		free(super->buf);
 		super->buf = buf;
 		super->len = len;
@@ -4382,7 +4383,9 @@ static void imsm_prepare_update(struct supertype *st,
 			free(super->next_buf);
 
 		super->next_len = buf_len;
-		if (posix_memalign(&super->next_buf, 512, buf_len) != 0)
+		if (posix_memalign(&super->next_buf, 512, buf_len) == 0)
+			memset(super->next_buf, 0, buf_len);
+		else
 			super->next_buf = NULL;
 	}
 }

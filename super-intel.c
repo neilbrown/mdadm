@@ -1203,6 +1203,9 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	info->array.utime	  = 0;
 	info->array.chunk_size	  = __le16_to_cpu(map->blocks_per_strip) << 9;
 	info->array.state	  = !dev->vol.dirty;
+	info->custom_array_size   = __le32_to_cpu(dev->size_high);
+	info->custom_array_size   <<= 32;
+	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
 
 	info->disk.major = 0;
 	info->disk.minor = 0;

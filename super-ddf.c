@@ -1374,6 +1374,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 		__be32_to_cpu(*(__u32*)(vc->conf.guid+16));
 	info->array.utime	  = DECADE + __be32_to_cpu(vc->conf.timestamp);
 	info->array.chunk_size	  = 512 << vc->conf.chunk_shift;
+	info->custom_array_size	  = 0;
 
 	if (cd >= 0 && cd < ddf->mppe) {
 		info->data_offset	  = __be64_to_cpu(vc->lba_offset[cd]);

@@ -506,6 +506,20 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 	rv |= sysfs_set_num(info, NULL, "chunk_size", info->array.chunk_size);
 	rv |= sysfs_set_num(info, NULL, "layout", info->array.layout);
 	rv |= sysfs_set_num(info, NULL, "component_size", info->component_size/2);
+	if (info->custom_array_size) {
+		int rc;
+
+		rc = sysfs_set_num(info, NULL, "array_size",
+				   info->custom_array_size/2);
+		if (rc && errno == ENOENT) {
+			fprintf(stderr, Name ": This kernel does not "
+				"have the md/array_size attribute, "
+				"the array may be larger than expected\n");
+			rc = 0;
+		}
+		rv |= rc;
+	}
+
 	if (info->array.level > 0)
 		rv |= sysfs_set_num(info, NULL, "resync_start", info->resync_start);
 	return rv;

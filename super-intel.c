@@ -53,6 +53,7 @@
 
 #define MPB_SECTOR_CNT 418
 #define IMSM_RESERVED_SECTORS 4096
+#define SECT_PER_MB_SHIFT 11
 
 /* Disk configuration info. */
 #define IMSM_MAX_DEVICES 255
@@ -2377,6 +2378,9 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
 					       info->size*2);
+	/* round array size down to closest MB */
+	array_blocks = (array_blocks >> SECT_PER_MB_SHIFT) << SECT_PER_MB_SHIFT;
+
 	dev->size_low = __cpu_to_le32((__u32) array_blocks);
 	dev->size_high = __cpu_to_le32((__u32) (array_blocks >> 32));
 	dev->status = __cpu_to_le32(0);

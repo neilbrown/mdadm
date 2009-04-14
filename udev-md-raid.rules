@@ -10,6 +10,10 @@ ACTION=="change", GOTO="md_no_incr"
 LABEL="md_no_incr"
 KERNEL!="md*", GOTO="md_end"
 
+# partitions have no md/{array_state,metadata_version}, but should not
+# for that reason be ignored.
+ENV{DEVTYPE}=="partition", GOTO="md_ignore_state"
+
 # container devices have a metadata version of e.g. 'external:ddf' and
 # never leave state 'inactive'
 ATTR{md/metadata_version}=="external:[A-Za-z]*", ATTR{md/array_state}=="inactive", GOTO="md_ignore_state"

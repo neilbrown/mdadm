@@ -702,7 +702,7 @@ int Manage_subdevs(char *devname, int fd,
 				tst->ss->getinfo_super(tst, &new_mdi);
 				new_mdi.disk.major = disc.major;
 				new_mdi.disk.minor = disc.minor;
-				if (sysfs_add_disk(sra, &new_mdi) != 0) {
+				if (sysfs_add_disk(sra, &new_mdi, 0) != 0) {
 					fprintf(stderr, Name ": add new device to external metadata"
 						" failed for %s\n", dv->devname);
 					close(container_fd);

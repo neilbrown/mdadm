@@ -395,7 +395,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 			 * and open files for each newdev */
 			for (d = newdev; d ; d = d->next) {
 				struct mdinfo *newd;
-				if (sysfs_add_disk(&newa->info, d) < 0)
+				if (sysfs_add_disk(&newa->info, d, 0) < 0)
 					continue;
 				newd = malloc(sizeof(*newd));
 				*newd = *d;

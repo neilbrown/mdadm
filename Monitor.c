@@ -706,7 +706,7 @@ int WaitClean(char *dev, int verbose)
 			if (sysfs_match_word(buf, clean_states) <= 4)
 				break;
 			FD_SET(state_fd, &fds);
-			rv = select(state_fd + 1, &fds, NULL, NULL, &tm);
+			rv = select(state_fd + 1, NULL, NULL, &fds, &tm);
 			if (rv < 0 && errno != EINTR)
 				break;
 			lseek(state_fd, 0, SEEK_SET);

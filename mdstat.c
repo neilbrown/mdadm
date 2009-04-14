@@ -280,8 +280,18 @@ void mdstat_wait_fd(int fd, const sigset_t *sigmask)
 	FD_ZERO(&rfds);
 	if (mdstat_fd >= 0)
 		FD_SET(mdstat_fd, &fds);
-	if (fd >= 0)
-		FD_SET(fd, &rfds);
+	if (fd >= 0) {
+		struct stat stb;
+		fstat(fd, &stb);
+		if ((stb.st_mode & S_IFMT) == S_IFREG)
+			/* Must be a /proc or /sys fd, so expect
+			 * POLLPRI
+			 * i.e. an 'exceptional' event.
+			 */
+			FD_SET(fd, &fds);
+		else
+			FD_SET(fd, &rfds);
+	}
 	if (mdstat_fd > maxfd)
 		maxfd = mdstat_fd;
 

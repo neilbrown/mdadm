@@ -498,7 +498,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		sigprocmask(SIG_UNBLOCK, NULL, &set);
 		sigdelset(&set, SIGUSR1);
 		monitor_loop_cnt |= 1;
-		rv = pselect(maxfd+1, &rfds, NULL, NULL, NULL, &set);
+		rv = pselect(maxfd+1, NULL, NULL, &rfds, NULL, &set);
 		monitor_loop_cnt += 1;
 		if (rv == -1 && errno == EINTR)
 			rv = 0;

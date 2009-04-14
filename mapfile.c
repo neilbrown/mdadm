@@ -2,7 +2,7 @@
  * mapfile - manage /var/run/mdadm.map. Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2006-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -38,23 +38,48 @@
  *  UUID       -  uuid of the array
  *  path       -  path where device created: /dev/md/home
  *
+ * The preferred location for the map file is /var/run/mdadm.map.
+ * However /var/run may not exist or be writable in early boot.  And if
+ * no-one has created /var/run/mdadm, we still want to survive.
+ * So possible locations are:
+ *   /var/run/mdadm/map  /var/run/mdadm.map  /dev/.mdadm.map
+ * the last, because udev requires a writable /dev very early.
+ * We read from the first one that exists and write to the first
+ * one that we can.
  */
-
-
 #include "mdadm.h"
 
+#define mapnames(base) { #base, #base ".new", #base ".lock"}
+char *mapname[3][3] = {
+	mapnames(/var/run/mdadm/map),
+	mapnames(/var/run/mdadm.map),
+	mapnames(/dev/.mdadm.map)
+};
+
+int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT | O_TRUNC };
+char *mapsmode[3] = { "r", "w", "w"};
+
+FILE *open_map(int modenum, int *choice)
+{
+	int i;
+	for (i = 0 ; i < 3 ; i++) {
+		int fd = open(mapname[i][modenum], mapmode[modenum], 0600);
+		if (fd >= 0) {
+			*choice = i;
+			return fdopen(fd, mapsmode[modenum]);
+		}
+	}
+	return NULL;
+}
 
 int map_write(struct map_ent *mel)
 {
 	FILE *f;
 	int err;
-	int subdir = 1;
+	int which;
 
-	f = fopen("/var/run/mdadm/map.new", "w");
-	if (!f) {
-		f = fopen("/var/run/mdadm.map.new", "w");
-		subdir = 0;
-	}
+	f = open_map(1, &which);
+
 	if (!f)
 		return 0;
 	for (; mel; mel = mel->next) {
@@ -73,37 +98,25 @@ int map_write(struct map_ent *mel)
 	err = ferror(f);
 	fclose(f);
 	if (err) {
-		if (subdir)
-			unlink("/var/run/mdadm/map.new");
-		else
-			unlink("/var/run/mdadm.map.new");
+		unlink(mapname[which][1]);
 		return 0;
 	}
-	if (subdir)
-		return rename("/var/run/mdadm/map.new",
-			      "/var/run/mdadm/map") == 0;
-	else
-		return rename("/var/run/mdadm.map.new",
-			      "/var/run/mdadm.map") == 0;
+	return rename(mapname[which][1],
+		      mapname[which][0]) == 0;
 }
 
 
-static int lfd = -1;
-static int lsubdir = 0;
+static FILE *lf = NULL;
+static int lwhich = 0;
 int map_lock(struct map_ent **melp)
 {
-	if (lfd < 0) {
-		lfd = open("/var/run/mdadm/map.lock", O_CREAT|O_RDWR, 0600);
-		if (lfd < 0) {
-			lfd = open("/var/run/mdadm.map.lock", O_CREAT|O_RDWR, 0600);
-			lsubdir = 0;
-		} else
-			lsubdir = 1;
-		if (lfd < 0)
+	if (lf == NULL) {
+		lf = open_map(2, &lwhich);
+		if (lf == NULL)
 			return -1;
-		if (lockf(lfd, F_LOCK, 0) != 0) {
-			close(lfd);
-			lfd = -1;
+		if (lockf(fileno(lf), F_LOCK, 0) != 0) {
+			fclose(lf);
+			lf = NULL;
 			return -1;
 		}
 	}
@@ -115,13 +128,10 @@ int map_lock(struct map_ent **melp)
 
 void map_unlock(struct map_ent **melp)
 {
-	if (lfd >= 0)
-		close(lfd);
-	if (lsubdir)
-		unlink("/var/run/mdadm/map.lock");
-	else
-		unlink("/var/run/mdadm.map.lock");
-	lfd = -1;
+	if (lf)
+		fclose(lf);
+	unlink(mapname[lwhich][2]);
+	lf = NULL;
 }
 
 void map_add(struct map_ent **melp,
@@ -146,18 +156,15 @@ void map_read(struct map_ent **melp)
 	int devnum, uuid[4];
 	char metadata[30];
 	char nam[4];
+	int which;
 
 	*melp = NULL;
 
-	f = fopen("/var/run/mdadm/map", "r");
-	if (!f)
-		f = fopen("/var/run/mdadm.map", "r");
+	f = open_map(0, &which);
 	if (!f) {
 		RebuildMap();
-		f = fopen("/var/run/mdadm/map", "r");
+		f = open_map(0, &which);
 	}
-	if (!f)
-		f = fopen("/var/run/mdadm.map", "r");
 	if (!f)
 		return;
 

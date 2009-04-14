@@ -146,6 +146,9 @@ struct mdinfo {
 	unsigned long long	component_size; /* same as array.size, except in
 						 * sectors and up to 64bits.
 						 */
+	unsigned long long	custom_array_size; /* size for non-default sized
+						    * arrays (in sectors)
+						    */
 	int			reshape_active;
 	unsigned long long	reshape_progress;
 	unsigned long long	resync_start;

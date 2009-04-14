@@ -74,8 +74,10 @@ int get_resync_start(struct active_array *a)
 	n = read_attr(buf, 30, a->resync_start_fd);
 	if (n <= 0)
 		return n;
-
-	a->resync_start = strtoull(buf, NULL, 10);
+	if (strncmp(buf, "none", 4) == 0)
+		a->resync_start = ~0ULL;
+	else
+		a->resync_start = strtoull(buf, NULL, 10);
 
 	return 1;
 }

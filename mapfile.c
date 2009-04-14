@@ -301,8 +301,11 @@ void RebuildMap(void)
 	int mdp = get_mdp_major();
 
 	for (md = mdstat ; md ; md = md->next) {
-		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS);
+		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS|SKIP_GONE_DEVS);
 		struct mdinfo *sd;
+
+		if (!sra)
+			continue;
 
 		for (sd = sra->devs ; sd ; sd = sd->next) {
 			char dn[30];

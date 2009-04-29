@@ -612,10 +612,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 
 		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 		    read(rfd, sb->device_uuid, 16) != 16) {
-			*(__u32*)(sb->device_uuid) = random();
-			*(__u32*)(sb->device_uuid+4) = random();
-			*(__u32*)(sb->device_uuid+8) = random();
-			*(__u32*)(sb->device_uuid+12) = random();
+			__u32 r[4] = {random(), random(), random(), random()};
+			memcpy(sb->device_uuid, r, 16);
 		}
 
 		sb->dev_roles[i] =
@@ -735,10 +733,8 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	else {
 		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 		    read(rfd, sb->set_uuid, 16) != 16) {
-			*(__u32*)(sb->set_uuid) = random();
-			*(__u32*)(sb->set_uuid+4) = random();
-			*(__u32*)(sb->set_uuid+8) = random();
-			*(__u32*)(sb->set_uuid+12) = random();
+			__u32 r[4] = {random(), random(), random(), random()};
+			memcpy(sb->set_uuid, r, 16);
 		}
 		if (rfd >= 0) close(rfd);
 	}
@@ -912,11 +908,10 @@ static int write_init_super1(struct supertype *st,
 
 	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 	    read(rfd, sb->device_uuid, 16) != 16) {
-		*(__u32*)(sb->device_uuid) = random();
-		*(__u32*)(sb->device_uuid+4) = random();
-		*(__u32*)(sb->device_uuid+8) = random();
-		*(__u32*)(sb->device_uuid+12) = random();
+		__u32 r[4] = {random(), random(), random(), random()};
+		memcpy(sb->device_uuid, r, 16);
 	}
+	
 	if (rfd >= 0) close(rfd);
 	sb->events = 0;
 

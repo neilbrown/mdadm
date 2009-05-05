@@ -422,6 +422,11 @@ int Manage_subdevs(char *devname, int fd,
 								fprintf(stderr, Name ": re-added %s\n", dv->devname);
 							continue;
 						}
+						if (errno == ENOMEM || errno == EROFS) {
+							fprintf(stderr, Name ": add new device failed for %s: %s\n",
+								dv->devname, strerror(errno));
+							return 1;
+						}
 						/* fall back on normal-add */
 					}
 				}

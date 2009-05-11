@@ -331,7 +331,7 @@ void RebuildMap(void)
 			if (ok != 0)
 				continue;
 			st->ss->getinfo_super(st, &info);
-			if (md->devnum > 0)
+			if (md->devnum >= 0)
 				path = map_dev(MD_MAJOR, md->devnum, 0);
 			else
 				path = map_dev(mdp, (-1-md->devnum)<< 6, 0);

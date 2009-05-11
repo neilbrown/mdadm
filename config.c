@@ -1013,3 +1013,73 @@ int conf_name_is_free(char *name)
 	}
 	return 1;
 }
+
+struct mddev_ident_s *conf_match(struct mdinfo *info, struct supertype *st)
+{
+	struct mddev_ident_s *array_list, *match;
+	int verbose = 0;
+	char *devname = NULL;
+	array_list = conf_get_ident(NULL);
+	match = NULL;
+	for (; array_list; array_list = array_list->next) {
+		if (array_list->uuid_set &&
+		    same_uuid(array_list->uuid, info->uuid, st->ss->swapuuid)
+		    == 0) {
+			if (verbose >= 2 && array_list->devname)
+				fprintf(stderr, Name
+					": UUID differs from %s.\n",
+					array_list->devname);
+			continue;
+		}
+		if (array_list->name[0] &&
+		    strcasecmp(array_list->name, info->name) != 0) {
+			if (verbose >= 2 && array_list->devname)
+				fprintf(stderr, Name
+					": Name differs from %s.\n",
+					array_list->devname);
+			continue;
+		}
+		if (array_list->devices && devname &&
+		    !match_oneof(array_list->devices, devname)) {
+			if (verbose >= 2 && array_list->devname)
+				fprintf(stderr, Name
+					": Not a listed device for %s.\n",
+					array_list->devname);
+			continue;
+		}
+		if (array_list->super_minor != UnSet &&
+		    array_list->super_minor != info->array.md_minor) {
+			if (verbose >= 2 && array_list->devname)
+				fprintf(stderr, Name
+					": Different super-minor to %s.\n",
+					array_list->devname);
+			continue;
+		}
+		if (!array_list->uuid_set &&
+		    !array_list->name[0] &&
+		    !array_list->devices &&
+		    array_list->super_minor == UnSet) {
+			if (verbose >= 2 && array_list->devname)
+				fprintf(stderr, Name
+			     ": %s doesn't have any identifying information.\n",
+					array_list->devname);
+			continue;
+		}
+		/* FIXME, should I check raid_disks and level too?? */
+
+		if (match) {
+			if (verbose >= 0) {
+				if (match->devname && array_list->devname)
+					fprintf(stderr, Name
+		   ": we match both %s and %s - cannot decide which to use.\n",
+						match->devname, array_list->devname);
+				else
+					fprintf(stderr, Name
+						": multiple lines in mdadm.conf match\n");
+			}
+			return NULL;
+		}
+		match = array_list;
+	}
+	return match;
+}

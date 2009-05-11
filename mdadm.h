@@ -801,6 +801,7 @@ extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern int conf_name_is_free(char *name);
 extern int devname_matches(char *name, char *match);
+extern struct mddev_ident_s *conf_match(struct mdinfo *info, struct supertype *st);
 
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);

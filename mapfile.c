@@ -47,7 +47,8 @@
  * We read from the first one that exists and write to the first
  * one that we can.
  */
-#include "mdadm.h"
+#include	"mdadm.h"
+#include	<ctype.h>
 
 #define mapnames(base) { #base, #base ".new", #base ".lock"}
 char *mapname[3][3] = {
@@ -302,6 +303,16 @@ void RebuildMap(void)
 	struct mdstat_ent *md;
 	struct map_ent *map = NULL;
 	int mdp = get_mdp_major();
+	int require_homehost;
+	char sys_hostname[256];
+	char *homehost = conf_get_homehost(&require_homehost);
+
+	if (homehost == NULL || strcmp(homehost, "<system>")==0) {
+		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
+			sys_hostname[sizeof(sys_hostname)-1] = 0;
+			homehost = sys_hostname;
+		}
+	}
 
 	for (md = mdstat ; md ; md = md->next) {
 		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS|SKIP_GONE_DEVS);
@@ -311,6 +322,7 @@ void RebuildMap(void)
 			continue;
 
 		for (sd = sra->devs ; sd ; sd = sd->next) {
+			char namebuf[100];
 			char dn[30];
 			int dfd;
 			int ok;
@@ -335,6 +347,77 @@ void RebuildMap(void)
 				path = map_dev(MD_MAJOR, md->devnum, 0);
 			else
 				path = map_dev(mdp, (-1-md->devnum)<< 6, 0);
+			if (path == NULL ||
+			    strncmp(path, "/dev/md/", 8) != 0) {
+				/* We would really like a name that provides
+				 * an MD_DEVNAME for udev.
+				 * The name needs to be unique both in /dev/md/
+				 * and in this mapfile.
+				 * It needs to match watch -I or -As would come
+				 * up with.
+				 * That means:
+				 *   Check if array is in mdadm.conf 
+				 *        - if so use that.
+				 *   determine trustworthy from homehost etc
+				 *   find a unique name based on metadata name.
+				 *   
+				 */
+				struct mddev_ident_s *match = conf_match(&info, st);
+				struct stat stb;
+				if (match && match->devname && match->devname[0] == '/') {
+					path = match->devname;
+					if (path[0] != '/') {
+						strcpy(namebuf, "/dev/md/");
+						strcat(namebuf, path);
+						path = namebuf;
+					}
+				} else {
+					int unum = 0;
+					char *sep = "_";
+					const char *name;
+					int conflict = 1;
+					if ((homehost == NULL ||
+					     st->ss->match_home(st, homehost) != 1) &&
+					    st->ss->match_home(st, "any") != 1 &&
+					    (require_homehost
+					     || ! conf_name_is_free(info.name)))
+						/* require a numeric suffix */
+						unum = 0;
+					else
+						/* allow name to be used as-is if no conflict */
+						unum = -1;
+					name = info.name;
+					if (!*name) {
+						name = st->ss->name;
+						if (!isdigit(name[strlen(name)-1]) &&
+						    unum == -1) {
+							unum = 0;
+							sep = "";
+						}
+					}
+					if (strchr(name, ':'))
+						/* probably a uniquifying
+						 * hostname prefix.  Allow
+						 * without a suffix
+						 */
+						unum = -1;
+
+					while (conflict) {
+						if (unum >= 0)
+							sprintf(namebuf, "/dev/md/%s%s%d",
+								name, sep, unum);
+						else
+							sprintf(namebuf, "/dev/md/%s",
+								name);
+						unum++;
+						if (lstat(namebuf, &stb) != 0 &&
+						    (map == NULL ||
+						     !map_by_name(&map, namebuf+8)))
+							conflict = 0;
+					}
+					path = namebuf;
+				}
+			}
 			map_add(&map, md->devnum,
 				info.text_version,
 				info.uuid, path);

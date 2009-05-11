@@ -916,7 +916,10 @@ struct supertype *super_by_fd(int fd)
 		if (sra)
 			sysfs_free(sra);
 		sra = sysfs_read(-1, devnum, GET_VERSION);
-		verstr = sra->text_version ? : "-no-metadata-";
+		if (sra && sra->text_version[0])
+			verstr = sra->text_version;
+		else
+			verstr = "-no-metadata-";
 	}
 
 	for (i = 0; st == NULL && superlist[i] ; i++)

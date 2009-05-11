@@ -292,11 +292,15 @@ int Manage_subdevs(char *devname, int fd,
 		} else {
 			j = 0;
 
-			if (stat(dv->devname, &stb)) {
+			tfd = dev_open(dv->devname, O_RDONLY);
+			if (tfd < 0 || fstat(tfd, &stb) != 0) {
 				fprintf(stderr, Name ": cannot find %s: %s\n",
 					dv->devname, strerror(errno));
+				if (tfd >= 0)
+					close(tfd);
 				return 1;
 			}
+			close(tfd);
 			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 				fprintf(stderr, Name ": %s is not a "
 					"block device.\n",
@@ -313,7 +317,7 @@ int Manage_subdevs(char *devname, int fd,
 			/* add the device */
 
 			/* Make sure it isn't in use (in 2.6 or later) */
-			tfd = open(dv->devname, O_RDONLY|O_EXCL);
+			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd < 0) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dv->devname, strerror(errno));

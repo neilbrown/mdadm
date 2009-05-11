@@ -672,7 +672,7 @@ static int write_init_super0(struct supertype *st,
 			     mdu_disk_info_t *dinfo, char *devname)
 {
 	mdp_super_t *sb = st->sb;
-	int fd = open(devname, O_RDWR|O_EXCL);
+	int fd = dev_open(devname, O_RDWR|O_EXCL);
 	int rv;
 
 	if (fd < 0) {

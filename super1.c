@@ -887,7 +887,7 @@ static int write_init_super1(struct supertype *st,
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	struct supertype refst;
-	int fd = open(devname, O_RDWR | O_EXCL);
+	int fd = dev_open(devname, O_RDWR | O_EXCL);
 	int rfd;
 	int rv;
 	int bm_space;

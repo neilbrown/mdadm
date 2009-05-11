@@ -470,16 +470,25 @@ int Monitor(mddev_dev_t devlist,
 							}
 						}
 						if (dev > 0) {
-							if (ioctl(fd2, HOT_REMOVE_DISK,
-								  (unsigned long)dev) == 0) {
-								if (ioctl(fd1, HOT_ADD_DISK,
-									  (unsigned long)dev) == 0) {
+							struct mddev_dev_s devlist;
+							char devname[20];
+							devlist.next = NULL;
+							devlist.used = 0;
+							devlist.re_add = 0;
+							devlist.writemostly = 0;
+							devlist.devname = devname;
+							sprintf(devname, "%d:%d", major(dev), minor(dev));
+
+							devlist.disposition = 'r';
+							if (Manage_subdevs(st2->devname, fd2, &devlist, -1) == 0) {
+								devlist.disposition = 'a';
+								if (Manage_subdevs(st->devname, fd1, &devlist, -1) == 0) {
 									alert("MoveSpare", st->devname, st2->devname, mailaddr, mailfrom, alert_cmd, dosyslog);
 									close(fd1);
 									close(fd2);
 									break;
 								}
-								else ioctl(fd2, HOT_ADD_DISK, (unsigned long) dev);
+								else Manage_subdevs(st2->devname, fd2, &devlist, -1);
 							}
 						}
 						close(fd1);

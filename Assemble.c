@@ -140,7 +140,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int clean;
 	int auto_assem = (mddev == NULL && !ident->uuid_set &&
 			  ident->super_minor == UnSet && ident->name[0] == 0
-			  && ident->container == NULL && ident->member == NULL);
+			  && (ident->container == NULL || ident->member == NULL));
 	int old_linux = 0;
 	int vers = vers; /* Keep gcc quite - it really is initialised */
 	struct {
@@ -504,7 +504,7 @@ int Assemble(struct supertype *st, char *mddev,
 		break;
 	}
 	if (!auto_assem && trustworthy == FOREIGN)
-		/* If the array is listed in mdadm or on
+		/* If the array is listed in mdadm.conf or on
 		 * command line, then we trust the name
 		 * even if the array doesn't look local
 		 */

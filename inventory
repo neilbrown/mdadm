@@ -27,6 +27,7 @@ ANNOUNCE-2.6.9
 ANNOUNCE-3.0-devel1
 ANNOUNCE-3.0-devel2
 ANNOUNCE-3.0-devel3
+ANNOUNCE-3.0-rc1
 Assemble.c
 bitmap.c
 bitmap.h
@@ -112,6 +113,8 @@ tests/00raid5
 tests/00raid6
 tests/01r1fail
 tests/01r5fail
+tests/01r5integ
+tests/01raid6integ
 tests/02lineargrow
 tests/02r1add
 tests/02r1grow
@@ -147,6 +150,7 @@ tests/07reshape5intr
 tests/07testreshape5
 tests/08imsm-overlap
 tests/09imsm-create-fail-rebuild
+tests/10ddf-create
 tests/check
 tests/env-08imsm-overlap
 tests/env-09imsm-create-fail-rebuild

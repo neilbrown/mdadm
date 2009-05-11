@@ -625,13 +625,17 @@ initial resync work faster).  With
 will not try to be so clever.
 
 .TP
-.BR \-a ", " "\-\-auto{=no,yes,md,mdp,part,p}{NN}"
-Instruct mdadm to create the device file if needed, possibly allocating
+.BR \-a ", " "\-\-auto{=yes,md,mdp,part,p}{NN}"
+Instruct mdadm how to create the device file if needed, possibly allocating
 an unused minor number.  "md" causes a non-partitionable array
-to be used.  "mdp", "part" or "p" causes a partitionable array (2.6 and
+to be used (though since Linux 2.6.28, these array devices are in fact
+partitionable).  "mdp", "part" or "p" causes a partitionable array (2.6 and
 later) to be used.  "yes" requires the named md device to have
 a 'standard' format, and the type and minor number will be determined
-from this.  See DEVICE NAMES below.
+from this.  With mdadm 3.0, device creation is normally left up to
+.I udev
+so this option is unlikely to be needed.
+See DEVICE NAMES below.
 
 The argument can also come immediately after
 "\-a".  e.g. "\-ap".

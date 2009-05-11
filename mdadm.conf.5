@@ -182,10 +182,15 @@ or missing drive but no spare.
 
 .TP
 .B auto=
-This option declares to
+This option is rarely needed with mdadm-3.0, particularly if use with
+the Linux kernel v2.6.28 or later.
+It tells
 .I mdadm
-that it should try to create the device file of the array if it
-doesn't already exist, or exists but with the wrong device number.
+whether to use partitionable array or non-partitionable arrays and,
+in the absence of
+.IR udev ,
+how many partition devices to create.  From 2.6.28 all md array
+devices are partitionable, hence this option is not needed.
 
 The value of this option can be "yes" or "md" to indicate that a
 traditional, non-partitionable md array should be created, or "mdp",

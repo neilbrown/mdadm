@@ -217,8 +217,9 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * on that. */
 	if (match)
 		trustworthy = LOCAL;
-	else if (homehost == NULL ||
-		 st->ss->match_home(st, homehost) != 1)
+	else if ((homehost == NULL ||
+		  st->ss->match_home(st, homehost) != 1) &&
+		 st->ss->match_home(st, "any") != 1)
 		trustworthy = FOREIGN;
 	else
 		trustworthy = LOCAL;

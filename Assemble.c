@@ -478,7 +478,8 @@ int Assemble(struct supertype *st, char *mddev,
 		st->ss->getinfo_super(st, content);
 
 	trustworthy = FOREIGN;
-	switch (st->ss->match_home(st, homehost)) {
+	switch (st->ss->match_home(st, homehost)
+		?: st->ss->match_home(st, "any")) {
 	case 0:
 		trustworthy = FOREIGN;
 		name = content->name;

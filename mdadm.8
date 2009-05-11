@@ -46,6 +46,9 @@ and
 is not a Software RAID mechanism, but does involve
 multiple devices:
 each device is a path to one common physical storage device.
+New installations should not use md/multipath as it is not well
+supported and has no ongoing development.  Use the Device Mapper based
+multipath-tools instead.
 
 .B FAULTY
 is also not true RAID, and it only involves one device.  It
@@ -57,9 +60,9 @@ is different again.  A
 is a collection of devices that are
 managed as a set.  This is similar to the set of devices connected to
 a hardware RAID controller.  The set of devices may contain a number
-of different RAID arrays each utilising some (or all) blocks from a
+of different RAID arrays each utilising some (or all) of the blocks from a
 number of the devices in the set.  For example, two devices in a 5-device set
-might form a RAID1 used the whole devices.  The remaining three might
+might form a RAID1 using the whole devices.  The remaining three might
 have a RAID5 over the first half of each device, and a RAID0 over the
 second half.
 
@@ -70,45 +73,8 @@ the arrays in the container.  So when
 .I mdadm
 creates a
 .B CONTAINER
-device, it just represents the metadata.  Other normal arrays (RAID1
-etc) can be created inside that container.
-
-
-.\".I mdadm
-.\"is a program that can be used to create, manage, and monitor
-.\"MD devices.  As
-.\"such it provides a similar set of functionality to the
-.\".B raidtools
-.\"packages.
-.\"The key differences between
-.\".I mdadm
-.\"and
-.\".B raidtools
-.\"are:
-.\".IP \(bu 4
-.\".I mdadm
-.\"is a single program and not a collection of programs.
-.\".IP \(bu 4
-.\".I mdadm
-.\"can perform (almost) all of its functions without having a
-.\"configuration file and does not use one by default.  Also
-.\".I mdadm
-.\"helps with management of the configuration
-.\"file.
-.\".IP \(bu 4
-.\".I mdadm
-.\"can provide information about your arrays (through Query, Detail, and Examine)
-.\"that
-.\".B  raidtools
-.\"cannot.
-.\".P
-.\".I mdadm
-.\"does not use
-.\".IR /etc/raidtab ,
-.\"the
-.\".B raidtools
-.\"configuration file, at all.  It has a different configuration file
-.\"with a different format and a different purpose.
+device, the device just represents the metadata.  Other normal arrays (RAID1
+etc) can be created inside the container.
 
 .SH MODES
 mdadm has several major modes of operation:
@@ -163,7 +129,7 @@ This provides a convenient interface to a
 system.  As each device is detected,
 .I mdadm
 has a chance to include it in some array as appropriate.
-.P
+
 If a
 .B CONTAINER
 is passed to

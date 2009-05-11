@@ -810,6 +810,8 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 						match->container, match->member);
 				return 2;
 			}
+			if (match)
+				trustworthy = LOCAL;
 
 			mdfd = create_mddev(match ? match->devname : NULL,
 					    ra->name,

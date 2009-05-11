@@ -480,17 +480,14 @@ int Assemble(struct supertype *st, char *mddev,
 	if (!st || !st->sb || !content)
 		return 2;
 
-	/* Now need to open array the device.  Use create_mddev */
+	/* Now need to open the array device.  Use create_mddev */
 	if (content == &info)
 		st->ss->getinfo_super(st, content);
 
 	trustworthy = FOREIGN;
+	name = content->name;
 	switch (st->ss->match_home(st, homehost)
 		?: st->ss->match_home(st, "any")) {
-	case 0:
-		trustworthy = FOREIGN;
-		name = content->name;
-		break;
 	case 1:
 		trustworthy = LOCAL;
 		name = strchr(content->name, ':');
@@ -499,18 +496,15 @@ int Assemble(struct supertype *st, char *mddev,
 		else
 			name = content->name;
 		break;
-	case -1:
-		trustworthy = FOREIGN;
-		break;
 	}
-	if (!auto_assem && trustworthy == FOREIGN)
+	if (!auto_assem)
 		/* If the array is listed in mdadm.conf or on
 		 * command line, then we trust the name
 		 * even if the array doesn't look local
 		 */
 		trustworthy = LOCAL;
 
-	if (content->name[0] == 0 &&
+	if (name[0] == 0 &&
 	    content->array.level == LEVEL_CONTAINER) {
 		name = content->text_version;
 		trustworthy = METADATA;

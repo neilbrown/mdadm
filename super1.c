@@ -435,11 +435,11 @@ static void brief_examine_super1(struct supertype *st, int verbose)
 		printf(" level=%s", c);
 	sb_offset = __le64_to_cpu(sb->super_offset);
 	if (sb_offset <= 4)
-		printf("metadata=1.1 ");
+		printf(" metadata=1.1 ");
 	else if (sb_offset <= 8)
-		printf("metadata=1.2 ");
+		printf(" metadata=1.2 ");
 	else
-		printf("metadata=1.0 ");
+		printf(" metadata=1.0 ");
 	if (verbose)
 		printf("num-devices=%d ", __le32_to_cpu(sb->raid_disks));
 	printf("UUID=");

@@ -1257,7 +1257,8 @@ int main(int argc, char *argv[])
 						char *name;
 						struct map_ent *me;
 						me = map_by_devnum(&map, e->devnum);
-						if (me && me->path)
+						if (me && me->path
+						    && strcmp(me->path, "/unknown") != 0)
 							name = me->path;
 						else
 							name = get_md_name(e->devnum);

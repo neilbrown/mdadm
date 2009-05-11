@@ -92,7 +92,7 @@ int map_write(struct map_ent *mel)
 		fprintf(f, "%s ", mel->metadata);
 		fprintf(f, "%08x:%08x:%08x:%08x ", mel->uuid[0],
 			mel->uuid[1], mel->uuid[2], mel->uuid[3]);
-		fprintf(f, "%s\n", mel->path);
+		fprintf(f, "%s\n", mel->path?:"");
 	}
 	fflush(f);
 	err = ferror(f);
@@ -142,7 +142,7 @@ void map_add(struct map_ent **melp,
 	me->devnum = devnum;
 	strcpy(me->metadata, metadata);
 	memcpy(me->uuid, uuid, 16);
-	me->path = strdup(path);
+	me->path = path ? strdup(path) : NULL;
 	me->next = *melp;
 	me->bad = 0;
 	*melp = me;
@@ -169,9 +169,10 @@ void map_read(struct map_ent **melp)
 		return;
 
 	while (fgets(buf, sizeof(buf), f)) {
+		path[0] = 0;
 		if (sscanf(buf, " %3[mdp]%d %s %x:%x:%x:%x %200s",
 			   nam, &devnum, metadata, uuid, uuid+1,
-			   uuid+2, uuid+3, path) == 8) {
+			   uuid+2, uuid+3, path) >= 7) {
 			if (strncmp(nam, "md", 2) != 0)
 				continue;
 			if (nam[2] == 'p')
@@ -208,7 +209,7 @@ int map_update(struct map_ent **mpp, int devnum, char *metadata,
 			strcpy(mp->metadata, metadata);
 			memcpy(mp->uuid, uuid, 16);
 			free(mp->path);
-			mp->path = strdup(path);
+			mp->path = path ? strdup(path) : NULL;
 			break;
 		}
 	if (!mp)
@@ -280,6 +281,8 @@ struct map_ent *map_by_name(struct map_ent **map, char *name)
 		map_read(map);
 
 	for (mp = *map ; mp ; mp = mp->next) {
+		if (!mp->path)
+			continue;
 		if (strncmp(mp->path, "/dev/md/", 8) != 0)
 			continue;
 		if (strcmp(mp->path+8, name) != 0)
@@ -334,7 +337,7 @@ void RebuildMap(void)
 				path = map_dev(mdp, (-1-md->devnum)<< 6, 0);
 			map_add(&map, md->devnum,
 				info.text_version,
-				info.uuid, path ? : "/unknown");
+				info.uuid, path);
 			st->ss->free_super(st);
 			break;
 		}

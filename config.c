@@ -663,12 +663,15 @@ void programline(char *line)
 }
 
 static char *home_host = NULL;
+static int require_homehost = 1;
 void homehostline(char *line)
 {
 	char *w;
 
 	for (w=dl_next(line); w != line ; w=dl_next(w)) {
-		if (home_host == NULL)
+		if (strcasecmp(w, "<ignore>")==0)
+			require_homehost = 0;
+		else if (home_host == NULL)
 			home_host = strdup(w);
 		else
 			fprintf(stderr, Name ": excess host name on HOMEHOST line: %s - ignored\n",
@@ -788,9 +791,11 @@ char *conf_get_program(void)
 	return alert_program;
 }
 
-char *conf_get_homehost(void)
+char *conf_get_homehost(int *require_homehostp)
 {
 	load_conffile();
+	if (require_homehostp)
+		*require_homehostp = require_homehost;
 	return home_host;
 }
 
@@ -952,4 +957,59 @@ int match_oneof(char *devices, char *devname)
 		devices++;
     }
     return 0;
+}
+
+int devname_matches(char *name, char *match)
+{
+	/* See if the given array name matches the
+	 * given match from config file.
+	 *
+	 * First strip and /dev/md/ or /dev/, then
+	 * see if there might be a numeric match of
+	 *  mdNN with NN
+	 * then just strcmp
+	 */
+	if (strncmp(name, "/dev/md/", 8) == 0)
+		name += 8;
+	else if (strncmp(name, "/dev/", 5) == 0)
+		name += 5;
+
+	if (strncmp(match, "/dev/md/", 8) == 0)
+		match += 8;
+	else if (strncmp(match, "/dev/", 5) == 0)
+		match += 5;
+
+
+	if (strncmp(name, "md", 2) == 0 &&
+	    isdigit(name[2]))
+		name += 2;
+	if (strncmp(match, "md", 2) == 0 &&
+	    isdigit(match[2]))
+		match += 2;
+
+	return (strcmp(name, match) == 0);
+}
+
+int conf_name_is_free(char *name)
+{
+	/* Check if this name is already take by an ARRAY entry in
+	 * the config file.
+	 * It can be taken either by a match on devname, name, or
+	 * even super-minor.
+	 */
+	mddev_ident_t dev;
+
+	load_conffile();
+	for (dev = mddevlist; dev; dev = dev->next) {
+		char nbuf[100];
+		if (dev->devname && devname_matches(name, dev->devname))
+			return 0;
+		if (dev->name[0] && devname_matches(name, dev->name))
+			return 0;
+		sprintf(nbuf, "%d", dev->super_minor);
+		if (dev->super_minor != UnSet &&
+		    devname_matches(name, nbuf))
+			return 0;
+	}
+	return 1;
 }

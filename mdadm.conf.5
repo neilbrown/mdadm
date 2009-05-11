@@ -333,18 +333,32 @@ The
 line gives a default value for the
 .B --homehost=
 option to mdadm.  There should be exactly one other word on the line.
-It should either exactly
+It should either be a host name, or one of the special words
 .B <system>
-or a host name.
+and
+.BR <ignore> .
 If
 .B <system>
 is given, then the
 .BR gethostname ( 2 )
 systemcall is used to get the host name.
-When arrays are created, this host name will be stored in the
-metadata.  When arrays are assembled using auto-assembly, only arrays
-with this host name stored in the metadata will be considered.
 
+If
+.B <ignore>
+is given, then a flag is set so that when arrays are being
+auto-assemble the checking of the recorded
+.I homehost
+is disabled.
+
+When arrays are created, this host name will be stored in the
+metadata.  When arrays are assembled using auto-assembly, arrays which
+do not record the correct homehost name in their metadata will be
+assembled using a 'foreign' name.  A 'foreign' name alway ends with a
+digit string (possibly preceded by an underscore) to differentiate it
+from any possible local name. e.g.
+.B /dev/md/1_1
+or
+.BR /dev/md/home0 .
 .TP
 .B AUTO
 A list of names of metadata format can be given, each preceded by a

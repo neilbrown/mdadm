@@ -37,7 +37,8 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			char *array_name);
 
 int Incremental(char *devname, int verbose, int runstop,
-		struct supertype *st, char *homehost, int autof)
+		struct supertype *st, char *homehost, int require_homehost,
+		int autof)
 {
 	/* Add this device to an array, creating the array if necessary
 	 * and starting the array if sensible or - if runstop>0 - if possible.
@@ -265,12 +266,16 @@ int Incremental(char *devname, int verbose, int runstop,
 	else
 		name_to_use = info.name;
 
-	if ((!name_to_use || name_to_use[0] == 0) &&
+	if (name_to_use[0] == 0 &&
 	    info.array.level == LEVEL_CONTAINER &&
 	    trustworthy == LOCAL) {
 		name_to_use = info.text_version;
 		trustworthy = METADATA;
 	}
+	if (name_to_use[0] && trustworthy != LOCAL &&
+	    ! require_homehost &&
+	    conf_name_is_free(name_to_use))
+		trustworthy = LOCAL;
 
 	/* 4/ Check if array exists.
 	 */
@@ -424,7 +429,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		if (runstop < 0)
 			return 0; /* don't try to assemble */
 		rv = Incremental(chosen_name, verbose, runstop,
-				 NULL, homehost, autof);
+				 NULL, homehost, require_homehost, autof);
 		if (rv == 1)
 			/* Don't fail the whole -I if a subarray didn't
 			 * have enough devices to start yet

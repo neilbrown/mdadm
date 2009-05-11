@@ -91,6 +91,7 @@ int main(int argc, char *argv[])
 
 	char *homehost = NULL;
 	char sys_hostname[256];
+	int require_homehost = 1;
 	char *mailaddr = NULL;
 	char *program = NULL;
 	int delay = 0;
@@ -166,7 +167,10 @@ int main(int argc, char *argv[])
 			continue;
 
 		case HomeHost:
-			homehost = optarg;
+			if (strcasecmp(optarg, "<ignore>") == 0)
+				require_homehost = 0;
+			else
+				homehost = optarg;
 			continue;
 
 		case ':':
@@ -1009,7 +1013,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (homehost == NULL)
-		homehost = conf_get_homehost();
+		homehost = conf_get_homehost(&require_homehost);
 	if (homehost == NULL || strcmp(homehost, "<system>")==0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			sys_hostname[sizeof(sys_hostname)-1] = 0;
@@ -1049,12 +1053,16 @@ int main(int argc, char *argv[])
 					array_ident->autof = autof;
 				rv |= Assemble(ss, devlist->devname, array_ident,
 					       NULL, backup_file,
-					       readonly, runstop, update, homehost, verbose-quiet, force);
+					       readonly, runstop, update,
+					       homehost, require_homehost,
+					       verbose-quiet, force);
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, &ident,
 				      devlist->next, backup_file,
-				      readonly, runstop, update, homehost, verbose-quiet, force);
+				      readonly, runstop, update,
+				      homehost, require_homehost,
+				      verbose-quiet, force);
 		else if (devs_found>0) {
 			if (update && devs_found > 1) {
 				fprintf(stderr, Name ": can only update a single array at a time\n");
@@ -1076,7 +1084,9 @@ int main(int argc, char *argv[])
 					array_ident->autof = autof;
 				rv |= Assemble(ss, dv->devname, array_ident,
 					       NULL, backup_file,
-					       readonly, runstop, update, homehost, verbose-quiet, force);
+					       readonly, runstop, update,
+					       homehost, require_homehost,
+					       verbose-quiet, force);
 			}
 		} else {
 			mddev_ident_t array_list =  conf_get_ident(NULL);
@@ -1104,7 +1114,9 @@ int main(int argc, char *argv[])
 				rv |= Assemble(ss, array_list->devname,
 					       array_list,
 					       NULL, NULL,
-					       readonly, runstop, NULL, homehost, verbose-quiet, force);
+					       readonly, runstop, NULL,
+					       homehost, require_homehost,
+					       verbose-quiet, force);
 				cnt++;
 			}
 			if (homehost && cnt == 0) {
@@ -1122,7 +1134,9 @@ int main(int argc, char *argv[])
 						rv2 = Assemble(ss, NULL,
 							       &ident,
 							       devlist, NULL,
-							       readonly, runstop, NULL, homehost, verbose-quiet, force);
+							       readonly, runstop, NULL,
+							       homehost, require_homehost,
+							       verbose-quiet, force);
 						if (rv2==0) {
 							cnt++;
 							acnt++;
@@ -1143,7 +1157,9 @@ int main(int argc, char *argv[])
 							rv2 = Assemble(ss, NULL,
 								       &ident,
 								       NULL, NULL,
-								       readonly, runstop, "homehost", homehost, verbose-quiet, force);
+								       readonly, runstop, "homehost",
+								       homehost, require_homehost,
+								       verbose-quiet, force);
 							if (rv2==0) {
 								cnt++;
 								acnt++;
@@ -1410,7 +1426,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		rv = Incremental(devlist->devname, verbose-quiet, runstop,
-				 ss, homehost, autof);
+				 ss, homehost, require_homehost, autof);
 		break;
 	case AUTODETECT:
 		autodetect();

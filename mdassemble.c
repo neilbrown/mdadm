@@ -111,7 +111,8 @@ int main(int argc, char *argv[]) {
 				close(mdfd);
 			rv |= Assemble(array_list->st, array_list->devname,
 				       array_list, NULL, NULL,
-				       readonly, runstop, NULL, NULL, verbose, force);
+				       readonly, runstop, NULL, NULL, 0,
+				       verbose, force);
 		}
 	return rv;
 }

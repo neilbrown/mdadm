@@ -724,7 +724,7 @@ extern int Assemble(struct supertype *st, char *mddev,
 		    mddev_ident_t ident,
 		    mddev_dev_t devlist, char *backup_file,
 		    int readonly, int runstop,
-		    char *update, char *homehost,
+		    char *update, char *homehost, int require_homehost,
 		    int verbose, int force);
 
 extern int Build(char *mddev, int chunk, int level, int layout,
@@ -755,7 +755,8 @@ extern int Wait(char *dev);
 extern int WaitClean(char *dev, int verbose);
 
 extern int Incremental(char *devname, int verbose, int runstop,
-		       struct supertype *st, char *homehost, int autof);
+		       struct supertype *st, char *homehost, int require_homehost,
+		       int autof);
 extern int Incremental_container(struct supertype *st, char *devname,
 				 int verbose, int runstop, int autof,
 				 int trustworthy);
@@ -795,9 +796,12 @@ extern void set_conffile(char *file);
 extern char *conf_get_mailaddr(void);
 extern char *conf_get_mailfrom(void);
 extern char *conf_get_program(void);
-extern char *conf_get_homehost(void);
+extern char *conf_get_homehost(int *require_homehostp);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
+extern int conf_name_is_free(char *name);
+extern int devname_matches(char *name, char *match);
+
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);

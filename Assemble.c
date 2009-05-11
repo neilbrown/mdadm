@@ -79,7 +79,7 @@ int Assemble(struct supertype *st, char *mddev,
 	     mddev_ident_t ident,
 	     mddev_dev_t devlist, char *backup_file,
 	     int readonly, int runstop,
-	     char *update, char *homehost,
+	     char *update, char *homehost, int require_homehost,
 	     int verbose, int force)
 {
 	/*
@@ -509,6 +509,12 @@ int Assemble(struct supertype *st, char *mddev,
 		name = content->text_version;
 		trustworthy = METADATA;
 	}
+
+	if (name[0] && trustworthy != LOCAL &&
+	    ! require_homehost &&
+	    conf_name_is_free(name))
+		trustworthy = LOCAL;
+
 	mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
 			    chosen_name);
 	if (mdfd < 0) {

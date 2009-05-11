@@ -515,6 +515,11 @@ int Assemble(struct supertype *st, char *mddev,
 	    conf_name_is_free(name))
 		trustworthy = LOCAL;
 
+	if (trustworthy == LOCAL &&
+	    strchr(name, ':'))
+		/* Ignore 'host:' prefix of name */
+		name = strchr(name, ':')+1;
+
 	mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
 			    chosen_name);
 	if (mdfd < 0) {

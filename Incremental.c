@@ -260,12 +260,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		return Incremental_container(st, devname, verbose, runstop,
 					     autof, trustworthy);
 	}
-	name_to_use = strchr(info.name, ':');
-	if (name_to_use)
-		name_to_use++;
-	else
-		name_to_use = info.name;
 
+	name_to_use = info.name;
 	if (name_to_use[0] == 0 &&
 	    info.array.level == LEVEL_CONTAINER &&
 	    trustworthy == LOCAL) {
@@ -276,6 +272,12 @@ int Incremental(char *devname, int verbose, int runstop,
 	    ! require_homehost &&
 	    conf_name_is_free(name_to_use))
 		trustworthy = LOCAL;
+
+	/* strip "hostname:" prefix from name if we have decided
+	 * to treat it as LOCAL
+	 */
+	if (trustworthy == LOCAL && strchr(name_to_use, ':') != NULL)
+		name_to_use = strchr(name_to_use, ':')+1;
 
 	/* 4/ Check if array exists.
 	 */

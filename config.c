@@ -811,7 +811,7 @@ mddev_ident_t conf_get_ident(char *dev)
 	load_conffile();
 	rv = mddevlist;
 	while (dev && rv && (rv->devname == NULL
-			     || strcmp(dev, rv->devname)!=0))
+			     || !devname_matches(dev, rv->devname)))
 		rv = rv->next;
 	return rv;
 }

@@ -238,11 +238,19 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			use_mdp = 0;
 	}
 	if (num < 0 && trustworthy == LOCAL && name) {
-		/* if name is numeric, use that for num
+		/* if name is numeric, possibly prefixed by 
+		 * 'md' or '/dev/md', use that for num
 		 * if it is not already in use */
 		char *ep;
-		num = strtoul(name, &ep, 10);
-		if (ep == name || *ep)
+		char *n2 = name;
+		if (strncmp(n2, "/dev/", 5) == 0)
+			n2 += 5;
+		if (strncmp(n2, "md", 2) == 0)
+			n2 += 2;
+		if (*n2 == '/')
+			n2++;
+		num = strtoul(n2, &ep, 10);
+		if (ep == n2 || *ep)
 			num = -1;
 		else if (mddev_busy(use_mdp ? (-1-num) : num))
 			num = -1;

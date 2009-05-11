@@ -311,7 +311,10 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				conflict = 0;
 		}
 	}
-	if (cname[0] == 0)
+
+	if (dev)
+		strcpy(chosen, dev);
+	else if (cname[0] == 0)
 		strcpy(chosen, devname);
 
 	/* We have a device number and name.

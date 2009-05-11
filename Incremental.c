@@ -670,7 +670,7 @@ int IncrementalScan(int verbose)
 		/* Ok, we can try this one.   Maybe it needs a bitmap */
 		for (mddev = devs ; mddev ; mddev = mddev->next)
 			if (mddev->devname && me->path
-			    && strcmp(mddev->devname, me->path))
+			    && devname_matches(mddev->devname, me->path))
 				break;
 		if (mddev && mddev->bitmap_file) {
 			/*

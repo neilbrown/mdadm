@@ -168,6 +168,8 @@ int Monitor(mddev_dev_t devlist,
 			struct state *st;
 			if (mdlist->devname == NULL)
 				continue;
+			if (strcasecmp(mdlist->devname, "<ignore>") == 0)
+				continue;
 			st = malloc(sizeof *st);
 			if (st == NULL)
 				continue;

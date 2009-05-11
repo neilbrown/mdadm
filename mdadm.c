@@ -1095,6 +1095,9 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			for (; array_list; array_list = array_list->next) {
+				if (array_list->devname &&
+				    strcasecmp(array_list->devname, "<ignore>") == 0)
+					continue;
 				if (array_list->autof == 0)
 					array_list->autof = autof;
 				

@@ -211,6 +211,15 @@ int Incremental(char *devname, int verbose, int runstop,
 		match = array_list;
 	}
 
+	if (match && match->devname
+	    && strcasecmp(match->devname, "<ignore>") == 0) {
+		if (verbose >= 0)
+			fprintf(stderr, Name ": array containing %s is explicitly"
+				" ignored by mdadm.conf\n",
+				devname);
+		return 1;
+	}
+
 	/* 3a/ if not, check for homehost match.  If no match, continue
 	 * but don't trust the 'name' in the array. Thus a 'random' minor
 	 * number will be assigned, and the device name will be based
@@ -746,7 +755,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 			strcpy(chosen_name, mp->path);
 		} else {
 
-			/* Check in mdadm.conf for devices == devname and
+			/* Check in mdadm.conf for container == devname and
 			 * member == ra->text_version after second slash.
 			 */
 			char *sub = strchr(ra->text_version+1, '/');
@@ -782,6 +791,15 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 					fprintf(stderr, Name ": match found for member %s\n",
 						array_list->member);
 				break;
+			}
+
+			if (match && match->devname &&
+			    strcasecmp(match->devname, "<ignore>") == 0) {
+				if (verbose > 0)
+					fprintf(stderr, Name ": array %s/%s is "
+						"explicitly ignored by mdadm.conf\n",
+						match->container, match->member);
+				return 2;
 			}
 
 			mdfd = create_mddev(match ? match->devname : NULL,

@@ -100,6 +100,8 @@ int main(int argc, char *argv[]) {
 	} else
 		for (; array_list; array_list = array_list->next) {
 			mdu_array_info_t array;
+			if (strcasecmp(array_list->devname, "<ignore>") == 0)
+				continue;
 			mdfd = open_mddev(array_list->devname, 0);
 			if (mdfd >= 0 && ioctl(mdfd, GET_ARRAY_INFO, &array) == 0) {
 				rv |= Manage_ro(array_list->devname, mdfd, -1); /* make it readwrite */

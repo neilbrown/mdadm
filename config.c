@@ -471,7 +471,7 @@ void arrayline(char *line)
 	mis.member = NULL;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
-		if (w[0] == '/') {
+		if (w[0] == '/' || strcasecmp(w, "<ignore>") == 0) {
 			if (mis.devname)
 				fprintf(stderr, Name ": only give one device per ARRAY line: %s and %s\n",
 					mis.devname, w);

@@ -283,16 +283,9 @@ int Incremental(char *devname, int verbose, int runstop,
 	 */
 	map_lock(&map);
 	mp = map_by_uuid(&map, info.uuid);
-	if (mp) {
-		mdfd = open_mddev(mp->path, 0);
-		if (mdfd < 0 && mddev_busy(mp->devnum)) {
-			/* maybe udev hasn't created it yet. */
-			char buf[50];
-			sprintf(buf, "%d:%d", dev2major(mp->devnum),
-				dev2minor(mp->devnum));
-			mdfd = dev_open(buf, O_RDWR);
-		}
-	} else
+	if (mp)
+		mdfd = open_dev(mp->devnum);
+	else
 		mdfd = -1;
 
 	if (mdfd < 0) {
@@ -357,7 +350,10 @@ int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st2;
 		struct mdinfo info2, *d;
 
-		strcpy(chosen_name, mp->path);
+		if (mp->path)
+			strcpy(chosen_name, mp->path);
+		else
+			strcpy(chosen_name, devnum2devname(mp->devnum));
 
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
 
@@ -662,7 +658,7 @@ int IncrementalScan(int verbose)
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = open_mddev(me->path, 0);
+		int mdfd = open_dev(me->devnum);
 
 		if (mdfd < 0)
 			continue;
@@ -673,8 +669,8 @@ int IncrementalScan(int verbose)
 		}
 		/* Ok, we can try this one.   Maybe it needs a bitmap */
 		for (mddev = devs ; mddev ; mddev = mddev->next)
-			if (mddev->devname
-			    && strcmp(mddev->devname, me->path) == 0)
+			if (mddev->devname && me->path
+			    && strcmp(mddev->devname, me->path))
 				break;
 		if (mddev && mddev->bitmap_file) {
 			/*
@@ -708,11 +704,12 @@ int IncrementalScan(int verbose)
 				if (verbose >= 0)
 					fprintf(stderr, Name
 						": started array %s\n",
-						me->path);
+						me->path ?: devnum2devname(me->devnum));
 			} else {
 				fprintf(stderr, Name
 					": failed to start array %s: %s\n",
-					me->path, strerror(errno));
+					me->path ?: devnum2devname(me->devnum),
+					strerror(errno));
 				rv = 1;
 			}
 		}
@@ -768,7 +765,10 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 
 		if (mp) {
 			mdfd = open_dev(mp->devnum);
-			strcpy(chosen_name, mp->path);
+			if (mp->path)
+				strcpy(chosen_name, mp->path);
+			else
+				strcpy(chosen_name, devnum2devname(mp->devnum));
 		} else {
 
 			/* Check in mdadm.conf for container == devname and

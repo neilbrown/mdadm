@@ -95,14 +95,20 @@ DEVICE partitions
 The ARRAY lines identify actual arrays.  The second word on the line
 may be the name of the device where the array is normally
 assembled, such as
-.BR  /dev/md1 .
+.B /dev/md1
+or
+.BR /dev/md/backup .
+If the name does not start with a slash
+.RB (' / '),
+it is treated as being in
+.BR /dev/md/ .
 Alternately the word
 .B <ignore>
 (complete with angle brackets) can be given in which case any array
 which matches the rest of the line will never be automatically assembled.
 If no device name is given,
 .I mdadm
-will use various heuristic to determine an appropriate name.
+will use various heuristics to determine an appropriate name.
 .PP
 Subsequent words identify the array, or identify the array as a member
 of a group. If multiple identities are given,

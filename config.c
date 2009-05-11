@@ -448,6 +448,17 @@ void devline(char *line)
 mddev_ident_t mddevlist = NULL;
 mddev_ident_t *mddevlp = &mddevlist;
 
+static int is_number(char *w)
+{
+	/* check if there are 1 or more digits and nothing else */
+	int digits = 0;
+	while (*w && isdigit(*w)) {
+		digits++;
+		w++;
+	}
+	return (digits && ! *w);
+}
+
 void arrayline(char *line)
 {
 	char *w;
@@ -473,11 +484,35 @@ void arrayline(char *line)
 	mis.member = NULL;
 
 	for (w=dl_next(line); w!=line; w=dl_next(w)) {
-		if (w[0] == '/' || strcasecmp(w, "<ignore>") == 0) {
-			if (mis.devname)
-				fprintf(stderr, Name ": only give one device per ARRAY line: %s and %s\n",
-					mis.devname, w);
-			else mis.devname = w;
+		if (w[0] == '/' || strchr(w, '=') == NULL) {
+			/* This names the device, or is '<ignore>'.
+			 * The rules match those in create_mddev.
+			 * 'w' must be:
+			 *  /dev/md/{anything}
+			 *  /dev/mdNN
+			 *  /dev/md_dNN
+			 *  <ignore>
+			 *  or anything that doesn't start '/' or '<'
+			 */
+			if (strcasecmp(w, "<ignore>") == 0 ||
+			    strncmp(w, "/dev/md/", 8) == 0 ||
+			    (w[0] != '/' && w[0] != '<') ||
+			    (strncmp(w, "/dev/md", 7) == 0 && 
+			     is_number(w+7)) ||
+			    (strncmp(w, "/dev/md_d", 9) == 0 &&
+			     is_number(w+9))
+				) {
+				/* This is acceptable */;
+				if (mis.devname)
+					fprintf(stderr, Name ": only give one "
+						"device per ARRAY line: %s and %s\n",
+						mis.devname, w);
+				else
+					mis.devname = w;
+			}else {
+				fprintf(stderr, Name ": %s is an invalid name for "
+					"an md device - ignored.\n", w);
+			}
 		} else if (strncasecmp(w, "uuid=", 5)==0 ) {
 			if (mis.uuid_set)
 				fprintf(stderr, Name ": only specify uuid once, %s ignored.\n",

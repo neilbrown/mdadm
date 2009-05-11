@@ -173,7 +173,13 @@ int Monitor(mddev_dev_t devlist,
 			st = malloc(sizeof *st);
 			if (st == NULL)
 				continue;
-			st->devname = strdup(mdlist->devname);
+			if (mdlist->devname[0] == '/')
+				st->devname = strdup(mdlist->devname);
+			else {
+				st->devname = malloc(8+strlen(mdlist->devname)+1);
+				strcpy(strcpy(st->devname, "/dev/md/"),
+				       mdlist->devname);
+			}
 			st->utime = 0;
 			st->next = statelist;
 			st->err = 0;

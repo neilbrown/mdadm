@@ -735,7 +735,8 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 		printf("      Signature : %x\n", __le32_to_cpu(log->signature));
 		printf("    Entry Count : %d\n", __le32_to_cpu(log->entry_count));
 		printf("   Spare Blocks : %d\n",  __le32_to_cpu(log->reserved_spare_block_count));
-		printf("    First Spare : %llx\n", __le64_to_cpu(log->first_spare_lba));
+		printf("    First Spare : %llx\n",
+		       (unsigned long long) __le64_to_cpu(log->first_spare_lba));
 	}
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct mdinfo info;

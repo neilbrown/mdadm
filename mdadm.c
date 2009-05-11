@@ -378,7 +378,8 @@ int main(int argc, char *argv[])
 
 
 		case O(GROW,'z'):
-		case O(CREATE,'z'): /* size */
+		case O(CREATE,'z'):
+		case O(BUILD,'z'): /* size */
 			if (size >= 0) {
 				fprintf(stderr, Name ": size may only be specified once. "
 					"Second value is %s.\n", optarg);
@@ -1202,7 +1203,7 @@ int main(int argc, char *argv[])
 		rv = Build(devlist->devname, chunk, level, layout,
 			   raiddisks, devlist->next, assume_clean,
 			   bitmap_file, bitmap_chunk, write_behind,
-			   delay, verbose-quiet, autof);
+			   delay, verbose-quiet, autof, size);
 		break;
 	case CREATE:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;

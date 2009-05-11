@@ -127,13 +127,13 @@ mdadm.tcc : $(SRCS) mdadm.h
 
 mdadm.klibc : $(SRCS) mdadm.h
 	rm -f $(OBJS) 
-	gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
+	$(CC) -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
 mdadm.Os : $(SRCS) mdadm.h
-	gcc -o mdadm.Os $(CFLAGS)  -DHAVE_STDINT_H -Os $(SRCS)
+	$(CC) -o mdadm.Os $(CFLAGS)  -DHAVE_STDINT_H -Os $(SRCS)
 
 mdadm.O2 : $(SRCS) mdadm.h
-	gcc -o mdadm.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 $(SRCS)
+	$(CC) -o mdadm.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 $(SRCS)
 
 mdmon : $(MON_OBJS)
 	$(CC) $(LDFLAGS) -o mdmon $(MON_OBJS) $(LDLIBS)

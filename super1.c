@@ -1204,15 +1204,18 @@ static struct supertype *match_metadata_desc1(char *arg)
 	/* Eliminate pointless leading 0 from some versions of mdadm -D */
 	if (strncmp(arg, "01.", 3) == 0)
 		arg++;
-	if (strcmp(arg, "1.0") == 0) {
+	if (strcmp(arg, "1.0") == 0 ||
+	    strcmp(arg, "1.00") == 0) {
 		st->minor_version = 0;
 		return st;
 	}
-	if (strcmp(arg, "1.1") == 0) {
+	if (strcmp(arg, "1.1") == 0 ||
+	    strcmp(arg, "1.01") == 0) {
 		st->minor_version = 1;
 		return st;
 	}
-	if (strcmp(arg, "1.2") == 0) {
+	if (strcmp(arg, "1.2") == 0 ||
+	    strcmp(arg, "1.02") == 0) {
 		st->minor_version = 2;
 		return st;
 	}

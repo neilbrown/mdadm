@@ -263,6 +263,13 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": no recogniseable superblock on %s\n",
 					devname);
 			tmpdev->used = 2;
+		} else if (auto_assem && st == NULL &&
+			   !conf_test_metadata(tst->ss->name)) {
+			if (report_missmatch)
+				fprintf(stderr, Name ": %s has metadata type %s for which "
+					"auto-assembly is disabled\n",
+					devname, tst->ss->name);
+			tmpdev->used = 2;
 		} else if (tst->ss->load_super(tst,dfd, NULL)) {
 			if (report_missmatch)
 				fprintf( stderr, Name ": no RAID superblock on %s\n",

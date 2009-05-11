@@ -339,6 +339,39 @@ When arrays are created, this host name will be stored in the
 metadata.  When arrays are assembled using auto-assembly, only arrays
 with this host name stored in the metadata will be considered.
 
+.TP
+.B AUTO
+A list of names of metadata format can be given, each preceded by a
+plus or minus sign.  Also the word
+.I all
+preceded by plus or minus is allowed and is usually last.
+
+When
+.I mdadm
+is auto-assembling an array, with via
+.I --assemble
+or
+.I --incremental
+and it finds metadata of a given type, it checks that metadata type
+against those listed in this line.  The first match wins, where
+.I all
+matches anything.
+If a match is found that was preceded by a plus sign, the auto
+assembly is allowed.  If the match was preceded by a minus sign, the
+auto assembly is disallowed.  If no match is found, the auto assembly
+is allowed.
+
+This can be used to disable all auto-assembly (so that only arrays
+explicitly listed in mdadm.conf or on the command line are assembled),
+or to disable assembly of certain metadata types which might be
+handled by other software.
+
+The known metadata types are
+.BR 0.90 ,
+.BR 1.x ,
+.BR ddf ,
+.BR imsm .
+
 .SH EXAMPLE
 DEVICE /dev/sd[bcdjkl]1
 .br
@@ -385,6 +418,8 @@ PROGRAM /usr/sbin/handle\-mdadm\-events
 CREATE group=system mode=0640 auto=part\-8
 .br
 HOMEHOST <system>
+.br
+AUTO +1.x -all
 
 .SH SEE ALSO
 .BR mdadm (8),

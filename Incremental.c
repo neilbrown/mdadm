@@ -220,6 +220,15 @@ int Incremental(char *devname, int verbose, int runstop,
 		return 1;
 	}
 
+	if (!match && !conf_test_metadata(st->ss->name)) {
+		if (verbose >= 1)
+			fprintf(stderr, Name
+				": %s has metadata type %s for which "
+				"auto-assembly is disabled\n",
+				devname, st->ss->name);
+		return 1;
+	}
+
 	/* 3a/ if not, check for homehost match.  If no match, continue
 	 * but don't trust the 'name' in the array. Thus a 'random' minor
 	 * number will be assigned, and the device name will be based

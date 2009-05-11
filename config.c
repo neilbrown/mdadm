@@ -56,7 +56,7 @@
  *  with a key word, and not be indented, or must start with a
  *  non-key-word and must be indented.
  *
- * Keywords are DEVICE and ARRAY
+ * Keywords are DEVICE and ARRAY ... and several others.
  * DEV{ICE} introduces some devices that might contain raid components.
  * e.g.
  *   DEV style=0 /dev/sda* /dev/hd*
@@ -79,7 +79,8 @@
 char DefaultConfFile[] = CONFFILE;
 char DefaultAltConfFile[] = CONFFILE2;
 
-enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev, Homehost, LTEnd };
+enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
+		Homehost, AutoMode, LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -88,6 +89,7 @@ char *keywords[] = {
 	[Program]  = "program",
 	[CreateDev]= "create",
 	[Homehost] = "homehost",
+	[AutoMode] = "auto",
 	[LTEnd]    = NULL
 };
 
@@ -639,6 +641,16 @@ void homehostline(char *line)
 	}
 }
 
+static char *auto_options = NULL;
+void autoline(char *line)
+{
+	if (auto_options) {
+		fprintf(stderr, Name ": AUTO line may only be give once."
+			"  Subsequent lines ignored\n");
+		return;
+	}
+	auto_options = line;		
+}
 
 int loaded = 0;
 
@@ -708,6 +720,9 @@ void load_conffile(void)
 			break;
 		case Homehost:
 			homehostline(line);
+			break;
+		case AutoMode:
+			autoline(line);
 			break;
 		default:
 			fprintf(stderr, Name ": Unknown keyword %s\n", line);
@@ -832,6 +847,52 @@ int conf_test_dev(char *devname)
 	return 0;
 }
 
+int conf_test_metadata(const char *version)
+{
+	/* Check if the given metadata version is allowed
+	 * to be auto-assembled.
+	 * The default is 'yes' but the 'auto' line might over-ride that.
+	 * Word in auto_options are processed in order with the first
+	 * match winning.
+	 * word can be:
+	 *   +version   - that version can be assembled
+	 *   -version   - that version cannot be auto-assembled
+	 *   yes or +all - any other version can be assembled
+	 *   no or -all  - no other version can be assembled.
+	 */
+	char *w;
+	load_conffile();
+	if (!auto_options)
+		return 1;
+	for (w = dl_next(auto_options); w != auto_options; w = dl_next(w)) {
+		int rv;
+		if (strcasecmp(w, "yes") == 0)
+			return 1;
+		if (strcasecmp(w, "no") == 0)
+			return 0;
+		if (w[0] == '+')
+			rv = 1;
+		else if (w[0] == '-')
+			rv = 0;
+		else continue;
+
+		if (strcasecmp(w+1, "all") == 0)
+			return rv;
+		if (strcasecmp(w+1, version) == 0)
+			return rv;
+		/* allow  '0' to match version '0.90'
+		 * and 1 or 1.whatever to match version '1.x'
+		 */
+		if (version[1] == '.' &&
+		    strlen(w+1) == 1 &&
+		    w[1] == version[0])
+			return rv;
+		if (version[1] == '.' && version[2] == 'x' &&
+		    strncmp(w+1, version, 2) == 0)
+			return rv;
+	}
+	return 1;
+}
 
 int match_oneof(char *devices, char *devname)
 {

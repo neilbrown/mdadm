@@ -511,14 +511,13 @@ int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, 
 /*
  * Find a block device with the right major/minor number.
  * If we find multiple names, choose the shortest.
- * If we find a non-standard name, it is probably there
- * deliberately so prefer it over a standard name.
+ * If we find a name in /dev/md/, we prefer that.
  * This applies only to names for MD devices.
  */
 char *map_dev(int major, int minor, int create)
 {
 	struct devmap *p;
-	char *std = NULL, *nonstd=NULL;
+	char *regular = NULL, *preferred=NULL;
 	int did_check = 0;
 
 	if (major == 0 && minor == 0)
@@ -545,27 +544,27 @@ char *map_dev(int major, int minor, int create)
 	for (p=devlist; p; p=p->next)
 		if (p->major == major &&
 		    p->minor == minor) {
-			if (is_standard(p->name, NULL)) {
-				if (std == NULL ||
-				    strlen(p->name) < strlen(std))
-					std = p->name;
+			if (strncmp(p->name, "/dev/md/",8) == 0) {
+				if (preferred == NULL ||
+				    strlen(p->name) < strlen(preferred))
+					preferred = p->name;
 			} else {
-				if (nonstd == NULL ||
-				    strlen(p->name) < strlen(nonstd))
-					nonstd = p->name;
+				if (regular == NULL ||
+				    strlen(p->name) < strlen(regular))
+					regular = p->name;
 			}
 		}
-	if (!std && !nonstd && !did_check) {
+	if (!regular && !preferred && !did_check) {
 		devlist_ready = 0;
 		goto retry;
 	}
-	if (create && !std && !nonstd) {
+	if (create && !regular && !preferred) {
 		static char buf[30];
 		snprintf(buf, sizeof(buf), "%d:%d", major, minor);
-		nonstd = buf;
+		regular = buf;
 	}
 
-	return nonstd ? nonstd : std;
+	return preferred ? preferred : regular;
 }
 
 unsigned long calc_csum(void *super, int bytes)

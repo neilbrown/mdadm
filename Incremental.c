@@ -391,14 +391,14 @@ int Incremental(char *devname, int verbose, int runstop,
 		/* add disk needs to know about containers */
 		if (st->ss->external)
 			sra->array.level = LEVEL_CONTAINER;
-		err = add_disk(mdfd, st2, sra, &info2);
+		err = add_disk(mdfd, st, sra, &info2);
 		if (err < 0 && errno == EBUSY) {
 			/* could be another device present with the same
 			 * disk.number. Find and reject any such
 			 */
 			find_reject(mdfd, st, sra, info.disk.number,
 				    info.events, verbose, chosen_name);
-			err = add_disk(mdfd, st2, sra, &info2);
+			err = add_disk(mdfd, st, sra, &info2);
 		}
 		if (err < 0) {
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",

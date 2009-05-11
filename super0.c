@@ -232,7 +232,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	}
 }
 
-static void brief_examine_super0(struct supertype *st)
+static void brief_examine_super0(struct supertype *st, int verbose)
 {
 	mdp_super_t *sb = st->sb;
 	char *c=map_num(pers, sb->level);
@@ -240,14 +240,18 @@ static void brief_examine_super0(struct supertype *st)
 
 	sprintf(devname, "/dev/md%d", sb->md_minor);
 
-	printf("ARRAY %s level=%s num-devices=%d UUID=",
-	       devname,
-	       c?c:"-unknown-", sb->raid_disks);
+	if (verbose) {
+		printf("ARRAY %s level=%s num-devices=%d",
+		       devname,
+		       c?c:"-unknown-", sb->raid_disks);
+	} else
+		printf("ARRAY %s", devname);
+
 	if (sb->minor_version >= 90)
-		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
+		printf(" UUID=%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
 		       sb->set_uuid2, sb->set_uuid3);
 	else
-		printf("%08x", sb->set_uuid0);
+		printf(" UUID=%08x", sb->set_uuid0);
 	printf("\n");
 }
 

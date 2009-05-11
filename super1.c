@@ -414,7 +414,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 }
 
 
-static void brief_examine_super1(struct supertype *st)
+static void brief_examine_super1(struct supertype *st, int verbose)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	int i;
@@ -430,9 +430,9 @@ static void brief_examine_super1(struct supertype *st)
 	else
 		nm = NULL;
 
-	printf("ARRAY%s%s level=%s ",
-	       nm ? " /dev/md/":"", nm,
-	       c?c:"-unknown-");
+	printf("ARRAY%s%s", nm ? " /dev/md/":"", nm);
+	if (verbose && c)
+		printf(" level=%s", c);
 	sb_offset = __le64_to_cpu(sb->super_offset);
 	if (sb_offset <= 4)
 		printf("metadata=1.1 ");
@@ -440,7 +440,9 @@ static void brief_examine_super1(struct supertype *st)
 		printf("metadata=1.2 ");
 	else
 		printf("metadata=1.0 ");
-	printf("num-devices=%d UUID=", __le32_to_cpu(sb->raid_disks));
+	if (verbose)
+		printf("num-devices=%d ", __le32_to_cpu(sb->raid_disks));
+	printf("UUID=");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
 		printf("%02x", sb->set_uuid[i]);

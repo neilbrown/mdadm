@@ -196,14 +196,16 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 
 	if (brief) {
 		mdu_bitmap_file_t bmf;
-		if (array.raid_disks)
-			printf("ARRAY %s level=%s num-devices=%d", dev,
-			       c?c:"-unknown-",
-			       array.raid_disks );
-		else
-			printf("ARRAY %s level=container num-devices=%d",
-			       dev, array.nr_disks);
-
+		printf("ARRAY %s", dev);
+		if (brief > 1) {
+			if (array.raid_disks)
+				printf("level=%s num-devices=%d",
+				       c?c:"-unknown-",
+				       array.raid_disks );
+			else
+				printf("level=container num-devices=%d",
+				       array.nr_disks);
+		}
 		if (container) {
 			printf(" container=%s", container);
 			printf(" member=%s", member);

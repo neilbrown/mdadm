@@ -1162,7 +1162,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info);
 
 static void uuid_from_super_ddf(struct supertype *st, int uuid[4]);
 
-static void brief_examine_super_ddf(struct supertype *st)
+static void brief_examine_super_ddf(struct supertype *st, int verbose)
 {
 	/* We just write a generic DDF ARRAY entry
 	 */

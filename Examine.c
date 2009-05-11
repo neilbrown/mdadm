@@ -141,7 +141,7 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
-			ap->st->ss->brief_examine_super(ap->st);
+			ap->st->ss->brief_examine_super(ap->st, brief > 1);
 			if (ap->spares) printf("   spares=%d", ap->spares);
 			if (brief > 1) {
 				printf("   devices");

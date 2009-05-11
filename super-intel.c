@@ -753,7 +753,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	}
 }
 
-static void brief_examine_super_imsm(struct supertype *st)
+static void brief_examine_super_imsm(struct supertype *st, int verbose)
 {
 	/* We just write a generic IMSM ARRAY entry */
 	struct mdinfo info;

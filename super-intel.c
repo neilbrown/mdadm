@@ -2405,13 +2405,16 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				"in a raid1 volume\n");
 		return 0;
 	}
+
+	map->raid_level = info->level;
 	if (info->level == 10) {
 		map->raid_level = 1;
 		map->num_domains = info->raid_disks / 2;
-	} else {
-		map->raid_level = info->level;
+	} else if (info->level == 1)
+		map->num_domains = info->raid_disks;
+	else
 		map->num_domains = 1;
-	}
+
 	num_data_stripes = info_to_num_data_stripes(info, map->num_domains);
 	map->num_data_stripes = __cpu_to_le32(num_data_stripes);
 

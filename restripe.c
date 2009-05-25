@@ -30,7 +30,8 @@
  *
  */
 
-static int geo_map(int block, unsigned long long stripe, int raid_disks, int level, int layout)
+static int geo_map(int block, unsigned long long stripe, int raid_disks,
+		   int level, int layout)
 {
 	/* On the given stripe, find which disk in the array will have
 	 * block numbered 'block'.
@@ -42,6 +43,7 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 	switch(level*100 + layout) {
 	case 000:
 	case 400:
+	case 500 + ALGORITHM_PARITY_N:
 		/* raid 4 isn't messed around by parity blocks */
 		if (block == -1)
 			return raid_disks-1; /* parity block */
@@ -70,6 +72,65 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 		if (block == -1) return pd;
 		return (pd + 1 + block) % raid_disks;
 
+	case 500 + ALGORITHM_PARITY_0:
+		return block + 1;
+
+
+	case 600 + ALGORITHM_PARITY_N_6:
+		if (block == -2)
+			return raid_disks - 1;
+		if (block == -1)
+			return raid_disks - 2; /* parity block */
+		return block;
+	case 600 + ALGORITHM_LEFT_ASYMMETRIC_6:
+		if (block == -2)
+			return raid_disks - 1;
+		raid_disks--;
+		pd = (raid_disks-1) - stripe % raid_disks;
+		if (block == -1) return pd;
+		if (block >= pd)
+			block++;
+		return block;
+
+	case 600 + ALGORITHM_RIGHT_ASYMMETRIC_6:
+		if (block == -2)
+			return raid_disks - 1;
+		raid_disks--;
+		pd = stripe % raid_disks;
+		if (block == -1) return pd;
+		if (block >= pd)
+			block++;
+		return block;
+
+	case 600 + ALGORITHM_LEFT_SYMMETRIC_6:
+		if (block == -2)
+			return raid_disks - 1;
+		raid_disks--;
+		pd = (raid_disks - 1) - stripe % raid_disks;
+		if (block == -1) return pd;
+		return (pd + 1 + block) % raid_disks;
+
+	case 600 + ALGORITHM_RIGHT_SYMMETRIC_6:
+		if (block == -2)
+			return raid_disks - 1;
+		raid_disks--;
+		pd = stripe % raid_disks;
+		if (block == -1) return pd;
+		return (pd + 1 + block) % raid_disks;
+
+	case 600 + ALGORITHM_PARITY_0_6:
+		if (block == -2)
+			return raid_disks - 1;
+		return block + 1;
+
+
+	case 600 + ALGORITHM_PARITY_0:
+		if (block == -1)
+			return 0;
+		if (block == -2)
+			return 1;
+		return block + 2;
+
 	case 600 + ALGORITHM_LEFT_ASYMMETRIC:
 		pd = raid_disks - 1 - (stripe % raid_disks);
 		if (block == -1) return pd;
@@ -80,6 +141,8 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 			return block+2;
 		return block;
 
+	case 600 + ALGORITHM_ROTATING_ZERO_RESTART:
+		/* Different order for calculating Q, otherwize same as ... */
 	case 600 + ALGORITHM_RIGHT_ASYMMETRIC:
 		pd = stripe % raid_disks;
 		if (block == -1) return pd;
@@ -101,8 +164,42 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks, int lev
 		if (block == -1) return pd;
 		if (block == -2) return (pd+1) % raid_disks;
 		return (pd + 2 + block) % raid_disks;
+
+
+	case 600 + ALGORITHM_ROTATING_N_RESTART:
+		/* Same a left_asymmetric, by first stripe is
+		 * D D D P Q  rather than
+		 * Q D D D P
+		 */
+		pd = raid_disks - 1 - ((stripe + 1) % raid_disks);
+		if (block == -1) return pd;
+		if (block == -2) return (pd+1) % raid_disks;
+		if (pd == raid_disks - 1)
+			return block+1;
+		if (block >= pd)
+			return block+2;
+		return block;
+
+	case 600 + ALGORITHM_ROTATING_N_CONTINUE:
+		/* Same as left_symmetric but Q is before P */
+		pd = raid_disks - 1 - (stripe % raid_disks);
+		if (block == -1) return pd;
+		if (block == -2) return (pd+raid_disks-1) % raid_disks;
+		return (pd + 1 + block) % raid_disks;
 	}
 	return -1;
+}
+static int is_ddf(int layout)
+{
+	switch (layout)
+	{
+	default:
+		return 0;
+	case ALGORITHM_ROTATING_N_CONTINUE:
+	case ALGORITHM_ROTATING_N_RESTART:
+	case ALGORITHM_ROTATING_ZERO_RESTART:
+		return 1;
+	}
 }
 
 
@@ -205,16 +302,20 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 	char *stripe_buf = malloc(raid_disks * chunk_size);
 	char **stripes = malloc(raid_disks * sizeof(char*));
 	char **blocks = malloc(raid_disks * sizeof(char*));
+	char *zero = malloc(chunk_size);
 	int i;
 
 	int data_disks = raid_disks - (level == 0 ? 0 : level <=5 ? 1 : 2);
 
-	if (stripe_buf == NULL || stripes == NULL || blocks == NULL) {
+	if (stripe_buf == NULL || stripes == NULL || blocks == NULL
+	    || zero == NULL) {
 		free(stripe_buf);
 		free(stripes);
 		free(blocks);
+		free(zero);
 		return -2;
 	}
+	memset(zero, 0, chunk_size);
 	for (i=0; i<raid_disks; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 	while (length > 0) {
@@ -226,7 +327,6 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		for (i=0; i < data_disks; i++) {
 			int disk = geo_map(i, start/chunk_size/data_disks,
 					   raid_disks, level, layout);
-			blocks[i] = stripes[disk];
 			if (lseek64(source, read_offset, 0) != read_offset)
 				return -1;
 			if (read(source, stripes[disk], chunk_size) != chunk_size)
@@ -240,6 +340,8 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		case 5:
 			disk = geo_map(-1, start/chunk_size/data_disks,
 					   raid_disks, level, layout);
+			for (i = 0; i < data_disks; i++)
+				blocks[i] = stripes[(disk+1+i) % raid_disks];
 			xor_blocks(stripes[disk], blocks, data_disks, chunk_size);
 			break;
 		case 6:
@@ -247,9 +349,27 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 				       raid_disks, level, layout);
 			qdisk = geo_map(-2, start/chunk_size/data_disks,
 				       raid_disks, level, layout);
+			if (is_ddf(layout)) {
+				/* q over 'raid_disks' blocks, in device order.
+				 * 'p' and 'q' get to be all zero
+				 */
+				for (i = 0; i < raid_disks; i++)
+					if (i == disk || i == qdisk)
+						blocks[i] = zero;
+					else
+						blocks[i] = stripes[i];
+				qsyndrome(stripes[disk], stripes[qdisk],
+					  blocks, raid_disks, chunk_size);
+			} else {
+				/* for md' q is over 'data_disks' blocks,
+				 * starting immediately after 'q'
+				 */
+				for (i = 0; i < data_disks; i++)
+					blocks[i] = stripes[(qdisk+1+i) % raid_disks];
 
-			qsyndrome(stripes[disk], stripes[qdisk], blocks,
-				  data_disks, chunk_size);
+				qsyndrome(stripes[disk], stripes[qdisk], blocks,
+					  data_disks, chunk_size);
+			}
 			break;
 		}
 		for (i=0; i < raid_disks ; i++)

@@ -11,6 +11,8 @@ md \- Multiple Device driver aka Linux Software RAID
 .BI /dev/md n
 .br
 .BI /dev/md/ n
+.br
+.BR /dev/md/ name
 .SH DESCRIPTION
 The
 .B md
@@ -37,15 +39,17 @@ including RAID0 (striped array), LINEAR (catenated array),
 MULTIPATH (a set of different interfaces to the same device),
 and FAULTY (a layer over a single device into which errors can be injected).
 
-.SS MD SUPER BLOCK
-Each device in an array may have a
-.I superblock
-which records information about the structure and state of the array.
+.SS MD METADATA
+Each device in an array may have some 
+.I metadata
+stored in the device.  This metadata is sometimes called a
+.BR superblock .
+The metadata records information about the structure and state of the array.
 This allows the array to be reliably re-assembled after a shutdown.
 
 From Linux kernel version 2.6.10,
 .B md
-provides support for two different formats of this superblock, and
+provides support for two different formats of metadata, and
 other formats can be added.  Prior to this release, only one format is
 supported.
 
@@ -66,11 +70,11 @@ normally 1K long, but can be longer.  It is normally stored between 8K
 and 12K from the end of the device, on a 4K boundary, though
 variations can be stored at the start of the device (version 1.1) or 4K from
 the start of the device (version 1.2).
-This superblock format stores multibyte data in a
+This metadata format stores multibyte data in a
 processor-independent format and supports up to hundreds of
 component devices (version 0.90 only supports 28).
 
-The superblock contains, among other things:
+The metadata contains, among other things:
 .TP
 LEVEL
 The manner in which the devices are arranged into the array
@@ -80,6 +84,7 @@ UUID
 a 128 bit Universally Unique Identifier that identifies the array that
 contains this device.
 
+.PP
 When a version 0.90 array is being reshaped (e.g. adding extra devices
 to a RAID5), the version number is temporarily set to 0.91.  This
 ensures that if the reshape process is stopped in the middle (e.g. by
@@ -88,7 +93,7 @@ not support reshaping, then the array will not be assembled (which
 would cause data corruption) but will be left untouched until a kernel
 that can complete the reshape processes is used.
 
-.SS ARRAYS WITHOUT SUPERBLOCKS
+.SS ARRAYS WITHOUT METADATA
 While it is usually best to create arrays with superblocks so that
 they can be assembled reliably, there are some circumstances when an
 array without superblocks is preferred.  These include:
@@ -118,6 +123,40 @@ configuration that does not use a superblock, and to maintain the state of
 the array elsewhere.  While not encouraged for general us, it does
 have special-purpose uses and is supported.
 
+.SS ARRAYS WITH EXTERNAL METADATA
+
+From release 2.6.28, the
+.I md
+driver supports arrays with externally managed metadata.  That is,
+the metadata is not managed by the kernel by rather by a user-space
+program which is external to the kernel.  This allows support for a
+variety of metadata formats without cluttering the kernel with lots of
+details.
+.PP
+.I md
+is able to communicate with the user-space program through various
+sysfs attributes so that it can make appropriate changes to the
+metadata \- for example to make a device as faulty.  When necessary,
+.I md
+will wait for the program to acknowledge the event by writing to a
+sysfs attribute.
+The manual page for
+.IR mdmon (8)
+contains more detail about this interaction.
+
+.SS CONTAINERS
+Many metadata formats use a single block of metadata to describe a
+number of different arrays which all use the same set of devices.
+In this case it is helpful for the kernel to know about the full set
+of devices as a whole.  This set is known to md as a
+.IR container .
+A container is an
+.I md
+array with externally managed metadata and with device offset and size
+so that it just covers the metadata part of the devices.  The
+remainder of each device is available to be incorporated into various
+arrays.
+
 .SS LINEAR
 
 A linear array simply catenates the available space on each
@@ -138,12 +177,12 @@ A RAID0 array (which has zero redundancy) is also known as a
 striped array.
 A RAID0 array is configured at creation with a
 .B "Chunk Size" 
-which must be a power of two, and at least 4 kibibytes.
+which must be a power of two (prior to Linux 2.6.31), and at least 4
+kibibytes.
 
 The RAID0 driver assigns the first chunk of the array to the first
 device, the second chunk to the second device, and so on until all
-drives have been assigned one chunk.  This collection of chunks forms
-a
+drives have been assigned one chunk.  This collection of chunks forms a
 .BR stripe .
 Further chunks are gathered into stripes in the same way, and are
 assigned to the remaining space in the drives.
@@ -174,6 +213,11 @@ sequential input will not be accelerated (e.g. a single dd), but
 multiple sequential streams or a random workload will use more than one
 spindle. In theory, having an N-disk RAID1 will allow N sequential
 threads to read from all disks.
+
+Individual devices in a RAID1 can be marked as "write-mostly".
+This drives are excluded from the normal read balancing and will only
+be read from when there is no other option.  This can be useful for
+devices connected over a slow link.
 
 .SS RAID4
 
@@ -274,7 +318,11 @@ A MULTIPATH array is composed of a number of logically different
 devices, often fibre channel interfaces, that all refer the the same
 real device. If one of these interfaces fails (e.g. due to cable
 problems), the multipath driver will attempt to redirect requests to
-another interface. 
+another interface.
+
+The MULTIPATH drive is not receiving any ongoing development and
+should be considered a legacy driver.  The device-mapper based
+multipath drivers should be preferred for new installations.
 
 .SS FAULTY
 The FAULTY md module is provided for testing purposes.  A faulty array
@@ -569,6 +617,8 @@ in
 
 .TP
 .B md_mod.start_ro=1
+.TP
+.B /sys/module/md_mod/parameters/start_ro
 This tells md to start all arrays in read-only mode.  This is a soft
 read-only that will automatically switch to read-write on the first
 write request.  However until that write request, nothing is written
@@ -577,6 +627,8 @@ operation is started.
 
 .TP
 .B md_mod.start_dirty_degraded=1
+.TP
+.B /sys/module/md_mod/parameters/start_dirty_degraded
 As mentioned above, md will not normally start a RAID4, RAID5, or
 RAID6 that is both dirty and degraded as this situation can imply
 hidden data loss.  This can be awkward if the root filesystem is
@@ -626,13 +678,13 @@ A readable and writable file that reflects the current "goal" rebuild
 speed for times when non-rebuild activity is current on an array.
 The speed is in Kibibytes per second, and is a per-device rate, not a
 per-array rate (which means that an array with more disks will shuffle
-more data for a given speed).   The default is 100.
+more data for a given speed).   The default is 1000.
 
 .TP
 .B /proc/sys/dev/raid/speed_limit_max
 A readable and writable file that reflects the current "goal" rebuild
 speed for times when no non-rebuild activity is current on an array.
-The default is 100,000.
+The default is 200,000.
 
 .SH SEE ALSO
 .BR mdadm (8),

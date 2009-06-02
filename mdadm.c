@@ -343,9 +343,11 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+#if 0
 		case O(ASSEMBLE,AutoHomeHost):
 			auto_update_home = 1;
 			continue;
+#endif
 		case O(INCREMENTAL, 'e'):
 		case O(CREATE,'e'):
 		case O(ASSEMBLE,'e'):
@@ -411,7 +413,10 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (level != 0 && level != -1 && level != 1 && level != -4 && level != -5 && mode == BUILD) {
+			if (level != 0 && level != LEVEL_LINEAR && level != 1 &&
+			    level != LEVEL_MULTIPATH && level != LEVEL_FAULTY &&
+			    level != 10 &&
+			    mode == BUILD) {
 				fprintf(stderr, Name ": Raid level %s not permitted with --build.\n",
 					optarg);
 				exit(2);
@@ -1150,6 +1155,7 @@ int main(int argc, char *argv[])
 					} while (rv2!=2);
 					/* Incase there are stacked devices, we need to go around again */
 				} while (acnt);
+#if 0
 				if (cnt == 0 && auto_update_home && homehost) {
 					/* Nothing found, maybe we need to bootstrap homehost info */
 					do {
@@ -1169,6 +1175,7 @@ int main(int argc, char *argv[])
 						/* Incase there are stacked devices, we need to go around again */
 					} while (acnt);
 				}
+#endif
 				if (cnt == 0 && rv == 0) {
 					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
 					rv = 1;

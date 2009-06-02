@@ -105,7 +105,7 @@ ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
-all : mdadm mdmon mdadm.man md.man mdadm.conf.man
+all : mdadm mdmon mdadm.man md.man mdadm.conf.man mdmon.man
 
 everything: all mdadm.static swap_super test_stripe \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
@@ -167,6 +167,9 @@ mdassemble.klibc : $(ASSEMBLE_SRCS) mdadm.h
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man
 
+mdmon.man : mdmon.8
+	nroff -man mdmon.8 > mdmon.man
+
 md.man : md.4
 	nroff -man md.4 > md.man
 
@@ -198,8 +201,9 @@ install-uclibc : mdadm.uclibc install-man
 install-klibc : mdadm.klibc install-man
 	$(INSTALL) -D $(STRIP) -m 755 mdadm.klibc $(DESTDIR)$(BINDIR)/mdadm
 
-install-man: mdadm.8 md.4 mdadm.conf.5
+install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 	$(INSTALL) -D -m 644 mdadm.8 $(DESTDIR)$(MAN8DIR)/mdadm.8
+	$(INSTALL) -D -m 644 mdmon.8 $(DESTDIR)$(MAN8DIR)/mdmon.8
 	$(INSTALL) -D -m 644 md.4 $(DESTDIR)$(MAN4DIR)/md.4
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
@@ -207,7 +211,7 @@ install-udev: udev-md-raid.rules
 	$(INSTALL) -D -m 644 udev-md-raid.rules $(DESTDIR)/lib/udev/rules.d/64-md-raid.rules
 
 uninstall:
-	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 md.4 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm
+	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 $(DESTDIR)$(MAN8DIR)/mdmon.8 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm
 
 test: mdadm mdmon test_stripe swap_super
 	@echo "Please run 'sh ./test' as root"

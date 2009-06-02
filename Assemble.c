@@ -188,6 +188,8 @@ int Assemble(struct supertype *st, char *mddev,
 	if (!devlist &&
 	    ident->uuid_set == 0 &&
 	    ident->super_minor < 0 &&
+	    ident->name[0] == 0 &&
+	    (ident->container == NULL || ident->member == NULL) &&
 	    ident->devices == NULL) {
 		fprintf(stderr, Name ": No identity information available for %s - cannot assemble.\n",
 			mddev ? mddev : "further assembly");

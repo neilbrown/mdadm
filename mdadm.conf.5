@@ -63,7 +63,7 @@ will cause
 .I mdadm
 to look for assembled CONTAINER arrays and included them as a source
 for assembling further arrays.
-.PP
+
 The word
 .I partitions
 will cause
@@ -86,7 +86,7 @@ DEVICE /dev/hda* /dev/hdc*
 .br
 DEV    /dev/sd*
 .br
-DEVICE /dev/discs/disc*/disc
+DEVICE /dev/disk/by-path/pci*
 .br
 DEVICE partitions
 
@@ -109,13 +109,12 @@ which matches the rest of the line will never be automatically assembled.
 If no device name is given,
 .I mdadm
 will use various heuristics to determine an appropriate name.
-.PP
+
 Subsequent words identify the array, or identify the array as a member
 of a group. If multiple identities are given,
 then a component device must match ALL identities to be considered a
 match.  Each identity word has a tag, and equals sign, and some value.
 The tags are:
-
 .RS 4
 .TP
 .B uuid=
@@ -160,6 +159,7 @@ this is mainly for compatibility with the output of
 .TP
 .B spares=
 The value is a number of spare devices to expect the array to have.
+The sole use of this keyword and value is as follows:
 .B mdadm \-\-monitor
 will report an array if it is found to have fewer than this number of
 spares when
@@ -225,12 +225,12 @@ Specify that this array is a member array of some container.  The
 value given can be either a path name in /dev, or a UUID of the
 container array.
 
-.IP
+.TP
 .B member=
 Specify that this array is a member array of some container.  Each
 type of container has some way to enumerate member arrays, often a
 simple sequence number.  The value identifies which member of a
-container the array is.  It will usually accompany a 'container=' word.
+container the array is.  It will usually accompany a "container=" word.
 .RE
 
 .TP
@@ -337,7 +337,7 @@ The
 .B homehost
 line gives a default value for the
 .B --homehost=
-option to mdadm.  There should be exactly one other word on the line.
+option to mdadm.  There should normally be only one other word on the line.
 It should either be a host name, or one of the special words
 .B <system>
 and
@@ -351,19 +351,26 @@ systemcall is used to get the host name.
 If
 .B <ignore>
 is given, then a flag is set so that when arrays are being
-auto-assemble the checking of the recorded
+auto-assembled the checking of the recorded
 .I homehost
 is disabled.
+If
+.B <ignore>
+is given it is also possible to give an explicit name which will be
+used when creating arrays.  This is the only case when there can be
+more that one other word on the
+.B HOMEHOST
+line.
 
 When arrays are created, this host name will be stored in the
 metadata.  When arrays are assembled using auto-assembly, arrays which
 do not record the correct homehost name in their metadata will be
-assembled using a 'foreign' name.  A 'foreign' name alway ends with a
-digit string (possibly preceded by an underscore) to differentiate it
+assembled using a "foreign" name.  A "foreign" name alway ends with a
+digit string preceded by an underscore to differentiate it
 from any possible local name. e.g.
 .B /dev/md/1_1
 or
-.BR /dev/md/home0 .
+.BR /dev/md/home_0 .
 .TP
 .B AUTO
 A list of names of metadata format can be given, each preceded by a

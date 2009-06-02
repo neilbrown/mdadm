@@ -768,15 +768,14 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
-	printf("ARRAY metadata=imsm auto=md UUID=%s\n", nbuf + 5);
+	printf("ARRAY metadata=imsm UUID=%s\n", nbuf + 5);
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 
 		super->current_vol = i;
 		getinfo_super_imsm(st, &info);
 		fname_from_uuid(st, &info, nbuf1, ':');
-		printf("ARRAY /dev/md/%.16s container=%s\n"
-		       "   member=%d auto=mdp UUID=%s\n",
+		printf("ARRAY /dev/md/%.16s container=%s member=%d UUID=%s\n",
 		       dev->volume, nbuf + 5, i, nbuf1 + 5);
 	}
 }
@@ -2405,13 +2404,16 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				"in a raid1 volume\n");
 		return 0;
 	}
+
+	map->raid_level = info->level;
 	if (info->level == 10) {
 		map->raid_level = 1;
 		map->num_domains = info->raid_disks / 2;
-	} else {
-		map->raid_level = info->level;
+	} else if (info->level == 1)
+		map->num_domains = info->raid_disks;
+	else
 		map->num_domains = 1;
-	}
+
 	num_data_stripes = info_to_num_data_stripes(info, map->num_domains);
 	map->num_data_stripes = __cpu_to_le32(num_data_stripes);
 

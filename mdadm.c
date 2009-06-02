@@ -1373,6 +1373,13 @@ int main(int argc, char *argv[])
 			rv = 1;
 			break;
 		}
+		if (delay == 0) {
+			if (get_linux_version() > 20616)
+				/* mdstat responds to poll */
+				delay = 1000;
+			else
+				delay = 60;
+		}
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, daemonise, scan, oneshot,
 			    dosyslog, test, pidfile);

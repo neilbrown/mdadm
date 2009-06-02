@@ -284,6 +284,10 @@ int Monitor(mddev_dev_t devlist,
 					mse = mse2;
 				}
 
+			if (array.utime == 0)
+				/* external arrays don't update utime */
+				array.utime = time(0);
+
 			if (st->utime == array.utime &&
 			    st->failed == array.failed_disks &&
 			    st->working == array.working_disks &&

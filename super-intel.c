@@ -768,7 +768,6 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
-	printf("ARRAY metadata=imsm UUID=%s\n", nbuf + 5);
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 
@@ -778,6 +777,7 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 		printf("ARRAY /dev/md/%.16s container=%s member=%d UUID=%s\n",
 		       dev->volume, nbuf + 5, i, nbuf1 + 5);
 	}
+	printf("ARRAY metadata=imsm UUID=%s\n", nbuf + 5);
 }
 
 static void export_examine_super_imsm(struct supertype *st)

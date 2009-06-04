@@ -1172,7 +1172,6 @@ static void brief_examine_super_ddf(struct supertype *st, int verbose)
 	char nbuf[64];
 	getinfo_super_ddf(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
-	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
 
 	for (i=0; i<__be16_to_cpu(ddf->virt->max_vdes); i++) {
 		struct virtual_entry *ve = &ddf->virt->entries[i];
@@ -1187,6 +1186,7 @@ static void brief_examine_super_ddf(struct supertype *st, int verbose)
 		printf("ARRAY container=%s member=%d UUID=%s\n",
 		       nbuf+5, i, nbuf1+5);
 	}
+	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
 }
 
 static void export_examine_super_ddf(struct supertype *st)

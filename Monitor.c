@@ -581,7 +581,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 					n=fwrite(buf, 1, n, mp); /* yes, i don't care about the result */
 				fclose(mdstat);
 			}
-			fclose(mp);
+			pclose(mp);
 		}
 
 	}

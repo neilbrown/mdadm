@@ -63,7 +63,7 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 	} *arrays = NULL;
 
 	for (; devlist ; devlist=devlist->next) {
-		struct supertype *st = forcest;
+		struct supertype *st;
 
 		fd = dev_open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
@@ -75,7 +75,9 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 			err = 1;
 		}
 		else {
-			if (!st)
+			if (forcest)
+				st = dup_super(forcest);
+			else
 				st = guess_super(fd);
 			if (st)
 				err = st->ss->load_super(st, fd,

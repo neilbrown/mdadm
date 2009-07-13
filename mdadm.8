@@ -594,6 +594,21 @@ See the section below on RAID_DEVICE CHANGES.  The file should be
 stored on a separate device, not on the raid array being reshaped.
 
 .TP
+.BR \-\-array-size= ", " \-Z
+Set the size of the array which is seen by users of the device such as
+filesystems.  This can be less that the real size, but never greater.
+The size set this way does not persist across restarts of the array.
+
+This is most useful when reducing the number of devices in a RAID5 or
+RAID6.  Such arrays require the array-size to be reduced before a
+reshape can be performed that reduces the real size.
+
+A value of
+.B max
+restores the apparent size of the array to be whatever the real
+amount of available space is.
+
+.TP
 .BR \-N ", " \-\-name=
 Set a
 .B name

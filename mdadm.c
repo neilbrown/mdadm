@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
 
 	int chunk = 0;
 	long long size = -1;
+	long long array_size = -1;
 	int level = UnSet;
 	int layout = UnSet;
 	int raiddisks = 0;
@@ -391,6 +392,24 @@ int main(int argc, char *argv[])
 				size = strtoll(optarg, &c, 10);
 				if (!optarg[0] || *c || size < 4) {
 					fprintf(stderr, Name ": invalid size: %s\n",
+						optarg);
+					exit(2);
+				}
+			}
+			continue;
+
+		case O(GROW,'Z'): /* array size */
+			if (array_size >= 0) {
+				fprintf(stderr, Name ": array-size may only be specified once. "
+					"Second value is %s.\n", optarg);
+				exit(2);
+			}
+			if (strcmp(optarg, "max") == 0)
+				array_size = 0;
+			else {
+				array_size = parse_size(optarg);
+				if (array_size <= 0) {
+					fprintf(stderr, Name ": invalid array size: %s\n",
 						optarg);
 					exit(2);
 				}
@@ -1372,6 +1391,28 @@ int main(int argc, char *argv[])
 		break;
 
 	case GROW:
+		if (array_size >= 0) {
+			/* alway impose array size first, independent of
+			 * anything else
+			 */
+			struct mdinfo sra;
+			int err;
+			sysfs_init(&sra, mdfd, 0);
+			if (array_size == 0)
+				err = sysfs_set_str(&sra, NULL, "array_size", "default");
+			else
+				err = sysfs_set_num(&sra, NULL, "array_size", array_size / 2);
+			if (err < 0) {
+				if (errno == E2BIG)
+					fprintf(stderr, Name ": --array-size setting"
+						" is too large.\n");
+				else
+					fprintf(stderr, Name ": current kernel does"
+						" not support setting --array-size\n");
+				rv = 1;
+				break;
+			}
+		}
 		if (devs_found > 1) {
 
 			/* must be '-a'. */
@@ -1398,7 +1439,7 @@ int main(int argc, char *argv[])
 			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
 					    bitmap_chunk, delay, write_behind, force);
-		} else
+		} else if (array_size < 0)
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;
 	case INCREMENTAL:

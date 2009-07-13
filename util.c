@@ -154,6 +154,37 @@ int get_linux_version()
 	return (a*1000000)+(b*1000)+c;
 }
 
+long long parse_size(char *size)
+{
+	/* parse 'size' which should be a number optionally
+	 * followed by 'K', 'M', or 'G'.
+	 * Without a suffix, K is assumed.
+	 * Number returned is in sectors (half-K)
+	 */
+	char *c;
+	long long s = strtoll(size, &c, 10);
+	if (s > 0) {
+		switch (*c) {
+		case 'K':
+			c++;
+		default:
+			s *= 2;
+			break;
+		case 'M':
+			c++;
+			s *= 1024 * 2;
+			break;
+		case 'G':
+			c++;
+			s *= 1024 * 1024 * 2;
+			break;
+		}
+	}
+	if (*c)
+		s = 0;
+	return s;
+}
+
 void remove_partitions(int fd)
 {
 	/* remove partitions from this block devices.

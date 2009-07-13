@@ -774,6 +774,7 @@ extern unsigned long bitmap_sectors(struct bitmap_super_s *bsb);
 
 extern int md_get_version(int fd);
 extern int get_linux_version(void);
+extern long long parse_size(char *size);
 extern int parse_uuid(char *str, int uuid[4]);
 extern int check_ext2(int fd, char *name);
 extern int check_reiser(int fd, char *name);

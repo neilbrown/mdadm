@@ -154,6 +154,10 @@ static void examine_super0(struct supertype *st, char *homehost)
 				c = map_num(r5layout, sb->new_layout);
 				printf("     New Layout : %s\n", c?c:"-unknown-");
 			}
+			if (sb->level == 6) {
+				c = map_num(r6layout, sb->new_layout);
+				printf("     New Layout : %s\n", c?c:"-unknown-");
+			}
 			if (sb->level == 10) {
 				printf("     New Layout : near=%d, %s=%d\n",
 				       sb->new_layout&255,
@@ -185,6 +189,10 @@ static void examine_super0(struct supertype *st, char *homehost)
 	printf("\n");
 	if (sb->level == 5) {
 		c = map_num(r5layout, sb->layout);
+		printf("         Layout : %s\n", c?c:"-unknown-");
+	}
+	if (sb->level == 6) {
+		c = map_num(r6layout, sb->layout);
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
 	if (sb->level == 10) {

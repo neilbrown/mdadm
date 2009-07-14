@@ -305,6 +305,10 @@ static void examine_super1(struct supertype *st, char *homehost)
 				c = map_num(r5layout, __le32_to_cpu(sb->new_layout));
 				printf("     New Layout : %s\n", c?c:"-unknown-");
 			}
+			if (__le32_to_cpu(sb->level) == 6) {
+				c = map_num(r6layout, __le32_to_cpu(sb->new_layout));
+				printf("     New Layout : %s\n", c?c:"-unknown-");
+			}
 			if (__le32_to_cpu(sb->level) == 10) {
 				printf("     New Layout :");
 				print_r10_layout(__le32_to_cpu(sb->new_layout));
@@ -334,6 +338,10 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf("\n");
 	if (__le32_to_cpu(sb->level) == 5) {
 		c = map_num(r5layout, __le32_to_cpu(sb->layout));
+		printf("         Layout : %s\n", c?c:"-unknown-");
+	}
+	if (__le32_to_cpu(sb->level) == 6) {
+		c = map_num(r6layout, __le32_to_cpu(sb->layout));
 		printf("         Layout : %s\n", c?c:"-unknown-");
 	}
 	if (__le32_to_cpu(sb->level) == 10) {

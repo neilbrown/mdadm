@@ -312,6 +312,10 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			c = map_num(r5layout, array.layout);
 			printf("         Layout : %s\n", c?c:"-unknown-");
 		}
+		if (array.level == 6) {
+			c = map_num(r6layout, array.layout);
+			printf("         Layout : %s\n", c?c:"-unknown-");
+		}
 		if (array.level == 10) {
 			printf("         Layout :");
 			print_r10_layout(array.layout);

@@ -107,7 +107,6 @@ int main(int argc, char *argv[])
 	int rebuild_map = 0;
 	int auto_update_home = 0;
 
-	int copies;
 	int print_help = 0;
 	FILE *outf;
 
@@ -478,38 +477,22 @@ int main(int argc, char *argv[])
 				break;
 
 			case 10:
-				/* 'f', 'o' or 'n' followed by a number <= raid_disks */
-				if ((optarg[0] !=  'n' && optarg[0] != 'f' && optarg[0] != 'o') ||
-				    (copies = strtoul(optarg+1, &cp, 10)) < 1 ||
-				    copies > 200 ||
-				    *cp) {
+				layout = parse_layout_10(optarg);
+				if (layout < 0) {
 					fprintf(stderr, Name ": layout for raid10 must be 'nNN', 'oNN' or 'fNN' where NN is a number, not %s\n", optarg);
 					exit(2);
 				}
-				if (optarg[0] == 'n')
-					layout = 256 + copies;
-				else if (optarg[0] == 'o')
-					layout = 0x10000 + (copies<<8) + 1;
-				else
-					layout = 1 + (copies<<8);
 				break;
 			case -5: /* Faulty
 				  * modeNNN
 				  */
-
-			{
-				int ln = strcspn(optarg, "0123456789");
-				char *m = strdup(optarg);
-				int mode;
-				m[ln] = 0;
-				mode = map_name(faultylayout, m);
-				if (mode == UnSet) {
+				layout = parse_layout_faulty(optarg);
+				if (layout == -1) {
 					fprintf(stderr, Name ": layout %s not understood for faulty.\n",
 						optarg);
 					exit(2);
 				}
-				layout = mode | (atoi(optarg+ln)<< ModeShift);
-			}
+				break;
 			}
 			continue;
 

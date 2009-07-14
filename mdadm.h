@@ -776,6 +776,8 @@ extern int md_get_version(int fd);
 extern int get_linux_version(void);
 extern long long parse_size(char *size);
 extern int parse_uuid(char *str, int uuid[4]);
+extern int parse_layout_10(char *layout);
+extern int parse_layout_faulty(char *layout);
 extern int check_ext2(int fd, char *name);
 extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);

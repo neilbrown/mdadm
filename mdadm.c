@@ -1413,9 +1413,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": can change at most one of size, raiddisks, bitmap, and layout\n");
 			rv = 1;
 			break;
-		} else if (layout != UnSet)
-			rv = Manage_reconfig(devlist->devname, mdfd, layout);
-		else if (size >= 0 || raiddisks)
+		} else if (size >= 0 || raiddisks || layout != UnSet)
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout, chunk, raiddisks);
 		else if (bitmap_file) {

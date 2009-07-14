@@ -410,7 +410,7 @@ int bsb_csum(char *buf, int len)
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
-		 int level, int layout, int chunksize, int raid_disks)
+		 int level, char *layout_str, int chunksize, int raid_disks)
 {
 	/* Make some changes in the shape of an array.
 	 * The kernel must support the change.
@@ -468,10 +468,15 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				devname);
 			return 1;
 		}
-		if (layout == UnSet)
+		if (layout_str == NULL)
 			return 0; /* nothing to do.... */
 
-		array.layout = layout;
+		array.layout = parse_layout_faulty(layout_str);
+		if (array.layout < 0) {
+			fprintf(stderr, Name ": %s: layout %s not understood for 'faulty' array\n",
+				devname, layout_str);
+			return 1;
+		}
 		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 			fprintf(stderr, Name ": Cannot set layout for %s: %s\n",
 				devname, strerror(errno));
@@ -488,7 +493,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				devname);
 			return 1;
 		}
-		if (chunksize || layout != UnSet) {
+		if (chunksize || layout_str != NULL) {
 			fprintf(stderr, Name ": %s: Cannot change chunk size of layout for a RAID1 array.\n",
 				devname);
 			return 1;
@@ -529,7 +534,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 */
 		if (size >= 0) {
 			/* Cannot change other details as well.. */
-			if (layout != UnSet ||
+			if (layout_str != NULL ||
 			    chunksize != 0 ||
 			    raid_disks != 0 ||
 			    level != UnSet) {
@@ -586,7 +591,28 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 		if (level != UnSet) nlevel = level;
 		if (chunksize) nchunk = chunksize;
-		if (layout != UnSet) nlayout = layout;
+		if (layout_str != NULL)
+			switch(nlevel) {
+			case 4: /* ignore layout */
+				break;
+			case 5:
+				nlayout = map_name(r5layout, layout_str);
+				if (nlayout == UnSet) {
+					fprintf(stderr, Name ": layout %s not understood for raid5.\n",
+						layout_str);
+					return 1;
+				}
+				break;
+
+			case 6:
+				nlayout = map_name(r6layout, layout_str);
+				if (nlayout == UnSet) {
+					fprintf(stderr, Name ": layout %s not understood for raid6.\n",
+						layout_str);
+					return 1;
+				}
+				break;
+			}
 		if (raid_disks) ndisks = raid_disks;
 
 		odata = odisks-1;

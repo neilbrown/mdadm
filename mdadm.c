@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 	long long array_size = -1;
 	int level = UnSet;
 	int layout = UnSet;
+	char *layout_str = NULL;
 	int raiddisks = 0;
 	int max_disks = MD_SB_DISKS; /* just a default */
 	int sparedisks = 0;
@@ -442,9 +443,18 @@ int main(int argc, char *argv[])
 			ident.level = level;
 			continue;
 
+		case O(GROW, 'p'): /* new layout */
+			if (layout_str) {
+				fprintf(stderr,Name ": layout may only be sent once.  "
+					"Second value was %s\n", optarg);
+				exit(2);
+			}
+			layout_str = optarg;
+			/* 'Grow' will parse the value */
+			continue;
+
 		case O(CREATE,'p'): /* raid5 layout */
 		case O(BUILD,'p'): /* faulty layout */
-		case O(GROW, 'p'): /* faulty reconfig */
 			if (layout != UnSet) {
 				fprintf(stderr,Name ": layout may only be sent once.  "
 					"Second value was %s\n", optarg);
@@ -483,9 +493,10 @@ int main(int argc, char *argv[])
 					exit(2);
 				}
 				break;
-			case -5: /* Faulty
-				  * modeNNN
-				  */
+			case LEVEL_FAULTY:
+				/* Faulty
+				 * modeNNN
+				 */
 				layout = parse_layout_faulty(optarg);
 				if (layout == -1) {
 					fprintf(stderr, Name ": layout %s not understood for faulty.\n",
@@ -1409,13 +1420,13 @@ int main(int argc, char *argv[])
 				if (rv)
 					break;
 			}
-		} else if ((size >= 0) + (raiddisks != 0) +  (layout != UnSet) + (bitmap_file != NULL)> 1) {
+		} else if ((size >= 0) + (raiddisks != 0) +  (layout_str != NULL) + (bitmap_file != NULL)> 1) {
 			fprintf(stderr, Name ": can change at most one of size, raiddisks, bitmap, and layout\n");
 			rv = 1;
 			break;
-		} else if (size >= 0 || raiddisks || layout != UnSet)
+		} else if (size >= 0 || raiddisks || layout_str != NULL)
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
-					  size, level, layout, chunk, raiddisks);
+					  size, level, layout_str, chunk, raiddisks);
 		else if (bitmap_file) {
 			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,

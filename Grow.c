@@ -512,8 +512,21 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			}
 		}
 		if (size >= 0) {
+			int rv;
 			array.size = size;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (array.size != size) {
+				/* got truncated to 32bit, write to
+				 * component_size instead
+				 */
+				sra = sysfs_read(fd, 0, 0);
+				if (sra)
+					rv = sysfs_set_num(sra, NULL,
+							   "component_size", size);
+				else
+					rv = -1;
+			} else
+				rv = ioctl(fd, SET_ARRAY_INFO, &array);
+			if (rv != 0) {
 				fprintf(stderr, Name ": Cannot set device size for %s: %s\n",
 					devname, strerror(errno));
 				return 1;

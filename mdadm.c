@@ -389,12 +389,14 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "max")==0)
 				size = 0;
 			else {
-				size = strtoll(optarg, &c, 10);
-				if (!optarg[0] || *c || size < 4) {
+				size = parse_size(optarg);
+				if (size < 8) {
 					fprintf(stderr, Name ": invalid size: %s\n",
 						optarg);
 					exit(2);
 				}
+				/* convert sectors to K */
+				size /= 2;
 			}
 			continue;
 

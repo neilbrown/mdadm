@@ -23,10 +23,13 @@
  */
 
 #include "mdadm.h"
+#include <stdint.h>
 
 /* To restripe, we read from old geometry to a buffer, and
  * read from buffer to new geometry.
- * When reading we don't worry about parity. When writing we do.
+ * When reading, we might have missing devices and so could need
+ * to reconstruct.
+ * When writing, we need to create correct parity and Q.
  *
  */
 
@@ -215,10 +218,10 @@ static void xor_blocks(char *target, char **sources, int disks, int size)
 	}
 }
 
-static void qsyndrome(char *p, char *q, char **sources, int disks, int size)
+static void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size)
 {
 	int d, z;
-	char wq0, wp0, wd0, w10, w20;
+	uint8_t wq0, wp0, wd0, w10, w20;
 	for ( d = 0; d < size; d++) {
 		wq0 = wp0 = sources[disks-1][d];
 		for ( z = disks-2 ; z >= 0 ; z-- ) {
@@ -235,50 +238,266 @@ static void qsyndrome(char *p, char *q, char **sources, int disks, int size)
 	}
 }
 
+
+/*
+ * The following was taken from linux/drivers/md/mktables.c, and modified
+ * to create in-memory tables rather than C code
+ */
+static uint8_t gfmul(uint8_t a, uint8_t b)
+{
+	uint8_t v = 0;
+
+	while (b) {
+		if (b & 1)
+			v ^= a;
+		a = (a << 1) ^ (a & 0x80 ? 0x1d : 0);
+		b >>= 1;
+	}
+
+	return v;
+}
+
+static uint8_t gfpow(uint8_t a, int b)
+{
+	uint8_t v = 1;
+
+	b %= 255;
+	if (b < 0)
+		b += 255;
+
+	while (b) {
+		if (b & 1)
+			v = gfmul(v, a);
+		a = gfmul(a, a);
+		b >>= 1;
+	}
+
+	return v;
+}
+
+int tables_ready = 0;
+uint8_t raid6_gfmul[256][256];
+uint8_t raid6_gfexp[256];
+uint8_t raid6_gfinv[256];
+uint8_t raid6_gfexi[256];
+void make_tables(void)
+{
+	int i, j;
+	uint8_t v;
+
+	/* Compute multiplication table */
+	for (i = 0; i < 256; i++)
+		for (j = 0; j < 256; j++)
+				raid6_gfmul[i][j] = gfmul(i, j);
+
+	/* Compute power-of-2 table (exponent) */
+	v = 1;
+	for (i = 0; i < 256; i++) {
+		raid6_gfexp[i] = v;
+		v = gfmul(v, 2);
+		if (v == 1)
+			v = 0;	/* For entry 255, not a real entry */
+	}
+
+	/* Compute inverse table x^-1 == x^254 */
+	for (i = 0; i < 256; i++)
+		raid6_gfinv[i] = gfpow(i, 254);
+
+	/* Compute inv(2^x + 1) (exponent-xor-inverse) table */
+	for (i = 0; i < 256; i ++)
+		raid6_gfexi[i] = raid6_gfinv[raid6_gfexp[i] ^ 1];
+
+	tables_ready = 1;
+}
+
+uint8_t *zero;
+/* Following was taken from linux/drivers/md/raid6recov.c */
+
+/* Recover two failed data blocks. */
+void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
+		       uint8_t **ptrs)
+{
+	uint8_t *p, *q, *dp, *dq;
+	uint8_t px, qx, db;
+	const uint8_t *pbmul;	/* P multiplier table for B data */
+	const uint8_t *qmul;		/* Q multiplier table (for both) */
+
+	p = ptrs[disks-2];
+	q = ptrs[disks-1];
+
+	/* Compute syndrome with zero for the missing data pages
+	   Use the dead data pages as temporary storage for
+	   delta p and delta q */
+	dp = ptrs[faila];
+	ptrs[faila] = zero;
+	dq = ptrs[failb];
+	ptrs[failb] = zero;
+
+	qsyndrome(dp, dq, ptrs, disks-2, bytes);
+
+	/* Restore pointer table */
+	ptrs[faila]   = dp;
+	ptrs[failb]   = dq;
+
+	/* Now, pick the proper data tables */
+	pbmul = raid6_gfmul[raid6_gfexi[failb-faila]];
+	qmul  = raid6_gfmul[raid6_gfinv[raid6_gfexp[faila]^raid6_gfexp[failb]]];
+
+	/* Now do it... */
+	while ( bytes-- ) {
+		px    = *p ^ *dp;
+		qx    = qmul[*q ^ *dq];
+		*dq++ = db = pbmul[px] ^ qx; /* Reconstructed B */
+		*dp++ = db ^ px; /* Reconstructed A */
+		p++; q++;
+	}
+}
+
+/* Recover failure of one data block plus the P block */
+void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs)
+{
+	uint8_t *p, *q, *dq;
+	const uint8_t *qmul;		/* Q multiplier table */
+
+	p = ptrs[disks-2];
+	q = ptrs[disks-1];
+
+	/* Compute syndrome with zero for the missing data page
+	   Use the dead data page as temporary storage for delta q */
+	dq = ptrs[faila];
+	ptrs[faila] = zero;
+
+	qsyndrome(p, dq, ptrs, disks-2, bytes);
+
+	/* Restore pointer table */
+	ptrs[faila]   = dq;
+
+	/* Now, pick the proper data tables */
+	qmul  = raid6_gfmul[raid6_gfinv[raid6_gfexp[faila]]];
+
+	/* Now do it... */
+	while ( bytes-- ) {
+		*p++ ^= *dq = qmul[*q ^ *dq];
+		q++; dq++;
+	}
+}
+
 /* Save data:
  * We are given:
- *  A list of 'fds' of the active disks.  For now we require all to be present.
+ *  A list of 'fds' of the active disks.  Some may be absent.
  *  A geometry: raid_disks, chunk_size, level, layout
  *  A list of 'fds' for mirrored targets.  They are already seeked to
  *    right (Write) location
- *  A start and length
+ *  A start and length which must be stripe-aligned
+ *  'buf' is large enough to hold one stripe, and is aligned
  */
 
 int save_stripes(int *source, unsigned long long *offsets,
 		 int raid_disks, int chunk_size, int level, int layout,
 		 int nwrites, int *dest,
-		 unsigned long long start, unsigned long long length)
+		 unsigned long long start, unsigned long long length,
+		 char *buf)
 {
-	char abuf[8192+512];
-	char *buf = (char*)(((unsigned long)abuf+511)&~511UL);
-	int cpos = start % chunk_size; /* where in chunk we are up to */
 	int len;
 	int data_disks = raid_disks - (level == 0 ? 0 : level <=5 ? 1 : 2);
 	int disk;
+	int i;
 
+	if (!tables_ready)
+		make_tables();
+
+	if (zero == NULL) {
+		zero = malloc(chunk_size);
+		memset(zero, 0, chunk_size);
+	}
+
+	len = data_disks * chunk_size;
 	while (length > 0) {
-		unsigned long long offset;
-		int i;
-		len = chunk_size - cpos;
-		if (len > 8192) len = 8192;
-		if (len > length) len = length;
-		/* len bytes to be moved from one device */
+		int failed = 0;
+		int fdisk[3], fblock[3];
+		for (disk = 0; disk < raid_disks ; disk++) {
+			unsigned long long offset;
+			int dnum;
+			len = chunk_size;
 
-		offset = (start/chunk_size/data_disks)*chunk_size + cpos;
-		disk = start/chunk_size % data_disks;
-		disk = geo_map(disk, start/chunk_size/data_disks,
-			       raid_disks, level, layout);
-		if (lseek64(source[disk], offsets[disk]+offset, 0) < 0)
+			offset = (start/chunk_size/data_disks)*chunk_size;
+			dnum = geo_map(disk < data_disks ? disk : data_disks - disk - 1,
+				       start/chunk_size/data_disks,
+				       raid_disks, level, layout);
+			if (source[dnum] < 0 ||
+			    lseek64(source[dnum], offsets[disk]+offset, 0) < 0 ||
+			    read(source[dnum], buf+disk * chunk_size, len) != len)
+				if (failed <= 2) {
+					fdisk[failed] = dnum;
+					fblock[failed] = disk;
+					failed++;
+				}
+		}
+		if (failed == 0 || fblock[0] >= data_disks)
+			/* all data disks are good */
+			;
+		else if (failed == 1 || fblock[1] >= data_disks+1) {
+			/* one failed data disk and good parity */
+			char *bufs[data_disks];
+			for (i=0; i < data_disks; i++)
+				if (fblock[0] == i)
+					bufs[i] = buf + data_disks*chunk_size;
+				else
+					bufs[i] = buf + i*chunk_size;
+
+			xor_blocks(buf + fblock[0]*chunk_size,
+				   bufs, data_disks, chunk_size);
+		} else if (failed > 2 || level != 6)
+			/* too much failure */
 			return -1;
-		if (read(source[disk], buf, len) != len)
-			return -1;
+		else {
+			/* RAID6 computations needed. */
+			uint8_t *bufs[data_disks+4];
+			int qdisk;
+			int syndrome_disks;
+			disk = geo_map(-1, start/chunk_size/data_disks,
+				       raid_disks, level, layout);
+			qdisk = geo_map(-2, start/chunk_size/data_disks,
+				       raid_disks, level, layout);
+			if (is_ddf(layout)) {
+				/* q over 'raid_disks' blocks, in device order.
+				 * 'p' and 'q' get to be all zero
+				 */
+				for (i = 0; i < raid_disks; i++)
+					if (i == disk || i == qdisk)
+						bufs[i] = zero;
+					else
+						bufs[i] = (uint8_t*)buf+i*chunk_size;
+				syndrome_disks = raid_disks;
+			} else {
+				/* for md, q is over 'data_disks' blocks,
+				 * starting immediately after 'q'
+				 */
+				for (i = 0; i < data_disks; i++)
+					bufs[i] = (uint8_t*)buf + chunk_size * ((qdisk+1+i) % raid_disks);
+
+				fdisk[0] = (qdisk + 1 + fdisk[0]) * raid_disks;
+				fdisk[1] = (qdisk + 1 + fdisk[1]) * raid_disks;
+				syndrome_disks = data_disks;
+			}
+			bufs[syndrome_disks] = (uint8_t*)buf + chunk_size * disk;
+			bufs[syndrome_disks+1] = (uint8_t*)buf + chunk_size * qdisk;
+			if (fblock[1] == data_disks)
+				/* One data failed, and parity failed */
+				raid6_datap_recov(syndrome_disks+2, chunk_size,
+						  fdisk[0], bufs);
+			else 
+				/* Two data blocks failed, P,Q OK */
+				raid6_2data_recov(syndrome_disks+2, chunk_size,
+						  fdisk[0], fdisk[1], bufs);
+		}
+
 		for (i=0; i<nwrites; i++)
 			if (write(dest[i], buf, len) != len)
 				return -1;
+
 		length -= len;
 		start += len;
-		cpos += len;
-		while (cpos >= chunk_size) cpos -= chunk_size;
 	}
 	return 0;
 }
@@ -302,11 +521,15 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 	char *stripe_buf = malloc(raid_disks * chunk_size);
 	char **stripes = malloc(raid_disks * sizeof(char*));
 	char **blocks = malloc(raid_disks * sizeof(char*));
-	char *zero = malloc(chunk_size);
 	int i;
 
-	int data_disks = raid_disks - (level == 0 ? 0 : level <=5 ? 1 : 2);
+	int data_disks = raid_disks - (level == 0 ? 0 : level <= 5 ? 1 : 2);
 
+	if (zero == NULL) {
+		zero = malloc(chunk_size);
+		if (zero)
+			memset(zero, 0, chunk_size);
+	}
 	if (stripe_buf == NULL || stripes == NULL || blocks == NULL
 	    || zero == NULL) {
 		free(stripe_buf);
@@ -315,13 +538,13 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		free(zero);
 		return -2;
 	}
-	memset(zero, 0, chunk_size);
 	for (i=0; i<raid_disks; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 	while (length > 0) {
 		int len = data_disks * chunk_size;
 		unsigned long long offset;
 		int disk, qdisk;
+		int syndrome_disks;
 		if (length < len)
 			return -3;
 		for (i=0; i < data_disks; i++) {
@@ -355,21 +578,23 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 				 */
 				for (i = 0; i < raid_disks; i++)
 					if (i == disk || i == qdisk)
-						blocks[i] = zero;
+						blocks[i] = (char*)zero;
 					else
 						blocks[i] = stripes[i];
-				qsyndrome(stripes[disk], stripes[qdisk],
-					  blocks, raid_disks, chunk_size);
+				syndrome_disks = raid_disks;
 			} else {
-				/* for md' q is over 'data_disks' blocks,
+				/* for md, q is over 'data_disks' blocks,
 				 * starting immediately after 'q'
 				 */
 				for (i = 0; i < data_disks; i++)
 					blocks[i] = stripes[(qdisk+1+i) % raid_disks];
 
-				qsyndrome(stripes[disk], stripes[qdisk], blocks,
-					  data_disks, chunk_size);
+				syndrome_disks = data_disks;
 			}
+			qsyndrome((uint8_t*)stripes[disk],
+				  (uint8_t*)stripes[qdisk], 
+				  (uint8_t**)blocks,
+				  syndrome_disks, chunk_size);
 			break;
 		}
 		for (i=0; i < raid_disks ; i++)
@@ -457,6 +682,7 @@ main(int argc, char *argv[])
 	int save;
 	int *fds;
 	char *file;
+	char *buf;
 	int storefd;
 	unsigned long long *offsets;
 	int raid_disks, chunk_size, level, layout;
@@ -515,11 +741,13 @@ main(int argc, char *argv[])
 		}
 	}
 
+	buf = malloc(raid_disks * chunk_size);
+
 	if (save == 1) {
 		int rv = save_stripes(fds, offsets,
 				      raid_disks, chunk_size, level, layout,
 				      1, &storefd,
-				      start, length);
+				      start, length, buf);
 		if (rv != 0) {
 			fprintf(stderr,
 				"test_stripe: save_stripes returned %d\n", rv);

@@ -434,6 +434,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	int d, i, spares;
 	int nrdisks;
 	int err;
+	char *buf;
 
 	struct mdinfo *sra;
 	struct mdinfo *sd;
@@ -814,11 +815,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto abort_resume;
 		}
 
+		buf = malloc(odisks * ochunk);
 
 		err = save_stripes(fdlist, offsets,
 				   odisks, ochunk, olevel, olayout,
 				   spares, fdlist+odisks,
-				   0ULL, last_block*512);
+				   0ULL, last_block*512, buf);
 
 		/* abort if there was an error */
 		if (err < 0) {

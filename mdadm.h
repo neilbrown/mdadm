@@ -848,6 +848,7 @@ extern int open_container(int fd);
 extern int mdmon_running(int devnum);
 extern int signal_mdmon(int devnum);
 extern int check_env(char *name);
+extern __u32 random32(void);
 extern int start_mdmon(int devnum);
 
 extern char *devnum2devname(int num);

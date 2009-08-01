@@ -247,6 +247,7 @@ struct intel_super {
 	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
 	__u32 create_offset; /* common start for 'current_vol' */
+	__u32 random; /* random data for seeding new family numbers */
 	struct intel_dev *devlist;
 	struct dl {
 		struct dl *next;
@@ -714,6 +715,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("          Magic : %s\n", str);
 	snprintf(str, strlen(MPB_VERSION_RAID0), "%s", get_imsm_version(mpb));
 	printf("        Version : %s\n", get_imsm_version(mpb));
+	printf("    Orig Family : %08x\n", __le32_to_cpu(mpb->orig_family_num));
 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
 	printf("     Generation : %08x\n", __le32_to_cpu(mpb->generation_num));
 	getinfo_super_imsm(st, &info);
@@ -1091,7 +1093,7 @@ static int match_home_imsm(struct supertype *st, char *homehost)
 	/* the imsm metadata format does not specify any host
 	 * identification information.  We return -1 since we can never
 	 * confirm nor deny whether a given array is "meant" for this
-	 * host.  We rely on compare_super and the 'family_num' field to
+	 * host.  We rely on compare_super and the 'family_num' fields to
 	 * exclude member disks that do not belong, and we rely on
 	 * mdadm.conf to specify the arrays that should be assembled.
 	 * Auto-assembly may still pick up "foreign" arrays.
@@ -1119,7 +1121,7 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	 */
 	/* imsm does not track uuid's so we synthesis one using sha1 on
 	 * - The signature (Which is constant for all imsm array, but no matter)
-	 * - the family_num of the container
+	 * - the orig_family_num of the container
 	 * - the index number of the volume
 	 * - the 'serial' number of the volume.
 	 * Hopefully these are all constant.
@@ -1129,10 +1131,18 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	char buf[20];
 	struct sha1_ctx ctx;
 	struct imsm_dev *dev = NULL;
+	__u32 family_num;
 
+	/* some mdadm versions failed to set ->orig_family_num, in which
+	 * case fall back to ->family_num.  orig_family_num will be
+	 * fixed up with the first metadata update.
+	 */
+	family_num = super->anchor->orig_family_num;
+	if (family_num == 0)
+		family_num = super->anchor->family_num;
 	sha1_init_ctx(&ctx);
 	sha1_process_bytes(super->anchor->sig, MPB_SIG_LEN, &ctx);
-	sha1_process_bytes(&super->anchor->family_num, sizeof(__u32), &ctx);
+	sha1_process_bytes(&family_num, sizeof(__u32), &ctx);
 	if (super->current_vol >= 0)
 		dev = get_imsm_dev(super, super->current_vol);
 	if (dev) {
@@ -1440,7 +1450,8 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	 */
 	if (first->anchor->num_raid_devs > 0 &&
 	    sec->anchor->num_raid_devs > 0) {
-		if (first->anchor->family_num != sec->anchor->family_num)
+		if (first->anchor->orig_family_num != sec->anchor->orig_family_num ||
+		    first->anchor->family_num != sec->anchor->family_num)
 			return 3;
 	}
 
@@ -1480,6 +1491,7 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
 
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
+		first->anchor->orig_family_num = sec->anchor->orig_family_num;
 		first->anchor->family_num = sec->anchor->family_num;
 	}
 
@@ -2549,8 +2561,10 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 
 		*_dev = *dev;
 		*_disk = dl->disk;
-		sum = __gen_imsm_checksum(mpb);
+		sum = random32();
+		sum += __gen_imsm_checksum(mpb);
 		mpb->family_num = __cpu_to_le32(sum);
+		mpb->orig_family_num = mpb->family_num;
 	}
 
 	return 0;
@@ -2647,6 +2661,7 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 		mpb->disk[0] = d->disk;
 		sum = __gen_imsm_checksum(mpb);
 		mpb->family_num = __cpu_to_le32(sum);
+		mpb->orig_family_num = 0;
 		sum = __gen_imsm_checksum(mpb);
 		mpb->check_sum = __cpu_to_le32(sum);
 
@@ -2680,6 +2695,12 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	generation = __le32_to_cpu(mpb->generation_num);
 	generation++;
 	mpb->generation_num = __cpu_to_le32(generation);
+
+	/* fix up cases where previous mdadm releases failed to set
+	 * orig_family_num
+	 */
+	if (mpb->orig_family_num == 0)
+		mpb->orig_family_num = mpb->family_num;
 
 	mpb_size += sizeof(struct imsm_disk) * mpb->num_disks;
 	for (d = super->disks; d; d = d->next) {
@@ -4040,6 +4061,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		di->data_offset = __le32_to_cpu(map->pba_of_lba0);
 		di->component_size = a->info.component_size;
 		di->container_member = inst;
+		super->random = random32();
 		di->next = rv;
 		rv = di;
 		num_spares++;
@@ -4205,6 +4227,15 @@ static void imsm_process_update(struct supertype *st,
 		migr_map = get_imsm_map(dev, 1);
 		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
 		set_imsm_ord_tbl_ent(migr_map, u->slot, dl->index | IMSM_ORD_REBUILD);
+
+		/* update the family_num to mark a new container
+		 * generation, being careful to record the existing
+		 * family_num in orig_family_num to clean up after
+		 * earlier mdadm versions that neglected to set it.
+		 */
+		if (mpb->orig_family_num == 0)
+			mpb->orig_family_num = mpb->family_num;
+		mpb->family_num += super->random;
 
 		/* count arrays using the victim in the metadata */
 		found = 0;

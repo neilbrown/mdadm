@@ -1512,17 +1512,6 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 	return rv;
 }
 
-__u32 random32(void)
-{
-	__u32 rv;
-	int rfd = open("/dev/urandom", O_RDONLY);
-	if (rfd < 0 || read(rfd, &rv, 4) != 4)
-		rv = random();
-	if (rfd >= 0)
-		close(rfd);
-	return rv;
-}
-
 static void make_header_guid(char *guid)
 {
 	__u32 stamp;

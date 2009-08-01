@@ -1268,7 +1268,11 @@ static void fixup_container_spare_uuid(struct mdinfo *inf)
 			struct supertype *_cst; /* container supertype */
 
 			_cst = array_list->st;
-			_sst = _cst->ss->match_metadata_desc(inf->text_version);
+			if (_cst)
+				_sst = _cst->ss->match_metadata_desc(inf->text_version);
+			else
+				_sst = NULL;
+
 			if (_sst) {
 				memcpy(inf->uuid, array_list->uuid, sizeof(int[4]));
 				free(_sst);

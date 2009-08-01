@@ -763,8 +763,10 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 	struct intel_super *super = st->sb;
 	int i;
 
-	if (!super->anchor->num_raid_devs)
+	if (!super->anchor->num_raid_devs) {
+		printf("ARRAY metadata=imsm\n");
 		return;
+	}
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');

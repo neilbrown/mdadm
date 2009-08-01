@@ -114,10 +114,8 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 				ap->st = st;
 				arrays = ap;
 				st->ss->getinfo_super(st, &ap->info);
-			} else {
+			} else
 				st->ss->getinfo_super(st, &ap->info);
-				st->ss->free_super(st);
-			}
 			if (!(ap->info.disk.state & (1<<MD_DISK_SYNC)))
 				ap->spares++;
 			d = dl_strdup(devlist->devname);

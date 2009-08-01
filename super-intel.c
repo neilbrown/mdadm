@@ -2196,6 +2196,8 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 		return 0;
 #endif
 
+	free_super_imsm(st);
+
 	super = alloc_super(0);
 	if (!super) {
 		fprintf(stderr,

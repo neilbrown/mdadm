@@ -762,6 +762,9 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 static int load_super_ddf_all(struct supertype *st, int fd,
 			      void **sbp, char *devname, int keep_fd);
 #endif
+
+static void free_super_ddf(struct supertype *st);
+
 static int load_super_ddf(struct supertype *st, int fd,
 			  char *devname)
 {
@@ -797,6 +800,8 @@ static int load_super_ddf(struct supertype *st, int fd,
 				devname, dsize);
 		return 1;
 	}
+
+	free_super_ddf(st);
 
 	if (posix_memalign((void**)&super, 512, sizeof(*super))!= 0) {
 		fprintf(stderr, Name ": malloc of %zu failed.\n",

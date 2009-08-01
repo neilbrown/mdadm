@@ -835,6 +835,18 @@ static int load_super_ddf(struct supertype *st, int fd,
 		return rv;
 	}
 
+	if (st->subarray[0]) {
+		struct vcl *v;
+
+		for (v = super->conflist; v; v = v->next)
+			if (v->vcnum == atoi(st->subarray))
+				super->currentconf = v;
+		if (!super->currentconf) {
+			free(super);
+			return 1;
+		}
+	}
+
 	/* Should possibly check the sections .... */
 
 	st->sb = super;

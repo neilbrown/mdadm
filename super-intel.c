@@ -2167,8 +2167,10 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	if (st->subarray[0]) {
 		if (atoi(st->subarray) <= super->anchor->num_raid_devs)
 			super->current_vol = atoi(st->subarray);
-		else
+		else {
+			free_imsm(super);
 			return 1;
+		}
 	}
 
 	*sbp = super;
@@ -2193,8 +2195,6 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	if (load_super_imsm_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
-	if (st->subarray[0])
-		return 1; /* FIXME */
 
 	super = alloc_super(0);
 	if (!super) {
@@ -2213,6 +2213,15 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 				"sections on %s\n", devname);
 		free_imsm(super);
 		return rv;
+	}
+
+	if (st->subarray[0]) {
+		if (atoi(st->subarray) <= super->anchor->num_raid_devs)
+			super->current_vol = atoi(st->subarray);
+		else {
+			free_imsm(super);
+			return 1;
+		}
 	}
 
 	st->sb = super;

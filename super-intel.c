@@ -3858,14 +3858,13 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 	int idx = get_imsm_disk_idx(dev, slot);
 	struct imsm_super *mpb = super->anchor;
 	struct imsm_map *map;
-	unsigned long long esize;
 	unsigned long long pos;
 	struct mdinfo *d;
 	struct extent *ex;
 	int i, j;
 	int found;
 	__u32 array_start;
-	__u32 blocks;
+	__u32 array_end;
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next) {
@@ -3917,15 +3916,14 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			j = 0;
 			pos = 0;
 			array_start = __le32_to_cpu(map->pba_of_lba0);
-			blocks = __le32_to_cpu(map->blocks_per_member);
+			array_end = array_start +
+				    __le32_to_cpu(map->blocks_per_member) - 1;
 
 			do {
 				/* check that we can start at pba_of_lba0 with
 				 * blocks_per_member of space
 				 */
-				esize = ex[j].start - pos;
-				if (array_start >= pos &&
-				    array_start + blocks < ex[j].start) {
+				if (array_start >= pos && array_end < ex[j].start) {
 					found = 1;
 					break;
 				}
@@ -3939,9 +3937,8 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 
 		free(ex);
 		if (i < mpb->num_raid_devs) {
-			dprintf("%x:%x does not have %u at %u\n",
-				dl->major, dl->minor,
-				blocks, array_start);
+			dprintf("%x:%x does not have %u to %u available\n",
+				dl->major, dl->minor, array_start, array_end);
 			/* No room */
 			continue;
 		}

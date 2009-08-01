@@ -2362,15 +2362,19 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 
 static int write_init_super_ddf(struct supertype *st)
 {
+	struct ddf_super *ddf = st->sb;
+	struct vcl *currentconf = ddf->currentconf;
+
+	/* we are done with currentconf reset it to point st at the container */
+	ddf->currentconf = NULL;
 
 	if (st->update_tail) {
 		/* queue the virtual_disk and vd_config as metadata updates */
 		struct virtual_disk *vd;
 		struct vd_config *vc;
-		struct ddf_super *ddf = st->sb;
 		int len;
 
-		if (!ddf->currentconf) {
+		if (!currentconf) {
 			int len = (sizeof(struct phys_disk) +
 				   sizeof(struct phys_disk_entry));
 
@@ -2389,14 +2393,14 @@ static int write_init_super_ddf(struct supertype *st)
 		len = sizeof(struct virtual_disk) + sizeof(struct virtual_entry);
 		vd = malloc(len);
 		*vd = *ddf->virt;
-		vd->entries[0] = ddf->virt->entries[ddf->currentconf->vcnum];
-		vd->populated_vdes = __cpu_to_be16(ddf->currentconf->vcnum);
+		vd->entries[0] = ddf->virt->entries[currentconf->vcnum];
+		vd->populated_vdes = __cpu_to_be16(currentconf->vcnum);
 		append_metadata_update(st, vd, len);
 
 		/* Then the vd_config */
 		len = ddf->conf_rec_len * 512;
 		vc = malloc(len);
-		memcpy(vc, &ddf->currentconf->conf, len);
+		memcpy(vc, &currentconf->conf, len);
 		append_metadata_update(st, vc, len);
 
 		/* FIXME I need to close the fds! */

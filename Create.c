@@ -792,7 +792,39 @@ int Create(struct supertype *st, char *mddev,
 			    dv == moved_disk && dnum != insert_point) break;
 		}
 		if (pass == 1) {
+			struct mdinfo info_new;
+			struct map_ent *me = NULL;
+
+			/* check to see if the uuid has changed due to these
+			 * metadata changes, and if so update the member array
+			 * and container uuid.  Note ->write_init_super clears
+			 * the subarray cursor such that ->getinfo_super once
+			 * again returns container info.
+			 */
+			map_lock(&map);
+			st->ss->getinfo_super(st, &info_new);
+			if (st->ss->external && level != LEVEL_CONTAINER &&
+			    !same_uuid(info_new.uuid, info.uuid, 0)) {
+				map_update(&map, fd2devnum(mdfd),
+					   info_new.text_version,
+					   info_new.uuid, chosen_name);
+				me = map_by_devnum(&map, st->container_dev);
+			}
+
 			st->ss->write_init_super(st);
+
+			/* update parent container uuid */
+			if (me) {
+				char *path = strdup(me->path);
+
+				st->ss->getinfo_super(st, &info_new);
+				map_update(&map, st->container_dev,
+					   info_new.text_version,
+					   info_new.uuid, path);
+				free(path);
+			}
+			map_unlock(&map);
+
 			flush_metadata_updates(st);
 		}
 	}

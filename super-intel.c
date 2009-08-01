@@ -2724,17 +2724,16 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 }
 
 
-static int create_array(struct supertype *st)
+static int create_array(struct supertype *st, int dev_idx)
 {
 	size_t len;
 	struct imsm_update_create_array *u;
 	struct intel_super *super = st->sb;
-	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
+	struct imsm_dev *dev = get_imsm_dev(super, dev_idx);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct disk_info *inf;
 	struct imsm_disk *disk;
 	int i;
-	int idx;
 
 	len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0) +
 	      sizeof(*inf) * map->num_members;
@@ -2746,11 +2745,12 @@ static int create_array(struct supertype *st)
 	}
 
 	u->type = update_create_array;
-	u->dev_idx = super->current_vol;
+	u->dev_idx = dev_idx;
 	imsm_copy_dev(&u->dev, dev);
 	inf = get_disk_info(u);
 	for (i = 0; i < map->num_members; i++) {
-		idx = get_imsm_disk_idx(dev, i);
+		int idx = get_imsm_disk_idx(dev, i);
+
 		disk = get_imsm_disk(super, idx);
 		serialcpy(inf[i].serial, disk->serial);
 	}
@@ -2784,21 +2784,26 @@ static int _add_disk(struct supertype *st)
 
 static int write_init_super_imsm(struct supertype *st)
 {
+	struct intel_super *super = st->sb;
+	int current_vol = super->current_vol;
+
+	/* we are done with current_vol reset it to point st at the container */
+	super->current_vol = -1;
+
 	if (st->update_tail) {
 		/* queue the recently created array / added disk
 		 * as a metadata update */
-		struct intel_super *super = st->sb;
 		struct dl *d;
 		int rv;
 
 		/* determine if we are creating a volume or adding a disk */
-		if (super->current_vol < 0) {
+		if (current_vol < 0) {
 			/* in the add disk case we are running in mdmon
 			 * context, so don't close fd's
 			 */
 			return _add_disk(st);
 		} else
-			rv = create_array(st);
+			rv = create_array(st, current_vol);
 
 		for (d = super->disks; d ; d = d->next) {
 			close(d->fd);

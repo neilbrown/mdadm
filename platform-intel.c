@@ -157,6 +157,7 @@ static int scan(const void *start, const void *end)
 const struct imsm_orom *find_imsm_orom(void)
 {
 	static int populated = 0;
+	unsigned long align;
 
 	/* it's static data so we only need to read it once */
 	if (populated)
@@ -184,7 +185,11 @@ const struct imsm_orom *find_imsm_orom(void)
 		return NULL;
 
 	/* scan option-rom memory looking for an imsm signature */
-	if (probe_roms_init() != 0)
+	if (check_env("IMSM_SAFE_OROM_SCAN"))
+		align = 2048;
+	else
+		align = 512;
+	if (probe_roms_init(align) != 0)
 		return NULL;
 	probe_roms();
 	populated = scan_adapter_roms(scan);

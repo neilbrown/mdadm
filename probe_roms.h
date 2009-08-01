@@ -18,7 +18,7 @@
  */
 
 void probe_roms_exit(void);
-int probe_roms_init(void);
+int probe_roms_init(unsigned long align);
 typedef int (*scan_fn)(const void *start, const void *end);
 int scan_adapter_roms(scan_fn fn);
 void probe_roms(void);

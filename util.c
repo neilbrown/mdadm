@@ -1298,6 +1298,17 @@ int check_env(char *name)
 	return 0;
 }
 
+__u32 random32(void)
+{
+	__u32 rv;
+	int rfd = open("/dev/urandom", O_RDONLY);
+	if (rfd < 0 || read(rfd, &rv, 4) != 4)
+		rv = random();
+	if (rfd >= 0)
+		close(rfd);
+	return rv;
+}
+
 #ifndef MDASSEMBLE
 int flush_metadata_updates(struct supertype *st)
 {

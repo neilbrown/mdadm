@@ -32,6 +32,8 @@ static void *rom_mem = MAP_FAILED;
 static int rom_fd = -1;
 const static int rom_len = 0xf0000 - 0xc0000; /* option-rom memory region */
 static int _sigbus;
+static unsigned long rom_align;
+
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 static void sigbus(int sig)
@@ -76,10 +78,19 @@ void probe_roms_exit(void)
 	}
 }
 
-int probe_roms_init(void)
+int probe_roms_init(unsigned long align)
 {
 	int fd;
 	int rc = 0;
+
+	/* valid values are 2048 and 512.  512 is for PCI-3.0 compliant
+	 * systems, or systems that do not have dangerous/legacy ISA
+	 * devices.  2048 should always be safe
+	 */
+	if (align == 512 || align == 2048)
+		rom_align = align;
+	else
+		return -1;
 
 	if (signal(SIGBUS, sigbus) == SIG_ERR)
 		rc = -1;
@@ -208,6 +219,11 @@ int scan_adapter_roms(scan_fn fn)
 	return found;
 }
 
+static unsigned long align(unsigned long addr, unsigned long alignment)
+{
+	return (addr + alignment - 1) & ~(alignment - 1);
+}
+
 void probe_roms(void)
 {
 	const void *rom;
@@ -220,7 +236,7 @@ void probe_roms(void)
 
 	/* video rom */
 	upper = adapter_rom_resources[0].start;
-	for (start = video_rom_resource.start; start < upper; start += 2048) {
+	for (start = video_rom_resource.start; start < upper; start += rom_align) {
 		rom = isa_bus_to_virt(start);
 		if (!romsignature(rom))
 			continue;
@@ -239,7 +255,7 @@ void probe_roms(void)
 		break;
 	}
 
-	start = (video_rom_resource.end + 1 + 2047) & ~2047UL;
+	start = align(video_rom_resource.end + 1, rom_align);
 	if (start < upper)
 		start = upper;
 
@@ -255,7 +271,7 @@ void probe_roms(void)
 	}
 
 	/* check for adapter roms on 2k boundaries */
-	for (i = 0; i < ARRAY_SIZE(adapter_rom_resources) && start < upper; start += 2048) {
+	for (i = 0; i < ARRAY_SIZE(adapter_rom_resources) && start < upper; start += rom_align) {
 		rom = isa_bus_to_virt(start);
 		if (!romsignature(rom))
 			continue;
@@ -273,7 +289,7 @@ void probe_roms(void)
 		adapter_rom_resources[i].start = start;
 		adapter_rom_resources[i].end = start + length - 1;
 
-		start = adapter_rom_resources[i++].end & ~2047UL;
+		start = adapter_rom_resources[i++].end & ~(rom_align - 1);
 	}
 }
 

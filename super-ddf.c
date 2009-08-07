@@ -762,6 +762,9 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 static int load_super_ddf_all(struct supertype *st, int fd,
 			      void **sbp, char *devname, int keep_fd);
 #endif
+
+static void free_super_ddf(struct supertype *st);
+
 static int load_super_ddf(struct supertype *st, int fd,
 			  char *devname)
 {
@@ -798,6 +801,8 @@ static int load_super_ddf(struct supertype *st, int fd,
 		return 1;
 	}
 
+	free_super_ddf(st);
+
 	if (posix_memalign((void**)&super, 512, sizeof(*super))!= 0) {
 		fprintf(stderr, Name ": malloc of %zu failed.\n",
 			sizeof(*super));
@@ -833,6 +838,18 @@ static int load_super_ddf(struct supertype *st, int fd,
 				"sections on %s\n", devname);
 		free(super);
 		return rv;
+	}
+
+	if (st->subarray[0]) {
+		struct vcl *v;
+
+		for (v = super->conflist; v; v = v->next)
+			if (v->vcnum == atoi(st->subarray))
+				super->currentconf = v;
+		if (!super->currentconf) {
+			free(super);
+			return 1;
+		}
 	}
 
 	/* Should possibly check the sections .... */
@@ -1492,17 +1509,6 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 
 //	update_all_csum(ddf);
 
-	return rv;
-}
-
-__u32 random32(void)
-{
-	__u32 rv;
-	int rfd = open("/dev/urandom", O_RDONLY);
-	if (rfd < 0 || read(rfd, &rv, 4) != 4)
-		rv = random();
-	if (rfd >= 0)
-		close(rfd);
 	return rv;
 }
 
@@ -2345,15 +2351,19 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 
 static int write_init_super_ddf(struct supertype *st)
 {
+	struct ddf_super *ddf = st->sb;
+	struct vcl *currentconf = ddf->currentconf;
+
+	/* we are done with currentconf reset it to point st at the container */
+	ddf->currentconf = NULL;
 
 	if (st->update_tail) {
 		/* queue the virtual_disk and vd_config as metadata updates */
 		struct virtual_disk *vd;
 		struct vd_config *vc;
-		struct ddf_super *ddf = st->sb;
 		int len;
 
-		if (!ddf->currentconf) {
+		if (!currentconf) {
 			int len = (sizeof(struct phys_disk) +
 				   sizeof(struct phys_disk_entry));
 
@@ -2372,14 +2382,14 @@ static int write_init_super_ddf(struct supertype *st)
 		len = sizeof(struct virtual_disk) + sizeof(struct virtual_entry);
 		vd = malloc(len);
 		*vd = *ddf->virt;
-		vd->entries[0] = ddf->virt->entries[ddf->currentconf->vcnum];
-		vd->populated_vdes = __cpu_to_be16(ddf->currentconf->vcnum);
+		vd->entries[0] = ddf->virt->entries[currentconf->vcnum];
+		vd->populated_vdes = __cpu_to_be16(currentconf->vcnum);
 		append_metadata_update(st, vd, len);
 
 		/* Then the vd_config */
 		len = ddf->conf_rec_len * 512;
 		vc = malloc(len);
-		memcpy(vc, &ddf->currentconf->conf, len);
+		memcpy(vc, &currentconf->conf, len);
 		append_metadata_update(st, vc, len);
 
 		/* FIXME I need to close the fds! */

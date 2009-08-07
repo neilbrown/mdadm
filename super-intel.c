@@ -247,6 +247,7 @@ struct intel_super {
 	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
 	__u32 create_offset; /* common start for 'current_vol' */
+	__u32 random; /* random data for seeding new family numbers */
 	struct intel_dev *devlist;
 	struct dl {
 		struct dl *next;
@@ -714,6 +715,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("          Magic : %s\n", str);
 	snprintf(str, strlen(MPB_VERSION_RAID0), "%s", get_imsm_version(mpb));
 	printf("        Version : %s\n", get_imsm_version(mpb));
+	printf("    Orig Family : %08x\n", __le32_to_cpu(mpb->orig_family_num));
 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
 	printf("     Generation : %08x\n", __le32_to_cpu(mpb->generation_num));
 	getinfo_super_imsm(st, &info);
@@ -763,8 +765,10 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 	struct intel_super *super = st->sb;
 	int i;
 
-	if (!super->anchor->num_raid_devs)
+	if (!super->anchor->num_raid_devs) {
+		printf("ARRAY metadata=imsm\n");
 		return;
+	}
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
@@ -1089,7 +1093,7 @@ static int match_home_imsm(struct supertype *st, char *homehost)
 	/* the imsm metadata format does not specify any host
 	 * identification information.  We return -1 since we can never
 	 * confirm nor deny whether a given array is "meant" for this
-	 * host.  We rely on compare_super and the 'family_num' field to
+	 * host.  We rely on compare_super and the 'family_num' fields to
 	 * exclude member disks that do not belong, and we rely on
 	 * mdadm.conf to specify the arrays that should be assembled.
 	 * Auto-assembly may still pick up "foreign" arrays.
@@ -1117,7 +1121,7 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	 */
 	/* imsm does not track uuid's so we synthesis one using sha1 on
 	 * - The signature (Which is constant for all imsm array, but no matter)
-	 * - the family_num of the container
+	 * - the orig_family_num of the container
 	 * - the index number of the volume
 	 * - the 'serial' number of the volume.
 	 * Hopefully these are all constant.
@@ -1127,10 +1131,18 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	char buf[20];
 	struct sha1_ctx ctx;
 	struct imsm_dev *dev = NULL;
+	__u32 family_num;
 
+	/* some mdadm versions failed to set ->orig_family_num, in which
+	 * case fall back to ->family_num.  orig_family_num will be
+	 * fixed up with the first metadata update.
+	 */
+	family_num = super->anchor->orig_family_num;
+	if (family_num == 0)
+		family_num = super->anchor->family_num;
 	sha1_init_ctx(&ctx);
 	sha1_process_bytes(super->anchor->sig, MPB_SIG_LEN, &ctx);
-	sha1_process_bytes(&super->anchor->family_num, sizeof(__u32), &ctx);
+	sha1_process_bytes(&family_num, sizeof(__u32), &ctx);
 	if (super->current_vol >= 0)
 		dev = get_imsm_dev(super, super->current_vol);
 	if (dev) {
@@ -1256,7 +1268,11 @@ static void fixup_container_spare_uuid(struct mdinfo *inf)
 			struct supertype *_cst; /* container supertype */
 
 			_cst = array_list->st;
-			_sst = _cst->ss->match_metadata_desc(inf->text_version);
+			if (_cst)
+				_sst = _cst->ss->match_metadata_desc(inf->text_version);
+			else
+				_sst = NULL;
+
 			if (_sst) {
 				memcpy(inf->uuid, array_list->uuid, sizeof(int[4]));
 				free(_sst);
@@ -1438,7 +1454,8 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	 */
 	if (first->anchor->num_raid_devs > 0 &&
 	    sec->anchor->num_raid_devs > 0) {
-		if (first->anchor->family_num != sec->anchor->family_num)
+		if (first->anchor->orig_family_num != sec->anchor->orig_family_num ||
+		    first->anchor->family_num != sec->anchor->family_num)
 			return 3;
 	}
 
@@ -1478,6 +1495,7 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
 
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
+		first->anchor->orig_family_num = sec->anchor->orig_family_num;
 		first->anchor->family_num = sec->anchor->family_num;
 	}
 
@@ -2167,8 +2185,10 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	if (st->subarray[0]) {
 		if (atoi(st->subarray) <= super->anchor->num_raid_devs)
 			super->current_vol = atoi(st->subarray);
-		else
+		else {
+			free_imsm(super);
 			return 1;
+		}
 	}
 
 	*sbp = super;
@@ -2193,8 +2213,8 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	if (load_super_imsm_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
-	if (st->subarray[0])
-		return 1; /* FIXME */
+
+	free_super_imsm(st);
 
 	super = alloc_super(0);
 	if (!super) {
@@ -2213,6 +2233,15 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 				"sections on %s\n", devname);
 		free_imsm(super);
 		return rv;
+	}
+
+	if (st->subarray[0]) {
+		if (atoi(st->subarray) <= super->anchor->num_raid_devs)
+			super->current_vol = atoi(st->subarray);
+		else {
+			free_imsm(super);
+			return 1;
+		}
 	}
 
 	st->sb = super;
@@ -2536,8 +2565,10 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 
 		*_dev = *dev;
 		*_disk = dl->disk;
-		sum = __gen_imsm_checksum(mpb);
+		sum = random32();
+		sum += __gen_imsm_checksum(mpb);
 		mpb->family_num = __cpu_to_le32(sum);
+		mpb->orig_family_num = mpb->family_num;
 	}
 
 	return 0;
@@ -2634,6 +2665,7 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 		mpb->disk[0] = d->disk;
 		sum = __gen_imsm_checksum(mpb);
 		mpb->family_num = __cpu_to_le32(sum);
+		mpb->orig_family_num = 0;
 		sum = __gen_imsm_checksum(mpb);
 		mpb->check_sum = __cpu_to_le32(sum);
 
@@ -2667,6 +2699,12 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 	generation = __le32_to_cpu(mpb->generation_num);
 	generation++;
 	mpb->generation_num = __cpu_to_le32(generation);
+
+	/* fix up cases where previous mdadm releases failed to set
+	 * orig_family_num
+	 */
+	if (mpb->orig_family_num == 0)
+		mpb->orig_family_num = mpb->family_num;
 
 	mpb_size += sizeof(struct imsm_disk) * mpb->num_disks;
 	for (d = super->disks; d; d = d->next) {
@@ -2711,17 +2749,16 @@ static int write_super_imsm(struct intel_super *super, int doclose)
 }
 
 
-static int create_array(struct supertype *st)
+static int create_array(struct supertype *st, int dev_idx)
 {
 	size_t len;
 	struct imsm_update_create_array *u;
 	struct intel_super *super = st->sb;
-	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
+	struct imsm_dev *dev = get_imsm_dev(super, dev_idx);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct disk_info *inf;
 	struct imsm_disk *disk;
 	int i;
-	int idx;
 
 	len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0) +
 	      sizeof(*inf) * map->num_members;
@@ -2733,11 +2770,12 @@ static int create_array(struct supertype *st)
 	}
 
 	u->type = update_create_array;
-	u->dev_idx = super->current_vol;
+	u->dev_idx = dev_idx;
 	imsm_copy_dev(&u->dev, dev);
 	inf = get_disk_info(u);
 	for (i = 0; i < map->num_members; i++) {
-		idx = get_imsm_disk_idx(dev, i);
+		int idx = get_imsm_disk_idx(dev, i);
+
 		disk = get_imsm_disk(super, idx);
 		serialcpy(inf[i].serial, disk->serial);
 	}
@@ -2771,21 +2809,26 @@ static int _add_disk(struct supertype *st)
 
 static int write_init_super_imsm(struct supertype *st)
 {
+	struct intel_super *super = st->sb;
+	int current_vol = super->current_vol;
+
+	/* we are done with current_vol reset it to point st at the container */
+	super->current_vol = -1;
+
 	if (st->update_tail) {
 		/* queue the recently created array / added disk
 		 * as a metadata update */
-		struct intel_super *super = st->sb;
 		struct dl *d;
 		int rv;
 
 		/* determine if we are creating a volume or adding a disk */
-		if (super->current_vol < 0) {
+		if (current_vol < 0) {
 			/* in the add disk case we are running in mdmon
 			 * context, so don't close fd's
 			 */
 			return _add_disk(st);
 		} else
-			rv = create_array(st);
+			rv = create_array(st, current_vol);
 
 		for (d = super->disks; d ; d = d->next) {
 			close(d->fd);
@@ -3840,14 +3883,13 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 	int idx = get_imsm_disk_idx(dev, slot);
 	struct imsm_super *mpb = super->anchor;
 	struct imsm_map *map;
-	unsigned long long esize;
 	unsigned long long pos;
 	struct mdinfo *d;
 	struct extent *ex;
 	int i, j;
 	int found;
 	__u32 array_start;
-	__u32 blocks;
+	__u32 array_end;
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next) {
@@ -3899,15 +3941,14 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			j = 0;
 			pos = 0;
 			array_start = __le32_to_cpu(map->pba_of_lba0);
-			blocks = __le32_to_cpu(map->blocks_per_member);
+			array_end = array_start +
+				    __le32_to_cpu(map->blocks_per_member) - 1;
 
 			do {
 				/* check that we can start at pba_of_lba0 with
 				 * blocks_per_member of space
 				 */
-				esize = ex[j].start - pos;
-				if (array_start >= pos &&
-				    array_start + blocks < ex[j].start) {
+				if (array_start >= pos && array_end < ex[j].start) {
 					found = 1;
 					break;
 				}
@@ -3921,9 +3962,8 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 
 		free(ex);
 		if (i < mpb->num_raid_devs) {
-			dprintf("%x:%x does not have %u at %u\n",
-				dl->major, dl->minor,
-				blocks, array_start);
+			dprintf("%x:%x does not have %u to %u available\n",
+				dl->major, dl->minor, array_start, array_end);
 			/* No room */
 			continue;
 		}
@@ -4025,6 +4065,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		di->data_offset = __le32_to_cpu(map->pba_of_lba0);
 		di->component_size = a->info.component_size;
 		di->container_member = inst;
+		super->random = random32();
 		di->next = rv;
 		rv = di;
 		num_spares++;
@@ -4190,6 +4231,15 @@ static void imsm_process_update(struct supertype *st,
 		migr_map = get_imsm_map(dev, 1);
 		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
 		set_imsm_ord_tbl_ent(migr_map, u->slot, dl->index | IMSM_ORD_REBUILD);
+
+		/* update the family_num to mark a new container
+		 * generation, being careful to record the existing
+		 * family_num in orig_family_num to clean up after
+		 * earlier mdadm versions that neglected to set it.
+		 */
+		if (mpb->orig_family_num == 0)
+			mpb->orig_family_num = mpb->family_num;
+		mpb->family_num += super->random;
 
 		/* count arrays using the victim in the metadata */
 		found = 0;

@@ -320,6 +320,8 @@ int Assemble(struct supertype *st, char *mddev,
 				content = tmpdev->content;
 			else
 				content = tst->ss->container_content(tst);
+			if (!content)
+				goto loop; /* empty container */
 
 			tmpdev->content = content->next;
 			if (tmpdev->content == NULL)

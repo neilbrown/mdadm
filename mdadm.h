@@ -436,6 +436,7 @@ extern struct superswitch {
 	 */
 	void (*examine_super)(struct supertype *st, char *homehost);
 	void (*brief_examine_super)(struct supertype *st, int verbose);
+	void (*brief_examine_subarrays)(struct supertype *st, int verbose);
 	void (*export_examine_super)(struct supertype *st);
 
 	/* Used to report details of an active array.

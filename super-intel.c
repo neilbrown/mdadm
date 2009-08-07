@@ -761,14 +761,29 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 	/* We just write a generic IMSM ARRAY entry */
 	struct mdinfo info;
 	char nbuf[64];
-	char nbuf1[64];
 	struct intel_super *super = st->sb;
-	int i;
 
 	if (!super->anchor->num_raid_devs) {
 		printf("ARRAY metadata=imsm\n");
 		return;
 	}
+
+	getinfo_super_imsm(st, &info);
+	fname_from_uuid(st, &info, nbuf, ':');
+	printf("ARRAY metadata=imsm UUID=%s\n", nbuf + 5);
+}
+
+static void brief_examine_subarrays_imsm(struct supertype *st, int verbose)
+{
+	/* We just write a generic IMSM ARRAY entry */
+	struct mdinfo info;
+	char nbuf[64];
+	char nbuf1[64];
+	struct intel_super *super = st->sb;
+	int i;
+
+	if (!super->anchor->num_raid_devs)
+		return;
 
 	getinfo_super_imsm(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
@@ -781,7 +796,6 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 		printf("ARRAY /dev/md/%.16s container=%s member=%d UUID=%s\n",
 		       dev->volume, nbuf + 5, i, nbuf1 + 5);
 	}
-	printf("ARRAY metadata=imsm UUID=%s\n", nbuf + 5);
 }
 
 static void export_examine_super_imsm(struct supertype *st)
@@ -4554,6 +4568,7 @@ struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_imsm,
 	.brief_examine_super = brief_examine_super_imsm,
+	.brief_examine_subarrays = brief_examine_subarrays_imsm,
 	.export_examine_super = export_examine_super_imsm,
 	.detail_super	= detail_super_imsm,
 	.brief_detail_super = brief_detail_super_imsm,

@@ -1183,6 +1183,18 @@ static void brief_examine_super_ddf(struct supertype *st, int verbose)
 {
 	/* We just write a generic DDF ARRAY entry
 	 */
+	struct mdinfo info;
+	char nbuf[64];
+	getinfo_super_ddf(st, &info);
+	fname_from_uuid(st, &info, nbuf, ':');
+
+	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
+}
+
+static void brief_examine_subarrays_ddf(struct supertype *st, int verbose)
+{
+	/* We just write a generic DDF ARRAY entry
+	 */
 	struct ddf_super *ddf = st->sb;
 	struct mdinfo info;
 	int i;
@@ -1203,7 +1215,6 @@ static void brief_examine_super_ddf(struct supertype *st, int verbose)
 		printf("ARRAY container=%s member=%d UUID=%s\n",
 		       nbuf+5, i, nbuf1+5);
 	}
-	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
 }
 
 static void export_examine_super_ddf(struct supertype *st)
@@ -3597,6 +3608,7 @@ struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
 	.brief_examine_super = brief_examine_super_ddf,
+	.brief_examine_subarrays = brief_examine_subarrays_ddf,
 	.export_examine_super = export_examine_super_ddf,
 	.detail_super	= detail_super_ddf,
 	.brief_detail_super = brief_detail_super_ddf,

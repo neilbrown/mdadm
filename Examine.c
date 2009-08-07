@@ -145,6 +145,8 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 					sep=',';
 				}
 			}
+			if (ap->st->ss->brief_examine_subarrays)
+				ap->st->ss->brief_examine_subarrays(ap->st, brief > 1);
 			ap->st->ss->free_super(ap->st);
 			/* FIXME free ap */
 			if (ap->spares || brief > 1)

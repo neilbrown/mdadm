@@ -487,22 +487,29 @@ int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 	return n;
 }
 
-int sysfs_get_str(struct mdinfo *sra, struct mdinfo *dev,
-		       char *name, char *val, int size)
+int sysfs_fd_get_str(int fd, char *val, int size)
 {
-	char fname[50];
 	int n;
-	int fd;
-	sprintf(fname, "/sys/block/%s/md/%s/%s",
-		sra->sys_name, dev?dev->sys_name:"", name);
-	fd = open(fname, O_RDONLY);
-	if (fd < 0)
-		return -1;
+
+	lseek(fd, 0, 0);
 	n = read(fd, val, size);
-	close(fd);
 	if (n <= 0)
 		return -1;
 	val[n] = 0;
+	return n;
+}
+
+int sysfs_get_str(struct mdinfo *sra, struct mdinfo *dev,
+		       char *name, char *val, int size)
+{
+	int n;
+	int fd;
+
+	fd = sysfs_get_fd(sra, dev, name);
+	if (fd < 0)
+		return -1;
+	n = sysfs_fd_get_str(fd, val, size);
+	close(fd);
 	return n;
 }
 

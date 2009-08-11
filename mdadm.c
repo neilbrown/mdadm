@@ -329,6 +329,7 @@ int main(int argc, char *argv[])
 		 * could depend on the mode */
 #define O(a,b) ((a<<8)|b)
 		switch (O(mode,opt)) {
+		case O(GROW,'c'):
 		case O(CREATE,'c'):
 		case O(BUILD,'c'): /* chunk or rounding */
 			if (chunk) {
@@ -418,7 +419,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
-		case O(GROW,'l'): /* hack - needed to understand layout */
+		case O(GROW,'l'):
 		case O(CREATE,'l'):
 		case O(BUILD,'l'): /* set raid level*/
 			if (level != UnSet) {
@@ -1412,8 +1413,8 @@ int main(int argc, char *argv[])
 		if (devs_found > 1) {
 
 			/* must be '-a'. */
-			if (size >= 0 || raiddisks) {
-				fprintf(stderr, Name ": --size, --raiddisks, and --add are exclusing in --grow mode\n");
+			if (size >= 0 || raiddisks || chunk || layout_str != NULL || bitmap_file) {
+				fprintf(stderr, Name ": --add cannot be used with other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
 			}
@@ -1422,17 +1423,20 @@ int main(int argc, char *argv[])
 				if (rv)
 					break;
 			}
-		} else if ((size >= 0) + (raiddisks != 0) +  (layout_str != NULL) + (bitmap_file != NULL)> 1) {
-			fprintf(stderr, Name ": can change at most one of size, raiddisks, bitmap, and layout\n");
-			rv = 1;
-			break;
-		} else if (size >= 0 || raiddisks || layout_str != NULL)
-			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
-					  size, level, layout_str, chunk, raiddisks);
-		else if (bitmap_file) {
-			if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
+		} else if (bitmap_file) {
+			if (size >= 0 || raiddisks || chunk || layout_str != NULL) {
+				fprintf(stderr, Name ": --bitmap changes cannot be used with other geometry changes in --grow mode\n");
+				rv = 1;
+				break;
+			}
+			if (delay == 0)
+				delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
 					    bitmap_chunk, delay, write_behind, force);
+		} else if (size >= 0 || raiddisks != 0 || layout_str != NULL
+			   || chunk != 0 || level != UnSet) {
+			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
+					  size, level, layout_str, chunk, raiddisks);
 		} else if (array_size < 0)
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;

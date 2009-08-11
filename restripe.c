@@ -418,15 +418,16 @@ int save_stripes(int *source, unsigned long long *offsets,
 		for (disk = 0; disk < raid_disks ; disk++) {
 			unsigned long long offset;
 			int dnum;
-			len = chunk_size;
 
 			offset = (start/chunk_size/data_disks)*chunk_size;
 			dnum = geo_map(disk < data_disks ? disk : data_disks - disk - 1,
 				       start/chunk_size/data_disks,
 				       raid_disks, level, layout);
+			if (dnum < 0) abort();
 			if (source[dnum] < 0 ||
 			    lseek64(source[dnum], offsets[disk]+offset, 0) < 0 ||
-			    read(source[dnum], buf+disk * chunk_size, len) != len)
+			    read(source[dnum], buf+disk * chunk_size, chunk_size)
+			    != chunk_size)
 				if (failed <= 2) {
 					fdisk[failed] = dnum;
 					fblock[failed] = disk;

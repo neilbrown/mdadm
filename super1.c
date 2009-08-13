@@ -685,6 +685,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			__u32 r[4] = {random(), random(), random(), random()};
 			memcpy(sb->device_uuid, r, 16);
 		}
+		if (rfd >= 0)
+			close(rfd);
 
 		sb->dev_roles[i] =
 			__cpu_to_le16(info->disk.raid_disk);

@@ -118,7 +118,9 @@ missing, spare, or failed drives, so there is nothing to monitor.
 Grow (or shrink) an array, or otherwise reshape it in some way.
 Currently supported growth options including changing the active size
 of component devices and changing the number of active devices in RAID
-levels 1/4/5/6, as well as adding or removing a write-intent bitmap.
+levels 1/4/5/6, changing the RAID level between 1, 5, and 6, changing
+the chunk size and layout for RAID5 and RAID5, as well as adding or
+removing a write-intent bitmap.
 
 .TP
 .B "Incremental Assembly"
@@ -415,6 +417,21 @@ This value can not be used with
 metadata such as DDF and IMSM.
 
 .TP
+.BR \-Z ", " \-\-array-size=
+This is only meaningful with
+.B \-\-grow
+and its effect is not persistent: when the array is stopped an
+restarted the default array size will be restored.
+
+Setting the array-size causes the array to appear smaller to programs
+that access the data.  This is particularly needed before reshaping an
+array so that it will be smaller.  As the reshape is not reversible,
+but setting the size with
+.B \-\-array-size
+is, it is required that the array size is reduced as appropriate
+before the number of devices in the array is reduced.
+
+.TP
 .BR \-c ", " \-\-chunk=
 Specify chunk size of kibibytes.  The default is 64.
 
@@ -445,8 +462,8 @@ Not yet supported with
 
 .TP
 .BR \-p ", " \-\-layout=
-This option configures the fine details of data layout for raid5,
-and raid10 arrays, and controls the failure modes for
+This option configures the fine details of data layout for RAID5, RAID6,
+and RAID10 arrays, and controls the failure modes for
 .IR faulty .
 
 The layout of the raid5 parity block can be one of
@@ -506,6 +523,18 @@ can be useful.  This number can be at most equal to the number of
 devices in the array.  It does not need to divide evenly into that
 number (e.g. it is perfectly legal to have an 'n2' layout for an array
 with an odd number of devices).
+
+When an array is converted between RAID5 and RAID6 an intermediate
+RAID6 layout is used in which the second parity block (Q) is always on
+the last device.  To convert a RAID5 to RAID6 and leave it in this new
+layout (which does not require re-striping) use
+.BR \-\-layout=preserve .
+This will try to avoid any restriping.
+
+The converse of this is
+.B \-\-layout=normalise
+which will change a non-standard RAID6 layout into a more standard
+arrangement.
 
 .TP
 .BR \-\-parity=
@@ -684,6 +713,7 @@ number, and there is no entry in /dev for that number and with a
 non-standard name.  Name that are not in 'standard' format are only
 allowed in "/dev/md/".
 
+.ig XX
 \".TP
 \".BR \-\-symlink = no
 \"Normally when
@@ -705,6 +735,7 @@ allowed in "/dev/md/".
 \"to enforce this even if it is suppressing
 \".IR mdadm.conf .
 \"
+.XX
 
 .SH For assemble:
 
@@ -1833,7 +1864,12 @@ Currently the only support available is to
 change the "size" attribute
 for RAID1, RAID5 and RAID6.
 .IP \(bu 4
-increase the "raid\-devices" attribute of RAID1, RAID5, and RAID6.
+increase or decrease the "raid\-devices" attribute of RAID1, RAID5,
+and RAID6.
+.IP \bu 4
+change the chunk-size and layout of RAID5 and RAID6.
+.IP \bu 4
+convert between RAID1 and RAID5, and between RAID5 and RAID6.
 .IP \(bu 4
 add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
@@ -1872,10 +1908,22 @@ devices which were in those slots must be failed and removed.
 When the number of devices is increased, any hot spares that are
 present will be activated immediately.
 
-Increasing the number of active devices in a RAID5 is much more
+Changing the number of active devices in a RAID5 or RAID6 is much more
 effort.  Every block in the array will need to be read and written
-back to a new location.  From 2.6.17, the Linux Kernel is able to do
-this safely, including restart and interrupted "reshape".
+back to a new location.  From 2.6.17, the Linux Kernel is able to
+increase the number of devices in a RAID5 safely, including restart
+and interrupted "reshape".  From 2.6.31, the Linux Kernel is able to
+increase or decrease the number of devices in a RAID5 or RAID6.
+
+When decreasing the number of devices, the size of the array will also
+decrease.  If there was data in the array, it could get destroyed and
+this is not reversible.  To help prevent accidents,
+.I mdadm
+requires that the size of the array be decreased first with
+.BR "mdadm --grow --array-size" .
+This is a reversible change which simply makes the end of the array
+inaccessible.  The integrity of any data can then be checked before
+the non-reversible reduction in the number of devices is request.
 
 When relocating the first few stripes on a raid5, it is not possible
 to keep the data on disk completely consistent and crash-proof.  To
@@ -1889,6 +1937,31 @@ option.  If this option is used, and the system does crash during the
 critical period, the same file must be passed to
 .B \-\-assemble
 to restore the backup and reassemble the array.
+
+.SS LEVEL CHANGES
+
+Changing the RAID level of any array happens instantaneously.  However
+in the RAID to RAID6 case this requires a non-standard layout of the
+RAID6 data, and in the RAID6 to RAID5 case that non-standard layout is
+required before the change can be accomplish.  So while the level
+change is instant, the accompanying layout change can take quite a
+long time.
+
+.SS CHUNK-SIZE AND LAYOUT CHANGES
+
+Changing the chunk-size of layout without also changing the number of
+devices as the same time will involve re-writing all blocks in-place.
+To ensure against data loss in the case of a crash, a
+.B --backup-file
+must be provided for these changes.  Small sections of the array will
+be copied to the backup file while they are being rearranged.
+
+If the reshape is interrupted for any reason, this backup file must be
+make available to
+.B "mdadm --assemble"
+so the array can be reassembled.  Consequently the file cannot be
+stored on the device being reshaped.
+
 
 .SS BITMAP CHANGES
 
@@ -2156,6 +2229,14 @@ can be started.
 .br
 Any devices which are components of /dev/md4 will be marked as faulty
 and then remove from the array.
+
+.B "  mdadm --grow /dev/md4 --level=6 --backup-file=/root/backup-md4
+.br
+The array
+.B /dev/md4
+which is currently a RAID5 array will be converted to RAID6.  There
+should normally already be a spare drive attached to the array as a
+RAID6 needs one more drive than a matching RAID5.
 
 .B "  mdadm --create /dev/md/ddf --metadata=ddf --raid-disks 6 /dev/sd[a-f]"
 .br

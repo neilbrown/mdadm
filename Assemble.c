@@ -985,6 +985,8 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (err) {
 			fprintf(stderr, Name ": Failed to restore critical section for reshape, sorry.\n");
+			if (backup_file == NULL)
+				fprintf(stderr,"      Possibly you needed to specify the --backup-file\n");
 			close(mdfd);
 			return err;
 		}
@@ -1093,7 +1095,18 @@ int Assemble(struct supertype *st, char *mddev,
 			      content->array.layout, clean, avail, okcnt) &&
 		       (okcnt >= req_cnt || start_partial_ok)
 			     ))) {
-			if (ioctl(mdfd, RUN_ARRAY, NULL)==0) {
+			/* This array is good-to-go.
+			 * If a reshape is in progress then we might need to
+			 * continue monitoring it.  In that case we start
+			 * it read-only and let the grow code make it writable.
+			 */
+			int rv;
+			if (content->reshape_active &&
+			    content->delta_disks <= 0)
+				rv = Grow_continue(mdfd, st, content, backup_file);
+			else
+				rv = ioctl(mdfd, RUN_ARRAY, NULL);
+			if (rv == 0) {
 				if (verbose >= 0) {
 					fprintf(stderr, Name ": %s has been started with %d drive%s",
 						mddev, okcnt, okcnt==1?"":"s");

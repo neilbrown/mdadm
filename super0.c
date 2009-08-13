@@ -140,7 +140,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)sb->reshape_position/2, human_size((long long)sb->reshape_position<<9));
 		if (sb->delta_disks) {
 			printf("  Delta Devices : %d", sb->delta_disks);
-			if (sb->delta_disks)
+			if (sb->delta_disks > 0)
 				printf(" (%d->%d)\n", sb->raid_disks-sb->delta_disks, sb->raid_disks);
 			else
 				printf(" (%d->%d)\n", sb->raid_disks, sb->raid_disks+sb->delta_disks);

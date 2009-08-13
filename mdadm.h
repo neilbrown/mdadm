@@ -722,7 +722,8 @@ extern int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			int level, char *layout_str, int chunksize, int raid_disks);
 extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file);
-
+extern int Grow_continue(int mdfd, struct supertype *st,
+			 struct mdinfo *info, char *backup_file);
 
 extern int Assemble(struct supertype *st, char *mddev,
 		    mddev_ident_t ident,

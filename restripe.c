@@ -519,13 +519,14 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		    int source, unsigned long long read_offset,
 		    unsigned long long start, unsigned long long length)
 {
-	char *stripe_buf = malloc(raid_disks * chunk_size);
+	char *stripe_buf;
 	char **stripes = malloc(raid_disks * sizeof(char*));
 	char **blocks = malloc(raid_disks * sizeof(char*));
 	int i;
 
 	int data_disks = raid_disks - (level == 0 ? 0 : level <= 5 ? 1 : 2);
 
+	posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size);
 	if (zero == NULL) {
 		zero = malloc(chunk_size);
 		if (zero)

@@ -90,7 +90,7 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		list->path = canonicalize_file_name(path);
 		list->next = NULL;
 	}
-
+	closedir(driver_dir);
 	return head;
 }
 

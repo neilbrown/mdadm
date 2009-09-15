@@ -1499,18 +1499,17 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 			dv->next = first->devlist;
 			first->devlist = dv;
 		}
-		if (i <= sec->anchor->num_raid_devs) {
+		if (i < sec->anchor->num_raid_devs) {
 			/* allocation failure */
 			free_devlist(first);
 			fprintf(stderr, "imsm: failed to associate spare\n"); 
 			return 3;
 		}
-		for (i = 0; i < sec->anchor->num_raid_devs; i++)
-			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
-
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
 		first->anchor->orig_family_num = sec->anchor->orig_family_num;
 		first->anchor->family_num = sec->anchor->family_num;
+		for (i = 0; i < sec->anchor->num_raid_devs; i++)
+			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
 	}
 
 	return 0;

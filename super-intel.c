@@ -3680,6 +3680,7 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 		return 0;
 
 	disk->status |= FAILED_DISK;
+	disk->status &= ~CONFIGURED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
 	if (~map->failed_disk_num == 0)
 		map->failed_disk_num = slot;

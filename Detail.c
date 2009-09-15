@@ -122,12 +122,25 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		    disk.minor == 0)
 			continue;
 		if ((dv=map_dev(disk.major, disk.minor, 1))) {
-			if ((!st || !st->sb) &&
+			/* some formats (imsm) have free-floating-spares
+			 * with a uuid of uuid_match_any, they don't
+			 * have very good info about the rest of the
+			 * container, so keep searching when
+			 * encountering such a device.  Otherwise, stop
+			 * after the first successful call to
+			 * ->load_super.
+			 */
+			int free_spare = memcmp(uuid_match_any,
+						info.uuid,
+						sizeof(uuid_match_any)) == 0;
+			if ((!st || !st->sb || free_spare) &&
 			    (array.raid_disks == 0 || 
 			     (disk.state & (1<<MD_DISK_ACTIVE)))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
+				if (free_spare)
+					st->ss->free_super(st);
 				int fd2 = dev_open(dv, O_RDONLY);
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, NULL) == 0) {

@@ -863,6 +863,8 @@ void wait_for(char *dev, int fd)
 			return;
 		usleep(200000);
 	}
+	if (i == 25)
+		dprintf("%s: timeout waiting for %s\n", __func__, dev);
 }
 
 struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };

@@ -477,8 +477,8 @@ int save_stripes(int *source, unsigned long long *offsets,
 				for (i = 0; i < data_disks; i++)
 					bufs[i] = (uint8_t*)buf + chunk_size * ((qdisk+1+i) % raid_disks);
 
-				fdisk[0] = (qdisk + 1 + fdisk[0]) * raid_disks;
-				fdisk[1] = (qdisk + 1 + fdisk[1]) * raid_disks;
+				fdisk[0] = (qdisk + 1 + fdisk[0]) % raid_disks;
+				fdisk[1] = (qdisk + 1 + fdisk[1]) % raid_disks;
 				syndrome_disks = data_disks;
 			}
 			bufs[syndrome_disks] = (uint8_t*)buf + chunk_size * disk;

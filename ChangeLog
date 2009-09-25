@@ -1,6 +1,10 @@
 Please see git logs for detailed change log.
 This file just contains highlight.
 
+Changes Prior to release 3.0.2
+   -    Fix crash when hosthost is not set, as often happens in
+	early boot.
+
 Changes Prior to release 3.0.1
    -    Fix various segfaults
    -    Fixed for --examine with containers

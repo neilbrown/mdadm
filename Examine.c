@@ -118,7 +118,8 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 				st->ss->getinfo_super(st, &ap->info);
 			} else
 				st->ss->getinfo_super(st, &ap->info);
-			if (!(ap->info.disk.state & (1<<MD_DISK_SYNC)))
+			if (!st->loaded_container &&
+			    !(ap->info.disk.state & (1<<MD_DISK_SYNC)))
 				ap->spares++;
 			d = dl_strdup(devlist->devname);
 			dl_add(ap->devs, d);
@@ -136,17 +137,23 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
+			int newline = 0;
+
 			ap->st->ss->brief_examine_super(ap->st, brief > 1);
-			if (ap->spares) printf("   spares=%d", ap->spares);
+			if (ap->spares)
+				newline += printf("   spares=%d", ap->spares);
 			if (brief > 1) {
-				printf("   devices");
+				newline += printf("   devices");
 				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
 					printf("%c%s", sep, d);
 					sep=',';
 				}
 			}
-			if (ap->st->ss->brief_examine_subarrays)
+			if (ap->st->ss->brief_examine_subarrays) {
+				if (newline)
+					printf("\n");
 				ap->st->ss->brief_examine_subarrays(ap->st, brief > 1);
+			}
 			ap->st->ss->free_super(ap->st);
 			/* FIXME free ap */
 			if (ap->spares || brief > 1)

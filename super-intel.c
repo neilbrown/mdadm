@@ -64,7 +64,6 @@ struct imsm_disk {
 #define SPARE_DISK      __cpu_to_le32(0x01)  /* Spare */
 #define CONFIGURED_DISK __cpu_to_le32(0x02)  /* Member of some RaidDev */
 #define FAILED_DISK     __cpu_to_le32(0x04)  /* Permanent failure */
-#define USABLE_DISK     __cpu_to_le32(0x08)  /* Fully usable unless FAILED_DISK is set */
 	__u32 status;			 /* 0xF0 - 0xF3 */
 	__u32 owner_cfg_num; /* which config 0,1,2... owns this disk */ 
 #define	IMSM_DISK_FILLERS	4
@@ -687,10 +686,9 @@ static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 	snprintf(str, MAX_RAID_SERIAL_LEN + 1, "%s", disk->serial);
 	printf("  Disk%02d Serial : %s\n", index, str);
 	s = disk->status;
-	printf("          State :%s%s%s%s\n", s&SPARE_DISK ? " spare" : "",
+	printf("          State :%s%s%s\n", s&SPARE_DISK ? " spare" : "",
 					      s&CONFIGURED_DISK ? " active" : "",
-					      s&FAILED_DISK ? " failed" : "",
-					      s&USABLE_DISK ? " usable" : "");
+					      s&FAILED_DISK ? " failed" : "");
 	printf("             Id : %08x\n", __le32_to_cpu(disk->scsi_id));
 	sz = __le32_to_cpu(disk->total_blocks) - reserved;
 	printf("    Usable Size : %llu%s\n", (unsigned long long)sz,
@@ -1499,18 +1497,17 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 			dv->next = first->devlist;
 			first->devlist = dv;
 		}
-		if (i <= sec->anchor->num_raid_devs) {
+		if (i < sec->anchor->num_raid_devs) {
 			/* allocation failure */
 			free_devlist(first);
 			fprintf(stderr, "imsm: failed to associate spare\n"); 
 			return 3;
 		}
-		for (i = 0; i < sec->anchor->num_raid_devs; i++)
-			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
-
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
 		first->anchor->orig_family_num = sec->anchor->orig_family_num;
 		first->anchor->family_num = sec->anchor->family_num;
+		for (i = 0; i < sec->anchor->num_raid_devs; i++)
+			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
 	}
 
 	return 0;
@@ -2569,7 +2566,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		super->anchor->num_disks++;
 	}
 	set_imsm_ord_tbl_ent(map, dk->number, dl->index);
-	dl->disk.status = CONFIGURED_DISK | USABLE_DISK;
+	dl->disk.status = CONFIGURED_DISK;
 
 	/* if we are creating the first raid device update the family number */
 	if (super->current_vol == 0) {
@@ -2637,7 +2634,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	size /= 512;
 	serialcpy(dd->disk.serial, dd->serial);
 	dd->disk.total_blocks = __cpu_to_le32(size);
-	dd->disk.status = USABLE_DISK | SPARE_DISK;
+	dd->disk.status = SPARE_DISK;
 	if (sysfs_disk_to_scsi_id(fd, &id) == 0)
 		dd->disk.scsi_id = __cpu_to_le32(id);
 	else
@@ -3463,8 +3460,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			s = d ? d->disk.status : 0;
 			if (s & FAILED_DISK)
 				skip = 1;
-			if (!(s & USABLE_DISK))
-				skip = 1;
 			if (ord & IMSM_ORD_REBUILD)
 				skip = 1;
 
@@ -3685,6 +3680,7 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 		return 0;
 
 	disk->status |= FAILED_DISK;
+	disk->status &= ~CONFIGURED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
 	if (~map->failed_disk_num == 0)
 		map->failed_disk_num = slot;

@@ -395,7 +395,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	} else
 		pfd[0] = pfd[1] = -1;
 
-	container = malloc(sizeof(*container));
+	container = calloc(1, sizeof(*container));
 	container->devnum = devnum;
 	container->devname = devname;
 	container->arrays = NULL;

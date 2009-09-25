@@ -1,7 +1,12 @@
 Please see git logs for detailed change log.
 This file just contains highlight.
 
-Changed Prior to release 3.0
+Changes Prior to release 3.0.1
+   -    Fix various segfaults
+   -    Fixed for --examine with containers
+   -    Lots of other little fixes.
+	
+Changes Prior to release 3.0
    -    Support for externally managed metadata, specifically DDF and IMSM.
    -    Depend on udev to create entries in /dev, rather than creating them
 	ourselves.

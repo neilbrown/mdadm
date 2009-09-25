@@ -305,9 +305,13 @@ static int match_home0(struct supertype *st, char *homehost)
 {
 	mdp_super_t *sb = st->sb;
 	char buf[20];
-	char *hash = sha1_buffer(homehost,
-				 strlen(homehost),
-				 buf);
+	char *hash;
+
+	if (!homehost)
+		return 0;
+	hash = sha1_buffer(homehost,
+			   strlen(homehost),
+			   buf);
 
 	return (memcmp(&sb->set_uuid2, hash, 8)==0);
 }

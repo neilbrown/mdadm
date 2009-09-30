@@ -1685,10 +1685,8 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		serialcpy(dl->serial, serial);
 		dl->index = -2;
 		dl->e = NULL;
-	} else if (keep_fd) {
-		close(dl->fd);
+	} else if (keep_fd)
 		dl->fd = fd;
-	}
 
 	/* look up this disk's index in the current anchor */
 	for (i = 0; i < super->anchor->num_disks; i++) {

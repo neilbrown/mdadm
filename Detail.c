@@ -207,11 +207,11 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		printf("ARRAY %s", dev);
 		if (brief > 1) {
 			if (array.raid_disks)
-				printf("level=%s num-devices=%d",
+				printf(" level=%s num-devices=%d",
 				       c?c:"-unknown-",
 				       array.raid_disks );
 			else
-				printf("level=container num-devices=%d",
+				printf(" level=container num-devices=%d",
 				       array.nr_disks);
 		}
 		if (container) {

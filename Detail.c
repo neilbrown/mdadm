@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #include	"mdadm.h"
@@ -127,12 +122,25 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		    disk.minor == 0)
 			continue;
 		if ((dv=map_dev(disk.major, disk.minor, 1))) {
-			if ((!st || !st->sb) &&
+			/* some formats (imsm) have free-floating-spares
+			 * with a uuid of uuid_match_any, they don't
+			 * have very good info about the rest of the
+			 * container, so keep searching when
+			 * encountering such a device.  Otherwise, stop
+			 * after the first successful call to
+			 * ->load_super.
+			 */
+			int free_spare = memcmp(uuid_match_any,
+						info.uuid,
+						sizeof(uuid_match_any)) == 0;
+			if ((!st || !st->sb || free_spare) &&
 			    (array.raid_disks == 0 || 
 			     (disk.state & (1<<MD_DISK_ACTIVE)))) {
 				/* try to read the superblock from this device
 				 * to get more info
 				 */
+				if (free_spare)
+					st->ss->free_super(st);
 				int fd2 = dev_open(dv, O_RDONLY);
 				if (fd2 >=0 && st &&
 				    st->ss->load_super(st, fd2, NULL) == 0) {
@@ -199,11 +207,11 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		printf("ARRAY %s", dev);
 		if (brief > 1) {
 			if (array.raid_disks)
-				printf("level=%s num-devices=%d",
+				printf(" level=%s num-devices=%d",
 				       c?c:"-unknown-",
 				       array.raid_disks );
 			else
-				printf("level=container num-devices=%d",
+				printf(" level=container num-devices=%d",
 				       array.nr_disks);
 		}
 		if (container) {

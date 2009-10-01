@@ -1,5 +1,5 @@
 .\" See file COPYING in distribution for details.
-.TH MDMON 8 "" v3.0-rc1
+.TH MDMON 8 "" v3.0.2
 .SH NAME
 mdmon \- monitor MD external metadata arrays
 
@@ -15,11 +15,12 @@ occurs, like disk failures and clean-to-dirty transitions.  The kernel, in
 important cases, waits for user space to take action on these notifications.
 
 .SH DESCRIPTION
-.P
-.B Metadata updates:
-.P
-To service metadata update requests a daemon, mdmon, is introduced.
-Mdmon is tasked with polling the sysfs namespace looking for changes in
+.SS Metadata updates:
+To service metadata update requests a daemon,
+.IR mdmon ,
+is introduced.
+.I Mdmon
+is tasked with polling the sysfs namespace looking for changes in
 .BR array_state , 
 .BR sync_action ,
 and per disk
@@ -48,7 +49,9 @@ The safe mode timer has expired so set array state to clean to block writes to t
 Clear the dirty bit for the volume
 .TP
 .B array_state \- read-only
-This is the initial state that all arrays start at.  mdmon takes one of the three actions:
+This is the initial state that all arrays start at.
+.I mdmon
+takes one of the three actions:
 .RS
 .TP
 1/
@@ -72,8 +75,8 @@ checkpoint resync.
 .TP
 .B sync_action \- recover\-to\-idle
 A spare may have completed rebuilding so tell the metadata handler about the
-state of each disk.  This is the metadata handler’s opportunity to clear any
-"out-of-sync" bits and clear the volume’s degraded status.  If a recovery
+state of each disk.  This is the metadata handler's opportunity to clear
+any "out-of-sync" bits and clear the volume's degraded status.  If a recovery
 process is idled before it completes this event allows the metadata handler to
 checkpoint recovery.
 .TP
@@ -81,10 +84,10 @@ checkpoint recovery.
 A disk failure kicks off a series of events.  First, notify the metadata
 handler that a disk has failed, and then notify the kernel that it can unblock
 writes that were dependent on this disk.  After unblocking the kernel this disk
-is set to be removed* from the member array.  Finally the disk is marked failed
+is set to be removed+ from the member array.  Finally the disk is marked failed
 in all other member arrays in the container.
 .IP
-\* Note This behavior differs slightly from native MD arrays where
++ Note This behavior differs slightly from native MD arrays where
 removal is reserved for a
 .B mdadm --remove
 event.  In the external metadata case the container holds the final
@@ -93,8 +96,7 @@ reference on a block device and a
 call is still required.
 .RE
 
-.P
-.B Containers:
+.SS Containers:
 .P
 External metadata formats, like DDF, differ from the native MD metadata
 formats in that they define a set of disks and a series of sub-arrays
@@ -106,7 +108,9 @@ each array can created be created with a subset of those partitions.  The
 supported external formats perform this disk carving internally.
 .P
 Container devices simply hold references to all member disks and allow
-tools like mdmon to determine which active arrays belong to which
+tools like
+.I mdmon
+to determine which active arrays belong to which
 container.  Some array management commands like disk removal and disk
 add are now only valid at the container level.  Attempts to perform
 these actions on member arrays are blocked with error messages like:
@@ -125,14 +129,36 @@ CONTAINER
 The
 .B container
 device to monitor.  It can be a full path like /dev/md/container, a simple md
-device name like md127, or /proc/mdstat which tells mdmon to scan for
-containers and launch an mdmon instance for each one found.
+device name like md127, or /proc/mdstat which tells
+.I mdmon
+to scan for containers and launch an
+.I mdmon
+instance for each one found.
 .TP
 [NEWROOT]
-In order to support an external metadata raid array as the rootfs mdmon needs
-to be started in the initramfs environment.  Once the initramfs environment
-mounts the final rootfs mdmon needs to be restarted in the new namespace.  When
-NEWROOT is specified mdmon will terminate any mdmon instances that are running
-in the current namespace, chroot(2) to NEWROOT, and continue monitoring the
-container.
+In order to support an external metadata raid array as the rootfs
+.I mdmon
+needs to be started in the initramfs environment.  Once the initramfs
+environment mounts the final rootfs
+.I mdmon
+needs to be restarted in the new namespace.  When NEWROOT is specified
+.I mdmon
+will terminate any
+.I mdmon
+instances that are running in the current namespace,
+.IR chroot (2)
+to NEWROOT, and continue monitoring the container.
+.PP
+Note that
+.I mdmon
+is automatically started by
+.I mdadm
+when needed and so does not need to be considered when working with
+RAID arrays.  The only times it is run other that by
+.I  mdadm
+is when the boot scripts need to restart it after mounting the new
+root filesystem.
 
+.SH SEE ALSO
+.IR mdadm (8),
+.IR md (4).

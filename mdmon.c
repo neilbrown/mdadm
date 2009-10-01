@@ -1,8 +1,8 @@
 /*
  * mdmon - monitor external metadata arrays
  *
- * Copyright (C) 2007-2008 Neil Brown <neilb@suse.de>
- * Copyright (C) 2007-2008 Intel Corporation
+ * Copyright (C) 2007-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2007-2009 Intel Corporation
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -395,7 +395,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	} else
 		pfd[0] = pfd[1] = -1;
 
-	container = malloc(sizeof(*container));
+	container = calloc(1, sizeof(*container));
 	container->devnum = devnum;
 	container->devname = devname;
 	container->arrays = NULL;

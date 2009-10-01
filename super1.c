@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #include "mdadm.h"
@@ -698,6 +693,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			__u32 r[4] = {random(), random(), random(), random()};
 			memcpy(sb->device_uuid, r, 16);
 		}
+		if (rfd >= 0)
+			close(rfd);
 
 		sb->dev_roles[i] =
 			__cpu_to_le16(info->disk.raid_disk);

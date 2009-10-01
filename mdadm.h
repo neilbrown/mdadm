@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #define	_GNU_SOURCE
@@ -446,6 +441,7 @@ extern struct superswitch {
 	 */
 	void (*examine_super)(struct supertype *st, char *homehost);
 	void (*brief_examine_super)(struct supertype *st, int verbose);
+	void (*brief_examine_subarrays)(struct supertype *st, int verbose);
 	void (*export_examine_super)(struct supertype *st);
 
 	/* Used to report details of an active array.
@@ -861,6 +857,7 @@ extern int open_container(int fd);
 extern int mdmon_running(int devnum);
 extern int signal_mdmon(int devnum);
 extern int check_env(char *name);
+extern __u32 random32(void);
 extern int start_mdmon(int devnum);
 
 extern char *devnum2devname(int num);

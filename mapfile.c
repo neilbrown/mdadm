@@ -297,6 +297,37 @@ struct map_ent *map_by_name(struct map_ent **map, char *name)
 	return NULL;
 }
 
+/* sets the proper subarray and container_dev according to the metadata
+ * version super_by_fd does this automatically, this routine is meant as
+ * a supplement for guess_super()
+ */
+static void set_member_info(struct supertype *st, struct mdstat_ent *ent)
+{
+
+	st->subarray[0] = '\0';
+
+	if (ent->metadata_version == NULL ||
+	    strncmp(ent->metadata_version, "external:", 9) != 0)
+		return;
+
+	if (is_subarray(&ent->metadata_version[9])) {
+		char version[strlen(ent->metadata_version)+1];
+		char *subarray;
+		char *name = &version[10];
+
+		strcpy(version, ent->metadata_version);
+		subarray = strrchr(version, '/');
+		name = &version[10];
+
+		if (!subarray)
+			return;
+		*subarray++ = '\0';
+
+		st->container_dev = devname2devnum(name);
+		strncpy(st->subarray, subarray, sizeof(st->subarray));
+	}
+}
+
 void RebuildMap(void)
 {
 	struct mdstat_ent *mdstat = mdstat_read(0, 0);
@@ -337,8 +368,10 @@ void RebuildMap(void)
 			st = guess_super(dfd);
 			if ( st == NULL)
 				ok = -1;
-			else
+			else {
+				set_member_info(st, md);
 				ok = st->ss->load_super(st, dfd, NULL);
+			}
 			close(dfd);
 			if (ok != 0)
 				continue;

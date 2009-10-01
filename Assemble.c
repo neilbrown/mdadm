@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #include	"mdadm.h"
@@ -188,6 +183,8 @@ int Assemble(struct supertype *st, char *mddev,
 	if (!devlist &&
 	    ident->uuid_set == 0 &&
 	    ident->super_minor < 0 &&
+	    ident->name[0] == 0 &&
+	    (ident->container == NULL || ident->member == NULL) &&
 	    ident->devices == NULL) {
 		fprintf(stderr, Name ": No identity information available for %s - cannot assemble.\n",
 			mddev ? mddev : "further assembly");
@@ -323,6 +320,8 @@ int Assemble(struct supertype *st, char *mddev,
 				content = tmpdev->content;
 			else
 				content = tst->ss->container_content(tst);
+			if (!content)
+				goto loop; /* empty container */
 
 			tmpdev->content = content->next;
 			if (tmpdev->content == NULL)

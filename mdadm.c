@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  *
  *    Additions for bitmap and write-behind RAID options, Copyright (C) 2003-2004,
  *    Paul Clements, SteelEye Technology, Inc.
@@ -345,9 +340,11 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+#if 0
 		case O(ASSEMBLE,AutoHomeHost):
 			auto_update_home = 1;
 			continue;
+#endif
 		case O(INCREMENTAL, 'e'):
 		case O(CREATE,'e'):
 		case O(ASSEMBLE,'e'):
@@ -433,7 +430,10 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (level != 0 && level != -1 && level != 1 && level != -4 && level != -5 && mode == BUILD) {
+			if (level != 0 && level != LEVEL_LINEAR && level != 1 &&
+			    level != LEVEL_MULTIPATH && level != LEVEL_FAULTY &&
+			    level != 10 &&
+			    mode == BUILD) {
 				fprintf(stderr, Name ": Raid level %s not permitted with --build.\n",
 					optarg);
 				exit(2);
@@ -1166,6 +1166,7 @@ int main(int argc, char *argv[])
 					} while (rv2!=2);
 					/* Incase there are stacked devices, we need to go around again */
 				} while (acnt);
+#if 0
 				if (cnt == 0 && auto_update_home && homehost) {
 					/* Nothing found, maybe we need to bootstrap homehost info */
 					do {
@@ -1185,6 +1186,7 @@ int main(int argc, char *argv[])
 						/* Incase there are stacked devices, we need to go around again */
 					} while (acnt);
 				}
+#endif
 				if (cnt == 0 && rv == 0) {
 					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
 					rv = 1;
@@ -1381,6 +1383,13 @@ int main(int argc, char *argv[])
 			fprintf(stderr, Name ": Cannot write a pid file when not in daemon mode\n");
 			rv = 1;
 			break;
+		}
+		if (delay == 0) {
+			if (get_linux_version() > 20616)
+				/* mdstat responds to poll */
+				delay = 1000;
+			else
+				delay = 60;
 		}
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, daemonise, scan, oneshot,

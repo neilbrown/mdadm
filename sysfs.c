@@ -2,7 +2,7 @@
  * sysfs - extract md related information from sysfs.  Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2006-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -786,3 +786,108 @@ int sysfs_unique_holder(int devnum, long rdev)
 	else
 		return found;
 }
+
+#ifndef MDASSEMBLE
+
+static char *clean_states[] = {
+	"clear", "inactive", "readonly", "read-auto", "clean", NULL };
+
+int WaitClean(char *dev, int verbose)
+{
+	int fd;
+	struct mdinfo *mdi;
+	int rv = 1;
+	int devnum;
+
+	fd = open(dev, O_RDONLY); 
+	if (fd < 0) {
+		if (verbose)
+			fprintf(stderr, Name ": Couldn't open %s: %s\n", dev, strerror(errno));
+		return 1;
+	}
+
+	devnum = fd2devnum(fd);
+	mdi = sysfs_read(fd, devnum, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
+	if (!mdi) {
+		if (verbose)
+			fprintf(stderr, Name ": Failed to read sysfs attributes for "
+				"%s\n", dev);
+		close(fd);
+		return 0;
+	}
+
+	switch(mdi->array.level) {
+	case LEVEL_LINEAR:
+	case LEVEL_MULTIPATH:
+	case 0:
+		/* safemode delay is irrelevant for these levels */
+		rv = 0;
+		
+	}
+
+	/* for internal metadata the kernel handles the final clean
+	 * transition, containers can never be dirty
+	 */
+	if (!is_subarray(mdi->text_version))
+		rv = 0;
+
+	/* safemode disabled ? */
+	if (mdi->safe_mode_delay == 0)
+		rv = 0;
+
+	if (rv) {
+		int state_fd = sysfs_open(fd2devnum(fd), NULL, "array_state");
+		char buf[20];
+		fd_set fds;
+		struct timeval tm;
+
+		/* minimize the safe_mode_delay and prepare to wait up to 5s
+		 * for writes to quiesce
+		 */
+		sysfs_set_safemode(mdi, 1);
+		tm.tv_sec = 5;
+		tm.tv_usec = 0;
+
+		/* give mdmon a chance to checkpoint resync */
+		sysfs_set_str(mdi, NULL, "sync_action", "idle");
+
+		FD_ZERO(&fds);
+
+		/* wait for array_state to be clean */
+		while (1) {
+			rv = read(state_fd, buf, sizeof(buf));
+			if (rv < 0)
+				break;
+			if (sysfs_match_word(buf, clean_states) <= 4)
+				break;
+			FD_SET(state_fd, &fds);
+			rv = select(state_fd + 1, NULL, NULL, &fds, &tm);
+			if (rv < 0 && errno != EINTR)
+				break;
+			lseek(state_fd, 0, SEEK_SET);
+		}
+		if (rv < 0)
+			rv = 1;
+		else if (ping_monitor(mdi->text_version) == 0) {
+			/* we need to ping to close the window between array
+			 * state transitioning to clean and the metadata being
+			 * marked clean
+			 */
+			rv = 0;
+		} else
+			rv = 1;
+		if (rv && verbose)
+			fprintf(stderr, Name ": Error waiting for %s to be clean\n",
+				dev);
+
+		/* restore the original safe_mode_delay */
+		sysfs_set_safemode(mdi, mdi->safe_mode_delay);
+		close(state_fd);
+	}
+
+	sysfs_free(mdi);
+	close(fd);
+
+	return rv;
+}
+#endif /* MDASSEMBLE */

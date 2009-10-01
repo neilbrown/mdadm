@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #define HAVE_STDINT_H 1
@@ -318,9 +313,13 @@ static int match_home0(struct supertype *st, char *homehost)
 {
 	mdp_super_t *sb = st->sb;
 	char buf[20];
-	char *hash = sha1_buffer(homehost,
-				 strlen(homehost),
-				 buf);
+	char *hash;
+
+	if (!homehost)
+		return 0;
+	hash = sha1_buffer(homehost,
+			   strlen(homehost),
+			   buf);
 
 	return (memcmp(&sb->set_uuid2, hash, 8)==0);
 }

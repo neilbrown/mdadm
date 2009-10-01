@@ -1,7 +1,7 @@
-Subject:  ANNOUNCE: mdadm 3.0-devel3 - A tool for managing Soft RAID under Linux
+Subject:  ANNOUNCE: mdadm 3.0 - A tool for managing Soft RAID under Linux
 
-I am pleased to announce the availability of
-   mdadm version 3.0-devel3
+I am pleased to (finally) announce the availability of
+   mdadm version 3.0
 
 It is available at the usual places:
    countrycode=xx.
@@ -10,28 +10,11 @@ and via git at
    git://neil.brown.name/mdadm
    http://neil.brown.name/git?p=mdadm
 
-Note that this is a "devel" release.  It should be used with
-caution, though it is believed to be close to release-candidate stage.
 
-There have been numerous improvements and additions since -devel2.
-I think we are close to a release of 3.0.
+This is a major new version and as such should be treated with some
+caution.  However it has seen substantial testing and is considerred
+to be ready for wide use.
 
-I need to add lots of tests to the test suite to test the new
-functionality.  And I need to review the man pages.
-
-After that I will release -rc1 followed by -final.
-
-
-The following is the same introduction to 3.x as appeared in
-previous announcements.
-
-
-Any testing and feedback will be greatly appreciated.
-
-NeilBrown  10th March 2009
-
-
-=====================================================
 
 The significant change which justifies the new major version number is
 that mdadm can now handle metadata updates entirely in userspace.
@@ -48,7 +31,7 @@ If udev is installed on the system, mdadm will not create any devices
 in /dev.  Rather it allows udev to manage those devices.  For this to work
 as expected, the included udev rules file should be installed.
 
-If udev is not install, mdadm will still create devices and symlinks 
+If udev is not installed, mdadm will still create devices and symlinks 
 as required, and will also remove them when the array is stopped.
 
 mdadm now requires all devices which do not have a standard name (mdX
@@ -111,3 +94,5 @@ The version 0.90 and 1.x metadata formats supported by previous
 versions for mdadm are still supported and the kernel still performs
 the same updates it use to.  The new 'mdmon' approach is only used for
 newly introduced metadata types.
+
+NeilBrown 2nd June 2009

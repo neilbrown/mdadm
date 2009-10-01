@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #include	"mdadm.h"
@@ -933,6 +928,8 @@ void wait_for(char *dev, int fd)
 			return;
 		usleep(200000);
 	}
+	if (i == 25)
+		dprintf("%s: timeout waiting for %s\n", __func__, dev);
 }
 
 struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
@@ -1366,6 +1363,17 @@ int check_env(char *name)
 		return 1;
 
 	return 0;
+}
+
+__u32 random32(void)
+{
+	__u32 rv;
+	int rfd = open("/dev/urandom", O_RDONLY);
+	if (rfd < 0 || read(rfd, &rv, 4) != 4)
+		rv = random();
+	if (rfd >= 0)
+		close(rfd);
+	return rv;
 }
 
 #ifndef MDASSEMBLE

@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2006 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -19,12 +19,7 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *    Author: Neil Brown
- *    Email: <neilb@cse.unsw.edu.au>
- *    Paper: Neil Brown
- *           School of Computer Science and Engineering
- *           The University of New South Wales
- *           Sydney, 2052
- *           Australia
+ *    Email: <neilb@suse.de>
  */
 
 #include	"mdadm.h"
@@ -68,7 +63,7 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 	} *arrays = NULL;
 
 	for (; devlist ; devlist=devlist->next) {
-		struct supertype *st = forcest;
+		struct supertype *st;
 
 		fd = dev_open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
@@ -80,7 +75,9 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 			err = 1;
 		}
 		else {
-			if (!st)
+			if (forcest)
+				st = dup_super(forcest);
+			else
 				st = guess_super(fd);
 			if (st)
 				err = st->ss->load_super(st, fd,
@@ -119,11 +116,10 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 				ap->st = st;
 				arrays = ap;
 				st->ss->getinfo_super(st, &ap->info);
-			} else {
+			} else
 				st->ss->getinfo_super(st, &ap->info);
-				st->ss->free_super(st);
-			}
-			if (!(ap->info.disk.state & (1<<MD_DISK_SYNC)))
+			if (!st->loaded_container &&
+			    !(ap->info.disk.state & (1<<MD_DISK_SYNC)))
 				ap->spares++;
 			d = dl_strdup(devlist->devname);
 			dl_add(ap->devs, d);
@@ -141,14 +137,22 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 		for (ap=arrays; ap; ap=ap->next) {
 			char sep='=';
 			char *d;
+			int newline = 0;
+
 			ap->st->ss->brief_examine_super(ap->st, brief > 1);
-			if (ap->spares) printf("   spares=%d", ap->spares);
+			if (ap->spares)
+				newline += printf("   spares=%d", ap->spares);
 			if (brief > 1) {
-				printf("   devices");
+				newline += printf("   devices");
 				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
 					printf("%c%s", sep, d);
 					sep=',';
 				}
+			}
+			if (ap->st->ss->brief_examine_subarrays) {
+				if (newline)
+					printf("\n");
+				ap->st->ss->brief_examine_subarrays(ap->st, brief > 1);
 			}
 			ap->st->ss->free_super(ap->st);
 			/* FIXME free ap */

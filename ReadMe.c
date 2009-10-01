@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2007 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v3.0-rc1 - 11th May 2009\n";
+char Version[] = Name " - v3.0.2 - 25th September 2009\n";
 
 /*
  * File: ReadMe.c
@@ -139,7 +139,9 @@ struct option long_options[] = {
     {"write-mostly",0, 0, 'W'},
     {"re-add",    0, 0,  ReAdd},
     {"homehost",  1, 0,  HomeHost},
+#if 0
     {"auto-update-homehost", 0, 0, AutoHomeHost},
+#endif
     {"symlinks",  1, 0,  Symlinks},
 
     /* For assemble */

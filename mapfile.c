@@ -303,18 +303,21 @@ struct map_ent *map_by_name(struct map_ent **map, char *name)
  */
 static void set_member_info(struct supertype *st, struct mdstat_ent *ent)
 {
-	char version[strlen(ent->metadata_version)+1];
 
 	st->subarray[0] = '\0';
 
-	if (strncmp(ent->metadata_version, "external:", 9) != 0)
+	if (ent->metadata_version == NULL ||
+	    strncmp(ent->metadata_version, "external:", 9) != 0)
 		return;
 
-	strcpy(version, ent->metadata_version);
-
-	if (is_subarray(&version[9])) {
-		char *subarray = strrchr(version, '/');
+	if (is_subarray(&ent->metadata_version[9])) {
+		char version[strlen(ent->metadata_version)+1];
+		char *subarray;
 		char *name = &version[10];
+
+		strcpy(version, ent->metadata_version);
+		subarray = strrchr(version, '/');
+		name = &version[10];
 
 		if (!subarray)
 			return;

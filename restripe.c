@@ -673,7 +673,7 @@ int test_stripes(int *source, unsigned long long *offsets,
 		}
 		switch(level) {
 		case 6:
-			qsyndrome(p, q, blocks, data_disks, chunk_size);
+			qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);
 			disk = geo_map(-1, start/chunk_size, raid_disks,
 				       level, layout);
 			if (memcmp(p, stripes[disk], chunk_size) != 0) {

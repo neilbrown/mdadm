@@ -387,7 +387,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
  * It has the following structure.
  */
 
-struct mdp_backup_super {
+static struct mdp_backup_super {
 	char	magic[16];  /* md_backup_data-1 or -2 */
 	__u8	set_uuid[16];
 	__u64	mtime;
@@ -402,7 +402,7 @@ struct mdp_backup_super {
 	__u64	length2;
 	__u32	sb_csum2;	/* csum of preceeding bytes. */
 	__u8 pad[512-68-32];
-} __attribute__((aligned(512))) bsb;
+} __attribute__((aligned(512))) bsb, bsb2;
 
 int bsb_csum(char *buf, int len)
 {
@@ -1331,7 +1331,6 @@ static void validate(int afd, int bfd, unsigned long long offset)
 	 * This is only used for regression testing and should not
 	 * be used while the array is active
 	 */
-	struct mdp_backup_super bsb2;
 	if (afd < 0)
 		return;
 	lseek64(bfd, offset - 4096, 0);

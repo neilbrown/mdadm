@@ -19,6 +19,27 @@ dotest() {
  dd if=/tmp/RandFile of=$md0
 }
 
+checkgeo() {
+ # check the geometry of an array
+ # level raid_disks chunk_size layout
+ dev=$1
+ shift
+ sleep 0.5
+ check wait
+ for attr in level raid_disks chunk_size layout 
+ do
+   if [ $# -gt 0 ] ; then
+      val=$1
+      shift
+      if [ " `cat /sys/block/$dev/md/$attr`" != " $val" ]
+      then echo "$attr doesn't match for $dev"
+           exit 1
+      fi
+   fi
+ done
+}
+   
+
 bu=/tmp/md-test-backup
 rm -f $bu
 mdadm -CR $md0 -l1 -n2 -x1 $dev0 $dev1 $dev2
@@ -46,6 +67,41 @@ dotest 2
 mdadm -G /dev/md0 --array-size $mdsize0
 mdadm -G $md0 -n2 --backup-file $bu
 dotest 1
+
+mdadm -G --level=1 $md0
+dotest 1
+
+# now repeat that last few steps only with a degraded array.
+mdadm -S $md0
+mdadm -CR $md0 -l6 -n5 $dev0 $dev1 $dev2 $dev3 $dev4
+dd if=/tmp/RandFile of=$md0
+dotest 3
+
+mdadm $md0 --fail $dev0
+
+mdadm -G /dev/md0 --array-size $[mdsize0*2]
+mdadm -G $md0 -n4 --backup-file $bu
+dotest 2
+mdadm $md0 --fail $dev4
+
+mdadm $md0 --fail $dev3
+# now double-degraded.
+# switch layout to a DDF layout and back to make sure that works.
+
+mdadm -G /dev/md0 --layout=ddf-N-continue --backup-file $bu
+checkgeo md0 raid6 4 $[64*1024] 10
+dotest 2
+mdadm -G /dev/md0 --layout=ra --backup-file $bu
+checkgeo md0 raid6 4 $[64*1024] 1
+dotest 2
+
+mdadm -G $md0 -l5 --backup-file $bu
+dotest 2
+
+mdadm -G /dev/md0 --array-size $mdsize0
+mdadm -G $md0 -n2 --backup-file $bu
+dotest 1
+mdadm $md0 --fail $dev2
 
 mdadm -G --level=1 $md0
 dotest 1

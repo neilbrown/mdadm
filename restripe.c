@@ -425,7 +425,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 				       raid_disks, level, layout);
 			if (dnum < 0) abort();
 			if (source[dnum] < 0 ||
-			    lseek64(source[dnum], offsets[disk]+offset, 0) < 0 ||
+			    lseek64(source[dnum], offsets[dnum]+offset, 0) < 0 ||
 			    read(source[dnum], buf+disk * chunk_size, chunk_size)
 			    != chunk_size)
 				if (failed <= 2) {
@@ -465,32 +465,60 @@ int save_stripes(int *source, unsigned long long *offsets,
 				 * 'p' and 'q' get to be all zero
 				 */
 				for (i = 0; i < raid_disks; i++)
-					if (i == disk || i == qdisk)
-						bufs[i] = zero;
-					else
-						bufs[i] = (uint8_t*)buf+i*chunk_size;
+					bufs[i] = zero;
+				for (i = 0; i < data_disks; i++) {
+					int dnum = geo_map(i,
+							   start/chunk_size/data_disks,
+							   raid_disks, level, layout);
+					int snum;
+					/* i is the logical block number, so is index to 'buf'.
+					 * dnum is physical disk number
+					 * and thus the syndrome number.
+					 */
+					snum = dnum;
+					bufs[snum] = (uint8_t*)buf + chunk_size * i;
+				}
 				syndrome_disks = raid_disks;
 			} else {
 				/* for md, q is over 'data_disks' blocks,
 				 * starting immediately after 'q'
 				 */
-				for (i = 0; i < data_disks; i++)
-					bufs[i] = (uint8_t*)buf + chunk_size * ((qdisk+1+i) % raid_disks);
+				for (i = 0; i < data_disks; i++) {
+					int dnum = geo_map(i,
+							   start/chunk_size/data_disks,
+							   raid_disks, level, layout);
+					int snum;
+					/* i is the logical block number, so is index to 'buf'.
+					 * dnum is physical disk number
+					 * snum is syndrome disk for which 0 is immediately after Q
+					 */
+					snum = (raid_disks + dnum - qdisk - 1) % raid_disks;
+					bufs[snum] = (uint8_t*)buf + chunk_size * i;
+				}
 
-				fdisk[0] = (qdisk + 1 + fdisk[0]) % raid_disks;
-				fdisk[1] = (qdisk + 1 + fdisk[1]) % raid_disks;
+				fdisk[0] = (raid_disks + fdisk[0] - qdisk - 1) % raid_disks;
+				fdisk[1] = (raid_disks + fdisk[1] - qdisk - 1) % raid_disks;
 				syndrome_disks = data_disks;
 			}
-			bufs[syndrome_disks] = (uint8_t*)buf + chunk_size * disk;
-			bufs[syndrome_disks+1] = (uint8_t*)buf + chunk_size * qdisk;
+
+			/* Place P and Q blocks at end of bufs */
+			bufs[syndrome_disks] = (uint8_t*)buf + chunk_size * data_disks;
+			bufs[syndrome_disks+1] = (uint8_t*)buf + chunk_size * (data_disks+1);
+
 			if (fblock[1] == data_disks)
 				/* One data failed, and parity failed */
 				raid6_datap_recov(syndrome_disks+2, chunk_size,
 						  fdisk[0], bufs);
-			else 
+			else {
+				if (fdisk[0] > fdisk[1]) {
+					int t = fdisk[0];
+					fdisk[0] = fdisk[1];
+					fdisk[1] = t;
+				}
 				/* Two data blocks failed, P,Q OK */
 				raid6_2data_recov(syndrome_disks+2, chunk_size,
 						  fdisk[0], fdisk[1], bufs);
+			}
 		}
 
 		for (i=0; i<nwrites; i++)

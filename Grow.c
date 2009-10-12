@@ -1417,10 +1417,9 @@ static int child_grow(int afd, struct mdinfo *sra, unsigned long stripes,
 		    dests, destfd, destoffsets,
 		    0, buf);
 	validate(afd, destfd[0], destoffsets[0]);
-	if (wait_backup(sra, 0, stripes * chunk / 512, stripes * chunk / 512,
-			dests, destfd, destoffsets,
-			0) < 0)
-		return 0;
+	wait_backup(sra, 0, stripes * chunk / 512, stripes * chunk / 512,
+		    dests, destfd, destoffsets,
+		    0);
 	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * chunk/512) * data);
 	free(buf);
 	/* FIXME this should probably be numeric */
@@ -1453,10 +1452,8 @@ static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
 		    dests, destfd, destoffsets,
 		    0, buf);
 	validate(afd, destfd[0], destoffsets[0]);
-	rv = wait_backup(sra, start, stripes*chunk/512, 0,
-			 dests, destfd, destoffsets, 0);
-	if (rv < 0)
-		return 0;
+	wait_backup(sra, start, stripes*chunk/512, 0,
+		    dests, destfd, destoffsets, 0);
 	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * chunk/512) * data);
 	free(buf);
 	/* FIXME this should probably be numeric */
@@ -1523,10 +1520,9 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 			part) < 0)
 		return 0;
 	sysfs_set_num(sra, NULL, "suspend_lo", ((start-stripes)*chunk/512) * data);
-	if (wait_backup(sra, (start-stripes) * chunk/512, tailstripes * chunk/512, 0,
-			dests, destfd, destoffsets,
-			1-part) < 0)
-		return 0;
+	wait_backup(sra, (start-stripes) * chunk/512, tailstripes * chunk/512, 0,
+		    dests, destfd, destoffsets,
+		    1-part);
 	sysfs_set_num(sra, NULL, "suspend_lo", (size*chunk/512) * data);
 	sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);

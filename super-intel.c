@@ -1378,8 +1378,6 @@ static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 			     char *update, char *devname, int verbose,
 			     int uuid_set, char *homehost)
 {
-	/* FIXME */
-
 	/* For 'assemble' and 'force' we need to return non-zero if any
 	 * change was made.  For others, the return value is ignored.
 	 * Update options are:
@@ -1395,26 +1393,55 @@ static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 	 *		linear only
 	 *  resync: mark as dirty so a resync will happen.
 	 *  name:  update the name - preserving the homehost
+	 *  uuid:  Change the uuid of the array to match watch is given
 	 *
 	 * Following are not relevant for this imsm:
 	 *  sparc2.2 : update from old dodgey metadata
 	 *  super-minor: change the preferred_minor number
 	 *  summaries:  update redundant counters.
-	 *  uuid:  Change the uuid of the array to match watch is given
 	 *  homehost:  update the recorded homehost
 	 *  _reshape_progress: record new reshape_progress position.
 	 */
-	int rv = 0;
-	//struct intel_super *super = st->sb;
-	//struct imsm_super *mpb = super->mpb;
+	int rv = 1;
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb;
 
-	if (strcmp(update, "grow") == 0) {
-	}
-	if (strcmp(update, "resync") == 0) {
-		/* dev->vol.dirty = 1; */
-	}
+	/* we can only update container info */
+	if (!super || super->current_vol >= 0 || !super->anchor)
+		return 1;
 
-	/* IMSM has no concept of UUID or homehost */
+	mpb = super->anchor;
+
+	if (strcmp(update, "uuid") == 0 && uuid_set && !info->update_private)
+		fprintf(stderr,
+			Name ": '--uuid' not supported for imsm metadata\n");
+	else if (strcmp(update, "uuid") == 0 && uuid_set && info->update_private) {
+		mpb->orig_family_num = *((__u32 *) info->update_private);
+		rv = 0;
+	} else if (strcmp(update, "uuid") == 0) {
+		__u32 *new_family = malloc(sizeof(*new_family));
+
+		/* update orig_family_number with the incoming random
+		 * data, report the new effective uuid, and store the
+		 * new orig_family_num for future updates.
+		 */
+		if (new_family) {
+			memcpy(&mpb->orig_family_num, info->uuid, sizeof(__u32));
+			uuid_from_super_imsm(st, info->uuid);
+			*new_family = mpb->orig_family_num;
+			info->update_private = new_family;
+			rv = 0;
+		}
+	} else if (strcmp(update, "assemble") == 0)
+		rv = 0;
+	else
+		fprintf(stderr,
+			Name ": '--update=%s' not supported for imsm metadata\n",
+			update);
+
+	/* successful update? recompute checksum */
+	if (rv == 0)
+		mpb->check_sum = __le32_to_cpu(__gen_imsm_checksum(mpb));
 
 	return rv;
 }

@@ -153,6 +153,11 @@ struct mdinfo {
 	int			cache_size; /* size of raid456 stripe cache*/
 	int			mismatch_cnt;
 	char			text_version[50];
+	void 			*update_private; /* for passing metadata-format
+						  * specific update data
+						  * between successive calls to
+						  * update_super()
+						  */
 
 	int container_member; /* for assembling external-metatdata arrays
 			       * This is to be used internally by metadata

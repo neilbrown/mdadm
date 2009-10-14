@@ -565,6 +565,7 @@ int Assemble(struct supertype *st, char *mddev,
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	bitmap_done = 0;
+	content->update_private = NULL;
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
@@ -717,6 +718,8 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		devcnt++;
 	}
+	free(content->update_private);
+	content->update_private = NULL;
 
 	if (devcnt == 0) {
 		fprintf(stderr, Name ": no devices found for %s\n",

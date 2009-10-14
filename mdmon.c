@@ -369,6 +369,29 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 
 	dprintf("starting mdmon for %s in %s\n",
 		devname, switchroot ? : "/");
+
+	/* try to spawn mdmon instances from the target file system */
+	if (switchroot && strcmp(switchroot, "/") != 0) {
+		char path[1024];
+		pid_t pid;
+
+		sprintf(path, "%s/sbin/mdmon", switchroot);
+		switch (fork()) {
+		case 0:
+			execl(path, "mdmon", devname, NULL);
+			exit(1);
+		case -1:
+			return 1;
+		default:
+			pid = wait(&status);
+			if (pid > -1 && WIFEXITED(status) &&
+			    WEXITSTATUS(status) == 0)
+				return 0;
+			else
+				return 1;
+		}
+	}
+
 	mdfd = open_dev(devnum);
 	if (mdfd < 0) {
 		fprintf(stderr, "mdmon: %s: %s\n", devname,

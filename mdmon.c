@@ -175,7 +175,7 @@ pid_t devname2mdmon(char *devname)
 	return pid;
 }
 
-static void try_kill_monitor(pid_t pid, char *devname)
+static void try_kill_monitor(pid_t pid, char *devname, int sock)
 {
 	char buf[100];
 	int fd;
@@ -205,7 +205,7 @@ static void try_kill_monitor(pid_t pid, char *devname)
 	for ( ; mdstat; mdstat = mdstat->next)
 		if (is_container_member(mdstat, devname)) {
 			sprintf(buf, "/dev/%s", mdstat->dev);
-			WaitClean(buf, 0);
+			WaitClean(buf, sock, 0);
 		}
 	free_mdstat(mdstat);
 }
@@ -366,6 +366,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	int status;
 	int ignore;
 	pid_t victim = -1;
+	int victim_sock = -1;
 
 	dprintf("starting mdmon for %s in %s\n",
 		devname, switchroot ? : "/");
@@ -502,6 +503,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 		 * the new root
 		 */
 		victim = devname2mdmon(container->devname);
+		victim_sock = connect_monitor(container->devname);
 		if (chroot(switchroot) != 0) {
 			fprintf(stderr, "mdmon: failed to chroot to '%s': %s\n",
 				switchroot, strerror(errno));
@@ -551,8 +553,10 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 		exit(2);
 	}
 
-	if (victim > -1)
-		try_kill_monitor(victim, container->devname);
+	if (victim > -1) {
+		try_kill_monitor(victim, container->devname, victim_sock);
+		close(victim_sock);
+	}
 	do_manager(container);
 
 	exit(0);

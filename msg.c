@@ -177,10 +177,8 @@ int connect_monitor(char *devname)
 	return sfd;
 }
 
-/* give the monitor a chance to update the metadata */
-int ping_monitor(char *devname)
+int fping_monitor(int sfd)
 {
-	int sfd = connect_monitor(devname);
 	int err = 0;
 
 	if (sfd < 0)
@@ -193,6 +191,16 @@ int ping_monitor(char *devname)
 	/* check the reply */
 	if (!err && wait_reply(sfd, 20) != 0)
 		err = -1;
+
+	return err;
+}
+
+
+/* give the monitor a chance to update the metadata */
+int ping_monitor(char *devname)
+{
+	int sfd = connect_monitor(devname);
+	int err = fping_monitor(sfd);
 
 	close(sfd);
 	return err;

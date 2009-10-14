@@ -753,7 +753,7 @@ extern int Monitor(mddev_dev_t devlist,
 
 extern int Kill(char *dev, int force, int quiet, int noexcl);
 extern int Wait(char *dev);
-extern int WaitClean(char *dev, int verbose);
+extern int WaitClean(char *dev, int sock, int verbose);
 
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int require_homehost,

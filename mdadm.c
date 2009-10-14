@@ -1276,7 +1276,7 @@ int main(int argc, char *argv[])
 								     export, test,
 								     homehost);
 						else
-							rv |= WaitClean(name, v);
+							rv |= WaitClean(name, -1, v);
 						put_md_name(name);
 					}
 					free_mdstat(ms);
@@ -1337,7 +1337,7 @@ int main(int argc, char *argv[])
 				case 'W':
 					rv |= Wait(dv->devname); continue;
 				case Waitclean:
-					rv |= WaitClean(dv->devname, verbose-quiet); continue;
+					rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;
 				}
 				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {

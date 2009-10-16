@@ -76,8 +76,8 @@ struct mdp_superblock_1 {
 	__u64	utime;		/* 40 bits second, 24 btes microseconds */
 	__u64	events;		/* incremented when superblock updated */
 	__u64	resync_offset;	/* data before this offset (from data_offset) known to be in sync */
-	__u32	sb_csum;	/* checksum upto devs[max_dev] */
-	__u32	max_dev;	/* size of devs[] array to consider */
+	__u32	sb_csum;	/* checksum upto dev_roles[max_dev] */
+	__u32	max_dev;	/* size of dev_roles[] array to consider */
 	__u8	pad3[64-32];	/* set to 0 when writing */
 
 	/* device state information. Indexed by dev_number.
@@ -201,6 +201,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	time_t atime;
 	int d;
 	int role;
+	int delta_extra = 0;
 	int i;
 	char *c;
 	int l = homehost ? strlen(homehost) : 0;
@@ -283,13 +284,11 @@ static void examine_super1(struct supertype *st, char *homehost)
 		       human_size(__le64_to_cpu(sb->reshape_position)<<9));
 		if (__le32_to_cpu(sb->delta_disks)) {
 			printf("  Delta Devices : %d", __le32_to_cpu(sb->delta_disks));
-			if (__le32_to_cpu(sb->delta_disks))
-				printf(" (%d->%d)\n",
-				       __le32_to_cpu(sb->raid_disks)-__le32_to_cpu(sb->delta_disks),
-				       __le32_to_cpu(sb->raid_disks));
-			else
-				printf(" (%d->%d)\n", __le32_to_cpu(sb->raid_disks),
-				       __le32_to_cpu(sb->raid_disks)+__le32_to_cpu(sb->delta_disks));
+			printf(" (%d->%d)\n",
+			       __le32_to_cpu(sb->raid_disks)-__le32_to_cpu(sb->delta_disks),
+			       __le32_to_cpu(sb->raid_disks));
+			if ((int)__le32_to_cpu(sb->delta_disks) < 0)
+				delta_extra = -__le32_to_cpu(sb->delta_disks);
 		}
 		if (__le32_to_cpu(sb->new_level) != __le32_to_cpu(sb->level)) {
 			c = map_num(pers, __le32_to_cpu(sb->new_level));
@@ -376,7 +375,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 #endif
 	printf("   Device Role : ");
 	d = __le32_to_cpu(sb->dev_number);
-	if (d < sb->raid_disks)
+	if (d < __le32_to_cpu(sb->max_dev))
 		role = __le16_to_cpu(sb->dev_roles[d]);
 	else
 		role = 0xFFFF;
@@ -386,7 +385,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 		printf("Active device %d\n", role);
 
 	printf("   Array State : ");
-	for (d=0; d<__le32_to_cpu(sb->raid_disks); d++) {
+	for (d=0; d<__le32_to_cpu(sb->raid_disks) + delta_extra; d++) {
 		int cnt = 0;
 		int me = 0;
 		int i;
@@ -620,6 +619,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 		info->delta_disks = __le32_to_cpu(sb->delta_disks);
 		info->new_layout = __le32_to_cpu(sb->new_layout);
 		info->new_chunk = __le32_to_cpu(sb->new_chunk)<<9;
+		if (info->delta_disks < 0)
+			info->array.raid_disks -= info->delta_disks;
 	} else
 		info->reshape_active = 0;
 

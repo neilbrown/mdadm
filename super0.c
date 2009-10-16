@@ -85,6 +85,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	mdp_super_t *sb = st->sb;
 	time_t atime;
 	int d;
+	int delta_extra = 0;
 	char *c;
 
 	printf("          Magic : %08x\n", sb->md_magic);
@@ -135,10 +136,9 @@ static void examine_super0(struct supertype *st, char *homehost)
 		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)sb->reshape_position/2, human_size((long long)sb->reshape_position<<9));
 		if (sb->delta_disks) {
 			printf("  Delta Devices : %d", sb->delta_disks);
-			if (sb->delta_disks > 0)
-				printf(" (%d->%d)\n", sb->raid_disks-sb->delta_disks, sb->raid_disks);
-			else
-				printf(" (%d->%d)\n", sb->raid_disks, sb->raid_disks+sb->delta_disks);
+			printf(" (%d->%d)\n", sb->raid_disks-sb->delta_disks, sb->raid_disks);
+			if (((int)sb->delta_disks) < 0)
+				delta_extra = - sb->delta_disks;
 		}
 		if (sb->new_level != sb->level) {
 			c = map_num(pers, sb->new_level);
@@ -210,7 +210,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	}
 	printf("\n");
 	printf("      Number   Major   Minor   RaidDevice State\n");
-	for (d= -1; d<(signed int)(sb->raid_disks+sb->spare_disks); d++) {
+	for (d= -1; d<(signed int)(sb->raid_disks+delta_extra + sb->spare_disks); d++) {
 		mdp_disk_t *dp;
 		char *dv;
 		char nb[5];
@@ -379,6 +379,8 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 		info->delta_disks = sb->delta_disks;
 		info->new_layout = sb->new_layout;
 		info->new_chunk = sb->new_chunk;
+		if (info->delta_disks < 0)
+			info->array.raid_disks -= info->delta_disks;
 	} else
 		info->reshape_active = 0;
 

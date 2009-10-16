@@ -1,5 +1,8 @@
 # sanity check array creation
 
+# IMSM rounds to multiples of one mebibyte - 1024K
+DEV_ROUND_K=1024
+
 num_disks=2
 mdadm -CR $container -e imsm -n $num_disks $dev0 $dev1
 imsm_check container $num_disks

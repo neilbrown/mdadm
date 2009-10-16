@@ -172,6 +172,11 @@ testdev() {
    dsize=$[dvsize/chunk]
    dsize=$[dsize*chunk]
    rasize=$[dsize*2*cnt]
+   # rasize is in sectors
+   if [ -n "$DEV_ROUND_K" ]; then
+      rasize=$[rasize/DEV_ROUND_K/2]
+      rasize=$[rasize*DEV_ROUND_K*2]
+   fi
    if [ `/sbin/blockdev --getsize $dev` -eq 0 ]; then sleep 2 ; fi
    if [ $rasize -ne `/sbin/blockdev --getsize $dev` ]
    then

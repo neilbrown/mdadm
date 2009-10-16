@@ -892,9 +892,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		/* LCM == product / GCD */
 		blocks = ochunk/512 * nchunk/512 * odata * ndata / a;
 
-		if (ndata == odata)
-			blocks *= 16;
-		else
+		if (ndata == odata) {
+			/* Make 'blocks' bigger for better throughput, but
+			 * not so big that we reject it below.
+			 */
+			if (blocks * 32 < sra->component_size)
+				blocks *= 16;
+		} else
 			fprintf(stderr, Name ": Need to backup %luK of critical "
 				"section..\n", blocks/2);
 

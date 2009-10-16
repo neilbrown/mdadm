@@ -1,6 +1,6 @@
 
 #
-# test interrupting and restartign raid5 reshape.
+# test interrupting and restarting raid5 reshape.
 set -x
 devs="$dev1"
 st=UU

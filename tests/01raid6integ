@@ -7,10 +7,10 @@ layouts='ls rs la ra'
 lv=`uname -r`
 if expr $lv '>=' 2.6.30 > /dev/null
 then
-  layouts="$layouts parity-first dd-zero-restart ddf-N-restart ddf-N-continue \
+  layouts="$layouts parity-first ddf-zero-restart ddf-N-restart ddf-N-continue \
 	left-asymmetric-6 right-asymmetric-6 left-symmetric-6 right-symmetric-6 parity-first-6"
 fi
-echo $layouts
+
 for layout in $layouts
 do
   mdadm -CR $md0 -l6 --layout $layout -n5 $dev0 $dev1 $dev2 $dev3 $dev4

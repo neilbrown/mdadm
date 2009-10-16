@@ -482,22 +482,33 @@ int save_stripes(int *source, unsigned long long *offsets,
 			} else {
 				/* for md, q is over 'data_disks' blocks,
 				 * starting immediately after 'q'
+				 * Note that for the '_6' variety, the p block
+				 * makes a hole that we need to be careful of.
 				 */
-				for (i = 0; i < data_disks; i++) {
-					int dnum = geo_map(i,
-							   start/chunk_size/data_disks,
-							   raid_disks, level, layout);
-					int snum;
+				int j;
+				int snum = 0;
+				for (j = 0; j < raid_disks; j++) {
+					int dnum = (qdisk + 1 + j) % raid_disks;
+					if (dnum == disk || dnum == qdisk)
+						continue;
+					for (i = 0; i < data_disks; i++)
+						if (geo_map(i,
+							    start/chunk_size/data_disks,
+							    raid_disks, level, layout) == dnum)
+							break;
 					/* i is the logical block number, so is index to 'buf'.
 					 * dnum is physical disk number
 					 * snum is syndrome disk for which 0 is immediately after Q
 					 */
-					snum = (raid_disks + dnum - qdisk - 1) % raid_disks;
 					bufs[snum] = (uint8_t*)buf + chunk_size * i;
+
+					if (fblock[0] == i)
+						fdisk[0] = snum;
+					if (fblock[1] == i)
+						fdisk[1] = snum;
+					snum++;
 				}
 
-				fdisk[0] = (raid_disks + fdisk[0] - qdisk - 1) % raid_disks;
-				fdisk[1] = (raid_disks + fdisk[1] - qdisk - 1) % raid_disks;
 				syndrome_disks = data_disks;
 			}
 

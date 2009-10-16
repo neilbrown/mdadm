@@ -1543,7 +1543,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	int i, j;
 	int old_disks;
 	unsigned long long *offsets;
-	unsigned long long  nstripe, ostripe, last_block;
+	unsigned long long  nstripe, ostripe;
 	int ndata, odata;
 
 	if (info->new_level != info->array.level)
@@ -1734,17 +1734,38 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	if (info->delta_disks == 0)
 		/* Alway need backup data when size doesn't change */
 		return 1;
-	nstripe = ostripe = 0;
-	last_block = 0;
-	while (nstripe >= ostripe) {
-		nstripe += info->new_chunk / 512;
-		last_block = nstripe * ndata;
-		ostripe = last_block / odata / (info->array.chunk_size/512) *
-			(info->array.chunk_size/512);
-	}
+	if (info->delta_disks < 0) {
+		/* When shrinking, the critical section is at the end.
+		 * So see if we are before the critical section.
+		 */
+		unsigned long long first_block;
+		nstripe = ostripe = 0;
+		first_block = 0;
+		while (ostripe >= nstripe) {
+			ostripe += info->array.chunk_size / 512;
+			first_block = ostripe * odata;
+			nstripe = first_block / ndata / (info->new_chunk/512) *
+				(info->new_chunk/512);
+		}
 
-	if (info->reshape_progress >= last_block)
-		return 0;
+		if (info->reshape_progress >= first_block)
+			return 0;
+	}
+	if (info->delta_disks > 0) {
+		/* See if we are beyond the critical section. */
+		unsigned long long last_block;
+		nstripe = ostripe = 0;
+		last_block = 0;
+		while (nstripe >= ostripe) {
+			nstripe += info->new_chunk / 512;
+			last_block = nstripe * ndata;
+			ostripe = last_block / odata / (info->array.chunk_size/512) *
+				(info->array.chunk_size/512);
+		}
+
+		if (info->reshape_progress >= last_block)
+			return 0;
+	}
 	/* needed to recover critical section! */
 	return 1;
 }

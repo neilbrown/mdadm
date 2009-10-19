@@ -27,11 +27,12 @@ do
 
       # test save
       dd if=/dev/urandom of=$md0 bs=1024 count=$size
-      blockdev --flushbufs $md0 $devs
+      blockdev --flushbufs $md0 $devs; sync
       > /tmp/NewRand
       $dir/test_stripe save /tmp/NewRand $disks $[chunk*1024] 5 $nlayout 0 $[size*1024] $devs
       cmp -s -n $[size*1024] $md0 /tmp/NewRand || { echo cmp failed ; exit 2; }
       mdadm -S $md0
+      udevadm settle
     done
   done
 done

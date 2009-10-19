@@ -269,17 +269,15 @@ void copy_uuid(void *a, int b[4], int swapuuid)
 		memcpy(a, b, 16);
 }
 
-char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char sep)
+char *__fname_from_uuid(int id[4], int swap, char *buf, char sep)
 {
 	int i, j;
-	int id;
 	char uuid[16];
 	char *c = buf;
 	strcpy(c, "UUID-");
 	c += strlen(c);
-	copy_uuid(uuid, info->uuid, st->ss->swapuuid);
+	copy_uuid(uuid, id, swap);
 	for (i = 0; i < 4; i++) {
-		id = uuid[i];
 		if (i)
 			*c++ = sep;
 		for (j = 3; j >= 0; j--) {
@@ -288,6 +286,12 @@ char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char
 		}
 	}
 	return buf;
+
+}
+
+char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char sep)
+{
+	return __fname_from_uuid(info->uuid, st->ss->swapuuid, buf, sep);
 }
 
 #ifndef MDASSEMBLE

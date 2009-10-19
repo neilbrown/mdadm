@@ -764,7 +764,7 @@ int sysfs_unique_holder(int devnum, long rdev)
 static char *clean_states[] = {
 	"clear", "inactive", "readonly", "read-auto", "clean", NULL };
 
-int WaitClean(char *dev, int verbose)
+int WaitClean(char *dev, int sock, int verbose)
 {
 	int fd;
 	struct mdinfo *mdi;
@@ -840,7 +840,8 @@ int WaitClean(char *dev, int verbose)
 		}
 		if (rv < 0)
 			rv = 1;
-		else if (ping_monitor(mdi->text_version) == 0) {
+		else if (fping_monitor(sock) == 0 ||
+			 ping_monitor(mdi->text_version) == 0) {
 			/* we need to ping to close the window between array
 			 * state transitioning to clean and the metadata being
 			 * marked clean

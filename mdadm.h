@@ -153,6 +153,11 @@ struct mdinfo {
 	int			cache_size; /* size of raid456 stripe cache*/
 	int			mismatch_cnt;
 	char			text_version[50];
+	void 			*update_private; /* for passing metadata-format
+						  * specific update data
+						  * between successive calls to
+						  * update_super()
+						  */
 
 	int container_member; /* for assembling external-metatdata arrays
 			       * This is to be used internally by metadata
@@ -748,7 +753,7 @@ extern int Monitor(mddev_dev_t devlist,
 
 extern int Kill(char *dev, int force, int quiet, int noexcl);
 extern int Wait(char *dev);
-extern int WaitClean(char *dev, int verbose);
+extern int WaitClean(char *dev, int sock, int verbose);
 
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int require_homehost,
@@ -805,6 +810,7 @@ extern void uuid_from_super(int uuid[4], mdp_super_t *super);
 extern const int uuid_match_any[4];
 extern int same_uuid(int a[4], int b[4], int swapuuid);
 extern void copy_uuid(void *a, int b[4], int swapuuid);
+extern char *__fname_from_uuid(int id[4], int swap, char *buf, char sep);
 extern char *fname_from_uuid(struct supertype *st,
 			     struct mdinfo *info, char *buf, char sep);
 extern unsigned long calc_csum(void *super, int bytes);

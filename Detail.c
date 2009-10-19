@@ -194,7 +194,12 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				st->ss->export_detail_super(st);
 		} else {
 			struct map_ent *mp, *map = NULL;
+			char nbuf[64];
 			mp = map_by_devnum(&map, fd2devnum(fd));
+			if (mp) {
+				__fname_from_uuid(mp->uuid, 0, nbuf, ':');
+				printf("MD_UUID=%s\n", nbuf+5);
+			}
 			if (mp && mp->path &&
 			    strncmp(mp->path, "/dev/md/", 8) == 0)
 				printf("MD_DEVNAME=%s\n", mp->path+8);

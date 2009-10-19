@@ -1,0 +1,32 @@
+imsm_check_hold() {
+   if mdadm --remove $1 $2; then
+       echo "$2 removal from $1 should have been blocked" >&2
+       cat /proc/mdstat >&2
+       mdadm -E $2
+       exit 1
+   fi
+}
+
+imsm_check_removal() {
+   if ! mdadm --remove $1 $2 ; then
+       echo "$2 removal from $1 should have succeeded" >&2
+       cat /proc/mdstat >&2
+       mdadm -E $2
+       exit 1
+   fi
+}
+
+setup_env() {
+	export IMSM_DEVNAME_AS_SERIAL=1
+	export IMSM_TEST_OROM=1
+	container=/dev/md/container
+	member=/dev/md/vol0
+}
+
+reset_env() {
+	unset IMSM_DEVNAME_AS_SERIAL
+	unset IMSM_TEST_OROM
+	unset imsm_check
+	unset container
+	unset member
+}

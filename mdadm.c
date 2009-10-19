@@ -1263,11 +1263,18 @@ int main(int argc, char *argv[])
 					struct mdstat_ent *ms = mdstat_read(0, 1);
 					struct mdstat_ent *e;
 					struct map_ent *map = NULL;
+					int members;
 					int v = verbose>1?0:verbose+1;
 
+					for (members = 0; members <= 1; members++) {
 					for (e=ms ; e ; e=e->next) {
 						char *name;
 						struct map_ent *me;
+						int member = e->metadata_version &&
+							strncmp(e->metadata_version,
+								"external:/", 10) == 0;
+						if (members != member)
+							continue;
 						me = map_by_devnum(&map, e->devnum);
 						if (me && me->path
 						    && strcmp(me->path, "/unknown") != 0)
@@ -1287,6 +1294,7 @@ int main(int argc, char *argv[])
 						else
 							rv |= WaitClean(name, -1, v);
 						put_md_name(name);
+					}
 					}
 					free_mdstat(ms);
 				} else	if (devmode == 'S' && scan) {

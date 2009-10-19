@@ -545,7 +545,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	ignore = dup(0);
 #endif
 
-	mlockall(MCL_FUTURE);
+	mlockall(MCL_CURRENT | MCL_FUTURE);
 
 	if (clone_monitor(container) < 0) {
 		fprintf(stderr, "mdmon: failed to start monitor process: %s\n",

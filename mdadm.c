@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
 	int require_homehost = 1;
 	char *mailaddr = NULL;
 	char *program = NULL;
+	int increments = 20;
 	int delay = 0;
 	int daemonise = 0;
 	char *pidfile = NULL;
@@ -696,6 +697,14 @@ int main(int argc, char *argv[])
 					optarg);
 			else
 				program = optarg;
+			continue;
+
+		case O(MONITOR,'r'): /* rebuild increments */
+			increments = atoi(optarg);
+			if (increments>99 || increments<1) {
+				fprintf(stderr, Name ": please specify positive integer between 1 and 99 as rebuild increments.\n");
+				exit(2);
+			}
 			continue;
 
 		case O(MONITOR,'d'): /* delay in seconds */
@@ -1377,7 +1386,7 @@ int main(int argc, char *argv[])
 		}
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, daemonise, scan, oneshot,
-			    dosyslog, test, pidfile);
+			    dosyslog, test, pidfile, increments);
 		break;
 
 	case GROW:

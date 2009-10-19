@@ -1221,6 +1221,12 @@ reduce this as the kernel alerts
 immediately when there is any change.
 
 .TP
+.BR \-r ", " \-\-increment
+Give a percentage increment.
+.I mdadm
+will generate RebuildNN events with the given percentage increment.
+
+.TP
 .BR \-f ", " \-\-daemonise
 Tell
 .I mdadm
@@ -1818,8 +1824,10 @@ An md array started reconstruction. (syslog priority: Warning)
 .BI Rebuild NN
 Where
 .I NN
-is 20, 40, 60, or 80, this indicates that rebuild has passed that many
-percentage of the total. (syslog priority: Warning)
+is a two-digit number (ie. 05, 48). This indicates that rebuild
+has passed that many percent of the total. The events are generated
+with fixed increment since 0. Increment size may be specified with
+a commandline option (default is 20). (syslog priority: Warning)
 
 .TP
 .B RebuildFinished

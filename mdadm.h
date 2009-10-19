@@ -749,7 +749,7 @@ extern int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 extern int Monitor(mddev_dev_t devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
-		   int dosyslog, int test, char *pidfile);
+		   int dosyslog, int test, char *pidfile, int increments);
 
 extern int Kill(char *dev, int force, int quiet, int noexcl);
 extern int Wait(char *dev);

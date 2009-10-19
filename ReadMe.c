@@ -176,6 +176,7 @@ struct option long_options[] = {
     {"mail",      1, 0, 'm'},
     {"program",   1, 0, 'p'},
     {"alert",     1, 0, 'p'},
+    {"increment", 1, 0, 'r'},
     {"delay",     1, 0, 'd'},
     {"daemonise", 0, 0, 'f'},
     {"daemonize", 0, 0, 'f'},
@@ -495,6 +496,7 @@ char Help_monitor[] =
 "  --mail=       -m   : Address to mail alerts of failure to\n"
 "  --program=    -p   : Program to run when an event is detected\n"
 "  --alert=           : same as --program\n"
+"  --increment=  -r   : Report RebuildNN events in the given increment. default=20\n"
 "  --delay=      -d   : seconds of delay between polling state. default=60\n"
 "  --config=     -c   : specify a different config file\n"
 "  --scan        -s   : find mail-address/program in config file\n"

@@ -33,14 +33,6 @@
 static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom,
 		  char *cmd, int dosyslog);
 
-static char *percentalerts[] = {
-	"RebuildStarted",
-	"Rebuild20",
-	"Rebuild40",
-	"Rebuild60",
-	"Rebuild80",
-};
-
 /* The largest number of disks current arrays can manage is 384
  * This really should be dynamically, but that will have to wait
  * At least it isn't MD_SB_DISKS.
@@ -49,7 +41,7 @@ static char *percentalerts[] = {
 int Monitor(mddev_dev_t devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
-	    int dosyslog, int test, char* pidfile)
+	    int dosyslog, int test, char* pidfile, int increments)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -77,8 +69,8 @@ int Monitor(mddev_dev_t devlist,
 	 *      An active device had a reverse transition
 	 *    RebuildStarted
 	 *      percent went from -1 to +ve
-	 *    Rebuild20 Rebuild40 Rebuild60 Rebuild80
-	 *      percent went from below to not-below that number
+	 *    RebuildNN
+	 *      percent went from below to not-below NN%
 	 *    DeviceDisappeared
 	 *      Couldn't access a device which was previously visible
 	 *
@@ -311,9 +303,17 @@ int Monitor(mddev_dev_t devlist,
 			if (mse &&
 			    st->percent >= 0 &&
 			    mse->percent >= 0 &&
-			    (mse->percent / 20) > (st->percent / 20))
-				alert(percentalerts[mse->percent/20],
+			    (mse->percent / increments) > (st->percent / increments)) {
+				char percentalert[15]; // "RebuildNN" (10 chars) or "RebuildStarted" (15 chars)
+
+				if((mse->percent / increments) == 0)
+					snprintf(percentalert, sizeof(percentalert), "RebuildStarted");
+				else
+					snprintf(percentalert, sizeof(percentalert), "Rebuild%02d", mse->percent);
+
+				alert(percentalert,
 				      dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+			}
 
 			if (mse &&
 			    mse->percent == -1 &&

@@ -315,6 +315,9 @@ int Assemble(struct supertype *st, char *mddev,
 			}
 			/* It is worth looking inside this container.
 			 */
+			if (verbose > 0)
+				fprintf(stderr, Name ": looking in container %s\n",
+					devname);
 		next_member:
 			if (tmpdev->content)
 				content = tmpdev->content;
@@ -420,6 +423,9 @@ int Assemble(struct supertype *st, char *mddev,
 				st->ss->free_super(st);
 				return 1;
 			}
+			if (verbose > 0)
+				fprintf(stderr, Name ": found match on member %s in %s\n",
+					content->text_version, devname);
 			break;
 		}
 		if (st == NULL)

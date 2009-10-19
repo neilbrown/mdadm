@@ -408,12 +408,30 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, Name ": member %s in %s is already assembled\n",
 						content->text_version,
 						devname);
+			skip:
+				if (tmpdev->content)
+					goto next_member;
 				tst->ss->free_super(tst);
 				tst = NULL;
 				content = NULL;
 				if (auto_assem)
 					goto loop;
 				return 1;
+			}
+			if (ident->member && ident->member[0]) {
+				char *s = strchr(content->text_version+1, '/');
+				if (s == NULL) {
+					fprintf(stderr, Name ": badly formatted version: %s\n",
+						content->text_version);
+					goto skip;
+				}
+				if (strcmp(ident->member, s+1) != 0) {
+					if (report_missmatch)
+						fprintf(stderr,
+							Name ": skipping wrong member %s\n",
+							content->text_version);
+					goto skip;
+				}
 			}
 			st = tst; tst = NULL;
 			if (!auto_assem && tmpdev->next != NULL) {

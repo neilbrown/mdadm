@@ -156,7 +156,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 
 	if (dev) {
-		
 		if (strncmp(dev, "/dev/md/", 8) == 0) {
 			strcpy(cname, dev+8);
 		} else if (strncmp(dev, "/dev/", 5) == 0) {
@@ -307,7 +306,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		}
 	}
 
-	if (dev)
+	if (dev && dev[0] == '/')
 		strcpy(chosen, dev);
 	else if (cname[0] == 0)
 		strcpy(chosen, devname);

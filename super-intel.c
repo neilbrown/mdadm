@@ -619,7 +619,6 @@ static __u32 imsm_reserved_sectors(struct intel_super *super, struct dl *dl)
 	return rv;
 }
 
-#ifndef MDASSEMBLE
 static int is_spare(struct imsm_disk *disk)
 {
 	return (disk->status & SPARE_DISK) == SPARE_DISK;
@@ -635,6 +634,7 @@ static int is_failed(struct imsm_disk *disk)
 	return (disk->status & FAILED_DISK) == FAILED_DISK;
 }
 
+#ifndef MDASSEMBLE
 static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 {
 	__u64 sz;
@@ -1679,6 +1679,7 @@ static void serialcpy(__u8 *dest, __u8 *src)
 	strncpy((char *) dest, (char *) src, MAX_RAID_SERIAL_LEN);
 }
 
+#ifndef MDASSEMBLE
 static struct dl *serial_to_dl(__u8 *serial, struct intel_super *super)
 {
 	struct dl *dl;
@@ -1689,6 +1690,7 @@ static struct dl *serial_to_dl(__u8 *serial, struct intel_super *super)
 
 	return dl;
 }
+#endif
 
 static struct imsm_disk *
 __serial_to_disk(__u8 *serial, struct imsm_super *mpb, int *idx)
@@ -3230,7 +3232,11 @@ static int store_super_imsm(struct supertype *st, int fd)
 	if (!mpb)
 		return 1;
 
+#ifndef MDASSEMBLE
 	return store_imsm_mpb(fd, mpb);
+#else
+	return 1;
+#endif
 }
 
 static int imsm_bbm_log_size(struct imsm_super *mpb)

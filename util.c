@@ -149,6 +149,7 @@ int get_linux_version()
 	return (a*1000000)+(b*1000)+c;
 }
 
+#ifndef MDASSEMBLE
 long long parse_size(char *size)
 {
 	/* parse 'size' which should be a number optionally
@@ -213,6 +214,7 @@ int parse_layout_faulty(char *layout)
 
 	return mode | (atoi(layout+ln)<< ModeShift);
 }
+#endif
 
 void remove_partitions(int fd)
 {

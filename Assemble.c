@@ -1104,10 +1104,12 @@ int Assemble(struct supertype *st, char *mddev,
 			 * it read-only and let the grow code make it writable.
 			 */
 			int rv;
+#ifndef MDASSEMBLE
 			if (content->reshape_active &&
 			    content->delta_disks <= 0)
 				rv = Grow_continue(mdfd, st, content, backup_file);
 			else
+#endif
 				rv = ioctl(mdfd, RUN_ARRAY, NULL);
 			if (rv == 0) {
 				if (verbose >= 0) {

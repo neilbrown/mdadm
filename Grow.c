@@ -1605,6 +1605,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			continue; /* bad checksum */
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0 &&
 		    bsb.sb_csum2 != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum2)-((char*)&bsb)))
+			continue; /* Bad second checksum */
 		if (memcmp(bsb.set_uuid,info->uuid, 16) != 0)
 			continue; /* Wrong uuid */
 

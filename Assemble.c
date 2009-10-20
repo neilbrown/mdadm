@@ -963,6 +963,10 @@ int Assemble(struct supertype *st, char *mddev,
 	if (content->reshape_active) {
 		int err = 0;
 		int *fdlist = malloc(sizeof(int)* bestcnt);
+		if (verbose)
+			fprintf(stderr, Name ":%s has an active reshape - checking "
+				"if critical section needs to be restored\n",
+				chosen_name);
 		for (i=0; i<bestcnt; i++) {
 			int j = best[i];
 			if (j >= 0) {
@@ -977,7 +981,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fdlist[i] = -1;
 		}
 		if (!err)
-			err = Grow_restart(st, content, fdlist, bestcnt, backup_file);
+			err = Grow_restart(st, content, fdlist, bestcnt, backup_file, verbose);
 		while (i>0) {
 			i--;
 			if (fdlist[i]>=0) close(fdlist[i]);

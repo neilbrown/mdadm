@@ -1538,7 +1538,8 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
  * write that data into the array and update the super blocks with
  * the new reshape_progress
  */
-int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt, char *backup_file)
+int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt,
+		 char *backup_file, int verbose)
 {
 	int i, j;
 	int old_disks;
@@ -1566,6 +1567,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		char buf[4096];
 		int fd;
 		int bsbsize;
+		char *devname, namebuf[20];
 
 		/* This was a spare and may have some saved data on it.
 		 * Load the superblock, find and load the
@@ -1581,6 +1583,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 					backup_file, strerror(errno));
 				continue;
 			}
+			devname = backup_file;
 		} else {
 			fd = fdlist[i];
 			if (fd < 0)
@@ -1593,37 +1596,63 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 
 			if (lseek64(fd,
 				    (dinfo.data_offset + dinfo.component_size - 8) <<9,
-				    0) < 0)
+				    0) < 0) {
+				fprintf(stderr, Name ": Cannot seek on device %d\n", i);
 				continue; /* Cannot seek */
+			}
+			sprintf(namebuf, "device-%d", i);
+			devname = namebuf;
 		}
-		if (read(fd, &bsb, sizeof(bsb)) != sizeof(bsb))
+		if (read(fd, &bsb, sizeof(bsb)) != sizeof(bsb)) {
+			if (verbose)
+				fprintf(stderr, Name ": Cannot read from %s\n", devname);
 			continue; /* Cannot read */
+		}
 		if (memcmp(bsb.magic, "md_backup_data-1", 16) != 0 &&
-		    memcmp(bsb.magic, "md_backup_data-2", 16) != 0)
+		    memcmp(bsb.magic, "md_backup_data-2", 16) != 0) {
+			if (verbose)
+				fprintf(stderr, Name ": No backup metadata on %s\n", devname);
 			continue;
-		if (bsb.sb_csum != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb)))
+		}
+		if (bsb.sb_csum != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb))) {
+			if (verbose)
+				fprintf(stderr, Name ": Bad backup-metadata checksum on %s\n", devname);
 			continue; /* bad checksum */
+		}
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0 &&
-		    bsb.sb_csum2 != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum2)-((char*)&bsb)))
+		    bsb.sb_csum2 != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum2)-((char*)&bsb))) {
+			if (verbose)
+				fprintf(stderr, Name ": Bad backup-metadata checksum2 on %s\n", devname);
 			continue; /* Bad second checksum */
-		if (memcmp(bsb.set_uuid,info->uuid, 16) != 0)
+		}
+		if (memcmp(bsb.set_uuid,info->uuid, 16) != 0) {
+			if (verbose)
+				fprintf(stderr, Name ": Wrong uuid on backup-metadata on %s\n", devname);
 			continue; /* Wrong uuid */
+		}
 
 		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 3600 ||
-		    info->array.utime < __le64_to_cpu(bsb.mtime))
+		    info->array.utime < __le64_to_cpu(bsb.mtime)) {
+			if (verbose)
+				fprintf(stderr, Name ": too-old timestamp on backup-metadata on %s\n", devname);
 			continue; /* time stamp is too bad */
+		}
 
 		if (bsb.magic[15] == '1') {
 		if (info->delta_disks >= 0) {
 			/* reshape_progress is increasing */
 			if (__le64_to_cpu(bsb.arraystart) + __le64_to_cpu(bsb.length) <
-			    info->reshape_progress)
+			    info->reshape_progress) {
+			nonew:
+				if (verbose)
+					fprintf(stderr, Name ": backup-metadata found on %s but is not needed\n", devname);
 				continue; /* No new data here */
+			}
 		} else {
 			/* reshape_progress is decreasing */
 			if (__le64_to_cpu(bsb.arraystart) >=
 			    info->reshape_progress)
-				continue; /* No new data here */
+				goto nonew; /* No new data here */
 		}
 		} else {
 		if (info->delta_disks >= 0) {
@@ -1632,28 +1661,33 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			    info->reshape_progress &&
 			    __le64_to_cpu(bsb.arraystart2) + __le64_to_cpu(bsb.length2) <
 			    info->reshape_progress)
-				continue; /* No new data here */
+				goto nonew; /* No new data here */
 		} else {
 			/* reshape_progress is decreasing */
 			if (__le64_to_cpu(bsb.arraystart) >=
 			    info->reshape_progress &&
 			    __le64_to_cpu(bsb.arraystart2) >=
 			    info->reshape_progress)
-				continue; /* No new data here */
+				goto nonew; /* No new data here */
 		}
 		}
-		if (lseek64(fd, __le64_to_cpu(bsb.devstart)*512, 0)< 0)
+		if (lseek64(fd, __le64_to_cpu(bsb.devstart)*512, 0)< 0) {
+		second_fail:
+			if (verbose)
+				fprintf(stderr, Name ": Failed to verify secondary backup-metadata block on %s\n",
+					devname);
 			continue; /* Cannot seek */
+		}
 		/* There should be a duplicate backup superblock 4k before here */
 		if (lseek64(fd, -4096, 1) < 0 ||
 		    read(fd, buf, 4096) != 4096)
-			continue; /* Cannot find leading superblock */
+			goto second_fail; /* Cannot find leading superblock */
 		if (bsb.magic[15] == '1')
 			bsbsize = offsetof(struct mdp_backup_super, pad1);
 		else
 			bsbsize = offsetof(struct mdp_backup_super, pad);
 		if (memcmp(buf, &bsb, bsbsize) != 0)
-			continue; /* Cannot find leading superblock */
+			goto second_fail; /* Cannot find leading superblock */
 
 		/* Now need the data offsets for all devices. */
 		offsets = malloc(sizeof(*offsets)*info->array.raid_disks);
@@ -1678,6 +1712,9 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    __le64_to_cpu(bsb.arraystart),
 				    __le64_to_cpu(bsb.length)*512)) {
 			/* didn't succeed, so giveup */
+			if (verbose)
+				fprintf(stderr, Name ": Error restoring backup from %s\n",
+					devname);
 			return 1;
 		}
 		
@@ -1692,6 +1729,9 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    __le64_to_cpu(bsb.arraystart2),
 				    __le64_to_cpu(bsb.length2)*512)) {
 			/* didn't succeed, so giveup */
+			if (verbose)
+				fprintf(stderr, Name ": Error restoring second backup from %s\n",
+					devname);
 			return 1;
 		}
 
@@ -1732,9 +1772,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	/* Didn't find any backup data, try to see if any
 	 * was needed.
 	 */
-	if (info->delta_disks == 0)
-		/* Alway need backup data when size doesn't change */
-		return 1;
 	if (info->delta_disks < 0) {
 		/* When shrinking, the critical section is at the end.
 		 * So see if we are before the critical section.
@@ -1768,6 +1805,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			return 0;
 	}
 	/* needed to recover critical section! */
+	if (verbose)
+		fprintf(stderr, Name ": Failed to find backup of critical section\n");
 	return 1;
 }
 

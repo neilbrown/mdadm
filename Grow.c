@@ -523,6 +523,14 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			devname);
 		return 1;
 	}
+
+	if (raid_disks && raid_disks < array.raid_disks && array.level > 1 &&
+	    get_linux_version() < 2006032 &&
+	    !check_env("MDADM_FORCE_FEWER")) {
+		fprintf(stderr, Name ": reducing the number of devices is not safe before Linux 2.6.32\n"
+			"       Please use a newer kernel\n");
+		return 1;
+	}
 	sra = sysfs_read(fd, 0, GET_LEVEL);
 	frozen = freeze_array(sra);
 	if (frozen < 0) {
@@ -627,7 +635,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 					}
 				}
 				if (raid_disks)
-					/* The find raid6->raid5 conversion
+					/* The final raid6->raid5 conversion
 					 * will reduce the number of disks,
 					 * so now we need to aim higher
 					 */

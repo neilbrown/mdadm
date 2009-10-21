@@ -1246,6 +1246,7 @@ int grow_backup(struct mdinfo *sra,
 
 	if (rv)
 		return rv;
+	bsb.mtime = __cpu_to_le64(time(0));
 	for (i = 0; i < dests; i++) {
 		bsb.devstart = __cpu_to_le64(destoffsets[i]/512);
 
@@ -1315,6 +1316,7 @@ int wait_backup(struct mdinfo *sra,
 		bsb.arraystart = __cpu_to_le64(0);
 		bsb.length = __cpu_to_le64(0);
 	}
+	bsb.mtime = __cpu_to_le64(time(0));
 	for (i = 0; i < dests; i++) {
 		bsb.devstart = __cpu_to_le64(destoffsets[i]/512);
 		bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
@@ -1639,8 +1641,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			continue; /* Wrong uuid */
 		}
 
-		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 3600 ||
-		    info->array.utime < __le64_to_cpu(bsb.mtime)) {
+		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 10*60 ||
+		    info->array.utime < __le64_to_cpu(bsb.mtime) - 10*60) {
 			if (verbose)
 				fprintf(stderr, Name ": too-old timestamp on backup-metadata on %s\n", devname);
 			continue; /* time stamp is too bad */

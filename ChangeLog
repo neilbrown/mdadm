@@ -1,6 +1,18 @@
 Please see git logs for detailed change log.
 This file just contains highlight.
 
+Changes Prior to release 3.0.3
+   -    Improvements for creating arrays giving just a name, like 'foo',
+	rather than the full '/dev/md/foo'.
+   -    Improvements for assembling member arrays of containers.
+   -    Improvements to test suite
+   -    Add option to change increment for RebuildNN messages reported
+	by "mdadm --monitor"
+   -    Improvements to mdmon 'hand-over' from initrd to final root.
+   -    Handle merging of devices that have left an IMSM array and are
+	being re-incorporated.
+   -    Add missing space in "--detail --brief" output.
+	
 Changes Prior to release 3.0.2
    -    Fix crash when hosthost is not set, as often happens in
 	early boot.

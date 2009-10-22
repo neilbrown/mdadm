@@ -2,6 +2,7 @@
 ANNOUNCE-3.0
 ANNOUNCE-3.0.1
 ANNOUNCE-3.0.2
+ANNOUNCE-3.0.3
 Assemble.c
 bitmap.c
 bitmap.h
@@ -123,10 +124,12 @@ tests/07autodetect
 tests/07reshape5intr
 tests/07testreshape5
 tests/08imsm-overlap
+tests/09imsm-assemble
 tests/09imsm-create-fail-rebuild
 tests/10ddf-create
 tests/check
 tests/env-08imsm-overlap
+tests/env-09imsm-assemble
 tests/env-09imsm-create-fail-rebuild
 tests/testdev
 tests/ToTest

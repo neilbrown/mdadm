@@ -1,6 +1,16 @@
 Please see git logs for detailed change log.
 This file just contains highlight.
 
+Changes Prior to release 3.1
+   -    Support --grow to change the layout of RAID4/5/6
+   -    Support --grow to change the chunksize of raid 4/5/6
+   -    Support --grow to change level from RAID1 -> RAID5 -> RAID6 and
+        back.
+   -    Support --grow to reduce the number of devices in RAID4/5/6.
+   -    Support restart of these grow options which assembling an array 
+	which is partially grown.
+   -    Assorted tests of this code, and of different RAID6 layouts.
+	
 Changes Prior to release 3.0.3
    -    Improvements for creating arrays giving just a name, like 'foo',
 	rather than the full '/dev/md/foo'.

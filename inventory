@@ -3,6 +3,7 @@ ANNOUNCE-3.0
 ANNOUNCE-3.0.1
 ANNOUNCE-3.0.2
 ANNOUNCE-3.0.3
+ANNOUNCE-3.1
 Assemble.c
 bitmap.c
 bitmap.h
@@ -121,6 +122,9 @@ tests/06update-uuid
 tests/06wrmostly
 tests/07autoassemble
 tests/07autodetect
+tests/07changelevelintr
+tests/07changelevels
+tests/07layouts
 tests/07reshape5intr
 tests/07testreshape5
 tests/08imsm-overlap

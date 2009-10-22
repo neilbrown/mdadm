@@ -140,7 +140,7 @@ static void remove_devices(int devnum, char *path)
 		strcpy(path2, path);
 		pe = path2 + strlen(path2);
 	} else
-		path = NULL;
+		path2 = path = NULL;
 	
 	for (part = 0; part < 16; part++) {
 		if (part) {
@@ -161,6 +161,7 @@ static void remove_devices(int devnum, char *path)
 				unlink(path2);
 		}
 	}
+	free(path2);
 }
 	
 
@@ -667,6 +668,7 @@ int Manage_subdevs(char *devname, int fd,
 						disc.state |= (1<<MD_DISK_SYNC);
 						break;
 					}
+				free(used);
 			}
 			if (dv->writemostly == 1)
 				disc.state |= (1 << MD_DISK_WRITEMOSTLY);

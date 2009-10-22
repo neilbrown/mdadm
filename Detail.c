@@ -541,6 +541,7 @@ This is pretty boring
 		    1, avail, avail_disks))
 		rv = 2;
 
+	free(disks);
 out:
 	close(fd);
 	return rv;

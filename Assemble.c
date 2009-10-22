@@ -315,6 +315,9 @@ int Assemble(struct supertype *st, char *mddev,
 			}
 			/* It is worth looking inside this container.
 			 */
+			if (verbose > 0)
+				fprintf(stderr, Name ": looking in container %s\n",
+					devname);
 		next_member:
 			if (tmpdev->content)
 				content = tmpdev->content;
@@ -405,12 +408,30 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, Name ": member %s in %s is already assembled\n",
 						content->text_version,
 						devname);
+			skip:
+				if (tmpdev->content)
+					goto next_member;
 				tst->ss->free_super(tst);
 				tst = NULL;
 				content = NULL;
 				if (auto_assem)
 					goto loop;
 				return 1;
+			}
+			if (ident->member && ident->member[0]) {
+				char *s = strchr(content->text_version+1, '/');
+				if (s == NULL) {
+					fprintf(stderr, Name ": badly formatted version: %s\n",
+						content->text_version);
+					goto skip;
+				}
+				if (strcmp(ident->member, s+1) != 0) {
+					if (report_missmatch)
+						fprintf(stderr,
+							Name ": skipping wrong member %s\n",
+							content->text_version);
+					goto skip;
+				}
 			}
 			st = tst; tst = NULL;
 			if (!auto_assem && tmpdev->next != NULL) {
@@ -420,6 +441,9 @@ int Assemble(struct supertype *st, char *mddev,
 				st->ss->free_super(st);
 				return 1;
 			}
+			if (verbose > 0)
+				fprintf(stderr, Name ": found match on member %s in %s\n",
+					content->text_version, devname);
 			break;
 		}
 		if (st == NULL)
@@ -565,6 +589,7 @@ int Assemble(struct supertype *st, char *mddev,
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	bitmap_done = 0;
+	content->update_private = NULL;
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
@@ -717,6 +742,8 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		devcnt++;
 	}
+	free(content->update_private);
+	content->update_private = NULL;
 
 	if (devcnt == 0) {
 		fprintf(stderr, Name ": no devices found for %s\n",

@@ -43,7 +43,7 @@ void make_parts(char *dev, int cnt)
 	int odig = odig; /* quiet gcc -Os unitialized warning */
 	int i;
 	int nlen = strlen(dev) + 20;
-	char *name = malloc(nlen);
+	char *name;
 	int dig = isdigit(dev[strlen(dev)-1]);
 	char orig[1024];
 	char sym[1024];
@@ -52,6 +52,7 @@ void make_parts(char *dev, int cnt)
 	if (cnt==0) cnt=4;
 	if (lstat(dev, &stb)!= 0)
 		return;
+
 	if (S_ISLNK(stb.st_mode)) {
 		int len = readlink(dev, orig, sizeof(orig));
 		if (len < 0 || len > 1000)
@@ -63,6 +64,7 @@ void make_parts(char *dev, int cnt)
 		minor_num = minor(stb.st_rdev);
 	} else
 		   return;
+	name = malloc(nlen);
 	for (i=1; i <= cnt ; i++) {
 		struct stat stb2;
 		snprintf(name, nlen, "%s%s%d", dev, dig?"p":"", i);
@@ -92,6 +94,7 @@ void make_parts(char *dev, int cnt)
 		if (err == 0 && stat(name, &stb2) == 0)
 			add_dev(name, &stb2, 0, NULL);
 	}
+	free(name);
 }
 
 
@@ -156,7 +159,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 
 	if (dev) {
-		
 		if (strncmp(dev, "/dev/md/", 8) == 0) {
 			strcpy(cname, dev+8);
 		} else if (strncmp(dev, "/dev/", 5) == 0) {
@@ -307,7 +309,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		}
 	}
 
-	if (dev)
+	if (dev && dev[0] == '/')
 		strcpy(chosen, dev);
 	else if (cname[0] == 0)
 		strcpy(chosen, devname);

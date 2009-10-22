@@ -27,6 +27,7 @@ extern int ack(int fd, int tmo);
 extern int wait_reply(int fd, int tmo);
 extern int connect_monitor(char *devname);
 extern int ping_monitor(char *devname);
+extern int fping_monitor(int sock);
 extern int ping_manager(char *devname);
 
 #define MSG_MAX_LEN (4*1024*1024)

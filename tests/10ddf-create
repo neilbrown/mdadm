@@ -55,8 +55,8 @@ mdadm -Ss
 mdadm -Asc /var/tmp/mdadm.conf
 check nosync  # This failed once. The raid5 was resyncing.
 
-mdadm -Dbs > /tmp/mdadm.conf
-diff /tmp/mdadm.conf /var/tmp/mdadm.conf
+mdadm -Dbs | sort > /tmp/mdadm.conf
+sort /var/tmp/mdadm.conf | diff /tmp/mdadm.conf -
 mdadm -Ss
 
 # and now assemble fully incrementally.
@@ -70,7 +70,7 @@ do
 done
 check nosync
 
-mdadm -Dbs > /tmp/mdadm.conf
-diff /tmp/mdadm.conf /var/tmp/mdadm.conf
+mdadm -Dbs | sort > /tmp/mdadm.conf
+sort /var/tmp/mdadm.conf | diff /tmp/mdadm.conf -
 mdadm -Ss
 rm /tmp/mdadm.conf /var/tmp/mdadm.conf

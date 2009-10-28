@@ -382,6 +382,11 @@ This is pretty boring
 					printf("     New Layout : %s\n",
 					       c?c:"-unknown-");
 				}
+				if (info.new_level == 6) {
+					char *c = map_num(r6layout, info.new_layout);
+					printf("     New Layout : %s\n",
+					       c?c:"-unknown-");
+				}
 				if (info.new_level == 10) {
 					printf("     New Layout : near=%d, %s=%d\n",
 					       info.new_layout&255,

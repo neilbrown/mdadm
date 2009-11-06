@@ -871,6 +871,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			ndata--;
 		}
 
+		if (odata == ndata &&
+		    get_linux_version() < 2006032) {
+			fprintf(stderr, Name ": in-place reshape is not safe before 2.6.32, sorry.\n");
+			break;
+		}
+
 		/* Check that we can hold all the data */
 		size = ndata * array.size;
 		get_dev_size(fd, NULL, &array_size);

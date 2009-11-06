@@ -644,8 +644,10 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				layout_str = "parity-last";
 		} else {
 			c = map_num(pers, level);
-			if (c == NULL)
-				return 1;/* not possible */
+			if (c == NULL) {
+				rv = 1;/* not possible */
+				goto release;
+			}
 			err = sysfs_set_str(sra, NULL, "level", c);
 			if (err) {
 				fprintf(stderr, Name ": %s: could not set level to %s\n",
@@ -849,7 +851,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				if (nlayout == UnSet) {
 					fprintf(stderr, Name ": layout %s not understood for raid5.\n",
 						layout_str);
-					return 1;
+					rv = 1;
+					goto release;
 				}
 				break;
 
@@ -858,7 +861,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				if (nlayout == UnSet) {
 					fprintf(stderr, Name ": layout %s not understood for raid6.\n",
 						layout_str);
-					return 1;
+					rv = 1;
+					goto release;
 				}
 				break;
 			}

@@ -908,9 +908,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		if (ndata == odata) {
 			/* Make 'blocks' bigger for better throughput, but
 			 * not so big that we reject it below.
+			 * Try for 16 megabytes
 			 */
-			if (blocks * 32 < sra->component_size)
-				blocks *= 16;
+			while (blocks * 32 < sra->component_size &&
+			       blocks < 16*1024*2)
+			       blocks *= 2;
 		} else
 			fprintf(stderr, Name ": Need to backup %luK of critical "
 				"section..\n", blocks/2);
@@ -1026,6 +1028,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		
 		cache = (nchunk < ochunk) ? ochunk : nchunk;
 		cache = cache * 4 / 4096;
+		if (cache < blocks / 8 / odisks + 16)
+			/* Make it big enough to hold 'blocks' */
+			cache = blocks / 8 / odisks + 16;
 		if (sra->cache_size < cache)
 			sysfs_set_num(sra, NULL, "stripe_cache_size",
 				      cache+1);
@@ -1873,6 +1878,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	int d;
 	struct mdinfo *sra, *sd;
 	int rv;
+	int cache;
 	int done = 0;
 
 	err = sysfs_set_str(info, NULL, "array_state", "readonly");
@@ -1908,10 +1914,28 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	/* LCM == product / GCD */
 	blocks = ochunk/512 * nchunk/512 * odata * ndata / a;
 
+	sra = sysfs_read(-1, devname2devnum(info->sys_name),
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+			 GET_CACHE);
+
+
 	if (ndata == odata)
-		blocks *= 16;
+		while (blocks * 32 < sra->component_size &&
+		       blocks < 16*1024*2)
+			blocks *= 2;
 	stripes = blocks / (info->array.chunk_size/512) / odata;
 
+	/* check that the internal stripe cache is
+	 * large enough, or it won't work.
+	 */
+	cache = (nchunk < ochunk) ? ochunk : nchunk;
+	cache = cache * 4 / 4096;
+	if (cache < blocks / 8 / odisks + 16)
+		/* Make it big enough to hold 'blocks' */
+		cache = blocks / 8 / odisks + 16;
+	if (sra->cache_size < cache)
+		sysfs_set_num(sra, NULL, "stripe_cache_size",
+			      cache+1);
 
 	memset(&bsb, 0, 512);
 	memcpy(bsb.magic, "md_backup_data-1", 16);
@@ -1926,10 +1950,6 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	offsets = malloc(odisks * sizeof(offsets[0]));
 	for (d=0; d<odisks; d++)
 		fds[d] = -1;
-
-	sra = sysfs_read(-1, devname2devnum(info->sys_name),
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
-			 GET_CACHE);
 
 	for (sd = sra->devs; sd; sd = sd->next) {
 		if (sd->disk.state & (1<<MD_DISK_FAULTY))

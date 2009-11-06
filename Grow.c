@@ -1719,7 +1719,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    info->new_level,
 				    info->new_layout,
 				    fd, __le64_to_cpu(bsb.devstart)*512,
-				    __le64_to_cpu(bsb.arraystart),
+				    __le64_to_cpu(bsb.arraystart)*512,
 				    __le64_to_cpu(bsb.length)*512)) {
 			/* didn't succeed, so giveup */
 			if (verbose)
@@ -1736,7 +1736,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				    info->new_layout,
 				    fd, __le64_to_cpu(bsb.devstart)*512 +
 				    __le64_to_cpu(bsb.devstart2)*512,
-				    __le64_to_cpu(bsb.arraystart2),
+				    __le64_to_cpu(bsb.arraystart2)*512,
 				    __le64_to_cpu(bsb.length2)*512)) {
 			/* didn't succeed, so giveup */
 			if (verbose)

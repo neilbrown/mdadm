@@ -1205,7 +1205,7 @@ int grow_backup(struct mdinfo *sra,
 		int *sources, unsigned long long *offsets,
 		int disks, int chunk, int level, int layout,
 		int dests, int *destfd, unsigned long long *destoffsets,
-		int part,
+		int part, int *degraded,
 		char *buf)
 {
 	/* Backup 'blocks' sectors at 'offset' on each device of the array,
@@ -1217,12 +1217,38 @@ int grow_backup(struct mdinfo *sra,
 	int odata = disks;
 	int rv = 0;
 	int i;
+	unsigned long long new_degraded;
 	//printf("offset %llu\n", offset);
 	if (level >= 4)
 		odata--;
 	if (level == 6)
 		odata--;
 	sysfs_set_num(sra, NULL, "suspend_hi", (offset + stripes * chunk/512) * odata);
+	/* Check that array hasn't become degraded, else we might backup the wrong data */
+	sysfs_get_ll(sra, NULL, "degraded", &new_degraded);
+	if (new_degraded != *degraded) {
+		/* check each device to ensure it is still working */
+		struct mdinfo *sd;
+		for (sd = sra->devs ; sd ; sd = sd->next) {
+			if (sd->disk.state & (1<<MD_DISK_FAULTY))
+				continue;
+			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
+				char sbuf[20];
+				if (sysfs_get_str(sra, sd, "state", sbuf, 20) < 0 ||
+				    strstr(sbuf, "faulty") ||
+				    strstr(sbuf, "in_sync") == NULL) {
+					/* this device is dead */
+					sd->disk.state = (1<<MD_DISK_FAULTY);
+					if (sd->disk.raid_disk >= 0 &&
+					    sources[sd->disk.raid_disk] >= 0) {
+						close(sources[sd->disk.raid_disk]);
+						sources[sd->disk.raid_disk] = -1;
+					}
+				}
+			}
+		}
+		*degraded = new_degraded;
+	}
 	if (part) {
 		bsb.arraystart2 = __cpu_to_le64(offset * odata);
 		bsb.length2 = __cpu_to_le64(stripes * chunk/512 * odata);
@@ -1422,6 +1448,7 @@ static int child_grow(int afd, struct mdinfo *sra, unsigned long stripes,
 		      int dests, int *destfd, unsigned long long *destoffsets)
 {
 	char *buf;
+	int degraded = 0;
 
 	posix_memalign((void**)&buf, 4096, disks * chunk);
 	sysfs_set_num(sra, NULL, "suspend_hi", 0);
@@ -1429,7 +1456,7 @@ static int child_grow(int afd, struct mdinfo *sra, unsigned long stripes,
 	grow_backup(sra, 0, stripes,
 		    fds, offsets, disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
-		    0, buf);
+		    0, &degraded, buf);
 	validate(afd, destfd[0], destoffsets[0]);
 	wait_backup(sra, 0, stripes * chunk / 512, stripes * chunk / 512,
 		    dests, destfd, destoffsets,
@@ -1449,6 +1476,7 @@ static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
 	char *buf;
 	unsigned long long start;
 	int rv;
+	int degraded = 0;
 
 	posix_memalign((void**)&buf, 4096, disks * chunk);
 	start = sra->component_size - stripes * chunk/512;
@@ -1464,7 +1492,7 @@ static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
 		    fds, offsets,
 		    disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
-		    0, buf);
+		    0, &degraded, buf);
 	validate(afd, destfd[0], destoffsets[0]);
 	wait_backup(sra, start, stripes*chunk/512, 0,
 		    dests, destfd, destoffsets, 0);
@@ -1486,6 +1514,7 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 	int part;
 	char *buf;
 	unsigned long long speed;
+	int degraded = 0;
 
 
 	posix_memalign((void**)&buf, 4096, disks * chunk);
@@ -1500,12 +1529,12 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 		    fds, offsets,
 		    disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
-		    0, buf);
+		    0, &degraded, buf);
 	grow_backup(sra, (start + stripes) * chunk/512, stripes,
 		    fds, offsets,
 		    disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
-		    1, buf);
+		    1, &degraded, buf);
 	validate(afd, destfd[0], destoffsets[0]);
 	part = 0;
 	start += stripes * 2; /* where to read next */
@@ -1524,7 +1553,7 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 			    fds, offsets,
 			    disks, chunk, level, layout,
 			    dests, destfd, destoffsets,
-			    part, buf);
+			    part, &degraded, buf);
 		start += stripes;
 		part = 1 - part;
 		validate(afd, destfd[0], destoffsets[0]);

@@ -900,6 +900,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		/* LCM == product / GCD */
 		blocks = ochunk/512 * nchunk/512 * odata * ndata / a;
 
+		sysfs_free(sra);
+		sra = sysfs_read(fd, 0,
+				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+				 GET_CACHE);
+
 		if (ndata == odata) {
 			/* Make 'blocks' bigger for better throughput, but
 			 * not so big that we reject it below.
@@ -910,10 +915,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			fprintf(stderr, Name ": Need to backup %luK of critical "
 				"section..\n", blocks/2);
 
-		sysfs_free(sra);
-		sra = sysfs_read(fd, 0,
-				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
-				 GET_CACHE);
 		if (!sra) {
 			fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
 				devname);

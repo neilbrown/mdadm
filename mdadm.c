@@ -1417,9 +1417,18 @@ int main(int argc, char *argv[])
 		if (array_size >= 0) {
 			/* alway impose array size first, independent of
 			 * anything else
+			 * Do not allow level or raid_disks changes at the
+			 * same time as that can be irreversibly destructive.
 			 */
 			struct mdinfo sra;
 			int err;
+			if (raiddisks || level != UnSet) {
+				fprintf(stderr, Name ": cannot change array size in same operation "
+					"as changing raiddisks or level.\n"
+					"    Change size first, then check that data is still intact.\n");
+				rv = 1;
+				break;
+			}
 			sysfs_init(&sra, mdfd, 0);
 			if (array_size == 0)
 				err = sysfs_set_str(&sra, NULL, "array_size", "default");

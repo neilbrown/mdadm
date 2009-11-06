@@ -524,6 +524,15 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		return 1;
 	}
 
+	if (size >= 0 &&
+	    (chunksize || level!= UnSet || layout_str || raid_disks)) {
+		fprintf(stderr, Name ": cannot change component size at the same time "
+			"as other changes.\n"
+			"   Change size first, then check data is intact before "
+			"making other changes.\n");
+		return 1;
+	}
+
 	if (raid_disks && raid_disks < array.raid_disks && array.level > 1 &&
 	    get_linux_version() < 2006032 &&
 	    !check_env("MDADM_FORCE_FEWER")) {

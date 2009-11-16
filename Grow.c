@@ -1763,7 +1763,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				continue;
 			st->ss->getinfo_super(st, &dinfo);
 			st->ss->free_super(st);
-			offsets[j] = dinfo.data_offset;
+			offsets[j] = dinfo.data_offset * 512;
 		}
 		printf(Name ": restoring critical section\n");
 

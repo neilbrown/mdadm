@@ -683,7 +683,7 @@ int Assemble(struct supertype *st, char *mddev,
 			    > devices[most_recent].i.events)
 				most_recent = devcnt;
 		}
-		if (content->array.level == -4)
+		if (content->array.level == LEVEL_MULTIPATH)
 			/* with multipath, the raid_disk from the superblock is meaningless */
 			i = devcnt;
 		else
@@ -776,7 +776,7 @@ int Assemble(struct supertype *st, char *mddev,
 		/* note: we ignore error flags in multipath arrays
 		 * as they don't make sense
 		 */
-		if (content->array.level != -4)
+		if (content->array.level != LEVEL_MULTIPATH)
 			if (!(devices[j].i.disk.state & (1<<MD_DISK_ACTIVE))) {
 				if (!(devices[j].i.disk.state
 				      & (1<<MD_DISK_FAULTY)))

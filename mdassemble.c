@@ -28,7 +28,7 @@
 
 /* from readme.c */
 mapping_t pers[] = {
-	{ "linear", -1},
+	{ "linear", LEVEL_LINEAR},
 	{ "raid0", 0},
 	{ "0", 0},
 	{ "stripe", 0},
@@ -39,8 +39,8 @@ mapping_t pers[] = {
 	{ "4", 4},
 	{ "raid5", 5},
 	{ "5", 5},
-	{ "multipath", -4},
-	{ "mp", -4},
+	{ "multipath", LEVEL_MULTIPATH},
+	{ "mp", LEVEL_MULTIPATH},
 	{ "raid6", 6},
 	{ "6", 6},
 	{ "raid10", 10},

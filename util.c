@@ -261,9 +261,9 @@ int enough(int level, int raid_disks, int layout, int clean,
 		} while (first != 0);
 		return 1;
 
-	case -4:
+	case LEVEL_MULTIPATH:
 		return avail_disks>= 1;
-	case -1:
+	case LEVEL_LINEAR:
 	case 0:
 		return avail_disks == raid_disks;
 	case 1:

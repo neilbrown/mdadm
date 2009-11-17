@@ -594,7 +594,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 	info->disk.raid_disk = -1;
 	switch(role) {
 	case 0xFFFF:
-		info->disk.state = 2; /* spare: ACTIVE, not sync, not faulty */
+		info->disk.state = 0; /* spare: not active, not sync, not faulty */
 		break;
 	case 0xFFFE:
 		info->disk.state = 1; /* faulty */

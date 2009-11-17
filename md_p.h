@@ -75,7 +75,7 @@
  * Device "operational" state bits
  */
 #define MD_DISK_FAULTY		0 /* disk is faulty / operational */
-#define MD_DISK_ACTIVE		1 /* disk is running or spare disk */
+#define MD_DISK_ACTIVE		1 /* disk is running but may not be in sync */
 #define MD_DISK_SYNC		2 /* disk is in sync with the raid set */
 #define MD_DISK_REMOVED		3 /* disk is in sync with the raid set */
 

@@ -777,7 +777,7 @@ int Assemble(struct supertype *st, char *mddev,
 		 * as they don't make sense
 		 */
 		if (content->array.level != -4)
-			if (!(devices[j].i.disk.state & (1<<MD_DISK_SYNC))) {
+			if (!(devices[j].i.disk.state & (1<<MD_DISK_ACTIVE))) {
 				if (!(devices[j].i.disk.state
 				      & (1<<MD_DISK_FAULTY)))
 					sparecnt++;

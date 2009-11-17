@@ -12,15 +12,15 @@ then
 fi
 
 
-mdadm -CR $mdp0 -l0 -f -n1 $dev0
-mdadm -CR $mdp1 -l0 -f -n1 $dev1
+mdadm -CR -e 0 $mdp0 -l0 -f -n1 $dev0
+mdadm -CR -e 0 $mdp1 -l0 -f -n1 $dev1
 sfdisk $mdp0 >&2 << END
 ,,FD
 END
 sfdisk $mdp1 >&2 << END
 ,,FD
 END
-mdadm -CR $md0 -l1 -n2 ${mdp0}p1 ${mdp1}p1
+mdadm -CR -e 0 $md0 -l1 -n2 ${mdp0}p1 ${mdp1}p1
 check resync
 check raid1
 check wait

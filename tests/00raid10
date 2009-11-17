@@ -13,6 +13,6 @@ do
  esac
  mdadm --create --run --level=raid10 --layout $lo --raid-disks 6 -x 1 $md0 $devs
  check resync ; check raid10
- testdev $md0 $m $mdsize0 $[512*cm]
+ testdev $md0 $m $mdsize1 $[512*cm]
  mdadm -S $md0
 done

@@ -1,6 +1,6 @@
 
 # create a raid0, re-assemble with a different super-minor
-mdadm -CR $md0 -l0 -n3 $dev0 $dev1 $dev2 
+mdadm -CR -e 0.90 $md0 -l0 -n3 $dev0 $dev1 $dev2 
 testdev $md0 3 $mdsize0 512
 minor1=`mdadm -E $dev0 | sed -n -e 's/.*Preferred Minor : //p'`
 mdadm -S /dev/md0

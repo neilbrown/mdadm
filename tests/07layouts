@@ -12,7 +12,7 @@ export MDADM_GROW_VERITY=1
 dotest() {
  sleep 0.5
  check wait
- testdev $md0 $1 $mdsize0 512 nd
+ testdev $md0 $1 $mdsize1 512 nd
  blockdev --flushbufs $md0
  cmp -s -n $[textK*1024] $md0 /tmp/RandFile || { echo cmp failed; exit 2; }
  # write something new - shift chars 4 space

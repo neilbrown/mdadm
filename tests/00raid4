@@ -3,7 +3,7 @@
 
 mdadm -CfR $md0 -l 4 -n3 $dev0 $dev1 $dev2 
 check resync ; check raid[45]
-testdev $md0 2 $mdsize0 512
+testdev $md0 2 $mdsize1 512
 mdadm -S $md0
 
 # now with version-1 superblock

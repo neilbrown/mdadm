@@ -2,7 +2,7 @@
 # create a raid5 array and assemble it in various ways,
 # including with missing devices.
 
-mdadm -CR $md1 -l5 -n3 $dev0 $dev1 $dev2 
+mdadm -CR -e 0.90 $md1 -l5 -n3 $dev0 $dev1 $dev2 
 tst="check raid5 ;testdev $md1 2 $mdsize0 512 ; mdadm -S $md1"
 uuid=`mdadm -Db $md1 | sed 's/.*UUID=//'`
 check wait

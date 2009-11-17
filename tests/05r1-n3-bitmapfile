@@ -6,7 +6,7 @@
 #
 bmf=$targetdir/bitmap
 rm -f $bmf
-mdadm --create --run $md0 --level=1 -n3 --delay=1  --bitmap $bmf $dev1 $dev2 $dev3  
+mdadm --create -e0.90 --run $md0 --level=1 -n3 --delay=1  --bitmap $bmf $dev1 $dev2 $dev3  
 check wait
 testdev $md0 1 $mdsize0 1
 mdadm -S $md0

@@ -3,11 +3,17 @@
 
 mdadm -CR $md0 -l linear -n3 $dev0 $dev1 $dev2
 check linear
-testdev $md0 3 $mdsize0 1
+testdev $md0 3 $mdsize1_l 1
 mdadm -S $md0
 
-# now with version-1 superblock
-mdadm -CR $md0 -e1 --level=linear -n4 $dev0 $dev1 $dev2 $dev3
+# now with version-0.90 superblock
+mdadm -CR $md0 -e0.90 --level=linear -n4 $dev0 $dev1 $dev2 $dev3
+check linear
+testdev $md0 4 $mdsize0 1
+mdadm -S $md0
+
+# now with version-1.0 superblock
+mdadm -CR $md0 -e1.0 --level=linear -n4 $dev0 $dev1 $dev2 $dev3
 check linear
 testdev $md0 4 $mdsize1 1
 mdadm -S $md0

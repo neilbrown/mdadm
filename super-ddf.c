@@ -2555,8 +2555,12 @@ static int validate_geometry_ddf(struct supertype *st,
 		for (i=0; ddf_level_num[i].num1 != MAXINT; i++)
 			if (ddf_level_num[i].num2 == level)
 				break;
-		if (ddf_level_num[i].num1 == MAXINT)
+		if (ddf_level_num[i].num1 == MAXINT) {
+			if (verbose)
+				fprintf(stderr, Name ": DDF does not support level %d arrays\n",
+					level);
 			return 0;
+		}
 		/* Should check layout? etc */
 
 		if (st->sb && freesize) {
@@ -2604,7 +2608,7 @@ static int validate_geometry_ddf(struct supertype *st,
 		if (verbose)
 			fprintf(stderr,
 				Name ": ddf: Cannot create this array "
-				"on device %s\n",
+				"on device %s - a container is required.\n",
 				dev);
 		return 0;
 	}
@@ -2696,8 +2700,11 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	struct extent *e;
 	int i;
 	/* ddf/bvd supports lots of things, but not containers */
-	if (level == LEVEL_CONTAINER)
+	if (level == LEVEL_CONTAINER) {
+		if (verbose)
+			fprintf(stderr, Name ": DDF cannot create a container within an container\n");
 		return 0;
+	}
 	/* We must have the container info already read in. */
 	if (!ddf)
 		return 0;

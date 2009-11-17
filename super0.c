@@ -1079,12 +1079,22 @@ static int validate_geometry0(struct supertype *st, int level,
 	unsigned long long ldsize;
 	int fd;
 
-	if (level == LEVEL_CONTAINER)
+	if (level == LEVEL_CONTAINER) {
+		if (verbose)
+			fprintf(stderr, Name ": 0.90 metadata does not support containers\n");
 		return 0;
-	if (raiddisks > MD_SB_DISKS)
+	}
+	if (raiddisks > MD_SB_DISKS) {
+		if (verbose)
+			fprintf(stderr, Name ": 0.90 metadata supports at most %d devices per array\n",
+				MD_SB_DISKS);
 		return 0;
-	if (size > (0x7fffffffULL<<9))
+	}
+	if (size > (0x7fffffffULL<<9)) {
+		if (verbose)
+			fprintf(stderr, Name ": 0.90 metadata supports at most 2 terrabytes per device\n");
 		return 0;
+	}
 	if (!subdev)
 		return 1;
 

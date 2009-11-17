@@ -195,7 +195,7 @@ int Create(struct supertype *st, char *mddev,
 	if (st && st->ss->external && sparedisks) {
 		fprintf(stderr,
 			Name ": This metadata type does not support "
-			"spare disks are create time\n");
+			"spare disks at create time\n");
 		return 1;
 	}
 	if (subdevs > raiddisks+sparedisks) {
@@ -332,7 +332,7 @@ int Create(struct supertype *st, char *mddev,
 						       raiddisks,
 						       chunk, size*2, dname,
 						       &freesize,
-						       verbose > 0)) {
+						       verbose >= 0)) {
 
 				fprintf(stderr,
 					Name ": %s is not suitable for "

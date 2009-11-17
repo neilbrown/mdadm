@@ -3704,8 +3704,11 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 		case 1:
 		case 10:
 		case 5:
-			break;
+			return 0;
 		default:
+			if (verbose)
+				fprintf(stderr, Name
+					": IMSM only supports levels 0,1,5,10\n");
 			return 1;
 		}
 

@@ -1609,8 +1609,11 @@ static int validate_geometry1(struct supertype *st, int level,
 	unsigned long long ldsize;
 	int fd;
 
-	if (level == LEVEL_CONTAINER)
+	if (level == LEVEL_CONTAINER) {
+		if (verbose)
+			fprintf(stderr, Name ": 1.x metadata does not support containers\n");
 		return 0;
+	}
 	if (!subdev)
 		return 1;
 

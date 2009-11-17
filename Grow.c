@@ -381,7 +381,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 /*
  * When reshaping an array we might need to backup some data.
  * This is written to all spares with a 'super_block' describing it.
- * The superblock goes 1K form the end of the used space on the
+ * The superblock goes 4K from the end of the used space on the
  * device.
  * It if written after the backup is complete.
  * It has the following structure.
@@ -982,7 +982,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				char *dn = map_dev(sd->disk.major,
 						   sd->disk.minor, 1);
 				fdlist[d] = dev_open(dn, O_RDWR);
-				offsets[d] = (sra->component_size - blocks - 8)*512;
+				offsets[d] = (sd->data_offset + sra->component_size - blocks - 8)*512;
 				if (fdlist[d]<0) {
 					fprintf(stderr, Name ": %s: cannot open component %s\n",
 						devname, dn?dn:"-unknown");
@@ -1308,6 +1308,10 @@ int grow_backup(struct mdinfo *sra,
 
 		lseek64(destfd[i], destoffsets[i] - 4096, 0);
 		write(destfd[i], &bsb, 512);
+		if (destoffsets[i] > 4096) {
+			lseek64(destfd[i], destoffsets[i]+stripes*chunk*odata, 0);
+			write(destfd[i], &bsb, 512);
+		}
 		fsync(destfd[i]);
 	}
 
@@ -1628,7 +1632,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		old_disks = cnt;
 	for (i=old_disks-(backup_file?1:0); i<cnt; i++) {
 		struct mdinfo dinfo;
-		char buf[4096];
 		int fd;
 		int bsbsize;
 		char *devname, namebuf[20];
@@ -1744,13 +1747,13 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		}
 		/* There should be a duplicate backup superblock 4k before here */
 		if (lseek64(fd, -4096, 1) < 0 ||
-		    read(fd, buf, 4096) != 4096)
+		    read(fd, &bsb2, 4096) != 4096)
 			goto second_fail; /* Cannot find leading superblock */
 		if (bsb.magic[15] == '1')
 			bsbsize = offsetof(struct mdp_backup_super, pad1);
 		else
 			bsbsize = offsetof(struct mdp_backup_super, pad);
-		if (memcmp(buf, &bsb, bsbsize) != 0)
+		if (memcmp(&bsb2, &bsb, bsbsize) != 0)
 			goto second_fail; /* Cannot find leading superblock */
 
 		/* Now need the data offsets for all devices. */

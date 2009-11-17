@@ -478,7 +478,14 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 	if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
 		int wonly = sb->disks[d].state & (1<<MD_DISK_WRITEMOSTLY);
-		if ((sb->disks[d].state & ~(1<<MD_DISK_WRITEMOSTLY))
+		int mask = (1<<MD_DISK_WRITEMOSTLY);
+		int add = 0;
+		if (sb->minor_version >= 91)
+			/* During reshape we don't insist on everything
+			 * being marked 'sync'
+			 */
+			add = (1<<MD_DISK_SYNC);
+		if (((sb->disks[d].state & ~mask) | add)
 		    != info->disk.state) {
 			sb->disks[d].state = info->disk.state | wonly;
 			rv = 1;

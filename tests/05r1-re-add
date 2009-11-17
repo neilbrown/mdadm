@@ -5,7 +5,7 @@
 # Then do some IO first.  Resync should still be very fast
 #
 
-mdadm -CR $md0 -l1 -n2 -binternal -d1 $dev1 $dev2
+mdadm -CR $md0 -l1 -n2 -binternal --bitmap-chunk=4 -d1 $dev1 $dev2
 check resync
 check wait
 testdev $md0 1 $mdsize1 1

@@ -57,7 +57,7 @@ fi
 mdadm -S /dev/md0
 
 # Internal bitmaps too.
-mdadm -CR --assume-clean  -b internal $md0 -l5 -n3 $dev0 $dev1 $dev2
+mdadm -CR --assume-clean  -b internal --bitmap-chunk 4 $md0 -l5 -n3 $dev0 $dev1 $dev2
 mdadm -S /dev/md0
 mdadm -A /dev/md0 --update=uuid --uuid=0123456789abcdef:fedcba9876543210 $dev0 $dev1 $dev2
 no_errors
@@ -69,7 +69,7 @@ mdadm -X $dev0 | grep -s > /dev/null 01234567:89abcdef:fedcba98:76543210 || {
 }
 mdadm -S /dev/md0
 
-mdadm -CR --assume-clean -e1.2 -b internal $md0 -l5 -n3 $dev0 $dev1 $dev2
+mdadm -CR --assume-clean -e1.2 -b internal --bitmap-chunk=4 $md0 -l5 -n3 $dev0 $dev1 $dev2
 mdadm -S /dev/md0
 mdadm -A /dev/md0 --update=uuid --uuid=0123456789abcdef:fedcba9876543210 $dev0 $dev1 $dev2
 no_errors

@@ -970,9 +970,14 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 		min_chunk *= 2;
 		bits = (bits+1)/2;
 	}
-	if (chunk == UnSet)
+	if (chunk == UnSet) {
+		/* A chunk size less than a few Megabytes gives poor
+		 * performance without increasing resync noticeably
+		 */
 		chunk = min_chunk;
-	else if (chunk < min_chunk)
+		if (chunk < 64*1024*1024)
+			chunk = 64*1024*1024;
+	} else if (chunk < min_chunk)
 		return 0; /* chunk size too small */
 
 	sb->state |= (1<<MD_SB_BITMAP_PRESENT);

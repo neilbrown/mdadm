@@ -614,8 +614,8 @@ When using a file based bitmap, the default is to use the smallest
 size that is at-least 4 and requires no more than 2^21 chunks.
 When using an
 .B internal
-bitmap, the chunksize is automatically determined to make best use of
-available space.
+bitmap, the chunksize defaults to 64Meg, or larger if necessary to
+fit the bitmap into the available space.
 
 .TP
 .BR \-W ", " \-\-write\-mostly

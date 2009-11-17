@@ -1501,9 +1501,14 @@ add_internal_bitmap1(struct supertype *st,
 		min_chunk *= 2;
 		bits = (bits+1)/2;
 	}
-	if (chunk == UnSet)
+	if (chunk == UnSet) {
+		/* For practical purpose, 64Meg is a good
+		 * default chunk size for internal bitmaps.
+		 */
 		chunk = min_chunk;
-	else if (chunk < min_chunk)
+		if (chunk < 64*1024*1024)
+			chunk = 64*1024*1024;
+	} else if (chunk < min_chunk)
 		return 0; /* chunk size too small */
 	if (chunk == 0) /* rounding problem */
 		return 0;

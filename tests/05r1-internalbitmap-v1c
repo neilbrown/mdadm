@@ -2,7 +2,7 @@
 # 
 # create a raid1 with an internal bitmap
 #
-mdadm --create --run $md0 --metadata=1.2 --level=1 -n2 --delay=1  --bitmap internal $dev1 $dev2  
+mdadm --create --run $md0 --metadata=1.2 --level=1 -n2 --delay=1  --bitmap internal --bitmap-chunk 4 $dev1 $dev2  
 check wait
 check bitmap
 testdev $md0 1 $mdsize12 1

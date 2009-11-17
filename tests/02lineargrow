@@ -10,13 +10,13 @@ do
 	1.2 ) sz=$mdsize12 ;;
   esac
   mdadm -CRf $md0 --level linear -e $e --raid-disks=1 $dev1
-  testdev $md0 1 $sz 64
+  testdev $md0 1 $sz 1
 
   mdadm --grow $md0 --add $dev2
-  testdev $md0 2 $sz 64
+  testdev $md0 2 $sz 1
 
   mdadm --grow $md0 --add $dev3
-  testdev $md0 3 $sz 64
+  testdev $md0 3 $sz 1
 
   mdadm -S $md0
 done

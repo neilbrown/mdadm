@@ -3,19 +3,19 @@
 
 mdadm -CR $md0 -l raid0 -n3 $dev0 $dev1 $dev2 
 check raid0
-testdev $md0 3 $mdsize0 64 
+testdev $md0 3 $mdsize0 512 
 mdadm -S $md0
 
 # now with version-1 superblock
 mdadm -CR $md0 -e1 -l0 -n4 $dev0 $dev1 $dev2 $dev3 
 check raid0
-testdev $md0 4 $mdsize1 64 
+testdev $md0 4 $mdsize1 512 
 mdadm -S $md0
 
 # now with no superblock
 mdadm -B $md0 -l0 -n5 $dev0 $dev1 $dev2 $dev3 $dev4 
 check raid0
-testdev $md0 5 $size 64
+testdev $md0 5 $size 512
 mdadm -S $md0
 
 

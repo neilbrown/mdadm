@@ -12,7 +12,7 @@ export MDADM_GROW_VERITY=1
 dotest() {
  sleep 0.5
  check wait
- testdev $md0 $1 $mdsize0 64 nd
+ testdev $md0 $1 $mdsize0 512 nd
  blockdev --flushbufs $md0
  cmp -s -n $[textK*1024] $md0 /tmp/RandFile || { echo cmp failed; exit 2; }
  # write something new - shift chars 4 space
@@ -59,7 +59,7 @@ l5[5]=parity-last
 for layout in 0 1 2 3 4 5 0
 do
  mdadm -G $md0 --layout=${l5[$layout]} --backup-file $bu
- checkgeo md0 raid5 5 $[64*1024] $layout
+ checkgeo md0 raid5 5 $[512*1024] $layout
  dotest 4
 done
 
@@ -86,6 +86,6 @@ l6[20]=parity-first-6
 for layout in 0 1 2 3 4 5 8 9 10 16 17 18 19 20 0
 do
  mdadm -G $md0 --layout=${l6[$layout]} --backup-file $bu
- checkgeo md0 raid6 5 $[64*1024] $layout
+ checkgeo md0 raid6 5 $[512*1024] $layout
  dotest 3
 done

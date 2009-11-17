@@ -234,8 +234,15 @@ int Create(struct supertype *st, char *mddev,
 	case 10:
 	case 6:
 	case 0:
-	case LEVEL_LINEAR: /* linear */
 		if (chunk == 0) {
+			chunk = 512;
+			if (verbose > 0)
+				fprintf(stderr, Name ": chunk size defaults to 512K\n");
+		}
+		break;
+	case LEVEL_LINEAR:
+		/* a chunksize of zero 0s perfectly valid (and preferred) since 2.6.16 */
+		if (get_linux_version() < 2006016 && chunk == 0) {
 			chunk = 64;
 			if (verbose > 0)
 				fprintf(stderr, Name ": chunk size defaults to 64K\n");

@@ -89,10 +89,10 @@ mdadm $md0 --fail $dev3
 # switch layout to a DDF layout and back to make sure that works.
 
 mdadm -G /dev/md0 --layout=ddf-N-continue --backup-file $bu
-checkgeo md0 raid6 4 $[64*1024] 10
+checkgeo md0 raid6 4 $[512*1024] 10
 dotest 2
 mdadm -G /dev/md0 --layout=ra --backup-file $bu
-checkgeo md0 raid6 4 $[64*1024] 1
+checkgeo md0 raid6 4 $[512*1024] 1
 dotest 2
 
 mdadm -G $md0 -l5 --backup-file $bu

@@ -2,7 +2,7 @@
 # create a v-1 raid5 array and assemble in various ways
 
 mdadm -CR -e1 --name one $md1 -l5 -n3 -x2 $dev0 $dev1 $dev2 $dev3 $dev4
-tst="check raid5 ;testdev $md1 2 $mdsize1 64 ; mdadm -S $md1"
+tst="check raid5 ;testdev $md1 2 $mdsize1 512 ; mdadm -S $md1"
 uuid=`mdadm -Db $md1 | sed 's/.*UUID=//'`
 check wait
 

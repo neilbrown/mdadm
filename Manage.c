@@ -578,6 +578,12 @@ int Manage_subdevs(char *devname, int fd,
 						/* fall back on normal-add */
 					}
 				}
+				if (dv->re_add) {
+					fprintf(stderr, Name
+						": --re-add for %s to %s is not possible\n",
+						dv->devname, devname);
+					return 1;
+				}
 			} else {
 				/* non-persistent. Must ensure that new drive
 				 * is at least array.size big.

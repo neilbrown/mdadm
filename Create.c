@@ -375,6 +375,17 @@ int Create(struct supertype *st, char *mddev,
 			warn |= check_ext2(fd, dname);
 			warn |= check_reiser(fd, dname);
 			warn |= check_raid(fd, dname);
+			if (st && strcmp(st->ss->name, "1.x") == 0 &&
+			    st->minor_version >= 1 &&
+			    did_default &&
+			    level == 1) {
+				warn = 1;
+				fprintf(stderr, Name ": Note: this array has metadata at the start and\n"
+					"    may not be suitable as a boot device.  If you plan to\n"
+					"    store '/' or '/boot' on this device please ensure that\n"
+					"    your boot-loader understands md/v1.x metadata, or use\n"
+					"    --metadata=1.0\n");
+			}
 			close(fd);
 		}
 	}

@@ -991,7 +991,7 @@ This will cause
 to determine the maximum usable amount of space on each device and
 update the relevant field in the metadata.
 
-.ig XX
+.ig
 .TP
 .B \-\-auto\-update\-homehost
 This flag is only meaningful with auto-assembly (see discussion below).
@@ -999,7 +999,7 @@ In that situation, if no suitable arrays are found for this homehost,
 .I mdadm
 will rescan for any arrays at all and will assemble them and update the
 homehost to match the current host.
-.XX
+..
 
 .SH For Manage mode:
 
@@ -1474,7 +1474,7 @@ from the superblock is used to similarly create a name in
 .B /dev/md/
 (the name will have any 'host' prefix stripped first).
 
-.ig XX
+.ig
 If
 .I mdadm
 cannot find any array for the given host at all, and if
@@ -1492,7 +1492,7 @@ homehost tagging.
 The reason for requiring arrays to be tagged with the homehost for
 auto assembly is to guard against problems that can arise when moving
 devices from one host to another.
-.XX
+..
 
 .SH BUILD MODE
 
@@ -2180,7 +2180,7 @@ finds any known version of metadata.  If no
 .I md
 metadata is found, the device is rejected.
 
-.ig XX
+.ig
 .IP +
 Does the metadata match an expected array?
 The metadata can match in two ways.  Either there is an array listed
@@ -2198,7 +2198,7 @@ If
 .I mdadm
 is not able to positively identify the array as belonging to the
 current host, the device will be rejected.
-.XX
+..
 
 .I mdadm
 keeps a list of arrays that it has partially assembled in

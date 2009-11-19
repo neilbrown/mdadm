@@ -1,6 +1,15 @@
 Please see git logs for detailed change log.
 This file just contains highlight.
 
+Changes Prior to release 3.1.1
+   -    Multiple fixes for new --grow levels including fixes for
+	serious data corruption problems.
+   -    Change default metadata to v1.1
+   -    Change default chunk size to 512K
+   -    Change default bitmap chunk size to 64Meg
+   -    When --re-add is used, don't fall back to
+	--add if --re-add fails as this can destroy data.
+
 Changes Prior to release 3.1
    -    Support --grow to change the layout of RAID4/5/6
    -    Support --grow to change the chunksize of raid 4/5/6

@@ -756,7 +756,7 @@ extern int Monitor(mddev_dev_t devlist,
 		   int period, int daemonise, int scan, int oneshot,
 		   int dosyslog, int test, char *pidfile, int increments);
 
-extern int Kill(char *dev, int force, int quiet, int noexcl);
+extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 

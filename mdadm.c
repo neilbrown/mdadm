@@ -1361,7 +1361,16 @@ int main(int argc, char *argv[])
 						     export, test, homehost);
 					continue;
 				case 'K': /* Zero superblock */
-					rv |= Kill(dv->devname, force, quiet,0);
+					if (ss)
+						rv |= Kill(dv->devname, ss, force, quiet,0);
+					else {
+						int q = quiet;
+						do {
+							rv |= Kill(dv->devname, NULL, force, q, 0);
+							q = 1;
+						} while ((rv & 2) == 0);
+						rv &= ~2;
+					}
 					continue;
 				case 'Q':
 					rv |= Query(dv->devname); continue;

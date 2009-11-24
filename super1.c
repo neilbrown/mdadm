@@ -1016,8 +1016,8 @@ static int write_init_super1(struct supertype *st)
 		if (di->fd < 0)
 			continue;
 
-		Kill(di->devname, 0, 1, 1);
-		Kill(di->devname, 0, 1, 1);
+		while (Kill(di->devname, NULL, 0, 1, 1) == 0)
+			;
 
 		sb->dev_number = __cpu_to_le32(di->disk.number);
 		if (di->disk.state & (1<<MD_DISK_WRITEMOSTLY))

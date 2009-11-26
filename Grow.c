@@ -569,10 +569,17 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 		ioctl(fd, GET_ARRAY_INFO, &array);
+		size = get_component_size(fd);
+		if (size == 0)
+			size = array.size;
 		if (!quiet)
-			fprintf(stderr, Name ": component size of %s has been set to %dK\n",
-				devname, array.size);
+			fprintf(stderr, Name ": component size of %s has been set to %lluK\n",
+				devname, size);
 		changed = 1;
+	} else {
+		size = get_component_size(fd);
+		if (size == 0)
+			size = array.size;
 	}
 
 	/* ======= set level =========== */
@@ -844,10 +851,10 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 		if (chunksize) {
 			nchunk = chunksize * 1024;
-			if (array.size % chunksize) {
-				fprintf(stderr, Name ": component size %dK is not"
+			if (size % chunksize) {
+				fprintf(stderr, Name ": component size %lluK is not"
 					" a multiple of chunksize %dK\n",
-					array.size, chunksize);
+					size, chunksize);
 				break;
 			}
 		}
@@ -891,13 +898,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		}
 
 		/* Check that we can hold all the data */
-		size = ndata * (long long)array.size;
 		get_dev_size(fd, NULL, &array_size);
-		if (size < (array_size/1024)) {
+		if (ndata * size < (array_size/1024)) {
 			fprintf(stderr, Name ": this change will reduce the size of the array.\n"
 				"       use --grow --array-size first to truncate array.\n"
 				"       e.g. mdadm --grow %s --array-size %llu\n",
-				devname, size);
+				devname, ndata * size);
 			rv = 1;
 			break;
 		}

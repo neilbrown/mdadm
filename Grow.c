@@ -891,7 +891,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		}
 
 		/* Check that we can hold all the data */
-		size = ndata * array.size;
+		size = ndata * (long long)array.size;
 		get_dev_size(fd, NULL, &array_size);
 		if (size < (array_size/1024)) {
 			fprintf(stderr, Name ": this change will reduce the size of the array.\n"

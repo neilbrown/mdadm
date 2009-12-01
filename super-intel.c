@@ -3333,7 +3333,7 @@ static unsigned long long merge_extents(struct intel_super *super, int sum_exten
 	unsigned long reserve;
 
 	if (!e)
-		return ~0ULL; /* error */
+		return 0;
 
 	/* coalesce and sort all extents. also, check to see if we need to
 	 * reserve space between member arrays
@@ -3376,17 +3376,23 @@ static unsigned long long merge_extents(struct intel_super *super, int sum_exten
 	} while (e[i-1].size);
 	free(e);
 
+	if (maxsize == 0)
+		return 0;
+
+	/* FIXME assumes volume at offset 0 is the first volume in a
+	 * container
+	 */
 	if (start_extent > 0)
 		reserve = IMSM_RESERVED_SECTORS; /* gap between raid regions */
 	else
 		reserve = 0;
 
 	if (maxsize < reserve)
-		return ~0ULL;
+		return 0;
 
 	super->create_offset = ~((__u32) 0);
 	if (start + reserve > super->create_offset)
-		return ~0ULL; /* start overflows create_offset */
+		return 0; /* start overflows create_offset */
 	super->create_offset = start + reserve;
 
 	return maxsize - reserve;
@@ -3569,14 +3575,10 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 			i += dl->extent_cnt;
 
 	maxsize = merge_extents(super, i);
-	if (maxsize < size) {
+	if (maxsize < size || maxsize == 0) {
 		if (verbose)
 			fprintf(stderr, Name ": not enough space after merge (%llu < %llu)\n",
 				maxsize, size);
-		return 0;
-	} else if (maxsize == ~0ULL) {
-		if (verbose)
-			fprintf(stderr, Name ": failed to merge %d extents\n", i);
 		return 0;
 	}
 
@@ -3634,7 +3636,8 @@ static int reserve_space(struct supertype *st, int raiddisks,
 
 	if (cnt < raiddisks ||
 	    (super->orom && used && used != raiddisks) ||
-	    maxsize < minsize) {
+	    maxsize < minsize ||
+	    maxsize == 0) {
 		fprintf(stderr, Name ": not enough devices with space to create array.\n");
 		return 0; /* No enough free spaces large enough */
 	}

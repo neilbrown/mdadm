@@ -565,7 +565,10 @@ int Manage_subdevs(char *devname, int fd,
 							disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 						if (dv->writemostly == 2)
 							disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
-						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
+						/* don't even try if disk is marked as faulty */
+						errno = 0;
+						if ((disc.state & 1) == 0 &&
+						    ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
 								fprintf(stderr, Name ": re-added %s\n", dv->devname);
 							continue;

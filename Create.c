@@ -375,11 +375,22 @@ int Create(struct supertype *st, char *mddev,
 			warn |= check_ext2(fd, dname);
 			warn |= check_reiser(fd, dname);
 			warn |= check_raid(fd, dname);
-			if (st && strcmp(st->ss->name, "1.x") == 0 &&
+			if (strcmp(st->ss->name, "1.x") == 0 &&
+			    st->minor_version >= 1)
+				/* metadata at front */
+				warn |= check_partitions(fd, dname, 0);
+			else if (level == 1 || level == LEVEL_CONTAINER)
+				/* partitions could be meaningful */
+				warn |= check_partitions(fd, dname, freesize*2);
+			else
+				/* partitions cannot be meaningful */
+				warn |= check_partitions(fd, dname, 0);
+			if (strcmp(st->ss->name, "1.x") == 0 &&
 			    st->minor_version >= 1 &&
 			    did_default &&
-			    level == 1) {
-				warn = 1;
+			    level == 1 &&
+			    (warn & 1024) == 0) {
+				warn |= 1024;
 				fprintf(stderr, Name ": Note: this array has metadata at the start and\n"
 					"    may not be suitable as a boot device.  If you plan to\n"
 					"    store '/' or '/boot' on this device please ensure that\n"

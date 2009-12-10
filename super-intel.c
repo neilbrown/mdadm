@@ -3804,6 +3804,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		}
 
 		this = malloc(sizeof(*this));
+		if (!this) {
+			fprintf(stderr, Name ": failed to allocate %lu bytes\n",
+				sizeof(*this));
+			break;
+		}
 		memset(this, 0, sizeof(*this));
 		this->next = rest;
 
@@ -3821,7 +3826,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			ord = get_imsm_ord_tbl_ent(dev, slot); 
 			for (d = super->disks; d ; d = d->next)
 				if (d->index == idx)
-                                        break;
+					break;
 
 			if (d == NULL)
 				skip = 1;

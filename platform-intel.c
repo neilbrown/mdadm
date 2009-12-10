@@ -57,13 +57,17 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 	if (!driver_dir)
 		return NULL;
 	for (de = readdir(driver_dir); de; de = readdir(driver_dir)) {
+		int n;
+
 		/* is 'de' a device? check that the 'subsystem' link exists and
 		 * that its target matches 'bus'
 		 */
 		sprintf(path, "/sys/bus/%s/drivers/%s/%s/subsystem",
 			bus, driver, de->d_name);
-		if (readlink(path, link, sizeof(link)) < 0)
+		n = readlink(path, link, sizeof(link));
+		if (n < 0 || n >= sizeof(link))
 			continue;
+		link[n] = '\0';
 		c = strrchr(link, '/');
 		if (!c)
 			continue;

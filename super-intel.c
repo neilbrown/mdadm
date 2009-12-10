@@ -1566,6 +1566,7 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
 		first->anchor->orig_family_num = sec->anchor->orig_family_num;
 		first->anchor->family_num = sec->anchor->family_num;
+		memcpy(first->anchor->sig, sec->anchor->sig, MAX_SIGNATURE_LENGTH);
 		for (i = 0; i < sec->anchor->num_raid_devs; i++)
 			imsm_copy_dev(get_imsm_dev(first, i), get_imsm_dev(sec, i));
 	}

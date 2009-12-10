@@ -318,6 +318,8 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 		return NULL;
 
 	st = malloc(sizeof(*st));
+	if (!st)
+		return NULL;
 	memset(st, 0, sizeof(*st));
 	st->ss = &super_imsm;
 	st->max_devs = IMSM_MAX_DEVICES;

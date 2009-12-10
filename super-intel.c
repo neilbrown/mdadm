@@ -3878,8 +3878,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			info_d->events = __le32_to_cpu(mpb->generation_num);
 			info_d->data_offset = __le32_to_cpu(map->pba_of_lba0);
 			info_d->component_size = __le32_to_cpu(map->blocks_per_member);
-			if (d->devname)
-				strcpy(info_d->name, d->devname);
 		}
 		rest = this;
 	}

@@ -703,7 +703,7 @@ static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 	char str[MAX_RAID_SERIAL_LEN + 1];
 	__u64 sz;
 
-	if (index < 0)
+	if (index < 0 || !disk)
 		return;
 
 	printf("\n");

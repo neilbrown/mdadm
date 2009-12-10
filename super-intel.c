@@ -3664,6 +3664,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 {
 	int fd, cfd;
 	struct mdinfo *sra;
+	int is_member = 0;
 
 	/* if given unused devices create a container 
 	 * if given given devices in a container create a member volume
@@ -3730,17 +3731,19 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	}
 	/* Well, it is in use by someone, maybe an 'imsm' container. */
 	cfd = open_container(fd);
+	close(fd);
 	if (cfd < 0) {
-		close(fd);
 		if (verbose)
 			fprintf(stderr, Name ": Cannot use %s: It is busy\n",
 				dev);
 		return 0;
 	}
 	sra = sysfs_read(cfd, 0, GET_VERSION);
-	close(fd);
 	if (sra && sra->array.major_version == -1 &&
-	    strcmp(sra->text_version, "imsm") == 0) {
+	    strcmp(sra->text_version, "imsm") == 0)
+		is_member = 1;
+	sysfs_free(sra);
+	if (is_member) {
 		/* This is a member of a imsm container.  Load the container
 		 * and try to create a volume
 		 */
@@ -3755,11 +3758,13 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							     size, dev,
 							     freesize, verbose);
 		}
-		close(cfd);
-	} else /* may belong to another container */
-		return 0;
+	}
 
-	return 1;
+	if (verbose)
+		fprintf(stderr, Name ": failed container membership check\n");
+
+	close(cfd);
+	return 0;
 }
 #endif /* MDASSEMBLE */
 

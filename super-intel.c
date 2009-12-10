@@ -961,6 +961,12 @@ static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_b
 
 		/* chop device path to 'host%d' and calculate the port number */
 		c = strchr(&path[hba_len], '/');
+		if (!c) {
+			if (verbose)
+				fprintf(stderr, Name ": %s - invalid path name\n", path + hba_len);
+			err = 2;
+			break;
+		}
 		*c = '\0';
 		if (sscanf(&path[hba_len], "host%d", &port) == 1)
 			port -= host_base;

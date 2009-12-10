@@ -2493,7 +2493,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	/* load all mpbs */
 	for (sd = sra->devs, i = 0; sd; sd = sd->next, i++) {
 		struct intel_super *s = alloc_super(0);
-		char nm[20];
+		char nm[32];
 		int dfd;
 
 		err = 1;

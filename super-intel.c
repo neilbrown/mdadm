@@ -3718,21 +3718,6 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 						     dev, freesize, verbose);
 	}
 
-	/* limit creation to the following levels */
-	if (!dev)
-		switch (level) {
-		case 0:
-		case 1:
-		case 10:
-		case 5:
-			return 0;
-		default:
-			if (verbose)
-				fprintf(stderr, Name
-					": IMSM only supports levels 0,1,5,10\n");
-			return 1;
-		}
-
 	/* This device needs to be a device in an 'imsm' container */
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {

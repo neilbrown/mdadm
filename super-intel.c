@@ -2938,6 +2938,10 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		struct imsm_dev *_dev = __get_imsm_dev(mpb, 0);
 		struct imsm_disk *_disk = __get_imsm_disk(mpb, dl->index);
 
+		if (!_dev || !_disk) {
+			fprintf(stderr, Name ": BUG mpb setup error\n");
+			return 1;
+		}
 		*_dev = *dev;
 		*_disk = dl->disk;
 		sum = random32();

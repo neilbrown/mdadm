@@ -648,6 +648,12 @@ data will be affected unless you actually write to the array.  It can
 also be used when creating a RAID1 or RAID10 if you want to avoid the
 initial resync, however this practice \(em while normally safe \(em is not
 recommended.  Use this only if you really know what you are doing.
+.IP
+When the devices that will be part of a new array were filled
+with zeros before creation the operator knows the array is
+actually clean. If that is the case, such as after running
+badblocks, this argument can be used to tell mdadm the
+facts the operator knows.
 
 .TP
 .BR \-\-backup\-file=

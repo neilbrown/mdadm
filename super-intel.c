@@ -1244,6 +1244,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct dl *dl;
+	char *devname;
 
 	for (dl = super->disks; dl; dl = dl->next)
 		if (dl->raiddisk == info->disk.raid_disk)
@@ -1285,9 +1286,11 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
-	sprintf(info->text_version, "/%s/%d",
-		devnum2devname(st->container_dev),
-		info->container_member);
+	devname = devnum2devname(st->container_dev);
+	*info->text_version = '\0';
+	if (devname)
+		sprintf(info->text_version, "/%s/%d", devname, info->container_member);
+	free(devname);
 	info->safe_mode_delay = 4000;  /* 4 secs like the Matrix driver */
 	uuid_from_super_imsm(st, info->uuid);
 }

@@ -206,7 +206,7 @@ const struct imsm_orom *find_imsm_orom(void)
 
 char *devt_to_devpath(dev_t dev)
 {
-	char device[40];
+	char device[46];
 
 	sprintf(device, "/sys/dev/block/%d:%d/device", major(dev), minor(dev));
 	return canonicalize_file_name(device);

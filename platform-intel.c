@@ -44,7 +44,7 @@ void free_sys_dev(struct sys_dev **list)
 struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 {
 	/* search sysfs for devices driven by 'driver' */
-	char path[256];
+	char path[292];
 	char link[256];
 	char *c;
 	DIR *driver_dir;

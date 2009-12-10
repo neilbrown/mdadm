@@ -2810,6 +2810,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->ddf = 1;
 
 	if (info->level == 1 && info->raid_disks > 2) {
+		free(dev);
+		free(dv);
 		fprintf(stderr, Name": imsm does not support more than 2 disks"
 				"in a raid1 volume\n");
 		return 0;

@@ -1588,7 +1588,7 @@ static void fd2devname(int fd, char *name)
 {
 	struct stat st;
 	char path[256];
-	char dname[100];
+	char dname[PATH_MAX];
 	char *nm;
 	int rv;
 

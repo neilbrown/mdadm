@@ -100,13 +100,8 @@ void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
 
 struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 {
-	/* Longest possible name in sysfs, mounted at /sys, is
-	 *  /sys/block/md_dXXX/md/dev-XXXXX/block/dev
-	 *  /sys/block/md_dXXX/md/metadata_version
-	 * which is about 41 characters.  50 should do for now
-	 */
-	char fname[50];
-	char buf[1024];
+	char fname[PATH_MAX];
+	char buf[PATH_MAX];
 	char *base;
 	char *dbase;
 	struct mdinfo *sra;
@@ -574,8 +569,8 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 
 int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int in_sync)
 {
-	char dv[100];
-	char nm[100];
+	char dv[PATH_MAX];
+	char nm[PATH_MAX];
 	char *dname;
 	int rv;
 

@@ -1001,3 +1001,10 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 #define ALGORITHM_PARITY_0_6		20
 #define ALGORITHM_PARITY_N_6		ALGORITHM_PARITY_N
 
+/* Define PATH_MAX in case we don't use glibc or standard library does
+ * not have PATH_MAX defined. Assume max path length is 4K characters.
+ */
+#ifndef PATH_MAX
+#define PATH_MAX	4096
+#endif
+

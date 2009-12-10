@@ -2498,9 +2498,10 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 	if (sra->array.major_version != -1 ||
 	    sra->array.minor_version != -2 ||
-	    strcmp(sra->text_version, "imsm") != 0)
-		return 1;
-
+	    strcmp(sra->text_version, "imsm") != 0) {
+		err = 1;
+		goto error;
+	}
 	/* load all mpbs */
 	for (sd = sra->devs, i = 0; sd; sd = sd->next, i++) {
 		struct intel_super *s = alloc_super(0);
@@ -2566,6 +2567,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		super_list = super_list->next;
 		free_imsm(s);
 	}
+	sysfs_free(sra);
 
 	if (err)
 		return err;

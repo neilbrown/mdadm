@@ -1210,7 +1210,7 @@ int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 char *devnum2devname(int num)
 {
 	char name[100];
-	if (num > 0)
+	if (num >= 0)
 		sprintf(name, "md%d", num);
 	else
 		sprintf(name, "md_d%d", -1-num);

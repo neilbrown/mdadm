@@ -2429,7 +2429,7 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 			struct intel_disk *idisk;
 
 			idisk = disk_list_get(dl->serial, disk_list);
-			if (is_spare(&idisk->disk) &&
+			if (idisk && is_spare(&idisk->disk) &&
 			    !is_failed(&idisk->disk) && !is_configured(&idisk->disk))
 				dl->index = -1;
 			else {

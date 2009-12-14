@@ -541,7 +541,6 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
 	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
 	new->metadata_fd = sysfs_open(new->devnum, NULL, "metadata_version");
-	get_resync_start(new);
 	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
 		new->action_fd, new->info.state_fd);
 

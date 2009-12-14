@@ -4108,12 +4108,12 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	}
 		
 	if (consistent == 2 &&
-	    (!is_resync_complete(a) ||
+	    (!is_resync_complete(&a->info) ||
 	     map_state != IMSM_T_STATE_NORMAL ||
 	     dev->vol.migr_state))
 		consistent = 0;
 
-	if (is_resync_complete(a)) {
+	if (is_resync_complete(&a->info)) {
 		/* complete intialization / resync,
 		 * recovery and interrupted recovery is completed in
 		 * ->set_disk
@@ -4125,7 +4125,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		}
 	} else if (!is_resyncing(dev) && !failed) {
 		/* mark the start of the init process if nothing is failed */
-		dprintf("imsm: mark resync start (%llu)\n", a->resync_start);
+		dprintf("imsm: mark resync start\n");
 		if (map->map_state == IMSM_T_STATE_UNINITIALIZED)
 			migrate(dev, IMSM_T_STATE_NORMAL, MIGR_INIT);
 		else
@@ -4137,8 +4137,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 
 	/* mark dirty / clean */
 	if (dev->vol.dirty != !consistent) {
-		dprintf("imsm: mark '%s' (%llu)\n",
-			consistent ? "clean" : "dirty", a->resync_start);
+		dprintf("imsm: mark '%s'\n", consistent ? "clean" : "dirty");
 		if (consistent)
 			dev->vol.dirty = 0;
 		else

@@ -149,6 +149,7 @@ struct mdinfo {
 	union {
 		unsigned long long resync_start; /* per-array resync position */
 		unsigned long long recovery_start; /* per-device rebuild position */
+		#define MaxSector  (~0ULL) /* resync/recovery complete position */
 	};
 	unsigned long		safe_mode_delay; /* ms delay to mark clean */
 	int			new_level, delta_disks, new_layout, new_chunk;

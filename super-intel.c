@@ -1271,7 +1271,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 		/* FIXME add curr_migr_unit to resync_start conversion */
 		info->resync_start = 0;
 	else
-		info->resync_start = ~0ULL;
+		info->resync_start = MaxSector;
 
 	strncpy(info->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
 	info->name[MAX_RAID_SERIAL_LEN] = 0;
@@ -3482,7 +3482,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		 * offset
 		 */
 		unsigned long long minsize = size;
-		unsigned long long start_offset = ~0ULL;
+		unsigned long long start_offset = MaxSector;
 		int dcnt = 0;
 		if (minsize == 0)
 			minsize = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
@@ -3498,7 +3498,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 				esize = e[i].start - pos;
 				if (esize >= minsize)
 					found = 1;
-				if (found && start_offset == ~0ULL) {
+				if (found && start_offset == MaxSector) {
 					start_offset = pos;
 					break;
 				} else if (found && pos != start_offset) {
@@ -3856,7 +3856,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			 * FIXME handle dirty degraded
 			 */
 			if (skip && !dev->vol.dirty)
-				this->resync_start = ~0ULL;
+				this->resync_start = MaxSector;
 			if (skip)
 				continue;
 

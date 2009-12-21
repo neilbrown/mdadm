@@ -75,7 +75,7 @@ static unsigned long long read_resync_start(int fd)
 	if (n <= 0)
 		return 0;
 	if (strncmp(buf, "none", 4) == 0)
-		return ~0ULL;
+		return MaxSector;
 	else
 		return strtoull(buf, NULL, 10);
 }

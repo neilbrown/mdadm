@@ -1433,7 +1433,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	    (ddf->virt->entries[info->container_member].init_state
 	     & DDF_initstate_mask)
 	    == DDF_init_full)
-		info->resync_start = ~0ULL;
+		info->resync_start = MaxSector;
 
 	uuid_from_super_ddf(st, info->uuid);
 
@@ -2921,7 +2921,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			this->resync_start = 0;
 		} else {
 			this->array.state = 1;
-			this->resync_start = ~0ULL;
+			this->resync_start = MaxSector;
 		}
 		memcpy(this->name, ddf->virt->entries[i].name, 16);
 		this->name[16]=0;

@@ -572,7 +572,7 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 	return rv;
 }
 
-int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int in_sync)
+int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 {
 	char dv[100];
 	char nm[100];
@@ -598,11 +598,11 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int in_sync)
 	rv = sysfs_set_num(sra, sd, "offset", sd->data_offset);
 	rv |= sysfs_set_num(sra, sd, "size", (sd->component_size+1) / 2);
 	if (sra->array.level != LEVEL_CONTAINER) {
-		if (in_sync)
+		if (sd->recovery_start == MaxSector)
 			/* This can correctly fail if array isn't started,
 			 * yet, so just ignore status for now.
 			 */
-			sysfs_set_str(sra, sd, "state", "in_sync");
+			sysfs_set_str(sra, sd, "state", "insync");
 		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
 	}
 	return rv;

@@ -2968,6 +2968,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			dev->disk.minor = d->minor;
 			dev->disk.raid_disk = i;
 			dev->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
+			dev->recovery_start = MaxSector;
 
 			dev->events = __be32_to_cpu(ddf->primary.seq);
 			dev->data_offset = __be64_to_cpu(vc->lba_offset[i]);
@@ -3547,6 +3548,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			di->disk.major = dl->major;
 			di->disk.minor = dl->minor;
 			di->disk.state = 0;
+			di->recovery_start = 0;
 			di->data_offset = pos;
 			di->component_size = a->info.component_size;
 			di->container_member = dl->pdnum;

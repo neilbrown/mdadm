@@ -410,7 +410,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 			newd = malloc(sizeof(*newd));
 			if (!newd)
 				continue;
-			if (sysfs_add_disk(&newa->info, d, 0) < 0) {
+			if (sysfs_add_disk(&newa->info, d) < 0) {
 				free(newd);
 				continue;
 			}

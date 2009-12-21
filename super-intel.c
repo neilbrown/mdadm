@@ -3876,6 +3876,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			info_d->disk.major = d->major;
 			info_d->disk.minor = d->minor;
 			info_d->disk.raid_disk = slot;
+			info_d->recovery_start = MaxSector;
 
 			this->array.working_disks++;
 
@@ -4454,6 +4455,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		di->disk.major = dl->major;
 		di->disk.minor = dl->minor;
 		di->disk.state = 0;
+		di->recovery_start = 0;
 		di->data_offset = __le32_to_cpu(map->pba_of_lba0);
 		di->component_size = a->info.component_size;
 		di->container_member = inst;

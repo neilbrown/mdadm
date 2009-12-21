@@ -1162,8 +1162,11 @@ int add_disk(int mdfd, struct supertype *st,
 	int rv;
 #ifndef MDASSEMBLE
 	if (st->ss->external) {
-		rv = sysfs_add_disk(sra, info,
-				    info->disk.state & (1<<MD_DISK_SYNC));
+		if (info->disk.state & (1<<MD_DISK_SYNC))
+			info->recovery_start = MaxSector;
+		else
+			info->recovery_start = 0;
+		rv = sysfs_add_disk(sra, info);
 		if (! rv) {
 			struct mdinfo *sd2;
 			for (sd2 = sra->devs; sd2; sd2=sd2->next)

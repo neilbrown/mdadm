@@ -208,8 +208,10 @@ static int read_and_act(struct active_array *a)
 	a->info.resync_start = read_resync_start(a->resync_start_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
-		if (mdi->state_fd >= 0)
+		if (mdi->state_fd >= 0) {
+			mdi->recovery_start = read_resync_start(mdi->recovery_fd);
 			mdi->curr_state = read_dev_state(mdi->state_fd);
+		}
 	}
 
 	if (a->curr_state <= inactive &&

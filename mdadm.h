@@ -146,7 +146,10 @@ struct mdinfo {
 						    */
 	int			reshape_active;
 	unsigned long long	reshape_progress;
-	unsigned long long	resync_start;
+	union {
+		unsigned long long resync_start; /* per-array resync position */
+		unsigned long long recovery_start; /* per-device rebuild position */
+	};
 	unsigned long		safe_mode_delay; /* ms delay to mark clean */
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;
@@ -168,6 +171,7 @@ struct mdinfo {
 	struct mdinfo *next;
 
 	/* Device info for mdmon: */
+	int recovery_fd;
 	int state_fd;
 	#define DS_FAULTY	1
 	#define	DS_INSYNC	2

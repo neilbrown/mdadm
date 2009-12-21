@@ -112,8 +112,10 @@ static void close_aa(struct active_array *aa)
 {
 	struct mdinfo *d;
 
-	for (d = aa->info.devs; d; d = d->next)
+	for (d = aa->info.devs; d; d = d->next) {
+		close(d->recovery_fd);
 		close(d->state_fd);
+	}
 
 	close(aa->action_fd);
 	close(aa->info.state_fd);
@@ -517,6 +519,9 @@ static void manage_new(struct mdstat_ent *mdstat,
 			newd->state_fd = sysfs_open(new->devnum,
 						    newd->sys_name,
 						    "state");
+			newd->recovery_fd = sysfs_open(new->devnum,
+						      newd->sys_name,
+						      "recovery_start");
 
 			newd->prev_state = read_dev_state(newd->state_fd);
 			newd->curr_state = newd->prev_state;

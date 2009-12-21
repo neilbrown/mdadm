@@ -1286,7 +1286,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		sysfs_free(sra);
 
 	for (dev = content->devs; dev; dev = dev->next)
-		if (sysfs_add_disk(content, dev) == 0)
+		if (sysfs_add_disk(content, dev, 1) == 0)
 			working++;
 		else if (errno == EEXIST)
 			preexist++;

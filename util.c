@@ -1166,7 +1166,7 @@ int add_disk(int mdfd, struct supertype *st,
 			info->recovery_start = MaxSector;
 		else
 			info->recovery_start = 0;
-		rv = sysfs_add_disk(sra, info);
+		rv = sysfs_add_disk(sra, info, 0);
 		if (! rv) {
 			struct mdinfo *sd2;
 			for (sd2 = sra->devs; sd2; sd2=sd2->next)

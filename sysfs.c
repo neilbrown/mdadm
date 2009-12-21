@@ -572,7 +572,7 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 	return rv;
 }
 
-int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
+int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 {
 	char dv[100];
 	char nm[100];
@@ -595,6 +595,13 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 	strcpy(sd->sys_name, "dev-");
 	strcpy(sd->sys_name+4, dname);
 
+	/* test write to see if 'recovery_start' is available */
+	if (resume && sd->recovery_start < MaxSector &&
+	    sysfs_set_num(sra, sd, "recovery_start", 0)) {
+		sysfs_set_str(sra, sd, "state", "remove");
+		return -1;
+	}
+
 	rv = sysfs_set_num(sra, sd, "offset", sd->data_offset);
 	rv |= sysfs_set_num(sra, sd, "size", (sd->component_size+1) / 2);
 	if (sra->array.level != LEVEL_CONTAINER) {
@@ -604,6 +611,8 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd)
 			 */
 			sysfs_set_str(sra, sd, "state", "insync");
 		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
+		if (resume)
+			sysfs_set_num(sra, sd, "recovery_start", sd->recovery_start);
 	}
 	return rv;
 }

@@ -1210,6 +1210,21 @@ int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 	return rv;
 }
 
+unsigned long long min_recovery_start(struct mdinfo *array)
+{
+	/* find the minimum recovery_start in an array for metadata
+	 * formats that only record per-array recovery progress instead
+	 * of per-device
+	 */
+	unsigned long long recovery_start = MaxSector;
+	struct mdinfo *d;
+
+	for (d = array->devs; d; d = d->next)
+		recovery_start = min(recovery_start, d->recovery_start);
+
+	return recovery_start;
+}
+
 char *devnum2devname(int num)
 {
 	char name[100];

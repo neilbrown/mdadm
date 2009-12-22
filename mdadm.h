@@ -129,6 +129,22 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #endif /* __KLIBC__ */
 
 
+/*
+ * min()/max()/clamp() macros that also do
+ * strict type-checking.. See the
+ * "unnecessary" pointer comparison.
+ */
+#define min(x, y) ({                            \
+	typeof(x) _min1 = (x);                  \
+	typeof(y) _min2 = (y);                  \
+	(void) (&_min1 == &_min2);              \
+	_min1 < _min2 ? _min1 : _min2; })
+
+#define max(x, y) ({                            \
+	typeof(x) _max1 = (x);                  \
+	typeof(y) _max2 = (y);                  \
+	(void) (&_max1 == &_max2);              \
+	_max1 > _max2 ? _max1 : _max2; })
 
 /* general information that might be extracted from a superblock */
 struct mdinfo {
@@ -842,6 +858,7 @@ extern int assemble_container_content(struct supertype *st, int mdfd,
 extern int add_disk(int mdfd, struct supertype *st,
 		    struct mdinfo *sra, struct mdinfo *info);
 extern int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info);
+unsigned long long min_recovery_start(struct mdinfo *array);
 
 extern char *human_size(long long bytes);
 extern char *human_size_brief(long long bytes);

@@ -1739,7 +1739,7 @@ static int init_super_ddf(struct supertype *st,
 
 	memset(pd, 0xff, pdsize);
 	memset(pd, 0, sizeof(*pd));
-	pd->magic = DDF_PHYS_DATA_MAGIC;
+	pd->magic = DDF_PHYS_RECORDS_MAGIC;
 	pd->used_pdes = __cpu_to_be16(0);
 	pd->max_pdes = __cpu_to_be16(max_phys_disks);
 	memset(pd->pad, 0xff, 52);

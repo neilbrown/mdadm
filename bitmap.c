@@ -20,8 +20,6 @@
 
 #include "mdadm.h"
 
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-
 inline void sb_le_to_cpu(bitmap_super_t *sb)
 {
 	sb->magic = __le32_to_cpu(sb->magic);

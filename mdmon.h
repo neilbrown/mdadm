@@ -39,8 +39,6 @@ struct active_array {
 	int check_degraded; /* flag set by mon, read by manage */
 
 	int devnum;
-
-	unsigned long long resync_start;
 };
 
 /*
@@ -73,7 +71,6 @@ extern int socket_hup_requested;
 extern int sigterm;
 
 int read_dev_state(int fd);
-int get_resync_start(struct active_array *a);
 int is_container_member(struct mdstat_ent *mdstat, char *container);
 
 struct mdstat_ent *mdstat_read(int hold, int start);
@@ -85,9 +82,9 @@ extern int monitor_loop_cnt;
 /* helper routine to determine resync completion since MaxSector is a
  * moving target
  */
-static inline int is_resync_complete(struct active_array *a)
+static inline int is_resync_complete(struct mdinfo *array)
 {
-	if (a->resync_start >= a->info.component_size)
+	if (array->resync_start >= array->component_size)
 		return 1;
 	return 0;
 }

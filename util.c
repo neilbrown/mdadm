@@ -1338,8 +1338,11 @@ int add_disk(int mdfd, struct supertype *st,
 	int rv;
 #ifndef MDASSEMBLE
 	if (st->ss->external) {
-		rv = sysfs_add_disk(sra, info,
-				    info->disk.state & (1<<MD_DISK_SYNC));
+		if (info->disk.state & (1<<MD_DISK_SYNC))
+			info->recovery_start = MaxSector;
+		else
+			info->recovery_start = 0;
+		rv = sysfs_add_disk(sra, info, 0);
 		if (! rv) {
 			struct mdinfo *sd2;
 			for (sd2 = sra->devs; sd2; sd2=sd2->next)
@@ -1383,10 +1386,25 @@ int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 	return rv;
 }
 
+unsigned long long min_recovery_start(struct mdinfo *array)
+{
+	/* find the minimum recovery_start in an array for metadata
+	 * formats that only record per-array recovery progress instead
+	 * of per-device
+	 */
+	unsigned long long recovery_start = MaxSector;
+	struct mdinfo *d;
+
+	for (d = array->devs; d; d = d->next)
+		recovery_start = min(recovery_start, d->recovery_start);
+
+	return recovery_start;
+}
+
 char *devnum2devname(int num)
 {
 	char name[100];
-	if (num > 0)
+	if (num >= 0)
 		sprintf(name, "md%d", num);
 	else
 		sprintf(name, "md_d%d", -1-num);

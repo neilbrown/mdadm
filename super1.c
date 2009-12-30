@@ -659,9 +659,9 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		switch(__le32_to_cpu(sb->level)) {
 		case 5: case 4: case 6:
 			/* need to force clean */
-			if (sb->resync_offset != ~0ULL)
+			if (sb->resync_offset != MaxSector)
 				rv = 1;
-			sb->resync_offset = ~0ULL;
+			sb->resync_offset = MaxSector;
 		}
 	}
 	if (strcmp(update, "assemble")==0) {
@@ -855,7 +855,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	sb->utime = sb->ctime;
 	sb->events = __cpu_to_le64(1);
 	if (info->state & (1<<MD_SB_CLEAN))
-		sb->resync_offset = ~0ULL;
+		sb->resync_offset = MaxSector;
 	else
 		sb->resync_offset = 0;
 	sb->max_dev = __cpu_to_le32((1024- sizeof(struct mdp_superblock_1))/

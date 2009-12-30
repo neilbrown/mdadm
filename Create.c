@@ -538,7 +538,7 @@ int Create(struct supertype *st, char *mddev,
 	     assume_clean
 		) {
 		info.array.state = 1; /* clean, but one+ drive will be missing*/
-		info.resync_start = ~0ULL;
+		info.resync_start = MaxSector;
 	} else {
 		info.array.state = 0; /* not clean, but no errors */
 		info.resync_start = 0;

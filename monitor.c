@@ -66,22 +66,19 @@ static int read_attr(char *buf, int len, int fd)
 	return n;
 }
 
-int get_resync_start(struct active_array *a)
+static unsigned long long read_resync_start(int fd)
 {
 	char buf[30];
 	int n;
 
-	n = read_attr(buf, 30, a->resync_start_fd);
+	n = read_attr(buf, 30, fd);
 	if (n <= 0)
-		return n;
+		return 0;
 	if (strncmp(buf, "none", 4) == 0)
-		a->resync_start = ~0ULL;
+		return MaxSector;
 	else
-		a->resync_start = strtoull(buf, NULL, 10);
-
-	return 1;
+		return strtoull(buf, NULL, 10);
 }
-
 
 static enum array_state read_state(int fd)
 {
@@ -208,22 +205,23 @@ static int read_and_act(struct active_array *a)
 
 	a->curr_state = read_state(a->info.state_fd);
 	a->curr_action = read_action(a->action_fd);
+	a->info.resync_start = read_resync_start(a->resync_start_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
-		if (mdi->state_fd >= 0)
+		if (mdi->state_fd >= 0) {
+			mdi->recovery_start = read_resync_start(mdi->recovery_fd);
 			mdi->curr_state = read_dev_state(mdi->state_fd);
+		}
 	}
 
 	if (a->curr_state <= inactive &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */
-		get_resync_start(a);
 		a->container->ss->set_array_state(a, 1);
 		a->next_state = clear;
 		deactivate = 1;
 	}
 	if (a->curr_state == write_pending) {
-		get_resync_start(a);
 		a->container->ss->set_array_state(a, 0);
 		a->next_state = active;
 		dirty = 1;
@@ -236,7 +234,6 @@ static int read_and_act(struct active_array *a)
 		dirty = 1;
 	}
 	if (a->curr_state == clean) {
-		get_resync_start(a);
 		a->container->ss->set_array_state(a, 1);
 	}
 	if (a->curr_state == active ||
@@ -253,7 +250,6 @@ static int read_and_act(struct active_array *a)
 			/* explicit request for readonly array.  Leave it alone */
 			;
 		} else {
-			get_resync_start(a);
 			if (a->container->ss->set_array_state(a, 2))
 				a->next_state = read_auto; /* array is clean */
 			else {
@@ -271,7 +267,6 @@ static int read_and_act(struct active_array *a)
 		 * until the array goes inactive or readonly though.
 		 * Just check if we need to fiddle spares.
 		 */
-		get_resync_start(a);
 		a->container->ss->set_array_state(a, a->curr_state <= clean);
 		check_degraded = 1;
 	}

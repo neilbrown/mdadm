@@ -44,7 +44,7 @@ void free_sys_dev(struct sys_dev **list)
 struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 {
 	/* search sysfs for devices driven by 'driver' */
-	char path[256];
+	char path[292];
 	char link[256];
 	char *c;
 	DIR *driver_dir;
@@ -57,13 +57,17 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 	if (!driver_dir)
 		return NULL;
 	for (de = readdir(driver_dir); de; de = readdir(driver_dir)) {
+		int n;
+
 		/* is 'de' a device? check that the 'subsystem' link exists and
 		 * that its target matches 'bus'
 		 */
 		sprintf(path, "/sys/bus/%s/drivers/%s/%s/subsystem",
 			bus, driver, de->d_name);
-		if (readlink(path, link, sizeof(link)) < 0)
+		n = readlink(path, link, sizeof(link));
+		if (n < 0 || n >= sizeof(link))
 			continue;
+		link[n] = '\0';
 		c = strrchr(link, '/');
 		if (!c)
 			continue;
@@ -202,7 +206,7 @@ const struct imsm_orom *find_imsm_orom(void)
 
 char *devt_to_devpath(dev_t dev)
 {
-	char device[40];
+	char device[46];
 
 	sprintf(device, "/sys/dev/block/%d:%d/device", major(dev), minor(dev));
 	return canonicalize_file_name(device);

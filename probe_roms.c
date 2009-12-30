@@ -80,7 +80,7 @@ void probe_roms_exit(void)
 
 int probe_roms_init(unsigned long align)
 {
-	int fd;
+	int fd = -1;
 	int rc = 0;
 
 	/* valid values are 2048 and 512.  512 is for PCI-3.0 compliant
@@ -107,9 +107,11 @@ int probe_roms_init(unsigned long align)
 
 	if (rc == 0)
 		rom_fd = fd;
-	else
+	else {
+		if (fd >= 0) 
+			close(fd);
 		probe_roms_exit();
-
+	}
 	return rc;
 }
 

@@ -318,6 +318,8 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 		return NULL;
 
 	st = malloc(sizeof(*st));
+	if (!st)
+		return NULL;
 	memset(st, 0, sizeof(*st));
 	st->ss = &super_imsm;
 	st->max_devs = IMSM_MAX_DEVICES;
@@ -708,7 +710,7 @@ static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 	char str[MAX_RAID_SERIAL_LEN + 1];
 	__u64 sz;
 
-	if (index < 0)
+	if (index < 0 || !disk)
 		return;
 
 	printf("\n");
@@ -966,6 +968,12 @@ static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_b
 
 		/* chop device path to 'host%d' and calculate the port number */
 		c = strchr(&path[hba_len], '/');
+		if (!c) {
+			if (verbose)
+				fprintf(stderr, Name ": %s - invalid path name\n", path + hba_len);
+			err = 2;
+			break;
+		}
 		*c = '\0';
 		if (sscanf(&path[hba_len], "host%d", &port) == 1)
 			port -= host_base;
@@ -1416,6 +1424,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct dl *dl;
+	char *devname;
 
 	for (dl = super->disks; dl; dl = dl->next)
 		if (dl->raiddisk == info->disk.raid_disk)
@@ -1478,9 +1487,11 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
-	sprintf(info->text_version, "/%s/%d",
-		devnum2devname(st->container_dev),
-		info->container_member);
+	devname = devnum2devname(st->container_dev);
+	*info->text_version = '\0';
+	if (devname)
+		sprintf(info->text_version, "/%s/%d", devname, info->container_member);
+	free(devname);
 	info->safe_mode_delay = 4000;  /* 4 secs like the Matrix driver */
 	uuid_from_super_imsm(st, info->uuid);
 }
@@ -1779,7 +1790,7 @@ static void fd2devname(int fd, char *name)
 {
 	struct stat st;
 	char path[256];
-	char dname[100];
+	char dname[PATH_MAX];
 	char *nm;
 	int rv;
 
@@ -2689,13 +2700,14 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 	if (sra->array.major_version != -1 ||
 	    sra->array.minor_version != -2 ||
-	    strcmp(sra->text_version, "imsm") != 0)
-		return 1;
-
+	    strcmp(sra->text_version, "imsm") != 0) {
+		err = 1;
+		goto error;
+	}
 	/* load all mpbs */
 	for (sd = sra->devs, i = 0; sd; sd = sd->next, i++) {
 		struct intel_super *s = alloc_super(0);
-		char nm[20];
+		char nm[32];
 		int dfd;
 
 		err = 1;
@@ -2757,6 +2769,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		super_list = super_list->next;
 		free_imsm(s);
 	}
+	sysfs_free(sra);
 
 	if (err)
 		return err;
@@ -2999,6 +3012,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->ddf = 1;
 
 	if (info->level == 1 && info->raid_disks > 2) {
+		free(dev);
+		free(dv);
 		fprintf(stderr, Name": imsm does not support more than 2 disks"
 				"in a raid1 volume\n");
 		return 0;
@@ -3140,6 +3155,10 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		struct imsm_dev *_dev = __get_imsm_dev(mpb, 0);
 		struct imsm_disk *_disk = __get_imsm_disk(mpb, dl->index);
 
+		if (!_dev || !_disk) {
+			fprintf(stderr, Name ": BUG mpb setup error\n");
+			return 1;
+		}
 		*_dev = *dev;
 		*_disk = dl->disk;
 		sum = random32();
@@ -3879,6 +3898,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 {
 	int fd, cfd;
 	struct mdinfo *sra;
+	int is_member = 0;
 
 	/* if given unused devices create a container 
 	 * if given given devices in a container create a member volume
@@ -3916,21 +3936,6 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 						     dev, freesize, verbose);
 	}
 
-	/* limit creation to the following levels */
-	if (!dev)
-		switch (level) {
-		case 0:
-		case 1:
-		case 10:
-		case 5:
-			return 0;
-		default:
-			if (verbose)
-				fprintf(stderr, Name
-					": IMSM only supports levels 0,1,5,10\n");
-			return 1;
-		}
-
 	/* This device needs to be a device in an 'imsm' container */
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {
@@ -3949,17 +3954,19 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	}
 	/* Well, it is in use by someone, maybe an 'imsm' container. */
 	cfd = open_container(fd);
+	close(fd);
 	if (cfd < 0) {
-		close(fd);
 		if (verbose)
 			fprintf(stderr, Name ": Cannot use %s: It is busy\n",
 				dev);
 		return 0;
 	}
 	sra = sysfs_read(cfd, 0, GET_VERSION);
-	close(fd);
 	if (sra && sra->array.major_version == -1 &&
-	    strcmp(sra->text_version, "imsm") == 0) {
+	    strcmp(sra->text_version, "imsm") == 0)
+		is_member = 1;
+	sysfs_free(sra);
+	if (is_member) {
 		/* This is a member of a imsm container.  Load the container
 		 * and try to create a volume
 		 */
@@ -3974,11 +3981,13 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							     size, dev,
 							     freesize, verbose);
 		}
-		close(cfd);
-	} else /* may belong to another container */
-		return 0;
+	}
 
-	return 1;
+	if (verbose)
+		fprintf(stderr, Name ": failed container membership check\n");
+
+	close(cfd);
+	return 0;
 }
 #endif /* MDASSEMBLE */
 
@@ -4063,6 +4072,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		}
 
 		this = malloc(sizeof(*this));
+		if (!this) {
+			fprintf(stderr, Name ": failed to allocate %lu bytes\n",
+				sizeof(*this));
+			break;
+		}
 		memset(this, 0, sizeof(*this));
 		this->next = rest;
 
@@ -4081,7 +4095,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			ord = get_imsm_ord_tbl_ent(dev, slot); 
 			for (d = super->disks; d ; d = d->next)
 				if (d->index == idx)
-                                        break;
+					break;
 
 			recovery_start = MaxSector;
 			if (d == NULL)
@@ -4133,8 +4147,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 			info_d->events = __le32_to_cpu(mpb->generation_num);
 			info_d->data_offset = __le32_to_cpu(map->pba_of_lba0);
 			info_d->component_size = __le32_to_cpu(map->blocks_per_member);
-			if (d->devname)
-				strcpy(info_d->name, d->devname);
 		}
 		/* now that the disk list is up-to-date fixup recovery_start */
 		update_recovery_start(dev, this);

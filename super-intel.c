@@ -3208,7 +3208,10 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	dd->fd = fd;
 	dd->e = NULL;
 	rv = imsm_read_serial(fd, devname, dd->serial);
-	if (rv) {
+	if (rv && check_env("IMSM_DEVNAME_AS_SERIAL")) {
+		memset(dd->serial, 0, MAX_RAID_SERIAL_LEN);
+		fd2devname(fd, (char *) dd->serial);
+	} else if (rv) {
 		fprintf(stderr,
 			Name ": failed to retrieve scsi serial, aborting\n");
 		free(dd);

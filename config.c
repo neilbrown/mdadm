@@ -677,12 +677,21 @@ void homehostline(char *line)
 static char *auto_options = NULL;
 void autoline(char *line)
 {
+	char *w;
+
 	if (auto_options) {
 		fprintf(stderr, Name ": AUTO line may only be give once."
 			"  Subsequent lines ignored\n");
 		return;
 	}
-	auto_options = line;		
+
+	auto_options = dl_strdup(line);
+	dl_init(auto_options);
+
+	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+		char *w2 = dl_strdup(w);
+		dl_add(auto_options, w2);
+	}
 }
 
 int loaded = 0;

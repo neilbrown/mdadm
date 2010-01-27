@@ -619,7 +619,14 @@ int Assemble(struct supertype *st, char *mddev,
 			remove_partitions(dfd);
 
 			tst = dup_super(st);
-			tst->ss->load_super(tst, dfd, NULL);
+			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
+				fprintf(stderr, Name ": cannot re-read metadata from %s - aborting\n",
+					devname);
+				if (dfd >= 0)
+					close(dfd);
+				close(mdfd);
+				return 1;
+			}
 			tst->ss->getinfo_super(tst, content);
 
 			memcpy(content->uuid, ident->uuid, 16);
@@ -662,7 +669,14 @@ int Assemble(struct supertype *st, char *mddev,
 
 			remove_partitions(dfd);
 
-			tst->ss->load_super(tst, dfd, NULL);
+			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
+				fprintf(stderr, Name ": cannot re-read metadata from %s - aborting\n",
+					devname);
+				if (dfd >= 0)
+					close(dfd);
+				close(mdfd);
+				return 1;
+			}
 			tst->ss->getinfo_super(tst, content);
 			tst->ss->free_super(tst);
 			close(dfd);

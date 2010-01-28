@@ -413,6 +413,115 @@ and
 .B speed_limit_max
 control files mentioned below.
 
+.SS SCRUBBING AND MISMATCHES
+
+As storage devices can develop bad blocks at any time it is valuable
+to regularly read all blocks on all devices in an array so as to catch
+such bad blocks early.  This process is called
+.IR scrubbing .
+
+md arrays can be scrubbed by writing either
+.I check
+or
+.I repair
+to the file
+.I md/sync_action
+in the
+.I sysfs
+directory for the device.
+
+Writing
+.I check
+will cause
+.I md
+to read every block on every device in the array, and check that the
+data is consistent.  For RAID1, this means checking that the copies
+are identical.  For RAID5 this means checking that the parity block is
+correct.
+
+If a read error is detected during this process, the normal read-error
+handling causes correct data to be found from other devices and to be
+written back to the faulty device.  In many case this will
+effectively
+.I fix
+the bad block.
+
+If all blocks read successfully but are found to not be consistent,
+then this is regarded as a
+.IR mismatch .
+
+If
+.I check
+was used, then no action is taken to handle the mismatch, it is simply
+recorded.
+If
+.I repair
+was used, then a mismatch will be repaired in the same way that
+.I resync
+repairs arrays.  For RAID5 a new parity block is written.  For RAID1,
+all but one block are overwritten with the content of that one block.
+
+A count of mismatches is recorded in the
+.I sysfs
+file
+.IR md/mismatch_cnt .
+This is set to zero when a
+.I check
+or
+.I repair
+process starts and is incremented whenever a sector is
+found that is a mismatch.
+.I md
+normally works in units much larger than a single sector and when it
+finds a mismatch, it does not find out how many actual sectors were
+affected but simply add the number of sectors in the IO unit that was
+used.  So a value of 128 could simply mean that a single 64K check
+found an error.
+
+If an array is created by mdadm with
+.I \-\-assume\-clean
+then a subsequent check could be expected to find some mismatches.
+
+On a truly clean RAID5 or RAID6 array, any mismatches should indicate
+a hardware problem at some level - software issues should never cause
+such a mismatch.
+
+However on RAID1 and RAID10 it is possible for software issues to
+cause a mismatch to be reported.  This does not necessarily mean that
+the data on the array is corrupted.  It could simply be that the
+system does not care what is stored on that part of the array - it is
+unused space.
+
+The most likely cause for an unexpected mismatch on RAID1 or RAID10
+occurs if a swap partition or swap file is stored on the array.
+
+When the swap subsystem wants to write a page of memory out, it flags
+the page as 'clean' in the memory manager and requests the swap device
+to write it out.  It is quite possible that the memory will be
+changed while the write-out is happening.  In that case the 'clean'
+flag will be found to be clear when the write completes and so the
+swap subsystem will simply forget that the swapout had been attempted,
+and will possibly choose an different page to write out.
+
+If the swap devices was on RAID1 (or RAID10), then the data is sent
+from memory to a device twice (or more depending on the number of
+devices in the array).  So it is possible that the memory gets changed
+between the two times it is sent, so different data can be written to
+the devices in the array.  This will be detected by
+.I check
+as a mismatch.  However it does not reflect any corruption as the
+block where this mismatch occurs is being treated by the swap system as
+being empty, and the data will never be read from that block.
+
+It is conceivable for a similar situation to occur on non-swap files,
+though it is less likely.
+
+Thus the
+.I mismatch_cnt
+value can not be interpreted very reliably on RAID1 or RAID10,
+especially when the device is used for swap.
+
+
 .SS BITMAP WRITE-INTENT LOGGING
 
 From Linux 2.6.13,

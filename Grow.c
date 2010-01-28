@@ -563,8 +563,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		} else
 			rv = ioctl(fd, SET_ARRAY_INFO, &array);
 		if (rv != 0) {
+			int err = errno;
 			fprintf(stderr, Name ": Cannot set device size for %s: %s\n",
-				devname, strerror(errno));
+				devname, strerror(err));
+			if (err == EBUSY && 
+			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				fprintf(stderr, "       Bitmap must be removed before size can be changed\n");
 			rv = 1;
 			goto release;
 		}
@@ -666,8 +670,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			}
 			err = sysfs_set_str(sra, NULL, "level", c);
 			if (err) {
+				err = errno;
 				fprintf(stderr, Name ": %s: could not set level to %s\n",
 					devname, c);
+				if (err == EBUSY && 
+				    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+					fprintf(stderr, "       Bitmap must be removed before level can be changed\n");
 				rv = 1;
 				goto release;
 			}
@@ -733,9 +741,14 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			c = map_num(pers, level);
 			if (c) {
 				rv = sysfs_set_str(sra, NULL, "level", c);
-				if (rv)
+				if (rv) {
+					int err = errno;
 					fprintf(stderr, Name ": %s: could not set level to %s\n",
 						devname, c);
+					if (err == EBUSY && 
+					    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+						fprintf(stderr, "       Bitmap must be removed before level can be changed\n");
+				}
 			}
 		} else if (!changed && !quiet)
 			fprintf(stderr, Name ": %s: no change requested\n",
@@ -1066,12 +1079,16 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		if (ochunk == nchunk && olayout == nlayout) {
 			array.raid_disks = ndisks;
 			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+				int err = errno;
 				rv = 1;
 				fprintf(stderr, Name ": Cannot set device shape for %s: %s\n",
 					devname, strerror(errno));
 				if (ndisks < odisks &&
 				    get_linux_version() < 2006030)
 					fprintf(stderr, Name ": linux 2.6.30 or later required\n");
+				if (err == EBUSY && 
+				    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+					fprintf(stderr, "       Bitmap must be removed before shape can be changed\n");
 
 				break;
 			}
@@ -1079,17 +1096,21 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			/* set them all just in case some old 'new_*' value
 			 * persists from some earlier problem
 			 */
+			int err;
 			if (sysfs_set_num(sra, NULL, "chunk_size", nchunk) < 0)
-				rv = 1;
-			if (sysfs_set_num(sra, NULL, "layout", nlayout) < 0)
-				rv = 1;
-			if (sysfs_set_num(sra, NULL, "raid_disks", ndisks) < 0)
-				rv = 1;
+				rv = 1, err = errno;
+			if (!rv && sysfs_set_num(sra, NULL, "layout", nlayout) < 0)
+				rv = 1, err = errno;
+			if (!rv && sysfs_set_num(sra, NULL, "raid_disks", ndisks) < 0)
+				rv = 1, err = errno;
 			if (rv) {
 				fprintf(stderr, Name ": Cannot set device shape for %s\n",
 					devname);
 				if (get_linux_version() < 2006030)
 					fprintf(stderr, Name ": linux 2.6.30 or later required\n");
+				if (err == EBUSY && 
+				    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+					fprintf(stderr, "       Bitmap must be removed before shape can be changed\n");
 				break;
 			}
 		}

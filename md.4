@@ -430,14 +430,12 @@ in the
 .I sysfs
 directory for the device.
 
-Writing
-.I check
-will cause
+Requesting a scrub will cause
 .I md
 to read every block on every device in the array, and check that the
-data is consistent.  For RAID1, this means checking that the copies
-are identical.  For RAID5 this means checking that the parity block is
-correct.
+data is consistent.  For RAID1 and RAID10, this means checking that the copies
+are identical.  For RAID4, RAID5, RAID6 this means checking that the
+parity block is (or blocks are) correct.
 
 If a read error is detected during this process, the normal read-error
 handling causes correct data to be found from other devices and to be
@@ -458,7 +456,7 @@ If
 .I repair
 was used, then a mismatch will be repaired in the same way that
 .I resync
-repairs arrays.  For RAID5 a new parity block is written.  For RAID1,
+repairs arrays.  For RAID5/RAID6 new parity blocks are written.  For RAID1/RAID10,
 all but one block are overwritten with the content of that one block.
 
 A count of mismatches is recorded in the
@@ -466,19 +464,18 @@ A count of mismatches is recorded in the
 file
 .IR md/mismatch_cnt .
 This is set to zero when a
-.I check
-or
-.I repair
-process starts and is incremented whenever a sector is
+scrub starts and is incremented whenever a sector is
 found that is a mismatch.
 .I md
 normally works in units much larger than a single sector and when it
-finds a mismatch, it does not find out how many actual sectors were
-affected but simply add the number of sectors in the IO unit that was
-used.  So a value of 128 could simply mean that a single 64K check
-found an error.
+finds a mismatch, it does not determin exactly how many actual sectors were
+affected but simply adds the number of sectors in the IO unit that was
+used.  So a value of 128 could simply mean that a single 64KB check
+found an error (128 x 512bytes = 64KB).
 
-If an array is created by mdadm with
+If an array is created by
+.I mdadm
+with
 .I \-\-assume\-clean
 then a subsequent check could be expected to find some mismatches.
 
@@ -501,13 +498,13 @@ to write it out.  It is quite possible that the memory will be
 changed while the write-out is happening.  In that case the 'clean'
 flag will be found to be clear when the write completes and so the
 swap subsystem will simply forget that the swapout had been attempted,
-and will possibly choose an different page to write out.
+and will possibly choose a different page to write out.
 
-If the swap devices was on RAID1 (or RAID10), then the data is sent
+If the swap device was on RAID1 (or RAID10), then the data is sent
 from memory to a device twice (or more depending on the number of
-devices in the array).  So it is possible that the memory gets changed
-between the two times it is sent, so different data can be written to
-the devices in the array.  This will be detected by
+devices in the array).  Thus it is possible that the memory gets changed
+between the times it is sent, so different data can be written to
+the different devices in the array.  This will be detected by
 .I check
 as a mismatch.  However it does not reflect any corruption as the
 block where this mismatch occurs is being treated by the swap system as

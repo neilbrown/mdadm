@@ -34,6 +34,10 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 	/*
 	 * Nothing fancy about Kill.  It just zeroes out a superblock
 	 * Definitely not safe.
+	 * Returns:
+	 *  0 - a zero superblock was successfully written out
+	 *  1 - failed to write the zero superblock
+	 *  2 - failed to open the device or find a superblock.
 	 */
 
 	int fd, rv = 0;
@@ -45,8 +49,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 		if (!quiet)
 			fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
 				dev);
-		close(fd);
-		return 1;
+		return 2;
 	}
 	if (st == NULL)
 		st = guess_super(fd);

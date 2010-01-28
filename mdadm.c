@@ -1367,7 +1367,7 @@ int main(int argc, char *argv[])
 						do {
 							rv |= Kill(dv->devname, NULL, force, q, 0);
 							q = 1;
-						} while ((rv & 2) == 0);
+						} while (rv == 0);
 						rv &= ~2;
 					}
 					continue;

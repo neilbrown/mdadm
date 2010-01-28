@@ -180,6 +180,7 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	char buf[100];
 	int fd;
 	struct mdstat_ent *mdstat;
+	int n;
 
 	/* first rule of survival... don't off yourself */
 	if (pid == getpid())
@@ -191,12 +192,11 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	if (fd < 0)
 		return;
 
-	if (read(fd, buf, sizeof(buf)) < 0) {
-		close(fd);
-		return;
-	}
+	n = read(fd, buf, sizeof(buf)-1);
+	buf[sizeof(buf)-1] = 0;
+	close(fd);
 
-	if (!strstr(buf, "mdmon"))
+	if (n < 0 || !strstr(buf, "mdmon"))
 		return;
 
 	kill(pid, SIGTERM);

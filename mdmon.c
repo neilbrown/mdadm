@@ -285,7 +285,7 @@ void usage(void)
 	exit(2);
 }
 
-int mdmon(char *devname, int devnum, int scan, char *switchroot);
+static int mdmon(char *devname, int devnum, int must_fork, char *switchroot);
 
 int main(int argc, char *argv[])
 {
@@ -293,7 +293,6 @@ int main(int argc, char *argv[])
 	char *switchroot = NULL;
 	int devnum;
 	char *devname;
-	int scan = 0;
 	int status = 0;
 
 	switch (argc) {
@@ -310,7 +309,6 @@ int main(int argc, char *argv[])
 		struct mdstat_ent *mdstat, *e;
 
 		/* launch an mdmon instance for each container found */
-		scan = 1;
 		mdstat = mdstat_read(0, 0);
 		for (e = mdstat; e; e = e->next) {
 			if (strncmp(e->metadata_version, "external:", 9) == 0 &&
@@ -323,7 +321,7 @@ int main(int argc, char *argv[])
 					memset(container_name, 0, strlen(container_name));
 					sprintf(container_name, "%s", devname);
 				}
-				status |= mdmon(devname, e->devnum, scan,
+				status |= mdmon(devname, e->devnum, 1,
 						switchroot);
 			}
 		}
@@ -352,10 +350,10 @@ int main(int argc, char *argv[])
 			container_name);
 		exit(1);
 	}
-	return mdmon(devname, devnum, scan, switchroot);
+	return mdmon(devname, devnum, do_fork(), switchroot);
 }
 
-int mdmon(char *devname, int devnum, int scan, char *switchroot)
+static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 {
 	int mdfd;
 	struct mdinfo *mdi, *di;
@@ -406,7 +404,7 @@ int mdmon(char *devname, int devnum, int scan, char *switchroot)
 	}
 
 	/* Fork, and have the child tell us when they are ready */
-	if (do_fork() || scan) {
+	if (must_fork) {
 		if (pipe(pfd) != 0) {
 			fprintf(stderr, "mdmon: failed to create pipe\n");
 			return 1;

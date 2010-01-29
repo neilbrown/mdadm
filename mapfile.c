@@ -48,6 +48,7 @@
  * one that we can.
  */
 #include	"mdadm.h"
+#include	<sys/file.h>
 #include	<ctype.h>
 
 #define mapnames(base) { #base, #base ".new", #base ".lock"}
@@ -115,7 +116,7 @@ int map_lock(struct map_ent **melp)
 		lf = open_map(2, &lwhich);
 		if (lf == NULL)
 			return -1;
-		if (lockf(fileno(lf), F_LOCK, 0) != 0) {
+		if (flock(fileno(lf), LOCK_EX) != 0) {
 			fclose(lf);
 			lf = NULL;
 			return -1;
@@ -129,8 +130,10 @@ int map_lock(struct map_ent **melp)
 
 void map_unlock(struct map_ent **melp)
 {
-	if (lf)
+	if (lf) {
+		flock(fileno(lf), LOCK_UN);
 		fclose(lf);
+	}
 	unlink(mapname[lwhich][2]);
 	lf = NULL;
 }

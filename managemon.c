@@ -706,8 +706,6 @@ void do_manager(struct supertype *container)
 				/* If this fails, we hope it already exists
 				 * pid file lives in /var/run/mdadm/mdXX.pid
 				 */
-				mkdir("/var", 0600);
-				mkdir("/var/run", 0600);
 				mkdir("/var/run/mdadm", 0600);
 				close(container->sock);
 				container->sock = make_control_sock(container->devname);

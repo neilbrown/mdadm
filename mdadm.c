@@ -151,13 +151,10 @@ int main(int argc, char *argv[])
 			continue;
 
 		case 'b':
-			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE || mode == GROW)
+			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE || mode == GROW ||
+			    mode == INCREMENTAL || mode == MANAGE)
 				break; /* b means bitmap */
 			brief = 1;
-			if (optarg) {
-				fprintf(stderr, Name ": -b cannot have any extra immediately after it, sorry.\n");
-				exit(2);
-			}
 			continue;
 
 		case 'Y': export++;
@@ -267,7 +264,8 @@ int main(int argc, char *argv[])
 					continue;
 				}
 				/* No mode yet, and this is the second device ... */
-				fprintf(stderr, Name ": An option must be given to set the mode before a second device is listed\n");
+				fprintf(stderr, Name ": An option must be given to set the mode before a second device\n"
+					"       (%s) is listed\n", optarg);
 				exit(2);
 			}
 			if (option_index >= 0)
@@ -874,7 +872,8 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			/* probable typo */
-			fprintf(stderr, Name ": bitmap file must contain a '/', or be 'internal', or 'none'\n");
+			fprintf(stderr, Name ": bitmap file must contain a '/', or be 'internal', or 'none'\n"
+				"       not '%s'\n", optarg);
 			exit(2);
 
 		case O(GROW,BitmapChunk):

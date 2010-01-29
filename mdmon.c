@@ -368,15 +368,35 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 	dprintf("starting mdmon for %s in %s\n",
 		devname, switchroot ? : "/");
 
-	/* try to spawn mdmon instances from the target file system */
-	if (switchroot && strcmp(switchroot, "/") != 0) {
-		char path[1024];
-		pid_t pid;
+	/* switchroot is either a path name starting with '/', or a
+	 * pid of the original mdmon (we have already done the chroot).
+	 * In the latter case, stdin is a socket connected to the original
+	 * mdmon.
+	 */
 
-		sprintf(path, "%s/sbin/mdmon", switchroot);
+	/* try to spawn mdmon instances from the target file system */
+	if (switchroot && switchroot[0] == '/' &&
+	    strcmp(switchroot, "/") != 0) {
+		pid_t pid;
+		char buf[20];
+
 		switch (fork()) {
 		case 0:
-			execl(path, "mdmon", devname, NULL);
+			victim = devname2mdmon(devname);
+			victim_sock = connect_monitor(devname);
+			if (chroot(switchroot) != 0) {
+				fprintf(stderr, "mdmon: failed to chroot to '%s': %s\n",
+					switchroot, strerror(errno));
+				exit(4);
+			}
+			ignore = chdir("/");
+			sprintf(buf, "%d", victim);
+			if (victim_sock) {
+				close(0);
+				dup(victim_sock);
+				close(victim_sock);
+			}
+			execl("/sbin/mdmon", "mdmon", devname, buf, NULL);
 			exit(1);
 		case -1:
 			return 1;
@@ -499,12 +519,12 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 		/* we assume we assume that /sys /proc /dev are available in
 		 * the new root
 		 */
-		victim = devname2mdmon(container->devname);
-		victim_sock = connect_monitor(container->devname);
-		if (chroot(switchroot) != 0) {
-			fprintf(stderr, "mdmon: failed to chroot to '%s': %s\n",
-				switchroot, strerror(errno));
-			exit(4);
+		if (switchroot[0] == '/') {
+			victim = devname2mdmon(container->devname);
+			victim_sock = connect_monitor(container->devname);
+		} else {
+			victim = atoi(switchroot);
+			victim_sock = 0;
 		}
 	}
 
@@ -532,16 +552,6 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 			getppid());
 	close(pfd[1]);
 
-	setsid();
-	close(0);
-	open("/dev/null", O_RDWR);
-	close(1);
-	ignore = dup(0);
-#ifndef DEBUG
-	close(2);
-	ignore = dup(0);
-#endif
-
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
 	if (clone_monitor(container) < 0) {
@@ -554,6 +564,17 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 		try_kill_monitor(victim, container->devname, victim_sock);
 		close(victim_sock);
 	}
+
+	setsid();
+	close(0);
+	open("/dev/null", O_RDWR);
+	close(1);
+	ignore = dup(0);
+#ifndef DEBUG
+	close(2);
+	ignore = dup(0);
+#endif
+
 	do_manager(container);
 
 	exit(0);

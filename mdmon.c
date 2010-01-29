@@ -179,8 +179,8 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 {
 	char buf[100];
 	int fd;
-	struct mdstat_ent *mdstat;
 	int n;
+	long fl;
 
 	/* first rule of survival... don't off yourself */
 	if (pid == getpid())
@@ -201,13 +201,12 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 
 	kill(pid, SIGTERM);
 
-	mdstat = mdstat_read(0, 0);
-	for ( ; mdstat; mdstat = mdstat->next)
-		if (is_container_member(mdstat, devname)) {
-			sprintf(buf, "/dev/%s", mdstat->dev);
-			WaitClean(buf, sock, 0);
-		}
-	free_mdstat(mdstat);
+	/* Wait for monitor to exit by reading from the socket, after
+	 * clearing the non-blocking flag */
+	fl = fcntl(sock, F_GETFL, 0);
+	fl &= ~O_NONBLOCK;
+	fcntl(sock, F_SETFL, fl);
+	read(sock, buf, 100);
 }
 
 void remove_pidfile(char *devname)

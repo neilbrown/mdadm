@@ -207,6 +207,42 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		goto out;
 	}
 
+	disks = malloc(max_disks * sizeof(mdu_disk_info_t));
+	for (d=0; d<max_disks; d++) {
+		disks[d].state = (1<<MD_DISK_REMOVED);
+		disks[d].major = disks[d].minor = 0;
+		disks[d].number = disks[d].raid_disk = d;
+	}
+
+	next = array.raid_disks;
+	for (d=0; d < max_disks; d++) {
+		mdu_disk_info_t disk;
+		disk.number = d;
+		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
+			if (d < array.raid_disks)
+				fprintf(stderr, Name ": cannot get device detail for device %d: %s\n",
+					d, strerror(errno));
+			continue;
+		}
+		if (disk.major == 0 && disk.minor == 0)
+			continue;
+		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks)
+			disks[disk.raid_disk] = disk;
+		else if (next < max_disks)
+			disks[next++] = disk;
+	}
+
+	avail = calloc(array.raid_disks, 1);
+
+	for (d= 0; d < array.raid_disks; d++) {
+		mdu_disk_info_t disk = disks[d];
+
+		if ((disk.state & (1<<MD_DISK_SYNC))) {
+			avail_disks ++;
+			avail[d] = 1;
+		}
+	}
+
 	if (brief) {
 		mdu_bitmap_file_t bmf;
 		printf("ARRAY %s", dev);
@@ -306,13 +342,23 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		atime = array.utime;
 		if (atime)
 			printf("    Update Time : %.24s\n", ctime(&atime));
-		if (array.raid_disks)
+		if (array.raid_disks) {
+			char *st;
+			if (avail_disks == array.raid_disks)
+				st = "";
+			else if (!enough(array.level, array.raid_disks,
+					 array.layout, 1, avail, avail_disks))
+				st = ", FAILED";
+			else
+				st = ", degraded";
+
 			printf("          State : %s%s%s%s\n",
 			       (array.state&(1<<MD_SB_CLEAN))?"clean":"active",
-			       array.active_disks < array.raid_disks? ", degraded":"",
+			       st,
 			       (!e || e->percent < 0) ? "" :
 			       (e->resync) ? ", resyncing": ", recovering",
 			       larray_size ? "": ", Not Started");
+		}
 		if (array.raid_disks)
 			printf(" Active Devices : %d\n", array.active_disks);
 		printf("Working Devices : %d\n", array.working_disks);
@@ -442,32 +488,7 @@ This is pretty boring
 		else
 			printf("    Number   Major   Minor   RaidDevice\n");
 	}
-	disks = malloc(max_disks * sizeof(mdu_disk_info_t));
-	for (d=0; d<max_disks; d++) {
-		disks[d].state = (1<<MD_DISK_REMOVED);
-		disks[d].major = disks[d].minor = 0;
-		disks[d].number = disks[d].raid_disk = d;
-	}
 
-	next = array.raid_disks;
-	for (d=0; d < max_disks; d++) {
-		mdu_disk_info_t disk;
-		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
-			if (d < array.raid_disks)
-				fprintf(stderr, Name ": cannot get device detail for device %d: %s\n",
-					d, strerror(errno));
-			continue;
-		}
-		if (disk.major == 0 && disk.minor == 0)
-			continue;
-		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks)
-			disks[disk.raid_disk] = disk;
-		else if (next < max_disks)
-			disks[next++] = disk;
-	}
-
-	avail = calloc(array.raid_disks, 1);
 	for (d= 0; d < max_disks; d++) {
 		char *dv;
 		mdu_disk_info_t disk = disks[d];
@@ -520,11 +541,6 @@ This is pretty boring
 		if (test && d < array.raid_disks
 		    && !(disk.state & (1<<MD_DISK_SYNC)))
 			rv |= 1;
-		if (d < array.raid_disks
-		    && (disk.state & (1<<MD_DISK_SYNC))) {
-			avail_disks ++;
-			avail[d] = 1;
-		}
 		if ((dv=map_dev(disk.major, disk.minor, 0))) {
 			if (brief) {
 				if (devices) {

@@ -4076,7 +4076,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 
 		this = malloc(sizeof(*this));
 		if (!this) {
-			fprintf(stderr, Name ": failed to allocate %lu bytes\n",
+			fprintf(stderr, Name ": failed to allocate %zu bytes\n",
 				sizeof(*this));
 			break;
 		}

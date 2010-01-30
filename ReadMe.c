@@ -86,11 +86,11 @@ char Version[] = Name " - v3.1.1 - 19th November 2009\n";
  *     At the time if writing, there is only minimal support.
  */
 
-char short_options[]="-ABCDEFGIQhVXWZvqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
+char short_options[]="-ABCDEFGIQhVXWZ:vqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
 char short_bitmap_options[]=
-                   "-ABCDEFGIQhVXWZvqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
+                   "-ABCDEFGIQhVXWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
 char short_bitmap_auto_options[]=
-                   "-ABCDEFGIQhVXWZvqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sa:rfRSow1tye:";
+                   "-ABCDEFGIQhVXWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sa:rfRSow1tye:";
 
 struct option long_options[] = {
     {"manage",    0, 0, '@'},

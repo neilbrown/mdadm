@@ -393,9 +393,9 @@ int Create(struct supertype *st, char *mddev,
 				warn |= 1024;
 				fprintf(stderr, Name ": Note: this array has metadata at the start and\n"
 					"    may not be suitable as a boot device.  If you plan to\n"
-					"    store '/' or '/boot' on this device please ensure that\n"
+					"    store '/boot' on this device please ensure that\n"
 					"    your boot-loader understands md/v1.x metadata, or use\n"
-					"    --metadata=1.0\n");
+					"    --metadata=0.90\n");
 			}
 			close(fd);
 		}

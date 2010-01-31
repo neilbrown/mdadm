@@ -1046,6 +1046,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if ((mode != MISC || devmode != 'E') &&
+	    geteuid() != 0) {
+		fprintf(stderr, Name ": must be super-user to perform this action\n");
+		exit(1);
+	}
+
 	ident.autof = autof;
 
 	rv = 0;

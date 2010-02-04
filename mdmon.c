@@ -113,15 +113,6 @@ static struct superswitch *find_metadata_methods(char *vers)
 	return NULL;
 }
 
-static int test_pidfile(char *devname)
-{
-	char path[100];
-	struct stat st;
-
-	sprintf(path, "/var/run/mdadm/%s.pid", devname);
-	return stat(path, &st);
-}
-
 int make_pidfile(char *devname, int o_excl)
 {
 	char path[100];
@@ -529,13 +520,14 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 	}
 
 	ignore = chdir("/");
-	if (victim < 0 && test_pidfile(container->devname) == 0) {
+	if (victim < 0) {
 		if (ping_monitor(container->devname) == 0) {
 			fprintf(stderr, "mdmon: %s already managed\n",
 				container->devname);
 			exit(3);
-		} else if (victim < 0)
-			victim = devname2mdmon(container->devname);
+		}
+		/* if there is a pid file, kill whoever is there just in case */
+		victim = devname2mdmon(container->devname);
 	}
 	if (container->ss->load_super(container, mdfd, devname)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",

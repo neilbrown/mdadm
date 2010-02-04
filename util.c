@@ -1463,14 +1463,14 @@ int fd2devnum(int fd)
 	return NoMdDev;
 }
 
-int mdmon_running(int devnum)
+int mdmon_pid(int devnum)
 {
 	char path[100];
 	char pid[10];
 	int fd;
 	int n;
 	sprintf(path, "/var/run/mdadm/%s.pid", devnum2devname(devnum));
-	fd = open(path, O_RDONLY, 0);
+	fd = open(path, O_RDONLY | O_NOATIME, 0);
 
 	if (fd < 0)
 		return 0;
@@ -1478,27 +1478,15 @@ int mdmon_running(int devnum)
 	close(fd);
 	if (n <= 0)
 		return 0;
-	if (kill(atoi(pid), 0) == 0)
-		return 1;
-	return 0;
+	return atoi(pid);
 }
 
-int signal_mdmon(int devnum)
+int mdmon_running(int devnum)
 {
-	char path[100];
-	char pid[10];
-	int fd;
-	int n;
-	sprintf(path, "/var/run/mdadm/%s.pid", devnum2devname(devnum));
-	fd = open(path, O_RDONLY, 0);
-
-	if (fd < 0)
+	int pid = mdmon_pid(devnum);
+	if (pid <= 0)
 		return 0;
-	n = read(fd, pid, 9);
-	close(fd);
-	if (n <= 0)
-		return 0;
-	if (kill(atoi(pid), SIGUSR1) == 0)
+	if (kill(pid, 0) == 0)
 		return 1;
 	return 0;
 }

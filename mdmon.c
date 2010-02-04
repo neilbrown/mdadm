@@ -148,24 +148,6 @@ int is_container_member(struct mdstat_ent *mdstat, char *container)
 	return 1;
 }
 
-pid_t devname2mdmon(char *devname)
-{
-	char buf[100];
-	pid_t pid = -1;
-	int fd;
-
-	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
-	fd = open(buf, O_RDONLY|O_NOATIME);
-	if (fd < 0)
-		return -1;
-
-	if (read(fd, buf, sizeof(buf)) > 0)
-		sscanf(buf, "%d\n", &pid);
-	close(fd);
-
-	return pid;
-}
-
 static void try_kill_monitor(pid_t pid, char *devname, int sock)
 {
 	char buf[100];
@@ -373,7 +355,7 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 
 		switch (fork()) {
 		case 0:
-			victim = devname2mdmon(devname);
+			victim = mdmon_pid(devnum);
 			victim_sock = connect_monitor(devname);
 			if (chroot(switchroot) != 0) {
 				fprintf(stderr, "mdmon: failed to chroot to '%s': %s\n",
@@ -511,7 +493,7 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 		 * the new root
 		 */
 		if (switchroot[0] == '/') {
-			victim = devname2mdmon(container->devname);
+			victim = mdmon_pid(container->devnum);
 			victim_sock = connect_monitor(container->devname);
 		} else {
 			victim = atoi(switchroot);
@@ -527,7 +509,7 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 			exit(3);
 		}
 		/* if there is a pid file, kill whoever is there just in case */
-		victim = devname2mdmon(container->devname);
+		victim = mdmon_pid(container->devnum);
 	}
 	if (container->ss->load_super(container, mdfd, devname)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",

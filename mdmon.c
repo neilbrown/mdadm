@@ -113,19 +113,16 @@ static struct superswitch *find_metadata_methods(char *vers)
 	return NULL;
 }
 
-int make_pidfile(char *devname, int o_excl)
+int make_pidfile(char *devname)
 {
 	char path[100];
 	char pid[10];
 	int fd;
 	int n;
 
-	if (sigterm)
-		return -1;
+	sprintf(path, "%s/%s.pid", pid_dir, devname);
 
-	sprintf(path, "/var/run/mdadm/%s.pid", devname);
-
-	fd = open(path, O_RDWR|O_CREAT|o_excl, 0600);
+	fd = open(path, O_RDWR|O_CREAT|O_EXCL, 0600);
 	if (fd < 0)
 		return -errno;
 	sprintf(pid, "%d\n", getpid());
@@ -186,13 +183,13 @@ void remove_pidfile(char *devname)
 {
 	char buf[100];
 
-	if (sigterm)
-		return;
-
-	sprintf(buf, "/var/run/mdadm/%s.pid", devname);
+	sprintf(buf, "%s/%s.pid", pid_dir, devname);
 	unlink(buf);
-	sprintf(buf, "/var/run/mdadm/%s.sock", devname);
+	sprintf(buf, "%s/%s.sock", pid_dir, devname);
 	unlink(buf);
+	if (strcmp(pid_dir, ALT_RUN) == 0)
+		/* try to clean up when we are finished with this dir */
+		rmdir(pid_dir);
 }
 
 int make_control_sock(char *devname)
@@ -205,7 +202,7 @@ int make_control_sock(char *devname)
 	if (sigterm)
 		return -1;
 
-	sprintf(path, "/var/run/mdadm/%s.sock", devname);
+	sprintf(path, "%s/%s.sock", pid_dir, devname);
 	unlink(path);
 	sfd = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sfd < 0)

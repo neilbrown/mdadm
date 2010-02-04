@@ -68,6 +68,15 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define DEFAULT_BITMAP_DELAY 5
 #define DEFAULT_MAX_WRITE_BEHIND 256
 
+#define VAR_RUN "/var/run/mdadm"
+/* ALT_RUN should be somewhere that persists across the pivotroot
+ * from early boot to late boot.
+ * If you don't have /lib/init/rw you might want to use /dev/.something
+ */
+#ifndef ALT_RUN
+#define ALT_RUN "/lib/init/rw/mdadm"
+#endif /* ALT_RUN */
+
 #include	"md_u.h"
 #include	"md_p.h"
 #include	"bitmap.h"
@@ -332,7 +341,7 @@ struct mdstat_ent {
 extern struct mdstat_ent *mdstat_read(int hold, int start);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
-extern void mdstat_wait_fd(int fd, const sigset_t *sigmask);
+extern void mdstat_wait_fd(int fd, int fd2, const sigset_t *sigmask);
 extern int mddev_busy(int devnum);
 
 struct map_ent {
@@ -882,6 +891,7 @@ extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
 extern int open_mddev(char *dev, int report_errors);
 extern int open_container(int fd);
 
+extern char *pid_dir;
 extern int mdmon_running(int devnum);
 extern int mdmon_pid(int devnum);
 extern int check_env(char *name);

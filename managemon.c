@@ -702,14 +702,29 @@ void do_manager(struct supertype *container)
 
 			read_sock(container);
 
-			if (container->sock < 0 || socket_hup_requested) {
-				/* If this fails, we hope it already exists
-				 * pid file lives in /var/run/mdadm/mdXX.pid
+			if (socket_hup_requested) {
+				/* Try to create pid file and socket in
+				 * main or alternate RUN directory.
 				 */
-				mkdir("/var/run/mdadm", 0600);
-				close(container->sock);
-				container->sock = make_control_sock(container->devname);
-				make_pidfile(container->devname, 0);
+				char *dir = VAR_RUN;
+				if (mkdir(dir, 0600) < 0 && errno != EEXIST) {
+					char *dir = ALT_RUN;
+					if (mkdir(dir, 0600) < 0 && errno != EEXIST)
+						dir = NULL;
+				} else {
+					if (proc_fd >= 0)
+						close(proc_fd);
+					proc_fd = -1;
+				}
+				if (dir && !sigterm &&
+				    (container->sock < 0 ||
+				     strcmp(dir, pid_dir) != 0)) {
+					close(container->sock);
+					remove_pidfile(container->devname);
+					pid_dir = dir;
+					container->sock = make_control_sock(container->devname);
+					make_pidfile(container->devname);
+				}
 				socket_hup_requested = 0;
 			}
 			if (container->sock < 0)
@@ -726,12 +741,9 @@ void do_manager(struct supertype *container)
 		if (sigterm)
 			wakeup_monitor();
 
-		if (update_queue == NULL) {
-			if (container->sock < 0)
-				mdstat_wait_fd(proc_fd, &set);
-			else
-				mdstat_wait_fd(container->sock, &set);
-		} else
+		if (update_queue == NULL)
+			mdstat_wait_fd(container->sock, proc_fd, &set);
+		else
 			/* If an update is happening, just wait for signal */
 			pselect(0, NULL, NULL, NULL, NULL, &set);
 	} while(1);

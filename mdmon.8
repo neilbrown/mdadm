@@ -5,7 +5,7 @@ mdmon \- monitor MD external metadata arrays
 
 .SH SYNOPSIS
 
-.BI mdmon " CONTAINER [NEWROOT]"
+.BI mdmon " CONTAINER [NEWROOT | PID]"
 
 .SH OVERVIEW
 The 2.6.27 kernel brings the ability to support external metadata arrays.
@@ -148,6 +148,45 @@ will terminate any
 instances that are running in the current namespace,
 .IR chroot (2)
 to NEWROOT, and continue monitoring the container.
+
+Alternately the new
+.I mdmon
+can be started after the new root has been installed with
+.I pivotroot
+by passing
+.B /
+as the NEWROOT.  For
+.I mdmon
+to be able to find and kill the old
+.I mdmon
+there must be some part of the filesystem that persists from before
+the
+.I pivotroot
+to afterwards.  This can be
+.B /var/run/mdadm
+or some other directory.  The default other directory is
+.B /lib/init/rw/mdadm
+but this can easily be changed when
+.I mdmon
+is compiled.
+If
+.I mdmon
+cannot store the pid file in
+.B /var/run/mdadm
+it will store it in the other directory until
+.B /var/run/mdadm
+becomes available, or until it is killed.
+.TP
+[PID]
+If the second argument to
+.I mdmon
+does not start with a slash it is assumed to be the pid of a previous
+instance of
+.I mdmon
+to kill.  This is used internally by
+.I mdmon
+to pass the pid across a chroot/exec and should not be used otherwise.
+
 .PP
 Note that
 .I mdmon
@@ -159,6 +198,17 @@ RAID arrays.  The only times it is run other that by
 is when the boot scripts need to restart it after mounting the new
 root filesystem.
 
+.SH EXMAPLES
+
+.B "  mdmon /proc/mdstat /"
+.br
+Any
+.I mdmon
+which is currently running is killed and a new instance is started.
+This should be run early in the boot sequence after a
+.I pivotroot
+to the final root filesystem, but before that filesystem is remounted
+read-write.
 .SH SEE ALSO
 .IR mdadm (8),
 .IR md (4).

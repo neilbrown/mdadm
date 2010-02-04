@@ -58,7 +58,13 @@ CONFFILE = $(SYSCONFDIR)/mdadm.conf
 CONFFILE2 = $(SYSCONFDIR)/mdadm/mdadm.conf
 MAILCMD =/usr/sbin/sendmail -t
 CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
-CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS)
+# ALT_RUN should be somewhere that persists across the pivotroot
+# from early boot to late boot.
+# If you don't have /lib/init/rw you might want to use /dev/.something
+#  e.g. make ALT_RUN=/dev/.mdadm
+ALT_RUN = /lib/init/rw
+ALTFLAGS = -DALT_RUN=\"$(ALT_RUN)\"
+CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(ALTFLAGS)
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static

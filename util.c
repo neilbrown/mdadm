@@ -1463,13 +1463,15 @@ int fd2devnum(int fd)
 	return NoMdDev;
 }
 
+char *pid_dir = VAR_RUN;
+
 int mdmon_pid(int devnum)
 {
 	char path[100];
 	char pid[10];
 	int fd;
 	int n;
-	sprintf(path, "/var/run/mdadm/%s.pid", devnum2devname(devnum));
+	sprintf(path, "%s/%s.pid", pid_dir, devnum2devname(devnum));
 	fd = open(path, O_RDONLY | O_NOATIME, 0);
 
 	if (fd < 0)

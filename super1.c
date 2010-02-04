@@ -612,6 +612,11 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 	strncpy(info->name, sb->set_name, 32);
 	info->name[32] = 0;
 
+	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RECOVERY_OFFSET))
+		info->recovery_start = __le32_to_cpu(sb->recovery_offset);
+	else
+		info->recovery_start = MaxSector;
+
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
 		info->reshape_active = 1;
 		info->reshape_progress = __le64_to_cpu(sb->reshape_position);

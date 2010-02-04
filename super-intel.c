@@ -1452,6 +1452,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	info->data_offset	  = __le32_to_cpu(map->pba_of_lba0);
 	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
 	memset(info->uuid, 0, sizeof(info->uuid));
+	info->recovery_start = MaxSector;
 
 	if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty) {
 		info->resync_start = 0;
@@ -1559,6 +1560,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.number = -1;
 	info->disk.state = 0;
 	info->name[0] = 0;
+	info->recovery_start = MaxSector;
 
 	if (super->disks) {
 		__u32 reserved = imsm_reserved_sectors(super, super->disks);

@@ -800,7 +800,8 @@ int Assemble(struct supertype *st, char *mddev,
 		if (devices[j].i.events+event_margin >=
 		    devices[most_recent].i.events) {
 			devices[j].uptodate = 1;
-			if (i < content->array.raid_disks) {
+			if (i < content->array.raid_disks &&
+			    devices[j].i.recovery_start == MaxSector) {
 				okcnt++;
 				avail[i]=1;
 			} else
@@ -822,6 +823,7 @@ int Assemble(struct supertype *st, char *mddev,
 			int j = best[i];
 			if (j>=0 &&
 			    !devices[j].uptodate &&
+			    devices[j].i.recovery_start == MaxSector &&
 			    (chosen_drive < 0 ||
 			     devices[j].i.events
 			     > devices[chosen_drive].i.events))

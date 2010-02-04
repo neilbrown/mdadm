@@ -372,6 +372,7 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 
 	uuid_from_super0(st, info->uuid);
 
+	info->recovery_start = MaxSector;
 	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {
 		info->reshape_active = 1;
 		info->reshape_progress = sb->reshape_position;

@@ -1369,6 +1369,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 	info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 
 
+	info->recovery_start = MaxSector;
 	info->reshape_active = 0;
 	info->name[0] = 0;
 
@@ -1427,6 +1428,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 
 	info->container_member = ddf->currentconf->vcnum;
 
+	info->recovery_start = MaxSector;
 	info->resync_start = 0;
 	if (!(ddf->virt->entries[info->container_member].state
 	      & DDF_state_inconsistent)  &&

@@ -274,7 +274,8 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	if (strcmp(container_name, "/proc/mdstat") == 0) {
+	if (strcmp(container_name, "/proc/mdstat") == 0 ||
+	    strcmp(container_name, "--all") == 0) {
 		struct mdstat_ent *mdstat, *e;
 
 		/* launch an mdmon instance for each container found */

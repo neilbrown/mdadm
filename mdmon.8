@@ -129,7 +129,9 @@ CONTAINER
 The
 .B container
 device to monitor.  It can be a full path like /dev/md/container, a simple md
-device name like md127, or /proc/mdstat which tells
+device name like md127, or
+.I \-\-all
+ which tells
 .I mdmon
 to scan for containers and launch an
 .I mdmon
@@ -200,7 +202,7 @@ root filesystem.
 
 .SH EXMAPLES
 
-.B "  mdmon /proc/mdstat /"
+.B "  mdmon --all /"
 .br
 Any
 .I mdmon

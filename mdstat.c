@@ -266,7 +266,7 @@ void mdstat_wait(int seconds)
 	select(maxfd + 1, NULL, NULL, &fds, &tm);
 }
 
-void mdstat_wait_fd(int fd, int fd2, const sigset_t *sigmask)
+void mdstat_wait_fd(int fd, const sigset_t *sigmask)
 {
 	fd_set fds, rfds;
 	int maxfd = 0;
@@ -276,10 +276,7 @@ void mdstat_wait_fd(int fd, int fd2, const sigset_t *sigmask)
 	if (mdstat_fd >= 0)
 		FD_SET(mdstat_fd, &fds);
 
-	if (fd < 0)
-		fd = fd2, fd2 = -1;
-
-	while (fd >= 0) {
+	if (fd >= 0) {
 		struct stat stb;
 		fstat(fd, &stb);
 		if ((stb.st_mode & S_IFMT) == S_IFREG)
@@ -294,8 +291,6 @@ void mdstat_wait_fd(int fd, int fd2, const sigset_t *sigmask)
 		if (fd > maxfd)
 			maxfd = fd;
 
-		fd = fd2;
-		fd2 = -1;
 	}
 	if (mdstat_fd > maxfd)
 		maxfd = mdstat_fd;

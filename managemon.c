@@ -677,14 +677,12 @@ void do_manager(struct supertype *container)
 {
 	struct mdstat_ent *mdstat;
 	sigset_t set;
-	int proc_fd;
 
 	sigprocmask(SIG_UNBLOCK, NULL, &set);
 	sigdelset(&set, SIGUSR1);
 	sigdelset(&set, SIGHUP);
 	sigdelset(&set, SIGALRM);
 	sigdelset(&set, SIGTERM);
-	proc_fd = open("/proc/mounts", O_RDONLY);
 
 	do {
 
@@ -711,10 +709,6 @@ void do_manager(struct supertype *container)
 					char *dir = ALT_RUN;
 					if (mkdir(dir, 0600) < 0 && errno != EEXIST)
 						dir = NULL;
-				} else {
-					if (proc_fd >= 0)
-						close(proc_fd);
-					proc_fd = -1;
 				}
 				if (dir && !sigterm &&
 				    (container->sock < 0 ||
@@ -742,7 +736,7 @@ void do_manager(struct supertype *container)
 			wakeup_monitor();
 
 		if (update_queue == NULL)
-			mdstat_wait_fd(container->sock, proc_fd, &set);
+			mdstat_wait_fd(container->sock, &set);
 		else
 			/* If an update is happening, just wait for signal */
 			pselect(0, NULL, NULL, NULL, NULL, &set);

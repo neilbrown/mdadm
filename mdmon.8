@@ -21,7 +21,7 @@ To service metadata update requests a daemon,
 is introduced.
 .I Mdmon
 is tasked with polling the sysfs namespace looking for changes in
-.BR array_state , 
+.BR array_state ,
 .BR sync_action ,
 and per disk
 .BR state
@@ -168,6 +168,63 @@ RAID arrays.  The only times it is run other that by
 .I  mdadm
 is when the boot scripts need to restart it after mounting the new
 root filesystem.
+
+.SH START UP AND SHUTDOWN
+
+As
+.I mdmon
+needs to be running whenever any filesystem on the monitored device is
+mounted there are special considerations when the root filesystem is
+mounted from an
+.I mdmon
+monitored device.
+
+When the array is assembled by the
+.B initramfs
+code, mdadm will automatically start
+.I mdmon
+as required.  This means that
+.I mdmon
+must be installed on the
+.B initramfs
+and there must be a writable filesystem (typically tmpfs) which
+.B mdmon
+can create a
+.B .pid
+and
+.B .sock
+file on.  The particular filesystem to use is given to mdmon at compile
+time and defaults to
+.BR /lib/init/rw .
+
+This filesystem must persist through to the end of the boot sequence.
+
+After the final root filesystem has be instantiated (usually with
+.BR pivot_root )
+and after
+.B /var
+is mounted writable,
+.I mdmon
+should be run with
+.I "\-\-all \-\-takeover"
+so that the
+.I mdmon
+running from the
+.B initramfs
+can be replaced with one running in the main root.
+
+At shutdown time,
+.I mdmon
+should not be killed along with other processes.  Also as it holds a
+file (socket actually) open in
+.B /var
+it will not be possible to unmount
+.B /var
+if it is a separate filesystem.  Rather the
+.B /var
+filesystem, like the root filesystem, should be remounted read-only.
+
+
 
 .SH EXAMPLES
 

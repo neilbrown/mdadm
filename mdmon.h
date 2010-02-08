@@ -65,9 +65,6 @@ extern struct md_generic_cmd *active_cmd;
 void remove_pidfile(char *devname);
 void do_monitor(struct supertype *container);
 void do_manager(struct supertype *container);
-int make_control_sock(char *devname);
-int make_pidfile(char *devname);
-extern int socket_hup_requested;
 extern int sigterm;
 
 int read_dev_state(int fd);

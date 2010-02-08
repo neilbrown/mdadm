@@ -113,7 +113,7 @@ static struct superswitch *find_metadata_methods(char *vers)
 	return NULL;
 }
 
-int make_pidfile(char *devname)
+static int make_pidfile(char *devname)
 {
 	char path[100];
 	char pid[10];
@@ -192,7 +192,7 @@ void remove_pidfile(char *devname)
 		rmdir(pid_dir);
 }
 
-int make_control_sock(char *devname)
+static int make_control_sock(char *devname)
 {
 	char path[100];
 	int sfd;
@@ -219,12 +219,6 @@ int make_control_sock(char *devname)
 	fl |= O_NONBLOCK;
 	fcntl(sfd, F_SETFL, fl);
 	return sfd;
-}
-
-int socket_hup_requested;
-static void hup(int sig)
-{
-	socket_hup_requested = 1;
 }
 
 static void term(int sig)
@@ -431,24 +425,25 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	 */
 	sigemptyset(&set);
 	sigaddset(&set, SIGUSR1);
-	sigaddset(&set, SIGHUP);
-	sigaddset(&set, SIGALRM);
 	sigaddset(&set, SIGTERM);
 	sigprocmask(SIG_BLOCK, &set, NULL);
 	act.sa_handler = wake_me;
 	act.sa_flags = 0;
 	sigaction(SIGUSR1, &act, NULL);
-	sigaction(SIGALRM, &act, NULL);
-	act.sa_handler = hup;
-	sigaction(SIGHUP, &act, NULL);
 	act.sa_handler = term;
 	sigaction(SIGTERM, &act, NULL);
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
 	if (takeover) {
+		pid_dir = VAR_RUN;
 		victim = mdmon_pid(container->devnum);
-		victim_sock = connect_monitor(container->devname);
+		if (victim < 0) {
+			pid_dir = ALT_RUN;
+			victim = mdmon_pid(container->devnum);
+		}
+		if (victim >= 0)
+			victim_sock = connect_monitor(container->devname);
 	}
 
 	ignore = chdir("/");
@@ -470,6 +465,25 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 
 	/* Ok, this is close enough.  We can say goodbye to our parent now.
 	 */
+	if (victim > 0)
+		remove_pidfile(devname);
+	if (mkdir(VAR_RUN, 0600) >= 0 || errno == EEXIST)
+		pid_dir = VAR_RUN;
+	else if (mkdir(ALT_RUN, 0600) >= 0 || errno == EEXIST)
+		pid_dir = ALT_RUN;
+	else {
+		fprintf(stderr, "mdmon: Neither %s nor %s are writable\n"
+			"       cannot create .pid or .sock files.  Aborting\n",
+			VAR_RUN, ALT_RUN);
+		exit(3);
+	}
+	if (make_pidfile(devname) < 0) {
+		fprintf(stderr, "mdmon: Cannot create pid file in %s - aborting.\n",
+			pid_dir);
+		exit(3);
+	}
+	container->sock = make_control_sock(devname);
+
 	status = 0;
 	if (write(pfd[1], &status, sizeof(status)) < 0)
 		fprintf(stderr, "mdmon: failed to notify our parent: %d\n",
@@ -484,7 +498,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 		exit(2);
 	}
 
-	if (victim > -1) {
+	if (victim > 0) {
 		try_kill_monitor(victim, container->devname, victim_sock);
 		close(victim_sock);
 	}

@@ -481,7 +481,11 @@ static int wait_and_act(struct supertype *container, int nowait)
 				dprintf("caught sigterm, all clean... exiting\n");
 			else
 				dprintf("no arrays to monitor... exiting\n");
-			remove_pidfile(container->devname);
+			if (!sigterm)
+				/* On SIGTERM, someone (the take-over mdmon) will
+				 * clean up
+				 */
+				remove_pidfile(container->devname);
 			exit_now = 1;
 			signal_manager();
 			exit(0);

@@ -680,8 +680,6 @@ void do_manager(struct supertype *container)
 
 	sigprocmask(SIG_UNBLOCK, NULL, &set);
 	sigdelset(&set, SIGUSR1);
-	sigdelset(&set, SIGHUP);
-	sigdelset(&set, SIGALRM);
 	sigdelset(&set, SIGTERM);
 
 	do {
@@ -699,30 +697,6 @@ void do_manager(struct supertype *container)
 			manage(mdstat, container);
 
 			read_sock(container);
-
-			if (socket_hup_requested) {
-				/* Try to create pid file and socket in
-				 * main or alternate RUN directory.
-				 */
-				char *dir = VAR_RUN;
-				if (mkdir(dir, 0600) < 0 && errno != EEXIST) {
-					char *dir = ALT_RUN;
-					if (mkdir(dir, 0600) < 0 && errno != EEXIST)
-						dir = NULL;
-				}
-				if (dir && !sigterm &&
-				    (container->sock < 0 ||
-				     strcmp(dir, pid_dir) != 0)) {
-					close(container->sock);
-					remove_pidfile(container->devname);
-					pid_dir = dir;
-					container->sock = make_control_sock(container->devname);
-					make_pidfile(container->devname);
-				}
-				socket_hup_requested = 0;
-			}
-			if (container->sock < 0)
-				alarm(30);
 
 			free_mdstat(mdstat);
 		}

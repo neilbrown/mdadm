@@ -254,28 +254,31 @@ void usage(void)
 	exit(2);
 }
 
-static int mdmon(char *devname, int devnum, int must_fork, char *switchroot);
+static int mdmon(char *devname, int devnum, int must_fork, int takeover);
 
 int main(int argc, char *argv[])
 {
 	char *container_name = NULL;
-	char *switchroot = NULL;
 	int devnum;
 	char *devname;
 	int status = 0;
+	int arg;
+	int all = 0;
+	int takeover = 0;
 
-	switch (argc) {
-	case 3:
-		switchroot = argv[2];
-	case 2:
-		container_name = argv[1];
-		break;
-	default:
-		usage();
+	for (arg = 1; arg < argc; arg++) {
+		if (strcmp(argv[arg], "--all") == 0 ||
+		    strcmp(argv[arg], "/proc/mdstat") == 0)
+			all = 1;
+		else if (strcmp(argv[arg], "--takeover") == 0)
+			takeover = 1;
+		else if (container_name == NULL)
+			container_name = argv[arg];
+		else
+			usage();
 	}
 
-	if (strcmp(container_name, "/proc/mdstat") == 0 ||
-	    strcmp(container_name, "--all") == 0) {
+	if (all) {
 		struct mdstat_ent *mdstat, *e;
 
 		/* launch an mdmon instance for each container found */
@@ -292,7 +295,7 @@ int main(int argc, char *argv[])
 					sprintf(container_name, "%s", devname);
 				}
 				status |= mdmon(devname, e->devnum, 1,
-						switchroot);
+						takeover);
 			}
 		}
 		free_mdstat(mdstat);
@@ -320,10 +323,10 @@ int main(int argc, char *argv[])
 			container_name);
 		exit(1);
 	}
-	return mdmon(devname, devnum, do_fork(), switchroot);
+	return mdmon(devname, devnum, do_fork(), takeover);
 }
 
-static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
+static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 {
 	int mdfd;
 	struct mdinfo *mdi, *di;
@@ -336,50 +339,7 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 	pid_t victim = -1;
 	int victim_sock = -1;
 
-	dprintf("starting mdmon for %s in %s\n",
-		devname, switchroot ? : "/");
-
-	/* switchroot is either a path name starting with '/', or a
-	 * pid of the original mdmon (we have already done the chroot).
-	 * In the latter case, stdin is a socket connected to the original
-	 * mdmon.
-	 */
-
-	/* try to spawn mdmon instances from the target file system */
-	if (switchroot && switchroot[0] == '/' &&
-	    strcmp(switchroot, "/") != 0) {
-		pid_t pid;
-		char buf[20];
-
-		switch (fork()) {
-		case 0:
-			victim = mdmon_pid(devnum);
-			victim_sock = connect_monitor(devname);
-			if (chroot(switchroot) != 0) {
-				fprintf(stderr, "mdmon: failed to chroot to '%s': %s\n",
-					switchroot, strerror(errno));
-				exit(4);
-			}
-			ignore = chdir("/");
-			sprintf(buf, "%d", victim);
-			if (victim_sock) {
-				close(0);
-				dup(victim_sock);
-				close(victim_sock);
-			}
-			execl("/sbin/mdmon", "mdmon", devname, buf, NULL);
-			exit(1);
-		case -1:
-			return 1;
-		default:
-			pid = wait(&status);
-			if (pid > -1 && WIFEXITED(status) &&
-			    WEXITSTATUS(status) == 0)
-				return 0;
-			else
-				return 1;
-		}
-	}
+	dprintf("starting mdmon for %s\n", devname);
 
 	mdfd = open_dev(devnum);
 	if (mdfd < 0) {
@@ -486,17 +446,9 @@ static int mdmon(char *devname, int devnum, int must_fork, char *switchroot)
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
-	if (switchroot) {
-		/* we assume we assume that /sys /proc /dev are available in
-		 * the new root
-		 */
-		if (switchroot[0] == '/') {
-			victim = mdmon_pid(container->devnum);
-			victim_sock = connect_monitor(container->devname);
-		} else {
-			victim = atoi(switchroot);
-			victim_sock = 0;
-		}
+	if (takeover) {
+		victim = mdmon_pid(container->devnum);
+		victim_sock = connect_monitor(container->devname);
 	}
 
 	ignore = chdir("/");

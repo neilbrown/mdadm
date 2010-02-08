@@ -51,11 +51,11 @@
 #include	<sys/file.h>
 #include	<ctype.h>
 
-#define mapnames(base) { #base, #base ".new", #base ".lock"}
+#define mapnames(base) { base, base ".new", base ".lock"}
 char *mapname[3][3] = {
-	mapnames(/var/run/mdadm/map),
-	mapnames(/var/run/mdadm.map),
-	mapnames(/dev/.mdadm.map)
+	mapnames(VAR_RUN "/map"),
+	mapnames("/var/run/mdadm.map"),
+	mapnames(ALT_RUN "/map")
 };
 
 int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT | O_TRUNC };

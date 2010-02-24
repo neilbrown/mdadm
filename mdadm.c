@@ -1120,9 +1120,10 @@ int main(int argc, char *argv[])
 					       verbose-quiet, force);
 			}
 		} else {
-			mddev_ident_t array_list =  conf_get_ident(NULL);
+			mddev_ident_t a, array_list =  conf_get_ident(NULL);
 			mddev_dev_t devlist = conf_get_devs();
 			int cnt = 0;
+			int failures, successes;
 			if (devlist == NULL) {
 				fprintf(stderr, Name ": No devices listed in conf file were found.\n");
 				exit(1);
@@ -1135,21 +1136,38 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": --backup_file not meaningful with a --scan assembly.\n");
 				exit(1);
 			}
-			for (; array_list; array_list = array_list->next) {
-				if (array_list->devname &&
-				    strcasecmp(array_list->devname, "<ignore>") == 0)
-					continue;
-				if (array_list->autof == 0)
-					array_list->autof = autof;
-				
-				rv |= Assemble(ss, array_list->devname,
-					       array_list,
-					       NULL, NULL,
-					       readonly, runstop, NULL,
-					       homehost, require_homehost,
-					       verbose-quiet, force);
-				cnt++;
+			for (a = array_list; a ; a = a->next) {
+				a->assembled = 0;
+				if (a->autof == 0)
+					a->autof = autof;
 			}
+			do {
+				failures = 0;
+				successes = 0;
+				rv = 0;
+				for (a = array_list; a ; a = a->next) {
+					int r;
+					if (a->assembled)
+						continue;
+					if (a->devname &&
+					    strcasecmp(a->devname, "<ignore>") == 0)
+						continue;
+				
+					r = Assemble(ss, a->devname,
+						     a,
+						     NULL, NULL,
+						     readonly, runstop, NULL,
+						     homehost, require_homehost,
+						     verbose-quiet, force);
+					if (r == 0) {
+						a->assembled = 1;
+						successes++;
+					} else
+						failures++;
+					rv |= r;
+					cnt++;
+				}
+			} while (failures && successes);
 			if (homehost && cnt == 0) {
 				/* Maybe we can auto-assemble something.
 				 * Repeatedly call Assemble in auto-assemble mode

@@ -301,6 +301,10 @@ typedef struct mddev_ident_s {
 	char	*member;	/* subarray within a container */
 
 	struct mddev_ident_s *next;
+	union {
+		/* fields needed by different users of this structure */
+		int assembled;	/* set when assembly succeeds */
+	};
 } *mddev_ident_t;
 
 /* List of device names - wildcards expanded */

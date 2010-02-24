@@ -434,7 +434,7 @@ int Assemble(struct supertype *st, char *mddev,
 				}
 			}
 			st = tst; tst = NULL;
-			if (!auto_assem && tmpdev->next != NULL) {
+			if (!auto_assem && inargv && tmpdev->next != NULL) {
 				fprintf(stderr, Name ": %s is a container, but is not "
 					"only device given: confused and aborting\n",
 					devname);

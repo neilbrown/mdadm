@@ -1057,12 +1057,14 @@ int Assemble(struct supertype *st, char *mddev,
 		if (rv) {
 			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
 				mddev, strerror(errno));
+			ioctl(mdfd, STOP_ARRAY, NULL);
 			close(mdfd);
 			return 1;
 		}
 		if (ident->bitmap_fd >= 0) {
 			if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
 				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
+				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				return 1;
 			}
@@ -1072,12 +1074,14 @@ int Assemble(struct supertype *st, char *mddev,
 			if (bmfd < 0) {
 				fprintf(stderr, Name ": Could not open bitmap file %s\n",
 					ident->bitmap_file);
+				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				return 1;
 			}
 			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
 				fprintf(stderr, Name ": Failed to set bitmapfile for %s\n", mddev);
 				close(bmfd);
+				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				return 1;
 			}

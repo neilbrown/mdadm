@@ -1727,11 +1727,23 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			continue; /* Wrong uuid */
 		}
 
-		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 10*60 ||
+		/* array utime and backup-mtime should be updated at much the same time, but it seems that
+		 * sometimes they aren't... So allow considerable flexability in matching, and allow
+		 * this test to be overridden by an environment variable.
+		 */
+		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 2*60*60 ||
 		    info->array.utime < __le64_to_cpu(bsb.mtime) - 10*60) {
-			if (verbose)
-				fprintf(stderr, Name ": too-old timestamp on backup-metadata on %s\n", devname);
-			continue; /* time stamp is too bad */
+			if (check_env("MDADM_GROW_ALLOW_OLD")) {
+				fprintf(stderr, Name ": accepting backup with timestamp %lu "
+					"for array with timestamp %lu\n",
+					(unsigned long)__le64_to_cpu(bsb.mtime),
+					(unsigned long)info->array.utime);
+			} else {
+				if (verbose)
+					fprintf(stderr, Name ": too-old timestamp on "
+						"backup-metadata on %s\n", devname);
+				continue; /* time stamp is too bad */
+			}
 		}
 
 		if (bsb.magic[15] == '1') {

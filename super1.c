@@ -1357,13 +1357,13 @@ static struct supertype *match_metadata_desc1(char *arg)
 	}
 	if (strcmp(arg, "1.1") == 0 ||
 	    strcmp(arg, "1.01") == 0 ||
-	    strcmp(arg, "default") == 0 ||
 	    strcmp(arg, "") == 0 /* no metadata */
 		) {
 		st->minor_version = 1;
 		return st;
 	}
 	if (strcmp(arg, "1.2") == 0 ||
+	    strcmp(arg, "default") == 0 ||
 	    strcmp(arg, "1.02") == 0) {
 		st->minor_version = 2;
 		return st;

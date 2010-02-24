@@ -299,7 +299,7 @@ says to get a list of array devices from
 .TP
 .BR \-e ", " \-\-metadata=
 Declare the style of RAID metadata (superblock) to be used.  The
-default is 1.1 for
+default is 1.2 for
 .BR \-\-create ,
 and to guess for other operations.
 The default can be overridden by setting the
@@ -320,7 +320,7 @@ Use the new version-1 format superblock.  This has few restrictions.
 The different sub-versions store the superblock at different locations
 on the device, either at the end (for 1.0), at the start (for 1.1) or
 4K from the start (for 1.2).  '1' is equivalent to '1.0', 'default' is
-equivalent to '1.1'.
+equivalent to '1.2'.
 .IP ddf
 Use the "Industry Standard" DDF (Disk Data Format) format defined by
 SNIA.

@@ -1445,8 +1445,8 @@ add_internal_bitmap1(struct supertype *st,
 
 	switch(st->minor_version) {
 	case 0:
-		/* either 3K after the superblock, or some amount of space
-		 * before.
+		/* either 3K after the superblock (when hot-add),
+		 * or some amount of space before.
 		 */
 		if (may_change) {
 			/* We are creating array, so we *know* how much room has
@@ -1454,11 +1454,6 @@ add_internal_bitmap1(struct supertype *st,
 			 */
 			offset = 0;
 			room = choose_bm_space(__le64_to_cpu(sb->size));
-			if (room == 4*2) {
-				/* make it 3K after the superblock */
-				room = 3*2;
-				offset = 2;
-			}
 		} else {
 			room = __le64_to_cpu(sb->super_offset)
 				- __le64_to_cpu(sb->data_offset)
@@ -1519,8 +1514,12 @@ add_internal_bitmap1(struct supertype *st,
 		return 0;
 
 	if (offset == 0) {
+		/* start bitmap on a 4K boundary with enough space for
+		 * the bitmap
+		 */
 		bits = (size*512) / chunk + 1;
-		room = ((bits+7)/8 + sizeof(bitmap_super_t) +511)/512;
+		room = ((bits+7)/8 + sizeof(bitmap_super_t) +4095)/4096;
+		room *= 8; /* convert 4K blocks to sectors */
 		offset = -room;
 	}
 

@@ -157,6 +157,14 @@ This tells mdmon to find any active containers and start monitoring
 each of them if appropriate.  This is normally used with
 .B \-\-takeover
 late in the boot sequence.
+A separate
+.I mdmon
+process is started for each container as the
+.B \-\-all
+argument is over-written with the name of the container.  To allow for
+containers with names longer than 5 characters, this argument can be
+arbitrarily extended, e.g. to
+.BR \-\-all-active-arrays .
 
 .PP
 Note that
@@ -228,7 +236,7 @@ filesystem, like the root filesystem, should be remounted read-only.
 
 .SH EXAMPLES
 
-.B "  mdmon \-\-all \-\-takeover"
+.B "  mdmon \-\-all-active-arrays \-\-takeover"
 .br
 Any
 .I mdmon

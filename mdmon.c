@@ -247,7 +247,7 @@ static int do_fork(void)
 
 void usage(void)
 {
-	fprintf(stderr, "Usage: mdmon /device/name/for/container [target_dir]\n");
+	fprintf(stderr, "Usage: mdmon [--all] [--takeover] CONTAINER\n");
 	exit(2);
 }
 
@@ -264,19 +264,23 @@ int main(int argc, char *argv[])
 	int takeover = 0;
 
 	for (arg = 1; arg < argc; arg++) {
-		if (strcmp(argv[arg], "--all") == 0 ||
-		    strcmp(argv[arg], "/proc/mdstat") == 0)
+		if (strncmp(argv[arg], "--all",5) == 0 ||
+		    strcmp(argv[arg], "/proc/mdstat") == 0) {
+			container_name = argv[arg];
 			all = 1;
-		else if (strcmp(argv[arg], "--takeover") == 0)
+		} else if (strcmp(argv[arg], "--takeover") == 0)
 			takeover = 1;
 		else if (container_name == NULL)
 			container_name = argv[arg];
 		else
 			usage();
 	}
+	if (container_name == NULL)
+		usage();
 
 	if (all) {
 		struct mdstat_ent *mdstat, *e;
+		int container_len = strlen(container_name);
 
 		/* launch an mdmon instance for each container found */
 		mdstat = mdstat_read(0, 0);
@@ -287,8 +291,8 @@ int main(int argc, char *argv[])
 				/* update cmdline so this mdmon instance can be
 				 * distinguished from others in a call to ps(1)
 				 */
-				if (strlen(devname) <= strlen(container_name)) {
-					memset(container_name, 0, strlen(container_name));
+				if (strlen(devname) <= container_len) {
+					memset(container_name, 0, container_len);
 					sprintf(container_name, "%s", devname);
 				}
 				status |= mdmon(devname, e->devnum, 1,

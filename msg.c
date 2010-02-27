@@ -147,7 +147,7 @@ int connect_monitor(char *devname)
 	int pos;
 	char *c;
 
-	pos = sprintf(path, "%s/", VAR_RUN);
+	pos = sprintf(path, "%s/", pid_dir);
 	if (is_subarray(devname)) {
 		devname++;
 		c = strchr(devname, '/');

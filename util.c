@@ -1478,11 +1478,11 @@ int mdmon_pid(int devnum)
 	fd = open(path, O_RDONLY | O_NOATIME, 0);
 
 	if (fd < 0)
-		return 0;
+		return -1;
 	n = read(fd, pid, 9);
 	close(fd);
 	if (n <= 0)
-		return 0;
+		return -1;
 	return atoi(pid);
 }
 

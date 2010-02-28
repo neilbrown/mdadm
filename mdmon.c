@@ -445,26 +445,23 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
-	if (takeover) {
-		pid_dir = VAR_RUN;
+	pid_dir = VAR_RUN;
+	victim = mdmon_pid(container->devnum);
+	if (victim < 0) {
+		pid_dir = ALT_RUN;
 		victim = mdmon_pid(container->devnum);
-		if (victim < 0) {
-			pid_dir = ALT_RUN;
-			victim = mdmon_pid(container->devnum);
-		}
-		if (victim >= 0)
-			victim_sock = connect_monitor(container->devname);
 	}
+	if (victim >= 0)
+		victim_sock = connect_monitor(container->devname);
 
 	ignore = chdir("/");
-	if (victim < 0) {
-		if (ping_monitor(container->devname) == 0) {
+	if (!takeover && victim > 0 && victim_sock >= 0) {
+		if (fping_monitor(victim_sock) == 0) {
 			fprintf(stderr, "mdmon: %s already managed\n",
 				container->devname);
 			exit(3);
 		}
-		/* if there is a pid file, kill whoever is there just in case */
-		victim = mdmon_pid(container->devnum);
+		close(victim_sock);
 	}
 	if (container->ss->load_super(container, mdfd, devname)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",

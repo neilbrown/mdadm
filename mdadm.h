@@ -68,7 +68,18 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define DEFAULT_BITMAP_DELAY 5
 #define DEFAULT_MAX_WRITE_BEHIND 256
 
+/* VAR_RUN is where pid and socket files used for communicating
+ * with mdmon normally live.  It should be /var/run, but if
+ * it is too hard to remount /var/run as read-only rather than
+ * unmounting it at shutdown time, then it should be
+ * redefined to some place that comfortably persists until
+ * final shutdown, possibly in /dev if that is a tmpfs.
+ * Note: VAR_RUN does not need to be writable at shutdown,
+ * only during boot when "mdmon --takeover" is run.
+ */
+#ifndef VAR_RUN
 #define VAR_RUN "/var/run/mdadm"
+#endif /* VAR_RUN */
 /* ALT_RUN should be somewhere that persists across the pivotroot
  * from early boot to late boot.
  * If you don't have /lib/init/rw you might want to use /dev/.something

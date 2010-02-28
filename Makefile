@@ -63,8 +63,10 @@ CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 # If you don't have /lib/init/rw you might want to use /dev/.something
 #  e.g. make ALT_RUN=/dev/.mdadm
 ALT_RUN = /lib/init/rw
+VAR_RUN = /var/run
 ALTFLAGS = -DALT_RUN=\"$(ALT_RUN)\"
-CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(ALTFLAGS)
+VARFLAGS = -DVAR_RUN=\"$(VAR_RUN)\"
+CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(ALTFLAGS) $(VARFLAGS)
 
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static

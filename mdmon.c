@@ -120,6 +120,9 @@ static int make_pidfile(char *devname)
 	int fd;
 	int n;
 
+	if (mkdir(pid_dir, 0600) < 0 &&
+	    errno != EEXIST)
+		return -errno;
 	sprintf(path, "%s/%s.pid", pid_dir, devname);
 
 	fd = open(path, O_RDWR|O_CREAT|O_EXCL, 0600);
@@ -474,20 +477,16 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	 */
 	if (victim > 0)
 		remove_pidfile(devname);
-	if (mkdir(VAR_RUN, 0600) >= 0 || errno == EEXIST)
-		pid_dir = VAR_RUN;
-	else if (mkdir(ALT_RUN, 0600) >= 0 || errno == EEXIST)
-		pid_dir = ALT_RUN;
-	else {
-		fprintf(stderr, "mdmon: Neither %s nor %s are writable\n"
-			"       cannot create .pid or .sock files.  Aborting\n",
-			VAR_RUN, ALT_RUN);
-		exit(3);
-	}
+	pid_dir = VAR_RUN;
 	if (make_pidfile(devname) < 0) {
-		fprintf(stderr, "mdmon: Cannot create pid file in %s - aborting.\n",
-			pid_dir);
-		exit(3);
+		/* Try the alternate */
+		pid_dir = ALT_RUN;
+		if (make_pidfile(devname) < 0) {
+			fprintf(stderr, "mdmon: Neither %s nor %s are writable\n"
+				"       cannot create .pid or .sock files.  Aborting\n",
+				VAR_RUN, ALT_RUN);
+			exit(3);
+		}
 	}
 	container->sock = make_control_sock(devname);
 

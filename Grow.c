@@ -1096,7 +1096,10 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			/* set them all just in case some old 'new_*' value
 			 * persists from some earlier problem
 			 */
-			int err;
+			int err = err; /* only used if rv==1, and always set if
+					* rv==1, so initialisation not needed,
+					* despite gcc warning
+					*/
 			if (sysfs_set_num(sra, NULL, "chunk_size", nchunk) < 0)
 				rv = 1, err = errno;
 			if (!rv && sysfs_set_num(sra, NULL, "layout", nlayout) < 0)

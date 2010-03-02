@@ -565,7 +565,8 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 
 	int data_disks = raid_disks - (level == 0 ? 0 : level <= 5 ? 1 : 2);
 
-	posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size);
+	if (posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size))
+		stripe_buf = NULL;
 	if (zero == NULL) {
 		zero = malloc(chunk_size);
 		if (zero)

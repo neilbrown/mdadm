@@ -176,7 +176,10 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	fl = fcntl(sock, F_GETFL, 0);
 	fl &= ~O_NONBLOCK;
 	fcntl(sock, F_SETFL, fl);
-	read(sock, buf, 100);
+	n = read(sock, buf, 100);
+	/* Ignore result, it is just the wait that
+	 * matters 
+	 */
 }
 
 void remove_pidfile(char *devname)

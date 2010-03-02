@@ -1142,6 +1142,7 @@ int get_dev_size(int fd, char *dname, unsigned long long *sizep)
 static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 {
 	unsigned char buf[512];
+	__u64 *buf64;
 	unsigned char empty_gpt_entry[16]= {0};
 	struct GPT_part_entry *part;
 	unsigned long long curr_part_end;
@@ -1160,7 +1161,8 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 	entry_size = __le32_to_cpu(buf[GPT_ENTRY_SIZE_OFFSET]);
 
 	/* Check GPT signature*/
-	if (*((__u64*)buf) != GPT_SIGNATURE_MAGIC)
+	buf64 = (__u64*)buf;
+	if (buf64[0] != GPT_SIGNATURE_MAGIC)
 		return -1;
 
 	/* sanity checks */
@@ -1178,7 +1180,8 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 		/* is this valid partition? */
 		if (memcmp(part->type_guid, empty_gpt_entry, 16) != 0) {
 			/* check the last lba for the current partition */
-			curr_part_end = __le64_to_cpu(*(__u64*)part->ending_lba);
+			buf64 = (__u64*)part->ending_lba;
+			curr_part_end = __le64_to_cpu(buf64[0]);
 			if (curr_part_end > *endofpart)
 				*endofpart = curr_part_end;
 		}

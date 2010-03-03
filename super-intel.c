@@ -243,7 +243,6 @@ struct intel_super {
 	void *next_buf; /* for realloc'ing buf from the manager */
 	size_t next_len;
 	int updates_pending; /* count of pending updates for mdmon */
-	int creating_imsm; /* flag to indicate container creation */
 	int current_vol; /* index of raid device undergoing creation */
 	__u32 create_offset; /* common start for 'current_vol' */
 	__u32 random; /* random data for seeding new family numbers */
@@ -2296,13 +2295,12 @@ static void free_super_imsm(struct supertype *st)
 	st->sb = NULL;
 }
 
-static struct intel_super *alloc_super(int creating_imsm)
+static struct intel_super *alloc_super(void)
 {
 	struct intel_super *super = malloc(sizeof(*super));
 
 	if (super) {
 		memset(super, 0, sizeof(*super));
-		super->creating_imsm = creating_imsm;
 		super->current_vol = -1;
 		super->create_offset = ~((__u32 ) 0);
 		if (!check_env("IMSM_NO_PLATFORM"))
@@ -2708,7 +2706,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 	/* load all mpbs */
 	for (sd = sra->devs, i = 0; sd; sd = sd->next, i++) {
-		struct intel_super *s = alloc_super(0);
+		struct intel_super *s = alloc_super();
 		char nm[32];
 		int dfd;
 
@@ -2801,7 +2799,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 
 	free_super_imsm(st);
 
-	super = alloc_super(0);
+	super = alloc_super();
 	if (!super) {
 		fprintf(stderr,
 			Name ": malloc of %zu failed.\n",
@@ -3075,7 +3073,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	else
 		mpb_size = 512;
 
-	super = alloc_super(1);
+	super = alloc_super();
 	if (super && posix_memalign(&super->buf, 512, mpb_size) != 0) {
 		free(super);
 		super = NULL;

@@ -994,6 +994,8 @@ static unsigned long choose_bm_space(unsigned long devsize)
 {
 	/* if the device is bigger than 8Gig, save 64k for bitmap usage,
 	 * if bigger than 200Gig, save 128k
+	 * NOTE: result must be multiple of 4K else bad things happen
+	 * on 4K-sector devices.
 	 */
 	if (devsize < 64*2) return 0;
 	if (devsize - 64*2 >= 200*1024*1024*2)
@@ -1011,6 +1013,7 @@ static int write_init_super1(struct supertype *st)
 	int rfd;
 	int rv = 0;
 	int bm_space;
+	unsigned long long reserved;
 	struct devinfo *di;
 	unsigned long long dsize, array_size;
 	long long sb_offset;
@@ -1088,16 +1091,23 @@ static int write_init_super1(struct supertype *st)
 			sb_offset &= ~(4*2-1);
 			sb->super_offset = __cpu_to_le64(sb_offset);
 			sb->data_offset = __cpu_to_le64(0);
-		if (sb_offset - bm_space < array_size)
-			bm_space = sb_offset - array_size;
+			if (sb_offset - bm_space < array_size)
+				bm_space = sb_offset - array_size;
 			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
 			break;
 		case 1:
 			sb->super_offset = __cpu_to_le64(0);
-			if (4*2 + bm_space + __le64_to_cpu(sb->size) > dsize)
-				bm_space = dsize - __le64_to_cpu(sb->size) -4*2;
-			sb->data_offset = __cpu_to_le64(bm_space + 4*2);
-			sb->data_size = __cpu_to_le64(dsize - bm_space - 4*2);
+			reserved = bm_space + 4*2;
+			/* Try for multiple of 1Meg so it is nicely aligned */
+			#define ONE_MEG (2*1024)
+			reserved = ((reserved + ONE_MEG-1)/ONE_MEG) * ONE_MEG;
+			if (reserved + __le64_to_cpu(sb->size) > dsize)
+				reserved = dsize - __le64_to_cpu(sb->size);
+			/* force 4K alignment */
+			reserved &= ~7ULL;
+
+			sb->data_offset = __cpu_to_le64(reserved);
+			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
 		case 2:
 			sb_offset = 4*2;
@@ -1106,9 +1116,18 @@ static int write_init_super1(struct supertype *st)
 			    > dsize)
 				bm_space = dsize - __le64_to_cpu(sb->size)
 					- 4*2 - 4*2;
-			sb->data_offset = __cpu_to_le64(4*2 + 4*2 + bm_space);
-			sb->data_size = __cpu_to_le64(dsize - 4*2 - 4*2
-						      - bm_space );
+
+			reserved = bm_space + 4*2 + 4*2;
+			/* Try for multiple of 1Meg so it is nicely aligned */
+			#define ONE_MEG (2*1024)
+			reserved = ((reserved + ONE_MEG-1)/ONE_MEG) * ONE_MEG;
+			if (reserved + __le64_to_cpu(sb->size) > dsize)
+				reserved = dsize - __le64_to_cpu(sb->size);
+			/* force 4K alignment */
+			reserved &= ~7ULL;
+
+			sb->data_offset = __cpu_to_le64(reserved);
+			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
 		default:
 			return -EINVAL;
@@ -1400,10 +1419,19 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 	}
 #endif
 
+	if (st->minor_version < 0)
+		/* not specified, so time to set default */
+		st->minor_version = 2;
+	if (super == NULL && st->minor_version > 0) {
+		/* haven't committed to a size yet, so allow some
+		 * slack for alignment of data_offset.
+		 * We haven't access to device details so allow
+		 * 1 Meg if bigger than 1Gig
+		 */
+		if (devsize > 1024*1024*2)
+			devsize -= 1024*2;
+	}
 	switch(st->minor_version) {
-	case -1: /* no specified.  Now time to set default */
-		st->minor_version = 0;
-		/* FALL THROUGH */
 	case 0:
 		/* at end */
 		return ((devsize - 8*2 ) & ~(4*2-1));

@@ -891,18 +891,26 @@ int conf_test_dev(char *devname)
 	return 0;
 }
 
-int conf_test_metadata(const char *version)
+int conf_test_metadata(const char *version, int is_homehost)
 {
 	/* Check if the given metadata version is allowed
 	 * to be auto-assembled.
 	 * The default is 'yes' but the 'auto' line might over-ride that.
-	 * Word in auto_options are processed in order with the first
+	 * Words in auto_options are processed in order with the first
 	 * match winning.
 	 * word can be:
 	 *   +version   - that version can be assembled
 	 *   -version   - that version cannot be auto-assembled
 	 *   yes or +all - any other version can be assembled
 	 *   no or -all  - no other version can be assembled.
+	 *   homehost   - any array associated by 'homehost' to this
+	 *                host can be assembled.
+	 *
+	 * Thus:
+	 *   +ddf -0.90 homehost -all
+	 * will auto-assemble any ddf array, no 0.90 array, and
+	 * any other array (imsm, 1.x) if and only if it is identified
+	 * as belonging to this host.
 	 */
 	char *w;
 	load_conffile();
@@ -914,6 +922,12 @@ int conf_test_metadata(const char *version)
 			return 1;
 		if (strcasecmp(w, "no") == 0)
 			return 0;
+		if (strcasecmp(w, "homehost") == 0) {
+			if (is_homehost)
+				return 1;
+			else
+				continue;
+		}
 		if (w[0] == '+')
 			rv = 1;
 		else if (w[0] == '-')

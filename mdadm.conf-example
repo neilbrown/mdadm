@@ -27,6 +27,14 @@
 #DEVICE /dev/discs/*/*
 #
 #
+# The AUTO line can control which arrays get assembled by auto-assembly,
+# meaing either "mdadm -As" when there are no 'ARRAY' lines in this file,
+# or "mdadm --incremental" when the array found is not listed in this file.
+# By default, all arrays that are found are assembled.
+# If you want to ignore all DDF arrays (maybe they are managed by dmraid),
+# and only assemble 1.x arrays if which are marked for 'this' homehost,
+# but assemble all others, then use
+#AUTH -ddf hosthost -1.x +all
 #
 # ARRAY lines specify an array to assemble and a method of identification.
 # Arrays can currently be identified by using a UUID, superblock minor number,

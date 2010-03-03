@@ -261,7 +261,8 @@ int Assemble(struct supertype *st, char *mddev,
 					devname);
 			tmpdev->used = 2;
 		} else if (auto_assem && st == NULL &&
-			   !conf_test_metadata(tst->ss->name)) {
+			   !conf_test_metadata(tst->ss->name,
+					       tst->ss->match_home(tst, homehost) == 1)) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s has metadata type %s for which "
 					"auto-assembly is disabled\n",

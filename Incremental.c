@@ -221,7 +221,22 @@ int Incremental(char *devname, int verbose, int runstop,
 		return 1;
 	}
 
-	if (!match && !conf_test_metadata(st->ss->name)) {
+	/* 3a/ if not, check for homehost match.  If no match, continue
+	 * but don't trust the 'name' in the array. Thus a 'random' minor
+	 * number will be assigned, and the device name will be based
+	 * on that. */
+	if (match)
+		trustworthy = LOCAL;
+	else if (st->ss->match_home(st, homehost) == 1)
+		trustworthy = LOCAL;
+	else if (st->ss->match_home(st, "any") == 1)
+		trustworthy = LOCAL_ANY;
+	else
+		trustworthy = FOREIGN;
+
+
+	if (!match && !conf_test_metadata(st->ss->name,
+					  (trustworthy == LOCAL))) {
 		if (verbose >= 1)
 			fprintf(stderr, Name
 				": %s has metadata type %s for which "
@@ -229,18 +244,7 @@ int Incremental(char *devname, int verbose, int runstop,
 				devname, st->ss->name);
 		return 1;
 	}
-
-	/* 3a/ if not, check for homehost match.  If no match, continue
-	 * but don't trust the 'name' in the array. Thus a 'random' minor
-	 * number will be assigned, and the device name will be based
-	 * on that. */
-	if (match)
-		trustworthy = LOCAL;
-	else if ((homehost == NULL ||
-		  st->ss->match_home(st, homehost) != 1) &&
-		 st->ss->match_home(st, "any") != 1)
-		trustworthy = FOREIGN;
-	else
+	if (trustworthy == LOCAL_ANY)
 		trustworthy = LOCAL;
 
 	/* There are three possible sources for 'autof':  command line,

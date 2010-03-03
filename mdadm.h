@@ -844,7 +844,7 @@ extern int parse_auto(char *str, char *msg, int config);
 extern mddev_ident_t conf_get_ident(char *dev);
 extern mddev_dev_t conf_get_devs(void);
 extern int conf_test_dev(char *devname);
-extern int conf_test_metadata(const char *version);
+extern int conf_test_metadata(const char *version, int is_homehost);
 extern struct createinfo *conf_get_create_info(void);
 extern void set_conffile(char *file);
 extern char *conf_get_mailaddr(void);
@@ -901,6 +901,7 @@ extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			char *chosen);
 /* values for 'trustworthy' */
 #define	LOCAL	1
+#define	LOCAL_ANY 10
 #define	FOREIGN	2
 #define	METADATA 3
 extern int open_mddev(char *dev, int report_errors);

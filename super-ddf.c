@@ -1260,7 +1260,11 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 	 * the hostname
 	 */
 	struct ddf_super *ddf = st->sb;
-	int len = strlen(homehost);
+	int len;
+
+	if (!homehost)
+		return 0;
+	len = strlen(homehost);
 
 	return (memcmp(ddf->controller.guid, T10, 8) == 0 &&
 		len < sizeof(ddf->controller.vendor_data) &&

@@ -336,7 +336,7 @@ to suppress this symlink creation.
 The
 .B homehost
 line gives a default value for the
-.B --homehost=
+.B \-\-homehost=
 option to mdadm.  There should normally be only one other word on the line.
 It should either be a host name, or one of the special words
 .B <system>
@@ -375,15 +375,19 @@ or
 .B AUTO
 A list of names of metadata format can be given, each preceded by a
 plus or minus sign.  Also the word
+.I homehost
+is allowed as is
 .I all
-preceded by plus or minus is allowed and is usually last.
+preceded by plus or minus sign.
+.I all
+is usually last.
 
 When
 .I mdadm
 is auto-assembling an array, either via
-.I --assemble
+.I \-\-assemble
 or
-.I --incremental
+.I \-\-incremental
 and it finds metadata of a given type, it checks that metadata type
 against those listed in this line.  The first match wins, where
 .I all
@@ -393,10 +397,20 @@ assembly is allowed.  If the match was preceded by a minus sign, the
 auto assembly is disallowed.  If no match is found, the auto assembly
 is allowed.
 
+If the metadata indicates that the array was created for
+.I this
+host, and the word
+.I homehost
+appears before any other match, then the array is treated as a valid
+candidate for auto-assembly.
+
 This can be used to disable all auto-assembly (so that only arrays
 explicitly listed in mdadm.conf or on the command line are assembled),
 or to disable assembly of certain metadata types which might be
-handled by other software.
+handled by other software.  It can also be used to disable assembly of
+all foreign arrays - normally such arrays are assembled but given a
+non-deterministic name in
+.BR /dev/md/ .
 
 The known metadata types are
 .BR 0.90 ,
@@ -451,7 +465,7 @@ CREATE group=system mode=0640 auto=part\-8
 .br
 HOMEHOST <system>
 .br
-AUTO +1.x -all
+AUTO +1.x homehost -all
 
 .SH SEE ALSO
 .BR mdadm (8),

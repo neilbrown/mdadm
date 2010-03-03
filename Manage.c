@@ -425,14 +425,22 @@ int Manage_subdevs(char *devname, int fd,
 			j = 0;
 
 			tfd = dev_open(dv->devname, O_RDONLY);
-			if (tfd < 0 || fstat(tfd, &stb) != 0) {
-				fprintf(stderr, Name ": cannot find %s: %s\n",
-					dv->devname, strerror(errno));
-				if (tfd >= 0)
-					close(tfd);
-				return 1;
+			if (tfd < 0 && dv->disposition == 'r' &&
+			    lstat(dv->devname, &stb) == 0)
+				/* Be happy, the lstat worked, that is
+				 * enough for --remove
+				 */
+				;
+			else {
+				if (tfd < 0 || fstat(tfd, &stb) != 0) {
+					fprintf(stderr, Name ": cannot find %s: %s\n",
+						dv->devname, strerror(errno));
+					if (tfd >= 0)
+						close(tfd);
+					return 1;
+				}
+				close(tfd);
 			}
-			close(tfd);
 			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 				fprintf(stderr, Name ": %s is not a "
 					"block device.\n",

@@ -82,25 +82,55 @@ struct MBR_part_record {
   __u32 blocks_num;
 };
 
+struct MBR {
+	__u8 pad[446];
+	struct MBR_part_record parts[4];
+	__u16 magic;
+} __attribute__((packed));
+
 struct GPT_part_entry {
   unsigned char type_guid[16];
   unsigned char partition_guid[16];
-  unsigned char starting_lba[8];
-  unsigned char ending_lba[8];
+  __u64 starting_lba;
+  __u64 ending_lba;
   unsigned char attr_bits[8];
   unsigned char name[72];
-};
+} __attribute__((packed));
+
+struct GPT {
+	__u64 magic;
+	__u32 revision;
+	__u32 header_size;
+	__u32 crc;
+	__u32 pad1;
+	__u64 current_lba;
+	__u64 backup_lba;
+	__u64 first_lba;
+	__u64 last_lba;
+	__u8 guid[16];
+	__u64 part_start;
+	__u32 part_cnt;
+	__u32 part_size;
+	__u32 part_crc;
+	__u8 pad2[420];
+} __attribute__((packed));
+
+/* Force a compilation error if condition is true */
+#define BUILD_BUG_ON(condition) ((void)BUILD_BUG_ON_ZERO(condition))
+
+/* Force a compilation error if condition is true, but also produce a
+   result (of value 0 and type size_t), so the expression can be used
+   e.g. in a structure initializer (or where-ever else comma expressions
+   aren't permitted). */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+
 
 /* MBR/GPT magic numbers */
 #define	MBR_SIGNATURE_MAGIC	__cpu_to_le16(0xAA55)
 #define	GPT_SIGNATURE_MAGIC	__cpu_to_le64(0x5452415020494645ULL)
 
-#define MBR_SIGNATURE_OFFSET         510
-#define MBR_PARTITION_TABLE_OFFSET   446
 #define MBR_PARTITIONS               4
 #define MBR_GPT_PARTITION_TYPE       0xEE
-#define GPT_ALL_PARTITIONS_OFFSET    80
-#define GPT_ENTRY_SIZE_OFFSET        84
 
 /*
  * Parse a 128 bit uuid in 4 integers
@@ -1141,8 +1171,8 @@ int get_dev_size(int fd, char *dname, unsigned long long *sizep)
  */
 static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 {
+	struct GPT gpt;
 	unsigned char buf[512];
-	__u64 *buf64;
 	unsigned char empty_gpt_entry[16]= {0};
 	struct GPT_part_entry *part;
 	unsigned long long curr_part_end;
@@ -1151,18 +1181,18 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 
 	*endofpart = 0;
 
+	BUILD_BUG_ON(sizeof(gpt) != 512);
 	/* read GPT header */
 	lseek(fd, 512, SEEK_SET);
-	if (read(fd, buf, 512) != 512)
+	if (read(fd, &gpt, 512) != 512)
 		return 0;
 
 	/* get the number of partition entries and the entry size */
-	all_partitions = __le32_to_cpu(buf[GPT_ALL_PARTITIONS_OFFSET]);
-	entry_size = __le32_to_cpu(buf[GPT_ENTRY_SIZE_OFFSET]);
+	all_partitions = __le32_to_cpu(gpt.part_cnt);
+	entry_size = __le32_to_cpu(gpt.part_size);
 
 	/* Check GPT signature*/
-	buf64 = (__u64*)buf;
-	if (buf64[0] != GPT_SIGNATURE_MAGIC)
+	if (gpt.magic != GPT_SIGNATURE_MAGIC)
 		return -1;
 
 	/* sanity checks */
@@ -1180,8 +1210,7 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 		/* is this valid partition? */
 		if (memcmp(part->type_guid, empty_gpt_entry, 16) != 0) {
 			/* check the last lba for the current partition */
-			buf64 = (__u64*)part->ending_lba;
-			curr_part_end = __le64_to_cpu(buf64[0]);
+			curr_part_end = __le64_to_cpu(part->ending_lba);
 			if (curr_part_end > *endofpart)
 				*endofpart = curr_part_end;
 		}
@@ -1204,7 +1233,7 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
  */
 static int get_last_partition_end(int fd, unsigned long long *endofpart)
 {
-	unsigned char boot_sect[512];
+	struct MBR boot_sect;
 	struct MBR_part_record *part;
 	unsigned long long curr_part_end;
 	int part_nr;
@@ -1212,18 +1241,17 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 
 	*endofpart = 0;
 
+	BUILD_BUG_ON(sizeof(boot_sect) != 512);
 	/* read MBR */
 	lseek(fd, 0, 0);
-	if (read(fd, boot_sect, 512) != 512)
+	if (read(fd, &boot_sect, 512) != 512)
 		goto abort;
 
 	/* check MBP signature */
-	if (*((__u16*)(boot_sect + MBR_SIGNATURE_OFFSET))
-	    == MBR_SIGNATURE_MAGIC) {
+	if (boot_sect.magic == MBR_SIGNATURE_MAGIC) {
 		retval = 1;
 		/* found the correct signature */
-		part = (struct MBR_part_record*)
-			(boot_sect + MBR_PARTITION_TABLE_OFFSET);
+		part = boot_sect.parts;
 
 		for (part_nr=0; part_nr < MBR_PARTITIONS; part_nr++) {
 			/* check for GPT type */

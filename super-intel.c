@@ -1453,6 +1453,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
 	memset(info->uuid, 0, sizeof(info->uuid));
 	info->recovery_start = MaxSector;
+	info->reshape_active = 0;
 
 	if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty) {
 		info->resync_start = 0;

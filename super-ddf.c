@@ -1434,6 +1434,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 
 	info->recovery_start = MaxSector;
 	info->resync_start = 0;
+	info->reshape_active = 0;
 	if (!(ddf->virt->entries[info->container_member].state
 	      & DDF_state_inconsistent)  &&
 	    (ddf->virt->entries[info->container_member].init_state

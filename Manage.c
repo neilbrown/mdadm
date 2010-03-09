@@ -236,11 +236,32 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			   mdi->array.major_version == -1 &&
 			   mdi->array.minor_version == -2 &&
 			   !is_subarray(mdi->text_version)) {
+			struct mdstat_ent *mds, *m;
 			/* container, possibly mdmon-managed.
 			 * Make sure mdmon isn't opening it, which
 			 * would interfere with the 'stop'
 			 */
 			ping_monitor(mdi->sys_name);
+
+			/* now check that there are no existing arrays
+			 * which are members of this array
+			 */
+			mds = mdstat_read(0, 0);
+			for (m=mds; m; m=m->next)
+				if (m->metadata_version &&
+				    strncmp(m->metadata_version, "external:", 9)==0 &&
+				    is_subarray(m->metadata_version+9) &&
+				    devname2devnum(m->metadata_version+10) == devnum) {
+					if (!quiet)
+						fprintf(stderr, Name
+							": Cannot stop container %s: "
+							"member %s still active\n",
+							devname, m->dev);
+					free_mdstat(mds);
+					if (mdi)
+						sysfs_free(mdi);
+					return 1;
+				}
 		}
 
 		if (fd >= 0 && ioctl(fd, STOP_ARRAY, NULL)) {

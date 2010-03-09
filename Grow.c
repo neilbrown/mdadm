@@ -573,7 +573,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 		ioctl(fd, GET_ARRAY_INFO, &array);
-		size = get_component_size(fd);
+		size = get_component_size(fd)/2;
 		if (size == 0)
 			size = array.size;
 		if (!quiet)
@@ -581,7 +581,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				devname, size);
 		changed = 1;
 	} else {
-		size = get_component_size(fd);
+		size = get_component_size(fd)/2;
 		if (size == 0)
 			size = array.size;
 	}

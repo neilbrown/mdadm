@@ -6,7 +6,7 @@
 
 mdadm -CR $md2 -l0 -n3 $dev0 $dev1 $dev2 
 check raid0
-tst="testdev $md2 3 $mdsize1 512"
+tst="testdev $md2 3 $mdsize1_l 512"
 $tst
 uuid=`mdadm -Db $md2 | sed 's/.*UUID=//'`
 mdadm -S $md2

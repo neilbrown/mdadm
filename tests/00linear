@@ -3,7 +3,7 @@
 
 mdadm -CR $md0 -l linear -n3 $dev0 $dev1 $dev2
 check linear
-testdev $md0 3 $mdsize1_l 1
+testdev $md0 3 $mdsize2_l 1
 mdadm -S $md0
 
 # now with version-0.90 superblock

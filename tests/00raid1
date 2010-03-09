@@ -6,7 +6,7 @@
 mdadm -CR $md0 -l 1 -n2 $dev0 $dev1 
 check resync
 check raid1
-testdev $md0 1 $mdsize1 1
+testdev $md0 1 $mdsize1a 1
 mdadm -S $md0
 
 # now with version-0.90 superblock, spare

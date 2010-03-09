@@ -34,11 +34,15 @@ mdsize0=19904
 mdsize00=19840
 # super1.0 round down to multiple of 2, subtract 8
 mdsize1=19992
-# super1.1 for linear: round to multiple of 2, subtract 4
-mdsize1_l=19996
+mdsize1a=19988
+mdsize12=19988
+# super1.2 for linear: round to multiple of 2, subtract 4
+mdsize1_l=18976
+mdsize2_l=18976
 # subtract another 4 for bitmaps
 mdsize1b=19988
 mdsize11=19992
+mdsize11a=18944
 mdsize12=19988
 
 # ddf needs bigger devices as 32Meg is reserved!

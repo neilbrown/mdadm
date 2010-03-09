@@ -27,7 +27,7 @@ testdev $md0 1 $[size/2] 1
 mdadm --grow $md0 --size max
 check resync
 check wait
-testdev $md0 1 $mdsize11 1
+testdev $md0 1 $mdsize1_l 1
 
 mdadm --grow $md0 --size $[size/2]
 check nosync

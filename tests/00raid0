@@ -3,7 +3,7 @@
 
 mdadm -CR $md0 -l raid0 -n3 $dev0 $dev1 $dev2 
 check raid0
-testdev $md0 3 $mdsize1_l 512 
+testdev $md0 3 $mdsize2_l 512 
 mdadm -S $md0
 
 # now with version-0.90 superblock

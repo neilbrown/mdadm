@@ -10,7 +10,7 @@ export MDADM_GROW_VERIFY=1
 dotest() {
  sleep 0.5
  check wait
- testdev $md0 $1 $mdsize1 64 nd
+ testdev $md0 $1 19968 64 nd
  blockdev --flushbufs $md0
  cmp -s -n $[textK*1024] $md0 /tmp/RandFile || { echo cmp failed; exit 2; }
  # write something new - shift chars 4 space
@@ -43,7 +43,7 @@ checkgeo() {
 bu=/tmp/md-test-backup
 rm -f $bu
 mdadm -CR $md0 -l1 -n2 -x1 $dev0 $dev1 $dev2 -z 19968
-testdev $md0 1 $mdsize1 64
+testdev $md0 1 $mdsize1a 64
 dd if=/tmp/RandFile of=$md0
 dotest 1
 

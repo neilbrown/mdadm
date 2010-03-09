@@ -186,6 +186,11 @@ mounted there are special considerations when the root filesystem is
 mounted from an
 .I mdmon
 monitored device.
+Note that in general
+.I mdmon
+is needed even if the filesystem is mounted read-only as some
+filesystems can still write to the device in those circumstances, for
+example to replay a journal after an unclean shutdown.
 
 When the array is assembled by the
 .B initramfs

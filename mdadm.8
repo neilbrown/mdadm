@@ -1468,6 +1468,25 @@ from the superblock is used to similarly create a name in
 .B /dev/md/
 (the name will have any 'host' prefix stripped first).
 
+This behaviour can be modified by the
+.I AUTO
+line in the
+.I mdadm.conf
+configuration file.  This line can indicate that specific metadata
+type should, or should not, be automatically assembled.  If an array
+is found which is not listed in
+.I mdadm.conf
+and has a metadata format that is denied by the
+.I AUTO
+line, then it will not be assembled.
+The
+.I AUTO
+line can also request that all arrays identified as being for this
+homehost should be assembled regardless of their metadata type.
+See
+.IR mdadm.conf (5)
+for further details.
+
 .ig
 If
 .I mdadm

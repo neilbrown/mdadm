@@ -233,8 +233,8 @@ test: mdadm mdmon test_stripe swap_super
 
 clean : 
 	rm -f mdadm mdmon $(OBJS) $(MON_OBJS) $(STATICOBJS) core *.man \
-	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
-	mdadm.Os mdadm.O2 \
+	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt .merge_file_* \
+	mdadm.Os mdadm.O2 mdmon.O2 \
 	mdassemble mdassemble.static mdassemble.auto mdassemble.uclibc \
 	mdassemble.klibc swap_super \
 	init.cpio.gz mdadm.uclibc.static test_stripe mdmon

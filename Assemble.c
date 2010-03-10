@@ -148,7 +148,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int *best = NULL; /* indexed by raid_disk */
 	unsigned int bestcnt = 0;
 	int devcnt = 0;
-	unsigned int okcnt, sparecnt;
+	unsigned int okcnt, sparecnt, rebuilding_cnt;
 	unsigned int req_cnt;
 	unsigned int i;
 	int most_recent = 0;
@@ -260,6 +260,10 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": no recogniseable superblock on %s\n",
 					devname);
 			tmpdev->used = 2;
+		} else if (tst->ss->load_super(tst,dfd, NULL)) {
+			if (report_missmatch)
+				fprintf( stderr, Name ": no RAID superblock on %s\n",
+					 devname);
 		} else if (auto_assem && st == NULL &&
 			   !conf_test_metadata(tst->ss->name,
 					       tst->ss->match_home(tst, homehost) == 1)) {
@@ -268,10 +272,6 @@ int Assemble(struct supertype *st, char *mddev,
 					"auto-assembly is disabled\n",
 					devname, tst->ss->name);
 			tmpdev->used = 2;
-		} else if (tst->ss->load_super(tst,dfd, NULL)) {
-			if (report_missmatch)
-				fprintf( stderr, Name ": no RAID superblock on %s\n",
-					 devname);
 		} else {
 			content = &info;
 			memset(content, 0, sizeof(*content));
@@ -782,6 +782,7 @@ int Assemble(struct supertype *st, char *mddev,
 	memset(avail, 0, content->array.raid_disks);
 	okcnt = 0;
 	sparecnt=0;
+	rebuilding_cnt=0;
 	for (i=0; i< bestcnt ;i++) {
 		int j = best[i];
 		int event_margin = 1; /* always allow a difference of '1'
@@ -801,10 +802,12 @@ int Assemble(struct supertype *st, char *mddev,
 		if (devices[j].i.events+event_margin >=
 		    devices[most_recent].i.events) {
 			devices[j].uptodate = 1;
-			if (i < content->array.raid_disks &&
-			    devices[j].i.recovery_start == MaxSector) {
-				okcnt++;
-				avail[i]=1;
+			if (i < content->array.raid_disks) {
+				if (devices[j].i.recovery_start == MaxSector) {
+					okcnt++;
+					avail[i]=1;
+				} else
+					rebuilding_cnt++;
 			} else
 				sparecnt++;
 		}
@@ -1144,7 +1147,7 @@ int Assemble(struct supertype *st, char *mddev,
 		    (runstop <= 0 &&
 		     ( enough(content->array.level, content->array.raid_disks,
 			      content->array.layout, clean, avail, okcnt) &&
-		       (okcnt >= req_cnt || start_partial_ok)
+		       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)
 			     ))) {
 			/* This array is good-to-go.
 			 * If a reshape is in progress then we might need to
@@ -1165,6 +1168,8 @@ int Assemble(struct supertype *st, char *mddev,
 						mddev, okcnt, okcnt==1?"":"s");
 					if (okcnt < content->array.raid_disks)
 						fprintf(stderr, " (out of %d)", content->array.raid_disks);
+					if (rebuilding_cnt)
+						fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
 					if (sparecnt)
 						fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 					fprintf(stderr, ".\n");
@@ -1244,6 +1249,8 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (verbose >= -1) {
 			fprintf(stderr, Name ": %s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
+			if (rebuilding_cnt)
+				fprintf(stderr, "%s %d rebuilding", sparecnt?", ":" and ", rebuilding_cnt);
 			if (sparecnt)
 				fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 			if (!enough(content->array.level, content->array.raid_disks,

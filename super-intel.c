@@ -3441,8 +3441,12 @@ static int write_init_super_imsm(struct supertype *st)
 		}
 
 		return rv;
-	} else
+	} else {
+		struct dl *d;
+		for (d = super->disks; d; d = d->next)
+			Kill(d->devname, NULL, 0, 1, 1);
 		return write_super_imsm(st->sb, 1);
+	}
 }
 #endif
 

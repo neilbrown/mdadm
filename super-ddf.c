@@ -2413,8 +2413,12 @@ static int write_init_super_ddf(struct supertype *st)
 
 		/* FIXME I need to close the fds! */
 		return 0;
-	} else 
+	} else {	
+		struct dl *d;
+		for (d = ddf->dlist; d; d=d->next)
+			while (Kill(d->devname, NULL, 0, 1, 1) == 0);
 		return __write_init_super_ddf(st, 1);
+	}
 }
 
 #endif

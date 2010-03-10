@@ -1337,10 +1337,13 @@ int grow_backup(struct mdinfo *sra,
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 
-		rv |= lseek64(destfd[i], destoffsets[i] - 4096, 0);
+		if (lseek64(destfd[i], destoffsets[i] - 4096, 0) != destoffsets[i] - 4096)
+			rv = 1;
 		rv = rv ?: write(destfd[i], &bsb, 512);
 		if (destoffsets[i] > 4096) {
-			rv |= lseek64(destfd[i], destoffsets[i]+stripes*chunk*odata, 0);
+			if (lseek64(destfd[i], destoffsets[i]+stripes*chunk*odata, 0) !=
+			    destoffsets[i]+stripes*chunk*odata)
+				rv = 1;
 			rv = rv ?: write(destfd[i], &bsb, 512);
 		}
 		fsync(destfd[i]);
@@ -1412,7 +1415,9 @@ int wait_backup(struct mdinfo *sra,
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0)
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
-		rv |= lseek64(destfd[i], destoffsets[i]-4096, 0);
+		if (lseek64(destfd[i], destoffsets[i]-4096, 0) !=
+		    destoffsets[i]-4096)
+			rv = 1;
 		rv = rv ?: write(destfd[i], &bsb, 512);
 		fsync(destfd[i]);
 	}

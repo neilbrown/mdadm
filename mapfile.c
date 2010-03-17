@@ -55,7 +55,7 @@
 char *mapname[3][3] = {
 	mapnames(VAR_RUN "/map"),
 	mapnames("/var/run/mdadm.map"),
-	mapnames(ALT_RUN "/map")
+	mapnames(ALT_RUN "/" ALT_MAPFILE)
 };
 char *mapdir[3] = { VAR_RUN, NULL, ALT_RUN };
 

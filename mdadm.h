@@ -87,6 +87,9 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #ifndef ALT_RUN
 #define ALT_RUN "/lib/init/rw/mdadm"
 #endif /* ALT_RUN */
+#ifndef ALT_MAPFILE
+#define ALT_MAPFILE "map"
+#endif /* ALT_MAPFILE */
 
 #include	"md_u.h"
 #include	"md_p.h"

@@ -29,7 +29,7 @@
  */
 
 /* /var/run/mdadm.map is used to track arrays being created in --incremental
- * more.  It particularly allows lookup from UUID to array device, but
+ * mode.  It particularly allows lookup from UUID to array device, but
  * also allows the array device name to be easily found.
  *
  * The map file is line based with space separated fields.  The fields are:
@@ -42,8 +42,8 @@
  * However /var/run may not exist or be writable in early boot.  And if
  * no-one has created /var/run/mdadm, we still want to survive.
  * So possible locations are:
- *   /var/run/mdadm/map  /var/run/mdadm.map  /dev/.mdadm.map
- * the last, because udev requires a writable /dev very early.
+ *   /var/run/mdadm/map  /var/run/mdadm.map  /lib/initrw/madam/map
+ * The last can easily be change at compile to e.g. somewhere in /dev.
  * We read from the first one that exists and write to the first
  * one that we can.
  */
@@ -57,6 +57,7 @@ char *mapname[3][3] = {
 	mapnames("/var/run/mdadm.map"),
 	mapnames(ALT_RUN "/map")
 };
+char *mapdir[3] = { VAR_RUN, NULL, ALT_RUN };
 
 int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT | O_TRUNC };
 char *mapsmode[3] = { "r", "w", "w"};
@@ -64,8 +65,16 @@ char *mapsmode[3] = { "r", "w", "w"};
 FILE *open_map(int modenum, int *choice)
 {
 	int i;
+
 	for (i = 0 ; i < 3 ; i++) {
-		int fd = open(mapname[i][modenum], mapmode[modenum], 0600);
+		int fd;
+		if ((mapmode[modenum] & O_CREAT) &&
+		    mapdir[modenum])
+			/* Attempt to create directory, don't worry about
+			 * failure.
+			 */
+			mkdir(mapdir[modenum], 0755);
+		fd = open(mapname[i][modenum], mapmode[modenum], 0600);
 		if (fd >= 0) {
 			*choice = i;
 			return fdopen(fd, mapsmode[modenum]);

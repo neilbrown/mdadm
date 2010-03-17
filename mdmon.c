@@ -120,7 +120,7 @@ static int make_pidfile(char *devname)
 	int fd;
 	int n;
 
-	if (mkdir(pid_dir, 0600) < 0 &&
+	if (mkdir(pid_dir, 0700) < 0 &&
 	    errno != EEXIST)
 		return -errno;
 	sprintf(path, "%s/%s.pid", pid_dir, devname);

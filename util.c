@@ -425,7 +425,12 @@ char *__fname_from_uuid(int id[4], int swap, char *buf, char sep)
 
 char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char sep)
 {
-	return __fname_from_uuid(info->uuid, st->ss->swapuuid, buf, sep);
+	// dirty hack to work around an issue with super1 superblocks...
+	// super1 superblocks need swapuuid set in order for assembly to
+	// work, but can't have it set if we want this printout to match
+	// all the other uuid printouts in super1.c, so we force swapuuid
+	// to 1 to make our printout match the rest of super1
+	return __fname_from_uuid(info->uuid, (st->ss == &super1) ? 1 : st->ss->swapuuid, buf, sep);
 }
 
 #ifndef MDASSEMBLE

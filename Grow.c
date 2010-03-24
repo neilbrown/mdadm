@@ -288,6 +288,11 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	} else if (strcmp(file, "internal") == 0) {
 		int d;
+		if (st->ss->add_internal_bitmap == NULL) {
+			fprintf(stderr, Name ": Internal bitmaps not supported "
+				"with %s metadata\n", st->ss->name);
+			return 1;
+		}
 		for (d=0; d< st->max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;

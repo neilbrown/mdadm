@@ -651,6 +651,11 @@ int Create(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": internal bitmaps not supported by this kernel.\n");
 			goto abort;
 		}
+		if (!st->ss->add_internal_bitmap) {
+			fprintf(stderr, Name ": internal bitmaps not supported with %s metadata\n",
+				st->ss->name);
+			goto abort;
+		}
 		if (!st->ss->add_internal_bitmap(st, &bitmap_chunk,
 						 delay, write_behind,
 						 bitmapsize, 1, major_num)) {

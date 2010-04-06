@@ -697,7 +697,7 @@ static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 		printf(" <-- %s", map_state_str[map->map_state]);
 		printf("\n     Checkpoint : %u (%llu)",
 		       __le32_to_cpu(dev->vol.curr_migr_unit),
-		       blocks_per_migr_unit(dev));
+		       (unsigned long long)blocks_per_migr_unit(dev));
 	}
 	printf("\n");
 	printf("    Dirty State : %s\n", dev->vol.dirty ? "dirty" : "clean");

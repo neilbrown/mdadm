@@ -62,9 +62,9 @@ CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 # from early boot to late boot.
 # If you don't have /lib/init/rw you might want to use /dev/.something
 #  e.g. make ALT_RUN=/dev/.mdadm
-ALT_RUN = /lib/init/rw
+ALT_RUN = /lib/init/rw/mdadm
 ALT_MAPFILE = map
-VAR_RUN = /var/run
+VAR_RUN = /var/run/mdadm
 ALTFLAGS = -DALT_RUN=\"$(ALT_RUN)\" -DALT_MAPFILE=\"$(ALT_MAPFILE)\"
 VARFLAGS = -DVAR_RUN=\"$(VAR_RUN)\"
 CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(ALTFLAGS) $(VARFLAGS)

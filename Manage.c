@@ -298,11 +298,9 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 
 		if (quiet <= 0)
 			fprintf(stderr, Name ": stopped %s\n", devname);
-		if (devnum != NoMdDev) {
-			map_delete(&map, devnum);
-			map_write(map);
-			map_free(map);
-		}
+		map_lock(&map);
+		map_remove(&map, devnum);
+		map_unlock(&map);
 	}
 	return 0;
 }

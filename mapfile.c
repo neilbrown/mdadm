@@ -251,6 +251,16 @@ void map_delete(struct map_ent **mapp, int devnum)
 	}
 }
 
+void map_remove(struct map_ent **mapp, int devnum)
+{
+	if (devnum == NoMdDev)
+		return;
+
+	map_delete(mapp, devnum);
+	map_write(*mapp);
+	map_free(*mapp);
+}
+
 struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
 {
 	struct map_ent *mp;

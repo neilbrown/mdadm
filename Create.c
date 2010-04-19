@@ -789,8 +789,10 @@ int Create(struct supertype *st, char *mddev,
 				if (fd >= 0)
 					remove_partitions(fd);
 				if (st->ss->add_to_super(st, &inf->disk,
-							 fd, dv->devname))
+							 fd, dv->devname)) {
+					ioctl(mdfd, STOP_ARRAY, NULL);
 					goto abort;
+				}
 				st->ss->getinfo_super(st, inf);
 				safe_mode_delay = inf->safe_mode_delay;
 
@@ -894,7 +896,7 @@ int Create(struct supertype *st, char *mddev,
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {
 				fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 					strerror(errno));
-				Manage_runstop(mddev, mdfd, -1, 0);
+				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;
 			}
 		}
@@ -915,6 +917,10 @@ int Create(struct supertype *st, char *mddev,
 	return 0;
 
  abort:
+	map_lock(&map);
+	map_remove(&map, fd2devnum(mdfd));
+	map_unlock(&map);
+
 	if (mdfd >= 0)
 		close(mdfd);
 	return 1;

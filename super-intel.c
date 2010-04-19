@@ -3035,7 +3035,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->num_members = info->raid_disks;
 	for (i = 0; i < map->num_members; i++) {
 		/* initialized in add_to_super */
-		set_imsm_ord_tbl_ent(map, i, 0);
+		set_imsm_ord_tbl_ent(map, i, IMSM_ORD_REBUILD);
 	}
 	mpb->num_raid_devs++;
 
@@ -3113,6 +3113,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	struct dl *dl;
 	struct imsm_dev *dev;
 	struct imsm_map *map;
+	int slot;
 
 	dev = get_imsm_dev(super, super->current_vol);
 	map = get_imsm_map(dev, 0);
@@ -3146,6 +3147,14 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	if (dl->index < 0) {
 		dl->index = super->anchor->num_disks;
 		super->anchor->num_disks++;
+	}
+	/* Check the device has not already been added */
+	slot = get_imsm_disk_slot(map, dl->index);
+	if (slot >= 0 &&
+	    (get_imsm_ord_tbl_ent(dev, slot) & IMSM_ORD_REBUILD) == 0) {
+		fprintf(stderr, Name ": %s has been included in this array twice\n",
+			devname);
+		return 1;
 	}
 	set_imsm_ord_tbl_ent(map, dk->number, dl->index);
 	dl->disk.status = CONFIGURED_DISK;

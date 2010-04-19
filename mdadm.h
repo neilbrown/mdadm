@@ -372,6 +372,7 @@ struct map_ent {
 };
 extern int map_update(struct map_ent **mpp, int devnum, char *metadata,
 		      int uuid[4], char *path);
+extern void map_remove(struct map_ent **map, int devnum);
 extern struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4]);
 extern struct map_ent *map_by_devnum(struct map_ent **map, int devnum);
 extern struct map_ent *map_by_name(struct map_ent **map, char *name);

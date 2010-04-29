@@ -931,8 +931,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * old stripes and a whole number of new stripes.
 		 * So LCM for (chunksize*datadisks).
 		 */
-		a = ochunk/512 * odata;
-		b = nchunk/512 * ndata;
+		a = (ochunk/512) * odata;
+		b = (nchunk/512) * ndata;
 		/* Find GCD */
 		while (a != b) {
 			if (a < b)
@@ -941,7 +941,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				a -= b;
 		}
 		/* LCM == product / GCD */
-		blocks = ochunk/512 * nchunk/512 * odata * ndata / a;
+		blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
 
 		sysfs_free(sra);
 		sra = sysfs_read(fd, 0,
@@ -1284,7 +1284,7 @@ int grow_backup(struct mdinfo *sra,
 		odata--;
 	if (level == 6)
 		odata--;
-	sysfs_set_num(sra, NULL, "suspend_hi", (offset + stripes * chunk/512) * odata);
+	sysfs_set_num(sra, NULL, "suspend_hi", (offset + stripes * (chunk/512)) * odata);
 	/* Check that array hasn't become degraded, else we might backup the wrong data */
 	sysfs_get_ll(sra, NULL, "degraded", &new_degraded);
 	if (new_degraded != *degraded) {
@@ -1312,10 +1312,10 @@ int grow_backup(struct mdinfo *sra,
 	}
 	if (part) {
 		bsb.arraystart2 = __cpu_to_le64(offset * odata);
-		bsb.length2 = __cpu_to_le64(stripes * chunk/512 * odata);
+		bsb.length2 = __cpu_to_le64(stripes * (chunk/512) * odata);
 	} else {
 		bsb.arraystart = __cpu_to_le64(offset * odata);
-		bsb.length = __cpu_to_le64(stripes * chunk/512 * odata);
+		bsb.length = __cpu_to_le64(stripes * (chunk/512) * odata);
 	}
 	if (part)
 		bsb.magic[15] = '2';
@@ -1540,10 +1540,10 @@ static int child_grow(int afd, struct mdinfo *sra, unsigned long stripes,
 		    dests, destfd, destoffsets,
 		    0, &degraded, buf);
 	validate(afd, destfd[0], destoffsets[0]);
-	wait_backup(sra, 0, stripes * chunk / 512, stripes * chunk / 512,
+	wait_backup(sra, 0, stripes * (chunk / 512), stripes * (chunk / 512),
 		    dests, destfd, destoffsets,
 		    0);
-	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * chunk/512) * data);
+	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * (chunk/512)) * data);
 	free(buf);
 	/* FIXME this should probably be numeric */
 	sysfs_set_str(sra, NULL, "sync_max", "max");
@@ -1562,12 +1562,12 @@ static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
 
 	if (posix_memalign((void**)&buf, 4096, disks * chunk))
 		return 0;
-	start = sra->component_size - stripes * chunk/512;
+	start = sra->component_size - stripes * (chunk/512);
 	sysfs_set_num(sra, NULL, "sync_max", start);
 	sysfs_set_str(sra, NULL, "sync_action", "reshape");
 	sysfs_set_num(sra, NULL, "suspend_lo", 0);
 	sysfs_set_num(sra, NULL, "suspend_hi", 0);
-	rv = wait_backup(sra, 0, start - stripes * chunk/512, stripes * chunk/512,
+	rv = wait_backup(sra, 0, start - stripes * (chunk/512), stripes * (chunk/512),
 			 dests, destfd, destoffsets, 0);
 	if (rv < 0)
 		return 0;
@@ -1577,9 +1577,9 @@ static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
 		    dests, destfd, destoffsets,
 		    0, &degraded, buf);
 	validate(afd, destfd[0], destoffsets[0]);
-	wait_backup(sra, start, stripes*chunk/512, 0,
+	wait_backup(sra, start, stripes*(chunk/512), 0,
 		    dests, destfd, destoffsets, 0);
-	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * chunk/512) * data);
+	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * (chunk/512)) * data);
 	free(buf);
 	/* FIXME this should probably be numeric */
 	sysfs_set_str(sra, NULL, "sync_max", "max");
@@ -1614,7 +1614,7 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 		    disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
 		    0, &degraded, buf);
-	grow_backup(sra, (start + stripes) * chunk/512, stripes,
+	grow_backup(sra, (start + stripes) * (chunk/512), stripes,
 		    fds, offsets,
 		    disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
@@ -1624,16 +1624,16 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 	start += stripes * 2; /* where to read next */
 	size = sra->component_size / (chunk/512);
 	while (start < size) {
-		if (wait_backup(sra, (start-stripes*2)*chunk/512,
-				stripes*chunk/512, 0,
+		if (wait_backup(sra, (start-stripes*2)*(chunk/512),
+				stripes*(chunk/512), 0,
 				dests, destfd, destoffsets,
 				part) < 0)
 			return 0;
-		sysfs_set_num(sra, NULL, "suspend_lo", start*chunk/512 * data);
+		sysfs_set_num(sra, NULL, "suspend_lo", start*(chunk/512) * data);
 		if (start + stripes > size)
 			tailstripes = (size - start);
 
-		grow_backup(sra, start*chunk/512, tailstripes,
+		grow_backup(sra, start*(chunk/512), tailstripes,
 			    fds, offsets,
 			    disks, chunk, level, layout,
 			    dests, destfd, destoffsets,
@@ -1642,15 +1642,15 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 		part = 1 - part;
 		validate(afd, destfd[0], destoffsets[0]);
 	}
-	if (wait_backup(sra, (start-stripes*2) * chunk/512, stripes * chunk/512, 0,
+	if (wait_backup(sra, (start-stripes*2) * (chunk/512), stripes * (chunk/512), 0,
 			dests, destfd, destoffsets,
 			part) < 0)
 		return 0;
-	sysfs_set_num(sra, NULL, "suspend_lo", ((start-stripes)*chunk/512) * data);
-	wait_backup(sra, (start-stripes) * chunk/512, tailstripes * chunk/512, 0,
+	sysfs_set_num(sra, NULL, "suspend_lo", ((start-stripes)*(chunk/512)) * data);
+	wait_backup(sra, (start-stripes) * (chunk/512), tailstripes * (chunk/512), 0,
 		    dests, destfd, destoffsets,
 		    1-part);
-	sysfs_set_num(sra, NULL, "suspend_lo", (size*chunk/512) * data);
+	sysfs_set_num(sra, NULL, "suspend_lo", (size*(chunk/512)) * data);
 	sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);
 	return 1;
@@ -1991,8 +1991,8 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	nchunk = info->new_chunk;
 
 
-	a = ochunk/512 * odata;
-	b = nchunk/512 * ndata;
+	a = (ochunk/512) * odata;
+	b = (nchunk/512) * ndata;
 	/* Find GCD */
 	while (a != b) {
 		if (a < b)
@@ -2001,7 +2001,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 			a -= b;
 	}
 	/* LCM == product / GCD */
-	blocks = ochunk/512 * nchunk/512 * odata * ndata / a;
+	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
 
 	sra = sysfs_read(-1, devname2devnum(info->sys_name),
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|

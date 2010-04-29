@@ -361,6 +361,23 @@ static void manage_container(struct mdstat_ent *mdstat,
 	}
 }
 
+static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
+			     struct active_array *aa)
+{
+	if (!disk || !clone)
+		return -1;
+
+	*disk = *clone;
+	disk->recovery_fd = sysfs_open(aa->devnum, disk->sys_name, "recovery_start");
+	disk->state_fd = sysfs_open(aa->devnum, disk->sys_name, "state");
+	disk->prev_state = read_dev_state(disk->state_fd);
+	disk->curr_state = disk->prev_state;
+	disk->next = aa->info.devs;
+	aa->info.devs = disk;
+
+	return 0;
+}
+
 static void manage_member(struct mdstat_ent *mdstat,
 			  struct active_array *a)
 {
@@ -414,14 +431,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 				free(newd);
 				continue;
 			}
-			*newd = *d;
-			newd->next = newa->info.devs;
-			newa->info.devs = newd;
-
-			newd->state_fd = sysfs_open(a->devnum, newd->sys_name,
-						    "state");
-			newd->prev_state = read_dev_state(newd->state_fd);
-			newd->curr_state = newd->prev_state;
+			disk_init_and_add(newd, d, newa);
 		}
 		queue_metadata_update(updates);
 		updates = NULL;
@@ -513,19 +523,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 			if (i == di->disk.raid_disk)
 				break;
 
-		if (di && newd) {
-			memcpy(newd, di, sizeof(*newd));
-
-			newd->state_fd = sysfs_open(new->devnum,
-						    newd->sys_name,
-						    "state");
-			newd->recovery_fd = sysfs_open(new->devnum,
-						      newd->sys_name,
-						      "recovery_start");
-
-			newd->prev_state = read_dev_state(newd->state_fd);
-			newd->curr_state = newd->prev_state;
-		} else {
+		if (disk_init_and_add(newd, di, new) != 0) {
 			if (newd)
 				free(newd);
 
@@ -535,11 +533,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 				new->container = NULL;
 				break;
 			}
-			continue;
 		}
-		sprintf(newd->sys_name, "rd%d", i);
-		newd->next = new->info.devs;
-		new->info.devs = newd;
 	}
 
 	new->action_fd = sysfs_open(new->devnum, NULL, "sync_action");

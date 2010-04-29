@@ -2798,6 +2798,10 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 		return 0;
 #endif
 
+	if (test_partition(fd))
+		/* IMSM not allowed on partitions */
+		return 1;
+
 	free_super_imsm(st);
 
 	super = alloc_super();

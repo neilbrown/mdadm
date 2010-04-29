@@ -302,6 +302,31 @@ void remove_partitions(int fd)
 #endif
 }
 
+int test_partition(int fd)
+{
+	/* Check if fd is a whole-disk or a partition.
+	 * BLKPG will return EINVAL on a partition, and BLKPG_DEL_PARTITION
+	 * will return ENXIO on an invalid partition number.
+	 */
+	struct blkpg_ioctl_arg a;
+	struct blkpg_partition p;
+	a.op = BLKPG_DEL_PARTITION;
+	a.data = (void*)&p;
+	a.datalen = sizeof(p);
+	a.flags = 0;
+	memset(a.data, 0, a.datalen);
+	p.pno = 1<<30;
+	if (ioctl(fd, BLKPG, &a) == 0)
+		/* Very unlikely, but not a partition */
+		return 0;
+	if (errno == ENXIO)
+		/* not a partition */
+		return 0;
+
+	return 1;
+}
+
+
 int enough(int level, int raid_disks, int layout, int clean,
 	   char *avail, int avail_disks)
 {

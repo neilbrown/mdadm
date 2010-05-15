@@ -4384,6 +4384,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 			dprintf("imsm: mark resync done\n");
 			end_migration(dev, map_state);
 			super->updates_pending++;
+			a->last_checkpoint = 0;
 		}
 	} else if (!is_resyncing(dev) && !failed) {
 		/* mark the start of the init process if nothing is failed */
@@ -4476,17 +4477,20 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		map = get_imsm_map(dev, 0);
 		map->failed_disk_num = ~0;
 		super->updates_pending++;
+		a->last_checkpoint = 0;
 	} else if (map_state == IMSM_T_STATE_DEGRADED &&
 		   map->map_state != map_state &&
 		   !dev->vol.migr_state) {
 		dprintf("imsm: mark degraded\n");
 		map->map_state = map_state;
 		super->updates_pending++;
+		a->last_checkpoint = 0;
 	} else if (map_state == IMSM_T_STATE_FAILED &&
 		   map->map_state != map_state) {
 		dprintf("imsm: mark failed\n");
 		end_migration(dev, map_state);
 		super->updates_pending++;
+		a->last_checkpoint = 0;
 	}
 }
 

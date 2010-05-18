@@ -391,6 +391,7 @@ int Monitor(mddev_dev_t devlist,
 						)
 						alert("FailSpare", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
 					else if (i < (unsigned)array.raid_disks &&
+						 ! (newstate & (1<<MD_DISK_REMOVED)) &&
 						 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
 						  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||
 						  ((newstate&change)&(1<<MD_DISK_SYNC)))

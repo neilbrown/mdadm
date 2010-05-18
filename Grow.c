@@ -948,6 +948,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
 				 GET_CACHE);
 
+		if (!sra) {
+			fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
+				devname);
+			rv = 1;
+			break;
+		}
+
 		if (ndata == odata) {
 			/* Make 'blocks' bigger for better throughput, but
 			 * not so big that we reject it below.
@@ -959,13 +966,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		} else
 			fprintf(stderr, Name ": Need to backup %luK of critical "
 				"section..\n", blocks/2);
-
-		if (!sra) {
-			fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
-				devname);
-			rv = 1;
-			break;
-		}
 
 		if (blocks >= sra->component_size/2) {
 			fprintf(stderr, Name ": %s: Something wrong - reshape aborted\n",

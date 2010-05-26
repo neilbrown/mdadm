@@ -258,6 +258,15 @@ int Incremental(char *devname, int verbose, int runstop,
 		autof = ci->autof;
 
 	if (st->ss->container_content && st->loaded_container) {
+		if ((runstop > 0 && info.container_enough >= 0) ||
+		    info.container_enough > 0)
+			/* pass */;
+		else {
+			if (verbose)
+				fprintf(stderr, Name ": not enough devices to start the container\n");
+			return 1;
+		}
+
 		/* This is a pre-built container array, so we do something
 		 * rather different.
 		 */

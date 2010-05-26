@@ -205,7 +205,9 @@ struct mdinfo {
 	int container_member; /* for assembling external-metatdata arrays
 			       * This is to be used internally by metadata
 			       * handler only */
-
+	int container_enough; /* flag external handlers can set to
+			       * indicate that subarrays have not enough (-1),
+			       * enough to start (0), or all expected disks (1) */
 	char 		sys_name[20];
 	struct mdinfo *devs;
 	struct mdinfo *next;

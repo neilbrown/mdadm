@@ -48,9 +48,15 @@ CWFLAGS += -Wp,-D_FORTIFY_SOURCE=2 -O
 endif
 
 ifdef DEBIAN
-CPPFLAGS= -DDEBIAN
+CPPFLAGS := -DDEBIAN
 else
-CPPFLAGS=
+CPPFLAGS :=
+endif
+ifdef DEFAULT_OLD_METADATA
+ CPPFLAG += -DDEFAULT_OLD_METADATA
+ DEFAULT_METADATA=0.90
+else
+ DEFAULT_METADATA=1.2
 endif
 
 SYSCONFDIR = /etc
@@ -179,6 +185,9 @@ mdassemble.uclibc : $(ASSEMBLE_SRCS) mdadm.h
 mdassemble.klibc : $(ASSEMBLE_SRCS) mdadm.h
 	rm -f $(OBJS)
 	$(KLIBC_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)
+
+mdadm.8 : mdadm.8.in
+	sed -e 's/{DEFAULT_METADATA}/$(DEFAULT_METADATA)/g' mdadm.8.in > mdadm.8
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man

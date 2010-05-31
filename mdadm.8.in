@@ -470,8 +470,9 @@ When used with
 .BR \-\-build ,
 only linear, stripe, raid0, 0, raid1, multipath, mp, and faulty are valid.
 
-Not yet supported with
-.BR \-\-grow .
+Can be used with
+.B \-\-grow
+to change the RAID level in some cases.  See LEVEL CHANGES below.
 
 .TP
 .BR \-p ", " \-\-layout=

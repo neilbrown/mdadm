@@ -4103,6 +4103,15 @@ static void update_recovery_start(struct imsm_dev *dev, struct mdinfo *array)
 			rebuild = d;
 		}
 
+	if (!rebuild) {
+		/* (?) none of the disks are marked with
+		 * IMSM_ORD_REBUILD, so assume they are missing and the
+		 * disk_ord_tbl was not correctly updated
+		 */
+		dprintf("%s: failed to locate out-of-sync disk\n", __func__);
+		return;
+	}
+
 	units = __le32_to_cpu(dev->vol.curr_migr_unit);
 	rebuild->recovery_start = units * blocks_per_migr_unit(dev);
 }

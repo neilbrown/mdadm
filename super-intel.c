@@ -4415,14 +4415,11 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 
 	/* check if we can update curr_migr_unit from resync_start, recovery_start */
 	blocks_per_unit = blocks_per_migr_unit(dev);
-	if (blocks_per_unit && failed <= 1) {
+	if (blocks_per_unit) {
 		__u32 units32;
 		__u64 units;
 
-		if (migr_type(dev) == MIGR_REBUILD)
-			units = min_recovery_start(&a->info) / blocks_per_unit;
-		else
-			units = a->info.resync_start / blocks_per_unit;
+		units = a->last_checkpoint / blocks_per_unit;
 		units32 = units;
 
 		/* check that we did not overflow 32-bits, and that

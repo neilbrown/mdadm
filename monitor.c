@@ -334,10 +334,14 @@ static int read_and_act(struct active_array *a)
 	 */
 	if (sync_completed > a->last_checkpoint &&
 	    sync_completed - a->last_checkpoint > a->info.component_size >> 4 &&
-	    a->curr_action > reshape && a->next_action == bad_action) {
+	    a->curr_action > reshape) {
+		/* A (non-reshape) sync_action has reached a checkpoint.
+		 * Record the updated position in the metadata
+		 */
 		a->last_checkpoint = sync_completed;
-		a->next_action = idle;
-	}
+		a->container->ss->set_array_state(a, a->curr_state <= clean);
+	} else if (sync_completed > a->last_checkpoint)
+		a->last_checkpoint = sync_completed;
 
 	a->container->ss->sync_metadata(a->container);
 	dprintf("%s(%d): state:%s action:%s next(", __func__, a->info.container_member,

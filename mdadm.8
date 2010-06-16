@@ -1195,14 +1195,11 @@ listed, otherwise it will return failure.
 For each md device given, or each device in /proc/mdstat if
 .B \-\-scan
 is given, arrange for the array to be marked clean as soon as possible.
-Also, quiesce resync so that the monitor for external metadata arrays
-(mdmon) has an opportunity to checkpoint the resync position.
 .I mdadm
 will return with success if the array uses external metadata and we
 successfully waited.  For native arrays this returns immediately as the
-kernel handles both dirty-clean transitions and resync checkpointing in
-the kernel at shutdown.  No action is taken if safe-mode handling is
-disabled.
+kernel handles dirty-clean transitions at shutdown.  No action is taken
+if safe-mode handling is disabled.
 
 .SH For Incremental Assembly mode:
 .TP

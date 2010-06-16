@@ -282,6 +282,7 @@ struct extent {
 enum imsm_update_type {
 	update_activate_spare,
 	update_create_array,
+	update_kill_array,
 	update_add_disk,
 };
 
@@ -301,6 +302,11 @@ struct imsm_update_create_array {
 	enum imsm_update_type type;
 	int dev_idx;
 	struct imsm_dev dev;
+};
+
+struct imsm_update_kill_array {
+	enum imsm_update_type type;
+	int dev_idx;
 };
 
 struct imsm_update_add_disk {
@@ -2753,11 +2759,20 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 
 	if (st->subarray[0]) {
-		if (atoi(st->subarray) <= super->anchor->num_raid_devs)
-			super->current_vol = atoi(st->subarray);
+		unsigned long val;
+		char *ep;
+
+		err = 1;
+		val = strtoul(st->subarray, &ep, 10);
+		if (*ep != '\0') {
+			free_imsm(super);
+			goto error;
+		}
+
+		if (val < super->anchor->num_raid_devs)
+			super->current_vol = val;
 		else {
 			free_imsm(super);
-			err = 1;
 			goto error;
 		}
 	}
@@ -2824,8 +2839,17 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	}
 
 	if (st->subarray[0]) {
-		if (atoi(st->subarray) <= super->anchor->num_raid_devs)
-			super->current_vol = atoi(st->subarray);
+		unsigned long val;
+		char *ep;
+
+		val = strtoul(st->subarray, &ep, 10);
+		if (*ep != '\0') {
+			free_imsm(super);
+			return 1;
+		}
+
+		if (val < super->anchor->num_raid_devs)
+			super->current_vol = val;
 		else {
 			free_imsm(super);
 			return 1;
@@ -4007,6 +4031,82 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	close(cfd);
 	return 0;
 }
+
+static void handle_missing(struct intel_super *super, struct imsm_dev *dev);
+
+static int kill_subarray_imsm(struct supertype *st)
+{
+	/* remove the subarray currently referenced by ->current_vol */
+	__u8 i;
+	struct intel_dev **dp;
+	struct intel_super *super = st->sb;
+	__u8 current_vol = super->current_vol;
+	struct imsm_super *mpb = super->anchor;
+
+	if (super->current_vol < 0)
+		return 2;
+	super->current_vol = -1; /* invalidate subarray cursor */
+
+	/* block deletions that would change the uuid of active subarrays
+	 *
+	 * FIXME when immutable ids are available, but note that we'll
+	 * also need to fixup the invalidated/active subarray indexes in
+	 * mdstat
+	 */
+	for (i = 0; i < mpb->num_raid_devs; i++) {
+		char subarray[4];
+
+		if (i < current_vol)
+			continue;
+		sprintf(subarray, "%u", i);
+		if (is_subarray_active(subarray, st->devname)) {
+			fprintf(stderr,
+				Name ": deleting subarray-%d would change the UUID of active subarray-%d, aborting\n",
+				current_vol, i);
+
+			return 2;
+		}
+	}
+
+	if (st->update_tail) {
+		struct imsm_update_kill_array *u = malloc(sizeof(*u));
+
+		if (!u)
+			return 2;
+		u->type = update_kill_array;
+		u->dev_idx = current_vol;
+		append_metadata_update(st, u, sizeof(*u));
+
+		return 0;
+	}
+
+	for (dp = &super->devlist; *dp;)
+		if ((*dp)->index == current_vol) {
+			*dp = (*dp)->next;
+		} else {
+			handle_missing(super, (*dp)->dev);
+			if ((*dp)->index > current_vol)
+				(*dp)->index--;
+			dp = &(*dp)->next;
+		}
+
+	/* no more raid devices, all active components are now spares,
+	 * but of course failed are still failed
+	 */
+	if (--mpb->num_raid_devs == 0) {
+		struct dl *d;
+
+		for (d = super->disks; d; d = d->next)
+			if (d->index > -2) {
+				d->index = -1;
+				d->disk.status = SPARE_DISK;
+			}
+	}
+
+	super->updates_pending++;
+
+	return 0;
+}
 #endif /* MDASSEMBLE */
 
 static int is_rebuilding(struct imsm_dev *dev)
@@ -4347,6 +4447,24 @@ static void mark_missing(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 	memmove(&disk->serial[0], &disk->serial[1], MAX_RAID_SERIAL_LEN - 1);
 }
 
+static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
+{
+	__u8 map_state;
+	struct dl *dl;
+	int failed;
+
+	if (!super->missing)
+		return;
+	failed = imsm_count_failed(super, dev);
+	map_state = imsm_check_degraded(super, dev, failed);
+
+	dprintf("imsm: mark missing\n");
+	end_migration(dev, map_state);
+	for (dl = super->missing; dl; dl = dl->next)
+		mark_missing(dev, &dl->disk, dl->index);
+	super->updates_pending++;
+}
+
 /* Handle dirty -> clean transititions and resync.  Degraded and rebuild
  * states are handled in imsm_set_disk() with one exception, when a
  * resync is stopped due to a new failure this routine will set the
@@ -4363,15 +4481,8 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	__u32 blocks_per_unit;
 
 	/* before we activate this array handle any missing disks */
-	if (consistent == 2 && super->missing) {
-		struct dl *dl;
-
-		dprintf("imsm: mark missing\n");
-		end_migration(dev, map_state);
-		for (dl = super->missing; dl; dl = dl->next)
-			mark_missing(dev, &dl->disk, dl->index);
-		super->updates_pending++;
-	}
+	if (consistent == 2)
+		handle_missing(super, dev);
 
 	if (consistent == 2 &&
 	    (!is_resync_complete(&a->info) ||
@@ -5067,6 +5178,45 @@ static void imsm_process_update(struct supertype *st,
 		}
 		break;
 	}
+	case update_kill_array: {
+		struct imsm_update_kill_array *u = (void *) update->buf;
+		int victim = u->dev_idx;
+		struct active_array *a;
+		struct intel_dev **dp;
+		struct imsm_dev *dev;
+
+		/* sanity check that we are not affecting the uuid of
+		 * active arrays, or deleting an active array
+		 *
+		 * FIXME when immutable ids are available, but note that
+		 * we'll also need to fixup the invalidated/active
+		 * subarray indexes in mdstat
+		 */
+		for (a = st->arrays; a; a = a->next)
+			if (a->info.container_member >= victim)
+				break;
+		/* by definition if mdmon is running at least one array
+		 * is active in the container, so checking
+		 * mpb->num_raid_devs is just extra paranoia
+		 */
+		dev = get_imsm_dev(super, victim);
+		if (a || !dev || mpb->num_raid_devs == 1) {
+			dprintf("failed to delete subarray-%d\n", victim);
+			break;
+		}
+
+		for (dp = &super->devlist; *dp;)
+			if ((*dp)->index == super->current_vol) {
+				*dp = (*dp)->next;
+			} else {
+				if ((*dp)->index > victim)
+					(*dp)->index--;
+				dp = &(*dp)->next;
+			}
+		mpb->num_raid_devs--;
+		super->updates_pending++;
+		break;
+	}
 	case update_add_disk:
 
 		/* we may be able to repair some arrays if disks are
@@ -5242,6 +5392,7 @@ struct superswitch super_imsm = {
 	.validate_geometry = validate_geometry_imsm,
 	.add_to_super	= add_to_super_imsm,
 	.detail_platform = detail_platform_imsm,
+	.kill_subarray = kill_subarray_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,

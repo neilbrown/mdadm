@@ -273,6 +273,7 @@ enum special_options {
 	AutoDetect,
 	Waitclean,
 	DetailPlatform,
+	KillSubarray,
 };
 
 /* structures read from config file */
@@ -609,6 +610,8 @@ extern struct superswitch {
 	struct mdinfo *(*container_content)(struct supertype *st);
 	/* Allow a metadata handler to override mdadm's default layouts */
 	int (*default_layout)(int level); /* optional */
+	/* Permit subarray's to be deleted from inactive containers */
+	int (*kill_subarray)(struct supertype *st); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,
@@ -805,6 +808,7 @@ extern int Monitor(mddev_dev_t devlist,
 		   int dosyslog, int test, char *pidfile, int increments);
 
 extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
+extern int Kill_subarray(char *dev, char *subarray, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 
@@ -911,6 +915,10 @@ extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
 #define	METADATA 3
 extern int open_mddev(char *dev, int report_errors);
 extern int open_container(int fd);
+extern int is_container_member(struct mdstat_ent *ent, char *devname);
+extern int is_subarray_active(char *subarray, char *devname);
+extern int open_subarray(char *dev, struct supertype *st, int quiet);
+extern struct superswitch *version_to_superswitch(char *vers);
 
 extern char *pid_dir;
 extern int mdmon_running(int devnum);

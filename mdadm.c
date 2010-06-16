@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 	int dosyslog = 0;
 	int rebuild_map = 0;
 	int auto_update_home = 0;
+	char *subarray = NULL;
 
 	int print_help = 0;
 	FILE *outf;
@@ -216,6 +217,9 @@ int main(int argc, char *argv[])
 		case 'W':
 		case Waitclean:
 		case DetailPlatform:
+		case KillSubarray:
+			if (opt == KillSubarray)
+				subarray = optarg;
 		case 'K': if (!mode) newmode = MISC; break;
 		}
 		if (mode && newmode == mode) {
@@ -807,6 +811,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'W'):
 		case O(MISC, Waitclean):
 		case O(MISC, DetailPlatform):
+		case O(MISC, KillSubarray):
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
 				fprintf(stderr, Name ": --examine/-E cannot be given with -%c\n",
@@ -1403,6 +1408,9 @@ int main(int argc, char *argv[])
 					rv |= Wait(dv->devname); continue;
 				case Waitclean:
 					rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;
+				case KillSubarray:
+					rv |= Kill_subarray(dv->devname, subarray, quiet);
+					continue;
 				}
 				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {

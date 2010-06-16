@@ -1173,6 +1173,16 @@ the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
 
 .TP
+.B \-\-kill\-subarray=
+If the device is a container and the argument to \-\-kill\-subarray
+specifies an inactive subarray in the container, then the subarray is
+deleted.  Deleting all subarrays will leave an 'empty-container' or
+spare superblock on the drives.  See \-\-zero\-superblock for completely
+removing a superblock.  Note that some formats depend on the subarray
+index for generating a UUID, this command will fail if it would change
+the UUID of an active subarray.
+
+.TP
 .BR \-t ", " \-\-test
 When used with
 .BR \-\-detail ,

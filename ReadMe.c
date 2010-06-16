@@ -108,6 +108,7 @@ struct option long_options[] = {
     {"examine-bitmap", 0, 0, 'X'},
     {"auto-detect", 0, 0, AutoDetect},
     {"detail-platform", 0, 0, DetailPlatform},
+    {"kill-subarray", 1, 0, KillSubarray},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},

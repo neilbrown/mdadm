@@ -845,10 +845,18 @@ static int load_super_ddf(struct supertype *st, int fd,
 	}
 
 	if (st->subarray[0]) {
+		unsigned long val;
 		struct vcl *v;
+		char *ep;
+
+		val = strtoul(st->subarray, &ep, 10);
+		if (*ep != '\0') {
+			free(super);
+			return 1;
+		}
 
 		for (v = super->conflist; v; v = v->next)
-			if (v->vcnum == atoi(st->subarray))
+			if (v->vcnum == val)
 				super->currentconf = v;
 		if (!super->currentconf) {
 			free(super);
@@ -2870,14 +2878,25 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 			return 1;
 	}
 	if (st->subarray[0]) {
+		unsigned long val;
 		struct vcl *v;
+		char *ep;
+
+		val = strtoul(st->subarray, &ep, 10);
+		if (*ep != '\0') {
+			free(super);
+			return 1;
+		}
 
 		for (v = super->conflist; v; v = v->next)
-			if (v->vcnum == atoi(st->subarray))
+			if (v->vcnum == val)
 				super->currentconf = v;
-		if (!super->currentconf)
+		if (!super->currentconf) {
+			free(super);
 			return 1;
+		}
 	}
+
 	*sbp = super;
 	if (st->ss == NULL) {
 		st->ss = &super_ddf;

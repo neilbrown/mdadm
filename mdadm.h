@@ -609,6 +609,8 @@ extern struct superswitch {
 	struct mdinfo *(*container_content)(struct supertype *st);
 	/* Allow a metadata handler to override mdadm's default layouts */
 	int (*default_layout)(int level); /* optional */
+	/* query the supertype for default chunk size */
+	int (*default_chunk)(struct supertype *st); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,

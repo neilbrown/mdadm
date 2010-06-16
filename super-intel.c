@@ -4003,6 +4003,17 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	close(cfd);
 	return 0;
 }
+
+static int default_chunk_imsm(struct supertype *st)
+{
+	struct intel_super *super = st->sb;
+
+	if (!super->orom)
+		return 0;
+
+	return imsm_orom_default_chunk(super->orom);
+}
+
 #endif /* MDASSEMBLE */
 
 static int is_rebuilding(struct imsm_dev *dev)
@@ -5240,6 +5251,7 @@ struct superswitch super_imsm = {
 	.brief_detail_super = brief_detail_super_imsm,
 	.write_init_super = write_init_super_imsm,
 	.validate_geometry = validate_geometry_imsm,
+	.default_chunk	= default_chunk_imsm,
 	.add_to_super	= add_to_super_imsm,
 	.detail_platform = detail_platform_imsm,
 #endif

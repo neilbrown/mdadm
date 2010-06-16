@@ -115,6 +115,55 @@ static inline int imsm_orom_has_chunk(const struct imsm_orom *orom, int chunk)
 	return !!(orom->sss & (1 << (fs - 1)));
 }
 
+/**
+ * fls - find last (most-significant) bit set
+ * @x: the word to search
+ * The funciton is borrowed from Linux kernel code
+ * include/asm-generic/bitops/fls.h
+ */
+static inline int fls(int x)
+{
+	int r = 32;
+
+	if (!x)
+		return 0;
+	if (!(x & 0xffff0000u)) {
+		x <<= 16;
+		r -= 16;
+	}
+	if (!(x & 0xff000000u)) {
+		x <<= 8;
+		r -= 8;
+	}
+	if (!(x & 0xf0000000u)) {
+		x <<= 4;
+		r -= 4;
+	}
+	if (!(x & 0xc0000000u)) {
+		x <<= 2;
+		r -= 2;
+	}
+	if (!(x & 0x80000000u)) {
+		x <<= 1;
+		r -= 1;
+	}
+	return r;
+}
+
+/**
+ * imsm_orom_default_chunk - return the largest chunk size supported via orom
+ * @orom: orom pointer from find_imsm_orom
+ */
+static inline int imsm_orom_default_chunk(const struct imsm_orom *orom)
+{
+	int fs = fls(orom->sss);
+
+	if (!fs)
+		return 0;
+
+	return min(512, (1 << fs));
+}
+
 struct sys_dev {
 	char *path;
 	struct sys_dev *next;

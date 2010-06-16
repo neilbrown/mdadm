@@ -641,7 +641,7 @@ static __u64 blocks_per_migr_unit(struct imsm_dev *dev);
 static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 {
 	__u64 sz;
-	int slot;
+	int slot, i;
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	__u32 ord;
 
@@ -650,6 +650,12 @@ static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 	printf("           UUID : %s\n", uuid);
 	printf("     RAID Level : %d\n", get_imsm_raid_level(map));
 	printf("        Members : %d\n", map->num_members);
+	printf("          Slots : [");
+	for (i = 0; i < map->num_members; i++) {
+		ord = get_imsm_ord_tbl_ent(dev, i);
+		printf("%s", ord & IMSM_ORD_REBUILD ? "_" : "U");
+	}
+	printf("]\n");
 	slot = get_imsm_disk_slot(map, disk_idx);
 	if (slot >= 0) {
 		ord = get_imsm_ord_tbl_ent(dev, slot);

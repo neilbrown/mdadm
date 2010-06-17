@@ -43,7 +43,7 @@ static int default_layout(struct supertype *st, int level, int verbose)
 			layout = 0x102; /* near=2, far=1 */
 			if (verbose > 0)
 				fprintf(stderr,
-					Name ": layout defaults to n1\n");
+					Name ": layout defaults to n2\n");
 			break;
 		case 5:
 		case 6:

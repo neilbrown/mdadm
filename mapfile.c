@@ -368,7 +368,7 @@ void RebuildMap(void)
 	}
 
 	for (md = mdstat ; md ; md = md->next) {
-		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS|SKIP_GONE_DEVS);
+		struct mdinfo *sra = sysfs_read(-1, md->devnum, GET_DEVS);
 		struct mdinfo *sd;
 
 		if (!sra)
@@ -486,7 +486,8 @@ void RebuildMap(void)
 		for (md = mdstat ; md ; md = md->next) {
 			struct mdinfo *sra = sysfs_read(-1, md->devnum,
 							GET_VERSION);
-			sysfs_uevent(sra, "change");
+			if (sra)
+				sysfs_uevent(sra, "change");
 			sysfs_free(sra);
 		}
 	map_free(map);

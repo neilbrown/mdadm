@@ -2747,14 +2747,9 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	int retry;
 	int err = 0;
 	int i;
-	enum sysfs_read_flags flags;
-
-	flags = GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE;
-	if (mdmon_running(devnum))
-		flags |= SKIP_GONE_DEVS;
 
 	/* check if 'fd' an opened container */
-	sra = sysfs_read(fd, 0, flags);
+	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 

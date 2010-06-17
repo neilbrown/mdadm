@@ -546,7 +546,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		return 1;
 	}
 	sra = sysfs_read(fd, 0, GET_LEVEL);
-	frozen = freeze_array(sra);
+	if (sra)
+		frozen = freeze_array(sra);
+	else {
+		fprintf(stderr, Name ": failed to read sysfs parameters for %s\n",
+			devname);
+		return 1;
+	}
 	if (frozen < 0) {
 		fprintf(stderr, Name ": %s is performing resync/recovery and cannot"
 			" be reshaped\n", devname);
@@ -1970,6 +1976,12 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	int cache;
 	int done = 0;
 
+	sra = sysfs_read(-1, devname2devnum(info->sys_name),
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+			 GET_CACHE);
+	if (!sra)
+		return 1;
+
 	err = sysfs_set_str(info, NULL, "array_state", "readonly");
 	if (err)
 		return err;
@@ -1990,7 +2002,6 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	ochunk = info->array.chunk_size;
 	nchunk = info->new_chunk;
 
-
 	a = (ochunk/512) * odata;
 	b = (nchunk/512) * ndata;
 	/* Find GCD */
@@ -2002,11 +2013,6 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	}
 	/* LCM == product / GCD */
 	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
-
-	sra = sysfs_read(-1, devname2devnum(info->sys_name),
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
-			 GET_CACHE);
-
 
 	if (ndata == odata)
 		while (blocks * 32 < sra->component_size &&

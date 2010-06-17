@@ -404,7 +404,6 @@ enum sysfs_read_flags {
 	GET_SIZE	= (1 << 12),
 	GET_STATE	= (1 << 13),
 	GET_ERROR	= (1 << 14),
-	SKIP_GONE_DEVS	= (1 << 15),
 };
 
 /* If fd >= 0, get the array it is open on,

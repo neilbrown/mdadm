@@ -109,6 +109,7 @@ struct option long_options[] = {
     {"auto-detect", 0, 0, AutoDetect},
     {"detail-platform", 0, 0, DetailPlatform},
     {"kill-subarray", 1, 0, KillSubarray},
+    {"update-subarray", 1, 0, UpdateSubarray},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},

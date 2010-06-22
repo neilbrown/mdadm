@@ -258,6 +258,7 @@ extern char Version[], Usage[], Help[], OptionHelp[],
 
 /* for option that don't have short equivilents, we assign arbitrary
  * small numbers.  '1' means an undecorated option, so we start at '2'.
+ * (note we must stop before we get to 65 i.e. 'A')
  */
 enum special_options {
 	AssumeClean = 2,
@@ -266,7 +267,7 @@ enum special_options {
 	ReAdd,
 	NoDegraded,
 	Sparc22,
-	BackupFile,
+	BackupFile, /* 8 */
 	HomeHost,
 	AutoHomeHost,
 	Symlinks,
@@ -274,6 +275,7 @@ enum special_options {
 	Waitclean,
 	DetailPlatform,
 	KillSubarray,
+	UpdateSubarray, /* 16 */
 };
 
 /* structures read from config file */
@@ -612,6 +614,8 @@ extern struct superswitch {
 	int (*default_layout)(int level); /* optional */
 	/* Permit subarray's to be deleted from inactive containers */
 	int (*kill_subarray)(struct supertype *st); /* optional */
+	/* Permit subarray's to be modified */
+	int (*update_subarray)(struct supertype *st, char *update, mddev_ident_t ident); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,
@@ -809,6 +813,7 @@ extern int Monitor(mddev_dev_t devlist,
 
 extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
 extern int Kill_subarray(char *dev, char *subarray, int quiet);
+extern int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 

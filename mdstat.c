@@ -168,9 +168,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			char *eq;
 			if (strcmp(w, "active")==0)
 				ent->active = 1;
-			else if (strcmp(w, "inactive")==0)
+			else if (strcmp(w, "inactive")==0) {
 				ent->active = 0;
-			else if (ent->active >=0 &&
+				in_devs = 1;
+			} else if (ent->active > 0 &&
 				 ent->level == NULL &&
 				 w[0] != '(' /*readonly*/) {
 				ent->level = strdup(w);

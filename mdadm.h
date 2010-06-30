@@ -355,6 +355,10 @@ struct mdstat_ent {
 	int		raid_disks;
 	int		chunk_size;
 	char *		metadata_version;
+	struct dev_member {
+		char			*name;
+		struct dev_member	*next;
+	} 		*members;
 	struct mdstat_ent *next;
 };
 
@@ -363,6 +367,7 @@ extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
 extern void mdstat_wait_fd(int fd, const sigset_t *sigmask);
 extern int mddev_busy(int devnum);
+extern struct mdstat_ent *mdstat_by_component(char *name);
 
 struct map_ent {
 	struct map_ent *next;

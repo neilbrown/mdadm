@@ -83,14 +83,41 @@
 #include	<sys/select.h>
 #include	<ctype.h>
 
+static void free_member_devnames(struct dev_member *m)
+{
+	while(m) {
+		struct dev_member *t = m;
+
+		m = m->next;
+		free(t->name);
+		free(t);
+	}
+}
+
+static void add_member_devname(struct dev_member **m, char *name)
+{
+	struct dev_member *new;
+	char *t;
+
+	if ((t = strchr(name, '[')) == NULL)
+		/* not a device */
+		return;
+
+	new = malloc(sizeof(*new));
+	new->name = strndup(name, t - name);
+	new->next = *m;
+	*m = new;
+}
+
 void free_mdstat(struct mdstat_ent *ms)
 {
 	while (ms) {
 		struct mdstat_ent *t;
-		if (ms->dev) free(ms->dev);
-		if (ms->level) free(ms->level);
-		if (ms->pattern) free(ms->pattern);
-		if (ms->metadata_version) free(ms->metadata_version);
+		free(ms->dev);
+		free(ms->level);
+		free(ms->pattern);
+		free(ms->metadata_version);
+		free_member_devnames(ms->members);
 		t = ms;
 		ms = ms->next;
 		free(t);
@@ -159,6 +186,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		ent->raid_disks = 0;
 		ent->chunk_size = 0;
 		ent->devcnt = 0;
+		ent->members = NULL;
 
 		ent->dev = strdup(line);
 		ent->devnum = devnum;
@@ -180,6 +208,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				in_devs = 0;
 			else if (in_devs) {
 				ent->devcnt++;
+				add_member_devname(&ent->members, w);
 				if (strncmp(w, "md", 2)==0) {
 					/* This has an md device as a component.
 					 * If that device is already in the
@@ -310,4 +339,31 @@ int mddev_busy(int devnum)
 			break;
 	free_mdstat(mdstat);
 	return me != NULL;
+}
+
+struct mdstat_ent *mdstat_by_component(char *name)
+{
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
+
+	while (mdstat) {
+		struct dev_member *m;
+		struct mdstat_ent *ent;
+		if (mdstat->metadata_version &&
+		    strncmp(mdstat->metadata_version, "external:", 9) == 0 &&
+		    is_subarray(mdstat->metadata_version+9))
+			/* don't return subarrays, only containers */
+			;
+		else for (m = mdstat->members; m; m = m->next) {
+				if (strcmp(m->name, name) == 0) {
+					free_mdstat(mdstat->next);
+					mdstat->next = NULL;
+					return mdstat;
+				}
+			}
+		ent = mdstat;
+		mdstat = mdstat->next;
+		ent->next = NULL;
+		free_mdstat(ent);
+	}
+	return NULL;
 }

@@ -2145,7 +2145,7 @@ Usage:
 .I component-device
 .HP 12
 Usage:
-.B mdadm \-\-incremental \-\-rebuild
+.B mdadm \-\-incremental \-\-rebuild\-map
 .HP 12
 Usage:
 .B mdadm \-\-incremental \-\-run \-\-scan
@@ -2391,7 +2391,7 @@ pid of mdadm daemon to
 Try to incorporate newly discovered device into some array as
 appropriate.
 
-.B "  mdadm \-\-incremental \-\-rebuild \-\-run \-\-scan"
+.B "  mdadm \-\-incremental \-\-rebuild\-map \-\-run \-\-scan"
 .br
 Rebuild the array map from any current arrays, and then start any that
 can be started.

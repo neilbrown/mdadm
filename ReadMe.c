@@ -542,13 +542,13 @@ char Help_incr[] =
 "devices, it will be started.\n"
 "\n"
 "Options that are valid with incremental assembly (-I --incremental) more are:\n"
-"  --run       -R  : run arrays as soon as a minimal number of devices are\n"
-"                  : present rather than waiting for all expected.\n"
-"  --quiet     -q  : Don't print any information messages, just errors.\n"
-"  --rebuild   -r  : Rebuild the 'map' file that mdadm uses for tracking\n"
-"                  : partial arrays.\n"
-"  --scan      -s  : Use with -R to start any arrays that have the minimal\n"
-"                  : required number of devices, but are not yet started.\n"
+"  --run         -R : run arrays as soon as a minimal number of devices are\n"
+"                   : present rather than waiting for all expected.\n"
+"  --quiet       -q : Don't print any information messages, just errors.\n"
+"  --rebuild-map -r : Rebuild the 'map' file that mdadm uses for tracking\n"
+"                   : partial arrays.\n"
+"  --scan        -s : Use with -R to start any arrays that have the minimal\n"
+"                   : required number of devices, but are not yet started.\n"
 ;
 
 char Help_config[] =

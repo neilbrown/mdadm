@@ -213,7 +213,7 @@ char Help[] =
 "       mdadm --grow options device\n"
 "            resize/reshape an active array\n"
 "       mdadm --incremental device\n"
-"            add a device to an array as appropriate\n"
+"            add/remove a device to/from an array as appropriate\n"
 "       mdadm --monitor options...\n"
 "            Monitor one or more array for significant changes.\n"
 "       mdadm device options...\n"
@@ -256,7 +256,7 @@ char OptionHelp[] =
 "  --examine-bitmap -X: Display the detail of a bitmap file\n"
 "  --monitor     -F   : monitor (follow) some arrays\n"
 "  --grow        -G   : resize/ reshape and array\n"
-"  --incremental -I   : add a single device to an array as appropriate\n"
+"  --incremental -I   : add/remove a single device to/from an array as appropriate\n"
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
 "  --auto-detect      : Start arrays auto-detected by the kernel\n"
@@ -535,20 +535,26 @@ char Help_grow[] =
 ;
 
 char Help_incr[] =
-"Usage: mdadm --incremental [-Rqrs] device\n"
+"Usage: mdadm --incremental [-Rqrsf] device\n"
 "\n"
 "This usage allows for incremental assembly of md arrays.  Devices can be\n"
 "added one at a time as they are discovered.  Once an array has all expected\n"
 "devices, it will be started.\n"
 "\n"
-"Options that are valid with incremental assembly (-I --incremental) more are:\n"
-"  --run         -R : run arrays as soon as a minimal number of devices are\n"
+"Optionally, the process can be reversed by using the fail option.\n"
+"When fail mode is invoked, mdadm will see if the device belongs to an array\n"
+"and then both fail (if needed) and remove the device from that array.\n"
+"\n"
+"Options that are valid with incremental assembly (-I --incremental) are:\n"
+"  --run         -R : Run arrays as soon as a minimal number of devices are\n"
 "                   : present rather than waiting for all expected.\n"
 "  --quiet       -q : Don't print any information messages, just errors.\n"
 "  --rebuild-map -r : Rebuild the 'map' file that mdadm uses for tracking\n"
 "                   : partial arrays.\n"
 "  --scan        -s : Use with -R to start any arrays that have the minimal\n"
 "                   : required number of devices, but are not yet started.\n"
+"  --fail      -f  : First fail (if needed) and then remove device from\n"
+"                  : any array that it is a member of.\n"
 ;
 
 char Help_config[] =

@@ -136,6 +136,10 @@ This provides a convenient interface to a
 system.  As each device is detected,
 .I mdadm
 has a chance to include it in some array as appropriate.
+Optionally, when the
+.I \-\-fail
+flag is passed in we will remove the device from any active array
+instead of adding it.
 
 If a
 .B CONTAINER
@@ -189,7 +193,7 @@ Change the size or shape of an active array.
 
 .TP
 .BR \-I ", " \-\-incremental
-Add a single device into an appropriate array, and possibly start the array.
+Add/remove a single device to/from an appropriate array, and possibly start the array.
 
 .TP
 .B \-\-auto-detect
@@ -1239,6 +1243,15 @@ in
 .B mdadm.conf
 as requiring an external bitmap, that bitmap will be attached first.
 
+.TP
+.BR \-\-fail ", " \-f
+This allows the hot-plug system to remove devices that have fully disappeared
+from the kernel.  It will first fail and then remove the device from any
+array it belongs to.
+The device name given should be a kernel device name such as "sda",
+not a name in
+.IR /dev .
+
 .SH For Monitor mode:
 .TP
 .BR \-m ", " \-\-mail
@@ -2145,6 +2158,10 @@ Usage:
 .I component-device
 .HP 12
 Usage:
+.B mdadm \-\-incremental \-\-fail
+.I component-device
+.HP 12
+Usage:
 .B mdadm \-\-incremental \-\-rebuild\-map
 .HP 12
 Usage:
@@ -2156,6 +2173,11 @@ discovery system.  As devices are found in a system, they can be
 passed to
 .B "mdadm \-\-incremental"
 to be conditionally added to an appropriate array.
+
+Conversely, it can also be used with the
+.B \-\-fail
+flag to do just the opposite and find whatever array a particular device
+is part of and remove the device from that array.
 
 If the device passed is a
 .B CONTAINER

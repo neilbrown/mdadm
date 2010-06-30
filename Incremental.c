@@ -849,3 +849,42 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 	map_unlock(&map);
 	return 0;
 }
+
+/*
+ * IncrementalRemove - Attempt to see if the passed in device belongs to any
+ * raid arrays, and if so first fail (if needed) and then remove the device.
+ *
+ * @devname - The device we want to remove
+ *
+ * Note: the device name must be a kernel name like "sda", so
+ * that we can find it in /proc/mdstat
+ */
+int IncrementalRemove(char *devname, int verbose)
+{
+	int mdfd;
+	struct mdstat_ent *ent;
+	struct mddev_dev_s devlist;
+
+	if (strchr(devname, '/')) {
+		fprintf(stderr, Name ": incremental removal requires a "
+			"kernel device name, not a file: %s\n", devname);
+		return 1;
+	}
+	ent = mdstat_by_component(devname);
+	if (!ent) {
+		fprintf(stderr, Name ": %s does not appear to be a component "
+			"of any array\n", devname);
+		return 1;
+	}
+	mdfd = open_dev(ent->devnum);
+	if (mdfd < 0) {
+		fprintf(stderr, Name ": Cannot open array %s!!\n", ent->dev);
+		return 1;
+	}
+	memset(&devlist, 0, sizeof(devlist));
+	devlist.devname = devname;
+	devlist.disposition = 'f';
+	Manage_subdevs(ent->dev, mdfd, &devlist, verbose);
+	devlist.disposition = 'r';
+	return Manage_subdevs(ent->dev, mdfd, &devlist, verbose);
+}

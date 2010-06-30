@@ -892,8 +892,8 @@ int Manage_subdevs(char *devname, int fd,
 			if (lfd >= 0)
 				close(lfd);
 			if (verbose >= 0)
-				fprintf(stderr, Name ": hot removed %s\n",
-					dnprintable);
+				fprintf(stderr, Name ": hot removed %s from %s\n",
+					dnprintable, devname);
 			break;
 
 		case 'f': /* set faulty */

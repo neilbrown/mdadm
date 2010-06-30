@@ -376,6 +376,7 @@ int Manage_subdevs(char *devname, int fd,
 		return 1;
 	}
 
+	stb.st_rdev = 0;
 	for (dv = devlist, j=0 ; dv; dv = next, j = jnext) {
 		unsigned long long ldsize;
 		char dvname[20];
@@ -394,6 +395,7 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 			for (; j < array.raid_disks + array.nr_disks ; j++) {
+				int dev;
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					continue;
@@ -401,9 +403,15 @@ int Manage_subdevs(char *devname, int fd,
 					continue;
 				if ((disc.state & 1) == 0) /* faulty */
 					continue;
-				stb.st_rdev = makedev(disc.major, disc.minor);
+				dev = makedev(disc.major, disc.minor);
+				if (stb.st_rdev == dev)
+					/* already did that one */
+					continue;
+				stb.st_rdev = dev;
 				next = dv;
-				jnext = j+1;
+				/* same slot again next time - things might
+				 * have reshuffled */
+				jnext = j;
 				sprintf(dvname,"%d:%d", disc.major, disc.minor);
 				dnprintable = dvname;
 				break;
@@ -419,6 +427,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			for (; j < array.raid_disks + array.nr_disks; j++) {
 				int sfd;
+				int dev;
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					continue;
@@ -435,9 +444,15 @@ int Manage_subdevs(char *devname, int fd,
 					continue;
 				if (errno != ENXIO)
 					continue;
-				stb.st_rdev = makedev(disc.major, disc.minor);
+				dev = makedev(disc.major, disc.minor);
+				if (stb.st_rdev == dev)
+					/* already did that one */
+					continue;
+				stb.st_rdev = dev;
 				next = dv;
-				jnext = j+1;
+				/* same slot again next time - things might
+				 * have reshuffled */
+				jnext = j;
 				dnprintable = dvname;
 				break;
 			}

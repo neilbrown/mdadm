@@ -339,6 +339,8 @@ int Manage_subdevs(char *devname, int fd,
 	 *  'f' - set the device faulty SET_DISK_FAULTY
 	 *        device can be 'detached' in which case any device that
 	 *	  is inaccessible will be marked faulty.
+	 * For 'f' and 'r', the device can also be a kernel-internal
+	 * name such as 'sdb'.
 	 */
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
@@ -351,6 +353,7 @@ int Manage_subdevs(char *devname, int fd,
 	int duuid[4];
 	int ouuid[4];
 	int lfd = -1;
+	int sysfd = -1;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
@@ -440,6 +443,40 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (jnext == 0)
 				continue;
+		} else if (strchr(dv->devname, '/') == NULL &&
+			   strlen(dv->devname) < 50) {
+			/* Assume this is a kernel-internal name like 'sda1' */
+			int found = 0;
+			char dname[55];
+			if (dv->disposition != 'r' && dv->disposition != 'f') {
+				fprintf(stderr, Name ": %s only meaningful "
+					"with -r of -f, not -%c\n",
+					dv->devname, dv->disposition);
+				return 1;
+			}
+
+			sprintf(dname, "dev-%s", dv->devname);
+			sysfd = sysfs_open(fd2devnum(fd), dname, "block/dev");
+			if (sysfd >= 0) {
+				char dn[20];
+				int mj,mn;
+				if (sysfs_fd_get_str(sysfd, dn, 20) > 0 &&
+				    sscanf(dn, "%d:%d", &mj,&mn) == 2) {
+					stb.st_rdev = makedev(mj,mn);
+					found = 1;
+				}
+				close(sysfd);
+				sysfd = -1;
+			}
+			if (!found) {
+				sysfd = sysfs_open(fd2devnum(fd), dname, "state");
+				if (sysfd < 0) {
+					fprintf(stderr, Name ": %s does not appear "
+						"to be a component of %s\n",
+						dv->devname, devname);
+					return 1;
+				}
+			}
 		} else {
 			j = 0;
 
@@ -751,6 +788,8 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": Cannot remove disks from a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
+				if (sysfd >= 0)
+					close(sysfd);
 				return 1;
 			}
 			if (tst->ss->external) {
@@ -769,6 +808,8 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name
 						": Cannot get exclusive access "
 						" to container - odd\n");
+					if (sysfd >= 0)
+						close(sysfd);
 					return 1;
 				}
 				/* in the detached case it is not possible to
@@ -776,6 +817,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * rely on the 'detached' checks
 				 */
 				if (strcmp(dv->devname, "detached") == 0 ||
+				    sysfd >= 0 ||
 				    sysfs_unique_holder(dnum, stb.st_rdev))
 					/* pass */;
 				else {
@@ -789,25 +831,38 @@ int Manage_subdevs(char *devname, int fd,
 				}
 			}
 			/* FIXME check that it is a current member */
-			err = ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev);
-			if (err && errno == ENODEV) {
-				/* Old kernels rejected this if no personality
-				 * registered */
-				struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
-				struct mdinfo *dv = NULL;
-				if (sra)
-					dv = sra->devs;
-				for ( ; dv ; dv=dv->next)
-					if (dv->disk.major == major(stb.st_rdev) &&
-					    dv->disk.minor == minor(stb.st_rdev))
-						break;
-				if (dv)
-					err = sysfs_set_str(sra, dv,
-							    "state", "remove");
-				else
+			if (sysfd >= 0) {
+				/* device has been removed and we don't know
+				 * the major:minor number
+				 */
+				int n = write(sysfd, "remove", 6);
+				if (n != 6)
 					err = -1;
-				if (sra)
-					sysfs_free(sra);
+				else
+					err = 0;
+				close(sysfd);
+				sysfd = -1;
+			} else {
+				err = ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev);
+				if (err && errno == ENODEV) {
+					/* Old kernels rejected this if no personality
+					 * registered */
+					struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
+					struct mdinfo *dv = NULL;
+					if (sra)
+						dv = sra->devs;
+					for ( ; dv ; dv=dv->next)
+						if (dv->disk.major == major(stb.st_rdev) &&
+						    dv->disk.minor == minor(stb.st_rdev))
+							break;
+					if (dv)
+						err = sysfs_set_str(sra, dv,
+								    "state", "remove");
+					else
+						err = -1;
+					if (sra)
+						sysfs_free(sra);
+				}
 			}
 			if (err) {
 				fprintf(stderr, Name ": hot remove failed "
@@ -834,7 +889,8 @@ int Manage_subdevs(char *devname, int fd,
 				ping_manager(name);
 				free(name);
 			}
-			close(lfd);
+			if (lfd >= 0)
+				close(lfd);
 			if (verbose >= 0)
 				fprintf(stderr, Name ": hot removed %s\n",
 					dnprintable);
@@ -842,11 +898,18 @@ int Manage_subdevs(char *devname, int fd,
 
 		case 'f': /* set faulty */
 			/* FIXME check current member */
-			if (ioctl(fd, SET_DISK_FAULTY, (unsigned long) stb.st_rdev)) {
+			if ((sysfd >= 0 && write(sysfd, "faulty", 6) != 6) ||
+			    (sysfd < 0 && ioctl(fd, SET_DISK_FAULTY,
+						(unsigned long) stb.st_rdev))) {
 				fprintf(stderr, Name ": set device faulty failed for %s:  %s\n",
 					dnprintable, strerror(errno));
+				if (sysfd >= 0)
+					close(sysfd);
 				return 1;
 			}
+			if (sysfd >= 0)
+				close(sysfd);
+			sysfd = -1;
 			if (verbose >= 0)
 				fprintf(stderr, Name ": set %s faulty in %s\n",
 					dnprintable, devname);

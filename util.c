@@ -302,6 +302,31 @@ void remove_partitions(int fd)
 #endif
 }
 
+int test_partition(int fd)
+{
+	/* Check if fd is a whole-disk or a partition.
+	 * BLKPG will return EINVAL on a partition, and BLKPG_DEL_PARTITION
+	 * will return ENXIO on an invalid partition number.
+	 */
+	struct blkpg_ioctl_arg a;
+	struct blkpg_partition p;
+	a.op = BLKPG_DEL_PARTITION;
+	a.data = (void*)&p;
+	a.datalen = sizeof(p);
+	a.flags = 0;
+	memset(a.data, 0, a.datalen);
+	p.pno = 1<<30;
+	if (ioctl(fd, BLKPG, &a) == 0)
+		/* Very unlikely, but not a partition */
+		return 0;
+	if (errno == ENXIO)
+		/* not a partition */
+		return 0;
+
+	return 1;
+}
+
+
 int enough(int level, int raid_disks, int layout, int clean,
 	   char *avail, int avail_disks)
 {
@@ -1365,6 +1390,143 @@ int open_container(int fd)
 	}
 	closedir(dir);
 	return -1;
+}
+
+struct superswitch *version_to_superswitch(char *vers)
+{
+	int i;
+
+	for (i = 0; superlist[i]; i++) {
+		struct superswitch *ss = superlist[i];
+
+		if (strcmp(vers, ss->name) == 0)
+			return ss;
+	}
+
+	return NULL;
+}
+
+int is_container_member(struct mdstat_ent *mdstat, char *container)
+{
+	if (mdstat->metadata_version == NULL ||
+	    strncmp(mdstat->metadata_version, "external:", 9) != 0 ||
+	    !is_subarray(mdstat->metadata_version+9) ||
+	    strncmp(mdstat->metadata_version+10, container, strlen(container)) != 0 ||
+	    mdstat->metadata_version[10+strlen(container)] != '/')
+		return 0;
+
+	return 1;
+}
+
+int is_subarray_active(char *subarray, char *container)
+{
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
+	struct mdstat_ent *ent;
+
+	for (ent = mdstat; ent; ent = ent->next) {
+		if (is_container_member(ent, container)) {
+			char *inst = &ent->metadata_version[10+strlen(container)+1];
+
+			if (strcmp(inst, subarray) == 0)
+				break;
+		}
+	}
+
+	free_mdstat(mdstat);
+
+	return ent != NULL;
+}
+
+/* open_subarray - opens a subarray in a container
+ * @dev: container device name
+ * @st: supertype with only ->subarray set
+ * @quiet: block reporting errors flag
+ *
+ * On success returns an fd to a container and fills in *st
+ */
+int open_subarray(char *dev, struct supertype *st, int quiet)
+{
+	struct mdinfo *mdi;
+	int fd, err = 1;
+
+	fd = open(dev, O_RDWR|O_EXCL);
+	if (fd < 0) {
+		if (!quiet)
+			fprintf(stderr, Name ": Couldn't open %s, aborting\n",
+				dev);
+		return 2;
+	}
+
+	st->devnum = fd2devnum(fd);
+	if (st->devnum == NoMdDev) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Failed to determine device number for %s\n",
+				dev);
+		goto close_fd;
+	}
+
+	mdi = sysfs_read(fd, st->devnum, GET_VERSION|GET_LEVEL);
+	if (!mdi) {
+		if (!quiet)
+			fprintf(stderr, Name ": Failed to read sysfs for %s\n",
+				dev);
+		goto close_fd;
+	}
+
+	if (mdi->array.level != UnSet) {
+		if (!quiet)
+			fprintf(stderr, Name ": %s is not a container\n", dev);
+		goto free_sysfs;
+	}
+
+	st->ss = version_to_superswitch(mdi->text_version);
+	if (!st->ss) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Operation not supported for %s metadata\n",
+				mdi->text_version);
+		goto free_sysfs;
+	}
+
+	st->devname = devnum2devname(st->devnum);
+	if (!st->devname) {
+		if (!quiet)
+			fprintf(stderr, Name ": Failed to allocate device name\n");
+		goto free_sysfs;
+	}
+
+	if (st->ss->load_super(st, fd, NULL)) {
+		if (!quiet)
+			fprintf(stderr, Name ": Failed to find subarray-%s in %s\n",
+				st->subarray, dev);
+		goto free_name;
+	}
+
+	if (!st->loaded_container) {
+		if (!quiet)
+			fprintf(stderr, Name ": %s is not a container\n", dev);
+		goto free_super;
+	}
+
+	err = 0;
+
+ free_super:
+	if (err)
+		st->ss->free_super(st);
+ free_name:
+	if (err)
+		free(st->devname);
+ free_sysfs:
+	sysfs_free(mdi);
+ close_fd:
+	if (err)
+		close(fd);
+
+	if (err)
+		return -1;
+	else
+		return fd;
 }
 
 int add_disk(int mdfd, struct supertype *st,

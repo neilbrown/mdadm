@@ -205,7 +205,9 @@ struct mdinfo {
 	int container_member; /* for assembling external-metatdata arrays
 			       * This is to be used internally by metadata
 			       * handler only */
-
+	int container_enough; /* flag external handlers can set to
+			       * indicate that subarrays have not enough (-1),
+			       * enough to start (0), or all expected disks (1) */
 	char 		sys_name[20];
 	struct mdinfo *devs;
 	struct mdinfo *next;
@@ -405,7 +407,6 @@ enum sysfs_read_flags {
 	GET_SIZE	= (1 << 12),
 	GET_STATE	= (1 << 13),
 	GET_ERROR	= (1 << 14),
-	SKIP_GONE_DEVS	= (1 << 15),
 };
 
 /* If fd >= 0, get the array it is open on,

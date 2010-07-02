@@ -1669,7 +1669,11 @@ int mdmon_pid(int devnum)
 	char pid[10];
 	int fd;
 	int n;
-	sprintf(path, "%s/%s.pid", pid_dir, devnum2devname(devnum));
+	char *devname = devnum2devname(devnum);
+
+	sprintf(path, "%s/%s.pid", pid_dir, devname);
+	free(devname);
+
 	fd = open(path, O_RDONLY | O_NOATIME, 0);
 
 	if (fd < 0)

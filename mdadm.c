@@ -691,7 +691,6 @@ int main(int argc, char *argv[])
 		"     'summaries', 'homehost', 'byteorder', 'devicesize'.\n");
 			exit(outf == stdout ? 0 : 2);
 
-		case O(INCREMENTAL,NoDegraded):
 		case O(ASSEMBLE,NoDegraded): /* --no-degraded */
 			runstop = -1; /* --stop isn't allowed for --assemble,
 				       * so we overload slightly */

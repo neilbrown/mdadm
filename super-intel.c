@@ -357,7 +357,6 @@ static struct imsm_disk *__get_imsm_disk(struct imsm_super *mpb, __u8 index)
 	return &mpb->disk[index];
 }
 
-#ifndef MDASSEMBLE
 /* retrieve a disk from the parsed metadata */
 static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
 {
@@ -369,7 +368,6 @@ static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
 	
 	return NULL;
 }
-#endif
 
 /* generate a checksum directly from the anchor when the anchor is known to be
  * up-to-date, currently only at load or write_super after coalescing
@@ -1547,6 +1545,20 @@ static void fixup_container_spare_uuid(struct mdinfo *inf)
 	}
 }
 
+
+static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev, int failed);
+static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev);
+
+static struct imsm_disk *get_imsm_missing(struct intel_super *super, __u8 index)
+{
+	struct dl *d;
+
+	for (d = super->missing; d; d = d->next)
+		if (d->index == index)
+			return &d->disk;
+	return NULL;
+}
+
 static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 {
 	struct intel_super *super = st->sb;
@@ -1580,6 +1592,53 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 	info->disk.state = 0;
 	info->name[0] = 0;
 	info->recovery_start = MaxSector;
+
+	/* do we have the all the insync disks that we expect? */
+	if (st->loaded_container) {
+		struct imsm_super *mpb = super->anchor;
+		int max_enough = -1, i;
+
+		for (i = 0; i < mpb->num_raid_devs; i++) {
+			struct imsm_dev *dev = get_imsm_dev(super, i);
+			int failed, enough, j, missing = 0;
+			struct imsm_map *map;
+			__u8 state;
+
+			failed = imsm_count_failed(super, dev);
+			state = imsm_check_degraded(super, dev, failed);
+			map = get_imsm_map(dev, dev->vol.migr_state);
+
+			/* any newly missing disks?
+			 * (catches single-degraded vs double-degraded)
+			 */
+			for (j = 0; j < map->num_members; j++) {
+				__u32 ord = get_imsm_ord_tbl_ent(dev, i);
+				__u32 idx = ord_to_idx(ord);
+
+				if (!(ord & IMSM_ORD_REBUILD) &&
+				    get_imsm_missing(super, idx)) {
+					missing = 1;
+					break;
+				}
+			}
+
+			if (state == IMSM_T_STATE_FAILED)
+				enough = -1;
+			else if (state == IMSM_T_STATE_DEGRADED &&
+				 (state != map->map_state || missing))
+				enough = 0;
+			else /* we're normal, or already degraded */
+				enough = 1;
+
+			/* in the missing/failed disk case check to see
+			 * if at least one array is runnable
+			 */
+			max_enough = max(max_enough, enough);
+		}
+		dprintf("%s: enough: %d\n", __func__, max_enough);
+		info->container_enough = max_enough;
+	} else
+		info->container_enough = -1;
 
 	if (super->disks) {
 		__u32 reserved = imsm_reserved_sectors(super, super->disks);
@@ -2707,14 +2766,9 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	int retry;
 	int err = 0;
 	int i;
-	enum sysfs_read_flags flags;
-
-	flags = GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE;
-	if (mdmon_running(devnum))
-		flags |= SKIP_GONE_DEVS;
 
 	/* check if 'fd' an opened container */
-	sra = sysfs_read(fd, 0, flags);
+	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 
@@ -4231,6 +4285,15 @@ static void update_recovery_start(struct imsm_dev *dev, struct mdinfo *array)
 			rebuild = d;
 		}
 
+	if (!rebuild) {
+		/* (?) none of the disks are marked with
+		 * IMSM_ORD_REBUILD, so assume they are missing and the
+		 * disk_ord_tbl was not correctly updated
+		 */
+		dprintf("%s: failed to locate out-of-sync disk\n", __func__);
+		return;
+	}
+
 	units = __le32_to_cpu(dev->vol.curr_migr_unit);
 	rebuild->recovery_start = units * blocks_per_migr_unit(dev);
 }
@@ -4362,24 +4425,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 }
 
 
-#ifndef MDASSEMBLE
-static int imsm_open_new(struct supertype *c, struct active_array *a,
-			 char *inst)
-{
-	struct intel_super *super = c->sb;
-	struct imsm_super *mpb = super->anchor;
-	
-	if (atoi(inst) >= mpb->num_raid_devs) {
-		fprintf(stderr, "%s: subarry index %d, out of range\n",
-			__func__, atoi(inst));
-		return -ENODEV;
-	}
-
-	dprintf("imsm: open_new %s\n", inst);
-	a->info.container_member = atoi(inst);
-	return 0;
-}
-
 static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev, int failed)
 {
 	struct imsm_map *map = get_imsm_map(dev, 0);
@@ -4476,6 +4521,24 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 	}
 
 	return failed;
+}
+
+#ifndef MDASSEMBLE
+static int imsm_open_new(struct supertype *c, struct active_array *a,
+			 char *inst)
+{
+	struct intel_super *super = c->sb;
+	struct imsm_super *mpb = super->anchor;
+	
+	if (atoi(inst) >= mpb->num_raid_devs) {
+		fprintf(stderr, "%s: subarry index %d, out of range\n",
+			__func__, atoi(inst));
+		return -ENODEV;
+	}
+
+	dprintf("imsm: open_new %s\n", inst);
+	a->info.container_member = atoi(inst);
+	return 0;
 }
 
 static int is_resyncing(struct imsm_dev *dev)

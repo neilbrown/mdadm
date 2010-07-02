@@ -1365,6 +1365,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 							 (ddf->anchor.guid+16));
 	info->array.utime	  = 0;
 	info->array.chunk_size	  = 0;
+	info->container_enough	  = 0;
 
 
 	info->disk.major = 0;
@@ -2814,14 +2815,8 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	int seq;
 	char nm[20];
 	int dfd;
-	int devnum = fd2devnum(fd);
-	enum sysfs_read_flags flags;
 
-	flags = GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE;
-	if (mdmon_running(devnum))
-		flags |= SKIP_GONE_DEVS;
-
-	sra = sysfs_read(fd, 0, flags);
+	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 	if (sra->array.major_version != -1 ||

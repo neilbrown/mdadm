@@ -258,6 +258,15 @@ int Incremental(char *devname, int verbose, int runstop,
 		autof = ci->autof;
 
 	if (st->ss->container_content && st->loaded_container) {
+		if ((runstop > 0 && info.container_enough >= 0) ||
+		    info.container_enough > 0)
+			/* pass */;
+		else {
+			if (verbose)
+				fprintf(stderr, Name ": not enough devices to start the container\n");
+			return 1;
+		}
+
 		/* This is a pre-built container array, so we do something
 		 * rather different.
 		 */
@@ -360,6 +369,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			strcpy(chosen_name, devnum2devname(mp->devnum));
 
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
+		if (!sra)
+			return 2;
 
 		if (sra->devs) {
 			sprintf(dn, "%d:%d", sra->devs->disk.major,
@@ -428,8 +439,6 @@ int Incremental(char *devname, int verbose, int runstop,
 				chosen_name, info.array.working_disks);
 		wait_for(chosen_name, mdfd);
 		close(mdfd);
-		if (runstop < 0)
-			return 0; /* don't try to assemble */
 		rv = Incremental(chosen_name, verbose, runstop,
 				 NULL, homehost, require_homehost, autof);
 		if (rv == 1)
@@ -443,8 +452,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	active_disks = count_active(st, mdfd, &avail, &info);
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
-		   avail, active_disks) == 0 ||
-	    (runstop < 0 && active_disks < info.array.raid_disks)) {
+		   avail, active_disks) == 0) {
 		free(avail);
 		if (verbose >= 0)
 			fprintf(stderr, Name
@@ -579,6 +587,9 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 	__u64 max_events = 0;
 	struct mdinfo *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
 	char *avail = NULL;
+
+	if (!sra)
+		return 0;
 
 	for (d = sra->devs ; d ; d = d->next) {
 		char dn[30];

@@ -157,8 +157,9 @@ mdadm.O2 : $(SRCS) mdadm.h mdmon.O2
 mdmon.O2 : $(MON_SRCS) mdadm.h mdmon.h
 	$(CC) -o mdmon.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
+# use '-z now' to guarantee no dynamic linker interactions with the monitor thread
 mdmon : $(MON_OBJS)
-	$(CC) $(LDFLAGS) -o mdmon $(MON_OBJS) $(LDLIBS)
+	$(CC) $(LDFLAGS) -z now -o mdmon $(MON_OBJS) $(LDLIBS)
 msg.o: msg.c msg.h
 
 test_stripe : restripe.c mdadm.h

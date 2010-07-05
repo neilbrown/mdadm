@@ -75,7 +75,7 @@ char DefaultConfFile[] = CONFFILE;
 char DefaultAltConfFile[] = CONFFILE2;
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
-		Homehost, AutoMode, LTEnd };
+		Homehost, AutoMode, Policy, PartPolicy, LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -85,6 +85,8 @@ char *keywords[] = {
 	[CreateDev]= "create",
 	[Homehost] = "homehost",
 	[AutoMode] = "auto",
+	[Policy]   = "policy",
+	[PartPolicy]="part-policy",
 	[LTEnd]    = NULL
 };
 
@@ -766,6 +768,12 @@ void load_conffile(void)
 			break;
 		case AutoMode:
 			autoline(line);
+			break;
+		case Policy:
+			policyline(line, rule_policy);
+			break;
+		case PartPolicy:
+			policyline(line, rule_part);
 			break;
 		default:
 			fprintf(stderr, Name ": Unknown keyword %s\n", line);

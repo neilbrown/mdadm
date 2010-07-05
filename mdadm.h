@@ -734,6 +734,64 @@ extern void get_one_disk(int mdfd, mdu_array_info_t *ainf,
 			 mdu_disk_info_t *disk);
 void wait_for(char *dev, int fd);
 
+/*
+ * Data structures for policy management.
+ * Each device can have a policy structure that lists
+ * various name/value pairs each possibly with a metadata associated.
+ * The policy list is sorted by name/value/metadata
+ */
+struct dev_policy {
+	struct dev_policy *next;
+	char *name;	/* None of these strings are allocated.  They are
+			 * all just references to strings which are known
+			 * to exist elsewhere.
+			 * name and metadata can be compared by address equality.
+			 */
+	const char *metadata;
+	char *value;
+};
+
+extern char pol_act[], pol_domain[], pol_metadata[];
+
+/* iterate over the sublist starting at list, having the same
+ * 'name' as 'list', and matching the given metadata (Where
+ * NULL matches anything
+ */
+#define pol_for_each(item, list, _metadata)				\
+	for (item = list;						\
+	     item && item->name == list->name;				\
+	     item = item->next)						\
+		if (!(!_metadata || !item->metadata || _metadata == item->metadata)) \
+			; else
+
+/*
+ * policy records read from mdadm are largely just name-value pairs.
+ * The names are constants, not strdupped
+ */
+struct pol_rule {
+	struct pol_rule *next;
+	char *type;	/* rule_policy or rule_part */
+	struct rule {
+		struct rule *next;
+		char *name;
+		char *value;
+		char *dups; /* duplicates of 'value' with a partNN appended */
+	} *rule;
+};
+
+extern char rule_policy[], rule_part[];
+extern char rule_path[], rule_type[];
+extern char type_part[], type_disk[];
+
+extern void policyline(char *line, char *type);
+extern void policy_free(void);
+
+extern struct dev_policy *disk_policy(struct mdinfo *disk);
+extern void dev_policy_free(struct dev_policy *p);
+
+extern void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata);
+extern struct dev_policy *pol_find(struct dev_policy *pol, char *name);
+
 #if __GNUC__ < 3
 struct stat64;
 #endif

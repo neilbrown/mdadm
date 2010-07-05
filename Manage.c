@@ -342,6 +342,7 @@ int Manage_subdevs(char *devname, int fd,
 	 * For 'f' and 'r', the device can also be a kernel-internal
 	 * name such as 'sdb'.
 	 */
+	mddev_dev_t add_devlist = NULL;
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
 	unsigned long long array_size;
@@ -381,6 +382,7 @@ int Manage_subdevs(char *devname, int fd,
 		unsigned long long ldsize;
 		char dvname[20];
 		char *dnprintable = dv->devname;
+		char *add_dev = dv->devname;
 		int err;
 
 		next = dv->next;
@@ -458,6 +460,24 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (jnext == 0)
 				continue;
+		} else if (strcmp(dv->devname, "missing") == 0) {
+			if (dv->disposition != 'a' || dv->re_add == 0) {
+				fprintf(stderr, Name ": 'missing' only meaningful "
+					"with --re-add\n");
+				return 1;
+			}
+			if (add_devlist == NULL)
+				add_devlist = conf_get_devs();
+			if (add_devlist == NULL) {
+				fprintf(stderr, Name ": no devices to scan for missing members.");
+				continue;
+			}
+			add_dev = add_devlist->devname;
+			add_devlist = add_devlist->next;
+			if (add_devlist != NULL)
+				next = dv;
+			if (stat(add_dev, &stb) < 0)
+				continue;
 		} else if (strchr(dv->devname, '/') == NULL &&
 			   strlen(dv->devname) < 50) {
 			/* Assume this is a kernel-internal name like 'sda1' */
@@ -533,39 +553,44 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 			/* Make sure it isn't in use (in 2.6 or later) */
-			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL|O_DIRECT);
+			tfd = dev_open(add_dev, O_RDONLY|O_EXCL|O_DIRECT);
+			if (tfd < 0 && add_dev != dv->devname)
+				continue;
 			if (tfd < 0) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
 				return 1;
 			}
-			remove_partitions(tfd);
 
 			st = dup_super(tst);
 
 			if (array.not_persistent==0)
 				st->ss->load_super(st, tfd, NULL);
 
-			if (!get_dev_size(tfd, dv->devname, &ldsize)) {
+			if (add_dev == dv->devname) {
+				if (!get_dev_size(tfd, dv->devname, &ldsize)) {
+					close(tfd);
+					return 1;
+				}
+			} else if (!get_dev_size(tfd, NULL, &ldsize)) {
 				close(tfd);
-				return 1;
+				continue;
 			}
-			close(tfd);
-
 
 			if (!tst->ss->external &&
 			    array.major_version == 0 &&
 			    md_get_version(fd)%100 < 2) {
+				close(tfd);
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
 					if (verbose >= 0)
 						fprintf(stderr, Name ": hot added %s\n",
-							dv->devname);
+							add_dev);
 					continue;
 				}
 
 				fprintf(stderr, Name ": hot add failed for %s: %s\n",
-					dv->devname, strerror(errno));
+					add_dev, strerror(errno));
 				return 1;
 			}
 
@@ -576,7 +601,9 @@ int Manage_subdevs(char *devname, int fd,
 				 * For 'external' array (well, container based),
 				 * We can just load the metadata for the array.
 				 */
-				if (tst->ss->external) {
+				if (tst->sb)
+					/* already loaded */;
+				else if (tst->ss->external) {
 					tst->ss->load_super(tst, fd, NULL);
 				} else for (j = 0; j < tst->max_devs; j++) {
 					char *dev;
@@ -602,6 +629,7 @@ int Manage_subdevs(char *devname, int fd,
 				}
 				/* FIXME this is a bad test to be using */
 				if (!tst->sb) {
+					close(tfd);
 					fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
 					return 1;
 				}
@@ -609,6 +637,9 @@ int Manage_subdevs(char *devname, int fd,
 				/* Make sure device is large enough */
 				if (tst->ss->avail_size(tst, ldsize/512) <
 				    array_size) {
+					close(tfd);
+					if (add_dev != dv->devname)
+						continue;
 					fprintf(stderr, Name ": %s not large enough to join array\n",
 						dv->devname);
 					return 1;
@@ -644,23 +675,40 @@ int Manage_subdevs(char *devname, int fd,
 							disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 						if (dv->writemostly == 2)
 							disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
+						remove_partitions(tfd);
+						close(tfd);
+						tfd = -1;
 						/* don't even try if disk is marked as faulty */
 						errno = 0;
 						if ((disc.state & 1) == 0 &&
 						    ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
-								fprintf(stderr, Name ": re-added %s\n", dv->devname);
+								fprintf(stderr, Name ": re-added %s\n", add_dev);
 							continue;
 						}
 						if (errno == ENOMEM || errno == EROFS) {
+							close(tfd);
 							fprintf(stderr, Name ": add new device failed for %s: %s\n",
-								dv->devname, strerror(errno));
+								add_dev, strerror(errno));
+							if (add_dev != dv->devname)
+								continue;
 							return 1;
 						}
 						/* fall back on normal-add */
 					}
 				}
+				if (add_dev != dv->devname) {
+					if (verbose > 0)
+						fprintf(stderr, Name
+							": --re-add for %s to %s is not possible\n",
+							add_dev, devname);
+					if (tfd >= 0)
+						close(tfd);
+					continue;
+				}
 				if (dv->re_add) {
+					if (tfd >= 0)
+						close(tfd);
 					fprintf(stderr, Name
 						": --re-add for %s to %s is not possible\n",
 						dv->devname, devname);
@@ -675,6 +723,11 @@ int Manage_subdevs(char *devname, int fd,
 						dv->devname);
 					return 1;
 				}
+			}
+			/* committed to really trying this device now*/
+			if (tfd >= 0) {
+				remove_partitions(tfd);
+				close(tfd);
 			}
 			/* in 2.6.17 and earlier, version-1 superblocks won't
 			 * use the number we write, but will choose a free number.

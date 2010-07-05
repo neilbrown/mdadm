@@ -1018,15 +1018,23 @@ immediately start recovering data on to one of these spares.
 
 .TP
 .BR \-\-re\-add
-re-add a device that was recently removed from an array.  This is only
-needed for arrays that have be built (i.e. with
+re\-add a device that was recently removed from an array.  This is
+normally only needed for arrays that have be built (i.e. with
 .BR --build ).
-For created arrays, devices are always re-added if that is possible.
-When re-adding a device, if nothing has changed on the array since the
+For created arrays, devices are always re\-added if that is possible,
+however using \-\-re\-add will ensure the device isn't made into a
+spare if the \-\-re\-add failed.
+
+When re\-adding a device, if nothing has changed on the array since the
 device was removed, no recovery is performed.  Also, if the array has
-a write-intent bitmap, then the recovery performed after a re-add will
+a write-intent bitmap, then the recovery performed after a re\-add will
 be limited to those blocks which, according to the bitmap, might have
 changed since the device was removed.
+
+If the device name given is
+.B missing
+then mdadm will try to find any device that looks like it should be
+part of the array but isn't and will try to re\-add all such devices.
 
 .TP
 .BR \-r ", " \-\-remove
@@ -1062,12 +1070,12 @@ same as
 
 .TP
 .BR \-\-write\-mostly
-Subsequent devices that are added or re-added will have the 'write-mostly'
+Subsequent devices that are added or re\-added will have the 'write-mostly'
 flag set.  This is only valid for RAID1 and means that the 'md' driver
 will avoid reading from these devices if possible.
 .TP
 .BR \-\-readwrite
-Subsequent devices that are added or re-added will have the 'write-mostly'
+Subsequent devices that are added or re\-added will have the 'write-mostly'
 flag cleared.
 
 .P
@@ -1082,7 +1090,7 @@ Each operation applies to all devices listed until the next
 operation.
 
 If an array is using a write-intent bitmap, then devices which have
-been removed can be re-added in a way that avoids a full
+been removed can be re\-added in a way that avoids a full
 reconstruction but instead just updates the blocks that have changed
 since the device was removed.  For arrays with persistent metadata
 (superblocks) this is done automatically.  For arrays created with
@@ -1691,7 +1699,7 @@ command.
 
 When a device is added to an active array, mdadm checks to see if it
 has metadata on it which suggests that it was recently a member of the
-array.  If it does, it tried to "re-add" the device.  If there have
+array.  If it does, it tries to "re\-add" the device.  If there have
 been no changes since the device was removed, or if the array has a
 write-intent bitmap which has recorded whatever changes there were,
 then the device will immediately become a full member of the array and

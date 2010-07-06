@@ -883,6 +883,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 int IncrementalRemove(char *devname, int verbose)
 {
 	int mdfd;
+	int rv;
 	struct mdstat_ent *ent;
 	struct mddev_dev_s devlist;
 
@@ -907,5 +908,7 @@ int IncrementalRemove(char *devname, int verbose)
 	devlist.disposition = 'f';
 	Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
 	devlist.disposition = 'r';
-	return Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
+	rv = Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
+	close(mdfd);
+	return rv;
 }

@@ -104,15 +104,6 @@ int __clone2(int (*fn)(void *),
 	return mon_tid;
 }
 
-static struct superswitch *find_metadata_methods(char *vers)
-{
-	if (strcmp(vers, "ddf") == 0)
-		return &super_ddf;
-	if (strcmp(vers, "imsm") == 0)
-		return &super_imsm;
-	return NULL;
-}
-
 static int make_pidfile(char *devname)
 {
 	char path[100];
@@ -134,18 +125,6 @@ static int make_pidfile(char *devname)
 	if (n < 0)
 		return -errno;
 	return 0;
-}
-
-int is_container_member(struct mdstat_ent *mdstat, char *container)
-{
-	if (mdstat->metadata_version == NULL ||
-	    strncmp(mdstat->metadata_version, "external:", 9) != 0 ||
-	    !is_subarray(mdstat->metadata_version+9) ||
-	    strncmp(mdstat->metadata_version+10, container, strlen(container)) != 0 ||
-	    mdstat->metadata_version[10+strlen(container)] != '/')
-		return 0;
-
-	return 1;
 }
 
 static void try_kill_monitor(pid_t pid, char *devname, int sock)
@@ -394,8 +373,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 		exit(3);
 	}
 
-	mdi = sysfs_read(mdfd, container->devnum,
-			 GET_VERSION|GET_LEVEL|GET_DEVS|SKIP_GONE_DEVS);
+	mdi = sysfs_read(mdfd, container->devnum, GET_VERSION|GET_LEVEL|GET_DEVS);
 
 	if (!mdi) {
 		fprintf(stderr, "mdmon: failed to load sysfs info for %s\n",
@@ -414,9 +392,9 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 		exit(3);
 	}
 
-	container->ss = find_metadata_methods(mdi->text_version);
+	container->ss = version_to_superswitch(mdi->text_version);
 	if (container->ss == NULL) {
-		fprintf(stderr, "mdmon: %s uses unknown metadata: %s\n",
+		fprintf(stderr, "mdmon: %s uses unsupported metadata: %s\n",
 			devname, mdi->text_version);
 		exit(3);
 	}

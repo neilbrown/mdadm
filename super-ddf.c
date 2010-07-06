@@ -845,10 +845,18 @@ static int load_super_ddf(struct supertype *st, int fd,
 	}
 
 	if (st->subarray[0]) {
+		unsigned long val;
 		struct vcl *v;
+		char *ep;
+
+		val = strtoul(st->subarray, &ep, 10);
+		if (*ep != '\0') {
+			free(super);
+			return 1;
+		}
 
 		for (v = super->conflist; v; v = v->next)
-			if (v->vcnum == atoi(st->subarray))
+			if (v->vcnum == val)
 				super->currentconf = v;
 		if (!super->currentconf) {
 			free(super);
@@ -2807,14 +2815,8 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	int seq;
 	char nm[20];
 	int dfd;
-	int devnum = fd2devnum(fd);
-	enum sysfs_read_flags flags;
 
-	flags = GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE;
-	if (mdmon_running(devnum))
-		flags |= SKIP_GONE_DEVS;
-
-	sra = sysfs_read(fd, 0, flags);
+	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 	if (sra->array.major_version != -1 ||
@@ -2871,14 +2873,25 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 			return 1;
 	}
 	if (st->subarray[0]) {
+		unsigned long val;
 		struct vcl *v;
+		char *ep;
+
+		val = strtoul(st->subarray, &ep, 10);
+		if (*ep != '\0') {
+			free(super);
+			return 1;
+		}
 
 		for (v = super->conflist; v; v = v->next)
-			if (v->vcnum == atoi(st->subarray))
+			if (v->vcnum == val)
 				super->currentconf = v;
-		if (!super->currentconf)
+		if (!super->currentconf) {
+			free(super);
 			return 1;
+		}
 	}
+
 	*sbp = super;
 	if (st->ss == NULL) {
 		st->ss = &super_ddf;

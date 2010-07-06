@@ -315,7 +315,7 @@ static void manage_container(struct mdstat_ent *mdstat,
 		 * To see what is removed and what is added.
 		 * These need to be remove from, or added to, the array
 		 */
-		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS|SKIP_GONE_DEVS);
+		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS);
 		if (!mdi) {
 			/* invalidate the current count so we can try again */
 			container->devcnt = -1;
@@ -540,6 +540,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
 	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
 	new->metadata_fd = sysfs_open(new->devnum, NULL, "metadata_version");
+	new->sync_completed_fd = sysfs_open(new->devnum, NULL, "sync_completed");
 	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
 		new->action_fd, new->info.state_fd);
 

@@ -260,6 +260,7 @@ extern char Version[], Usage[], Help[], OptionHelp[],
 
 /* for option that don't have short equivilents, we assign arbitrary
  * small numbers.  '1' means an undecorated option, so we start at '2'.
+ * (note we must stop before we get to 65 i.e. 'A')
  */
 enum special_options {
 	AssumeClean = 2,
@@ -268,13 +269,15 @@ enum special_options {
 	ReAdd,
 	NoDegraded,
 	Sparc22,
-	BackupFile,
+	BackupFile, /* 8 */
 	HomeHost,
 	AutoHomeHost,
 	Symlinks,
 	AutoDetect,
 	Waitclean,
 	DetailPlatform,
+	KillSubarray,
+	UpdateSubarray, /* 16 */
 };
 
 /* structures read from config file */
@@ -409,7 +412,6 @@ enum sysfs_read_flags {
 	GET_SIZE	= (1 << 12),
 	GET_STATE	= (1 << 13),
 	GET_ERROR	= (1 << 14),
-	SKIP_GONE_DEVS	= (1 << 15),
 };
 
 /* If fd >= 0, get the array it is open on,
@@ -616,6 +618,12 @@ extern struct superswitch {
 	struct mdinfo *(*container_content)(struct supertype *st);
 	/* Allow a metadata handler to override mdadm's default layouts */
 	int (*default_layout)(int level); /* optional */
+	/* query the supertype for default chunk size */
+	int (*default_chunk)(struct supertype *st); /* optional */
+	/* Permit subarray's to be deleted from inactive containers */
+	int (*kill_subarray)(struct supertype *st); /* optional */
+	/* Permit subarray's to be modified */
+	int (*update_subarray)(struct supertype *st, char *update, mddev_ident_t ident); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,
@@ -812,6 +820,8 @@ extern int Monitor(mddev_dev_t devlist,
 		   int dosyslog, int test, char *pidfile, int increments);
 
 extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
+extern int Kill_subarray(char *dev, char *subarray, int quiet);
+extern int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 
@@ -918,6 +928,10 @@ extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
 #define	METADATA 3
 extern int open_mddev(char *dev, int report_errors);
 extern int open_container(int fd);
+extern int is_container_member(struct mdstat_ent *ent, char *devname);
+extern int is_subarray_active(char *subarray, char *devname);
+extern int open_subarray(char *dev, struct supertype *st, int quiet);
+extern struct superswitch *version_to_superswitch(char *vers);
 
 extern char *pid_dir;
 extern int mdmon_running(int devnum);

@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 	int dosyslog = 0;
 	int rebuild_map = 0;
 	int auto_update_home = 0;
+	char *subarray = NULL;
 
 	int print_help = 0;
 	FILE *outf;
@@ -216,6 +217,15 @@ int main(int argc, char *argv[])
 		case 'W':
 		case Waitclean:
 		case DetailPlatform:
+		case KillSubarray:
+		case UpdateSubarray:
+			if (opt == KillSubarray || opt == UpdateSubarray) {
+				if (subarray) {
+					fprintf(stderr, Name ": subarray can only be specified once\n");
+					exit(2);
+				}
+				subarray = optarg;
+			}
 		case 'K': if (!mode) newmode = MISC; break;
 		}
 		if (mode && newmode == mode) {
@@ -589,9 +599,14 @@ int main(int argc, char *argv[])
 
 		case O(CREATE,'N'):
 		case O(ASSEMBLE,'N'):
+		case O(MISC,'N'):
 			if (ident.name[0]) {
 				fprintf(stderr, Name ": name cannot be set twice.   "
 					"Second value %s.\n", optarg);
+				exit(2);
+			}
+			if (mode == MISC && !subarray) {
+				fprintf(stderr, Name ": -N/--name only valid with --update-subarray in misc mode\n");
 				exit(2);
 			}
 			if (strlen(optarg) > 32) {
@@ -620,9 +635,14 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(ASSEMBLE,'U'): /* update the superblock */
+		case O(MISC,'U'):
 			if (update) {
 				fprintf(stderr, Name ": Can only update one aspect of superblock, both %s and %s given.\n",
 					update, optarg);
+				exit(2);
+			}
+			if (mode == MISC && !subarray) {
+				fprintf(stderr, Name ": Only subarrays can be updated in misc mode\n");
 				exit(2);
 			}
 			update = optarg;
@@ -812,10 +832,21 @@ int main(int argc, char *argv[])
 		case O(MISC,'W'):
 		case O(MISC, Waitclean):
 		case O(MISC, DetailPlatform):
+		case O(MISC, KillSubarray):
+		case O(MISC, UpdateSubarray):
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
-				fprintf(stderr, Name ": --examine/-E cannot be given with -%c\n",
-					devmode =='E'?opt:devmode);
+				fprintf(stderr, Name ": --examine/-E cannot be given with ");
+				if (devmode == 'E') {
+					if (option_index >= 0)
+						fprintf(stderr, "--%s\n",
+							long_options[option_index].name);
+					else
+						fprintf(stderr, "-%c\n", opt);
+				} else if (isalpha(devmode))
+					fprintf(stderr, "-%c\n", devmode);
+				else
+					fprintf(stderr, "previous option\n");
 				exit(2);
 			}
 			devmode = opt;
@@ -1408,6 +1439,18 @@ int main(int argc, char *argv[])
 					rv |= Wait(dv->devname); continue;
 				case Waitclean:
 					rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;
+				case KillSubarray:
+					rv |= Kill_subarray(dv->devname, subarray, quiet);
+					continue;
+				case UpdateSubarray:
+					if (update == NULL) {
+						fprintf(stderr,
+							Name ": -U/--update must be specified with --update-subarray\n");
+						rv |= 1;
+						continue;
+					}
+					rv |= Update_subarray(dv->devname, subarray, update, &ident, quiet);
+					continue;
 				}
 				mdfd = open_mddev(dv->devname, 1);
 				if (mdfd>=0) {

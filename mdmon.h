@@ -32,6 +32,15 @@ struct active_array {
 	int action_fd;
 	int resync_start_fd;
 	int metadata_fd; /* for monitoring rw/ro status */
+	int sync_completed_fd; /* for checkpoint notification events */
+	unsigned long long last_checkpoint; /* sync_completed fires for many
+					     * reasons this field makes sure the
+					     * kernel has made progress before
+					     * moving the checkpoint.  It is
+					     * cleared by the metadata handler
+					     * when it determines recovery is
+					     * terminated.
+					     */
 
 	enum array_state prev_state, curr_state, next_state;
 	enum sync_action prev_action, curr_action, next_action;

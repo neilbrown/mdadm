@@ -1005,4 +1005,57 @@ int autodetect(void)
 	}
 	return rv;
 }
+
+int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident, int quiet)
+{
+	struct supertype supertype, *st = &supertype;
+	int fd, rv = 2;
+
+	memset(st, 0, sizeof(*st));
+	if (snprintf(st->subarray, sizeof(st->subarray), "%s", subarray) >=
+	    sizeof(st->subarray)) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Input overflow for subarray '%s' > %zu bytes\n",
+				subarray, sizeof(st->subarray) - 1);
+		return 2;
+	}
+
+	fd = open_subarray(dev, st, quiet);
+	if (fd < 0)
+		return 2;
+
+	if (!st->ss->update_subarray) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Operation not supported for %s metadata\n",
+				st->ss->name);
+		goto free_super;
+	}
+
+	if (mdmon_running(st->devnum))
+		st->update_tail = &st->updates;
+
+	rv = st->ss->update_subarray(st, update, ident);
+
+	if (rv) {
+		if (!quiet)
+			fprintf(stderr, Name ": Failed to update %s of subarray-%s in %s\n",
+				update, subarray, dev);
+	} else if (st->update_tail)
+		flush_metadata_updates(st);
+	else
+		st->ss->sync_metadata(st);
+
+	if (rv == 0 && strcmp(update, "name") == 0 && !quiet)
+		fprintf(stderr,
+			Name ": Updated subarray-%s name from %s, UUIDs may have changed\n",
+			subarray, dev);
+
+ free_super:
+	st->ss->free_super(st);
+	close(fd);
+
+	return rv;
+}
 #endif

@@ -385,6 +385,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			}
 		}
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
+		if (!sra)
+			return 2;
 
 		if (sra->devs) {
 			sprintf(dn, "%d:%d", sra->devs->disk.major,
@@ -601,6 +603,9 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 	__u64 max_events = 0;
 	struct mdinfo *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
 	char *avail = NULL;
+
+	if (!sra)
+		return 0;
 
 	for (d = sra->devs ; d ; d = d->next) {
 		char dn[30];

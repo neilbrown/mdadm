@@ -80,6 +80,24 @@ static unsigned long long read_resync_start(int fd)
 		return strtoull(buf, NULL, 10);
 }
 
+static unsigned long long read_sync_completed(int fd)
+{
+	unsigned long long val;
+	char buf[50];
+	int n;
+	char *ep;
+
+	n = read_attr(buf, 50, fd);
+
+	if (n <= 0)
+		return 0;
+	buf[n] = 0;
+	val = strtoull(buf, &ep, 0);
+	if (ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' '))
+		return 0;
+	return val;
+}
+
 static enum array_state read_state(int fd)
 {
 	char buf[20];
@@ -195,6 +213,7 @@ static void signal_manager(void)
 
 static int read_and_act(struct active_array *a)
 {
+	unsigned long long sync_completed;
 	int check_degraded = 0;
 	int deactivate = 0;
 	struct mdinfo *mdi;
@@ -206,6 +225,7 @@ static int read_and_act(struct active_array *a)
 	a->curr_state = read_state(a->info.state_fd);
 	a->curr_action = read_action(a->action_fd);
 	a->info.resync_start = read_resync_start(a->resync_start_fd);
+	sync_completed = read_sync_completed(a->sync_completed_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
 		if (mdi->state_fd >= 0) {
@@ -306,6 +326,22 @@ static int read_and_act(struct active_array *a)
 				mdi->next_state |= DS_REMOVE;
 		}
 	}
+
+	/* Check for recovery checkpoint notifications.  We need to be a
+	 * minimum distance away from the last checkpoint to prevent
+	 * over checkpointing.  Note reshape checkpointing is not
+	 * handled here.
+	 */
+	if (sync_completed > a->last_checkpoint &&
+	    sync_completed - a->last_checkpoint > a->info.component_size >> 4 &&
+	    a->curr_action > reshape) {
+		/* A (non-reshape) sync_action has reached a checkpoint.
+		 * Record the updated position in the metadata
+		 */
+		a->last_checkpoint = sync_completed;
+		a->container->ss->set_array_state(a, a->curr_state <= clean);
+	} else if (sync_completed > a->last_checkpoint)
+		a->last_checkpoint = sync_completed;
 
 	a->container->ss->sync_metadata(a->container);
 	dprintf("%s(%d): state:%s action:%s next(", __func__, a->info.container_member,
@@ -461,6 +497,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 
 		add_fd(&rfds, &maxfd, a->info.state_fd);
 		add_fd(&rfds, &maxfd, a->action_fd);
+		add_fd(&rfds, &maxfd, a->sync_completed_fd);
 		for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
 			add_fd(&rfds, &maxfd, mdi->state_fd);
 

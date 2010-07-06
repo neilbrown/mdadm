@@ -79,3 +79,81 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 	close(fd);
 	return rv;
 }
+
+int Kill_subarray(char *dev, char *subarray, int quiet)
+{
+	/* Delete a subarray out of a container, the subarry must be
+	 * inactive.  The subarray string must be a subarray index
+	 * number.
+	 *
+	 * 0 = successfully deleted subarray from all container members
+	 * 1 = failed to sync metadata to one or more devices
+	 * 2 = failed to find the container, subarray, or other resource
+	 *     issue
+	 */
+	struct supertype supertype, *st = &supertype;
+	int fd, rv = 2;
+
+	memset(st, 0, sizeof(*st));
+
+	if (snprintf(st->subarray, sizeof(st->subarray), "%s", subarray) >=
+	    sizeof(st->subarray)) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Input overflow for subarray '%s' > %zu bytes\n",
+				subarray, sizeof(st->subarray) - 1);
+		return 2;
+	}
+
+	fd = open_subarray(dev, st, quiet);
+	if (fd < 0)
+		return 2;
+
+	if (!st->ss->kill_subarray) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Operation not supported for %s metadata\n",
+				st->ss->name);
+		goto free_super;
+	}
+
+	if (is_subarray_active(subarray, st->devname)) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Subarray-%s still active, aborting\n",
+				subarray);
+		goto free_super;
+	}
+
+	if (mdmon_running(st->devnum))
+		st->update_tail = &st->updates;
+
+	/* ok we've found our victim, drop the axe */
+	rv = st->ss->kill_subarray(st);
+	if (rv) {
+		if (!quiet)
+			fprintf(stderr,
+				Name ": Failed to delete subarray-%s from %s\n",
+				subarray, dev);
+		goto free_super;
+	}
+
+	/* FIXME these routines do not report success/failure */
+	if (st->update_tail)
+		flush_metadata_updates(st);
+	else
+		st->ss->sync_metadata(st);
+
+	if (!quiet)
+		fprintf(stderr,
+			Name ": Deleted subarray-%s from %s, UUIDs may have changed\n",
+			subarray, dev);
+
+	rv = 0;
+
+ free_super:
+	st->ss->free_super(st);
+	close(fd);
+
+	return rv;
+}

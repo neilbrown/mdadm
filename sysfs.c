@@ -273,22 +273,20 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 
 		strcpy(dbase, "block/dev");
 		if (load_sys(fname, buf)) {
+			/* assume this is a stale reference to a hot
+			 * removed device
+			 */
 			free(dev);
-			if (options & SKIP_GONE_DEVS)
-				continue;
-			else
-				goto abort;
+			continue;
 		}
 		sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
 
 		/* special case check for block devices that can go 'offline' */
-		if (options & SKIP_GONE_DEVS) {
-			strcpy(dbase, "block/device/state");
-			if (load_sys(fname, buf) == 0 &&
-			    strncmp(buf, "offline", 7) == 0) {
-				free(dev);
-				continue;
-			}
+		strcpy(dbase, "block/device/state");
+		if (load_sys(fname, buf) == 0 &&
+		    strncmp(buf, "offline", 7) == 0) {
+			free(dev);
+			continue;
 		}
 
 		/* finally add this disk to the array */
@@ -851,9 +849,6 @@ int WaitClean(char *dev, int sock, int verbose)
 		sysfs_set_safemode(mdi, 1);
 		tm.tv_sec = 5;
 		tm.tv_usec = 0;
-
-		/* give mdmon a chance to checkpoint resync */
-		sysfs_set_str(mdi, NULL, "sync_action", "idle");
 
 		FD_ZERO(&fds);
 

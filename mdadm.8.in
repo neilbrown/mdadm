@@ -1194,6 +1194,24 @@ the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
 
 .TP
+.B \-\-kill\-subarray=
+If the device is a container and the argument to \-\-kill\-subarray
+specifies an inactive subarray in the container, then the subarray is
+deleted.  Deleting all subarrays will leave an 'empty-container' or
+spare superblock on the drives.  See \-\-zero\-superblock for completely
+removing a superblock.  Note that some formats depend on the subarray
+index for generating a UUID, this command will fail if it would change
+the UUID of an active subarray.
+
+.TP
+.B \-\-update\-subarray=
+If the device is a container and the argument to \-\-update\-subarray
+specifies a subarray in the container, then attempt to update the given
+superblock field in the subarray. See below in
+.B MISC MODE
+for details.
+
+.TP
 .BR \-t ", " \-\-test
 When used with
 .BR \-\-detail ,
@@ -1216,14 +1234,11 @@ listed, otherwise it will return failure.
 For each md device given, or each device in /proc/mdstat if
 .B \-\-scan
 is given, arrange for the array to be marked clean as soon as possible.
-Also, quiesce resync so that the monitor for external metadata arrays
-(mdmon) has an opportunity to checkpoint the resync position.
 .I mdadm
 will return with success if the array uses external metadata and we
 successfully waited.  For native arrays this returns immediately as the
-kernel handles both dirty-clean transitions and resync checkpointing in
-the kernel at shutdown.  No action is taken if safe-mode handling is
-disabled.
+kernel handles dirty-clean transitions at shutdown.  No action is taken
+if safe-mode handling is disabled.
 
 .SH For Incremental Assembly mode:
 .TP
@@ -1774,6 +1789,28 @@ metadata is platform independent
 2
 metadata failed to find its platform components on this system
 .RE
+
+.TP
+.B \-\-update\-subarray=
+If the device is a container and the argument to \-\-update\-subarray
+specifies a subarray in the container, then attempt to update the given
+superblock field in the subarray.  Similar to updating an array in
+"assemble" mode, the field to update is selected by
+.B \-U
+or
+.B \-\-update=
+option.  Currently only
+.B name
+is supported.
+
+The 
+.B name
+option updates the subarray name in the metadata, it may not affect the
+device node name or the device node symlink until the subarray is
+re\-assembled.  If updating 
+.B name
+would change the UUID of an active subarray this operation is blocked,
+and the command will end in an error.
 
 .TP
 .B \-\-examine

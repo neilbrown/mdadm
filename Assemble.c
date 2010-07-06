@@ -271,6 +271,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": %s has metadata type %s for which "
 					"auto-assembly is disabled\n",
 					devname, tst->ss->name);
+			tst->ss->free_super(tst);
 			tmpdev->used = 2;
 		} else {
 			content = &info;

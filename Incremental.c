@@ -368,6 +368,22 @@ int Incremental(char *devname, int verbose, int runstop,
 		else
 			strcpy(chosen_name, devnum2devname(mp->devnum));
 
+		/* It is generally not OK to add drives to a running array
+		 * as they are probably missing because they failed.
+		 * However if runstop is 1, then the array was possibly
+		 * started early and our best be is to add this anyway.
+		 * It would probably be good to allow explicit policy
+		 * statement about this.
+		 */
+		if (runstop < 1) {
+			if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
+				fprintf(stderr, Name
+					": not adding %s to active array (without --run) %s\n",
+					devname, chosen_name);
+				close(mdfd);
+				return 2;
+			}
+		}
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
 
 		if (sra->devs) {

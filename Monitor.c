@@ -491,15 +491,15 @@ int Monitor(mddev_dev_t devlist,
 							sprintf(devname, "%d:%d", major(dev), minor(dev));
 
 							devlist.disposition = 'r';
-							if (Manage_subdevs(st2->devname, fd2, &devlist, -1) == 0) {
+							if (Manage_subdevs(st2->devname, fd2, &devlist, -1, 0) == 0) {
 								devlist.disposition = 'a';
-								if (Manage_subdevs(st->devname, fd1, &devlist, -1) == 0) {
+								if (Manage_subdevs(st->devname, fd1, &devlist, -1, 0) == 0) {
 									alert("MoveSpare", st->devname, st2->devname, mailaddr, mailfrom, alert_cmd, dosyslog);
 									close(fd1);
 									close(fd2);
 									break;
 								}
-								else Manage_subdevs(st2->devname, fd2, &devlist, -1);
+								else Manage_subdevs(st2->devname, fd2, &devlist, -1, 0);
 							}
 						}
 						close(fd1);

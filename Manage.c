@@ -326,7 +326,7 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 }
 
 int Manage_subdevs(char *devname, int fd,
-		   mddev_dev_t devlist, int verbose)
+		   mddev_dev_t devlist, int verbose, int test)
 {
 	/* do something to each dev.
 	 * devmode can be
@@ -355,6 +355,7 @@ int Manage_subdevs(char *devname, int fd,
 	int ouuid[4];
 	int lfd = -1;
 	int sysfd = -1;
+	int count = 0; /* number of actions taken */
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
@@ -684,6 +685,7 @@ int Manage_subdevs(char *devname, int fd,
 						    ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
 								fprintf(stderr, Name ": re-added %s\n", add_dev);
+							count++;
 							continue;
 						}
 						if (errno == ENOMEM || errno == EROFS) {
@@ -959,6 +961,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (lfd >= 0)
 				close(lfd);
+			count++;
 			if (verbose >= 0)
 				fprintf(stderr, Name ": hot removed %s from %s\n",
 					dnprintable, devname);
@@ -978,14 +981,16 @@ int Manage_subdevs(char *devname, int fd,
 			if (sysfd >= 0)
 				close(sysfd);
 			sysfd = -1;
+			count++;
 			if (verbose >= 0)
 				fprintf(stderr, Name ": set %s faulty in %s\n",
 					dnprintable, devname);
 			break;
 		}
 	}
+	if (test && count == 0)
+		return 2;
 	return 0;
-
 }
 
 int autodetect(void)

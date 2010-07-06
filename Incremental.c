@@ -900,7 +900,7 @@ int IncrementalRemove(char *devname, int verbose)
 	memset(&devlist, 0, sizeof(devlist));
 	devlist.devname = devname;
 	devlist.disposition = 'f';
-	Manage_subdevs(ent->dev, mdfd, &devlist, verbose);
+	Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
 	devlist.disposition = 'r';
-	return Manage_subdevs(ent->dev, mdfd, &devlist, verbose);
+	return Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
 }

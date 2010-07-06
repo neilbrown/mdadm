@@ -796,6 +796,9 @@ int main(int argc, char *argv[])
 			}
 			runstop = -1;
 			continue;
+		case O(MANAGE,'t'):
+			test = 1;
+			continue;
 
 		case O(MISC,'Q'):
 		case O(MISC,'D'):
@@ -1064,7 +1067,7 @@ int main(int argc, char *argv[])
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && devs_found>1)
 			rv = Manage_subdevs(devlist->devname, mdfd,
-					    devlist->next, verbose-quiet);
+					    devlist->next, verbose-quiet, test);
 		if (!rv && readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)

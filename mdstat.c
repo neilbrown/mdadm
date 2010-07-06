@@ -94,19 +94,20 @@ static void free_member_devnames(struct dev_member *m)
 	}
 }
 
-static void add_member_devname(struct dev_member **m, char *name)
+static int add_member_devname(struct dev_member **m, char *name)
 {
 	struct dev_member *new;
 	char *t;
 
 	if ((t = strchr(name, '[')) == NULL)
 		/* not a device */
-		return;
+		return 0;
 
 	new = malloc(sizeof(*new));
 	new->name = strndup(name, t - name);
 	new->next = *m;
 	*m = new;
+	return 1;
 }
 
 void free_mdstat(struct mdstat_ent *ms)
@@ -207,8 +208,8 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			} else if (in_devs && strcmp(w, "blocks")==0)
 				in_devs = 0;
 			else if (in_devs) {
-				ent->devcnt++;
-				add_member_devname(&ent->members, w);
+				ent->devcnt +=
+					add_member_devname(&ent->members, w);
 				if (strncmp(w, "md", 2)==0) {
 					/* This has an md device as a component.
 					 * If that device is already in the

@@ -75,6 +75,14 @@ ALTFLAGS = -DALT_RUN=\"$(ALT_RUN)\" -DALT_MAPFILE=\"$(ALT_MAPFILE)\"
 VARFLAGS = -DVAR_RUN=\"$(VAR_RUN)\"
 CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(ALTFLAGS) $(VARFLAGS)
 
+# The glibc TLS ABI requires applications that call clone(2) to set up
+# TLS data structures, use pthreads until mdmon implements this support
+USE_PTHREADS = 1
+ifdef USE_PTHREADS
+CFLAGS += -DUSE_PTHREADS
+LDFLAGS += -pthread
+endif
+
 # If you want a static binary, you might uncomment these
 # LDFLAGS = -static
 # STRIP = -s
@@ -149,13 +157,13 @@ mdadm.klibc : $(SRCS) mdadm.h
 	$(CC) -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
 mdadm.Os : $(SRCS) mdadm.h
-	$(CC) -o mdadm.Os $(CFLAGS)  -DHAVE_STDINT_H -Os $(SRCS)
+	$(CC) -o mdadm.Os $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -Os $(SRCS)
 
 mdadm.O2 : $(SRCS) mdadm.h mdmon.O2
-	$(CC) -o mdadm.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
+	$(CC) -o mdadm.O2 $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
 
 mdmon.O2 : $(MON_SRCS) mdadm.h mdmon.h
-	$(CC) -o mdmon.O2 $(CFLAGS)  -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
+	$(CC) -o mdmon.O2 $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
 mdmon : $(MON_OBJS)

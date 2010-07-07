@@ -962,7 +962,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	 * size is in sectors,  chunk is in bytes !!!
 	 */
 	unsigned long long bits;
-	unsigned long long max_bits = 60*1024*8;
+	unsigned long long max_bits = (60*1024 - sizeof(bitmap_super_t))*8;
 	unsigned long long min_chunk;
 	int chunk = *chunkp;
 	mdp_super_t *sb = st->sb;
@@ -1048,7 +1048,7 @@ static int write_bitmap0(struct supertype *st, int fd)
 
 	memset(buf, 0xff, 4096);
 	memcpy(buf,  ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
-	towrite = 64*1024;
+	towrite = 60*1024;
 	while (towrite > 0) {
 		n = towrite;
 		if (n > 4096)

@@ -1011,25 +1011,49 @@ homehost to match the current host.
 .SH For Manage mode:
 
 .TP
+.BR \-t ", " \-\-test
+Unless a more serious error occurred,
+.I mdadm
+will exit with a status of 2 if no changes were made to the array and
+0 if at least one change was made.
+This can be useful when an indirect specifier such as
+.BR missing ,
+.B detached
+or
+.B faulty
+is used in requesting an operation on the array.
+.B \-\-test
+will report failure if these specifiers didn't find any match.
+
+.TP
 .BR \-a ", " \-\-add
-hot-add listed devices.  For arrays with redundancy, the listed
-devices become available as spares.  If the array is degraded, it will
-immediately start recovering data on to one of these spares.
+hot-add listed devices.
+If a device appears to have recently been part of the array
+(possibly it failed or was removed) the device is re-added as describe
+in the next point.
+If that fails or the device was never part of the array, the device is
+added as a hot-spare.
+If the array is degraded, it will immediately start to rebuild data
+onto that spare.
+
+Note that this and the following options are only meaningful on array
+with redundancy.  They don't apply to RAID0 or Linear.
 
 .TP
 .BR \-\-re\-add
-re\-add a device that was recently removed from an array.  This is
-normally only needed for arrays that have be built (i.e. with
-.BR --build ).
-For created arrays, devices are always re\-added if that is possible,
-however using \-\-re\-add will ensure the device isn't made into a
-spare if the \-\-re\-add failed.
+re\-add a device that was previous removed from an array.
+If the metadata on the device reports that it is a member of the
+array, and the slot that it used is still vacant, then the device will
+be added back to the array in the same position.  This will normally
+cause the data for that device to be recovered.  However based on the
+event count on the device, the recovery may only require sections that
+are flagged a write-intent bitmap to be recovered or may not require
+any recovery at all.
 
-When re\-adding a device, if nothing has changed on the array since the
-device was removed, no recovery is performed.  Also, if the array has
-a write-intent bitmap, then the recovery performed after a re\-add will
-be limited to those blocks which, according to the bitmap, might have
-changed since the device was removed.
+When used on an array that has no metadata (i.e. it was built with
+.BR \-\-build)
+it will be assumed that bitmap-based recovery is enough to make the
+device fully consistent with the array.
 
 If the device name given is
 .B missing

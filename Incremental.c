@@ -376,7 +376,16 @@ int Incremental(char *devname, int verbose, int runstop,
 		 * statement about this.
 		 */
 		if (runstop < 1) {
-			if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
+			int active = 0;
+			
+			if (st->ss->external) {
+				char *devname = devnum2devname(fd2devnum(mdfd));
+
+				active = devname && is_container_active(devname);
+				free(devname);
+			} else if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0)
+				active = 1;
+			if (active) {
 				fprintf(stderr, Name
 					": not adding %s to active array (without --run) %s\n",
 					devname, chosen_name);

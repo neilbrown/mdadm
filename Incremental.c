@@ -294,7 +294,9 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	/* 4/ Check if array exists.
 	 */
-	map_lock(&map);
+	if (map_lock(&map))
+		fprintf(stderr, Name ": failed to get exclusive lock on "
+			"mapfile\n");
 	mp = map_by_uuid(&map, info.uuid);
 	if (mp)
 		mdfd = open_dev(mp->devnum);
@@ -793,7 +795,9 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 	struct mdinfo *ra;
 	struct map_ent *map = NULL;
 
-	map_lock(&map);
+	if (map_lock(&map))
+		fprintf(stderr, Name ": failed to get exclusive lock on "
+			"mapfile\n");
 
 	for (ra = list ; ra ; ra = ra->next) {
 		int mdfd;

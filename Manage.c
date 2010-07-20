@@ -349,7 +349,7 @@ int Manage_subdevs(char *devname, int fd,
 	mddev_dev_t dv, next = NULL;
 	struct stat stb;
 	int j, jnext = 0;
-	int tfd;
+	int tfd = -1;
 	struct supertype *st, *tst;
 	int duuid[4];
 	int ouuid[4];
@@ -486,7 +486,7 @@ int Manage_subdevs(char *devname, int fd,
 			char dname[55];
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
 				fprintf(stderr, Name ": %s only meaningful "
-					"with -r of -f, not -%c\n",
+					"with -r or -f, not -%c\n",
 					dv->devname, dv->disposition);
 				return 1;
 			}
@@ -532,6 +532,7 @@ int Manage_subdevs(char *devname, int fd,
 					return 1;
 				}
 				close(tfd);
+				tfd = -1;
 			}
 			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 				fprintf(stderr, Name ": %s is not a "
@@ -575,6 +576,7 @@ int Manage_subdevs(char *devname, int fd,
 				}
 			} else if (!get_dev_size(tfd, NULL, &ldsize)) {
 				close(tfd);
+				tfd = -1;
 				continue;
 			}
 
@@ -582,6 +584,7 @@ int Manage_subdevs(char *devname, int fd,
 			    array.major_version == 0 &&
 			    md_get_version(fd)%100 < 2) {
 				close(tfd);
+				tfd = -1;
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
 					if (verbose >= 0)
@@ -639,6 +642,7 @@ int Manage_subdevs(char *devname, int fd,
 				if (tst->ss->avail_size(tst, ldsize/512) <
 				    array_size) {
 					close(tfd);
+					tfd = -1;
 					if (add_dev != dv->devname)
 						continue;
 					fprintf(stderr, Name ": %s not large enough to join array\n",
@@ -689,7 +693,6 @@ int Manage_subdevs(char *devname, int fd,
 							continue;
 						}
 						if (errno == ENOMEM || errno == EROFS) {
-							close(tfd);
 							fprintf(stderr, Name ": add new device failed for %s: %s\n",
 								add_dev, strerror(errno));
 							if (add_dev != dv->devname)
@@ -704,8 +707,10 @@ int Manage_subdevs(char *devname, int fd,
 						fprintf(stderr, Name
 							": --re-add for %s to %s is not possible\n",
 							add_dev, devname);
-					if (tfd >= 0)
+					if (tfd >= 0) {
 						close(tfd);
+						tfd = -1;
+					}
 					continue;
 				}
 				if (dv->re_add) {
@@ -723,6 +728,8 @@ int Manage_subdevs(char *devname, int fd,
 				if (ldsize/512 < array_size) {
 					fprintf(stderr, Name ": %s not large enough to join array\n",
 						dv->devname);
+					if (tfd >= 0)
+						close(tfd);
 					return 1;
 				}
 			}
@@ -730,6 +737,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (tfd >= 0) {
 				remove_partitions(tfd);
 				close(tfd);
+				tfd = -1;
 			}
 			/* in 2.6.17 and earlier, version-1 superblocks won't
 			 * use the number we write, but will choose a free number.

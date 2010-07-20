@@ -147,7 +147,7 @@ int connect_monitor(char *devname)
 	int pos;
 	char *c;
 
-	pos = sprintf(path, "%s/", pid_dir);
+	pos = sprintf(path, "%s/", MDMON_DIR);
 	if (is_subarray(devname)) {
 		devname++;
 		c = strchr(devname, '/');

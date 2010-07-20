@@ -52,28 +52,26 @@
 #include	<ctype.h>
 
 #define mapnames(base) { base, base ".new", base ".lock"}
-char *mapname[3][3] = {
-	mapnames(VAR_RUN "/map"),
-	mapnames("/var/run/mdadm.map"),
-	mapnames(ALT_RUN "/" ALT_MAPFILE)
+char *mapname[2][3] = {
+	mapnames(MAP_DIR "/" MAP_FILE),
+	mapnames("/var/run/mdadm.map")
 };
-char *mapdir[3] = { VAR_RUN, NULL, ALT_RUN };
+char *mapdir[2] = { MAP_DIR, NULL };
 
-int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT | O_TRUNC };
+int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT|O_TRUNC };
 char *mapsmode[3] = { "r", "w", "w"};
 
 FILE *open_map(int modenum, int *choice)
 {
 	int i;
 
-	for (i = 0 ; i < 3 ; i++) {
+	for (i = 0 ; i < 2 ; i++) {
 		int fd;
-		if ((mapmode[modenum] & O_CREAT) &&
-		    mapdir[modenum])
+		if ((mapmode[modenum] & O_CREAT) && mapdir[i])
 			/* Attempt to create directory, don't worry about
 			 * failure.
 			 */
-			mkdir(mapdir[modenum], 0755);
+			mkdir(mapdir[i], 0755);
 		fd = open(mapname[i][modenum], mapmode[modenum], 0600);
 		if (fd >= 0) {
 			*choice = i;

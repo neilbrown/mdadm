@@ -68,28 +68,30 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define DEFAULT_BITMAP_DELAY 5
 #define DEFAULT_MAX_WRITE_BEHIND 256
 
-/* VAR_RUN is where pid and socket files used for communicating
- * with mdmon normally live.  It should be /var/run, but if
- * it is too hard to remount /var/run as read-only rather than
- * unmounting it at shutdown time, then it should be
- * redefined to some place that comfortably persists until
- * final shutdown, possibly in /dev if that is a tmpfs.
- * Note: VAR_RUN does not need to be writable at shutdown,
- * only during boot when "mdmon --takeover" is run.
- */
-#ifndef VAR_RUN
-#define VAR_RUN "/var/run/mdadm"
-#endif /* VAR_RUN */
-/* ALT_RUN should be somewhere that persists across the pivotroot
+/* MAP_DIR should be somewhere that persists across the pivotroot
  * from early boot to late boot.
  * If you don't have /lib/init/rw you might want to use /dev/.something
  */
-#ifndef ALT_RUN
-#define ALT_RUN "/lib/init/rw/mdadm"
-#endif /* ALT_RUN */
-#ifndef ALT_MAPFILE
-#define ALT_MAPFILE "map"
-#endif /* ALT_MAPFILE */
+#ifndef MAP_DIR
+#define MAP_DIR "/lib/init/rw/mdadm"
+#endif /* MAP_DIR */
+/* MAP_FILE is what we name the map file we put in MAP_DIR, in case you
+ * want something other than the default of "map"
+ */
+#ifndef MAP_FILE
+#define MAP_FILE "map"
+#endif /* MAP_FILE */
+/* MDMON_DIR is where pid and socket files used for communicating
+ * with mdmon normally live.  It *should* be /var/run, but when
+ * mdmon is needed at early boot then it needs to write there prior
+ * to /var/run being mounted read/write, and it also then needs to
+ * persist beyond when /var/run is mounter read-only.  So, to be
+ * safe, the default is somewhere that is read/write early in the
+ * boot process and stays up as long as possible during shutdown.
+ */
+#ifndef MDMON_DIR
+#define MDMON_DIR "/lib/init/rw/mdmon"
+#endif /* MDMON_DIR */
 
 #include	"md_u.h"
 #include	"md_p.h"
@@ -934,7 +936,6 @@ int is_container_active(char *devname);
 extern int open_subarray(char *dev, struct supertype *st, int quiet);
 extern struct superswitch *version_to_superswitch(char *vers);
 
-extern char *pid_dir;
 extern int mdmon_running(int devnum);
 extern int mdmon_pid(int devnum);
 extern int check_env(char *name);

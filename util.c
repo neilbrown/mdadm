@@ -1666,8 +1666,6 @@ int fd2devnum(int fd)
 	return NoMdDev;
 }
 
-char *pid_dir = VAR_RUN;
-
 int mdmon_pid(int devnum)
 {
 	char path[100];
@@ -1676,7 +1674,7 @@ int mdmon_pid(int devnum)
 	int n;
 	char *devname = devnum2devname(devnum);
 
-	sprintf(path, "%s/%s.pid", pid_dir, devname);
+	sprintf(path, "%s/%s.pid", MDMON_DIR, devname);
 	free(devname);
 
 	fd = open(path, O_RDONLY | O_NOATIME, 0);

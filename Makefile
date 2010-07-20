@@ -64,16 +64,16 @@ CONFFILE = $(SYSCONFDIR)/mdadm.conf
 CONFFILE2 = $(SYSCONFDIR)/mdadm/mdadm.conf
 MAILCMD =/usr/sbin/sendmail -t
 CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
-# ALT_RUN should be somewhere that persists across the pivotroot
-# from early boot to late boot.
+# Both MAP_DIR and MDMON_DIR should be somewhere that persists across the
+# pivotroot from early boot to late boot.
 # If you don't have /lib/init/rw you might want to use /dev/.something
-#  e.g. make ALT_RUN=/dev/.mdadm
-ALT_RUN = /lib/init/rw/mdadm
-ALT_MAPFILE = map
-VAR_RUN = /var/run/mdadm
-ALTFLAGS = -DALT_RUN=\"$(ALT_RUN)\" -DALT_MAPFILE=\"$(ALT_MAPFILE)\"
-VARFLAGS = -DVAR_RUN=\"$(VAR_RUN)\"
-CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(ALTFLAGS) $(VARFLAGS)
+#  e.g. make MAP_DIR=/dev/.mdadm
+MAP_DIR = /lib/init/rw/mdadm
+MAP_FILE = map
+MDMON_DIR = /lib/init/rw/mdmon
+DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
+DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
+CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(DIRFLAGS)
 
 # The glibc TLS ABI requires applications that call clone(2) to set up
 # TLS data structures, use pthreads until mdmon implements this support

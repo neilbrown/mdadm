@@ -147,10 +147,10 @@ static int make_pidfile(char *devname)
 	int fd;
 	int n;
 
-	if (mkdir(pid_dir, 0700) < 0 &&
+	if (mkdir(MDMON_DIR, 0755) < 0 &&
 	    errno != EEXIST)
 		return -errno;
-	sprintf(path, "%s/%s.pid", pid_dir, devname);
+	sprintf(path, "%s/%s.pid", MDMON_DIR, devname);
 
 	fd = open(path, O_RDWR|O_CREAT|O_EXCL, 0600);
 	if (fd < 0)
@@ -204,13 +204,10 @@ void remove_pidfile(char *devname)
 {
 	char buf[100];
 
-	sprintf(buf, "%s/%s.pid", pid_dir, devname);
+	sprintf(buf, "%s/%s.pid", MDMON_DIR, devname);
 	unlink(buf);
-	sprintf(buf, "%s/%s.sock", pid_dir, devname);
+	sprintf(buf, "%s/%s.sock", MDMON_DIR, devname);
 	unlink(buf);
-	if (strcmp(pid_dir, ALT_RUN) == 0)
-		/* try to clean up when we are finished with this dir */
-		rmdir(pid_dir);
 }
 
 static int make_control_sock(char *devname)
@@ -223,7 +220,7 @@ static int make_control_sock(char *devname)
 	if (sigterm)
 		return -1;
 
-	sprintf(path, "%s/%s.sock", pid_dir, devname);
+	sprintf(path, "%s/%s.sock", MDMON_DIR, devname);
 	unlink(path);
 	sfd = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sfd < 0)
@@ -459,12 +456,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
-	pid_dir = VAR_RUN;
 	victim = mdmon_pid(container->devnum);
-	if (victim < 0) {
-		pid_dir = ALT_RUN;
-		victim = mdmon_pid(container->devnum);
-	}
 	if (victim >= 0)
 		victim_sock = connect_monitor(container->devname);
 
@@ -488,16 +480,8 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	 */
 	if (victim > 0)
 		remove_pidfile(devname);
-	pid_dir = VAR_RUN;
 	if (make_pidfile(devname) < 0) {
-		/* Try the alternate */
-		pid_dir = ALT_RUN;
-		if (make_pidfile(devname) < 0) {
-			fprintf(stderr, "mdmon: Neither %s nor %s are writable\n"
-				"       cannot create .pid or .sock files.  Aborting\n",
-				VAR_RUN, ALT_RUN);
-			exit(3);
-		}
+		exit(3);
 	}
 	container->sock = make_control_sock(devname);
 

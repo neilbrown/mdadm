@@ -1820,7 +1820,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		}
 		/* There should be a duplicate backup superblock 4k before here */
 		if (lseek64(fd, -4096, 1) < 0 ||
-		    read(fd, &bsb2, 4096) != 4096)
+		    read(fd, &bsb2, sizeof(bsb2)) != sizeof(bsb2))
 			goto second_fail; /* Cannot find leading superblock */
 		if (bsb.magic[15] == '1')
 			bsbsize = offsetof(struct mdp_backup_super, pad1);

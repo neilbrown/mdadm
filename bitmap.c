@@ -373,7 +373,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 		 */
 		chunksize = DEFAULT_BITMAP_CHUNK;
 		/* <<20 for 2^20 chunks, >>9 to convert bytes to sectors */
-		while (array_size > (chunksize << (20-9)))
+		while (array_size > ((unsigned long long)chunksize << (20-9)))
 			chunksize <<= 1;
 	}
 

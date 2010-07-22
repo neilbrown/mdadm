@@ -409,7 +409,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 #if 0
 This is pretty boring
 			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info.reshape_progress<<9,
-			       human_size(info.reshape_progress<<9));
+			       human_size((unsigned long long)info.reshape_progress<<9));
 #endif
 			if (info.delta_disks > 0)
 				printf("  Delta Devices : %d, (%d->%d)\n",

@@ -113,7 +113,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, sb->level);
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
-	if ((int)sb->level >= 0) {
+	if ((int)sb->level > 0) {
 		int ddsks=0;
 		printf("  Used Dev Size : %d%s\n", sb->size,
 		       human_size((long long)sb->size<<10));

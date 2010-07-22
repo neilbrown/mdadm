@@ -239,7 +239,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf(" Avail Dev Size : %llu%s\n",
 	       (unsigned long long)__le64_to_cpu(sb->data_size),
 	       human_size(__le64_to_cpu(sb->data_size)<<9));
-	if (__le32_to_cpu(sb->level) >= 0) {
+	if (__le32_to_cpu(sb->level) > 0) {
 		int ddsks=0;
 		switch(__le32_to_cpu(sb->level)) {
 		case 1: ddsks=1;break;

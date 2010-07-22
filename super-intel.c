@@ -4830,8 +4830,8 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 	struct extent *ex;
 	int i, j;
 	int found;
-	__u32 array_start;
-	__u32 array_end;
+	__u32 array_start = 0;
+	__u32 array_end = 0;
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next) {

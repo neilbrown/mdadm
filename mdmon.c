@@ -58,8 +58,11 @@
 #include	<fcntl.h>
 #include	<signal.h>
 #include	<dirent.h>
-
+#ifdef USE_PTHREADS
+#include	<pthread.h>
+#else
 #include	<sched.h>
+#endif
 
 #include	"mdadm.h"
 #include	"mdmon.h"
@@ -71,7 +74,39 @@ int mon_tid, mgr_tid;
 
 int sigterm;
 
-int run_child(void *v)
+#ifdef USE_PTHREADS
+static void *run_child(void *v)
+{
+	struct supertype *c = v;
+
+	mon_tid = syscall(SYS_gettid);
+	do_monitor(c);
+	return 0;
+}
+
+static int clone_monitor(struct supertype *container)
+{
+	pthread_attr_t attr;
+	pthread_t thread;
+	int rc;
+
+	mon_tid = -1;
+	pthread_attr_init(&attr);
+	pthread_attr_setstacksize(&attr, 4096);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	rc = pthread_create(&thread, &attr, run_child, container);
+	if (rc)
+		return rc;
+	while (mon_tid == -1)
+		usleep(10);
+	pthread_attr_destroy(&attr);
+
+	mgr_tid = syscall(SYS_gettid);
+
+	return mon_tid;
+}
+#else /* USE_PTHREADS */
+static int run_child(void *v)
 {
 	struct supertype *c = v;
 
@@ -85,7 +120,7 @@ int __clone2(int (*fn)(void *),
 	    int flags, void *arg, ...
 	 /* pid_t *pid, struct user_desc *tls, pid_t *ctid */ );
 #endif
- int clone_monitor(struct supertype *container)
+static int clone_monitor(struct supertype *container)
 {
 	static char stack[4096];
 
@@ -103,6 +138,7 @@ int __clone2(int (*fn)(void *),
 
 	return mon_tid;
 }
+#endif /* USE_PTHREADS */
 
 static int make_pidfile(char *devname)
 {

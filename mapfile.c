@@ -1,5 +1,5 @@
 /*
- * mapfile - manage /var/run/mdadm.map. Part of:
+ * mapfile - manage /var/run/mdadm/map. Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
  * Copyright (C) 2006-2009 Neil Brown <neilb@suse.de>
@@ -28,7 +28,7 @@
  *           Australia
  */
 
-/* /var/run/mdadm.map is used to track arrays being created in --incremental
+/* /var/run/mdadm/map is used to track arrays being created in --incremental
  * mode.  It particularly allows lookup from UUID to array device, but
  * also allows the array device name to be easily found.
  *
@@ -38,12 +38,11 @@
  *  UUID       -  uuid of the array
  *  path       -  path where device created: /dev/md/home
  *
- * The preferred location for the map file is /var/run/mdadm.map.
+ * The preferred location for the map file is /var/run/mdadm/map.
  * However /var/run may not exist or be writable in early boot.  And if
  * no-one has created /var/run/mdadm, we still want to survive.
  * So possible locations are:
- *   /var/run/mdadm/map  /var/run/mdadm.map  /lib/initrw/madam/map
- * The last can easily be change at compile to e.g. somewhere in /dev.
+ *   /var/run/mdadm/map  /dev/.mdadm/map(changable at compile time).
  * We read from the first one that exists and write to the first
  * one that we can.
  */
@@ -51,12 +50,21 @@
 #include	<sys/file.h>
 #include	<ctype.h>
 
-#define mapnames(base) { base, base ".new", base ".lock"}
-char *mapname[2][3] = {
-	mapnames(MAP_DIR "/" MAP_FILE),
-	mapnames("/var/run/mdadm.map")
+#define MAP_READ 0
+#define MAP_NEW 1
+#define MAP_LOCK 2
+#define MAP_DIRNAME 3
+#define mapnames(dir, base) { \
+			dir "/" base,				\
+			dir "/" base ".new",			\
+			dir "/" base ".lock",			\
+			dir }
+
+#define MAP_DIRS 2
+char *mapname[MAP_DIRS][4] = {
+	mapnames("/var/run/mdadm", "map"),
+	mapnames(MAP_DIR, MAP_FILE),
 };
-char *mapdir[2] = { MAP_DIR, NULL };
 
 int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT|O_TRUNC };
 char *mapsmode[3] = { "r", "w", "w"};
@@ -65,13 +73,13 @@ FILE *open_map(int modenum, int *choice)
 {
 	int i;
 
-	for (i = 0 ; i < 2 ; i++) {
+	for (i = 0 ; i <= MAP_DIRS ; i++) {
 		int fd;
-		if ((mapmode[modenum] & O_CREAT) && mapdir[i])
+		if ((mapmode[modenum] & O_CREAT))
 			/* Attempt to create directory, don't worry about
 			 * failure.
 			 */
-			mkdir(mapdir[i], 0755);
+			(void)mkdir(mapname[i][MAP_DIRNAME], 0755);
 		fd = open(mapname[i][modenum], mapmode[modenum], 0600);
 		if (fd >= 0) {
 			*choice = i;
@@ -87,7 +95,7 @@ int map_write(struct map_ent *mel)
 	int err;
 	int which;
 
-	f = open_map(1, &which);
+	f = open_map(MAP_NEW, &which);
 
 	if (!f)
 		return 0;
@@ -121,7 +129,7 @@ int map_lock(struct map_ent **melp)
 {
 	while (lf == NULL) {
 		struct stat buf;
-		lf = open_map(2, &lwhich);
+		lf = open_map(MAP_LOCK, &lwhich);
 		if (lf == NULL)
 			return -1;
 		if (flock(fileno(lf), LOCK_EX) != 0) {
@@ -184,10 +192,10 @@ void map_read(struct map_ent **melp)
 
 	*melp = NULL;
 
-	f = open_map(0, &which);
+	f = open_map(MAP_READ, &which);
 	if (!f) {
 		RebuildMap();
-		f = open_map(0, &which);
+		f = open_map(MAP_READ, &which);
 	}
 	if (!f)
 		return;

@@ -200,23 +200,20 @@ as required.  This means that
 .I mdmon
 must be installed on the
 .B initramfs
-and there must be a writable filesystem (typically tmpfs) which
+and there must be a writable filesystem (typically tmpfs) in which
 .B mdmon
 can create a
 .B .pid
 and
 .B .sock
-file on.  The particular filesystem to use is given to mdmon at compile
+file.  The particular filesystem to use is given to mdmon at compile
 time and defaults to
 .BR /dev/.mdadm .
 
-This filesystem must persist through to the end of the boot sequence.
+This filesystem must persist through to shutdown time.
 
 After the final root filesystem has be instantiated (usually with
 .BR pivot_root )
-and after
-.B /var
-is mounted writable,
 .I mdmon
 should be run with
 .I "\-\-all \-\-takeover"
@@ -224,20 +221,17 @@ so that the
 .I mdmon
 running from the
 .B initramfs
-can be replaced with one running in the main root.
+can be replaced with one running in the main root, and so the
+memory used by the initramfs can be released.
 
 At shutdown time,
 .I mdmon
 should not be killed along with other processes.  Also as it holds a
 file (socket actually) open in
-.B /var
-it will not be possible to unmount
-.B /var
-if it is a separate filesystem.  Rather the
-.B /var
-filesystem, like the root filesystem, should be remounted read-only.
-
-
+.B /dev
+(by default) it will not be possible to unmount
+.B /dev
+if it is a separate filesystem.
 
 .SH EXAMPLES
 
@@ -246,9 +240,9 @@ filesystem, like the root filesystem, should be remounted read-only.
 Any
 .I mdmon
 which is currently running is killed and a new instance is started.
-This should be run late in the boot sequence and particularly after
-.B /var
-is mounted and writable.
+This should be run during in the boot sequence if an initramfs was
+used, so that any mdmon running from the initramfs will not hold
+the initramfs active.
 .SH SEE ALSO
 .IR mdadm (8),
 .IR md (4).

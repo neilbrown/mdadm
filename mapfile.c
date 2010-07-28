@@ -119,7 +119,8 @@ static FILE *lf = NULL;
 static int lwhich = 0;
 int map_lock(struct map_ent **melp)
 {
-	if (lf == NULL) {
+	while (lf == NULL) {
+		struct stat buf;
 		lf = open_map(2, &lwhich);
 		if (lf == NULL)
 			return -1;
@@ -127,6 +128,15 @@ int map_lock(struct map_ent **melp)
 			fclose(lf);
 			lf = NULL;
 			return -1;
+		}
+		if (fstat(fileno(lf), &buf) != 0 ||
+		    buf.st_nlink == 0) {
+			/* The owner of the lock unlinked it,
+			 * so we have a lock on a stale file,
+			 * try again
+			 */
+			fclose(lf);
+			lf = NULL;
 		}
 	}
 	if (*melp)
@@ -138,10 +148,13 @@ int map_lock(struct map_ent **melp)
 void map_unlock(struct map_ent **melp)
 {
 	if (lf) {
-		flock(fileno(lf), LOCK_UN);
+		/* must unlink before closing the file,
+		 * as only the owner of the lock may
+		 * unlink the file
+		 */
+		unlink(mapname[lwhich][2]);
 		fclose(lf);
 	}
-	unlink(mapname[lwhich][2]);
 	lf = NULL;
 }
 

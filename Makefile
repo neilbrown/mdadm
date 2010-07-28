@@ -66,11 +66,11 @@ MAILCMD =/usr/sbin/sendmail -t
 CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 # Both MAP_DIR and MDMON_DIR should be somewhere that persists across the
 # pivotroot from early boot to late boot.
-# If you don't have /lib/init/rw you might want to use /dev/.something
-#  e.g. make MAP_DIR=/dev/.mdadm
-MAP_DIR = /lib/init/rw/mdadm
+# /dev is an odd place to put this, but it is the only directory that
+# meets the requirements.
+MAP_DIR=/dev/.mdadm
 MAP_FILE = map
-MDMON_DIR = /lib/init/rw/mdmon
+MDMON_DIR = /dev/.mdadm
 DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
 DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
 CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(DIRFLAGS)

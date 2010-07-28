@@ -70,10 +70,10 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 /* MAP_DIR should be somewhere that persists across the pivotroot
  * from early boot to late boot.
- * If you don't have /lib/init/rw you might want to use /dev/.something
+ * Currently /dev seems to be the only option on most distros.
  */
 #ifndef MAP_DIR
-#define MAP_DIR "/lib/init/rw/mdadm"
+#define MAP_DIR "/dev/.mdadm"
 #endif /* MAP_DIR */
 /* MAP_FILE is what we name the map file we put in MAP_DIR, in case you
  * want something other than the default of "map"
@@ -90,7 +90,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
  * boot process and stays up as long as possible during shutdown.
  */
 #ifndef MDMON_DIR
-#define MDMON_DIR "/lib/init/rw/mdmon"
+#define MDMON_DIR "/dev/.mdadm/"
 #endif /* MDMON_DIR */
 
 #include	"md_u.h"

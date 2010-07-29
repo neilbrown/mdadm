@@ -33,7 +33,7 @@ checkgeo() {
    if [ $# -gt 0 ] ; then
       val=$1
       shift
-      if [ " `cat /sys/block/$dev/md/$attr`" != " $val" ]
+      if [ " `sed 's/ .*//' /sys/block/$dev/md/$attr`" != " $val" ]
       then echo "$attr doesn't match for $dev"
            exit 1
       fi

@@ -1976,12 +1976,6 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	int cache;
 	int done = 0;
 
-	sra = sysfs_read(-1, devname2devnum(info->sys_name),
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
-			 GET_CACHE);
-	if (!sra)
-		return 1;
-
 	err = sysfs_set_str(info, NULL, "array_state", "readonly");
 	if (err)
 		return err;
@@ -1989,7 +1983,13 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	/* make sure reshape doesn't progress until we are ready */
 	sysfs_set_str(info, NULL, "sync_max", "0");
 	sysfs_set_str(info, NULL, "array_state", "active"); /* FIXME or clean */
-	
+
+	sra = sysfs_read(-1, devname2devnum(info->sys_name),
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+			 GET_CACHE);
+	if (!sra)
+		return 1;
+
 	/* ndisks is not growing, so raid_disks is old and +delta is new */
 	odisks = info->array.raid_disks;
 	ndisks = odisks + info->delta_disks;

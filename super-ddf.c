@@ -1365,7 +1365,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 							 (ddf->anchor.guid+16));
 	info->array.utime	  = 0;
 	info->array.chunk_size	  = 0;
-	info->container_enough	  = 0;
+	info->container_enough	  = 1;
 
 
 	info->disk.major = 0;

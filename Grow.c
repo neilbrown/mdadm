@@ -759,6 +759,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 					if (err == EBUSY && 
 					    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
 						fprintf(stderr, "       Bitmap must be removed before level can be changed\n");
+					rv = 1;
 				}
 			}
 		} else if (!changed && !quiet)
@@ -789,7 +790,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 		array.layout = parse_layout_faulty(layout_str);
 		if (array.layout < 0) {
-			int rv;
 			fprintf(stderr, Name ": %s: layout %s not understood for 'faulty' array\n",
 				devname, layout_str);
 			rv = 1;

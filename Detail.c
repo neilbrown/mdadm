@@ -48,7 +48,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	int is_26 = get_linux_version() >= 2006000;
 	int is_rebuilding = 0;
 	int failed = 0;
-	struct supertype *st = NULL;
+	struct supertype *st;
 	int max_disks = MD_SB_DISKS; /* just a default */
 	struct mdinfo info;
 	struct mdinfo *sra;
@@ -111,9 +111,11 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	}
 
 	/* try to load a superblock */
-	for (d= 0; d<max_disks; d++) {
+	if (st) for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
+		int fd2;
+		int err;
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
 			continue;
@@ -121,38 +123,49 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		    disk.major == 0 &&
 		    disk.minor == 0)
 			continue;
-		if ((dv=map_dev(disk.major, disk.minor, 1))) {
-			/* some formats (imsm) have free-floating-spares
-			 * with a uuid of uuid_match_any, they don't
-			 * have very good info about the rest of the
-			 * container, so keep searching when
-			 * encountering such a device.  Otherwise, stop
-			 * after the first successful call to
-			 * ->load_super.
-			 */
-			int free_spare = memcmp(uuid_match_any,
-						info.uuid,
-						sizeof(uuid_match_any)) == 0;
-			if ((!st || !st->sb || free_spare) &&
-			    (array.raid_disks == 0 || 
-			     (disk.state & (1<<MD_DISK_ACTIVE)))) {
-				/* try to read the superblock from this device
-				 * to get more info
-				 */
-				if (free_spare)
-					st->ss->free_super(st);
-				int fd2 = dev_open(dv, O_RDONLY);
-				if (fd2 >=0 && st &&
-				    st->ss->load_super(st, fd2, NULL) == 0) {
-					st->ss->getinfo_super(st, &info);
-					if (array.raid_disks != 0 && /* container */
-					    (info.array.ctime != array.ctime ||
-					     info.array.level != array.level))
-						st->ss->free_super(st);
-				}
-				if (fd2 >= 0) close(fd2);
-			}
+
+		if (array.raid_disks > 0 &&
+		    (disk.state & (1 << MD_DISK_ACTIVE)) == 0)
+			continue;
+
+		dv = map_dev(disk.major, disk.minor, 1);
+		if (!dv)
+			continue;
+
+		fd2 = dev_open(dv, O_RDONLY);
+		if (fd2 < 0)
+			continue;
+
+		if (st->sb)
+			st->ss->free_super(st);
+
+		err = st->ss->load_super(st, fd2, NULL);
+		close(fd2);
+		if (err)
+			continue;
+		st->ss->getinfo_super(st, &info);
+
+		if (array.raid_disks != 0 && /* container */
+		    (info.array.ctime != array.ctime ||
+		     info.array.level != array.level)) {
+			st->ss->free_super(st);
+			continue;
 		}
+		/* some formats (imsm) have free-floating-spares
+		 * with a uuid of uuid_match_any, they don't
+		 * have very good info about the rest of the
+		 * container, so keep searching when
+		 * encountering such a device.  Otherwise, stop
+		 * after the first successful call to
+		 * ->load_super.
+		 */
+		if (memcmp(uuid_match_any,
+			   info.uuid,
+			   sizeof(uuid_match_any)) == 0) {
+			st->ss->free_super(st);
+			continue;
+		}
+		break;
 	}
 
 	/* Ok, we have some info to print... */
@@ -179,10 +192,9 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		}
 		
 		if (st && st->sb) {
-			struct mdinfo info;
 			char nbuf[64];
 			struct map_ent *mp, *map = NULL;
-			st->ss->getinfo_super(st, &info);
+
 			fname_from_uuid(st, &info, nbuf, ':');
 			printf("MD_UUID=%s\n", nbuf+5);
 			mp = map_by_uuid(&map, info.uuid);

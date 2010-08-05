@@ -12,7 +12,13 @@ do
   do dd if=/dev/urandom of=$d bs=1024 || true
   done
 
-  mdadm -CR $md0 -amd -l5 -c 256 -n$disks --assume-clean $devs
+  case $disks in
+   2 | 3) chunk=1024;;
+   4 ) chunk=512;;
+   5 ) chunk=256;;
+  esac
+
+  mdadm -CR $md0 -amd -l5 -c $chunk -n$disks --assume-clean $devs
   mdadm $md0 --add $dev6
   echo 20 > /proc/sys/dev/raid/speed_limit_max
   mdadm --grow $md0 -n $[disks+1]

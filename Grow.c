@@ -1350,17 +1350,21 @@ int grow_backup(struct mdinfo *sra,
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 
+		rv = -1;
 		if ((unsigned long long)lseek64(destfd[i], destoffsets[i] - 4096, 0)
 		    != destoffsets[i] - 4096)
-			rv = 1;
-		rv = rv ?: write(destfd[i], &bsb, 512);
+			break;
+		if (write(destfd[i], &bsb, 512) != 512)
+			break;
 		if (destoffsets[i] > 4096) {
 			if ((unsigned long long)lseek64(destfd[i], destoffsets[i]+stripes*chunk*odata, 0) !=
 			    destoffsets[i]+stripes*chunk*odata)
-				rv = 1;
-			rv = rv ?: write(destfd[i], &bsb, 512);
+				break;
+			if (write(destfd[i], &bsb, 512) != 512)
+				break;
 		}
 		fsync(destfd[i]);
+		rv = 0;
 	}
 
 	return rv;
@@ -1431,8 +1435,10 @@ int wait_backup(struct mdinfo *sra,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 		if ((unsigned long long)lseek64(destfd[i], destoffsets[i]-4096, 0) !=
 		    destoffsets[i]-4096)
-			rv = 1;
-		rv = rv ?: write(destfd[i], &bsb, 512);
+			rv = -1;
+		if (rv == 0 && 
+		    write(destfd[i], &bsb, 512) != 512)
+			rv = -1;
 		fsync(destfd[i]);
 	}
 	return rv;
@@ -1441,8 +1447,8 @@ int wait_backup(struct mdinfo *sra,
 static void fail(char *msg)
 {
 	int rv;
-	rv = write(2, msg, strlen(msg));
-	rv |= write(2, "\n", 1);
+	rv = (write(2, msg, strlen(msg)) != (int)strlen(msg));
+	rv |= (write(2, "\n", 1) != 1);
 	exit(rv ? 1 : 2);
 }
 

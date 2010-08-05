@@ -1131,7 +1131,7 @@ struct supertype *guess_super(int fd)
 	 */
 	struct superswitch  *ss;
 	struct supertype *st;
-	unsigned long besttime = 0;
+	time_t besttime = 0;
 	int bestsuper = -1;
 	int i;
 
@@ -1207,7 +1207,7 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 	struct GPT_part_entry *part;
 	unsigned long long curr_part_end;
 	unsigned all_partitions, entry_size;
-	int part_nr;
+	unsigned part_nr;
 
 	*endofpart = 0;
 
@@ -1266,7 +1266,7 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 	struct MBR boot_sect;
 	struct MBR_part_record *part;
 	unsigned long long curr_part_end;
-	int part_nr;
+	unsigned part_nr;
 	int retval = 0;
 
 	*endofpart = 0;
@@ -1376,7 +1376,7 @@ int open_container(int fd)
 			continue;
 		n = read(dfd, buf, sizeof(buf));
 		close(dfd);
-		if (n <= 0 || n >= sizeof(buf))
+		if (n <= 0 || (unsigned)n >= sizeof(buf))
 			continue;
 		buf[n] = 0;
 		if (sscanf(buf, "%d:%d", &major, &minor) != 2)
@@ -1635,7 +1635,7 @@ int stat2devnum(struct stat *st)
 	if ((S_IFMT & st->st_mode) == S_IFBLK) {
 		if (major(st->st_rdev) == MD_MAJOR)
 			return minor(st->st_rdev);
-		else if (major(st->st_rdev) == get_mdp_major())
+		else if (major(st->st_rdev) == (unsigned)get_mdp_major())
 			return -1- (minor(st->st_rdev)>>MdpMinorShift);
 
 		/* must be an extended-minor partition. Look at the

@@ -30,7 +30,7 @@
 
 static void *rom_mem = MAP_FAILED;
 static int rom_fd = -1;
-const static int rom_len = 0xf0000 - 0xc0000; /* option-rom memory region */
+static const int rom_len = 0xf0000 - 0xc0000; /* option-rom memory region */
 static int _sigbus;
 static unsigned long rom_align;
 
@@ -199,7 +199,7 @@ static int romchecksum(const unsigned char *rom, unsigned long length)
 int scan_adapter_roms(scan_fn fn)
 {
 	/* let scan_fn examing each of the adapter roms found by probe_roms */
-	int i;
+	unsigned int i;
 	int found;
 
 	if (rom_fd < 0)
@@ -231,7 +231,7 @@ void probe_roms(void)
 	const void *rom;
 	unsigned long start, length, upper;
 	unsigned char c;
-	int i;
+	unsigned int i;
 
 	if (rom_fd < 0)
 		return;

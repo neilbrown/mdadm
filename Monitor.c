@@ -94,7 +94,7 @@ int Monitor(mddev_dev_t devlist,
 		int active, working, failed, spare, raid;
 		int expected_spares;
 		int devstate[MaxDisks];
-		int devid[MaxDisks];
+		unsigned devid[MaxDisks];
 		int percent;
 		struct state *next;
 	} *statelist = NULL;
@@ -218,7 +218,7 @@ int Monitor(mddev_dev_t devlist,
 			struct mdstat_ent *mse = NULL, *mse2;
 			char *dev = st->devname;
 			int fd;
-			unsigned int i;
+			int i;
 
 			if (test)
 				alert("TestMessage", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
@@ -352,7 +352,7 @@ int Monitor(mddev_dev_t devlist,
 			close(fd);
 
 			for (i=0; i<MaxDisks; i++) {
-				mdu_disk_info_t disc = {0};
+				mdu_disk_info_t disc = {0,0,0,0,0};
 				int newstate=0;
 				int change;
 				char *dv = NULL;
@@ -366,7 +366,7 @@ int Monitor(mddev_dev_t devlist,
 					disc.state = newstate;
 					disc.major = info[i].major;
 					disc.minor = info[i].minor;
-				} else if (mse &&  mse->pattern && i < strlen(mse->pattern)) {
+				} else if (mse &&  mse->pattern && i < (int)strlen(mse->pattern)) {
 					switch(mse->pattern[i]) {
 					case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
 					case '_': newstate = 0; break;
@@ -378,19 +378,19 @@ int Monitor(mddev_dev_t devlist,
 						     minor(st->devid[i]), 1);
 				change = newstate ^ st->devstate[i];
 				if (st->utime && change && !st->err) {
-					if (i < (unsigned)array.raid_disks &&
+					if (i < array.raid_disks &&
 					    (((newstate&change)&(1<<MD_DISK_FAULTY)) ||
 					     ((st->devstate[i]&change)&(1<<MD_DISK_ACTIVE)) ||
 					     ((st->devstate[i]&change)&(1<<MD_DISK_SYNC)))
 						)
 						alert("Fail", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
-					else if (i >= (unsigned)array.raid_disks &&
+					else if (i >= array.raid_disks &&
 						 (disc.major || disc.minor) &&
 						 st->devid[i] == makedev(disc.major, disc.minor) &&
 						 ((newstate&change)&(1<<MD_DISK_FAULTY))
 						)
 						alert("FailSpare", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
-					else if (i < (unsigned)array.raid_disks &&
+					else if (i < array.raid_disks &&
 						 ! (newstate & (1<<MD_DISK_REMOVED)) &&
 						 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
 						  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||

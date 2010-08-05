@@ -97,7 +97,7 @@ int Kill_subarray(char *dev, char *subarray, int quiet)
 	memset(st, 0, sizeof(*st));
 
 	if (snprintf(st->subarray, sizeof(st->subarray), "%s", subarray) >=
-	    sizeof(st->subarray)) {
+	    (int)sizeof(st->subarray)) {
 		if (!quiet)
 			fprintf(stderr,
 				Name ": Input overflow for subarray '%s' > %zu bytes\n",

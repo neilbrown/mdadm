@@ -290,7 +290,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		struct mdstat_ent *ms = mdstat_read(0, 0);
 		struct mdstat_ent *e;
 		int devnum = array.md_minor;
-		if (major(stb.st_rdev) == get_mdp_major())
+		if (major(stb.st_rdev) == (unsigned)get_mdp_major())
 			devnum = -1 - devnum;
 
 		for (e=ms; e; e=e->next)

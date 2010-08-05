@@ -199,7 +199,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	time_t atime;
-	int d;
+	unsigned int d;
 	int role;
 	int delta_extra = 0;
 	int i;
@@ -388,9 +388,9 @@ static void examine_super1(struct supertype *st, char *homehost)
 	for (d=0; d<__le32_to_cpu(sb->raid_disks) + delta_extra; d++) {
 		int cnt = 0;
 		int me = 0;
-		int i;
+		unsigned int i;
 		for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
-			int role = __le16_to_cpu(sb->dev_roles[i]);
+			unsigned int role = __le16_to_cpu(sb->dev_roles[i]);
 			if (role == d) {
 				if (i == __le32_to_cpu(sb->dev_number))
 					me = 1;
@@ -562,7 +562,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	int working = 0;
-	int i;
+	unsigned int i;
 	int role;
 
 	info->array.major_version = 1;
@@ -629,7 +629,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 	} else
 		info->reshape_active = 0;
 
-	for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
+	for (i = 0; i < __le32_to_cpu(sb->max_dev); i++) {
 		role = __le16_to_cpu(sb->dev_roles[i]);
 		if (/*role == 0xFFFF || */role < info->array.raid_disks)
 			working++;
@@ -682,9 +682,9 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		}
 	}
 	if (strcmp(update, "linear-grow-new") == 0) {
-		int i;
+		unsigned int i;
 		int rfd, fd;
-		int max = __le32_to_cpu(sb->max_dev);
+		unsigned int max = __le32_to_cpu(sb->max_dev);
 
 		for (i=0 ; i < max ; i++)
 			if (__le16_to_cpu(sb->dev_roles[i]) >= 0xfffe)
@@ -894,7 +894,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	else
 		*rp = 0xfffe;
 
-	if (dk->number >= __le32_to_cpu(sb->max_dev) &&
+	if (dk->number >= (int)__le32_to_cpu(sb->max_dev) &&
 	    __le32_to_cpu(sb->max_dev) < 384)
 		sb->max_dev = __cpu_to_le32(dk->number+1);
 
@@ -1012,11 +1012,11 @@ static int write_init_super1(struct supertype *st)
 	struct supertype refst;
 	int rfd;
 	int rv = 0;
-	int bm_space;
+	unsigned long long bm_space;
 	unsigned long long reserved;
 	struct devinfo *di;
 	unsigned long long dsize, array_size;
-	long long sb_offset;
+	unsigned long long sb_offset;
 
 	for (di = st->info; di && ! rv ; di = di->next) {
 		if (di->disk.state == 1)
@@ -1091,7 +1091,7 @@ static int write_init_super1(struct supertype *st)
 			sb_offset &= ~(4*2-1);
 			sb->super_offset = __cpu_to_le64(sb_offset);
 			sb->data_offset = __cpu_to_le64(0);
-			if (sb_offset - bm_space < array_size)
+			if (sb_offset < array_size + bm_space)
 				bm_space = sb_offset - array_size;
 			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
 			break;
@@ -1467,7 +1467,7 @@ add_internal_bitmap1(struct supertype *st,
 	unsigned long long max_bits;
 	unsigned long long min_chunk;
 	long offset;
-	int chunk = *chunkp;
+	unsigned long long chunk = *chunkp;
 	int room = 0;
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + 1024);

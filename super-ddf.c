@@ -396,7 +396,7 @@ struct ddf_super {
 	struct phys_disk	*phys;
 	struct virtual_disk	*virt;
 	int pdsize, vdsize;
-	int max_part, mppe, conf_rec_len;
+	unsigned int max_part, mppe, conf_rec_len;
 	int currentdev;
 	int updates_pending;
 	struct vcl {
@@ -406,7 +406,7 @@ struct ddf_super {
 				struct vcl	*next;
 				__u64		*lba_offset; /* location in 'conf' of
 							      * the lba table */
-				int	vcnum; /* index into ->virt */
+				unsigned int	vcnum; /* index into ->virt */
 				__u64		*block_sizes; /* NULL if all the same */
 			};
 		};
@@ -440,7 +440,7 @@ struct ddf_super {
 #endif
 
 
-static int calc_crc(void *buf, int len)
+static unsigned int calc_crc(void *buf, int len)
 {
 	/* crcs are always at the same place as in the ddf_header */
 	struct ddf_header *ddf = buf;
@@ -522,12 +522,12 @@ static void *load_section(int fd, struct ddf_super *super, void *buf,
 	else
 		offset += __be64_to_cpu(super->active->secondary_lba);
 
-	if (lseek64(fd, offset<<9, 0) != (offset<<9)) {
+	if ((unsigned long long)lseek64(fd, offset<<9, 0) != (offset<<9)) {
 		if (dofree)
 			free(buf);
 		return NULL;
 	}
-	if (read(fd, buf, len<<9) != (len<<9)) {
+	if ((unsigned long long)read(fd, buf, len<<9) != (len<<9)) {
 		if (dofree)
 			free(buf);
 		return NULL;
@@ -642,10 +642,10 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	struct dl *dl;
 	struct stat stb;
 	char *conf;
-	int i;
-	int confsec;
+	unsigned int i;
+	unsigned int confsec;
 	int vnum;
-	int max_virt_disks = __be16_to_cpu(super->active->max_vd_entries);
+	unsigned int max_virt_disks = __be16_to_cpu(super->active->max_vd_entries);
 	unsigned long long dsize;
 
 	/* First the local disk info */
@@ -673,11 +673,11 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	if (get_dev_size(fd, devname, &dsize))
 		dl->size = dsize >> 9;
 	dl->spare = NULL;
-	for (i=0 ; i < super->max_part ; i++)
+	for (i = 0 ; i < super->max_part ; i++)
 		dl->vlist[i] = NULL;
 	super->dlist = dl;
 	dl->pdnum = -1;
-	for (i=0; i < __be16_to_cpu(super->active->max_pd_entries); i++)
+	for (i = 0; i < __be16_to_cpu(super->active->max_pd_entries); i++)
 		if (memcmp(super->phys->entries[i].guid,
 			   dl->disk.guid, DDF_GUID_LEN) == 0)
 			dl->pdnum = i;
@@ -1054,7 +1054,7 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 	struct vcl *vcl;
 
 	for (vcl = sb->conflist ; vcl ; vcl = vcl->next) {
-		int i;
+		unsigned int i;
 		struct vd_config *vc = &vcl->conf;
 
 		if (calc_crc(vc, crl*512) != vc->crc)
@@ -1065,7 +1065,7 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 		/* Ok, we know about this VD, let's give more details */
 		printf(" Raid Devices[%d] : %d (", n,
 		       __be16_to_cpu(vc->prim_elmnt_count));
-		for (i=0; i<__be16_to_cpu(vc->prim_elmnt_count); i++) {
+		for (i = 0; i < __be16_to_cpu(vc->prim_elmnt_count); i++) {
 			int j;
 			int cnt = __be16_to_cpu(sb->phys->used_pdes);
 			for (j=0; j<cnt; j++)
@@ -1209,12 +1209,12 @@ static void brief_examine_subarrays_ddf(struct supertype *st, int verbose)
 	 */
 	struct ddf_super *ddf = st->sb;
 	struct mdinfo info;
-	int i;
+	unsigned int i;
 	char nbuf[64];
 	getinfo_super_ddf(st, &info);
 	fname_from_uuid(st, &info, nbuf, ':');
 
-	for (i=0; i<__be16_to_cpu(ddf->virt->max_vdes); i++) {
+	for (i = 0; i < __be16_to_cpu(ddf->virt->max_vdes); i++) {
 		struct virtual_entry *ve = &ddf->virt->entries[i];
 		struct vcl vcl;
 		char nbuf1[64];
@@ -1272,7 +1272,7 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 	 * the hostname
 	 */
 	struct ddf_super *ddf = st->sb;
-	int len;
+	unsigned int len;
 
 	if (!homehost)
 		return 0;
@@ -1285,7 +1285,7 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 }
 
 #ifndef MDASSEMBLE
-static struct vd_config *find_vdcr(struct ddf_super *ddf, int inst)
+static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst)
 {
 	struct vcl *v;
 
@@ -1301,8 +1301,8 @@ static int find_phys(struct ddf_super *ddf, __u32 phys_refnum)
 	/* Find the entry in phys_disk which has the given refnum
 	 * and return it's index
 	 */
-	int i;
-	for (i=0; i < __be16_to_cpu(ddf->phys->max_pdes); i++)
+	unsigned int i;
+	for (i = 0; i < __be16_to_cpu(ddf->phys->max_pdes); i++)
 		if (ddf->phys->entries[i].refnum == phys_refnum)
 			return i;
 	return -1;
@@ -1422,7 +1422,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	info->array.chunk_size	  = 512 << vc->conf.chunk_shift;
 	info->custom_array_size	  = 0;
 
-	if (cd >= 0 && cd < ddf->mppe) {
+	if (cd >= 0 && (unsigned)cd < ddf->mppe) {
 		info->data_offset	  = __be64_to_cpu(vc->lba_offset[cd]);
 		if (vc->block_sizes)
 			info->component_size = vc->block_sizes[cd];
@@ -1909,7 +1909,7 @@ FIXME ignore DDF_Legacy devices?
 	 */
 	struct extent *rv;
 	int n = 0;
-	int i, j;
+	unsigned int i, j;
 
 	rv = malloc(sizeof(struct extent) * (ddf->max_part + 2));
 	if (!rv)
@@ -1919,7 +1919,7 @@ FIXME ignore DDF_Legacy devices?
 		struct vcl *v = dl->vlist[i];
 		if (v == NULL)
 			continue;
-		for (j=0; j < v->conf.prim_elmnt_count; j++)
+		for (j = 0; j < v->conf.prim_elmnt_count; j++)
 			if (v->conf.phys_refnum[j] == dl->disk.refnum) {
 				/* This device plays role 'j' in  'v'. */
 				rv[n].start = __be64_to_cpu(v->lba_offset[j]);
@@ -1947,7 +1947,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	 * We need to create a new vd_config and a new virtual_entry
 	 */
 	struct ddf_super *ddf = st->sb;
-	int venum;
+	unsigned int venum;
 	struct virtual_entry *ve;
 	struct vcl *vcl;
 	struct vd_config *vc;
@@ -2068,8 +2068,8 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	struct ddf_super *ddf = st->sb;
 	struct vd_config *vc;
 	__u64 *lba_offset;
-	int working;
-	int i;
+	unsigned int working;
+	unsigned int i;
 	unsigned long long blocks, pos, esize;
 	struct extent *ex;
 
@@ -2114,7 +2114,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	vc->phys_refnum[dk->raid_disk] = dl->disk.refnum;
 	lba_offset[dk->raid_disk] = __cpu_to_be64(pos);
 
-	for (i=0; i < ddf->max_part ; i++)
+	for (i = 0; i < ddf->max_part ; i++)
 		if (dl->vlist[i] == NULL)
 			break;
 	if (i == ddf->max_part)
@@ -2131,7 +2131,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	 */
 	working = 0;
 
-	for (i=0; i < __be16_to_cpu(vc->prim_elmnt_count); i++)
+	for (i = 0; i < __be16_to_cpu(vc->prim_elmnt_count); i++)
 		if (vc->phys_refnum[i] != 0xffffffff)
 			working++;
 
@@ -2165,7 +2165,7 @@ static int add_to_super_ddf(struct supertype *st,
 	struct tm *tm;
 	unsigned long long size;
 	struct phys_disk_entry *pde;
-	int n, i;
+	unsigned int n, i;
 	struct stat stb;
 
 	if (ddf->currentconf) {
@@ -2201,11 +2201,11 @@ static int add_to_super_ddf(struct supertype *st,
 	do {
 		/* Cannot be bothered finding a CRC of some irrelevant details*/
 		dd->disk.refnum = random32();
-		for (i = __be16_to_cpu(ddf->active->max_pd_entries) - 1;
-		     i >= 0; i--)
-			if (ddf->phys->entries[i].refnum == dd->disk.refnum)
+		for (i = __be16_to_cpu(ddf->active->max_pd_entries);
+		     i > 0; i--)
+			if (ddf->phys->entries[i-1].refnum == dd->disk.refnum)
 				break;
-	} while (i >= 0);
+	} while (i > 0);
 
 	dd->disk.forced_ref = 1;
 	dd->disk.forced_guid = 1;
@@ -2348,7 +2348,7 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 				char *null_aligned = (char*)((((unsigned long)null_conf)+511)&~511UL);
 				if (null_conf[0] != 0xff)
 					memset(null_conf, 0xff, sizeof(null_conf));
-				int togo = conf_size;
+				unsigned int togo = conf_size;
 				while (togo > sizeof(null_conf)-512) {
 					if (write(fd, null_aligned, sizeof(null_conf)-512) < 0)
 						break;
@@ -2777,8 +2777,8 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	if ((S_IFMT & stb.st_mode) != S_IFBLK)
 		return 0;
 	for (dl = ddf->dlist ; dl ; dl = dl->next) {
-		if (dl->major == major(stb.st_rdev) &&
-		    dl->minor == minor(stb.st_rdev))
+		if (dl->major == (int)major(stb.st_rdev) &&
+		    dl->minor == (int)minor(stb.st_rdev))
 			break;
 	}
 	if (!dl) {
@@ -2920,8 +2920,8 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 
 	for (vc = ddf->conflist ; vc ; vc=vc->next)
 	{
-		int i;
-		int j;
+		unsigned int i;
+		unsigned int j;
 		struct mdinfo *this;
 		this = malloc(sizeof(*this));
 		memset(this, 0, sizeof(*this));
@@ -2971,7 +2971,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 			devnum2devname(st->container_dev),
 			this->container_member);
 
-		for (i=0 ; i < ddf->mppe ; i++) {
+		for (i = 0 ; i < ddf->mppe ; i++) {
 			struct mdinfo *dev;
 			struct dl *d;
 
@@ -3139,7 +3139,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 static void ddf_set_disk(struct active_array *a, int n, int state)
 {
 	struct ddf_super *ddf = a->container->sb;
-	int inst = a->info.container_member;
+	unsigned int inst = a->info.container_member;
 	struct vd_config *vc = find_vdcr(ddf, inst);
 	int pd = find_phys(ddf, vc->phys_refnum[n]);
 	int i, st, working;
@@ -3280,8 +3280,8 @@ static void ddf_process_update(struct supertype *st,
 	struct vd_config *vc;
 	struct vcl *vcl;
 	struct dl *dl;
-	int mppe;
-	int ent;
+	unsigned int mppe;
+	unsigned int ent;
 
 	dprintf("Process update %x\n", *magic);
 
@@ -3340,7 +3340,7 @@ static void ddf_process_update(struct supertype *st,
 		dprintf("len %d %d\n", update->len, ddf->conf_rec_len);
 
 		mppe = __be16_to_cpu(ddf->anchor.max_primary_element_entries);
-		if (update->len != ddf->conf_rec_len * 512)
+		if ((unsigned)update->len != ddf->conf_rec_len * 512)
 			return;
 		vc = (struct vd_config*)update->buf;
 		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
@@ -3367,8 +3367,8 @@ static void ddf_process_update(struct supertype *st,
 		}
 		/* Now make sure vlist is correct for each dl. */
 		for (dl = ddf->dlist; dl; dl = dl->next) {
-			int dn;
-			int vn = 0;
+			unsigned int dn;
+			unsigned int vn = 0;
 			for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 				for (dn=0; dn < ddf->mppe ; dn++)
 					if (vcl->conf.phys_refnum[dn] ==
@@ -3503,7 +3503,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			int is_global = 0;
 			int is_dedicated = 0;
 			struct extent *ex;
-			int j;
+			unsigned int j;
 			/* If in this array, skip */
 			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
 				if (d2->disk.major == dl->major &&

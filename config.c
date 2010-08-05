@@ -524,12 +524,13 @@ void arrayline(char *line)
 					w);
 			else {
 				char *endptr;
-				mis.super_minor= strtol(w+12, &endptr, 10);
-				if (w[12]==0 || endptr[0]!=0 || mis.super_minor < 0) {
+				int minor = strtol(w+12, &endptr, 10);
+
+				if (w[12]==0 || endptr[0]!=0 || minor < 0)
 					fprintf(stderr, Name ": invalid super-minor number: %s\n",
 						w);
-					mis.super_minor = UnSet;
-				}
+				else
+					mis.super_minor = minor;
 			}
 		} else if (strncasecmp(w, "name=", 5)==0) {
 			if (mis.name[0])

@@ -156,7 +156,7 @@ static void remove_devices(int devnum, char *path)
 		unlink(base);
 		if (path) {
 			n = readlink(path2, link, sizeof(link));
-			if (n && strlen(base) == n &&
+			if (n && (int)strlen(base) == n &&
 			    strncmp(link, base, n) == 0)
 				unlink(path2);
 		}
@@ -398,7 +398,7 @@ int Manage_subdevs(char *devname, int fd,
 				return 1;
 			}
 			for (; j < array.raid_disks + array.nr_disks ; j++) {
-				int dev;
+				unsigned dev;
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					continue;
@@ -430,7 +430,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			for (; j < array.raid_disks + array.nr_disks; j++) {
 				int sfd;
-				int dev;
+				unsigned dev;
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					continue;
@@ -930,8 +930,8 @@ int Manage_subdevs(char *devname, int fd,
 					if (sra)
 						dv = sra->devs;
 					for ( ; dv ; dv=dv->next)
-						if (dv->disk.major == major(stb.st_rdev) &&
-						    dv->disk.minor == minor(stb.st_rdev))
+						if (dv->disk.major == (int)major(stb.st_rdev) &&
+						    dv->disk.minor == (int)minor(stb.st_rdev))
 							break;
 					if (dv)
 						err = sysfs_set_str(sra, dv,
@@ -1021,7 +1021,7 @@ int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident
 
 	memset(st, 0, sizeof(*st));
 	if (snprintf(st->subarray, sizeof(st->subarray), "%s", subarray) >=
-	    sizeof(st->subarray)) {
+	    (signed)sizeof(st->subarray)) {
 		if (!quiet)
 			fprintf(stderr,
 				Name ": Input overflow for subarray '%s' > %zu bytes\n",

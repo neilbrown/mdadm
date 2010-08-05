@@ -146,11 +146,11 @@ int Assemble(struct supertype *st, char *mddev,
 		struct mdinfo i;
 	} *devices;
 	int *best = NULL; /* indexed by raid_disk */
-	unsigned int bestcnt = 0;
+	int bestcnt = 0;
 	int devcnt = 0;
 	unsigned int okcnt, sparecnt, rebuilding_cnt;
 	unsigned int req_cnt;
-	unsigned int i;
+	int i;
 	int most_recent = 0;
 	int chosen_drive;
 	int change = 0;
@@ -182,7 +182,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	if (!devlist &&
 	    ident->uuid_set == 0 &&
-	    ident->super_minor < 0 &&
+	    (ident->super_minor < 0 || ident->super_minor == UnSet) &&
 	    ident->name[0] == 0 &&
 	    (ident->container == NULL || ident->member == NULL) &&
 	    ident->devices == NULL) {
@@ -715,9 +715,9 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (i < 10000) {
 			if (i >= bestcnt) {
-				unsigned int newbestcnt = i+10;
+				int newbestcnt = i+10;
 				int *newbest = malloc(sizeof(int)*newbestcnt);
-				unsigned int c;
+				int c;
 				for (c=0; c < newbestcnt; c++)
 					if (c < bestcnt)
 						newbest[c] = best[c];
@@ -784,7 +784,7 @@ int Assemble(struct supertype *st, char *mddev,
 	okcnt = 0;
 	sparecnt=0;
 	rebuilding_cnt=0;
-	for (i=0; i< bestcnt ;i++) {
+	for (i=0; i< bestcnt; i++) {
 		int j = best[i];
 		int event_margin = 1; /* always allow a difference of '1'
 				       * like the kernel does
@@ -822,9 +822,9 @@ int Assemble(struct supertype *st, char *mddev,
 		 */
 		int fd;
 		struct supertype *tst;
-		long long current_events;
+		unsigned long long current_events;
 		chosen_drive = -1;
-		for (i=0; i<content->array.raid_disks && i < bestcnt; i++) {
+		for (i = 0; i < content->array.raid_disks && i < bestcnt; i++) {
 			int j = best[i];
 			if (j>=0 &&
 			    !devices[j].uptodate &&
@@ -882,7 +882,7 @@ int Assemble(struct supertype *st, char *mddev,
 		/* If there are any other drives of the same vintage,
 		 * add them in as well.  We can't lose and we might gain
 		 */
-		for (i=0; i<content->array.raid_disks && i < bestcnt ; i++) {
+		for (i = 0; i < content->array.raid_disks && i < bestcnt ; i++) {
 			int j = best[i];
 			if (j >= 0 &&
 			    !devices[j].uptodate &&
@@ -1133,7 +1133,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": Container %s has been "
 					"assembled with %d drive%s",
 					mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
-				if (okcnt < content->array.raid_disks)
+				if (okcnt < (unsigned)content->array.raid_disks)
 					fprintf(stderr, " (out of %d)",
 						content->array.raid_disks);
 				fprintf(stderr, "\n");
@@ -1167,7 +1167,7 @@ int Assemble(struct supertype *st, char *mddev,
 				if (verbose >= 0) {
 					fprintf(stderr, Name ": %s has been started with %d drive%s",
 						mddev, okcnt, okcnt==1?"":"s");
-					if (okcnt < content->array.raid_disks)
+					if (okcnt < (unsigned)content->array.raid_disks)
 						fprintf(stderr, " (out of %d)", content->array.raid_disks);
 					if (rebuilding_cnt)
 						fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
@@ -1242,7 +1242,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (runstop == -1) {
 			fprintf(stderr, Name ": %s assembled from %d drive%s",
 				mddev, okcnt, okcnt==1?"":"s");
-			if (okcnt != content->array.raid_disks)
+			if (okcnt != (unsigned)content->array.raid_disks)
 				fprintf(stderr, " (out of %d)", content->array.raid_disks);
 			fprintf(stderr, ", but not started.\n");
 			close(mdfd);
@@ -1265,7 +1265,7 @@ int Assemble(struct supertype *st, char *mddev,
 					"array while not clean - consider "
 					"--force.\n");
 			else {
-				if (req_cnt == content->array.raid_disks)
+				if (req_cnt == (unsigned)content->array.raid_disks)
 					fprintf(stderr, " - need all %d to start it", req_cnt);
 				else
 					fprintf(stderr, " - need %d of %d to start", req_cnt, content->array.raid_disks);

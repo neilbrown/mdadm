@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 				/* update cmdline so this mdmon instance can be
 				 * distinguished from others in a call to ps(1)
 				 */
-				if (strlen(devname) <= container_len) {
+				if (strlen(devname) <= (unsigned)container_len) {
 					memset(container_name, 0, container_len);
 					sprintf(container_name, "%s", devname);
 				}

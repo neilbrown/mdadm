@@ -389,7 +389,7 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 	/* work_disks is calculated rather than read directly */
 	for (i=0; i < MD_SB_DISKS; i++)
 		if ((sb->disks[i].state & (1<<MD_DISK_SYNC)) &&
-		    (sb->disks[i].raid_disk < info->array.raid_disks) &&
+		    (sb->disks[i].raid_disk < (unsigned)info->array.raid_disks) &&
 		    (sb->disks[i].state & (1<<MD_DISK_ACTIVE)) &&
 		    !(sb->disks[i].state & (1<<MD_DISK_FAULTY)))
 			working ++;
@@ -427,7 +427,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 				devname, info->array.md_minor);
 	}
 	if (strcmp(update, "summaries") == 0) {
-		int i;
+		unsigned int i;
 		/* set nr_disks, active_disks, working_disks,
 		 * failed_disks, spare_disks based on disks[]
 		 * array in superblock.
@@ -487,7 +487,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			 */
 			add = (1<<MD_DISK_SYNC);
 		if (((sb->disks[d].state & ~mask) | add)
-		    != info->disk.state) {
+		    != (unsigned)info->disk.state) {
 			sb->disks[d].state = info->disk.state | wonly;
 			rv = 1;
 		}
@@ -593,7 +593,7 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	sb->gvalid_words = 0; /* ignored */
 	sb->ctime = time(0);
 	sb->level = info->level;
-	if (size != info->size)
+	if (size != (unsigned long long)info->size)
 		return 0;
 	sb->size = info->size;
 	sb->nr_disks = info->nr_disks;
@@ -982,7 +982,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 		chunk = min_chunk;
 		if (chunk < 64*1024*1024)
 			chunk = 64*1024*1024;
-	} else if (chunk < min_chunk)
+	} else if ((unsigned long long)chunk < min_chunk)
 		return 0; /* chunk size too small */
 
 	sb->state |= (1<<MD_SB_BITMAP_PRESENT);

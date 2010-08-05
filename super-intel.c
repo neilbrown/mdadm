@@ -230,7 +230,7 @@ static unsigned int mpb_sectors(struct imsm_super *mpb)
 struct intel_dev {
 	struct imsm_dev *dev;
 	struct intel_dev *next;
-	int index;
+	unsigned index;
 };
 
 /* internal representation of IMSM metadata */
@@ -496,7 +496,7 @@ static void set_imsm_ord_tbl_ent(struct imsm_map *map, int slot, __u32 ord)
 	map->disk_ord_tbl[slot] = __cpu_to_le32(ord);
 }
 
-static int get_imsm_disk_slot(struct imsm_map *map, int idx)
+static int get_imsm_disk_slot(struct imsm_map *map, unsigned idx)
 {
 	int slot;
 	__u32 ord;
@@ -590,7 +590,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 		 */
 		remainder &= ~1UL;
 		/* make sure remainder is still sane */
-		if (remainder < ROUND_UP(super->len, 512) >> 9)
+		if (remainder < (unsigned)ROUND_UP(super->len, 512) >> 9)
 			remainder = ROUND_UP(super->len, 512) >> 9;
 		if (reservation > remainder)
 			reservation = remainder;
@@ -891,7 +891,7 @@ static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_b
 	int err = 0;
 	unsigned long port_mask = (1 << port_count) - 1;
 
-	if (port_count > sizeof(port_mask) * 8) {
+	if (port_count > (int)sizeof(port_mask) * 8) {
 		if (verbose)
 			fprintf(stderr, Name ": port_count %d out of range\n", port_count);
 		return 2;
@@ -2270,7 +2270,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 		return 1;
 	}
 
-	if (read(fd, super->buf + 512, super->len - 512) != super->len - 512) {
+	if ((unsigned)read(fd, super->buf + 512, super->len - 512) != super->len - 512) {
 		if (devname)
 			fprintf(stderr,
 				Name ": Cannot read extended mpb on %s: %s\n",
@@ -3873,8 +3873,8 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	if ((S_IFMT & stb.st_mode) != S_IFBLK)
 		return 0;
 	for (dl = super->disks ; dl ; dl = dl->next) {
-		if (dl->major == major(stb.st_rdev) &&
-		    dl->minor == minor(stb.st_rdev))
+		if (dl->major == (int)major(stb.st_rdev) &&
+		    dl->minor == (int)minor(stb.st_rdev))
 			break;
 	}
 	if (!dl) {
@@ -4581,7 +4581,7 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 	disk->status |= FAILED_DISK;
 	disk->status &= ~CONFIGURED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
-	if (~map->failed_disk_num == 0)
+	if (map->failed_disk_num == 0xff)
 		map->failed_disk_num = slot;
 	return 1;
 }
@@ -4773,7 +4773,8 @@ static int store_imsm_mpb(int fd, struct imsm_super *mpb)
 		if (lseek64(fd, dsize - (512 * (2 + sectors)), SEEK_SET) < 0)
 			return 1;
 
-		if (write(fd, buf + 512, 512 * sectors) != 512 * sectors)
+		if ((unsigned long long)write(fd, buf + 512, 512 * sectors)
+		    != 512 * sectors)
 			return 1;
 	}
 
@@ -5082,7 +5083,7 @@ static int disks_overlap(struct intel_super *super, int idx, struct imsm_update_
 	return 0;
 }
 
-static void imsm_delete(struct intel_super *super, struct dl **dlp, int index);
+static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned index);
 
 static void imsm_process_update(struct supertype *st,
 			        struct metadata_update *update)
@@ -5357,10 +5358,10 @@ static void imsm_process_update(struct supertype *st,
 		}
 
 		for (dp = &super->devlist; *dp;)
-			if ((*dp)->index == super->current_vol) {
+			if ((*dp)->index == (unsigned)super->current_vol) {
 				*dp = (*dp)->next;
 			} else {
-				if ((*dp)->index > victim)
+				if ((*dp)->index > (unsigned)victim)
 					(*dp)->index--;
 				dp = &(*dp)->next;
 			}
@@ -5504,7 +5505,7 @@ static void imsm_prepare_update(struct supertype *st,
 }
 
 /* must be called while manager is quiesced */
-static void imsm_delete(struct intel_super *super, struct dl **dlp, int index)
+static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned index)
 {
 	struct imsm_super *mpb = super->anchor;
 	struct dl *iter;
@@ -5518,10 +5519,10 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, int index)
 
 	/* shift all indexes down one */
 	for (iter = super->disks; iter; iter = iter->next)
-		if (iter->index > index)
+		if (iter->index > (int)index)
 			iter->index--;
 	for (iter = super->missing; iter; iter = iter->next)
-		if (iter->index > index)
+		if (iter->index > (int)index)
 			iter->index--;
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
@@ -5595,7 +5596,6 @@ struct superswitch super_imsm = {
 #ifndef MDASSEMBLE
 /* for mdmon */
 	.open_new	= imsm_open_new,
-	.load_super	= load_super_imsm,
 	.set_array_state= imsm_set_array_state,
 	.set_disk	= imsm_set_disk,
 	.sync_metadata	= imsm_sync_metadata,

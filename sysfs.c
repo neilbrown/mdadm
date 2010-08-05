@@ -195,7 +195,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 	if (options & GET_SAFEMODE) {
 		int scale = 1;
 		int dot = 0;
-		int i;
+		unsigned i;
 		unsigned long msec;
 		size_t len;
 
@@ -372,7 +372,7 @@ unsigned long long get_component_size(int fd)
 	char fname[50];
 	int n;
 	if (fstat(fd, &stb)) return 0;
-	if (major(stb.st_rdev) != get_mdp_major())
+	if (major(stb.st_rdev) != (unsigned)get_mdp_major())
 		sprintf(fname, "/sys/block/md%d/md/component_size",
 			(int)minor(stb.st_rdev));
 	else
@@ -393,7 +393,7 @@ int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 		  char *name, char *val)
 {
 	char fname[50];
-	int n;
+	unsigned int n;
 	int fd;
 
 	sprintf(fname, "/sys/block/%s/md/%s/%s",

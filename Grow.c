@@ -409,7 +409,7 @@ static struct mdp_backup_super {
 	__u8 pad[512-68-32];
 } __attribute__((aligned(512))) bsb, bsb2;
 
-int bsb_csum(char *buf, int len)
+__u32 bsb_csum(char *buf, int len)
 {
 	int i;
 	int csum = 0;
@@ -505,7 +505,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	int nchunk, ochunk;
 	int nlayout, olayout;
 	int ndisks, odisks;
-	int ndata, odata;
+	unsigned int ndata, odata;
 	int orig_level = UnSet;
 	char alt_layout[40];
 	int *fdlist;
@@ -515,7 +515,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	int err;
 	int frozen;
 	unsigned long a,b, blocks, stripes;
-	int cache;
+	unsigned long cache;
 	unsigned long long array_size;
 	int changed = 0;
 	int done;
@@ -923,7 +923,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 		/* Check that we can hold all the data */
 		get_dev_size(fd, NULL, &array_size);
-		if (ndata * size < (array_size/1024)) {
+		if (ndata * (unsigned long long)size < (array_size/1024)) {
 			fprintf(stderr, Name ": this change will reduce the size of the array.\n"
 				"       use --grow --array-size first to truncate array.\n"
 				"       e.g. mdadm --grow %s --array-size %llu\n",
@@ -1054,7 +1054,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				break;
 			}
 			memset(buf, 0, 512);
-			for (i=0; i < blocks + 1 ; i++) {
+			for (i=0; i < (signed)blocks + 1 ; i++) {
 				if (write(fdlist[d], buf, 512) != 512) {
 					fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
 						devname, backup_file, strerror(errno));
@@ -1284,7 +1284,8 @@ int grow_backup(struct mdinfo *sra,
 	int odata = disks;
 	int rv = 0;
 	int i;
-	unsigned long long new_degraded;
+	unsigned long long ll;
+	int new_degraded;
 	//printf("offset %llu\n", offset);
 	if (level >= 4)
 		odata--;
@@ -1292,7 +1293,8 @@ int grow_backup(struct mdinfo *sra,
 		odata--;
 	sysfs_set_num(sra, NULL, "suspend_hi", (offset + stripes * (chunk/512)) * odata);
 	/* Check that array hasn't become degraded, else we might backup the wrong data */
-	sysfs_get_ll(sra, NULL, "degraded", &new_degraded);
+	sysfs_get_ll(sra, NULL, "degraded", &ll);
+	new_degraded = (int)ll;
 	if (new_degraded != *degraded) {
 		/* check each device to ensure it is still working */
 		struct mdinfo *sd;
@@ -1348,11 +1350,12 @@ int grow_backup(struct mdinfo *sra,
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 
-		if (lseek64(destfd[i], destoffsets[i] - 4096, 0) != destoffsets[i] - 4096)
+		if ((unsigned long long)lseek64(destfd[i], destoffsets[i] - 4096, 0)
+		    != destoffsets[i] - 4096)
 			rv = 1;
 		rv = rv ?: write(destfd[i], &bsb, 512);
 		if (destoffsets[i] > 4096) {
-			if (lseek64(destfd[i], destoffsets[i]+stripes*chunk*odata, 0) !=
+			if ((unsigned long long)lseek64(destfd[i], destoffsets[i]+stripes*chunk*odata, 0) !=
 			    destoffsets[i]+stripes*chunk*odata)
 				rv = 1;
 			rv = rv ?: write(destfd[i], &bsb, 512);
@@ -1426,7 +1429,7 @@ int wait_backup(struct mdinfo *sra,
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0)
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
-		if (lseek64(destfd[i], destoffsets[i]-4096, 0) !=
+		if ((unsigned long long)lseek64(destfd[i], destoffsets[i]-4096, 0) !=
 		    destoffsets[i]-4096)
 			rv = 1;
 		rv = rv ?: write(destfd[i], &bsb, 512);
@@ -1444,7 +1447,7 @@ static void fail(char *msg)
 }
 
 static char *abuf, *bbuf;
-static int abuflen;
+static unsigned long long abuflen;
 static void validate(int afd, int bfd, unsigned long long offset)
 {
 	/* check that the data in the backup against the array.
@@ -1485,12 +1488,12 @@ static void validate(int afd, int bfd, unsigned long long offset)
 		}
 
 		lseek64(bfd, offset, 0);
-		if (read(bfd, bbuf, len) != len) {
+		if ((unsigned long long)read(bfd, bbuf, len) != len) {
 			//printf("len %llu\n", len);
 			fail("read first backup failed");
 		}
 		lseek64(afd, __le64_to_cpu(bsb2.arraystart)*512, 0);
-		if (read(afd, abuf, len) != len)
+		if ((unsigned long long)read(afd, abuf, len) != len)
 			fail("read first from array failed");
 		if (memcmp(bbuf, abuf, len) != 0) {
 			#if 0
@@ -1518,10 +1521,10 @@ static void validate(int afd, int bfd, unsigned long long offset)
 		}
 
 		lseek64(bfd, offset+__le64_to_cpu(bsb2.devstart2)*512, 0);
-		if (read(bfd, bbuf, len) != len)
+		if ((unsigned long long)read(bfd, bbuf, len) != len)
 			fail("read second backup failed");
 		lseek64(afd, __le64_to_cpu(bsb2.arraystart2)*512, 0);
-		if (read(afd, abuf, len) != len)
+		if ((unsigned long long)read(afd, abuf, len) != len)
 			fail("read second from array failed");
 		if (memcmp(bbuf, abuf, len) != 0)
 			fail("data2 compare failed");
@@ -1763,8 +1766,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		 * sometimes they aren't... So allow considerable flexability in matching, and allow
 		 * this test to be overridden by an environment variable.
 		 */
-		if (info->array.utime > __le64_to_cpu(bsb.mtime) + 2*60*60 ||
-		    info->array.utime < __le64_to_cpu(bsb.mtime) - 10*60) {
+		if (info->array.utime > (int)__le64_to_cpu(bsb.mtime) + 2*60*60 ||
+		    info->array.utime < (int)__le64_to_cpu(bsb.mtime) - 10*60) {
 			if (check_env("MDADM_GROW_ALLOW_OLD")) {
 				fprintf(stderr, Name ": accepting backup with timestamp %lu "
 					"for array with timestamp %lu\n",
@@ -1973,7 +1976,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	int d;
 	struct mdinfo *sra, *sd;
 	int rv;
-	int cache;
+	unsigned long cache;
 	int done = 0;
 
 	err = sysfs_set_str(info, NULL, "array_state", "readonly");

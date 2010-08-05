@@ -195,7 +195,7 @@ struct mdinfo {
 	unsigned long		safe_mode_delay; /* ms delay to mark clean */
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;
-	int			cache_size; /* size of raid456 stripe cache*/
+	unsigned long		cache_size; /* size of raid456 stripe cache*/
 	int			mismatch_cnt;
 	char			text_version[50];
 	void 			*update_private; /* for passing metadata-format
@@ -300,14 +300,14 @@ typedef struct mddev_ident_s {
 	int	uuid[4];
 	char	name[33];
 
-	unsigned int super_minor;
+	int super_minor;
 
 	char	*devices;	/* comma separated list of device
 				 * names with wild cards
 				 */
 	int	level;
-	unsigned int raid_disks;
-	unsigned int spare_disks;
+	int raid_disks;
+	int spare_disks;
 	struct supertype *st;
 	int	autof;		/* 1 for normal, 2 for partitioned */
 	char	*spare_group;

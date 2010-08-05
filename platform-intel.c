@@ -65,7 +65,7 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		sprintf(path, "/sys/bus/%s/drivers/%s/%s/subsystem",
 			bus, driver, de->d_name);
 		n = readlink(path, link, sizeof(link));
-		if (n < 0 || n >= sizeof(link))
+		if (n < 0 || n >= (int)sizeof(link))
 			continue;
 		link[n] = '\0';
 		c = strrchr(link, '/');

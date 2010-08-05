@@ -583,7 +583,7 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 	for (i=0; i<raid_disks; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 	while (length > 0) {
-		int len = data_disks * chunk_size;
+		unsigned int len = data_disks * chunk_size;
 		unsigned long long offset;
 		int disk, qdisk;
 		int syndrome_disks;
@@ -592,9 +592,11 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		for (i=0; i < data_disks; i++) {
 			int disk = geo_map(i, start/chunk_size/data_disks,
 					   raid_disks, level, layout);
-			if (lseek64(source, read_offset, 0) != read_offset)
+			if ((unsigned long long)lseek64(source, read_offset, 0)
+			    != read_offset)
 				return -1;
-			if (read(source, stripes[disk], chunk_size) != chunk_size)
+			if (read(source, stripes[disk],
+						     chunk_size) != chunk_size)
 				return -1;
 			read_offset += chunk_size;
 		}

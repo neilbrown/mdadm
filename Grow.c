@@ -979,7 +979,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			rv = 1;
 			break;
 		}
-		nrdisks = array.nr_disks + sra->array.spare_disks;
+		nrdisks = array.raid_disks + sra->array.spare_disks;
 		/* Now we need to open all these devices so we can read/write.
 		 */
 		fdlist = malloc((1+nrdisks) * sizeof(int));

@@ -1,8 +1,8 @@
 /*
- * mapfile - manage /var/run/mdadm/map. Part of:
+ * mapfile - keep track of uuid <-> array mapping. Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2006-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2006-2010 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
  *           Australia
  */
 
-/* /var/run/mdadm/map is used to track arrays being created in --incremental
+/* The mapfile is used to track arrays being created in --incremental
  * mode.  It particularly allows lookup from UUID to array device, but
  * also allows the array device name to be easily found.
  *
@@ -38,54 +38,49 @@
  *  UUID       -  uuid of the array
  *  path       -  path where device created: /dev/md/home
  *
- * The preferred location for the map file is /var/run/mdadm/map.
- * However /var/run may not exist or be writable in early boot.  And if
- * no-one has created /var/run/mdadm, we still want to survive.
- * So possible locations are:
- *   /var/run/mdadm/map  /dev/.mdadm/map(changable at compile time).
- * We read from the first one that exists and write to the first
- * one that we can.
+ * The best place for the mapfile wold be /var/run/mdadm/map.  However
+ * it is needed during initramfs early-boot, and /var/run doesn't exist there
+ * and certainly doesn't persist through to normal boot.
+ * So we store it in /dev/.mdadm/map but allow this to be changed at
+ * compile time. via MAP_DIR and MAP_FILE
+ *
  */
 #include	"mdadm.h"
 #include	<sys/file.h>
 #include	<ctype.h>
+
+#ifndef MAP_DIR
+#define MAP_DIR "/dev/.mdadm"
+#define MAP_FILE "map"
+#endif
 
 #define MAP_READ 0
 #define MAP_NEW 1
 #define MAP_LOCK 2
 #define MAP_DIRNAME 3
 #define mapnames(dir, base) { \
-			dir "/" base,				\
-			dir "/" base ".new",			\
-			dir "/" base ".lock",			\
-			dir }
 
-#define MAP_DIRS 2
-char *mapname[MAP_DIRS][4] = {
-	mapnames("/var/run/mdadm", "map"),
-	mapnames(MAP_DIR, MAP_FILE),
+char *mapname[4] = {
+	MAP_DIR "/" MAP_FILE,
+	MAP_DIR "/" MAP_FILE ".new",
+	MAP_DIR "/" MAP_FILE ".lock",
+	MAP_DIR
 };
 
 int mapmode[3] = { O_RDONLY, O_RDWR|O_CREAT, O_RDWR|O_CREAT|O_TRUNC };
 char *mapsmode[3] = { "r", "w", "w"};
 
-FILE *open_map(int modenum, int *choice)
+FILE *open_map(int modenum)
 {
-	int i;
-
-	for (i = 0 ; i <= MAP_DIRS ; i++) {
-		int fd;
-		if ((mapmode[modenum] & O_CREAT))
-			/* Attempt to create directory, don't worry about
-			 * failure.
-			 */
-			(void)mkdir(mapname[i][MAP_DIRNAME], 0755);
-		fd = open(mapname[i][modenum], mapmode[modenum], 0600);
-		if (fd >= 0) {
-			*choice = i;
-			return fdopen(fd, mapsmode[modenum]);
-		}
-	}
+	int fd;
+	if ((mapmode[modenum] & O_CREAT))
+		/* Attempt to create directory, don't worry about
+		 * failure.
+		 */
+		(void)mkdir(mapname[MAP_DIRNAME], 0755);
+	fd = open(mapname[modenum], mapmode[modenum], 0600);
+	if (fd >= 0)
+		return fdopen(fd, mapsmode[modenum]);
 	return NULL;
 }
 
@@ -93,9 +88,8 @@ int map_write(struct map_ent *mel)
 {
 	FILE *f;
 	int err;
-	int which;
 
-	f = open_map(MAP_NEW, &which);
+	f = open_map(MAP_NEW);
 
 	if (!f)
 		return 0;
@@ -115,21 +109,20 @@ int map_write(struct map_ent *mel)
 	err = ferror(f);
 	fclose(f);
 	if (err) {
-		unlink(mapname[which][1]);
+		unlink(mapname[1]);
 		return 0;
 	}
-	return rename(mapname[which][1],
-		      mapname[which][0]) == 0;
+	return rename(mapname[1],
+		      mapname[0]) == 0;
 }
 
 
 static FILE *lf = NULL;
-static int lwhich = 0;
 int map_lock(struct map_ent **melp)
 {
 	while (lf == NULL) {
 		struct stat buf;
-		lf = open_map(MAP_LOCK, &lwhich);
+		lf = open_map(MAP_LOCK);
 		if (lf == NULL)
 			return -1;
 		if (flock(fileno(lf), LOCK_EX) != 0) {
@@ -160,7 +153,7 @@ void map_unlock(struct map_ent **melp)
 		 * as only the owner of the lock may
 		 * unlink the file
 		 */
-		unlink(mapname[lwhich][2]);
+		unlink(mapname[2]);
 		fclose(lf);
 	}
 	lf = NULL;
@@ -188,14 +181,13 @@ void map_read(struct map_ent **melp)
 	int devnum, uuid[4];
 	char metadata[30];
 	char nam[4];
-	int which;
 
 	*melp = NULL;
 
-	f = open_map(MAP_READ, &which);
+	f = open_map(MAP_READ);
 	if (!f) {
 		RebuildMap();
-		f = open_map(MAP_READ, &which);
+		f = open_map(MAP_READ);
 	}
 	if (!f)
 		return;

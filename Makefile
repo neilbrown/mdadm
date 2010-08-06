@@ -80,7 +80,7 @@ CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(DI
 USE_PTHREADS = 1
 ifdef USE_PTHREADS
 CFLAGS += -DUSE_PTHREADS
-LDFLAGS += -pthread
+MON_LDFLAGS += -pthread
 endif
 
 # If you want a static binary, you might uncomment these
@@ -163,11 +163,11 @@ mdadm.O2 : $(SRCS) mdadm.h mdmon.O2
 	$(CC) -o mdadm.O2 $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
 
 mdmon.O2 : $(MON_SRCS) mdadm.h mdmon.h
-	$(CC) -o mdmon.O2 $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
+	$(CC) -o mdmon.O2 $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
 mdmon : $(MON_OBJS)
-	$(CC) $(LDFLAGS) -z now -o mdmon $(MON_OBJS) $(LDLIBS)
+	$(CC) $(LDFLAGS) $(MON_LDFLAGS) -z now -o mdmon $(MON_OBJS) $(LDLIBS)
 msg.o: msg.c msg.h
 
 test_stripe : restripe.c mdadm.h

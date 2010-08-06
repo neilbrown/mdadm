@@ -256,7 +256,8 @@ clean :
 	mdadm.Os mdadm.O2 mdmon.O2 \
 	mdassemble mdassemble.static mdassemble.auto mdassemble.uclibc \
 	mdassemble.klibc swap_super \
-	init.cpio.gz mdadm.uclibc.static test_stripe mdmon
+	init.cpio.gz mdadm.uclibc.static test_stripe mdmon \
+	mdadm.8
 
 dist : clean
 	./makedist

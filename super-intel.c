@@ -5390,7 +5390,7 @@ static void imsm_process_update(struct supertype *st,
 			break;
 		}
 
-		snprintf((char *) dev->volume, MAX_RAID_SERIAL_LEN, name);
+		snprintf((char *) dev->volume, MAX_RAID_SERIAL_LEN, "%s", name);
 		super->updates_pending++;
 		break;
 	}

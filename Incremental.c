@@ -264,7 +264,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		else {
 			if (verbose)
 				fprintf(stderr, Name ": not enough devices to start the container\n");
-			return 1;
+			return 0;
 		}
 
 		/* This is a pre-built container array, so we do something

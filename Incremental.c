@@ -370,14 +370,15 @@ int Incremental(char *devname, int verbose, int runstop,
 		else
 			strcpy(chosen_name, devnum2devname(mp->devnum));
 
-		/* It is generally not OK to add drives to a running array
-		 * as they are probably missing because they failed.
-		 * However if runstop is 1, then the array was possibly
-		 * started early and our best be is to add this anyway.
-		 * It would probably be good to allow explicit policy
-		 * statement about this.
+		/* It is generally not OK to add non-spare drives to a
+		 * running array as they are probably missing because
+		 * they failed.  However if runstop is 1, then the
+		 * array was possibly started early and our best be is
+		 * to add this anyway.  It would probably be good to
+		 * allow explicit policy statement about this.
 		 */
-		if (runstop < 1) {
+		if ((info.disk.state & (1<<MD_DISK_SYNC)) != 0
+		    && runstop < 1) {
 			int active = 0;
 			
 			if (st->ss->external) {

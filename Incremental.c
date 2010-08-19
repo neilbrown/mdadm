@@ -142,11 +142,13 @@ int Incremental(char *devname, int verbose, int runstop,
 		rv = try_spare(devname, &dfd, policy, st, verbose);
 		goto out;
 	}
-	if (st->ss->load_super(st, dfd, NULL)) {
+	if (st->ss->compare_super == NULL ||
+	    st->ss->load_super(st, dfd, NULL)) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": no RAID superblock on %s.\n",
 				devname);
 		rv = try_spare(devname, &dfd, policy, st, verbose);
+		free(st);
 		goto out;
 	}
 	close (dfd); dfd = -1;

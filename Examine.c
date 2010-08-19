@@ -100,7 +100,11 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 					     devlist->devname, 0, 0, NULL);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 
-		if (brief) {
+		if (brief && st->ss->brief_examine_super == NULL) {
+			if (!scan)
+				fprintf(stderr, Name ": No brief listing for %s on %s\n",
+					st->ss->name, devlist->devname);
+		} else if (brief) {
 			struct array *ap;
 			char *d;
 			for (ap=arrays; ap; ap=ap->next) {

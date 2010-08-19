@@ -262,8 +262,14 @@ int Assemble(struct supertype *st, char *mddev,
 			tmpdev->used = 2;
 		} else if (tst->ss->load_super(tst,dfd, NULL)) {
 			if (report_missmatch)
-				fprintf( stderr, Name ": no RAID superblock on %s\n",
-					 devname);
+				fprintf(stderr, Name ": no RAID superblock on %s\n",
+					devname);
+		} else if (tst->ss->compare_super == NULL) {
+			if (report_missmatch)
+				fprintf(stderr, Name ": Cannot assemble %s metadata on %s\n",
+					tst->ss->name, devname);
+			tst->ss->free_super(tst);
+			tmpdev->used = 2;
 		} else if (auto_assem && st == NULL &&
 			   !conf_test_metadata(tst->ss->name,
 					       tst->ss->match_home(tst, homehost) == 1)) {

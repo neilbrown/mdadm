@@ -65,55 +65,7 @@ struct blkpg_partition {
 	char volname[BLKPG_VOLNAMELTH];	/* volume label */
 };
 
-/* partition table structures so we can check metadata position
- * against the end of the last partition.
- * Only handle MBR ant GPT partition tables.
- */
-struct MBR_part_record {
-  __u8 bootable;
-  __u8 first_head;
-  __u8 first_sector;
-  __u8 first_cyl;
-  __u8 part_type;
-  __u8 last_head;
-  __u8 last_sector;
-  __u8 last_cyl;
-  __u32 first_sect_lba;
-  __u32 blocks_num;
-};
-
-struct MBR {
-	__u8 pad[446];
-	struct MBR_part_record parts[4];
-	__u16 magic;
-} __attribute__((packed));
-
-struct GPT_part_entry {
-  unsigned char type_guid[16];
-  unsigned char partition_guid[16];
-  __u64 starting_lba;
-  __u64 ending_lba;
-  unsigned char attr_bits[8];
-  unsigned char name[72];
-} __attribute__((packed));
-
-struct GPT {
-	__u64 magic;
-	__u32 revision;
-	__u32 header_size;
-	__u32 crc;
-	__u32 pad1;
-	__u64 current_lba;
-	__u64 backup_lba;
-	__u64 first_lba;
-	__u64 last_lba;
-	__u8 guid[16];
-	__u64 part_start;
-	__u32 part_cnt;
-	__u32 part_size;
-	__u32 part_crc;
-	__u8 pad2[420];
-} __attribute__((packed));
+#include "part.h"
 
 /* Force a compilation error if condition is true */
 #define BUILD_BUG_ON(condition) ((void)BUILD_BUG_ON_ZERO(condition))
@@ -123,14 +75,6 @@ struct GPT {
    e.g. in a structure initializer (or where-ever else comma expressions
    aren't permitted). */
 #define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
-
-
-/* MBR/GPT magic numbers */
-#define	MBR_SIGNATURE_MAGIC	__cpu_to_le16(0xAA55)
-#define	GPT_SIGNATURE_MAGIC	__cpu_to_le64(0x5452415020494645ULL)
-
-#define MBR_PARTITIONS               4
-#define MBR_GPT_PARTITION_TYPE       0xEE
 
 /*
  * Parse a 128 bit uuid in 4 integers
@@ -1049,7 +993,12 @@ void wait_for(char *dev, int fd)
 		dprintf("%s: timeout waiting for %s\n", __func__, dev);
 }
 
-struct superswitch *superlist[] = { &super0, &super1, &super_ddf, &super_imsm, NULL };
+struct superswitch *superlist[] =
+{
+	&super0, &super1,
+	&super_ddf, &super_imsm,
+	&mbr,
+	NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 

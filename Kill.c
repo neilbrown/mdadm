@@ -53,7 +53,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 	}
 	if (st == NULL)
 		st = guess_super(fd);
-	if (st == NULL) {
+	if (st == NULL || st->ss->init_super == NULL) {
 		if (!quiet)
 			fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
 		close(fd);

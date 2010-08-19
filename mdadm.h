@@ -671,9 +671,11 @@ extern struct superswitch {
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 	const char *name; /* canonical metadata name */
-} super0, super1, super_ddf, *superlist[];
+} *superlist[];
 
-extern struct superswitch super_imsm;
+extern struct superswitch super0, super1;
+extern struct superswitch super_imsm, super_ddf;
+extern struct superswitch mbr;
 
 struct metadata_update {
 	int	len;

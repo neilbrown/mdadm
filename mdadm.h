@@ -675,7 +675,7 @@ extern struct superswitch {
 
 extern struct superswitch super0, super1;
 extern struct superswitch super_imsm, super_ddf;
-extern struct superswitch mbr;
+extern struct superswitch mbr, gpt;
 
 struct metadata_update {
 	int	len;

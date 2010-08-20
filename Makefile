@@ -99,7 +99,7 @@ OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o 
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
 	Incremental.o \
 	mdopen.o super0.o super1.o super-ddf.o super-intel.o bitmap.o \
-	super-mbr.o \
+	super-mbr.o super-gpt.o \
 	restripe.o sysfs.o sha1.o mapfile.o crc32.o sg_io.o msg.o \
 	platform-intel.o probe_roms.o
 
@@ -107,7 +107,7 @@ SRCS =  mdadm.c config.c policy.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c 
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
 	Incremental.c \
 	mdopen.c super0.c super1.c super-ddf.c super-intel.c bitmap.c \
-	super-mbr.c \
+	super-mbr.c super-gpt.c \
 	restripe.c sysfs.c sha1.c mapfile.c crc32.c sg_io.c msg.c \
 	platform-intel.c probe_roms.c
 
@@ -115,13 +115,13 @@ INCL = mdadm.h part.h bitmap.h
 
 MON_OBJS = mdmon.o monitor.o managemon.o util.o mdstat.o sysfs.o config.o policy.o \
 	Kill.o sg_io.o dlink.o ReadMe.o super0.o super1.o super-intel.o \
-	super-mbr.o \
+	super-mbr.o super-gpt.o \
 	super-ddf.o sha1.o crc32.o msg.o bitmap.o \
 	platform-intel.o probe_roms.o
 
 MON_SRCS = mdmon.c monitor.c managemon.c util.c mdstat.c sysfs.c config.c policy.c \
 	Kill.c sg_io.c dlink.c ReadMe.c super0.c super1.c super-intel.c \
-	super-mbr.c \
+	super-mbr.c super-gpt.c \
 	super-ddf.c sha1.c crc32.c msg.c bitmap.c \
 	platform-intel.c probe_roms.c
 
@@ -130,7 +130,7 @@ STATICOBJS = pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c policy.c dlink.c util.c \
 	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
-	platform-intel.c probe_roms.c sysfs.c super-mbr.c
+	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c
 ASSEMBLE_AUTO_SRCS := mdopen.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO

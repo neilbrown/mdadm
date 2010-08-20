@@ -997,7 +997,7 @@ struct superswitch *superlist[] =
 {
 	&super0, &super1,
 	&super_ddf, &super_imsm,
-	&mbr,
+	&mbr, &gpt,
 	NULL };
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)

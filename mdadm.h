@@ -792,6 +792,19 @@ extern void dev_policy_free(struct dev_policy *p);
 extern void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata);
 extern struct dev_policy *pol_find(struct dev_policy *pol, char *name);
 
+enum policy_action {
+	act_default,
+	act_include,
+	act_re_add,
+	act_spare,
+	act_force_spare,
+	act_err
+};
+
+extern int policy_action_allows(struct dev_policy *plist, const char *metadata,
+				enum policy_action want);
+extern int disk_action_allows(struct mdinfo *disk, const char *metadata,
+			      enum policy_action want);
 #if __GNUC__ < 3
 struct stat64;
 #endif

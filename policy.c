@@ -459,3 +459,48 @@ void dev_policy_free(struct dev_policy *p)
 		free(t);
 	}
 }
+
+static enum policy_action map_act(char *act)
+{
+	if (strcmp(act, "include") == 0)
+		return act_include;
+	if (strcmp(act, "re-add") == 0)
+		return act_re_add;
+	if (strcmp(act, "spare") == 0)
+		return act_spare;
+	if (strcmp(act, "force-spare") == 0)
+		return act_force_spare;
+	return act_err;
+}
+
+static enum policy_action policy_action(struct dev_policy *plist, const char *metadata)
+{
+	enum policy_action rv = act_default;
+	struct dev_policy *p;
+
+	plist = pol_find(plist, pol_act);
+	pol_for_each(p, plist, metadata) {
+		enum policy_action a = map_act(p->value);
+		if (a > rv)
+			rv = a;
+	}
+	return rv;
+}
+
+int policy_action_allows(struct dev_policy *plist, const char *metadata, enum policy_action want)
+{
+	enum policy_action act = policy_action(plist, metadata);
+
+	if (act == act_err)
+		return 0;
+	return (act >= want);
+}
+
+int disk_action_allows(struct mdinfo *disk, const char *metadata, enum policy_action want)
+{
+	struct dev_policy *pol = disk_policy(disk);
+	int rv = policy_action_allows(pol, metadata, want);
+
+	dev_policy_free(pol);
+	return rv;
+}

@@ -81,9 +81,9 @@ int Incremental(char *devname, int verbose, int runstop,
 	struct mdinfo info;
 	struct mddev_ident_s *array_list, *match;
 	char chosen_name[1024];
-	int rv;
+	int rv = 1;
 	struct map_ent *mp, *map = NULL;
-	int dfd, mdfd;
+	int dfd = -1, mdfd = -1;
 	char *avail;
 	int active_disks;
 	int trustworthy = FOREIGN;
@@ -100,7 +100,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 				": %s not permitted by mdadm.conf.\n",
 				devname);
-		return 1;
+		goto out;
 	}
 
 	/* 2/ Find metadata, reject if none appropriate (check
@@ -111,21 +111,19 @@ int Incremental(char *devname, int verbose, int runstop,
 		if (verbose >= 0)
 			fprintf(stderr, Name ": cannot open %s: %s.\n",
 				devname, strerror(errno));
-		return 1;
+		goto out;
 	}
 	if (fstat(dfd, &stb) < 0) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": fstat failed for %s: %s.\n",
 				devname, strerror(errno));
-		close(dfd);
-		return 1;
+		goto out;
 	}
 	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				devname);
-		close(dfd);
-		return 1;
+		goto out;
 	}
 
 	if (st == NULL && (st = guess_super(dfd)) == NULL) {
@@ -133,17 +131,15 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 				": no recognisable superblock on %s.\n",
 				devname);
-		close(dfd);
-		return 1;
+		goto out;
 	}
 	if (st->ss->load_super(st, dfd, NULL)) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": no RAID superblock on %s.\n",
 				devname);
-		close(dfd);
-		return 1;
+		goto out;
 	}
-	close (dfd);
+	close (dfd); dfd = -1;
 
 	memset(&info, 0, sizeof(info));
 	st->ss->getinfo_super(st, &info);
@@ -207,7 +203,8 @@ int Incremental(char *devname, int verbose, int runstop,
 					fprintf(stderr, Name
 						": multiple lines in mdadm.conf match\n");
 			}
-			return 2;
+			rv = 2;
+			goto out;
 		}
 		match = array_list;
 	}
@@ -218,7 +215,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name ": array containing %s is explicitly"
 				" ignored by mdadm.conf\n",
 				devname);
-		return 1;
+		goto out;
 	}
 
 	/* 3a/ if not, check for homehost match.  If no match, continue
@@ -242,7 +239,7 @@ int Incremental(char *devname, int verbose, int runstop,
 				": %s has metadata type %s for which "
 				"auto-assembly is disabled\n",
 				devname, st->ss->name);
-		return 1;
+		goto out;
 	}
 	if (trustworthy == LOCAL_ANY)
 		trustworthy = LOCAL;
@@ -264,14 +261,16 @@ int Incremental(char *devname, int verbose, int runstop,
 		else {
 			if (verbose)
 				fprintf(stderr, Name ": not enough devices to start the container\n");
-			return 0;
+			rv = 0;
+			goto out;
 		}
 
 		/* This is a pre-built container array, so we do something
 		 * rather different.
 		 */
-		return Incremental_container(st, devname, verbose, runstop,
+		rv = Incremental_container(st, devname, verbose, runstop,
 					     autof, trustworthy);
+		goto out;
 	}
 
 	name_to_use = info.name;
@@ -312,15 +311,15 @@ int Incremental(char *devname, int verbose, int runstop,
 				    name_to_use, autof, trustworthy, chosen_name);
 
 		if (mdfd < 0)
-			return 1;
+			goto out;
 
 		sysfs_init(&info, mdfd, 0);
 
 		if (set_array_info(mdfd, st, &info) != 0) {
 			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
 				chosen_name, strerror(errno));
-			close(mdfd);
-			return 2;
+			rv = 2;
+			goto out;
 		}
 
 		dinfo = info;
@@ -330,8 +329,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",
 				devname, chosen_name, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, 0);
-			close(mdfd);
-			return 2;
+			rv = 2;
+			goto out;
 		}
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), GET_DEVS);
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
@@ -343,9 +342,9 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 		      ": You have an old buggy kernel which cannot support\n"
 				"      --incremental reliably.  Aborting.\n");
-			close(mdfd);
 			sysfs_free(sra);
-			return 2;
+			rv = 2;
+			goto out;
 		}
 		info.array.working_disks = 1;
 		sysfs_free(sra);
@@ -392,14 +391,15 @@ int Incremental(char *devname, int verbose, int runstop,
 				fprintf(stderr, Name
 					": not adding %s to active array (without --run) %s\n",
 					devname, chosen_name);
-				close(mdfd);
-				return 2;
+				rv = 2;
+				goto out;
 			}
 		}
 		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
-		if (!sra)
-			return 2;
-
+		if (!sra) {
+			rv = 2;
+			goto out;
+		}
 		if (sra->devs) {
 			sprintf(dn, "%d:%d", sra->devs->disk.major,
 				sra->devs->disk.minor);
@@ -411,9 +411,9 @@ int Incremental(char *devname, int verbose, int runstop,
 					": metadata mismatch between %s and "
 					"chosen array %s\n",
 					devname, chosen_name);
-				close(mdfd);
 				close(dfd2);
-				return 2;
+				rv = 2;
+				goto out;
 			}
 			close(dfd2);
 			memset(&info2, 0, sizeof(info2));
@@ -425,8 +425,8 @@ int Incremental(char *devname, int verbose, int runstop,
 				fprintf(stderr, Name
 					": unexpected difference between %s and %s.\n",
 					chosen_name, devname);
-				close(mdfd);
-				return 2;
+				rv = 2;
+				goto out;
 			}
 		}
 		info2.disk.major = major(stb.st_rdev);
@@ -446,8 +446,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		if (err < 0) {
 			fprintf(stderr, Name ": failed to add %s to %s: %s.\n",
 				devname, chosen_name, strerror(errno));
-			close(mdfd);
-			return 2;
+			rv = 2;
+			goto out;
 		}
 		info.array.working_disks = 0;
 		for (d = sra->devs; d; d=d->next)
@@ -487,8 +487,8 @@ int Incremental(char *devname, int verbose, int runstop,
 			     ": %s attached to %s, not enough to start (%d).\n",
 				devname, chosen_name, active_disks);
 		map_unlock(&map);
-		close(mdfd);
-		return 0;
+		rv = 0;
+		goto out;
 	}
 	free(avail);
 
@@ -503,9 +503,9 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 			   ": %s attached to %s which is already active.\n",
 				devname, chosen_name);
-		close(mdfd);
 		map_unlock(&map);
-		return 0;
+		rv = 0;
+		goto out;
 	}
 
 	map_unlock(&map);
@@ -518,16 +518,14 @@ int Incremental(char *devname, int verbose, int runstop,
 				fprintf(stderr, Name
 					": Could not open bitmap file %s.\n",
 					match->bitmap_file);
-				close(mdfd);
-				return 1;
+				goto out;
 			}
 			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
 				close(bmfd);
 				fprintf(stderr, Name
 					": Failed to set bitmapfile for %s.\n",
 					chosen_name);
-				close(mdfd);
-				return 1;
+				goto out;
 			}
 			close(bmfd);
 		}
@@ -558,7 +556,11 @@ int Incremental(char *devname, int verbose, int runstop,
 				devname, chosen_name);
 		rv = 0;
 	}
-	close(mdfd);
+out:
+	if (dfd >= 0)
+		close(dfd);
+	if (mdfd >= 0)
+		close(mdfd);
 	return rv;
 }
 

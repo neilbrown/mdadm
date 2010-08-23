@@ -805,6 +805,20 @@ extern int policy_action_allows(struct dev_policy *plist, const char *metadata,
 				enum policy_action want);
 extern int disk_action_allows(struct mdinfo *disk, const char *metadata,
 			      enum policy_action want);
+
+struct domainlist {
+	struct domainlist *next;
+	char *dom;
+};
+
+extern int domain_test(struct domainlist *dom, struct dev_policy *pol,
+		       const char *metadata);
+extern struct domainlist *domain_from_array(struct mdinfo *mdi,
+					    const char *metadata);
+extern void domain_free(struct domainlist *dl);
+extern void domain_merge(struct domainlist **domp, struct dev_policy *pol,
+			 const char *metadata);
+
 #if __GNUC__ < 3
 struct stat64;
 #endif

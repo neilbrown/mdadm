@@ -504,3 +504,92 @@ int disk_action_allows(struct mdinfo *disk, const char *metadata, enum policy_ac
 	dev_policy_free(pol);
 	return rv;
 }
+
+
+/* Domain policy:
+ * Any device can have a list of domains asserted by different policy
+ * statements.
+ * An array also has a list of domains comprising all the domains of
+ * all the devices in an array.
+ * Where an array has a spare-group, that becomes an addition domain for
+ * every device in the array and thus for the array.
+ *
+ * We keep the list of domains in a sorted linked list
+ * As dev policies are already sorted, this is fairly easy to manage.
+ */
+
+static struct domainlist **domain_merge_one(struct domainlist **domp, char *domain)
+{
+	/* merge a domain name into a sorted list and return the
+	 * location of the insertion or match
+	 */
+	struct domainlist *dom = *domp;
+
+	while (dom && strcmp(dom->dom, domain) < 0) {
+		domp = &dom->next;
+		dom = *domp;
+	}
+	if (dom == NULL || strcmp(dom->dom, domain) != 0) {
+		dom = malloc(sizeof(*dom));
+		dom->next = *domp;
+		dom->dom = domain;
+		*domp = dom;
+	}
+	return domp;
+}
+
+void domain_merge(struct domainlist **domp, struct dev_policy *pollist,
+			 const char *metadata)
+{
+	/* Add to 'domp' all the domains in pol that apply to 'metadata'
+	 * which are not already in domp
+	 */
+	struct dev_policy *pol;
+	pollist = pol_find(pollist, pol_domain);
+	pol_for_each(pol, pollist, metadata)
+		domp = domain_merge_one(domp, pol->value);
+}
+
+int domain_test(struct domainlist *dom, struct dev_policy *pol,
+		const char *metadata)
+{
+	/* Check that all domains in pol (for metadata) are also in
+	 * dom.  Both lists are sorted.
+	 * If pol has no domains, we don't really know about this device
+	 * so we reject the match.
+	 */
+	int found_any = 0;
+	struct dev_policy *p;
+
+	pol = pol_find(pol, pol_domain);
+	pol_for_each(p, pol, metadata) {
+		found_any = 1;
+		while (dom && strcmp(dom->dom, pol->value) < 0)
+			dom = dom->next;
+		if (!dom || strcmp(dom->dom, pol->value) != 0)
+			return 0;
+	}
+	return found_any;
+}
+
+struct domainlist *domain_from_array(struct mdinfo *mdi, const char *metadata)
+{
+	struct domainlist *domlist = NULL;
+
+	for (mdi = mdi->devs ; mdi ; mdi = mdi->next) {
+		struct dev_policy *pol = disk_policy(mdi);
+
+		domain_merge(&domlist, pol, metadata);
+		dev_policy_free(pol);
+	}
+	return domlist;
+}
+
+void domain_free(struct domainlist *dl)
+{
+	while (dl) {
+		struct domainlist *head = dl;
+		dl = dl->next;
+		free(head);
+	}
+}

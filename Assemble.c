@@ -1189,6 +1189,29 @@ int Assemble(struct supertype *st, char *mddev,
 								      (4 * content->array.chunk_size / 4096) + 1);
 					}
 				}
+				if (okcnt < (unsigned)content->array.raid_disks) {
+					/* If any devices did not get added
+					 * because the kernel rejected them based
+					 * on event count, try adding them
+					 * again providing the action policy is
+					 * 're-add' or greater.  The bitmap
+					 * might allow them to be included, or
+					 * they will become spares.
+					 */
+					for (i = 0; i <= bestcnt; i++) {
+						int j = best[i];
+						if (j >= 0 && !devices[j].uptodate) {
+							if (!disk_action_allows(&devices[j].i, st->ss->name, act_re_add))
+								continue;
+							rv = add_disk(mdfd, st, content,
+								      &devices[j].i);
+							if (rv == 0 && verbose >= 0)
+								fprintf(stderr,
+									Name ": %s has been re-added.\n",
+									devices[j].devname);
+						}
+					}
+				}
 				wait_for(mddev, mdfd);
 				close(mdfd);
 				if (auto_assem) {

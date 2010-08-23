@@ -78,7 +78,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 *   start the array (auto-readonly).
 	 */
 	struct stat stb;
-	struct mdinfo info;
+	struct mdinfo info, dinfo;
 	struct mddev_ident_s *array_list, *match;
 	char chosen_name[1024];
 	int rv = 1;
@@ -89,6 +89,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	int trustworthy = FOREIGN;
 	char *name_to_use;
 	mdu_array_info_t ainf;
+	struct dev_policy *policy = NULL;
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -125,6 +126,11 @@ int Incremental(char *devname, int verbose, int runstop,
 				devname);
 		goto out;
 	}
+
+	dinfo.disk.major = major(stb.st_rdev);
+	dinfo.disk.minor = minor(stb.st_rdev);
+
+	policy = disk_policy(&dinfo);
 
 	if (st == NULL && (st = guess_super(dfd)) == NULL) {
 		if (verbose >= 0)
@@ -304,7 +310,6 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	if (mdfd < 0) {
 		struct mdinfo *sra;
-		struct mdinfo dinfo;
 
 		/* Couldn't find an existing array, maybe make a new one */
 		mdfd = create_mddev(match ? match->devname : NULL,
@@ -372,11 +377,14 @@ int Incremental(char *devname, int verbose, int runstop,
 		/* It is generally not OK to add non-spare drives to a
 		 * running array as they are probably missing because
 		 * they failed.  However if runstop is 1, then the
-		 * array was possibly started early and our best be is
-		 * to add this anyway.  It would probably be good to
-		 * allow explicit policy statement about this.
+		 * array was possibly started early and our best bet is
+		 * to add this anyway.
+		 * Also if action policy is re-add or better we allow
+		 * re-add
 		 */
 		if ((info.disk.state & (1<<MD_DISK_SYNC)) != 0
+		    && ! policy_action_allows(policy, st->ss->name,
+					      act_re_add)
 		    && runstop < 1) {
 			int active = 0;
 			
@@ -510,7 +518,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	map_unlock(&map);
 	if (runstop > 0 || active_disks >= info.array.working_disks) {
-		struct mdinfo *sra;
+		struct mdinfo *sra, *dsk;
 		/* Let's try to start it */
 		if (match && match->bitmap_file) {
 			int bmfd = open(match->bitmap_file, O_RDWR);
@@ -529,7 +537,9 @@ int Incremental(char *devname, int verbose, int runstop,
 			}
 			close(bmfd);
 		}
-		sra = sysfs_read(mdfd, fd2devnum(mdfd), 0);
+		/* GET_* needed so add_disk works below */
+		sra = sysfs_read(mdfd, fd2devnum(mdfd),
+				 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 		if ((sra == NULL || active_disks >= info.array.working_disks)
 		    && trustworthy != FOREIGN)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
@@ -539,10 +549,23 @@ int Incremental(char *devname, int verbose, int runstop,
 		if (rv == 0) {
 			if (verbose >= 0)
 				fprintf(stderr, Name
-			   ": %s attached to %s, which has been started.\n",
+					": %s attached to %s, which has been started.\n",
 					devname, chosen_name);
 			rv = 0;
 			wait_for(chosen_name, mdfd);
+			/* We just started the array, so some devices
+			 * might have been evicted from the array
+			 * because their event counts were too old.
+			 * If the action=re-add policy is in-force for
+			 * those devices we should re-add them now.
+			 */
+			for (dsk = sra->devs; dsk ; dsk = dsk->next) {
+				if (disk_action_allows(dsk, st->ss->name, act_re_add) &&
+				    add_disk(mdfd, st, sra, dsk) == 0)
+					fprintf(stderr, Name
+						": %s re-added to %s\n",
+						dsk->sys_name, chosen_name);
+			}
 		} else {
 			fprintf(stderr, Name
                              ": %s attached to %s, but failed to start: %s.\n",
@@ -561,6 +584,8 @@ out:
 		close(dfd);
 	if (mdfd >= 0)
 		close(mdfd);
+	if (policy)
+		dev_policy_free(policy);
 	return rv;
 }
 

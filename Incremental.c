@@ -35,6 +35,8 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			int number, __u64 events, int verbose,
 			char *array_name);
+static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+		     struct supertype *st, int verbose);
 
 int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st, char *homehost, int require_homehost,
@@ -137,12 +139,14 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 				": no recognisable superblock on %s.\n",
 				devname);
+		rv = try_spare(devname, &dfd, policy, st, verbose);
 		goto out;
 	}
 	if (st->ss->load_super(st, dfd, NULL)) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": no RAID superblock on %s.\n",
 				devname);
+		rv = try_spare(devname, &dfd, policy, st, verbose);
 		goto out;
 	}
 	close (dfd); dfd = -1;
@@ -706,6 +710,178 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		st->ss->free_super(st);
 	}
 	return cnt + cnt1;
+}
+
+static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+		     struct supertype *st, int verbose)
+{
+	/* This device doesn't have any md metadata
+	 * If it is 'bare' and theh device policy allows 'spare' look for
+	 * an array or container to attach it to.
+	 * If st is set, then only arrays of that type are considered
+	 * Return 0 on success, or some exit code on failure, probably 1.
+	 */
+	int rv = -1;
+	char bufpad[4096 + 4096];
+	char *buf = (char*)(((long)bufpad + 4096) & ~4095);
+	struct stat stb;
+	struct map_ent *mp, *map = NULL;
+	struct mdinfo *chosen = NULL;
+	int dfd = *dfdp;
+
+	/* First check policy */
+	if (!policy_action_allows(pol, st?st->ss->name:NULL, act_spare))
+		return 1;
+
+	if (fstat(dfd, &stb) != 0)
+		return 1;
+	/* Now check if the device is bare - we don't add non-bare devices
+	 * yet even if action=-spare
+	 */
+
+	if (lseek(dfd, 0, SEEK_SET) != 0 ||
+	    read(dfd, buf, 4096) != 4096) {
+	not_bare:
+		if (verbose > 1)
+			fprintf(stderr, Name ": %s is not bare, so not considering as a spare\n",
+				devname);
+		return 1;
+	}
+	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
+		goto not_bare;
+	if (memcmp(buf, buf+1, 4095) != 0)
+		goto not_bare;
+
+	/* OK, first 4K appear blank, try the end. */
+	if (lseek(dfd, -4096, SEEK_END) < 0 ||
+	    read(dfd, buf, 4096) != 4096)
+		goto not_bare;
+
+	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
+		goto not_bare;
+	if (memcmp(buf, buf+1, 4095) != 0)
+		goto not_bare;
+
+	/* This device passes our test for 'is bare'.
+	 * Now we need to find a suitable array to add this to.
+	 * We only accept arrays that:
+	 *  - match 'st'
+	 *  - are in the same domains as the device
+	 *  - are of an size for which the device will be useful
+	 * and we choose the one that is the most degraded
+	 */
+
+	if (map_lock(&map)) {
+		fprintf(stderr, Name ": failed to get exclusive lock on "
+			"mapfile\n");
+		return 1;
+	}
+	for (mp = map ; mp ; mp = mp->next) {
+		struct supertype *st2;
+		struct domainlist *dl = NULL;
+		struct mdinfo *sra;
+		unsigned long long devsize;
+
+		if (is_subarray(mp->metadata))
+			continue;
+		if (st) {
+			st2 = st->ss->match_metadata_desc(mp->metadata);
+			if (!st2 ||
+			    (st->minor_version >= 0 &&
+			     st->minor_version != st2->minor_version)) {
+				if (verbose > 1)
+					fprintf(stderr, Name ": not adding %s to %s as metadata type doesn't match\n",
+						devname, mp->path);
+				free(st2);
+				continue;
+			}
+			free(st2);
+		}
+		sra = sysfs_read(-1, mp->devnum,
+				 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
+				 GET_DEGRADED|GET_COMPONENT|GET_VERSION);
+		if (!sra) {
+			/* Probably a container - no degraded info */
+			sra = sysfs_read(-1, mp->devnum,
+					 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
+					 GET_COMPONENT|GET_VERSION);
+			if (sra)
+				sra->array.failed_disks = 0;
+		}
+		if (!sra)
+			continue;
+		if (st == NULL) {
+			int i;
+			st2 = NULL;
+			for(i=0; !st2 && superlist[i]; i++)
+				st2 = superlist[i]->match_metadata_desc(
+					sra->text_version);
+		} else
+			st2 = st;
+		get_dev_size(dfd, NULL, &devsize);
+		if (st2->ss->avail_size(st2, devsize) < sra->component_size) {
+			if (verbose > 1)
+				fprintf(stderr, Name ": not adding %s to %s as it is too small\n",
+					devname, mp->path);
+			goto next;
+		}
+		dl = domain_from_array(sra, st2->ss->name);
+		if (!domain_test(dl, pol, st2->ss->name)) {
+			/* domain test fails */
+			if (verbose > 1)
+				fprintf(stderr, Name ": not adding %s to %s as it is not in a compatible domain\n",
+					devname, mp->path);
+
+			goto next;
+		}
+		/* all tests passed, OK to add to this array */
+		if (!chosen) {
+			chosen = sra;
+			sra = NULL;
+		} else if (chosen->array.failed_disks < sra->array.failed_disks) {
+			sysfs_free(chosen);
+			chosen = sra;
+			sra = NULL;
+		}
+	next:
+		if (sra)
+			sysfs_free(sra);
+		if (st != st2)
+			free(st2);
+		if (dl)
+			domain_free(dl);
+	}
+	if (chosen) {
+		/* add current device to chosen array as a spare */
+		int mdfd = open_dev(devname2devnum(chosen->sys_name));
+		if (mdfd >= 0) {
+			struct mddev_dev_s devlist;
+			char devname[20];
+			devlist.next = NULL;
+			devlist.used = 0;
+			devlist.re_add = 0;
+			devlist.writemostly = 0;
+			devlist.devname = devname;
+			sprintf(devname, "%d:%d", major(stb.st_rdev),
+				minor(stb.st_rdev));
+			devlist.disposition = 'a';
+			close(dfd);
+			*dfdp = -1;
+			rv =  Manage_subdevs(chosen->sys_name, mdfd, &devlist,
+					     -1, 0);
+			close(mdfd);
+		}
+		if (verbose > 0) {
+			if (rv == 0)
+				fprintf(stderr, Name ": added %s as spare for %s\n",
+					devname, chosen->sys_name);
+			else
+				fprintf(stderr, Name ": failed to add %s as spare for %s\n",
+					devname, chosen->sys_name);
+		}
+		sysfs_free(chosen);
+	}
+	return rv ? 0 : 1;
 }
 
 int IncrementalScan(int verbose)

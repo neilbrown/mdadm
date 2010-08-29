@@ -959,19 +959,33 @@ int dev_open(char *dev, int flags)
 	int minor;
 
 	if (!dev) return -1;
+	flags |= O_DIRECT;
 
 	major = strtoul(dev, &e, 0);
 	if (e > dev && *e == ':' && e[1] &&
 	    (minor = strtoul(e+1, &e, 0)) >= 0 &&
 	    *e == 0) {
-		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
-			 (int)getpid(), major, minor);
-		if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
-			fd = open(devname, flags|O_DIRECT);
-			unlink(devname);
+		char *path = map_dev(major, minor, 0);
+		if (path)
+			fd = open(path, flags);
+		if (fd < 0) {
+			snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
+				 (int)getpid(), major, minor);
+			if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
+				fd = open(devname, flags);
+				unlink(devname);
+			}
+		}
+		if (fd < 0) {
+			snprintf(devname, sizeof(devname), "/tmp/.tmp.md.%d:%d:%d",
+				 (int)getpid(), major, minor);
+			if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
+				fd = open(devname, flags);
+				unlink(devname);
+			}
 		}
 	} else
-		fd = open(dev, flags|O_DIRECT);
+		fd = open(dev, flags);
 	return fd;
 }
 

@@ -118,9 +118,11 @@ int Manage_ro(char *devname, int fd, int readonly)
 
 static void remove_devices(int devnum, char *path)
 {
-	/* Remove all 'standard' devices for 'devnum', including
-	 * partitions.  Also remove names at 'path' - possibly with
-	 * partition suffixes - which link to those names.
+	/* 
+	 * Remove names at 'path' - possibly with
+	 * partition suffixes - which link to the 'standard'
+	 * name for devnum.  These were probably created
+	 * by mdadm when the array was assembled.
 	 */
 	char base[40];
 	char *path2;
@@ -130,36 +132,32 @@ static void remove_devices(int devnum, char *path)
 	char *be;
 	char *pe;
 
+	if (!path)
+		return;
+
 	if (devnum >= 0)
 		sprintf(base, "/dev/md%d", devnum);
 	else
 		sprintf(base, "/dev/md_d%d", -1-devnum);
 	be = base + strlen(base);
-	if (path) {
-		path2 = malloc(strlen(path)+20);
-		strcpy(path2, path);
-		pe = path2 + strlen(path2);
-	} else
-		path2 = path = NULL;
+
+	path2 = malloc(strlen(path)+20);
+	strcpy(path2, path);
+	pe = path2 + strlen(path2);
 	
 	for (part = 0; part < 16; part++) {
 		if (part) {
 			sprintf(be, "p%d", part);
-			if (path) {
-				if (isdigit(pe[-1]))
-					sprintf(pe, "p%d", part);
-				else
-					sprintf(pe, "%d", part);
-			}
+
+			if (isdigit(pe[-1]))
+				sprintf(pe, "p%d", part);
+			else
+				sprintf(pe, "%d", part);
 		}
-		/* FIXME test if really is md device ?? */
-		unlink(base);
-		if (path) {
-			n = readlink(path2, link, sizeof(link));
-			if (n && (int)strlen(base) == n &&
-			    strncmp(link, base, n) == 0)
-				unlink(path2);
-		}
+		n = readlink(path2, link, sizeof(link));
+		if (n && (int)strlen(base) == n &&
+		    strncmp(link, base, n) == 0)
+			unlink(path2);
 	}
 	free(path2);
 }

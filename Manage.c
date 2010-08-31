@@ -478,6 +478,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (stat(add_dev, &stb) < 0)
 				continue;
 		} else if (strchr(dv->devname, '/') == NULL &&
+			   strchr(dv->devname, ':') == NULL &&
 			   strlen(dv->devname) < 50) {
 			/* Assume this is a kernel-internal name like 'sda1' */
 			int found = 0;

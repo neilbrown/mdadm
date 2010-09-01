@@ -2199,6 +2199,13 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	__u32 check_sum;
 
 	get_dev_size(fd, NULL, &dsize);
+	if (dsize < 1024) {
+		if (devname)
+			fprintf(stderr,
+				Name ": %s: device to small for imsm\n",
+				devname);
+		return 1;
+	}
 
 	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0) {
 		if (devname)

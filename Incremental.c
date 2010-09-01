@@ -714,8 +714,8 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 	return cnt + cnt1;
 }
 
-static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
-		     struct supertype *st, int verbose)
+static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+			   struct supertype *st, int verbose)
 {
 	/* This device doesn't have any md metadata
 	 * If it is 'bare' and theh device policy allows 'spare' look for
@@ -724,47 +724,15 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	 * Return 0 on success, or some exit code on failure, probably 1.
 	 */
 	int rv = -1;
-	char bufpad[4096 + 4096];
-	char *buf = (char*)(((long)bufpad + 4096) & ~4095);
 	struct stat stb;
 	struct map_ent *mp, *map = NULL;
 	struct mdinfo *chosen = NULL;
 	int dfd = *dfdp;
 
-	/* First check policy */
-	if (!policy_action_allows(pol, st?st->ss->name:NULL, act_spare))
-		return 1;
-
 	if (fstat(dfd, &stb) != 0)
 		return 1;
-	/* Now check if the device is bare - we don't add non-bare devices
-	 * yet even if action=-spare
-	 */
 
-	if (lseek(dfd, 0, SEEK_SET) != 0 ||
-	    read(dfd, buf, 4096) != 4096) {
-	not_bare:
-		if (verbose > 1)
-			fprintf(stderr, Name ": %s is not bare, so not considering as a spare\n",
-				devname);
-		return 1;
-	}
-	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
-		goto not_bare;
-	if (memcmp(buf, buf+1, 4095) != 0)
-		goto not_bare;
-
-	/* OK, first 4K appear blank, try the end. */
-	if (lseek(dfd, -4096, SEEK_END) < 0 ||
-	    read(dfd, buf, 4096) != 4096)
-		goto not_bare;
-
-	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
-		goto not_bare;
-	if (memcmp(buf, buf+1, 4095) != 0)
-		goto not_bare;
-
-	/* This device passes our test for 'is bare'.
+	/*
 	 * Now we need to find a suitable array to add this to.
 	 * We only accept arrays that:
 	 *  - match 'st'
@@ -884,6 +852,92 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		sysfs_free(chosen);
 	}
 	return rv ? 0 : 1;
+}
+
+static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+			       struct supertype *st, int verbose)
+{
+	return 1;
+}
+
+
+/* adding a spare to a regular array is quite different from adding one to
+ * a set-of-partitions virtual array.
+ * This function determines which is worth trying and tries as appropriate.
+ * Arrays are given priority over partitions.
+ */
+static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+		     struct supertype *st, int verbose)
+{
+	int i;
+	int rv;
+	int arrays_ok = 0;
+	int partitions_ok = 0;
+	char bufpad[4096 + 4096];
+	char *buf = (char*)(((long)bufpad + 4096) & ~4095);
+	int dfd = *dfdp;
+
+	/* Can only add a spare if device has at least one domains */
+	if (pol_find(pol, pol_domain) == NULL)
+		return 1;
+	/* And only if some action allows spares */
+	if (!policy_action_allows(pol, st?st->ss->name:NULL, act_spare))
+		return 1;
+
+	/* Now check if the device is bare - we don't add non-bare devices
+	 * yet even if action=-spare
+	 */
+
+	if (lseek(dfd, 0, SEEK_SET) != 0 ||
+	    read(dfd, buf, 4096) != 4096) {
+	not_bare:
+		if (verbose > 1)
+			fprintf(stderr, Name ": %s is not bare, so not considering as a spare\n",
+				devname);
+		return 1;
+	}
+	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
+		goto not_bare;
+	if (memcmp(buf, buf+1, 4095) != 0)
+		goto not_bare;
+
+	/* OK, first 4K appear blank, try the end. */
+	if (lseek(dfd, -4096, SEEK_END) < 0 ||
+	    read(dfd, buf, 4096) != 4096)
+		goto not_bare;
+
+	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
+		goto not_bare;
+	if (memcmp(buf, buf+1, 4095) != 0)
+		goto not_bare;
+
+	/* This device passes our test for 'is bare'.
+	 * Let's see what policy allows for such things.
+	 */
+	if (st) {
+		/* just try try 'array' or 'partition' based on this metadata */
+		if (st->ss->add_to_super)
+			return array_try_spare(devname, dfdp, pol,
+					       st, verbose);
+		else
+			return partition_try_spare(devname, dfdp, pol,
+						   st, verbose);
+	}
+	/* Now see which metadata type support spare */
+	for (i = 0; (!arrays_ok || !partitions_ok) && superlist[i] ; i++) {
+		if (superlist[i]->add_to_super && !arrays_ok &&
+		    policy_action_allows(pol, superlist[i]->name, act_spare))
+			arrays_ok = 1;
+		if (superlist[i]->add_to_super == NULL && !partitions_ok &&
+		    policy_action_allows(pol, superlist[i]->name, act_spare))
+			partitions_ok = 1;
+	}
+	rv = 0;
+	if (arrays_ok)
+		rv = array_try_spare(devname, dfdp, pol, st, verbose);
+	if (rv == 0 && partitions_ok)
+		rv = partition_try_spare(devname, dfdp, pol, st, verbose);
+	return rv;
 }
 
 int IncrementalScan(int verbose)

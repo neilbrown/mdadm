@@ -729,7 +729,11 @@ struct supertype {
 };
 
 extern struct supertype *super_by_fd(int fd);
-extern struct supertype *guess_super(int fd);
+enum guess_types { guess_any, guess_array, guess_partitions };
+extern struct supertype *guess_super_type(int fd, enum guess_types guess_type);
+static inline struct supertype *guess_super(int fd) {
+	return guess_super_type(fd, guess_any);
+}
 extern struct supertype *dup_super(struct supertype *st);
 extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);
 extern void get_one_disk(int mdfd, mdu_array_info_t *ainf,

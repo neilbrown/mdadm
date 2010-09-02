@@ -1087,7 +1087,7 @@ struct supertype *dup_super(struct supertype *orig)
 	return st;
 }
 
-struct supertype *guess_super(int fd)
+struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 {
 	/* try each load_super to find the best match,
 	 * and return the best superswitch
@@ -1102,6 +1102,10 @@ struct supertype *guess_super(int fd)
 	for (i=0 ; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];
+		if (guess_type == guess_array && ss->add_to_super == NULL)
+			continue;
+		if (guess_type == guess_partitions && ss->add_to_super != NULL)
+			continue;
 		memset(st, 0, sizeof(*st));
 		rv = ss->load_super(st, fd, NULL);
 		if (rv == 0) {

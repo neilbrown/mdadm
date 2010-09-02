@@ -333,23 +333,16 @@ static int config_rules_has_path = 0;
 /*
  * most policy comes from a set policy rules that are
  * read from the config file.
- * disk_policy() gathers policy information for the
- * disk described in the given mdinfo (disk.{major,minor}).
+ * path_policy() gathers policy information for the
+ * disk described in the given a 'path' and a 'type'.
  */
-struct dev_policy *disk_policy(struct mdinfo *disk)
+struct dev_policy *path_policy(char *path, char *type)
 {
-	char *path = NULL;
-	char *type = disk_type(disk);
 	struct pol_rule *rules;
 	struct dev_policy *pol = NULL;
 
 	if (!type)
 		return NULL;
-	if (config_rules_has_path) {
-		path = disk_path(disk);
-		if (!path)
-			return NULL;
-	}
 
 	rules = config_rules;
 
@@ -369,6 +362,29 @@ struct dev_policy *disk_policy(struct mdinfo *disk)
 	}
 	pol_sort(&pol);
 	pol_dedup(pol);
+	return pol;
+}
+
+/*
+ * disk_policy() gathers policy information for the
+ * disk described in the given mdinfo (disk.{major,minor}).
+ */
+struct dev_policy *disk_policy(struct mdinfo *disk)
+{
+	char *path = NULL;
+	char *type = disk_type(disk);
+	struct dev_policy *pol = NULL;
+
+	if (!type)
+		return NULL;
+	if (config_rules_has_path) {
+		path = disk_path(disk);
+		if (!path)
+			return NULL;
+	}
+
+	pol = path_policy(path, type);
+
 	free(path);
 	return pol;
 }

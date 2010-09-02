@@ -788,6 +788,7 @@ extern char type_part[], type_disk[];
 extern void policyline(char *line, char *type);
 extern void policy_free(void);
 
+extern struct dev_policy *path_policy(char *path, char *type);
 extern struct dev_policy *disk_policy(struct mdinfo *disk);
 extern void dev_policy_free(struct dev_policy *p);
 

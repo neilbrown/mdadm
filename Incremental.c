@@ -29,6 +29,8 @@
  */
 
 #include	"mdadm.h"
+#include	<dirent.h>
+#include	<ctype.h>
 
 static int count_active(struct supertype *st, int mdfd, char **availp,
 			struct mdinfo *info);
@@ -857,7 +859,143 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			       struct supertype *st, int verbose)
 {
-	return 1;
+	/* we know that at least one partition virtual-metadata is
+	 * allowed to incorporate spares like this device.  We need to
+	 * find a suitable device to copy partition information from.
+	 *
+	 * Getting a list of all disk (not partition) devices is
+	 * slightly non-trivial.  We could look at /sys/block, but
+	 * that is theoretically due to be removed.  Maybe best to use
+	 * /dev/disk/by-path/?* and ignore names ending '-partNN' as
+	 * we depend on this directory of 'path' info.  But that fails
+	 * to find loop devices and probably others.  Maybe don't
+	 * worry about that, they aren't the real target.
+	 *
+	 * So: check things in /dev/disk/by-path to see if they are in
+	 * a compatible domain, then load the partition table and see
+	 * if it is OK for the new device, and choose the largest
+	 * partition table that fits.
+	 */
+	DIR *dir;
+	struct dirent *de;
+	char *chosen = NULL;
+	unsigned long long chosen_size;
+	struct supertype *chosen_st = NULL;
+	int fd;
+
+	dir = opendir("/dev/disk/by-path");
+	if (!dir)
+		return 1;
+	while ((de = readdir(dir)) != NULL) {
+		char *ep;
+		struct dev_policy *pol2 = NULL;
+		struct domainlist *domlist = NULL;
+		int fd = -1;
+		struct mdinfo info;
+		struct supertype *st2 = NULL;
+		char *devname = NULL;
+		unsigned long long devsectors;
+
+		if (de->d_ino == 0 ||
+		    de->d_name[0] == '.' ||
+		    (de->d_type != DT_LNK && de->d_type != DT_UNKNOWN))
+			goto next;
+
+		ep = de->d_name + strlen(de->d_name);
+		while (ep > de->d_name &&
+		       isdigit(ep[-1]))
+			ep--;
+		if (ep > de->d_name + 5 &&
+		    strncmp(ep-5, "-part", 5) == 0)
+			/* This is a partition - skip it */
+			goto next;
+
+		pol2 = path_policy(de->d_name, type_disk);
+
+		domain_merge(&domlist, pol2, st ? st->ss->name : NULL);
+		if (domain_test(domlist, pol, st ? st->ss->name : NULL) == 0)
+			/* new device is incompatible with this device. */
+			goto next;
+
+		domain_free(domlist);
+		domlist = NULL;
+
+		asprintf(&devname, "/dev/disk/by-path/%s", de->d_name);
+		fd = open(devname, O_RDONLY);
+		if (fd < 0)
+			goto next;
+		if (get_dev_size(fd, devname, &devsectors) == 0)
+			goto next;
+		devsectors >>= 9;
+
+		if (st)
+			st2 = dup_super(st);
+		else
+			st2 = guess_super_type(fd, guess_partitions);
+		if (st2 == NULL ||
+		    st2->ss->load_super(st2, fd, NULL) < 0)
+			goto next;
+
+		if (!st) {
+			/* Check domain policy again, this time referring to metadata */
+			domain_merge(&domlist, pol2, st2->ss->name);
+			if (domain_test(domlist, pol, st2->ss->name) == 0)
+				/* Incompatible devices for this metadata type */
+				goto next;
+		}
+
+		st2->ss->getinfo_super(st2, &info);
+		if (info.component_size > devsectors)
+			/* This partitioning doesn't fit in the device */
+			goto next;
+
+		/* This is an acceptable device to copy partition
+		 * metadata from.  We could just stop here, but I
+		 * think I want to keep looking incase a larger
+		 * metadata which makes better use of the device can
+		 * be found.
+		 */
+		if (chosen == NULL ||
+		    chosen_size < info.component_size) {
+			chosen_size = info.component_size;
+			free(chosen);
+			chosen = devname;
+			devname = NULL;
+			if (chosen_st) {
+				chosen_st->ss->free_super(chosen_st);
+				free(chosen_st);
+			}
+			chosen_st = st2;
+			st2 = NULL;
+		}
+
+	next:
+		free(devname);
+		domain_free(domlist);
+		dev_policy_free(pol2);
+		if (st2)
+			st2->ss->free_super(st2);
+		free(st2);
+
+		if (fd >= 0)
+			close(fd);
+	}
+
+	if (!chosen)
+		return 1;
+
+	/* 'chosen' is the best device we can find.  Let's write its
+	 * metadata to devname dfd is read-only so don't use that
+	 */
+	fd = open(devname, O_RDWR);
+	if (fd >= 0) {
+		chosen_st->ss->store_super(chosen_st, fd);
+		close(fd);
+	}
+	free(chosen);
+	chosen_st->ss->free_super(chosen_st);
+	free(chosen_st);
+	return 0;
 }
 
 

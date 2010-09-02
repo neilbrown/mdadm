@@ -677,24 +677,113 @@ void homehostline(char *line)
 	}
 }
 
-static char *auto_options = NULL;
+char auto_yes[] = "yes";
+char auto_no[] = "no";
+char auto_homehost[] = "homehost";
+
+static int auto_seen = 0;
 void autoline(char *line)
 {
 	char *w;
+	char *seen;
+	int super_cnt;
+	char *dflt = auto_yes;
+	int homehost = 0;
+	int i;
 
-	if (auto_options) {
+	if (auto_seen) {
 		fprintf(stderr, Name ": AUTO line may only be give once."
 			"  Subsequent lines ignored\n");
 		return;
 	}
+	/* Parse the 'auto' line creating policy statements for the 'auto' policy.
+	 *
+	 * The default is 'yes' but the 'auto' line might over-ride that.
+	 * Words in the line are processed in order with the first
+	 * match winning.
+	 * word can be:
+	 *   +version   - that version can be assembled
+	 *   -version   - that version cannot be auto-assembled
+	 *   yes or +all - any other version can be assembled
+	 *   no or -all  - no other version can be assembled.
+	 *   homehost   - any array associated by 'homehost' to this
+	 *                host can be assembled.
+	 *
+	 * Thus:
+	 *   +ddf -0.90 homehost -all
+	 * will auto-assemble any ddf array, no 0.90 array, and
+	 * any other array (imsm, 1.x) if and only if it is identified
+	 * as belonging to this host.
+	 *
+	 * We translate that to policy by creating 'auto=yes' when we see
+	 * a '+version' line, 'auto=no' if we see '-version' before 'homehost',
+	 * or 'auto=homehost' if we see '-version' after 'homehost'.
+	 * When we see yes, no, +all or -all we stop an any version that hasn't
+	 * been seen gets an appropriate auto= entry.
+	 */
 
-	auto_options = dl_strdup(line);
-	dl_init(auto_options);
+	for (super_cnt = 0; superlist[super_cnt]; super_cnt++)
+		;
+	seen = calloc(super_cnt, 1);
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
-		char *w2 = dl_strdup(w);
-		dl_add(auto_options, w2);
+	for (w = dl_next(line); w != line ; w = dl_next(w)) {
+		char *val;
+
+		if (strcasecmp(w, "yes") == 0) {
+			dflt = auto_yes;
+			break;
+		}
+		if (strcasecmp(w, "no") == 0) {
+			if (homehost)
+				dflt = auto_homehost;
+			else
+				dflt = auto_no;
+			break;
+		}
+		if (strcasecmp(w, "homehost") == 0) {
+			homehost = 1;
+			continue;
+		}
+		if (w[0] == '+')
+			val = auto_yes;
+		else if (w[0] == '-') {
+			if (homehost)
+				val = auto_homehost;
+			else
+				val = auto_no;
+		} else
+			continue;
+
+		if (strcasecmp(w+1, "all") == 0) {
+			dflt = val;
+			break;
+		}
+		for (i = 0; superlist[i]; i++) {
+			const char *version = superlist[i]->name;
+			if (strcasecmp(w+1, version) == 0)
+				break;
+			/* 1 matches 1.x, 0 matches 0.90 */
+			if (version[1] == '.' &&
+			    strlen(w+1) == 1 &&
+			    w[1] == version[0])
+				break;
+			/* 1.anything matches 1.x */
+			if (strcmp(version, "1.x") == 0 &&
+			    strncmp(w+1, "1.", 2) == 0)
+				break;
+		}
+		if (superlist[i] == NULL)
+			/* ignore this word */
+			continue;
+		if (seen[i])
+			/* already know about this metadata */
+			continue;
+		policy_add(rule_policy, pol_auto, val, pol_metadata, superlist[i]->name, NULL);
+		seen[i] = 1;
 	}
+	for (i = 0; i < super_cnt; i++)
+		if (!seen[i])
+			policy_add(rule_policy, pol_auto, dflt, pol_metadata, superlist[i]->name, NULL);
 }
 
 int loaded = 0;
@@ -900,64 +989,30 @@ int conf_test_dev(char *devname)
 	return 0;
 }
 
-int conf_test_metadata(const char *version, int is_homehost)
+int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homehost)
 {
-	/* Check if the given metadata version is allowed
-	 * to be auto-assembled.
-	 * The default is 'yes' but the 'auto' line might over-ride that.
-	 * Words in auto_options are processed in order with the first
-	 * match winning.
-	 * word can be:
-	 *   +version   - that version can be assembled
-	 *   -version   - that version cannot be auto-assembled
-	 *   yes or +all - any other version can be assembled
-	 *   no or -all  - no other version can be assembled.
-	 *   homehost   - any array associated by 'homehost' to this
-	 *                host can be assembled.
-	 *
-	 * Thus:
-	 *   +ddf -0.90 homehost -all
-	 * will auto-assemble any ddf array, no 0.90 array, and
-	 * any other array (imsm, 1.x) if and only if it is identified
-	 * as belonging to this host.
+	/* If anyone said 'yes', that sticks.
+	 * else if homehost applies, use that
+	 * else if there is a 'no', say 'no'.
+	 * else 'yes'.
 	 */
-	char *w;
+	struct dev_policy *p;
+	int no=0, found_auto=0;
 	load_conffile();
-	if (!auto_options)
-		return 1;
-	for (w = dl_next(auto_options); w != auto_options; w = dl_next(w)) {
-		int rv;
-		if (strcasecmp(w, "yes") == 0)
-			return 1;
-		if (strcasecmp(w, "no") == 0)
-			return 0;
-		if (strcasecmp(w, "homehost") == 0) {
-			if (is_homehost)
-				return 1;
-			else
-				continue;
-		}
-		if (w[0] == '+')
-			rv = 1;
-		else if (w[0] == '-')
-			rv = 0;
-		else continue;
 
-		if (strcasecmp(w+1, "all") == 0)
-			return rv;
-		if (strcasecmp(w+1, version) == 0)
-			return rv;
-		/* allow  '0' to match version '0.90'
-		 * and 1 or 1.whatever to match version '1.x'
-		 */
-		if (version[1] == '.' &&
-		    strlen(w+1) == 1 &&
-		    w[1] == version[0])
-			return rv;
-		if (version[1] == '.' && version[2] == 'x' &&
-		    strncmp(w+1, version, 2) == 0)
-			return rv;
+	pol = pol_find(pol, pol_auto);
+	pol_for_each(p, pol, version) {
+		if (strcmp(p->value, "yes") == 0)
+			return 1;
+		if (strcmp(p->value, "auto") == 0)
+			found_auto = 1;
+		if (strcmp(p->value, "no") == 0)
+			no = 1;
 	}
+	if (is_homehost && found_auto)
+		return 1;
+	if (no)
+		return 0;
 	return 1;
 }
 
@@ -966,7 +1021,6 @@ int match_oneof(char *devices, char *devname)
     /* check if one of the comma separated patterns in devices
      * matches devname
      */
-
 
     while (devices && *devices) {
 	char patn[1024];

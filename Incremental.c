@@ -246,7 +246,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		trustworthy = FOREIGN;
 
 
-	if (!match && !conf_test_metadata(st->ss->name,
+	if (!match && !conf_test_metadata(st->ss->name, policy,
 					  (trustworthy == LOCAL))) {
 		if (verbose >= 1)
 			fprintf(stderr, Name

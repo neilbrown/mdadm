@@ -230,6 +230,7 @@ int Assemble(struct supertype *st, char *mddev,
 		int dfd;
 		struct stat stb;
 		struct supertype *tst = dup_super(st);
+		struct dev_policy *pol = NULL;
 
 		if (tmpdev->used > 1) continue;
 
@@ -271,7 +272,7 @@ int Assemble(struct supertype *st, char *mddev,
 			tst->ss->free_super(tst);
 			tmpdev->used = 2;
 		} else if (auto_assem && st == NULL &&
-			   !conf_test_metadata(tst->ss->name,
+			   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
 					       tst->ss->match_home(tst, homehost) == 1)) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s has metadata type %s for which "
@@ -403,6 +404,7 @@ int Assemble(struct supertype *st, char *mddev,
 				devname);
 			if (st)
 				st->ss->free_super(st);
+			dev_policy_free(pol);
 			return 1;
 		}
 
@@ -424,6 +426,7 @@ int Assemble(struct supertype *st, char *mddev,
 				content = NULL;
 				if (auto_assem)
 					goto loop;
+				dev_policy_free(pol);
 				return 1;
 			}
 			if (ident->member && ident->member[0]) {
@@ -447,6 +450,7 @@ int Assemble(struct supertype *st, char *mddev,
 					"only device given: confused and aborting\n",
 					devname);
 				st->ss->free_super(st);
+				dev_policy_free(pol);
 				return 1;
 			}
 			if (verbose > 0)
@@ -496,12 +500,15 @@ int Assemble(struct supertype *st, char *mddev,
 				devname);
 			tst->ss->free_super(tst);
 			st->ss->free_super(st);
+			dev_policy_free(pol);
 			return 1;
 		}
 
 		tmpdev->used = 1;
 
 	loop:
+		dev_policy_free(pol);
+		pol = NULL;
 		if (tmpdev->content)
 			goto next_member;
 		if (tst)

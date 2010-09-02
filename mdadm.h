@@ -757,7 +757,7 @@ struct dev_policy {
 	char *value;
 };
 
-extern char pol_act[], pol_domain[], pol_metadata[];
+extern char pol_act[], pol_domain[], pol_metadata[], pol_auto[];
 
 /* iterate over the sublist starting at list, having the same
  * 'name' as 'list', and matching the given metadata (Where
@@ -790,10 +790,12 @@ extern char rule_path[], rule_type[];
 extern char type_part[], type_disk[];
 
 extern void policyline(char *line, char *type);
+extern void policy_add(char *type, ...);
 extern void policy_free(void);
 
 extern struct dev_policy *path_policy(char *path, char *type);
 extern struct dev_policy *disk_policy(struct mdinfo *disk);
+extern struct dev_policy *devnum_policy(int dev);
 extern void dev_policy_free(struct dev_policy *p);
 
 extern void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata);
@@ -959,7 +961,7 @@ extern int parse_auto(char *str, char *msg, int config);
 extern mddev_ident_t conf_get_ident(char *dev);
 extern mddev_dev_t conf_get_devs(void);
 extern int conf_test_dev(char *devname);
-extern int conf_test_metadata(const char *version, int is_homehost);
+extern int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homehost);
 extern struct createinfo *conf_get_create_info(void);
 extern void set_conffile(char *file);
 extern char *conf_get_mailaddr(void);

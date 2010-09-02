@@ -389,6 +389,14 @@ struct dev_policy *disk_policy(struct mdinfo *disk)
 	return pol;
 }
 
+struct dev_policy *devnum_policy(int dev)
+{
+	struct mdinfo disk;
+	disk.disk.major = major(dev);
+	disk.disk.minor = minor(dev);
+	return disk_policy(&disk);
+}
+
 /*
  * process policy rules read from config file.
  */
@@ -402,6 +410,7 @@ char rule_part[] = "part-policy";
 char pol_metadata[] = "metadata";
 char pol_act[] = "action";
 char pol_domain[] = "domain";
+char pol_auto[] = "auto";
 
 static int try_rule(char *w, char *name, struct rule **rp)
 {
@@ -436,9 +445,36 @@ void policyline(char *line, char *type)
 		else if (! try_rule(w, rule_type, &pr->rule) &&
 			 ! try_rule(w, pol_metadata, &pr->rule) &&
 			 ! try_rule(w, pol_act, &pr->rule) &&
-			 ! try_rule(w, pol_domain, &pr->rule))
+			 ! try_rule(w, pol_domain, &pr->rule) &&
+			 ! try_rule(w, pol_auto, &pr->rule))
 			fprintf(stderr, Name ": policy rule %s unrecognised and ignored\n",
 				w);
+	}
+	pr->next = config_rules;
+	config_rules = pr;
+}
+
+void policy_add(char *type, ...)
+{
+	va_list ap;
+	struct pol_rule *pr;
+	char *name, *val;
+
+	pr = malloc(sizeof(*pr));
+	pr->type = type;
+	pr->rule = NULL;
+
+	va_start(ap, type);
+	while ((name = va_arg(ap, char*)) != NULL) {
+		struct rule *r;
+
+		val = va_arg(ap, char*);
+		r = malloc(sizeof(*r));
+		r->next = pr->rule;
+		r->name = name;
+		r->value = strdup(val);
+		r->dups = NULL;
+		pr->rule = r;
 	}
 	pr->next = config_rules;
 	config_rules = pr;
@@ -580,9 +616,9 @@ int domain_test(struct domainlist *dom, struct dev_policy *pol,
 	pol = pol_find(pol, pol_domain);
 	pol_for_each(p, pol, metadata) {
 		found_any = 1;
-		while (dom && strcmp(dom->dom, pol->value) < 0)
+		while (dom && strcmp(dom->dom, p->value) < 0)
 			dom = dom->next;
-		if (!dom || strcmp(dom->dom, pol->value) != 0)
+		if (!dom || strcmp(dom->dom, p->value) != 0)
 			return 0;
 	}
 	return found_any;

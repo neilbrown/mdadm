@@ -673,11 +673,11 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		int d = info->disk.number;
 		int want;
 		if (info->disk.state == 6)
-			want = __cpu_to_le32(info->disk.raid_disk);
+			want = info->disk.raid_disk;
 		else
 			want = 0xFFFF;
-		if (sb->dev_roles[d] != want) {
-			sb->dev_roles[d] = want;
+		if (sb->dev_roles[d] != __cpu_to_le16(want)) {
+			sb->dev_roles[d] = __cpu_to_le16(want);
 			rv = 1;
 		}
 	}

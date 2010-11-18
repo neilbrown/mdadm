@@ -435,7 +435,7 @@ static struct mdp_backup_super {
 	__u8 pad[512-68-32];
 } __attribute__((aligned(512))) bsb, bsb2;
 
-__u32 bsb_csum(char *buf, int len)
+static __u32 bsb_csum(char *buf, int len)
 {
 	int i;
 	int csum = 0;
@@ -458,7 +458,7 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long blocks,
 			   int disks, int chunk, int level, int layout, int data,
 			   int dests, int *destfd, unsigned long long *destoffsets);
 
-int freeze_array(struct mdinfo *sra)
+static int freeze_array(struct mdinfo *sra)
 {
 	/* Try to freeze resync on this array.
 	 * Return -1 if the array is busy,
@@ -476,14 +476,14 @@ int freeze_array(struct mdinfo *sra)
 	return 1;
 }
 
-void unfreeze_array(struct mdinfo *sra, int frozen)
+static void unfreeze_array(struct mdinfo *sra, int frozen)
 {
 	/* If 'frozen' is 1, unfreeze the array */
 	if (frozen > 0)
 		sysfs_set_str(sra, NULL, "sync_action", "idle");
 }
 
-void wait_reshape(struct mdinfo *sra)
+static void wait_reshape(struct mdinfo *sra)
 {
 	int fd = sysfs_get_fd(sra, NULL, "sync_action");
 	char action[20];
@@ -1297,7 +1297,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
  */
 
 /* FIXME return status is never checked */
-int grow_backup(struct mdinfo *sra,
+static int grow_backup(struct mdinfo *sra,
 		unsigned long long offset, /* per device */
 		unsigned long stripes, /* per device */
 		int *sources, unsigned long long *offsets,
@@ -1412,7 +1412,7 @@ int grow_backup(struct mdinfo *sra,
  * every works.
  */
 /* FIXME return value is often ignored */
-int wait_backup(struct mdinfo *sra,
+static int wait_backup(struct mdinfo *sra,
 		unsigned long long offset, /* per device */
 		unsigned long long blocks, /* per device */
 		unsigned long long blocks2, /* per device - hack */

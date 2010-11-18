@@ -868,7 +868,9 @@ int Assemble(struct supertype *st, char *mddev,
 		    devices[most_recent].i.events) {
 			devices[j].uptodate = 1;
 			if (i < content->array.raid_disks) {
-				if (devices[j].i.recovery_start == MaxSector) {
+				if (devices[j].i.recovery_start == MaxSector ||
+				    (content->reshape_active &&
+				     j >= content->array.raid_disks - content->delta_disks)) {
 					okcnt++;
 					avail[i]=1;
 				} else

@@ -1490,7 +1490,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 		if (delay == 0) {
-			if (get_linux_version() > 20616)
+			if (get_linux_version() > 2006016)
 				/* mdstat responds to poll */
 				delay = 1000;
 			else

@@ -642,6 +642,15 @@ extern struct superswitch {
 	/* Permit subarray's to be modified */
 	int (*update_subarray)(struct supertype *st, char *subarray,
 			       char *update, struct mddev_ident *ident); /* optional */
+	/* Check if reshape is supported for this external format.
+	 * st is obtained from super_by_fd() where st->subarray[0] is
+	 * initialized to indicate if reshape is being performed at the
+	 * container or subarray level
+	 */
+	int (*reshape_super)(struct supertype *st, long long size, int level,
+			     int layout, int chunksize, int raid_disks,
+			     char *backup, char *dev, int verbose); /* optional */
+	int (*manage_reshape)(struct supertype *st, char *backup); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,

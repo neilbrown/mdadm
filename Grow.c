@@ -733,9 +733,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 	/* ========= set shape (chunk_size / layout / ndisks)  ============== */
 	/* Check if layout change is a no-op */
-	if (layout_str) switch(array.level) {
+	switch(array.level) {
 	case 5:
-		if (array.layout == map_name(r5layout, layout_str))
+		if (layout_str && array.layout == map_name(r5layout, layout_str))
 			layout_str = NULL;
 		break;
 	case 6:
@@ -751,8 +751,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			rv = 1;
 			goto release;
 		}
-		if (strcmp(layout_str, "normalise") == 0 ||
-		    strcmp(layout_str, "normalize") == 0) {
+		if (layout_str &&
+		    (strcmp(layout_str, "normalise") == 0 ||
+		     strcmp(layout_str, "normalize") == 0)) {
 			char *hyphen;
 			strcpy(alt_layout, map_num(r6layout, array.layout));
 			hyphen = strrchr(alt_layout, '-');
@@ -762,7 +763,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			}
 		}
 
-		if (array.layout == map_name(r6layout, layout_str))
+		if (layout_str && array.layout == map_name(r6layout, layout_str))
 			layout_str = NULL;
 		if (layout_str && strcmp(layout_str, "preserve") == 0)
 			layout_str = NULL;

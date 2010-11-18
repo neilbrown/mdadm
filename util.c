@@ -1449,14 +1449,11 @@ int is_subarray_active(char *subarray, char *container)
 	struct mdstat_ent *mdstat = mdstat_read(0, 0);
 	struct mdstat_ent *ent;
 
-	for (ent = mdstat; ent; ent = ent->next) {
-		if (is_container_member(ent, container)) {
-			char *inst = &ent->metadata_version[10+strlen(container)+1];
-
-			if (!subarray || strcmp(inst, subarray) == 0)
+	for (ent = mdstat; ent; ent = ent->next)
+		if (is_container_member(ent, container))
+			if (!subarray ||
+			    strcmp(to_subarray(ent, container), subarray) == 0)
 				break;
-		}
-	}
 
 	free_mdstat(mdstat);
 

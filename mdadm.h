@@ -1110,6 +1110,11 @@ static inline int is_subarray(char *vers)
 	return (*vers == '/' || *vers == '-');
 }
 
+static inline char *to_subarray(struct mdstat_ent *ent, char *container)
+{
+	return &ent->metadata_version[10+strlen(container)+1];
+}
+
 #ifdef DEBUG
 #define dprintf(fmt, arg...) \
 	fprintf(stderr, fmt, ##arg)

@@ -511,7 +511,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	new->container = container;
 
-	inst = &mdstat->metadata_version[10+strlen(container->devname)+1];
+	inst = to_subarray(mdstat, container->devname);
 
 	new->info.array = mdi->array;
 	new->info.component_size = mdi->component_size;

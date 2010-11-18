@@ -4180,14 +4180,18 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	return 0;
 }
 
-static int default_chunk_imsm(struct supertype *st)
+static void default_geometry_imsm(struct supertype *st, int *level, int *layout, int *chunk)
 {
 	struct intel_super *super = st->sb;
 
-	if (!super->orom)
-		return 0;
+	if (level && *level == UnSet)
+		*level = LEVEL_CONTAINER;
 
-	return imsm_orom_default_chunk(super->orom);
+	if (level && layout && *layout == UnSet)
+		*layout = imsm_level_to_layout(*level);
+
+	if (chunk && (*chunk == UnSet || *chunk == 0) && super->orom)
+		*chunk = imsm_orom_default_chunk(super->orom);
 }
 
 static void handle_missing(struct intel_super *super, struct imsm_dev *dev);
@@ -5680,7 +5684,6 @@ struct superswitch super_imsm = {
 	.brief_detail_super = brief_detail_super_imsm,
 	.write_init_super = write_init_super_imsm,
 	.validate_geometry = validate_geometry_imsm,
-	.default_chunk	= default_chunk_imsm,
 	.add_to_super	= add_to_super_imsm,
 	.detail_platform = detail_platform_imsm,
 	.kill_subarray = kill_subarray_imsm,
@@ -5704,7 +5707,7 @@ struct superswitch super_imsm = {
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
-	.default_layout = imsm_level_to_layout,
+	.default_geometry = default_geometry_imsm,
 	.get_disk_controller_domain = imsm_get_disk_controller_domain,
 
 	.external	= 1,

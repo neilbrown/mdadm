@@ -3643,6 +3643,15 @@ static int ddf_level_to_layout(int level)
 	}
 }
 
+static void default_geometry_ddf(struct supertype *st, int *level, int *layout, int *chunk)
+{
+	if (level && *level == UnSet)
+		*level = LEVEL_CONTAINER;
+
+	if (level && layout && *layout == UnSet)
+		*layout = ddf_level_to_layout(*level);
+}
+
 struct superswitch super_ddf = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
@@ -3671,7 +3680,7 @@ struct superswitch super_ddf = {
 	.free_super	= free_super_ddf,
 	.match_metadata_desc = match_metadata_desc_ddf,
 	.container_content = container_content_ddf,
-	.default_layout	= ddf_level_to_layout,
+	.default_geometry = default_geometry_ddf,
 
 	.external	= 1,
 

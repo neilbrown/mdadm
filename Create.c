@@ -31,8 +31,8 @@ static int default_layout(struct supertype *st, int level, int verbose)
 {
 	int layout = UnSet;
 
-	if (st && st->ss->default_layout)
-		layout = st->ss->default_layout(level);
+	if (st && st->ss->default_geometry)
+		st->ss->default_geometry(st, &level, &layout, NULL);
 
 	if (layout == UnSet)
 		switch(level) {
@@ -120,15 +120,8 @@ int Create(struct supertype *st, char *mddev,
 	int major_num = BITMAP_MAJOR_HI;
 
 	memset(&info, 0, sizeof(info));
-
-	if (level == UnSet) {
-		/* "ddf" and "imsm" metadata only supports one level - should possibly
-		 * push this into metadata handler??
-		 */
-		if (st && (st->ss == &super_ddf || st->ss == &super_imsm))
-			level = LEVEL_CONTAINER;
-	}
-
+	if (level == UnSet && st && st->ss->default_geometry)
+		st->ss->default_geometry(st, &level, NULL, NULL);
 	if (level == UnSet) {
 		fprintf(stderr,
 			Name ": a RAID level is needed to create an array.\n");
@@ -235,11 +228,9 @@ int Create(struct supertype *st, char *mddev,
 	case 6:
 	case 0:
 		if (chunk == 0) {
-			if (st && st->ss->default_chunk)
-				chunk = st->ss->default_chunk(st);
-
+			if (st && st->ss->default_geometry)
+				st->ss->default_geometry(st, NULL, NULL, &chunk);
 			chunk = chunk ? : 512;
-
 			if (verbose > 0)
 				fprintf(stderr, Name ": chunk size defaults to %dK\n", chunk);
 		}

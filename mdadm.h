@@ -626,7 +626,7 @@ extern struct superswitch {
 	 * added to validate changing size and new devices.  If there are
 	 * inter-device dependencies, it should record sufficient details
 	 * so these can be validated.
-	 * Both 'size' and '*freesize' are in sectors.  chunk is bytes.
+	 * Both 'size' and '*freesize' are in sectors.  chunk is KiB.
 	 */
 	int (*validate_geometry)(struct supertype *st, int level, int layout,
 				 int raiddisks,
@@ -635,10 +635,8 @@ extern struct superswitch {
 				 int verbose);
 
 	struct mdinfo *(*container_content)(struct supertype *st, char *subarray);
-	/* Allow a metadata handler to override mdadm's default layouts */
-	int (*default_layout)(int level); /* optional */
-	/* query the supertype for default chunk size */
-	int (*default_chunk)(struct supertype *st); /* optional */
+	/* query the supertype for default geometry */
+	void (*default_geometry)(struct supertype *st, int *level, int *layout, int *chunk); /* optional */
 	/* Permit subarray's to be deleted from inactive containers */
 	int (*kill_subarray)(struct supertype *st); /* optional */
 	/* Permit subarray's to be modified */

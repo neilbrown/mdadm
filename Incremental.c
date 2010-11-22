@@ -827,6 +827,11 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 						devname, mp->path);
 				goto next;
 			}
+			/* Need to double check the 'act_spare' permissions applies
+			 * to this metadata.
+			 */
+			if (!policy_action_allows(pol, st2->ss->name, act_spare))
+				goto next;
 		} else
 			st2 = st;
 		get_dev_size(dfd, NULL, &devsize);
@@ -980,6 +985,11 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			domain_merge(&domlist, pol2, st2->ss->name);
 			if (domain_test(domlist, pol, st2->ss->name) == 0)
 				/* Incompatible devices for this metadata type */
+				goto next;
+			if (!policy_action_allows(pol, st2->ss->name, act_spare))
+				/* Some partition types allow sparing, but not
+				 * this one.
+				 */
 				goto next;
 		}
 

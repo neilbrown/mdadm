@@ -112,6 +112,21 @@ static int ident_matches(struct mddev_ident *ident,
 				devname);
 		return 0;
 	}
+	if (ident->member && ident->member[0]) {
+		/* content->text_version must match */
+		char *s = strchr(content->text_version+1, '/');
+		if (s == NULL) {
+			if (devname)
+				fprintf(stderr, Name ": %s is not a container and one is required.\n",
+					devname);
+			return 0;
+		} else if (strcmp(ident->member, s+1) != 0) {
+			if (devname)
+				fprintf(stderr, Name ": skipping wrong member %s is %s\n",
+					content->text_version, devname);
+			return 0;
+		}
+	}
 	return 1;
 }
 			 
@@ -417,19 +432,6 @@ int Assemble(struct supertype *st, char *mddev,
 						content->text_version,
 						devname);
 				skip = 1;
-			} else if (ident->member && ident->member[0]) {
-				char *s = strchr(content->text_version+1, '/');
-				if (s == NULL) {
-					fprintf(stderr, Name ": badly formatted version: %s\n",
-						content->text_version);
-					skip = 1;
-				} else if (strcmp(ident->member, s+1) != 0) {
-					if (report_missmatch)
-						fprintf(stderr,
-							Name ": skipping wrong member %s\n",
-							content->text_version);
-					skip = 1;
-				}
 			}
 			if (skip) {
 				content = content->next;
@@ -455,15 +457,6 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": found match on member %s in %s\n",
 					content->text_version, devname);
 			break;
-		}
-
-		if (ident->container || ident->member) {
-			/* No chance of this matching if we don't have
-			 * a container */
-			if (report_missmatch)
-				fprintf(stderr, Name "%s is not a container, and one is required.\n",
-					devname);
-			goto loop;
 		}
 
 		if (!ident_matches(ident, content, tst,

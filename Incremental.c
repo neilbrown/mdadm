@@ -1382,14 +1382,32 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	mdfd = open_dev(ent->devnum);
 	if (mdfd < 0) {
 		fprintf(stderr, Name ": Cannot open array %s!!\n", ent->dev);
+		free_mdstat(ent);
 		return 1;
 	}
 	memset(&devlist, 0, sizeof(devlist));
 	devlist.devname = devname;
 	devlist.disposition = 'f';
-	Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
+	/* for a container, we must fail each member array */
+	if (ent->metadata_version &&
+	    strncmp(ent->metadata_version, "external:", 9) == 0) {
+		struct mdstat_ent *mdstat = mdstat_read(0, 0);
+		struct mdstat_ent *memb;
+		for (memb = mdstat ; memb ; memb = memb->next)
+			if (is_container_member(memb, ent->dev)) {
+				int subfd = open_dev(memb->devnum);
+				if (subfd >= 0) {
+					Manage_subdevs(memb->dev, subfd,
+						       &devlist, verbose, 0);
+					close(subfd);
+				}
+			}
+		free_mdstat(mdstat);
+	} else
+		Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
 	devlist.disposition = 'r';
 	rv = Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0);
 	close(mdfd);
+	free_mdstat(ent);
 	return rv;
 }

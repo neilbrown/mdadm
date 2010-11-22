@@ -90,7 +90,7 @@ int Query(char *dev)
 	close(fd);
 	if (superror == 0) {
 		/* array might be active... */
-		st->ss->getinfo_super(st, &info);
+		st->ss->getinfo_super(st, &info, NULL);
 		if (st->ss == &super0) {
 			mddev = get_md_name(info.array.md_minor);
 			disc.number = info.disk.number;

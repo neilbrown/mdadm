@@ -1728,7 +1728,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (st->ss->load_super(st, fd, NULL))
 				continue;
 
-			st->ss->getinfo_super(st, &dinfo);
+			st->ss->getinfo_super(st, &dinfo, NULL);
 			st->ss->free_super(st);
 
 			if (lseek64(fd,
@@ -1846,7 +1846,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (st->ss->load_super(st, fdlist[j], NULL))
 				/* FIXME should be this be an error */
 				continue;
-			st->ss->getinfo_super(st, &dinfo);
+			st->ss->getinfo_super(st, &dinfo, NULL);
 			st->ss->free_super(st);
 			offsets[j] = dinfo.data_offset * 512;
 		}
@@ -1908,7 +1908,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (fdlist[j] < 0) continue;
 			if (st->ss->load_super(st, fdlist[j], NULL))
 				continue;
-			st->ss->getinfo_super(st, &dinfo);
+			st->ss->getinfo_super(st, &dinfo, NULL);
 			dinfo.reshape_progress = info->reshape_progress;
 			st->ss->update_super(st, &dinfo,
 					     "_reshape_progress",

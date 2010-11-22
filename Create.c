@@ -614,7 +614,7 @@ int Create(struct supertype *st, char *mddev,
 
 	total_slots = info.array.nr_disks;
 	sysfs_init(&info, mdfd, 0);
-	st->ss->getinfo_super(st, &info);
+	st->ss->getinfo_super(st, &info, NULL);
 
 	if (did_default && verbose >= 0) {
 		if (is_subarray(info.text_version)) {
@@ -797,7 +797,7 @@ int Create(struct supertype *st, char *mddev,
 					ioctl(mdfd, STOP_ARRAY, NULL);
 					goto abort;
 				}
-				st->ss->getinfo_super(st, inf);
+				st->ss->getinfo_super(st, inf, NULL);
 				safe_mode_delay = inf->safe_mode_delay;
 
 				if (have_container && verbose > 0)
@@ -842,7 +842,7 @@ int Create(struct supertype *st, char *mddev,
 			 * again returns container info.
 			 */
 			map_lock(&map);
-			st->ss->getinfo_super(st, &info_new);
+			st->ss->getinfo_super(st, &info_new, NULL);
 			if (st->ss->external && level != LEVEL_CONTAINER &&
 			    !same_uuid(info_new.uuid, info.uuid, 0)) {
 				map_update(&map, fd2devnum(mdfd),
@@ -857,7 +857,7 @@ int Create(struct supertype *st, char *mddev,
 			if (me) {
 				char *path = strdup(me->path);
 
-				st->ss->getinfo_super(st, &info_new);
+				st->ss->getinfo_super(st, &info_new, NULL);
 				map_update(&map, st->container_dev,
 					   info_new.text_version,
 					   info_new.uuid, path);

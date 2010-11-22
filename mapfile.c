@@ -408,7 +408,7 @@ void RebuildMap(void)
 			close(dfd);
 			if (ok != 0)
 				continue;
-			st->ss->getinfo_super(st, &info);
+			st->ss->getinfo_super(st, &info, NULL);
 			if (md->devnum >= 0)
 				path = map_dev(MD_MAJOR, md->devnum, 0);
 			else

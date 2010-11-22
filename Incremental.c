@@ -156,7 +156,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	close (dfd); dfd = -1;
 
 	memset(&info, 0, sizeof(info));
-	st->ss->getinfo_super(st, &info);
+	st->ss->getinfo_super(st, &info, NULL);
 	/* 3/ Check if there is a match in mdadm.conf */
 
 	array_list = conf_get_ident(NULL);
@@ -433,7 +433,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			}
 			close(dfd2);
 			memset(&info2, 0, sizeof(info2));
-			st2->ss->getinfo_super(st2, &info2);
+			st2->ss->getinfo_super(st2, &info2, NULL);
 			st2->ss->free_super(st2);
 			if (info.array.level != info2.array.level ||
 			    memcmp(info.uuid, info2.uuid, 16) != 0 ||
@@ -623,7 +623,7 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			close(dfd);
 			continue;
 		}
-		st->ss->getinfo_super(st, &info);
+		st->ss->getinfo_super(st, &info, NULL);
 		st->ss->free_super(st);
 		close(dfd);
 
@@ -668,7 +668,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 		close(dfd);
 		if (ok != 0)
 			continue;
-		st->ss->getinfo_super(st, &info);
+		st->ss->getinfo_super(st, &info, NULL);
 		if (!avail) {
 			avail = malloc(info.array.raid_disks);
 			if (!avail) {
@@ -685,7 +685,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 				cnt++;
 				max_events = info.events;
 				avail[info.disk.raid_disk] = 2;
-				st->ss->getinfo_super(st, bestinfo);
+				st->ss->getinfo_super(st, bestinfo, NULL);
 			} else if (info.events == max_events) {
 				cnt++;
 				avail[info.disk.raid_disk] = 2;
@@ -703,12 +703,12 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 					if (avail[i])
 						avail[i]--;
 				avail[info.disk.raid_disk] = 2;
-				st->ss->getinfo_super(st, bestinfo);
+				st->ss->getinfo_super(st, bestinfo, NULL);
 			} else { /* info.events much bigger */
 				cnt = 1; cnt1 = 0;
 				memset(avail, 0, info.disk.raid_disk);
 				max_events = info.events;
-				st->ss->getinfo_super(st, bestinfo);
+				st->ss->getinfo_super(st, bestinfo, NULL);
 			}
 		}
 		st->ss->free_super(st);
@@ -944,7 +944,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 				goto next;
 		}
 
-		st2->ss->getinfo_super(st2, &info);
+		st2->ss->getinfo_super(st2, &info, NULL);
 		if (info.component_size > devsectors)
 			/* This partitioning doesn't fit in the device */
 			goto next;

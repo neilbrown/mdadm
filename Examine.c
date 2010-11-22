@@ -119,9 +119,9 @@ int Examine(mddev_dev_t devlist, int brief, int export, int scan,
 				ap->spares = 0;
 				ap->st = st;
 				arrays = ap;
-				st->ss->getinfo_super(st, &ap->info);
+				st->ss->getinfo_super(st, &ap->info, NULL);
 			} else
-				st->ss->getinfo_super(st, &ap->info);
+				st->ss->getinfo_super(st, &ap->info, NULL);
 			if (!st->loaded_container &&
 			    !(ap->info.disk.state & (1<<MD_DISK_SYNC)))
 				ap->spares++;

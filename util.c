@@ -500,7 +500,7 @@ int check_raid(int fd, char *name)
 	/* Looks like a raid array .. */
 	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
 		name);
-	st->ss->getinfo_super(st, &info);
+	st->ss->getinfo_super(st, &info, NULL);
 	st->ss->free_super(st);
 	crtime = info.array.ctime;
 	level = map_num(pers, info.array.level);
@@ -1140,7 +1140,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 		rv = ss->load_super(st, fd, NULL);
 		if (rv == 0) {
 			struct mdinfo info;
-			st->ss->getinfo_super(st, &info);
+			st->ss->getinfo_super(st, &info, NULL);
 			if (bestsuper == -1 ||
 			    besttime < info.array.ctime) {
 				bestsuper = i;

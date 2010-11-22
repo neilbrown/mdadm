@@ -741,7 +741,7 @@ static void print_imsm_disk(struct imsm_super *mpb, int index, __u32 reserved)
 	       human_size(sz * 512));
 }
 
-static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info);
+static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *map);
 
 static void examine_super_imsm(struct supertype *st, char *homehost)
 {
@@ -762,7 +762,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("    Orig Family : %08x\n", __le32_to_cpu(mpb->orig_family_num));
 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
 	printf("     Generation : %08x\n", __le32_to_cpu(mpb->generation_num));
-	getinfo_super_imsm(st, &info);
+	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("           UUID : %s\n", nbuf + 5);
 	sum = __le32_to_cpu(mpb->check_sum);
@@ -789,7 +789,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 
 		super->current_vol = i;
-		getinfo_super_imsm(st, &info);
+		getinfo_super_imsm(st, &info, NULL);
 		fname_from_uuid(st, &info, nbuf, ':');
 		print_imsm_dev(dev, nbuf + 5, super->disks->index);
 	}
@@ -812,7 +812,7 @@ static void brief_examine_super_imsm(struct supertype *st, int verbose)
 		return;
 	}
 
-	getinfo_super_imsm(st, &info);
+	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("ARRAY metadata=imsm UUID=%s\n", nbuf + 5);
 }
@@ -829,13 +829,13 @@ static void brief_examine_subarrays_imsm(struct supertype *st, int verbose)
 	if (!super->anchor->num_raid_devs)
 		return;
 
-	getinfo_super_imsm(st, &info);
+	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
 
 		super->current_vol = i;
-		getinfo_super_imsm(st, &info);
+		getinfo_super_imsm(st, &info, NULL);
 		fname_from_uuid(st, &info, nbuf1, ':');
 		printf("ARRAY /dev/md/%.16s container=%s member=%d UUID=%s\n",
 		       dev->volume, nbuf + 5, i, nbuf1 + 5);
@@ -849,7 +849,7 @@ static void export_examine_super_imsm(struct supertype *st)
 	struct mdinfo info;
 	char nbuf[64];
 
-	getinfo_super_imsm(st, &info);
+	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("MD_METADATA=imsm\n");
 	printf("MD_LEVEL=container\n");
@@ -862,7 +862,7 @@ static void detail_super_imsm(struct supertype *st, char *homehost)
 	struct mdinfo info;
 	char nbuf[64];
 
-	getinfo_super_imsm(st, &info);
+	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("\n           UUID : %s\n", nbuf + 5);
 }
@@ -871,7 +871,7 @@ static void brief_detail_super_imsm(struct supertype *st)
 {
 	struct mdinfo info;
 	char nbuf[64];
-	getinfo_super_imsm(st, &info);
+	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf(" UUID=%s", nbuf + 5);
 }
@@ -1434,13 +1434,14 @@ static int imsm_level_to_layout(int level)
 	return UnSet;
 }
 
-static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info, char *dmap)
 {
 	struct intel_super *super = st->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct dl *dl;
 	char *devname;
+	int map_disks = info->array.raid_disks;
 
 	for (dl = super->disks; dl; dl = dl->next)
 		if (dl->raiddisk == info->disk.raid_disk)
@@ -1512,7 +1513,21 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info)
 	free(devname);
 	info->safe_mode_delay = 4000;  /* 4 secs like the Matrix driver */
 	uuid_from_super_imsm(st, info->uuid);
-}
+
+	if (dmap) {
+		int i, j;
+		for (i=0; i<map_disks; i++) {
+			dmap[i] = 0;
+			if (i < info->array.raid_disks) {
+				struct imsm_disk *dsk;
+				j = get_imsm_disk_idx(dev, i);
+				dsk = get_imsm_disk(super, j);
+				if (dsk && (dsk->status & CONFIGURED_DISK))
+					dmap[i] = 1;
+			}
+		}
+	}
+}				
 
 /* check the config file to see if we can return a real uuid for this spare */
 static void fixup_container_spare_uuid(struct mdinfo *inf)
@@ -1559,13 +1574,14 @@ static struct imsm_disk *get_imsm_missing(struct intel_super *super, __u8 index)
 	return NULL;
 }
 
-static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct intel_super *super = st->sb;
 	struct imsm_disk *disk;
+	int map_disks = info->array.raid_disks;
 
 	if (super->current_vol >= 0) {
-		getinfo_super_imsm_volume(st, info);
+		getinfo_super_imsm_volume(st, info, map);
 		return;
 	}
 
@@ -1664,6 +1680,14 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info)
 		memcpy(info->uuid, uuid_match_any, sizeof(int[4]));
 		fixup_container_spare_uuid(info);
 	}
+
+	/* I don't know how to compute 'map' on imsm, so use safe default */
+	if (map) {
+		int i;
+		for (i = 0; i < map_disks; i++)
+			map[i] = 1;
+	}
+
 }
 
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,
@@ -4353,7 +4377,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 		this->next = rest;
 
 		super->current_vol = i;
-		getinfo_super_imsm_volume(st, this);
+		getinfo_super_imsm_volume(st, this, NULL);
 		for (slot = 0 ; slot <  map->num_members; slot++) {
 			unsigned long long recovery_start;
 			struct mdinfo *info_d;

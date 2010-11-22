@@ -1187,7 +1187,7 @@ static void examine_super_ddf(struct supertype *st, char *homehost)
 	examine_pds(sb);
 }
 
-static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info);
+static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *map);
 
 static void uuid_from_super_ddf(struct supertype *st, int uuid[4]);
 
@@ -1197,7 +1197,7 @@ static void brief_examine_super_ddf(struct supertype *st, int verbose)
 	 */
 	struct mdinfo info;
 	char nbuf[64];
-	getinfo_super_ddf(st, &info);
+	getinfo_super_ddf(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 
 	printf("ARRAY metadata=ddf UUID=%s\n", nbuf + 5);
@@ -1211,7 +1211,7 @@ static void brief_examine_subarrays_ddf(struct supertype *st, int verbose)
 	struct mdinfo info;
 	unsigned int i;
 	char nbuf[64];
-	getinfo_super_ddf(st, &info);
+	getinfo_super_ddf(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 
 	for (i = 0; i < __be16_to_cpu(ddf->virt->max_vdes); i++) {
@@ -1233,7 +1233,7 @@ static void export_examine_super_ddf(struct supertype *st)
 {
 	struct mdinfo info;
 	char nbuf[64];
-	getinfo_super_ddf(st, &info);
+	getinfo_super_ddf(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("MD_METADATA=ddf\n");
 	printf("MD_LEVEL=container\n");
@@ -1259,7 +1259,7 @@ static void brief_detail_super_ddf(struct supertype *st)
 //	struct ddf_super *ddf = st->sb;
 	struct mdinfo info;
 	char nbuf[64];
-	getinfo_super_ddf(st, &info);
+	getinfo_super_ddf(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf,':');
 	printf(" UUID=%s", nbuf + 5);
 }
@@ -1346,14 +1346,15 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	memcpy(uuid, buf, 4*4);
 }
 
-static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info);
+static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, char *map);
 
-static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct ddf_super *ddf = st->sb;
+	int map_disks = info->array.raid_disks;
 
 	if (ddf->currentconf) {
-		getinfo_super_ddf_bvd(st, info);
+		getinfo_super_ddf_bvd(st, info, map);
 		return;
 	}
 
@@ -1397,17 +1398,29 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info)
 
 	uuid_from_super_ddf(st, info->uuid);
 
+	if (map) {
+		int i;
+		for (i = 0 ; i < map_disks; i++) {
+			if (i < info->array.raid_disks &&
+			    (__be16_to_cpu(ddf->phys->entries[i].state) & DDF_Online) &&
+			    !(__be16_to_cpu(ddf->phys->entries[i].state) & DDF_Failed))
+				map[i] = 1;
+			else
+				map[i] = 0;
+		}
+	}
 }
 
 static int rlq_to_layout(int rlq, int prl, int raiddisks);
 
-static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
+static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct ddf_super *ddf = st->sb;
 	struct vcl *vc = ddf->currentconf;
 	int cd = ddf->currentdev;
 	int j;
 	struct dl *dl;
+	int map_disks = info->array.raid_disks;
 
 	/* FIXME this returns BVD info - what if we want SVD ?? */
 
@@ -1470,6 +1483,18 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info)
 	for(j=0; j<16; j++)
 		if (info->name[j] == ' ')
 			info->name[j] = 0;
+
+	if (map)
+		for (j = 0; j < map_disks; j++) {
+			map[j] = 0;
+			if (j <  info->array.raid_disks) {
+				int i = find_phys(ddf, vc->conf.phys_refnum[j]);
+				if (i >= 0 && 
+				    (__be16_to_cpu(ddf->phys->entries[i].state) & DDF_Online) &&
+				    !(__be16_to_cpu(ddf->phys->entries[i].state) & DDF_Failed))
+					map[i] = 1;
+			}
+		}
 }
 
 

@@ -558,12 +558,13 @@ static void uuid_from_super1(struct supertype *st, int uuid[4])
 		cuuid[i] = super->set_uuid[i];
 }
 
-static void getinfo_super1(struct supertype *st, struct mdinfo *info)
+static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	int working = 0;
 	unsigned int i;
-	int role;
+	unsigned int role;
+	unsigned int map_disks = info->array.raid_disks;
 
 	info->array.major_version = 1;
 	info->array.minor_version = st->minor_version;
@@ -629,10 +630,16 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info)
 	} else
 		info->reshape_active = 0;
 
+	if (map)
+		for (i=0; i<map_disks; i++)
+			map[i] = 0;
 	for (i = 0; i < __le32_to_cpu(sb->max_dev); i++) {
 		role = __le16_to_cpu(sb->dev_roles[i]);
-		if (/*role == 0xFFFF || */role < info->array.raid_disks)
+		if (/*role == 0xFFFF || */role < (unsigned) info->array.raid_disks) {
 			working++;
+			if (map && role < map_disks)
+				map[role] = 1;
+		}
 	}
 
 	info->array.working_disks = working;

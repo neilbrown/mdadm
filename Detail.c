@@ -143,7 +143,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		close(fd2);
 		if (err)
 			continue;
-		st->ss->getinfo_super(st, &info);
+		st->ss->getinfo_super(st, &info, NULL);
 
 		if (array.raid_disks != 0 && /* container */
 		    (info.array.ctime != array.ctime ||

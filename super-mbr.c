@@ -148,7 +148,7 @@ static int store_mbr(struct supertype *st, int fd)
 	return 0;
 }
 
-static void getinfo_mbr(struct supertype *st, struct mdinfo *info)
+static void getinfo_mbr(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct MBR *sb = st->sb;
 	int i;

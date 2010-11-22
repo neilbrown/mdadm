@@ -339,11 +339,12 @@ static void uuid_from_super0(struct supertype *st, int uuid[4])
 	}
 }
 
-static void getinfo_super0(struct supertype *st, struct mdinfo *info)
+static void getinfo_super0(struct supertype *st, struct mdinfo *info, char *map)
 {
 	mdp_super_t *sb = st->sb;
 	int working = 0;
 	int i;
+	int map_disks = info->array.raid_disks;
 
 	info->array.major_version = sb->major_version;
 	info->array.minor_version = sb->minor_version;
@@ -391,8 +392,12 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info)
 		if ((sb->disks[i].state & (1<<MD_DISK_SYNC)) &&
 		    (sb->disks[i].raid_disk < (unsigned)info->array.raid_disks) &&
 		    (sb->disks[i].state & (1<<MD_DISK_ACTIVE)) &&
-		    !(sb->disks[i].state & (1<<MD_DISK_FAULTY)))
+		    !(sb->disks[i].state & (1<<MD_DISK_FAULTY))) {
 			working ++;
+			if (map && i < map_disks)
+				map[i] = 1;
+		} else if (map && i < map_disks)
+			map[i] = 0;
 	info->array.working_disks = working;
 }
 

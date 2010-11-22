@@ -534,8 +534,12 @@ extern struct superswitch {
 	 * The particular device should be:
 	 *   The last device added by add_to_super
 	 *   The device the metadata was loaded from by load_super
+	 * If 'map' is present, then it is an array raid_disks long
+	 * (raid_disk must already be set and correct) and it is filled
+	 * with 1 for slots that are thought to be active and 0 for slots which
+	 * appear to be failed/missing.
 	 */
-	void (*getinfo_super)(struct supertype *st, struct mdinfo *info);
+	void (*getinfo_super)(struct supertype *st, struct mdinfo *info, char *map);
 
 	/* Check if the given metadata is flagged as belonging to "this"
 	 * host.  0 for 'no', 1 for 'yes', -1 for "Don't record homehost"

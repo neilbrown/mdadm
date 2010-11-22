@@ -156,7 +156,7 @@ static int store_gpt(struct supertype *st, int fd)
 	return 0;
 }
 
-static void getinfo_gpt(struct supertype *st, struct mdinfo *info)
+static void getinfo_gpt(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct GPT *gpt = st->sb + 512;
 	struct GPT_part_entry *gpe = st->sb + 1024;

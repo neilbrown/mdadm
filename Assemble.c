@@ -283,7 +283,7 @@ int Assemble(struct supertype *st, char *mddev,
 		} else {
 			content = &info;
 			memset(content, 0, sizeof(*content));
-			tst->ss->getinfo_super(tst, content);
+			tst->ss->getinfo_super(tst, content, NULL);
 		}
 		if (dfd >= 0) close(dfd);
 
@@ -520,7 +520,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	/* Now need to open the array device.  Use create_mddev */
 	if (content == &info)
-		st->ss->getinfo_super(st, content);
+		st->ss->getinfo_super(st, content, NULL);
 
 	trustworthy = FOREIGN;
 	name = content->name;
@@ -643,7 +643,7 @@ int Assemble(struct supertype *st, char *mddev,
 				close(mdfd);
 				return 1;
 			}
-			tst->ss->getinfo_super(tst, content);
+			tst->ss->getinfo_super(tst, content, NULL);
 
 			memcpy(content->uuid, ident->uuid, 16);
 			strcpy(content->name, ident->name);
@@ -704,7 +704,7 @@ int Assemble(struct supertype *st, char *mddev,
 				close(mdfd);
 				return 1;
 			}
-			tst->ss->getinfo_super(tst, content);
+			tst->ss->getinfo_super(tst, content, NULL);
 			tst->ss->free_super(tst);
 			close(dfd);
 		}
@@ -798,7 +798,7 @@ int Assemble(struct supertype *st, char *mddev,
 	if (update && strcmp(update, "byteorder")==0)
 		st->minor_version = 90;
 
-	st->ss->getinfo_super(st, content);
+	st->ss->getinfo_super(st, content, NULL);
 	clean = content->array.state & 1;
 
 	/* now we have some devices that might be suitable.
@@ -955,7 +955,7 @@ int Assemble(struct supertype *st, char *mddev,
 		close(mdfd);
 		return 1;
 	}
-	st->ss->getinfo_super(st, content);
+	st->ss->getinfo_super(st, content, NULL);
 #ifndef MDASSEMBLE
 	sysfs_init(content, mdfd, 0);
 #endif

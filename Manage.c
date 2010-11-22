@@ -664,7 +664,7 @@ int Manage_subdevs(char *devname, int fd,
 					;
 				else if (st->sb) {
 					struct mdinfo mdi;
-					st->ss->getinfo_super(st, &mdi);
+					st->ss->getinfo_super(st, &mdi, NULL);
 					st->ss->uuid_from_super(st, ouuid);
 					if ((mdi.disk.state & (1<<MD_DISK_ACTIVE)) &&
 					    !(mdi.disk.state & (1<<MD_DISK_FAULTY)) &&
@@ -855,7 +855,7 @@ int Manage_subdevs(char *devname, int fd,
 				}
 				sra->array.level = LEVEL_CONTAINER;
 				/* Need to set data_offset and component_size */
-				tst->ss->getinfo_super(tst, &new_mdi);
+				tst->ss->getinfo_super(tst, &new_mdi, NULL);
 				new_mdi.disk.major = disc.major;
 				new_mdi.disk.minor = disc.minor;
 				new_mdi.recovery_start = 0;

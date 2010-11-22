@@ -548,7 +548,7 @@ extern struct superswitch {
 	 * appear to be failed/missing.
 	 */
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info, char *map);
-
+	struct mdinfo *(*getinfo_super_disks)(struct supertype *st);
 	/* Check if the given metadata is flagged as belonging to "this"
 	 * host.  0 for 'no', 1 for 'yes', -1 for "Don't record homehost"
 	 */

@@ -1690,6 +1690,51 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 
 }
 
+/* allocates memory and fills disk in mdinfo structure
+ * for each disk in array */
+struct mdinfo *getinfo_super_disks_imsm(struct supertype *st)
+{
+	struct mdinfo *mddev = NULL;
+	struct intel_super *super = st->sb;
+	struct imsm_disk *disk;
+	int count = 0;
+	struct dl *dl;
+	if (!super || !super->disks)
+		return NULL;
+	dl = super->disks;
+	mddev = malloc(sizeof(*mddev));
+	if (!mddev) {
+		fprintf(stderr, Name ": Failed to allocate memory.\n");
+		return NULL;
+	}
+	memset(mddev, 0, sizeof(*mddev));
+	while (dl) {
+		struct mdinfo *tmp;
+		disk = &dl->disk;
+		tmp = malloc(sizeof(*tmp));
+		if (!tmp) {
+			fprintf(stderr, Name ": Failed to allocate memory.\n");
+			if (mddev)
+				sysfs_free(mddev);
+			return NULL;
+		}
+		memset(tmp, 0, sizeof(*tmp));
+		if (mddev->devs)
+			tmp->next = mddev->devs;
+		mddev->devs = tmp;
+		tmp->disk.number = count++;
+		tmp->disk.major = dl->major;
+		tmp->disk.minor = dl->minor;
+		tmp->disk.state = is_configured(disk) ?
+				  (1 << MD_DISK_ACTIVE) : 0;
+		tmp->disk.state |= is_failed(disk) ? (1 << MD_DISK_FAULTY) : 0;
+		tmp->disk.state |= is_spare(disk) ? 0 : (1 << MD_DISK_SYNC);
+		tmp->disk.raid_disk = -1;
+		dl = dl->next;
+	}
+	return mddev;
+}
+
 static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 			     char *update, char *devname, int verbose,
 			     int uuid_set, char *homehost)
@@ -5579,6 +5624,7 @@ struct superswitch super_imsm = {
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
 	.getinfo_super  = getinfo_super_imsm,
+	.getinfo_super_disks = getinfo_super_disks_imsm,
 	.update_super	= update_super_imsm,
 
 	.avail_size	= avail_size_imsm,

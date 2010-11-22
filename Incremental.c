@@ -41,8 +41,8 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		     struct supertype *st, int verbose);
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 int verbose, int runstop, int autof,
-				 int trustworthy);
+				 char *homehost,
+				 int verbose, int runstop, int autof);
 
 static struct mddev_ident_s *search_mdstat(struct supertype *st,
 					   struct mdinfo *info,
@@ -99,13 +99,51 @@ int Incremental(char *devname, int verbose, int runstop,
 	int dfd = -1, mdfd = -1;
 	char *avail;
 	int active_disks;
-	int trustworthy = FOREIGN;
+	int trustworthy;
 	char *name_to_use;
 	mdu_array_info_t ainf;
 	struct dev_policy *policy = NULL;
+	unsigned long long size;
 
 	struct createinfo *ci = conf_get_create_info();
 
+	if (stat(devname, &stb) < 0) {
+		if (verbose >= 0)
+			fprintf(stderr, Name ": stat failed for %s: %s.\n",
+				devname, strerror(errno));
+		return rv;
+	}
+	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
+		if (verbose >= 0)
+			fprintf(stderr, Name ": %s is not a block device.\n",
+				devname);
+		return rv;
+	}
+	dfd = dev_open(devname, O_RDONLY|O_EXCL);
+	if (dfd < 0) {
+		if (verbose >= 0)
+			fprintf(stderr, Name ": cannot open %s: %s.\n",
+				devname, strerror(errno));
+		return rv;
+	}
+	/* If the device is a container, we do something very different */
+	if (get_dev_size(dfd, devname, &size) == 0)
+		goto out;
+	if (size == 0) {
+		if (!st)
+			st = super_by_fd(dfd, NULL);
+		if (st)
+			rv = st->ss->load_container(st, dfd, NULL);
+
+		close(dfd);
+		if (!rv && st->ss->container_content)
+			return Incremental_container(st, devname, homehost,
+						     verbose, runstop, autof);
+
+		fprintf(stderr, Name ": %s is not part of an md array.\n",
+			devname);
+		return rv;
+	}
 
 	/* 1/ Check if device is permitted by mdadm.conf */
 
@@ -120,13 +158,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 2/ Find metadata, reject if none appropriate (check
 	 *            version/name from args) */
 
-	dfd = dev_open(devname, O_RDONLY|O_EXCL);
-	if (dfd < 0) {
-		if (verbose >= 0)
-			fprintf(stderr, Name ": cannot open %s: %s.\n",
-				devname, strerror(errno));
-		goto out;
-	}
 	if (fstat(dfd, &stb) < 0) {
 		if (verbose >= 0)
 			fprintf(stderr, Name ": fstat failed for %s: %s.\n",
@@ -216,25 +247,6 @@ int Incremental(char *devname, int verbose, int runstop,
 		autof = match->autof;
 	if (autof == 0)
 		autof = ci->autof;
-
-	if (st->ss->container_content && st->loaded_container) {
-		if ((runstop > 0 && info.container_enough >= 0) ||
-		    info.container_enough > 0)
-			/* pass */;
-		else {
-			if (verbose)
-				fprintf(stderr, Name ": not enough devices to start the container\n");
-			rv = 0;
-			goto out;
-		}
-
-		/* This is a pre-built container array, so we do something
-		 * rather different.
-		 */
-		rv = Incremental_container(st, devname, verbose, runstop,
-					     autof, trustworthy);
-		goto out;
-	}
 
 	name_to_use = info.name;
 	if (name_to_use[0] == 0 &&
@@ -1205,17 +1217,49 @@ static char *container2devname(char *devname)
 	return mdname;
 }
 
-static int Incremental_container(struct supertype *st, char *devname, int verbose,
-				 int runstop, int autof, int trustworthy)
+static int Incremental_container(struct supertype *st, char *devname,
+				 char *homehost, int verbose,
+				 int runstop, int autof)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
 	 */
 
-	struct mdinfo *list = st->ss->container_content(st, NULL);
+	struct mdinfo *list;
 	struct mdinfo *ra;
 	struct map_ent *map = NULL;
+	struct mdinfo info;
+	int trustworthy;
+	struct mddev_ident_s *match;
+	int rv = 0;
 
+	memset(&info, 0, sizeof(info));
+	st->ss->getinfo_super(st, &info, NULL);
+
+	if ((runstop > 0 && info.container_enough >= 0) ||
+	    info.container_enough > 0)
+		/* pass */;
+	else {
+		if (verbose)
+			fprintf(stderr, Name ": not enough devices to start the container\n");
+		return 0;
+	}
+
+	match = search_mdstat(st, &info, devname, verbose, &rv);
+	if (match == NULL && rv == 2)
+		return rv;
+
+	/* Need to compute 'trustworthy' */
+	if (match)
+		trustworthy = LOCAL;
+	else if (st->ss->match_home(st, homehost) == 1)
+		trustworthy = LOCAL;
+	else if (st->ss->match_home(st, "any") == 1)
+		trustworthy = LOCAL;
+	else
+		trustworthy = FOREIGN;
+
+	list = st->ss->container_content(st, NULL);
 	if (map_lock(&map))
 		fprintf(stderr, Name ": failed to get exclusive lock on "
 			"mapfile\n");

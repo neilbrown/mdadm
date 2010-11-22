@@ -681,6 +681,58 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 	return new_found;
 }
 
+static int move_spare(struct state *st2, struct state *st,
+		      struct alert_info *info)
+{
+	struct mddev_dev devlist;
+	char devname[20];
+
+	/* try to remove and add */
+	int fd1 = open(st->devname, O_RDONLY);
+	int fd2 = open(st2->devname, O_RDONLY);
+	int dev = -1;
+	int d;
+	if (fd1 < 0 || fd2 < 0) {
+		if (fd1>=0) close(fd1);
+		if (fd2>=0) close(fd2);
+		return 0;
+	}
+	for (d=st2->raid; d < MaxDisks; d++) {
+		if (st2->devid[d] > 0 &&
+		    st2->devstate[d] == 0) {
+			dev = st2->devid[d];
+			break;
+		}
+	}
+	if (dev < 0) {
+		close(fd1);
+		close(fd2);
+		return 0;
+	}
+
+	devlist.next = NULL;
+	devlist.used = 0;
+	devlist.re_add = 0;
+	devlist.writemostly = 0;
+	devlist.devname = devname;
+	sprintf(devname, "%d:%d", major(dev), minor(dev));
+
+	devlist.disposition = 'r';
+	if (Manage_subdevs(st2->devname, fd2, &devlist, -1, 0) == 0) {
+		devlist.disposition = 'a';
+		if (Manage_subdevs(st->devname, fd1, &devlist, -1, 0) == 0) {
+			alert("MoveSpare", st->devname, st2->devname, info);
+			close(fd1);
+			close(fd2);
+			return 1;
+		}
+		else Manage_subdevs(st2->devname, fd2, &devlist, -1, 0);
+	}
+	close(fd1);
+	close(fd2);
+	return 0;
+}
+
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
 	struct state *st;
@@ -696,49 +748,9 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				    st2->spare > 0 &&
 				    st2->active == st2->raid &&
 				    st2->spare_group != NULL &&
-				    strcmp(st->spare_group, st2->spare_group) == 0) {
-					/* try to remove and add */
-					int fd1 = open(st->devname, O_RDONLY);
-					int fd2 = open(st2->devname, O_RDONLY);
-					int dev = -1;
-					int d;
-					if (fd1 < 0 || fd2 < 0) {
-						if (fd1>=0) close(fd1);
-						if (fd2>=0) close(fd2);
-						continue;
-					}
-					for (d=st2->raid; d < MaxDisks; d++) {
-						if (st2->devid[d] > 0 &&
-						    st2->devstate[d] == 0) {
-							dev = st2->devid[d];
-							break;
-						}
-					}
-					if (dev > 0) {
-						struct mddev_dev devlist;
-						char devname[20];
-						devlist.next = NULL;
-						devlist.used = 0;
-						devlist.re_add = 0;
-						devlist.writemostly = 0;
-						devlist.devname = devname;
-						sprintf(devname, "%d:%d", major(dev), minor(dev));
-
-						devlist.disposition = 'r';
-						if (Manage_subdevs(st2->devname, fd2, &devlist, -1, 0) == 0) {
-							devlist.disposition = 'a';
-							if (Manage_subdevs(st->devname, fd1, &devlist, -1, 0) == 0) {
-								alert("MoveSpare", st->devname, st2->devname, info);
-								close(fd1);
-								close(fd2);
-								break;
-							}
-							else Manage_subdevs(st2->devname, fd2, &devlist, -1, 0);
-						}
-					}
-					close(fd1);
-					close(fd2);
-				}
+				    strcmp(st->spare_group, st2->spare_group) == 0)
+					if (move_spare(st2, st, info))
+						break;
 		}
 }
 

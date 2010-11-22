@@ -97,6 +97,10 @@ int Monitor(struct mddev_dev *devlist,
 		int devstate[MaxDisks];
 		unsigned devid[MaxDisks];
 		int percent;
+		int parent_dev; /* For subarray, devnum of parent.
+				 * For others, NoMdDev
+				 */
+		struct supertype *metadata;
 		struct state *next;
 	} *statelist = NULL;
 	int finished = 0;
@@ -391,6 +395,17 @@ int Monitor(struct mddev_dev *devlist,
 				} else
 					info[i].major = info[i].minor = 0;
 			}
+
+			if (strncmp(mse->metadata_version, "external:", 9) == 0 &&
+			    is_subarray(mse->metadata_version+9))
+				st->parent_dev =
+					devname2devnum(mse->metadata_version+10);
+			else
+				st->parent_dev = NoMdDev;
+			if (st->metadata == NULL &&
+			    st->parent_dev == NoMdDev)
+				st->metadata = super_by_fd(fd, NULL);
+
 			close(fd);
 
 			for (i=0; i<MaxDisks; i++) {
@@ -472,6 +487,10 @@ int Monitor(struct mddev_dev *devlist,
 						if (fd >=0) close(fd);
 						put_md_name(st->devname);
 						free(st->devname);
+						if (st->metadata) {
+							st->metadata->ss->free_super(st->metadata);
+							free(st->metadata);
+						}
 						free(st);
 						continue;
 					}
@@ -483,6 +502,13 @@ int Monitor(struct mddev_dev *devlist,
 					st->percent = -2;
 					st->spare_group = NULL;
 					st->expected_spares = -1;
+					if (strncmp(mse->metadata_version, "external:", 9) == 0 &&
+					    is_subarray(mse->metadata_version+9))
+						st->parent_dev =
+							devname2devnum(mse->metadata_version+10);
+					else
+						st->parent_dev = NoMdDev;
+					st->metadata = NULL;
 					statelist = st;
 					if (test)
 						alert("TestMessage", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);

@@ -145,6 +145,7 @@ int Assemble(struct supertype *st, char *mddev,
 			       */
 		struct mdinfo i;
 	} *devices;
+	char *devmap;
 	int *best = NULL; /* indexed by raid_disk */
 	int bestcnt = 0;
 	int devcnt = 0;
@@ -603,6 +604,7 @@ int Assemble(struct supertype *st, char *mddev,
 	bitmap_done = 0;
 	content->update_private = NULL;
 	devices = malloc(num_devs * sizeof(*devices));
+	devmap = calloc(num_devs * content->array.raid_disks, 1);
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
@@ -640,9 +642,10 @@ int Assemble(struct supertype *st, char *mddev,
 					close(dfd);
 				close(mdfd);
 				free(devices);
+				free(devmap);
 				return 1;
 			}
-			tst->ss->getinfo_super(tst, content, NULL);
+			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
 
 			memcpy(content->uuid, ident->uuid, 16);
 			strcpy(content->name, ident->name);
@@ -665,6 +668,7 @@ int Assemble(struct supertype *st, char *mddev,
 				close(mdfd);
 				close(dfd);
 				free(devices);
+				free(devmap);
 				return 1;
 			}
 			if (strcmp(update, "uuid")==0 &&
@@ -703,9 +707,10 @@ int Assemble(struct supertype *st, char *mddev,
 					close(dfd);
 				close(mdfd);
 				free(devices);
+				free(devmap);
 				return 1;
 			}
-			tst->ss->getinfo_super(tst, content, NULL);
+			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
 			tst->ss->free_super(tst);
 			close(dfd);
 		}
@@ -776,6 +781,7 @@ int Assemble(struct supertype *st, char *mddev,
 					);
 				close(mdfd);
 				free(devices);
+				free(devmap);
 				return 1;
 			}
 			if (best[i] == -1
@@ -795,6 +801,7 @@ int Assemble(struct supertype *st, char *mddev,
 			st->ss->free_super(st);
 		close(mdfd);
 		free(devices);
+		free(devmap);
 		return 1;
 	}
 
@@ -828,6 +835,19 @@ int Assemble(struct supertype *st, char *mddev,
 					sparecnt++;
 				continue;
 			}
+		/* If this devices thinks that 'most_recent' has failed, then
+		 * we must reject this device.
+		 */
+		if (j != most_recent &&
+		    content->array.raid_disks > 0 &&
+		    devices[most_recent].i.disk.raid_disk >= 0 &&
+		    devmap[j * content->array.raid_disks + devices[most_recent].i.disk.raid_disk] == 0) {
+			if (verbose > -1)
+				fprintf(stderr, Name ": ignoring %s as it reports %s as failed\n",
+					devices[j].devname, devices[most_recent].devname);
+			best[i] = -1;
+			continue;
+		}
 		if (devices[j].i.events+event_margin >=
 		    devices[most_recent].i.events) {
 			devices[j].uptodate = 1;
@@ -841,6 +861,7 @@ int Assemble(struct supertype *st, char *mddev,
 				sparecnt++;
 		}
 	}
+	free(devmap);
 	while (force && !enough(content->array.level, content->array.raid_disks,
 				content->array.layout, 1,
 				avail, okcnt)) {

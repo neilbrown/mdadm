@@ -760,7 +760,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 
 #ifndef MDASSEMBLE
 static int load_super_ddf_all(struct supertype *st, int fd,
-			      void **sbp, char *devname, int keep_fd);
+			      void **sbp, char *devname);
 #endif
 
 static void free_super_ddf(struct supertype *st);
@@ -774,7 +774,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 
 #ifndef MDASSEMBLE
 	/* if 'fd' is a container, load metadata from all the devices */
-	if (load_super_ddf_all(st, fd, &st->sb, devname, 1) == 0)
+	if (load_super_ddf_all(st, fd, &st->sb, devname) == 0)
 		return 0;
 #endif
 
@@ -2657,7 +2657,7 @@ static int validate_geometry_ddf(struct supertype *st,
 		 * and try to create a bvd
 		 */
 		struct ddf_super *ddf;
-		if (load_super_ddf_all(st, cfd, (void **)&ddf, NULL, 1) == 0) {
+		if (load_super_ddf_all(st, cfd, (void **)&ddf, NULL) == 0) {
 			st->sb = ddf;
 			st->container_dev = fd2devnum(cfd);
 			close(cfd);
@@ -2804,7 +2804,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 }
 
 static int load_super_ddf_all(struct supertype *st, int fd,
-			      void **sbp, char *devname, int keep_fd)
+			      void **sbp, char *devname)
 {
 	struct mdinfo *sra;
 	struct ddf_super *super;
@@ -2860,13 +2860,12 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 		int rv;
 
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
-		dfd = dev_open(nm, keep_fd? O_RDWR : O_RDONLY);
+		dfd = dev_open(nm, O_RDWR);
 		if (dfd < 0)
 			return 2;
 		rv = load_ddf_headers(dfd, super, NULL);
 		if (rv == 0)
-			rv = load_ddf_local(dfd, super, NULL, keep_fd);
-		if (!keep_fd) close(dfd);
+			rv = load_ddf_local(dfd, super, NULL, 1);
 		if (rv)
 			return 1;
 	}

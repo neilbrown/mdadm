@@ -2785,7 +2785,7 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 }
 
 static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
-			       char *devname, int keep_fd)
+			       char *devname)
 {
 	struct mdinfo *sra;
 	struct intel_super *super_list = NULL;
@@ -2821,22 +2821,20 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 		err = 2;
 		sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
-		dfd = dev_open(nm, keep_fd ? O_RDWR : O_RDONLY);
+		dfd = dev_open(nm, O_RDWR);
 		if (dfd < 0)
 			goto error;
 
-		err = load_and_parse_mpb(dfd, s, NULL, keep_fd);
+		err = load_and_parse_mpb(dfd, s, NULL, 1);
 
 		/* retry the load if we might have raced against mdmon */
 		if (err == 3 && mdmon_running(devnum))
 			for (retry = 0; retry < 3; retry++) {
 				usleep(3000);
-				err = load_and_parse_mpb(dfd, s, NULL, keep_fd);
+				err = load_and_parse_mpb(dfd, s, NULL, 1);
 				if (err != 3)
 					break;
 			}
-		if (!keep_fd)
-			close(dfd);
 		if (err)
 			goto error;
 	}
@@ -2886,7 +2884,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	int rv;
 
 #ifndef MDASSEMBLE
-	if (load_super_imsm_all(st, fd, &st->sb, devname, 1) == 0)
+	if (load_super_imsm_all(st, fd, &st->sb, devname) == 0)
 		return 0;
 #endif
 
@@ -4088,7 +4086,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 		 */
 		struct intel_super *super;
 
-		if (load_super_imsm_all(st, cfd, (void **) &super, NULL, 1) == 0) {
+		if (load_super_imsm_all(st, cfd, (void **) &super, NULL) == 0) {
 			st->sb = super;
 			st->container_dev = fd2devnum(cfd);
 			close(cfd);

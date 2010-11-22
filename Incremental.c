@@ -1112,10 +1112,10 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		    policy_action_allows(pol, superlist[i]->name, act_spare))
 			partitions_ok = 1;
 	}
-	rv = 0;
+	rv = 1;
 	if (arrays_ok)
 		rv = array_try_spare(devname, dfdp, pol, st, verbose);
-	if (rv == 0 && partitions_ok)
+	if (rv != 0 && partitions_ok)
 		rv = partition_try_spare(devname, dfdp, pol, st, verbose);
 	return rv;
 }

@@ -1450,9 +1450,9 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
-	sprintf(info->text_version, "/%s/%s",
+	sprintf(info->text_version, "/%s/%d",
 		devnum2devname(st->container_dev),
-		st->subarray);
+		info->container_member);
 	info->safe_mode_delay = 200;
 
 	memcpy(info->name, ddf->virt->entries[info->container_member].name, 16);

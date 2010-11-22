@@ -150,7 +150,7 @@ int Monitor(mddev_dev_t devlist,
 	}
 
 	if (devlist == NULL) {
-		mddev_ident_t mdlist = conf_get_ident(NULL);
+		struct mddev_ident *mdlist = conf_get_ident(NULL);
 		for (; mdlist; mdlist=mdlist->next) {
 			struct state *st;
 			if (mdlist->devname == NULL)
@@ -182,7 +182,7 @@ int Monitor(mddev_dev_t devlist,
 	} else {
 		mddev_dev_t dv;
 		for (dv=devlist ; dv; dv=dv->next) {
-			mddev_ident_t mdlist = conf_get_ident(dv->devname);
+			struct mddev_ident *mdlist = conf_get_ident(dv->devname);
 			struct state *st = malloc(sizeof *st);
 			if (st == NULL)
 				continue;

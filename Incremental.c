@@ -44,7 +44,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 				 char *homehost,
 				 int verbose, int runstop, int autof);
 
-static struct mddev_ident_s *search_mdstat(struct supertype *st,
+static struct mddev_ident *search_mdstat(struct supertype *st,
 					   struct mdinfo *info,
 					   char *devname,
 					   int verbose, int *rvp);
@@ -92,7 +92,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 */
 	struct stat stb;
 	struct mdinfo info, dinfo;
-	struct mddev_ident_s *match;
+	struct mddev_ident *match;
 	char chosen_name[1024];
 	int rv = 1;
 	struct map_ent *mp, *map = NULL;
@@ -558,12 +558,12 @@ out:
 	return rv;
 }
 
-static struct mddev_ident_s *search_mdstat(struct supertype *st,
+static struct mddev_ident *search_mdstat(struct supertype *st,
 					   struct mdinfo *info,
 					   char *devname,
 					   int verbose, int *rvp)
 {
-	struct mddev_ident_s *array_list, *match;
+	struct mddev_ident *array_list, *match;
 	array_list = conf_get_ident(NULL);
 	match = NULL;
 	for (; array_list; array_list = array_list->next) {
@@ -1123,7 +1123,7 @@ int IncrementalScan(int verbose)
 	 */
 	struct map_ent *mapl = NULL;
 	struct map_ent *me;
-	mddev_ident_t devs, mddev;
+	struct mddev_ident *devs, *mddev;
 	int rv = 0;
 
 	map_read(&mapl);
@@ -1230,7 +1230,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 	struct map_ent *map = NULL;
 	struct mdinfo info;
 	int trustworthy;
-	struct mddev_ident_s *match;
+	struct mddev_ident *match;
 	int rv = 0;
 
 	memset(&info, 0, sizeof(info));
@@ -1268,7 +1268,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 		int mdfd;
 		char chosen_name[1024];
 		struct map_ent *mp;
-		struct mddev_ident_s *match = NULL;
+		struct mddev_ident *match = NULL;
 
 		mp = map_by_uuid(&map, ra->uuid);
 
@@ -1284,7 +1284,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 			 * member == ra->text_version after second slash.
 			 */
 			char *sub = strchr(ra->text_version+1, '/');
-			struct mddev_ident_s *array_list;
+			struct mddev_ident *array_list;
 			if (sub) {
 				sub++;
 				array_list = conf_get_ident(NULL);

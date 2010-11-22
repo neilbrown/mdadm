@@ -293,7 +293,7 @@ enum special_options {
  * devices is considered
  */
 #define UnSet (0xfffe)
-typedef struct mddev_ident_s {
+struct mddev_ident {
 	char	*devname;
 
 	int	uuid_set;
@@ -321,12 +321,12 @@ typedef struct mddev_ident_s {
 				 */
 	char	*member;	/* subarray within a container */
 
-	struct mddev_ident_s *next;
+	struct mddev_ident *next;
 	union {
 		/* fields needed by different users of this structure */
 		int assembled;	/* set when assembly succeeds */
 	};
-} *mddev_ident_t;
+};
 
 /* List of device names - wildcards expanded */
 typedef struct mddev_dev_s {
@@ -631,7 +631,7 @@ extern struct superswitch {
 	int (*kill_subarray)(struct supertype *st); /* optional */
 	/* Permit subarray's to be modified */
 	int (*update_subarray)(struct supertype *st, char *subarray,
-			       char *update, mddev_ident_t ident); /* optional */
+			       char *update, struct mddev_ident *ident); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,
@@ -891,7 +891,7 @@ extern int Grow_continue(int mdfd, struct supertype *st,
 			 struct mdinfo *info, char *backup_file);
 
 extern int Assemble(struct supertype *st, char *mddev,
-		    mddev_ident_t ident,
+		    struct mddev_ident *ident,
 		    mddev_dev_t devlist, char *backup_file,
 		    int readonly, int runstop,
 		    char *update, char *homehost, int require_homehost,
@@ -922,7 +922,7 @@ extern int Monitor(mddev_dev_t devlist,
 
 extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
 extern int Kill_subarray(char *dev, char *subarray, int quiet);
-extern int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident, int quiet);
+extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 
@@ -960,7 +960,7 @@ extern int is_standard(char *dev, int *nump);
 extern int same_dev(char *one, char *two);
 
 extern int parse_auto(char *str, char *msg, int config);
-extern mddev_ident_t conf_get_ident(char *dev);
+extern struct mddev_ident *conf_get_ident(char *dev);
 extern mddev_dev_t conf_get_devs(void);
 extern int conf_test_dev(char *devname);
 extern int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homehost);
@@ -974,7 +974,7 @@ extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern int conf_name_is_free(char *name);
 extern int devname_matches(char *name, char *match);
-extern struct mddev_ident_s *conf_match(struct mdinfo *info, struct supertype *st);
+extern struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st);
 
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);

@@ -70,7 +70,7 @@ static int is_member_busy(char *metadata_version)
 	return busy;
 }
 
-static int ident_matches(struct mddev_ident_s *ident,
+static int ident_matches(struct mddev_ident *ident,
 			 struct mdinfo *content,
 			 struct supertype *tst,
 			 char *homehost,
@@ -117,7 +117,7 @@ static int ident_matches(struct mddev_ident_s *ident,
 			 
 
 int Assemble(struct supertype *st, char *mddev,
-	     mddev_ident_t ident,
+	     struct mddev_ident *ident,
 	     mddev_dev_t devlist, char *backup_file,
 	     int readonly, int runstop,
 	     char *update, char *homehost, int require_homehost,

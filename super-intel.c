@@ -1533,7 +1533,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 /* check the config file to see if we can return a real uuid for this spare */
 static void fixup_container_spare_uuid(struct mdinfo *inf)
 {
-	struct mddev_ident_s *array_list;
+	struct mddev_ident *array_list;
 
 	if (inf->array.level != LEVEL_CONTAINER ||
 	    memcmp(inf->uuid, uuid_match_any, sizeof(int[4])) != 0)
@@ -4196,7 +4196,7 @@ static int kill_subarray_imsm(struct supertype *st)
 }
 
 static int update_subarray_imsm(struct supertype *st, char *subarray,
-				char *update, mddev_ident_t ident)
+				char *update, struct mddev_ident *ident)
 {
 	/* update the subarray currently referenced by ->current_vol */
 	struct intel_super *super = st->sb;

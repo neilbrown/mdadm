@@ -1032,7 +1032,7 @@ int autodetect(void)
 	return rv;
 }
 
-int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident, int quiet)
+int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet)
 {
 	struct supertype supertype, *st = &supertype;
 	int fd, rv = 2;

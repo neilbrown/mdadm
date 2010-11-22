@@ -442,8 +442,8 @@ void devline(char *line)
 	}
 }
 
-mddev_ident_t mddevlist = NULL;
-mddev_ident_t *mddevlp = &mddevlist;
+struct mddev_ident *mddevlist = NULL;
+struct mddev_ident **mddevlp = &mddevlist;
 
 static int is_number(char *w)
 {
@@ -460,8 +460,8 @@ void arrayline(char *line)
 {
 	char *w;
 
-	struct mddev_ident_s mis;
-	mddev_ident_t mi;
+	struct mddev_ident mis;
+	struct mddev_ident *mi;
 
 	mis.uuid_set = 0;
 	mis.super_minor = UnSet;
@@ -907,9 +907,9 @@ struct createinfo *conf_get_create_info(void)
 	return &createinfo;
 }
 
-mddev_ident_t conf_get_ident(char *dev)
+struct mddev_ident *conf_get_ident(char *dev)
 {
-	mddev_ident_t rv;
+	struct mddev_ident *rv;
 	load_conffile();
 	rv = mddevlist;
 	while (dev && rv && (rv->devname == NULL
@@ -1078,7 +1078,7 @@ int conf_name_is_free(char *name)
 	 * It can be taken either by a match on devname, name, or
 	 * even super-minor.
 	 */
-	mddev_ident_t dev;
+	struct mddev_ident *dev;
 
 	load_conffile();
 	for (dev = mddevlist; dev; dev = dev->next) {
@@ -1095,9 +1095,9 @@ int conf_name_is_free(char *name)
 	return 1;
 }
 
-struct mddev_ident_s *conf_match(struct mdinfo *info, struct supertype *st)
+struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st)
 {
-	struct mddev_ident_s *array_list, *match;
+	struct mddev_ident *array_list, *match;
 	int verbose = 0;
 	char *devname = NULL;
 	array_list = conf_get_ident(NULL);

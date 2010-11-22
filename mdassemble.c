@@ -88,7 +88,7 @@ int verbose = 0;
 int force = 0;
 
 int main(int argc, char *argv[]) {
-	mddev_ident_t array_list =  conf_get_ident(NULL);
+	struct mddev_ident *array_list =  conf_get_ident(NULL);
 	if (!array_list) {
 		fprintf(stderr, Name ": No arrays found in config file\n");
 		rv = 1;

@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	int raiddisks = 0;
 	int max_disks = MD_SB_DISKS; /* just a default */
 	int sparedisks = 0;
-	struct mddev_ident_s ident;
+	struct mddev_ident ident;
 	char *configfile = NULL;
 	char *cp;
 	char *update = NULL;
@@ -1110,7 +1110,7 @@ int main(int argc, char *argv[])
 		if (devs_found == 1 && ident.uuid_set == 0 &&
 		    ident.super_minor == UnSet && ident.name[0] == 0 && !scan ) {
 			/* Only a device has been given, so get details from config file */
-			mddev_ident_t array_ident = conf_get_ident(devlist->devname);
+			struct mddev_ident *array_ident = conf_get_ident(devlist->devname);
 			if (array_ident == NULL) {
 				fprintf(stderr, Name ": %s not identified in config file.\n",
 					devlist->devname);
@@ -1142,7 +1142,7 @@ int main(int argc, char *argv[])
 				exit(1);
 			}
 			for (dv = devlist ; dv ; dv=dv->next) {
-				mddev_ident_t array_ident = conf_get_ident(dv->devname);
+				struct mddev_ident *array_ident = conf_get_ident(dv->devname);
 				if (array_ident == NULL) {
 					fprintf(stderr, Name ": %s not identified in config file.\n",
 						dv->devname);
@@ -1158,7 +1158,7 @@ int main(int argc, char *argv[])
 					       verbose-quiet, force);
 			}
 		} else {
-			mddev_ident_t a, array_list =  conf_get_ident(NULL);
+			struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
 			mddev_dev_t devlist = conf_get_devs();
 			int cnt = 0;
 			int failures, successes;

@@ -420,26 +420,14 @@ int Assemble(struct supertype *st, char *mddev,
 					   report_missmatch ? devname : NULL)) {
 				content = content->next;
 				goto next_member;
-			}
-
-			/* we have the one container we need, don't keep
-			 * looking.  If the chosen member is active, skip.
-			 */
-			if (is_member_busy(content->text_version)) {
+			} else if (is_member_busy(content->text_version)) {
 				if (report_missmatch)
 					fprintf(stderr, Name ": member %s in %s is already assembled\n",
 						content->text_version,
 						devname);
 
 				content = content->next;
-				if (content)
-					goto next_member;
-				tst->ss->free_super(tst);
-				tst = NULL;
-				if (auto_assem)
-					goto loop;
-				dev_policy_free(pol);
-				return 1;
+				goto next_member;
 			}
 			st = tst; tst = NULL;
 			if (!auto_assem && inargv && tmpdev->next != NULL) {

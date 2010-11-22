@@ -162,7 +162,7 @@ int Monitor(struct mddev_dev *devlist,
 				continue;
 			if (strcasecmp(mdlist->devname, "<ignore>") == 0)
 				continue;
-			st = malloc(sizeof *st);
+			st = calloc(1, sizeof *st);
 			if (st == NULL)
 				continue;
 			if (mdlist->devname[0] == '/')
@@ -172,33 +172,26 @@ int Monitor(struct mddev_dev *devlist,
 				strcpy(strcpy(st->devname, "/dev/md/"),
 				       mdlist->devname);
 			}
-			st->utime = 0;
 			st->next = statelist;
-			st->err = 0;
 			st->devnum = INT_MAX;
 			st->percent = -2;
 			st->expected_spares = mdlist->spare_disks;
 			if (mdlist->spare_group)
 				st->spare_group = strdup(mdlist->spare_group);
-			else
-				st->spare_group = NULL;
 			statelist = st;
 		}
 	} else {
 		struct mddev_dev *dv;
 		for (dv=devlist ; dv; dv=dv->next) {
 			struct mddev_ident *mdlist = conf_get_ident(dv->devname);
-			struct state *st = malloc(sizeof *st);
+			struct state *st = calloc(1, sizeof *st);
 			if (st == NULL)
 				continue;
 			st->devname = strdup(dv->devname);
-			st->utime = 0;
 			st->next = statelist;
-			st->err = 0;
 			st->devnum = INT_MAX;
 			st->percent = -2;
 			st->expected_spares = -1;
-			st->spare_group = NULL;
 			if (mdlist) {
 				st->expected_spares = mdlist->spare_disks;
 				if (mdlist->spare_group)
@@ -643,7 +636,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 		     (strcmp(mse->level, "raid0") != 0 &&
 		      strcmp(mse->level, "linear") != 0))
 			) {
-			struct state *st = malloc(sizeof *st);
+			struct state *st = calloc(1, sizeof *st);
 			mdu_array_info_t array;
 			int fd;
 			if (st == NULL)
@@ -663,12 +656,10 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 				continue;
 			}
 			close(fd);
-			st->utime = 0;
 			st->next = statelist;
 			st->err = 1;
 			st->devnum = mse->devnum;
 			st->percent = -2;
-			st->spare_group = NULL;
 			st->expected_spares = -1;
 			if (strncmp(mse->metadata_version, "external:", 9) == 0 &&
 			    is_subarray(mse->metadata_version+9))
@@ -676,7 +667,6 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 					devname2devnum(mse->metadata_version+10);
 			else
 				st->parent_dev = NoMdDev;
-			st->metadata = NULL;
 			statelist = st;
 			if (test)
 				alert("TestMessage", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);

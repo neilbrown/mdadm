@@ -1385,6 +1385,15 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		free_mdstat(ent);
 		return 1;
 	}
+
+	if (id_path) {
+		struct map_ent *map = NULL, *me;
+		me = map_by_devnum(&map, ent->devnum);
+		if (me)
+			policy_save_path(id_path, me);
+		map_free(map);
+	}
+
 	memset(&devlist, 0, sizeof(devlist));
 	devlist.devname = devname;
 	devlist.disposition = 'f';

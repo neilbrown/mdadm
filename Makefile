@@ -71,8 +71,11 @@ CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 MAP_DIR=/dev/.mdadm
 MAP_FILE = map
 MDMON_DIR = /dev/.mdadm
+# place for autoreplace cookies
+FAILED_SLOTS_DIR = /dev/.mdadm/failed-slots
 DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
 DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
+DIRFLAGS += -DFAILED_SLOTS_DIR=\"$(FAILED_SLOTS_DIR)\"
 CFLAGS = $(CWFLAGS) $(CXFLAGS) -DSendmail=\""$(MAILCMD)"\" $(CONFFILEFLAGS) $(DIRFLAGS)
 
 # The glibc TLS ABI requires applications that call clone(2) to set up

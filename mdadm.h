@@ -93,6 +93,14 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define MDMON_DIR "/dev/.mdadm/"
 #endif /* MDMON_DIR */
 
+/* FAILED_SLOTS is where to save files storing recent removal of array
+ * member in order to allow future reuse of disk inserted in the same
+ * slot for array recovery
+ */
+#ifndef FAILED_SLOTS_DIR
+#define FAILED_SLOTS_DIR "/dev/.mdadm/failed-slots"
+#endif /* FAILED_SLOTS */
+
 #include	"md_u.h"
 #include	"md_p.h"
 #include	"bitmap.h"
@@ -830,6 +838,9 @@ extern struct domainlist *domain_from_array(struct mdinfo *mdi,
 extern void domain_free(struct domainlist *dl);
 extern void domain_merge(struct domainlist **domp, struct dev_policy *pol,
 			 const char *metadata);
+
+extern void policy_save_path(char *id_path, struct map_ent *array);
+extern int policy_check_path(struct mdinfo *disk, struct map_ent *array);
 
 #if __GNUC__ < 3
 struct stat64;

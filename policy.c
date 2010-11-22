@@ -644,3 +644,70 @@ void domain_free(struct domainlist *dl)
 		free(head);
 	}
 }
+
+/*
+ * same-path policy.
+ * Some policy decisions are guided by knowledge of which
+ * array previously owned the device at a given physical location (path).
+ * When removing a device from an array we might record the array against
+ * the path, and when finding a new device, we might look for which
+ * array previously used that path.
+ *
+ * The 'array' is described by a map_ent, and the path by a the disk in an
+ * mdinfo, or a string.
+ */
+
+void policy_save_path(char *id_path, struct map_ent *array)
+{
+	char path[PATH_MAX];
+	FILE *f = NULL;
+
+	if (mkdir(FAILED_SLOTS_DIR, S_IRWXU) < 0 && errno != EEXIST) {
+		fprintf(stderr, Name ": can't create file to save path "
+			"to old disk: %s\n", strerror(errno));
+		return;
+	}
+
+	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
+	f = fopen(path, "w");
+	if (!f) {
+		fprintf(stderr, Name ": can't create file to"
+			" save path to old disk: %s\n",
+			strerror(errno));
+		return;
+	}
+
+	if (fprintf(f, "%s %08x:%08x:%08x:%08x\n",
+		    array->metadata,
+		    array->uuid[0], array->uuid[1],
+		    array->uuid[2], array->uuid[3]) <= 0)
+		fprintf(stderr, Name ": Failed to write to "
+			"<id_path> cookie\n");
+
+	fclose(f);
+}
+
+int policy_check_path(struct mdinfo *disk, struct map_ent *array)
+{
+	char path[PATH_MAX];
+	FILE *f = NULL;
+	char *id_path = disk_path(disk);
+	int rv;
+
+	if (!id_path)
+		return 0;
+
+	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
+	f = fopen(path, "r");
+	if (!f)
+		return 0;
+
+	rv = fscanf(f, " %s %x:%x:%x:%x\n",
+		    array->metadata,
+		    array->uuid,
+		    array->uuid+1,
+		    array->uuid+2,
+		    array->uuid+3);
+	fclose(f);
+	return rv == 5;
+}

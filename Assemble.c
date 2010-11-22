@@ -118,7 +118,7 @@ static int ident_matches(struct mddev_ident *ident,
 
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
-	     mddev_dev_t devlist, char *backup_file,
+	     struct mddev_dev *devlist, char *backup_file,
 	     int readonly, int runstop,
 	     char *update, char *homehost, int require_homehost,
 	     int verbose, int force)
@@ -207,7 +207,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int start_partial_ok = (runstop >= 0) && 
 		(force || devlist==NULL || auto_assem);
 	unsigned int num_devs;
-	mddev_dev_t tmpdev;
+	struct mddev_dev *tmpdev;
 	struct mdinfo info;
 	struct mdinfo *content = NULL;
 	char *avail;
@@ -492,7 +492,7 @@ int Assemble(struct supertype *st, char *mddev,
 								devname);
 						goto loop;
 					} else { /* reject all those sofar */
-						mddev_dev_t td;
+						struct mddev_dev *td;
 						if (report_missmatch)
 							fprintf(stderr, Name ": %s overrides previous devices due to good homehost\n",
 								devname);

@@ -30,7 +30,7 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(mddev_dev_t devlist, int brief, int export, int scan,
+int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 	    int SparcAdjust, struct supertype *forcest,
 	    char *homehost)
 {

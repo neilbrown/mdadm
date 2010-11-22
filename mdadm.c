@@ -62,9 +62,9 @@ int main(int argc, char *argv[])
 	char *backup_file = NULL;
 	int bitmap_chunk = UnSet;
 	int SparcAdjust = 0;
-	mddev_dev_t devlist = NULL;
-	mddev_dev_t *devlistend = & devlist;
-	mddev_dev_t dv;
+	struct mddev_dev *devlist = NULL;
+	struct mddev_dev **devlistend = & devlist;
+	struct mddev_dev *dv;
 	int devs_found = 0;
 	int verbose = 0;
 	int quiet = 0;
@@ -1159,7 +1159,7 @@ int main(int argc, char *argv[])
 			}
 		} else {
 			struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
-			mddev_dev_t devlist = conf_get_devs();
+			struct mddev_dev *devlist = conf_get_devs();
 			int cnt = 0;
 			int failures, successes;
 			if (devlist == NULL) {
@@ -1215,7 +1215,7 @@ int main(int argc, char *argv[])
 				int acnt;
 				ident.autof = autof;
 				do {
-					mddev_dev_t devlist = conf_get_devs();
+					struct mddev_dev *devlist = conf_get_devs();
 					acnt = 0;
 					do {
 						rv2 = Assemble(ss, NULL,

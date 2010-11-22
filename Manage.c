@@ -324,7 +324,7 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 }
 
 int Manage_subdevs(char *devname, int fd,
-		   mddev_dev_t devlist, int verbose, int test)
+		   struct mddev_dev *devlist, int verbose, int test)
 {
 	/* do something to each dev.
 	 * devmode can be
@@ -340,11 +340,11 @@ int Manage_subdevs(char *devname, int fd,
 	 * For 'f' and 'r', the device can also be a kernel-internal
 	 * name such as 'sdb'.
 	 */
-	mddev_dev_t add_devlist = NULL;
+	struct mddev_dev *add_devlist = NULL;
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
 	unsigned long long array_size;
-	mddev_dev_t dv, next = NULL;
+	struct mddev_dev *dv, *next = NULL;
 	struct stat stb;
 	int j, jnext = 0;
 	int tfd = -1;

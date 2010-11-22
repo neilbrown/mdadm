@@ -68,7 +68,7 @@ static int default_layout(struct supertype *st, int level, int verbose)
 int Create(struct supertype *st, char *mddev,
 	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
 	   char *name, char *homehost, int *uuid,
-	   int subdevs, mddev_dev_t devlist,
+	   int subdevs, struct mddev_dev *devlist,
 	   int runstop, int verbose, int force, int assume_clean,
 	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof)
 {
@@ -93,7 +93,7 @@ int Create(struct supertype *st, char *mddev,
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
 	int dnum;
-	mddev_dev_t dv;
+	struct mddev_dev *dv;
 	int fail=0, warn=0;
 	struct stat stb;
 	int first_missing = subdevs * 2;
@@ -735,7 +735,7 @@ int Create(struct supertype *st, char *mddev,
 	infos = malloc(sizeof(*infos) * total_slots);
 
 	for (pass=1; pass <=2 ; pass++) {
-		mddev_dev_t moved_disk = NULL; /* the disk that was moved out of the insert point */
+		struct mddev_dev *moved_disk = NULL; /* the disk that was moved out of the insert point */
 
 		for (dnum=0, dv = devlist ; dv ;
 		     dv=(dv->next)?(dv->next):moved_disk, dnum++) {

@@ -329,7 +329,7 @@ struct mddev_ident {
 };
 
 /* List of device names - wildcards expanded */
-typedef struct mddev_dev_s {
+struct mddev_dev {
 	char *devname;
 	char disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
 				 * Not set for names read from .config
@@ -339,8 +339,8 @@ typedef struct mddev_dev_s {
 	char used;		/* set when used */
 	struct mdinfo *content;	/* If devname is a container, this might list
 				 * the remaining member arrays. */
-	struct mddev_dev_s *next;
-} *mddev_dev_t;
+	struct mddev_dev *next;
+};
 
 typedef struct mapping {
 	char *name;
@@ -878,7 +878,7 @@ extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop, int quiet);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_subdevs(char *devname, int fd,
-			  mddev_dev_t devlist, int verbose, int test);
+			  struct mddev_dev *devlist, int verbose, int test);
 extern int autodetect(void);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);
@@ -892,13 +892,13 @@ extern int Grow_continue(int mdfd, struct supertype *st,
 
 extern int Assemble(struct supertype *st, char *mddev,
 		    struct mddev_ident *ident,
-		    mddev_dev_t devlist, char *backup_file,
+		    struct mddev_dev *devlist, char *backup_file,
 		    int readonly, int runstop,
 		    char *update, char *homehost, int require_homehost,
 		    int verbose, int force);
 
 extern int Build(char *mddev, int chunk, int level, int layout,
-		 int raiddisks, mddev_dev_t devlist, int assume_clean,
+		 int raiddisks, struct mddev_dev *devlist, int assume_clean,
 		 char *bitmap_file, int bitmap_chunk, int write_behind,
 		 int delay, int verbose, int autof, unsigned long long size);
 
@@ -906,16 +906,16 @@ extern int Build(char *mddev, int chunk, int level, int layout,
 extern int Create(struct supertype *st, char *mddev,
 		  int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
 		  char *name, char *homehost, int *uuid,
-		  int subdevs, mddev_dev_t devlist,
+		  int subdevs, struct mddev_dev *devlist,
 		  int runstop, int verbose, int force, int assume_clean,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof);
 
 extern int Detail(char *dev, int brief, int export, int test, char *homehost);
 extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);
 extern int Query(char *dev);
-extern int Examine(mddev_dev_t devlist, int brief, int export, int scan,
+extern int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 		   int SparcAdjust, struct supertype *forcest, char *homehost);
-extern int Monitor(mddev_dev_t devlist,
+extern int Monitor(struct mddev_dev *devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
 		   int dosyslog, int test, char *pidfile, int increments);
@@ -961,7 +961,7 @@ extern int same_dev(char *one, char *two);
 
 extern int parse_auto(char *str, char *msg, int config);
 extern struct mddev_ident *conf_get_ident(char *dev);
-extern mddev_dev_t conf_get_devs(void);
+extern struct mddev_dev *conf_get_devs(void);
 extern int conf_test_dev(char *devname);
 extern int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homehost);
 extern struct createinfo *conf_get_create_info(void);

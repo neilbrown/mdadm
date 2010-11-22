@@ -38,7 +38,7 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
  * At least it isn't MD_SB_DISKS.
  */
 #define MaxDisks 384
-int Monitor(mddev_dev_t devlist,
+int Monitor(struct mddev_dev *devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
 	    int dosyslog, int test, char* pidfile, int increments)
@@ -180,7 +180,7 @@ int Monitor(mddev_dev_t devlist,
 			statelist = st;
 		}
 	} else {
-		mddev_dev_t dv;
+		struct mddev_dev *dv;
 		for (dv=devlist ; dv; dv=dv->next) {
 			struct mddev_ident *mdlist = conf_get_ident(dv->devname);
 			struct state *st = malloc(sizeof *st);
@@ -481,7 +481,7 @@ int Monitor(mddev_dev_t devlist,
 							}
 						}
 						if (dev > 0) {
-							struct mddev_dev_s devlist;
+							struct mddev_dev devlist;
 							char devname[20];
 							devlist.next = NULL;
 							devlist.used = 0;

@@ -231,11 +231,11 @@ struct conf_dev {
     char *name;
 } *cdevlist = NULL;
 
-mddev_dev_t load_partitions(void)
+struct mddev_dev *load_partitions(void)
 {
 	FILE *f = fopen("/proc/partitions", "r");
 	char buf[1024];
-	mddev_dev_t rv = NULL;
+	struct mddev_dev *rv = NULL;
 	if (f == NULL) {
 		fprintf(stderr, Name ": cannot open /proc/partitions\n");
 		return NULL;
@@ -243,7 +243,7 @@ mddev_dev_t load_partitions(void)
 	while (fgets(buf, 1024, f)) {
 		int major, minor;
 		char *name, *mp;
-		mddev_dev_t d;
+		struct mddev_dev *d;
 
 		buf[1023] = '\0';
 		if (buf[0] != ' ')
@@ -267,12 +267,12 @@ mddev_dev_t load_partitions(void)
 	return rv;
 }
 
-mddev_dev_t load_containers(void)
+struct mddev_dev *load_containers(void)
 {
 	struct mdstat_ent *mdstat = mdstat_read(1, 0);
 	struct mdstat_ent *ent;
-	mddev_dev_t d;
-	mddev_dev_t rv = NULL;
+	struct mddev_dev *d;
+	struct mddev_dev *rv = NULL;
 
 	if (!mdstat)
 		return NULL;
@@ -918,23 +918,23 @@ struct mddev_ident *conf_get_ident(char *dev)
 	return rv;
 }
 
-static void append_dlist(mddev_dev_t *dlp, mddev_dev_t list)
+static void append_dlist(struct mddev_dev **dlp, struct mddev_dev *list)
 {
 	while (*dlp)
 		dlp = &(*dlp)->next;
 	*dlp = list;
 }
 
-mddev_dev_t conf_get_devs()
+struct mddev_dev *conf_get_devs()
 {
 	glob_t globbuf;
 	struct conf_dev *cd;
 	int flags = 0;
-	static mddev_dev_t dlist = NULL;
+	static struct mddev_dev *dlist = NULL;
 	unsigned int i;
 
 	while (dlist) {
-		mddev_dev_t t = dlist;
+		struct mddev_dev *t = dlist;
 		dlist = dlist->next;
 		free(t->devname);
 		free(t);
@@ -960,7 +960,7 @@ mddev_dev_t conf_get_devs()
 	}
 	if (flags & GLOB_APPEND) {
 		for (i=0; i<globbuf.gl_pathc; i++) {
-			mddev_dev_t t = malloc(sizeof(*t));
+			struct mddev_dev *t = malloc(sizeof(*t));
 			t->devname = strdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
 			t->used = 0;

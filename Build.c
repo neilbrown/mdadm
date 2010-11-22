@@ -29,7 +29,7 @@
 #define STOP_MD      		_IO (MD_MAJOR, 3)
 
 int Build(char *mddev, int chunk, int level, int layout,
-	  int raiddisks, mddev_dev_t devlist, int assume_clean,
+	  int raiddisks, struct mddev_dev *devlist, int assume_clean,
 	  char *bitmap_file, int bitmap_chunk, int write_behind,
 	  int delay, int verbose, int autof, unsigned long long size)
 {
@@ -50,7 +50,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 	int vers;
 	struct stat stb;
 	int subdevs = 0, missing_disks = 0;
-	mddev_dev_t dv;
+	struct mddev_dev *dv;
 	int bitmap_fd;
 	unsigned long long bitmapsize;
 	int mdfd;

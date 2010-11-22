@@ -862,7 +862,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		/* add current device to chosen array as a spare */
 		int mdfd = open_dev(devname2devnum(chosen->sys_name));
 		if (mdfd >= 0) {
-			struct mddev_dev_s devlist;
+			struct mddev_dev devlist;
 			char devname[20];
 			devlist.next = NULL;
 			devlist.used = 0;
@@ -1363,7 +1363,7 @@ int IncrementalRemove(char *devname, int verbose)
 	int mdfd;
 	int rv;
 	struct mdstat_ent *ent;
-	struct mddev_dev_s devlist;
+	struct mddev_dev devlist;
 
 	if (strchr(devname, '/')) {
 		fprintf(stderr, Name ": incremental removal requires a "

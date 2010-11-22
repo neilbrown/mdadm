@@ -740,10 +740,22 @@ static int move_spare(struct state *from, struct state *to,
 static int check_donor(struct state *from, struct state *to,
 		       struct domainlist *domlist)
 {
+	struct state *sub;
+
 	if (from == to)
 		return 0;
-	if (from->active < from->raid)
+	if (from->parent)
+		/* Cannot move from a member */
 		return 0;
+	for (sub = from->subarray; sub; sub = sub->subarray)
+		/* If source array has degraded subarrays, don't
+		 * remove anything
+		 */
+		if (sub->active < sub->raid)
+			return 0;
+	if (from->metadata->ss->external == 0)
+		if (from->active < from->raid)
+			return 0;
 	if (from->spare <= 0)
 		return 0;
 	if (domlist == NULL)
@@ -753,14 +765,20 @@ static int check_donor(struct state *from, struct state *to,
 
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
-	struct state *from, *to;
+	struct state *from;
+	struct state *st;
 
 	link_containers_with_subarrays(statelist);
-	for (to = statelist; to; to = to->next)
-		if (to->active < to->raid &&
-		    to->spare == 0) {
+	for (st = statelist; st; st = st->next)
+		if (st->active < st->raid &&
+		    st->spare == 0) {
 			struct domainlist *domlist = NULL;
 			int d;
+			struct state *to = st;
+
+			if (to->parent)
+				/* member of a container */
+				to = to->parent;
 
 			for (d = 0; d < MaxDisks; d++)
 				if (to->devid[d])

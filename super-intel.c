@@ -4327,11 +4327,12 @@ static void update_recovery_start(struct imsm_dev *dev, struct mdinfo *array)
 }
 
 
-static struct mdinfo *container_content_imsm(struct supertype *st)
+static struct mdinfo *container_content_imsm(struct supertype *st, char *subarray)
 {
 	/* Given a container loaded by load_super_imsm_all,
 	 * extract information about all the arrays into
 	 * an mdinfo tree.
+	 * If 'subarray' is given, just extract info about that array.
 	 *
 	 * For each imsm_dev create an mdinfo, fill it in,
 	 *  then look for matching devices in super->disks
@@ -4340,7 +4341,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->anchor;
 	struct mdinfo *rest = NULL;
-	int i;
+	unsigned int i;
 
 	/* do not assemble arrays that might have bad blocks */
 	if (imsm_bbm_log_size(super->anchor)) {
@@ -4350,10 +4351,18 @@ static struct mdinfo *container_content_imsm(struct supertype *st)
 	}
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
-		struct imsm_dev *dev = get_imsm_dev(super, i);
-		struct imsm_map *map = get_imsm_map(dev, 0);
+		struct imsm_dev *dev;
+		struct imsm_map *map;
 		struct mdinfo *this;
 		int slot;
+		char *ep;
+
+		if (subarray &&
+		    (i != strtoul(subarray, &ep, 10) || *ep != '\0'))
+			continue;
+
+		dev = get_imsm_dev(super, i);
+		map = get_imsm_map(dev, 0);
 
 		/* do not publish arrays that are in the middle of an
 		 * unsupported migration

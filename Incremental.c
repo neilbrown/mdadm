@@ -1190,7 +1190,7 @@ int Incremental_container(struct supertype *st, char *devname, int verbose,
 	 * array, choose a device name and assemble the array.
 	 */
 
-	struct mdinfo *list = st->ss->container_content(st);
+	struct mdinfo *list = st->ss->container_content(st, NULL);
 	struct mdinfo *ra;
 	struct map_ent *map = NULL;
 

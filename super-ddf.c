@@ -2924,7 +2924,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 }
 #endif /* MDASSEMBLE */
 
-static struct mdinfo *container_content_ddf(struct supertype *st)
+static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray)
 {
 	/* Given a container loaded by load_super_ddf_all,
 	 * extract information about all the arrays into
@@ -2943,6 +2943,13 @@ static struct mdinfo *container_content_ddf(struct supertype *st)
 		unsigned int i;
 		unsigned int j;
 		struct mdinfo *this;
+		char *ep;
+
+		if (subarray &&
+		    (strtoul(subarray, &ep, 10) != vc->vcnum ||
+		     *ep != '\0'))
+			continue;
+
 		this = malloc(sizeof(*this));
 		memset(this, 0, sizeof(*this));
 		this->next = rest;

@@ -331,7 +331,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (tmpdev->content)
 				content = tmpdev->content;
 			else
-				content = tst->ss->container_content(tst);
+				content = tst->ss->container_content(tst, NULL);
 			if (!content)
 				goto loop; /* empty container */
 

@@ -645,6 +645,18 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->array.working_disks = working;
 }
 
+static struct mdinfo *container_content1(struct supertype *st, char *subarray)
+{
+	struct mdinfo *info;
+
+	if (subarray)
+		return NULL;
+
+	info = malloc(sizeof(*info));
+	getinfo_super1(st, info, NULL);
+	return info;
+}
+
 static int update_super1(struct supertype *st, struct mdinfo *info,
 			 char *update,
 			 char *devname, int verbose,
@@ -1683,6 +1695,7 @@ struct superswitch super1 = {
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,
 	.getinfo_super = getinfo_super1,
+	.container_content = container_content1,
 	.update_super = update_super1,
 	.init_super = init_super1,
 	.store_super = store_super1,

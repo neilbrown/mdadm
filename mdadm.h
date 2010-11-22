@@ -621,7 +621,7 @@ extern struct superswitch {
 				 char *subdev, unsigned long long *freesize,
 				 int verbose);
 
-	struct mdinfo *(*container_content)(struct supertype *st);
+	struct mdinfo *(*container_content)(struct supertype *st, char *subarray);
 	/* Allow a metadata handler to override mdadm's default layouts */
 	int (*default_layout)(int level); /* optional */
 	/* query the supertype for default chunk size */

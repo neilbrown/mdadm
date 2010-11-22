@@ -1032,7 +1032,7 @@ struct superswitch *superlist[] =
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 
-struct supertype *super_by_fd(int fd)
+struct supertype *super_by_fd(int fd, char **subarrayp)
 {
 	mdu_array_info_t array;
 	int vers;
@@ -1086,13 +1086,10 @@ struct supertype *super_by_fd(int fd)
 		sysfs_free(sra);
 	if (st) {
 		st->sb = NULL;
-		if (subarray) {
-			strncpy(st->subarray, subarray, 32);
-			st->subarray[31] = 0;
-			free(subarray);
-		} else
-			st->subarray[0] = 0;
-	}
+		st->subarray[0] = 0;
+		*subarrayp = subarray;
+	} else
+		free(subarray);
 	return st;
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */

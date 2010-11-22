@@ -732,7 +732,7 @@ struct supertype {
 
 };
 
-extern struct supertype *super_by_fd(int fd);
+extern struct supertype *super_by_fd(int fd, char **subarray);
 enum guess_types { guess_any, guess_array, guess_partitions };
 extern struct supertype *guess_super_type(int fd, enum guess_types guess_type);
 static inline struct supertype *guess_super(int fd) {

@@ -51,16 +51,10 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	int nfd, fd2;
 	int d, nd;
 	struct supertype *st = NULL;
-
+	char *subarray = NULL;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
 		fprintf(stderr, Name ": cannot get array info for %s\n", devname);
-		return 1;
-	}
-
-	st = super_by_fd(fd);
-	if (!st) {
-		fprintf(stderr, Name ": cannot handle arrays with superblock version %d\n", info.array.major_version);
 		return 1;
 	}
 
@@ -69,15 +63,29 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		return 1;
 	}
 
+	st = super_by_fd(fd, &subarray);
+	if (!st) {
+		fprintf(stderr, Name ": cannot handle arrays with superblock version %d\n", info.array.major_version);
+		return 1;
+	}
+
+	if (subarray) {
+		fprintf(stderr, Name ": Cannot grow linear sub-arrays yet\n");
+		free(subarray);
+		free(st);
+	}
+
 	nfd = open(newdev, O_RDWR|O_EXCL|O_DIRECT);
 	if (nfd < 0) {
 		fprintf(stderr, Name ": cannot open %s\n", newdev);
+		free(st);
 		return 1;
 	}
 	fstat(nfd, &stb);
 	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
 		fprintf(stderr, Name ": %s is not a block device!\n", newdev);
 		close(nfd);
+		free(st);
 		return 1;
 	}
 	/* now check out all the devices and make sure we can read the superblock */
@@ -85,28 +93,37 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		mdu_disk_info_t disk;
 		char *dv;
 
+		st->ss->free_super(st);
+
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
 			fprintf(stderr, Name ": cannot get device detail for device %d\n",
 				d);
+			close(nfd);
+			free(st);
 			return 1;
 		}
 		dv = map_dev(disk.major, disk.minor, 1);
 		if (!dv) {
 			fprintf(stderr, Name ": cannot find device file for device %d\n",
 				d);
+			close(nfd);
+			free(st);
 			return 1;
 		}
 		fd2 = dev_open(dv, O_RDWR);
 		if (!fd2) {
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
+			close(nfd);
+			free(st);
 			return 1;
 		}
-		st->ss->free_super(st);
 
 		if (st->ss->load_super(st, fd2, NULL)) {
 			fprintf(stderr, Name ": cannot find super block on %s\n", dv);
+			close(nfd);
 			close(fd2);
+			free(st);
 			return 1;
 		}
 		close(fd2);
@@ -204,6 +221,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	mdu_bitmap_file_t bmf;
 	mdu_array_info_t array;
 	struct supertype *st;
+	char *subarray = NULL;
 	int major = BITMAP_MAJOR_HI;
 	int vers = md_get_version(fd);
 	unsigned long long bitmapsize, array_size;
@@ -253,6 +271,11 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			devname);
 		return 1;
 	}
+
+	if (strcmp(file, "none") == 0) {
+		fprintf(stderr, Name ": no bitmap found on %s\n", devname);
+		return 1;
+	}
 	if (array.level <= 0) {
 		fprintf(stderr, Name ": Bitmaps not meaningful with level %s\n",
 			map_num(pers, array.level)?:"of this array");
@@ -277,16 +300,19 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
 	}
 
-	st = super_by_fd(fd);
+	st = super_by_fd(fd, &subarray);
 	if (!st) {
 		fprintf(stderr, Name ": Cannot understand version %d.%d\n",
 			array.major_version, array.minor_version);
 		return 1;
 	}
-	if (strcmp(file, "none") == 0) {
-		fprintf(stderr, Name ": no bitmap found on %s\n", devname);
+	if (subarray) {
+		fprintf(stderr, Name ": Cannot add bitmaps to sub-arrays yet\n");
+		free(subarray);
+		free(st);
 		return 1;
-	} else if (strcmp(file, "internal") == 0) {
+	}
+	if (strcmp(file, "internal") == 0) {
 		int d;
 		if (st->ss->add_internal_bitmap == NULL) {
 			fprintf(stderr, Name ": Internal bitmaps not supported "
@@ -501,6 +527,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	char *c;
 	int rv = 0;
 	struct supertype *st;
+	char *subarray = NULL;
 
 	int nchunk, ochunk;
 	int nlayout, olayout;
@@ -829,7 +856,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * layout/chunksize/raid_disks can be changed
 		 * though the kernel may not support it all.
 		 */
-		st = super_by_fd(fd);
+		st = super_by_fd(fd, &subarray);
+		if (subarray) {
+			fprintf(stderr, Name ": Cannot reshape subarrays yet\n");
+			break;
+		}
 
 		/*
 		 * There are three possibilities.

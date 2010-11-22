@@ -349,6 +349,7 @@ int Manage_subdevs(char *devname, int fd,
 	int j, jnext = 0;
 	int tfd = -1;
 	struct supertype *st, *tst;
+	char *subarray = NULL;
 	int duuid[4];
 	int ouuid[4];
 	int lfd = -1;
@@ -369,7 +370,7 @@ int Manage_subdevs(char *devname, int fd,
 	if (array_size <= 0)
 		array_size = array.size * 2;
 
-	tst = super_by_fd(fd);
+	tst = super_by_fd(fd, &subarray);
 	if (!tst) {
 		fprintf(stderr, Name ": unsupport array - version %d.%d\n",
 			array.major_version, array.minor_version);
@@ -548,7 +549,7 @@ int Manage_subdevs(char *devname, int fd,
 			return 1;
 		case 'a':
 			/* add the device */
-			if (tst->subarray[0]) {
+			if (subarray) {
 				fprintf(stderr, Name ": Cannot add disks to a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
@@ -879,7 +880,7 @@ int Manage_subdevs(char *devname, int fd,
 
 		case 'r':
 			/* hot remove */
-			if (tst->subarray[0]) {
+			if (subarray) {
 				fprintf(stderr, Name ": Cannot remove disks from a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");

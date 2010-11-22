@@ -49,6 +49,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	int is_rebuilding = 0;
 	int failed = 0;
 	struct supertype *st;
+	char *subarray = NULL;
 	int max_disks = MD_SB_DISKS; /* just a default */
 	struct mdinfo info;
 	struct mdinfo *sra;
@@ -88,7 +89,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		return rv;
 	}
 	sra = sysfs_read(fd, 0, GET_VERSION);
-	st = super_by_fd(fd);
+	st = super_by_fd(fd, &subarray);
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
 		stb.st_rdev = 0;
@@ -139,6 +140,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		if (st->sb)
 			st->ss->free_super(st);
 
+		if (subarray)
+			strcpy(st->subarray, subarray);
 		err = st->ss->load_super(st, fd2, NULL);
 		close(fd2);
 		if (err)
@@ -581,6 +584,7 @@ This is pretty boring
 	free(disks);
 out:
 	close(fd);
+	free(subarray);
 	return rv;
 }
 

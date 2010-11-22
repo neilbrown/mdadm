@@ -96,6 +96,7 @@ int main(int argc, char *argv[])
 	int daemonise = 0;
 	char *pidfile = NULL;
 	int oneshot = 0;
+	int spare_sharing = 1;
 	struct supertype *ss = NULL;
 	int writemostly = 0;
 	int re_add = 0;
@@ -228,6 +229,7 @@ int main(int argc, char *argv[])
 				subarray = optarg;
 			}
 		case 'K': if (!mode) newmode = MISC; break;
+		case NoSharing: newmode = MONITOR; break;
 		}
 		if (mode && newmode == mode) {
 			/* everybody happy ! */
@@ -777,7 +779,9 @@ int main(int argc, char *argv[])
 			openlog("mdadm", LOG_PID, SYSLOG_FACILITY);
 			dosyslog = 1;
 			continue;
-
+		case O(MONITOR, NoSharing):
+			spare_sharing = 0;
+			continue;
 			/* now the general management options.  Some are applicable
 			 * to other modes. None have arguments.
 			 */
@@ -1494,7 +1498,7 @@ int main(int argc, char *argv[])
 		}
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, daemonise, scan, oneshot,
-			    dosyslog, test, pidfile, increments);
+			    dosyslog, test, pidfile, increments, spare_sharing);
 		break;
 
 	case GROW:

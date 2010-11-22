@@ -185,6 +185,8 @@ struct option long_options[] = {
     {"oneshot",   0, 0, '1'},
     {"pid-file",  1, 0, 'i'},
     {"syslog",    0, 0, 'y'},
+    {"no-sharing", 0, 0, NoSharing},
+
     /* For Grow */
     {"backup-file", 1,0, BackupFile},
     {"array-size", 1, 0, 'Z'},

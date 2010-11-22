@@ -41,7 +41,8 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 int Monitor(struct mddev_dev *devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
-	    int dosyslog, int test, char* pidfile, int increments)
+	    int dosyslog, int test, char *pidfile, int increments,
+	    int share)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -147,6 +148,45 @@ int Monitor(struct mddev_dev *devlist,
 		dup2(0,1);
 		dup2(0,2);
 		setsid();
+	}
+
+	if (share) {
+		int pid, rv;
+		FILE *fp;
+		char dir[20];
+		struct stat buf;
+		fp = fopen("/var/run/mdadm/autorebuild.pid", "r");
+		if (fp) {
+			fscanf(fp, "%d", &pid);
+			sprintf(dir, "/proc/%d", pid);
+			rv = stat(dir, &buf);
+			if (rv != -1) {
+				if (scan) {
+					fprintf(stderr, Name ": Only one "
+						"autorebuild process allowed"
+						" in scan mode, aborting\n");
+					fclose(fp);
+					return 1;
+				} else {
+					fprintf(stderr, Name ": Warning: One"
+						" autorebuild process already"
+						" running.");
+				}
+			}
+			fclose(fp);
+		}
+		if (scan) {
+			fp = fopen("/var/run/mdadm/autorebuild.pid", "w");
+			if (!fp)
+				fprintf(stderr, Name ": Cannot create"
+					" autorebuild.pid "
+					"file\n");
+			else {
+				pid = getpid();
+				fprintf(fp, "%d\n", pid);
+				fclose(fp);
+			}
+		}
 	}
 
 	if (devlist == NULL) {
@@ -453,7 +493,7 @@ int Monitor(struct mddev_dev *devlist,
 		 * Look for another array with spare > 0 and active == raid and same spare_group
 		 *  if found, choose a device and hotremove/hotadd
 		 */
-		for (st = statelist; st; st=st->next)
+		if (share) for (st = statelist; st; st=st->next)
 			if (st->active < st->raid &&
 			    st->spare == 0 &&
 			    st->spare_group != NULL) {

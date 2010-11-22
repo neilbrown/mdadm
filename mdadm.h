@@ -288,7 +288,8 @@ enum special_options {
 	DetailPlatform,
 	KillSubarray,
 	UpdateSubarray, /* 16 */
-	IncrementalPath
+	IncrementalPath,
+	NoSharing
 };
 
 /* structures read from config file */
@@ -930,7 +931,8 @@ extern int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 extern int Monitor(struct mddev_dev *devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
-		   int dosyslog, int test, char *pidfile, int increments);
+		   int dosyslog, int test, char *pidfile, int increments,
+		   int share);
 
 extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
 extern int Kill_subarray(char *dev, char *subarray, int quiet);

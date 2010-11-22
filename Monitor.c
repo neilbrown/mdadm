@@ -681,12 +681,33 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 	return new_found;
 }
 
+unsigned long long min_spare_size_required(struct state *st)
+{
+	int fd;
+	unsigned long long rv = 0;
+
+	if (!st->metadata ||
+	    !st->metadata->ss->min_acceptable_spare_size)
+		return rv;
+
+	fd = open(st->devname, O_RDONLY);
+	if (fd < 0)
+		return 0;
+	st->metadata->ss->load_super(st->metadata, fd, st->devname);
+	close(fd);
+	rv = st->metadata->ss->min_acceptable_spare_size(st->metadata);
+	st->metadata->ss->free_super(st->metadata);
+
+	return rv;
+}
+
 static int move_spare(struct state *from, struct state *to,
 		      struct domainlist *domlist,
 		      struct alert_info *info)
 {
 	struct mddev_dev devlist;
 	char devname[20];
+	unsigned long long min_size;
 
 	/* try to remove and add */
 	int fd1 = open(to->devname, O_RDONLY);
@@ -698,10 +719,19 @@ static int move_spare(struct state *from, struct state *to,
 		if (fd2>=0) close(fd2);
 		return 0;
 	}
+	min_size = min_spare_size_required(to);
 	for (d = from->raid; dev < 0 && d < MaxDisks; d++) {
 		if (from->devid[d] > 0 &&
 		    from->devstate[d] == 0) {
-			struct dev_policy *pol = devnum_policy(from->devid[d]);
+			struct dev_policy *pol;
+			unsigned long long dev_size;
+
+			if (min_size &&
+			    dev_size_from_id(from->devid[d], &dev_size) &&
+			    dev_size < min_size)
+				continue;
+
+			pol = devnum_policy(from->devid[d]);
 			pol_add(&pol, pol_domain, from->spare_group, NULL);
 			if (domain_test(domlist, pol, to->metadata->ss->name))
 			    dev = from->devid[d];

@@ -647,6 +647,37 @@ static int is_failed(struct imsm_disk *disk)
 	return (disk->status & FAILED_DISK) == FAILED_DISK;
 }
 
+/* Return minimum size of a spare that can be used in this array*/
+static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
+{
+	struct intel_super *super = st->sb;
+	struct dl *dl;
+	struct extent *e;
+	int i;
+	unsigned long long rv = 0;
+
+	if (!super)
+		return rv;
+	/* find first active disk in array */
+	dl = super->disks;
+	while (dl && (is_failed(&dl->disk) || dl->index == -1))
+		dl = dl->next;
+	if (!dl)
+		return rv;
+	/* find last lba used by subarrays */
+	e = get_extents(super, dl);
+	if (!e)
+		return rv;
+	for (i = 0; e[i].size; i++)
+		continue;
+	if (i > 0)
+		rv = e[i-1].start + e[i-1].size;
+	free(e);
+	/* add the amount of space needed for metadata */
+	rv = rv + MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+	return rv * 512;
+}
+
 #ifndef MDASSEMBLE
 static __u64 blocks_per_migr_unit(struct imsm_dev *dev);
 
@@ -5628,6 +5659,7 @@ struct superswitch super_imsm = {
 	.update_super	= update_super_imsm,
 
 	.avail_size	= avail_size_imsm,
+	.min_acceptable_spare_size = min_acceptable_spare_size_imsm,
 
 	.compare_super	= compare_super_imsm,
 

@@ -38,6 +38,7 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			int number, __u64 events, int verbose,
 			char *array_name);
 static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+		     struct map_ent *target,
 		     struct supertype *st, int verbose);
 
 static int Incremental_container(struct supertype *st, char *devname,
@@ -103,6 +104,8 @@ int Incremental(char *devname, int verbose, int runstop,
 	char *name_to_use;
 	mdu_array_info_t ainf;
 	struct dev_policy *policy = NULL;
+	struct map_ent target_array;
+	int have_target;
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -172,13 +175,16 @@ int Incremental(char *devname, int verbose, int runstop,
 	dinfo.disk.minor = minor(stb.st_rdev);
 
 	policy = disk_policy(&dinfo);
+	have_target = policy_check_path(&dinfo, &target_array);
 
 	if (st == NULL && (st = guess_super(dfd)) == NULL) {
 		if (verbose >= 0)
 			fprintf(stderr, Name
 				": no recognisable superblock on %s.\n",
 				devname);
-		rv = try_spare(devname, &dfd, policy, st, verbose);
+		rv = try_spare(devname, &dfd, policy,
+			       have_target ? &target_array : NULL,
+			       st, verbose);
 		goto out;
 	}
 	if (st->ss->compare_super == NULL ||
@@ -186,7 +192,9 @@ int Incremental(char *devname, int verbose, int runstop,
 		if (verbose >= 0)
 			fprintf(stderr, Name ": no RAID superblock on %s.\n",
 				devname);
-		rv = try_spare(devname, &dfd, policy, st, verbose);
+		rv = try_spare(devname, &dfd, policy,
+			       have_target ? &target_array : NULL,
+			       st, verbose);
 		free(st);
 		goto out;
 	}
@@ -749,11 +757,16 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 }
 
 static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+			   struct map_ent *target, int bare,
 			   struct supertype *st, int verbose)
 {
 	/* This device doesn't have any md metadata
-	 * If it is 'bare' and theh device policy allows 'spare' look for
-	 * an array or container to attach it to.
+	 * The device policy allows 'spare' and if !bare, it allows spare-same-slot.
+	 * If 'st' is not set, then we only know that some metadata allows this,
+	 * others possibly don't.
+	 * So look for a container or array to attach the device to.
+	 * Prefer 'target' if that is set and the array is found.
+	 *
 	 * If st is set, then only arrays of that type are considered
 	 * Return 0 on success, or some exit code on failure, probably 1.
 	 */
@@ -832,6 +845,9 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			 */
 			if (!policy_action_allows(pol, st2->ss->name, act_spare))
 				goto next;
+			if (!bare && !policy_action_allows(pol, st2->ss->name,
+							   act_spare_same_slot))
+				goto next;
 		} else
 			st2 = st;
 		get_dev_size(dfd, NULL, &devsize);
@@ -850,6 +866,31 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 
 			goto next;
 		}
+		/* test against target.
+		 * If 'target' is set and 'bare' is false, we only accept
+		 * arrays/containers that match 'target'.
+		 * If 'target' is set and 'bare' is true, we prefer the
+		 * array which matches 'target'.
+		 */
+		if (target) {
+			if (strcmp(target->metadata, mp->metadata) == 0 &&
+			    memcmp(target->uuid, mp->uuid,
+				   sizeof(target->uuid)) == 0) {
+				/* This is our target!! */
+				if (chosen)
+					sysfs_free(chosen);
+				chosen = sra;
+				sra = NULL;
+				/* skip to end so we don't check any more */
+				while (mp->next)
+					mp = mp->next;
+				goto next;
+			}
+			/* not our target */
+			if (!bare)
+				goto next;
+		}
+
 		/* all tests passed, OK to add to this array */
 		if (!chosen) {
 			chosen = sra;
@@ -1082,6 +1123,7 @@ static int is_bare(int dfd)
  * Arrays are given priority over partitions.
  */
 static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
+		     struct map_ent *target,
 		     struct supertype *st, int verbose)
 {
 	int i;
@@ -1089,38 +1131,55 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	int arrays_ok = 0;
 	int partitions_ok = 0;
 	int dfd = *dfdp;
+	int bare;
 
-	/* Can only add a spare if device has at least one domains */
+	/* Can only add a spare if device has at least one domain */
 	if (pol_find(pol, pol_domain) == NULL)
 		return 1;
 	/* And only if some action allows spares */
 	if (!policy_action_allows(pol, st?st->ss->name:NULL, act_spare))
 		return 1;
 
-	/* Now check if the device is bare - we don't add non-bare devices
-	 * yet even if action=-spare
+	/* Now check if the device is bare.
+	 * bare devices can always be added as a spare
+	 * non-bare devices can only be added if spare-same-slot is permitted,
+	 * and this device is replacing a previous device - in which case 'target'
+	 * will be set.
 	 */
-
 	if (!is_bare(dfd)) {
-		if (verbose > 1)
-			fprintf(stderr, Name ": %s is not bare, so not considering as a spare\n",
-				devname);
-		return 1;
-	}
+		/* Must have a target and allow same_slot */
+		/* Later - may allow force_spare without target */
+		if (!target ||
+		    !policy_action_allows(pol, st?st->ss->name:NULL,
+					  act_spare_same_slot)) {
+			if (verbose > 1)
+				fprintf(stderr, Name ": %s is not bare, so not "
+					"considering as a spare\n",
+					devname);
+			return 1;
+		}
+		bare = 0;
+	} else
+		bare = 1;
 
-	/* This device passes our test for 'is bare'.
-	 * Let's see what policy allows for such things.
+	/* It might be OK to add this device to an array - need to see
+	 * what arrays might be candidates.
 	 */
 	if (st) {
 		/* just try try 'array' or 'partition' based on this metadata */
 		if (st->ss->add_to_super)
-			return array_try_spare(devname, dfdp, pol,
+			return array_try_spare(devname, dfdp, pol, target, bare,
 					       st, verbose);
 		else
 			return partition_try_spare(devname, dfdp, pol,
 						   st, verbose);
 	}
-	/* Now see which metadata type support spare */
+	/* No metadata was specified or found so options are open.
+	 * Check for whether any array metadata, or any partition metadata
+	 * might allow adding the spare.  This check is just help to avoid
+	 * a more costly scan of all arrays when we can be sure that will
+	 * fail.
+	 */
 	for (i = 0; (!arrays_ok || !partitions_ok) && superlist[i] ; i++) {
 		if (superlist[i]->add_to_super && !arrays_ok &&
 		    policy_action_allows(pol, superlist[i]->name, act_spare))
@@ -1131,7 +1190,8 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	}
 	rv = 1;
 	if (arrays_ok)
-		rv = array_try_spare(devname, dfdp, pol, st, verbose);
+		rv = array_try_spare(devname, dfdp, pol, target, bare,
+				     st, verbose);
 	if (rv != 0 && partitions_ok)
 		rv = partition_try_spare(devname, dfdp, pol, st, verbose);
 	return rv;

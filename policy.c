@@ -519,6 +519,8 @@ static enum policy_action map_act(char *act)
 		return act_re_add;
 	if (strcmp(act, "spare") == 0)
 		return act_spare;
+	if (strcmp(act, "spare-same-slot") == 0)
+		return act_spare_same_slot;
 	if (strcmp(act, "force-spare") == 0)
 		return act_force_spare;
 	return act_err;

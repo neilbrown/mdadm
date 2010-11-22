@@ -816,8 +816,10 @@ enum policy_action {
 	act_default,
 	act_include,
 	act_re_add,
-	act_spare,
-	act_force_spare,
+	act_spare,	/* This only applies to bare devices */
+	act_spare_same_slot, /* this allows non-bare devices,
+			      * but only if recent removal */
+	act_force_spare, /* this allow non-bare devices in any case */
 	act_err
 };
 

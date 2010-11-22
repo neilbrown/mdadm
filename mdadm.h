@@ -355,7 +355,7 @@ struct mdstat_ent {
 	char		*level;
 	char		*pattern; /* U or up, _ for down */
 	int		percent; /* -1 if no resync */
-	int		resync; /* 1 if resync, 0 if recovery */
+	int		resync; /* 3 if check, 2 if reshape, 1 if resync, 0 if recovery */
 	int		devcnt;
 	int		raid_disks;
 	int		chunk_size;

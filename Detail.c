@@ -355,6 +355,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		if (atime)
 			printf("    Update Time : %.24s\n", ctime(&atime));
 		if (array.raid_disks) {
+			static char *sync_action[] = {", recovering",", resyncing",", reshaping",", checking"};
 			char *st;
 			if (avail_disks == array.raid_disks)
 				st = "";
@@ -367,8 +368,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			printf("          State : %s%s%s%s\n",
 			       (array.state&(1<<MD_SB_CLEAN))?"clean":"active",
 			       st,
-			       (!e || e->percent < 0) ? "" :
-			       (e->resync) ? ", resyncing": ", recovering",
+			       (!e || e->percent < 0) ? "" : sync_action[e->resync],
 			       larray_size ? "": ", Not Started");
 		}
 		if (array.raid_disks)

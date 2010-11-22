@@ -241,11 +241,27 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				   w[l-1] == '%' &&
 				   (eq=strchr(w, '=')) != NULL ) {
 				ent->percent = atoi(eq+1);
-				if (strncmp(w,"resync", 4)==0)
+				if (strncmp(w,"resync", 6)==0)
 					ent->resync = 1;
+				else if (strncmp(w, "reshape", 7)==0)
+					ent->resync = 2;
+				else
+					ent->resync = 0;
 			} else if (ent->percent == -1 &&
-				   strncmp(w, "resync", 4)==0) {
-				ent->resync = 1;
+				   (w[0] == 'r' || w[0] == 'c')) {
+				if (strncmp(w, "resync", 4)==0)
+					ent->resync = 1;
+				if (strncmp(w, "reshape", 7)==0)
+					ent->resync = 2;
+				if (strncmp(w, "recovery", 8)==0)
+					ent->resync = 2;
+				if (strncmp(w, "check", 5)==0)
+					ent->resync = 3;
+
+				if (l > 8 && strcmp(w+l-8, "=DELAYED"))
+					ent->percent = 0;
+				if (l > 8 && strcmp(w+l-8, "=PENDING"))
+					ent->percent = 0;
 			} else if (ent->percent == -1 &&
 				   w[0] >= '0' &&
 				   w[0] <= '9' &&

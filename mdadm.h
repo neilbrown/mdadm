@@ -712,8 +712,6 @@ struct supertype {
 	int container_dev;    /* devnum of container */
 	void *sb;
 	void *info;
-	int loaded_container;	/* Set if load_super found a container,
-				 * not just one device */
 
 	struct metadata_update *updates;
 	struct metadata_update **update_tail;

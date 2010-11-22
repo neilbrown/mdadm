@@ -137,8 +137,8 @@ static void pol_sort(struct dev_policy **pol)
 			if (p[next] == NULL ||
 			    (p[1-next] != NULL &&
 			     !(pol_lesseq(prev, p[1-next])
-			       ^pol_lesseq(p[1-next], p[next])
-			       ^pol_lesseq(p[next], prev)))
+			       ^pol_lesseq(prev, p[next])
+			       ^pol_lesseq(p[next], p[1-next])))
 				)
 				next = 1 - next;
 

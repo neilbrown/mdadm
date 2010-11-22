@@ -398,7 +398,6 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	container->devnum = devnum;
 	container->devname = devname;
 	container->arrays = NULL;
-	container->subarray[0] = 0;
 	container->sock = -1;
 
 	if (!container->devname) {

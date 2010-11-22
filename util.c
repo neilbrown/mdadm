@@ -1086,7 +1086,6 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		sysfs_free(sra);
 	if (st) {
 		st->sb = NULL;
-		st->subarray[0] = 0;
 		*subarrayp = subarray;
 	} else
 		free(subarray);
@@ -1108,7 +1107,6 @@ struct supertype *dup_super(struct supertype *orig)
 	st->ss = orig->ss;
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
-	strcpy(st->subarray, orig->subarray);
 	st->sb = NULL;
 	st->info = NULL;
 	return st;

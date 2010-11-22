@@ -711,7 +711,6 @@ struct supertype {
 	int minor_version;
 	int max_devs;
 	int container_dev;    /* devnum of container */
-	char subarray[32];	/* name of array inside container */
 	void *sb;
 	void *info;
 	int loaded_container;	/* Set if load_super found a container,

@@ -3075,7 +3075,6 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 
 	if (!check_name(super, name, 0))
 		return 0;
-	sprintf(st->subarray, "%d", idx);
 	dv = malloc(sizeof(*dv));
 	if (!dv) {
 		fprintf(stderr, Name ": failed to allocate device list entry\n");

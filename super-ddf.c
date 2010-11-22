@@ -1998,7 +1998,6 @@ static int init_super_ddf_bvd(struct supertype *st,
 	}
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
 	vcl->vcnum = venum;
-	sprintf(st->subarray, "%d", venum);
 	vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 
 	vc = &vcl->conf;

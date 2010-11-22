@@ -76,11 +76,10 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 			err = 1;
 		}
 		else {
-			unsigned long long size;
 			int container = 0;
 			if (forcest)
 				st = dup_super(forcest);
-			else if (get_dev_size(fd, NULL, &size) == 0 || size == 0) {
+			else if (must_be_container(fd)) {
 				/* might be a container */
 				st = super_by_fd(fd, NULL);
 				container = 1;

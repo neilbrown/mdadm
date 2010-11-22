@@ -1189,6 +1189,20 @@ int get_dev_size(int fd, char *dname, unsigned long long *sizep)
 	return 1;
 }
 
+/* Return true if this can only be a container, not a member device.
+ * i.e. is and md device and size is zero
+ */
+int must_be_container(int fd)
+{
+	unsigned long long size;
+	if (md_get_version(fd) < 0)
+		return 0;
+	if (get_dev_size(fd, NULL, &size) == 0)
+		return 1;
+	if (size == 0)
+		return 1;
+	return 0;
+}
 
 /* Sets endofpart parameter to the last block used by the last GPT partition on the device.
  * Returns: 1 if successful

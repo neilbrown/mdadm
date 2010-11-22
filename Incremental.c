@@ -103,7 +103,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	char *name_to_use;
 	mdu_array_info_t ainf;
 	struct dev_policy *policy = NULL;
-	unsigned long long size;
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -127,9 +126,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		return rv;
 	}
 	/* If the device is a container, we do something very different */
-	if (get_dev_size(dfd, devname, &size) == 0)
-		goto out;
-	if (size == 0) {
+	if (must_be_container(dfd)) {
 		if (!st)
 			st = super_by_fd(dfd, NULL);
 		if (st)

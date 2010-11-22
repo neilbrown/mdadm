@@ -1446,6 +1446,7 @@ int is_container_active(char *container)
 int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 {
 	struct mdinfo *mdi;
+	struct mdinfo *info;
 	int fd, err = 1;
 
 	fd = open(dev, O_RDWR|O_EXCL);
@@ -1495,12 +1496,10 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 		goto free_sysfs;
 	}
 
-	strncpy(st->subarray, subarray, sizeof(st->subarray)-1);
-
 	if (st->ss->load_super(st, fd, NULL)) {
 		if (!quiet)
-			fprintf(stderr, Name ": Failed to find subarray-%s in %s\n",
-				st->subarray, dev);
+			fprintf(stderr, Name ": Failed to load metadata for %s\n",
+				dev);
 		goto free_name;
 	}
 
@@ -1509,6 +1508,15 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 			fprintf(stderr, Name ": %s is not a container\n", dev);
 		goto free_super;
 	}
+
+	info = st->ss->container_content(st, subarray);
+	if (!info) {
+		if (!quiet)
+			fprintf(stderr, Name ": Failed to find subarray-%s in %s\n",
+				subarray, dev);
+		goto free_super;
+	}
+	free(info);
 
 	err = 0;
 

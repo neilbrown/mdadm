@@ -4229,19 +4229,19 @@ static int kill_subarray_imsm(struct supertype *st)
 	return 0;
 }
 
-static int update_subarray_imsm(struct supertype *st, char *update, mddev_ident_t ident)
+static int update_subarray_imsm(struct supertype *st, char *subarray,
+				char *update, mddev_ident_t ident)
 {
 	/* update the subarray currently referenced by ->current_vol */
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->anchor;
 
-	if (super->current_vol < 0)
-		return 2;
-
 	if (strcmp(update, "name") == 0) {
 		char *name = ident->name;
+		char *ep;
+		int vol;
 
-		if (is_subarray_active(st->subarray, st->devname)) {
+		if (is_subarray_active(subarray, st->devname)) {
 			fprintf(stderr,
 				Name ": Unable to update name of active subarray\n");
 			return 2;
@@ -4250,20 +4250,24 @@ static int update_subarray_imsm(struct supertype *st, char *update, mddev_ident_
 		if (!check_name(super, name, 0))
 			return 2;
 
+		vol = strtoul(subarray, &ep, 10);
+		if (*ep != '\0' || vol >= super->anchor->num_raid_devs)
+			return 2;
+
 		if (st->update_tail) {
 			struct imsm_update_rename_array *u = malloc(sizeof(*u));
 
 			if (!u)
 				return 2;
 			u->type = update_rename_array;
-			u->dev_idx = super->current_vol;
+			u->dev_idx = vol;
 			snprintf((char *) u->name, MAX_RAID_SERIAL_LEN, "%s", name);
 			append_metadata_update(st, u, sizeof(*u));
 		} else {
 			struct imsm_dev *dev;
 			int i;
 
-			dev = get_imsm_dev(super, super->current_vol);
+			dev = get_imsm_dev(super, vol);
 			snprintf((char *) dev->volume, MAX_RAID_SERIAL_LEN, "%s", name);
 			for (i = 0; i < mpb->num_raid_devs; i++) {
 				dev = get_imsm_dev(super, i);

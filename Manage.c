@@ -1054,7 +1054,7 @@ int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident
 	if (mdmon_running(st->devnum))
 		st->update_tail = &st->updates;
 
-	rv = st->ss->update_subarray(st, update, ident);
+	rv = st->ss->update_subarray(st, subarray, update, ident);
 
 	if (rv) {
 		if (!quiet)

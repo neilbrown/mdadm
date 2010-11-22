@@ -629,7 +629,8 @@ extern struct superswitch {
 	/* Permit subarray's to be deleted from inactive containers */
 	int (*kill_subarray)(struct supertype *st); /* optional */
 	/* Permit subarray's to be modified */
-	int (*update_subarray)(struct supertype *st, char *update, mddev_ident_t ident); /* optional */
+	int (*update_subarray)(struct supertype *st, char *subarray,
+			       char *update, mddev_ident_t ident); /* optional */
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,

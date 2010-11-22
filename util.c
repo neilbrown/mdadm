@@ -1498,17 +1498,17 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 		goto free_sysfs;
 	}
 
-	if (st->ss->load_super(st, fd, NULL)) {
+	if (!st->ss->load_container) {
+		if (!quiet)
+			fprintf(stderr, Name ": %s is not a container\n", dev);
+		goto free_name;
+	}
+
+	if (st->ss->load_container(st, fd, NULL)) {
 		if (!quiet)
 			fprintf(stderr, Name ": Failed to load metadata for %s\n",
 				dev);
 		goto free_name;
-	}
-
-	if (!st->loaded_container) {
-		if (!quiet)
-			fprintf(stderr, Name ": %s is not a container\n", dev);
-		goto free_super;
 	}
 
 	info = st->ss->container_content(st, subarray);

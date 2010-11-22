@@ -320,6 +320,36 @@ int enough(int level, int raid_disks, int layout, int clean,
 	}
 }
 
+int enough_fd(int fd)
+{
+	struct mdu_array_info_s array;
+	struct mdu_disk_info_s disk;
+	int avail_disks = 0;
+	int i;
+	char *avail;
+
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0 ||
+	    array.raid_disks <= 0)
+		return 0;
+	avail = calloc(array.raid_disks, 1);
+	for (i=0; i<array.raid_disks + array.nr_disks; i++) {
+		disk.number = i;
+		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+			continue;
+		if (! (disk.state & (1<<MD_DISK_SYNC)))
+			continue;
+		if (disk.raid_disk < 0 || disk.raid_disk >= array.raid_disks)
+			continue;
+		avail_disks++;
+		avail[disk.raid_disk] = 1;
+	}
+	/* This is used on an active array, so assume it is clean */
+	return enough(array.level, array.raid_disks, array.layout,
+		      1,
+		      avail, avail_disks);
+}
+
+
 const int uuid_match_any[4] = { ~0, ~0, ~0, ~0 };
 int same_uuid(int a[4], int b[4], int swapuuid)
 {

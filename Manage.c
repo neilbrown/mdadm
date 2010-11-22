@@ -383,6 +383,7 @@ int Manage_subdevs(char *devname, int fd,
 		char *dnprintable = dv->devname;
 		char *add_dev = dv->devname;
 		int err;
+		int re_add_failed = 0;
 
 		next = dv->next;
 		jnext = 0;
@@ -662,14 +663,20 @@ int Manage_subdevs(char *devname, int fd,
 				    get_linux_version() <= 2006018)
 					;
 				else if (st->sb) {
+					struct mdinfo mdi;
+					st->ss->getinfo_super(st, &mdi);
 					st->ss->uuid_from_super(st, ouuid);
-					if (memcmp(duuid, ouuid, sizeof(ouuid))==0) {
-						/* looks close enough for now.  Kernel
-						 * will worry about whether a bitmap
-						 * based reconstruction is possible.
+					if ((mdi.disk.state & (1<<MD_DISK_ACTIVE)) &&
+					    !(mdi.disk.state & (1<<MD_DISK_FAULTY)) &&
+					    memcmp(duuid, ouuid, sizeof(ouuid))==0) {
+						/* look like it is worth a try.  Need to
+						 * make sure kernel will accept it though.
 						 */
-						struct mdinfo mdi;
-						st->ss->getinfo_super(st, &mdi);
+						disc.number = mdi.disk.number;
+						if (ioctl(fd, GET_DISK_INFO, &disc) != 0
+						    || disc.major != 0 || disc.minor != 0
+						    || !enough_fd(fd))
+							goto skip_re_add;
 						disc.major = major(stb.st_rdev);
 						disc.minor = minor(stb.st_rdev);
 						disc.number = mdi.disk.number;
@@ -684,8 +691,7 @@ int Manage_subdevs(char *devname, int fd,
 						tfd = -1;
 						/* don't even try if disk is marked as faulty */
 						errno = 0;
-						if ((disc.state & 1) == 0 &&
-						    ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
+						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
 								fprintf(stderr, Name ": re-added %s\n", add_dev);
 							count++;
@@ -698,7 +704,8 @@ int Manage_subdevs(char *devname, int fd,
 								continue;
 							return 1;
 						}
-						/* fall back on normal-add */
+					skip_re_add:
+						re_add_failed = 1;
 					}
 				}
 				if (add_dev != dv->devname) {
@@ -718,6 +725,17 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name
 						": --re-add for %s to %s is not possible\n",
 						dv->devname, devname);
+					return 1;
+				}
+				if (re_add_failed) {
+					fprintf(stderr, Name ": %s reports being an active member for %s, but a --re-add fails.\n",
+						dv->devname, devname);
+					fprintf(stderr, Name ": not performing --add as that would convert %s in to a spare.\n",
+						dv->devname);
+					fprintf(stderr, Name ": To make this a spare, use \"mdadm --zero-superblock %s\" first.\n",	
+						dv->devname);
+					if (tfd >= 0)
+						close(tfd);
 					return 1;
 				}
 			} else {

@@ -20,6 +20,7 @@ mdadm $md0 --remove $dev2 $dev1
 check nosync
 check state UUU_
 
+mdadm --zero-superblock $dev2
 mdadm $md0 -a $dev2 
 check recovery
 check wait

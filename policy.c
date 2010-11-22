@@ -377,11 +377,10 @@ struct dev_policy *disk_policy(struct mdinfo *disk)
 
 	if (!type)
 		return NULL;
-	if (config_rules_has_path) {
+	if (config_rules_has_path)
 		path = disk_path(disk);
-		if (!path)
-			return NULL;
-	}
+	if (!path)
+		return NULL;
 
 	pol = path_policy(path, type);
 

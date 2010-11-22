@@ -733,6 +733,19 @@ static int move_spare(struct state *st2, struct state *st,
 	return 0;
 }
 
+static int check_donor(struct state *from, struct state *to)
+{
+	if (from == to)
+		return 0;
+	if (from->active < from->raid)
+		return 0;
+	if (from->spare <= 0)
+		return 0;
+	if (!from->spare_group || !to->spare_group)
+		return 0;
+	return (strcmp(from->spare_group, to->spare_group) == 0);
+}
+
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
 	struct state *st;
@@ -740,16 +753,11 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 	link_containers_with_subarrays(statelist);
 	for (st = statelist; st; st=st->next)
 		if (st->active < st->raid &&
-		    st->spare == 0 &&
-		    st->spare_group != NULL) {
+		    st->spare == 0) {
 			struct state *st2;
 			for (st2=statelist ; st2 ; st2=st2->next)
-				if (st2 != st &&
-				    st2->spare > 0 &&
-				    st2->active == st2->raid &&
-				    st2->spare_group != NULL &&
-				    strcmp(st->spare_group, st2->spare_group) == 0)
-					if (move_spare(st2, st, info))
+				if (check_donor(st2, st)
+				    && move_spare(st2, st, info))
 						break;
 		}
 }

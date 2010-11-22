@@ -1086,7 +1086,8 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		sysfs_free(sra);
 	if (st) {
 		st->sb = NULL;
-		*subarrayp = subarray;
+		if (subarrayp)
+			*subarrayp = subarray;
 	} else
 		free(subarray);
 	return st;

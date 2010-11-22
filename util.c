@@ -1094,6 +1094,22 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
+int dev_size_from_id(unsigned int id, unsigned long long *size)
+{
+	char buf[20];
+	int fd;
+
+	sprintf(buf, "%d:%d", major(id), minor(id));
+	fd = dev_open(buf, O_RDONLY);
+	if (fd < 0)
+		return 0;
+	if (get_dev_size(fd, NULL, size)) {
+		close(fd);
+		return 1;
+	}
+	close(fd);
+	return 0;
+}
 
 struct supertype *dup_super(struct supertype *orig)
 {

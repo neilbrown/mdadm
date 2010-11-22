@@ -1030,6 +1030,34 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	return 0;
 }
 
+static int is_bare(int dfd)
+{
+	unsigned long long size = 0;
+	char bufpad[4096 + 4096];
+	char *buf = (char*)(((long)bufpad + 4096) & ~4095);
+
+	if (lseek(dfd, 0, SEEK_SET) != 0 ||
+	    read(dfd, buf, 4096) != 4096)
+		return 0;
+
+	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
+		return 0;
+	if (memcmp(buf, buf+1, 4095) != 0)
+		return 0;
+
+	/* OK, first 4K appear blank, try the end. */
+	get_dev_size(dfd, NULL, &size);
+	if (lseek(dfd, size-4096, SEEK_SET) < 0 ||
+	    read(dfd, buf, 4096) != 4096)
+		return 0;
+
+	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
+		return 0;
+	if (memcmp(buf, buf+1, 4095) != 0)
+		return 0;
+
+	return 1;
+}
 
 /* adding a spare to a regular array is quite different from adding one to
  * a set-of-partitions virtual array.
@@ -1043,8 +1071,6 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	int rv;
 	int arrays_ok = 0;
 	int partitions_ok = 0;
-	char bufpad[4096 + 4096];
-	char *buf = (char*)(((long)bufpad + 4096) & ~4095);
 	int dfd = *dfdp;
 
 	/* Can only add a spare if device has at least one domains */
@@ -1058,28 +1084,12 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	 * yet even if action=-spare
 	 */
 
-	if (lseek(dfd, 0, SEEK_SET) != 0 ||
-	    read(dfd, buf, 4096) != 4096) {
-	not_bare:
+	if (!is_bare(dfd)) {
 		if (verbose > 1)
 			fprintf(stderr, Name ": %s is not bare, so not considering as a spare\n",
 				devname);
 		return 1;
 	}
-	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
-		goto not_bare;
-	if (memcmp(buf, buf+1, 4095) != 0)
-		goto not_bare;
-
-	/* OK, first 4K appear blank, try the end. */
-	if (lseek(dfd, -4096, SEEK_END) < 0 ||
-	    read(dfd, buf, 4096) != 4096)
-		goto not_bare;
-
-	if (buf[0] != '\0' && buf[0] != '\x5a' && buf[0] != '\xff')
-		goto not_bare;
-	if (memcmp(buf, buf+1, 4095) != 0)
-		goto not_bare;
 
 	/* This device passes our test for 'is bare'.
 	 * Let's see what policy allows for such things.

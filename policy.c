@@ -40,7 +40,7 @@
  * particularly from a set of policy rules in mdadm.conf
  */
 
-void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata)
+static void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata)
 {
 	struct dev_policy *n = malloc(sizeof(*n));
 	const char *real_metadata = NULL;
@@ -365,6 +365,16 @@ struct dev_policy *path_policy(char *path, char *type)
 	return pol;
 }
 
+void pol_add(struct dev_policy **pol,
+		    char *name, char *val,
+		    char *metadata)
+{
+	pol_new(pol, name, val, metadata);
+	pol_sort(pol);
+	pol_dedup(*pol);
+}
+
+
 /*
  * disk_policy() gathers policy information for the
  * disk described in the given mdinfo (disk.{major,minor}).
@@ -600,7 +610,7 @@ void domain_merge(struct domainlist **domp, struct dev_policy *pollist,
 	struct dev_policy *pol;
 	pollist = pol_find(pollist, pol_domain);
 	pol_for_each(pol, pollist, metadata)
-		domp = domain_merge_one(domp, pol->value);
+		domain_merge_one(domp, pol->value);
 }
 
 int domain_test(struct domainlist *dom, struct dev_policy *pol,
@@ -625,18 +635,30 @@ int domain_test(struct domainlist *dom, struct dev_policy *pol,
 	return found_any;
 }
 
+void domainlist_add_dev(struct domainlist **dom, int devnum, const char *metadata)
+{
+	struct dev_policy *pol = devnum_policy(devnum);
+	domain_merge(dom, pol, metadata);
+	dev_policy_free(pol);
+}
+
 struct domainlist *domain_from_array(struct mdinfo *mdi, const char *metadata)
 {
 	struct domainlist *domlist = NULL;
 
-	for (mdi = mdi->devs ; mdi ; mdi = mdi->next) {
-		struct dev_policy *pol = disk_policy(mdi);
+	for (mdi = mdi->devs ; mdi ; mdi = mdi->next)
+		domainlist_add_dev(&domlist, makedev(mdi->disk.major,
+						     mdi->disk.minor),
+				   metadata);
 
-		domain_merge(&domlist, pol, metadata);
-		dev_policy_free(pol);
-	}
 	return domlist;
 }
+
+void domain_add(struct domainlist **domp, char *domain)
+{
+	domain_merge_one(domp, domain);
+}
+
 
 void domain_free(struct domainlist *dl)
 {

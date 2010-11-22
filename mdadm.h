@@ -811,7 +811,8 @@ extern struct dev_policy *disk_policy(struct mdinfo *disk);
 extern struct dev_policy *devnum_policy(int dev);
 extern void dev_policy_free(struct dev_policy *p);
 
-extern void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata);
+//extern void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata);
+extern void pol_add(struct dev_policy **pol, char *name, char *val, char *metadata);
 extern struct dev_policy *pol_find(struct dev_policy *pol, char *name);
 
 enum policy_action {
@@ -839,9 +840,12 @@ extern int domain_test(struct domainlist *dom, struct dev_policy *pol,
 		       const char *metadata);
 extern struct domainlist *domain_from_array(struct mdinfo *mdi,
 					    const char *metadata);
+extern void domainlist_add_dev(struct domainlist **dom, int devnum,
+			       const char *metadata);
 extern void domain_free(struct domainlist *dl);
 extern void domain_merge(struct domainlist **domp, struct dev_policy *pol,
 			 const char *metadata);
+void domain_add(struct domainlist **domp, char *domain);
 
 extern void policy_save_path(char *id_path, struct map_ent *array);
 extern int policy_check_path(struct mdinfo *disk, struct map_ent *array);

@@ -681,15 +681,16 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 	return new_found;
 }
 
-static int move_spare(struct state *st2, struct state *st,
+static int move_spare(struct state *from, struct state *to,
+		      struct domainlist *domlist,
 		      struct alert_info *info)
 {
 	struct mddev_dev devlist;
 	char devname[20];
 
 	/* try to remove and add */
-	int fd1 = open(st->devname, O_RDONLY);
-	int fd2 = open(st2->devname, O_RDONLY);
+	int fd1 = open(to->devname, O_RDONLY);
+	int fd2 = open(from->devname, O_RDONLY);
 	int dev = -1;
 	int d;
 	if (fd1 < 0 || fd2 < 0) {
@@ -697,11 +698,14 @@ static int move_spare(struct state *st2, struct state *st,
 		if (fd2>=0) close(fd2);
 		return 0;
 	}
-	for (d=st2->raid; d < MaxDisks; d++) {
-		if (st2->devid[d] > 0 &&
-		    st2->devstate[d] == 0) {
-			dev = st2->devid[d];
-			break;
+	for (d = from->raid; dev < 0 && d < MaxDisks; d++) {
+		if (from->devid[d] > 0 &&
+		    from->devstate[d] == 0) {
+			struct dev_policy *pol = devnum_policy(from->devid[d]);
+			pol_add(&pol, pol_domain, from->spare_group, NULL);
+			if (domain_test(domlist, pol, to->metadata->ss->name))
+			    dev = from->devid[d];
+			dev_policy_free(pol);
 		}
 	}
 	if (dev < 0) {
@@ -718,22 +722,23 @@ static int move_spare(struct state *st2, struct state *st,
 	sprintf(devname, "%d:%d", major(dev), minor(dev));
 
 	devlist.disposition = 'r';
-	if (Manage_subdevs(st2->devname, fd2, &devlist, -1, 0) == 0) {
+	if (Manage_subdevs(from->devname, fd2, &devlist, -1, 0) == 0) {
 		devlist.disposition = 'a';
-		if (Manage_subdevs(st->devname, fd1, &devlist, -1, 0) == 0) {
-			alert("MoveSpare", st->devname, st2->devname, info);
+		if (Manage_subdevs(to->devname, fd1, &devlist, -1, 0) == 0) {
+			alert("MoveSpare", to->devname, from->devname, info);
 			close(fd1);
 			close(fd2);
 			return 1;
 		}
-		else Manage_subdevs(st2->devname, fd2, &devlist, -1, 0);
+		else Manage_subdevs(from->devname, fd2, &devlist, -1, 0);
 	}
 	close(fd1);
 	close(fd2);
 	return 0;
 }
 
-static int check_donor(struct state *from, struct state *to)
+static int check_donor(struct state *from, struct state *to,
+		       struct domainlist *domlist)
 {
 	if (from == to)
 		return 0;
@@ -741,24 +746,35 @@ static int check_donor(struct state *from, struct state *to)
 		return 0;
 	if (from->spare <= 0)
 		return 0;
-	if (!from->spare_group || !to->spare_group)
+	if (domlist == NULL)
 		return 0;
-	return (strcmp(from->spare_group, to->spare_group) == 0);
+	return 1;
 }
 
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
-	struct state *st;
+	struct state *from, *to;
 
 	link_containers_with_subarrays(statelist);
-	for (st = statelist; st; st=st->next)
-		if (st->active < st->raid &&
-		    st->spare == 0) {
-			struct state *st2;
-			for (st2=statelist ; st2 ; st2=st2->next)
-				if (check_donor(st2, st)
-				    && move_spare(st2, st, info))
+	for (to = statelist; to; to = to->next)
+		if (to->active < to->raid &&
+		    to->spare == 0) {
+			struct domainlist *domlist = NULL;
+			int d;
+
+			for (d = 0; d < MaxDisks; d++)
+				if (to->devid[d])
+					domainlist_add_dev(&domlist,
+							   to->devid[d],
+							   to->metadata->ss->name);
+			if (to->spare_group)
+				domain_add(&domlist, to->spare_group);
+
+			for (from=statelist ; from ; from=from->next)
+				if (check_donor(from, to, domlist)
+				    && move_spare(from, to, domlist, info))
 						break;
+			domain_free(domlist);
 		}
 }
 

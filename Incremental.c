@@ -820,6 +820,13 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			for(i=0; !st2 && superlist[i]; i++)
 				st2 = superlist[i]->match_metadata_desc(
 					sra->text_version);
+			if (!st2) {
+				if (verbose > 1)
+					fprintf(stderr, Name ": not adding %s to %s"
+						" as metadata not recognised.\n",
+						devname, mp->path);
+				goto next;
+			}
 		} else
 			st2 = st;
 		get_dev_size(dfd, NULL, &devsize);

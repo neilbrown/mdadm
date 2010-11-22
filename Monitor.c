@@ -62,10 +62,10 @@ static int make_daemon(char *pidfile);
 static int check_one_sharer(int scan);
 static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom,
 		  char *cmd, int dosyslog);
-static void check_array(struct state *st, struct mdstat_ent *mdstat,
-			int test, char *mailaddr,
-			char *mailfrom, char *alert_cmd, int dosyslog,
-			int increments);
+static int check_array(struct state *st, struct mdstat_ent *mdstat,
+		       int test, char *mailaddr,
+		       char *mailfrom, char *alert_cmd, int dosyslog,
+		       int increments);
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 			  int test, char *mailaddr, char *mailfrom,
 			  char *alert_cmd, int dosyslog);
@@ -212,14 +212,16 @@ int Monitor(struct mddev_dev *devlist,
 	while (! finished) {
 		int new_found = 0;
 		struct state *st;
+		int anydegraded = 0;
 
 		if (mdstat)
 			free_mdstat(mdstat);
 		mdstat = mdstat_read(oneshot?0:1, 0);
 
 		for (st=statelist; st; st=st->next)
-			check_array(st, mdstat, test, mailaddr, mailfrom,
-				    alert_cmd, dosyslog, increments);
+			if (check_array(st, mdstat, test, mailaddr, mailfrom,
+					alert_cmd, dosyslog, increments))
+				anydegraded = 1;
 		
 		/* now check if there are any new devices found in mdstat */
 		if (scan)
@@ -231,7 +233,7 @@ int Monitor(struct mddev_dev *devlist,
 		 * Look for another array with spare > 0 and active == raid and same spare_group
 		 *  if found, choose a device and hotremove/hotadd
 		 */
-		if (share)
+		if (share && anydegraded)
 			try_spare_migration(statelist, mailaddr, mailfrom,
 					    alert_cmd, dosyslog);
 		if (!new_found) {
@@ -410,10 +412,10 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 	}
 }
 
-static void check_array(struct state *st, struct mdstat_ent *mdstat,
-			int test, char *mailaddr,
-			char *mailfrom, char *alert_cmd, int dosyslog,
-			int increments)
+static int check_array(struct state *st, struct mdstat_ent *mdstat,
+		       int test, char *mailaddr,
+		       char *mailfrom, char *alert_cmd, int dosyslog,
+		       int increments)
 {
 	struct { int state, major, minor; } info[MaxDisks];
 	mdu_array_info_t array;
@@ -432,7 +434,7 @@ static void check_array(struct state *st, struct mdstat_ent *mdstat,
 /*					fprintf(stderr, Name ": cannot open %s: %s\n",
 					dev, strerror(errno));
 */				st->err=1;
-		return;
+		return 0;
 	}
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
@@ -443,7 +445,7 @@ static void check_array(struct state *st, struct mdstat_ent *mdstat,
 					dev, strerror(errno));
 */				st->err=1;
 		close(fd);
-		return;
+		return 0;
 	}
 	/* It's much easier to list what array levels can't
 	 * have a device disappear than all of them that can
@@ -454,7 +456,7 @@ static void check_array(struct state *st, struct mdstat_ent *mdstat,
 			      mailaddr, mailfrom, alert_cmd, dosyslog);
 		st->err = 1;
 		close(fd);
-		return;
+		return 0;
 	}
 	if (st->devnum == INT_MAX) {
 		struct stat stb;
@@ -478,7 +480,7 @@ static void check_array(struct state *st, struct mdstat_ent *mdstat,
 		 * or re-created after reading mdstat*/
 		st->err = 1;
 		close(fd);
-		return;
+		return 0;
 	}
 	/* this array is in /proc/mdstat */
 	if (array.utime == 0)
@@ -495,7 +497,7 @@ static void check_array(struct state *st, struct mdstat_ent *mdstat,
 		    ))) {
 		close(fd);
 		st->err = 0;
-		return;
+		return 0;
 	}
 	if (st->utime == 0 && /* new array */
 	    mse->pattern && strchr(mse->pattern, '_') /* degraded */
@@ -623,6 +625,9 @@ static void check_array(struct state *st, struct mdstat_ent *mdstat,
 	st->utime = array.utime;
 	st->raid = array.raid_disks;
 	st->err = 0;
+	if ((st->active < st->raid) && st->spare == 0)
+		return 1;
+	return 0;
 }
 
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,

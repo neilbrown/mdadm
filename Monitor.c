@@ -320,8 +320,9 @@ int Monitor(struct mddev_dev *devlist,
 			}
 			/* this array is in /proc/mdstat */
 			if (array.utime == 0)
-				/* external arrays don't update utime */
-				array.utime = time(0);
+				/* external arrays don't update utime, so
+				 * just make sure it is always different. */
+				array.utime = st->utime + 1;;
 
 			if (st->utime == array.utime &&
 			    st->failed == array.failed_disks &&

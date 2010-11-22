@@ -286,12 +286,13 @@ int Assemble(struct supertype *st, char *mddev,
 	 */
 	for (tmpdev = devlist;
 	     tmpdev;
-	     tmpdev = tmpdev->next) {
+	     tmpdev = tmpdev ? tmpdev->next : NULL) {
 		char *devname = tmpdev->devname;
 		int dfd;
 		struct stat stb;
 		struct supertype *tst = dup_super(st);
 		struct dev_policy *pol = NULL;
+		int found_container = 0;
 
 		if (tmpdev->used > 1) continue;
 
@@ -317,33 +318,60 @@ int Assemble(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": %s is not a block device.\n",
 				devname);
 			tmpdev->used = 2;
-		} else if (!tst && (tst = guess_super(dfd)) == NULL) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": no recogniseable superblock on %s\n",
-					devname);
-			tmpdev->used = 2;
-		} else if (tst->ss->load_super(tst,dfd, NULL)) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": no RAID superblock on %s\n",
-					devname);
-			tmpdev->used = 2;
-		} else if (tst->ss->compare_super == NULL) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": Cannot assemble %s metadata on %s\n",
-					tst->ss->name, devname);
-			tmpdev->used = 2;
-		} else if (auto_assem && st == NULL &&
-			   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
-					       tst->ss->match_home(tst, homehost) == 1)) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": %s has metadata type %s for which "
-					"auto-assembly is disabled\n",
-					devname, tst->ss->name);
-			tmpdev->used = 2;
+		} else if (must_be_container(dfd)) {
+			if (st) {
+				/* already found some components, this cannot
+				 * be another one.
+				 */
+				if (report_missmatch)
+					fprintf(stderr, Name ": %s is a container, but we are looking for components\n",
+						devname);
+				tmpdev->used = 2;
+			} if (!tst && (tst = super_by_fd(dfd, NULL)) == NULL) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": not a recognisable container: %s\n",
+						devname);
+				tmpdev->used = 2;
+			} else if (tst->ss->load_container(tst, dfd, NULL)) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": no correct container type: %s\n",
+						devname);
+				tmpdev->used = 2;
+			} else if (auto_assem &&
+				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
+						       tst->ss->match_home(tst, homehost) == 1)) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": %s has metadata type %s for which "
+						"auto-assembly is disabled\n",
+						devname, tst->ss->name);
+				tmpdev->used = 2;
+			} else
+				found_container = 1;
 		} else {
-			content = &info;
-			memset(content, 0, sizeof(*content));
-			tst->ss->getinfo_super(tst, content, NULL);
+			if (!tst && (tst = guess_super(dfd)) == NULL) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": no recogniseable superblock on %s\n",
+						devname);
+				tmpdev->used = 2;
+			} else if (tst->ss->load_super(tst,dfd, NULL)) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": no RAID superblock on %s\n",
+						devname);
+				tmpdev->used = 2;
+			} else if (tst->ss->compare_super == NULL) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": Cannot assemble %s metadata on %s\n",
+						tst->ss->name, devname);
+				tmpdev->used = 2;
+			} else if (auto_assem && st == NULL &&
+				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
+						       tst->ss->match_home(tst, homehost) == 1)) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": %s has metadata type %s for which "
+						"auto-assembly is disabled\n",
+						devname, tst->ss->name);
+				tmpdev->used = 2;
+			}
 		}
 		if (dfd >= 0) close(dfd);
 		if (tmpdev->used == 2) {
@@ -365,20 +393,10 @@ int Assemble(struct supertype *st, char *mddev,
 			return 1;
 		}
 
-		if (tst->ss->container_content
-		    && tst->loaded_container) {
+		if (found_container) {
 			/* tmpdev is a container.  We need to be either
 			 * looking for a member, or auto-assembling
 			 */
-			if (st) {
-				/* already found some components, this cannot
-				 * be another one.
-				 */
-				if (report_missmatch)
-					fprintf(stderr, Name ": %s is a container, but we are looking for components\n",
-						devname);
-				goto loop;
-			}
 
 			if (ident->container) {
 				if (ident->container[0] == '/' &&
@@ -439,62 +457,68 @@ int Assemble(struct supertype *st, char *mddev,
 			if (verbose > 0)
 				fprintf(stderr, Name ": found match on member %s in %s\n",
 					content->text_version, devname);
-			break;
-		}
 
-		if (!ident_matches(ident, content, tst,
-				   homehost, update,
-				   report_missmatch ? devname : NULL))
+			/* make sure we finished the loop */
+			tmpdev = NULL;
 			goto loop;
+		} else {
 
-		if (st == NULL)
-			st = dup_super(tst);
-		if (st->minor_version == -1)
-			st->minor_version = tst->minor_version;
-		if (st->ss != tst->ss ||
-		    st->minor_version != tst->minor_version ||
-		    st->ss->compare_super(st, tst) != 0) {
-			/* Some mismatch. If exactly one array matches this host,
-			 * we can resolve on that one.
-			 * Or, if we are auto assembling, we just ignore the second
-			 * for now.
-			 */
-			if (auto_assem)
+			content = &info;
+			memset(content, 0, sizeof(*content));
+			tst->ss->getinfo_super(tst, content, NULL);
+
+			if (!ident_matches(ident, content, tst,
+					   homehost, update,
+					   report_missmatch ? devname : NULL))
 				goto loop;
-			if (homehost) {
-				int first = st->ss->match_home(st, homehost);
-				int last = tst->ss->match_home(tst, homehost);
-				if (first != last &&
-				    (first == 1 || last == 1)) {
-					/* We can do something */
-					if (first) {/* just ignore this one */
-						if (report_missmatch)
-							fprintf(stderr, Name ": %s misses out due to wrong homehost\n",
-								devname);
-						goto loop;
-					} else { /* reject all those sofar */
-						struct mddev_dev *td;
-						if (report_missmatch)
-							fprintf(stderr, Name ": %s overrides previous devices due to good homehost\n",
-								devname);
-						for (td=devlist; td != tmpdev; td=td->next)
-							if (td->used == 1)
-								td->used = 0;
-						tmpdev->used = 1;
-						goto loop;
+
+			if (st == NULL)
+				st = dup_super(tst);
+			if (st->minor_version == -1)
+				st->minor_version = tst->minor_version;
+			if (st->ss != tst->ss ||
+			    st->minor_version != tst->minor_version ||
+			    st->ss->compare_super(st, tst) != 0) {
+				/* Some mismatch. If exactly one array matches this host,
+				 * we can resolve on that one.
+				 * Or, if we are auto assembling, we just ignore the second
+				 * for now.
+				 */
+				if (auto_assem)
+					goto loop;
+				if (homehost) {
+					int first = st->ss->match_home(st, homehost);
+					int last = tst->ss->match_home(tst, homehost);
+					if (first != last &&
+					    (first == 1 || last == 1)) {
+						/* We can do something */
+						if (first) {/* just ignore this one */
+							if (report_missmatch)
+								fprintf(stderr, Name ": %s misses out due to wrong homehost\n",
+									devname);
+							goto loop;
+						} else { /* reject all those sofar */
+							struct mddev_dev *td;
+							if (report_missmatch)
+								fprintf(stderr, Name ": %s overrides previous devices due to good homehost\n",
+									devname);
+							for (td=devlist; td != tmpdev; td=td->next)
+								if (td->used == 1)
+									td->used = 0;
+							tmpdev->used = 1;
+							goto loop;
+						}
 					}
 				}
+				fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",
+					devname);
+				tst->ss->free_super(tst);
+				st->ss->free_super(st);
+				dev_policy_free(pol);
+				return 1;
 			}
-			fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",
-				devname);
-			tst->ss->free_super(tst);
-			st->ss->free_super(st);
-			dev_policy_free(pol);
-			return 1;
+			tmpdev->used = 1;
 		}
-
-		tmpdev->used = 1;
-
 	loop:
 		dev_policy_free(pol);
 		pol = NULL;

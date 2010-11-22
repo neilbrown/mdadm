@@ -406,29 +406,27 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": looking in container %s\n",
 					devname);
 
-			content = tst->ss->container_content(tst, NULL);
-		next_member:
+			for (content = tst->ss->container_content(tst, NULL);
+			     content;
+			     content = content->next) {
 
-			if (!content)
-				goto loop; /* empty container */
-
-			if (content->next == NULL)
-				tmpdev->used = 2;
-
-			if (!ident_matches(ident, content, tst,
-					   homehost, update,
-					   report_missmatch ? devname : NULL)) {
-				content = content->next;
-				goto next_member;
-			} else if (is_member_busy(content->text_version)) {
-				if (report_missmatch)
-					fprintf(stderr, Name ": member %s in %s is already assembled\n",
-						content->text_version,
-						devname);
-
-				content = content->next;
-				goto next_member;
+				if (!ident_matches(ident, content, tst,
+						   homehost, update,
+						   report_missmatch ? devname : NULL))
+					/* message already printed */;
+				else if (is_member_busy(content->text_version)) {
+					if (report_missmatch)
+						fprintf(stderr, Name ": member %s in %s is already assembled\n",
+							content->text_version,
+							devname);
+				} else
+					break;
 			}
+			if (!content) {
+				tmpdev->used = 2;
+				goto loop; /* empty container */
+			}
+
 			st = tst; tst = NULL;
 			if (!auto_assem && inargv && tmpdev->next != NULL) {
 				fprintf(stderr, Name ": %s is a container, but is not "

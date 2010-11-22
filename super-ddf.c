@@ -1515,28 +1515,24 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 
 	if (strcmp(update, "grow") == 0) {
 		/* FIXME */
-	}
-	if (strcmp(update, "resync") == 0) {
+	} else if (strcmp(update, "resync") == 0) {
 //		info->resync_checkpoint = 0;
-	}
-	/* We ignore UUID updates as they make even less sense
-	 * with DDF
-	 */
-	if (strcmp(update, "homehost") == 0) {
+	} else if (strcmp(update, "homehost") == 0) {
 		/* homehost is stored in controller->vendor_data,
 		 * or it is when we are the vendor
 		 */
 //		if (info->vendor_is_local)
 //			strcpy(ddf->controller.vendor_data, homehost);
-	}
-	if (strcmp(update, "name") == 0) {
+		rv = -1;
+	} if (strcmp(update, "name") == 0) {
 		/* name is stored in virtual_entry->name */
 //		memset(ve->name, ' ', 16);
 //		strncpy(ve->name, info->name, 16);
-	}
-	if (strcmp(update, "_reshape_progress") == 0) {
+		rv = -1;
+	} if (strcmp(update, "_reshape_progress") == 0) {
 		/* We don't support reshape yet */
-	}
+	} else
+		rv = -1;
 
 //	update_all_csum(ddf);
 

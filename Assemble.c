@@ -615,6 +615,7 @@ int Assemble(struct supertype *st, char *mddev,
 			/* prepare useful information in info structures */
 			struct stat stb2;
 			struct supertype *tst;
+			int err;
 			fstat(mdfd, &stb2);
 
 			if (strcmp(update, "uuid")==0 &&
@@ -648,22 +649,33 @@ int Assemble(struct supertype *st, char *mddev,
 			strcpy(content->name, ident->name);
 			content->array.md_minor = minor(stb2.st_rdev);
 
-			tst->ss->update_super(tst, content, update,
-					      devname, verbose,
-					      ident->uuid_set, homehost);
+			if (strcmp(update, "byteorder") == 0)
+				err = 0;
+			else
+				err = tst->ss->update_super(tst, content, update,
+							    devname, verbose,
+							    ident->uuid_set,
+							    homehost);
+			if (err < 0) {
+				fprintf(stderr,
+					Name ": --update=%s not understood"
+					" for %s metadata\n",
+					update, tst->ss->name);
+				tst->ss->free_super(tst);
+				free(tst);
+				close(mdfd);
+				close(dfd);
+				return 1;
+			}
 			if (strcmp(update, "uuid")==0 &&
 			    !ident->uuid_set) {
 				ident->uuid_set = 1;
 				memcpy(ident->uuid, content->uuid, 16);
 			}
-			if (dfd < 0)
-				fprintf(stderr, Name ": Cannot open %s for superblock update\n",
-					devname);
-			else if (tst->ss->store_super(tst, dfd))
+			if (tst->ss->store_super(tst, dfd))
 				fprintf(stderr, Name ": Could not re-write superblock on %s.\n",
 					devname);
-			if (dfd >= 0)
-				close(dfd);
+			close(dfd);
 
 			if (strcmp(update, "uuid")==0 &&
 			    ident->bitmap_fd >= 0 && !bitmap_done) {

@@ -656,8 +656,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		if (sb->events != __cpu_to_le64(info->events))
 			rv = 1;
 		sb->events = __cpu_to_le64(info->events);
-	}
-	if (strcmp(update, "force-array")==0) {
+	} else if (strcmp(update, "force-array")==0) {
 		/* Degraded array and 'force' requests to
 		 * maybe need to mark it 'clean'.
 		 */
@@ -668,8 +667,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 				rv = 1;
 			sb->resync_offset = MaxSector;
 		}
-	}
-	if (strcmp(update, "assemble")==0) {
+	} else if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
 		int want;
 		if (info->disk.state == 6)
@@ -680,8 +678,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			sb->dev_roles[d] = want;
 			rv = 1;
 		}
-	}
-	if (strcmp(update, "linear-grow-new") == 0) {
+	} else if (strcmp(update, "linear-grow-new") == 0) {
 		unsigned int i;
 		int rfd, fd;
 		unsigned int max = __le32_to_cpu(sb->max_dev);
@@ -723,17 +720,14 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 					ds - __le64_to_cpu(sb->data_offset));
 			}
 		}
-	}
-	if (strcmp(update, "linear-grow-update") == 0) {
+	} else if (strcmp(update, "linear-grow-update") == 0) {
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
 		sb->dev_roles[info->disk.number] =
 			__cpu_to_le16(info->disk.raid_disk);
-	}
-	if (strcmp(update, "resync") == 0) {
+	} else if (strcmp(update, "resync") == 0) {
 		/* make sure resync happens */
 		sb->resync_offset = 0ULL;
-	}
-	if (strcmp(update, "uuid") == 0) {
+	} else if (strcmp(update, "uuid") == 0) {
 		copy_uuid(sb->set_uuid, info->uuid, super1.swapuuid);
 
 		if (__le32_to_cpu(sb->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
@@ -741,8 +735,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			bm = (struct bitmap_super_s*)(st->sb+1024);
 			memcpy(bm->uuid, sb->set_uuid, 16);
 		}
-	}
-	if (strcmp(update, "homehost") == 0 &&
+	} else if (strcmp(update, "homehost") == 0 &&
 	    homehost) {
 		char *c;
 		update = "name";
@@ -752,8 +745,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		else
 			strncpy(info->name, sb->set_name, 32);
 		info->name[32] = 0;
-	}
-	if (strcmp(update, "name") == 0) {
+	} else if (strcmp(update, "name") == 0) {
 		if (info->name[0] == 0)
 			sprintf(info->name, "%d", info->array.md_minor);
 		memset(sb->set_name, 0, sizeof(sb->set_name));
@@ -765,8 +757,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			strcat(sb->set_name, info->name);
 		} else
 			strcpy(sb->set_name, info->name);
-	}
-	if (strcmp(update, "devicesize") == 0 &&
+	} else if (strcmp(update, "devicesize") == 0 &&
 	    __le64_to_cpu(sb->super_offset) <
 	    __le64_to_cpu(sb->data_offset)) {
 		/* set data_size to device size less data_offset */
@@ -778,9 +769,10 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			misc->device_size - __le64_to_cpu(sb->data_offset));
 		printf("Size is %llu\n", (unsigned long long)
 		       __le64_to_cpu(sb->data_size));
-	}
-	if (strcmp(update, "_reshape_progress")==0)
+	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
+	else
+		rv = -1;
 
 	sb->sb_csum = calc_sb_1_csum(sb);
 	return rv;

@@ -1705,8 +1705,7 @@ static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 	mpb = super->anchor;
 
 	if (strcmp(update, "uuid") == 0 && uuid_set && !info->update_private)
-		fprintf(stderr,
-			Name ": '--uuid' not supported for imsm metadata\n");
+		rv = -1;
 	else if (strcmp(update, "uuid") == 0 && uuid_set && info->update_private) {
 		mpb->orig_family_num = *((__u32 *) info->update_private);
 		rv = 0;
@@ -1727,9 +1726,7 @@ static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 	} else if (strcmp(update, "assemble") == 0)
 		rv = 0;
 	else
-		fprintf(stderr,
-			Name ": '--update=%s' not supported for imsm metadata\n",
-			update);
+		rv = -1;
 
 	/* successful update? recompute checksum */
 	if (rv == 0)

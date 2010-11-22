@@ -419,14 +419,12 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		if (verbose >= 0)
 			fprintf (stderr, Name ": adjusting superblock of %s for 2.2/sparc compatability.\n",
 				 devname);
-	}
-	if (strcmp(update, "super-minor") ==0) {
+	} else if (strcmp(update, "super-minor") ==0) {
 		sb->md_minor = info->array.md_minor;
 		if (verbose > 0)
 			fprintf(stderr, Name ": updating superblock of %s with minor number %d\n",
 				devname, info->array.md_minor);
-	}
-	if (strcmp(update, "summaries") == 0) {
+	} else if (strcmp(update, "summaries") == 0) {
 		unsigned int i;
 		/* set nr_disks, active_disks, working_disks,
 		 * failed_disks, spare_disks based on disks[]
@@ -453,8 +451,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 					sb->spare_disks++;
 			} else if (i >= sb->raid_disks && sb->disks[i].number == 0)
 				sb->disks[i].state = 0;
-	}
-	if (strcmp(update, "force-one")==0) {
+	} else if (strcmp(update, "force-one")==0) {
 		/* Not enough devices for a working array, so
 		 * bring this one up-to-date.
 		 */
@@ -464,8 +461,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		if (sb->events_hi != ehi ||
 		    sb->events_lo != elo)
 			rv = 1;
-	}
-	if (strcmp(update, "force-array")==0) {
+	} else if (strcmp(update, "force-array")==0) {
 		/* degraded array and 'force' requested, so
 		 * maybe need to mark it 'clean'
 		 */
@@ -475,8 +471,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			sb->state |= (1 << MD_SB_CLEAN);
 			rv = 1;
 		}
-	}
-	if (strcmp(update, "assemble")==0) {
+	} else if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
 		int wonly = sb->disks[d].state & (1<<MD_DISK_WRITEMOSTLY);
 		int mask = (1<<MD_DISK_WRITEMOSTLY);
@@ -491,8 +486,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			sb->disks[d].state = info->disk.state | wonly;
 			rv = 1;
 		}
-	}
-	if (strcmp(update, "linear-grow-new") == 0) {
+	} else if (strcmp(update, "linear-grow-new") == 0) {
 		memset(&sb->disks[info->disk.number], 0, sizeof(sb->disks[0]));
 		sb->disks[info->disk.number].number = info->disk.number;
 		sb->disks[info->disk.number].major = info->disk.major;
@@ -500,8 +494,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		sb->disks[info->disk.number].raid_disk = info->disk.raid_disk;
 		sb->disks[info->disk.number].state = info->disk.state;
 		sb->this_disk = sb->disks[info->disk.number];
-	}
-	if (strcmp(update, "linear-grow-update") == 0) {
+	} else if (strcmp(update, "linear-grow-update") == 0) {
 		sb->raid_disks = info->array.raid_disks;
 		sb->nr_disks = info->array.nr_disks;
 		sb->active_disks = info->array.active_disks;
@@ -512,20 +505,17 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		sb->disks[info->disk.number].minor = info->disk.minor;
 		sb->disks[info->disk.number].raid_disk = info->disk.raid_disk;
 		sb->disks[info->disk.number].state = info->disk.state;
-	}
-	if (strcmp(update, "resync") == 0) {
+	} else if (strcmp(update, "resync") == 0) {
 		/* make sure resync happens */
 		sb->state &= ~(1<<MD_SB_CLEAN);
 		sb->recovery_cp = 0;
-	}
-	if (strcmp(update, "homehost") == 0 &&
+	} else if (strcmp(update, "homehost") == 0 &&
 	    homehost) {
 		uuid_set = 0;
 		update = "uuid";
 		info->uuid[0] = sb->set_uuid0;
 		info->uuid[1] = sb->set_uuid1;
-	}
-	if (strcmp(update, "uuid") == 0) {
+	} else if (strcmp(update, "uuid") == 0) {
 		if (!uuid_set && homehost) {
 			char buf[20];
 			char *hash = sha1_buffer(homehost,
@@ -542,9 +532,10 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			bm = (struct bitmap_super_s*)(sb+1);
 			uuid_from_super0(st, (int*)bm->uuid);
 		}
-	}
-	if (strcmp(update, "_reshape_progress")==0)
+	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = info->reshape_progress;
+	else
+		rv = -1;
 
 	sb->sb_csum = calc_sb0_csum(sb);
 	return rv;

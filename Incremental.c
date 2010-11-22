@@ -1351,16 +1351,22 @@ static int Incremental_container(struct supertype *st, char *devname,
  * raid arrays, and if so first fail (if needed) and then remove the device.
  *
  * @devname - The device we want to remove
+ * @id_path - name as found in /dev/disk/by-path for this device
  *
  * Note: the device name must be a kernel name like "sda", so
  * that we can find it in /proc/mdstat
  */
-int IncrementalRemove(char *devname, int verbose)
+int IncrementalRemove(char *devname, char *id_path, int verbose)
 {
 	int mdfd;
 	int rv;
 	struct mdstat_ent *ent;
 	struct mddev_dev devlist;
+
+	if (!id_path)
+		dprintf(Name ": incremental removal without --path <id_path> "
+			"lacks the possibility to re-add new device in this "
+			"port\n");
 
 	if (strchr(devname, '/')) {
 		fprintf(stderr, Name ": incremental removal requires a "

@@ -104,6 +104,7 @@ int main(int argc, char *argv[])
 	int rebuild_map = 0;
 	int auto_update_home = 0;
 	char *subarray = NULL;
+	char *remove_path = NULL;
 
 	int print_help = 0;
 	FILE *outf;
@@ -943,6 +944,9 @@ int main(int argc, char *argv[])
 		case O(INCREMENTAL, 'r'):
 			rebuild_map = 1;
 			continue;
+		case O(INCREMENTAL, IncrementalPath):
+			remove_path = optarg;
+			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -1586,12 +1590,13 @@ int main(int argc, char *argv[])
 			rv = 1;
 			break;
 		}
-		if (devmode == 'f') {
-			rv = IncrementalRemove(devlist->devname, verbose-quiet);
-			break;
-		}
-		rv = Incremental(devlist->devname, verbose-quiet, runstop,
-				 ss, homehost, require_homehost, autof);
+		if (devmode == 'f')
+			rv = IncrementalRemove(devlist->devname, remove_path,
+					       verbose-quiet);
+		else
+			rv = Incremental(devlist->devname, verbose-quiet,
+					 runstop, ss, homehost,
+					 require_homehost, autof);
 		break;
 	case AUTODETECT:
 		autodetect();

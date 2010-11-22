@@ -280,6 +280,7 @@ enum special_options {
 	DetailPlatform,
 	KillSubarray,
 	UpdateSubarray, /* 16 */
+	IncrementalPath
 };
 
 /* structures read from config file */
@@ -928,7 +929,7 @@ extern int Incremental(char *devname, int verbose, int runstop,
 		       int autof);
 extern void RebuildMap(void);
 extern int IncrementalScan(int verbose);
-extern int IncrementalRemove(char *devname, int verbose);
+extern int IncrementalRemove(char *devname, char *path, int verbose);
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,
 			unsigned long write_behind,

@@ -191,6 +191,8 @@ struct option long_options[] = {
 
     /* For Incremental */
     {"rebuild-map", 0, 0, 'r'},
+    {"path", 1, 0, IncrementalPath},
+
     {0, 0, 0, 0}
 };
 

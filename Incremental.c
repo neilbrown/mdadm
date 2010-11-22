@@ -708,6 +708,7 @@ static int count_active(struct supertype *st, int mdfd, char **availp,
 				cnt = 1; cnt1 = 0;
 				memset(avail, 0, info.disk.raid_disk);
 				max_events = info.events;
+				avail[info.disk.raid_disk] = 2;
 				st->ss->getinfo_super(st, bestinfo, NULL);
 			}
 		}

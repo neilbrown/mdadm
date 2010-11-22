@@ -456,9 +456,9 @@ int Monitor(struct mddev_dev *devlist,
 			struct mdstat_ent *mse;
 			for (mse=mdstat; mse; mse=mse->next)
 				if (mse->devnum != INT_MAX &&
-				    mse->level &&
-				    (strcmp(mse->level, "raid0")!=0 &&
-				     strcmp(mse->level, "linear")!=0)
+				   (!mse->level  || /* retrieve containers */
+				    (strcmp(mse->level, "raid0") != 0 &&
+				     strcmp(mse->level, "linear") != 0))
 					) {
 					struct state *st = malloc(sizeof *st);
 					mdu_array_info_t array;

@@ -58,20 +58,21 @@ struct state {
 	struct state *next;
 };
 
+struct alert_info {
+	char *mailaddr;
+	char *mailfrom;
+	char *alert_cmd;
+	int dosyslog;
+};
 static int make_daemon(char *pidfile);
 static int check_one_sharer(int scan);
-static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom,
-		  char *cmd, int dosyslog);
+static void alert(char *event, char *dev, char *disc, struct alert_info *info);
 static int check_array(struct state *st, struct mdstat_ent *mdstat,
-		       int test, char *mailaddr,
-		       char *mailfrom, char *alert_cmd, int dosyslog,
+		       int test, struct alert_info *info,
 		       int increments);
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
-			  int test, char *mailaddr, char *mailfrom,
-			  char *alert_cmd, int dosyslog);
-static void try_spare_migration(struct state *statelist,
-				char *mailaddr, char *mailfrom,
-				char *alert_cmd, int dosyslog);
+			  int test, struct alert_info *info);
+static void try_spare_migration(struct state *statelist, struct alert_info *info);
 static void link_containers_with_subarrays(struct state *list);
 
 int Monitor(struct mddev_dev *devlist,
@@ -126,6 +127,7 @@ int Monitor(struct mddev_dev *devlist,
 	int finished = 0;
 	struct mdstat_ent *mdstat = NULL;
 	char *mailfrom = NULL;
+	struct alert_info info;
 
 	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr();
@@ -145,6 +147,10 @@ int Monitor(struct mddev_dev *devlist,
 		fprintf(stderr, Name ": No mail address or alert command - not monitoring.\n");
 		return 1;
 	}
+	info.alert_cmd = alert_cmd;
+	info.mailaddr = mailaddr;
+	info.mailfrom = mailfrom;
+	info.dosyslog = dosyslog;
 
 	if (daemonise)
 		if (make_daemon(pidfile))
@@ -212,23 +218,20 @@ int Monitor(struct mddev_dev *devlist,
 		mdstat = mdstat_read(oneshot?0:1, 0);
 
 		for (st=statelist; st; st=st->next)
-			if (check_array(st, mdstat, test, mailaddr, mailfrom,
-					alert_cmd, dosyslog, increments))
+			if (check_array(st, mdstat, test, &info, increments))
 				anydegraded = 1;
 		
 		/* now check if there are any new devices found in mdstat */
 		if (scan)
 			new_found = add_new_arrays(mdstat, statelist, test,
-						   mailaddr, mailfrom, alert_cmd,
-						   dosyslog);
+						   &info);
 
 		/* If an array has active < raid && spare == 0 && spare_group != NULL
 		 * Look for another array with spare > 0 and active == raid and same spare_group
 		 *  if found, choose a device and hotremove/hotadd
 		 */
 		if (share && anydegraded)
-			try_spare_migration(statelist, mailaddr, mailfrom,
-					    alert_cmd, dosyslog);
+			try_spare_migration(statelist, &info);
 		if (!new_found) {
 			if (oneshot)
 				break;
@@ -313,17 +316,16 @@ static int check_one_sharer(int scan)
 	return 0;
 }
 
-static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mailfrom, char *cmd,
-		  int dosyslog)
+static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 {
 	int priority;
 
-	if (!cmd && !mailaddr) {
+	if (!info->alert_cmd && !info->mailaddr) {
 		time_t now = time(0);
 
 		printf("%1.15s: %s on %s %s\n", ctime(&now)+4, event, dev, disc?disc:"unknown device");
 	}
-	if (cmd) {
+	if (info->alert_cmd) {
 		int pid = fork();
 		switch(pid) {
 		default:
@@ -332,11 +334,12 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 		case -1:
 			break;
 		case 0:
-			execl(cmd, cmd, event, dev, disc, NULL);
+			execl(info->alert_cmd, info->alert_cmd,
+			      event, dev, disc, NULL);
 			exit(2);
 		}
 	}
-	if (mailaddr &&
+	if (info->mailaddr &&
 	    (strncmp(event, "Fail", 4)==0 ||
 	     strncmp(event, "Test", 4)==0 ||
 	     strncmp(event, "Spares", 6)==0 ||
@@ -347,20 +350,27 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			char hname[256];
 			gethostname(hname, sizeof(hname));
 			signal(SIGPIPE, SIG_IGN);
-			if (mailfrom)
-				fprintf(mp, "From: %s\n", mailfrom);
+			if (info->mailfrom)
+				fprintf(mp, "From: %s\n", info->mailfrom);
 			else
 				fprintf(mp, "From: " Name " monitoring <root>\n");
-			fprintf(mp, "To: %s\n", mailaddr);
-			fprintf(mp, "Subject: %s event on %s:%s\n\n", event, dev, hname);
+			fprintf(mp, "To: %s\n", info->mailaddr);
+			fprintf(mp, "Subject: %s event on %s:%s\n\n",
+				event, dev, hname);
 
-			fprintf(mp, "This is an automatically generated mail message from " Name "\n");
+			fprintf(mp,
+				"This is an automatically generated"
+				" mail message from " Name "\n");
 			fprintf(mp, "running on %s\n\n", hname);
 
-			fprintf(mp, "A %s event had been detected on md device %s.\n\n", event, dev);
+			fprintf(mp,
+				"A %s event had been detected on"
+				" md device %s.\n\n", event, dev);
 
 			if (disc && disc[0] != ' ')
-				fprintf(mp, "It could be related to component device %s.\n\n", disc);
+				fprintf(mp,
+					"It could be related to"
+					" component device %s.\n\n", disc);
 			if (disc && disc[0] == ' ')
 				fprintf(mp, "Extra information:%s.\n\n", disc);
 
@@ -370,18 +380,19 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			if (mdstat) {
 				char buf[8192];
 				int n;
-				fprintf(mp, "\nP.S. The /proc/mdstat file currently contains the following:\n\n");
+				fprintf(mp,
+					"\nP.S. The /proc/mdstat file"
+					" currently contains the following:\n\n");
 				while ( (n=fread(buf, 1, sizeof(buf), mdstat)) > 0)
-					n=fwrite(buf, 1, n, mp); /* yes, i don't care about the result */
+					n=fwrite(buf, 1, n, mp);
 				fclose(mdstat);
 			}
 			pclose(mp);
 		}
-
 	}
 
 	/* log the event to syslog maybe */
-	if (dosyslog) {
+	if (info->dosyslog) {
 		/* Log at a different severity depending on the event.
 		 *
 		 * These are the critical events:  */
@@ -399,15 +410,18 @@ static void alert(char *event, char *dev, char *disc, char *mailaddr, char *mail
 			priority = LOG_INFO;
 
 		if (disc)
-			syslog(priority, "%s event detected on md device %s, component device %s", event, dev, disc);
+			syslog(priority,
+			       "%s event detected on md device %s,"
+			       " component device %s", event, dev, disc);
 		else
-			syslog(priority, "%s event detected on md device %s", event, dev);
+			syslog(priority,
+			       "%s event detected on md device %s",
+			       event, dev);
 	}
 }
 
 static int check_array(struct state *st, struct mdstat_ent *mdstat,
-		       int test, char *mailaddr,
-		       char *mailfrom, char *alert_cmd, int dosyslog,
+		       int test, struct alert_info *ainfo,
 		       int increments)
 {
 	struct { int state, major, minor; } info[MaxDisks];
@@ -418,25 +432,19 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	int i;
 
 	if (test)
-		alert("TestMessage", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+		alert("TestMessage", dev, NULL, ainfo);
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {
 		if (!st->err)
-			alert("DeviceDisappeared", dev, NULL,
-			      mailaddr, mailfrom, alert_cmd, dosyslog);
-/*					fprintf(stderr, Name ": cannot open %s: %s\n",
-					dev, strerror(errno));
-*/				st->err=1;
+			alert("DeviceDisappeared", dev, NULL, ainfo);
+		st->err=1;
 		return 0;
 	}
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 		if (!st->err)
-			alert("DeviceDisappeared", dev, NULL,
-			      mailaddr, mailfrom, alert_cmd, dosyslog);
-/*					fprintf(stderr, Name ": cannot get array info for %s: %s\n",
-					dev, strerror(errno));
-*/				st->err=1;
+			alert("DeviceDisappeared", dev, NULL, ainfo);
+		st->err=1;
 		close(fd);
 		return 0;
 	}
@@ -445,8 +453,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	 */
 	if (array.level == 0 || array.level == -1) {
 		if (!st->err)
-			alert("DeviceDisappeared", dev, "Wrong-Level",
-			      mailaddr, mailfrom, alert_cmd, dosyslog);
+			alert("DeviceDisappeared", dev, "Wrong-Level", ainfo);
 		st->err = 1;
 		close(fd);
 		return 0;
@@ -495,15 +502,15 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (st->utime == 0 && /* new array */
 	    mse->pattern && strchr(mse->pattern, '_') /* degraded */
 		)
-		alert("DegradedArray", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+		alert("DegradedArray", dev, NULL, ainfo);
 
 	if (st->utime == 0 && /* new array */
 	    st->expected_spares > 0 &&
 	    array.spare_disks < st->expected_spares)
-		alert("SparesMissing", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+		alert("SparesMissing", dev, NULL, ainfo);
 	if (st->percent == -1 &&
 	    mse->percent >= 0)
-		alert("RebuildStarted", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+		alert("RebuildStarted", dev, NULL, ainfo);
 	if (st->percent >= 0 &&
 	    mse->percent >= 0 &&
 	    (mse->percent / increments) > (st->percent / increments)) {
@@ -514,8 +521,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		else
 			snprintf(percentalert, sizeof(percentalert), "Rebuild%02d", mse->percent);
 
-		alert(percentalert,
-		      dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+		alert(percentalert, dev, NULL, ainfo);
 	}
 
 	if (mse->percent == -1 &&
@@ -529,9 +535,9 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		if (sra && sra->mismatch_cnt > 0) {
 			char cnt[40];
 			sprintf(cnt, " mismatches found: %d", sra->mismatch_cnt);
-			alert("RebuildFinished", dev, cnt, mailaddr, mailfrom, alert_cmd, dosyslog);
+			alert("RebuildFinished", dev, cnt, ainfo);
 		} else
-			alert("RebuildFinished", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+			alert("RebuildFinished", dev, NULL, ainfo);
 		if (sra)
 			free(sra);
 	}
@@ -593,20 +599,20 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			     ((st->devstate[i]&change)&(1<<MD_DISK_ACTIVE)) ||
 			     ((st->devstate[i]&change)&(1<<MD_DISK_SYNC)))
 				)
-				alert("Fail", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
+				alert("Fail", dev, dv, ainfo);
 			else if (i >= array.raid_disks &&
 				 (disc.major || disc.minor) &&
 				 st->devid[i] == makedev(disc.major, disc.minor) &&
 				 ((newstate&change)&(1<<MD_DISK_FAULTY))
 				)
-				alert("FailSpare", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
+				alert("FailSpare", dev, dv, ainfo);
 			else if (i < array.raid_disks &&
 				 ! (newstate & (1<<MD_DISK_REMOVED)) &&
 				 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
 				  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||
 				  ((newstate&change)&(1<<MD_DISK_SYNC)))
 				)
-				alert("SpareActive", dev, dv, mailaddr, mailfrom, alert_cmd, dosyslog);
+				alert("SpareActive", dev, dv, ainfo);
 		}
 		st->devstate[i] = newstate;
 		st->devid[i] = makedev(disc.major, disc.minor);
@@ -624,8 +630,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 }
 
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
-			   int test, char *mailaddr, char *mailfrom,
-			   char *alert_cmd, int dosyslog)
+			  int test, struct alert_info *info)
 {
 	struct mdstat_ent *mse;
 	int new_found = 0;
@@ -669,16 +674,14 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 				st->parent_dev = NoMdDev;
 			statelist = st;
 			if (test)
-				alert("TestMessage", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
-			alert("NewArray", st->devname, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
+				alert("TestMessage", st->devname, NULL, info);
+			alert("NewArray", st->devname, NULL, info);
 			new_found = 1;
 		}
 	return new_found;
 }
 
-static void try_spare_migration(struct state *statelist,
-				char *mailaddr, char *mailfrom,
-				char *alert_cmd, int dosyslog)
+static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
 	struct state *st;
 
@@ -725,7 +728,7 @@ static void try_spare_migration(struct state *statelist,
 						if (Manage_subdevs(st2->devname, fd2, &devlist, -1, 0) == 0) {
 							devlist.disposition = 'a';
 							if (Manage_subdevs(st->devname, fd1, &devlist, -1, 0) == 0) {
-								alert("MoveSpare", st->devname, st2->devname, mailaddr, mailfrom, alert_cmd, dosyslog);
+								alert("MoveSpare", st->devname, st2->devname, info);
 								close(fd1);
 								close(fd2);
 								break;

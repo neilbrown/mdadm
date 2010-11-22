@@ -271,6 +271,14 @@ int Monitor(struct mddev_dev *devlist,
 					mse = mse2;
 				}
 
+			if (!mse) {
+				/* duplicated array in statelist
+				 * or re-created after reading mdstat*/
+				st->err = 1;
+				close(fd);
+				continue;
+			}
+			/* this array is in /proc/mdstat */
 			if (array.utime == 0)
 				/* external arrays don't update utime */
 				array.utime = time(0);
@@ -287,7 +295,6 @@ int Monitor(struct mddev_dev *devlist,
 				continue;
 			}
 			if (st->utime == 0 && /* new array */
-			    mse &&	/* is in /proc/mdstat */
 			    mse->pattern && strchr(mse->pattern, '_') /* degraded */
 				)
 				alert("DegradedArray", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
@@ -296,12 +303,10 @@ int Monitor(struct mddev_dev *devlist,
 			    st->expected_spares > 0 &&
 			    array.spare_disks < st->expected_spares)
 				alert("SparesMissing", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
-			if (mse &&
-			    st->percent == -1 &&
+			if (st->percent == -1 &&
 			    mse->percent >= 0)
 				alert("RebuildStarted", dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
-			if (mse &&
-			    st->percent >= 0 &&
+			if (st->percent >= 0 &&
 			    mse->percent >= 0 &&
 			    (mse->percent / increments) > (st->percent / increments)) {
 				char percentalert[15]; // "RebuildNN" (10 chars) or "RebuildStarted" (15 chars)
@@ -315,8 +320,7 @@ int Monitor(struct mddev_dev *devlist,
 				      dev, NULL, mailaddr, mailfrom, alert_cmd, dosyslog);
 			}
 
-			if (mse &&
-			    mse->percent == -1 &&
+			if (mse->percent == -1 &&
 			    st->percent >= 0) {
 				/* Rebuild/sync/whatever just finished.
 				 * If there is a number in /mismatch_cnt,
@@ -333,10 +337,7 @@ int Monitor(struct mddev_dev *devlist,
 				if (sra)
 					free(sra);
 			}
-
-			if (mse)
-				st->percent = mse->percent;
-
+			st->percent = mse->percent;
 
 			for (i=0; i<MaxDisks && i <= array.raid_disks + array.nr_disks;
 			     i++) {

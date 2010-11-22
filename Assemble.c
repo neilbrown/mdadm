@@ -390,11 +390,12 @@ int Assemble(struct supertype *st, char *mddev,
 			if (verbose > 0)
 				fprintf(stderr, Name ": looking in container %s\n",
 					devname);
+
+			tmpdev->content = tst->ss->container_content(tst, NULL);
 		next_member:
 			if (tmpdev->content)
 				content = tmpdev->content;
-			else
-				content = tst->ss->container_content(tst, NULL);
+
 			if (!content)
 				goto loop; /* empty container */
 
@@ -405,7 +406,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (!ident_matches(ident, content, tst,
 					   homehost, update,
 					   report_missmatch ? devname : NULL))
-				goto loop;
+				goto next_member;
 
 			/* we have the one container we need, don't keep
 			 * looking.  If the chosen member is active, skip.
@@ -521,8 +522,6 @@ int Assemble(struct supertype *st, char *mddev,
 	loop:
 		dev_policy_free(pol);
 		pol = NULL;
-		if (tmpdev->content)
-			goto next_member;
 		if (tst)
 			tst->ss->free_super(tst);
 	}

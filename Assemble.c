@@ -265,11 +265,11 @@ int Assemble(struct supertype *st, char *mddev,
 			if (report_missmatch)
 				fprintf(stderr, Name ": no RAID superblock on %s\n",
 					devname);
+			tmpdev->used = 2;
 		} else if (tst->ss->compare_super == NULL) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": Cannot assemble %s metadata on %s\n",
 					tst->ss->name, devname);
-			tst->ss->free_super(tst);
 			tmpdev->used = 2;
 		} else if (auto_assem && st == NULL &&
 			   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
@@ -278,7 +278,6 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": %s has metadata type %s for which "
 					"auto-assembly is disabled\n",
 					devname, tst->ss->name);
-			tst->ss->free_super(tst);
 			tmpdev->used = 2;
 		} else {
 			content = &info;
@@ -286,8 +285,26 @@ int Assemble(struct supertype *st, char *mddev,
 			tst->ss->getinfo_super(tst, content, NULL);
 		}
 		if (dfd >= 0) close(dfd);
+		if (tmpdev->used == 2) {
+			if (auto_assem)
+				/* Ignore unrecognised devices during auto-assembly */
+				goto loop;
+			if (ident->uuid_set || ident->name[0] ||
+			    ident->super_minor != UnSet)
+				/* Ignore unrecognised device if looking for
+				 * specific array */
+				goto loop;
+			    
 
-		if (tst && tst->sb && tst->ss->container_content
+			fprintf(stderr, Name ": %s has no superblock - assembly aborted\n",
+				devname);
+			if (st)
+				st->ss->free_super(st);
+			dev_policy_free(pol);
+			return 1;
+		}
+
+		if (tst->ss->container_content
 		    && tst->loaded_container) {
 			/* tmpdev is a container.  We need to be either
 			 * looking for a member, or auto-assembling
@@ -349,66 +366,42 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 
 		if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
-		    (!tst || !tst->sb ||
-		     same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0)) {
+		    same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong uuid.\n",
 					devname);
 			goto loop;
 		}
 		if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
-		    (!tst || !tst->sb ||
-		     name_matches(content->name, ident->name, homehost)==0)) {
+		     name_matches(content->name, ident->name, homehost)==0) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong name.\n",
 					devname);
 			goto loop;
 		}
 		if (ident->super_minor != UnSet &&
-		    (!tst || !tst->sb ||
-		     ident->super_minor != content->array.md_minor)) {
+		    ident->super_minor != content->array.md_minor) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong super-minor.\n",
 					devname);
 			goto loop;
 		}
 		if (ident->level != UnSet &&
-		    (!tst || !tst->sb ||
-		     ident->level != content->array.level)) {
+		    ident->level != content->array.level) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s has wrong raid level.\n",
 					devname);
 			goto loop;
 		}
 		if (ident->raid_disks != UnSet &&
-		    (!tst || !tst->sb ||
-		     ident->raid_disks!= content->array.raid_disks)) {
+		    ident->raid_disks!= content->array.raid_disks) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": %s requires wrong number of drives.\n",
 					devname);
 			goto loop;
 		}
-		if (auto_assem) {
-			if (tst == NULL || tst->sb == NULL)
-				continue;
-		}
-		/* If we are this far, then we are nearly commited to this device.
-		 * If the super_block doesn't exist, or doesn't match others,
-		 * then we probably cannot continue
-		 * However if one of the arrays is for the homehost, and
-		 * the other isn't that can disambiguate.
-		 */
 
-		if (!tst || !tst->sb) {
-			fprintf(stderr, Name ": %s has no superblock - assembly aborted\n",
-				devname);
-			if (st)
-				st->ss->free_super(st);
-			dev_policy_free(pol);
-			return 1;
-		}
-
-		if (tst && tst->sb && tst->ss->container_content
+		if (tst->ss->container_content
 		    && tst->loaded_container) {
 			/* we have the one container we need, don't keep
 			 * looking.  If the chosen member is active, skip.

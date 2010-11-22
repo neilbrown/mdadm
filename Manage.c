@@ -609,7 +609,7 @@ int Manage_subdevs(char *devname, int fd,
 				if (tst->sb)
 					/* already loaded */;
 				else if (tst->ss->external) {
-					tst->ss->load_super(tst, fd, NULL);
+					tst->ss->load_container(tst, fd, NULL);
 				} else for (j = 0; j < tst->max_devs; j++) {
 					char *dev;
 					int dfd;

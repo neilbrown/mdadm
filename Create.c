@@ -169,15 +169,15 @@ int Create(struct supertype *st, char *mddev,
 		    inf.raid_disks == 0) {
 			/* yep, looks like a container */
 			if (st) {
-				rv = st->ss->load_super(st, fd,
-							devlist->devname);
+				rv = st->ss->load_container(st, fd,
+							    devlist->devname);
 				if (rv == 0)
 					have_container = 1;
 			} else {
-				st = guess_super(fd);
+				st = super_by_fd(fd, NULL);
 				if (st && !(rv = st->ss->
-					    load_super(st, fd,
-						       devlist->devname)))
+					    load_container(st, fd,
+							   devlist->devname)))
 					have_container = 1;
 				else
 					st = NULL;

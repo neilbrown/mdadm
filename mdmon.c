@@ -468,7 +468,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 		}
 		close(victim_sock);
 	}
-	if (container->ss->load_super(container, mdfd, devname)) {
+	if (container->ss->load_container(container, mdfd, devname)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",
 			devname);
 		exit(3);

@@ -352,6 +352,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 		if (tst->ss->container_content
 		    && tst->loaded_container) {
+			int skip = 0;
 			/* tmpdev is a container.  We need to be either
 			 * looking for a member, or auto-assembling
 			 */
@@ -415,7 +416,22 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, Name ": member %s in %s is already assembled\n",
 						content->text_version,
 						devname);
-			skip:
+				skip = 1;
+			} else if (ident->member && ident->member[0]) {
+				char *s = strchr(content->text_version+1, '/');
+				if (s == NULL) {
+					fprintf(stderr, Name ": badly formatted version: %s\n",
+						content->text_version);
+					skip = 1;
+				} else if (strcmp(ident->member, s+1) != 0) {
+					if (report_missmatch)
+						fprintf(stderr,
+							Name ": skipping wrong member %s\n",
+							content->text_version);
+					skip = 1;
+				}
+			}
+			if (skip) {
 				content = content->next;
 				if (content)
 					goto next_member;
@@ -425,21 +441,6 @@ int Assemble(struct supertype *st, char *mddev,
 					goto loop;
 				dev_policy_free(pol);
 				return 1;
-			}
-			if (ident->member && ident->member[0]) {
-				char *s = strchr(content->text_version+1, '/');
-				if (s == NULL) {
-					fprintf(stderr, Name ": badly formatted version: %s\n",
-						content->text_version);
-					goto skip;
-				}
-				if (strcmp(ident->member, s+1) != 0) {
-					if (report_missmatch)
-						fprintf(stderr,
-							Name ": skipping wrong member %s\n",
-							content->text_version);
-					goto skip;
-				}
 			}
 			st = tst; tst = NULL;
 			if (!auto_assem && inargv && tmpdev->next != NULL) {

@@ -1126,6 +1126,9 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	int i;
 
 	st = malloc(sizeof(*st));
+	memset(st, 0, sizeof(*st));
+	st->container_dev = NoMdDev;
+
 	for (i=0 ; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];

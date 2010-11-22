@@ -333,6 +333,7 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 	if (!st)
 		return NULL;
 	memset(st, 0, sizeof(*st));
+	st->container_dev = NoMdDev;
 	st->ss = &super_imsm;
 	st->max_devs = IMSM_MAX_DEVICES;
 	st->minor_version = 0;

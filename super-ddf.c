@@ -893,6 +893,7 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 
 	st = malloc(sizeof(*st));
 	memset(st, 0, sizeof(*st));
+	st->container_dev = NoMdDev;
 	st->ss = &super_ddf;
 	st->max_devs = 512;
 	st->minor_version = 0;

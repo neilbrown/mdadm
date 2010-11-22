@@ -672,7 +672,7 @@ int Create(struct supertype *st, char *mddev,
 
 	sysfs_init(&info, mdfd, 0);
 
-	if (st->ss->external && st->subarray[0]) {
+	if (st->ss->external && st->container_dev != NoMdDev) {
 		/* member */
 
 		/* When creating a member, we need to be careful
@@ -775,7 +775,8 @@ int Create(struct supertype *st, char *mddev,
 				if (have_container)
 					fd = -1;
 				else {
-					if (st->ss->external && st->subarray[0])
+					if (st->ss->external &&
+					    st->container_dev != NoMdDev)
 						fd = open(dv->devname, O_RDWR);
 					else
 						fd = open(dv->devname, O_RDWR|O_EXCL);
@@ -906,7 +907,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 		if (verbose >= 0)
 			fprintf(stderr, Name ": array %s started.\n", mddev);
-		if (st->ss->external && st->subarray[0]) {
+		if (st->ss->external && st->container_dev != NoMdDev) {
 			if (need_mdmon)
 				start_mdmon(st->container_dev);
 

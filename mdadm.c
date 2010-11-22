@@ -265,7 +265,6 @@ int main(int argc, char *argv[])
 					dv->writemostly = writemostly;
 					dv->re_add = re_add;
 					dv->used = 0;
-					dv->content = NULL;
 					dv->next = NULL;
 					*devlistend = dv;
 					devlistend = &dv->next;
@@ -320,7 +319,6 @@ int main(int argc, char *argv[])
 			dv->writemostly = writemostly;
 			dv->re_add = re_add;
 			dv->used = 0;
-			dv->content = NULL;
 			dv->next = NULL;
 			*devlistend = dv;
 			devlistend = &dv->next;

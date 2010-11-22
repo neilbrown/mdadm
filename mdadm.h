@@ -337,8 +337,6 @@ struct mddev_dev {
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
 	char re_add;
 	char used;		/* set when used */
-	struct mdinfo *content;	/* If devname is a container, this might list
-				 * the remaining member arrays. */
 	struct mddev_dev *next;
 };
 

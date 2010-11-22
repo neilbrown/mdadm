@@ -391,22 +391,21 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": looking in container %s\n",
 					devname);
 
-			tmpdev->content = tst->ss->container_content(tst, NULL);
+			content = tst->ss->container_content(tst, NULL);
 		next_member:
-			if (tmpdev->content)
-				content = tmpdev->content;
 
 			if (!content)
 				goto loop; /* empty container */
 
-			tmpdev->content = content->next;
-			if (tmpdev->content == NULL)
+			if (content->next == NULL)
 				tmpdev->used = 2;
 
 			if (!ident_matches(ident, content, tst,
 					   homehost, update,
-					   report_missmatch ? devname : NULL))
+					   report_missmatch ? devname : NULL)) {
+				content = content->next;
 				goto next_member;
+			}
 
 			/* we have the one container we need, don't keep
 			 * looking.  If the chosen member is active, skip.
@@ -417,11 +416,11 @@ int Assemble(struct supertype *st, char *mddev,
 						content->text_version,
 						devname);
 			skip:
-				if (tmpdev->content)
+				content = content->next;
+				if (content)
 					goto next_member;
 				tst->ss->free_super(tst);
 				tst = NULL;
-				content = NULL;
 				if (auto_assem)
 					goto loop;
 				dev_policy_free(pol);

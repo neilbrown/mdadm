@@ -260,7 +260,6 @@ struct mddev_dev *load_partitions(void)
 		d->devname = strdup(name);
 		d->next = rv;
 		d->used = 0;
-		d->content = NULL;
 		rv = d;
 	}
 	fclose(f);
@@ -290,7 +289,6 @@ struct mddev_dev *load_containers(void)
 			}
 			d->next = rv;
 			d->used = 0;
-			d->content = NULL;
 			rv = d;
 		}
 	free_mdstat(mdstat);
@@ -964,7 +962,6 @@ struct mddev_dev *conf_get_devs()
 			t->devname = strdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
 			t->used = 0;
-			t->content = NULL;
 			dlist = t;
 /*	printf("one dev is %s\n", t->devname);*/
 		}

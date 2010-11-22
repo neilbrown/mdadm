@@ -211,7 +211,6 @@ int Assemble(struct supertype *st, char *mddev,
 			num_devs++;
 		tmpdev = tmpdev->next;
 	}
-	devices = malloc(num_devs * sizeof(*devices));
 
 	if (!st && ident->st) st = ident->st;
 
@@ -562,7 +561,6 @@ int Assemble(struct supertype *st, char *mddev,
 			    chosen_name);
 	if (mdfd < 0) {
 		st->ss->free_super(st);
-		free(devices);
 		if (auto_assem)
 			goto try_again;
 		return 1;
@@ -588,7 +586,6 @@ int Assemble(struct supertype *st, char *mddev,
 		close(mdfd);
 		mdfd = -3;
 		st->ss->free_super(st);
-		free(devices);
 		if (auto_assem)
 			goto try_again;
 		return 1;
@@ -605,6 +602,7 @@ int Assemble(struct supertype *st, char *mddev,
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	bitmap_done = 0;
 	content->update_private = NULL;
+	devices = malloc(num_devs * sizeof(*devices));
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
@@ -641,6 +639,7 @@ int Assemble(struct supertype *st, char *mddev,
 				if (dfd >= 0)
 					close(dfd);
 				close(mdfd);
+				free(devices);
 				return 1;
 			}
 			tst->ss->getinfo_super(tst, content, NULL);
@@ -665,6 +664,7 @@ int Assemble(struct supertype *st, char *mddev,
 				free(tst);
 				close(mdfd);
 				close(dfd);
+				free(devices);
 				return 1;
 			}
 			if (strcmp(update, "uuid")==0 &&
@@ -702,6 +702,7 @@ int Assemble(struct supertype *st, char *mddev,
 				if (dfd >= 0)
 					close(dfd);
 				close(mdfd);
+				free(devices);
 				return 1;
 			}
 			tst->ss->getinfo_super(tst, content, NULL);
@@ -774,6 +775,7 @@ int Assemble(struct supertype *st, char *mddev,
 					   "the\n      DEVICE list in mdadm.conf"
 					);
 				close(mdfd);
+				free(devices);
 				return 1;
 			}
 			if (best[i] == -1
@@ -792,6 +794,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (st)
 			st->ss->free_super(st);
 		close(mdfd);
+		free(devices);
 		return 1;
 	}
 
@@ -939,6 +942,7 @@ int Assemble(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
 				devices[j].devname, strerror(errno));
 			close(mdfd);
+			free(devices);
 			return 1;
 		}
 		if (st->ss->load_super(st,fd, NULL)) {
@@ -946,6 +950,7 @@ int Assemble(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": RAID superblock has disappeared from %s\n",
 				devices[j].devname);
 			close(mdfd);
+			free(devices);
 			return 1;
 		}
 		close(fd);
@@ -953,6 +958,7 @@ int Assemble(struct supertype *st, char *mddev,
 	if (st->sb == NULL) {
 		fprintf(stderr, Name ": No suitable drives found for %s\n", mddev);
 		close(mdfd);
+		free(devices);
 		return 1;
 	}
 	st->ss->getinfo_super(st, content, NULL);
@@ -1016,6 +1022,7 @@ int Assemble(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": Could not open %s for write - cannot Assemble array.\n",
 				devices[chosen_drive].devname);
 			close(mdfd);
+			free(devices);
 			return 1;
 		}
 		if (st->ss->store_super(st, fd)) {
@@ -1023,6 +1030,7 @@ int Assemble(struct supertype *st, char *mddev,
 			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
 			close(mdfd);
+			free(devices);
 			return 1;
 		}
 		close(fd);
@@ -1064,6 +1072,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (backup_file == NULL)
 				fprintf(stderr,"      Possibly you needed to specify the --backup-file\n");
 			close(mdfd);
+			free(devices);
 			return err;
 		}
 	}
@@ -1089,6 +1098,7 @@ int Assemble(struct supertype *st, char *mddev,
 				mddev, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, NULL);
 			close(mdfd);
+			free(devices);
 			return 1;
 		}
 		if (ident->bitmap_fd >= 0) {
@@ -1096,6 +1106,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
+				free(devices);
 				return 1;
 			}
 		} else if (ident->bitmap_file) {
@@ -1106,6 +1117,7 @@ int Assemble(struct supertype *st, char *mddev,
 					ident->bitmap_file);
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
+				free(devices);
 				return 1;
 			}
 			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
@@ -1113,6 +1125,7 @@ int Assemble(struct supertype *st, char *mddev,
 				close(bmfd);
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
+				free(devices);
 				return 1;
 			}
 			close(bmfd);
@@ -1166,6 +1179,7 @@ int Assemble(struct supertype *st, char *mddev,
 			sysfs_uevent(content, "change");
 			wait_for(chosen_name, mdfd);
 			close(mdfd);
+			free(devices);
 			return 0;
 		}
 
@@ -1265,6 +1279,7 @@ int Assemble(struct supertype *st, char *mddev,
 						usecs <<= 1;
 					}
 				}
+				free(devices);
 				return 0;
 			}
 			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",
@@ -1285,6 +1300,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (auto_assem)
 				ioctl(mdfd, STOP_ARRAY, NULL);
 			close(mdfd);
+			free(devices);
 			return 1;
 		}
 		if (runstop == -1) {
@@ -1294,6 +1310,7 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, " (out of %d)", content->array.raid_disks);
 			fprintf(stderr, ", but not started.\n");
 			close(mdfd);
+			free(devices);
 			return 0;
 		}
 		if (verbose >= -1) {
@@ -1323,6 +1340,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (auto_assem)
 			ioctl(mdfd, STOP_ARRAY, NULL);
 		close(mdfd);
+		free(devices);
 		return 1;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has
@@ -1339,6 +1357,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	}
 	close(mdfd);
+	free(devices);
 	return 0;
 }
 

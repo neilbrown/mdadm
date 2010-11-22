@@ -929,9 +929,6 @@ extern int WaitClean(char *dev, int sock, int verbose);
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int require_homehost,
 		       int autof);
-extern int Incremental_container(struct supertype *st, char *devname,
-				 int verbose, int runstop, int autof,
-				 int trustworthy);
 extern void RebuildMap(void);
 extern int IncrementalScan(int verbose);
 extern int IncrementalRemove(char *devname, int verbose);

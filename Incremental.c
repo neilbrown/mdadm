@@ -40,6 +40,10 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		     struct supertype *st, int verbose);
 
+static int Incremental_container(struct supertype *st, char *devname,
+				 int verbose, int runstop, int autof,
+				 int trustworthy);
+
 int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st, char *homehost, int require_homehost,
 		int autof)
@@ -1183,8 +1187,8 @@ static char *container2devname(char *devname)
 	return mdname;
 }
 
-int Incremental_container(struct supertype *st, char *devname, int verbose,
-			  int runstop, int autof, int trustworthy)
+static int Incremental_container(struct supertype *st, char *devname, int verbose,
+				 int runstop, int autof, int trustworthy)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.

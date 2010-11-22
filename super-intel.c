@@ -5635,6 +5635,41 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 }
 #endif /* MDASSEMBLE */
 
+static char disk_by_path[] = "/dev/disk/by-path/";
+
+static const char *imsm_get_disk_controller_domain(const char *path)
+{
+	struct sys_dev *list, *hba = NULL;
+	char disk_path[PATH_MAX];
+	int ahci = 0;
+	char *dpath = NULL;
+
+	list = find_driver_devices("pci", "ahci");
+	for (hba = list; hba; hba = hba->next)
+		if (devpath_to_vendor(hba->path) == 0x8086)
+			break;
+
+	if (hba) {
+		struct stat st;
+
+		strncpy(disk_path, disk_by_path, PATH_MAX - 1);
+		strncat(disk_path, path, PATH_MAX - strlen(disk_path) - 1);
+		if (stat(disk_path, &st) == 0) {
+			dpath = devt_to_devpath(st.st_rdev);
+			if (dpath)
+				ahci = path_attached_to_hba(dpath, hba->path);
+		}
+	}
+	dprintf("path: %s(%s) hba: %s attached: %d\n",
+		path, dpath, (hba) ? hba->path : "NULL", ahci);
+	free_sys_dev(&list);
+	if (ahci)
+		return "ahci";
+	else
+		return NULL;
+}
+
+
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_imsm,
@@ -5670,6 +5705,7 @@ struct superswitch super_imsm = {
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
 	.default_layout = imsm_level_to_layout,
+	.get_disk_controller_domain = imsm_get_disk_controller_domain,
 
 	.external	= 1,
 	.name = "imsm",

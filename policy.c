@@ -40,7 +40,8 @@
  * particularly from a set of policy rules in mdadm.conf
  */
 
-static void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata)
+static void pol_new(struct dev_policy **pol, char *name, const char *val,
+		    const char *metadata)
 {
 	struct dev_policy *n = malloc(sizeof(*n));
 	const char *real_metadata = NULL;
@@ -64,7 +65,7 @@ static void pol_new(struct dev_policy **pol, char *name, char *val, char *metada
 				real_metadata = super1.name;
 		}
 		if (!real_metadata) {
-			static char *prev = NULL;
+			static const char *prev = NULL;
 			if (prev != metadata) {
 				fprintf(stderr, Name ": metadata=%s unrecognised - ignoring rule\n",
 					metadata);
@@ -340,6 +341,7 @@ struct dev_policy *path_policy(char *path, char *type)
 {
 	struct pol_rule *rules;
 	struct dev_policy *pol = NULL;
+	int i;
 
 	if (!type)
 		return NULL;
@@ -360,6 +362,18 @@ struct dev_policy *path_policy(char *path, char *type)
 			}
 		rules = rules->next;
 	}
+
+	/* Now add any metadata-specific internal knowledge
+	 * about this path
+	 */
+	for (i=0; superlist[i]; i++)
+		if (superlist[i]->get_disk_controller_domain) {
+			const char *d =
+				superlist[i]->get_disk_controller_domain(path);
+			if (d)
+				pol_new(&pol, pol_domain, d, superlist[i]->name);
+		}
+
 	pol_sort(&pol);
 	pol_dedup(pol);
 	return pol;
@@ -521,7 +535,7 @@ void dev_policy_free(struct dev_policy *p)
 	}
 }
 
-static enum policy_action map_act(char *act)
+static enum policy_action map_act(const char *act)
 {
 	if (strcmp(act, "include") == 0)
 		return act_include;
@@ -581,7 +595,8 @@ int disk_action_allows(struct mdinfo *disk, const char *metadata, enum policy_ac
  * As dev policies are already sorted, this is fairly easy to manage.
  */
 
-static struct domainlist **domain_merge_one(struct domainlist **domp, char *domain)
+static struct domainlist **domain_merge_one(struct domainlist **domp,
+					    const char *domain)
 {
 	/* merge a domain name into a sorted list and return the
 	 * location of the insertion or match
@@ -600,6 +615,20 @@ static struct domainlist **domain_merge_one(struct domainlist **domp, char *doma
 	}
 	return domp;
 }
+
+#if (DEBUG)
+void dump_policy(struct dev_policy *policy)
+{
+	while (policy) {
+		dprintf("policy: %p name: %s value: %s metadata: %s\n",
+			policy,
+			policy->name,
+			policy->value,
+			policy->metadata);
+		policy = policy->next;
+	}
+}
+#endif
 
 void domain_merge(struct domainlist **domp, struct dev_policy *pollist,
 			 const char *metadata)

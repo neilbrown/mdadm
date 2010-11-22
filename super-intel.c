@@ -2876,6 +2876,11 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 	return 0;
 }
+
+static int load_container_imsm(struct supertype *st, int fd, char *devname)
+{
+	return load_super_imsm_all(st, fd, &st->sb, devname);
+}
 #endif
 
 static int load_super_imsm(struct supertype *st, int fd, char *devname)
@@ -5574,6 +5579,7 @@ struct superswitch super_imsm = {
 	.detail_platform = detail_platform_imsm,
 	.kill_subarray = kill_subarray_imsm,
 	.update_subarray = update_subarray_imsm,
+	.load_container	= load_container_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,

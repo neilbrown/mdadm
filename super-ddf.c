@@ -2880,6 +2880,13 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	st->loaded_container = 1;
 	return 0;
 }
+
+static int load_container_ddf(struct supertype *st, int fd,
+			      char *devname)
+{
+	return load_super_ddf_all(st, fd, &st->sb, devname);
+}
+
 #endif /* MDASSEMBLE */
 
 static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray)
@@ -3649,6 +3656,7 @@ struct superswitch super_ddf = {
 	.validate_geometry = validate_geometry_ddf,
 	.write_init_super = write_init_super_ddf,
 	.add_to_super	= add_to_super_ddf,
+	.load_container	= load_container_ddf,
 #endif
 	.match_home	= match_home_ddf,
 	.uuid_from_super= uuid_from_super_ddf,

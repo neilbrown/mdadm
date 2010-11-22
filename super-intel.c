@@ -1580,6 +1580,9 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 	struct intel_super *super = st->sb;
 	struct imsm_disk *disk;
 	int map_disks = info->array.raid_disks;
+	int max_enough = -1;
+	int i;
+	struct imsm_super *mpb;
 
 	if (super->current_vol >= 0) {
 		getinfo_super_imsm_volume(st, info, map);
@@ -1611,51 +1614,47 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 	info->recovery_start = MaxSector;
 
 	/* do we have the all the insync disks that we expect? */
-	if (st->loaded_container) {
-		struct imsm_super *mpb = super->anchor;
-		int max_enough = -1, i;
+	mpb = super->anchor;
 
-		for (i = 0; i < mpb->num_raid_devs; i++) {
-			struct imsm_dev *dev = get_imsm_dev(super, i);
-			int failed, enough, j, missing = 0;
-			struct imsm_map *map;
-			__u8 state;
+	for (i = 0; i < mpb->num_raid_devs; i++) {
+		struct imsm_dev *dev = get_imsm_dev(super, i);
+		int failed, enough, j, missing = 0;
+		struct imsm_map *map;
+		__u8 state;
 
-			failed = imsm_count_failed(super, dev);
-			state = imsm_check_degraded(super, dev, failed);
-			map = get_imsm_map(dev, dev->vol.migr_state);
+		failed = imsm_count_failed(super, dev);
+		state = imsm_check_degraded(super, dev, failed);
+		map = get_imsm_map(dev, dev->vol.migr_state);
 
-			/* any newly missing disks?
-			 * (catches single-degraded vs double-degraded)
-			 */
-			for (j = 0; j < map->num_members; j++) {
-				__u32 ord = get_imsm_ord_tbl_ent(dev, i);
-				__u32 idx = ord_to_idx(ord);
+		/* any newly missing disks?
+		 * (catches single-degraded vs double-degraded)
+		 */
+		for (j = 0; j < map->num_members; j++) {
+			__u32 ord = get_imsm_ord_tbl_ent(dev, i);
+			__u32 idx = ord_to_idx(ord);
 
-				if (!(ord & IMSM_ORD_REBUILD) &&
-				    get_imsm_missing(super, idx)) {
-					missing = 1;
-					break;
-				}
+			if (!(ord & IMSM_ORD_REBUILD) &&
+			    get_imsm_missing(super, idx)) {
+				missing = 1;
+				break;
 			}
-
-			if (state == IMSM_T_STATE_FAILED)
-				enough = -1;
-			else if (state == IMSM_T_STATE_DEGRADED &&
-				 (state != map->map_state || missing))
-				enough = 0;
-			else /* we're normal, or already degraded */
-				enough = 1;
-
-			/* in the missing/failed disk case check to see
-			 * if at least one array is runnable
-			 */
-			max_enough = max(max_enough, enough);
 		}
-		dprintf("%s: enough: %d\n", __func__, max_enough);
-		info->container_enough = max_enough;
-	} else
-		info->container_enough = -1;
+
+		if (state == IMSM_T_STATE_FAILED)
+			enough = -1;
+		else if (state == IMSM_T_STATE_DEGRADED &&
+			 (state != map->map_state || missing))
+			enough = 0;
+		else /* we're normal, or already degraded */
+			enough = 1;
+
+		/* in the missing/failed disk case check to see
+		 * if at least one array is runnable
+		 */
+		max_enough = max(max_enough, enough);
+	}
+	dprintf("%s: enough: %d\n", __func__, max_enough);
+	info->container_enough = max_enough;
 
 	if (super->disks) {
 		__u32 reserved = imsm_reserved_sectors(super, super->disks);

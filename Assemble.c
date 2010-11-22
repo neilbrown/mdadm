@@ -367,7 +367,6 @@ int Assemble(struct supertype *st, char *mddev,
 
 		if (tst->ss->container_content
 		    && tst->loaded_container) {
-			int skip = 0;
 			/* tmpdev is a container.  We need to be either
 			 * looking for a member, or auto-assembling
 			 */
@@ -431,9 +430,7 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, Name ": member %s in %s is already assembled\n",
 						content->text_version,
 						devname);
-				skip = 1;
-			}
-			if (skip) {
+
 				content = content->next;
 				if (content)
 					goto next_member;

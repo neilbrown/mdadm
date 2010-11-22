@@ -70,6 +70,52 @@ static int is_member_busy(char *metadata_version)
 	return busy;
 }
 
+static int ident_matches(struct mddev_ident_s *ident,
+			 struct mdinfo *content,
+			 struct supertype *tst,
+			 char *homehost,
+			 char *update, char *devname)
+{
+
+	if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
+	    same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0) {
+		if (devname)
+			fprintf(stderr, Name ": %s has wrong uuid.\n",
+				devname);
+		return 0;
+	}
+	if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
+	    name_matches(content->name, ident->name, homehost)==0) {
+		if (devname)
+			fprintf(stderr, Name ": %s has wrong name.\n",
+				devname);
+		return 0;
+	}
+	if (ident->super_minor != UnSet &&
+	    ident->super_minor != content->array.md_minor) {
+		if (devname)
+			fprintf(stderr, Name ": %s has wrong super-minor.\n",
+				devname);
+		return 0;
+	}
+	if (ident->level != UnSet &&
+	    ident->level != content->array.level) {
+		if (devname)
+			fprintf(stderr, Name ": %s has wrong raid level.\n",
+				devname);
+		return 0;
+	}
+	if (ident->raid_disks != UnSet &&
+	    ident->raid_disks!= content->array.raid_disks) {
+		if (devname)
+			fprintf(stderr, Name ": %s requires wrong number of drives.\n",
+				devname);
+		return 0;
+	}
+	return 1;
+}
+			 
+
 int Assemble(struct supertype *st, char *mddev,
 	     mddev_ident_t ident,
 	     mddev_dev_t devlist, char *backup_file,
@@ -365,41 +411,10 @@ int Assemble(struct supertype *st, char *mddev,
 			goto loop;
 		}
 
-		if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
-		    same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": %s has wrong uuid.\n",
-					devname);
+		if (!ident_matches(ident, content, tst,
+				   homehost, update,
+				   report_missmatch ? devname : NULL))
 			goto loop;
-		}
-		if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
-		     name_matches(content->name, ident->name, homehost)==0) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": %s has wrong name.\n",
-					devname);
-			goto loop;
-		}
-		if (ident->super_minor != UnSet &&
-		    ident->super_minor != content->array.md_minor) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": %s has wrong super-minor.\n",
-					devname);
-			goto loop;
-		}
-		if (ident->level != UnSet &&
-		    ident->level != content->array.level) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": %s has wrong raid level.\n",
-					devname);
-			goto loop;
-		}
-		if (ident->raid_disks != UnSet &&
-		    ident->raid_disks!= content->array.raid_disks) {
-			if (report_missmatch)
-				fprintf(stderr, Name ": %s requires wrong number of drives.\n",
-					devname);
-			goto loop;
-		}
 
 		if (tst->ss->container_content
 		    && tst->loaded_container) {

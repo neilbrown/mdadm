@@ -50,6 +50,11 @@ struct state {
 			 * For others, NoMdDev
 			 */
 	struct supertype *metadata;
+	struct state *subarray;/* for a container it is a link to first subarray
+				* for a subarray it is a link to next subarray
+				* in the same container */
+	struct state *parent;  /* for a subarray it is a link to its container
+				*/
 	struct state *next;
 };
 
@@ -67,6 +72,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 static void try_spare_migration(struct state *statelist,
 				char *mailaddr, char *mailfrom,
 				char *alert_cmd, int dosyslog);
+static void link_containers_with_subarrays(struct state *list);
 
 int Monitor(struct mddev_dev *devlist,
 	    char *mailaddr, char *alert_cmd,
@@ -680,6 +686,8 @@ static void try_spare_migration(struct state *statelist,
 				char *alert_cmd, int dosyslog)
 {
 	struct state *st;
+
+	link_containers_with_subarrays(statelist);
 	for (st = statelist; st; st=st->next)
 		if (st->active < st->raid &&
 		    st->spare == 0 &&
@@ -735,6 +743,34 @@ static void try_spare_migration(struct state *statelist,
 				}
 		}
 }
+
+/* search the statelist to connect external
+ * metadata subarrays with their containers
+ * We always completely rebuild the tree from scratch as
+ * that is safest considering the possibility of entries
+ * disappearing or changing.
+ */
+static void link_containers_with_subarrays(struct state *list)
+{
+	struct state *st;
+	struct state *cont;
+	for (st = list; st; st = st->next) {
+		st->parent = NULL;
+		st->subarray = NULL;
+	}
+	for (st = list; st; st = st->next)
+		if (st->parent_dev != NoMdDev)
+			for (cont = list; cont; cont = cont->next)
+				if (!cont->err &&
+				    cont->parent_dev == NoMdDev &&
+				    cont->devnum == st->parent_dev) {
+					st->parent = cont;
+					st->subarray = cont->subarray;
+					cont->subarray = st;
+					break;
+				}
+}
+
 /* Not really Monitor but ... */
 int Wait(char *dev)
 {

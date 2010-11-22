@@ -80,9 +80,6 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
 
 	free_mbr(st);
 
-	if (st->subarray[0])
-		return 1;
-
 	if (posix_memalign((void**)&super, 512, 512) != 0) {
 		fprintf(stderr, Name ": %s could not allocate superblock\n",
 			__func__);

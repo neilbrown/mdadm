@@ -820,9 +820,6 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 
 	free_super0(st);
 
-	if (st->subarray[0])
-		return 1;
-
 	if (!get_dev_size(fd, devname, &dsize))
 		return 1;
 

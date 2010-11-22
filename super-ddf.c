@@ -777,8 +777,6 @@ static int load_super_ddf(struct supertype *st, int fd,
 	if (load_super_ddf_all(st, fd, &st->sb, devname, 1) == 0)
 		return 0;
 #endif
-	if (st->subarray[0])
-		return 1; /* FIXME Is this correct */
 
 	if (get_dev_size(fd, devname, &dsize) == 0)
 		return 1;
@@ -842,26 +840,6 @@ static int load_super_ddf(struct supertype *st, int fd,
 				"sections on %s\n", devname);
 		free(super);
 		return rv;
-	}
-
-	if (st->subarray[0]) {
-		unsigned long val;
-		struct vcl *v;
-		char *ep;
-
-		val = strtoul(st->subarray, &ep, 10);
-		if (*ep != '\0') {
-			free(super);
-			return 1;
-		}
-
-		for (v = super->conflist; v; v = v->next)
-			if (v->vcnum == val)
-				super->currentconf = v;
-		if (!super->currentconf) {
-			free(super);
-			return 1;
-		}
 	}
 
 	/* Should possibly check the sections .... */
@@ -2891,25 +2869,6 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 		if (!keep_fd) close(dfd);
 		if (rv)
 			return 1;
-	}
-	if (st->subarray[0]) {
-		unsigned long val;
-		struct vcl *v;
-		char *ep;
-
-		val = strtoul(st->subarray, &ep, 10);
-		if (*ep != '\0') {
-			free(super);
-			return 1;
-		}
-
-		for (v = super->conflist; v; v = v->next)
-			if (v->vcnum == val)
-				super->currentconf = v;
-		if (!super->currentconf) {
-			free(super);
-			return 1;
-		}
 	}
 
 	*sbp = super;

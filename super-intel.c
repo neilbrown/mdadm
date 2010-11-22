@@ -2852,25 +2852,6 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		err = 2;
 		goto error;
 	}
-
-	if (st->subarray[0]) {
-		unsigned long val;
-		char *ep;
-
-		err = 1;
-		val = strtoul(st->subarray, &ep, 10);
-		if (*ep != '\0') {
-			free_imsm(super);
-			goto error;
-		}
-
-		if (val < super->anchor->num_raid_devs)
-			super->current_vol = val;
-		else {
-			free_imsm(super);
-			goto error;
-		}
-	}
 	err = 0;
 
  error:
@@ -2931,24 +2912,6 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 				"sections on %s\n", devname);
 		free_imsm(super);
 		return rv;
-	}
-
-	if (st->subarray[0]) {
-		unsigned long val;
-		char *ep;
-
-		val = strtoul(st->subarray, &ep, 10);
-		if (*ep != '\0') {
-			free_imsm(super);
-			return 1;
-		}
-
-		if (val < super->anchor->num_raid_devs)
-			super->current_vol = val;
-		else {
-			free_imsm(super);
-			return 1;
-		}
 	}
 
 	st->sb = super;

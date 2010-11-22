@@ -402,22 +402,11 @@ int Assemble(struct supertype *st, char *mddev,
 			if (tmpdev->content == NULL)
 				tmpdev->used = 2;
 
-		} else if (ident->container || ident->member) {
-			/* No chance of this matching if we don't have
-			 * a container */
-			if (report_missmatch)
-				fprintf(stderr, Name "%s is not a container, and one is required.\n",
-					devname);
-			goto loop;
-		}
+			if (!ident_matches(ident, content, tst,
+					   homehost, update,
+					   report_missmatch ? devname : NULL))
+				goto loop;
 
-		if (!ident_matches(ident, content, tst,
-				   homehost, update,
-				   report_missmatch ? devname : NULL))
-			goto loop;
-
-		if (tst->ss->container_content
-		    && tst->loaded_container) {
 			/* we have the one container we need, don't keep
 			 * looking.  If the chosen member is active, skip.
 			 */
@@ -466,6 +455,21 @@ int Assemble(struct supertype *st, char *mddev,
 					content->text_version, devname);
 			break;
 		}
+
+		if (ident->container || ident->member) {
+			/* No chance of this matching if we don't have
+			 * a container */
+			if (report_missmatch)
+				fprintf(stderr, Name "%s is not a container, and one is required.\n",
+					devname);
+			goto loop;
+		}
+
+		if (!ident_matches(ident, content, tst,
+				   homehost, update,
+				   report_missmatch ? devname : NULL))
+			goto loop;
+
 		if (st == NULL)
 			st = dup_super(tst);
 		if (st->minor_version == -1)

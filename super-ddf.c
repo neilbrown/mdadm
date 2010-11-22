@@ -1470,7 +1470,6 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 
 	uuid_from_super_ddf(st, info->uuid);
 
-	info->container_member = atoi(st->subarray);
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
 	sprintf(info->text_version, "/%s/%s",

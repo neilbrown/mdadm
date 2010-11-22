@@ -51,7 +51,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	struct supertype *st;
 	char *subarray = NULL;
 	int max_disks = MD_SB_DISKS; /* just a default */
-	struct mdinfo info;
+	struct mdinfo *info = NULL;
 	struct mdinfo *sra;
 	char *member = NULL;
 	char *container = NULL;
@@ -140,17 +140,24 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		if (st->sb)
 			st->ss->free_super(st);
 
-		if (subarray)
-			strcpy(st->subarray, subarray);
 		err = st->ss->load_super(st, fd2, NULL);
 		close(fd2);
 		if (err)
 			continue;
-		st->ss->getinfo_super(st, &info, NULL);
+		if (info)
+			free(info);
+		if (subarray)
+			info = st->ss->container_content(st, subarray);
+		else {
+			info = malloc(sizeof(*info));
+			st->ss->getinfo_super(st, info, NULL);
+		}
+		if (!info)
+			continue;
 
 		if (array.raid_disks != 0 && /* container */
-		    (info.array.ctime != array.ctime ||
-		     info.array.level != array.level)) {
+		    (info->array.ctime != array.ctime ||
+		     info->array.level != array.level)) {
 			st->ss->free_super(st);
 			continue;
 		}
@@ -163,7 +170,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		 * ->load_super.
 		 */
 		if (memcmp(uuid_match_any,
-			   info.uuid,
+			   info->uuid,
 			   sizeof(uuid_match_any)) == 0) {
 			st->ss->free_super(st);
 			continue;
@@ -194,13 +201,13 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 				       array.major_version, array.minor_version);
 		}
 		
-		if (st && st->sb) {
+		if (st && st->sb && info) {
 			char nbuf[64];
 			struct map_ent *mp, *map = NULL;
 
-			fname_from_uuid(st, &info, nbuf, ':');
+			fname_from_uuid(st, info, nbuf, ':');
 			printf("MD_UUID=%s\n", nbuf+5);
-			mp = map_by_uuid(&map, info.uuid);
+			mp = map_by_uuid(&map, info->uuid);
 			if (mp && mp->path &&
 			    strncmp(mp->path, "/dev/md/", 8) == 0)
 				printf("MD_DEVNAME=%s\n", mp->path+8);
@@ -413,50 +420,50 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 
 		if (e && e->percent >= 0) {
 			printf(" Re%s Status : %d%% complete\n",
-			       (st && st->sb && info.reshape_active)?
+			       (st && st->sb && info->reshape_active)?
 			          "shape":"build",
 			       e->percent);
 			is_rebuilding = 1;
 		}
 		free_mdstat(ms);
 
-		if (st->sb && info.reshape_active) {
+		if (st->sb && info->reshape_active) {
 #if 0
 This is pretty boring
-			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info.reshape_progress<<9,
-			       human_size((unsigned long long)info.reshape_progress<<9));
+			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info->reshape_progress<<9,
+			       human_size((unsigned long long)info->reshape_progress<<9));
 #endif
-			if (info.delta_disks > 0)
+			if (info->delta_disks > 0)
 				printf("  Delta Devices : %d, (%d->%d)\n",
-				       info.delta_disks, array.raid_disks - info.delta_disks, array.raid_disks);
-			if (info.delta_disks < 0)
+				       info->delta_disks, array.raid_disks - info->delta_disks, array.raid_disks);
+			if (info->delta_disks < 0)
 				printf("  Delta Devices : %d, (%d->%d)\n",
-				       info.delta_disks, array.raid_disks, array.raid_disks + info.delta_disks);
-			if (info.new_level != array.level) {
-				char *c = map_num(pers, info.new_level);
+				       info->delta_disks, array.raid_disks, array.raid_disks + info->delta_disks);
+			if (info->new_level != array.level) {
+				char *c = map_num(pers, info->new_level);
 				printf("      New Level : %s\n", c?c:"-unknown-");
 			}
-			if (info.new_level != array.level ||
-			    info.new_layout != array.layout) {
-				if (info.new_level == 5) {
-					char *c = map_num(r5layout, info.new_layout);
+			if (info->new_level != array.level ||
+			    info->new_layout != array.layout) {
+				if (info->new_level == 5) {
+					char *c = map_num(r5layout, info->new_layout);
 					printf("     New Layout : %s\n",
 					       c?c:"-unknown-");
 				}
-				if (info.new_level == 6) {
-					char *c = map_num(r6layout, info.new_layout);
+				if (info->new_level == 6) {
+					char *c = map_num(r6layout, info->new_layout);
 					printf("     New Layout : %s\n",
 					       c?c:"-unknown-");
 				}
-				if (info.new_level == 10) {
+				if (info->new_level == 10) {
 					printf("     New Layout : near=%d, %s=%d\n",
-					       info.new_layout&255,
-					       (info.new_layout&0x10000)?"offset":"far",
-					       (info.new_layout>>8)&255);
+					       info->new_layout&255,
+					       (info->new_layout&0x10000)?"offset":"far",
+					       (info->new_layout>>8)&255);
 				}
 			}
-			if (info.new_chunk != array.chunk_size)
-				printf("  New Chunksize : %dK\n", info.new_chunk/1024);
+			if (info->new_chunk != array.chunk_size)
+				printf("  New Chunksize : %dK\n", info->new_chunk/1024);
 			printf("\n");
 		} else if (e && e->percent >= 0)
 			printf("\n");
@@ -503,6 +510,7 @@ This is pretty boring
 		else
 			printf("    Number   Major   Minor   RaidDevice\n");
 	}
+	free(info);
 
 	for (d= 0; d < max_disks; d++) {
 		char *dv;

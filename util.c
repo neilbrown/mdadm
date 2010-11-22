@@ -1441,12 +1441,12 @@ int is_container_active(char *container)
 
 /* open_subarray - opens a subarray in a container
  * @dev: container device name
- * @st: supertype with only ->subarray set
+ * @st: empty supertype
  * @quiet: block reporting errors flag
  *
  * On success returns an fd to a container and fills in *st
  */
-int open_subarray(char *dev, struct supertype *st, int quiet)
+int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 {
 	struct mdinfo *mdi;
 	int fd, err = 1;
@@ -1497,6 +1497,8 @@ int open_subarray(char *dev, struct supertype *st, int quiet)
 			fprintf(stderr, Name ": Failed to allocate device name\n");
 		goto free_sysfs;
 	}
+
+	strncpy(st->subarray, subarray, sizeof(st->subarray)-1);
 
 	if (st->ss->load_super(st, fd, NULL)) {
 		if (!quiet)

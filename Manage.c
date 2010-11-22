@@ -1037,16 +1037,8 @@ int Update_subarray(char *dev, char *subarray, char *update, mddev_ident_t ident
 	int fd, rv = 2;
 
 	memset(st, 0, sizeof(*st));
-	if (snprintf(st->subarray, sizeof(st->subarray), "%s", subarray) >=
-	    (signed)sizeof(st->subarray)) {
-		if (!quiet)
-			fprintf(stderr,
-				Name ": Input overflow for subarray '%s' > %zu bytes\n",
-				subarray, sizeof(st->subarray) - 1);
-		return 2;
-	}
 
-	fd = open_subarray(dev, st, quiet);
+	fd = open_subarray(dev, subarray, st, quiet);
 	if (fd < 0)
 		return 2;
 

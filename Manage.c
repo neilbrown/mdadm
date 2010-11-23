@@ -56,7 +56,6 @@ int Manage_ro(char *devname, int fd, int readonly)
 	mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
 	if (mdi &&
 	    mdi->array.major_version == -1 &&
-	    mdi->array.level > 0 &&
 	    is_subarray(mdi->text_version)) {
 		char vers[64];
 		strcpy(vers, "external:");
@@ -88,6 +87,8 @@ int Manage_ro(char *devname, int fd, int readonly)
 			if (*cp)
 				*cp = 0;
 			ping_monitor(vers+10);
+			if (mdi->array.level <= 0)
+				sysfs_set_str(mdi, NULL, "array_state", "active");
 		}
 		return 0;
 	}

@@ -435,6 +435,17 @@ int sysfs_uevent(struct mdinfo *sra, char *event)
 	return 0;
 }	
 
+int sysfs_attribute_available(struct mdinfo *sra, struct mdinfo *dev, char *name)
+{
+	char fname[50];
+	struct stat st;
+
+	sprintf(fname, "/sys/block/%s/md/%s/%s",
+		sra->sys_name, dev?dev->sys_name:"", name);
+
+	return stat(fname, &st) == 0;
+}
+
 int sysfs_get_fd(struct mdinfo *sra, struct mdinfo *dev,
 		       char *name)
 {
@@ -787,6 +798,28 @@ int sysfs_unique_holder(int devnum, long rdev)
 		return 0;
 	else
 		return found;
+}
+
+int sysfs_freeze_array(struct mdinfo *sra)
+{
+	/* Try to freeze resync/rebuild on this array/container.
+	 * Return -1 if the array is busy,
+	 * return -2 container cannot be frozen,
+	 * return 0 if this kernel doesn't support 'frozen'
+	 * return 1 if it worked.
+	 */
+	char buf[20];
+
+	if (!sysfs_attribute_available(sra, NULL, "sync_action"))
+		return 1; /* no sync_action == frozen */
+	if (sysfs_get_str(sra, NULL, "sync_action", buf, 20) <= 0)
+		return 0;
+	if (strcmp(buf, "idle\n") != 0 &&
+	    strcmp(buf, "frozen\n") != 0)
+		return -1;
+	if (sysfs_set_str(sra, NULL, "sync_action", "frozen") < 0)
+		return 0;
+	return 1;
 }
 
 #ifndef MDASSEMBLE

@@ -394,12 +394,21 @@ static void manage_member(struct mdstat_ent *mdstat,
 	 * trying to find and assign a spare.
 	 * We do that whenever the monitor tells us too.
 	 */
+	char buf[64];
+	int frozen;
+
 	// FIXME
 	a->info.array.raid_disks = mdstat->raid_disks;
 	a->info.array.chunk_size = mdstat->chunk_size;
 	// MORE
 
-	if (a->check_degraded) {
+	/* honor 'frozen' */
+	if (sysfs_get_str(&a->info, NULL, "metadata_version", buf, sizeof(buf)) > 0)
+		frozen = buf[9] == '-';
+	else
+		frozen = 1; /* can't read metadata_version assume the worst */
+
+	if (a->check_degraded && !frozen) {
 		struct metadata_update *updates = NULL;
 		struct mdinfo *newdev = NULL;
 		struct active_array *newa;
@@ -656,7 +665,13 @@ void read_sock(struct supertype *container)
 		/* read and validate the message */
 		if (receive_message(fd, &msg, tmo) == 0) {
 			handle_message(container, &msg);
-			if (ack(fd, tmo) < 0)
+			if (msg.len == 0) {
+				/* ping reply with version */
+				msg.buf = Version;
+				msg.len = strlen(Version) + 1;
+				if (send_message(fd, &msg, tmo) < 0)
+					terminate = 1;
+			} else if (ack(fd, tmo) < 0)
 				terminate = 1;
 		} else
 			terminate = 1;

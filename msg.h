@@ -27,6 +27,8 @@ extern int ack(int fd, int tmo);
 extern int wait_reply(int fd, int tmo);
 extern int connect_monitor(char *devname);
 extern int ping_monitor(char *devname);
+extern int block_monitor(char *container, const int freeze);
+extern void unblock_monitor(char *container, const int unfreeze);
 extern int fping_monitor(int sock);
 extern int ping_manager(char *devname);
 

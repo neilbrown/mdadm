@@ -160,6 +160,31 @@ int get_linux_version()
 	return (a*1000000)+(b*1000)+c;
 }
 
+int mdadm_version(char *version)
+{
+	int a, b, c;
+	char *cp;
+
+	if (!version)
+		version = Version;
+
+	cp = strchr(version, '-');
+	if (!cp || *(cp+1) != ' ' || *(cp+2) != 'v')
+		return -1;
+	cp += 3;
+	a = strtoul(cp, &cp, 10);
+	if (*cp != '.')
+		return -1;
+	b = strtoul(cp+1, &cp, 10);
+	if (*cp == '.')
+		c = strtoul(cp+1, &cp, 10);
+	else
+		c = 0;
+	if (*cp != ' ' && *cp != '-')
+		return -1;
+	return (a*1000000)+(b*1000)+c;
+}
+
 #ifndef MDASSEMBLE
 long long parse_size(char *size)
 {

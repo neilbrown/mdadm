@@ -98,16 +98,13 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 	if (st)
 		max_disks = st->max_devs;
 
-	if (sra && is_subarray(sra->text_version) &&
-		strchr(sra->text_version+1, '/')) {
+	if (subarray) {
 		/* This is a subarray of some container.
 		 * We want the name of the container, and the member
 		 */
-		char *s = strchr(sra->text_version+1, '/');
-		int dn;
-		*s++ = '\0';
-		member = s;
-		dn = devname2devnum(sra->text_version+1);
+		int dn = st->container_dev;
+
+		member = subarray;
 		container = map_dev(dev2major(dn), dev2minor(dn), 1);
 	}
 

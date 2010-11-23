@@ -1068,6 +1068,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 	char version[20];
 	int i;
 	char *subarray = NULL;
+	int container = NoMdDev;
 
 	sra = sysfs_read(fd, 0, GET_VERSION);
 
@@ -1089,15 +1090,15 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 	}
 	if (minor == -2 && is_subarray(verstr)) {
 		char *dev = verstr+1;
+
 		subarray = strchr(dev, '/');
-		int devnum;
 		if (subarray)
 			*subarray++ = '\0';
-		devnum = devname2devnum(dev);
 		subarray = strdup(subarray);
+		container = devname2devnum(dev);
 		if (sra)
 			sysfs_free(sra);
-		sra = sysfs_read(-1, devnum, GET_VERSION);
+		sra = sysfs_read(-1, container, GET_VERSION);
 		if (sra && sra->text_version[0])
 			verstr = sra->text_version;
 		else
@@ -1113,8 +1114,11 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		st->sb = NULL;
 		if (subarrayp)
 			*subarrayp = subarray;
+		st->container_dev = container;
+		st->devnum = fd2devnum(fd);
 	} else
 		free(subarray);
+
 	return st;
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */

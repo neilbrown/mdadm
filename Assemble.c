@@ -409,6 +409,11 @@ int Assemble(struct supertype *st, char *mddev,
 				if (ident->container[0] != '/') {
 					/* we have a uuid */
 					int uuid[4];
+
+					content = &info;
+					memset(content, 0, sizeof(*content));
+					tst->ss->getinfo_super(tst, content, NULL);
+
 					if (!parse_uuid(ident->container, uuid) ||
 					    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
 						if (report_missmatch)

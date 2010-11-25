@@ -32,7 +32,8 @@
 #include	<dirent.h>
 #include	<ctype.h>
 
-static int count_active(struct supertype *st, int mdfd, char **availp,
+static int count_active(struct supertype *st, struct mdinfo *sra,
+			int mdfd, char **availp,
 			struct mdinfo *info);
 static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			int number, __u64 events, int verbose,
@@ -93,6 +94,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 */
 	struct stat stb;
 	struct mdinfo info, dinfo;
+	struct mdinfo *sra = NULL;
 	struct mddev_ident *match;
 	char chosen_name[1024];
 	int rv = 1;
@@ -283,7 +285,6 @@ int Incremental(char *devname, int verbose, int runstop,
 		mdfd = -1;
 
 	if (mdfd < 0) {
-		struct mdinfo *sra;
 
 		/* Couldn't find an existing array, maybe make a new one */
 		mdfd = create_mddev(match ? match->devname : NULL,
@@ -311,7 +312,9 @@ int Incremental(char *devname, int verbose, int runstop,
 			rv = 2;
 			goto out;
 		}
-		sra = sysfs_read(mdfd, fd2devnum(mdfd), GET_DEVS);
+		sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
+					    GET_OFFSET | GET_SIZE));
+	
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
 			 * kernel, and mdadm -I may not be able to complete.
@@ -326,7 +329,6 @@ int Incremental(char *devname, int verbose, int runstop,
 			goto out;
 		}
 		info.array.working_disks = 1;
-		sysfs_free(sra);
 		/* 6/ Make sure /var/run/mdadm.map contains this array. */
 		map_update(&map, fd2devnum(mdfd),
 			   info.text_version,
@@ -339,10 +341,12 @@ int Incremental(char *devname, int verbose, int runstop,
 		char dn[20];
 		int dfd2;
 		int err;
-		struct mdinfo *sra;
 		struct supertype *st2;
 		struct mdinfo info2, *d;
 
+		sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
+					    GET_OFFSET | GET_SIZE));
+	
 		if (mp->path)
 			strcpy(chosen_name, mp->path);
 		else
@@ -377,7 +381,6 @@ int Incremental(char *devname, int verbose, int runstop,
 				goto out;
 			}
 		}
-		sra = sysfs_read(mdfd, fd2devnum(mdfd), (GET_DEVS | GET_STATE));
 		if (!sra) {
 			rv = 2;
 			goto out;
@@ -449,6 +452,7 @@ int Incremental(char *devname, int verbose, int runstop,
 				chosen_name, info.array.working_disks);
 		wait_for(chosen_name, mdfd);
 		close(mdfd);
+		sysfs_free(sra);
 		rv = Incremental(chosen_name, verbose, runstop,
 				 NULL, homehost, require_homehost, autof);
 		if (rv == 1)
@@ -459,7 +463,14 @@ int Incremental(char *devname, int verbose, int runstop,
 		return rv;
 	}
 	avail = NULL;
-	active_disks = count_active(st, mdfd, &avail, &info);
+	/* We have added something to the array, so need to re-read the
+	 * state.  Eventually this state should be kept up-to-date as
+	 * things change.
+	 */
+	sysfs_free(sra);
+	sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
+				    GET_OFFSET | GET_SIZE));
+	active_disks = count_active(st, sra, mdfd, &avail, &info);
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
 		   avail, active_disks) == 0) {
@@ -492,7 +503,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	map_unlock(&map);
 	if (runstop > 0 || active_disks >= info.array.working_disks) {
-		struct mdinfo *sra, *dsk;
+		struct mdinfo *dsk;
 		/* Let's try to start it */
 		if (match && match->bitmap_file) {
 			int bmfd = open(match->bitmap_file, O_RDWR);
@@ -511,9 +522,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			}
 			close(bmfd);
 		}
-		/* GET_* needed so add_disk works below */
-		sra = sysfs_read(mdfd, fd2devnum(mdfd),
-				 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
+
 		if ((sra == NULL || active_disks >= info.array.working_disks)
 		    && trustworthy != FOREIGN)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
@@ -560,6 +569,8 @@ out:
 		close(mdfd);
 	if (policy)
 		dev_policy_free(policy);
+	if (sra)
+		sysfs_free(sra);
 	return rv;
 }
 
@@ -680,14 +691,14 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 	}
 }
 
-static int count_active(struct supertype *st, int mdfd, char **availp,
+static int count_active(struct supertype *st, struct mdinfo *sra,
+			int mdfd, char **availp,
 			struct mdinfo *bestinfo)
 {
 	/* count how many devices in sra think they are active */
 	struct mdinfo *d;
 	int cnt = 0, cnt1 = 0;
 	__u64 max_events = 0;
-	struct mdinfo *sra = sysfs_read(mdfd, -1, GET_DEVS | GET_STATE);
 	char *avail = NULL;
 
 	if (!sra)

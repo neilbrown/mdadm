@@ -702,47 +702,19 @@ unsigned long long min_spare_size_required(struct state *st)
 }
 
 static int move_spare(struct state *from, struct state *to,
-		      struct domainlist *domlist,
+		      int devid,
 		      struct alert_info *info)
 {
 	struct mddev_dev devlist;
 	char devname[20];
-	unsigned long long min_size;
 
 	/* try to remove and add */
 	int fd1 = open(to->devname, O_RDONLY);
 	int fd2 = open(from->devname, O_RDONLY);
-	int dev = -1;
-	int d;
+
 	if (fd1 < 0 || fd2 < 0) {
 		if (fd1>=0) close(fd1);
 		if (fd2>=0) close(fd2);
-		return 0;
-	}
-	min_size = min_spare_size_required(to);
-	for (d = from->raid; dev < 0 && d < MaxDisks; d++) {
-		if (from->devid[d] > 0 &&
-		    from->devstate[d] == 0) {
-			struct dev_policy *pol;
-			unsigned long long dev_size;
-
-			if (min_size &&
-			    dev_size_from_id(from->devid[d], &dev_size) &&
-			    dev_size < min_size)
-				continue;
-
-			pol = devnum_policy(from->devid[d]);
-			if (from->spare_group)
-				pol_add(&pol, pol_domain,
-					from->spare_group, NULL);
-			if (domain_test(domlist, pol, to->metadata->ss->name))
-			    dev = from->devid[d];
-			dev_policy_free(pol);
-		}
-	}
-	if (dev < 0) {
-		close(fd1);
-		close(fd2);
 		return 0;
 	}
 
@@ -751,7 +723,7 @@ static int move_spare(struct state *from, struct state *to,
 	devlist.re_add = 0;
 	devlist.writemostly = 0;
 	devlist.devname = devname;
-	sprintf(devname, "%d:%d", major(dev), minor(dev));
+	sprintf(devname, "%d:%d", major(devid), minor(devid));
 
 	devlist.disposition = 'r';
 	if (Manage_subdevs(from->devname, fd2, &devlist, -1, 0) == 0) {
@@ -795,6 +767,37 @@ static int check_donor(struct state *from, struct state *to,
 	return 1;
 }
 
+static int choose_spare(struct state *from, struct state *to,
+			struct domainlist *domlist)
+{
+	int d;
+	int dev = 0;
+	unsigned long long min_size
+		= min_spare_size_required(to);
+
+	for (d = from->raid; !dev && d < MaxDisks; d++) {
+		if (from->devid[d] > 0 &&
+		    from->devstate[d] == 0) {
+			struct dev_policy *pol;
+			unsigned long long dev_size;
+
+			if (min_size &&
+			    dev_size_from_id(from->devid[d], &dev_size) &&
+			    dev_size < min_size)
+				continue;
+
+			pol = devnum_policy(from->devid[d]);
+			if (from->spare_group)
+				pol_add(&pol, pol_domain,
+					from->spare_group, NULL);
+			if (domain_test(domlist, pol, to->metadata->ss->name))
+			    dev = from->devid[d];
+			dev_policy_free(pol);
+		}
+	}
+	return dev;
+}
+
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
 	struct state *from;
@@ -820,10 +823,15 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 			if (to->spare_group)
 				domain_add(&domlist, to->spare_group);
 
-			for (from=statelist ; from ; from=from->next)
-				if (check_donor(from, to, domlist)
-				    && move_spare(from, to, domlist, info))
+			for (from=statelist ; from ; from=from->next) {
+				int devid;
+				if (!check_donor(from, to, domlist))
+					continue;
+				devid = choose_spare(from, to, domlist);
+				if (devid > 0
+				    && move_spare(from, to, devid, info))
 						break;
+			}
 			domain_free(domlist);
 		}
 }

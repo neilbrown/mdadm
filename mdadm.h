@@ -269,17 +269,16 @@ extern char Version[], Usage[], Help[], OptionHelp[],
 	Help_manage[], Help_misc[], Help_monitor[], Help_config[];
 
 /* for option that don't have short equivilents, we assign arbitrary
- * small numbers.  '1' means an undecorated option, so we start at '2'.
- * (note we must stop before we get to 65 i.e. 'A')
+ * numbers later than any 'short' character option.
  */
 enum special_options {
-	AssumeClean = 2,
+	AssumeClean = 300,
 	BitmapChunk,
 	WriteBehind,
 	ReAdd,
 	NoDegraded,
 	Sparc22,
-	BackupFile, /* 8 */
+	BackupFile,
 	HomeHost,
 	AutoHomeHost,
 	Symlinks,
@@ -287,9 +286,30 @@ enum special_options {
 	Waitclean,
 	DetailPlatform,
 	KillSubarray,
-	UpdateSubarray, /* 16 */
+	UpdateSubarray,
 	IncrementalPath,
-	NoSharing
+	NoSharing,
+	HelpOptions,
+	Brief,
+	ManageOpt,
+	Add,
+	Remove,
+	Fail,
+	MiscOpt,
+	WaitOpt,
+	ConfigFile,
+	ChunkSize,
+	WriteMostly,
+	Layout,
+	Auto,
+	Force,
+	SuperMinor,
+	EMail,
+	ProgramOpt,
+	Increment,
+	Fork,
+	Bitmap,
+	RebuildMapOpt,
 };
 
 /* structures read from config file */
@@ -341,7 +361,7 @@ struct mddev_ident {
 /* List of device names - wildcards expanded */
 struct mddev_dev {
 	char *devname;
-	char disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
+	int disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
 				 * Not set for names read from .config
 				 */
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */

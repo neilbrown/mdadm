@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	char *cp;
 	char *update = NULL;
 	int scan = 0;
-	char devmode = 0;
+	int devmode = 0;
 	int runstop = 0;
 	int readonly = 0;
 	int write_behind = 0;
@@ -135,12 +135,11 @@ int main(int argc, char *argv[])
 		int newmode = mode;
 		/* firstly, some mode-independent options */
 		switch(opt) {
+		case HelpOptions:
+			print_help = 2;
+			continue;
 		case 'h':
-			if (option_index > 0 &&
-			    strcmp(long_options[option_index].name, "help-options")==0)
-				print_help = 2;
-			else
-				print_help = 1;
+			print_help = 1;
 			continue;
 
 		case 'V':
@@ -154,9 +153,11 @@ int main(int argc, char *argv[])
 			continue;
 
 		case 'b':
-			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE || mode == GROW ||
-			    mode == INCREMENTAL || mode == MANAGE)
+			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE
+			    || mode == GROW || mode == INCREMENTAL
+			    || mode == MANAGE)
 				break; /* b means bitmap */
+		case Brief:
 			brief = 1;
 			continue;
 
@@ -181,13 +182,16 @@ int main(int argc, char *argv[])
 		 */
 
 		switch(opt) {
-		case '@': /* just incase they say --manage */
+		case ManageOpt:
 			newmode = MANAGE;
 			shortopt = short_bitmap_options;
 			break;
 		case 'a':
+		case Add:
 		case 'r':
+		case Remove:
 		case 'f':
+		case Fail:
 		case ReAdd: /* re-add */
 			if (!mode) {
 				newmode = MANAGE;
@@ -207,7 +211,7 @@ int main(int argc, char *argv[])
 		case AutoDetect:
 			newmode = AUTODETECT; break;
 
-		case '#':
+		case MiscOpt:
 		case 'D':
 		case 'E':
 		case 'X':
@@ -217,13 +221,15 @@ int main(int argc, char *argv[])
 		case 'o':
 		case 'w':
 		case 'W':
+		case WaitOpt:
 		case Waitclean:
 		case DetailPlatform:
 		case KillSubarray:
 		case UpdateSubarray:
 			if (opt == KillSubarray || opt == UpdateSubarray) {
 				if (subarray) {
-					fprintf(stderr, Name ": subarray can only be specified once\n");
+					fprintf(stderr, Name ": subarray can only"
+						" be specified once\n");
 					exit(2);
 				}
 				subarray = optarg;
@@ -248,7 +254,7 @@ int main(int argc, char *argv[])
 			mode = newmode;
 		} else {
 			/* special case of -c --help */
-			if (opt == 'c' &&
+			if ((opt == 'c' || opt == ConfigFile) &&
 			    ( strncmp(optarg, "--h", 3)==0 ||
 			      strncmp(optarg, "-h", 2)==0)) {
 				fputs(Help_config, stdout);
@@ -290,8 +296,8 @@ int main(int argc, char *argv[])
 
 		/* if we just set the mode, then done */
 		switch(opt) {
-		case '@':
-		case '#':
+		case ManageOpt:
+		case MiscOpt:
 		case 'A':
 		case 'B':
 		case 'C':
@@ -304,12 +310,14 @@ int main(int argc, char *argv[])
 		if (opt == 1) {
 		        /* an undecorated option - must be a device name.
 			 */
-			if (devs_found > 0 && mode == '@' && !devmode) {
-				fprintf(stderr, Name ": Must give one of -a/-r/-f for subsequent devices at %s\n", optarg);
+			if (devs_found > 0 && mode == MANAGE && !devmode) {
+				fprintf(stderr, Name ": Must give one of -a/-r/-f"
+					" for subsequent devices at %s\n", optarg);
 				exit(2);
 			}
-			if (devs_found > 0 && mode == 'G' && !devmode) {
-				fprintf(stderr, Name ": Must give one of -a for devices do add: %s\n", optarg);
+			if (devs_found > 0 && mode == GROW && !devmode) {
+				fprintf(stderr, Name ": Must give -a/--add for"
+					" devices to add: %s\n", optarg);
 				exit(2);
 			}
 			dv = malloc(sizeof(*dv));
@@ -332,11 +340,14 @@ int main(int argc, char *argv[])
 
 		/* We've got a mode, and opt is now something else which
 		 * could depend on the mode */
-#define O(a,b) ((a<<8)|b)
+#define O(a,b) ((a<<16)|b)
 		switch (O(mode,opt)) {
 		case O(GROW,'c'):
+		case O(GROW,ChunkSize):
 		case O(CREATE,'c'):
+		case O(CREATE,ChunkSize):
 		case O(BUILD,'c'): /* chunk or rounding */
+		case O(BUILD,ChunkSize): /* chunk or rounding */
 			if (chunk) {
 				fprintf(stderr, Name ": chunk/rounding may only be specified once. "
 					"Second value is %s.\n", optarg);
@@ -374,8 +385,11 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(MANAGE,'W'):
+		case O(MANAGE,WriteMostly):
 		case O(BUILD,'W'):
+		case O(BUILD,WriteMostly):
 		case O(CREATE,'W'):
+		case O(CREATE,WriteMostly):
 			/* set write-mostly for following devices */
 			writemostly = 1;
 			continue;
@@ -457,6 +471,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(GROW, 'p'): /* new layout */
+		case O(GROW, Layout):
 			if (layout_str) {
 				fprintf(stderr,Name ": layout may only be sent once.  "
 					"Second value was %s\n", optarg);
@@ -467,7 +482,9 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(CREATE,'p'): /* raid5 layout */
+		case O(CREATE,Layout):
 		case O(BUILD,'p'): /* faulty layout */
+		case O(BUILD,Layout):
 			if (layout != UnSet) {
 				fprintf(stderr,Name ": layout may only be sent once.  "
 					"Second value was %s\n", optarg);
@@ -562,9 +579,13 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(CREATE,'a'):
+		case O(CREATE,Auto):
 		case O(BUILD,'a'):
+		case O(BUILD,Auto):
 		case O(INCREMENTAL,'a'):
-		case O(ASSEMBLE,'a'): /* auto-creation of device node */
+		case O(INCREMENTAL,Auto):
+		case O(ASSEMBLE,'a'):
+		case O(ASSEMBLE,Auto): /* auto-creation of device node */
 			autof = parse_auto(optarg, "--auto flag", 0);
 			continue;
 
@@ -575,10 +596,15 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(BUILD,'f'): /* force honouring '-n 1' */
+		case O(BUILD,Force): /* force honouring '-n 1' */
 		case O(GROW,'f'): /* ditto */
+		case O(GROW,Force): /* ditto */
 		case O(CREATE,'f'): /* force honouring of device list */
+		case O(CREATE,Force): /* force honouring of device list */
 		case O(ASSEMBLE,'f'): /* force assembly */
+		case O(ASSEMBLE,Force): /* force assembly */
 		case O(MISC,'f'): /* force zero */
+		case O(MISC,Force): /* force zero */
 			force=1;
 			continue;
 
@@ -619,6 +645,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(ASSEMBLE,'m'): /* super-minor for array */
+		case O(ASSEMBLE,SuperMinor):
 			if (ident.super_minor != UnSet) {
 				fprintf(stderr, Name ": super-minor cannot be set twice.  "
 					"Second value: %s.\n", optarg);
@@ -699,10 +726,14 @@ int main(int argc, char *argv[])
 				       * so we overload slightly */
 			continue;
 
-		case O(ASSEMBLE,'c'): /* config file */
+		case O(ASSEMBLE,'c'):
+		case O(ASSEMBLE,ConfigFile):
 		case O(INCREMENTAL, 'c'):
+		case O(INCREMENTAL, ConfigFile):
 		case O(MISC, 'c'):
+		case O(MISC, ConfigFile):
 		case O(MONITOR,'c'):
+		case O(MONITOR,ConfigFile):
 			if (configfile) {
 				fprintf(stderr, Name ": configfile cannot be set twice.  "
 					"Second value is %s.\n", optarg);
@@ -720,6 +751,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(MONITOR,'m'): /* mail address */
+		case O(MONITOR,EMail):
 			if (mailaddr)
 				fprintf(stderr, Name ": only specify one mailaddress. %s ignored.\n",
 					optarg);
@@ -728,6 +760,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(MONITOR,'p'): /* alert program */
+		case O(MONITOR,ProgramOpt): /* alert program */
 			if (program)
 				fprintf(stderr, Name ": only specify one alter program. %s ignored.\n",
 					optarg);
@@ -736,6 +769,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(MONITOR,'r'): /* rebuild increments */
+		case O(MONITOR,Increment):
 			increments = atoi(optarg);
 			if (increments>99 || increments<1) {
 				fprintf(stderr, Name ": please specify positive integer between 1 and 99 as rebuild increments.\n");
@@ -760,6 +794,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 		case O(MONITOR,'f'): /* daemonise */
+		case O(MONITOR,Fork):
 			daemonise = 1;
 			continue;
 		case O(MONITOR,'i'): /* pid */
@@ -786,7 +821,9 @@ int main(int argc, char *argv[])
 			 * to other modes. None have arguments.
 			 */
 		case O(GROW,'a'):
-		case O(MANAGE,'a'): /* add a drive */
+		case O(GROW,Add):
+		case O(MANAGE,'a'):
+		case O(MANAGE,Add): /* add a drive */
 			devmode = 'a';
 			re_add = 0;
 			continue;
@@ -795,10 +832,14 @@ int main(int argc, char *argv[])
 			re_add = 1;
 			continue;
 		case O(MANAGE,'r'): /* remove a drive */
+		case O(MANAGE,Remove):
 			devmode = 'r';
 			continue;
 		case O(MANAGE,'f'): /* set faulty */
-		case O(INCREMENTAL,'f'): /* r for incremental is taken, use f
+		case O(MANAGE,Fail):
+		case O(INCREMENTAL,'f'):
+		case O(INCREMENTAL,Remove):
+		case O(INCREMENTAL,Fail): /* r for incremental is taken, use f
 					  * even though we will both fail and
 					  * remove the device */
 			devmode = 'f';
@@ -835,6 +876,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'o'):
 		case O(MISC,'w'):
 		case O(MISC,'W'):
+		case O(MISC, WaitOpt):
 		case O(MISC, Waitclean):
 		case O(MISC, DetailPlatform):
 		case O(MISC, KillSubarray):
@@ -869,6 +911,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(ASSEMBLE,'b'): /* here we simply set the bitmap file */
+		case O(ASSEMBLE,Bitmap):
 			if (!optarg) {
 				fprintf(stderr, Name ": bitmap file needed with -b in --assemble mode\n");
 				exit(2);
@@ -898,7 +941,9 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(BUILD,'b'):
-		case O(CREATE,'b'): /* here we create the bitmap */
+		case O(BUILD,Bitmap):
+		case O(CREATE,'b'):
+		case O(CREATE,Bitmap): /* here we create the bitmap */
 			if (strcmp(optarg, "none") == 0) {
 				fprintf(stderr, Name ": '--bitmap none' only"
 					" support for --grow\n");
@@ -906,6 +951,7 @@ int main(int argc, char *argv[])
 			}
 			/* FALL THROUGH */
 		case O(GROW,'b'):
+		case O(GROW,Bitmap):
 			if (strcmp(optarg, "internal")== 0 ||
 			    strcmp(optarg, "none")== 0 ||
 			    strchr(optarg, '/') != NULL) {
@@ -946,6 +992,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(INCREMENTAL, 'r'):
+		case O(INCREMENTAL, RebuildMapOpt):
 			rebuild_map = 1;
 			continue;
 		case O(INCREMENTAL, IncrementalPath):
@@ -1444,6 +1491,7 @@ int main(int argc, char *argv[])
 				case 'X':
 					rv |= ExamineBitmap(dv->devname, brief, ss); continue;
 				case 'W':
+				case WaitOpt:
 					rv |= Wait(dv->devname); continue;
 				case Waitclean:
 					rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;

@@ -798,6 +798,63 @@ static int choose_spare(struct state *from, struct state *to,
 	return dev;
 }
 
+static int container_choose_spare(struct state *from, struct state *to,
+				  struct domainlist *domlist)
+{
+	/* This is similar to choose_spare, but we cannot trust devstate,
+	 * so we need to read the metadata instead
+	 */
+
+	struct supertype *st = from->metadata;
+	int fd = open(st->devname, O_RDONLY);
+	int err;
+	struct mdinfo *disks, *d;
+	unsigned long long min_size
+		= min_spare_size_required(to);
+	int dev;
+
+	if (fd < 0)
+		return 0;
+	if (!st->ss->getinfo_super_disks)
+		return 0;
+	
+	err = st->ss->load_container(st, fd, NULL);
+	close(fd);
+	if (err)
+		return 0;
+
+	disks = st->ss->getinfo_super_disks(st);
+	st->ss->free_super(st);
+
+	if (!disks)
+		return 0;
+	
+	for (d = disks->devs ; d && !dev ; d = d->next) {
+		if (d->disk.state == 0) {
+			struct dev_policy *pol;
+			unsigned long long dev_size;
+			dev = makedev(d->disk.major,d->disk.minor);
+			
+			if (min_size &&
+			    dev_size_from_id(dev,  &dev_size) &&
+			    dev_size < min_size)
+				continue;
+
+			pol = devnum_policy(dev);
+			if (from->spare_group)
+				pol_add(&pol, pol_domain,
+					from->spare_group, NULL);
+			if (!domain_test(domlist, pol, to->metadata->ss->name))
+				dev = 0;
+			
+			dev_policy_free(pol);
+		}
+	}
+	sysfs_free(disks);
+	return dev;
+}
+
+
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
 	struct state *from;
@@ -827,7 +884,11 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				int devid;
 				if (!check_donor(from, to, domlist))
 					continue;
-				devid = choose_spare(from, to, domlist);
+				if (from->metadata->ss->external)
+					devid = container_choose_spare(
+						from, to, domlist);
+				else
+					devid = choose_spare(from, to, domlist);
 				if (devid > 0
 				    && move_spare(from, to, devid, info))
 						break;

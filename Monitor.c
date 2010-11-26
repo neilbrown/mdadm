@@ -846,9 +846,10 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 			
 			if (min_size &&
 			    dev_size_from_id(dev,  &dev_size) &&
-			    dev_size < min_size)
+			    dev_size < min_size) {
+				dev = 0;
 				continue;
-
+			}
 			pol = devnum_policy(dev);
 			if (from->spare_group)
 				pol_add(&pol, pol_domain,

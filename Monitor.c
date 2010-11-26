@@ -879,7 +879,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 	link_containers_with_subarrays(statelist);
 	for (st = statelist; st; st = st->next)
 		if (st->active < st->raid &&
-		    st->spare == 0) {
+		    st->spare == 0 && !st->err) {
 			struct domainlist *domlist = NULL;
 			int d;
 			struct state *to = st;

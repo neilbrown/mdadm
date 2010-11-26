@@ -1123,7 +1123,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
-int dev_size_from_id(unsigned int id, unsigned long long *size)
+int dev_size_from_id(dev_t id, unsigned long long *size)
 {
 	char buf[20];
 	int fd;

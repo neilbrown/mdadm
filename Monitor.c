@@ -44,7 +44,7 @@ struct state {
 	int active, working, failed, spare, raid;
 	int expected_spares;
 	int devstate[MaxDisks];
-	unsigned devid[MaxDisks];
+	dev_t devid[MaxDisks];
 	int percent;
 	int parent_dev; /* For subarray, devnum of parent.
 			 * For others, NoMdDev
@@ -709,7 +709,7 @@ unsigned long long min_spare_size_required(struct state *st)
 }
 
 static int move_spare(struct state *from, struct state *to,
-		      int devid,
+		      dev_t devid,
 		      struct alert_info *info)
 {
 	struct mddev_dev devlist;
@@ -776,11 +776,11 @@ static int check_donor(struct state *from, struct state *to,
 	return 1;
 }
 
-static int choose_spare(struct state *from, struct state *to,
+static dev_t choose_spare(struct state *from, struct state *to,
 			struct domainlist *domlist)
 {
 	int d;
-	int dev = 0;
+	dev_t dev = 0;
 	unsigned long long min_size
 		= min_spare_size_required(to);
 
@@ -807,7 +807,7 @@ static int choose_spare(struct state *from, struct state *to,
 	return dev;
 }
 
-static int container_choose_spare(struct state *from, struct state *to,
+static dev_t container_choose_spare(struct state *from, struct state *to,
 				  struct domainlist *domlist)
 {
 	/* This is similar to choose_spare, but we cannot trust devstate,
@@ -820,7 +820,7 @@ static int container_choose_spare(struct state *from, struct state *to,
 	struct mdinfo *disks, *d;
 	unsigned long long min_size
 		= min_spare_size_required(to);
-	int dev;
+	dev_t dev = 0;
 
 	if (fd < 0)
 		return 0;
@@ -890,7 +890,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				domain_add(&domlist, to->spare_group);
 
 			for (from=statelist ; from ; from=from->next) {
-				int devid;
+				dev_t devid;
 				if (!check_donor(from, to, domlist))
 					continue;
 				if (from->metadata->ss->external)

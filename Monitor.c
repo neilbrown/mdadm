@@ -296,21 +296,27 @@ static int check_one_sharer(int scan)
 			} else {
 				fprintf(stderr, Name ": Warning: One"
 					" autorebuild process already"
-					" running.");
+					" running.\n");
 			}
 		}
 		fclose(fp);
 	}
 	if (scan) {
-		fp = fopen("/var/run/mdadm/autorebuild.pid", "w");
-		if (!fp)
-			fprintf(stderr, Name ": Cannot create"
-				" autorebuild.pid "
-				"file\n");
-		else {
-			pid = getpid();
-			fprintf(fp, "%d\n", pid);
-			fclose(fp);
+		if (mkdir("/var/run/mdadm", S_IRWXU) < 0 &&
+		    errno != EEXIST) {
+			fprintf(stderr, Name ": Can't create "
+				"autorebuild.pid file\n");
+		} else {
+			fp = fopen("/var/run/mdadm/autorebuild.pid", "w");
+			if (!fp)
+				fprintf(stderr, Name ": Cannot create"
+					" autorebuild.pid"
+					"file\n");
+			else {
+				pid = getpid();
+				fprintf(fp, "%d\n", pid);
+				fclose(fp);
+			}
 		}
 	}
 	return 0;

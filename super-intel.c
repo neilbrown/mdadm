@@ -4959,7 +4959,8 @@ static struct dl *imsm_readd(struct intel_super *super, int idx, struct active_a
 }
 
 static struct dl *imsm_add_spare(struct intel_super *super, int slot,
-				 struct active_array *a, int activate_new)
+				 struct active_array *a, int activate_new,
+				 struct mdinfo *additional_test_list)
 {
 	struct imsm_dev *dev = get_imsm_dev(super, a->info.container_member);
 	int idx = get_imsm_disk_idx(dev, slot);
@@ -4980,10 +4981,22 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			if (d->state_fd >= 0 &&
 			    d->disk.major == dl->major &&
 			    d->disk.minor == dl->minor) {
-				dprintf("%x:%x already in array\n", dl->major, dl->minor);
+				dprintf("%x:%x already in array\n",
+					dl->major, dl->minor);
 				break;
 			}
 		if (d)
+			continue;
+		while (additional_test_list) {
+			if (additional_test_list->disk.major == dl->major &&
+			    additional_test_list->disk.minor == dl->minor) {
+				dprintf("%x:%x already in additional test list\n",
+					dl->major, dl->minor);
+				break;
+			}
+			additional_test_list = additional_test_list->next;
+		}
+		if (additional_test_list)
 			continue;
 
 		/* skip in use or failed drives */
@@ -5114,9 +5127,9 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		 */
 		dl = imsm_readd(super, i, a);
 		if (!dl)
-			dl = imsm_add_spare(super, i, a, 0);
+			dl = imsm_add_spare(super, i, a, 0, NULL);
 		if (!dl)
-			dl = imsm_add_spare(super, i, a, 1);
+			dl = imsm_add_spare(super, i, a, 1, NULL);
 		if (!dl)
 			continue;
  

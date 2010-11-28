@@ -53,7 +53,8 @@ cleanup() {
 	$mdadm -Ssq
 	for d in 0 1 2 3 4 5 6 7  8 9 10 11 12
 	do
-           losetup -d /dev/loop$d ; # rm -f $targetdir/mdtest$d
+	    losetup -d /dev/loop$d ; # rm -f $targetdir/mdtest$d
+	    rm -f /dev/disk/by-path/loop*
         done
 }
 

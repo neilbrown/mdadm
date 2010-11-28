@@ -424,6 +424,10 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		       int test, struct alert_info *ainfo,
 		       int increments)
 {
+	/* Update the state 'st' to reflect any changes shown in mdstat,
+	 * or found by directly examining the array, and return
+	 * '1' if the array is degraded, or '0' if it is optimal (or dead).
+	 */
 	struct { int state, major, minor; } info[MaxDisks];
 	mdu_array_info_t array;
 	struct mdstat_ent *mse = NULL, *mse2;
@@ -497,7 +501,10 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		    ))) {
 		close(fd);
 		st->err = 0;
-		return 0;
+		if ((st->active < st->raid) && st->spare == 0)
+			return 1;
+		else
+			return 0;
 	}
 	if (st->utime == 0 && /* new array */
 	    mse->pattern && strchr(mse->pattern, '_') /* degraded */
@@ -751,6 +758,8 @@ static int check_donor(struct state *from, struct state *to,
 	if (from->parent)
 		/* Cannot move from a member */
 		return 0;
+	if (from->err)
+		return 0;
 	for (sub = from->subarray; sub; sub = sub->subarray)
 		/* If source array has degraded subarrays, don't
 		 * remove anything
@@ -806,7 +815,7 @@ static int container_choose_spare(struct state *from, struct state *to,
 	 */
 
 	struct supertype *st = from->metadata;
-	int fd = open(st->devname, O_RDONLY);
+	int fd = open(from->devname, O_RDONLY);
 	int err;
 	struct mdinfo *disks, *d;
 	unsigned long long min_size

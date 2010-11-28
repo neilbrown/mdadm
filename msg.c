@@ -261,9 +261,18 @@ static int unblock_subarray(struct mdinfo *sra, const int unfreeze)
  * @freeze - flag to additionally freeze sync_action
  *
  * This is used by the reshape code to freeze the container, and the
- * auto-rebuild implementation to atomically move spares.  For reshape
- * we need to freeze sync_action in the auto-rebuild we only need to
- * block new spare assignment, existing rebuilds can continue
+ * auto-rebuild implementation to atomically move spares.
+ * In both cases we need to stop mdmon from assigning spares to replace
+ * failed devices as we might have other plans for the spare.
+ * For the reshape case we also need to 'freeze' sync_action so that
+ * no recovery happens until we have fully prepared for the reshape.
+ *
+ * We tell mdmon that the array is frozen by marking the 'metadata' name
+ * with a leading '-'.  The previously told mdmon "Don't make this array
+ * read/write, leave it readonly".  Now it means a more general "Don't
+ * reconfigure this array at all".
+ * As older versions of mdmon (which might run from initrd) don't understand
+ * this, we first check that the running mdmon is new enough.
  */
 int block_monitor(char *container, const int freeze)
 {

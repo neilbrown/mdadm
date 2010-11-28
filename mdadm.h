@@ -1136,7 +1136,9 @@ static inline int is_subarray(char *vers)
 	/* The version string for a 'subarray' (an array in a container)
 	 * is 
 	 *    /containername/componentname    for normal read-write arrays
-	 *    -containername/componentname    for read-only arrays.
+	 *    -containername/componentname    for arrays which mdmon must not
+	 *				      reconfigure.  They might be read-only
+	 *				      or might be undergoing reshape etc.
 	 * containername is e.g. md0, md_d1
 	 * componentname is dependant on the metadata. e.g. '1' 'S1' ...
 	 */

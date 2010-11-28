@@ -1068,6 +1068,8 @@ extern int assemble_container_content(struct supertype *st, int mdfd,
 
 extern int add_disk(int mdfd, struct supertype *st,
 		    struct mdinfo *sra, struct mdinfo *info);
+extern int remove_disk(int mdfd, struct supertype *st,
+		       struct mdinfo *sra, struct mdinfo *info);
 extern int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info);
 unsigned long long min_recovery_start(struct mdinfo *array);
 

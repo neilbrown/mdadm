@@ -94,13 +94,13 @@ int Incremental(char *devname, int verbose, int runstop,
 	 */
 	struct stat stb;
 	struct mdinfo info, dinfo;
-	struct mdinfo *sra = NULL;
+	struct mdinfo *sra = NULL, *d;
 	struct mddev_ident *match;
 	char chosen_name[1024];
 	int rv = 1;
 	struct map_ent *mp, *map = NULL;
 	int dfd = -1, mdfd = -1;
-	char *avail;
+	char *avail = NULL;
 	int active_disks;
 	int trustworthy;
 	char *name_to_use;
@@ -462,7 +462,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			rv = 0;
 		return rv;
 	}
-	avail = NULL;
+
 	/* We have added something to the array, so need to re-read the
 	 * state.  Eventually this state should be kept up-to-date as
 	 * things change.
@@ -474,7 +474,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
 		   avail, active_disks) == 0) {
-		free(avail);
 		if (verbose >= 0)
 			fprintf(stderr, Name
 			     ": %s attached to %s, not enough to start (%d).\n",
@@ -483,7 +482,6 @@ int Incremental(char *devname, int verbose, int runstop,
 		rv = 0;
 		goto out;
 	}
-	free(avail);
 
 	/* 7b/ if yes, */
 	/* - if number of OK devices match expected, or -R and there */
@@ -522,6 +520,12 @@ int Incremental(char *devname, int verbose, int runstop,
 			}
 			close(bmfd);
 		}
+		/* Need to remove from the array any devices which
+		 * 'count_active' discerned were too old or inappropriate
+		 */
+		for (d = sra ? sra->devs : NULL ; d ; d = d->next)
+			if (d->disk.state & (1<<MD_DISK_REMOVED))
+				remove_disk(mdfd, st, sra, d);
 
 		if ((sra == NULL || active_disks >= info.array.working_disks)
 		    && trustworthy != FOREIGN)
@@ -563,6 +567,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		rv = 0;
 	}
 out:
+	free(avail);
 	if (dfd >= 0)
 		close(dfd);
 	if (mdfd >= 0)
@@ -697,14 +702,22 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 {
 	/* count how many devices in sra think they are active */
 	struct mdinfo *d;
-	int cnt = 0, cnt1 = 0;
+	int cnt = 0;
 	__u64 max_events = 0;
 	char *avail = NULL;
+	int *best;
+	char *devmap = NULL;
+	int numdevs = 0;
+	int devnum;
+	int b, i;
+	int raid_disks = 0;
 
 	if (!sra)
 		return 0;
 
-	for (d = sra->devs ; d ; d = d->next) {
+	for (d = sra->devs ; d ; d = d->next)
+		numdevs++;
+	for (d = sra->devs, devnum=0 ; d ; d = d->next, devnum++) {
 		char dn[30];
 		int dfd;
 		int ok;
@@ -718,15 +731,21 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 		close(dfd);
 		if (ok != 0)
 			continue;
-		st->ss->getinfo_super(st, &info, NULL);
+		info.array.raid_disks = raid_disks;
+		st->ss->getinfo_super(st, &info, devmap + raid_disks * devnum);
 		if (!avail) {
-			avail = malloc(info.array.raid_disks);
+			raid_disks = info.array.raid_disks;
+			avail = calloc(raid_disks, 1);
 			if (!avail) {
 				fprintf(stderr, Name ": out of memory.\n");
 				exit(1);
 			}
-			memset(avail, 0, info.array.raid_disks);
 			*availp = avail;
+
+			best = calloc(raid_disks, sizeof(int));
+			devmap = calloc(raid_disks * numdevs, 1);
+
+			st->ss->getinfo_super(st, &info, devmap);
 		}
 
 		if (info.disk.state & (1<<MD_DISK_SYNC))
@@ -735,27 +754,28 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 				cnt++;
 				max_events = info.events;
 				avail[info.disk.raid_disk] = 2;
+				best[info.disk.raid_disk] = devnum;
 				st->ss->getinfo_super(st, bestinfo, NULL);
 			} else if (info.events == max_events) {
-				cnt++;
 				avail[info.disk.raid_disk] = 2;
+				best[info.disk.raid_disk] = devnum;
 			} else if (info.events == max_events-1) {
-				cnt1++;
-				avail[info.disk.raid_disk] = 1;
+				if (avail[info.disk.raid_disk] == 0) {
+					avail[info.disk.raid_disk] = 1;
+					best[info.disk.raid_disk] = devnum;
+				}
 			} else if (info.events < max_events - 1)
 				;
 			else if (info.events == max_events+1) {
 				int i;
-				cnt1 = cnt;
-				cnt = 1;
 				max_events = info.events;
-				for (i=0; i<info.array.raid_disks; i++)
+				for (i=0; i < raid_disks; i++)
 					if (avail[i])
 						avail[i]--;
 				avail[info.disk.raid_disk] = 2;
+				best[info.disk.raid_disk] = devnum;
 				st->ss->getinfo_super(st, bestinfo, NULL);
 			} else { /* info.events much bigger */
-				cnt = 1; cnt1 = 0;
 				memset(avail, 0, info.disk.raid_disk);
 				max_events = info.events;
 				avail[info.disk.raid_disk] = 2;
@@ -764,7 +784,31 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 		}
 		st->ss->free_super(st);
 	}
-	return cnt + cnt1;
+	if (!avail)
+		return 0;
+	/* We need to reject any device that thinks the best device is
+	 * failed or missing */
+	for (b = 0; b < raid_disks; b++)
+		if (avail[b] == 2)
+			break;
+	cnt = 0;
+	for (i = 0 ; i < raid_disks ; i++) {
+		if (i != b && avail[i])
+			if (devmap[raid_disks * best[i] + b] == 0) {
+				/* This device thinks 'b' is failed -
+				 * don't use it */
+				devnum = best[i];
+				for (d=sra->devs ; devnum; d = d->next)
+					devnum--;
+				d->disk.state |= (1 << MD_DISK_REMOVED);
+				avail[i] = 0;
+			}
+		if (avail[i])
+			cnt++;
+	}
+	free(best);
+	free(devmap);
+	return cnt;
 }
 
 static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,

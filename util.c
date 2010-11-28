@@ -1626,6 +1626,21 @@ int add_disk(int mdfd, struct supertype *st,
 	return rv;
 }
 
+int remove_disk(int mdfd, struct supertype *st,
+		struct mdinfo *sra, struct mdinfo *info)
+{
+	int rv;
+	/* Remove the disk given by 'info' from the array */
+#ifndef MDASSEMBLE
+	if (st->ss->external)
+		rv = sysfs_set_str(sra, info, "slot", "none");
+	else
+#endif
+		rv = ioctl(mdfd, HOT_REMOVE_DISK, makedev(info->disk.major,
+							  info->disk.minor));
+	return rv;
+}
+
 int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 {
 	/* Initialise kernel's knowledge of array.

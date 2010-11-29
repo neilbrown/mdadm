@@ -1896,3 +1896,13 @@ void append_metadata_update(struct supertype *st, void *buf, int len)
 unsigned int __invalid_size_argument_for_IOC = 0;
 #endif
 
+int experimental(void)
+{
+	if (check_env("MDADM_EXPERIMENTAL"))
+		return 1;
+	else {
+		fprintf(stderr, Name ": To use this feature MDADM_EXPERIMENTAL enviroment variable has to defined.\n");
+		return 0;
+	}
+}
+

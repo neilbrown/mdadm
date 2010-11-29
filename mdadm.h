@@ -1040,6 +1040,7 @@ extern char *conf_word(FILE *file, int allow_key);
 extern int conf_name_is_free(char *name);
 extern int devname_matches(char *name, char *match);
 extern struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st);
+extern int experimental(void);
 
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);

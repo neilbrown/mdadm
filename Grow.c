@@ -771,6 +771,76 @@ static void revert_container_raid_disks(struct supertype *st, int fd, char *cont
 	free_mdstat(ent);
 }
 
+int remove_disks_on_raid10_to_raid0_takeover(struct supertype *st,
+					     struct mdinfo *sra,
+					     int layout)
+{
+	int nr_of_copies;
+	struct mdinfo *remaining;
+	int slot;
+
+	nr_of_copies = layout & 0xff;
+
+	remaining = sra->devs;
+	sra->devs = NULL;
+	/* for each 'copy', select one device and remove from the list. */
+	for (slot = 0; slot < sra->array.raid_disks; slot += nr_of_copies) {
+		struct mdinfo **diskp;
+		int found = 0;
+
+		/* Find a working device to keep */
+		for (diskp =  &remaining; *diskp ; diskp = &(*diskp)->next) {
+			struct mdinfo *disk = *diskp;
+
+			if (disk->disk.raid_disk < slot)
+				continue;
+			if (disk->disk.raid_disk >= slot + nr_of_copies)
+				continue;
+			if (disk->disk.state & (1<<MD_DISK_REMOVED))
+				continue;
+			if (disk->disk.state & (1<<MD_DISK_FAULTY))
+				continue;
+			if (!(disk->disk.state & (1<<MD_DISK_SYNC)))
+				continue;
+
+			/* We have found a good disk to use! */
+			*diskp = disk->next;
+			disk->next = sra->devs;
+			sra->devs = disk;
+			found = 1;
+			break;
+		}
+		if (!found)
+			break;
+	}
+
+	if (slot < sra->array.raid_disks) {
+		/* didn't find all slots */
+		struct mdinfo **e;
+		e = &remaining;
+		while (*e)
+			e = &(*e)->next;
+		*e = sra->devs;
+		sra->devs = remaining;
+		return 1;
+	}
+
+	/* Remove all 'remaining' devices from the array */
+	while (remaining) {
+		struct mdinfo *sd = remaining;
+		remaining = sd->next;
+
+		sysfs_set_str(sra, sd, "state", "faulty");
+		sysfs_set_str(sra, sd, "slot", "none");
+		sysfs_set_str(sra, sd, "state", "remove");
+		sd->disk.state |= (1<<MD_DISK_REMOVED);
+		sd->disk.state &= ~(1<<MD_DISK_SYNC);
+		sd->next = sra->devs;
+		sra->devs = sd;
+	}
+	return 0;
+}
+
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks)
@@ -902,7 +972,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			st->update_tail = &st->updates;
 	}
 
-	sra = sysfs_read(fd, 0, GET_LEVEL);
+	sra = sysfs_read(fd, 0, GET_LEVEL | GET_DISKS | GET_DEVS | GET_STATE);
 	if (sra) {
 		if (st->ss->external && subarray == NULL) {
 			array.level = LEVEL_CONTAINER;
@@ -971,6 +1041,25 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		size = get_component_size(fd)/2;
 		if (size == 0)
 			size = array.size;
+	}
+
+	/* ========= check for Raid10 -> Raid0 conversion ===============
+	 * current implemenation assumes that following conditions must be met:
+	 * - far_copies == 1
+	 * - near_copies == 2
+	 */
+	if (level == 0 && array.level == 10 &&
+	    array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) {
+		int err;
+		err = remove_disks_on_raid10_to_raid0_takeover(st, sra, array.layout);
+		if (err) {
+			dprintf(Name": Array cannot be reshaped\n");
+			if (container)
+				free(container);
+			if (cfd > -1)
+				close(cfd);
+			return 1;
+		}
 	}
 
 	/* ======= set level =========== */

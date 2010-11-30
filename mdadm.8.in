@@ -921,6 +921,7 @@ argument given to this flag can be one of
 .BR resync ,
 .BR byteorder ,
 .BR devicesize ,
+.BR no\-bitmap ,
 or
 .BR super\-minor .
 
@@ -1003,7 +1004,7 @@ counts of total, working, active, failed, and spare devices.
 
 The
 .B devicesize
-will rarely be of use.  It applies to version 1.1 and 1.2 metadata
+option will rarely be of use.  It applies to version 1.1 and 1.2 metadata
 only (where the metadata is at the start of the device) and is only
 useful when the component device has changed size (typically become
 larger).  The version 1 metadata records the amount of the device that
@@ -1016,6 +1017,12 @@ This will cause
 .I mdadm
 to determine the maximum usable amount of space on each device and
 update the relevant field in the metadata.
+
+The
+.B no\-bitmap
+option can be used when an array has an internal bitmap which is
+corrupt in some way so that assembling the array normally fails.  It
+will cause any internal bitmap to be ignored.
 
 .ig
 .TP

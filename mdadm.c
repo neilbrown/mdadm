@@ -660,6 +660,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(update, "devicesize")==0)
 				continue;
+			if (strcmp(update, "no-bitmap")==0)
+				continue;
 			if (strcmp(update, "byteorder")==0) {
 				if (ss) {
 					fprintf(stderr, Name ": must not set metadata type with --update=byteorder.\n");
@@ -686,7 +688,8 @@ int main(int argc, char *argv[])
 			}
 			fprintf(outf, "Valid --update options are:\n"
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
-		"     'summaries', 'homehost', 'byteorder', 'devicesize'.\n");
+		"     'summaries', 'homehost', 'byteorder', 'devicesize',\n"
+		"     'no-bitmap'\n");
 			exit(outf == stdout ? 0 : 2);
 
 		case O(INCREMENTAL,NoDegraded):

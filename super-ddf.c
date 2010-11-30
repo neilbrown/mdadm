@@ -1526,13 +1526,16 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 //		if (info->vendor_is_local)
 //			strcpy(ddf->controller.vendor_data, homehost);
 		rv = -1;
-	} if (strcmp(update, "name") == 0) {
+	} else if (strcmp(update, "name") == 0) {
 		/* name is stored in virtual_entry->name */
 //		memset(ve->name, ' ', 16);
 //		strncpy(ve->name, info->name, 16);
 		rv = -1;
-	} if (strcmp(update, "_reshape_progress") == 0) {
+	} else if (strcmp(update, "_reshape_progress") == 0) {
 		/* We don't support reshape yet */
+	} else if (strcmp(update, "assemble") == 0 ) {
+		/* Do nothing, just succeed */
+		rv = 0;
 	} else
 		rv = -1;
 

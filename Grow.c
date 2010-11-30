@@ -841,6 +841,70 @@ int remove_disks_on_raid10_to_raid0_takeover(struct supertype *st,
 	return 0;
 }
 
+void reshape_free_fdlist(int *fdlist,
+			 unsigned long long *offsets,
+			 int size)
+{
+	int i;
+
+	for (i = 0; i < size; i++)
+		if (fdlist[i] >= 0)
+			close(fdlist[i]);
+
+	free(fdlist);
+	free(offsets);
+}
+
+int reshape_prepare_fdlist(char *devname,
+			   struct mdinfo *sra,
+			   int raid_disks,
+			   int nrdisks,
+			   unsigned long blocks,
+			   char *backup_file,
+			   int *fdlist,
+			   unsigned long long *offsets)
+{
+	int d = 0;
+	struct mdinfo *sd;
+
+	for (d = 0; d <= nrdisks; d++)
+		fdlist[d] = -1;
+	d = raid_disks;
+	for (sd = sra->devs; sd; sd = sd->next) {
+		if (sd->disk.state & (1<<MD_DISK_FAULTY))
+			continue;
+		if (sd->disk.state & (1<<MD_DISK_SYNC)) {
+			char *dn = map_dev(sd->disk.major,
+					   sd->disk.minor, 1);
+			fdlist[sd->disk.raid_disk]
+				= dev_open(dn, O_RDONLY);
+			offsets[sd->disk.raid_disk] = sd->data_offset*512;
+			if (fdlist[sd->disk.raid_disk] < 0) {
+				fprintf(stderr,
+					Name ": %s: cannot open component %s\n",
+					devname, dn ? dn : "-unknown-");
+				d = -1;
+				goto release;
+			}
+		} else if (backup_file == NULL) {
+			/* spare */
+			char *dn = map_dev(sd->disk.major,
+					   sd->disk.minor, 1);
+				fdlist[d] = dev_open(dn, O_RDWR);
+				offsets[d] = (sd->data_offset + sra->component_size - blocks - 8)*512;
+				if (fdlist[d] < 0) {
+					fprintf(stderr, Name ": %s: cannot open component %s\n",
+						devname, dn ? dn : "-unknown-");
+					d = -1;
+					goto release;
+				}
+				d++;
+			}
+		}
+release:
+	return d;
+}
+
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks)
@@ -1527,38 +1591,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			rv = 1;
 			break;
 		}
-		for (d=0; d <= nrdisks; d++)
-			fdlist[d] = -1;
-		d = array.raid_disks;
-		for (sd = sra->devs; sd; sd=sd->next) {
-			if (sd->disk.state & (1<<MD_DISK_FAULTY))
-				continue;
-			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
-				char *dn = map_dev(sd->disk.major,
-						   sd->disk.minor, 1);
-				fdlist[sd->disk.raid_disk]
-					= dev_open(dn, O_RDONLY);
-				offsets[sd->disk.raid_disk] = sd->data_offset*512;
-				if (fdlist[sd->disk.raid_disk] < 0) {
-					fprintf(stderr, Name ": %s: cannot open component %s\n",
-						devname, dn?dn:"-unknown-");
-					rv = 1;
-					goto release;
-				}
-			} else if (backup_file == NULL) {
-				/* spare */
-				char *dn = map_dev(sd->disk.major,
-						   sd->disk.minor, 1);
-				fdlist[d] = dev_open(dn, O_RDWR);
-				offsets[d] = (sd->data_offset + sra->component_size - blocks - 8)*512;
-				if (fdlist[d]<0) {
-					fprintf(stderr, Name ": %s: cannot open component %s\n",
-						devname, dn?dn:"-unknown");
-					rv = 1;
-					goto release;
-				}
-				d++;
-			}
+
+		d = reshape_prepare_fdlist(devname, sra, array.raid_disks,
+					   nrdisks, blocks, backup_file,
+					   fdlist, offsets);
+		if (d < 0) {
+			rv = 1;
+			goto release;
 		}
 		if (backup_file == NULL) {
 			if (st->ss->external && !st->ss->manage_reshape) {

@@ -475,6 +475,17 @@ extern int sysfs_disk_to_scsi_id(int fd, __u32 *id);
 extern int sysfs_unique_holder(int devnum, long rdev);
 extern int sysfs_freeze_array(struct mdinfo *sra);
 extern int load_sys(char *path, char *buf);
+extern int reshape_prepare_fdlist(char *devname,
+				  struct mdinfo *sra,
+				  int raid_disks,
+				  int nrdisks,
+				  unsigned long blocks,
+				  char *backup_file,
+				  int *fdlist,
+				  unsigned long long *offsets);
+extern void reshape_free_fdlist(int *fdlist,
+				unsigned long long *offsets,
+				int size);
 
 
 extern int save_stripes(int *source, unsigned long long *offsets,

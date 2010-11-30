@@ -353,12 +353,14 @@ int main(int argc, char *argv[])
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
-			chunk = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || chunk<4 || ((chunk-1)&chunk)) {
+			chunk = parse_size(optarg);
+			if (chunk < 8 || ((chunk-1)&chunk)) {
 				fprintf(stderr, Name ": invalid chunk/rounding value: %s\n",
 					optarg);
 				exit(2);
 			}
+			/* Covert sectors to K */
+			chunk /= 2;
 			continue;
 
 #if 0
@@ -966,15 +968,16 @@ int main(int argc, char *argv[])
 		case O(GROW,BitmapChunk):
 		case O(BUILD,BitmapChunk):
 		case O(CREATE,BitmapChunk): /* bitmap chunksize */
-			bitmap_chunk = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || bitmap_chunk < 0 ||
-					bitmap_chunk & (bitmap_chunk - 1)) {
-				fprintf(stderr, Name ": invalid bitmap chunksize: %s\n",
-						optarg);
+			bitmap_chunk = parse_size(optarg);
+			if (bitmap_chunk < 0 ||
+			    bitmap_chunk & (bitmap_chunk - 1)) {
+				fprintf(stderr,
+					Name ": invalid bitmap chunksize: %s\n",
+					optarg);
 				exit(2);
 			}
-			/* convert K to B, chunk of 0K means 512B */
-			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 1024 : 512;
+			/* convert sectors to B, chunk of 0 means 512B */
+			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 512 : 512;
 			continue;
 
 		case O(GROW, WriteBehind):

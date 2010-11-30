@@ -410,6 +410,9 @@ If this is not specified
 size, though if there is a variance among the drives of greater than 1%, a warning is
 issued.
 
+A suffix of 'M' or 'G' can be given to indicate Megabytes or
+Gigabytes respectively.
+
 This value can be set with
 .B \-\-grow
 for RAID level 1/4/5/6.  If the array was created with a size smaller
@@ -428,7 +431,7 @@ metadata such as DDF and IMSM.
 .BR \-Z ", " \-\-array-size=
 This is only meaningful with
 .B \-\-grow
-and its effect is not persistent: when the array is stopped an
+and its effect is not persistent: when the array is stopped and
 restarted the default array size will be restored.
 
 Setting the array-size causes the array to appear smaller to programs
@@ -439,12 +442,22 @@ but setting the size with
 is, it is required that the array size is reduced as appropriate
 before the number of devices in the array is reduced.
 
+A suffix of 'M' or 'G' can be given to indicate Megabytes or
+Gigabytes respectively.
+A value of
+.B max
+restores the apparent size of the array to be whatever the real
+amount of available space is.
+
 .TP
 .BR \-c ", " \-\-chunk=
 Specify chunk size of kibibytes.  The default when creating an
 array is 512KB.  To ensure compatibility with earlier versions, the
 default when Building and array with no persistent metadata is 64KB.
 This is only meaningful for RAID0, RAID4, RAID5, RAID6, and RAID10.
+
+A suffix of 'M' or 'G' can be given to indicate Megabytes or
+Gigabytes respectively.
 
 .TP
 .BR \-\-rounding=
@@ -618,6 +631,9 @@ When using an
 bitmap, the chunksize defaults to 64Meg, or larger if necessary to
 fit the bitmap into the available space.
 
+A suffix of 'M' or 'G' can be given to indicate Megabytes or
+Gigabytes respectively.
+
 .TP
 .BR \-W ", " \-\-write\-mostly
 subsequent devices listed in a
@@ -665,21 +681,6 @@ raid-devices in a RAID5 if there are no spare devices available.
 See the GROW MODE section below on RAID\-DEVICES CHANGES.  The file
 should be stored on a separate device, not on the RAID array being
 reshaped.
-
-.TP
-.BR \-\-array-size= ", " \-Z
-Set the size of the array which is seen by users of the device such as
-filesystems.  This can be less that the real size, but never greater.
-The size set this way does not persist across restarts of the array.
-
-This is most useful when reducing the number of devices in a RAID5 or
-RAID6.  Such arrays require the array-size to be reduced before a
-reshape can be performed that reduces the real size.
-
-A value of
-.B max
-restores the apparent size of the array to be whatever the real
-amount of available space is.
 
 .TP
 .BR \-N ", " \-\-name=

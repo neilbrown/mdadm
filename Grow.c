@@ -905,6 +905,31 @@ release:
 	return d;
 }
 
+unsigned long compute_backup_blocks(int nchunk, int ochunk,
+				    unsigned int ndata, unsigned int odata)
+{
+	unsigned long a, b, blocks;
+	/* So how much do we need to backup.
+	 * We need an amount of data which is both a whole number of
+	 * old stripes and a whole number of new stripes.
+	 * So LCM for (chunksize*datadisks).
+	 */
+	a = (ochunk/512) * odata;
+	b = (nchunk/512) * ndata;
+	/* Find GCD */
+	while (a != b) {
+		if (a < b)
+			b -= a;
+		if (b < a)
+			a -= b;
+	}
+	/* LCM == product / GCD */
+	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
+
+	return blocks;
+}
+
+
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks)
@@ -944,7 +969,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	int nrdisks;
 	int err;
 	int frozen;
-	unsigned long a,b, blocks, stripes;
+	unsigned long blocks, stripes;
 	unsigned long cache;
 	unsigned long long array_size;
 	int changed = 0;
@@ -1534,22 +1559,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			break;
 		}
 
-		/* So how much do we need to backup.
-		 * We need an amount of data which is both a whole number of
-		 * old stripes and a whole number of new stripes.
-		 * So LCM for (chunksize*datadisks).
-		 */
-		a = (ochunk/512) * odata;
-		b = (nchunk/512) * ndata;
-		/* Find GCD */
-		while (a != b) {
-			if (a < b)
-				b -= a;
-			if (b < a)
-				a -= b;
-		}
-		/* LCM == product / GCD */
-		blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
+		blocks = compute_backup_blocks(nchunk, ochunk, ndata, odata);
 
 		sysfs_free(sra);
 		sra = sysfs_read(fd, 0,

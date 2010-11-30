@@ -487,6 +487,8 @@ extern void reshape_free_fdlist(int *fdlist,
 				unsigned long long *offsets,
 				int size);
 
+extern unsigned long compute_backup_blocks(int nchunk, int ochunk,
+					   unsigned int ndata, unsigned int odata);
 
 extern int save_stripes(int *source, unsigned long long *offsets,
 			int raid_disks, int chunk_size, int level, int layout,

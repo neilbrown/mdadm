@@ -648,8 +648,6 @@ int Assemble(struct supertype *st, char *mddev,
 			}
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
 
-			remove_partitions(dfd);
-
 			tst = dup_super(st);
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
 				fprintf(stderr, Name ": cannot re-read metadata from %s - aborting\n",
@@ -713,8 +711,6 @@ int Assemble(struct supertype *st, char *mddev,
 			struct supertype *tst = dup_super(st);
 			int dfd;
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
-
-			remove_partitions(dfd);
 
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
 				fprintf(stderr, Name ": cannot re-read metadata from %s - aborting\n",
@@ -1181,6 +1177,12 @@ int Assemble(struct supertype *st, char *mddev,
 				j = chosen_drive;
 
 			if (j >= 0 /* && devices[j].uptodate */) {
+				int dfd = dev_open(devices[j].devname,
+						   O_RDWR|O_EXCL);
+				if (dfd >= 0) {
+					remove_partitions(dfd);
+					close(dfd);
+				}
 				rv = add_disk(mdfd, st, content, &devices[j].i);
 
 				if (rv) {

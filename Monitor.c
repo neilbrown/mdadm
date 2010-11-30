@@ -70,7 +70,7 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info);
 static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		       int test, struct alert_info *info,
 		       int increments);
-static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
+static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			  int test, struct alert_info *info);
 static void try_spare_migration(struct state *statelist, struct alert_info *info);
 static void link_containers_with_subarrays(struct state *list);
@@ -223,7 +223,7 @@ int Monitor(struct mddev_dev *devlist,
 		
 		/* now check if there are any new devices found in mdstat */
 		if (scan)
-			new_found = add_new_arrays(mdstat, statelist, test,
+			new_found = add_new_arrays(mdstat, &statelist, test,
 						   &info);
 
 		/* If an array has active < raid && spare == 0 && spare_group != NULL
@@ -642,7 +642,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	return 0;
 }
 
-static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
+static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			  int test, struct alert_info *info)
 {
 	struct mdstat_ent *mse;
@@ -674,7 +674,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 				continue;
 			}
 			close(fd);
-			st->next = statelist;
+			st->next = *statelist;
 			st->err = 1;
 			st->devnum = mse->devnum;
 			st->percent = -2;
@@ -685,7 +685,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state *statelist,
 					devname2devnum(mse->metadata_version+10);
 			else
 				st->parent_dev = NoMdDev;
-			statelist = st;
+			*statelist = st;
 			if (test)
 				alert("TestMessage", st->devname, NULL, info);
 			alert("NewArray", st->devname, NULL, info);

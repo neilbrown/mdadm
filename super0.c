@@ -418,8 +418,9 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			 char *devname, int verbose,
 			 int uuid_set, char *homehost)
 {
-	/* NOTE: for 'assemble' and 'force' we need to return non-zero if any change was made.
-	 * For others, the return value is ignored.
+	/* NOTE: for 'assemble' and 'force' we need to return non-zero
+	 * if any change was made.  For others, the return value is
+	 * ignored.
 	 */
 	int rv = 0;
 	mdp_super_t *sb = st->sb;
@@ -548,6 +549,8 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			bm = (struct bitmap_super_s*)(sb+1);
 			uuid_from_super0(st, (int*)bm->uuid);
 		}
+	} else if (strcmp(update, "no-bitmap") == 0) {
+		sb->state &= ~(1<<MD_SB_BITMAP_PRESENT);
 	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = info->reshape_progress;
 	else

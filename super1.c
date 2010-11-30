@@ -662,8 +662,9 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			 char *devname, int verbose,
 			 int uuid_set, char *homehost)
 {
-	/* NOTE: for 'assemble' and 'force' we need to return non-zero if any change was made.
-	 * For others, the return value is ignored.
+	/* NOTE: for 'assemble' and 'force' we need to return non-zero
+	 * if any change was made.  For others, the return value is
+	 * ignored.
 	 */
 	int rv = 0;
 	struct mdp_superblock_1 *sb = st->sb;
@@ -754,6 +755,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			bm = (struct bitmap_super_s*)(st->sb+1024);
 			memcpy(bm->uuid, sb->set_uuid, 16);
 		}
+	} else if (strcmp(update, "no-bitmap") == 0) {
+		sb->feature_map &= ~__cpu_to_le32(MD_FEATURE_BITMAP_OFFSET);
 	} else if (strcmp(update, "homehost") == 0 &&
 	    homehost) {
 		char *c;

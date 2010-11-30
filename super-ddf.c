@@ -1960,6 +1960,19 @@ static int init_super_ddf_bvd(struct supertype *st,
 		return 0;
 	}
 
+	if (name)
+		for (venum = 0; venum < __be16_to_cpu(ddf->virt->max_vdes); venum++)
+			if (!all_ff(ddf->virt->entries[venum].guid)) {
+				char *n = ddf->virt->entries[venum].name;
+
+				if (strncmp(name, n, 16) == 0) {
+					fprintf(stderr, Name ": This ddf already"
+						" has an array called %s\n",
+						name);
+					return 0;
+				}
+			}
+
 	for (venum = 0; venum < __be16_to_cpu(ddf->virt->max_vdes); venum++)
 		if (all_ff(ddf->virt->entries[venum].guid))
 			break;

@@ -11,6 +11,9 @@ set -e
 
 mdadm -CR /dev/md/ddf0 -e ddf -n 5 $dev8 $dev9 $dev10 $dev11 $dev12
 mdadm -CR r0 -l0 -n5 /dev/md/ddf0 -z 5000
+if mdadm -CR r0 -l1 -n2 /dev/md/ddf0 -z 5000
+then echo >&2 create with same name should fail ; exit 1
+fi
 mdadm -CR r1 -l1 -n2 /dev/md/ddf0
 mdadm -CR r5 -l5 -n3 /dev/md/ddf0
 testdev /dev/md/r0 5 5000 512

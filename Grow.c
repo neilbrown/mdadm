@@ -327,6 +327,10 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		}
 		array.state |= (1<<MD_SB_BITMAP_PRESENT);
 		if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
+			if (errno == EBUSY)
+				fprintf(stderr, Name
+					": Cannot add bitmap while array is"
+					" resyncing or reshaping etc.\n");
 			fprintf(stderr, Name ": failed to set internal bitmap.\n");
 			return 1;
 		}
@@ -373,8 +377,13 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			return 1;
 		}
 		if (ioctl(fd, SET_BITMAP_FILE, bitmap_fd) < 0) {
+			int err = errno;
+			if (errno == EBUSY)
+				fprintf(stderr, Name
+					": Cannot add bitmap while array is"
+					" resyncing or reshaping etc.\n");
 			fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
-				devname, strerror(errno));
+				devname, strerror(err));
 			return 1;
 		}
 	}

@@ -228,10 +228,10 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 
 	if (vers < 9003) {
 		major = BITMAP_MAJOR_HOSTENDIAN;
-#ifdef __BIG_ENDIAN
-		fprintf(stderr, Name ": Warning - bitmaps created on this kernel are not portable\n"
-			"  between different architectured.  Consider upgrading the Linux kernel.\n");
-#endif
+		fprintf(stderr, Name ": Warning - bitmaps created on this kernel"
+			" are not portable\n"
+			"  between different architectures.  Consider upgrading"
+			" the Linux kernel.\n");
 	}
 
 	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {

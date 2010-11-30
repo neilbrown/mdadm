@@ -396,7 +396,6 @@ static void manage_member(struct mdstat_ent *mdstat,
 	 */
 	// FIXME
 	a->info.array.raid_disks = mdstat->raid_disks;
-	a->info.array.chunk_size = mdstat->chunk_size;
 	// MORE
 
 	if (a->check_degraded) {

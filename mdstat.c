@@ -185,7 +185,6 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		ent->resync = 0;
 		ent->metadata_version = NULL;
 		ent->raid_disks = 0;
-		ent->chunk_size = 0;
 		ent->devcnt = 0;
 		ent->members = NULL;
 

@@ -358,7 +358,6 @@ struct mdstat_ent {
 	int		resync; /* 1 if resync, 0 if recovery */
 	int		devcnt;
 	int		raid_disks;
-	int		chunk_size;
 	char *		metadata_version;
 	struct dev_member {
 		char			*name;

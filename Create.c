@@ -66,11 +66,13 @@ static int default_layout(struct supertype *st, int level, int verbose)
 
 
 int Create(struct supertype *st, char *mddev,
-	   int chunk, int level, int layout, unsigned long long size, int raiddisks, int sparedisks,
+	   int chunk, int level, int layout, unsigned long long size,
+	   int raiddisks, int sparedisks,
 	   char *name, char *homehost, int *uuid,
 	   int subdevs, struct mddev_dev *devlist,
 	   int runstop, int verbose, int force, int assume_clean,
-	   char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof)
+	   char *bitmap_file, int bitmap_chunk, int write_behind,
+	   int delay, int autof)
 {
 	/*
 	 * Create a new raid array.
@@ -394,6 +396,12 @@ int Create(struct supertype *st, char *mddev,
 			}
 			close(fd);
 		}
+	}
+	if (raiddisks + sparedisks > st->max_devs) {
+		fprintf(stderr, Name ": Too many devices:"
+			" %s metadata only supports %d\n",
+			st->ss->name, st->max_devs);
+		return 1;
 	}
 	if (have_container)
 		info.array.working_disks = raiddisks;

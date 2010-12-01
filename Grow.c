@@ -1017,6 +1017,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		fprintf(stderr, Name ": Unable to determine metadata format for %s\n", devname);
 		return 1;
 	}
+	if (raid_disks > st->max_devs) {
+		fprintf(stderr, Name ": Cannot increase raid-disks on this array"
+			" beyond %d\n", st->max_devs);
+		return 1;
+	}
 
 	/* in the external case we need to check that the requested reshape is
 	 * supported, and perform an initial check that the container holds the

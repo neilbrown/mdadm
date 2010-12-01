@@ -1051,6 +1051,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		} else {
 			/* need to check backup file is large enough */
 			char buf[512];
+			struct stat stb;
+			unsigned int dev;
 			fdlist[d] = open(backup_file, O_RDWR|O_CREAT|O_EXCL,
 				     S_IRUSR | S_IWUSR);
 			offsets[d] = 8 * 512;
@@ -1060,6 +1062,22 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				rv = 1;
 				break;
 			}
+			/* Guard against backup file being on array device.
+			 * If array is partitioned or if LVM etc is in the
+			 * way this will not notice, but it is better than
+			 * nothing.
+			 */
+			fstat(fdlist[d], &stb);
+			dev = stb.st_dev;
+			fstat(fd, &stb);
+			if (stb.st_rdev == dev) {
+				fprintf(stderr, Name ": backup file must NOT be"
+					" on the array being reshaped.\n");
+				rv = 1;
+				close(fdlist[d]);
+				break;
+			}
+
 			memset(buf, 0, 512);
 			for (i=0; i < (signed)blocks + 8 ; i++) {
 				if (write(fdlist[d], buf, 512) != 512) {

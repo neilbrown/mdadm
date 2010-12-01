@@ -46,7 +46,6 @@ int main(int argc, char *argv[])
 	int layout = UnSet;
 	char *layout_str = NULL;
 	int raiddisks = 0;
-	int max_disks = MD_SB_DISKS; /* just a default */
 	int sparedisks = 0;
 	struct mddev_ident_s ident;
 	char *configfile = NULL;
@@ -369,7 +368,6 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": unrecognised metadata identifier: %s\n", optarg);
 				exit(2);
 			}
-			max_disks = ss->max_devs;
 			continue;
 
 		case O(MANAGE,'W'):
@@ -1055,22 +1053,10 @@ int main(int argc, char *argv[])
 	}
 
 	if (raiddisks) {
-		if (raiddisks > max_disks) {
-			fprintf(stderr, Name ": invalid number of raid devices: %d\n",
-				raiddisks);
-			exit(2);
-		}
 		if (raiddisks == 1 &&  !force && level != -5) {
 			fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
 				"     a mistake.  If you really mean it you will need to specify --force before\n"
 				"     setting the number of drives.\n");
-			exit(2);
-		}
-	}
-	if (sparedisks) {
-		if ( sparedisks > max_disks - raiddisks) {
-			fprintf(stderr, Name ": invalid number of spare-devices: %d\n",
-				sparedisks);
 			exit(2);
 		}
 	}

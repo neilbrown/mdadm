@@ -831,6 +831,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 */
 		st = super_by_fd(fd);
 
+		if (raid_disks > st->max_devs) {
+			fprintf(stderr, Name ": Cannot increase raid-disks on "
+				"this array beyond %d\n", st->max_devs);
+			rv = 1;
+			break;
+		}
+
 		/*
 		 * There are three possibilities.
 		 * 1/ The array will shrink.

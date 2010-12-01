@@ -332,7 +332,8 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, Name ": not a recognisable container: %s\n",
 						devname);
 				tmpdev->used = 2;
-			} else if (tst->ss->load_container(tst, dfd, NULL)) {
+			} else if (!tst->ss->load_container
+				   || tst->ss->load_container(tst, dfd, NULL)) {
 				if (report_missmatch)
 					fprintf(stderr, Name ": no correct container type: %s\n",
 						devname);

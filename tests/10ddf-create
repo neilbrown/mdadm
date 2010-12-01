@@ -7,6 +7,7 @@
 #
 # add some data, tear down the array, reassemble
 # and make sure it is still there.
+set -e
 
 mdadm -CR /dev/md/ddf0 -e ddf -n 5 $dev8 $dev9 $dev10 $dev11 $dev12
 mdadm -CR r0 -l0 -n5 /dev/md/ddf0 -z 5000

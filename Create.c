@@ -872,20 +872,27 @@ int Create(struct supertype *st, char *mddev,
 		wait_for(chosen_name, mdfd);
 	} else if (runstop == 1 || subdevs >= raiddisks) {
 		if (st->ss->external) {
+			int err;
 			switch(level) {
 			case LEVEL_LINEAR:
 			case LEVEL_MULTIPATH:
 			case 0:
-				sysfs_set_str(&info, NULL, "array_state",
-					      "active");
+				err = sysfs_set_str(&info, NULL, "array_state",
+						    "active");
 				need_mdmon = 0;
 				break;
 			default:
-				sysfs_set_str(&info, NULL, "array_state",
-					      "readonly");
+				err = sysfs_set_str(&info, NULL, "array_state",
+						    "readonly");
 				break;
 			}
 			sysfs_set_safemode(&info, safe_mode_delay);
+			if (err) {
+				fprintf(stderr, Name ": failed to"
+					" activate array.\n");
+				ioctl(mdfd, STOP_ARRAY, NULL);
+				goto abort;
+			}
 		} else {
 			/* param is not actually used */
 			mdu_param_t param;

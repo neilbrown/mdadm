@@ -2665,6 +2665,11 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	bsb.devstart2 = blocks;
 
 	backup_fd = open(backup_file, O_RDWR|O_CREAT, S_IRUSR | S_IWUSR);
+	if (backup_fd < 0) {
+		fprintf(stderr, Name ": Cannot open backup file %s\n",
+			backup_file ?: "- no backup-file given");
+		return 1;
+	}
 	backup_list[0] = backup_fd;
 	backup_offsets[0] = 8 * 512;
 	fds = malloc(odisks * sizeof(fds[0]));

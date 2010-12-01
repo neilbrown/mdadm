@@ -133,7 +133,8 @@ static int ident_matches(struct mddev_ident *ident,
 
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
-	     struct mddev_dev *devlist, char *backup_file,
+	     struct mddev_dev *devlist,
+	     char *backup_file, int invalid_backup,
 	     int readonly, int runstop,
 	     char *update, char *homehost, int require_homehost,
 	     int verbose, int force)
@@ -1097,8 +1098,16 @@ int Assemble(struct supertype *st, char *mddev,
 			} else
 				fdlist[i] = -1;
 		}
-		if (!err)
-			err = Grow_restart(st, content, fdlist, bestcnt, backup_file, verbose > 0);
+		if (!err) {
+			err = Grow_restart(st, content, fdlist, bestcnt,
+					   backup_file, verbose > 0);
+			if (err && invalid_backup) {
+				if (verbose > 0)
+					fprintf(stderr, Name ": continuing"
+						" without restoring backup\n");
+				err = 0;
+			}
+		}
 		while (i>0) {
 			i--;
 			if (fdlist[i]>=0) close(fdlist[i]);

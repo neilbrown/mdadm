@@ -884,12 +884,23 @@ bitmap, there is no need to specify this when assembling the array.
 .BR \-\-backup\-file=
 If
 .B \-\-backup\-file
-was used to grow the number of raid-devices in a RAID5, and the system
-crashed during the critical section, then the same
+was used while reshaping an array (e.g. changing number of devices or
+chunk size) and the system crashed during the critical section, then the same
 .B \-\-backup\-file
 must be presented to
 .B \-\-assemble
 to allow possibly corrupted data to be restored.
+
+.TP
+.BR \-\-invalid\-backup
+If the file needed for the above option is not available for any
+reason an empty file can be given together with this option to
+indicate that the backup file is invalid.  In this case the data that
+was being rearranged at the time of the crash could be irrecoverably
+lost, but the rest of the array may still be recoverable.  This option
+should only be used as a last resort if there is no way to recover the
+backup file.
+
 
 .TP
 .BR \-U ", " \-\-update=

@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 	int bitmap_fd = -1;
 	char *bitmap_file = NULL;
 	char *backup_file = NULL;
+	int invalid_backup = 0;
 	int bitmap_chunk = UnSet;
 	int SparcAdjust = 0;
 	struct mddev_dev *devlist = NULL;
@@ -945,6 +946,13 @@ int main(int argc, char *argv[])
 			backup_file = optarg;
 			continue;
 
+		case O(ASSEMBLE, InvalidBackup):
+			/* Acknowledge that the backupfile is invalid, but ask
+			 * to continue anyway
+			 */
+			invalid_backup = 1;
+			continue;
+
 		case O(BUILD,'b'):
 		case O(BUILD,Bitmap):
 		case O(CREATE,'b'):
@@ -1180,14 +1188,14 @@ int main(int argc, char *argv[])
 				if (array_ident->autof == 0)
 					array_ident->autof = autof;
 				rv |= Assemble(ss, devlist->devname, array_ident,
-					       NULL, backup_file,
+					       NULL, backup_file, invalid_backup,
 					       readonly, runstop, update,
 					       homehost, require_homehost,
 					       verbose-quiet, force);
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, &ident,
-				      devlist->next, backup_file,
+				      devlist->next, backup_file, invalid_backup,
 				      readonly, runstop, update,
 				      homehost, require_homehost,
 				      verbose-quiet, force);
@@ -1211,7 +1219,7 @@ int main(int argc, char *argv[])
 				if (array_ident->autof == 0)
 					array_ident->autof = autof;
 				rv |= Assemble(ss, dv->devname, array_ident,
-					       NULL, backup_file,
+					       NULL, backup_file, invalid_backup,
 					       readonly, runstop, update,
 					       homehost, require_homehost,
 					       verbose-quiet, force);
@@ -1252,7 +1260,7 @@ int main(int argc, char *argv[])
 				
 					r = Assemble(ss, a->devname,
 						     a,
-						     NULL, NULL,
+						     NULL, NULL, 0,
 						     readonly, runstop, NULL,
 						     homehost, require_homehost,
 						     verbose-quiet, force);
@@ -1279,7 +1287,7 @@ int main(int argc, char *argv[])
 					do {
 						rv2 = Assemble(ss, NULL,
 							       &ident,
-							       devlist, NULL,
+							       devlist, NULL, 0,
 							       readonly, runstop, NULL,
 							       homehost, require_homehost,
 							       verbose-quiet, force);
@@ -1301,12 +1309,15 @@ int main(int argc, char *argv[])
 					do {
 						acnt = 0;
 						do {
-							rv2 = Assemble(ss, NULL,
-								       &ident,
-								       NULL, NULL,
-								       readonly, runstop, "homehost",
-								       homehost, require_homehost,
-								       verbose-quiet, force);
+							rv2 = Assemble(
+								ss, NULL,
+								&ident,
+								NULL, NULL, 0,
+								readonly, runstop,
+								"homehost",
+								homehost,
+								require_homehost,
+								verbose-quiet, force);
 							if (rv2==0) {
 								cnt++;
 								acnt++;

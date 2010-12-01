@@ -310,6 +310,7 @@ enum special_options {
 	Fork,
 	Bitmap,
 	RebuildMapOpt,
+	InvalidBackup,
 };
 
 /* structures read from config file */
@@ -967,7 +968,8 @@ extern int Grow_continue(int mdfd, struct supertype *st,
 
 extern int Assemble(struct supertype *st, char *mddev,
 		    struct mddev_ident *ident,
-		    struct mddev_dev *devlist, char *backup_file,
+		    struct mddev_dev *devlist,
+		    char *backup_file, int invalid_backup,
 		    int readonly, int runstop,
 		    char *update, char *homehost, int require_homehost,
 		    int verbose, int force);

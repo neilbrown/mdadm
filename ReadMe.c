@@ -190,6 +190,7 @@ struct option long_options[] = {
 
     /* For Grow */
     {"backup-file", 1,0, BackupFile},
+    {"invalid-backup",0,0,InvalidBackup},
     {"array-size", 1, 0, 'Z'},
 
     /* For Incremental */

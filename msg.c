@@ -381,6 +381,7 @@ void unblock_monitor(char *container, const int unfreeze)
 {
 	struct mdstat_ent *ent, *e;
 	struct mdinfo *sra = NULL;
+	int to_ping = 0;
 
 	ent = mdstat_read(0, 0);
 	if (!ent) {
@@ -394,11 +395,14 @@ void unblock_monitor(char *container, const int unfreeze)
 		if (!is_container_member(e, container))
 			continue;
 		sysfs_free(sra);
-		sra = sysfs_read(-1, e->devnum, GET_VERSION);
+		sra = sysfs_read(-1, e->devnum, GET_VERSION|GET_LEVEL);
+		if (sra->array.level > 0)
+			to_ping++;
 		if (unblock_subarray(sra, unfreeze))
 			fprintf(stderr, Name ": Failed to unfreeze %s\n", e->dev);
 	}
-	ping_monitor(container);
+	if (to_ping)
+		ping_monitor(container);
 
 	sysfs_free(sra);
 	free_mdstat(ent);

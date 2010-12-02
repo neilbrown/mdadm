@@ -614,7 +614,8 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 			 * yet, so just ignore status for now.
 			 */
 			sysfs_set_str(sra, sd, "state", "insync");
-		rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
+		if (sd->disk.raid_disk >= 0)
+			rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
 		if (resume)
 			sysfs_set_num(sra, sd, "recovery_start", sd->recovery_start);
 	}

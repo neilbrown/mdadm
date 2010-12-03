@@ -2058,7 +2058,12 @@ static int wait_backup(struct mdinfo *sra,
 	sysfs_set_num(sra, NULL, "sync_max", offset + blocks + blocks2);
 	if (offset == 0)
 		sysfs_set_str(sra, NULL, "sync_action", "reshape");
-	do {
+
+	if (sysfs_fd_get_ll(fd, &completed) < 0) {
+		close(fd);
+		return -1;
+	}
+	while (completed < offset + blocks) {
 		char action[20];
 		fd_set rfds;
 		FD_ZERO(&rfds);
@@ -2072,7 +2077,7 @@ static int wait_backup(struct mdinfo *sra,
 				  action, 20) > 0 &&
 		    strncmp(action, "reshape", 7) != 0)
 			break;
-	} while (completed < offset + blocks);
+	}
 	close(fd);
 
 	if (part) {

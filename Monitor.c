@@ -743,6 +743,11 @@ static int move_spare(struct state *from, struct state *to,
 		devlist.disposition = 'a';
 		if (Manage_subdevs(to->devname, fd1, &devlist, -1, 0) == 0) {
 			alert("MoveSpare", to->devname, from->devname, info);
+			/* make sure we will see newly added spare before next
+			 * time through loop
+			 */
+			ping_manager(to->devname);
+			ping_manager(from->devname);
 			close(fd1);
 			close(fd2);
 			return 1;
@@ -853,13 +858,20 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 				dev = 0;
 				continue;
 			}
+			if (from == to)
+				/* Just checking if destination already has
+				 * a spare, no need to check policy, we are
+				 * done.
+				 */
+				break;
+
 			pol = devnum_policy(dev);
 			if (from->spare_group)
 				pol_add(&pol, pol_domain,
 					from->spare_group, NULL);
 			if (!domain_test(domlist, pol, to->metadata->ss->name))
 				dev = 0;
-			
+
 			dev_policy_free(pol);
 		}
 	}
@@ -887,6 +899,15 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				to = to->parent;
 
 			min_size = min_spare_size_required(to);
+			if (to->metadata->ss->external) {
+				/* We must make sure there is
+				 * no suitable spare in container already.
+				 * If there is we don't add more */
+				dev_t devid = container_choose_spare(
+					to, to, NULL, min_size);
+				if (devid > 0)
+					continue;
+			}
 			for (d = 0; d < MaxDisks; d++)
 				if (to->devid[d])
 					domainlist_add_dev(&domlist,

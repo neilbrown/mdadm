@@ -783,12 +783,10 @@ static int check_donor(struct state *from, struct state *to,
 }
 
 static dev_t choose_spare(struct state *from, struct state *to,
-			struct domainlist *domlist)
+			struct domainlist *domlist, unsigned long long min_size)
 {
 	int d;
 	dev_t dev = 0;
-	unsigned long long min_size
-		= min_spare_size_required(to);
 
 	for (d = from->raid; !dev && d < MaxDisks; d++) {
 		if (from->devid[d] > 0 &&
@@ -814,7 +812,8 @@ static dev_t choose_spare(struct state *from, struct state *to,
 }
 
 static dev_t container_choose_spare(struct state *from, struct state *to,
-				  struct domainlist *domlist)
+				    struct domainlist *domlist,
+				    unsigned long long min_size)
 {
 	/* This is similar to choose_spare, but we cannot trust devstate,
 	 * so we need to read the metadata instead
@@ -824,8 +823,6 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 	int fd = open(from->devname, O_RDONLY);
 	int err;
 	struct mdinfo *disks, *d;
-	unsigned long long min_size
-		= min_spare_size_required(to);
 	dev_t dev = 0;
 
 	if (fd < 0)
@@ -883,11 +880,13 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 			struct domainlist *domlist = NULL;
 			int d;
 			struct state *to = st;
+			unsigned long long min_size;
 
 			if (to->parent)
 				/* member of a container */
 				to = to->parent;
 
+			min_size = min_spare_size_required(to);
 			for (d = 0; d < MaxDisks; d++)
 				if (to->devid[d])
 					domainlist_add_dev(&domlist,
@@ -902,9 +901,10 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 					continue;
 				if (from->metadata->ss->external)
 					devid = container_choose_spare(
-						from, to, domlist);
+						from, to, domlist, min_size);
 				else
-					devid = choose_spare(from, to, domlist);
+					devid = choose_spare(from, to, domlist,
+							     min_size);
 				if (devid > 0
 				    && move_spare(from, to, devid, info))
 						break;

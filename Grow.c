@@ -914,6 +914,61 @@ release:
 	return d;
 }
 
+int reshape_open_backup_file(char *backup_file,
+			     int fd,
+			     char *devname,
+			     long blocks,
+			     int *fdlist,
+			     unsigned long long *offsets)
+{
+	/* Return 1 on success, 0 on any form of failure */
+	/* need to check backup file is large enough */
+	char buf[512];
+	struct stat stb;
+	unsigned int dev;
+	int i;
+
+	*fdlist = open(backup_file, O_RDWR|O_CREAT|O_EXCL,
+		       S_IRUSR | S_IWUSR);
+	*offsets = 8 * 512;
+	if (*fdlist < 0) {
+		fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
+			devname, backup_file, strerror(errno));
+		return 0;
+	}
+	/* Guard against backup file being on array device.
+	 * If array is partitioned or if LVM etc is in the
+	 * way this will not notice, but it is better than
+	 * nothing.
+	 */
+	fstat(*fdlist, &stb);
+	dev = stb.st_dev;
+	fstat(fd, &stb);
+	if (stb.st_rdev == dev) {
+		fprintf(stderr, Name ": backup file must NOT be"
+			" on the array being reshaped.\n");
+		close(*fdlist);
+		return 0;
+	}
+
+	memset(buf, 0, 512);
+	for (i=0; i < blocks + 1 ; i++) {
+		if (write(*fdlist, buf, 512) != 512) {
+			fprintf(stderr, Name ": %s: cannot create"
+				" backup file %s: %s\n",
+				devname, backup_file, strerror(errno));
+			return 0;
+		}
+	}
+	if (fsync(*fdlist) != 0) {
+		fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
+			devname, backup_file, strerror(errno));
+		return 0;
+	}
+
+	return 1;
+}
+
 unsigned long compute_backup_blocks(int nchunk, int ochunk,
 				    unsigned int ndata, unsigned int odata)
 {
@@ -974,7 +1029,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	char alt_layout[40];
 	int *fdlist;
 	unsigned long long *offsets;
-	int d, i;
+	int d;
 	int nrdisks;
 	int err;
 	int frozen;
@@ -1649,47 +1704,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				break;
 			}
 		} else {
-			/* need to check backup file is large enough */
-			char buf[512];
-			struct stat stb;
-			unsigned int dev;
-			fdlist[d] = open(backup_file, O_RDWR|O_CREAT|O_EXCL,
-				     S_IRUSR | S_IWUSR);
-			offsets[d] = 8 * 512;
-			if (fdlist[d] < 0) {
-				fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
-					devname, backup_file, strerror(errno));
-				rv = 1;
-				break;
-			}
-			/* Guard against backup file being on array device.
-			 * If array is partitioned or if LVM etc is in the
-			 * way this will not notice, but it is better than
-			 * nothing.
-			 */
-			fstat(fdlist[d], &stb);
-			dev = stb.st_dev;
-			fstat(fd, &stb);
-			if (stb.st_rdev == dev) {
-				fprintf(stderr, Name ": backup file must NOT be"
-					" on the array being reshaped.\n");
-				rv = 1;
-				close(fdlist[d]);
-				break;
-			}
-
-			memset(buf, 0, 512);
-			for (i=0; i < (signed)blocks + 1 ; i++) {
-				if (write(fdlist[d], buf, 512) != 512) {
-					fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
-						devname, backup_file, strerror(errno));
-					rv = 1;
-					break;
-				}
-			}
-			if (fsync(fdlist[d]) != 0) {
-				fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
-					devname, backup_file, strerror(errno));
+			if (!reshape_open_backup_file(backup_file, fd, devname,
+						      (signed)blocks,
+						      fdlist+d, offsets+d)) {
 				rv = 1;
 				break;
 			}

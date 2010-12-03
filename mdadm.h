@@ -486,7 +486,12 @@ extern int reshape_prepare_fdlist(char *devname,
 extern void reshape_free_fdlist(int *fdlist,
 				unsigned long long *offsets,
 				int size);
-
+extern int reshape_open_backup_file(char *backup,
+				    int fd,
+				    char *devname,
+				    long blocks,
+				    int *fdlist,
+				    unsigned long long *offsets);
 extern unsigned long compute_backup_blocks(int nchunk, int ochunk,
 					   unsigned int ndata, unsigned int odata);
 

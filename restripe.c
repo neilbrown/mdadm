@@ -43,6 +43,11 @@ static int geo_map(int block, unsigned long long stripe, int raid_disks,
 	 */
 	int pd;
 
+	/* layout is not relevant for raid0 and raid4 */
+	if ((level == 0) ||
+	    (level == 4))
+		layout = 0;
+
 	switch(level*100 + layout) {
 	case 000:
 	case 400:

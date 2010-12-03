@@ -120,6 +120,8 @@ static void close_aa(struct active_array *aa)
 	close(aa->action_fd);
 	close(aa->info.state_fd);
 	close(aa->resync_start_fd);
+	close(aa->metadata_fd);
+	close(aa->sync_completed_fd);
 }
 
 static void free_aa(struct active_array *aa)

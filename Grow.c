@@ -548,17 +548,17 @@ static void wait_reshape(struct mdinfo *sra)
 	int fd = sysfs_get_fd(sra, NULL, "sync_action");
 	char action[20];
 
-	do {
+	if (fd < 0)
+		return;
+
+	while  (sysfs_fd_get_str(fd, action, 20) > 0 &&
+		strncmp(action, "reshape", 7) == 0) {
 		fd_set rfds;
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
 		select(fd+1, NULL, NULL, &rfds, NULL);
-		
-		if (sysfs_fd_get_str(fd, action, 20) < 0) {
-			close(fd);
-			return;
-		}
-	} while  (strncmp(action, "reshape", 7) == 0);
+	}
+	close(fd);
 }
 
 static int reshape_super(struct supertype *st, long long size, int level,

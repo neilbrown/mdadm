@@ -134,7 +134,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (must_be_container(dfd)) {
 		if (!st)
 			st = super_by_fd(dfd, NULL);
-		if (st)
+		if (st && st->ss->load_container)
 			rv = st->ss->load_container(st, dfd, NULL);
 
 		close(dfd);

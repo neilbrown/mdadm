@@ -525,6 +525,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 				remove_pidfile(container->devname);
 			exit_now = 1;
 			signal_manager();
+			close(fd);
 			exit(0);
 		}
 	}

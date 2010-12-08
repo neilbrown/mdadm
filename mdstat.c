@@ -253,7 +253,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				if (strncmp(w, "reshape", 7)==0)
 					ent->resync = 2;
 				if (strncmp(w, "recovery", 8)==0)
-					ent->resync = 2;
+					ent->resync = 0;
 				if (strncmp(w, "check", 5)==0)
 					ent->resync = 3;
 

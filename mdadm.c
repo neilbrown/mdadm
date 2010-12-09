@@ -1610,7 +1610,8 @@ int main(int argc, char *argv[])
 		} else if (size >= 0 || raiddisks != 0 || layout_str != NULL
 			   || chunk != 0 || level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
-					  size, level, layout_str, chunk, raiddisks);
+					  size, level, layout_str, chunk, raiddisks,
+					  force);
 		} else if (array_size < 0)
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;

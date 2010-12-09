@@ -965,7 +965,8 @@ extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);
 extern int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			long long size,
-			int level, char *layout_str, int chunksize, int raid_disks);
+			int level, char *layout_str, int chunksize, int raid_disks,
+			int force);
 extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file, int verbose);
 extern int Grow_continue(int mdfd, struct supertype *st,

@@ -996,7 +996,8 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
-		 int level, char *layout_str, int chunksize, int raid_disks)
+		 int level, char *layout_str, int chunksize, int raid_disks,
+		 int force)
 {
 	/* Make some changes in the shape of an array.
 	 * The kernel must support the change.
@@ -1128,6 +1129,19 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 		if (mdmon_running(container_dev))
 			st->update_tail = &st->updates;
+	} 
+
+	if (raid_disks > array.raid_disks &&
+	    array.spare_disks < (raid_disks - array.raid_disks) &&
+	    !force) {
+		fprintf(stderr,
+			Name ": Need %d spare%s to avoid degraded array,"
+			" and only have %d.\n"
+			"       Use --force to over-ride this check.\n",
+			raid_disks - array.raid_disks, 
+			raid_disks - array.raid_disks == 1 ? "" : "s", 
+			array.spare_disks);
+		return 1;
 	}
 
 	sra = sysfs_read(fd, 0, GET_LEVEL | GET_DISKS | GET_DEVS | GET_STATE);
@@ -1308,6 +1322,36 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			if (c == NULL) {
 				rv = 1;/* not possible */
 				goto release;
+			}
+			if (!force) {
+				/* Need to check there are enough spares */
+				int spares_needed = 0;
+				switch (array.level * 16 + level) {
+				case 0x05:
+					spares_needed = 1; break;
+				case 0x06:
+					spares_needed = 2; break;
+				case 0x15:
+					spares_needed = 1; break;
+				case 0x16:
+					spares_needed = 2; break;
+				case 0x56:
+					spares_needed = 1; break;
+				}
+				if (raid_disks > array.raid_disks)
+					spares_needed += raid_disks-array.raid_disks;
+				if (spares_needed > array.spare_disks) {
+					fprintf(stderr,
+						Name ": Need %d spare%s to avoid"
+						" degraded array, and only have %d.\n"
+						"       Use --force to over-ride"
+						" this check.\n",
+						spares_needed,
+						spares_needed == 1 ? "" : "s", 
+						array.spare_disks);
+					rv = 1;
+					goto release;
+				}
 			}
 			err = sysfs_set_str(sra, NULL, "level", c);
 			if (err) {

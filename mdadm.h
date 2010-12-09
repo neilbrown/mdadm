@@ -959,7 +959,8 @@ extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop, int quiet);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_subdevs(char *devname, int fd,
-			  struct mddev_dev *devlist, int verbose, int test);
+			  struct mddev_dev *devlist, int verbose, int test,
+			  char *update);
 extern int autodetect(void);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);

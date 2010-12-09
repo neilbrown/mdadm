@@ -666,12 +666,14 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'U'): /* update the superblock */
 		case O(MISC,'U'):
 			if (update) {
-				fprintf(stderr, Name ": Can only update one aspect of superblock, both %s and %s given.\n",
+				fprintf(stderr, Name ": Can only update one aspect"
+					" of superblock, both %s and %s given.\n",
 					update, optarg);
 				exit(2);
 			}
 			if (mode == MISC && !subarray) {
-				fprintf(stderr, Name ": Only subarrays can be updated in misc mode\n");
+				fprintf(stderr, Name ": Only subarrays can be"
+					" updated in misc mode\n");
 				exit(2);
 			}
 			update = optarg;
@@ -695,13 +697,17 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(update, "byteorder")==0) {
 				if (ss) {
-					fprintf(stderr, Name ": must not set metadata type with --update=byteorder.\n");
+					fprintf(stderr,
+						Name ": must not set metadata"
+						" type with --update=byteorder.\n");
 					exit(2);
 				}
 				for(i=0; !ss && superlist[i]; i++)
-					ss = superlist[i]->match_metadata_desc("0.swap");
+					ss = superlist[i]->match_metadata_desc(
+						"0.swap");
 				if (!ss) {
-					fprintf(stderr, Name ": INTERNAL ERROR cannot find 0.swap\n");
+					fprintf(stderr, Name ": INTERNAL ERROR"
+						" cannot find 0.swap\n");
 					exit(2);
 				}
 
@@ -722,6 +728,27 @@ int main(int argc, char *argv[])
 		"     'summaries', 'homehost', 'byteorder', 'devicesize',\n"
 		"     'no-bitmap'\n");
 			exit(outf == stdout ? 0 : 2);
+
+		case O(MANAGE,'U'):
+			/* update=devicesize is allowed with --re-add */
+			if (devmode != 'a' || re_add != 1) {
+				fprintf(stderr, Name "--update in Manage mode only"
+					" allowed with --re-add.\n");
+				exit(1);
+			}
+			if (update) {
+				fprintf(stderr, Name ": Can only update one aspect"
+					" of superblock, both %s and %s given.\n",
+					update, optarg);
+				exit(2);
+			}
+			update = optarg;
+			if (strcmp(update, "devicesize") != 0) {
+				fprintf(stderr, Name ": only 'devicesize' can be"
+					" updated with --re-add\n");
+				exit(2);
+			}
+			continue;
 
 		case O(INCREMENTAL,NoDegraded):
 			fprintf(stderr, Name ": --no-degraded is deprecated in Incremental mode\n");
@@ -1153,7 +1180,8 @@ int main(int argc, char *argv[])
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && devs_found>1)
 			rv = Manage_subdevs(devlist->devname, mdfd,
-					    devlist->next, verbose-quiet, test);
+					    devlist->next, verbose-quiet, test,
+					    update);
 		if (!rv && readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)

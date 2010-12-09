@@ -739,9 +739,9 @@ static int move_spare(struct state *from, struct state *to,
 	sprintf(devname, "%d:%d", major(devid), minor(devid));
 
 	devlist.disposition = 'r';
-	if (Manage_subdevs(from->devname, fd2, &devlist, -1, 0) == 0) {
+	if (Manage_subdevs(from->devname, fd2, &devlist, -1, 0, NULL) == 0) {
 		devlist.disposition = 'a';
-		if (Manage_subdevs(to->devname, fd1, &devlist, -1, 0) == 0) {
+		if (Manage_subdevs(to->devname, fd1, &devlist, -1, 0, NULL) == 0) {
 			alert("MoveSpare", to->devname, from->devname, info);
 			/* make sure we will see newly added spare before next
 			 * time through loop
@@ -752,7 +752,7 @@ static int move_spare(struct state *from, struct state *to,
 			close(fd2);
 			return 1;
 		}
-		else Manage_subdevs(from->devname, fd2, &devlist, -1, 0);
+		else Manage_subdevs(from->devname, fd2, &devlist, -1, 0, NULL);
 	}
 	close(fd1);
 	close(fd2);

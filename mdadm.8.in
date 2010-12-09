@@ -1053,7 +1053,7 @@ will report failure if these specifiers didn't find any match.
 .BR \-a ", " \-\-add
 hot-add listed devices.
 If a device appears to have recently been part of the array
-(possibly it failed or was removed) the device is re-added as describe
+(possibly it failed or was removed) the device is re\-added as describe
 in the next point.
 If that fails or the device was never part of the array, the device is
 added as a hot-spare.
@@ -1078,6 +1078,13 @@ When used on an array that has no metadata (i.e. it was built with
 .BR \-\-build)
 it will be assumed that bitmap-based recovery is enough to make the
 device fully consistent with the array.
+
+When
+.B \-\-re\-add
+can be accompanied by
+.BR \-\-update=devicesize .
+See the description of this option when used in Assemble mode for an
+explanation of its use.
 
 If the device name given is
 .B missing

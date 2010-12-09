@@ -325,7 +325,8 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 }
 
 int Manage_subdevs(char *devname, int fd,
-		   struct mddev_dev *devlist, int verbose, int test)
+		   struct mddev_dev *devlist, int verbose, int test,
+		   char *update)
 {
 	/* do something to each dev.
 	 * devmode can be
@@ -691,6 +692,24 @@ int Manage_subdevs(char *devname, int fd,
 						remove_partitions(tfd);
 						close(tfd);
 						tfd = -1;
+						if (update) {
+							int rv = -1;
+							tfd = dev_open(dv->devname, O_RDWR);
+
+							if (tfd >= 0)
+								rv = st->ss->update_super(
+									st, NULL, update,
+									devname, verbose, 0, NULL);
+							if (rv == 0)
+								rv = tst->ss->store_super(st, tfd);
+							close(tfd);
+							tfd = -1;
+							if (rv != 0) {
+								fprintf(stderr, Name ": failed to update"
+									" superblock during re-add\n");
+								return 1;
+							}
+						}
 						/* don't even try if disk is marked as faulty */
 						errno = 0;
 						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {

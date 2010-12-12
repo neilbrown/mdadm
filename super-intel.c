@@ -4119,7 +4119,7 @@ static int default_chunk_imsm(struct supertype *st)
 {
 	struct intel_super *super = st->sb;
 
-	if (!super->orom)
+	if (!super || !super->orom)
 		return 0;
 
 	return imsm_orom_default_chunk(super->orom);

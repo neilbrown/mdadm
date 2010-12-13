@@ -4208,7 +4208,8 @@ static void default_geometry_imsm(struct supertype *st, int *level, int *layout,
 	if (level && layout && *layout == UnSet)
 		*layout = imsm_level_to_layout(*level);
 
-	if (chunk && (*chunk == UnSet || *chunk == 0) && super->orom)
+	if (chunk && (*chunk == UnSet || *chunk == 0) && 
+	    super && super->orom)
 		*chunk = imsm_orom_default_chunk(super->orom);
 }
 

@@ -602,9 +602,10 @@ static int reshape_super(struct supertype *st, long long size, int level,
 static void sync_metadata(struct supertype *st)
 {
 	if (st->ss->external) {
-		if (st->update_tail)
+		if (st->update_tail) {
 			flush_metadata_updates(st);
-		else
+			st->update_tail = &st->updates;
+		} else
 			st->ss->sync_metadata(st);
 	}
 }
@@ -1495,7 +1496,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 
-		st->update_tail = &st->updates;
 		if (reshape_super(st, -1, UnSet, UnSet, 0, raid_disks,
 				  backup_file, devname, !quiet)) {
 			rv = 1;
@@ -1514,11 +1514,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 
+		sync_metadata(st);
 		if (!mdmon_running(st->devnum)) {
 			start_mdmon(st->devnum);
 			ping_monitor(container);
+			st->update_tail = &st->updates;
 		}
-		sync_metadata(st);
 
 		/* give mdmon a chance to allocate spares */
 		ping_manager(container);

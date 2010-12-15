@@ -692,6 +692,7 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 		if (!is_container_member(e, container))
 			continue;
 
+		rv = -1;
 		level = map_name(pers, e->level);
 		if (level == 0) {
 			sub = sysfs_read(-1, e->devnum, GET_VERSION);
@@ -711,11 +712,10 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 			sysfs_free(sub);
 			level = 4;
 		}
-
+		rv = -1;
 		sub = NULL;
 		switch (level) {
 		default:
-			rv = -1;
 			break;
 		case 6:
 			parity_disks++;
@@ -740,6 +740,7 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 				err = errno;
 				break;
 			}
+			rv = -1;
 			/* fall through */
 		case 1:
 			if (!sub)

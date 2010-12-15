@@ -152,9 +152,11 @@ int Monitor(struct mddev_dev *devlist,
 	info.mailfrom = mailfrom;
 	info.dosyslog = dosyslog;
 
-	if (daemonise)
-		if (make_daemon(pidfile))
-			return 1;
+	if (daemonise) {
+		int rv = make_daemon(pidfile);
+		if (rv >= 0)
+			return rv;
+	}
 
 	if (share) 
 		if (check_one_sharer(scan))
@@ -247,6 +249,12 @@ int Monitor(struct mddev_dev *devlist,
 
 static int make_daemon(char *pidfile)
 {
+	/* Return:
+	 * -1 in the forked daemon
+	 *  0 in the parent
+	 *  1 on error
+	 * so a none-negative becomes the exit code.
+	 */
 	int pid = fork();
 	if (pid > 0) {
 		if (!pidfile)
@@ -272,7 +280,7 @@ static int make_daemon(char *pidfile)
 	dup2(0,1);
 	dup2(0,2);
 	setsid();
-	return 0;
+	return -1;
 }
 
 static int check_one_sharer(int scan)

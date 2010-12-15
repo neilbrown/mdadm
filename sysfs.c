@@ -90,11 +90,7 @@ void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
 	}
 	if (devnum == NoMdDev)
 		return;
-	if (devnum >= 0)
-		sprintf(mdi->sys_name, "md%d", devnum);
-	else
-		sprintf(mdi->sys_name, "md_d%d",
-			-1-devnum);
+	fmt_devname(mdi->sys_name, devnum);
 }
 
 

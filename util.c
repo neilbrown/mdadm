@@ -1681,13 +1681,18 @@ unsigned long long min_recovery_start(struct mdinfo *array)
 	return recovery_start;
 }
 
-char *devnum2devname(int num)
+void fmt_devname(char *name, int num)
 {
-	char name[100];
 	if (num >= 0)
 		sprintf(name, "md%d", num);
 	else
 		sprintf(name, "md_d%d", -1-num);
+}
+
+char *devnum2devname(int num)
+{
+	char name[100];
+	fmt_devname(name,num);
 	return strdup(name);
 }
 

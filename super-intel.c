@@ -5034,6 +5034,7 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 	__u32 array_start = 0;
 	__u32 array_end = 0;
 	struct dl *dl;
+	struct mdinfo *test_list;
 
 	for (dl = super->disks; dl; dl = dl->next) {
 		/* If in this array, skip */
@@ -5047,16 +5048,17 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			}
 		if (d)
 			continue;
-		while (additional_test_list) {
-			if (additional_test_list->disk.major == dl->major &&
-			    additional_test_list->disk.minor == dl->minor) {
+		test_list = additional_test_list;
+		while (test_list) {
+			if (test_list->disk.major == dl->major &&
+			    test_list->disk.minor == dl->minor) {
 				dprintf("%x:%x already in additional test list\n",
 					dl->major, dl->minor);
 				break;
 			}
-			additional_test_list = additional_test_list->next;
+			test_list = test_list->next;
 		}
-		if (additional_test_list)
+		if (test_list)
 			continue;
 
 		/* skip in use or failed drives */

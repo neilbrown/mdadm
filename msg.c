@@ -348,8 +348,19 @@ int block_monitor(char *container, const int freeze)
 		     sysfs_get_str(sra, NULL, "sync_action", buf, 20) > 0 &&
 		     strcmp(buf, "frozen\n") == 0))
 			/* pass */;
-		else
+		else {
+			unblock_subarray(sra, 0);
 			break;
+		}
+		/* Double check against races - there should be no spares
+		 * or part-spares
+		 */
+		sysfs_free(sra);
+		sra = sysfs_read(-1, e->devnum, GET_DEVS | GET_STATE);
+		if (sra && sra->array.spare_disks > 0) {
+			unblock_subarray(sra, freeze);
+			break;
+		}
 	}
 
 	if (e) {

@@ -634,7 +634,11 @@ extern struct superswitch {
 	 * when hot-adding a spare.
 	 */
 	int (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo,
-			     int fd, char *devname);
+			    int fd, char *devname);
+	/* update the metadata to delete a device,
+	 * when hot-removing.
+	 */
+	int (*remove_from_super)(struct supertype *st, mdu_disk_info_t *dinfo);
 
 	/* Write metadata to one device when fixing problems or adding
 	 * a new device.

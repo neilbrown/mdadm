@@ -364,15 +364,28 @@ static struct imsm_disk *__get_imsm_disk(struct imsm_super *mpb, __u8 index)
 	return &mpb->disk[index];
 }
 
-/* retrieve a disk from the parsed metadata */
-static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
+/* retrieve the disk description based on a index of the disk
+ * in the sub-array
+ */
+static struct dl *get_imsm_dl_disk(struct intel_super *super, __u8 index)
 {
 	struct dl *d;
 
 	for (d = super->disks; d; d = d->next)
 		if (d->index == index)
-			return &d->disk;
-	
+			return d;
+
+	return NULL;
+}
+/* retrieve a disk from the parsed metadata */
+static struct imsm_disk *get_imsm_disk(struct intel_super *super, __u8 index)
+{
+	struct dl *dl;
+
+	dl = get_imsm_dl_disk(super, index);
+	if (dl)
+		return &dl->disk;
+
 	return NULL;
 }
 
@@ -5114,6 +5127,45 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 	return dl;
 }
 
+
+static int imsm_rebuild_allowed(struct supertype *cont, int dev_idx, int failed)
+{
+	struct imsm_dev *dev2;
+	struct imsm_map *map;
+	struct dl *idisk;
+	int slot;
+	int idx;
+	__u8 state;
+
+	dev2 = get_imsm_dev(cont->sb, dev_idx);
+	if (dev2) {
+		state = imsm_check_degraded(cont->sb, dev2, failed);
+		if (state == IMSM_T_STATE_FAILED) {
+			map = get_imsm_map(dev2, 0);
+			if (!map)
+				return 1;
+			for (slot = 0; slot < map->num_members; slot++) {
+				/*
+				 * Check if failed disks are deleted from intel
+				 * disk list or are marked to be deleted
+				 */
+				idx = get_imsm_disk_idx(dev2, slot);
+				idisk = get_imsm_dl_disk(cont->sb, idx);
+				/*
+				 * Do not rebuild the array if failed disks
+				 * from failed sub-array are not removed from
+				 * container.
+				 */
+				if (idisk &&
+				    is_failed(&idisk->disk) &&
+				    (idisk->action != DISK_REMOVE))
+					return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 static struct mdinfo *imsm_activate_spare(struct active_array *a,
 					  struct metadata_update **updates)
 {
@@ -5141,6 +5193,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	struct imsm_update_activate_spare *u;
 	int num_spares = 0;
 	int i;
+	int allowed;
 
 	for (d = a->info.devs ; d ; d = d->next) {
 		if ((d->curr_state & DS_FAULTY) &&
@@ -5155,6 +5208,26 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		inst, failed, a->info.array.raid_disks, a->info.array.level);
 	if (imsm_check_degraded(super, dev, failed) != IMSM_T_STATE_DEGRADED)
 		return NULL;
+
+	/*
+	 * If there are any failed disks check state of the other volume.
+	 * Block rebuild if the another one is failed until failed disks
+	 * are removed from container.
+	 */
+	if (failed) {
+		dprintf("found failed disks in %s, check if there another"
+			"failed sub-array.\n",
+			dev->volume);
+		/* check if states of the other volumes allow for rebuild */
+		for (i = 0; i <  super->anchor->num_raid_devs; i++) {
+			if (i != inst) {
+				allowed = imsm_rebuild_allowed(a->container,
+							       i, failed);
+				if (!allowed)
+					return NULL;
+			}
+		}
+	}
 
 	/* For each slot, if it is not working, find a spare */
 	for (i = 0; i < a->info.array.raid_disks; i++) {

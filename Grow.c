@@ -756,6 +756,8 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 				changed++;
 			break;
 		}
+		if (!rv && level > 1)
+			start_reshape(sub);
 		sysfs_free(sub);
 		if (rv)
 			break;
@@ -823,6 +825,9 @@ static void revert_container_raid_disks(struct supertype *st, int fd, char *cont
 				disks_fixed = 1;
 		} else if (sub)
 			disks_fixed = 1;
+
+		if (sub)
+			abort_reshape(sub);
 		sysfs_free(sub);
 
 		if (!disks_fixed || !level_fixed)
@@ -1885,6 +1890,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			break;
 		}
 
+		start_reshape(sra);
 		if (st->ss->external) {
 			/* metadata handler takes it from here */
 			ping_manager(container);
@@ -1916,6 +1922,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			fprintf(stderr, Name ": %s: Cannot find a superblock\n",
 				devname);
 			rv = 1;
+			abort_reshape(sra);
 			break;
 		}
 
@@ -1929,7 +1936,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * handling backups of the data...
 		 * This is all done by a forked background process.
 		 */
-		start_reshape(sra);
 		switch(fork()) {
 		case 0:
 			close(fd);

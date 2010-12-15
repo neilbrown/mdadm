@@ -420,12 +420,12 @@ static void manage_member(struct mdstat_ent *mdstat,
 	 * We do not need to look for device state changes here, that
 	 * is dealt with by the monitor.
 	 *
-	 * We just look for changes which suggest that a reshape is
-	 * being requested.
-	 * Unfortunately decreases in raid_disks don't show up in
-	 * mdstat until the reshape completes FIXME.
+	 * If a reshape is being requested, monitor will have noticed
+	 * that sync_action changed and will have set check_reshape.
+	 * We just need to see if new devices have appeared.  All metadata
+	 * updates will already have been processed.
 	 *
-	 * Actually, we also want to handle degraded arrays here by
+	 * We also want to handle degraded arrays here by
 	 * trying to find and assign a spare.
 	 * We do that whenever the monitor tells us too.
 	 */
@@ -487,6 +487,46 @@ static void manage_member(struct mdstat_ent *mdstat,
 			newdev = d;
 		}
 		free_updates(&updates);
+	}
+
+	if (a->check_reshape) {
+		/* mdadm might have added some devices to the array.
+		 * We want to disk_init_and_add any such device to a
+		 * duplicate_aa and replace a with that.
+		 * mdstat doesn't have enough info so we sysfs_read
+		 * and look for new stuff.
+		 */
+		struct mdinfo *info, *d, *d2, *newd;
+		struct active_array *newa = NULL;
+		a->check_reshape = 0;
+		info = sysfs_read(-1, mdstat->devnum,
+				  GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
+		if (!info)
+			goto out2;
+		for (d = info->devs; d; d = d->next) {
+			if (d->disk.raid_disk < 0)
+				continue;
+			for (d2 = a->info.devs; d2; d2 = d2->next)
+				if (d2->disk.raid_disk ==
+				    d->disk.raid_disk)
+					break;
+			if (d2)
+				/* already have this one */
+				continue;
+			if (!newa) {
+				newa = duplicate_aa(a);
+				if (!newa)
+					break;
+			}
+			newd = malloc(sizeof(*newd));
+			if (!newd)
+				continue;
+			disk_init_and_add(newd, d, newa);
+		}
+	out2:
+		sysfs_free(info);
+		if (newa)
+			replace_array(a->container, a, newa);
 	}
 }
 

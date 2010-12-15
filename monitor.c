@@ -215,6 +215,7 @@ static int read_and_act(struct active_array *a)
 {
 	unsigned long long sync_completed;
 	int check_degraded = 0;
+	int check_reshape = 0;
 	int deactivate = 0;
 	struct mdinfo *mdi;
 	int dirty = 0;
@@ -305,6 +306,15 @@ static int read_and_act(struct active_array *a)
 		}
 	}
 
+	if (!deactivate &&
+	    a->curr_action == reshape &&
+	    a->prev_action != reshape)
+		/* reshape was requested by mdadm.  Need to see if
+		 * new devices have been added.  Manager does that
+		 * when it sees check_reshape
+		 */
+		check_reshape = 1;
+
 	/* Check for failures and if found:
 	 * 1/ Record the failure in the metadata and unblock the device.
 	 *    FIXME update the kernel to stop notifying on failed drives when
@@ -393,9 +403,12 @@ static int read_and_act(struct active_array *a)
 		mdi->next_state = 0;
 	}
 
-	if (check_degraded) {
+	if (check_degraded || check_reshape) {
 		/* manager will do the actual check */
-		a->check_degraded = 1;
+		if (check_degraded)
+			a->check_degraded = 1;
+		if (check_reshape)
+			a->check_reshape = 1;
 		signal_manager();
 	}
 

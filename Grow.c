@@ -663,6 +663,9 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 		struct mdinfo *sub;
 		unsigned int cache;
 		int level, takeover_delta = 0;
+		int parity_disks = 1;
+		unsigned int odata;
+		unsigned long blocks;
 
 		if (!is_container_member(e, container))
 			continue;
@@ -692,13 +695,22 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 		default:
 			rv = -1;
 			break;
+		case 6:
+			parity_disks++;
 		case 4:
 		case 5:
-		case 6:
-			sub = sysfs_read(-1, e->devnum, GET_CHUNK|GET_CACHE);
+			sub = sysfs_read(-1, e->devnum, GET_CHUNK|GET_CACHE|GET_DISKS);
 			if (!sub)
 				break;
 			cache = (sub->array.chunk_size / 4096) * 4;
+			odata = sub->array.raid_disks - parity_disks;
+			blocks = compute_backup_blocks(sub->array.chunk_size,
+						       sub->array.chunk_size,
+						       raid_disks - parity_disks,
+						       odata);
+			if (cache < blocks / 8 / odata + 16)
+				/* Make it big enough to hold 'blocks' */
+				cache = blocks / 8 / odata + 16;
 			if (cache > sub->cache_size)
 				rv = subarray_set_num(container, sub,
 						      "stripe_cache_size", cache);
@@ -1791,9 +1803,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		
 		cache = (nchunk < ochunk) ? ochunk : nchunk;
 		cache = cache * 4 / 4096;
-		if (cache < blocks / 8 / odisks + 16)
+		if (cache < blocks / 8 / odata + 16)
 			/* Make it big enough to hold 'blocks' */
-			cache = blocks / 8 / odisks + 16;
+			cache = blocks / 8 / odata + 16;
 		if (sra->cache_size < cache)
 			sysfs_set_num(sra, NULL, "stripe_cache_size",
 				      cache+1);

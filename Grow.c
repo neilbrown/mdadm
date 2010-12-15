@@ -644,6 +644,28 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 	return rc;
 }
 
+int start_reshape(struct mdinfo *sra)
+{
+	int err;
+	err = sysfs_set_num(sra, NULL, "suspend_hi", 0);
+	err = err ?: sysfs_set_num(sra, NULL, "suspend_lo", 0);
+	err = err ?: sysfs_set_num(sra, NULL, "sync_min", 0);
+	err = err ?: sysfs_set_num(sra, NULL, "sync_max", 0);
+	err = err ?: sysfs_set_str(sra, NULL, "sync_action", "reshape");
+
+	return err;
+}
+
+void abort_reshape(struct mdinfo *sra)
+{
+	sysfs_set_str(sra, NULL, "sync_action", "idle");
+	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
+	sysfs_set_num(sra, NULL, "suspend_hi", 0);
+	sysfs_set_num(sra, NULL, "suspend_lo", 0);
+	sysfs_set_num(sra, NULL, "sync_min", 0);
+	sysfs_set_str(sra, NULL, "sync_max", "max");
+}
+
 static int reshape_container_raid_disks(char *container, int raid_disks)
 {
 	/* for each subarray switch to a raid level that can
@@ -1906,6 +1928,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * handling backups of the data...
 		 * This is all done by a forked background process.
 		 */
+		start_reshape(sra);
 		switch(fork()) {
 		case 0:
 			close(fd);
@@ -1933,7 +1956,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 						       d - odisks, fdlist+odisks, offsets+odisks);
 			if (backup_file && done)
 				unlink(backup_file);
-			if (level != UnSet && level != array.level) {
+			if (!done)
+				abort_reshape(sra);
+			else if (level != UnSet && level != array.level) {
 				/* We need to wait for the reshape to finish
 				 * (which will have happened unless odata < ndata)
 				 * and then set the level
@@ -1955,6 +1980,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			fprintf(stderr, Name ": Cannot run child to monitor reshape: %s\n",
 				strerror(errno));
 			rv = 1;
+			abort_reshape(sra);
 			break;
 		default:
 			/* The child will take care of unfreezing the array */
@@ -2133,8 +2159,6 @@ static int wait_backup(struct mdinfo *sra,
 	if (fd < 0)
 		return -1;
 	sysfs_set_num(sra, NULL, "sync_max", offset + blocks + blocks2);
-	if (offset == 0)
-		sysfs_set_str(sra, NULL, "sync_action", "reshape");
 
 	if (sysfs_fd_get_ll(fd, &completed) < 0) {
 		close(fd);
@@ -2287,8 +2311,6 @@ static int child_grow(int afd, struct mdinfo *sra, unsigned long stripes,
 	if (posix_memalign((void**)&buf, 4096, disks * chunk))
 		/* Don't start the 'reshape' */
 		return 0;
-	sysfs_set_num(sra, NULL, "suspend_hi", 0);
-	sysfs_set_num(sra, NULL, "suspend_lo", 0);
 	grow_backup(sra, 0, stripes,
 		    fds, offsets, disks, chunk, level, layout,
 		    dests, destfd, destoffsets,
@@ -2318,9 +2340,6 @@ static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
 		return 0;
 	start = sra->component_size - stripes * (chunk/512);
 	sysfs_set_num(sra, NULL, "sync_max", start);
-	sysfs_set_str(sra, NULL, "sync_action", "reshape");
-	sysfs_set_num(sra, NULL, "suspend_lo", 0);
-	sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	rv = wait_backup(sra, 0, start - stripes * (chunk/512), stripes * (chunk/512),
 			 dests, destfd, destoffsets, 0);
 	if (rv < 0)
@@ -2356,9 +2375,6 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
 
 	if (posix_memalign((void**)&buf, 4096, disks * chunk))
 		return 0;
-
-	sysfs_set_num(sra, NULL, "suspend_lo", 0);
-	sysfs_set_num(sra, NULL, "suspend_hi", 0);
 
 	sysfs_get_ll(sra, NULL, "sync_speed_min", &speed);
 	sysfs_set_num(sra, NULL, "sync_speed_min", 200000);

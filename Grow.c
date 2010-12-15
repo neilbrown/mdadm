@@ -666,7 +666,8 @@ void abort_reshape(struct mdinfo *sra)
 	sysfs_set_str(sra, NULL, "sync_max", "max");
 }
 
-static int reshape_container_raid_disks(char *container, int raid_disks)
+static int reshape_container_raid_disks(struct supertype *st,
+					char *container, int raid_disks)
 {
 	/* for each subarray switch to a raid level that can
 	 * support the reshape, and set raid disks
@@ -682,15 +683,17 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 
 	changed = 0;
 	for (e = ent; e; e = e->next) {
-		struct mdinfo *sub;
+		struct mdinfo *sub, *info;
 		unsigned int cache;
 		int level, takeover_delta = 0;
 		int parity_disks = 1;
 		unsigned int odata;
 		unsigned long blocks;
+		char *subarray;
 
 		if (!is_container_member(e, container))
 			continue;
+		subarray = strchr(e->metadata_version+10, '/')+1;
 
 		rv = -1;
 		level = map_name(pers, e->level);
@@ -756,6 +759,23 @@ static int reshape_container_raid_disks(char *container, int raid_disks)
 				changed++;
 			break;
 		}
+
+		/* add the devices that were chosen */
+		info = st->ss->container_content(st, subarray);
+		if (info) {
+			struct mdinfo *d;
+			for (d = info->devs; d; d = d->next) {
+				if (d->disk.state == 0 &&
+				    d->disk.raid_disk >= 0) {
+					/* This is a spare that wants to
+					 * be part of the array.
+					 */
+					add_disk(-1, st, info, d);
+				}
+			}
+		}
+		sysfs_free(info);
+
 		if (!rv && level > 1)
 			start_reshape(sub);
 		sysfs_free(sub);
@@ -1542,7 +1562,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 
-		count = reshape_container_raid_disks(container, raid_disks);
+		count = reshape_container_raid_disks(st, container, raid_disks);
 		if (count < 0) {
 			revert_container_raid_disks(st, fd, container);
 			rv = 1;
@@ -1823,6 +1843,29 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				  backup_file, devname, !quiet)) {
 			rv = 1;
 			break;
+		}
+
+		/* ->reshape_super might have chosen some spares from the
+		 * container that it wants to be part of the new array.
+		 * We can collect them with ->container_content and give
+		 * them to the kernel.
+		 */
+		if (st->ss->reshape_super && st->ss->container_content) {
+			struct mdinfo *info =
+				st->ss->container_content(st, subarray);
+			struct mdinfo *d;
+
+			if (info)
+				for (d = info->devs; d; d = d->next) {
+					if (d->disk.state == 0 &&
+					    d->disk.raid_disk >= 0) {
+						/* This is a spare that wants to
+						 * be part of the array.
+						 */
+						add_disk(fd, st, info, d);
+					}
+				}
+			sysfs_free(info);
 		}
 
 		/* lastly, check that the internal stripe cache is

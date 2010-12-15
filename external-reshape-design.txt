@@ -35,7 +35,7 @@ raid5 in a container that also houses a 4-disk raid10 array could not be
 reshaped to 5 disks as the imsm format does not support a 5-disk raid10
 representation.  This requires the ->reshape_super method to check the
 contents of the array and ask the user to run the reshape at container
-scope (if both subarrays are agreeable to the change), or report an
+scope (if all subarrays are agreeable to the change), or report an
 error in the case where one subarray cannot support the change.
 
 1.3 Monitoring / checkpointing
@@ -77,7 +77,7 @@ specific areas for managing reshape.  The implementation also needs to spawn a
 reshape-manager per subarray when the reshape is being carried out at the
 container level.  For these two reasons the ->manage_reshape() method is
 introduced.  This method in addition to base tasks mentioned above:
-1/ Spawns a manager per-subarray, when necessary
+1/ Processed each subarray one at a time in series - where appropriate.
 2/ Uses either generic routines in Grow.c for md-style backup file
    support, or uses the metadata-format specific location for storing
    recovery data.
@@ -97,6 +97,22 @@ Obtain an exclusive open on the container to make sure we are not
 running concurrently with a Create() event.
 
 2.1 Freezing sync_action
+
+   Before making any attempt at a reshape we 'freeze' every array in
+   the container to ensure no spare assignment or recovery happens.
+   This involves writing 'frozen' to sync_action and changing the '/'
+   after 'external:' in metadata_version to a '-'. mdmon knows that
+   this means not to perform any management.
+
+   Before doing this we check that all sync_actions are 'idle', which
+   is racy but still useful.
+   Afterwards we check that all member arrays have no spares
+   or partial spares (recovery_start != 'none') which would indicate a
+   race.  If they do, we unfreeze again.
+
+   Once this completes we know all the arrays are stable.  They may
+   still have failed devices as devices can fail at any time.  However
+   we treat those like failures that happen during the reshape.
 
 2.2 Reshape size
 
@@ -134,24 +150,52 @@ sync_action
        because only redundant raid levels can modify the number of raid disks
     2/ mdadm::Grow_reshape(): calls ->reshape_super() to check that the level
        change is allowed (being performed at proper scope / permissible
-       geometry / proper spares available in the container) prepares a metadata
-       update.
+       geometry / proper spares available in the container), chooses
+       the spares to use, and prepares a metadata update.
     3/ mdadm::Grow_reshape(): Converts each subarray in the container to the
        raid level that can perform the reshape and starts mdmon.
-    4/ mdadm::Grow_reshape(): Pushes the update to mdmon...
-       4a/ mdmon::process_update(): marks the array as reshaping
-       4b/ mdmon::manage_member(): adds the spares (without assigning a slot)
-    5/ mdadm::Grow_reshape(): Notes that mdmon has assigned spares and invokes
-       ->manage_reshape()
-    5/ mdadm::<format>->manage_reshape(): (for each subarray) sets sync_max to
-       zero, starts the reshape, and pings mdmon
-       5a/ mdmon::read_and_act(): notices that reshape has started and notifies
-           the metadata handler to record the slots chosen by the kernel
-    6/ mdadm::<format>->manage_reshape(): saves data that will be overwritten by
+    4/ mdadm::Grow_reshape(): Pushes the update to mdmon.
+    5/ mdadm::Grow_reshape(): uses container_content to find details of
+       the spares and passes them to the kernel.
+    6/ mdadm::Grow_reshape(): gives raid_disks update to the kernel,
+       sets sync_max, sync_min, suspend_lo, suspend_hi all to zero,
+       and starts the reshape by writing 'reshape' to sync_action.
+    7/ mdmon::monitor notices the sync_action change and tells
+       managemon to check for new devices.  managemon notices the new
+       devices, opens relevant sysfs file, and passes them all to
+       monitor.
+    8/ mdadm::Grow_reshape() calls ->manage_reshape to oversee the
+       rest of the reshape.
+       
+    9/ mdadm::<format>->manage_reshape(): saves data that will be overwritten by
        the kernel to either the backup file or the metadata specific location,
        advances sync_max, waits for reshape, ping mdmon, repeat.
-       6a/ mdmon::read_and_act(): records checkpoints
-    7/ mdadm::<format>->manage_reshape(): Once reshape completes changes the raid
+       Meanwhile mdmon::read_and_act(): records checkpoints.
+       Specifically.
+
+       9a/ if the 'next' stripe to be reshaped will over-write
+           itself during reshape then:
+	9a.1/ increase suspend_hi to cover a suitable number of
+           stripes.
+	9a.2/ backup those stripes safely.
+	9a.3/ advance sync_max to allow those stripes to be backed up
+	9a.4/ when sync_completed indicates that those stripes have
+           been reshaped, manage_reshape must ping_manager
+	9a.5/ when mdmon notices that sync_completed has been updated,
+           it records the new checkpoint in the metadata
+	9a.6/ after the ping_manager, manage_reshape will increase
+           suspend_lo to allow access to those stripes again
+
+       9b/ if the 'next' stripe to be reshaped will over-write unused
+           space during reshape then we apply same process as above,
+	   except that there is no need to back anything up.
+	   Note that we *do* need to keep suspend_hi progressing as
+	   it is not safe to write to the area-under-reshape.  For
+	   kernel-managed-metadata this protection is provided by
+	   ->reshape_safe, but that does not protect us in the case
+	   of user-space-managed-metadata.
+	   
+   10/ mdadm::<format>->manage_reshape(): Once reshape completes changes the raid
        level back to the nominal raid level (if necessary)
 
        FIXME: native metadata does not have the capability to record the original

@@ -467,17 +467,41 @@ static int child_same_size(int afd, struct mdinfo *sra, unsigned long blocks,
 			   int disks, int chunk, int level, int layout, int data,
 			   int dests, int *destfd, unsigned long long *destoffsets);
 
+static int check_idle(struct supertype *st)
+{
+	/* Check that all member arrays for this container, or the
+	 * container of this array, are idle
+	 */
+	int container_dev = (st->container_dev != NoMdDev
+			     ? st->container_dev : st->devnum);
+	char container[40];
+	struct mdstat_ent *ent, *e;
+	int is_idle = 1;
+	
+	fmt_devname(container, container_dev);
+	ent = mdstat_read(0, 0);
+	for (e = ent ; e; e = e->next) {
+		if (!is_container_member(e, container))
+			continue;
+		if (e->percent >= 0) {
+			is_idle = 0;
+			break;
+		}
+	}
+	free_mdstat(ent);
+	return is_idle;
+}
+
 static int freeze_container(struct supertype *st)
 {
 	int container_dev = (st->container_dev != NoMdDev
 			     ? st->container_dev : st->devnum);
-	char *container = devnum2devname(container_dev);
+	char container[40];
 
-	if (!container) {
-		fprintf(stderr, Name
-			": could not determine container name, freeze aborted\n");
-		return -2;
-	}
+	if (!check_idle(st))
+		return -1;
+	
+	fmt_devname(container, container_dev);
 
 	if (block_monitor(container, 1)) {
 		fprintf(stderr, Name ": failed to freeze container\n");
@@ -491,13 +515,9 @@ static void unfreeze_container(struct supertype *st)
 {
 	int container_dev = (st->container_dev != NoMdDev
 			     ? st->container_dev : st->devnum);
-	char *container = devnum2devname(container_dev);
-
-	if (!container) {
-		fprintf(stderr, Name
-			": could not determine container name, unfreeze aborted\n");
-		return;
-	}
+	char container[40];
+	
+	fmt_devname(container, container_dev);
 
 	unblock_monitor(container, 1);
 }

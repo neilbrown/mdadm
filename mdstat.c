@@ -383,3 +383,36 @@ struct mdstat_ent *mdstat_by_component(char *name)
 	}
 	return NULL;
 }
+
+struct mdstat_ent *mdstat_by_subdev(char *subdev, int container)
+{
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
+
+	while (mdstat) {
+		struct mdstat_ent *ent;
+		char *pos;
+		/* metadata version must match:
+		 *   external:[/-]md%d/%s
+		 * where %d is 'container' and %s is 'subdev'
+		 */
+		if (mdstat->metadata_version &&
+		    strncmp(mdstat->metadata_version, "external:", 9) == 0 &&
+		    strchr("/-", mdstat->metadata_version[9]) != NULL &&
+		    strncmp(mdstat->metadata_version+10, "md", 2) == 0 &&
+		    strtoul(mdstat->metadata_version+11, &pos, 10)
+		    == (unsigned)container &&
+		    pos > mdstat->metadata_version+11 &&
+		    *pos == '/' &&
+		    strcmp(pos+1, subdev) == 0
+			) {
+			free_mdstat(mdstat->next);
+			mdstat->next = NULL;
+			return mdstat;
+		}
+		ent = mdstat;
+		mdstat = mdstat->next;
+		ent->next = NULL;
+		free_mdstat(ent);
+	}
+	return NULL;
+}

@@ -291,6 +291,7 @@ enum imsm_update_type {
 	update_kill_array,
 	update_rename_array,
 	update_add_remove_disk,
+	update_reshape_container_disks,
 };
 
 struct imsm_update_activate_spare {
@@ -299,6 +300,24 @@ struct imsm_update_activate_spare {
 	int slot;
 	int array;
 	struct imsm_update_activate_spare *next;
+};
+
+struct geo_params {
+	int dev_id;
+	char *dev_name;
+	long long size;
+	int level;
+	int layout;
+	int chunksize;
+	int raid_disks;
+};
+
+
+struct imsm_update_reshape {
+	enum imsm_update_type type;
+	int old_raid_disks;
+	int new_raid_disks;
+	int new_disks[1]; /* new_raid_disk - old_raid_disks makedev number */
 };
 
 struct disk_info {
@@ -5489,6 +5508,9 @@ static void imsm_process_update(struct supertype *st,
 	mpb = super->anchor;
 
 	switch (type) {
+	case update_reshape_container_disks: {
+		break;
+	}
 	case update_activate_spare: {
 		struct imsm_update_activate_spare *u = (void *) update->buf; 
 		struct imsm_dev *dev = get_imsm_dev(super, u->array);
@@ -5801,6 +5823,9 @@ static void imsm_prepare_update(struct supertype *st,
 	size_t len = 0;
 
 	switch (type) {
+	case update_reshape_container_disks: {
+		break;
+	}
 	case update_create_array: {
 		struct imsm_update_create_array *u = (void *) update->buf;
 		struct intel_dev *dv;
@@ -5954,6 +5979,315 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 		return NULL;
 }
 
+static int imsm_find_array_minor_by_subdev(int subdev, int container, int *minor)
+{
+	char subdev_name[20];
+	struct mdstat_ent *mdstat;
+
+	sprintf(subdev_name, "%d", subdev);
+	mdstat = mdstat_by_subdev(subdev_name, container);
+	if (!mdstat)
+		return -1;
+
+	*minor = mdstat->devnum;
+	free_mdstat(mdstat);
+	return 0;
+}
+
+static int imsm_reshape_is_allowed_on_container(struct supertype *st,
+						struct geo_params *geo,
+						int *old_raid_disks)
+{
+	int ret_val = 0;
+	struct mdinfo *info, *member;
+	int devices_that_can_grow = 0;
+
+	dprintf("imsm: imsm_reshape_is_allowed_on_container(ENTER): "
+		"st->devnum = (%i)\n",
+		st->devnum);
+
+	if (geo->size != -1 ||
+	    geo->level != UnSet ||
+	    geo->layout != UnSet ||
+	    geo->chunksize != 0 ||
+	    geo->raid_disks == UnSet) {
+		dprintf("imsm: Container operation is allowed for "
+			"raid disks number change only.\n");
+		return ret_val;
+	}
+
+	info = container_content_imsm(st, NULL);
+	for (member = info; member; member = member->next) {
+		int result;
+		int minor;
+
+		dprintf("imsm: checking device_num: %i\n",
+			member->container_member);
+
+		if (geo->raid_disks < member->array.raid_disks) {
+			/* we work on container for Online Capacity Expansion
+			 * only so raid_disks has to grow
+			 */
+			dprintf("imsm: for container operation raid disks "
+				"increase is required\n");
+			break;
+		}
+
+		if ((info->array.level != 0) &&
+		    (info->array.level != 5)) {
+			/* we cannot use this container with other raid level
+			 */
+			dprintf("imsm: for container operation wrong"\
+				" raid level (%i) detected\n",
+				info->array.level);
+			break;
+		} else {
+			/* check for platform support
+			 * for this raid level configuration
+			 */
+			struct intel_super *super = st->sb;
+			if (!is_raid_level_supported(super->orom,
+						     member->array.level,
+						     geo->raid_disks)) {
+				dprintf("platform does not support raid%d with"\
+					" %d disk%s\n",
+					 info->array.level,
+					 geo->raid_disks,
+					 geo->raid_disks > 1 ? "s" : "");
+				break;
+			}
+		}
+
+		if (*old_raid_disks &&
+		    info->array.raid_disks != *old_raid_disks)
+			break;
+		*old_raid_disks = info->array.raid_disks;
+
+		/* All raid5 and raid0 volumes in container
+		 * have to be ready for Online Capacity Expansion
+		 * so they need to be assembled.  We have already
+		 * checked that no recovery etc is happening.
+		 */
+		result = imsm_find_array_minor_by_subdev(member->container_member,
+							 st->container_dev,
+							 &minor);
+		if (result < 0) {
+			dprintf("imsm: cannot find array\n");
+			break;
+		}
+		devices_that_can_grow++;
+	}
+	sysfs_free(info);
+	if (!member && devices_that_can_grow)
+		ret_val = 1;
+
+	if (ret_val)
+		dprintf("\tContainer operation allowed\n");
+	else
+		dprintf("\tError: %i\n", ret_val);
+
+	return ret_val;
+}
+
+/* Function: get_spares_for_grow
+ * Description: Allocates memory and creates list of spare devices
+ * 		avaliable in container. Checks if spare drive size is acceptable.
+ * Parameters: Pointer to the supertype structure
+ * Returns: Pointer to the list of spare devices (mdinfo structure) on success,
+ * 		NULL if fail
+ */
+static struct mdinfo *get_spares_for_grow(struct supertype *st)
+{
+	dev_t dev = 0;
+	struct mdinfo *disks, *d, **dp;
+	unsigned long long min_size = min_acceptable_spare_size_imsm(st);
+
+	/* get list of alldisks in container */
+	disks = getinfo_super_disks_imsm(st);
+
+	if (!disks)
+		return NULL;
+	/* find spare devices on the list */
+	dp = &disks->devs;
+	disks->array.spare_disks = 0;
+	while (*dp) {
+		int found = 0;
+		d = *dp;
+		if (d->disk.state == 0) {
+			/* check if size is acceptable */
+			unsigned long long dev_size;
+			dev = makedev(d->disk.major,d->disk.minor);
+			if (min_size &&
+			    dev_size_from_id(dev,  &dev_size) &&
+			    dev_size >= min_size) {
+				dev = 0;
+				found = 1;
+			}
+		}
+		if (found) {
+			dp = &d->next;
+			disks->array.spare_disks++;
+		} else {
+			*dp = d->next;
+			d->next = NULL;
+			sysfs_free(d);
+		}
+	}
+	return disks;
+}
+
+/******************************************************************************
+ * function: imsm_create_metadata_update_for_reshape
+ * Function creates update for whole IMSM container.
+ *
+ ******************************************************************************/
+static int imsm_create_metadata_update_for_reshape(
+	struct supertype *st,
+	struct geo_params *geo,
+	int old_raid_disks,
+	struct imsm_update_reshape **updatep)
+{
+	struct intel_super *super = st->sb;
+	struct imsm_super *mpb = super->anchor;
+	int update_memory_size = 0;
+	struct imsm_update_reshape *u = NULL;
+	struct mdinfo *spares = NULL;
+	int i;
+	int delta_disks = 0;
+
+	dprintf("imsm_update_metadata_for_reshape(enter) raid_disks = %i\n",
+		geo->raid_disks);
+
+	delta_disks = geo->raid_disks - old_raid_disks;
+
+	/* size of all update data without anchor */
+	update_memory_size = sizeof(struct imsm_update_reshape);
+
+	/* now add space for spare disks that we need to add. */
+	update_memory_size += sizeof(u->new_disks[0]) * (delta_disks - 1);
+
+	u = calloc(1, update_memory_size);
+	if (u == NULL) {
+		dprintf("error: "
+			"cannot get memory for imsm_update_reshape update\n");
+		return 0;
+	}
+	u->type = update_reshape_container_disks;
+	u->old_raid_disks = old_raid_disks;
+	u->new_raid_disks = geo->raid_disks;
+
+	/* now get spare disks list
+	 */
+	spares = get_spares_for_grow(st);
+
+	if (spares == NULL
+	    || delta_disks > spares->array.spare_disks) {
+		dprintf("imsm: ERROR: Cannot get spare devices.\n");
+		goto abort;
+	}
+
+	/* we have got spares
+	 * update disk list in imsm_disk list table in anchor
+	 */
+	dprintf("imsm: %i spares are available.\n\n",
+		spares->array.spare_disks);
+
+	for (i = 0; i < delta_disks; i++) {
+		struct mdinfo *dev = spares->devs;
+		struct dl *dl;
+
+		u->new_disks[i] = makedev(dev->disk.major,
+					  dev->disk.minor);
+		dl = get_disk_super(super, dev->disk.major, dev->disk.minor);
+		dl->index = mpb->num_disks++;
+	}
+	/* Now update the metadata so that container_content will find
+	 * the new devices
+	 */
+	for (i = 0; i < mpb->num_raid_devs; i++) {
+		int d;
+		struct imsm_dev *dev = get_imsm_dev(super, i);
+		struct imsm_map *map = get_imsm_map(dev, 0);
+		map->num_members = geo->raid_disks;
+		for (d = 0; d < delta_disks; d++) {
+			set_imsm_ord_tbl_ent(map, old_raid_disks + d,
+					     mpb->num_disks - delta_disks + d);
+		}
+	}
+
+abort:
+	/* free spares
+	 */
+	sysfs_free(spares);
+
+	if (i == delta_disks) {
+		*updatep = u;
+		return update_memory_size;
+	}
+	free(u);
+
+	return 0;
+}
+
+
+static int imsm_reshape_super(struct supertype *st, long long size, int level,
+			      int layout, int chunksize, int raid_disks,
+			      char *backup, char *dev, int verbouse)
+{
+	/* currently we only support increasing the number of devices
+	 * for a container.  This increases the number of device for each
+	 * member array.  They must all be RAID0 or RAID5.
+	 */
+
+	int ret_val = 1;
+	struct geo_params geo;
+
+	dprintf("imsm: reshape_super called.\n");
+
+	memset(&geo, sizeof(struct geo_params), 0);
+
+	geo.dev_name = dev;
+	geo.size = size;
+	geo.level = level;
+	geo.layout = layout;
+	geo.chunksize = chunksize;
+	geo.raid_disks = raid_disks;
+
+	dprintf("\tfor level      : %i\n", geo.level);
+	dprintf("\tfor raid_disks : %i\n", geo.raid_disks);
+
+	if (experimental() == 0)
+		return ret_val;
+
+	/* verify reshape conditions
+	 * on container level we can only increase number of devices. */
+	if (st->container_dev == st->devnum) {
+		/* check for delta_disks > 0
+		 *and supported raid levels 0 and 5 only in container */
+		int old_raid_disks = 0;
+		if (imsm_reshape_is_allowed_on_container(
+			    st, &geo, &old_raid_disks)) {
+			struct imsm_update_reshape *u = NULL;
+			int len;
+
+			len = imsm_create_metadata_update_for_reshape(
+				st, &geo, old_raid_disks, &u);
+
+			if (len) {
+				ret_val = 0;
+				append_metadata_update(st, u, len);
+			} else
+				dprintf("imsm: Cannot prepare "\
+					"update\n");
+		} else
+			dprintf("imsm: Operation is not allowed "\
+				"on this container\n");
+	} else
+		dprintf("imsm: not a container operation\n");
+
+	dprintf("imsm: reshape_super Exit code = %i\n", ret_val);
+	return ret_val;
+}
 
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
@@ -5991,6 +6325,7 @@ struct superswitch super_imsm = {
 	.container_content = container_content_imsm,
 	.default_geometry = default_geometry_imsm,
 	.get_disk_controller_domain = imsm_get_disk_controller_domain,
+	.reshape_super  = imsm_reshape_super,
 
 	.external	= 1,
 	.name = "imsm",

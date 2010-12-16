@@ -401,6 +401,7 @@ extern void mdstat_wait(int seconds);
 extern void mdstat_wait_fd(int fd, const sigset_t *sigmask);
 extern int mddev_busy(int devnum);
 extern struct mdstat_ent *mdstat_by_component(char *name);
+extern struct mdstat_ent *mdstat_by_subdev(char *subdev, int container);
 
 struct map_ent {
 	struct map_ent *next;

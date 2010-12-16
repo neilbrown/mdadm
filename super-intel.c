@@ -4520,13 +4520,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	struct imsm_super *mpb = super->anchor;
 	struct mdinfo *rest = NULL;
 	unsigned int i;
+	int bbm_errors = 0;
 
-	/* do not assemble arrays that might have bad blocks */
-	if (imsm_bbm_log_size(super->anchor)) {
-		fprintf(stderr, Name ": BBM log found in metadata. "
-				"Cannot activate array(s).\n");
-		return NULL;
-	}
+	/* check for bad blocks */
+	if (imsm_bbm_log_size(super->anchor))
+		bbm_errors = 1;
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev;
@@ -4634,6 +4632,10 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		update_recovery_start(dev, this);
 		rest = this;
 	}
+
+	/* if array has bad blocks, set suitable bit in array status */
+	if (bbm_errors)
+		rest->array.state |= (1<<MD_SB_BBM_ERRORS);
 
 	return rest;
 }

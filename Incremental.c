@@ -1411,6 +1411,12 @@ static int Incremental_container(struct supertype *st, char *devname,
 	if (map_lock(&map))
 		fprintf(stderr, Name ": failed to get exclusive lock on "
 			"mapfile\n");
+	/* do not assemble arrays that might have bad blocks */
+	if (list->array.state & (1<<MD_SB_BBM_ERRORS)) {
+		fprintf(stderr, Name ": BBM log found in metadata. "
+					"Cannot activate array(s).\n");
+		list = NULL;
+	}
 
 	for (ra = list ; ra ; ra = ra->next) {
 		int mdfd;

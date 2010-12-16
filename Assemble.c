@@ -435,6 +435,13 @@ int Assemble(struct supertype *st, char *mddev,
 			     content;
 			     content = content->next) {
 
+				/* do not assemble arrays that might have bad blocks */
+				if (content->array.state & (1<<MD_SB_BBM_ERRORS)) {
+					fprintf(stderr, Name ": BBM log found in metadata. "
+								"Cannot activate array(s).\n");
+					tmpdev->used = 2;
+					goto loop;
+				}
 				if (!ident_matches(ident, content, tst,
 						   homehost, update,
 						   report_missmatch ? devname : NULL))

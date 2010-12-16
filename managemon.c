@@ -503,6 +503,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		 * and look for new stuff.
 		 */
 		struct mdinfo *info, *d, *d2, *newd;
+		unsigned long long array_size;
 		struct active_array *newa = NULL;
 		a->check_reshape = 0;
 		info = sysfs_read(-1, mdstat->devnum,
@@ -528,6 +529,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 			if (!newd)
 				continue;
 			disk_init_and_add(newd, d, newa);
+		}
+		if (sysfs_get_ll(info, NULL, "array_size", &array_size) == 0
+		    && a->info.custom_array_size > array_size) {
+			sysfs_set_num(info, NULL, "array_size",
+				      a->info.custom_array_size);
 		}
 	out2:
 		sysfs_free(info);

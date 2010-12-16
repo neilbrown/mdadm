@@ -1503,6 +1503,7 @@ static __u64 blocks_per_migr_unit(struct imsm_dev *dev)
 		return migr_chunk * stripes_per_unit;
 	}
 	case MIGR_GEN_MIGR:
+		/* FIXME I need a number here */
 	case MIGR_STATE_CHANGE:
 	default:
 		return 0;
@@ -4825,7 +4826,7 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 
 static void imsm_set_disk(struct active_array *a, int n, int state);
 
-/* Handle dirty -> clean transititions and resync.  Degraded and rebuild
+/* Handle dirty -> clean transititions, resync and reshape.  Degraded and rebuild
  * states are handled in imsm_set_disk() with one exception, when a
  * resync is stopped due to a new failure this routine will set the
  * 'degraded' state for the array.
@@ -4843,12 +4844,55 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	if (dev->vol.migr_state &&
 	    dev->vol.migr_type  == MIGR_GEN_MIGR) {
 		/* array state change is blocked due to reshape action
-		 *
-		 * '1' is returned to indicate that array is clean
+		 * We might need to
+		 * - abort the reshape (if last_checkpoint is 0 and action!= reshape)
+		 * - finish the reshape (if last_checkpoint is big and action != reshape)
+		 * - update curr_migr_unit
 		 */
-		dprintf("imsm: imsm_set_array_state() called "\
-			"during reshape.\n");
-		return 1;
+		if (a->curr_action == reshape) {
+			/* still reshaping, maybe update curr_migr_unit */
+			long long blocks_per_unit = blocks_per_migr_unit(dev);
+			long long unit = a->last_checkpoint;
+			unit /= blocks_per_unit;
+			if (unit > __le32_to_cpu(dev->vol.curr_migr_unit)) {
+				dev->vol.curr_migr_unit = __cpu_to_le32(unit);
+				super->updates_pending++;
+			}
+		} else {
+			if (a->last_checkpoint == 0 && a->prev_action == reshape) {
+				/* for some reason we aborted the reshape.
+				 * Better clean up
+				 */
+				struct imsm_map *map2 = get_imsm_map(dev, 1);
+				dev->vol.migr_state = 0;
+				dev->vol.migr_type = 0;
+				dev->vol.curr_migr_unit = 0;
+				memcpy(map, map2, sizeof_imsm_map(map2));
+				super->updates_pending++;
+			}
+			if (a->last_checkpoint >= a->info.component_size) {
+				unsigned long long array_blocks;
+				int used_disks;
+				/* it seems the reshape is all done */
+				dev->vol.migr_state = 0;
+				dev->vol.migr_type = 0;
+				dev->vol.curr_migr_unit = 0;
+
+				used_disks = imsm_num_data_members(dev);
+				array_blocks = map->blocks_per_member * used_disks;
+				/* round array size down to closest MB */
+				array_blocks = (array_blocks >> SECT_PER_MB_SHIFT)
+					<< SECT_PER_MB_SHIFT;
+				dev->size_low = __cpu_to_le32((__u32) array_blocks);
+				dev->size_high = __cpu_to_le32((__u32) (array_blocks >> 32));
+				a->info.custom_array_size = array_blocks;
+				a->check_reshape = 1; /* encourage manager to update
+						       * array size
+						       */
+				super->updates_pending++;
+			}				
+		}
+		return 0;
 	}
 
 	/* before we activate this array handle any missing disks */

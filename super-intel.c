@@ -5357,6 +5357,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	}
 			
 	mu->space = NULL;
+	mu->space_list = NULL;
 	mu->len = sizeof(struct imsm_update_activate_spare) * num_spares;
 	mu->next = *updates;
 	u = (struct imsm_update_activate_spare *) mu->buf;

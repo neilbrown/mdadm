@@ -217,10 +217,16 @@ static void free_updates(struct metadata_update **update)
 {
 	while (*update) {
 		struct metadata_update *this = *update;
+		void **space_list = this->space_list;
 
 		*update = this->next;
 		free(this->buf);
 		free(this->space);
+		while (space_list) {
+			void *space = space_list;
+			space_list = *space_list;
+			free(space);
+		}
 		free(this);
 	}
 }
@@ -710,6 +716,7 @@ static void handle_message(struct supertype *container, struct metadata_update *
 		mu->buf = msg->buf;
 		msg->buf = NULL;
 		mu->space = NULL;
+		mu->space_list = NULL;
 		mu->next = NULL;
 		if (container->ss->prepare_update)
 			container->ss->prepare_update(container, mu);

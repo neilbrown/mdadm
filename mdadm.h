@@ -764,6 +764,9 @@ struct metadata_update {
 	int	len;
 	char	*buf;
 	void	*space; /* allocated space that monitor will use */
+	void	**space_list; /* list of allocated spaces that monitor can
+			       * use or that it returned.
+			       */
 	struct metadata_update *next;
 };
 

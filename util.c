@@ -1890,6 +1890,7 @@ void append_metadata_update(struct supertype *st, void *buf, int len)
 	mu->buf = buf;
 	mu->len = len;
 	mu->space = NULL;
+	mu->space_list = NULL;
 	mu->next = NULL;
 	*st->update_tail = mu;
 	st->update_tail = &mu->next;

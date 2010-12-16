@@ -4840,6 +4840,17 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	__u8 map_state = imsm_check_degraded(super, dev, failed);
 	__u32 blocks_per_unit;
 
+	if (dev->vol.migr_state &&
+	    dev->vol.migr_type  == MIGR_GEN_MIGR) {
+		/* array state change is blocked due to reshape action
+		 *
+		 * '1' is returned to indicate that array is clean
+		 */
+		dprintf("imsm: imsm_set_array_state() called "\
+			"during reshape.\n");
+		return 1;
+	}
+
 	/* before we activate this array handle any missing disks */
 	if (consistent == 2)
 		handle_missing(super, dev);
@@ -5247,6 +5258,12 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 
 	dprintf("imsm: activate spare: inst=%d failed=%d (%d) level=%d\n",
 		inst, failed, a->info.array.raid_disks, a->info.array.level);
+
+	if (dev->vol.migr_state &&
+	    dev->vol.migr_type == MIGR_GEN_MIGR)
+		/* No repair during migration */
+		return NULL;
+
 	if (imsm_check_degraded(super, dev, failed) != IMSM_T_STATE_DEGRADED)
 		return NULL;
 

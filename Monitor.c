@@ -767,8 +767,7 @@ static int move_spare(struct state *from, struct state *to,
 	return 0;
 }
 
-static int check_donor(struct state *from, struct state *to,
-		       struct domainlist *domlist)
+static int check_donor(struct state *from, struct state *to)
 {
 	struct state *sub;
 
@@ -789,8 +788,6 @@ static int check_donor(struct state *from, struct state *to,
 		if (from->active < from->raid)
 			return 0;
 	if (from->spare <= 0)
-		return 0;
-	if (domlist == NULL)
 		return 0;
 	return 1;
 }
@@ -923,10 +920,15 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 							   to->metadata->ss->name);
 			if (to->spare_group)
 				domain_add(&domlist, to->spare_group);
-
+			/*
+			 * No spare migration if the destination
+			 * has no domain. Skip this array.
+			 */
+			if (!domlist)
+				continue;
 			for (from=statelist ; from ; from=from->next) {
 				dev_t devid;
-				if (!check_donor(from, to, domlist))
+				if (!check_donor(from, to))
 					continue;
 				if (from->metadata->ss->external)
 					devid = container_choose_spare(

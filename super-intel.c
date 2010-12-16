@@ -317,7 +317,7 @@ struct imsm_update_reshape {
 	enum imsm_update_type type;
 	int old_raid_disks;
 	int new_raid_disks;
-	int new_disks[1]; /* new_raid_disk - old_raid_disks makedev number */
+	int new_disks[1]; /* new_raid_disks - old_raid_disks makedev number */
 };
 
 struct disk_info {
@@ -5481,10 +5481,18 @@ static void imsm_process_update(struct supertype *st,
 	/**
 	 * crack open the metadata_update envelope to find the update record
 	 * update can be one of:
-	 * 	update_activate_spare - a spare device has replaced a failed
+	 *    update_reshape_container_disks - all the arrays in the container
+	 *      are being reshaped to have more devices.  We need to mark
+	 *      the arrays for general migration and convert selected spares
+	 *      into active devices.
+	 *    update_activate_spare - a spare device has replaced a failed
 	 * 	device in an array, update the disk_ord_tbl.  If this disk is
 	 * 	present in all member arrays then also clear the SPARE_DISK
 	 * 	flag
+	 *    update_create_array
+	 *    update_kill_array
+	 *    update_rename_array
+	 *    update_add_remove_disk
 	 */
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb;
@@ -5510,6 +5518,73 @@ static void imsm_process_update(struct supertype *st,
 
 	switch (type) {
 	case update_reshape_container_disks: {
+		struct imsm_update_reshape *u = (void *)update->buf;
+		struct dl *new_disk;
+		struct intel_dev *id;
+		int i;
+		int delta_disks = u->new_raid_disks - u->old_raid_disks;
+		void **tofree = NULL;
+
+		dprintf("imsm: imsm_process_update() for update_reshape\n");
+
+		/* enable spares to use in array */
+		for (i = 0; i < delta_disks; i++) {
+
+			new_disk = get_disk_super(super,
+						  major(u->new_disks[i]),
+						  minor(u->new_disks[i]));
+			if (new_disk == NULL || new_disk->index < 0)
+				goto update_reshape_exit;
+
+			new_disk->index = mpb->num_disks++;
+			/* slot to fill in autolayout */
+			new_disk->raiddisk = new_disk->index;
+			new_disk->disk.status |=
+				CONFIGURED_DISK;
+			new_disk->disk.status &= ~SPARE_DISK;
+		}
+
+		dprintf("imsm: process_update(): update_reshape: volume set"\
+			" mpb->num_raid_devs = %i\n", mpb->num_raid_devs);
+		/* manage changes in volumes
+		 */
+		for (id = super->devlist ; id; id = id->next) {
+			void **sp = update->space_list;
+			struct imsm_dev *newdev;
+			struct imsm_map *newmap, *oldmap;
+
+			if (!sp)
+				continue;
+			update->space_list = *sp;
+			newdev = (void*)sp;
+			/* Copy the dev, but not (all of) the map */
+			memcpy(newdev, id->dev, sizeof(*newdev));
+			oldmap = get_imsm_map(id->dev, 0);
+			newmap = get_imsm_map(newdev, 0);
+			/* Copy the current map */
+			memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
+			newdev->vol.migr_state = 1;
+			newdev->vol.curr_migr_unit = 0;
+			newdev->vol.migr_type = MIGR_GEN_MIGR;
+			newmap->num_members = u->new_raid_disks;
+			for (i = 0; i < delta_disks; i++) {
+				set_imsm_ord_tbl_ent(newmap,
+						     u->old_raid_disks + i,
+						     u->old_raid_disks + i);
+			}
+			/* New map is correct, now need to save old map */
+			oldmap = get_imsm_map(newdev, 1);
+			memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
+
+			sp = (void **)id->dev;
+			id->dev = newdev;
+			*sp = tofree;
+			tofree = sp;
+		}
+
+		update->space_list = tofree;
+		super->updates_pending++;
+update_reshape_exit:
 		break;
 	}
 	case update_activate_spare: {
@@ -5825,6 +5900,35 @@ static void imsm_prepare_update(struct supertype *st,
 
 	switch (type) {
 	case update_reshape_container_disks: {
+		/* Every raid device in the container is about to
+		 * gain some more devices, and we will enter a
+		 * reconfiguration.
+		 * So each 'imsm_map' will be bigger, and the imsm_vol
+		 * will now hold 2 of them.
+		 * Thus we need new 'struct imsm_dev' allocations sized
+		 * as sizeof_imsm_dev but with more devices in both maps.
+		 */
+		struct imsm_update_reshape *u = (void *)update->buf;
+		struct intel_dev *dl;
+		void **space_tail = (void**)&update->space_list;
+
+		dprintf("imsm: imsm_prepare_update() for update_reshape\n");
+
+		for (dl = super->devlist; dl; dl = dl->next) {
+			int size = sizeof_imsm_dev(dl->dev, 1);
+			void *s;
+			size += sizeof(__u32) * 2 * 
+				(u->new_raid_disks - u->old_raid_disks);
+			s = malloc(size);
+			if (!s)
+				break;
+			*space_tail = s;
+			space_tail = s;
+			*space_tail = NULL;
+		}
+
+		len = disks_to_mpb_size(u->new_raid_disks);
+		dprintf("New anchor length is %llu\n", (unsigned long long)len);
 		break;
 	}
 	case update_create_array: {

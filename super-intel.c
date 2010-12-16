@@ -804,7 +804,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	char nbuf[64];
 	__u32 sum;
 	__u32 reserved = imsm_reserved_sectors(super, super->disks);
-
+	struct dl *dl;
 
 	snprintf(str, MPB_SIG_LEN, "%s", mpb->sig);
 	printf("          Magic : %s\n", str);
@@ -848,6 +848,26 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 		if (i == super->disks->index)
 			continue;
 		print_imsm_disk(mpb, i, reserved);
+	}
+	for (dl = super->disks ; dl; dl = dl->next) {
+		struct imsm_disk *disk;
+		char str[MAX_RAID_SERIAL_LEN + 1];
+		__u64 sz;
+
+		if (dl->index >= 0)
+			continue;
+
+		disk = &dl->disk;
+		printf("\n");
+		snprintf(str, MAX_RAID_SERIAL_LEN + 1, "%s", disk->serial);
+		printf("    Disk Serial : %s\n", str);
+		printf("          State :%s%s%s\n", is_spare(disk) ? " spare" : "",
+		       is_configured(disk) ? " active" : "",
+		       is_failed(disk) ? " failed" : "");
+		printf("             Id : %08x\n", __le32_to_cpu(disk->scsi_id));
+		sz = __le32_to_cpu(disk->total_blocks) - reserved;
+		printf("    Usable Size : %llu%s\n", (unsigned long long)sz,
+		       human_size(sz * 512));
 	}
 }
 

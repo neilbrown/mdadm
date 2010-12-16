@@ -1530,6 +1530,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	struct intel_super *super = st->sb;
 	struct imsm_dev *dev = get_imsm_dev(super, super->current_vol);
 	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct imsm_map *prev_map = get_imsm_map(dev, 1);
 	struct dl *dl;
 	char *devname;
 	int map_disks = info->array.raid_disks;
@@ -1561,7 +1562,11 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->component_size	  = __le32_to_cpu(map->blocks_per_member);
 	memset(info->uuid, 0, sizeof(info->uuid));
 	info->recovery_start = MaxSector;
-	info->reshape_active = 0;
+	info->reshape_active = (prev_map != NULL);
+	if (info->reshape_active)
+		info->delta_disks = map->num_members - prev_map->num_members;
+	else
+		info->delta_disks = 0;
 
 	if (map->map_state == IMSM_T_STATE_UNINITIALIZED || dev->vol.dirty) {
 		info->resync_start = 0;
@@ -1618,7 +1623,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			}
 		}
 	}
-}				
+}
 
 /* check the config file to see if we can return a real uuid for this spare */
 static void fixup_container_spare_uuid(struct mdinfo *inf)

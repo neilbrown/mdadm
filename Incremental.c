@@ -443,6 +443,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
 	if (info.array.level == LEVEL_CONTAINER) {
+		char *devname = NULL;
 		/* Try to assemble within the container */
 		map_unlock(&map);
 		sysfs_uevent(&info, "change");
@@ -451,6 +452,8 @@ int Incremental(char *devname, int verbose, int runstop,
 				": container %s now has %d devices\n",
 				chosen_name, info.array.working_disks);
 		wait_for(chosen_name, mdfd);
+		if (st->ss->external)
+			devname = devnum2devname(fd2devnum(mdfd));
 		close(mdfd);
 		sysfs_free(sra);
 		rv = Incremental(chosen_name, verbose, runstop,
@@ -460,6 +463,12 @@ int Incremental(char *devname, int verbose, int runstop,
 			 * have enough devices to start yet
 			 */
 			rv = 0;
+		/* after spare is added, ping monitor for external metadata
+		 * so that it can eg. try to rebuild degraded array */
+		if (st->ss->external) {
+			ping_monitor(devname);
+			free(devname);
+		}
 		return rv;
 	}
 

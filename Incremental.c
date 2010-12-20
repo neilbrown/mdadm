@@ -834,7 +834,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	 * If st is set, then only arrays of that type are considered
 	 * Return 0 on success, or some exit code on failure, probably 1.
 	 */
-	int rv = -1;
+	int rv = 1;
 	struct stat stb;
 	struct map_ent *mp, *map = NULL;
 	struct mdinfo *chosen = NULL;
@@ -1002,7 +1002,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		}
 		sysfs_free(chosen);
 	}
-	return rv ? 0 : 1;
+	return rv;
 }
 
 static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,

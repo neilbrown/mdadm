@@ -383,7 +383,6 @@ int block_monitor(char *container, const int freeze)
 
 	sysfs_free(sra);
 	free_mdstat(ent);
-	free(container);
 
 	return rv;
 }

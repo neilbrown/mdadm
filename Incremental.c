@@ -978,7 +978,8 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		 * array which matches 'target'.
 		 * target is considered only if we deal with degraded array
 		 */
-		if (target) {
+		if (target && policy_action_allows(pol, st2->ss->name,
+						   act_spare_same_slot)) {
 			if (strcmp(target->metadata, mp->metadata) == 0 &&
 			    memcmp(target->uuid, mp->uuid,
 				   sizeof(target->uuid)) == 0 &&

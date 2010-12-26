@@ -966,11 +966,13 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		 * arrays/containers that match 'target'.
 		 * If 'target' is set and 'bare' is true, we prefer the
 		 * array which matches 'target'.
+		 * target is considered only if we deal with degraded array
 		 */
 		if (target) {
 			if (strcmp(target->metadata, mp->metadata) == 0 &&
 			    memcmp(target->uuid, mp->uuid,
-				   sizeof(target->uuid)) == 0) {
+				   sizeof(target->uuid)) == 0 &&
+			    sra->array.failed_disks > 0) {
 				/* This is our target!! */
 				if (chosen)
 					sysfs_free(chosen);

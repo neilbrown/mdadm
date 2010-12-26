@@ -820,6 +820,32 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 	return cnt;
 }
 
+/* test if container has degraded member(s) */
+static int container_members_max_degradation(struct map_ent *map, struct map_ent *me)
+{
+	mdu_array_info_t array;
+	int afd;
+	int max_degraded = 0;
+
+	for(; map; map = map->next) {
+		if (!is_subarray(map->metadata) ||
+		    devname2devnum(map->metadata+1) != me->devnum)
+			continue;
+		afd = open_dev(map->devnum);
+		if (afd < 0)
+			continue;
+		/* most accurate information regarding array degradation */
+		if (ioctl(afd, GET_ARRAY_INFO, &array) >= 0) {
+			int degraded = array.raid_disks - array.active_disks -
+				       array.spare_disks;
+			if (degraded > max_degraded)
+				max_degraded = degraded;
+		}
+		close(afd);
+	}
+	return (max_degraded);
+}
+
 static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			   struct map_ent *target, int bare,
 			   struct supertype *st, int verbose)
@@ -887,7 +913,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 					 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
 					 GET_COMPONENT|GET_VERSION);
 			if (sra)
-				sra->array.failed_disks = 0;
+				sra->array.failed_disks = -1;
 		}
 		if (!sra)
 			continue;
@@ -914,6 +940,11 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 				goto next;
 		} else
 			st2 = st;
+		/* update number of failed disks for mostly degraded
+		 * container member */
+		if (sra->array.failed_disks == -1)
+			sra->array.failed_disks = container_members_max_degradation(map, mp);
+
 		get_dev_size(dfd, NULL, &devsize);
 		if (st2->ss->avail_size(st2, devsize) < sra->component_size) {
 			if (verbose > 1)

@@ -159,16 +159,16 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			continue;
 		}
 		/* some formats (imsm) have free-floating-spares
-		 * with a uuid of uuid_match_any, they don't
+		 * with a uuid of uuid_zero, they don't
 		 * have very good info about the rest of the
 		 * container, so keep searching when
 		 * encountering such a device.  Otherwise, stop
 		 * after the first successful call to
 		 * ->load_super.
 		 */
-		if (memcmp(uuid_match_any,
+		if (memcmp(uuid_zero,
 			   info->uuid,
-			   sizeof(uuid_match_any)) == 0) {
+			   sizeof(uuid_zero)) == 0) {
 			st->ss->free_super(st);
 			continue;
 		}

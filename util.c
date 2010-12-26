@@ -375,13 +375,10 @@ int enough_fd(int fd)
 }
 
 
-const int uuid_match_any[4] = { ~0, ~0, ~0, ~0 };
+const int uuid_zero[4] = { 0, 0, 0, 0 };
+
 int same_uuid(int a[4], int b[4], int swapuuid)
 {
-	if (memcmp(a, uuid_match_any, sizeof(int[4])) == 0 ||
-	    memcmp(b, uuid_match_any, sizeof(int[4])) == 0)
-		return 1;
-
 	if (swapuuid) {
 		/* parse uuids are hostendian.
 		 * uuid's from some superblocks are big-ending

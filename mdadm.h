@@ -1074,7 +1074,7 @@ extern int experimental(void);
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);
 extern void uuid_from_super(int uuid[4], mdp_super_t *super);
-extern const int uuid_match_any[4];
+extern const int uuid_zero[4];
 extern int same_uuid(int a[4], int b[4], int swapuuid);
 extern void copy_uuid(void *a, int b[4], int swapuuid);
 extern char *__fname_from_uuid(int id[4], int swap, char *buf, char sep);

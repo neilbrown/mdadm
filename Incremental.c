@@ -952,15 +952,6 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 					devname, mp->path);
 			goto next;
 		}
-		dl = domain_from_array(sra, st2->ss->name);
-		if (!domain_test(dl, pol, st2->ss->name)) {
-			/* domain test fails */
-			if (verbose > 1)
-				fprintf(stderr, Name ": not adding %s to %s as it is not in a compatible domain\n",
-					devname, mp->path);
-
-			goto next;
-		}
 		/* test against target.
 		 * If 'target' is set and 'bare' is false, we only accept
 		 * arrays/containers that match 'target'.
@@ -988,6 +979,16 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 				goto next;
 		}
 
+		dl = domain_from_array(sra, st2->ss->name);
+		if (!domain_test(dl, pol, st2->ss->name)) {
+			/* domain test fails */
+			if (verbose > 1)
+				fprintf(stderr, Name ": not adding %s to %s as"
+					" it is not in a compatible domain\n",
+					devname, mp->path);
+
+			goto next;
+		}
 		/* all tests passed, OK to add to this array */
 		if (!chosen) {
 			chosen = sra;

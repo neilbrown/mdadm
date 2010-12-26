@@ -78,7 +78,8 @@ static int ident_matches(struct mddev_ident *ident,
 {
 
 	if (ident->uuid_set && (!update || strcmp(update, "uuid")!= 0) &&
-	    same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0) {
+	    same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0 &&
+	    memcmp(content->uuid, uuid_zero, sizeof(int[4])) != 0) {
 		if (devname)
 			fprintf(stderr, Name ": %s has wrong uuid.\n",
 				devname);
@@ -231,6 +232,7 @@ int Assemble(struct supertype *st, char *mddev,
 	char *name = NULL;
 	int trustworthy;
 	char chosen_name[1024];
+	struct domainlist *domains = NULL;
 
 	if (get_linux_version() < 2004000)
 		old_linux = 1;
@@ -392,6 +394,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (st)
 				st->ss->free_super(st);
 			dev_policy_free(pol);
+			domain_free(domains);
 			return 1;
 		}
 
@@ -466,6 +469,7 @@ int Assemble(struct supertype *st, char *mddev,
 					devname);
 				st->ss->free_super(st);
 				dev_policy_free(pol);
+				domain_free(domains);
 				return 1;
 			}
 			if (verbose > 0)
@@ -486,6 +490,12 @@ int Assemble(struct supertype *st, char *mddev,
 					   report_missmatch ? devname : NULL))
 				goto loop;
 
+			if (!memcmp(content->uuid, uuid_zero, sizeof(int[4]))) {
+				/* this is imsm_spare - do not set st */
+				tmpdev->used = 3;
+				goto loop;
+			}
+				
 			if (st == NULL)
 				st = dup_super(tst);
 			if (st->minor_version == -1)
@@ -529,17 +539,44 @@ int Assemble(struct supertype *st, char *mddev,
 				tst->ss->free_super(tst);
 				st->ss->free_super(st);
 				dev_policy_free(pol);
+				domain_free(domains);
 				return 1;
 			}
 			tmpdev->used = 1;
 		}
 	loop:
+		/* Collect domain information from members only */
+		if (tmpdev && tmpdev->used == 1)
+			domain_merge(&domains, pol, tst?tst->ss->name:NULL);
 		dev_policy_free(pol);
 		pol = NULL;
 		if (tst)
 			tst->ss->free_super(tst);
 	}
 
+	/* Now reject spares that don't match domains of identified members */
+	for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
+		struct stat stb;
+		if (tmpdev->used != 3)
+			continue;
+		if (stat(tmpdev->devname, &stb)< 0) {
+			fprintf(stderr, Name ": fstat failed for %s: %s\n",
+				tmpdev->devname, strerror(errno));
+			tmpdev->used = 2;
+		} else {
+			struct dev_policy *pol = NULL;
+			pol = devnum_policy(stb.st_rdev);
+			if (domain_test(domains, pol, NULL))
+				/* take this spare if domains match */
+				tmpdev->used = 1;
+			else
+				/* if domains don't match mark as unused */
+				tmpdev->used = 0;
+			dev_policy_free(pol);
+		}
+	}
+	domain_free(domains);
+	
 	if (!st || !st->sb || !content)
 		return 2;
 

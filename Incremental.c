@@ -888,6 +888,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		struct domainlist *dl = NULL;
 		struct mdinfo *sra;
 		unsigned long long devsize;
+		unsigned long long component_size;
 
 		if (is_subarray(mp->metadata))
 			continue;
@@ -946,7 +947,25 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			sra->array.failed_disks = container_members_max_degradation(map, mp);
 
 		get_dev_size(dfd, NULL, &devsize);
-		if (st2->ss->avail_size(st2, devsize) < sra->component_size) {
+		if (sra->component_size == 0) {
+			/* true for containers, here we must read superblock
+			 * to obtain minimum spare size */
+			struct supertype *st3 = dup_super(st2);
+			int mdfd = open_dev(mp->devnum);
+			if (!mdfd)
+				goto next;
+			if (st3->ss->load_container &&
+			    !st3->ss->load_container(st3, mdfd, mp->path)) {
+				component_size = st3->ss->min_acceptable_spare_size(st3);
+				st3->ss->free_super(st3);
+			}
+			free(st3);
+			close(mdfd);
+		}
+		if ((sra->component_size > 0 &&
+		     st2->ss->avail_size(st2, devsize) < sra->component_size)
+		    ||
+		    (sra->component_size == 0 && devsize < component_size)) {
 			if (verbose > 1)
 				fprintf(stderr, Name ": not adding %s to %s as it is too small\n",
 					devname, mp->path);

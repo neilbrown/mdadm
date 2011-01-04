@@ -5594,6 +5594,7 @@ static void imsm_process_update(struct supertype *st,
 		int i;
 		int delta_disks = u->new_raid_disks - u->old_raid_disks;
 		void **tofree = NULL;
+		int devices_to_reshape = 1;
 
 		dprintf("imsm: imsm_process_update() for update_reshape\n");
 
@@ -5621,7 +5622,7 @@ static void imsm_process_update(struct supertype *st,
 
 		dprintf("imsm: process_update(): update_reshape: volume set"
 			" mpb->num_raid_devs = %i\n", mpb->num_raid_devs);
-		/* manage changes in volumes
+		/* manage changes in volume
 		 */
 		for (id = super->devlist ; id; id = id->next) {
 			void **sp = update->space_list;
@@ -5638,18 +5639,26 @@ static void imsm_process_update(struct supertype *st,
 			newmap = get_imsm_map(newdev, 0);
 			/* Copy the current map */
 			memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
-			newdev->vol.migr_state = 1;
-			newdev->vol.curr_migr_unit = 0;
-			newdev->vol.migr_type = MIGR_GEN_MIGR;
-			newmap->num_members = u->new_raid_disks;
-			for (i = 0; i < delta_disks; i++) {
-				set_imsm_ord_tbl_ent(newmap,
-						     u->old_raid_disks + i,
-						     u->old_raid_disks + i);
+			/* update one device only
+			 */
+			if (devices_to_reshape) {
+				dprintf("process_update(): modifying "\
+					"subdev: %i\n", id->index);
+				devices_to_reshape--;
+				newdev->vol.migr_state = 1;
+				newdev->vol.curr_migr_unit = 0;
+				newdev->vol.migr_type = MIGR_GEN_MIGR;
+				newmap->num_members = u->new_raid_disks;
+				for (i = 0; i < delta_disks; i++) {
+					set_imsm_ord_tbl_ent(newmap,
+							u->old_raid_disks + i,
+							u->old_raid_disks + i);
+				}
+				/* New map is correct, now need to save old map
+				 */
+				newmap = get_imsm_map(newdev, 1);
+				memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
 			}
-			/* New map is correct, now need to save old map */
-			newmap = get_imsm_map(newdev, 1);
-			memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
 
 			sp = (void **)id->dev;
 			id->dev = newdev;

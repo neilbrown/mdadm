@@ -1100,6 +1100,7 @@ extern struct mdinfo *container_choose_spares(struct supertype *st,
 					      struct domainlist *domlist,
 					      char *spare_group,
 					      const char *metadata, int get_one);
+extern int move_spare(char *from_devname, char *to_devname, dev_t devid);
 extern int add_disk(int mdfd, struct supertype *st,
 		    struct mdinfo *sra, struct mdinfo *info);
 extern int remove_disk(int mdfd, struct supertype *st,

@@ -722,51 +722,6 @@ unsigned long long min_spare_size_required(struct state *st)
 	return rv;
 }
 
-static int move_spare(struct state *from, struct state *to,
-		      dev_t devid,
-		      struct alert_info *info)
-{
-	struct mddev_dev devlist;
-	char devname[20];
-
-	/* try to remove and add */
-	int fd1 = open(to->devname, O_RDONLY);
-	int fd2 = open(from->devname, O_RDONLY);
-
-	if (fd1 < 0 || fd2 < 0) {
-		if (fd1>=0) close(fd1);
-		if (fd2>=0) close(fd2);
-		return 0;
-	}
-
-	devlist.next = NULL;
-	devlist.used = 0;
-	devlist.re_add = 0;
-	devlist.writemostly = 0;
-	devlist.devname = devname;
-	sprintf(devname, "%d:%d", major(devid), minor(devid));
-
-	devlist.disposition = 'r';
-	if (Manage_subdevs(from->devname, fd2, &devlist, -1, 0, NULL) == 0) {
-		devlist.disposition = 'a';
-		if (Manage_subdevs(to->devname, fd1, &devlist, -1, 0, NULL) == 0) {
-			alert("MoveSpare", to->devname, from->devname, info);
-			/* make sure we will see newly added spare before next
-			 * time through loop
-			 */
-			ping_manager(to->devname);
-			ping_manager(from->devname);
-			close(fd1);
-			close(fd2);
-			return 1;
-		}
-		else Manage_subdevs(from->devname, fd2, &devlist, -1, 0, NULL);
-	}
-	close(fd1);
-	close(fd2);
-	return 0;
-}
-
 static int check_donor(struct state *from, struct state *to)
 {
 	struct state *sub;
@@ -912,8 +867,10 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 					devid = choose_spare(from, to, domlist,
 							     min_size);
 				if (devid > 0
-				    && move_spare(from, to, devid, info))
-						break;
+				    && move_spare(from->devname, to->devname, devid)) {
+					alert("MoveSpare", to->devname, from->devname, info);
+					break;
+				}
 			}
 			domain_free(domlist);
 		}

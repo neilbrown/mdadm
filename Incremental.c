@@ -1434,6 +1434,10 @@ static int Incremental_container(struct supertype *st, char *devname,
 	int trustworthy;
 	struct mddev_ident *match;
 	int rv = 0;
+	struct domainlist *domains;
+	struct map_ent *smp;
+	int suuid[4];
+	int sfd;
 
 	memset(&info, 0, sizeof(info));
 	st->ss->getinfo_super(st, &info, NULL);
@@ -1553,6 +1557,52 @@ static int Incremental_container(struct supertype *st, char *devname,
 		assemble_container_content(st, mdfd, ra, runstop,
 					   chosen_name, verbose);
 	}
+
+	/* Now move all suitable spares from spare container */
+	domains = domain_from_array(list, st->ss->name);
+	memcpy(suuid, uuid_zero, sizeof(int[4]));
+	if (domains &&
+	    (smp = map_by_uuid(&map, suuid)) != NULL &&
+	    (sfd = open(smp->path, O_RDONLY)) >= 0) {
+		/* spare container found */
+		struct supertype *sst =
+			super_imsm.match_metadata_desc("imsm");
+		struct mdinfo *sinfo;
+		unsigned long long min_size = 0;
+		if (st->ss->min_acceptable_spare_size)
+			min_size = st->ss->min_acceptable_spare_size(st);
+		if (!sst->ss->load_container(sst, sfd, NULL)) {
+			close(sfd);
+			sinfo = container_choose_spares(sst, min_size,
+							domains, NULL,
+							st->ss->name, 0);
+			sst->ss->free_super(sst);
+			if (sinfo){
+				int count = 0;
+				struct mdinfo *disks = sinfo->devs;
+				while (disks) {
+					/* move spare from spare
+					 * container to currently
+					 * assembled one
+					 */
+					if (move_spare(
+						    smp->path,
+						    devname,
+						    makedev(disks->disk.major,
+							    disks->disk.minor)))
+						count++;
+					disks = disks->next;
+				}
+				if (count)
+					fprintf(stderr, Name
+						": Added %d spare%s to %s\n",
+						count, count>1?"s":"", devname);
+			}
+			sysfs_free(sinfo);
+		} else
+			close(sfd);
+	}
+	domain_free(domains);
 	map_unlock(&map);
 	return 0;
 }

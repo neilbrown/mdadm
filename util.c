@@ -1909,3 +1909,63 @@ int experimental(void)
 	}
 }
 
+/* Pick all spares matching given criteria from a container
+ * if min_size == 0 do not check size
+ * if domlist == NULL do not check domains
+ * if spare_group given add it to domains of each spare
+ * metadata allows to test domains using metadata of destination array */
+struct mdinfo *container_choose_spares(struct supertype *st,
+				       unsigned long long min_size,
+				       struct domainlist *domlist,
+				       char *spare_group,
+				       const char *metadata, int get_one)
+{
+	struct mdinfo *d, **dp, *disks = NULL;
+
+	/* get list of all disks in container */
+	if (st->ss->getinfo_super_disks)
+		disks = st->ss->getinfo_super_disks(st);
+
+	if (!disks)
+		return disks;
+	/* find spare devices on the list */
+	dp = &disks->devs;
+	disks->array.spare_disks = 0;
+	while (*dp) {
+		int found = 0;
+		d = *dp;
+		if (d->disk.state == 0) {
+			/* check if size is acceptable */
+			unsigned long long dev_size;
+			dev_t dev = makedev(d->disk.major,d->disk.minor);
+
+			if (!min_size ||
+			   (dev_size_from_id(dev,  &dev_size) &&
+			    dev_size >= min_size))
+				found = 1;
+			/* check if domain matches */
+			if (found && domlist) {
+				struct dev_policy *pol = devnum_policy(dev);
+				if (spare_group)
+					pol_add(&pol, pol_domain,
+						spare_group, NULL);
+				if (!domain_test(domlist, pol, metadata))
+					found = 0;
+				dev_policy_free(pol);
+			}
+		}
+		if (found) {
+			dp = &d->next;
+			disks->array.spare_disks++;
+			if (get_one) {
+				sysfs_free(*dp);
+				d->next = NULL;
+			}
+		} else {
+			*dp = d->next;
+			d->next = NULL;
+			sysfs_free(d);
+		}
+	}
+	return disks;
+}

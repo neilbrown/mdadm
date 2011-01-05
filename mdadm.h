@@ -1095,7 +1095,11 @@ extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
 				      struct mdinfo *content, int runstop,
 				      char *chosen_name, int verbose);
-
+extern struct mdinfo *container_choose_spares(struct supertype *st,
+					      unsigned long long min_size,
+					      struct domainlist *domlist,
+					      char *spare_group,
+					      const char *metadata, int get_one);
 extern int add_disk(int mdfd, struct supertype *st,
 		    struct mdinfo *sra, struct mdinfo *info);
 extern int remove_disk(int mdfd, struct supertype *st,

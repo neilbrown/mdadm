@@ -828,59 +828,34 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 	/* This is similar to choose_spare, but we cannot trust devstate,
 	 * so we need to read the metadata instead
 	 */
-
+	struct mdinfo *list;
 	struct supertype *st = from->metadata;
 	int fd = open(from->devname, O_RDONLY);
 	int err;
-	struct mdinfo *disks, *d;
 	dev_t dev = 0;
 
 	if (fd < 0)
 		return 0;
-	if (!st->ss->getinfo_super_disks)
+	if (!st->ss->getinfo_super_disks) {
+		close(fd);
 		return 0;
+	}
 	
 	err = st->ss->load_container(st, fd, NULL);
 	close(fd);
 	if (err)
 		return 0;
-
-	disks = st->ss->getinfo_super_disks(st);
-	st->ss->free_super(st);
-
-	if (!disks)
-		return 0;
 	
-	for (d = disks->devs ; d && !dev ; d = d->next) {
-		if (d->disk.state == 0) {
-			struct dev_policy *pol;
-			unsigned long long dev_size;
-			dev = makedev(d->disk.major,d->disk.minor);
-			
-			if (min_size &&
-			    dev_size_from_id(dev,  &dev_size) &&
-			    dev_size < min_size) {
-				dev = 0;
-				continue;
-			}
-			if (from == to)
-				/* Just checking if destination already has
-				 * a spare, no need to check policy, we are
-				 * done.
-				 */
-				break;
-
-			pol = devnum_policy(dev);
-			if (from->spare_group)
-				pol_add(&pol, pol_domain,
-					from->spare_group, NULL);
-			if (!domain_test(domlist, pol, to->metadata->ss->name))
-				dev = 0;
-
-			dev_policy_free(pol);
-		}
+	/* We only need one spare so full list not needed */
+	list = container_choose_spares(st, min_size, domlist, from->spare_group,
+				       to->metadata->ss->name, 1);
+	if (list) {
+		struct mdinfo *disks = list->devs;
+		if (disks)
+			dev = makedev(disks->disk.major, disks->disk.minor);
+		sysfs_free(list);
 	}
-	sysfs_free(disks);
+	st->ss->free_super(st);
 	return dev;
 }
 

@@ -6241,42 +6241,8 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
  */
 static struct mdinfo *get_spares_for_grow(struct supertype *st)
 {
-	dev_t dev = 0;
-	struct mdinfo *disks, *d, **dp;
 	unsigned long long min_size = min_acceptable_spare_size_imsm(st);
-
-	/* get list of alldisks in container */
-	disks = getinfo_super_disks_imsm(st);
-
-	if (!disks)
-		return NULL;
-	/* find spare devices on the list */
-	dp = &disks->devs;
-	disks->array.spare_disks = 0;
-	while (*dp) {
-		int found = 0;
-		d = *dp;
-		if (d->disk.state == 0) {
-			/* check if size is acceptable */
-			unsigned long long dev_size;
-			dev = makedev(d->disk.major,d->disk.minor);
-			if (min_size &&
-			    dev_size_from_id(dev,  &dev_size) &&
-			    dev_size >= min_size) {
-				dev = 0;
-				found = 1;
-			}
-		}
-		if (found) {
-			dp = &d->next;
-			disks->array.spare_disks++;
-		} else {
-			*dp = d->next;
-			d->next = NULL;
-			sysfs_free(d);
-		}
-	}
-	return disks;
+	return container_choose_spares(st, min_size, NULL, NULL, NULL, 0);
 }
 
 /******************************************************************************

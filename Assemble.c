@@ -489,17 +489,23 @@ int Assemble(struct supertype *st, char *mddev,
 					   homehost, update,
 					   report_missmatch ? devname : NULL))
 				goto loop;
-
-			if (!memcmp(content->uuid, uuid_zero, sizeof(int[4]))) {
-				/* this is imsm_spare - do not set st */
-				tmpdev->used = 3;
-				goto loop;
-			}
 				
 			if (st == NULL)
 				st = dup_super(tst);
 			if (st->minor_version == -1)
 				st->minor_version = tst->minor_version;
+
+			if (memcmp(content->uuid, uuid_zero,
+				   sizeof(int[4])) == 0) {
+				/* this is a floating spare.  It cannot define
+				 * an array unless there are no more arrays of
+				 * this type to be found.  It can be included
+				 * in an array of this type though.
+				 */
+				tmpdev->used = 3;
+				goto loop;
+			}
+
 			if (st->ss != tst->ss ||
 			    st->minor_version != tst->minor_version ||
 			    st->ss->compare_super(st, tst) != 0) {
@@ -556,6 +562,25 @@ int Assemble(struct supertype *st, char *mddev,
 		if (tst)
 			tst->ss->free_super(tst);
 	}
+
+	/* Check if we found some imsm spares but no members */
+	if (auto_assem && (!st || !st->sb))
+		for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
+			if (tmpdev->used != 3)
+				continue;
+			tmpdev->used = 1;
+			content = &info;
+
+			if (!st->sb) {
+				/* we need sb from one of the spares */
+				int dfd = dev_open(tmpdev->devname, O_RDONLY);
+				if (dfd < 0 ||
+				    st->ss->load_super(st, dfd, NULL))
+					tmpdev->used = 2;
+				if (dfd > 0)
+					close(dfd);
+			}
+		}
 
 	/* Now reject spares that don't match domains of identified members */
 	for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
@@ -892,8 +917,10 @@ int Assemble(struct supertype *st, char *mddev,
 		if (content->array.level != LEVEL_MULTIPATH)
 			if (!(devices[j].i.disk.state & (1<<MD_DISK_ACTIVE))) {
 				if (!(devices[j].i.disk.state
-				      & (1<<MD_DISK_FAULTY)))
+				      & (1<<MD_DISK_FAULTY))) {
+					devices[j].uptodate = 1;
 					sparecnt++;
+				}
 				continue;
 			}
 		/* If this devices thinks that 'most_recent' has failed, then

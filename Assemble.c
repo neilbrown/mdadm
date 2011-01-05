@@ -546,8 +546,11 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 	loop:
 		/* Collect domain information from members only */
-		if (tmpdev && tmpdev->used == 1)
+		if (tmpdev && tmpdev->used == 1) {
+			if (!pol)
+				pol = devnum_policy(stb.st_rdev);
 			domain_merge(&domains, pol, tst?tst->ss->name:NULL);
+		}
 		dev_policy_free(pol);
 		pol = NULL;
 		if (tst)

@@ -2047,7 +2047,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			}
 		}
 
-		if (info->new_level != info->array.level) {
+		if (info->new_level != reshape.level) {
 			/* We need to wait for the reshape to finish
 			 * (which will have happened unless
 			 * odata < ndata) and then set the level

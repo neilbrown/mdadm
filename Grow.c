@@ -453,20 +453,6 @@ static __u32 bsb_csum(char *buf, int len)
 	return __cpu_to_le32(csum);
 }
 
-static int child_grow(int afd, struct mdinfo *sra, unsigned long blocks,
-		      int *fds, unsigned long long *offsets,
-		      int disks, int chunk, int level, int layout, int data,
-		      int dests, int *destfd, unsigned long long *destoffsets);
-static int child_shrink(int afd, struct mdinfo *sra, unsigned long blocks,
-			int *fds, unsigned long long *offsets,
-			int disks, int chunk, int level, int layout, int data,
-			int dests, int *destfd, unsigned long long *destoffsets);
-static int child_same_size(int afd, struct mdinfo *sra, unsigned long blocks,
-			   int *fds, unsigned long long *offsets,
-			   unsigned long long start,
-			   int disks, int chunk, int level, int layout, int data,
-			   int dests, int *destfd, unsigned long long *destoffsets);
-
 static int check_idle(struct supertype *st)
 {
 	/* Check that all member arrays for this container, or the
@@ -1291,6 +1277,11 @@ static int reshape_container(char *container, int cfd, char *devname,
 			     int force,
 			     char *backup_file,
 			     int quiet);
+static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
+			 unsigned long stripes,
+			 int *fds, unsigned long long *offsets,
+			 int dests, int *destfd, unsigned long long *destoffsets);
+
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
@@ -1507,6 +1498,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	}
 
 	info.array = array;
+	sysfs_init(&info, fd, NoMdDev);
+	info.component_size = size*2;
 	info.new_level = level;
 	info.new_chunk = chunksize * 1024;
 	if (raid_disks)
@@ -1792,7 +1785,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	}
 
 	sra = sysfs_read(fd, 0,
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE||GET_CHUNK|
 			 GET_CACHE);
 
 	if (!sra) {
@@ -2001,32 +1994,10 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		odisks = reshape.before.data_disks + reshape.parity;
 
-		if (reshape.before.data_disks < 
-		    reshape.after.data_disks)
-			done = child_grow(fd, sra, stripes,
-					  fdlist, offsets,
-					  odisks,
-					  info->array.chunk_size,
-					  reshape.level,
-					  reshape.before.layout, 
-					  reshape.before.data_disks,
-					  d - odisks, fdlist+odisks, offsets+odisks);
-		else if (reshape.before.data_disks >
-			 reshape.after.data_disks)
-			done = child_shrink(fd, sra, stripes,
-					    fdlist, offsets,
-					    odisks, info->array.chunk_size, reshape.level,	
-					    reshape.before.layout,
-					    reshape.before.data_disks,
-					    d - odisks, fdlist+odisks, offsets+odisks);
-		else
-			done = child_same_size(fd, sra, stripes,
-					       fdlist, offsets,
-					       0,
-					       odisks, info->array.chunk_size, reshape.level,
-					       reshape.before.layout,
-					       reshape.before.data_disks,
-					       d - odisks, fdlist+odisks, offsets+odisks);
+		done = child_monitor(fd, sra, &reshape, stripes,
+				     fdlist, offsets,
+				     d - odisks, fdlist+odisks, offsets+odisks);
+
 		if (backup_file && done)
 			unlink(backup_file);
 		if (!done)
@@ -2134,6 +2105,7 @@ int reshape_container(char *container, int cfd, char *devname,
 		if (!adev)
 			adev = cc->text_version;
 
+		sysfs_init(cc, fd, mdstat->devnum);
 		rv = reshape_array(container, fd, adev, st, cc, force,
 				   backup_file, quiet, 1);
 		close(fd);
@@ -2167,10 +2139,244 @@ int reshape_container(char *container, int cfd, char *devname,
  * 
  */
 
+int progress_reshape(struct mdinfo *info, struct reshape *reshape,
+		     unsigned long long backup_point,
+		     unsigned long long wait_point,
+		     unsigned long long *suspend_point,
+		     unsigned long long *reshape_completed)
+{
+	/* This function is called repeatedly by the reshape manager.
+	 * It determines how much progress can safely be made and allows
+	 * that progress.
+	 * - 'info' identifies the array and particularly records in
+	 *    ->reshape_progress the metadata's knowledge of progress
+	 *      This is a sector offset from the start of the array
+	 *      of the next array block to be relocated.  This number
+	 *      may increase from 0 or decrease from array_size, depending
+	 *      on the type of reshape that is happening.
+	 *    Note that in contrast, 'sync_completed' is a block count of the
+	 *    reshape so far.  It gives the distance between the start point
+	 *    (head or tail of device) and the next place that data will be
+	 *    written.  It always increases.
+	 * - 'reshape' is the structure created by analyse_change
+	 * - 'backup_point' shows how much the metadata manager has backed-up
+	 *   data.  For reshapes with increasing progress, it is the next address
+	 *   to be backed up, previous addresses have been backed-up.  For
+	 *   decreasing progress, it is the earliest address that has been
+	 *   backed up - later address are also backed up.
+	 *   So addresses between reshape_progress and backup_point are
+	 *   backed up providing those are in the 'correct' order.
+	 * - 'wait_point' is an array address.  When reshape_completed
+	 *   passes this point, progress_reshape should return.  It might
+	 *   return earlier if it determines that ->reshape_progress needs
+	 *   to be updated or further backup is needed.
+	 * - suspend_point is maintained by progress_reshape and the caller
+	 *   should not touch it except to initialise to zero.
+	 *   It is an array address and it only increases in 2.6.37 and earlier.
+	 *   This makes it difficulty to handle reducing reshapes with
+	 *   external metadata.
+	 *   However:  it is similar to backup_point in that it records the
+	 *     other end of a suspended region from  reshape_progress.
+	 *     it is moved to extend the region that is safe to backup and/or
+	 *     reshape
+	 * - reshape_completed is read from sysfs and returned.  The caller
+	 *   should copy this into ->reshape_progress when it has reason to
+	 *   believe that the metadata knows this, and any backup outside this
+	 *   has been erased.
+	 *
+	 * Return value is:
+	 *   1 if more data from backup_point - but only as far as suspend_point,
+	 *     should be backed up
+	 *   0 if things are progressing smoothly
+	 *  -1 if the reshape is finished, either because it is all done,
+	 *     or due to an error.
+	 */
+
+	int advancing = (reshape->after.data_disks
+			 >= reshape->before.data_disks);
+	int need_backup = (reshape->after.data_disks
+			   == reshape->before.data_disks);
+	unsigned long long read_offset, write_offset;
+	unsigned long long read_range, write_range;
+	unsigned long long max_progress, target, completed;
+	int fd;
+
+	/* First, we unsuspend any region that is now known to be safe.
+	 * If suspend_point is on the 'wrong' side of reshape_progress, then
+	 * we don't have or need suspension at the moment.  This is true for
+	 * native metadata when we don't need to back-up.
+	 */
+	if (advancing) {
+		if (info->reshape_progress < *suspend_point)
+			sysfs_set_num(info, NULL, "suspend_lo",
+				      info->reshape_progress);
+	} else {
+		/* Note: this won't work in 2.6.37 and before.
+		 * Something somewhere should make sure we don't need it!
+		 */
+		if (info->reshape_progress > *suspend_point)
+			sysfs_set_num(info, NULL, "suspend_hi",
+				      info->reshape_progress);
+	}
+
+	/* Now work out how far it is safe to progress.
+	 * If the read_offset for ->reshape_progress is less than
+	 * 'blocks' beyond the write_offset, we can only progress as far
+	 * as a backup.
+	 * Otherwise we can progress until the write_offset for the new location
+	 * reaches (within 'blocks' of) the read_offset at the current location.
+	 * However that region must be suspended unless we are using native
+	 * metadata.
+	 * If we need to suspend more, we limit it to 128M per device, which is
+	 * rather arbitrary and should be some time-based calculation.
+	 */
+	write_offset = info->reshape_progress / reshape->before.data_disks;
+	read_offset = info->reshape_progress / reshape->after.data_disks;
+	write_range = reshape->blocks / reshape->before.data_disks;
+	read_range = reshape->blocks / reshape->after.data_disks;
+	if (advancing) {
+		if (read_offset < write_offset + write_range) {
+			max_progress = backup_point;
+			if (max_progress <= info->reshape_progress)
+				need_backup = 1;
+		} else {
+			max_progress =
+				(read_offset - write_range) *
+				reshape->before.data_disks;
+		}
+	} else {
+		if (read_offset > write_offset - write_range) {
+			max_progress = backup_point;
+			if (max_progress >= info->reshape_progress)
+				need_backup = 1;
+		} else {
+			max_progress =
+				(read_offset + write_range) *
+				reshape->before.data_disks;
+			/* If we are using internal metadata, then we can
+			 * progress all the way to the suspend_point without
+			 * worrying about backing-up/suspending along the
+			 * way.
+			 */
+			if (max_progress < *suspend_point &&
+				info->array.major_version >= 0)
+				max_progress = *suspend_point;
+		}
+	}
+
+	/* We know it is safe to progress to 'max_progress' providing
+	 * it is suspended or we are using native metadata.
+	 * Consider extending suspend_point 128M per device if it
+	 * is less than 64M per device beyond reshape_progress.
+	 * But always do a multiple of 'blocks'
+	 */
+	target = 64*1024*2 * min(reshape->before.data_disks,
+				  reshape->after.data_disks);
+	target /= reshape->blocks;
+	if (target < 2)
+		target = 2;
+	target *= reshape->blocks;
+
+	/* For externally managed metadata we always need to suspend IO to
+	 * the area being reshaped so we regularly push suspend_point forward.
+	 * For native metadata we only need the suspend if we are going to do
+	 * a backup.
+	 */
+	if (advancing) {
+		if ((need_backup || info->array.major_version < 0) &&
+		    *suspend_point < info->reshape_progress + target) {
+			if (max_progress < *suspend_point + 2 * target)
+				*suspend_point = max_progress;
+			else
+				*suspend_point += 2 * target;
+			sysfs_set_num(info, NULL, "suspend_hi", *suspend_point);
+			max_progress = *suspend_point;
+		}
+	} else {
+		if ((need_backup || info->array.major_version < 0) &&
+		    *suspend_point > info->reshape_progress - target) {
+			if (max_progress > *suspend_point - 2 * target)
+				*suspend_point = max_progress;
+			else
+				*suspend_point -= 2 * target;
+			sysfs_set_num(info, NULL, "suspend_lo", *suspend_point);
+			max_progress = *suspend_point;
+		}
+	}
+
+	/* now set sync_max to allow that progress. sync_max, like
+	 * sync_completed is a count of sectors written per device, so
+	 * we find the difference between max_progress and the start point,
+	 * and divide that by after.data_disks to get a sync_max
+	 * number.
+	 * At the same time we convert wait_point to a similar number
+	 * for comparing against sync_completed.
+	 */
+	if (!advancing) {
+		max_progress = info->component_size * reshape->after.data_disks
+			- max_progress;
+		wait_point = info->component_size * reshape->after.data_disks
+			- wait_point;
+	}
+	max_progress /= reshape->after.data_disks;
+	wait_point /= reshape->after.data_disks;
+
+	sysfs_set_num(info, NULL, "sync_max", max_progress);
+
+	/* Now wait.  If we have already reached the point that we were
+	 * asked to wait to, don't wait at all, else wait for any change.
+	 * We need to select on 'sync_completed' as that is the place that
+	 * notifications happen, but we are really interested in
+	 * 'reshape_position'
+	 */
+	fd = sysfs_get_fd(info, NULL, "sync_completed");
+	if (fd < 0)
+		return -1;
+
+	if (sysfs_fd_get_ll(fd, &completed) < 0) {
+		close(fd);
+		return -1;
+	}
+	while (completed < max_progress && completed < wait_point) {
+		/* Check that sync_action is still 'reshape' to avoid
+		 * waiting forever on a dead array
+		 */
+		char action[20];
+		fd_set rfds;
+		if (sysfs_get_str(info, NULL, "sync_action",
+				  action, 20) <= 0 ||
+		    strncmp(action, "reshape", 7) != 0)
+			break;
+		FD_ZERO(&rfds);
+		FD_SET(fd, &rfds);
+		select(fd+1, NULL, NULL, &rfds, NULL);
+		if (sysfs_fd_get_ll(fd, &completed) < 0) {
+			close(fd);
+			return -1;
+		}
+	}
+	/* Convert 'completed' back in to a 'progress' number */
+	completed *= reshape->after.data_disks;
+	if (!advancing) {
+		completed = info->component_size * reshape->after.data_disks
+			- completed;
+	}
+	*reshape_completed = completed;
+	
+	close(fd);
+
+	/* We return the need_backup flag.  Caller will decide
+	 * how much (a multiple of ->blocks) and will adjust
+	 * suspend_{lo,hi} and suspend_point.
+	 */
+	return need_backup;
+}
+
+
 /* FIXME return status is never checked */
 static int grow_backup(struct mdinfo *sra,
 		unsigned long long offset, /* per device */
-		unsigned long stripes, /* per device */
+		unsigned long stripes, /* per device, in old chunks */
 		int *sources, unsigned long long *offsets,
 		int disks, int chunk, int level, int layout,
 		int dests, int *destfd, unsigned long long *destoffsets,
@@ -2193,7 +2399,7 @@ static int grow_backup(struct mdinfo *sra,
 		odata--;
 	if (level == 6)
 		odata--;
-	sysfs_set_num(sra, NULL, "suspend_hi", (offset + stripes * (chunk/512)) * odata);
+
 	/* Check that array hasn't become degraded, else we might backup the wrong data */
 	sysfs_get_ll(sra, NULL, "degraded", &ll);
 	new_degraded = (int)ll;
@@ -2283,45 +2489,15 @@ static int grow_backup(struct mdinfo *sra,
  * every works.
  */
 /* FIXME return value is often ignored */
-static int wait_backup(struct mdinfo *sra,
-		unsigned long long offset, /* per device */
-		unsigned long long blocks, /* per device */
-		unsigned long long blocks2, /* per device - hack */
+static int forget_backup(
 		int dests, int *destfd, unsigned long long *destoffsets,
 		int part)
 {
-	/* Wait for resync to pass the section that was backed up
-	 * then erase the backup and allow IO
+	/* 
+	 * Erase backup 'part' (which is 0 or 1)
 	 */
-	int fd = sysfs_get_fd(sra, NULL, "sync_completed");
-	unsigned long long completed;
 	int i;
 	int rv;
-
-	if (fd < 0)
-		return -1;
-	sysfs_set_num(sra, NULL, "sync_max", offset + blocks + blocks2);
-
-	if (sysfs_fd_get_ll(fd, &completed) < 0) {
-		close(fd);
-		return -1;
-	}
-	while (completed < offset + blocks) {
-		char action[20];
-		fd_set rfds;
-		FD_ZERO(&rfds);
-		FD_SET(fd, &rfds);
-		select(fd+1, NULL, NULL, &rfds, NULL);
-		if (sysfs_fd_get_ll(fd, &completed) < 0) {
-			close(fd);
-			return -1;
-		}
-		if (sysfs_get_str(sra, NULL, "sync_action",
-				  action, 20) > 0 &&
-		    strncmp(action, "reshape", 7) != 0)
-			break;
-	}
-	close(fd);
 
 	if (part) {
 		bsb.arraystart2 = __cpu_to_le64(0);
@@ -2442,130 +2618,133 @@ static void validate(int afd, int bfd, unsigned long long offset)
 	}
 }
 
-static int child_grow(int afd, struct mdinfo *sra, unsigned long stripes,
-		      int *fds, unsigned long long *offsets,
-		      int disks, int chunk, int level, int layout, int data,
-		      int dests, int *destfd, unsigned long long *destoffsets)
+static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
+			 unsigned long stripes,
+			 int *fds, unsigned long long *offsets,
+			 int dests, int *destfd, unsigned long long *destoffsets)
 {
+	/* Monitor a reshape where backup is being performed using
+	 * 'native' mechanism - either to a backup file, or
+	 * to some space in a spare.
+	 */
 	char *buf;
-	int degraded = 0;
+	int degraded = -1;
+	unsigned long long speed;
+	unsigned long long suspend_point, array_size;
+	unsigned long long backup_point, wait_point;
+	unsigned long long reshape_completed;
+	int done = 0;
+	int increasing = reshape->after.data_disks >= reshape->before.data_disks;
+	int part = 0; /* The next part of the backup area to fill.  It may already
+		       * be full, so we need to check */
+	int level = reshape->level;
+	int layout = reshape->before.layout;
+	int data = reshape->before.data_disks;
+	int disks = reshape->before.data_disks + reshape->parity;
+	int chunk = sra->array.chunk_size;
 
 	if (posix_memalign((void**)&buf, 4096, disks * chunk))
 		/* Don't start the 'reshape' */
 		return 0;
-	grow_backup(sra, 0, stripes,
-		    fds, offsets, disks, chunk, level, layout,
-		    dests, destfd, destoffsets,
-		    0, &degraded, buf);
-	validate(afd, destfd[0], destoffsets[0]);
-	wait_backup(sra, 0, stripes * (chunk / 512), stripes * (chunk / 512),
-		    dests, destfd, destoffsets,
-		    0);
-	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * (chunk/512)) * data);
-	free(buf);
-	/* FIXME this should probably be numeric */
-	sysfs_set_str(sra, NULL, "sync_max", "max");
-	return 1;
-}
-
-static int child_shrink(int afd, struct mdinfo *sra, unsigned long stripes,
-			int *fds, unsigned long long *offsets,
-			int disks, int chunk, int level, int layout, int data,
-			int dests, int *destfd, unsigned long long *destoffsets)
-{
-	char *buf;
-	unsigned long long start;
-	int rv;
-	int degraded = 0;
-
-	if (posix_memalign((void**)&buf, 4096, disks * chunk))
-		return 0;
-	start = sra->component_size - stripes * (chunk/512);
-	sysfs_set_num(sra, NULL, "sync_max", start);
-	rv = wait_backup(sra, 0, start - stripes * (chunk/512), stripes * (chunk/512),
-			 dests, destfd, destoffsets, 0);
-	if (rv < 0)
-		return 0;
-	grow_backup(sra, 0, stripes,
-		    fds, offsets,
-		    disks, chunk, level, layout,
-		    dests, destfd, destoffsets,
-		    0, &degraded, buf);
-	validate(afd, destfd[0], destoffsets[0]);
-	wait_backup(sra, start, stripes*(chunk/512), 0,
-		    dests, destfd, destoffsets, 0);
-	sysfs_set_num(sra, NULL, "suspend_lo", (stripes * (chunk/512)) * data);
-	free(buf);
-	/* FIXME this should probably be numeric */
-	sysfs_set_str(sra, NULL, "sync_max", "max");
-	return 1;
-}
-
-static int child_same_size(int afd, struct mdinfo *sra, unsigned long stripes,
-			   int *fds, unsigned long long *offsets,
-			   unsigned long long start,
-			   int disks, int chunk, int level, int layout, int data,
-			   int dests, int *destfd, unsigned long long *destoffsets)
-{
-	unsigned long long size;
-	unsigned long tailstripes = stripes;
-	int part;
-	char *buf;
-	unsigned long long speed;
-	int degraded = 0;
-
-
-	if (posix_memalign((void**)&buf, 4096, disks * chunk))
-		return 0;
-
-	sysfs_get_ll(sra, NULL, "sync_speed_min", &speed);
-	sysfs_set_num(sra, NULL, "sync_speed_min", 200000);
-
-	grow_backup(sra, start, stripes,
-		    fds, offsets,
-		    disks, chunk, level, layout,
-		    dests, destfd, destoffsets,
-		    0, &degraded, buf);
-	grow_backup(sra, (start + stripes) * (chunk/512), stripes,
-		    fds, offsets,
-		    disks, chunk, level, layout,
-		    dests, destfd, destoffsets,
-		    1, &degraded, buf);
-	validate(afd, destfd[0], destoffsets[0]);
-	part = 0;
-	start += stripes * 2; /* where to read next */
-	size = sra->component_size / (chunk/512);
-	while (start < size) {
-		if (wait_backup(sra, (start-stripes*2)*(chunk/512),
-				stripes*(chunk/512), 0,
-				dests, destfd, destoffsets,
-				part) < 0)
-			return 0;
-		sysfs_set_num(sra, NULL, "suspend_lo", start*(chunk/512) * data);
-		if (start + stripes > size)
-			tailstripes = (size - start);
-
-		grow_backup(sra, start*(chunk/512), tailstripes,
-			    fds, offsets,
-			    disks, chunk, level, layout,
-			    dests, destfd, destoffsets,
-			    part, &degraded, buf);
-		start += stripes;
-		part = 1 - part;
-		validate(afd, destfd[0], destoffsets[0]);
+	if (reshape->before.data_disks == reshape->after.data_disks) {
+		sysfs_get_ll(sra, NULL, "sync_speed_min", &speed);
+		sysfs_set_num(sra, NULL, "sync_speed_min", 200000);
 	}
-	if (wait_backup(sra, (start-stripes*2) * (chunk/512), stripes * (chunk/512), 0,
-			dests, destfd, destoffsets,
-			part) < 0)
-		return 0;
-	sysfs_set_num(sra, NULL, "suspend_lo", ((start-stripes)*(chunk/512)) * data);
-	wait_backup(sra, (start-stripes) * (chunk/512), tailstripes * (chunk/512), 0,
-		    dests, destfd, destoffsets,
-		    1-part);
-	sysfs_set_num(sra, NULL, "suspend_lo", (size*(chunk/512)) * data);
-	sysfs_set_num(sra, NULL, "sync_speed_min", speed);
+
+	array_size = sra->component_size * data;
+	if (increasing) {
+		backup_point = sra->reshape_progress;
+		suspend_point = 0;
+	} else {
+		backup_point = array_size;
+		suspend_point = array_size;
+	}
+
+	while (!done) {
+		int rv;
+
+		/* Want to return as soon the oldest backup slot can
+		 * be released as that allows us to start backing up
+		 * some more, providing suspend_point has been
+		 * advanced, which it should have
+		 */
+		if (increasing) {
+			wait_point = array_size;
+			if (part == 0 && __le64_to_cpu(bsb.length) > 0)
+				wait_point = (__le64_to_cpu(bsb.arraystart) +
+					      __le64_to_cpu(bsb.length));
+			if (part == 1 && __le64_to_cpu(bsb.length2) > 0)
+				wait_point = (__le64_to_cpu(bsb.arraystart2) +
+					      __le64_to_cpu(bsb.length2));
+		} else {
+			wait_point = 0;
+			if (part == 0 && __le64_to_cpu(bsb.length) > 0)
+				wait_point = __le64_to_cpu(bsb.arraystart);
+			if (part == 1 && __le64_to_cpu(bsb.length2) > 0)
+				wait_point = __le64_to_cpu(bsb.arraystart2);
+		}
+
+		rv = progress_reshape(sra, reshape,
+				      backup_point, wait_point,
+				      &suspend_point, &reshape_completed);
+		if (rv < 0) {
+			done = 1;
+			break;
+		}
+
+		/* external metadata would need to ping_monitor here */
+		sra->reshape_progress = reshape_completed;
+
+		/* Clear any backup region that is before 'here' */
+		if (increasing) {
+			if (reshape_completed >= (__le64_to_cpu(bsb.arraystart) +
+						  __le64_to_cpu(bsb.length)))
+				forget_backup(dests, destfd,
+					      destoffsets, 0);
+			if (reshape_completed >= (__le64_to_cpu(bsb.arraystart2) +
+						  __le64_to_cpu(bsb.length2)))
+				forget_backup(dests, destfd,
+					      destoffsets, 1);
+		} else {
+			if (reshape_completed <= (__le64_to_cpu(bsb.arraystart)))
+				forget_backup(dests, destfd,
+					      destoffsets, 0);
+			if (reshape_completed <= (__le64_to_cpu(bsb.arraystart2)))
+				forget_backup(dests, destfd,
+					      destoffsets, 1);
+		}
+
+		if (rv) {
+			unsigned long long offset;
+			/* need to backup some space... */
+			/* Check that 'part' is unused */
+			if (part == 0 && __le64_to_cpu(bsb.length) != 0)
+				abort(); /* BUG here */
+			if (part == 1 && __le64_to_cpu(bsb.length2) != 0)
+				abort();
+
+			offset = backup_point / data;
+			if (!increasing)
+				offset -= stripes * (chunk/512);
+			grow_backup(sra, offset, stripes,
+				    fds, offsets,
+				    disks, chunk, level, layout,
+				    dests, destfd, destoffsets,
+				    part, &degraded, buf);
+			validate(afd, destfd[0], destoffsets[0]);
+			/* record where 'part' is up to */
+			part = !part;
+			if (increasing)
+				backup_point += stripes * (chunk/512) * data;
+			else
+				backup_point -= stripes * (chunk/512) * data;
+		}
+	}
+
+	if (reshape->before.data_disks == reshape->after.data_disks)
+		sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);
-	return 1;
+	return 1; /* FIXME what does this mean? */
 }
 
 /*
@@ -2859,164 +3038,10 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		  char *backup_file)
 {
-	/* Array is assembled and ready to be started, but
-	 * monitoring is probably required.
-	 * So:
-	 *   - start read-only
-	 *   - set upper bound for resync
-	 *   - initialise the 'suspend' boundaries
-	 *   - switch to read-write
-	 *   - fork and continue monitoring
-	 */
-	int err;
-	int backup_list[1];
-	unsigned long long backup_offsets[1];
-	int odisks, ndisks, ochunk, nchunk,odata,ndata;
-	unsigned long a,b,blocks,stripes;
-	int backup_fd;
-	int *fds;
-	unsigned long long *offsets;
-	int d;
-	struct mdinfo *sra, *sd;
-	int rv;
-	unsigned long cache;
-	int done = 0;
-
-	err = sysfs_set_str(info, NULL, "array_state", "readonly");
+	int err = sysfs_set_str(info, NULL, "array_state", "readonly");
 	if (err)
 		return err;
-
-	/* make sure reshape doesn't progress until we are ready */
-	sysfs_set_str(info, NULL, "sync_max", "0");
-	sysfs_set_str(info, NULL, "array_state", "active"); /* FIXME or clean */
-
-	sra = sysfs_read(-1, devname2devnum(info->sys_name),
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
-			 GET_CACHE);
-	if (!sra)
-		return 1;
-
-	/* ndisks is not growing, so raid_disks is old and +delta is new */
-	odisks = info->array.raid_disks;
-	ndisks = odisks + info->delta_disks;
-	odata = odisks - 1;
-	ndata = ndisks - 1;
-	if (info->array.level == 6) {
-		odata--;
-		ndata--;
-	}
-	ochunk = info->array.chunk_size;
-	nchunk = info->new_chunk;
-
-	a = (ochunk/512) * odata;
-	b = (nchunk/512) * ndata;
-	/* Find GCD */
-	while (a != b) {
-		if (a < b)
-			b -= a;
-		if (b < a)
-			a -= b;
-	}
-	/* LCM == product / GCD */
-	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
-
-	if (ndata == odata)
-		while (blocks * 32 < sra->component_size &&
-		       blocks < 16*1024*2)
-			blocks *= 2;
-	stripes = blocks / (info->array.chunk_size/512) / odata;
-
-	/* check that the internal stripe cache is
-	 * large enough, or it won't work.
-	 */
-	cache = (nchunk < ochunk) ? ochunk : nchunk;
-	cache = cache * 4 / 4096;
-	if (cache < blocks / 8 / odisks + 16)
-		/* Make it big enough to hold 'blocks' */
-		cache = blocks / 8 / odisks + 16;
-	if (sra->cache_size < cache)
-		sysfs_set_num(sra, NULL, "stripe_cache_size",
-			      cache+1);
-
-	memset(&bsb, 0, 512);
-	memcpy(bsb.magic, "md_backup_data-1", 16);
-	memcpy(&bsb.set_uuid, info->uuid, 16);
-	bsb.mtime = __cpu_to_le64(time(0));
-	bsb.devstart2 = blocks;
-
-	backup_fd = open(backup_file, O_RDWR|O_CREAT, S_IRUSR | S_IWUSR);
-	if (backup_fd < 0) {
-		fprintf(stderr, Name ": Cannot open backup file %s\n",
-			backup_file ?: "- no backup-file given");
-		return 1;
-	}
-	backup_list[0] = backup_fd;
-	backup_offsets[0] = 8 * 512;
-	fds = malloc(odisks * sizeof(fds[0]));
-	offsets = malloc(odisks * sizeof(offsets[0]));
-	for (d=0; d<odisks; d++)
-		fds[d] = -1;
-
-	for (sd = sra->devs; sd; sd = sd->next) {
-		if (sd->disk.state & (1<<MD_DISK_FAULTY))
-			continue;
-		if (sd->disk.state & (1<<MD_DISK_SYNC)) {
-			char *dn = map_dev(sd->disk.major,
-					   sd->disk.minor, 1);
-			fds[sd->disk.raid_disk]
-				= dev_open(dn, O_RDONLY);
-			offsets[sd->disk.raid_disk] = sd->data_offset*512;
-			if (fds[sd->disk.raid_disk] < 0) {
-				fprintf(stderr, Name ": %s: cannot open component %s\n",
-					info->sys_name, dn?dn:"-unknown-");
-				rv = 1;
-				goto release;
-			}
-			free(dn);
-		}
-	}
-
-	switch(fork()) {
-	case 0:
-		close(mdfd);
-		mlockall(MCL_FUTURE);
-		if (info->delta_disks < 0)
-			done = child_shrink(-1, info, stripes,
-					    fds, offsets,
-					    info->array.raid_disks,
-					    info->array.chunk_size,
-					    info->array.level, info->array.layout,
-					    odata,
-					    1, backup_list, backup_offsets);
-		else if (info->delta_disks == 0) {
-			/* The 'start' is a per-device stripe number.
-			 * reshape_progress is a per-array sector number.
-			 * So divide by ndata * chunk_size
-			 */
-			unsigned long long start = info->reshape_progress / ndata;
-			start /= (info->array.chunk_size/512);
-			done = child_same_size(-1, info, stripes,
-					       fds, offsets,
-					       start,
-					       info->array.raid_disks,
-					       info->array.chunk_size,
-					       info->array.level, info->array.layout,
-					       odata,
-					       1, backup_list, backup_offsets);
-		}
-		if (backup_file && done)
-			unlink(backup_file);
-		/* FIXME should I intuit a level change */
-		exit(0);
-	case -1:
-		fprintf(stderr, Name ": Cannot run child to continue monitoring reshape: %s\n",
-			strerror(errno));
-		return 1;
-	default:
-		break;
-	}
-release:
-	return 0;
+	return reshape_array(NULL, mdfd, "array", st, info, 1, backup_file, 0, 0);
 }
 
 

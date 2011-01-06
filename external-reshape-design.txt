@@ -205,8 +205,76 @@ sync_action
 
 2.6 Reshape raid disks (shrink)
 
-3 TODO
+3 Interaction with metadata handle.
 
+  The following calls are made into the metadata handler to assist
+  with initiating and monitoring a 'reshape'.
+
+  1/ ->reshape_super is called quite early (after only minimial
+     checks) to make sure that the metadata can record the new shape
+     and any necessary transitions.  It may be passed a 'container'
+     or an individual array within a container, and it should notice
+     the difference and act accordingly.
+     When a reshape is requested against a container it is expected
+     that it should be applied to every array in the container,
+     however it is up to the metadata handler to determine final
+     policy.
+
+     If the reshape is supportable, the internal copy of the metadata
+     should be updated, and a metadata update suitable for sending
+     to mdmon should be queued.
+
+     If the reshape will involve converting spares into array members,
+     this must be recorded in the metadata too.
+
+  2/ ->container_content will be called to find out the new state
+     of all the array, or all arrays in the container.  Any newly
+     added devices (with state==0 and raid_disk >= 0) will be added
+     to the array as spares with the relevant slot number.
+
+     It is likely that the info returned by  ->container_content will
+     have ->reshape_active set, ->reshape_progress set to e.g. 0, and
+     new_* set appropriately.  mdadm will use this information to
+     cause the correct reshape to start at an appropriate time.
+
+  3/ ->set_array_state will be called by mdmon when reshape has
+     started and again periodically as it progresses.  This should
+     record the ->last_checkpoint as the point where reshape has
+     progressed to.  When the reshape finished this will be called
+     again and it should notice that ->curr_action is no longer
+     'reshape' and so should record that the reshape has finished
+     providing 'last_checkpoint' has progressed suitably.
+
+  4/ ->manage_reshape will be called once the reshape has been set
+     up in the kernel but before sync_max has been moved from 0, so
+     no actual reshape will have happened.
+
+     ->manage_reshape should call progress_reshape() to allow the
+     reshape to progress, and should back-up any data as indicated
+     by the return value.  See the documentation of that function
+     for more details.
+     ->manage_reshape will be called multiple times when a
+     container is being reshaped, once for each member array in
+     the container.
+
+
+   The progress of the metadata is as follows:
+    1/ mdadm sends a metadata update to mdmon which marks the array
+       as undergoing a reshape. This is set up by
+       ->reshape_super and applied by ->process_update
+       For container-wide reshape, this happens once for the whole
+       container.
+    2/ mdmon notices progress via the sysfs files and calls
+       ->set_array_state to update the state periodically
+       For container-wide reshape, this happens repeatedly for
+       one array, then repeatedly for the next, etc.
+    3/ mdmon notices when reshape has finished and call
+       ->set_array_state to record the the reshape is complete.
+       For container-wide reshape, this happens once for each
+       member array.
+     
+     
+   
 ...
 
 [1]: Linux kernel design patterns - part 3, Neil Brown http://lwn.net/Articles/336262/

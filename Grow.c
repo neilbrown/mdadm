@@ -624,8 +624,9 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 	int rc;
 
 	/* only 'raid_disks' and 'stripe_cache_size' trigger md_allow_write */
-	if (strcmp(name, "raid_disks") != 0 &&
-	    strcmp(name, "stripe_cache_size") != 0)
+	if (!container ||
+	    (strcmp(name, "raid_disks") != 0 &&
+	     strcmp(name, "stripe_cache_size") != 0))
 		return sysfs_set_num(sra, NULL, name, n);
 
 	rc = sysfs_get_str(sra, NULL, "safe_mode_delay", safe, sizeof(safe));
@@ -664,201 +665,6 @@ void abort_reshape(struct mdinfo *sra)
 	sysfs_set_num(sra, NULL, "suspend_lo", 0);
 	sysfs_set_num(sra, NULL, "sync_min", 0);
 	sysfs_set_str(sra, NULL, "sync_max", "max");
-}
-
-static int reshape_container_raid_disks(struct supertype *st,
-					char *container, int raid_disks)
-{
-	/* for each subarray switch to a raid level that can
-	 * support the reshape, and set raid disks
-	 */
-	struct mdstat_ent *ent, *e;
-	int changed = 0, rv = 0, err = 0;
-
-	ent = mdstat_read(1, 0);
-	if (!ent) {
-		fprintf(stderr, Name ": unable to read /proc/mdstat\n");
-		return -1;
-	}
-
-	changed = 0;
-	for (e = ent; e; e = e->next) {
-		struct mdinfo *sub, *info;
-		unsigned int cache;
-		int level, takeover_delta = 0;
-		int parity_disks = 1;
-		unsigned int odata;
-		unsigned long blocks;
-		char *subarray;
-
-		if (!is_container_member(e, container))
-			continue;
-		subarray = strchr(e->metadata_version+10, '/')+1;
-
-		rv = -1;
-		level = map_name(pers, e->level);
-		if (level == 0) {
-			sub = sysfs_read(-1, e->devnum, GET_VERSION);
-			if (!sub)
-				break;
-			/* metadata records 'orig_level' */
-			rv = sysfs_set_num(sub, NULL, "level", 4);
-			if (rv < 0) {
-				err = errno;
-				break;
-			}
-			/* we want spares to be used for capacity
-			 * expansion, not rebuild
-			 */
-			takeover_delta = 1;
-
-			sysfs_free(sub);
-			level = 4;
-		}
-		rv = -1;
-		sub = NULL;
-		switch (level) {
-		default:
-			break;
-		case 6:
-			parity_disks++;
-		case 4:
-		case 5:
-			sub = sysfs_read(-1, e->devnum, GET_CHUNK|GET_CACHE|GET_DISKS);
-			if (!sub)
-				break;
-			cache = (sub->array.chunk_size / 4096) * 4;
-			odata = sub->array.raid_disks - parity_disks;
-			blocks = compute_backup_blocks(sub->array.chunk_size,
-						       sub->array.chunk_size,
-						       raid_disks - parity_disks,
-						       odata);
-			if (cache < blocks / 8 / odata + 16)
-				/* Make it big enough to hold 'blocks' */
-				cache = blocks / 8 / odata + 16;
-			if (cache > sub->cache_size)
-				rv = subarray_set_num(container, sub,
-						      "stripe_cache_size", cache);
-			if (rv) {
-				err = errno;
-				break;
-			}
-			rv = -1;
-			/* fall through */
-		case 1:
-			if (!sub)
-				sub = sysfs_read(-1, e->devnum, GET_VERSION);
-			if (!sub)
-				break;
-
-			rv = subarray_set_num(container, sub, "raid_disks",
-					      raid_disks + takeover_delta);
-			if (rv)
-				err = errno;
-			else
-				changed++;
-			break;
-		}
-
-		/* add the devices that were chosen */
-		info = st->ss->container_content(st, subarray);
-		if (info) {
-			struct mdinfo *d;
-			for (d = info->devs; d; d = d->next) {
-				if (d->disk.state == 0 &&
-				    d->disk.raid_disk >= 0) {
-					/* This is a spare that wants to
-					 * be part of the array.
-					 */
-					add_disk(-1, st, info, d);
-				}
-			}
-		}
-		sysfs_free(info);
-
-		if (!rv && level > 1)
-			start_reshape(sub);
-		sysfs_free(sub);
-		if (rv)
-			break;
-	}
-	free_mdstat(ent);
-	if (rv) {
-		fprintf(stderr, Name
-			": failed to initiate container reshape%s%s\n",
-			err ? ": " : "", err ? strerror(err) : "");
-		return rv;
-	}
-
-	return changed;
-}
-
-static void revert_container_raid_disks(struct supertype *st, int fd, char *container)
-{
-	/* we failed to prepare all subarrays in the container for
-	 * reshape, so cancel the changes and restore the nominal raid
-	 * level
-	 */
-	struct mdstat_ent *ent, *e;
-
-	ent = mdstat_read(0, 0);
-	if (!ent) {
-		fprintf(stderr, Name
-			": failed to read /proc/mdstat while aborting reshape\n");
-		return;
-	}
-
-	if (st->ss->load_container(st, fd, NULL)) {
-		fprintf(stderr, Name
-			": failed read metadata while aborting reshape\n");
-		return ;
-	}
-
-
-	for (e = ent; e; e = e->next) {
-		int level_fixed = 0, disks_fixed = 0;
-		struct mdinfo *sub, *prev;
-		char *subarray;
-
-		if (!is_container_member(e, container))
-			continue;
-
-		subarray = to_subarray(e, container);
-		prev = st->ss->container_content(st, subarray);
-
-		/* changing level might change raid_disks so we do it
-		 * first and then check if raid_disks still needs fixing
-		 */
-		if (map_name(pers, e->level) != prev->array.level) {
-			sub = sysfs_read(-1, e->devnum, GET_VERSION);
-			if (sub &&
-			    !sysfs_set_num(sub, NULL, "level", prev->array.level))
-				level_fixed = 1;
-			sysfs_free(sub);
-		} else
-			level_fixed = 1;
-
-		sub = sysfs_read(-1, e->devnum, GET_DISKS);
-		if (sub && sub->array.raid_disks != prev->array.raid_disks) {
-			if (!subarray_set_num(container, sub, "raid_disks",
-					      prev->array.raid_disks))
-				disks_fixed = 1;
-		} else if (sub)
-			disks_fixed = 1;
-
-		if (sub)
-			abort_reshape(sub);
-		sysfs_free(sub);
-
-		if (!disks_fixed || !level_fixed)
-			fprintf(stderr, Name
-				": failed to restore %s to a %d-disk %s array\n",
-				e->dev, prev->array.raid_disks,
-				map_num(pers, prev->array.level));
-		free(prev);
-	}
-	st->ss->free_super(st);
-	free_mdstat(ent);
 }
 
 int remove_disks_on_raid10_to_raid0_takeover(struct supertype *st,
@@ -1074,6 +880,417 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	return blocks;
 }
 
+/* 'struct reshape' records the intermediate states
+ * a general reshape.
+ * The starting geometry is converted to the 'before' geometry
+ * by at most an atomic level change. They could be the same.
+ * Similarly the 'after' geometry is converted to the final
+ * geometry by at most a level change.
+ * Note that 'before' and 'after' must have the same level.
+ * 'blocks' is the minimum number of sectors for a reshape unit.
+ * This will be a multiple of the stripe size in each of the
+ * 'before' and 'after' geometries.
+ * If 'blocks' is 0, no restriping is necessary.
+ */
+struct reshape {
+	int level;
+	int parity; /* number of parity blocks/devices */
+	struct {
+		int layout;
+		int data_disks;
+	} before, after;
+	unsigned long long blocks;
+	unsigned long long stripes; /* number of old stripes that comprise 'blocks'*/
+	unsigned long long new_size; /* New size of array in sectors */
+};
+
+char *analyse_change(struct mdinfo *info, struct reshape *re)
+{
+	/* Based on the current array state in info->array and
+	 * the changes in info->new_* etc, determine:
+	 *  - whether the change is possible
+	 *  - Intermediate level/raid_disks/layout
+	 *  - whether a restriping reshape is needed
+	 *  - number of sectors in minimum change unit.  This
+	 *    will cover a whole number of stripes in 'before' and
+	 *    'after'.
+	 *
+	 * Return message if the change should be rejected
+	 *        NULL if the change can be achieved
+	 *
+	 * This can be called as part of starting a reshape, or
+	 * when assembling an array that is undergoing reshape.
+	 */
+	int new_disks;
+
+	/* If a new level not explicitly given, we assume no-change */
+	if (info->new_level == UnSet)
+		info->new_level = info->array.level;
+
+	if (info->new_chunk)
+		switch (info->new_level) {
+		case 0:
+		case 4:
+		case 5:
+		case 6:
+		case 10:
+			/* chunk size is meaningful, must divide component_size
+			 * evenly
+			 */
+			if (info->component_size % (info->new_chunk/512))
+				return "New chunk size does not"
+					" divide component size";
+			break;
+		default:
+			return "chunk size not meaningful for this level";
+		}
+	else
+		info->new_chunk = info->array.chunk_size;
+
+	switch (info->array.level) {
+	case 1:
+		/* RAID1 can convert to RAID1 with different disks, or
+		 * raid5 with 2 disks
+		 */
+		if (info->new_level == 1) {
+			if (info->delta_disks == UnSet)
+				/* Don't know what to do */
+				return "no change requested for Growing RAID1";
+			re->level = 1;
+			re->before.data_disks = (info->array.raid_disks +
+						 info->delta_disks);
+			re->before.layout = 0;
+			re->blocks = 0;
+			re->parity = 0;
+			return NULL;
+		}
+		if (info->array.raid_disks == 2 &&
+		    info->array.raid_disks == 5) {
+			/* simple in-place conversion */
+			re->level = 5;
+			re->parity = 1;
+			re->before.data_disks = 1;
+			re->before.layout = ALGORITHM_LEFT_SYMMETRIC;
+			re->blocks = 0;
+			return NULL;
+		}
+		/* Could do some multi-stage conversions, but leave that to
+		 * later.
+		 */
+		return "Impossibly level change request for RAID1";
+
+	case 10:
+		/* RAID10 can only be converted from near mode to
+		 * RAID0 by removing some devices
+		 */
+		if ((info->array.layout & ~0xff) != 0x100)
+			return "Cannot Grow RAID10 with far/offset layout";
+		/* number of devices must be multiple of number of copies */
+		if (info->array.raid_disks % (info->array.layout & 0xff))
+			return "RAID10 layout too complex for Grow operation";
+
+		if (info->new_level != 0)
+			return "RAID10 can only be changed to RAID0";
+		new_disks = (info->array.raid_disks
+			     / (info->array.layout & 0xff));
+		if (info->delta_disks != UnSet) {
+			info->delta_disks = (new_disks
+					     - info->array.raid_disks);
+		}
+		if (info->delta_disks != new_disks - info->array.raid_disks)
+			return "New number of raid-devices impossible for RAID10";
+		if (info->new_chunk &&
+		    info->new_chunk != info->array.chunk_size)
+			return "Cannot change chunk-size with RAID10 Grow";
+
+		/* looks good */
+		re->level = 0;
+		re->parity = 0;
+		re->before.data_disks = new_disks;
+		re->before.layout = 0;
+		re->blocks = 0;
+		return NULL;
+
+	case 0:
+		/* RAID0 can be converted to RAID10, or to RAID456 */
+		if (info->new_level == 10) {
+			if (info->new_layout == UnSet && info->delta_disks == UnSet) {
+				/* Assume near=2 layout */
+				info->new_layout = 0x102;
+				info->delta_disks = info->array.raid_disks;
+			}
+			if (info->new_layout == UnSet) {
+				int copies = 1 + (info->delta_disks
+						  / info->array.raid_disks);
+				if (info->array.raid_disks * (copies-1)
+				    != info->delta_disks)
+					return "Impossible number of devices"
+						" for RAID0->RAID10";
+				info->new_layout = 0x100 + copies;
+			}
+			if (info->delta_disks == UnSet) {
+				int copies = info->new_layout & 0xff;
+				if (info->new_layout != 0x100 + copies)
+					return "New layout impossible"
+						" for RAID0->RAID10";;
+				info->delta_disks = (copies - 1) *
+					info->array.raid_disks;
+			}
+			if (info->new_chunk &&
+			    info->new_chunk != info->array.chunk_size)
+				return "Cannot change chunk-size with RAID0->RAID10";
+			/* looks good */
+			re->level = 10;
+			re->parity = 0;
+			re->before.data_disks = (info->array.raid_disks +
+						 info->delta_disks);
+			re->before.layout = info->new_layout;
+			re->blocks = 0;
+			return NULL;
+		}
+
+		/* RAID0 can also covert to RAID0/4/5/6 by first converting to
+		 * a raid4 style layout of the final level.
+		 */
+		switch (info->new_level) {
+		case 0:
+		case 4:
+			re->level = 4;
+			re->before.layout = 0;
+			break;
+		case 5:
+			re->level = 5;
+			re->before.layout = ALGORITHM_PARITY_N;
+			break;
+		case 6:
+			re->level = 6;
+			re->before.layout = ALGORITHM_PARITY_N;
+			break;
+		default:
+			return "Impossible level change requested";
+		}
+		re->before.data_disks = info->array.raid_disks;
+		/* determining 'after' layout happens outside this 'switch' */
+		break;
+
+	case 4:
+		info->array.layout = ALGORITHM_PARITY_N;
+	case 5:
+		switch (info->new_level) {
+		case 4:
+			re->level = info->array.level;
+			re->before.data_disks = info->array.raid_disks - 1;
+			re->before.layout = info->array.layout;
+			break;
+		case 5:
+			re->level = 5;
+			re->before.data_disks = info->array.raid_disks - 1;
+			re->before.layout = info->array.layout;
+			break;
+		case 6:
+			re->level = 6;
+			re->before.data_disks = info->array.raid_disks - 1;
+			switch (info->array.layout) {
+			case ALGORITHM_LEFT_ASYMMETRIC:
+				re->before.layout = ALGORITHM_LEFT_ASYMMETRIC_6;
+				break;
+			case ALGORITHM_RIGHT_ASYMMETRIC:
+				re->before.layout = ALGORITHM_RIGHT_ASYMMETRIC_6;
+				break;
+			case ALGORITHM_LEFT_SYMMETRIC:
+				re->before.layout = ALGORITHM_LEFT_SYMMETRIC_6;
+				break;
+			case ALGORITHM_RIGHT_SYMMETRIC:
+				re->before.layout = ALGORITHM_RIGHT_SYMMETRIC_6;
+				break;
+			case ALGORITHM_PARITY_0:
+				re->before.layout = ALGORITHM_PARITY_0_6;
+				break;
+			case ALGORITHM_PARITY_N:
+				re->before.layout = ALGORITHM_PARITY_N_6;
+				break;
+			default:
+				return "Cannot convert an array with this layout";
+			}
+			break;
+		case 1:
+			if (info->array.raid_disks != 2)
+				return "Can only convert a 2-device array to RAID1";
+			re->level = 1;
+			re->before.data_disks = 2;
+			re->before.layout = 0;
+			break;
+		default:
+			return "Impossible level change requested";
+		}
+		break;
+	case 6:
+		switch (info->new_level) {
+		case 4:
+		case 5:
+		case 6:
+			re->level = 6;
+			re->before.data_disks = info->array.raid_disks - 2;
+			re->before.layout = info->array.layout;
+			break;
+		default:
+			return "Impossible level change requested";
+		}
+		break;
+	}
+
+	/* If we reached here then it looks like a re-stripe is
+	 * happening.  We have determined the intermediate level
+	 * and initial raid_disks/layout and stored these in 're'.
+	 *
+	 * We need to deduce the final layout that can be atomically
+	 * converted to the end state.
+	 */
+	switch (info->new_level) {
+	case 0:
+		/* We can only get to RAID0 from RAID4 or RAID5
+		 * with appropriate layout and one extra device
+		 */
+		if (re->level != 4 && re->level != 5)
+			return "Cannot covert to RAID0 from this level";
+		if (info->delta_disks == UnSet)
+			re->after.data_disks = re->before.data_disks;
+		else
+			re->after.data_disks =
+				info->array.raid_disks + info->delta_disks;
+		switch (re->level) {
+		case 4:
+			re->after.layout = 0 ; break;
+		case 5:
+			re->after.layout = ALGORITHM_PARITY_N; break;
+		}
+		break;
+
+	case 4:
+		/* We can only get to RAID4 from RAID5 */
+		if (re->level != 4 && re->level != 5)
+			return "Cannot convert to RAID4 from this level";
+		if (info->delta_disks == UnSet)
+			re->after.data_disks = re->before.data_disks;
+		else
+			re->after.data_disks =
+				re->before.data_disks + info->delta_disks;
+		switch (re->level) {
+		case 4:
+			re->after.layout = 0 ; break;
+		case 5:
+			re->after.layout = ALGORITHM_PARITY_N; break;
+		}
+		break;
+
+	case 5:
+		/* We get to RAID5 for RAID5 or RAID6 */
+		if (re->level != 5 && re->level != 6)
+			return "Cannot convert to RAID5 from this level";
+		if (info->delta_disks == UnSet)
+			re->after.data_disks = re->before.data_disks;
+		else if (re->level == 5)
+			re->after.data_disks =
+				re->before.data_disks + info->delta_disks;
+		else
+			re->after.data_disks =
+				info->array.raid_disks + info->delta_disks - 1;
+		switch (re->level) {
+		case 5:
+			if (info->new_layout == UnSet)
+				re->after.layout = re->before.layout;
+			else
+				re->after.layout = info->new_layout;
+			break;
+		case 6:
+			if (info->new_layout == UnSet) {
+				re->after.layout = re->before.layout;
+				break;
+			}
+			/* after.layout needs to be raid6 version of new_layout */
+			if (info->new_layout == ALGORITHM_PARITY_N)
+				re->after.layout = ALGORITHM_PARITY_N;
+			else {
+				char layout[40];
+				char *ls = map_num(r5layout, info->new_layout);
+				int l;
+				strcat(strcpy(layout, ls), "-6");
+				l = map_name(r6layout, layout);
+				if (l == UnSet)
+					return "Cannot find RAID6 layout"
+						" to convert to";
+				re->after.layout = l;
+			}
+		}
+		break;
+
+	case 6:
+		/* We must already be at level 6 */
+		if (re->level != 6)
+			return "Impossible level change";
+		if (info->delta_disks == UnSet)
+			re->after.data_disks = re->before.data_disks;
+		else
+			re->after.data_disks = (info->array.raid_disks +
+						info->delta_disks) - 2;
+		if (info->new_layout == UnSet)
+			re->after.layout = re->before.layout;
+		else
+			re->after.layout = info->new_layout;
+		break;
+	default:
+		return "Impossible level change requested";
+	}
+	switch (re->level) {
+	case 6: re->parity = 2; break;
+	case 4:
+	case 5: re->parity = 1; break;
+	default: re->parity = 0; break;
+	}
+	/* So we have a restripe operation, we need to calculate the number
+	 * of blocks per reshape operation.
+	 */
+	if (info->new_chunk == 0)
+		info->new_chunk = info->array.chunk_size;
+	if (re->after.data_disks == re->before.data_disks &&
+	    re->after.layout == re->before.layout &&
+	    info->new_chunk == info->array.chunk_size) {
+		/* Nothing to change */
+		re->blocks = 0;
+		return NULL;
+	}
+	if (re->after.data_disks == 1 && re->before.data_disks == 1) {
+		/* chunks can layout changes make no difference */
+		re->blocks = 0;
+		return NULL;
+	}
+
+	if (re->after.data_disks == re->before.data_disks &&
+	    get_linux_version() < 2006032)
+		return "in-place reshape is not safe before 2.6.32 - sorry.";
+
+	if (re->after.data_disks < re->before.data_disks &&
+	    get_linux_version() < 2006030)
+		return "reshape to fewer devices is not supported before 2.6.32 - sorry.";
+
+	re->blocks = compute_backup_blocks(
+		info->new_chunk, info->array.chunk_size,
+		re->after.data_disks,
+		re->before.data_disks);
+
+	re->new_size = info->component_size * re->after.data_disks;
+	return NULL;
+}
+
+static int reshape_array(char *container, int fd, char *devname,
+			 struct supertype *st, struct mdinfo *info,
+			 int force, char *backup_file, int quiet, int forked);
+static int reshape_container(char *container, int cfd, char *devname,
+			     struct supertype *st, 
+			     struct mdinfo *info,
+			     int force,
+			     char *backup_file,
+			     int quiet);
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
@@ -1097,34 +1314,19 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	 * reshape (e.g. raid6->raid5, raid5->raid0)
 	 *
 	 */
-	struct mdu_array_info_s array, orig;
-	char *c;
+	struct mdu_array_info_s array;
 	int rv = 0;
 	struct supertype *st;
 	char *subarray = NULL;
 
-	int nchunk, ochunk;
-	int nlayout, olayout;
-	int ndisks, odisks;
-	unsigned int ndata, odata;
-	int orig_level = UnSet;
-	char alt_layout[40];
-	int *fdlist;
-	unsigned long long *offsets;
-	int d;
-	int nrdisks;
-	int err;
 	int frozen;
-	unsigned long blocks, stripes;
-	unsigned long cache;
-	unsigned long long array_size;
 	int changed = 0;
 	char *container = NULL;
+	char container_buf[20];
 	int cfd = -1;
-	int done;
 
+	struct mdinfo info;
 	struct mdinfo *sra;
-	struct mdinfo *sd;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
 		fprintf(stderr, Name ": %s is not an active md array - aborting\n",
@@ -1171,12 +1373,6 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		if (subarray) {
 			container_dev = st->container_dev;
 			cfd = open_dev_excl(st->container_dev);
-		} else if (size >= 0 || layout_str != NULL || chunksize != 0 ||
-			   level != UnSet) {
-			fprintf(stderr,
-				Name ": %s is a container, only 'raid-devices' can be changed\n",
-				devname);
-			return 1;
 		} else {
 			container_dev = st->devnum;
 			close(fd);
@@ -1190,12 +1386,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			return 1;
 		}
 
-		container = devnum2devname(st->devnum);
-		if (!container) {
-			fprintf(stderr, Name ": Could not determine container name\n");
-			free(subarray);
-			return 1;
-		}
+		fmt_devname(container_buf, container_dev);
+		container = container_buf;
 
 		if (subarray)
 			rv = st->ss->load_container(st, cfd, NULL);
@@ -1297,749 +1489,584 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	}
 
 	/* ========= check for Raid10 -> Raid0 conversion ===============
-	 * current implemenation assumes that following conditions must be met:
+	 * current implementation assumes that following conditions must be met:
 	 * - far_copies == 1
 	 * - near_copies == 2
 	 */
-	if (level == 0 && array.level == 10 &&
+	if (level == 0 && array.level == 10 && sra &&
 	    array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) {
 		int err;
 		err = remove_disks_on_raid10_to_raid0_takeover(st, sra, array.layout);
 		if (err) {
 			dprintf(Name": Array cannot be reshaped\n");
-			if (container)
-				free(container);
 			if (cfd > -1)
 				close(cfd);
-			return 1;
+			rv = 1;
+			goto release;
 		}
 	}
 
-	/* ======= set level =========== */
-	if (level != UnSet && level != array.level) {
-		/* Trying to change the level.
-		 * We might need to change layout first and schedule a
-		 * level change for later.
-		 * Level changes that can happen immediately are:
-		 * 0->4,5,6  1->5  4->5,6  5->1,6
-		 * Level changes that need a layout change first are:
-		 * 6->5,4,0 : need a -6 layout, or parity-last
-		 * 5->4,0   : need parity-last
-		 */
-		if ((array.level == 6 || array.level == 5) &&
-		    (level == 5 || level == 4 || level == 0)) {
-			/* Don't change level yet, but choose intermediate
-			 * layout
-			 */
-			if (level == 5) {
-				if (layout_str == NULL)
-					switch (array.layout) {
-					case ALGORITHM_LEFT_ASYMMETRIC:
-					case ALGORITHM_LEFT_ASYMMETRIC_6:
-					case ALGORITHM_ROTATING_N_RESTART:
-						layout_str = "left-asymmetric-6";
-						break;
-					case ALGORITHM_LEFT_SYMMETRIC:
-					case ALGORITHM_LEFT_SYMMETRIC_6:
-					case ALGORITHM_ROTATING_N_CONTINUE:
-						layout_str = "left-symmetric-6";
-						break;
-					case ALGORITHM_RIGHT_ASYMMETRIC:
-					case ALGORITHM_RIGHT_ASYMMETRIC_6:
-					case ALGORITHM_ROTATING_ZERO_RESTART:
-						layout_str = "right-asymmetric-6";
-						break;
-					case ALGORITHM_RIGHT_SYMMETRIC:
-					case ALGORITHM_RIGHT_SYMMETRIC_6:
-						layout_str = "right-symmetric-6";
-						break;
-					case ALGORITHM_PARITY_0:
-					case ALGORITHM_PARITY_0_6:
-						layout_str = "parity-first-6";
-						break;
-					case ALGORITHM_PARITY_N:
-						layout_str = "parity-last";
-						break;
-					default:
-						fprintf(stderr, Name ": %s: cannot"
-							"convert layout to RAID5 equivalent\n",
-							devname);
-						rv = 1;
-						goto release;
-					}
-				else {
-					int l = map_name(r5layout, layout_str);
-					if (l == UnSet) {
-						fprintf(stderr, Name ": %s: layout '%s' not recognised\n",
-							devname, layout_str);
-						rv = 1;
-						goto release;
-					}
-					if (l != ALGORITHM_PARITY_N) {
-						/* need the -6 version */
-						char *ls = map_num(r5layout, l);
-						strcat(strcpy(alt_layout, ls),
-						       "-6");
-						layout_str = alt_layout;
-					}
-				}
-				if (raid_disks)
-					/* The final raid6->raid5 conversion
-					 * will reduce the number of disks,
-					 * so now we need to aim higher
-					 */
-					raid_disks++;
-			} else
-				layout_str = "parity-last";
-		} else {
-			/* Level change is a simple takeover.  In the external
-			 * case we don't check with the metadata handler until
-			 * we establish what the final layout will be.  If the
-			 * level change is disallowed we will revert to
-			 * orig_level without disturbing the metadata, otherwise
-			 * we will send an update.
-			 */
-			c = map_num(pers, level);
-			if (c == NULL) {
-				rv = 1;/* not possible */
-				goto release;
-			}
-			if (!force) {
-				/* Need to check there are enough spares */
-				int spares_needed = 0;
-				switch (array.level * 16 + level) {
-				case 0x05:
-					spares_needed = 1; break;
-				case 0x06:
-					spares_needed = 2; break;
-				case 0x15:
-					spares_needed = 1; break;
-				case 0x16:
-					spares_needed = 2; break;
-				case 0x56:
-					spares_needed = 1; break;
-				}
-				if (raid_disks > array.raid_disks)
-					spares_needed += raid_disks-array.raid_disks;
-				if (spares_needed > array.spare_disks) {
-					fprintf(stderr,
-						Name ": Need %d spare%s to avoid"
-						" degraded array, and only have %d.\n"
-						"       Use --force to over-ride"
-						" this check.\n",
-						spares_needed,
-						spares_needed == 1 ? "" : "s", 
-						array.spare_disks);
-					rv = 1;
-					goto release;
-				}
-			}
-			err = sysfs_set_str(sra, NULL, "level", c);
-			if (err) {
-				err = errno;
-				fprintf(stderr, Name ": %s: could not set level to %s\n",
-					devname, c);
-				if (err == EBUSY && 
-				    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-					fprintf(stderr, "       Bitmap must be removed before level can be changed\n");
-				rv = 1;
-				goto release;
-			}
-			orig = array;
-			orig_level = orig.level;
-			ioctl(fd, GET_ARRAY_INFO, &array);
-			if (layout_str == NULL &&
-			    orig.level == 5 && level == 6 &&
-			    array.layout != orig.layout)
-				layout_str = map_num(r5layout, orig.layout);
-			if (!quiet)
-				fprintf(stderr, Name " level of %s changed to %s\n",
-					devname, c);
-			changed = 1;
-		}
-	}
-
-	/* ========= set shape (chunk_size / layout / ndisks)  ============== */
-	/* Check if layout change is a no-op */
-	switch (array.level) {
-	case 5:
-		if (layout_str && array.layout == map_name(r5layout, layout_str))
-			layout_str = NULL;
-		break;
-	case 6:
-		if (layout_str == NULL &&
-		    ((chunksize && chunksize * 1024 != array.chunk_size) ||
-		     (raid_disks && raid_disks != array.raid_disks)) &&
-		    array.layout >= 16) {
+	info.array = array;
+	info.new_level = level;
+	info.new_chunk = chunksize * 1024;
+	if (raid_disks)
+		info.delta_disks = raid_disks - info.array.raid_disks;
+	else
+		info.delta_disks = UnSet;
+	if (layout_str == NULL) {
+		info.new_layout = UnSet;
+		if (info.array.level == 6 &&
+		    (info.new_level == 6 || info.new_level == UnSet) &&
+		    info.array.layout >= 16) {
 			fprintf(stderr, Name
-				": %s has a non-standard layout.  If you wish to preserve this\n"
-				"      during the reshape, please specify --layout=preserve\n"
-				"      If you want to change it, specify a layout or use --layout=normalise\n",
+				": %s has a non-standard layout.  If you"
+				" wish to preserve this\n"
+				"      during the reshape, please specify"
+				" --layout=preserve\n"
+				"      If you want to change it, specify a"
+				" layout or use --layout=normalise\n",
 				devname);
 			rv = 1;
 			goto release;
 		}
-		if (layout_str &&
-		    (strcmp(layout_str, "normalise") == 0 ||
-		     strcmp(layout_str, "normalize") == 0)) {
-			char *hyphen;
-			strcpy(alt_layout, map_num(r6layout, array.layout));
-			hyphen = strrchr(alt_layout, '-');
-			if (hyphen && strcmp(hyphen, "-6") == 0) {
-				*hyphen = 0;
-				layout_str = alt_layout;
+	} else if (strcmp(layout_str, "normalise") == 0 ||
+		 strcmp(layout_str, "normalize") == 0) {
+		/* If we have a -6 RAID6 layout, remove the '-6'. */
+		info.new_layout = UnSet;
+		if (info.array.level == 6 && info.new_level == UnSet) {
+			char l[40], *h;
+			strcpy(l, map_num(r6layout, info.array.layout));
+			h = strrchr(l, '-');
+			if (h && strcmp(h, "-6") == 0) {
+				*h = 0;
+				info.new_layout = map_name(r6layout, l);
 			}
 		}
-
-		if (layout_str && array.layout == map_name(r6layout, layout_str))
-			layout_str = NULL;
-		if (layout_str && strcmp(layout_str, "preserve") == 0)
-			layout_str = NULL;
-		break;
+	} else if (strcmp(layout_str, "preserve") == 0) {
+		info.new_layout = UnSet;
+	} else {
+		int l = info.new_level;
+		if (l == UnSet)
+			l = info.array.level;
+		switch (l) {
+		case 5:
+			info.new_layout = map_name(r5layout, layout_str);
+			break;
+		case 6:
+			info.new_layout = map_name(r6layout, layout_str);
+			break;
+		case 10:
+			info.new_layout = parse_layout_10(layout_str);
+			break;
+		case LEVEL_FAULTY:
+			info.new_layout = parse_layout_faulty(layout_str);
+			break;
+		default:
+			fprintf(stderr, Name ": layout not meaningful"
+				" with this level\n");
+			rv = 1;
+			goto release;
+		}
+		if (info.new_layout == UnSet) {
+			fprintf(stderr, Name ": layout %s not understood"
+				" for this level\n",
+				layout_str);
+			rv = 1;
+			goto release;
+		}
 	}
-	if (layout_str == NULL
-	    && (chunksize == 0 || chunksize*1024 == array.chunk_size)
-	    && (raid_disks == 0 || raid_disks == array.raid_disks)) {
-		if (reshape_super(st, -1, level, UnSet, 0, 0, NULL, devname, !quiet)) {
+
+	if (array.level == LEVEL_CONTAINER) {
+		/* This change is to be applied to every array in the
+		 * container.  This is only needed when the metadata imposes
+		 * restraints of the various arrays in the container.
+		 * Currently we only know that IMSM requires all arrays
+		 * to have the same number of devices so changing the
+		 * number of devices (On-Line Capacity Expansion) must be
+		 * performed at the level of the container
+		 */
+		rv = reshape_container(container, fd, devname, st, &info,
+				       force, backup_file, quiet);
+	} else {
+		/* Impose these changes on a single array.  First
+		 * check that the metadata is OK with the change. */
+
+		if (reshape_super(st, info.component_size, info.new_level,
+				  info.new_layout, info.new_chunk,
+				  info.array.raid_disks + info.delta_disks,
+				  backup_file, devname, quiet)) {
 			rv = 1;
 			goto release;
 		}
 		sync_metadata(st);
-		rv = 0;
-		if (level != UnSet && level != array.level) {
-			/* Looks like this level change doesn't need
-			 * a reshape after all.
-			 */
-			c = map_num(pers, level);
-			if (c) {
-				rv = sysfs_set_str(sra, NULL, "level", c);
-				if (rv) {
-					int err = errno;
-					fprintf(stderr, Name ": %s: could not set level to %s\n",
-						devname, c);
-					if (err == EBUSY && 
-					    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-						fprintf(stderr, "       Bitmap must be removed before level can be changed\n");
-					rv = 1;
+		rv = reshape_array(container, fd, devname, st, &info, force,
+				   backup_file, quiet, 0);
+	}
+release:
+	unfreeze(st, frozen);
+	return rv;
+}
+
+static int reshape_array(char *container, int fd, char *devname,
+			 struct supertype *st, struct mdinfo *info,
+			 int force,
+			 char *backup_file, int quiet, int forked)
+{
+	struct reshape reshape;
+	int spares_needed;
+	char *msg;
+	int orig_level = UnSet;
+	int disks, odisks;
+
+	struct mdu_array_info_s array;
+	char *c;
+	int rv = 0;
+
+	int *fdlist;
+	unsigned long long *offsets;
+	int d;
+	int nrdisks;
+	int err;
+	int frozen;
+	unsigned long blocks, stripes;
+	unsigned long cache;
+	unsigned long long array_size;
+	int done;
+	struct mdinfo *sra, *sd;
+
+	msg = analyse_change(info, &reshape);
+	if (msg) {
+		fprintf(stderr, Name ": %s\n", msg);
+		return 1;
+	}
+	spares_needed = max(reshape.before.data_disks,
+			    reshape.after.data_disks)
+		+ reshape.parity - array.raid_disks;
+
+	if (!force && spares_needed < info->array.spare_disks) {
+		fprintf(stderr,
+			Name ": Need %d spare%s to avoid degraded array,"
+			" and only have %d.\n"
+			"       Use --force to over-ride this check.\n",
+			spares_needed,
+			spares_needed == 1 ? "" : "s", 
+			info->array.spare_disks);
+		return 1;
+	}
+
+	if (reshape.level != info->array.level) {
+		char *c = map_num(pers, reshape.level);
+		int err;
+		if (c == NULL)
+			return 1; /* This should not be possible */
+
+		err = sysfs_set_str(info, NULL, "level", c);
+		if (err) {
+			err = errno;
+			fprintf(stderr, Name ": %s: could not set level to %s\n",
+				devname, c);
+			if (err == EBUSY && 
+			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				fprintf(stderr, "       Bitmap must be removed"
+					" before level can be changed\n");
+			return 1;
+		}
+		if (!quiet)
+			fprintf(stderr, Name " level of %s changed to %s\n",
+				devname, c);	
+		orig_level = info->array.level;
+	}
+
+	if (reshape.level > 0 && st->ss->external &&
+	    !mdmon_running(st->container_dev)) {
+		start_mdmon(st->container_dev);
+		ping_monitor(container);
+	}
+
+	/* ->reshape_super might have chosen some spares from the
+	 * container that it wants to be part of the new array.
+	 * We can collect them with ->container_content and give
+	 * them to the kernel.
+	 */
+	if (st->ss->reshape_super && st->ss->container_content) {
+		char *subarray = strchr(info->text_version+1, '/')+1;
+		struct mdinfo *info2 =
+			st->ss->container_content(st, subarray);
+		struct mdinfo *d;
+
+		if (info2)
+			for (d = info2->devs; d; d = d->next) {
+				if (d->disk.state == 0 &&
+				    d->disk.raid_disk >= 0) {
+					/* This is a spare that wants to
+					 * be part of the array.
+					 */
+					add_disk(fd, st, info2, d);
 				}
 			}
-		} else if (!changed && !quiet)
-			fprintf(stderr, Name ": %s: no change requested\n",
-				devname);
+		sysfs_free(info2);
+	}
 
-		if (st->ss->external && !mdmon_running(st->container_dev) &&
-		    level > 0) {
-			start_mdmon(st->container_dev);
-			ping_monitor(container);
+	if (reshape.blocks == 0) {
+		/* No restriping needed, but we might need to impose
+		 * some more changes: layout, raid_disks, chunk_size
+		 */
+		if (info->new_layout != UnSet &&
+		    info->new_layout != info->array.layout) {
+			info->array.layout = info->new_layout;
+			if (ioctl(fd, SET_ARRAY_INFO, &info->array) != 0) {
+				fprintf(stderr, Name ": failed to set new layout\n");
+				rv = 1;
+			} else if (!quiet)
+				printf("layout for %s set to %d\n",
+				       devname, info->array.layout);
 		}
+		if (info->delta_disks != UnSet &&
+		    info->delta_disks != 0) {
+			info->array.raid_disks += info->delta_disks;
+			if (ioctl(fd, SET_ARRAY_INFO, &info->array) != 0) {
+				fprintf(stderr, Name ": failed to set raid disks\n");
+				rv = 1;
+			} else if (!quiet)
+				printf("raid_disks for %s set to %d\n",
+				       devname, info->array.raid_disks);
+		}
+		if (info->new_chunk != 0 &&
+		    info->new_chunk != info->array.chunk_size) {
+			if (sysfs_set_num(info, NULL,
+					  "chunk_size", info->new_chunk) != 0) {
+				fprintf(stderr, Name ": failed to set chunk size\n");
+				rv = 1;
+			} else if (!quiet)
+				printf("chunk size for %s set to %d\n",
+				       devname, info->array.chunk_size);
+		}
+
+		return rv;
+	}
+
+	/*
+	 * There are three possibilities.
+	 * 1/ The array will shrink.
+	 *    We need to ensure the reshape will pause before reaching
+	 *    the 'critical section'.  We also need to fork and wait for
+	 *    that to happen.  When it does we 
+	 *       suspend/backup/complete/unfreeze
+	 *
+	 * 2/ The array will not change size.
+	 *    This requires that we keep a backup of a sliding window
+	 *    so that we can restore data after a crash.  So we need
+	 *    to fork and monitor progress.
+	 *    In future we will allow the data_offset to change, so
+	 *    a sliding backup becomes unnecessary.
+	 *
+	 * 3/ The array will grow. This is relatively easy.
+	 *    However the kernel's restripe routines will cheerfully
+	 *    overwrite some early data before it is safe.  So we
+	 *    need to make a backup of the early parts of the array
+	 *    and be ready to restore it if rebuild aborts very early.
+	 *    For externally managed metadata, we still need a forked
+	 *    child to monitor the reshape and suspend IO over the region
+	 *    that is being reshaped.
+	 *
+	 *    We backup data by writing it to one spare, or to a
+	 *    file which was given on command line.
+	 *
+	 * In each case, we first make sure that storage is available
+	 * for the required backup.
+	 * Then we:
+	 *   -  request the shape change.
+	 *   -  fork to handle backup etc.
+	 */
+
+	/* Check that we can hold all the data */
+	get_dev_size(fd, NULL, &array_size);
+	if (reshape.new_size < (array_size/512)) {
+		fprintf(stderr,
+			Name ": this change will reduce the size of the array.\n"
+			"       use --grow --array-size first to truncate array.\n"
+			"       e.g. mdadm --grow %s --array-size %llu\n",
+			devname, reshape.new_size/2);
+		rv = 1;
 		goto release;
 	}
 
-	c = map_num(pers, array.level);
-	if (c == NULL) c = "-unknown-";
-	switch (array.level) {
-	default: /* raid0, linear, multipath cannot be reconfigured */
-		fprintf(stderr, Name ": %s array %s cannot be reshaped.\n",
-			c, devname);
-		/* TODO raid0 raiddisks can be reshaped via raid4 */
-		rv = 1;
-		break;
-	case LEVEL_CONTAINER: {
-		int count;
+	sra = sysfs_read(fd, 0,
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+			 GET_CACHE);
 
-		/* double check that we are not changing anything but raid_disks */
-		if (size >= 0 || layout_str != NULL || chunksize != 0 || level != UnSet) {
+	if (!sra) {
+		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
+			devname);
+		rv = 1;
+		goto release;
+	}
+
+	/* Decide how many blocks (sectors) for a reshape
+	 * unit.  The number we have so far is just a minimum
+	 */
+	blocks = reshape.blocks;
+	if (reshape.before.data_disks == 
+	    reshape.after.data_disks) {
+		/* Make 'blocks' bigger for better throughput, but
+		 * not so big that we reject it below.
+		 * Try for 16 megabytes
+		 */
+		while (blocks * 32 < sra->component_size &&
+		       blocks < 16*1024*2)
+			blocks *= 2;
+	} else
+		fprintf(stderr, Name ": Need to backup %luK of critical "
+			"section..\n", blocks/2);
+
+	if (blocks >= sra->component_size/2) {
+		fprintf(stderr, Name ": %s: Something wrong"
+			" - reshape aborted\n",
+			devname);
+		rv = 1;
+		goto release;
+	}
+
+	/* Now we need to open all these devices so we can read/write.
+	 */
+	nrdisks = array.raid_disks + sra->array.spare_disks;
+	fdlist = malloc((1+nrdisks) * sizeof(int));
+	offsets = malloc((1+nrdisks) * sizeof(offsets[0]));
+	if (!fdlist || !offsets) {
+		fprintf(stderr, Name ": malloc failed: grow aborted\n");
+		rv = 1;
+		goto release;
+	}
+
+	d = reshape_prepare_fdlist(devname, sra, array.raid_disks,
+				   nrdisks, blocks, backup_file,
+				   fdlist, offsets);
+	if (d < 0) {
+		rv = 1;
+		goto release;
+	}
+	if (backup_file == NULL) {
+ 		if (reshape.after.data_disks <= reshape.before.data_disks) {
 			fprintf(stderr,
-				Name ": %s is a container, only 'raid-devices' can be changed\n",
+				Name ": %s: Cannot grow - need backup-file\n", 
+				devname);
+			rv = 1;
+			goto release;
+		} else if (sra->array.spare_disks == 0) {
+			fprintf(stderr, Name ": %s: Cannot grow - need a spare or "
+				"backup-file to backup critical section\n",
 				devname);
 			rv = 1;
 			goto release;
 		}
-
-		if (reshape_super(st, -1, UnSet, UnSet, 0, raid_disks,
-				  backup_file, devname, !quiet)) {
+	} else {
+		if (!reshape_open_backup_file(backup_file, fd, devname,
+					      (signed)blocks,
+					      fdlist+d, offsets+d)) {
 			rv = 1;
 			goto release;
 		}
+		d++;
+	}
 
-		count = reshape_container_raid_disks(st, container, raid_disks);
-		if (count < 0) {
-			revert_container_raid_disks(st, fd, container);
+	/* lastly, check that the internal stripe cache is
+	 * large enough, or it won't work.
+	 * It must hold at least 4 stripes of the larger
+	 * chunk size
+	 */
+	cache = max(info->array.chunk_size, info->new_chunk);
+	cache *= 4; /* 4 stripes minimum */
+	cache /= 512; /* convert to sectors */
+	disks = min(reshape.before.data_disks, reshape.after.data_disks);
+	/* make sure there is room for 'blocks' with a bit to spare */
+	if (cache < 16 + blocks / disks)
+		cache = 16 + blocks / disks;
+	cache /= (4096/512); /* Covert from sectors to pages */
+
+	if (sra->cache_size < cache)
+		subarray_set_num(container, sra, "stripe_cache_size",
+				 cache+1);
+
+	/* Right, everything seems fine. Let's kick things off.
+	 * If only changing raid_disks, use ioctl, else use
+	 * sysfs.
+	 */
+	sync_metadata(st);
+
+	if (info->array.chunk_size == info->new_chunk &&
+	    reshape.before.layout == reshape.after.layout) {
+		array.raid_disks = reshape.after.data_disks + reshape.parity;
+		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			int err = errno;
 			rv = 1;
-			goto release;
-		} else if (count == 0) {
-			if (!quiet)
-				fprintf(stderr, Name
-					": no active subarrays to reshape\n");
+			fprintf(stderr,
+				Name ": Cannot set device shape for %s: %s\n",
+				devname, strerror(errno));
+
+			if (err == EBUSY && 
+			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				fprintf(stderr,
+					"       Bitmap must be removed before"
+					" shape can be changed\n");
+
 			goto release;
 		}
+	} else {
+		/* set them all just in case some old 'new_*' value
+		 * persists from some earlier problem
+		 */
+		int err = err; /* only used if rv==1, and always set if
+				* rv==1, so initialisation not needed,
+				* despite gcc warning
+				*/
+		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
+			rv = 1, err = errno;
+		if (!rv && sysfs_set_num(sra, NULL, "layout", 
+					 reshape.after.layout) < 0)
+			rv = 1, err = errno;
+		if (!rv && subarray_set_num(container, sra, "raid_disks",
+					    reshape.after.data_disks +
+					    reshape.parity) < 0)
+			rv = 1, err = errno;
+		if (rv) {
+			fprintf(stderr, Name ": Cannot set device shape for %s\n",
+				devname);
 
-		sync_metadata(st);
-		if (!mdmon_running(st->devnum)) {
-			start_mdmon(st->devnum);
-			ping_monitor(container);
-			st->update_tail = &st->updates;
+			if (err == EBUSY && 
+			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				fprintf(stderr,
+					"       Bitmap must be removed before"
+					" shape can be changed\n");
+			goto release;
 		}
+	}
 
-		/* give mdmon a chance to allocate spares */
+	start_reshape(sra);
+	if (st->ss->external) {
+		/* metadata handler takes it from here */
 		ping_manager(container);
-
-		/* manage_reshape takes care of releasing the array(s) */
 		st->ss->manage_reshape(st, backup_file);
 		frozen = 0;
 		goto release;
 	}
-	case LEVEL_FAULTY: /* only 'layout' change is permitted */
 
-		if (chunksize  || raid_disks) {
-			fprintf(stderr, Name ": %s: Cannot change chunksize or disks of a 'faulty' array\n",
-				devname);
-			rv = 1;
+	/* set up the backup-super-block.  This requires the
+	 * uuid from the array.
+	 */
+	/* Find a superblock */
+	for (sd = sra->devs; sd; sd = sd->next) {
+		char *dn;
+		int devfd;
+		int ok;
+		if (sd->disk.state & (1<<MD_DISK_FAULTY))
+			continue;
+		dn = map_dev(sd->disk.major, sd->disk.minor, 1);
+		devfd = dev_open(dn, O_RDONLY);
+		if (devfd < 0)
+			continue;
+		ok = st->ss->load_super(st, devfd, NULL);
+		close(devfd);
+		if (ok >= 0)
 			break;
-		}
-		if (layout_str == NULL)
-			break; /* nothing to do.... */
-
-		array.layout = parse_layout_faulty(layout_str);
-		if (array.layout < 0) {
-			fprintf(stderr, Name ": %s: layout %s not understood for 'faulty' array\n",
-				devname, layout_str);
-			rv = 1;
-			break;
-		}
-		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
-			fprintf(stderr, Name ": Cannot set layout for %s: %s\n",
-				devname, strerror(errno));
-			rv = 1;
-		} else if (!quiet)
-			printf("layout for %s set to %d\n", devname, array.layout);
-		break;
-
-	case 1: /* only raid_disks can each be changed. */
-
-		if (chunksize || layout_str != NULL) {
-			fprintf(stderr, Name ": %s: Cannot change chunk size or layout for a RAID1 array.\n",
-				devname);
-			rv = 1;
-			break;
-		}
-		if (raid_disks > 0) {
-			if (reshape_super(st, -1, UnSet, UnSet, 0, raid_disks,
-					  NULL, devname, !quiet)) {
-				rv = 1;
-				goto release;
-			}
-			sync_metadata(st);
-			array.raid_disks = raid_disks;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
-				fprintf(stderr, Name ": Cannot set raid-devices for %s: %s\n",
-					devname, strerror(errno));
-				rv = 1;
-			}
-		}
-		break;
-
-	case 4:
-	case 5:
-	case 6:
-
-		/*
-		 * layout/chunksize/raid_disks can be changed
-		 * though the kernel may not support it all.
-		 */
-		if (subarray) {
-			fprintf(stderr, Name ": Cannot reshape subarrays yet\n");
-			break;
-		}
-
-		/*
-		 * There are three possibilities.
-		 * 1/ The array will shrink.
-		 *    We need to ensure the reshape will pause before reaching
-		 *    the 'critical section'.  We also need to fork and wait for
-		 *    that to happen.  When it does we 
-		 *       suspend/backup/complete/unfreeze
-		 *
-		 * 2/ The array will not change size.
-		 *    This requires that we keep a backup of a sliding window
-		 *    so that we can restore data after a crash.  So we need
-		 *    to fork and monitor progress.
-		 *
-		 * 3/ The array will grow. This is relatively easy.
-		 *    However the kernel's restripe routines will cheerfully
-		 *    overwrite some early data before it is safe.  So we
-		 *    need to make a backup of the early parts of the array
-		 *    and be ready to restore it if rebuild aborts very early.
-		 *
-		 *    We backup data by writing it to one spare, or to a
-		 *    file which was given on command line.
-		 *
-		 *    [FOLLOWING IS OLD AND PARTLY WRONG]
-		 *    So: we enumerate the devices in the array and
-		 *    make sure we can open all of them.
-		 *    Then we freeze the early part of the array and
-		 *    backup to the various spares.
-		 *    Then we request changes and start the reshape.
-		 *    Monitor progress until it has passed the danger zone.
-		 *    and finally invalidate the copied data and unfreeze the
-		 *    start of the array.
-		 *
-		 * In each case, we first make sure that storage is available
-		 * for the required backup.
-		 * Then we:
-		 *   -  request the shape change.
-		 *   -  for to handle backup etc.
-		 */
-		nchunk = ochunk = array.chunk_size;
-		nlayout = olayout = array.layout;
-		ndisks = odisks = array.raid_disks;
-
-		if (chunksize) {
-			nchunk = chunksize * 1024;
-			if (size % chunksize) {
-				fprintf(stderr, Name ": component size %lluK is not"
-					" a multiple of chunksize %dK\n",
-					size, chunksize);
-				break;
-			}
-		}
-		if (layout_str != NULL)
-			switch(array.level) {
-			case 4: /* ignore layout */
-				break;
-			case 5:
-				nlayout = map_name(r5layout, layout_str);
-				if (nlayout == UnSet) {
-					fprintf(stderr, Name ": layout %s not understood for raid5.\n",
-						layout_str);
-					rv = 1;
-					goto release;
-				}
-				break;
-
-			case 6:
-				nlayout = map_name(r6layout, layout_str);
-				if (nlayout == UnSet) {
-					fprintf(stderr, Name ": layout %s not understood for raid6.\n",
-						layout_str);
-					rv = 1;
-					goto release;
-				}
-				break;
-			}
-		if (raid_disks) ndisks = raid_disks;
-
-		odata = odisks-1;
-		ndata = ndisks-1;
-		if (array.level == 6) {
-			odata--; /* number of data disks */
-			ndata--;
-		}
-
-		if (odata == ndata &&
-		    get_linux_version() < 2006032) {
-			fprintf(stderr, Name ": in-place reshape is not safe before 2.6.32, sorry.\n");
-			break;
-		}
-
-		/* Check that we can hold all the data */
-		get_dev_size(fd, NULL, &array_size);
-		if (ndata * (unsigned long long)size < (array_size/1024)) {
-			fprintf(stderr, Name ": this change will reduce the size of the array.\n"
-				"       use --grow --array-size first to truncate array.\n"
-				"       e.g. mdadm --grow %s --array-size %llu\n",
-				devname, ndata * size);
-			rv = 1;
-			break;
-		}
-
-		blocks = compute_backup_blocks(nchunk, ochunk, ndata, odata);
-
-		sysfs_free(sra);
-		sra = sysfs_read(fd, 0,
-				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
-				 GET_CACHE);
-
-		if (!sra) {
-			fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
-				devname);
-			rv = 1;
-			break;
-		}
-
-		if (ndata == odata) {
-			/* Make 'blocks' bigger for better throughput, but
-			 * not so big that we reject it below.
-			 * Try for 16 megabytes
-			 */
-			while (blocks * 32 < sra->component_size &&
-			       blocks < 16*1024*2)
-			       blocks *= 2;
-		} else
-			fprintf(stderr, Name ": Need to backup %luK of critical "
-				"section..\n", blocks/2);
-
-		if (blocks >= sra->component_size/2) {
-			fprintf(stderr, Name ": %s: Something wrong - reshape aborted\n",
-				devname);
-			rv = 1;
-			break;
-		}
-		nrdisks = array.raid_disks + sra->array.spare_disks;
-		/* Now we need to open all these devices so we can read/write.
-		 */
-		fdlist = malloc((1+nrdisks) * sizeof(int));
-		offsets = malloc((1+nrdisks) * sizeof(offsets[0]));
-		if (!fdlist || !offsets) {
-			fprintf(stderr, Name ": malloc failed: grow aborted\n");
-			rv = 1;
-			break;
-		}
-
-		d = reshape_prepare_fdlist(devname, sra, array.raid_disks,
-					   nrdisks, blocks, backup_file,
-					   fdlist, offsets);
-		if (d < 0) {
-			rv = 1;
-			goto release;
-		}
-		if (backup_file == NULL) {
-			if (st->ss->external && !st->ss->manage_reshape) {
-				fprintf(stderr, Name ": %s Grow operation not supported by %s metadata\n",
-					devname, st->ss->name);
-				rv = 1;
-				break;
-			}
-			if (ndata <= odata) {
-				fprintf(stderr, Name ": %s: Cannot grow - need backup-file\n",
-					devname);
-				rv = 1;
-				break;
-			} else if (sra->array.spare_disks == 0) {
-				fprintf(stderr, Name ": %s: Cannot grow - need a spare or "
-					"backup-file to backup critical section\n",
-					devname);
-				rv = 1;
-				break;
-			}
-			if (d == array.raid_disks) {
-				fprintf(stderr, Name ": %s: No spare device for backup\n",
-					devname);
-				rv = 1;
-				break;
-			}
-		} else {
-			if (!reshape_open_backup_file(backup_file, fd, devname,
-						      (signed)blocks,
-						      fdlist+d, offsets+d)) {
-				rv = 1;
-				break;
-			}
-			d++;
-		}
-
-		/* check that the operation is supported by the metadata */
-		if (reshape_super(st, -1, level, nlayout, nchunk, ndisks,
-				  backup_file, devname, !quiet)) {
-			rv = 1;
-			break;
-		}
-
-		/* ->reshape_super might have chosen some spares from the
-		 * container that it wants to be part of the new array.
-		 * We can collect them with ->container_content and give
-		 * them to the kernel.
-		 */
-		if (st->ss->reshape_super && st->ss->container_content) {
-			struct mdinfo *info =
-				st->ss->container_content(st, subarray);
-			struct mdinfo *d;
-
-			if (info)
-				for (d = info->devs; d; d = d->next) {
-					if (d->disk.state == 0 &&
-					    d->disk.raid_disk >= 0) {
-						/* This is a spare that wants to
-						 * be part of the array.
-						 */
-						add_disk(fd, st, info, d);
-					}
-				}
-			sysfs_free(info);
-		}
-
-		/* lastly, check that the internal stripe cache is
-		 * large enough, or it won't work.
-		 */
-		
-		cache = (nchunk < ochunk) ? ochunk : nchunk;
-		cache = cache * 4 / 4096;
-		if (cache < blocks / 8 / odata + 16)
-			/* Make it big enough to hold 'blocks' */
-			cache = blocks / 8 / odata + 16;
-		if (sra->cache_size < cache)
-			sysfs_set_num(sra, NULL, "stripe_cache_size",
-				      cache+1);
-		/* Right, everything seems fine. Let's kick things off.
-		 * If only changing raid_disks, use ioctl, else use
-		 * sysfs.
-		 */
-		sync_metadata(st);
-		if (ochunk == nchunk && olayout == nlayout) {
-			array.raid_disks = ndisks;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
-				int err = errno;
-				rv = 1;
-				fprintf(stderr, Name ": Cannot set device shape for %s: %s\n",
-					devname, strerror(errno));
-				if (ndisks < odisks &&
-				    get_linux_version() < 2006030)
-					fprintf(stderr, Name ": linux 2.6.30 or later required\n");
-				if (err == EBUSY && 
-				    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-					fprintf(stderr, "       Bitmap must be removed before shape can be changed\n");
-
-				break;
-			}
-		} else {
-			/* set them all just in case some old 'new_*' value
-			 * persists from some earlier problem
-			 */
-			int err = err; /* only used if rv==1, and always set if
-					* rv==1, so initialisation not needed,
-					* despite gcc warning
-					*/
-			if (sysfs_set_num(sra, NULL, "chunk_size", nchunk) < 0)
-				rv = 1, err = errno;
-			if (!rv && sysfs_set_num(sra, NULL, "layout", nlayout) < 0)
-				rv = 1, err = errno;
-			if (!rv && sysfs_set_num(sra, NULL, "raid_disks", ndisks) < 0)
-				rv = 1, err = errno;
-			if (rv) {
-				fprintf(stderr, Name ": Cannot set device shape for %s\n",
-					devname);
-				if (get_linux_version() < 2006030)
-					fprintf(stderr, Name ": linux 2.6.30 or later required\n");
-				if (err == EBUSY && 
-				    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-					fprintf(stderr, "       Bitmap must be removed before shape can be changed\n");
-				break;
-			}
-		}
-
-		if (ndisks == 2 && odisks == 2) {
-			/* No reshape is needed in this trivial case */
-			rv = 0;
-			break;
-		}
-
-		start_reshape(sra);
-		if (st->ss->external) {
-			/* metadata handler takes it from here */
-			ping_manager(container);
-			st->ss->manage_reshape(st, backup_file);
-			frozen = 0;
-			break;
-		}
-
-		/* set up the backup-super-block.  This requires the
-		 * uuid from the array.
-		 */
-		/* Find a superblock */
-		for (sd = sra->devs; sd; sd = sd->next) {
-			char *dn;
-			int devfd;
-			int ok;
-			if (sd->disk.state & (1<<MD_DISK_FAULTY))
-				continue;
-			dn = map_dev(sd->disk.major, sd->disk.minor, 1);
-			devfd = dev_open(dn, O_RDONLY);
-			if (devfd < 0)
-				continue;
-			ok = st->ss->load_super(st, devfd, NULL);
-			close(devfd);
-			if (ok >= 0)
-				break;
-		}
-		if (!sd) {
-			fprintf(stderr, Name ": %s: Cannot find a superblock\n",
-				devname);
-			rv = 1;
-			abort_reshape(sra);
-			break;
-		}
-
-		memset(&bsb, 0, 512);
-		memcpy(bsb.magic, "md_backup_data-1", 16);
-		st->ss->uuid_from_super(st, (int*)&bsb.set_uuid);
-		bsb.mtime = __cpu_to_le64(time(0));
-		bsb.devstart2 = blocks;
-		stripes = blocks / (ochunk/512) / odata;
-		/* Now we just need to kick off the reshape and watch, while
-		 * handling backups of the data...
-		 * This is all done by a forked background process.
-		 */
-		switch(fork()) {
-		case 0:
-			close(fd);
-			if (check_env("MDADM_GROW_VERIFY"))
-				fd = open(devname, O_RDONLY | O_DIRECT);
-			else
-				fd = -1;
-			mlockall(MCL_FUTURE);
-
-			if (odata < ndata)
-				done = child_grow(fd, sra, stripes,
-						  fdlist, offsets,
-						  odisks, ochunk, array.level, olayout, odata,
-						  d - odisks, fdlist+odisks, offsets+odisks);
-			else if (odata > ndata)
-				done = child_shrink(fd, sra, stripes,
-						    fdlist, offsets,
-						    odisks, ochunk, array.level, olayout, odata,
-						    d - odisks, fdlist+odisks, offsets+odisks);
-			else
-				done = child_same_size(fd, sra, stripes,
-						       fdlist, offsets,
-						       0,
-						       odisks, ochunk, array.level, olayout, odata,
-						       d - odisks, fdlist+odisks, offsets+odisks);
-			if (backup_file && done)
-				unlink(backup_file);
-			if (!done)
-				abort_reshape(sra);
-			else if (level != UnSet && level != array.level) {
-				/* We need to wait for the reshape to finish
-				 * (which will have happened unless odata < ndata)
-				 * and then set the level
-				 */
-
-				c = map_num(pers, level);
-				if (c == NULL)
-					exit(0);/* not possible */
-
-				if (odata < ndata)
-					wait_reshape(sra);
-				err = sysfs_set_str(sra, NULL, "level", c);
-				if (err)
-					fprintf(stderr, Name ": %s: could not set level to %s\n",
-						devname, c);
-			}
-			exit(0);
-		case -1:
-			fprintf(stderr, Name ": Cannot run child to monitor reshape: %s\n",
-				strerror(errno));
-			rv = 1;
-			abort_reshape(sra);
-			break;
-		default:
-			/* The child will take care of unfreezing the array */
-			frozen = 0;
-			break;
-		}
-		break;
-
 	}
+	if (!sd) {
+		fprintf(stderr, Name ": %s: Cannot find a superblock\n",
+			devname);
+		rv = 1;
+		abort_reshape(sra);
+		goto release;
+	}
+
+	memset(&bsb, 0, 512);
+	memcpy(bsb.magic, "md_backup_data-1", 16);
+	st->ss->uuid_from_super(st, (int*)&bsb.set_uuid);
+	bsb.mtime = __cpu_to_le64(time(0));
+	bsb.devstart2 = blocks;
+
+	stripes = reshape.blocks / (info->array.chunk_size/512) /
+		reshape.before.data_disks;
+
+	/* Now we just need to kick off the reshape and watch, while
+	 * handling backups of the data...
+	 * This is all done by a forked background process.
+	 */
+	switch(forked ? 0 : fork()) {
+	case 0:
+		close(fd);
+		if (check_env("MDADM_GROW_VERIFY"))
+			fd = open(devname, O_RDONLY | O_DIRECT);
+		else
+			fd = -1;
+		mlockall(MCL_FUTURE);
+
+		odisks = reshape.before.data_disks + reshape.parity;
+
+		if (reshape.before.data_disks < 
+		    reshape.after.data_disks)
+			done = child_grow(fd, sra, stripes,
+					  fdlist, offsets,
+					  odisks,
+					  info->array.chunk_size,
+					  reshape.level,
+					  reshape.before.layout, 
+					  reshape.before.data_disks,
+					  d - odisks, fdlist+odisks, offsets+odisks);
+		else if (reshape.before.data_disks >
+			 reshape.after.data_disks)
+			done = child_shrink(fd, sra, stripes,
+					    fdlist, offsets,
+					    odisks, info->array.chunk_size, reshape.level,	
+					    reshape.before.layout,
+					    reshape.before.data_disks,
+					    d - odisks, fdlist+odisks, offsets+odisks);
+		else
+			done = child_same_size(fd, sra, stripes,
+					       fdlist, offsets,
+					       0,
+					       odisks, info->array.chunk_size, reshape.level,
+					       reshape.before.layout,
+					       reshape.before.data_disks,
+					       d - odisks, fdlist+odisks, offsets+odisks);
+		if (backup_file && done)
+			unlink(backup_file);
+		if (!done)
+			abort_reshape(sra);
+		else if (info->new_level != info->array.level) {
+			/* We need to wait for the reshape to finish
+			 * (which will have happened unless odata < ndata)
+			 * and then set the level
+			 */
+
+			c = map_num(pers, info->new_level);
+			if (c == NULL) {
+				if (forked)
+					return 1;
+				exit(0);/* not possible */
+			}
+
+			if (reshape.before.data_disks < 
+			    reshape.after.data_disks)
+				wait_reshape(sra);
+			err = sysfs_set_str(sra, NULL, "level", c);
+			if (err)
+				fprintf(stderr, Name ": %s: could not set level to %s\n",
+					devname, c);
+		}
+		if (forked)
+			return 0;
+		exit(0);
+	case -1:
+		fprintf(stderr, Name ": Cannot run child to monitor reshape: %s\n",
+			strerror(errno));
+		rv = 1;
+		abort_reshape(sra);
+		break;
+	default:
+		/* The child will take care of unfreezing the array */
+		frozen = 0;
+		break;
+	}
+
 
  release:
 	if (rv && orig_level != UnSet && sra) {
@@ -2049,6 +2076,71 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	}
 	unfreeze(st, frozen);
 	return rv;
+}
+
+int reshape_container(char *container, int cfd, char *devname,
+		      struct supertype *st, 
+		      struct mdinfo *info,
+		      int force,
+		      char *backup_file,
+		      int quiet)
+{
+	struct mdinfo *cc;
+	if (reshape_super(st, info->component_size, info->new_level,
+			  info->new_layout, info->new_chunk,
+			  info->array.raid_disks + info->delta_disks,
+			  backup_file, devname, quiet))
+		return 1;
+
+	sync_metadata(st);
+
+	cc = st->ss->container_content(st, NULL);
+
+	if (!cc)
+		return 1;
+
+	switch (fork()) {
+	case -1: /* error */
+		perror("Cannot fork to complete reshape\n");
+		return 1;
+	default: /* parent */
+		printf(Name ": multi-array reshape continues in background\n");
+		return 0;
+	case 0: /* child */
+		break;
+	}
+
+	/* For each member array, we need to perform the reshape */
+	for (; cc; cc = cc->next) {
+		int rv;
+		int fd;
+		struct mdstat_ent *mdstat;
+		char *subarray = strchr(cc->text_version+1, '/')+1;
+		char *adev;
+
+		if (!cc->reshape_active)
+			continue;
+
+		mdstat = mdstat_by_subdev(subarray, devname2devnum(container));
+
+		if (!mdstat)
+			continue;
+		fd = open_dev_excl(mdstat->devnum);
+		if (fd < 0)
+			break;
+		adev = map_dev(dev2major(mdstat->devnum),
+			       dev2minor(mdstat->devnum),
+			       0);
+		if (!adev)
+			adev = cc->text_version;
+
+		rv = reshape_array(container, fd, adev, st, cc, force,
+				   backup_file, quiet, 1);
+		close(fd);
+		if (rv)
+			break;
+	}
+	exit(0);
 }
 
 /*

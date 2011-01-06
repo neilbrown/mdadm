@@ -5403,6 +5403,12 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		/* No repair during migration */
 		return NULL;
 
+	if (a->info.array.level == 4)
+		/* No repair for takeovered array
+		 * imsm doesn't support raid4
+		 */
+		return NULL;
+
 	if (imsm_check_degraded(super, dev, failed) != IMSM_T_STATE_DEGRADED)
 		return NULL;
 

@@ -5646,6 +5646,7 @@ static void imsm_process_update(struct supertype *st,
 			void **sp = update->space_list;
 			struct imsm_dev *newdev;
 			struct imsm_map *newmap, *oldmap;
+			int used_disks;
 
 			if (!sp)
 				continue;
@@ -5676,6 +5677,28 @@ static void imsm_process_update(struct supertype *st,
 				 */
 				newmap = get_imsm_map(newdev, 1);
 				memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
+			}
+
+			/* calculate new size
+			 */
+			used_disks = imsm_num_data_members(newdev, 0);
+			if (used_disks) {
+				unsigned long long array_blocks;
+
+				array_blocks =
+					newmap->blocks_per_member
+					* used_disks;
+				/* round array size down to closest MB
+				 */
+				array_blocks = (array_blocks
+						>> SECT_PER_MB_SHIFT)
+					<< SECT_PER_MB_SHIFT;
+				newdev->size_low =
+					__cpu_to_le32(
+						(__u32)array_blocks);
+				newdev->size_high =
+					__cpu_to_le32(
+						(__u32)(array_blocks >> 32));
 			}
 
 			sp = (void **)id->dev;

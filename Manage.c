@@ -800,16 +800,16 @@ int Manage_subdevs(char *devname, int fd,
 				if (dv->writemostly == 1)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
+				if (tst->ss->external &&
+				    mdmon_running(tst->container_dev))
+					tst->update_tail = &tst->updates;
 				if (tst->ss->add_to_super(tst, &disc, dfd,
 							  dv->devname)) {
 					close(dfd);
 					return 1;
 				}
 				/* write_init_super will close 'dfd' */
-				if (tst->ss->external)
-					/* mdmon will write the metadata */
-					close(dfd);
-				else if (tst->ss->write_init_super(tst))
+				if (tst->ss->write_init_super(tst))
 					return 1;
 			} else if (dv->re_add) {
 				/*  this had better be raid1.
@@ -844,9 +844,8 @@ int Manage_subdevs(char *devname, int fd,
 			if (dv->writemostly == 1)
 				disc.state |= (1 << MD_DISK_WRITEMOSTLY);
 			if (tst->ss->external) {
-				/* add a disk to an external metadata container
-				 * only if mdmon is around to see it
-				 */
+				/* add a disk
+				 * to an external metadata container */
 				struct mdinfo new_mdi;
 				struct mdinfo *sra;
 				int container_fd;
@@ -857,13 +856,6 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name ": add failed for %s:"
 						" could not get exclusive access to container\n",
 						dv->devname);
-					return 1;
-				}
-
-				if (!mdmon_running(devnum)) {
-					fprintf(stderr, Name ": add failed for %s: mdmon not running\n",
-						dv->devname);
-					close(container_fd);
 					return 1;
 				}
 
@@ -884,6 +876,7 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name ": add new device to external metadata"
 						" failed for %s\n", dv->devname);
 					close(container_fd);
+					sysfs_free(sra);
 					return 1;
 				}
 				ping_monitor(devnum2devname(devnum));

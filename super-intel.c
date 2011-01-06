@@ -6539,31 +6539,90 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 		return ret_val;
 
 	/* verify reshape conditions
-	 * on container level we can only increase number of devices. */
+	 * on container level we can only increase number of devices.
+	 */
 	if (st->container_dev == st->devnum) {
 		/* check for delta_disks > 0
-		 *and supported raid levels 0 and 5 only in container */
+		 * and supported raid levels 0 and 5 only in container
+		 */
 		int old_raid_disks = 0;
 		if (imsm_reshape_is_allowed_on_container(
 			    st, &geo, &old_raid_disks)) {
 			struct imsm_update_reshape *u = NULL;
 			int len;
+			struct intel_super *super = st->sb;
+			void **space_list;
+			struct intel_dev *dl;
+			void **space_tail = (void **)&space_list;
+
 
 			len = imsm_create_metadata_update_for_reshape(
 				st, &geo, old_raid_disks, &u);
 
-			if (len) {
-				ret_val = 0;
-				append_metadata_update(st, u, len);
-			} else
-				fprintf(stderr, Name "imsm: Cannot prepare "
-					"update\n");
+			if (len <= 0) {
+				dprintf("imsm: Cannot prepare update\n");
+				goto exit_imsm_reshape_super;
+			}
+
+			/* As well as creating update, we apply update.
+			 */
+
+			dprintf("imsm:prepare space list for update_reshape\n");
+			for (dl = super->devlist; dl;
+			     dl = dl->next) {
+				int size = sizeof_imsm_dev(dl->dev, 1);
+				void *s;
+				if (u->new_raid_disks > u->old_raid_disks)
+					size += sizeof(__u32)*2*
+					(u->new_raid_disks - u->old_raid_disks);
+				s = malloc(size);
+				if (!s)
+					break;
+				*space_tail = s;
+				space_tail = s;
+				*space_tail = NULL;
+			}
+			ret_val = apply_reshape_container_disks_update(
+				u, super, &space_list);
+			if (ret_val) {
+				/* reallocate anchor
+				 */
+				size_t buf_len = super->len;
+				size_t len =
+					disks_to_mpb_size(u->new_raid_disks);
+				struct imsm_super *mpb = super->anchor;
+				void *new_anchor;
+
+				if (__le32_to_cpu(mpb->mpb_size) + len >
+				    buf_len) {
+					buf_len = ROUND_UP(__le32_to_cpu(
+						mpb->mpb_size) + len, 512);
+					if (posix_memalign(&new_anchor,
+							   512, buf_len) == 0) {
+						memcpy(new_anchor, super->buf,
+						       super->len);
+						free(super->buf);
+						super->buf = new_anchor;
+						super->len = buf_len;
+					}
+					super->updates_pending++;
+					ret_val = 0;
+				}
+			} else {
+				while (space_list) {
+					void *space = space_list;
+					space_list = *space_list;
+					free(space);
+				}
+				free(u);
+			}
 		} else
 			fprintf(stderr, Name "imsm: Operation is not allowed "
 				"on this container\n");
 	} else
 		fprintf(stderr, Name "imsm: not a container operation\n");
 
+exit_imsm_reshape_super:
 	dprintf("imsm: reshape_super Exit code = %i\n", ret_val);
 	return ret_val;
 }

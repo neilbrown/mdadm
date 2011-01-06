@@ -4882,6 +4882,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 				dev->vol.curr_migr_unit = __cpu_to_le32(unit);
 				super->updates_pending++;
 			}
+			return 0;
 		} else {
 			if (a->last_checkpoint == 0 && a->prev_action == reshape) {
 				/* for some reason we aborted the reshape.
@@ -4916,7 +4917,6 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 				super->updates_pending++;
 			}				
 		}
-		return 0;
 	}
 
 	/* before we activate this array handle any missing disks */

@@ -4849,6 +4849,73 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 
 static void imsm_set_disk(struct active_array *a, int n, int state);
 
+static void imsm_progress_container_reshape(struct intel_super *super)
+{
+	/* if no device has a migr_state, but some device has a
+	 * different number of members than the previous device, start
+	 * changing the number of devices in this device to match
+	 * previous.
+	 */
+	struct imsm_super *mpb = super->anchor;
+	int prev_disks = -1;
+	int i;
+
+	for (i = 0; i < mpb->num_raid_devs; i++) {
+		struct imsm_dev *dev = get_imsm_dev(super, i);
+		struct imsm_map *map = get_imsm_map(dev, 0);
+		struct imsm_map *map2;
+		int prev_num_members;
+		int used_disks;
+
+		if (dev->vol.migr_state)
+			return;
+
+		if (prev_disks == -1)
+			prev_disks = map->num_members;
+		if (prev_disks == map->num_members)
+			continue;
+
+		/* OK, this array needs to enter reshape mode.
+		 * i.e it needs a migr_state
+		 */
+
+		prev_num_members = map->num_members;
+		map->num_members = prev_disks;
+		dev->vol.migr_state = 1;
+		dev->vol.curr_migr_unit = 0;
+		dev->vol.migr_type = MIGR_GEN_MIGR;
+		for (i = prev_num_members;
+		     i < map->num_members; i++)
+			set_imsm_ord_tbl_ent(map, i, i);
+		map2 = get_imsm_map(dev, 1);
+		/* Copy the current map */
+		memcpy(map2, map, sizeof_imsm_map(map));
+		map2->num_members = prev_num_members;
+
+		/* calculate new size
+		 */
+		used_disks = imsm_num_data_members(dev, 0);
+		if (used_disks) {
+			unsigned long long array_blocks;
+
+			array_blocks =
+				map->blocks_per_member
+				* used_disks;
+			/* round array size down to closest MB
+			 */
+			array_blocks = (array_blocks
+					>> SECT_PER_MB_SHIFT)
+				<< SECT_PER_MB_SHIFT;
+			dev->size_low =
+				__cpu_to_le32((__u32)array_blocks);
+			dev->size_high =
+				__cpu_to_le32(
+					(__u32)(array_blocks >> 32));
+		}
+		super->updates_pending++;
+	}
+}
+
 /* Handle dirty -> clean transititions, resync and reshape.  Degraded and rebuild
  * states are handled in imsm_set_disk() with one exception, when a
  * resync is stopped due to a new failure this routine will set the
@@ -4918,6 +4985,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 						       * array size
 						       */
 				super->updates_pending++;
+				imsm_progress_container_reshape(super);
 			}				
 		}
 	}

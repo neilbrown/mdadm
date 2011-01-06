@@ -5613,7 +5613,7 @@ static void imsm_process_update(struct supertype *st,
 			new_disk->disk.status &= ~SPARE_DISK;
 		}
 
-		dprintf("imsm: process_update(): update_reshape: volume set"\
+		dprintf("imsm: process_update(): update_reshape: volume set"
 			" mpb->num_raid_devs = %i\n", mpb->num_raid_devs);
 		/* manage changes in volumes
 		 */
@@ -6212,7 +6212,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 		    (info->array.level != 5)) {
 			/* we cannot use this container with other raid level
 			 */
-			dprintf("imsm: for container operation wrong"\
+			dprintf("imsm: for container operation wrong"
 				" raid level (%i) detected\n",
 				info->array.level);
 			break;
@@ -6224,7 +6224,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 			if (!is_raid_level_supported(super->orom,
 						     member->array.level,
 						     geo->raid_disks)) {
-				dprintf("platform does not support raid%d with"\
+				dprintf("platform does not support raid%d with"
 					" %d disk%s\n",
 					 info->array.level,
 					 geo->raid_disks,
@@ -6373,7 +6373,7 @@ abort:
 
 static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			      int layout, int chunksize, int raid_disks,
-			      char *backup, char *dev, int verbouse)
+			      char *backup, char *dev, int verbose)
 {
 	/* currently we only support increasing the number of devices
 	 * for a container.  This increases the number of device for each
@@ -6418,13 +6418,13 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 				ret_val = 0;
 				append_metadata_update(st, u, len);
 			} else
-				dprintf("imsm: Cannot prepare "\
+				fprintf(stderr, Name "imsm: Cannot prepare "
 					"update\n");
 		} else
-			dprintf("imsm: Operation is not allowed "\
+			fprintf(stderr, Name "imsm: Operation is not allowed "
 				"on this container\n");
 	} else
-		dprintf("imsm: not a container operation\n");
+		fprintf(stderr, Name "imsm: not a container operation\n");
 
 	dprintf("imsm: reshape_super Exit code = %i\n", ret_val);
 	return ret_val;

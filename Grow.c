@@ -1891,7 +1891,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	sync_metadata(st);
 
 	if (info->array.chunk_size == info->new_chunk &&
-	    reshape.before.layout == reshape.after.layout) {
+	    reshape.before.layout == reshape.after.layout &&
+	    st->ss->external == 0) {
 		array.raid_disks = reshape.after.data_disks + reshape.parity;
 		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 			int err = errno;

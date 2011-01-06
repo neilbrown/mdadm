@@ -506,7 +506,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		/* once an array has been deactivated we want to
 		 * ask the manager to discard it.
 		 */
-		if (!a->container) {
+		if (!a->container || (a->info.array.level == 0)) {
 			if (discard_this) {
 				ap = &(*ap)->next;
 				continue;

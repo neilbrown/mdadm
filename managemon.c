@@ -448,6 +448,18 @@ static void manage_member(struct mdstat_ent *mdstat,
 	else
 		frozen = 1; /* can't read metadata_version assume the worst */
 
+	if (mdstat->level) {
+		int level = map_name(pers, mdstat->level);
+		if (a->info.array.level != level && level >= 0) {
+			struct active_array *newa = duplicate_aa(a);
+			if (newa) {
+				newa->info.array.level = level;
+				replace_array(a->container, a, newa);
+				a = newa;
+			}
+		}
+	}
+
 	if (a->check_degraded && !frozen) {
 		struct metadata_update *updates = NULL;
 		struct mdinfo *newdev = NULL;

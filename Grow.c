@@ -1632,6 +1632,10 @@ static int reshape_array(char *container, int fd, char *devname,
 		fprintf(stderr, Name ": %s\n", msg);
 		return 1;
 	}
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+		dprintf("Canot get array information.\n");
+		return 1;
+	}
 	spares_needed = max(reshape.before.data_disks,
 			    reshape.after.data_disks)
 		+ reshape.parity - array.raid_disks;

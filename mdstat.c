@@ -399,9 +399,9 @@ struct mdstat_ent *mdstat_by_subdev(char *subdev, int container)
 		    strncmp(mdstat->metadata_version, "external:", 9) == 0 &&
 		    strchr("/-", mdstat->metadata_version[9]) != NULL &&
 		    strncmp(mdstat->metadata_version+10, "md", 2) == 0 &&
-		    strtoul(mdstat->metadata_version+11, &pos, 10)
+		    strtoul(mdstat->metadata_version+12, &pos, 10)
 		    == (unsigned)container &&
-		    pos > mdstat->metadata_version+11 &&
+		    pos > mdstat->metadata_version+12 &&
 		    *pos == '/' &&
 		    strcmp(pos+1, subdev) == 0
 			) {

@@ -2040,6 +2040,21 @@ static int reshape_array(char *container, int fd, char *devname,
 
 
  release:
+	if (rv) {
+		unfreeze(st, frozen);
+		return rv;
+	}
+	if (container)
+		ping_monitor(container);
+	if (st->ss->external) {
+		/* Re-load the metadata as much could have changed */
+		int cfd = open_dev(st->container_dev);
+		if (cfd >= 0) {
+			st->ss->free_super(st);
+			st->ss->load_container(st, cfd, container);
+			close(cfd);
+		}
+	}
 	if (rv && orig_level != UnSet && sra) {
 		c = map_num(pers, orig_level);
 		if (c && sysfs_set_str(sra, NULL, "level", c) == 0)
@@ -2056,7 +2071,8 @@ int reshape_container(char *container, int cfd, char *devname,
 		      char *backup_file,
 		      int quiet)
 {
-	struct mdinfo *cc;
+	struct mdinfo *cc = NULL;
+
 	if (reshape_super(st, info->component_size, info->new_level,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks + info->delta_disks,
@@ -2065,10 +2081,9 @@ int reshape_container(char *container, int cfd, char *devname,
 
 	sync_metadata(st);
 
-	cc = st->ss->container_content(st, NULL);
-
-	if (!cc)
-		return 1;
+	/* ping monitor to be sure that update is on disk
+	 */
+	ping_monitor(container);
 
 	switch (fork()) {
 	case -1: /* error */
@@ -2081,21 +2096,39 @@ int reshape_container(char *container, int cfd, char *devname,
 		break;
 	}
 
-	/* For each member array, we need to perform the reshape */
-	for (; cc; cc = cc->next) {
+	while(1) {
+		/* For each member array with reshape_active,
+		 * we need to perform the reshape.
+		 * We pick the first array that needs reshaping and
+		 * reshape it.  reshape_array() will re-read the metadata
+		 * so the next time through a different array should be
+		 * ready for reshape.
+		 */
+		struct mdinfo *content;
 		int rv;
 		int fd;
 		struct mdstat_ent *mdstat;
-		char *subarray = strchr(cc->text_version+1, '/')+1;
 		char *adev;
 
-		if (!cc->reshape_active)
-			continue;
+		sysfs_free(cc);
 
-		mdstat = mdstat_by_subdev(subarray, devname2devnum(container));
+		cc = st->ss->container_content(st, NULL);
 
-		if (!mdstat)
-			continue;
+		for (content = cc; content ; content = content->next) {
+			char *subarray;
+			if (!content->reshape_active)
+				continue;
+
+			subarray = strchr(content->text_version+1, '/')+1;
+			mdstat = mdstat_by_subdev(subarray,
+						  devname2devnum(container));
+			if (!mdstat)
+				continue;
+			break;
+		}
+		if (!content)
+			break;
+
 		fd = open_dev_excl(mdstat->devnum);
 		if (fd < 0)
 			break;
@@ -2103,15 +2136,18 @@ int reshape_container(char *container, int cfd, char *devname,
 			       dev2minor(mdstat->devnum),
 			       0);
 		if (!adev)
-			adev = cc->text_version;
+			adev = content->text_version;
 
-		sysfs_init(cc, fd, mdstat->devnum);
-		rv = reshape_array(container, fd, adev, st, cc, force,
+		sysfs_init(content, fd, mdstat->devnum);
+
+		rv = reshape_array(container, fd, adev, st,
+				   content, force,
 				   backup_file, quiet, 1);
 		close(fd);
 		if (rv)
 			break;
 	}
+	sysfs_free(cc);
 	exit(0);
 }
 

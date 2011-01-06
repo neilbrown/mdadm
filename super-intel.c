@@ -5602,7 +5602,13 @@ static void imsm_process_update(struct supertype *st,
 			new_disk = get_disk_super(super,
 						  major(u->new_disks[i]),
 						  minor(u->new_disks[i]));
-			if (new_disk == NULL || new_disk->index < 0)
+			dprintf("imsm: imsm_process_update(): new disk "\
+				"for reshape is: %i:%i (%p, index = %i)\n",
+				major(u->new_disks[i]), minor(u->new_disks[i]),
+				new_disk, new_disk->index);
+			if ((new_disk == NULL) ||
+			    ((new_disk->index >= 0) &&
+			     (new_disk->index < u->old_raid_disks)))
 				goto update_reshape_exit;
 
 			new_disk->index = mpb->num_disks++;
@@ -5642,7 +5648,7 @@ static void imsm_process_update(struct supertype *st,
 						     u->old_raid_disks + i);
 			}
 			/* New map is correct, now need to save old map */
-			oldmap = get_imsm_map(newdev, 1);
+			newmap = get_imsm_map(newdev, 1);
 			memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
 
 			sp = (void **)id->dev;
@@ -5987,8 +5993,9 @@ static void imsm_prepare_update(struct supertype *st,
 		for (dl = super->devlist; dl; dl = dl->next) {
 			int size = sizeof_imsm_dev(dl->dev, 1);
 			void *s;
-			size += sizeof(__u32) * 2 * 
-				(u->new_raid_disks - u->old_raid_disks);
+			if (u->new_raid_disks > u->old_raid_disks)
+				size += sizeof(__u32)*2*
+					(u->new_raid_disks - u->old_raid_disks);
 			s = malloc(size);
 			if (!s)
 				break;
@@ -6361,11 +6368,14 @@ abort:
 	 */
 	sysfs_free(spares);
 
+	dprintf("imsm: reshape update preparation :");
 	if (i == delta_disks) {
+		dprintf(" OK\n");
 		*updatep = u;
 		return update_memory_size;
 	}
 	free(u);
+	dprintf(" Error\n");
 
 	return 0;
 }

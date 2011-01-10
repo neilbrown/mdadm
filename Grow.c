@@ -1666,7 +1666,8 @@ static int reshape_array(char *container, int fd, char *devname,
 			st->ss->container_content(st, subarray);
 		struct mdinfo *d;
 
-		if (info2)
+		if (info2) {
+			sysfs_init(info2, fd, st->devnum);
 			for (d = info2->devs; d; d = d->next) {
 				if (d->disk.state == 0 &&
 				    d->disk.raid_disk >= 0) {
@@ -1676,7 +1677,8 @@ static int reshape_array(char *container, int fd, char *devname,
 					add_disk(fd, st, info2, d);
 				}
 			}
-		sysfs_free(info2);
+			sysfs_free(info2);
+		}
 	}
 
 	if (reshape.backup_blocks == 0) {

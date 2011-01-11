@@ -2313,8 +2313,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * If we need to suspend more, we limit it to 128M per device, which is
 	 * rather arbitrary and should be some time-based calculation.
 	 */
-	write_offset = info->reshape_progress / reshape->before.data_disks;
-	read_offset = info->reshape_progress / reshape->after.data_disks;
+	read_offset = info->reshape_progress / reshape->before.data_disks;
+	write_offset = info->reshape_progress / reshape->after.data_disks;
 	write_range = info->new_chunk/512;
 	if (advancing) {
 		if (read_offset < write_offset + write_range) {

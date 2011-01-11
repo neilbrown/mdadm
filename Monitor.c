@@ -702,24 +702,28 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 	return new_found;
 }
 
-unsigned long long min_spare_size_required(struct state *st)
+static int get_min_spare_size_required(struct state *st, unsigned long long *sizep)
 {
 	int fd;
-	unsigned long long rv = 0;
 
 	if (!st->metadata ||
 	    !st->metadata->ss->min_acceptable_spare_size)
-		return rv;
+		return 0;
 
 	fd = open(st->devname, O_RDONLY);
 	if (fd < 0)
-		return 0;
-	st->metadata->ss->load_super(st->metadata, fd, st->devname);
+		return 1;
+	if (st->metadata->ss->external)
+		st->metadata->ss->load_container(st->metadata, fd, st->devname);
+	else
+		st->metadata->ss->load_super(st->metadata, fd, st->devname);
 	close(fd);
-	rv = st->metadata->ss->min_acceptable_spare_size(st->metadata);
+	if (!st->metadata->sb)
+		return 1;
+	*sizep = st->metadata->ss->min_acceptable_spare_size(st->metadata);
 	st->metadata->ss->free_super(st->metadata);
 
-	return rv;
+	return 0;
 }
 
 static int check_donor(struct state *from, struct state *to)
@@ -833,7 +837,8 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				/* member of a container */
 				to = to->parent;
 
-			min_size = min_spare_size_required(to);
+			if (get_min_spare_size_required(to, &min_size))
+				continue;
 			if (to->metadata->ss->external) {
 				/* We must make sure there is
 				 * no suitable spare in container already.

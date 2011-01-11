@@ -2822,18 +2822,29 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			break;
 		}
 
-		if (rv) {
+		while (rv) {
 			unsigned long long offset;
-			/* need to backup some space... */
+			/* Need to backup some data.
+			 * If 'part' is not used and the desired
+			 * backup size is suspended, do a backup,
+			 * then consider the next part.
+			 */
 			/* Check that 'part' is unused */
 			if (part == 0 && __le64_to_cpu(bsb.length) != 0)
-				abort(); /* BUG here */
+				break;
 			if (part == 1 && __le64_to_cpu(bsb.length2) != 0)
-				abort();
+				break;
 
 			offset = backup_point / data;
-			if (!increasing)
+			if (increasing) {
+				if (offset + stripes * (chunk/512) >
+				    suspend_point/data)
+					break;
+			} else {
 				offset -= stripes * (chunk/512);
+				if (offset > suspend_point/data)
+					break;
+			}
 			grow_backup(sra, offset, stripes,
 				    fds, offsets,
 				    disks, chunk, level, layout,

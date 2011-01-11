@@ -1790,7 +1790,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	}
 
 	sra = sysfs_read(fd, 0,
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE||GET_CHUNK|
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
 			 GET_CACHE);
 
 	if (!sra) {

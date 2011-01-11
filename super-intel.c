@@ -6440,6 +6440,7 @@ static int imsm_create_metadata_update_for_reshape(
 	struct mdinfo *spares = NULL;
 	int i;
 	int delta_disks = 0;
+	struct mdinfo *dev;
 
 	dprintf("imsm_update_metadata_for_reshape(enter) raid_disks = %i\n",
 		geo->raid_disks);
@@ -6478,15 +6479,18 @@ static int imsm_create_metadata_update_for_reshape(
 	dprintf("imsm: %i spares are available.\n\n",
 		spares->array.spare_disks);
 
+	dev = spares->devs;
 	for (i = 0; i < delta_disks; i++) {
-		struct mdinfo *dev = spares->devs;
 		struct dl *dl;
 
+		if (dev == NULL)
+			break;
 		u->new_disks[i] = makedev(dev->disk.major,
 					  dev->disk.minor);
 		dl = get_disk_super(super, dev->disk.major, dev->disk.minor);
 		dl->index = mpb->num_disks;
 		mpb->num_disks++;
+		dev = dev->next;
 	}
 	/* Now update the metadata so that container_content will find
 	 * the new devices

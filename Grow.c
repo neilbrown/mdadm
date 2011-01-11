@@ -1642,7 +1642,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			    reshape.after.data_disks)
 		+ reshape.parity - array.raid_disks;
 
-	if (!force && spares_needed < info->array.spare_disks) {
+	if (!force && spares_needed > info->array.spare_disks) {
 		fprintf(stderr,
 			Name ": Need %d spare%s to avoid degraded array,"
 			" and only have %d.\n"
@@ -1845,7 +1845,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 	if (backup_file == NULL) {
- 		if (reshape.after.data_disks <= reshape.before.data_disks) {
+		if (reshape.after.data_disks <= reshape.before.data_disks) {
 			fprintf(stderr,
 				Name ": %s: Cannot grow - need backup-file\n", 
 				devname);
@@ -2060,11 +2060,8 @@ static int reshape_array(char *container, int fd, char *devname,
 				wait_reshape(sra);
 
 			c = map_num(pers, info->new_level);
-			if (c == NULL) {
-				if (forked)
-					return 1;
-				exit(0);/* not possible */
-			}
+			if (c == NULL)
+				goto out;/* not possible */
 
 			err = sysfs_set_str(sra, NULL, "level", c);
 			if (err)

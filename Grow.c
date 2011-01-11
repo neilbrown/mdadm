@@ -2293,14 +2293,14 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * native metadata when we don't need to back-up.
 	 */
 	if (advancing) {
-		if (info->reshape_progress < *suspend_point)
+		if (info->reshape_progress <= *suspend_point)
 			sysfs_set_num(info, NULL, "suspend_lo",
 				      info->reshape_progress);
 	} else {
 		/* Note: this won't work in 2.6.37 and before.
 		 * Something somewhere should make sure we don't need it!
 		 */
-		if (info->reshape_progress > *suspend_point)
+		if (info->reshape_progress >= *suspend_point)
 			sysfs_set_num(info, NULL, "suspend_hi",
 				      info->reshape_progress);
 	}

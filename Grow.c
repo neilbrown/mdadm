@@ -2409,14 +2409,20 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * At the same time we convert wait_point to a similar number
 	 * for comparing against sync_completed.
 	 */
-	if (!advancing) {
-		max_progress = info->component_size * reshape->after.data_disks
-			- max_progress;
-		wait_point = info->component_size * reshape->after.data_disks
-			- wait_point;
-	}
+	/* scale down max_progress to per_disk */
 	max_progress /= reshape->after.data_disks;
+	/* Round to chunk size as some kernels give an erroneously high number */
+	max_progress /= info->new_chunk/512;
+	max_progress *= info->new_chunk/512;
+	/* Limit progress to the whole device */
+	if (max_progress > info->component_size)
+		max_progress = info->component_size;
 	wait_point /= reshape->after.data_disks;
+	if (!advancing) {
+		/* switch from 'device offset' to 'processed block count' */
+		max_progress = info->component_size - max_progress;
+		wait_point = info->component_size - wait_point;
+	}
 
 	sysfs_set_num(info, NULL, "sync_max", max_progress);
 
@@ -2452,6 +2458,9 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			return -1;
 		}
 	}
+	/* some kernels can give an incorrectly high 'completed' number */
+	completed /= (info->new_chunk/512);
+	completed *= (info->new_chunk/512);
 	/* Convert 'completed' back in to a 'progress' number */
 	completed *= reshape->after.data_disks;
 	if (!advancing) {

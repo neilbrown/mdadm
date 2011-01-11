@@ -2795,11 +2795,6 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 		rv = progress_reshape(sra, reshape,
 				      backup_point, wait_point,
 				      &suspend_point, &reshape_completed);
-		if (rv < 0) {
-			done = 1;
-			break;
-		}
-
 		/* external metadata would need to ping_monitor here */
 		sra->reshape_progress = reshape_completed;
 
@@ -2820,6 +2815,11 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			if (reshape_completed <= (__le64_to_cpu(bsb.arraystart2)))
 				forget_backup(dests, destfd,
 					      destoffsets, 1);
+		}
+
+		if (rv < 0) {
+			done = 1;
+			break;
 		}
 
 		if (rv) {
@@ -2849,6 +2849,8 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 		}
 	}
 
+	/* FIXME maybe call progress_reshape one more time instead */
+	abort_reshape(sra); /* remove any remaining suspension */
 	if (reshape->before.data_disks == reshape->after.data_disks)
 		sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);

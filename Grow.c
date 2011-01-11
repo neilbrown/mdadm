@@ -2087,19 +2087,17 @@ static int reshape_array(char *container, int fd, char *devname,
 
 
  release:
-	if (rv) {
-		unfreeze(st, frozen);
-		return rv;
-	}
-	if (container)
-		ping_monitor(container);
-	if (st->ss->external) {
-		/* Re-load the metadata as much could have changed */
-		int cfd = open_dev(st->container_dev);
-		if (cfd >= 0) {
-			st->ss->free_super(st);
-			st->ss->load_container(st, cfd, container);
-			close(cfd);
+	if (!rv) {
+		if (container)
+			ping_monitor(container);
+		if (st->ss->external) {
+			/* Re-load the metadata as much could have changed */
+			int cfd = open_dev(st->container_dev);
+			if (cfd >= 0) {
+				st->ss->free_super(st);
+				st->ss->load_container(st, cfd, container);
+				close(cfd);
+			}
 		}
 	}
 	if (rv && orig_level != UnSet && sra) {

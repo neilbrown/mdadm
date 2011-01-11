@@ -2277,11 +2277,14 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 
 	int advancing = (reshape->after.data_disks
 			 >= reshape->before.data_disks);
-	int need_backup = (reshape->after.data_disks
-			   == reshape->before.data_disks);
+	unsigned long long need_backup; /* need to eventually backup all the way
+					 * to here
+					 */
 	unsigned long long read_offset, write_offset;
 	unsigned long long write_range;
 	unsigned long long max_progress, target, completed;
+	unsigned long long array_size = (info->component_size
+					 * reshape->before.data_disks);
 	int fd;
 
 	/* First, we unsuspend any region that is now known to be safe.
@@ -2317,20 +2320,24 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	write_offset = info->reshape_progress / reshape->after.data_disks;
 	write_range = info->new_chunk/512;
 	if (advancing) {
+		need_backup = 0;
 		if (read_offset < write_offset + write_range) {
 			max_progress = backup_point;
-			if (max_progress <= info->reshape_progress)
-				need_backup = 1;
+			if (reshape->before.data_disks == reshape->after.data_disks)
+				need_backup = array_size;
+			else
+				need_backup = reshape->backup_blocks;
 		} else {
 			max_progress =
 				read_offset *
 				reshape->after.data_disks;
 		}
 	} else {
+		need_backup = array_size;
 		if (read_offset > write_offset - write_range) {
 			max_progress = backup_point;
 			if (max_progress >= info->reshape_progress)
-				need_backup = 1;
+				need_backup = 0;
 		} else {
 			max_progress =
 				read_offset *
@@ -2365,24 +2372,32 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * a backup.
 	 */
 	if (advancing) {
-		if ((need_backup || info->array.major_version < 0) &&
+		if ((need_backup > info->reshape_progress
+		     || info->array.major_version < 0) &&
 		    *suspend_point < info->reshape_progress + target) {
-			if (max_progress < *suspend_point + 2 * target)
-				*suspend_point = max_progress;
-			else
+			if (need_backup < *suspend_point + 2 * target)
+				*suspend_point = need_backup;
+			else if (*suspend_point + 2 * target < array_size)
 				*suspend_point += 2 * target;
+			else
+				*suspend_point = array_size;
 			sysfs_set_num(info, NULL, "suspend_hi", *suspend_point);
-			max_progress = *suspend_point;
+			if (max_progress > *suspend_point)
+				max_progress = *suspend_point;
 		}
 	} else {
-		if ((need_backup || info->array.major_version < 0) &&
+		if ((need_backup < info->reshape_progress
+		     || info->array.major_version < 0) &&
 		    *suspend_point > info->reshape_progress - target) {
-			if (max_progress > *suspend_point - 2 * target)
-				*suspend_point = max_progress;
-			else
+			if (need_backup > *suspend_point - 2 * target)
+				*suspend_point = need_backup;
+			else if (*suspend_point >= 2 * target)
 				*suspend_point -= 2 * target;
+			else
+				*suspend_point = 0;
 			sysfs_set_num(info, NULL, "suspend_lo", *suspend_point);
-			max_progress = *suspend_point;
+			if (max_progress < *suspend_point)
+				max_progress = *suspend_point;
 		}
 	}
 
@@ -2448,10 +2463,11 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	close(fd);
 
 	/* We return the need_backup flag.  Caller will decide
-	 * how much (a multiple of ->backup_blocks) and will adjust
-	 * suspend_{lo,hi} and suspend_point.
+	 * how much - a multiple of ->backup_blocks up to *suspend_point
 	 */
-	return need_backup;
+	return advancing
+		? (need_backup > info->reshape_progress)
+		: (need_backup < info->reshape_progress);
 }
 
 

@@ -5648,6 +5648,7 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 	struct intel_dev *id;
 	int i;
 	int delta_disks = u->new_raid_disks - u->old_raid_disks;
+	int disk_count = u->old_raid_disks;
 	void **tofree = NULL;
 	int devices_to_reshape = 1;
 	struct imsm_super *mpb = super->anchor;
@@ -5668,7 +5669,7 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		    ((new_disk->index >= 0) &&
 		     (new_disk->index < u->old_raid_disks)))
 			goto update_reshape_exit;
-		new_disk->index = mpb->num_disks++;
+		new_disk->index = disk_count++;
 		/* slot to fill in autolayout
 		 */
 		new_disk->raiddisk = new_disk->index;
@@ -6484,7 +6485,8 @@ static int imsm_create_metadata_update_for_reshape(
 		u->new_disks[i] = makedev(dev->disk.major,
 					  dev->disk.minor);
 		dl = get_disk_super(super, dev->disk.major, dev->disk.minor);
-		dl->index = mpb->num_disks++;
+		dl->index = mpb->num_disks;
+		mpb->num_disks++;
 	}
 	/* Now update the metadata so that container_content will find
 	 * the new devices

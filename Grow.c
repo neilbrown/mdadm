@@ -2758,11 +2758,12 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 		sysfs_set_num(sra, NULL, "sync_speed_min", 200000);
 	}
 
-	array_size = sra->component_size * data;
 	if (increasing) {
+		array_size = sra->component_size * reshape->after.data_disks;
 		backup_point = sra->reshape_progress;
 		suspend_point = 0;
 	} else {
+		array_size = sra->component_size * reshape->before.data_disks;
 		backup_point = array_size;
 		suspend_point = array_size;
 	}

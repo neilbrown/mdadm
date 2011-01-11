@@ -634,6 +634,7 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 int start_reshape(struct mdinfo *sra)
 {
 	int err;
+	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
 	err = sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	err = err ?: sysfs_set_num(sra, NULL, "suspend_lo", 0);
 	err = err ?: sysfs_set_num(sra, NULL, "sync_min", 0);

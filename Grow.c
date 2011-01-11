@@ -2323,8 +2323,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 				need_backup = 1;
 		} else {
 			max_progress =
-				(read_offset - write_range) *
-				reshape->before.data_disks;
+				read_offset *
+				reshape->after.data_disks;
 		}
 	} else {
 		if (read_offset > write_offset - write_range) {
@@ -2333,8 +2333,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 				need_backup = 1;
 		} else {
 			max_progress =
-				(read_offset + write_range) *
-				reshape->before.data_disks;
+				read_offset *
+				reshape->after.data_disks;
 			/* If we are using internal metadata, then we can
 			 * progress all the way to the suspend_point without
 			 * worrying about backing-up/suspending along the

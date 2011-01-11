@@ -1190,10 +1190,9 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				re->after.layout = info->new_layout;
 			break;
 		case 6:
-			if (info->new_layout == UnSet) {
-				re->after.layout = re->before.layout;
-				break;
-			}
+			if (info->new_layout == UnSet)
+				info->new_layout = re->before.layout;
+
 			/* after.layout needs to be raid6 version of new_layout */
 			if (info->new_layout == ALGORITHM_PARITY_N)
 				re->after.layout = ALGORITHM_PARITY_N;
@@ -1221,7 +1220,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->after.data_disks = (info->array.raid_disks +
 						info->delta_disks) - 2;
 		if (info->new_layout == UnSet)
-			re->after.layout = re->before.layout;
+			re->after.layout = info->array.layout;
 		else
 			re->after.layout = info->new_layout;
 		break;

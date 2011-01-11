@@ -1670,7 +1670,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			return 1;
 		}
 		if (!quiet)
-			fprintf(stderr, Name " level of %s changed to %s\n",
+			fprintf(stderr, Name ": level of %s changed to %s\n",
 				devname, c);	
 		orig_level = info->array.level;
 	}
@@ -2068,7 +2068,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			err = sysfs_set_str(sra, NULL, "level", c);
 			if (err)
 				fprintf(stderr, Name\
-					": %s: could not set level"
+					": %s: could not set level "
 					"to %s\n", devname, c);
 		}
 	out:
@@ -2258,7 +2258,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * - suspend_point is maintained by progress_reshape and the caller
 	 *   should not touch it except to initialise to zero.
 	 *   It is an array address and it only increases in 2.6.37 and earlier.
-	 *   This makes it difficulty to handle reducing reshapes with
+	 *   This makes it difficult to handle reducing reshapes with
 	 *   external metadata.
 	 *   However:  it is similar to backup_point in that it records the
 	 *     other end of a suspended region from  reshape_progress.
@@ -2751,7 +2751,7 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 		/* Want to return as soon the oldest backup slot can
 		 * be released as that allows us to start backing up
 		 * some more, providing suspend_point has been
-		 * advanced, which it should have
+		 * advanced, which it should have.
 		 */
 		if (increasing) {
 			wait_point = array_size;

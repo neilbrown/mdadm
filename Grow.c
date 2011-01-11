@@ -1595,6 +1595,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		rv = reshape_array(container, fd, devname, st, &info, force,
 				   backup_file, quiet, 0);
 	}
+	/* reshape_* released the array */
+	return rv;
 release:
 	unfreeze(st, frozen);
 	return rv;

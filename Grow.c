@@ -886,7 +886,7 @@ struct reshape {
 		int layout;
 		int data_disks;
 	} before, after;
-	unsigned long long blocks;
+	unsigned long long backup_blocks;
 	unsigned long long stripes; /* number of old stripes that comprise 'blocks'*/
 	unsigned long long new_size; /* New size of array in sectors */
 };
@@ -947,7 +947,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->before.data_disks = (info->array.raid_disks +
 						 info->delta_disks);
 			re->before.layout = 0;
-			re->blocks = 0;
+			re->backup_blocks = 0;
 			re->parity = 0;
 			return NULL;
 		}
@@ -958,7 +958,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->parity = 1;
 			re->before.data_disks = 1;
 			re->before.layout = ALGORITHM_LEFT_SYMMETRIC;
-			re->blocks = 0;
+			re->backup_blocks = 0;
 			return NULL;
 		}
 		/* Could do some multi-stage conversions, but leave that to
@@ -995,7 +995,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		re->parity = 0;
 		re->before.data_disks = new_disks;
 		re->before.layout = 0;
-		re->blocks = 0;
+		re->backup_blocks = 0;
 		return NULL;
 
 	case 0:
@@ -1032,7 +1032,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->before.data_disks = (info->array.raid_disks +
 						 info->delta_disks);
 			re->before.layout = info->new_layout;
-			re->blocks = 0;
+			re->backup_blocks = 0;
 			return NULL;
 		}
 
@@ -1242,12 +1242,12 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	    re->after.layout == re->before.layout &&
 	    info->new_chunk == info->array.chunk_size) {
 		/* Nothing to change */
-		re->blocks = 0;
+		re->backup_blocks = 0;
 		return NULL;
 	}
 	if (re->after.data_disks == 1 && re->before.data_disks == 1) {
 		/* chunks can layout changes make no difference */
-		re->blocks = 0;
+		re->backup_blocks = 0;
 		return NULL;
 	}
 
@@ -1259,7 +1259,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	    get_linux_version() < 2006030)
 		return "reshape to fewer devices is not supported before 2.6.32 - sorry.";
 
-	re->blocks = compute_backup_blocks(
+	re->backup_blocks = compute_backup_blocks(
 		info->new_chunk, info->array.chunk_size,
 		re->after.data_disks,
 		re->before.data_disks);
@@ -1706,7 +1706,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		sysfs_free(info2);
 	}
 
-	if (reshape.blocks == 0) {
+	if (reshape.backup_blocks == 0) {
 		/* No restriping needed, but we might need to impose
 		 * some more changes: layout, raid_disks, chunk_size
 		 */
@@ -1804,7 +1804,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	/* Decide how many blocks (sectors) for a reshape
 	 * unit.  The number we have so far is just a minimum
 	 */
-	blocks = reshape.blocks;
+	blocks = reshape.backup_blocks;
 	if (reshape.before.data_disks == 
 	    reshape.after.data_disks) {
 		/* Make 'blocks' bigger for better throughput, but
@@ -1892,6 +1892,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	 */
 	sync_metadata(st);
 
+	sra->new_chunk = info->new_chunk;
+	
 	if (info->array.chunk_size == info->new_chunk &&
 	    reshape.before.layout == reshape.after.layout &&
 	    st->ss->external == 0) {
@@ -1983,7 +1985,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	bsb.mtime = __cpu_to_le64(time(0));
 	bsb.devstart2 = blocks;
 
-	stripes = reshape.blocks / (info->array.chunk_size/512) /
+	stripes = blocks / (info->array.chunk_size/512) /
 		reshape.before.data_disks;
 
 	/* Now we just need to kick off the reshape and watch, while
@@ -2278,7 +2280,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	int need_backup = (reshape->after.data_disks
 			   == reshape->before.data_disks);
 	unsigned long long read_offset, write_offset;
-	unsigned long long read_range, write_range;
+	unsigned long long write_range;
 	unsigned long long max_progress, target, completed;
 	int fd;
 
@@ -2313,8 +2315,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 */
 	write_offset = info->reshape_progress / reshape->before.data_disks;
 	read_offset = info->reshape_progress / reshape->after.data_disks;
-	write_range = reshape->blocks / reshape->before.data_disks;
-	read_range = reshape->blocks / reshape->after.data_disks;
+	write_range = info->new_chunk/512;
 	if (advancing) {
 		if (read_offset < write_offset + write_range) {
 			max_progress = backup_point;
@@ -2353,10 +2354,10 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 */
 	target = 64*1024*2 * min(reshape->before.data_disks,
 				  reshape->after.data_disks);
-	target /= reshape->blocks;
+	target /= reshape->backup_blocks;
 	if (target < 2)
 		target = 2;
-	target *= reshape->blocks;
+	target *= reshape->backup_blocks;
 
 	/* For externally managed metadata we always need to suspend IO to
 	 * the area being reshaped so we regularly push suspend_point forward.
@@ -2447,7 +2448,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	close(fd);
 
 	/* We return the need_backup flag.  Caller will decide
-	 * how much (a multiple of ->blocks) and will adjust
+	 * how much (a multiple of ->backup_blocks) and will adjust
 	 * suspend_{lo,hi} and suspend_point.
 	 */
 	return need_backup;

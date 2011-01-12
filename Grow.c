@@ -2064,7 +2064,10 @@ int reshape_container(char *container, int cfd, char *devname,
 {
 	struct mdinfo *cc = NULL;
 
-	if (reshape_super(st, info->component_size, info->new_level,
+	/* component_size is not meaningful for a container,
+	 * so pass '-1' meaning 'no change'
+	 */
+	if (reshape_super(st, -1, info->new_level,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks + info->delta_disks,
 			  backup_file, devname, quiet))

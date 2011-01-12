@@ -530,12 +530,8 @@ static int freeze(struct supertype *st)
 	}
 }
 
-static void unfreeze(struct supertype *st, int frozen)
+static void unfreeze(struct supertype *st)
 {
-	/* If 'frozen' is 1, unfreeze the array */
-	if (frozen <= 0)
-		return;
-
 	if (st->ss->external)
 		return unfreeze_container(st);
 	else {
@@ -1551,6 +1547,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 */
 		rv = reshape_container(container, fd, devname, st, &info,
 				       force, backup_file, quiet);
+		frozen = 0;
 	} else {
 		/* Impose these changes on a single array.  First
 		 * check that the metadata is OK with the change. */
@@ -1565,11 +1562,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, force,
 				   backup_file, quiet, 0);
+		frozen = 0;
 	}
-	/* reshape_* released the array */
-	return rv;
 release:
-	unfreeze(st, frozen);
+	if (frozen > 0)
+		unfreeze(st);
 	return rv;
 }
 
@@ -1593,7 +1590,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	int d;
 	int nrdisks;
 	int err;
-	int frozen;
 	unsigned long blocks;
 	unsigned long cache;
 	unsigned long long array_size;
@@ -2024,11 +2020,8 @@ static int reshape_array(char *container, int fd, char *devname,
 		abort_reshape(sra);
 		break;
 	default:
-		/* The child will take care of unfreezing the array */
-		frozen = 0;
-		break;
+		return 0;
 	}
-
 
  release:
 	if (!rv) {
@@ -2049,7 +2042,8 @@ static int reshape_array(char *container, int fd, char *devname,
 		if (c && sysfs_set_str(sra, NULL, "level", c) == 0)
 			fprintf(stderr, Name ": aborting level change\n");
 	}
-	unfreeze(st, frozen);
+	if (!forked)
+		unfreeze(st);
 	return rv;
 }
 
@@ -2139,6 +2133,7 @@ int reshape_container(char *container, int cfd, char *devname,
 		if (rv)
 			break;
 	}
+	unfreeze(st);
 	sysfs_free(cc);
 	exit(0);
 }

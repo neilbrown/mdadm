@@ -5744,6 +5744,8 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		*sp = tofree;
 		tofree = sp;
 	}
+	if (tofree)
+		*space_list = tofree;
 	ret_val = 1;
 
 update_reshape_exit:

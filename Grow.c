@@ -1921,98 +1921,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	 * This is all done by a forked background process.
 	 */
 	switch(forked ? 0 : fork()) {
-	case 0:
-		close(fd);
-		if (check_env("MDADM_GROW_VERIFY"))
-			fd = open(devname, O_RDONLY | O_DIRECT);
-		else
-			fd = -1;
-		mlockall(MCL_FUTURE);
-
-		odisks = reshape.before.data_disks + reshape.parity;
-
-		if (st->ss->external) {
-			/* metadata handler takes it from here */
-			done = st->ss->manage_reshape(
-				fd, sra, &reshape, st, blocks,
-				fdlist, offsets,
-				d - odisks, fdlist+odisks,
-				offsets+odisks);
-		} else
-			done = child_monitor(
-				fd, sra, &reshape, st, blocks,
-				fdlist, offsets,
-				d - odisks, fdlist+odisks,
-				offsets+odisks);
-
-		if (backup_file && done)
-			unlink(backup_file);
-		if (!done) {
-			abort_reshape(sra);
-			goto out;
-		}
-		/* set new array size if required customer_array_size is used
-		 * by this metadata.
-		 */
-		if (reshape.before.data_disks !=
-		    reshape.after.data_disks &&
-		    info->custom_array_size) {
-			struct mdinfo *info2;
-			char *subarray = strchr(info->text_version+1, '/')+1;
-
-			wait_reshape(sra);
-			ping_monitor(container);
-
-			info2 = st->ss->container_content(st, subarray);
-			if (info2) {
-				unsigned long long current_size = 0;
-				unsigned long long new_size =
-					info2->custom_array_size/2;
-
-				if (sysfs_get_ll(sra,
-						 NULL,
-						 "array_size",
-						 &current_size) == 0 &&
-				    new_size > current_size) {
-					if (sysfs_set_num(sra, NULL,
-							  "array_size", new_size)
-					    < 0)
-						dprintf("Error: Cannot"
-							" set array size");
-					else
-						dprintf("Array size "
-							"changed");
-					dprintf(" from %llu to %llu.\n",
-						current_size, new_size);
-				}
-				sysfs_free(info2);
-			}
-		}
-
-		if (info->new_level != reshape.level) {
-			/* We need to wait for the reshape to finish
-			 * (which will have happened unless
-			 * odata < ndata) and then set the level
-			 */
-
-			if (reshape.before.data_disks <
-			    reshape.after.data_disks)
-				wait_reshape(sra);
-
-			c = map_num(pers, info->new_level);
-			if (c == NULL)
-				goto out;/* not possible */
-
-			err = sysfs_set_str(sra, NULL, "level", c);
-			if (err)
-				fprintf(stderr, Name\
-					": %s: could not set level "
-					"to %s\n", devname, c);
-		}
-	out:
-		if (forked)
-			return 0;
-		exit(0);
 	case -1:
 		fprintf(stderr, Name ": Cannot run child to monitor reshape: %s\n",
 			strerror(errno));
@@ -2021,9 +1929,103 @@ static int reshape_array(char *container, int fd, char *devname,
 		break;
 	default:
 		return 0;
+	case 0:
+		break;
 	}
 
- release:
+	close(fd);
+	if (check_env("MDADM_GROW_VERIFY"))
+		fd = open(devname, O_RDONLY | O_DIRECT);
+	else
+		fd = -1;
+	mlockall(MCL_FUTURE);
+
+	odisks = reshape.before.data_disks + reshape.parity;
+
+	if (st->ss->external) {
+		/* metadata handler takes it from here */
+		done = st->ss->manage_reshape(
+			fd, sra, &reshape, st, blocks,
+			fdlist, offsets,
+			d - odisks, fdlist+odisks,
+			offsets+odisks);
+	} else
+		done = child_monitor(
+			fd, sra, &reshape, st, blocks,
+			fdlist, offsets,
+			d - odisks, fdlist+odisks,
+			offsets+odisks);
+
+	if (backup_file && done)
+		unlink(backup_file);
+	if (!done) {
+		abort_reshape(sra);
+		goto out;
+	}
+	/* set new array size if required customer_array_size is used
+	 * by this metadata.
+	 */
+	if (reshape.before.data_disks !=
+	    reshape.after.data_disks &&
+	    info->custom_array_size) {
+		struct mdinfo *info2;
+		char *subarray = strchr(info->text_version+1, '/')+1;
+
+		wait_reshape(sra);
+		ping_monitor(container);
+
+		info2 = st->ss->container_content(st, subarray);
+		if (info2) {
+			unsigned long long current_size = 0;
+			unsigned long long new_size =
+				info2->custom_array_size/2;
+
+			if (sysfs_get_ll(sra,
+					 NULL,
+					 "array_size",
+					 &current_size) == 0 &&
+			    new_size > current_size) {
+				if (sysfs_set_num(sra, NULL,
+						  "array_size", new_size)
+				    < 0)
+					dprintf("Error: Cannot"
+						" set array size");
+				else
+					dprintf("Array size "
+						"changed");
+				dprintf(" from %llu to %llu.\n",
+					current_size, new_size);
+			}
+			sysfs_free(info2);
+		}
+	}
+
+	if (info->new_level != reshape.level) {
+		/* We need to wait for the reshape to finish
+		 * (which will have happened unless
+		 * odata < ndata) and then set the level
+		 */
+
+		if (reshape.before.data_disks <
+		    reshape.after.data_disks)
+			wait_reshape(sra);
+
+		c = map_num(pers, info->new_level);
+		if (c == NULL)
+			goto out;/* not possible */
+
+		err = sysfs_set_str(sra, NULL, "level", c);
+		if (err)
+			fprintf(stderr, Name\
+				": %s: could not set level "
+				"to %s\n", devname, c);
+	}
+out:
+	if (forked)
+		return 0;
+	exit(0);
+
+release:
 	if (!rv) {
 		if (container)
 			ping_monitor(container);

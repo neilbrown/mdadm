@@ -1278,7 +1278,7 @@ static int reshape_container(char *container, int cfd, char *devname,
 			     char *backup_file,
 			     int quiet);
 static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
-			 unsigned long stripes,
+			 struct supertype *st, unsigned long stripes,
 			 int *fds, unsigned long long *offsets,
 			 int dests, int *destfd, unsigned long long *destoffsets);
 
@@ -1623,11 +1623,11 @@ static int reshape_array(char *container, int fd, char *devname,
 	int nrdisks;
 	int err;
 	int frozen;
-	unsigned long blocks, stripes;
+	unsigned long blocks;
 	unsigned long cache;
 	unsigned long long array_size;
 	int done;
-	struct mdinfo *sra, *sd;
+	struct mdinfo *sra;
 
 	msg = analyse_change(info, &reshape);
 	if (msg) {
@@ -1952,41 +1952,6 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 
-	/* set up the backup-super-block.  This requires the
-	 * uuid from the array.
-	 */
-	/* Find a superblock */
-	for (sd = sra->devs; sd; sd = sd->next) {
-		char *dn;
-		int devfd;
-		int ok;
-		if (sd->disk.state & (1<<MD_DISK_FAULTY))
-			continue;
-		dn = map_dev(sd->disk.major, sd->disk.minor, 1);
-		devfd = dev_open(dn, O_RDONLY);
-		if (devfd < 0)
-			continue;
-		ok = st->ss->load_super(st, devfd, NULL);
-		close(devfd);
-		if (ok >= 0)
-			break;
-	}
-	if (!sd) {
-		fprintf(stderr, Name ": %s: Cannot find a superblock\n",
-			devname);
-		rv = 1;
-		abort_reshape(sra);
-		goto release;
-	}
-
-	memset(&bsb, 0, 512);
-	memcpy(bsb.magic, "md_backup_data-1", 16);
-	st->ss->uuid_from_super(st, (int*)&bsb.set_uuid);
-	bsb.mtime = __cpu_to_le64(time(0));
-	bsb.devstart2 = blocks;
-
-	stripes = blocks / (info->array.chunk_size/512) /
-		reshape.before.data_disks;
 
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
@@ -2003,7 +1968,7 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		odisks = reshape.before.data_disks + reshape.parity;
 
-		done = child_monitor(fd, sra, &reshape, stripes,
+		done = child_monitor(fd, sra, &reshape, st, blocks,
 				     fdlist, offsets,
 				     d - odisks, fdlist+odisks, offsets+odisks);
 
@@ -2728,7 +2693,7 @@ static void validate(int afd, int bfd, unsigned long long offset)
 }
 
 static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
-			 unsigned long stripes,
+			 struct supertype *st, unsigned long blocks,
 			 int *fds, unsigned long long *offsets,
 			 int dests, int *destfd, unsigned long long *destoffsets)
 {
@@ -2751,6 +2716,41 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	int data = reshape->before.data_disks;
 	int disks = reshape->before.data_disks + reshape->parity;
 	int chunk = sra->array.chunk_size;
+	struct mdinfo *sd;
+	unsigned long stripes;
+
+	/* set up the backup-super-block.  This requires the
+	 * uuid from the array.
+	 */
+	/* Find a superblock */
+	for (sd = sra->devs; sd; sd = sd->next) {
+		char *dn;
+		int devfd;
+		int ok;
+		if (sd->disk.state & (1<<MD_DISK_FAULTY))
+			continue;
+		dn = map_dev(sd->disk.major, sd->disk.minor, 1);
+		devfd = dev_open(dn, O_RDONLY);
+		if (devfd < 0)
+			continue;
+		ok = st->ss->load_super(st, devfd, NULL);
+		close(devfd);
+		if (ok >= 0)
+			break;
+	}
+	if (!sd) {
+		fprintf(stderr, Name ": Cannot find a superblock\n");
+		return 0;
+	}
+
+	memset(&bsb, 0, 512);
+	memcpy(bsb.magic, "md_backup_data-1", 16);
+	st->ss->uuid_from_super(st, (int*)&bsb.set_uuid);
+	bsb.mtime = __cpu_to_le64(time(0));
+	bsb.devstart2 = blocks;
+
+	stripes = blocks / (sra->array.chunk_size/512) /
+		reshape->before.data_disks;
 
 	if (posix_memalign((void**)&buf, 4096, disks * chunk))
 		/* Don't start the 'reshape' */

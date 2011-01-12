@@ -1351,10 +1351,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		fmt_devname(container_buf, container_dev);
 		container = container_buf;
 
-		if (subarray)
-			rv = st->ss->load_container(st, cfd, NULL);
-		else
-			rv = st->ss->load_super(st, cfd, NULL);
+		rv = st->ss->load_container(st, cfd, NULL);
+
 		if (rv) {
 			fprintf(stderr, Name ": Cannot read superblock for %s\n",
 				devname);

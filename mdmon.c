@@ -517,3 +517,12 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 
 	exit(0);
 }
+
+/* Some stub functions so super-* can link with us */
+int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
+		  struct supertype *st, unsigned long blocks,
+		  int *fds, unsigned long long *offsets,
+		  int dests, int *destfd, unsigned long long *destoffsets)
+{
+	return 0;
+}

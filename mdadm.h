@@ -521,6 +521,31 @@ extern char *map_dev(int major, int minor, int create);
 struct active_array;
 struct metadata_update;
 
+
+/* 'struct reshape' records the intermediate states
+ * a general reshape.
+ * The starting geometry is converted to the 'before' geometry
+ * by at most an atomic level change. They could be the same.
+ * Similarly the 'after' geometry is converted to the final
+ * geometry by at most a level change.
+ * Note that 'before' and 'after' must have the same level.
+ * 'blocks' is the minimum number of sectors for a reshape unit.
+ * This will be a multiple of the stripe size in each of the
+ * 'before' and 'after' geometries.
+ * If 'blocks' is 0, no restriping is necessary.
+ */
+struct reshape {
+	int level;
+	int parity; /* number of parity blocks/devices */
+	struct {
+		int layout;
+		int data_disks;
+	} before, after;
+	unsigned long long backup_blocks;
+	unsigned long long stripes; /* number of old stripes that comprise 'blocks'*/
+	unsigned long long new_size; /* New size of array in sectors */
+};
+
 /* A superswitch provides entry point the a metadata handler.
  *
  * The super_switch primarily operates on some "metadata" that
@@ -693,7 +718,11 @@ extern struct superswitch {
 	int (*reshape_super)(struct supertype *st, long long size, int level,
 			     int layout, int chunksize, int raid_disks,
 			     char *backup, char *dev, int verbose); /* optional */
-	int (*manage_reshape)(struct supertype *st, char *backup); /* optional */
+	int (*manage_reshape)( /* optional */
+		int afd, struct mdinfo *sra, struct reshape *reshape,
+		struct supertype *st, unsigned long blocks,
+		int *fds, unsigned long long *offsets,
+		int dests, int *destfd, unsigned long long *destoffsets);
 
 /* for mdmon */
 	int (*open_new)(struct supertype *c, struct active_array *a,
@@ -1140,6 +1169,11 @@ extern int mdmon_pid(int devnum);
 extern int check_env(char *name);
 extern __u32 random32(void);
 extern int start_mdmon(int devnum);
+
+extern int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
+			 struct supertype *st, unsigned long stripes,
+			 int *fds, unsigned long long *offsets,
+			 int dests, int *destfd, unsigned long long *destoffsets);
 
 extern char *devnum2devname(int num);
 extern void fmt_devname(char *name, int num);

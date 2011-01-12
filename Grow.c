@@ -867,30 +867,6 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	return blocks;
 }
 
-/* 'struct reshape' records the intermediate states
- * a general reshape.
- * The starting geometry is converted to the 'before' geometry
- * by at most an atomic level change. They could be the same.
- * Similarly the 'after' geometry is converted to the final
- * geometry by at most a level change.
- * Note that 'before' and 'after' must have the same level.
- * 'blocks' is the minimum number of sectors for a reshape unit.
- * This will be a multiple of the stripe size in each of the
- * 'before' and 'after' geometries.
- * If 'blocks' is 0, no restriping is necessary.
- */
-struct reshape {
-	int level;
-	int parity; /* number of parity blocks/devices */
-	struct {
-		int layout;
-		int data_disks;
-	} before, after;
-	unsigned long long backup_blocks;
-	unsigned long long stripes; /* number of old stripes that comprise 'blocks'*/
-	unsigned long long new_size; /* New size of array in sectors */
-};
-
 char *analyse_change(struct mdinfo *info, struct reshape *re)
 {
 	/* Based on the current array state in info->array and
@@ -1277,11 +1253,6 @@ static int reshape_container(char *container, int cfd, char *devname,
 			     int force,
 			     char *backup_file,
 			     int quiet);
-static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
-			 struct supertype *st, unsigned long stripes,
-			 int *fds, unsigned long long *offsets,
-			 int dests, int *destfd, unsigned long long *destoffsets);
-
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
@@ -1944,14 +1915,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	}
 
 	start_reshape(sra);
-	if (st->ss->external) {
-		/* metadata handler takes it from here */
-		ping_manager(container);
-		st->ss->manage_reshape(st, backup_file);
-		frozen = 0;
-		goto release;
-	}
-
 
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
@@ -1968,9 +1931,19 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		odisks = reshape.before.data_disks + reshape.parity;
 
-		done = child_monitor(fd, sra, &reshape, st, blocks,
-				     fdlist, offsets,
-				     d - odisks, fdlist+odisks, offsets+odisks);
+		if (st->ss->external) {
+			/* metadata handler takes it from here */
+			done = st->ss->manage_reshape(
+				fd, sra, &reshape, st, blocks,
+				fdlist, offsets,
+				d - odisks, fdlist+odisks,
+				offsets+odisks);
+		} else
+			done = child_monitor(
+				fd, sra, &reshape, st, blocks,
+				fdlist, offsets,
+				d - odisks, fdlist+odisks,
+				offsets+odisks);
 
 		if (backup_file && done)
 			unlink(backup_file);
@@ -2692,10 +2665,10 @@ static void validate(int afd, int bfd, unsigned long long offset)
 	}
 }
 
-static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
-			 struct supertype *st, unsigned long blocks,
-			 int *fds, unsigned long long *offsets,
-			 int dests, int *destfd, unsigned long long *destoffsets)
+int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
+		  struct supertype *st, unsigned long blocks,
+		  int *fds, unsigned long long *offsets,
+		  int dests, int *destfd, unsigned long long *destoffsets)
 {
 	/* Monitor a reshape where backup is being performed using
 	 * 'native' mechanism - either to a backup file, or

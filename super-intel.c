@@ -6633,6 +6633,18 @@ exit_imsm_reshape_super:
 	return ret_val;
 }
 
+static int imsm_manage_reshape(
+	int afd, struct mdinfo *sra, struct reshape *reshape,
+	struct supertype *st, unsigned long stripes,
+	int *fds, unsigned long long *offsets,
+	int dests, int *destfd, unsigned long long *destoffsets)
+{
+	/* Just use child_monitor for now */
+	return child_monitor(
+		afd, sra, reshape, st, stripes,
+		fds, offsets, dests, destfd, destoffsets);
+}
+
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
 	.examine_super	= examine_super_imsm,
@@ -6670,6 +6682,7 @@ struct superswitch super_imsm = {
 	.default_geometry = default_geometry_imsm,
 	.get_disk_controller_domain = imsm_get_disk_controller_domain,
 	.reshape_super  = imsm_reshape_super,
+	.manage_reshape = imsm_manage_reshape,
 
 	.external	= 1,
 	.name = "imsm",

@@ -6523,6 +6523,25 @@ abort:
 	return 0;
 }
 
+static void imsm_update_metadata_locally(struct supertype *st,
+					 void *buf, int len)
+{
+	struct metadata_update mu;
+
+	mu.buf = buf;
+	mu.len = len;
+	mu.space = NULL;
+	mu.space_list = NULL;
+	mu.next = NULL;
+	imsm_prepare_update(st, &mu);
+	imsm_process_update(st, &mu);
+
+	while (mu.space_list) {
+		void **space = mu.space_list;
+		mu.space_list = *space;
+		free(space);
+	}
+}
 
 static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			      int layout, int chunksize, int raid_disks,
@@ -6565,11 +6584,6 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			    st, &geo, &old_raid_disks)) {
 			struct imsm_update_reshape *u = NULL;
 			int len;
-			struct intel_super *super = st->sb;
-			void **space_list;
-			struct intel_dev *dl;
-			void **space_tail = (void **)&space_list;
-
 
 			len = imsm_create_metadata_update_for_reshape(
 				st, &geo, old_raid_disks, &u);
@@ -6579,58 +6593,15 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 				goto exit_imsm_reshape_super;
 			}
 
-			/* As well as creating update, we apply update.
-			 */
-
-			dprintf("imsm:prepare space list for update_reshape\n");
-			for (dl = super->devlist; dl;
-			     dl = dl->next) {
-				int size = sizeof_imsm_dev(dl->dev, 1);
-				void *s;
-				if (u->new_raid_disks > u->old_raid_disks)
-					size += sizeof(__u32)*2*
-					(u->new_raid_disks - u->old_raid_disks);
-				s = malloc(size);
-				if (!s)
-					break;
-				*space_tail = s;
-				space_tail = s;
-				*space_tail = NULL;
-			}
-			ret_val = apply_reshape_container_disks_update(
-				u, super, &space_list);
-			if (ret_val) {
-				/* reallocate anchor
-				 */
-				size_t buf_len = super->len;
-				size_t len =
-					disks_to_mpb_size(u->new_raid_disks);
-				struct imsm_super *mpb = super->anchor;
-				void *new_anchor;
-
-				if (__le32_to_cpu(mpb->mpb_size) + len >
-				    buf_len) {
-					buf_len = ROUND_UP(__le32_to_cpu(
-						mpb->mpb_size) + len, 512);
-					if (posix_memalign(&new_anchor,
-							   512, buf_len) == 0) {
-						memcpy(new_anchor, super->buf,
-						       super->len);
-						free(super->buf);
-						super->buf = new_anchor;
-						super->len = buf_len;
-					}
-					super->updates_pending++;
-					ret_val = 0;
-				}
-			} else {
-				while (space_list) {
-					void *space = space_list;
-					space_list = *space_list;
-					free(space);
-				}
+			ret_val = 0;
+			/* update metadata locally */
+			imsm_update_metadata_locally(st, u, len);
+			/* and possibly remotely */
+			if (st->update_tail)
+				append_metadata_update(st, u, len);
+			else
 				free(u);
-			}
+
 		} else
 			fprintf(stderr, Name "imsm: Operation is not allowed "
 				"on this container\n");

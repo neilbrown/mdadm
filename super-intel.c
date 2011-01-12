@@ -4541,6 +4541,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev;
 		struct imsm_map *map;
+		struct imsm_map *map2;
 		struct mdinfo *this;
 		int slot;
 		char *ep;
@@ -4551,6 +4552,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 
 		dev = get_imsm_dev(super, i);
 		map = get_imsm_map(dev, 0);
+		map2 = get_imsm_map(dev, 1);
 
 		/* do not publish arrays that are in the middle of an
 		 * unsupported migration
@@ -4632,7 +4634,13 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			info_d->disk.minor = d->minor;
 			info_d->disk.raid_disk = slot;
 			info_d->recovery_start = recovery_start;
-
+			if (map2) {
+				if (slot < map2->num_members)
+					info_d->disk.state = (1 << MD_DISK_ACTIVE);
+			} else {
+				if (slot < map->num_members)
+					info_d->disk.state = (1 << MD_DISK_ACTIVE);
+			}
 			if (info_d->recovery_start == MaxSector)
 				this->array.working_disks++;
 

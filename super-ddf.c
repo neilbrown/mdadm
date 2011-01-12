@@ -772,12 +772,6 @@ static int load_super_ddf(struct supertype *st, int fd,
 	struct ddf_super *super;
 	int rv;
 
-#ifndef MDASSEMBLE
-	/* if 'fd' is a container, load metadata from all the devices */
-	if (load_super_ddf_all(st, fd, &st->sb, devname) == 0)
-		return 0;
-#endif
-
 	if (get_dev_size(fd, devname, &dsize) == 0)
 		return 1;
 

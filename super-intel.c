@@ -3047,11 +3047,6 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	struct intel_super *super;
 	int rv;
 
-#ifndef MDASSEMBLE
-	if (load_super_imsm_all(st, fd, &st->sb, devname) == 0)
-		return 0;
-#endif
-
 	if (test_partition(fd))
 		/* IMSM not allowed on partitions */
 		return 1;

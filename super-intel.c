@@ -4632,9 +4632,13 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			if (map2) {
 				if (slot < map2->num_members)
 					info_d->disk.state = (1 << MD_DISK_ACTIVE);
+				else
+					this->array.spare_disks++;
 			} else {
 				if (slot < map->num_members)
 					info_d->disk.state = (1 << MD_DISK_ACTIVE);
+				else
+					this->array.spare_disks++;
 			}
 			if (info_d->recovery_start == MaxSector)
 				this->array.working_disks++;

@@ -2824,6 +2824,7 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 
 		while (rv) {
 			unsigned long long offset;
+			unsigned long actual_stripes;
 			/* Need to backup some data.
 			 * If 'part' is not used and the desired
 			 * backup size is suspended, do a backup,
@@ -2836,16 +2837,23 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 				break;
 
 			offset = backup_point / data;
+			actual_stripes = stripes;
 			if (increasing) {
-				if (offset + stripes * (chunk/512) >
+				if (offset + actual_stripes * (chunk/512) >
+				    sra->component_size)
+					actual_stripes = ((sra->component_size - offset)
+							  / (chunk/512));
+				if (offset + actual_stripes * (chunk/512) >
 				    suspend_point/data)
 					break;
 			} else {
-				offset -= stripes * (chunk/512);
-				if (offset > suspend_point/data)
+				if (offset < actual_stripes * (chunk/512))
+					actual_stripes = offset / (chunk/512);
+				offset -= actual_stripes * (chunk/512);
+				if (offset < suspend_point/data)
 					break;
 			}
-			grow_backup(sra, offset, stripes,
+			grow_backup(sra, offset, actual_stripes,
 				    fds, offsets,
 				    disks, chunk, level, layout,
 				    dests, destfd, destoffsets,
@@ -2854,9 +2862,9 @@ static int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			/* record where 'part' is up to */
 			part = !part;
 			if (increasing)
-				backup_point += stripes * (chunk/512) * data;
+				backup_point += actual_stripes * (chunk/512) * data;
 			else
-				backup_point -= stripes * (chunk/512) * data;
+				backup_point -= actual_stripes * (chunk/512) * data;
 		}
 	}
 

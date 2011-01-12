@@ -1379,8 +1379,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		return 1;
 	}
 
-	sra = sysfs_read(fd, 0, GET_LEVEL | GET_DISKS | GET_DEVS | GET_STATE);
-	if (sra) {
+	sra = sysfs_read(fd, 0, GET_LEVEL | GET_DISKS | GET_DEVS
+			 | GET_STATE | GET_VERSION);
+ 	if (sra) {
 		if (st->ss->external && subarray == NULL) {
 			array.level = LEVEL_CONTAINER;
 			sra->array.level = LEVEL_CONTAINER;
@@ -1470,6 +1471,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 	info.array = array;
 	sysfs_init(&info, fd, NoMdDev);
+	strcpy(info.text_version, sra->text_version);
 	info.component_size = size*2;
 	info.new_level = level;
 	info.new_chunk = chunksize * 1024;

@@ -2358,6 +2358,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * Consider extending suspend_point 128M per device if it
 	 * is less than 64M per device beyond reshape_progress.
 	 * But always do a multiple of 'blocks'
+	 * FIXME this is too big - it takes to long to complete
+	 * this much.
 	 */
 	target = 64*1024*2 * min(reshape->before.data_disks,
 				  reshape->after.data_disks);

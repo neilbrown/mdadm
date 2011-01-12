@@ -6492,19 +6492,6 @@ static int imsm_create_metadata_update_for_reshape(
 		mpb->num_disks++;
 		dev = dev->next;
 	}
-	/* Now update the metadata so that container_content will find
-	 * the new devices
-	 */
-	for (i = 0; i < mpb->num_raid_devs; i++) {
-		int d;
-		struct imsm_dev *dev = get_imsm_dev(super, i);
-		struct imsm_map *map = get_imsm_map(dev, 0);
-		map->num_members = geo->raid_disks;
-		for (d = 0; d < delta_disks; d++) {
-			set_imsm_ord_tbl_ent(map, old_raid_disks + d,
-					     mpb->num_disks - delta_disks + d);
-		}
-	}
 
 abort:
 	/* free spares

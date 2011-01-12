@@ -1613,7 +1613,9 @@ static int reshape_array(char *container, int fd, char *devname,
 			    reshape.after.data_disks)
 		+ reshape.parity - array.raid_disks;
 
-	if (!force && spares_needed > info->array.spare_disks) {
+	if (!force &&
+	    info->new_level > 0 &&
+	    spares_needed > info->array.spare_disks) {
 		fprintf(stderr,
 			Name ": Need %d spare%s to avoid degraded array,"
 			" and only have %d.\n"

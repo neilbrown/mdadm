@@ -1962,6 +1962,30 @@ static int reshape_array(char *container, int fd, char *devname,
 		abort_reshape(sra);
 		goto out;
 	}
+
+	if (!st->ss->external &&
+	    !(reshape.before.data_disks != reshape.after.data_disks
+	      && info->custom_array_size) &&
+	    info->new_level == reshape.level &&
+	    !forked) {
+		/* no need to wait for the reshape to finish as
+		 * there is nothing more to do.
+		 */
+		exit(0);
+	}
+	wait_reshape(sra);
+
+	if (st->ss->external) {
+		/* Re-load the metadata as much could have changed */
+		int cfd = open_dev(st->container_dev);
+		if (cfd >= 0) {
+			ping_monitor(container);
+			st->ss->free_super(st);
+			st->ss->load_container(st, cfd, container);
+			close(cfd);
+		}
+	}
+
 	/* set new array size if required customer_array_size is used
 	 * by this metadata.
 	 */
@@ -1970,9 +1994,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	    info->custom_array_size) {
 		struct mdinfo *info2;
 		char *subarray = strchr(info->text_version+1, '/')+1;
-
-		wait_reshape(sra);
-		ping_monitor(container);
 
 		info2 = st->ss->container_content(st, subarray);
 		if (info2) {
@@ -2001,24 +2022,15 @@ static int reshape_array(char *container, int fd, char *devname,
 	}
 
 	if (info->new_level != reshape.level) {
-		/* We need to wait for the reshape to finish
-		 * (which will have happened unless
-		 * odata < ndata) and then set the level
-		 */
-
-		if (reshape.before.data_disks <
-		    reshape.after.data_disks)
-			wait_reshape(sra);
 
 		c = map_num(pers, info->new_level);
-		if (c == NULL)
-			goto out;/* not possible */
-
-		err = sysfs_set_str(sra, NULL, "level", c);
-		if (err)
-			fprintf(stderr, Name\
-				": %s: could not set level "
-				"to %s\n", devname, c);
+		if (c) {
+			err = sysfs_set_str(sra, NULL, "level", c);
+			if (err)
+				fprintf(stderr, Name\
+					": %s: could not set level "
+					"to %s\n", devname, c);
+		}
 	}
 out:
 	if (forked)
@@ -2026,20 +2038,7 @@ out:
 	exit(0);
 
 release:
-	if (!rv) {
-		if (container)
-			ping_monitor(container);
-		if (st->ss->external) {
-			/* Re-load the metadata as much could have changed */
-			int cfd = open_dev(st->container_dev);
-			if (cfd >= 0) {
-				st->ss->free_super(st);
-				st->ss->load_container(st, cfd, container);
-				close(cfd);
-			}
-		}
-	}
-	if (rv && orig_level != UnSet && sra) {
+	if (orig_level != UnSet && sra) {
 		c = map_num(pers, orig_level);
 		if (c && sysfs_set_str(sra, NULL, "level", c) == 0)
 			fprintf(stderr, Name ": aborting level change\n");

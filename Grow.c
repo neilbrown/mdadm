@@ -1583,7 +1583,6 @@ static int reshape_array(char *container, int fd, char *devname,
 
 	struct mdu_array_info_s array;
 	char *c;
-	int rv = 0;
 
 	int *fdlist;
 	unsigned long long *offsets;
@@ -1599,11 +1598,11 @@ static int reshape_array(char *container, int fd, char *devname,
 	msg = analyse_change(info, &reshape);
 	if (msg) {
 		fprintf(stderr, Name ": %s\n", msg);
-		return 1;
+		goto release;
 	}
 	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
 		dprintf("Canot get array information.\n");
-		return 1;
+		goto release;
 	}
 	spares_needed = max(reshape.before.data_disks,
 			    reshape.after.data_disks)
@@ -1619,14 +1618,14 @@ static int reshape_array(char *container, int fd, char *devname,
 			spares_needed,
 			spares_needed == 1 ? "" : "s", 
 			info->array.spare_disks);
-		return 1;
+		goto release;
 	}
 
 	if (reshape.level != info->array.level) {
 		char *c = map_num(pers, reshape.level);
 		int err;
 		if (c == NULL)
-			return 1; /* This should not be possible */
+			goto release;
 
 		err = sysfs_set_str(info, NULL, "level", c);
 		if (err) {
@@ -1637,7 +1636,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
 				fprintf(stderr, "       Bitmap must be removed"
 					" before level can be changed\n");
-			return 1;
+			goto release;
 		}
 		if (!quiet)
 			fprintf(stderr, Name ": level of %s changed to %s\n",
@@ -1686,7 +1685,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			info->array.layout = info->new_layout;
 			if (ioctl(fd, SET_ARRAY_INFO, &info->array) != 0) {
 				fprintf(stderr, Name ": failed to set new layout\n");
-				rv = 1;
+				goto release;
 			} else if (!quiet)
 				printf("layout for %s set to %d\n",
 				       devname, info->array.layout);
@@ -1696,7 +1695,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			info->array.raid_disks += info->delta_disks;
 			if (ioctl(fd, SET_ARRAY_INFO, &info->array) != 0) {
 				fprintf(stderr, Name ": failed to set raid disks\n");
-				rv = 1;
+				goto release;
 			} else if (!quiet)
 				printf("raid_disks for %s set to %d\n",
 				       devname, info->array.raid_disks);
@@ -1706,13 +1705,15 @@ static int reshape_array(char *container, int fd, char *devname,
 			if (sysfs_set_num(info, NULL,
 					  "chunk_size", info->new_chunk) != 0) {
 				fprintf(stderr, Name ": failed to set chunk size\n");
-				rv = 1;
+				goto release;
 			} else if (!quiet)
 				printf("chunk size for %s set to %d\n",
 				       devname, info->array.chunk_size);
 		}
 
-		return rv;
+		if (!forked)
+			unfreeze(st);
+		return 0;
 	}
 
 	/*
@@ -1757,7 +1758,6 @@ static int reshape_array(char *container, int fd, char *devname,
 			"       use --grow --array-size first to truncate array.\n"
 			"       e.g. mdadm --grow %s --array-size %llu\n",
 			devname, reshape.new_size/2);
-		rv = 1;
 		goto release;
 	}
 
@@ -1768,7 +1768,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (!sra) {
 		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
 			devname);
-		rv = 1;
 		goto release;
 	}
 
@@ -1793,7 +1792,6 @@ static int reshape_array(char *container, int fd, char *devname,
 		fprintf(stderr, Name ": %s: Something wrong"
 			" - reshape aborted\n",
 			devname);
-		rv = 1;
 		goto release;
 	}
 
@@ -1804,7 +1802,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	offsets = malloc((1+nrdisks) * sizeof(offsets[0]));
 	if (!fdlist || !offsets) {
 		fprintf(stderr, Name ": malloc failed: grow aborted\n");
-		rv = 1;
 		goto release;
 	}
 
@@ -1812,7 +1809,6 @@ static int reshape_array(char *container, int fd, char *devname,
 				   nrdisks, blocks, backup_file,
 				   fdlist, offsets);
 	if (d < 0) {
-		rv = 1;
 		goto release;
 	}
 	if (backup_file == NULL) {
@@ -1820,20 +1816,17 @@ static int reshape_array(char *container, int fd, char *devname,
 			fprintf(stderr,
 				Name ": %s: Cannot grow - need backup-file\n", 
 				devname);
-			rv = 1;
 			goto release;
 		} else if (sra->array.spare_disks == 0) {
 			fprintf(stderr, Name ": %s: Cannot grow - need a spare or "
 				"backup-file to backup critical section\n",
 				devname);
-			rv = 1;
 			goto release;
 		}
 	} else {
 		if (!reshape_open_backup_file(backup_file, fd, devname,
 					      (signed)blocks,
 					      fdlist+d, offsets+d)) {
-			rv = 1;
 			goto release;
 		}
 		d++;
@@ -1871,7 +1864,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		array.raid_disks = reshape.after.data_disks + reshape.parity;
 		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 			int err = errno;
-			rv = 1;
+
 			fprintf(stderr,
 				Name ": Cannot set device shape for %s: %s\n",
 				devname, strerror(errno));
@@ -1888,20 +1881,17 @@ static int reshape_array(char *container, int fd, char *devname,
 		/* set them all just in case some old 'new_*' value
 		 * persists from some earlier problem
 		 */
-		int err = err; /* only used if rv==1, and always set if
-				* rv==1, so initialisation not needed,
-				* despite gcc warning
-				*/
+		int err = 0;
 		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
-			rv = 1, err = errno;
-		if (!rv && sysfs_set_num(sra, NULL, "layout", 
+			err = errno;
+		if (!err && sysfs_set_num(sra, NULL, "layout", 
 					 reshape.after.layout) < 0)
-			rv = 1, err = errno;
-		if (!rv && subarray_set_num(container, sra, "raid_disks",
+			err = errno;
+		if (!err && subarray_set_num(container, sra, "raid_disks",
 					    reshape.after.data_disks +
 					    reshape.parity) < 0)
-			rv = 1, err = errno;
-		if (rv) {
+			err = errno;
+		if (err) {
 			fprintf(stderr, Name ": Cannot set device shape for %s\n",
 				devname);
 
@@ -1924,9 +1914,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	case -1:
 		fprintf(stderr, Name ": Cannot run child to monitor reshape: %s\n",
 			strerror(errno));
-		rv = 1;
 		abort_reshape(sra);
-		break;
+		goto release;
 	default:
 		return 0;
 	case 0:
@@ -2045,7 +2034,7 @@ release:
 	}
 	if (!forked)
 		unfreeze(st);
-	return rv;
+	return 1;
 }
 
 int reshape_container(char *container, int cfd, char *devname,

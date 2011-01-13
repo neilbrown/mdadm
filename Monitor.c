@@ -833,6 +833,11 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 			struct state *to = st;
 			unsigned long long min_size;
 
+			if (to->parent_dev != NoMdDev && !to->parent)
+				/* subarray monitored without parent container
+				 * we can't move spares here */
+				continue;
+			
 			if (to->parent)
 				/* member of a container */
 				to = to->parent;

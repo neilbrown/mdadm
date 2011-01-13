@@ -952,7 +952,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			return "RAID10 can only be changed to RAID0";
 		new_disks = (info->array.raid_disks
 			     / (info->array.layout & 0xff));
-		if (info->delta_disks != UnSet) {
+		if (info->delta_disks == UnSet) {
 			info->delta_disks = (new_disks
 					     - info->array.raid_disks);
 		}

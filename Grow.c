@@ -2423,8 +2423,14 @@ check_progress:
 	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0
 	    || strncmp(buf, "none", 4) != 0)
 		return -2; /* abort */
-	else
+	else {
+		/* Maybe racing with array shutdown - check state */
+		if (sysfs_get_str(info, NULL, "array_state", buf, sizeof(buf)) < 0
+		    || strncmp(buf, "inactive", 8) == 0
+		    || strncmp(buf, "clear",5) == 0)
+			return -2; /* abort */
 		return -1; /* complete */
+	}
 }
 
 

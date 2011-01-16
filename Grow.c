@@ -2216,6 +2216,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	unsigned long long array_size = (info->component_size
 					 * reshape->before.data_disks);
 	int fd;
+	char buf[20];
 
 	/* First, we unsuspend any region that is now known to be safe.
 	 * If suspend_point is on the 'wrong' side of reshape_progress, then
@@ -2366,11 +2367,11 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 */
 	fd = sysfs_get_fd(info, NULL, "sync_completed");
 	if (fd < 0)
-		return -1;
+		goto check_progress;
 
 	if (sysfs_fd_get_ll(fd, &completed) < 0) {
 		close(fd);
-		return -1;
+		goto check_progress;
 	}
 	while (completed < max_progress && completed < wait_point) {
 		/* Check that sync_action is still 'reshape' to avoid
@@ -2387,7 +2388,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		select(fd+1, NULL, NULL, &rfds, NULL);
 		if (sysfs_fd_get_ll(fd, &completed) < 0) {
 			close(fd);
-			return -1;
+			goto check_progress;
 		}
 	}
 	/* some kernels can give an incorrectly high 'completed' number */
@@ -2409,6 +2410,18 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	return advancing
 		? (need_backup > info->reshape_progress)
 		: (need_backup < info->reshape_progress);
+
+check_progress:
+	/* if we couldn't read a number from sync_completed, then
+	 * either the reshape did complete, or it aborted.
+	 * We can tell which by checking for 'none' in reshape_position.
+	 */
+	strcpy(buf, "hi");
+	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0
+	    || strncmp(buf, "none", 4) != 0)
+		return -2; /* abort */
+	else
+		return -1; /* complete */
 }
 
 
@@ -2785,7 +2798,8 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 		}
 
 		if (rv < 0) {
-			done = 1;
+			if (rv == -1)
+				done = 1;
 			break;
 		}
 
@@ -2840,7 +2854,7 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	if (reshape->before.data_disks == reshape->after.data_disks)
 		sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);
-	return 1; /* FIXME what does this mean? */
+	return done;
 }
 
 /*

@@ -633,7 +633,10 @@ int start_reshape(struct mdinfo *sra)
 	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
 	err = sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	err = err ?: sysfs_set_num(sra, NULL, "suspend_lo", 0);
-	err = err ?: sysfs_set_num(sra, NULL, "sync_min", 0);
+	/* Setting sync_min can fail if the recovery is already 'running',
+	 * which can happen when restarting an array which is reshaping.
+	 * So don't worry about errors here */
+	sysfs_set_num(sra, NULL, "sync_min", 0);
 	err = err ?: sysfs_set_num(sra, NULL, "sync_max", 0);
 	err = err ?: sysfs_set_str(sra, NULL, "sync_action", "reshape");
 

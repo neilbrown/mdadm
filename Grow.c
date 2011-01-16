@@ -792,7 +792,8 @@ int reshape_open_backup_file(char *backup_file,
 			     char *devname,
 			     long blocks,
 			     int *fdlist,
-			     unsigned long long *offsets)
+			     unsigned long long *offsets,
+			     int restart)
 {
 	/* Return 1 on success, 0 on any form of failure */
 	/* need to check backup file is large enough */
@@ -801,7 +802,7 @@ int reshape_open_backup_file(char *backup_file,
 	unsigned int dev;
 	int i;
 
-	*fdlist = open(backup_file, O_RDWR|O_CREAT|O_EXCL,
+	*fdlist = open(backup_file, O_RDWR|O_CREAT|(restart ? O_TRUNC : O_EXCL),
 		       S_IRUSR | S_IWUSR);
 	*offsets = 8 * 512;
 	if (*fdlist < 0) {
@@ -1245,7 +1246,8 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
-			 int force, char *backup_file, int quiet, int forked);
+			 int force, char *backup_file, int quiet, int forked,
+			 int restart);
 static int reshape_container(char *container, int cfd, char *devname,
 			     struct supertype *st, 
 			     struct mdinfo *info,
@@ -1564,7 +1566,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		}
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, force,
-				   backup_file, quiet, 0);
+				   backup_file, quiet, 0, 0);
 		frozen = 0;
 	}
 release:
@@ -1576,7 +1578,8 @@ release:
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force,
-			 char *backup_file, int quiet, int forked)
+			 char *backup_file, int quiet, int forked,
+			 int restart)
 {
 	struct reshape reshape;
 	int spares_needed;
@@ -1606,6 +1609,13 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
 		dprintf("Canot get array information.\n");
 		goto release;
+	}
+
+	if (restart) {
+		/* reshape already started. just skip to monitoring the reshape */
+		if (reshape.backup_blocks == 0)
+			return 0;
+		goto started;
 	}
 	spares_needed = max(reshape.before.data_disks,
 			    reshape.after.data_disks)
@@ -1752,7 +1762,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	 *   -  request the shape change.
 	 *   -  fork to handle backup etc.
 	 */
-
+started:
 	/* Check that we can hold all the data */
 	get_dev_size(fd, NULL, &array_size);
 	if (reshape.new_size < (array_size/512)) {
@@ -1829,7 +1839,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	} else {
 		if (!reshape_open_backup_file(backup_file, fd, devname,
 					      (signed)blocks,
-					      fdlist+d, offsets+d)) {
+					      fdlist+d, offsets+d, restart)) {
 			goto release;
 		}
 		d++;
@@ -1861,7 +1871,9 @@ static int reshape_array(char *container, int fd, char *devname,
 
 	sra->new_chunk = info->new_chunk;
 	
-	if (info->array.chunk_size == info->new_chunk &&
+	if (info->reshape_active)
+		/* nothing needed here */;
+	else if (info->array.chunk_size == info->new_chunk &&
 	    reshape.before.layout == reshape.after.layout &&
 	    st->ss->external == 0) {
 		array.raid_disks = reshape.after.data_disks + reshape.parity;
@@ -1908,6 +1920,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	}
 
 	start_reshape(sra);
+	if (restart)
+		sysfs_set_str(sra, NULL, "array_state", "active");
 
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
@@ -2121,7 +2135,7 @@ int reshape_container(char *container, int cfd, char *devname,
 
 		rv = reshape_array(container, fd, adev, st,
 				   content, force,
-				   backup_file, quiet, 1);
+				   backup_file, quiet, 1, 0);
 		close(fd);
 		if (rv)
 			break;
@@ -3160,7 +3174,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	int err = sysfs_set_str(info, NULL, "array_state", "readonly");
 	if (err)
 		return err;
-	return reshape_array(NULL, mdfd, "array", st, info, 1, backup_file, 0, 0);
+	return reshape_array(NULL, mdfd, "array", st, info, 1, backup_file, 0, 0, 1);
 }
 
 

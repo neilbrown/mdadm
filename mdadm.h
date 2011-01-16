@@ -492,7 +492,8 @@ extern int reshape_open_backup_file(char *backup,
 				    char *devname,
 				    long blocks,
 				    int *fdlist,
-				    unsigned long long *offsets);
+				    unsigned long long *offsets,
+				    int restart);
 extern unsigned long compute_backup_blocks(int nchunk, int ochunk,
 					   unsigned int ndata, unsigned int odata);
 

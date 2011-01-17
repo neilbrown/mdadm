@@ -1725,9 +1725,7 @@ static int reshape_array(char *container, int fd, char *devname,
 				printf("chunk size for %s set to %d\n",
 				       devname, info->array.chunk_size);
 		}
-
-		if (!forked)
-			unfreeze(st);
+		unfreeze(st);
 		return 0;
 	}
 

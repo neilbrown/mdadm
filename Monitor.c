@@ -707,8 +707,10 @@ static int get_min_spare_size_required(struct state *st, unsigned long long *siz
 	int fd;
 
 	if (!st->metadata ||
-	    !st->metadata->ss->min_acceptable_spare_size)
+	    !st->metadata->ss->min_acceptable_spare_size) {
+		*sizep = 0;
 		return 0;
+	}
 
 	fd = open(st->devname, O_RDONLY);
 	if (fd < 0)

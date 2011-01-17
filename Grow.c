@@ -2121,7 +2121,7 @@ int reshape_container(char *container, int cfd, char *devname,
 		if (!content)
 			break;
 
-		fd = open_dev_excl(mdstat->devnum);
+		fd = open_dev(mdstat->devnum);
 		if (fd < 0)
 			break;
 		adev = map_dev(dev2major(mdstat->devnum),

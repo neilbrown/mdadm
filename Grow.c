@@ -1599,7 +1599,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	unsigned long cache;
 	unsigned long long array_size;
 	int done;
-	struct mdinfo *sra;
+	struct mdinfo *sra = NULL;
 
 	msg = analyse_change(info, &reshape);
 	if (msg) {
@@ -1777,7 +1777,6 @@ started:
 	sra = sysfs_read(fd, 0,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
 			 GET_CACHE);
-
 	if (!sra) {
 		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
 			devname);

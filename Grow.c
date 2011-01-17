@@ -970,6 +970,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		re->level = 0;
 		re->parity = 0;
 		re->before.data_disks = new_disks;
+		re->after.data_disks = re->before.data_disks;
 		re->before.layout = 0;
 		re->backup_blocks = 0;
 		return NULL;
@@ -1007,6 +1008,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->parity = 0;
 			re->before.data_disks = (info->array.raid_disks +
 						 info->delta_disks);
+			re->after.data_disks = re->before.data_disks;
 			re->before.layout = info->new_layout;
 			re->backup_blocks = 0;
 			return NULL;

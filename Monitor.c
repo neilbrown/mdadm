@@ -784,7 +784,7 @@ static dev_t choose_spare(struct state *from, struct state *to,
 
 static dev_t container_choose_spare(struct state *from, struct state *to,
 				    struct domainlist *domlist,
-				    unsigned long long min_size)
+				    unsigned long long min_size, int active)
 {
 	/* This is similar to choose_spare, but we cannot trust devstate,
 	 * so we need to read the metadata instead
@@ -807,6 +807,33 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 	if (err)
 		return 0;
 	
+	if (from == to) {
+		/* We must check if number of active disks has not increased
+		 * since ioctl in main loop. mdmon may have added spare
+		 * to subarray. If so we do not need to look for more spares
+		 * so return non zero value */
+		int active_cnt = 0;
+		struct mdinfo *dp;
+		list = st->ss->getinfo_super_disks(st);
+		if (!list) {
+			st->ss->free_super(st);
+			return 1;
+		}
+		dp = list->devs;
+		while (dp) {
+			if (dp->disk.state & (1<<MD_DISK_SYNC) &&
+			    !(dp->disk.state & (1<<MD_DISK_FAULTY)))
+				active_cnt++;
+			dp = dp->next;
+		}
+		sysfs_free(list);
+		if (active < active_cnt) {
+			/* Spare just activated.*/
+			st->ss->free_super(st);
+			return 1;
+		}
+	}
+
 	/* We only need one spare so full list not needed */
 	list = container_choose_spares(st, min_size, domlist, from->spare_group,
 				       to->metadata->ss->name, 1);
@@ -851,7 +878,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				 * no suitable spare in container already.
 				 * If there is we don't add more */
 				dev_t devid = container_choose_spare(
-					to, to, NULL, min_size);
+					to, to, NULL, min_size, st->active);
 				if (devid > 0)
 					continue;
 			}
@@ -874,7 +901,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 					continue;
 				if (from->metadata->ss->external)
 					devid = container_choose_spare(
-						from, to, domlist, min_size);
+						from, to, domlist, min_size, 0);
 				else
 					devid = choose_spare(from, to, domlist,
 							     min_size);

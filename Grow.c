@@ -1869,9 +1869,15 @@ started:
 	sync_metadata(st);
 
 	sra->new_chunk = info->new_chunk;
+
+	sra->reshape_progress = 0;
+	if (reshape.after.data_disks < reshape.before.data_disks)
+		/* start from the end of the new array */
+		sra->reshape_progress = (sra->component_size
+					 * reshape.after.data_disks);
 	
 	if (info->reshape_active)
-		/* nothing needed here */;
+		sra->reshape_progress = info->reshape_progress;
 	else if (info->array.chunk_size == info->new_chunk &&
 	    reshape.before.layout == reshape.after.layout &&
 	    st->ss->external == 0) {
@@ -2274,11 +2280,10 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	if (advancing) {
 		if (read_offset < write_offset + write_range)
 			max_progress = backup_point;
-		else {
+		else
 			max_progress =
 				read_offset *
 				reshape->after.data_disks;
-		}
 	} else {
 		if (read_offset > write_offset - write_range)
 			/* Can only progress as far as has been backed up,

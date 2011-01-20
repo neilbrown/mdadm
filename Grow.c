@@ -2934,6 +2934,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		int fd;
 		int bsbsize;
 		char *devname, namebuf[20];
+		unsigned long long lo, hi;
 
 		/* This was a spare and may have some saved data on it.
 		 * Load the superblock, find and load the
@@ -3017,6 +3018,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		}
 
 		if (bsb.magic[15] == '1') {
+			if (bsb.length == 0)
+				continue;
 		if (info->delta_disks >= 0) {
 			/* reshape_progress is increasing */
 			if (__le64_to_cpu(bsb.arraystart) + __le64_to_cpu(bsb.length) <
@@ -3033,6 +3036,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				goto nonew; /* No new data here */
 		}
 		} else {
+			if (bsb.length == 0 && bsb.length2 == 0)
+				continue;
 		if (info->delta_disks >= 0) {
 			/* reshape_progress is increasing */
 			if (__le64_to_cpu(bsb.arraystart) + __le64_to_cpu(bsb.length) <
@@ -3116,7 +3121,28 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 
 		/* Ok, so the data is restored. Let's update those superblocks. */
 
-		if (info->delta_disks >= 0) {
+		lo = hi = 0;
+		if (bsb.length) {
+			lo = __le64_to_cpu(bsb.arraystart);
+			hi = lo + __le64_to_cpu(bsb.length);
+		}
+		if (bsb.magic[15] == '2' && bsb.length2) {
+			unsigned long long lo1, hi1;
+			lo1 = __le64_to_cpu(bsb.arraystart2);
+			hi1 = lo1 + __le64_to_cpu(bsb.length2);
+			if (lo == hi) {
+				lo = lo1;
+				hi = hi1;
+			} else if (lo < lo1)
+				hi = hi1;
+			else
+				lo = lo1;
+		}
+		if (lo < hi &&
+		    (info->reshape_progress < lo ||
+		     info->reshape_progress > hi))
+			/* backup does not affect reshape_progress*/ ;
+		else if (info->delta_disks >= 0) {
 			info->reshape_progress = __le64_to_cpu(bsb.arraystart) +
 				__le64_to_cpu(bsb.length);
 			if (bsb.magic[15] == '2') {

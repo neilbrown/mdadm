@@ -2223,8 +2223,9 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 
 	int advancing = (reshape->after.data_disks
 			 >= reshape->before.data_disks);
-	unsigned long long need_backup; /* need to eventually backup all the way
-					 * to here
+	unsigned long long need_backup; /* All data between start of array and
+					 * here will at some point need to
+					 * be backed up.
 					 */
 	unsigned long long read_offset, write_offset;
 	unsigned long long write_range;
@@ -2266,37 +2267,38 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	read_offset = info->reshape_progress / reshape->before.data_disks;
 	write_offset = info->reshape_progress / reshape->after.data_disks;
 	write_range = info->new_chunk/512;
+	if (reshape->before.data_disks == reshape->after.data_disks)
+		need_backup = array_size;
+	else
+		need_backup = reshape->backup_blocks;
 	if (advancing) {
-		need_backup = 0;
-		if (read_offset < write_offset + write_range) {
+		if (read_offset < write_offset + write_range)
 			max_progress = backup_point;
-			if (reshape->before.data_disks == reshape->after.data_disks)
-				need_backup = array_size;
-			else
-				need_backup = reshape->backup_blocks;
-		} else {
+		else {
 			max_progress =
 				read_offset *
 				reshape->after.data_disks;
 		}
 	} else {
-		need_backup = array_size;
-		if (read_offset > write_offset - write_range) {
+		if (read_offset > write_offset - write_range)
+			/* Can only progress as far as has been backed up,
+			 * which must be suspended */
 			max_progress = backup_point;
-			if (max_progress >= info->reshape_progress)
-				need_backup = 0;
-		} else {
-			max_progress =
-				read_offset *
-				reshape->after.data_disks;
-			/* If we are using internal metadata, then we can
-			 * progress all the way to the suspend_point without
-			 * worrying about backing-up/suspending along the
-			 * way.
-			 */
-			if (max_progress < *suspend_point &&
-				info->array.major_version >= 0)
-				max_progress = *suspend_point;
+		else if (info->reshape_progress <= need_backup)
+			max_progress = backup_point;
+		else {
+			if (info->array.major_version >= 0)
+				/* Can progress until backup is needed */
+				max_progress = need_backup;
+			else {
+				/* Can progress until metadata update is required */
+				max_progress =
+					read_offset *
+					reshape->after.data_disks;
+				/* but data must be suspended */
+				if (max_progress < *suspend_point)
+					max_progress = *suspend_point;
+			}
 		}
 	}
 
@@ -2335,16 +2337,28 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 				max_progress = *suspend_point;
 		}
 	} else {
-		if ((need_backup < info->reshape_progress
-		     || info->array.major_version < 0) &&
-		    *suspend_point > info->reshape_progress - target) {
-			if (need_backup > *suspend_point - 2 * target)
-				*suspend_point = need_backup;
-			else if (*suspend_point >= 2 * target)
-				*suspend_point -= 2 * target;
-			else
+		if (info->array.major_version >= 0) {
+			/* Only need to suspend when about to backup */
+			if (info->reshape_progress < need_backup * 2 &&
+			    *suspend_point > 0) {
 				*suspend_point = 0;
-			sysfs_set_num(info, NULL, "suspend_lo", *suspend_point);
+				sysfs_set_num(info, NULL, "suspend_lo", 0);
+				sysfs_set_num(info, NULL, "suspend_hi", need_backup);
+			}
+		} else {
+			/* Need to suspend continually */
+			if (info->reshape_progress < *suspend_point)
+				*suspend_point = info->reshape_progress;
+			if (*suspend_point + target < info->reshape_progress)
+				/* No need to move suspend region yet */;
+			else {
+				if (*suspend_point >= 2 * target)
+					*suspend_point -= 2 * target;
+				else
+					*suspend_point = 0;
+				sysfs_set_num(info, NULL, "suspend_lo",
+					      *suspend_point);
+			}
 			if (max_progress < *suspend_point)
 				max_progress = *suspend_point;
 		}
@@ -2423,9 +2437,10 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	/* We return the need_backup flag.  Caller will decide
 	 * how much - a multiple of ->backup_blocks up to *suspend_point
 	 */
-	return advancing
-		? (need_backup > info->reshape_progress)
-		: (need_backup < info->reshape_progress);
+	if (advancing)
+		return need_backup > info->reshape_progress;
+	else
+		return need_backup >= info->reshape_progress;
 
 check_progress:
 	/* if we couldn't read a number from sync_completed, then

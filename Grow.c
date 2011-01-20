@@ -3020,44 +3020,50 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		if (bsb.magic[15] == '1') {
 			if (bsb.length == 0)
 				continue;
-		if (info->delta_disks >= 0) {
-			/* reshape_progress is increasing */
-			if (__le64_to_cpu(bsb.arraystart) + __le64_to_cpu(bsb.length) <
-			    info->reshape_progress) {
-			nonew:
-				if (verbose)
-					fprintf(stderr, Name ": backup-metadata found on %s but is not needed\n", devname);
-				continue; /* No new data here */
+			if (info->delta_disks >= 0) {
+				/* reshape_progress is increasing */
+				if (__le64_to_cpu(bsb.arraystart)
+				    + __le64_to_cpu(bsb.length)
+				    < info->reshape_progress) {
+				nonew:
+					if (verbose)
+						fprintf(stderr, Name
+                  ": backup-metadata found on %s but is not needed\n", devname);
+					continue; /* No new data here */
+				}
+			} else {
+				/* reshape_progress is decreasing */
+				if (__le64_to_cpu(bsb.arraystart) >=
+				    info->reshape_progress)
+					goto nonew; /* No new data here */
 			}
-		} else {
-			/* reshape_progress is decreasing */
-			if (__le64_to_cpu(bsb.arraystart) >=
-			    info->reshape_progress)
-				goto nonew; /* No new data here */
-		}
 		} else {
 			if (bsb.length == 0 && bsb.length2 == 0)
 				continue;
-		if (info->delta_disks >= 0) {
-			/* reshape_progress is increasing */
-			if (__le64_to_cpu(bsb.arraystart) + __le64_to_cpu(bsb.length) <
-			    info->reshape_progress &&
-			    __le64_to_cpu(bsb.arraystart2) + __le64_to_cpu(bsb.length2) <
-			    info->reshape_progress)
-				goto nonew; /* No new data here */
-		} else {
-			/* reshape_progress is decreasing */
-			if (__le64_to_cpu(bsb.arraystart) >=
-			    info->reshape_progress &&
-			    __le64_to_cpu(bsb.arraystart2) >=
-			    info->reshape_progress)
-				goto nonew; /* No new data here */
-		}
+			if (info->delta_disks >= 0) {
+				/* reshape_progress is increasing */
+				if ((__le64_to_cpu(bsb.arraystart)
+				     + __le64_to_cpu(bsb.length)
+				     < info->reshape_progress)
+				    &&
+				    (__le64_to_cpu(bsb.arraystart2)
+				     + __le64_to_cpu(bsb.length2)
+				     < info->reshape_progress))
+					goto nonew; /* No new data here */
+			} else {
+				/* reshape_progress is decreasing */
+				if (__le64_to_cpu(bsb.arraystart) >=
+				    info->reshape_progress &&
+				    __le64_to_cpu(bsb.arraystart2) >=
+				    info->reshape_progress)
+					goto nonew; /* No new data here */
+			}
 		}
 		if (lseek64(fd, __le64_to_cpu(bsb.devstart)*512, 0)< 0) {
 		second_fail:
 			if (verbose)
-				fprintf(stderr, Name ": Failed to verify secondary backup-metadata block on %s\n",
+				fprintf(stderr, Name
+		     ": Failed to verify secondary backup-metadata block on %s\n",
 					devname);
 			continue; /* Cannot seek */
 		}

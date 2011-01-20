@@ -928,14 +928,12 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			return NULL;
 		}
 		if (info->array.raid_disks == 2 &&
-		    info->array.raid_disks == 5) {
-			/* simple in-place conversion */
+		    info->new_level == 5) {
 			re->level = 5;
-			re->parity = 1;
 			re->before.data_disks = 1;
 			re->before.layout = ALGORITHM_LEFT_SYMMETRIC;
-			re->backup_blocks = 0;
-			return NULL;
+			info->array.chunk_size = 65536;
+			break;
 		}
 		/* Could do some multi-stage conversions, but leave that to
 		 * later.
@@ -1224,7 +1222,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		return NULL;
 	}
 	if (re->after.data_disks == 1 && re->before.data_disks == 1) {
-		/* chunks can layout changes make no difference */
+		/* chunk and layout changes make no difference */
 		re->backup_blocks = 0;
 		return NULL;
 	}

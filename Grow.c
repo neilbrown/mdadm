@@ -2495,7 +2495,8 @@ static int grow_backup(struct mdinfo *sra,
 		odata--;
 
 	/* Check that array hasn't become degraded, else we might backup the wrong data */
-	sysfs_get_ll(sra, NULL, "degraded", &ll);
+	if (sysfs_get_ll(sra, NULL, "degraded", &ll) < 0)
+		return -1; /* FIXME this error is ignored */
 	new_degraded = (int)ll;
 	if (new_degraded != *degraded) {
 		/* check each device to ensure it is still working */

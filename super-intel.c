@@ -3743,7 +3743,6 @@ static int write_init_super_imsm(struct supertype *st)
 	if (st->update_tail) {
 		/* queue the recently created array / added disk
 		 * as a metadata update */
-		struct dl *d;
 		int rv;
 
 		/* determine if we are creating a volume or adding a disk */
@@ -3754,11 +3753,6 @@ static int write_init_super_imsm(struct supertype *st)
 			return mgmt_disk(st);
 		} else
 			rv = create_array(st, current_vol);
-
-		for (d = super->disks; d ; d = d->next) {
-			close(d->fd);
-			d->fd = -1;
-		}
 
 		return rv;
 	} else {

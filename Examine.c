@@ -145,6 +145,7 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 		} else if (export) {
 			if (st->ss->export_examine_super)
 				st->ss->export_examine_super(st);
+			st->ss->free_super(st);
 		} else {
 			printf("%s:\n",devlist->devname);
 			st->ss->examine_super(st, homehost);

@@ -752,8 +752,6 @@ static int write_init_super0(struct supertype *st)
 			fprintf(stderr,
 				Name ": failed to write superblock to %s\n",
 				di->devname);
-		close(di->fd);
-		di->fd = -1;
 	}
 	return rv;
 }
@@ -1079,6 +1077,13 @@ static void free_super0(struct supertype *st)
 {
 	if (st->sb)
 		free(st->sb);
+	while (st->info) {
+		struct devinfo *di = st->info;
+		st->info = di->next;
+		if (di->fd >= 0)
+			close(di->fd);
+		free(di);
+	}
 	st->sb = NULL;
 }
 

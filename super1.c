@@ -1641,6 +1641,13 @@ static void free_super1(struct supertype *st)
 {
 	if (st->sb)
 		free(st->sb);
+	while (st->info) {
+		struct devinfo *di = st->info;
+		st->info = di->next;
+		if (di->fd >= 0)
+			close(di->fd);
+		free(di);
+	}
 	st->sb = NULL;
 }
 

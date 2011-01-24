@@ -2272,7 +2272,7 @@ static int add_to_super_ddf(struct supertype *st,
 
 static unsigned char null_conf[4096+512];
 
-static int __write_init_super_ddf(struct supertype *st, int do_close)
+static int __write_init_super_ddf(struct supertype *st)
 {
 
 	struct ddf_super *ddf = st->sb;
@@ -2379,12 +2379,6 @@ static int __write_init_super_ddf(struct supertype *st, int do_close)
 		successes++;
 	}
 
-	if (do_close)
-		for (d = ddf->dlist; d; d=d->next) {
-			close(d->fd);
-			d->fd = -1;
-		}
-
 	return attempts != successes;
 }
 
@@ -2437,7 +2431,7 @@ static int write_init_super_ddf(struct supertype *st)
 		struct dl *d;
 		for (d = ddf->dlist; d; d=d->next)
 			while (Kill(d->devname, NULL, 0, 1, 1) == 0);
-		return __write_init_super_ddf(st, 1);
+		return __write_init_super_ddf(st);
 	}
 }
 
@@ -3239,7 +3233,7 @@ static void ddf_sync_metadata(struct supertype *st)
 	if (!ddf->updates_pending)
 		return;
 	ddf->updates_pending = 0;
-	__write_init_super_ddf(st, 0);
+	__write_init_super_ddf(st);
 	dprintf("ddf: sync_metadata\n");
 }
 

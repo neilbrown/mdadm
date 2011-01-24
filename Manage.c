@@ -728,6 +728,7 @@ int Manage_subdevs(char *devname, int fd,
 					skip_re_add:
 						re_add_failed = 1;
 					}
+					st->ss->free_super(st);
 				}
 				if (add_dev != dv->devname) {
 					if (verbose > 0)
@@ -808,9 +809,10 @@ int Manage_subdevs(char *devname, int fd,
 					close(dfd);
 					return 1;
 				}
-				/* write_init_super will close 'dfd' */
-				if (tst->ss->write_init_super(tst))
+				if (tst->ss->write_init_super(tst)) {
+					close(dfd);
 					return 1;
+				}
 			} else if (dv->re_add) {
 				/*  this had better be raid1.
 				 * As we are "--re-add"ing we must find a spare slot
@@ -872,6 +874,9 @@ int Manage_subdevs(char *devname, int fd,
 				new_mdi.disk.major = disc.major;
 				new_mdi.disk.minor = disc.minor;
 				new_mdi.recovery_start = 0;
+				/* Make sure fds are closed as they are O_EXCL which
+				 * would block add_disk */
+				tst->ss->free_super(tst);
 				if (sysfs_add_disk(sra, &new_mdi, 0) != 0) {
 					fprintf(stderr, Name ": add new device to external metadata"
 						" failed for %s\n", dv->devname);
@@ -889,6 +894,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (verbose >= 0)
 				fprintf(stderr, Name ": added %s\n", dv->devname);
+			tst->ss->free_super(tst);
 			break;
 
 		case 'r':

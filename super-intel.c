@@ -1297,12 +1297,15 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 }
 
 
+
 static void print_found_intel_controllers(struct sys_dev *elem)
 {
 	for (; elem; elem = elem->next) {
 		fprintf(stderr, Name ": found Intel(R) ");
 		if (elem->type == SYS_DEV_SATA)
 			fprintf(stderr, "SATA ");
+		else if (elem->type == SYS_DEV_SAS)
+			fprintf(stderr, "SAS ");
 		fprintf(stderr, "RAID controller");
 		if (elem->pci_id)
 			fprintf(stderr, " at %s", elem->pci_id);
@@ -1310,7 +1313,6 @@ static void print_found_intel_controllers(struct sys_dev *elem)
 	}
 	fflush(stderr);
 }
-
 
 static int ahci_get_port_count(const char *hba_path, int *port_count)
 {
@@ -1364,22 +1366,19 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 		return 2;
 	}
 
-	list = find_driver_devices("pci", "ahci");
-	for (hba = list; hba; hba = hba->next)
-		if (devpath_to_vendor(hba->path) == 0x8086)
-			break;
-
-	if (!hba) {
+	list = find_intel_devices();
+	if (!list) {
 		if (verbose)
-			fprintf(stderr, Name ": unable to find active ahci controller\n");
+			fprintf(stderr, Name ": no active Intel(R) RAID "
+				"controller found.\n");
 		free_sys_dev(&list);
 		return 2;
 	} else if (verbose)
-		fprintf(stderr, Name ": found Intel SATA AHCI Controller\n");
+		print_found_intel_controllers(list);
 
-	print_found_intel_controllers(list);
 	orom = find_imsm_orom();
 	if (!orom) {
+		free_sys_dev(&list);
 		if (verbose)
 			fprintf(stderr, Name ": imsm option-rom not found\n");
 		return 2;
@@ -1414,7 +1413,6 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	printf("      Max Disks : %d\n", orom->tds);
 	printf("    Max Volumes : %d\n", orom->vpa);
 
-
 	for (hba = list; hba; hba = hba->next) {
 		printf(" I/O Controller : %s (%s)\n",
 			hba->path, get_sys_dev_type(hba->type));
@@ -1427,8 +1425,14 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 						"ports on SATA controller at %s.", hba->pci_id);
 				result |= 2;
 			}
+		} else if (hba->type == SYS_DEV_SAS) {
+				if (verbose)
+					fprintf(stderr, Name ": failed to enumerate "
+						"devices on SAS controller at %s.", hba->pci_id);
+				result |= 2;
 		}
 	}
+
 	free_sys_dev(&list);
 	return result;
 }

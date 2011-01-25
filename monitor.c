@@ -229,6 +229,7 @@ static int read_and_act(struct active_array *a)
 	sync_completed = read_sync_completed(a->sync_completed_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
+		mdi->curr_state = 0;
 		if (mdi->state_fd >= 0) {
 			mdi->recovery_start = read_resync_start(mdi->recovery_fd);
 			mdi->curr_state = read_dev_state(mdi->state_fd);

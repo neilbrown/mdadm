@@ -1133,10 +1133,10 @@ static void brief_detail_super_imsm(struct supertype *st)
 static int imsm_read_serial(int fd, char *devname, __u8 *serial);
 static void fd2devname(int fd, char *name);
 
-static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_base, int verbose)
+static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_base, int verbose)
 {
-	/* dump an unsorted list of devices attached to ahci, as well as
-	 * non-connected ports
+	/* dump an unsorted list of devices attached to AHCI Intel storage
+	 * controller, as well as non-connected ports
 	 */
 	int hba_len = strlen(hba_path) + 1;
 	struct dirent *ent;
@@ -1296,6 +1296,49 @@ static int imsm_enumerate_ports(const char *hba_path, int port_count, int host_b
 	return err;
 }
 
+
+static void print_found_intel_controllers(struct sys_dev *elem)
+{
+	for (; elem; elem = elem->next) {
+		fprintf(stderr, Name ": found Intel(R) ");
+		if (elem->type == SYS_DEV_SATA)
+			fprintf(stderr, "SATA ");
+		fprintf(stderr, "RAID controller");
+		if (elem->pci_id)
+			fprintf(stderr, " at %s", elem->pci_id);
+		fprintf(stderr, ".\n");
+	}
+	fflush(stderr);
+}
+
+
+static int ahci_get_port_count(const char *hba_path, int *port_count)
+{
+	struct dirent *ent;
+	DIR *dir;
+	int host_base = -1;
+
+	*port_count = 0;
+	if ((dir = opendir(hba_path)) == NULL)
+		return -1;
+
+	for (ent = readdir(dir); ent; ent = readdir(dir)) {
+		int host;
+
+		if (sscanf(ent->d_name, "host%d", &host) != 1)
+			continue;
+		if (*port_count == 0)
+			host_base = host;
+		else if (host < host_base)
+			host_base = host;
+
+		if (host + 1 > *port_count + host_base)
+			*port_count = host + 1 - host_base;
+	}
+	closedir(dir);
+	return host_base;
+}
+
 static int detail_platform_imsm(int verbose, int enumerate_only)
 {
 	/* There are two components to imsm platform support, the ahci SATA
@@ -1311,11 +1354,9 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	 */
 	const struct imsm_orom *orom;
 	struct sys_dev *list, *hba;
-	DIR *dir;
-	struct dirent *ent;
-	const char *hba_path;
 	int host_base = 0;
 	int port_count = 0;
+	int result=0;
 
 	if (enumerate_only) {
 		if (check_env("IMSM_NO_PLATFORM") || find_imsm_orom())
@@ -1335,10 +1376,8 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 		return 2;
 	} else if (verbose)
 		fprintf(stderr, Name ": found Intel SATA AHCI Controller\n");
-	hba_path = hba->path;
-	hba->path = NULL;
-	free_sys_dev(&list);
 
+	print_found_intel_controllers(list);
 	orom = find_imsm_orom();
 	if (!orom) {
 		if (verbose)
@@ -1374,35 +1413,24 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	       imsm_orom_has_chunk(orom, 1024*64) ? " 64M" : "");
 	printf("      Max Disks : %d\n", orom->tds);
 	printf("    Max Volumes : %d\n", orom->vpa);
-	printf(" I/O Controller : %s\n", hba_path);
 
-	/* find the smallest scsi host number to determine a port number base */
-	dir = opendir(hba_path);
-	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
-		int host;
 
-		if (sscanf(ent->d_name, "host%d", &host) != 1)
-			continue;
-		if (port_count == 0)
-			host_base = host;
-		else if (host < host_base)
-			host_base = host;
+	for (hba = list; hba; hba = hba->next) {
+		printf(" I/O Controller : %s (%s)\n",
+			hba->path, get_sys_dev_type(hba->type));
 
-		if (host + 1 > port_count + host_base)
-			port_count = host + 1 - host_base;
-
+		if (hba->type == SYS_DEV_SATA) {
+			host_base = ahci_get_port_count(hba->path, &port_count);
+			if (ahci_enumerate_ports(hba->path, port_count, host_base, verbose)) {
+				if (verbose)
+					fprintf(stderr, Name ": failed to enumerate "
+						"ports on SATA controller at %s.", hba->pci_id);
+				result |= 2;
+			}
+		}
 	}
-	if (dir)
-		closedir(dir);
-
-	if (!port_count || imsm_enumerate_ports(hba_path, port_count,
-						host_base, verbose) != 0) {
-		if (verbose)
-			fprintf(stderr, Name ": failed to enumerate ports\n");
-		return 2;
-	}
-
-	return 0;
+	free_sys_dev(&list);
+	return result;
 }
 #endif
 

@@ -1729,7 +1729,7 @@ int stat2devnum(struct stat *st)
 		link[n] = 0;
 		cp = strrchr(link, '/');
 		if (cp) *cp = 0;
-		cp = strchr(link, '/');
+		cp = strrchr(link, '/');
 		if (cp && strncmp(cp, "/md", 3) == 0)
 			return devname2devnum(cp+1);
 	}

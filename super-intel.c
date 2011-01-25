@@ -6189,6 +6189,53 @@ static void imsm_prepare_update(struct supertype *st,
 	size_t len = 0;
 
 	switch (type) {
+	case update_takeover: {
+		struct imsm_update_takeover *u = (void *)update->buf;
+		if (u->direction == R0_TO_R10) {
+			void **tail = (void **)&update->space_list;
+			struct imsm_dev *dev = get_imsm_dev(super, u->subarray);
+			struct imsm_map *map = get_imsm_map(dev, 0);
+			int num_members = map->num_members;
+			void *space;
+			int size, i;
+			int err = 0;
+			/* allocate memory for added disks */
+			for (i = 0; i < num_members; i++) {
+				size = sizeof(struct dl);
+				space = malloc(size);
+				if (!space) {
+					err++;
+					break;
+				}
+				*tail = space;
+				tail = space;
+				*tail = NULL;
+			}
+			/* allocate memory for new device */
+			size = sizeof_imsm_dev(super->devlist->dev, 0) +
+				(num_members * sizeof(__u32));
+			space = malloc(size);
+			if (!space)
+				err++;
+			else {
+				*tail = space;
+				tail = space;
+				*tail = NULL;
+			}
+			if (!err) {
+				len = disks_to_mpb_size(num_members * 2);
+			} else {
+				/* if allocation didn't success, free buffer */
+				while (update->space_list) {
+					void **sp = update->space_list;
+					update->space_list = *sp;
+					free(sp);
+				}
+			}
+		}
+
+		break;
+	}
 	case update_reshape_container_disks: {
 		/* Every raid device in the container is about to
 		 * gain some more devices, and we will enter a

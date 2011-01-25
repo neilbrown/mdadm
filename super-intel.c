@@ -5791,6 +5791,10 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 	map = get_imsm_map(dev, 0);
 
 	if (u->direction == R10_TO_R0) {
+		/* Number of failed disks must be half of initial disk number */
+		if (imsm_count_failed(super, dev) != (map->num_members / 2))
+			return 0;
+
 		/* iterate through devices to mark removed disks as spare */
 		for (dm = super->disks; dm; dm = dm->next) {
 			if (dm->disk.status & FAILED_DISK) {

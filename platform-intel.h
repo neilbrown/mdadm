@@ -115,6 +115,7 @@ static inline int imsm_orom_has_chunk(const struct imsm_orom *orom, int chunk)
 	return !!(orom->sss & (1 << (fs - 1)));
 }
 
+
 /**
  * fls - find last (most-significant) bit set
  * @x: the word to search
@@ -164,15 +165,30 @@ static inline int imsm_orom_default_chunk(const struct imsm_orom *orom)
 	return min(512, (1 << fs));
 }
 
+
+enum sys_dev_type {
+	SYS_DEV_UNKNOWN = 0,
+	SYS_DEV_SAS,
+	SYS_DEV_SATA,
+	SYS_DEV_MAX
+};
+
+
 struct sys_dev {
+	enum sys_dev_type type;
 	char *path;
+	char *pci_id;
 	struct sys_dev *next;
 };
 
+char *diskfd_to_devpath(int fd);
 struct sys_dev *find_driver_devices(const char *bus, const char *driver);
+struct sys_dev *find_intel_devices(void);
 __u16 devpath_to_vendor(const char *dev_path);
 void free_sys_dev(struct sys_dev **list);
 const struct imsm_orom *find_imsm_orom(void);
 int disk_attached_to_hba(int fd, const char *hba_path);
 char *devt_to_devpath(dev_t dev);
 int path_attached_to_hba(const char *disk_path, const char *hba_path);
+const char *get_sys_dev_type(enum sys_dev_type);
+

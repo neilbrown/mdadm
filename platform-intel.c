@@ -51,6 +51,14 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 	struct dirent *de;
 	struct sys_dev *head = NULL;
 	struct sys_dev *list = NULL;
+	enum sys_dev_type type;
+
+	if (strcmp(driver, "isci") == 0)
+		type = SYS_DEV_SAS;
+	else if (strcmp(driver, "ahci") == 0)
+		type = SYS_DEV_SATA;
+	else
+		type = SYS_DEV_UNKNOWN;
 
 	sprintf(path, "/sys/bus/%s/drivers/%s", bus, driver);
 	driver_dir = opendir(path);
@@ -74,6 +82,13 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		if (strncmp(bus, c+1, strlen(bus)) != 0)
 			continue;
 
+		sprintf(path, "/sys/bus/%s/drivers/%s/%s",
+			bus, driver, de->d_name);
+
+		/* if it's not Intel device skip it. */
+		if (devpath_to_vendor(path) != 0x8086)
+			continue;
+
 		/* start / add list entry */
 		if (!head) {
 			head = malloc(sizeof(*head));
@@ -88,11 +103,11 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 			break;
 		}
 
-		/* generate canonical path name for the device */
-		sprintf(path, "/sys/bus/%s/drivers/%s/%s",
-			bus, driver, de->d_name);
+		list->type = type;
 		list->path = canonicalize_file_name(path);
 		list->next = NULL;
+		if ((list->pci_id = strrchr(list->path, '/')) != NULL)
+			list->pci_id++;
 	}
 	closedir(driver_dir);
 	return head;
@@ -122,23 +137,34 @@ __u16 devpath_to_vendor(const char *dev_path)
 	return id;
 }
 
-static int platform_has_intel_ahci(void)
+struct sys_dev *find_intel_devices(void)
 {
-	struct sys_dev *devices = find_driver_devices("pci", "ahci");
-	struct sys_dev *dev;
-	int ret = 0;
+	struct sys_dev *ahci, *isci;
 
-	for (dev = devices; dev; dev = dev->next)
-		if (devpath_to_vendor(dev->path) == 0x8086) {
-			ret = 1;
-			break;
-		}
+	isci = find_driver_devices("pci", "isci");
+	ahci = find_driver_devices("pci", "ahci");
 
-	free_sys_dev(&devices);
-
-	return ret;
+	if (!ahci) {
+		ahci = isci;
+	} else {
+		struct sys_dev *elem = ahci;
+		while (elem->next)
+			elem = elem->next;
+		elem->next = isci;
+	}
+	return ahci;
 }
 
+static int platform_has_intel_devices(void)
+{
+	struct sys_dev *devices;
+	devices = find_intel_devices();
+	if (devices) {
+		free_sys_dev(&devices);
+		return 1;
+	}
+	return 0;
+}
 
 static struct imsm_orom imsm_orom;
 static int scan(const void *start, const void *end)
@@ -185,7 +211,7 @@ const struct imsm_orom *find_imsm_orom(void)
 		return &imsm_orom;
 	}
 
-	if (!platform_has_intel_ahci())
+	if (!platform_has_intel_devices())
 		return NULL;
 
 	/* scan option-rom memory looking for an imsm signature */
@@ -212,7 +238,7 @@ char *devt_to_devpath(dev_t dev)
 	return canonicalize_file_name(device);
 }
 
-static char *diskfd_to_devpath(int fd)
+char *diskfd_to_devpath(int fd)
 {
 	/* return the device path for a disk, return NULL on error or fd
 	 * refers to a partition
@@ -233,7 +259,7 @@ int path_attached_to_hba(const char *disk_path, const char *hba_path)
 
 	if (!disk_path || !hba_path)
 		return 0;
-
+	dprintf("hba: %s - disk: %s\n", hba_path, disk_path);
 	if (strncmp(disk_path, hba_path, strlen(hba_path)) == 0)
 		rc = 1;
 	else
@@ -263,4 +289,3 @@ int disk_attached_to_hba(int fd, const char *hba_path)
 
 	return rc;
 }
-

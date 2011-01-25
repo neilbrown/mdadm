@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 	int auto_update_home = 0;
 	char *subarray = NULL;
 	char *remove_path = NULL;
+	char *udev_filename = NULL;
 
 	int print_help = 0;
 	FILE *outf;
@@ -234,6 +235,7 @@ int main(int argc, char *argv[])
 				}
 				subarray = optarg;
 			}
+		case UdevRules:
 		case 'K': if (!mode) newmode = MISC; break;
 		case NoSharing: newmode = MONITOR; break;
 		}
@@ -929,6 +931,20 @@ int main(int argc, char *argv[])
 			}
 			devmode = opt;
 			continue;
+               case O(MISC, UdevRules):
+		       if (devmode && devmode != opt) {
+                               fprintf(stderr, Name ": --udev-rules must"
+				       " be the only option.\n");
+		       } else {
+			       if (udev_filename)
+				       fprintf(stderr, Name ": only specify one udev "
+					       "rule filename. %s ignored.\n",
+					       optarg);
+			       else
+				       udev_filename = optarg;
+		       }
+		       devmode = opt;
+		       continue;
 		case O(MISC,'t'):
 			test = 1;
 			continue;
@@ -1493,6 +1509,8 @@ int main(int argc, char *argv[])
 						free_mdstat(ms);
 					} while (!last && err);
 					if (err) rv |= 1;
+				} else if (devmode == UdevRules) {
+					rv = Write_rules(udev_filename);
 				} else {
 					fprintf(stderr, Name ": No devices given.\n");
 					exit(2);

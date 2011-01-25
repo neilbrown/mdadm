@@ -110,6 +110,7 @@ struct option long_options[] = {
     {"detail-platform", 0, 0, DetailPlatform},
     {"kill-subarray", 1, 0, KillSubarray},
     {"update-subarray", 1, 0, UpdateSubarray},
+    {"udev-rules", 2, 0, UdevRules},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},

@@ -311,6 +311,7 @@ enum special_options {
 	Bitmap,
 	RebuildMapOpt,
 	InvalidBackup,
+	UdevRules,
 };
 
 /* structures read from config file */
@@ -1061,6 +1062,7 @@ extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long long array_size,
 			int major);
 extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
+extern int Write_rules(char *rule_name);
 extern int bitmap_update_uuid(int fd, int *uuid, int swap);
 extern unsigned long bitmap_sectors(struct bitmap_super_s *bsb);
 

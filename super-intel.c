@@ -299,6 +299,7 @@ enum imsm_update_type {
 	update_rename_array,
 	update_add_remove_disk,
 	update_reshape_container_disks,
+	update_takeover
 };
 
 struct imsm_update_activate_spare {
@@ -319,6 +320,15 @@ struct geo_params {
 	int raid_disks;
 };
 
+enum takeover_direction {
+	R10_TO_R0,
+	R0_TO_R10
+};
+struct imsm_update_takeover {
+	enum imsm_update_type type;
+	int subarray;
+	enum takeover_direction direction;
+};
 
 struct imsm_update_reshape {
 	enum imsm_update_type type;
@@ -5758,6 +5768,58 @@ update_reshape_exit:
 	return ret_val;
 }
 
+static int apply_takeover_update(struct imsm_update_takeover *u,
+				 struct intel_super *super)
+{
+	struct imsm_dev *dev = NULL;
+	struct imsm_map *map;
+	struct dl *dm, *du;
+	struct intel_dev *dv;
+
+	for (dv = super->devlist; dv; dv = dv->next)
+		if (dv->index == (unsigned int)u->subarray) {
+			dev = dv->dev;
+			break;
+		}
+
+	if (dev == NULL)
+		return 0;
+
+	map = get_imsm_map(dev, 0);
+
+	if (u->direction == R10_TO_R0) {
+		/* iterate through devices to mark removed disks as spare */
+		for (dm = super->disks; dm; dm = dm->next) {
+			if (dm->disk.status & FAILED_DISK) {
+				int idx = dm->index;
+				/* update indexes on the disk list */
+/* FIXME this loop-with-the-loop looks wrong,  I'm not convinced
+   the index values will end up being correct.... NB */
+				for (du = super->disks; du; du = du->next)
+					if (du->index > idx)
+						du->index--;
+				/* mark as spare disk */
+				dm->disk.status = SPARE_DISK;
+				dm->index = -1;
+			}
+		}
+
+		/* update map */
+		map->num_members = map->num_members / 2;
+		map->map_state = IMSM_T_STATE_NORMAL;
+		map->num_domains = 1;
+		map->raid_level = 0;
+		map->failed_disk_num = -1;
+	}
+
+	/* update disk order table */
+	for (du = super->disks; du; du = du->next)
+		if (du->index >= 0)
+			set_imsm_ord_tbl_ent(map, du->index, du->index);
+
+	return 1;
+}
+
 static void imsm_process_update(struct supertype *st,
 			        struct metadata_update *update)
 {
@@ -5800,6 +5862,13 @@ static void imsm_process_update(struct supertype *st,
 	mpb = super->anchor;
 
 	switch (type) {
+	case update_takeover: {
+		struct imsm_update_takeover *u = (void *)update->buf;
+		if (apply_takeover_update(u, super))
+			super->updates_pending++;
+		break;
+	}
+
 	case update_reshape_container_disks: {
 		struct imsm_update_reshape *u = (void *)update->buf;
 		if (apply_reshape_container_disks_update(
@@ -6650,6 +6719,35 @@ analyse_change_exit:
 	return change;
 }
 
+int imsm_takeover(struct supertype *st, struct geo_params *geo)
+{
+	struct intel_super *super = st->sb;
+	struct imsm_update_takeover *u;
+
+	u = malloc(sizeof(struct imsm_update_takeover));
+	if (u == NULL)
+		return 1;
+
+	u->type = update_takeover;
+	u->subarray = super->current_vol;
+
+	/* 10->0 transition */
+	if (geo->level == 0)
+		u->direction = R10_TO_R0;
+
+	/* update metadata locally */
+	imsm_update_metadata_locally(st, u,
+					sizeof(struct imsm_update_takeover));
+	/* and possibly remotely */
+	if (st->update_tail)
+		append_metadata_update(st, u,
+					sizeof(struct imsm_update_takeover));
+	else
+		free(u);
+
+	return 0;
+}
+
 static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			      int layout, int chunksize, int raid_disks,
 			      char *backup, char *dev, int verbose)
@@ -6731,7 +6829,7 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 		change = imsm_analyze_change(st, &geo);
 		switch (change) {
 		case CH_TAKEOVER:
-			ret_val = 0;
+			ret_val = imsm_takeover(st, &geo);
 			break;
 		case CH_CHUNK_MIGR:
 			ret_val = 0;

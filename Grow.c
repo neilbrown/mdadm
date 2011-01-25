@@ -1868,19 +1868,23 @@ started:
 
 	sra->new_chunk = info->new_chunk;
 
-	sra->reshape_progress = 0;
-	if (reshape.after.data_disks < reshape.before.data_disks)
-		/* start from the end of the new array */
-		sra->reshape_progress = (sra->component_size
-					 * reshape.after.data_disks);
-	
 	if (info->reshape_active)
 		sra->reshape_progress = info->reshape_progress;
-	else if (info->array.chunk_size == info->new_chunk &&
+	else {
+		sra->reshape_progress = 0;
+		if (reshape.after.data_disks < reshape.before.data_disks)
+			/* start from the end of the new array */
+			sra->reshape_progress = (sra->component_size
+						 * reshape.after.data_disks);
+	}
+
+	if (info->array.chunk_size == info->new_chunk &&
 	    reshape.before.layout == reshape.after.layout &&
 	    st->ss->external == 0) {
+		/* use SET_ARRAY_INFO but only if reshape hasn't started */
 		array.raid_disks = reshape.after.data_disks + reshape.parity;
-		if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+		if (!info->reshape_active &&
+		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 			int err = errno;
 
 			fprintf(stderr,
@@ -1897,7 +1901,10 @@ started:
 		}
 	} else {
 		/* set them all just in case some old 'new_*' value
-		 * persists from some earlier problem
+		 * persists from some earlier problem.
+		 * We even set them when restarting in the middle.  They will
+		 * already be set in that case so this will be a no-op,
+		 * but it is hard to tell the difference.
 		 */
 		int err = 0;
 		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)

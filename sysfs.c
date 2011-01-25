@@ -569,6 +569,15 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 
 	if (info->array.level > 0)
 		rv |= sysfs_set_num(info, NULL, "resync_start", info->resync_start);
+
+	if (info->reshape_active) {
+		rv |= sysfs_set_num(info, NULL, "reshape_position",
+				    info->reshape_progress);
+		rv |= sysfs_set_num(info, NULL, "chunk_size", info->new_chunk);
+		/* Don't set layout or raid_disks here as they require some
+		 * analysis and are set by reshape_array 
+		 */
+	}
 	return rv;
 }
 

@@ -6735,6 +6735,10 @@ int imsm_takeover(struct supertype *st, struct geo_params *geo)
 	if (geo->level == 0)
 		u->direction = R10_TO_R0;
 
+	/* 0->10 transition */
+	if (geo->level == 10)
+		u->direction = R0_TO_R10;
+
 	/* update metadata locally */
 	imsm_update_metadata_locally(st, u,
 					sizeof(struct imsm_update_takeover));

@@ -5769,12 +5769,15 @@ update_reshape_exit:
 }
 
 static int apply_takeover_update(struct imsm_update_takeover *u,
-				 struct intel_super *super)
+				 struct intel_super *super,
+				 void ***space_list)
 {
 	struct imsm_dev *dev = NULL;
+	struct intel_dev *dv;
+	struct imsm_dev *dev_new;
 	struct imsm_map *map;
 	struct dl *dm, *du;
-	struct intel_dev *dv;
+	int i;
 
 	for (dv = super->devlist; dv; dv = dv->next)
 		if (dv->index == (unsigned int)u->subarray) {
@@ -5803,7 +5806,6 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 				dm->index = -1;
 			}
 		}
-
 		/* update map */
 		map->num_members = map->num_members / 2;
 		map->map_state = IMSM_T_STATE_NORMAL;
@@ -5812,10 +5814,59 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 		map->failed_disk_num = -1;
 	}
 
+	if (u->direction == R0_TO_R10) {
+		void **space;
+		/* update slots in current disk list */
+		for (dm = super->disks; dm; dm = dm->next) {
+			if (dm->index >= 0)
+				dm->index *= 2;
+		}
+		/* create new *missing* disks */
+		for (i = 0; i < map->num_members; i++) {
+			space = *space_list;
+			if (!space)
+				continue;
+			*space_list = *space;
+			du = (void *)space;
+			memcpy(du, super->disks, sizeof(*du));
+			du->disk.status = FAILED_DISK;
+			du->disk.scsi_id = 0;
+			du->fd = -1;
+			du->minor = 0;
+			du->major = 0;
+			du->index = (i * 2) + 1;
+			sprintf((char *)du->disk.serial,
+				" MISSING_%d", du->index);
+			sprintf((char *)du->serial,
+				"MISSING_%d", du->index);
+			du->next = super->missing;
+			super->missing = du;
+		}
+		/* create new dev and map */
+		space = *space_list;
+		if (!space)
+			return 0;
+		*space_list = *space;
+		dev_new = (void *)space;
+		memcpy(dev_new, dev, sizeof(*dev));
+		/* update new map */
+		map = get_imsm_map(dev_new, 0);
+		map->failed_disk_num = map->num_members;
+		map->num_members = map->num_members * 2;
+		map->map_state = IMSM_T_STATE_NORMAL;
+		map->num_domains = 2;
+		map->raid_level = 1;
+		/* replace dev<->dev_new */
+		dv->dev = dev_new;
+	}
 	/* update disk order table */
 	for (du = super->disks; du; du = du->next)
 		if (du->index >= 0)
 			set_imsm_ord_tbl_ent(map, du->index, du->index);
+	for (du = super->missing; du; du = du->next)
+		if (du->index >= 0)
+			set_imsm_ord_tbl_ent(map, du->index,
+						du->index | IMSM_ORD_REBUILD);
 
 	return 1;
 }
@@ -5864,7 +5915,7 @@ static void imsm_process_update(struct supertype *st,
 	switch (type) {
 	case update_takeover: {
 		struct imsm_update_takeover *u = (void *)update->buf;
-		if (apply_takeover_update(u, super))
+		if (apply_takeover_update(u, super, &update->space_list))
 			super->updates_pending++;
 		break;
 	}

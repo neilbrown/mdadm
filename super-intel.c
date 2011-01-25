@@ -6622,34 +6622,33 @@ static char disk_by_path[] = "/dev/disk/by-path/";
 
 static const char *imsm_get_disk_controller_domain(const char *path)
 {
-	struct sys_dev *list, *hba = NULL;
 	char disk_path[PATH_MAX];
-	int ahci = 0;
-	char *dpath = NULL;
+	char *drv=NULL;
+	struct stat st;
 
-	list = find_driver_devices("pci", "ahci");
-	for (hba = list; hba; hba = hba->next)
-		if (devpath_to_vendor(hba->path) == 0x8086)
-			break;
+	strncpy(disk_path, disk_by_path, PATH_MAX - 1);
+	strncat(disk_path, path, PATH_MAX - strlen(disk_path) - 1);
+	if (stat(disk_path, &st) == 0) {
+		struct sys_dev* hba;
+		char *path=NULL;
 
-	if (hba) {
-		struct stat st;
-
-		strncpy(disk_path, disk_by_path, PATH_MAX - 1);
-		strncat(disk_path, path, PATH_MAX - strlen(disk_path) - 1);
-		if (stat(disk_path, &st) == 0) {
-			dpath = devt_to_devpath(st.st_rdev);
-			if (dpath)
-				ahci = path_attached_to_hba(dpath, hba->path);
-		}
+		path = devt_to_devpath(st.st_rdev);
+		if (path == NULL)
+			return "unknown";
+		hba = find_disk_attached_hba(-1, path);
+		if (hba && hba->type == SYS_DEV_SAS)
+			drv = "isci";
+		else if (hba && hba->type == SYS_DEV_SATA)
+			drv = "ahci";
+		else 
+			drv = "unknown";
+		dprintf("path: %s hba: %s attached: %s\n",
+			path, (hba) ? hba->path : "NULL", drv);
+		free(path);
+		if (hba)
+			free_sys_dev(&hba);
 	}
-	dprintf("path: %s(%s) hba: %s attached: %d\n",
-		path, dpath, (hba) ? hba->path : "NULL", ahci);
-	free_sys_dev(&list);
-	if (ahci)
-		return "ahci";
-	else
-		return NULL;
+	return drv;
 }
 
 static int imsm_find_array_minor_by_subdev(int subdev, int container, int *minor)

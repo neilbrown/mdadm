@@ -1950,7 +1950,12 @@ started:
 		}
 	}
 
-	start_reshape(sra);
+	err = start_reshape(sra);
+	if (err) {
+		fprintf(stderr, Name ": Cannot start reshape for %s\n",
+			devname);
+		goto release;
+	}
 	if (restart)
 		sysfs_set_str(sra, NULL, "array_state", "active");
 

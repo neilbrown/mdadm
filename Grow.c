@@ -2425,6 +2425,17 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 				  action, 20) <= 0 ||
 		    strncmp(action, "reshape", 7) != 0)
 			break;
+		/* Some kernels reset 'sync_completed' to zero
+		 * before setting 'sync_action' to 'idle'.
+		 * So we need these extra tests.
+		 */
+		if (completed == 0 && advancing
+		    && info->reshape_progress > 0)
+			break;
+		if (completed == 0 && !advancing
+		    && info->reshape_progress < (info->component_size
+						 * reshape->after.data_disks))
+			break;
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
 		select(fd+1, NULL, NULL, &rfds, NULL);

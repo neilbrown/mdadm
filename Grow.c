@@ -1632,6 +1632,12 @@ static int reshape_array(char *container, int fd, char *devname,
 			return 0;
 		goto started;
 	}
+	/* The container is frozen but the array may not be.
+	 * So freeze the array so spares don't get put to the wrong use
+	 * FIXME there should probably be a cleaner separation between
+	 * freeze_array and freeze_container.
+	 */
+	sysfs_freeze_array(info);
 	spares_needed = max(reshape.before.data_disks,
 			    reshape.after.data_disks)
 		+ reshape.parity - array.raid_disks;

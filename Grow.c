@@ -1657,14 +1657,14 @@ static int reshape_array(char *container, int fd, char *devname,
 			fprintf(stderr, Name ": level of %s changed to %s\n",
 				devname, c);	
 		orig_level = info->array.level;
-	}
 
-	if (reshape.level > 0 && st->ss->external &&
-	    !mdmon_running(st->container_dev)) {
-		start_mdmon(st->container_dev);
-		ping_monitor(container);
+		if (reshape.level > 0 && st->ss->external) {
+			/* make sure mdmon is aware of the new level */
+			if (!mdmon_running(st->container_dev))
+				start_mdmon(st->container_dev);
+			ping_monitor(container);
+		}
 	}
-
 	/* ->reshape_super might have chosen some spares from the
 	 * container that it wants to be part of the new array.
 	 * We can collect them with ->container_content and give

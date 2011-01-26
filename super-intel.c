@@ -6700,7 +6700,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 		dprintf("imsm: checking device_num: %i\n",
 			member->container_member);
 
-		if (geo->raid_disks < member->array.raid_disks) {
+		if (geo->raid_disks <= member->array.raid_disks) {
 			/* we work on container for Online Capacity Expansion
 			 * only so raid_disks has to grow
 			 */

@@ -653,15 +653,20 @@ void abort_reshape(struct mdinfo *sra)
 	sysfs_set_str(sra, NULL, "sync_max", "max");
 }
 
-int remove_disks_on_raid10_to_raid0_takeover(struct supertype *st,
-					     struct mdinfo *sra,
-					     int layout)
+int remove_disks_for_takeover(struct supertype *st,
+			      struct mdinfo *sra,
+			      int layout)
 {
 	int nr_of_copies;
 	struct mdinfo *remaining;
 	int slot;
 
-	nr_of_copies = layout & 0xff;
+	if (sra->array.level == 10)
+		nr_of_copies = layout & 0xff;
+	else if (sra->array.level == 1)
+		nr_of_copies = sra->array.raid_disks;
+	else
+		return 1;
 
 	remaining = sra->devs;
 	sra->devs = NULL;
@@ -913,8 +918,18 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	switch (info->array.level) {
 	case 1:
 		/* RAID1 can convert to RAID1 with different disks, or
-		 * raid5 with 2 disks
+		 * raid5 with 2 disks, or
+		 * raid0 with 1 disk
 		 */
+		if (info->new_level == 0) {
+			re->level = 0;
+			re->before.data_disks = 1;
+			re->after.data_disks = 1;
+			re->before.layout = 0;
+			re->backup_blocks = 0;
+			re->parity = 0;
+			return NULL;
+		}
 		if (info->new_level == 1) {
 			if (info->delta_disks == UnSet)
 				/* Don't know what to do */
@@ -1450,15 +1465,17 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			size = array.size;
 	}
 
-	/* ========= check for Raid10 -> Raid0 conversion ===============
+	/* ========= check for Raid10/Raid1 -> Raid0 conversion ===============
 	 * current implementation assumes that following conditions must be met:
-	 * - far_copies == 1
-	 * - near_copies == 2
+	 * - RAID10:
+	 * 	- far_copies == 1
+	 * 	- near_copies == 2
 	 */
-	if (level == 0 && array.level == 10 && sra &&
-	    array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) {
+	if ((level == 0 && array.level == 10 && sra &&
+	    array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) ||
+	    (level == 0 && array.level == 1 && sra)) {
 		int err;
-		err = remove_disks_on_raid10_to_raid0_takeover(st, sra, array.layout);
+		err = remove_disks_for_takeover(st, sra, array.layout);
 		if (err) {
 			dprintf(Name": Array cannot be reshaped\n");
 			if (cfd > -1)

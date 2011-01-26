@@ -946,6 +946,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		    info->new_level == 5) {
 			re->level = 5;
 			re->before.data_disks = 1;
+			re->after.data_disks = 1;
 			re->before.layout = ALGORITHM_LEFT_SYMMETRIC;
 			info->array.chunk_size = 65536;
 			break;

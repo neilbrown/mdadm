@@ -2468,6 +2468,12 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			goto check_progress;
 		}
 	}
+	/* Some kernels reset 'sync_completed' to zero,
+	 * we need to have real point we are in md
+	 */
+	if (completed == 0)
+		completed = max_progress;
+
 	/* some kernels can give an incorrectly high 'completed' number */
 	completed /= (info->new_chunk/512);
 	completed *= (info->new_chunk/512);

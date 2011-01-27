@@ -719,7 +719,9 @@ int remove_disks_for_takeover(struct supertype *st,
 
 		sysfs_set_str(sra, sd, "state", "faulty");
 		sysfs_set_str(sra, sd, "slot", "none");
-		sysfs_set_str(sra, sd, "state", "remove");
+		/* for external metadata disks should be removed in mdmon */
+		if (!st->ss->external)
+			sysfs_set_str(sra, sd, "state", "remove");
 		sd->disk.state |= (1<<MD_DISK_REMOVED);
 		sd->disk.state &= ~(1<<MD_DISK_SYNC);
 		sd->next = sra->devs;

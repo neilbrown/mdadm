@@ -935,9 +935,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				/* Don't know what to do */
 				return "no change requested for Growing RAID1";
 			re->level = 1;
-			re->before.data_disks = (info->array.raid_disks +
-						 info->delta_disks);
-			re->before.layout = 0;
 			re->backup_blocks = 0;
 			re->parity = 0;
 			return NULL;
@@ -1096,8 +1093,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			if (info->array.raid_disks != 2)
 				return "Can only convert a 2-device array to RAID1";
 			re->level = 1;
-			re->before.data_disks = 2;
-			re->before.layout = 0;
 			break;
 		default:
 			return "Impossible level change requested";
@@ -1642,7 +1637,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		+ reshape.parity - array.raid_disks;
 
 	if (!force &&
-	    info->new_level > 0 &&
+	    info->new_level > 1 &&
 	    spares_needed > info->array.spare_disks) {
 		fprintf(stderr,
 			Name ": Need %d spare%s to avoid degraded array,"

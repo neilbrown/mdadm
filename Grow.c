@@ -1716,35 +1716,44 @@ static int reshape_array(char *container, int fd, char *devname,
 		/* No restriping needed, but we might need to impose
 		 * some more changes: layout, raid_disks, chunk_size
 		 */
+		/* read current array info */
+		if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+			dprintf("Canot get array information.\n");
+			goto release;
+		}
+		/* compare current array info with new values and if
+		 * it is different update them to new */
 		if (info->new_layout != UnSet &&
-		    info->new_layout != info->array.layout) {
-			info->array.layout = info->new_layout;
-			if (ioctl(fd, SET_ARRAY_INFO, &info->array) != 0) {
+		    info->new_layout != array.layout) {
+			array.layout = info->new_layout;
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 				fprintf(stderr, Name ": failed to set new layout\n");
 				goto release;
 			} else if (!quiet)
 				printf("layout for %s set to %d\n",
-				       devname, info->array.layout);
+				       devname, array.layout);
 		}
 		if (info->delta_disks != UnSet &&
-		    info->delta_disks != 0) {
-			info->array.raid_disks += info->delta_disks;
-			if (ioctl(fd, SET_ARRAY_INFO, &info->array) != 0) {
+		    info->delta_disks != 0 &&
+		    array.raid_disks != (info->array.raid_disks + info->delta_disks)) {
+			array.raid_disks += info->delta_disks;
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 				fprintf(stderr, Name ": failed to set raid disks\n");
 				goto release;
-			} else if (!quiet)
+			} else if (!quiet) {
 				printf("raid_disks for %s set to %d\n",
-				       devname, info->array.raid_disks);
+				       devname, array.raid_disks);
+			}
 		}
 		if (info->new_chunk != 0 &&
-		    info->new_chunk != info->array.chunk_size) {
+		    info->new_chunk != array.chunk_size) {
 			if (sysfs_set_num(info, NULL,
 					  "chunk_size", info->new_chunk) != 0) {
 				fprintf(stderr, Name ": failed to set chunk size\n");
 				goto release;
 			} else if (!quiet)
 				printf("chunk size for %s set to %d\n",
-				       devname, info->array.chunk_size);
+				       devname, array.chunk_size);
 		}
 		unfreeze(st);
 		return 0;

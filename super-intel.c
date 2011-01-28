@@ -2687,6 +2687,11 @@ static void free_imsm_disks(struct intel_super *super)
 		super->disks = d->next;
 		__free_imsm_disk(d);
 	}
+	while (super->disk_mgmt_list) {
+		d = super->disk_mgmt_list;
+		super->disk_mgmt_list = d->next;
+		__free_imsm_disk(d);
+	}
 	while (super->missing) {
 		d = super->missing;
 		super->missing = d->next;

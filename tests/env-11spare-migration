@@ -1,9 +1,11 @@
 setup_env() {
        export IMSM_DEVNAME_AS_SERIAL=1
        export IMSM_TEST_OROM=1
+       export IMSM_NO_PLATFORM=1
        }
 
 reset_env() {
        unset IMSM_DEVNAME_AS_SERIAL
        unset IMSM_TEST_OROM
+       unset IMSM_NO_PLATFORM
 }

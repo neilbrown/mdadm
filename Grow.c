@@ -832,7 +832,7 @@ int reshape_open_backup_file(char *backup_file,
 	}
 
 	memset(buf, 0, 512);
-	for (i=0; i < blocks + 1 ; i++) {
+	for (i=0; i < blocks + 8 ; i++) {
 		if (write(*fdlist, buf, 512) != 512) {
 			fprintf(stderr, Name ": %s: cannot create"
 				" backup file %s: %s\n",

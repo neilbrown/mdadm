@@ -1914,6 +1914,7 @@ started:
 	    reshape.before.layout == reshape.after.layout &&
 	    st->ss->external == 0) {
 		/* use SET_ARRAY_INFO but only if reshape hasn't started */
+		ioctl(fd, GET_ARRAY_INFO, &array);
 		array.raid_disks = reshape.after.data_disks + reshape.parity;
 		if (!info->reshape_active &&
 		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {

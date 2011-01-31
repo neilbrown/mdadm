@@ -1330,6 +1330,11 @@ The device name given should be a kernel device name such as "sda",
 not a name in
 .IR /dev .
 
+.TP
+.BR \-\-path=
+Only used with \-\-fail. Allows the failed device to be automatically replaced
+by a new device without metadata if it appears at specified path.
+
 .SH For Monitor mode:
 .TP
 .BR \-m ", " \-\-mail
@@ -1400,6 +1405,18 @@ Generate a
 alert for every array found at startup.  This alert gets mailed and
 passed to the alert program.  This can be used for testing that alert
 message do get through successfully.
+
+.TP
+.BR \-\-no\-sharing
+Allows to run monitoring without moving spares between arrays.
+Only one monitoring process started with
+.B \-\-scan
+is allowed.
+Any subsequent call of
+.B mdadm \-F \-\-scan
+must also use
+.B \-\-no\-sharing
+option.
 
 .SH ASSEMBLE MODE
 
@@ -1951,6 +1968,8 @@ As well as reporting events,
 may move a spare drive from one array to another if they are in the
 same
 .B spare-group
+or
+.B domain
 and if the destination array has a failed drive but no spares.
 
 If any devices are listed on the command line,
@@ -2057,6 +2076,8 @@ notices that an array is degraded when it first sees the array.
 .B MoveSpare
 A spare drive has been moved from one array in a
 .B spare-group
+or
+.B domain
 to another to allow a failed drive to be replaced.
 (syslog priority: Info)
 
@@ -2109,6 +2130,7 @@ For
 to move spares from one array to another, the different arrays need to
 be labeled with the same
 .B spare-group
+or the spares must be allowed to migrate through matching POLICY domains
 in the configuration file.  The
 .B spare-group
 name can be any string; it is only necessary that different spare
@@ -2124,6 +2146,12 @@ attempt to remove the spare from the second drive and add it to the
 first.
 If the removal succeeds but the adding fails, then it is added back to
 the original array.
+
+If the spare group for a degraded array is not defined,
+.I mdadm
+will look at the rules of spare migration specified by POLICY lines in
+.B /etc/mdadm.conf
+and then follow similar steps as above if a matching spare is found.
 
 .SH GROW MODE
 The GROW mode is used for changing the size or shape of an active
@@ -2307,9 +2335,10 @@ adds the device to the array and conditionally starts the array.
 
 Note that
 .I mdadm
-will only add devices to an array which were previously working
-(active or spare) parts of that array.  It does not currently support
-automatic inclusion of a new drive as a spare in some array.
+will always add devices to an array which were previously working
+(active or spare) parts of that array. The support for automatic
+inclusion of a new drive as a spare in some array requires
+a configuration through POLICY in config file.
 
 The tests that
 .I mdadm
@@ -2341,7 +2370,8 @@ then only that style of metadata is accepted, otherwise
 .I mdadm
 finds any known version of metadata.  If no
 .I md
-metadata is found, the device is rejected.
+metadata is found, the device may be still added to an array
+as a spare if POLICY allows.
 
 .ig
 .IP +

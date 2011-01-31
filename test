@@ -127,14 +127,14 @@ check() {
 
      nosync )
        sleep 0.5
-       if grep -s -E '(resync|recovery|reshape) =' > /dev/null /proc/mdstat ; then
+       if grep -s -E '(resync|recovery|reshape) *=' > /dev/null /proc/mdstat ; then
 		echo >&2 "ERROR resync or recovery is happening!"; cat /proc/mdstat ; exit 1;
        fi
      ;;
 
     wait )
       sleep 0.1
-      while grep -E '(resync|recovery|reshape|check|repair) =' > /dev/null /proc/mdstat
+      while grep -E '(resync|recovery|reshape|check|repair) *=' > /dev/null /proc/mdstat
       do sleep 2;
       done
       ;;

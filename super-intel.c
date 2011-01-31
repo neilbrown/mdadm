@@ -2471,6 +2471,7 @@ static int parse_raid_devices(struct intel_super *super)
 	int i;
 	struct imsm_dev *dev_new;
 	size_t len, len_migr;
+	size_t max_len = 0;
 	size_t space_needed = 0;
 	struct imsm_super *mpb = super->anchor;
 
@@ -2486,7 +2487,11 @@ static int parse_raid_devices(struct intel_super *super)
 		dv = malloc(sizeof(*dv));
 		if (!dv)
 			return 1;
-		dev_new = malloc(len_migr);
+		if (max_len < len_migr)
+			max_len = len_migr;
+		if (max_len > len_migr)
+			space_needed += max_len - len_migr;
+		dev_new = malloc(max_len);
 		if (!dev_new) {
 			free(dv);
 			return 1;

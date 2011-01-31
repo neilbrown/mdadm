@@ -2945,6 +2945,8 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 				if (offset < suspend_point/data)
 					break;
 			}
+			if (actual_stripes == 0)
+				break;
 			grow_backup(sra, offset, actual_stripes,
 				    fds, offsets,
 				    disks, chunk, level, layout,

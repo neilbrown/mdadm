@@ -5062,6 +5062,7 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 	struct imsm_super *mpb = super->anchor;
 	int prev_disks = -1;
 	int i;
+	int copy_map_size;
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
@@ -5082,6 +5083,7 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 		 * i.e it needs a migr_state
 		 */
 
+		copy_map_size = sizeof_imsm_map(map);
 		prev_num_members = map->num_members;
 		map->num_members = prev_disks;
 		dev->vol.migr_state = 1;
@@ -5092,7 +5094,7 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 			set_imsm_ord_tbl_ent(map, i, i);
 		map2 = get_imsm_map(dev, 1);
 		/* Copy the current map */
-		memcpy(map2, map, sizeof_imsm_map(map));
+		memcpy(map2, map, copy_map_size);
 		map2->num_members = prev_num_members;
 
 		/* calculate new size

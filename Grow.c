@@ -2429,6 +2429,9 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	/* Round to chunk size as some kernels give an erroneously high number */
 	max_progress /= info->new_chunk/512;
 	max_progress *= info->new_chunk/512;
+	/* And round to old chunk size as the kernel wants that */
+	max_progress /= info->array.chunk_size/512;
+	max_progress *= info->array.chunk_size/512;
 	/* Limit progress to the whole device */
 	if (max_progress > info->component_size)
 		max_progress = info->component_size;

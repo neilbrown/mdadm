@@ -564,7 +564,10 @@ int Assemble(struct supertype *st, char *mddev,
 	}
 
 	/* Check if we found some imsm spares but no members */
-	if (auto_assem && (!st || !st->sb))
+	if ((auto_assem ||
+	     (ident->uuid_set &&
+	      memcmp(uuid_zero, ident->uuid,sizeof(uuid_zero)) == 0)) &&
+	    (!st || !st->sb))
 		for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
 			if (tmpdev->used != 3)
 				continue;

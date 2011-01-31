@@ -5848,6 +5848,7 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 	int devices_to_reshape = 1;
 	struct imsm_super *mpb = super->anchor;
 	int ret_val = 0;
+	unsigned int dev_id;
 
 	dprintf("imsm: imsm_process_update() for update_reshape\n");
 
@@ -5877,11 +5878,17 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		" mpb->num_raid_devs = %i\n", mpb->num_raid_devs);
 	/* manage changes in volume
 	 */
-	for (id = super->devlist ; id; id = id->next) {
+	for (dev_id = 0; dev_id < mpb->num_raid_devs; dev_id++) {
 		void **sp = *space_list;
 		struct imsm_dev *newdev;
 		struct imsm_map *newmap, *oldmap;
 
+		for (id = super->devlist ; id; id = id->next) {
+			if (id->index == dev_id)
+				break;
+		}
+		if (id == NULL)
+			break;
 		if (!sp)
 			continue;
 		*space_list = *sp;

@@ -627,18 +627,17 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 	return rc;
 }
 
-int start_reshape(struct mdinfo *sra)
+int start_reshape(struct mdinfo *sra, int already_running)
 {
 	int err;
 	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
 	err = sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	err = err ?: sysfs_set_num(sra, NULL, "suspend_lo", 0);
-	/* Setting sync_min can fail if the recovery is already 'running',
-	 * which can happen when restarting an array which is reshaping.
-	 * So don't worry about errors here */
-	sysfs_set_num(sra, NULL, "sync_min", 0);
+	if (!already_running)
+		sysfs_set_num(sra, NULL, "sync_min", 0);
 	err = err ?: sysfs_set_num(sra, NULL, "sync_max", 0);
-	err = err ?: sysfs_set_str(sra, NULL, "sync_action", "reshape");
+	if (!already_running)
+		err = err ?: sysfs_set_str(sra, NULL, "sync_action", "reshape");
 
 	return err;
 }
@@ -1967,7 +1966,7 @@ started:
 		}
 	}
 
-	err = start_reshape(sra);
+	err = start_reshape(sra, (info->reshape_active && !st->ss->external));
 	if (err) {
 		fprintf(stderr, Name ": Cannot start reshape for %s\n",
 			devname);

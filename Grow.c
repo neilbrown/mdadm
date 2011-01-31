@@ -1838,7 +1838,9 @@ started:
 
 	/* Now we need to open all these devices so we can read/write.
 	 */
-	nrdisks = array.raid_disks + sra->array.spare_disks;
+	nrdisks = max(reshape.before.data_disks,
+		      reshape.after.data_disks) + reshape.parity
+		+ sra->array.spare_disks;
 	fdlist = malloc((1+nrdisks) * sizeof(int));
 	offsets = malloc((1+nrdisks) * sizeof(offsets[0]));
 	if (!fdlist || !offsets) {
@@ -1846,7 +1848,8 @@ started:
 		goto release;
 	}
 
-	d = reshape_prepare_fdlist(devname, sra, array.raid_disks,
+	odisks = reshape.before.data_disks + reshape.parity;
+	d = reshape_prepare_fdlist(devname, sra, odisks,
 				   nrdisks, blocks, backup_file,
 				   fdlist, offsets);
 	if (d < 0) {
@@ -1997,8 +2000,6 @@ started:
 	else
 		fd = -1;
 	mlockall(MCL_FUTURE);
-
-	odisks = reshape.before.data_disks + reshape.parity;
 
 	if (st->ss->external) {
 		/* metadata handler takes it from here */

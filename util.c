@@ -295,6 +295,19 @@ int test_partition(int fd)
 	return 1;
 }
 
+int test_partition_from_id(dev_t id)
+{
+	char buf[20];
+	int fd, rv;
+
+	sprintf(buf, "%d:%d", major(id), minor(id));
+	fd = dev_open(buf, O_RDONLY);
+	if (fd < 0)
+		return -1;
+	rv = test_partition(fd);
+	close(fd);
+	return rv;
+}
 
 int enough(int level, int raid_disks, int layout, int clean,
 	   char *avail, int avail_disks)

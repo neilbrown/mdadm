@@ -765,6 +765,10 @@ static dev_t choose_spare(struct state *from, struct state *to,
 			struct dev_policy *pol;
 			unsigned long long dev_size;
 
+			if (to->metadata->ss->external &&
+			    test_partition_from_id(from->devid[d]))
+				continue;
+
 			if (min_size &&
 			    dev_size_from_id(from->devid[d], &dev_size) &&
 			    dev_size < min_size)

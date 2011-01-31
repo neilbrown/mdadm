@@ -1019,11 +1019,13 @@ static unsigned long choose_bm_space(unsigned long devsize)
 	return 4*2;
 }
 
+static void free_super1(struct supertype *st);
+
 #ifndef MDASSEMBLE
 static int write_init_super1(struct supertype *st)
 {
 	struct mdp_superblock_1 *sb = st->sb;
-	struct supertype refst;
+	struct supertype *refst;
 	int rfd;
 	int rv = 0;
 	unsigned long long bm_space;
@@ -1055,10 +1057,9 @@ static int write_init_super1(struct supertype *st)
 
 		sb->events = 0;
 
-		refst =*st;
-		refst.sb = NULL;
-		if (load_super1(&refst, di->fd, NULL)==0) {
-			struct mdp_superblock_1 *refsb = refst.sb;
+		refst = dup_super(st);
+ 		if (load_super1(refst, di->fd, NULL)==0) {
+			struct mdp_superblock_1 *refsb = refst->sb;
 
 			memcpy(sb->device_uuid, refsb->device_uuid, 16);
 			if (memcmp(sb->set_uuid, refsb->set_uuid, 16)==0) {
@@ -1071,8 +1072,9 @@ static int write_init_super1(struct supertype *st)
 				if (get_linux_version() >= 2006018)
 					sb->dev_number = refsb->dev_number;
 			}
-			free(refsb);
+			free_super1(refst);
 		}
+		free(refst);
 
 		if (!get_dev_size(di->fd, NULL, &dsize))
 			return 1;
@@ -1206,8 +1208,6 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 		return 3;
 	return 0;
 }
-
-static void free_super1(struct supertype *st);
 
 static int load_super1(struct supertype *st, int fd, char *devname)
 {

@@ -823,7 +823,6 @@ int Create(struct supertype *st, char *mddev,
 						Name ": ADD_NEW_DISK for %s "
 						"failed: %s\n",
 						dv->devname, strerror(errno));
-					st->ss->free_super(st);
 					goto abort;
 				}
 				break;
@@ -866,10 +865,10 @@ int Create(struct supertype *st, char *mddev,
 			map_unlock(&map);
 
 			flush_metadata_updates(st);
+			st->ss->free_super(st);
 		}
 	}
 	free(infos);
-	st->ss->free_super(st);
 
 	if (level == LEVEL_CONTAINER) {
 		/* No need to start.  But we should signal udev to

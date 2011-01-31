@@ -1931,6 +1931,11 @@ started:
 
 			goto release;
 		}
+	} else if (info->reshape_active && !st->ss->external) {
+		/* We don't need to set anything here for internal
+		 * metadata, and for kernels before 2.6.38 we can
+		 * fail if we try.
+		 */
 	} else {
 		/* set them all just in case some old 'new_*' value
 		 * persists from some earlier problem.

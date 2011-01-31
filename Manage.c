@@ -858,6 +858,7 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name ": add failed for %s:"
 						" could not get exclusive access to container\n",
 						dv->devname);
+					tst->ss->free_super(tst);
 					return 1;
 				}
 
@@ -866,6 +867,7 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name ": add failed for %s: sysfs_read failed\n",
 						dv->devname);
 					close(container_fd);
+					tst->ss->free_super(tst);
 					return 1;
 				}
 				sra->array.level = LEVEL_CONTAINER;
@@ -887,14 +889,16 @@ int Manage_subdevs(char *devname, int fd,
 				ping_monitor(devnum2devname(devnum));
 				sysfs_free(sra);
 				close(container_fd);
-			} else if (ioctl(fd, ADD_NEW_DISK, &disc)) {
-				fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
-					dv->devname, j, strerror(errno));
-				return 1;
+			} else {
+				tst->ss->free_super(tst);
+				if (ioctl(fd, ADD_NEW_DISK, &disc)) {
+					fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
+						dv->devname, j, strerror(errno));
+					return 1;
+				}
 			}
 			if (verbose >= 0)
 				fprintf(stderr, Name ": added %s\n", dv->devname);
-			tst->ss->free_super(tst);
 			break;
 
 		case 'r':

@@ -5249,13 +5249,17 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		super->updates_pending++;
 	}
 
-	/* finalize online capacity expansion/reshape */
+	/* manage online capacity expansion/reshape */
 	if ((a->curr_action != reshape) &&
 	    (a->prev_action == reshape)) {
 		struct mdinfo *mdi;
 
+		/* finalize online capacity expansion/reshape */
 		for (mdi = a->info.devs; mdi; mdi = mdi->next)
 			imsm_set_disk(a, mdi->disk.raid_disk, mdi->curr_state);
+
+		/* check next volume reshape */
+		imsm_progress_container_reshape(super);
 	}
 
 	return consistent;

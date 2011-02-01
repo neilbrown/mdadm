@@ -5187,7 +5187,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 				int used_disks;
 				struct mdinfo *mdi;
 
-				used_disks = imsm_num_data_members(dev, -1);
+				used_disks = imsm_num_data_members(dev, 0);
 				if (used_disks > 0) {
 					array_blocks =
 						map->blocks_per_member *

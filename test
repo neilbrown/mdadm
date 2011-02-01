@@ -211,7 +211,7 @@ do
    echo -ne "$script... "
    if ( set -ex ; . $script )  2> $targetdir/log
    then echo "succeeded"
-   else echo "FAILED"
+   else echo "FAILED - see $targetdir/log for details"
        exit 1
    fi
   fi

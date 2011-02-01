@@ -420,16 +420,16 @@ The known metadata types are
 
 .TP
 .B POLICY
-Allows to specify what automatic behavior is allowed on devices newly
-appearing in the system and provides a way of marking spares that can
-be moved to other array as well as the migration domains.
+This is used to specify what automatic behavior is allowed on devices 
+newly appearing in the system and provides a way of marking spares that can
+be moved to other arrays as well as the migration domains.
 .I Domain
 can be defined through
 .I policy
 line by specifying a domain name for a number of paths from
 .BR /dev/disk/by-path/ .
-A device may belong to several domains. Domain of an array is a union
-of domains of all devices in that array. A spare can be automatically
+A device may belong to several domains. The domain of an array is a union
+of domains of all devices in that array.  A spare can be automatically
 moved from one array to another if the set of the destination array's
 .I domains
 contains all the
@@ -439,11 +439,11 @@ of the new disk or if both arrays have the same
 
 To update hot plug configuration it is necessary to execute
 .B mdadm \-\-udev\-rules
-command after changing config file
+command after changing the config file
 
-Key words used in
+Key words used in the
 .I POLICY
-line and supported values:
+line and supported values are:
 
 .RS 7
 .TP
@@ -456,6 +456,11 @@ any arbitrary string
 .B path=
 file glob matching anything from
 .B /dev/disk/by-path
+.B type=
+either 
+.B disk
+or
+.BR part .
 .TP
 .B action=
 include, re-add, spare, spare-same-slot, or force-spare
@@ -465,7 +470,9 @@ The
 .I action
 item determines the automatic behavior allowed for devices matching the
 .I path
-in the same line. If a device matches several lines with different
+and
+.I type
+in the same line.  If a device matches several lines with different
 .I  actions
 then the most permissive will apply. The ordering of policy lines
 is irrelevant to the end result.
@@ -474,12 +481,13 @@ is irrelevant to the end result.
 allows adding a disk to an array if metadata on that disk matches that array
 .TP
 .B re-add
-will include device in the array if it appears to be a current member
+will include the device in the array if it appears to be a current member
 or a member that was recently removed
 .TP
 .B spare
-as above and additionally: if the device is bare it will
-become a spare (for metadata the same line)
+as above and additionally: if the device is bare it can
+become a spare if there is any array that it is a candidate for based
+on domains and metadata.
 .TP
 .B spare\-same\-slot
 as above and additionally if given slot was used by an array that went

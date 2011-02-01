@@ -1332,8 +1332,13 @@ not a name in
 
 .TP
 .BR \-\-path=
-Only used with \-\-fail. Allows the failed device to be automatically replaced
-by a new device without metadata if it appears at specified path.
+Only used with \-\-fail.  The 'path' given will be recorded so that if
+a new device appears at the same location it can be automatically
+added to the same array.  This allows the failed device to be
+automatically replaced by a new device without metadata if it appears
+at specified path.   This option is normally only set by a
+.I udev
+script.
 
 .SH For Monitor mode:
 .TP
@@ -1408,15 +1413,11 @@ message do get through successfully.
 
 .TP
 .BR \-\-no\-sharing
-Allows to run monitoring without moving spares between arrays.
+This inhibits the functionality for moving spares between arrays.
 Only one monitoring process started with
 .B \-\-scan
-is allowed.
-Any subsequent call of
-.B mdadm \-F \-\-scan
-must also use
-.B \-\-no\-sharing
-option.
+but without this flag is allowed, otherwise the two could interfere
+with each other.
 
 .SH ASSEMBLE MODE
 
@@ -1819,7 +1820,7 @@ or
 .B \-\-scan
 will cause the output to be less detailed and the format to be
 suitable for inclusion in
-.BR /etc/mdadm.conf .
+.BR mdadm.conf .
 The exit status of
 .I mdadm
 will normally be 0 unless
@@ -1896,7 +1897,7 @@ or
 is given, then multiple devices that are components of the one array
 are grouped together and reported in a single entry suitable
 for inclusion in
-.BR /etc/mdadm.conf .
+.BR mdadm.conf .
 
 Having
 .B \-\-scan
@@ -2150,7 +2151,7 @@ the original array.
 If the spare group for a degraded array is not defined,
 .I mdadm
 will look at the rules of spare migration specified by POLICY lines in
-.B /etc/mdadm.conf
+.B mdadm.conf
 and then follow similar steps as above if a matching spare is found.
 
 .SH GROW MODE
@@ -2335,8 +2336,8 @@ adds the device to the array and conditionally starts the array.
 
 Note that
 .I mdadm
-will always add devices to an array which were previously working
-(active or spare) parts of that array. The support for automatic
+will normally only add devices to an array which were previously working
+(active or spare) parts of that array.  The support for automatic
 inclusion of a new drive as a spare in some array requires
 a configuration through POLICY in config file.
 
@@ -2671,7 +2672,9 @@ avoid conflicted between multiple arrays that have the same name.  If
 .I mdadm
 can reasonably determine that the array really is meant for this host,
 either by a hostname in the metadata, or by the presence of the array
-in /etc/mdadm.conf, then it will leave off the suffix if possible.
+in
+.BR mdadm.conf ,
+then it will leave off the suffix if possible.
 Also if the homehost is specified as
 .B <ignore>
 .I mdadm

@@ -358,22 +358,17 @@ int Incremental(char *devname, int verbose, int runstop,
 		 * array was possibly started early and our best bet is
 		 * to add this anyway.
 		 * Also if action policy is re-add or better we allow
-		 * re-add
+		 * re-add.
+		 * This doesn't apply to containers as the 'non-spare'
+		 * flag has a different meaning.  The test has to happen
+		 * at the device level there
 		 */
-		if ((info.disk.state & (1<<MD_DISK_SYNC)) != 0
+		if (!st->ss->external
+		    && (info.disk.state & (1<<MD_DISK_SYNC)) != 0
 		    && ! policy_action_allows(policy, st->ss->name,
 					      act_re_add)
 		    && runstop < 1) {
-			int active = 0;
-			
-			if (st->ss->external) {
-				char *devname = devnum2devname(fd2devnum(mdfd));
-
-				active = devname && is_container_active(devname);
-				free(devname);
-			} else if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0)
-				active = 1;
-			if (active) {
+			if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
 				fprintf(stderr, Name
 					": not adding %s to active array (without --run) %s\n",
 					devname, chosen_name);

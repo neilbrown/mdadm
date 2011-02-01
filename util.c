@@ -1490,18 +1490,12 @@ int is_subarray_active(char *subarray, char *container)
 
 	for (ent = mdstat; ent; ent = ent->next)
 		if (is_container_member(ent, container))
-			if (!subarray ||
-			    strcmp(to_subarray(ent, container), subarray) == 0)
+			if (strcmp(to_subarray(ent, container), subarray) == 0)
 				break;
 
 	free_mdstat(mdstat);
 
 	return ent != NULL;
-}
-
-int is_container_active(char *container)
-{
-	return is_subarray_active(NULL, container);
 }
 
 /* open_subarray - opens a subarray in a container

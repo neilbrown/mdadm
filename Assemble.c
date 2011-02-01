@@ -379,7 +379,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (dfd >= 0) close(dfd);
 		if (tmpdev->used == 2) {
-			if (auto_assem)
+			if (auto_assem || !inargv)
 				/* Ignore unrecognised devices during auto-assembly */
 				goto loop;
 			if (ident->uuid_set || ident->name[0] ||

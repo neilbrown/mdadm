@@ -24,7 +24,7 @@
 
 #include "mdadm.h"
 
-char Version[] = Name " - v3.2-devel - 23rd November 2010\n";
+char Version[] = Name " - v3.2 DEVELOPER_ONLY - 1st February 2011 (USE WITH CARE)\n";
 
 /*
  * File: ReadMe.c

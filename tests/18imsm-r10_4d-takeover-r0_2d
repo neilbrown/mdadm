@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 # RAID 10 volume, 4 disks change to RAID 0 volume, 2 disks
 # POSITIVE test
 

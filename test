@@ -197,21 +197,6 @@ rotest() {
   fsck -fn $dev >&2
 }
 
-setup_environment() {
-   if [ -f $1 ]; then
-      . $environment
-      setup_env
-   fi
-}
-
-reset_environment() {
-   if [ -f $1 ]; then
-      reset_env
-      unset setup_env
-      unset reset_env
-   fi
-}
-
 for script in tests/$prefix tests/$prefix*[^~]
 do
   if [ -f "$script" ]
@@ -221,18 +206,14 @@ do
    $mdadm -Ssq 2> /dev/null
    mdadm --zero $devlist 2> /dev/null
    mdadm --zero $devlist 2> /dev/null
-   environment="tests/env-`basename $script`"
-   setup_environment $environment
    # source script in a subshell, so it has access to our
    # namespace, but cannot change it.
    echo -ne "$script... "
    if ( set -ex ; . $script )  2> $targetdir/log
    then echo "succeeded"
    else echo "FAILED"
-       reset_environment $environment
        exit 1
    fi
-   reset_environment $environment
   fi
 done
 exit 0

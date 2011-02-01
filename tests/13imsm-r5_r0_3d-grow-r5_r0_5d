@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 # Grow the container (arrays inside) from 3 disks to 5 disks
 # POSITIVE test
 

@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 # RAID 5 volume, Migration from 4k to 256 chunk size.
 # POSITIVE test
 

@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 # RAID 0 and RAID 5 volumes (3 disks) migrate to RAID 5 and RAID 5 volumes (4 disks)
 # NEGATIVE test - migration is not allowed if there is more then one array in a container
 

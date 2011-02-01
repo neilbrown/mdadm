@@ -62,24 +62,10 @@ imsm_check() {
     esac
 }
 
-setup_env() {
-    export IMSM_NO_PLATFORM=1
-    export IMSM_DEVNAME_AS_SERIAL=1
-    export IMSM_TEST_OROM=1
-    export MDADM_EXPERIMENTAL=1
-    container=/dev/md/container
-    member0=/dev/md/vol0
-    member1=/dev/md/vol1
-}
-
-reset_env() {
-    unset IMSM_NO_PLATFORM
-    unset IMSM_DENAME_AS_SERIAL
-    unset IMSM_TEST_OROM
-    unset MDADM_EXPERIMENTAL
-    unset member0
-    unset member1
-    unset imsm_check
-    unset container
-    rm -f /tmp/backup_imsm
-}
+export IMSM_NO_PLATFORM=1
+export IMSM_DEVNAME_AS_SERIAL=1
+export IMSM_TEST_OROM=1
+export MDADM_EXPERIMENTAL=1
+container=/dev/md/container
+member0=/dev/md/vol0
+member1=/dev/md/vol1

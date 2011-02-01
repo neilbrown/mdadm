@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 # RAID 5 volume (5 disks) migration to RAID 0 volume (5 disks)
 # POSITIVE test
 

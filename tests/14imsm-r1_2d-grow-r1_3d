@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 # RAID 1 volume, 2 disks grow to RAID 1 volume, 3 disks
 # NEGATIVE test
 

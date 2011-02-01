@@ -1,3 +1,5 @@
+. tests/env-imsm-template
+
 
 # Two RAID volumes: RAID10 and RAID5 (4 disks) migrate to RAID 0 volume (2 disks)
 # NEGATIVE test

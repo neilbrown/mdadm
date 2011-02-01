@@ -3,6 +3,10 @@
 # above number 7 bigger again by any amount (this is not changed for now as it
 # could affect other tests)
 
+export IMSM_DEVNAME_AS_SERIAL=1
+export IMSM_TEST_OROM=1
+export IMSM_NO_PLATFORM=1
+
 . tests/utils
 set -ex
 verbose="yes"

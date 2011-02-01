@@ -448,6 +448,12 @@ static void manage_member(struct mdstat_ent *mdstat,
 	else
 		frozen = 1; /* can't read metadata_version assume the worst */
 
+	/* If sync_action is not 'idle' then don't try recovery now */
+	if (!frozen
+	    && sysfs_get_str(&a->info, NULL, "sync_action", buf, sizeof(buf)) > 0
+	    && strncmp(buf, "idle", 4) != 0)
+		frozen = 1;
+
 	if (mdstat->level) {
 		int level = map_name(pers, mdstat->level);
 		if (a->info.array.level != level && level >= 0) {

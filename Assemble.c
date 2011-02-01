@@ -595,10 +595,15 @@ int Assemble(struct supertype *st, char *mddev,
 				tmpdev->devname, strerror(errno));
 			tmpdev->used = 2;
 		} else {
-			struct dev_policy *pol = NULL;
-			pol = devnum_policy(stb.st_rdev);
-			if (domain_test(domains, pol, NULL) == 1)
-				/* take this spare if domains match */
+			struct dev_policy *pol = devnum_policy(stb.st_rdev);
+			int dt = domain_test(domains, pol, NULL);
+			if (inargv && dt != 0)
+				/* take this spare as domains match
+				 * if there are any */
+				tmpdev->used = 1;
+			else if (!inargv && dt == 1)
+				/* device wasn't explicitly listed, so need
+				 * explicit domain match - which we have */
 				tmpdev->used = 1;
 			else
 				/* if domains don't match mark as unused */

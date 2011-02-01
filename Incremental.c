@@ -995,7 +995,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		}
 
 		dl = domain_from_array(sra, st2->ss->name);
-		if (!domain_test(dl, pol, st2->ss->name)) {
+		if (domain_test(dl, pol, st2->ss->name) != 1) {
 			/* domain test fails */
 			if (verbose > 1)
 				fprintf(stderr, Name ": not adding %s to %s as"
@@ -1111,7 +1111,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		pol2 = path_policy(de->d_name, type_disk);
 
 		domain_merge(&domlist, pol2, st ? st->ss->name : NULL);
-		if (domain_test(domlist, pol, st ? st->ss->name : NULL) == 0)
+		if (domain_test(domlist, pol, st ? st->ss->name : NULL) != 1)
 			/* new device is incompatible with this device. */
 			goto next;
 
@@ -1137,7 +1137,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		if (!st) {
 			/* Check domain policy again, this time referring to metadata */
 			domain_merge(&domlist, pol2, st2->ss->name);
-			if (domain_test(domlist, pol, st2->ss->name) == 0)
+			if (domain_test(domlist, pol, st2->ss->name) != 1)
 				/* Incompatible devices for this metadata type */
 				goto next;
 			if (!policy_action_allows(pol, st2->ss->name, act_spare))

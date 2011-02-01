@@ -778,7 +778,7 @@ static dev_t choose_spare(struct state *from, struct state *to,
 			if (from->spare_group)
 				pol_add(&pol, pol_domain,
 					from->spare_group, NULL);
-			if (domain_test(domlist, pol, to->metadata->ss->name))
+			if (domain_test(domlist, pol, to->metadata->ss->name) == 1)
 			    dev = from->devid[d];
 			dev_policy_free(pol);
 		}

@@ -1956,7 +1956,7 @@ struct mdinfo *container_choose_spares(struct supertype *st,
 				if (spare_group)
 					pol_add(&pol, pol_domain,
 						spare_group, NULL);
-				if (!domain_test(domlist, pol, metadata))
+				if (domain_test(domlist, pol, metadata) != 1)
 					found = 0;
 				dev_policy_free(pol);
 			}

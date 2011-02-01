@@ -597,7 +597,7 @@ int Assemble(struct supertype *st, char *mddev,
 		} else {
 			struct dev_policy *pol = NULL;
 			pol = devnum_policy(stb.st_rdev);
-			if (domain_test(domains, pol, NULL))
+			if (domain_test(domains, pol, NULL) == 1)
 				/* take this spare if domains match */
 				tmpdev->used = 1;
 			else

@@ -648,9 +648,12 @@ int domain_test(struct domainlist *dom, struct dev_policy *pol,
 	/* Check that all domains in pol (for metadata) are also in
 	 * dom.  Both lists are sorted.
 	 * If pol has no domains, we don't really know about this device
-	 * so we reject the match.
+	 * so we allow caller to choose:
+	 * -1:  has no domains
+	 *  0:  has domains, not all match
+	 *  1:  has domains, all match
 	 */
-	int found_any = 0;
+	int found_any = -1;
 	struct dev_policy *p;
 
 	pol = pol_find(pol, pol_domain);

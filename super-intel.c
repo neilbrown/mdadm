@@ -5197,18 +5197,13 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 					array_blocks = (array_blocks
 							>> SECT_PER_MB_SHIFT)
 						<< SECT_PER_MB_SHIFT;
-					dev->size_low = __cpu_to_le32(
-						(__u32) array_blocks);
-					dev->size_high = __cpu_to_le32(
-						(__u32) (array_blocks >> 32));
 					a->info.custom_array_size = array_blocks;
 					/* encourage manager to update array
 					 * size
 					 */
-					super->updates_pending++;
 
 					a->check_reshape = 1;
-				}
+}
 				/* finalize online capacity expansion/reshape */
 				for (mdi = a->info.devs; mdi; mdi = mdi->next)
 					imsm_set_disk(a,

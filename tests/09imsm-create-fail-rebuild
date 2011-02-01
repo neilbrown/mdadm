@@ -78,6 +78,7 @@ imsm_check() {
 
 export IMSM_DEVNAME_AS_SERIAL=1
 export IMSM_TEST_OROM=1
+export IMSM_NO_PLATFORM=1
 container=/dev/md/container
 member0=/dev/md/vol0
 member1=/dev/md/vol1

@@ -22,6 +22,7 @@ imsm_check_removal() {
 
 export IMSM_DEVNAME_AS_SERIAL=1
 export IMSM_TEST_OROM=1
+export IMSM_NO_PLATFORM=1
 container=/dev/md/container
 member=/dev/md/vol0
 

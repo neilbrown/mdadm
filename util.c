@@ -160,6 +160,7 @@ int get_linux_version()
 	return (a*1000000)+(b*1000)+c;
 }
 
+#ifndef MDASSEMBLE
 int mdadm_version(char *version)
 {
 	int a, b, c;
@@ -185,7 +186,6 @@ int mdadm_version(char *version)
 	return (a*1000000)+(b*1000)+c;
 }
 
-#ifndef MDASSEMBLE
 long long parse_size(char *size)
 {
 	/* parse 'size' which should be a number optionally

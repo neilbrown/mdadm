@@ -205,8 +205,8 @@ static int validate_geometry(struct supertype *st, int level,
 struct superswitch gpt = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_gpt,
-#endif
 	.validate_geometry = validate_geometry,
+#endif
 	.match_metadata_desc = match_metadata_desc,
 	.load_super = load_gpt,
 	.store_super = store_gpt,

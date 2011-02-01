@@ -199,8 +199,8 @@ static int validate_geometry(struct supertype *st, int level,
 struct superswitch mbr = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_mbr,
-#endif
 	.validate_geometry = validate_geometry,
+#endif
 	.match_metadata_desc = match_metadata_desc,
 	.load_super = load_super_mbr,
 	.store_super = store_mbr,

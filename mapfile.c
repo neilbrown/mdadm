@@ -380,7 +380,7 @@ void RebuildMap(void)
 			int dfd;
 			int ok;
 			struct supertype *st;
-			char *subarray;
+			char *subarray = NULL;
 			char *path;
 			struct mdinfo *info;
 

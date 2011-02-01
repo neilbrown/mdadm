@@ -291,7 +291,8 @@ static int check_one_sharer(int scan)
 	struct stat buf;
 	fp = fopen("/var/run/mdadm/autorebuild.pid", "r");
 	if (fp) {
-		fscanf(fp, "%d", &pid);
+		if (fscanf(fp, "%d", &pid) != 1)
+			pid = -1;
 		sprintf(dir, "/proc/%d", pid);
 		rv = stat(dir, &buf);
 		if (rv != -1) {

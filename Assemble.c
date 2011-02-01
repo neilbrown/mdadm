@@ -330,11 +330,13 @@ int Assemble(struct supertype *st, char *mddev,
 					fprintf(stderr, Name ": %s is a container, but we are looking for components\n",
 						devname);
 				tmpdev->used = 2;
+#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 			} if (!tst && (tst = super_by_fd(dfd, NULL)) == NULL) {
 				if (report_missmatch)
 					fprintf(stderr, Name ": not a recognisable container: %s\n",
 						devname);
 				tmpdev->used = 2;
+#endif
 			} else if (!tst->ss->load_container
 				   || tst->ss->load_container(tst, dfd, NULL)) {
 				if (report_missmatch)

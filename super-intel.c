@@ -384,6 +384,7 @@ const char *get_sys_dev_type(enum sys_dev_type type)
 	return _sys_dev_type[type];
 }
 
+#ifndef MDASSEMBLE
 static struct intel_hba * alloc_intel_hba(struct sys_dev *device)
 {
 	struct intel_hba *result = malloc(sizeof(*result));
@@ -406,7 +407,6 @@ static struct intel_hba * find_intel_hba(struct intel_hba *hba, struct sys_dev *
 	}
 	return result;
 }
-
 
 
 static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device,
@@ -475,6 +475,7 @@ static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
 
 	return NULL;
 }
+#endif /* MDASSEMBLE */
 
 
 static struct supertype *match_metadata_desc_imsm(char *arg)
@@ -4646,7 +4647,6 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 
 	return 0;
 }
-#endif /* MDASSEMBLE */
 
 static int is_gen_migration(struct imsm_dev *dev)
 {
@@ -4658,6 +4658,7 @@ static int is_gen_migration(struct imsm_dev *dev)
 
 	return 0;
 }
+#endif /* MDASSEMBLE */
 
 static int is_rebuilding(struct imsm_dev *dev)
 {
@@ -6639,7 +6640,6 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 		__free_imsm_disk(dl);
 	}
 }
-#endif /* MDASSEMBLE */
 
 static char disk_by_path[] = "/dev/disk/by-path/";
 
@@ -7066,7 +7066,7 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 
 	dprintf("imsm: reshape_super called.\n");
 
-	memset(&geo, sizeof(struct geo_params), 0);
+	memset(&geo, 0, sizeof(struct geo_params));
 
 	geo.dev_name = dev;
 	geo.dev_id = st->devnum;
@@ -7167,6 +7167,7 @@ static int imsm_manage_reshape(
 		afd, sra, reshape, st, stripes,
 		fds, offsets, dests, destfd, destoffsets);
 }
+#endif /* MDASSEMBLE */
 
 struct superswitch super_imsm = {
 #ifndef	MDASSEMBLE
@@ -7184,6 +7185,10 @@ struct superswitch super_imsm = {
 	.kill_subarray = kill_subarray_imsm,
 	.update_subarray = update_subarray_imsm,
 	.load_container	= load_container_imsm,
+	.default_geometry = default_geometry_imsm,
+	.get_disk_controller_domain = imsm_get_disk_controller_domain,
+	.reshape_super  = imsm_reshape_super,
+	.manage_reshape = imsm_manage_reshape,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
@@ -7202,10 +7207,6 @@ struct superswitch super_imsm = {
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
-	.default_geometry = default_geometry_imsm,
-	.get_disk_controller_domain = imsm_get_disk_controller_domain,
-	.reshape_super  = imsm_reshape_super,
-	.manage_reshape = imsm_manage_reshape,
 
 	.external	= 1,
 	.name = "imsm",

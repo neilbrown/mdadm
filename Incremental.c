@@ -883,7 +883,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		struct domainlist *dl = NULL;
 		struct mdinfo *sra;
 		unsigned long long devsize;
-		unsigned long long component_size;
+		unsigned long long component_size = 0;
 
 		if (is_subarray(mp->metadata))
 			continue;
@@ -1077,7 +1077,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	DIR *dir;
 	struct dirent *de;
 	char *chosen = NULL;
-	unsigned long long chosen_size;
+	unsigned long long chosen_size = 0;
 	struct supertype *chosen_st = NULL;
 	int fd;
 
@@ -1118,7 +1118,10 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		domain_free(domlist);
 		domlist = NULL;
 
-		asprintf(&devname, "/dev/disk/by-path/%s", de->d_name);
+		if (asprintf(&devname, "/dev/disk/by-path/%s", de->d_name) != 1) {
+			devname = NULL;
+			goto next;
+		}
 		fd = open(devname, O_RDONLY);
 		if (fd < 0)
 			goto next;

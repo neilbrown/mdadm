@@ -1304,6 +1304,7 @@ int Assemble(struct supertype *st, char *mddev,
 						content->array.raid_disks);
 				fprintf(stderr, "\n");
 			}
+			st->ss->free_super(st);
 			sysfs_uevent(content, "change");
 			wait_for(chosen_name, mdfd);
 			close(mdfd);

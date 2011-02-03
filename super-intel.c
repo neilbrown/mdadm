@@ -565,17 +565,24 @@ static size_t sizeof_imsm_map(struct imsm_map *map)
 
 struct imsm_map *get_imsm_map(struct imsm_dev *dev, int second_map)
 {
+	/* A device can have 2 maps if it is in the middle of a migration.
+	 * If second_map is:
+	 *    0   - we return the first map
+	 *    1   - we return the second map if it exists, else NULL
+	 *   -1   - we return the second map if it exists, else the first
+	 */
 	struct imsm_map *map = &dev->vol.map[0];
 
-	if (second_map && !dev->vol.migr_state)
+	if (second_map == 1 && !dev->vol.migr_state)
 		return NULL;
-	else if (second_map) {
+	else if (second_map == 1 ||
+		 (second_map < 0 && dev->vol.migr_state)) {
 		void *ptr = map;
 
 		return ptr + sizeof_imsm_map(map);
 	} else
 		return map;
-		
+
 }
 
 /* return the size of the device.
@@ -654,14 +661,7 @@ static __u32 get_imsm_ord_tbl_ent(struct imsm_dev *dev,
 {
 	struct imsm_map *map;
 
-	if (second_map == -1) {
-		if (dev->vol.migr_state)
-			map = get_imsm_map(dev, 1);
-		else
-			map = get_imsm_map(dev, 0);
-	} else {
-		map = get_imsm_map(dev, second_map);
-	}
+	map = get_imsm_map(dev, second_map);
 
 	/* top byte identifies disk under rebuild */
 	return __le32_to_cpu(map->disk_ord_tbl[slot]);

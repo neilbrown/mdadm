@@ -549,9 +549,9 @@ static void manage_member(struct mdstat_ent *mdstat,
 			disk_init_and_add(newd, d, newa);
 		}
 		if (sysfs_get_ll(info, NULL, "array_size", &array_size) == 0
-		    && a->info.custom_array_size > array_size) {
+		    && a->info.custom_array_size > array_size*2) {
 			sysfs_set_num(info, NULL, "array_size",
-				      a->info.custom_array_size);
+				      a->info.custom_array_size/2);
 		}
 	out2:
 		sysfs_free(info);

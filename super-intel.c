@@ -5174,10 +5174,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 			if (a->last_checkpoint >= a->info.component_size) {
 				unsigned long long array_blocks;
 				int used_disks;
-				/* it seems the reshape is all done */
-				dev->vol.migr_state = 0;
-				dev->vol.migr_type = 0;
-				dev->vol.curr_migr_unit = 0;
+				struct mdinfo *mdi;
 
 				used_disks = imsm_num_data_members(dev, -1);
 				array_blocks = map->blocks_per_member * used_disks;
@@ -5191,8 +5188,15 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 						       * array size
 						       */
 				super->updates_pending++;
+
+				/* finalize online capacity expansion/reshape */
+				for (mdi = a->info.devs; mdi; mdi = mdi->next)
+					imsm_set_disk(a,
+						      mdi->disk.raid_disk,
+						      mdi->curr_state);
+
 				imsm_progress_container_reshape(super);
-			}				
+			}
 		}
 	}
 
@@ -5255,19 +5259,6 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		else
 			dev->vol.dirty = 1;
 		super->updates_pending++;
-	}
-
-	/* manage online capacity expansion/reshape */
-	if ((a->curr_action != reshape) &&
-	    (a->prev_action == reshape)) {
-		struct mdinfo *mdi;
-
-		/* finalize online capacity expansion/reshape */
-		for (mdi = a->info.devs; mdi; mdi = mdi->next)
-			imsm_set_disk(a, mdi->disk.raid_disk, mdi->curr_state);
-
-		/* check next volume reshape */
-		imsm_progress_container_reshape(super);
 	}
 
 	return consistent;

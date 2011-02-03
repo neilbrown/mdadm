@@ -5051,6 +5051,37 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 	super->updates_pending++;
 }
 
+static unsigned long long imsm_set_array_size(struct imsm_dev *dev)
+{
+	int used_disks = imsm_num_data_members(dev, 0);
+	unsigned long long array_blocks;
+	struct imsm_map *map;
+
+	if (used_disks == 0) {
+		/* when problems occures
+		 * return current array_blocks value
+		 */
+		array_blocks = __le32_to_cpu(dev->size_high);
+		array_blocks = array_blocks << 32;
+		array_blocks += __le32_to_cpu(dev->size_low);
+
+		return array_blocks;
+	}
+
+	/* set array size in metadata
+	 */
+	map = get_imsm_map(dev, 0);
+	array_blocks = map->blocks_per_member * used_disks;
+
+	/* round array size down to closest MB
+	 */
+	array_blocks = (array_blocks >> SECT_PER_MB_SHIFT) << SECT_PER_MB_SHIFT;
+	dev->size_low = __cpu_to_le32((__u32)array_blocks);
+	dev->size_high = __cpu_to_le32((__u32)(array_blocks >> 32));
+
+	return array_blocks;
+}
+
 static void imsm_set_disk(struct active_array *a, int n, int state);
 
 static void imsm_progress_container_reshape(struct intel_super *super)
@@ -5070,7 +5101,6 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 		struct imsm_map *map = get_imsm_map(dev, 0);
 		struct imsm_map *map2;
 		int prev_num_members;
-		int used_disks;
 
 		if (dev->vol.migr_state)
 			return;
@@ -5098,26 +5128,7 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 		memcpy(map2, map, copy_map_size);
 		map2->num_members = prev_num_members;
 
-		/* calculate new size
-		 */
-		used_disks = imsm_num_data_members(dev, 0);
-		if (used_disks) {
-			unsigned long long array_blocks;
-
-			array_blocks =
-				map->blocks_per_member
-				* used_disks;
-			/* round array size down to closest MB
-			 */
-			array_blocks = (array_blocks
-					>> SECT_PER_MB_SHIFT)
-				<< SECT_PER_MB_SHIFT;
-			dev->size_low =
-				__cpu_to_le32((__u32)array_blocks);
-			dev->size_high =
-				__cpu_to_le32(
-					(__u32)(array_blocks >> 32));
-		}
+		imsm_set_array_size(dev);
 		super->updates_pending++;
 	}
 }
@@ -5914,8 +5925,6 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		/* update one device only
 		 */
 		if (devices_to_reshape) {
-			int used_disks;
-
 			dprintf("imsm: modifying subdev: %i\n",
 				id->index);
 			devices_to_reshape--;
@@ -5933,24 +5942,7 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 			newmap = get_imsm_map(newdev, 1);
 			memcpy(newmap, oldmap, sizeof_imsm_map(oldmap));
 
-			/* calculate new size
-			 */
-			used_disks = imsm_num_data_members(newdev, 0);
-			if (used_disks) {
-				unsigned long long array_blocks;
-
-				array_blocks =
-					newmap->blocks_per_member * used_disks;
-				/* round array size down to closest MB
-				 */
-				array_blocks = (array_blocks
-						>> SECT_PER_MB_SHIFT)
-					<< SECT_PER_MB_SHIFT;
-				newdev->size_low =
-					__cpu_to_le32((__u32)array_blocks);
-				newdev->size_high =
-					__cpu_to_le32((__u32)(array_blocks >> 32));
-			}
+			imsm_set_array_size(newdev);
 		}
 
 		sp = (void **)id->dev;

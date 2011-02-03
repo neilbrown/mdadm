@@ -366,6 +366,24 @@ static int read_and_act(struct active_array *a)
 		 */
 		if (sync_completed != 0)
 			a->last_checkpoint = sync_completed;
+		/* We might need to update last_checkpoint depending on
+		 * the reason that reshape finished.
+		 * if array reshape is really finished:
+		 *        set check point to the end, this allows
+		 *        set_array_state() to finalize reshape in metadata
+		 * if reshape if broken: do not set checkpoint to the end
+		 *        this allows for reshape restart from checkpoint
+		 */
+		if ((a->curr_action != reshape) &&
+		    (a->prev_action == reshape)) {
+			char buf[40];
+			if ((sysfs_get_str(&a->info, NULL,
+					  "reshape_position",
+					  buf,
+					  sizeof(buf)) >= 0) &&
+			     strncmp(buf, "none", 4) == 0)
+				a->last_checkpoint = a->info.component_size;
+		}
 		a->container->ss->set_array_state(a, a->curr_state <= clean);
 		a->last_checkpoint = sync_completed;
 	}

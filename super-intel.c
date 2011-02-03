@@ -5862,15 +5862,15 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 	int ret_val = 0;
 	unsigned int dev_id;
 
-	dprintf("imsm: imsm_process_update() for update_reshape\n");
+	dprintf("imsm: apply_reshape_container_disks_update()\n");
 
 	/* enable spares to use in array */
 	for (i = 0; i < delta_disks; i++) {
 		new_disk = get_disk_super(super,
 					  major(u->new_disks[i]),
 					  minor(u->new_disks[i]));
-		dprintf("imsm: imsm_process_update(): new disk "
-			"for reshape is: %i:%i (%p, index = %i)\n",
+		dprintf("imsm: new disk for reshape is: %i:%i "
+			"(%p, index = %i)\n",
 			major(u->new_disks[i]), minor(u->new_disks[i]),
 			new_disk, new_disk->index);
 		if ((new_disk == NULL) ||
@@ -5886,8 +5886,8 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		new_disk->disk.status &= ~SPARE_DISK;
 	}
 
-	dprintf("imsm: process_update(): update_reshape: volume set"
-		" mpb->num_raid_devs = %i\n", mpb->num_raid_devs);
+	dprintf("imsm: volume set mpb->num_raid_devs = %i\n",
+		mpb->num_raid_devs);
 	/* manage changes in volume
 	 */
 	for (dev_id = 0; dev_id < mpb->num_raid_devs; dev_id++) {
@@ -5916,8 +5916,8 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		if (devices_to_reshape) {
 			int used_disks;
 
-			dprintf("process_update(): modifying "
-				"subdev: %i\n", id->index);
+			dprintf("imsm: modifying subdev: %i\n",
+				id->index);
 			devices_to_reshape--;
 			newdev->vol.migr_state = 1;
 			newdev->vol.curr_migr_unit = 0;

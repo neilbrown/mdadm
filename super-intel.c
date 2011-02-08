@@ -7097,8 +7097,8 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 				free(u);
 
 		} else {
-			fprintf(stderr, Name "imsm: Operation is not allowed "
-				"on this container\n");
+			fprintf(stderr, Name ": (imsm) Operation "
+				"is not allowed on this container\n");
 		}
 	} else {
 		/* On volume level we support following operations

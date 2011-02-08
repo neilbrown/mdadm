@@ -1772,7 +1772,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		__le32_to_cpu(map_to_analyse->blocks_per_member);
 	memset(info->uuid, 0, sizeof(info->uuid));
 	info->recovery_start = MaxSector;
-	info->reshape_active = (prev_map != NULL);
+	info->reshape_active = (prev_map != NULL) &&
+			       (map->map_state == prev_map->map_state);
 	if (info->reshape_active)
 		info->delta_disks = map->num_members - prev_map->num_members;
 	else

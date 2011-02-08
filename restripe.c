@@ -285,10 +285,13 @@ uint8_t raid6_gfmul[256][256];
 uint8_t raid6_gfexp[256];
 uint8_t raid6_gfinv[256];
 uint8_t raid6_gfexi[256];
+uint8_t raid6_gflog[256];
+uint8_t raid6_gfilog[256];
 void make_tables(void)
 {
 	int i, j;
 	uint8_t v;
+	uint32_t b, log;
 
 	/* Compute multiplication table */
 	for (i = 0; i < 256; i++)
@@ -311,6 +314,21 @@ void make_tables(void)
 	/* Compute inv(2^x + 1) (exponent-xor-inverse) table */
 	for (i = 0; i < 256; i ++)
 		raid6_gfexi[i] = raid6_gfinv[raid6_gfexp[i] ^ 1];
+
+	/* Compute log and inverse log */
+	/* Modified code from:
+	 *    http://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.html
+	 */
+	b = 1;
+	raid6_gflog[0] = 0;
+	raid6_gfilog[255] = 0;
+
+	for (log = 0; log < 255; log++) {
+		raid6_gflog[b] = (uint8_t) log;
+		raid6_gfilog[log] = (uint8_t) b;
+		b = b << 1;
+		if (b & 256) b = b ^ 0435;
+	}
 
 	tables_ready = 1;
 }
@@ -385,6 +403,67 @@ void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs)
 		*p++ ^= *dq = qmul[*q ^ *dq];
 		q++; dq++;
 	}
+}
+
+/* Try to find out if a specific disk has a problem */
+int raid6_check_disks(int data_disks, int start, int chunk_size,
+		      int level, int layout, int diskP, int diskQ,
+		      char *p, char *q, char **stripes)
+{
+	int i;
+	int data_id, diskD;
+	uint8_t Px, Qx;
+	int curr_broken_disk = -1;
+	int prev_broken_disk = -1;
+	int broken_status = 0;
+
+	for(i = 0; i < chunk_size; i++) {
+		Px = (uint8_t)stripes[diskP][i] ^ (uint8_t)p[i];
+		Qx = (uint8_t)stripes[diskQ][i] ^ (uint8_t)q[i];
+
+		if((Px != 0) && (Qx == 0))
+			curr_broken_disk = diskP;
+
+
+		if((Px == 0) && (Qx != 0))
+			curr_broken_disk = diskQ;
+
+
+		if((Px != 0) && (Qx != 0)) {
+			data_id = (raid6_gflog[Qx] - raid6_gflog[Px]) & 0xFF;
+			diskD = geo_map(data_id, start/chunk_size,
+					data_disks + 2, level, layout);
+			curr_broken_disk = diskD;
+		}
+
+		if((Px == 0) && (Qx == 0))
+			curr_broken_disk = curr_broken_disk;
+
+		switch(broken_status) {
+		case 0:
+			if(curr_broken_disk != -1) {
+				prev_broken_disk = curr_broken_disk;
+				broken_status = 1;
+			}
+			break;
+
+		case 1:
+			if(curr_broken_disk != prev_broken_disk)
+				broken_status = 2;
+
+			if(curr_broken_disk >= data_disks + 2)
+				broken_status = 2;
+
+			break;
+
+		case 2:
+		default:
+			curr_broken_disk = prev_broken_disk = -2;
+			break;
+		}
+	}
+
+	return curr_broken_disk;
 }
 
 /* Save data:
@@ -673,7 +752,12 @@ int test_stripes(int *source, unsigned long long *offsets,
 	char *q = malloc(chunk_size);
 
 	int i;
+	int diskP, diskQ;
 	int data_disks = raid_disks - (level == 5 ? 1: 2);
+
+	if (!tables_ready)
+		make_tables();
+
 	for ( i = 0 ; i < raid_disks ; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 
@@ -693,17 +777,26 @@ int test_stripes(int *source, unsigned long long *offsets,
 		switch(level) {
 		case 6:
 			qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);
-			disk = geo_map(-1, start/chunk_size, raid_disks,
+			diskP = geo_map(-1, start/chunk_size, raid_disks,
 				       level, layout);
-			if (memcmp(p, stripes[disk], chunk_size) != 0) {
-				printf("P(%d) wrong at %llu\n", disk,
+			if (memcmp(p, stripes[diskP], chunk_size) != 0) {
+				printf("P(%d) wrong at %llu\n", diskP,
 				       start / chunk_size);
 			}
-			disk = geo_map(-2, start/chunk_size, raid_disks,
+			diskQ = geo_map(-2, start/chunk_size, raid_disks,
 				       level, layout);
-			if (memcmp(q, stripes[disk], chunk_size) != 0) {
-				printf("Q(%d) wrong at %llu\n", disk,
+			if (memcmp(q, stripes[diskQ], chunk_size) != 0) {
+				printf("Q(%d) wrong at %llu\n", diskQ,
 				       start / chunk_size);
+			}
+			disk = raid6_check_disks(data_disks, start, chunk_size,
+						 level, layout, diskP, diskQ,
+						 p, q, stripes);
+			if(disk >= 0) {
+			  printf("Possible failed disk: %d\n", disk);
+			}
+			if(disk == -2) {
+			  printf("Failure detected, but disk unknown\n");
 			}
 			break;
 		}

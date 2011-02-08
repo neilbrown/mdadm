@@ -54,6 +54,33 @@ monitor(){
        [ "$verbose" != "yes" ] || echo $mddevs $monitorpid
 }
 
+test0()
+{
+dsc "Test 0: No config file, no spare should be moved"
+setupdevs 0 0 1 $platform
+setupdevs 1 3 4 $platform
+monitor 0 1
+mdadm -a /dev/$c1 $dev2
+mdadm --fail /dev/$v0 $dev0
+# check that spare loop2 was not moved from container c1 to container c0
+chksparemoved $c1 $c0 $dev2 n
+tidyup
+}
+
+test0a()
+{
+dsc "Test 0a: No domains in config file, no spare should be moved"
+setupdevs 0 0 1 $platform
+setupdevs 1 3 4 $platform
+createconfig a
+monitor 0 1
+mdadm -a /dev/$c1 $dev2
+mdadm --fail /dev/$v0 $dev0
+# check that spare loop2 was not moved from container c1 to container c0
+chksparemoved $c1 $c0 $dev2 n
+tidyup
+}
+
 test1()
 {
 dsc "Test 1: Common domain, add disk to one container and fail first one in another container, spare should be moved"
@@ -117,7 +144,7 @@ tidyup
 
 test4()
 {
-dsc "Test 4: One domain holds one container, fail a disk in domain, and add disk to a container not described by domain, spare loop5 should not be moved"
+dsc "Test 4: One domain holds one container, fail a disk in domain, and add disk to a container not described by domain, move if metadata allows"
 setupdevs 0 0 1 $platform
 setupdevs 1 3 4 $platform
 createconfig a
@@ -125,7 +152,9 @@ createconfig domain-$platform $platform spare 0 1 2
 monitor 0 1
 mdadm --fail /dev/$v0 $dev1
 mdadm -a /dev/$c1 $dev5
-chksparemoved $c1 $c0 $dev5 n
+unset shouldmove
+[ "$platform" == "imsm" ] || shouldmove="n"
+chksparemoved $c1 $c0 $dev5 $shouldmove
 tidyup
 }
 
@@ -236,11 +265,27 @@ tidyup
 
 test9()
 {
-dsc "Test 9: imsm and native 1.2 - spare should be shared"
+dsc "Test 9: imsm and native 1.2 - one domain, no metadata specified, spare should be moved"
 setupdevs 0 10 11 imsm
 setupdevs 1 8 9 1.2
 createconfig a
 createconfig domain0 noplatform spare 8 9 10 11 12
+monitor 0 1
+mdadm -a /dev/$c1 $dev12
+mdadm --fail /dev/$v0 $dev10
+chksparemoved $c1 $c0 $dev12
+tidyup
+}
+
+test9a()
+{
+dsc "Test 9a: imsm and native 1.2 - spare in global domain, should be moved"
+setupdevs 0 10 11 imsm
+setupdevs 1 8 9 1.2
+createconfig a
+createconfig domain-global noplatform spare 8 9 10 11 12
+createconfig domain-1.2 1.2 spare 8 9
+createconfig domain-imsm imsm spare 10 11
 monitor 0 1
 mdadm -a /dev/$c1 $dev12
 mdadm --fail /dev/$v0 $dev10
@@ -335,8 +380,27 @@ chksparemoved $c1 $c0 $d2
 tidyup
 }
 
+test15()
+{
+dsc "Test 15: spare in global domain for $platform metadata, should be moved"
+# this is like 9a but only one metadata used
+setupdevs 0 10 11 $platform
+setupdevs 1 8 9 $platform
+createconfig a
+createconfig domain-global $platform spare 8 9 10 11 12
+createconfig domain-1 $platform spare 8 9
+createconfig domain-2 $platform spare 10 11
+monitor 0 1
+mdadm -a /dev/$c1 $dev12
+mdadm --fail /dev/$v0 $dev10
+chksparemoved $c1 $c0 $dev12
+tidyup
+}
+
 try()
 {
+test0
+test0a
 test1
 test1a
 test2
@@ -351,6 +415,7 @@ if [ "$platform" != "1.2" ]; then
 fi
 test8
 test9
+test9a
 if [ "$platform" != "1.2" ]; then
 # we can't create two subarrays on the same devices for native (without
 # partitions)
@@ -360,6 +425,7 @@ test11
 test12
 test13
 test14
+test15
 }
 
 try_failed()

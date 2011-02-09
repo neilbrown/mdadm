@@ -6934,7 +6934,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			}
 			break;
 		case 5:
-			if (geo->level != 0)
+			if (geo->level == 0)
 				change = CH_LEVEL_MIGRATION;
 			break;
 		case 10:

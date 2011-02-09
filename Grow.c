@@ -1677,6 +1677,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			fprintf(stderr, Name ": level of %s changed to %s\n",
 				devname, c);	
 		orig_level = info->array.level;
+		sysfs_freeze_array(info);
 
 		if (reshape.level > 0 && st->ss->external) {
 			/* make sure mdmon is aware of the new level */

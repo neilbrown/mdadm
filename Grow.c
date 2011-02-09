@@ -2122,8 +2122,10 @@ int reshape_container(char *container, int cfd, char *devname,
 	if (reshape_super(st, -1, info->new_level,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks + info->delta_disks,
-			  backup_file, devname, quiet))
+			  backup_file, devname, quiet)) {
+		unfreeze(st);
 		return 1;
+	}
 
 	sync_metadata(st);
 
@@ -2134,6 +2136,7 @@ int reshape_container(char *container, int cfd, char *devname,
 	switch (fork()) {
 	case -1: /* error */
 		perror("Cannot fork to complete reshape\n");
+		unfreeze(st);
 		return 1;
 	default: /* parent */
 		printf(Name ": multi-array reshape continues in background\n");

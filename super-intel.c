@@ -4384,7 +4384,8 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	maxsize = merge_extents(super, extent_cnt);
 	minsize = size;
 	if (size == 0)
-		minsize = chunk;
+		/* chunk is in K */
+		minsize = chunk * 2;
 
 	if (cnt < raiddisks ||
 	    (super->orom && used && used != raiddisks) ||
@@ -4397,8 +4398,8 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	if (size == 0) {
 		size = maxsize;
 		if (chunk) {
-			size /= chunk;
-			size *= chunk;
+			size /= 2 * chunk;
+			size *= 2 * chunk;
 		}
 	}
 

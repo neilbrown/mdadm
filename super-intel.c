@@ -897,6 +897,12 @@ static void print_imsm_dev(struct imsm_dev *dev, char *uuid, int disk_idx)
 		printf("]");
 	}
 	printf("\n");
+	printf("    Failed disk : ");
+	if (map->failed_disk_num == 0xff)
+		printf("none");
+	else
+		printf("%i", map->failed_disk_num);
+	printf("\n");
 	slot = get_imsm_disk_slot(map, disk_idx);
 	if (slot >= 0) {
 		ord = get_imsm_ord_tbl_ent(dev, slot, -1);

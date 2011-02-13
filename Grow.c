@@ -2095,6 +2095,7 @@ started:
 out:
 	if (forked)
 		return 0;
+	unfreeze(st);
 	exit(0);
 
 release:

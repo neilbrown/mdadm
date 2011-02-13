@@ -4785,7 +4785,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 
 			skip = 0;
 			idx = get_imsm_disk_idx(dev, slot, 0);
-			ord = get_imsm_ord_tbl_ent(dev, slot, 0);
+			ord = get_imsm_ord_tbl_ent(dev, slot, -1);
 			for (d = super->disks; d ; d = d->next)
 				if (d->index == idx)
 					break;

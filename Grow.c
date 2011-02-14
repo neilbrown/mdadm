@@ -1056,6 +1056,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		info->array.layout = ALGORITHM_PARITY_N;
 	case 5:
 		switch (info->new_level) {
+		case 0:
 		case 4:
 			re->level = info->array.level;
 			re->before.data_disks = info->array.raid_disks - 1;

@@ -1573,6 +1573,19 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				       force, backup_file, quiet);
 		frozen = 0;
 	} else {
+		/* get spare devices from external metadata
+		 */
+		if (st->ss->external) {
+			struct mdinfo *info2;
+
+			info2 = st->ss->container_content(st, subarray);
+			if (info2) {
+				info.array.spare_disks =
+					info2->array.spare_disks;
+				sysfs_free(info2);
+			}
+		}
+
 		/* Impose these changes on a single array.  First
 		 * check that the metadata is OK with the change. */
 

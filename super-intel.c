@@ -7053,7 +7053,8 @@ int imsm_takeover(struct supertype *st, struct geo_params *geo)
 
 static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			      int layout, int chunksize, int raid_disks,
-			      char *backup, char *dev, int verbose)
+			      int delta_disks, char *backup, char *dev,
+			      int verbose)
 {
 	int ret_val = 1;
 	struct geo_params geo;
@@ -7069,6 +7070,8 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 	geo.layout = layout;
 	geo.chunksize = chunksize;
 	geo.raid_disks = raid_disks;
+	if (delta_disks != UnSet)
+		geo.raid_disks += delta_disks;
 
 	dprintf("\tfor level      : %i\n", geo.level);
 	dprintf("\tfor raid_disks : %i\n", geo.raid_disks);

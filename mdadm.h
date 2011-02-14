@@ -719,7 +719,8 @@ extern struct superswitch {
 	 */
 	int (*reshape_super)(struct supertype *st, long long size, int level,
 			     int layout, int chunksize, int raid_disks,
-			     char *backup, char *dev, int verbose); /* optional */
+			     int delta_disks, char *backup, char *dev,
+			     int verbose); /* optional */
 	int (*manage_reshape)( /* optional */
 		int afd, struct mdinfo *sra, struct reshape *reshape,
 		struct supertype *st, unsigned long blocks,

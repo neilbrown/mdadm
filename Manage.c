@@ -421,7 +421,7 @@ int Manage_subdevs(char *devname, int fd,
 				dnprintable = dvname;
 				break;
 			}
-			if (jnext == 0)
+			if (next != dv)
 				continue;
 		} else if (strcmp(dv->devname, "detached") == 0) {
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
@@ -461,7 +461,7 @@ int Manage_subdevs(char *devname, int fd,
 				dnprintable = dvname;
 				break;
 			}
-			if (jnext == 0)
+			if (next != dv)
 				continue;
 		} else if (strcmp(dv->devname, "missing") == 0) {
 			if (dv->disposition != 'a' || dv->re_add == 0) {

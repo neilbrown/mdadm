@@ -4732,10 +4732,18 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	struct mdinfo *rest = NULL;
 	unsigned int i;
 	int bbm_errors = 0;
+	struct dl *d;
+	int spare_disks = 0;
 
 	/* check for bad blocks */
 	if (imsm_bbm_log_size(super->anchor))
 		bbm_errors = 1;
+
+	/* count spare devices, not used in maps
+	 */
+	for (d = super->disks; d; d = d->next)
+		if (d->index == -1)
+			spare_disks++;
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev;
@@ -4853,6 +4861,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		}
 		/* now that the disk list is up-to-date fixup recovery_start */
 		update_recovery_start(dev, this);
+		this->array.spare_disks += spare_disks;
 		rest = this;
 	}
 

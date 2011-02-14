@@ -893,6 +893,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	 * when assembling an array that is undergoing reshape.
 	 */
 	int new_disks;
+	/* delta_parity records change in number of devices
+	 * caused by level change
+	 */
+	int delta_parity = 0;
 
 	/* If a new level not explicitly given, we assume no-change */
 	if (info->new_level == UnSet)
@@ -925,6 +929,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		 * raid0 with 1 disk
 		 */
 		if (info->new_level == 0) {
+			if (info->delta_disks != UnSet &&
+			    info->delta_disks != 0)
+				return "Cannot change number of disks "
+					"with RAID1->RAID0 conversion";
 			re->level = 0;
 			re->before.data_disks = 1;
 			re->after.data_disks = 1;
@@ -944,6 +952,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		}
 		if (info->array.raid_disks == 2 &&
 		    info->new_level == 5) {
+			if (info->delta_disks != UnSet &&
+			    info->delta_disks != 0)
+				return "Cannot change number of disks "
+					"with RAID1->RAID5 conversion";
 			re->level = 5;
 			re->before.data_disks = 1;
 			re->after.data_disks = 1;
@@ -970,10 +982,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			return "RAID10 can only be changed to RAID0";
 		new_disks = (info->array.raid_disks
 			     / (info->array.layout & 0xff));
-		if (info->delta_disks == UnSet) {
+		if (info->delta_disks == UnSet)
 			info->delta_disks = (new_disks
 					     - info->array.raid_disks);
-		}
+
 		if (info->delta_disks != new_disks - info->array.raid_disks)
 			return "New number of raid-devices impossible for RAID10";
 		if (info->new_chunk &&
@@ -1032,16 +1044,19 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		 * a raid4 style layout of the final level.
 		 */
 		switch (info->new_level) {
-		case 0:
 		case 4:
+			delta_parity = 1;
+		case 0:
 			re->level = 4;
 			re->before.layout = 0;
 			break;
 		case 5:
+			delta_parity = 1;
 			re->level = 5;
 			re->before.layout = ALGORITHM_PARITY_N;
 			break;
 		case 6:
+			delta_parity = 2;
 			re->level = 6;
 			re->before.layout = ALGORITHM_PARITY_N;
 			break;
@@ -1057,6 +1072,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	case 5:
 		switch (info->new_level) {
 		case 0:
+			delta_parity = -1;
 		case 4:
 			re->level = info->array.level;
 			re->before.data_disks = info->array.raid_disks - 1;
@@ -1068,6 +1084,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->before.layout = info->array.layout;
 			break;
 		case 6:
+			delta_parity = 1;
 			re->level = 6;
 			re->before.data_disks = info->array.raid_disks - 1;
 			switch (info->array.layout) {
@@ -1096,6 +1113,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		case 1:
 			if (info->array.raid_disks != 2)
 				return "Can only convert a 2-device array to RAID1";
+			if (info->delta_disks != UnSet &&
+			    info->delta_disks != 0)
+				return "Cannot set raid_disk when "
+					"converting RAID5->RAID1";
 			re->level = 1;
 			break;
 		default:
@@ -1106,6 +1127,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		switch (info->new_level) {
 		case 4:
 		case 5:
+			delta_parity = -1;
 		case 6:
 			re->level = 6;
 			re->before.data_disks = info->array.raid_disks - 2;
@@ -1131,11 +1153,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		 */
 		if (re->level != 4 && re->level != 5)
 			return "Cannot covert to RAID0 from this level";
-		if (info->delta_disks == UnSet)
-			re->after.data_disks = re->before.data_disks;
-		else
-			re->after.data_disks =
-				info->array.raid_disks + info->delta_disks;
+
 		switch (re->level) {
 		case 4:
 			re->after.layout = 0 ; break;
@@ -1148,11 +1166,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		/* We can only get to RAID4 from RAID5 */
 		if (re->level != 4 && re->level != 5)
 			return "Cannot convert to RAID4 from this level";
-		if (info->delta_disks == UnSet)
-			re->after.data_disks = re->before.data_disks;
-		else
-			re->after.data_disks =
-				re->before.data_disks + info->delta_disks;
+
 		switch (re->level) {
 		case 4:
 			re->after.layout = 0 ; break;
@@ -1165,14 +1179,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		/* We get to RAID5 for RAID5 or RAID6 */
 		if (re->level != 5 && re->level != 6)
 			return "Cannot convert to RAID5 from this level";
-		if (info->delta_disks == UnSet)
-			re->after.data_disks = re->before.data_disks;
-		else if (re->level == 5)
-			re->after.data_disks =
-				re->before.data_disks + info->delta_disks;
-		else
-			re->after.data_disks =
-				info->array.raid_disks + info->delta_disks - 1;
+
 		switch (re->level) {
 		case 5:
 			if (info->new_layout == UnSet)
@@ -1205,11 +1212,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		/* We must already be at level 6 */
 		if (re->level != 6)
 			return "Impossible level change";
-		if (info->delta_disks == UnSet)
-			re->after.data_disks = re->before.data_disks;
-		else
-			re->after.data_disks = (info->array.raid_disks +
-						info->delta_disks) - 2;
 		if (info->new_layout == UnSet)
 			re->after.layout = info->array.layout;
 		else
@@ -1218,6 +1220,12 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	default:
 		return "Impossible level change requested";
 	}
+	if (info->delta_disks == UnSet)
+		info->delta_disks = delta_parity;
+
+	re->after.data_disks = (re->before.data_disks
+				+ info->delta_disks
+				- delta_parity);
 	switch (re->level) {
 	case 6: re->parity = 2; break;
 	case 4:

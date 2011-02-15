@@ -427,12 +427,24 @@ The size can be given as
 .B max
 which means to choose the largest size that fits on all current drives.
 
+Before reducing the size of the array (with
+.BR "\-\-grow \-\-size=" )
+you should make sure that space isn't needed.  If the device holds a
+filesystem, you would need to resize the filesystem to use less space.
+
+After reducing the array size you should check that the data stored in
+the device is still available.  If the device holds a filesystem, then
+an 'fsck' of the filesystem is a minimum requirement.  If there are
+problems the array can be made bigger again with no loss with another
+.B "\-\-grow \-\-size="
+command.
+
 This value can not be used with
 .B CONTAINER
 metadata such as DDF and IMSM.
 
 .TP
-.BR \-Z ", " \-\-array-size=
+.BR \-Z ", " \-\-array\-size=
 This is only meaningful with
 .B \-\-grow
 and its effect is not persistent: when the array is stopped and
@@ -445,6 +457,17 @@ but setting the size with
 .B \-\-array-size
 is, it is required that the array size is reduced as appropriate
 before the number of devices in the array is reduced.
+
+Before reducing the size of the array you should make sure that space
+isn't needed.  If the device holds a filesystem, you would need to
+resize the filesystem to use less space.
+
+After reducing the array size you should check that the data stored in
+the device is still available.  If the device holds a filesystem, then
+an 'fsck' of the filesystem is a minimum requirement.  If there are
+problems the array can be made bigger again with no loss with another
+.B "\-\-grow \-\-array\-size="
+command.
 
 A suffix of 'M' or 'G' can be given to indicate Megabytes or
 Gigabytes respectively.

@@ -637,7 +637,7 @@ int Manage_subdevs(char *devname, int fd,
 				/* FIXME this is a bad test to be using */
 				if (!tst->sb) {
 					close(tfd);
-					fprintf(stderr, Name ": cannot find valid superblock in this array - HELP\n");
+					fprintf(stderr, Name ": cannot load array metadata from %s\n", devname);
 					return 1;
 				}
 

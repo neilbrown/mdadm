@@ -309,8 +309,10 @@ int Create(struct supertype *st, char *mddev,
 				if (st && !st->ss->validate_geometry
 					    	(st, level, layout, raiddisks,
 						 chunk, size*2, dname, &freesize,
-						 verbose > 0))
+						 verbose > 0)) {
+					free(st);
 					st = NULL;
+				}
 			}
 
 			if (!st) {

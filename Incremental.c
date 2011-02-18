@@ -1471,7 +1471,9 @@ static int Incremental_container(struct supertype *st, char *devname,
 	if (list->array.state & (1<<MD_SB_BBM_ERRORS)) {
 		fprintf(stderr, Name ": BBM log found in metadata. "
 					"Cannot activate array(s).\n");
-		list = NULL;
+		/* free container data and exit */
+		sysfs_free(list);
+		return 2;
 	}
 
 	for (ra = list ; ra ; ra = ra->next) {

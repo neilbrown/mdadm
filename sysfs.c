@@ -705,7 +705,7 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 	if (fstat(fd, &st))
 		return 1;
 
-	snprintf(path, sizeof(path), "/sys/dev/block/%d:%d/device",
+	snprintf(path, sizeof(path), "/sys/dev/block/%d:%d/device/scsi_device",
 		 major(st.st_rdev), minor(st.st_rdev));
 
 	dir = opendir(path);
@@ -714,8 +714,7 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 
 	de = readdir(dir);
 	while (de) {
-		if (strncmp("scsi_disk:", de->d_name,
-			    strlen("scsi_disk:")) == 0)
+		if (strchr(de->d_name, ':'))
 			break;
 		de = readdir(dir);
 	}
@@ -724,21 +723,20 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 	if (!de)
 		return 1;
 
-	c1 = strchr(de->d_name, ':');
-	c1++;
+	c1 = de->d_name;
 	c2 = strchr(c1, ':');
 	*c2 = '\0';
 	*id = strtol(c1, NULL, 10) << 24; /* host */
 	c1 = c2 + 1;
 	c2 = strchr(c1, ':');
 	*c2 = '\0';
-	*id |= strtol(c1, NULL, 10) << 16; /* channel */
+	*id |= strtol(c1, NULL, 10) << 16; /* bus */
 	c1 = c2 + 1;
 	c2 = strchr(c1, ':');
 	*c2 = '\0';
-	*id |= strtol(c1, NULL, 10) << 8; /* lun */
+	*id |= strtol(c1, NULL, 10) << 8; /* target */
 	c1 = c2 + 1;
-	*id |= strtol(c1, NULL, 10); /* id */
+	*id |= strtol(c1, NULL, 10); /* lun */
 
 	return 0;
 }

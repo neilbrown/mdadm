@@ -430,7 +430,8 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 
 
 		if((Px != 0) && (Qx != 0)) {
-			data_id = (raid6_gflog[Qx] - raid6_gflog[Px]) & 0xFF;
+			data_id = (raid6_gflog[Qx] - raid6_gflog[Px]);
+			if(data_id < 0) data_id += 255;
 			diskD = geo_map(data_id, start/chunk_size,
 					data_disks + 2, level, layout);
 			curr_broken_disk = diskD;
@@ -438,6 +439,9 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 
 		if((Px == 0) && (Qx == 0))
 			curr_broken_disk = curr_broken_disk;
+
+		if(curr_broken_disk >= data_disks + 2)
+			broken_status = 2;
 
 		switch(broken_status) {
 		case 0:
@@ -450,10 +454,6 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 		case 1:
 			if(curr_broken_disk != prev_broken_disk)
 				broken_status = 2;
-
-			if(curr_broken_disk >= data_disks + 2)
-				broken_status = 2;
-
 			break;
 
 		case 2:

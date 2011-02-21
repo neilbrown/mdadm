@@ -491,6 +491,20 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			sb->disks[d].state = info->disk.state | wonly;
 			rv = 1;
 		}
+		if (info->reshape_active &&
+		    sb->minor_version > 90 && (sb->reshape_position+1) != 0 &&
+		    info->delta_disks >= 0 &&
+		    info->reshape_progress < sb->reshape_position) {
+			sb->reshape_position = info->reshape_progress;
+			rv = 1;
+		}
+		if (info->reshape_active &&
+		    sb->minor_version > 90 && (sb->reshape_position+1) != 0 &&
+		    info->delta_disks < 0 &&
+		    info->reshape_progress > sb->reshape_position) {
+			sb->reshape_position = info->reshape_progress;
+			rv = 1;
+		}
 	}
 	if (strcmp(update, "linear-grow-new") == 0) {
 		memset(&sb->disks[info->disk.number], 0, sizeof(sb->disks[0]));

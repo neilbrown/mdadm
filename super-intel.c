@@ -1806,6 +1806,19 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			dprintf("IMSM: General Migration checkpoint : %llu "
 			       "(%llu) -> read reshape progress : %llu\n",
 				units, blocks_per_unit, info->reshape_progress);
+			unsigned long long array_blocks;
+			int used_disks;
+
+			used_disks = imsm_num_data_members(dev, 1);
+			if (used_disks > 0) {
+				array_blocks = map->blocks_per_member *
+					used_disks;
+				/* round array size down to closest MB
+				 */
+				info->custom_array_size = (array_blocks
+						>> SECT_PER_MB_SHIFT)
+						<< SECT_PER_MB_SHIFT;
+			}
 		}
 		case MIGR_VERIFY:
 			/* we could emulate the checkpointing of

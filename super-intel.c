@@ -1784,6 +1784,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	else
 		info->delta_disks = 0;
 
+	info->reshape_progress = 0;
 	if (map_to_analyse->map_state == IMSM_T_STATE_UNINITIALIZED ||
 	    dev->vol.dirty) {
 		info->resync_start = 0;
@@ -1797,6 +1798,15 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			info->resync_start = blocks_per_unit * units;
 			break;
 		}
+		case MIGR_GEN_MIGR: {
+			__u64 blocks_per_unit = blocks_per_migr_unit(dev);
+			__u64 units = __le32_to_cpu(dev->vol.curr_migr_unit);
+
+			info->reshape_progress = blocks_per_unit * units;
+			dprintf("IMSM: General Migration checkpoint : %llu "
+			       "(%llu) -> read reshape progress : %llu\n",
+				units, blocks_per_unit, info->reshape_progress);
+		}
 		case MIGR_VERIFY:
 			/* we could emulate the checkpointing of
 			 * 'sync_action=check' migrations, but for now
@@ -1804,7 +1814,6 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			 */
 		case MIGR_REBUILD:
 			/* this is handled by container_content_imsm() */
-		case MIGR_GEN_MIGR:
 		case MIGR_STATE_CHANGE:
 			/* FIXME handle other migrations */
 		default:

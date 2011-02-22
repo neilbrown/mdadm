@@ -187,7 +187,7 @@ static struct supertype *match_metadata_desc(char *arg)
 #ifndef MDASSEMBLE
 static int validate_geometry(struct supertype *st, int level,
 			     int layout, int raiddisks,
-			     int chunk, unsigned long long size,
+			     int *chunk, unsigned long long size,
 			     char *subdev, unsigned long long *freesize,
 			     int verbose)
 {

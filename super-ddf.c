@@ -2545,13 +2545,13 @@ validate_geometry_ddf_container(struct supertype *st,
 
 static int validate_geometry_ddf_bvd(struct supertype *st,
 				     int level, int layout, int raiddisks,
-				     int chunk, unsigned long long size,
+				     int *chunk, unsigned long long size,
 				     char *dev, unsigned long long *freesize,
 				     int verbose);
 
 static int validate_geometry_ddf(struct supertype *st,
 				 int level, int layout, int raiddisks,
-				 int chunk, unsigned long long size,
+				 int *chunk, unsigned long long size,
 				 char *dev, unsigned long long *freesize,
 				 int verbose)
 {
@@ -2569,7 +2569,7 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
-						       raiddisks, chunk,
+						       raiddisks, chunk?*chunk:0,
 						       size, dev, freesize,
 						       verbose);
 	}
@@ -2596,7 +2596,7 @@ static int validate_geometry_ddf(struct supertype *st,
 			 * chosen so that add_to_super/getinfo_super
 			 * can return them.
 			 */
-			return reserve_space(st, raiddisks, size, chunk, freesize);
+			return reserve_space(st, raiddisks, size, chunk?*chunk:0, freesize);
 		}
 		return 1;
 	}
@@ -2713,7 +2713,7 @@ validate_geometry_ddf_container(struct supertype *st,
 
 static int validate_geometry_ddf_bvd(struct supertype *st,
 				     int level, int layout, int raiddisks,
-				     int chunk, unsigned long long size,
+				     int *chunk, unsigned long long size,
 				     char *dev, unsigned long long *freesize,
 				     int verbose)
 {
@@ -2733,6 +2733,9 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	/* We must have the container info already read in. */
 	if (!ddf)
 		return 0;
+
+	if (chunk && (*chunk == 0 || *chunk == UnSet))
+		*chunk = DEFAULT_CHUNK;
 
 	if (!dev) {
 		/* General test:  make sure there is space for

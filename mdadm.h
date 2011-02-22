@@ -64,6 +64,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define BLKGETSIZE64 _IOR(0x12,114,size_t) /* return device size in bytes (u64 *arg) */
 #endif
 
+#define DEFAULT_CHUNK 512
 #define DEFAULT_BITMAP_CHUNK 4096
 #define DEFAULT_BITMAP_DELAY 5
 #define DEFAULT_MAX_WRITE_BEHIND 256
@@ -700,7 +701,7 @@ extern struct superswitch {
 	 */
 	int (*validate_geometry)(struct supertype *st, int level, int layout,
 				 int raiddisks,
-				 int chunk, unsigned long long size,
+				 int *chunk, unsigned long long size,
 				 char *subdev, unsigned long long *freesize,
 				 int verbose);
 

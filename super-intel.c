@@ -4165,17 +4165,21 @@ static int is_raid_level_supported(const struct imsm_orom *orom, int level, int 
 #define pr_vrb(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
 static int
 validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
-			    int raiddisks, int chunk, int verbose)
+			    int raiddisks, int *chunk, int verbose)
 {
 	if (!is_raid_level_supported(super->orom, level, raiddisks)) {
 		pr_vrb(": platform does not support raid%d with %d disk%s\n",
 			level, raiddisks, raiddisks > 1 ? "s" : "");
 		return 0;
 	}
-	if (super->orom && level != 1 &&
-	    !imsm_orom_has_chunk(super->orom, chunk)) {
-		pr_vrb(": platform does not support a chunk size of: %d\n", chunk);
-		return 0;
+	if (super->orom && level != 1) {
+		if (chunk && (*chunk == 0 || *chunk == UnSet))
+			*chunk = imsm_orom_default_chunk(super->orom);
+		else if (chunk && !imsm_orom_has_chunk(super->orom, *chunk)) {
+			pr_vrb(": platform does not support a chunk size of: "
+			       "%d\n", *chunk);
+			return 0;
+		}
 	}
 	if (layout != imsm_level_to_layout(level)) {
 		if (level == 5)
@@ -4195,7 +4199,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
  * FIX ME add ahci details
  */
 static int validate_geometry_imsm_volume(struct supertype *st, int level,
-					 int layout, int raiddisks, int chunk,
+					 int layout, int raiddisks, int *chunk,
 					 unsigned long long size, char *dev,
 					 unsigned long long *freesize,
 					 int verbose)
@@ -4414,7 +4418,7 @@ static int reserve_space(struct supertype *st, int raiddisks,
 }
 
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,
-				  int raiddisks, int chunk, unsigned long long size,
+				  int raiddisks, int *chunk, unsigned long long size,
 				  char *dev, unsigned long long *freesize,
 				  int verbose)
 {
@@ -4428,7 +4432,8 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_imsm_container(st, level, layout,
-							raiddisks, chunk, size,
+							raiddisks,
+							chunk?*chunk:0, size,
 							dev, freesize,
 							verbose);
 	}
@@ -4447,7 +4452,8 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							 raiddisks, chunk,
 							 verbose))
 				return 0;
-			return reserve_space(st, raiddisks, size, chunk, freesize);
+			return reserve_space(st, raiddisks, size,
+					     chunk?*chunk:0, freesize);
 		}
 		return 1;
 	}
@@ -6925,6 +6931,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	struct mdinfo info;
 	int change = -1;
 	int check_devs = 0;
+	int chunk;
 
 	getinfo_super_imsm_volume(st, &info, NULL);
 
@@ -6999,11 +7006,12 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	else
 		geo->chunksize = info.array.chunk_size;
 
+	chunk = geo->chunksize / 1024;
 	if (!validate_geometry_imsm(st,
 				    geo->level,
 				    geo->layout,
 				    geo->raid_disks,
-				    (geo->chunksize / 1024),
+				    &chunk,
 				    geo->size,
 				    0, 0, 1))
 		change = -1;

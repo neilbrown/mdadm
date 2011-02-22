@@ -1654,7 +1654,7 @@ static void free_super1(struct supertype *st)
 #ifndef MDASSEMBLE
 static int validate_geometry1(struct supertype *st, int level,
 			      int layout, int raiddisks,
-			      int chunk, unsigned long long size,
+			      int *chunk, unsigned long long size,
 			      char *subdev, unsigned long long *freesize,
 			      int verbose)
 {
@@ -1668,6 +1668,9 @@ static int validate_geometry1(struct supertype *st, int level,
 	}
 	if (!subdev)
 		return 1;
+
+	if (chunk && (*chunk == 0 || *chunk == UnSet))
+		*chunk = DEFAULT_CHUNK;
 
 	fd = open(subdev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {

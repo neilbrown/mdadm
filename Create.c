@@ -114,6 +114,7 @@ int Create(struct supertype *st, char *mddev,
 	struct mdinfo info, *infos;
 	int did_default = 0;
 	int do_default_layout = 0;
+	int do_default_chunk = 0;
 	unsigned long safe_mode_delay = 0;
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
@@ -229,13 +230,9 @@ int Create(struct supertype *st, char *mddev,
 	case 10:
 	case 6:
 	case 0:
-		if (chunk == 0) {
-			if (st && st->ss->default_geometry)
-				st->ss->default_geometry(st, NULL, NULL, &chunk);
-			chunk = chunk ? : 512;
-			if (verbose > 0)
-				fprintf(stderr, Name ": chunk size defaults to %dK\n", chunk);
-		}
+		if (chunk == 0 || chunk == UnSet)
+			do_default_chunk = 1;
+			/* chunk will be set later */
 		break;
 	case LEVEL_LINEAR:
 		/* a chunksize of zero 0s perfectly valid (and preferred) since 2.6.16 */
@@ -264,7 +261,7 @@ int Create(struct supertype *st, char *mddev,
 		size &= ~(unsigned long long)(chunk - 1);
 	newsize = size * 2;
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
-					      chunk, size*2, NULL, &newsize, verbose>=0))
+					      &chunk, size*2, NULL, &newsize, verbose>=0))
 		return 1;
 	if (size == 0) {
 		size = newsize / 2;
@@ -308,10 +305,11 @@ int Create(struct supertype *st, char *mddev,
 					layout = default_layout(st, level, verbose);
 				if (st && !st->ss->validate_geometry
 					    	(st, level, layout, raiddisks,
-						 chunk, size*2, dname, &freesize,
+						 &chunk, size*2, dname, &freesize,
 						 verbose > 0)) {
 					free(st);
 					st = NULL;
+					chunk = do_default_chunk ? 0 : chunk;
 				}
 			}
 
@@ -329,7 +327,7 @@ int Create(struct supertype *st, char *mddev,
 				layout = default_layout(st, level, verbose);
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
-						       chunk, size*2, dname,
+						       &chunk, size*2, dname,
 						       &freesize,
 						       verbose >= 0)) {
 
@@ -340,6 +338,11 @@ int Create(struct supertype *st, char *mddev,
 				fail = 1;
 				continue;
 			}
+		}
+		if (verbose > 0 && do_default_chunk) {
+			do_default_chunk = 0;
+			fprintf(stderr, Name ": chunk size "
+				"defaults to %dK\n", chunk);
 		}
 
 		freesize /= 2; /* convert to K */
@@ -422,7 +425,7 @@ int Create(struct supertype *st, char *mddev,
 			/* size is meaningful */
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
-						       chunk, minsize*2,
+						       &chunk, minsize*2,
 						       NULL, NULL, 0)) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);
 				return 1;

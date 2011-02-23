@@ -1504,6 +1504,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 {
 	struct mdinfo *dev, *sra;
 	int working = 0, preexist = 0;
+	int expansion = 0;
 	struct map_ent *map = NULL;
 
 	sysfs_init(content, mdfd, 0);
@@ -1522,6 +1523,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			working++;
 		else if (errno == EEXIST)
 			preexist++;
+		else if (dev->disk.raid_disk >= content->array.raid_disks &&
+			  content->reshape_active)
+			expansion++;
 	if (working == 0) {
 		close(mdfd);
 		return 1;/* Nothing new, don't try to start */
@@ -1532,7 +1536,8 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		   content->uuid, chosen_name);
 
 	if (runstop > 0 ||
-		 (working + preexist) >= content->array.working_disks) {
+		 (working + preexist + expansion) >=
+			content->array.working_disks) {
 		int err;
 
 		switch(content->array.level) {
@@ -1566,6 +1571,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 					chosen_name, working + preexist);
 			if (preexist)
 				fprintf(stderr, " (%d new)", working);
+			if (expansion)
+				fprintf(stderr, " ( + %d for expansion)",
+					expansion);
 			fprintf(stderr, "\n");
 		}
 		if (!err)

@@ -381,7 +381,8 @@ int Create(struct supertype *st, char *mddev,
 			    st->minor_version >= 1)
 				/* metadata at front */
 				warn |= check_partitions(fd, dname, 0);
-			else if (level == 1 || level == LEVEL_CONTAINER)
+			else if (level == 1 || level == LEVEL_CONTAINER
+				    || (level == 0 && raiddisks == 1))
 				/* partitions could be meaningful */
 				warn |= check_partitions(fd, dname, freesize*2);
 			else

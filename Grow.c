@@ -3325,11 +3325,13 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 {
 	char buf[40];
 	char *container = NULL;
-	int err = sysfs_set_str(info, NULL, "array_state", "readonly");
-	if (err)
-		return err;
+	int err;
 
-	if (st->ss->external) {
+	if (!st->ss->external) {
+		err = sysfs_set_str(info, NULL, "array_state", "readonly");
+		if (err)
+			return err;
+	} else {
 		fmt_devname(buf, st->container_dev);
 		container = buf;
 	}

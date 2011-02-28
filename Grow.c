@@ -1648,7 +1648,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
-		dprintf("Canot get array information.\n");
+		dprintf("Cannot get array information.\n");
 		goto release;
 	}
 

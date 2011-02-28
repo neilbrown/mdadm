@@ -3323,10 +3323,18 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		  char *backup_file)
 {
+	char buf[40];
+	char *container = NULL;
 	int err = sysfs_set_str(info, NULL, "array_state", "readonly");
 	if (err)
 		return err;
-	return reshape_array(NULL, mdfd, "array", st, info, 1, backup_file, 0, 0, 1);
+
+	if (st->ss->external) {
+		fmt_devname(buf, st->container_dev);
+		container = buf;
+	}
+	return reshape_array(container, mdfd, "array", st, info, 1,
+			     backup_file, 0, 0, 1);
 }
 
 

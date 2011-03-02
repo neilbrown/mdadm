@@ -696,8 +696,21 @@ int Assemble(struct supertype *st, char *mddev,
 #ifndef MDASSEMBLE
 	if (content != &info) {
 		/* This is a member of a container.  Try starting the array. */
-		return assemble_container_content(st, mdfd, content, runstop,
-					   chosen_name, verbose);
+		int err;
+		err = assemble_container_content(st, mdfd, content, runstop,
+						 chosen_name, verbose);
+		if (!err) {
+			/* check if reshape of external metadata
+			 * is in progress
+			 * and it is need to be monitored by mdadm
+			 */
+			if (content->reshape_active)
+				err = Grow_continue(mdfd, st, content,
+						    backup_file);
+		}
+		close(mdfd);
+
+		return err;
 	}
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
@@ -1511,10 +1524,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 	sra = sysfs_read(mdfd, 0, GET_VERSION);
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0)
-		if (sysfs_set_array(content, md_get_version(mdfd)) != 0) {
-			close(mdfd);
+		if (sysfs_set_array(content, md_get_version(mdfd)) != 0)
 			return 1;
-		}
+
 	if (sra)
 		sysfs_free(sra);
 
@@ -1526,11 +1538,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		else if (dev->disk.raid_disk >= content->array.raid_disks &&
 			  content->reshape_active)
 			expansion++;
-	if (working == 0) {
-		close(mdfd);
+	if (working == 0)
 		return 1;/* Nothing new, don't try to start */
-	}
-	
+
 	map_update(&map, fd2devnum(mdfd),
 		   content->text_version,
 		   content->uuid, chosen_name);
@@ -1578,8 +1588,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		}
 		if (!err)
 			wait_for(chosen_name, mdfd);
-		close(mdfd);
-		return 0;
+		return err;
 		/* FIXME should have an O_EXCL and wait for read-auto */
 	} else {
 		if (verbose >= 0)
@@ -1587,7 +1596,6 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				": %s assembled with %d devices but "
 				"not started\n",
 				chosen_name, working);
-		close(mdfd);
 		return 1;
 	}
 }

@@ -1556,6 +1556,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 		assemble_container_content(st, mdfd, ra, runstop,
 					   chosen_name, verbose);
+		close(mdfd);
 	}
 
 	/* Now move all suitable spares from spare container */

@@ -6885,7 +6885,8 @@ static int imsm_create_metadata_update_for_reshape(
 
 	if (spares == NULL
 	    || delta_disks > spares->array.spare_disks) {
-		dprintf("imsm: ERROR: Cannot get spare devices.\n");
+		fprintf(stderr, Name ": imsm: ERROR: Cannot get spare devices "
+			"for %s.\n", geo->dev_name);
 		goto abort;
 	}
 

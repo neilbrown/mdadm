@@ -235,7 +235,7 @@ static char *ping_monitor_version(char *devname)
 	return msg.buf;
 }
 
-static int unblock_subarray(struct mdinfo *sra, const int unfreeze)
+int unblock_subarray(struct mdinfo *sra, const int unfreeze)
 {
 	char buf[64];
 	int rc = 0;
@@ -255,6 +255,18 @@ static int unblock_subarray(struct mdinfo *sra, const int unfreeze)
 	return rc;
 }
 
+int block_subarray(struct mdinfo *sra)
+{
+	char buf[64];
+	int rc = 0;
+
+	sprintf(buf, "external:%s\n", sra->text_version);
+	buf[9] = '-';
+	if (sysfs_set_str(sra, NULL, "metadata_version", buf))
+		rc = -1;
+
+	return rc;
+}
 /**
  * block_monitor - prevent mdmon spare assignment
  * @container - container to block
@@ -334,9 +346,7 @@ int block_monitor(char *container, const int freeze)
 		 * takeover in reshape case and spare reassignment in the
 		 * auto-rebuild case)
 		 */
-		sprintf(buf, "external:%s\n", sra->text_version);
-		buf[9] = '-';
-		if (sysfs_set_str(sra, NULL, "metadata_version", buf))
+		if (block_subarray(sra))
 			break;
 		ping_monitor(container);
 

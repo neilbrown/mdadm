@@ -786,14 +786,14 @@ char *find_rule(struct rule *rule, char *rule_type)
 }
 
 #define UDEV_RULE_FORMAT \
-"ACTION==\"add\", SUBSYSTEM=\"block\", " \
+"ACTION==\"add\", SUBSYSTEM==\"block\", " \
 "ENV{DEVTYPE}==\"%s\", ENV{ID_PATH}==\"%s\", " \
-"RUN+=\"/sbin/mdadm --incremental $env{DEVNAME}\", "
+"RUN+=\"/sbin/mdadm --incremental $env{DEVNAME}\"\n"
 
 #define UDEV_RULE_FORMAT_NOTYPE \
-"ACTION==\"add\", SUBSYSTEM=\"block\", " \
+"ACTION==\"add\", SUBSYSTEM==\"block\", " \
 "ENV{ID_PATH}==\"%s\", " \
-"RUN+=\"/sbin/mdadm --incremental $env{DEVNAME}\", "
+"RUN+=\"/sbin/mdadm --incremental $env{DEVNAME}\"\n"
 
 /* Write rule in the rule file. Use format from UDEV_RULE_FORMAT */
 int write_rule(struct rule *rule, int fd, int force_part)

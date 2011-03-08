@@ -1764,6 +1764,12 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		info->new_layout = imsm_level_to_layout(info->new_level);
 		info->new_chunk = __le16_to_cpu(map->blocks_per_strip) << 9;
 		info->delta_disks = map->num_members - prev_map->num_members;
+		if (info->delta_disks) {
+			/* this needs to be applied to every array
+			 * in the container.
+			 */
+			info->reshape_active = 2;
+		}
 		/* We shape information that we give to md might have to be
 		 * modify to cope with md's requirement for reshaping arrays.
 		 * For example, when reshaping a RAID0, md requires it to be

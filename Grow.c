@@ -1271,12 +1271,12 @@ static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, char *backup_file, int quiet, int forked,
 			 int restart);
-static int reshape_container(char *container, int cfd, char *devname,
+static int reshape_container(char *container, char *devname,
 			     struct supertype *st, 
 			     struct mdinfo *info,
 			     int force,
 			     char *backup_file,
-			     int quiet);
+			     int quiet, int restart);
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
@@ -1578,8 +1578,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * number of devices (On-Line Capacity Expansion) must be
 		 * performed at the level of the container
 		 */
-		rv = reshape_container(container, fd, devname, st, &info,
-				       force, backup_file, quiet);
+		rv = reshape_container(container, devname, st, &info,
+				       force, backup_file, quiet, 0);
 		frozen = 0;
 	} else {
 		/* get spare devices from external metadata
@@ -2135,19 +2135,20 @@ release:
 	return 1;
 }
 
-int reshape_container(char *container, int cfd, char *devname,
+int reshape_container(char *container, char *devname,
 		      struct supertype *st, 
 		      struct mdinfo *info,
 		      int force,
 		      char *backup_file,
-		      int quiet)
+		      int quiet, int restart)
 {
 	struct mdinfo *cc = NULL;
 
 	/* component_size is not meaningful for a container,
 	 * so pass '-1' meaning 'no change'
 	 */
-	if (reshape_super(st, -1, info->new_level,
+	if (!restart &&
+	    reshape_super(st, -1, info->new_level,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks, info->delta_disks,
 			  backup_file, devname, quiet)) {
@@ -2180,6 +2181,10 @@ int reshape_container(char *container, int cfd, char *devname,
 		 * reshape it.  reshape_array() will re-read the metadata
 		 * so the next time through a different array should be
 		 * ready for reshape.
+		 * It is possible that the 'different' array will not
+		 * be assembled yet.  In that case we simple exit.
+		 * When it is assembled, the mdadm which assembles it
+		 * will take over the reshape.
 		 */
 		struct mdinfo *content;
 		int rv;
@@ -2219,8 +2224,9 @@ int reshape_container(char *container, int cfd, char *devname,
 
 		rv = reshape_array(container, fd, adev, st,
 				   content, force,
-				   backup_file, quiet, 1, 0);
+				   backup_file, quiet, 1, restart);
 		close(fd);
+		restart = 0;
 		if (rv)
 			break;
 	}
@@ -3334,6 +3340,11 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	if (st->ss->external) {
 		fmt_devname(buf, st->container_dev);
 		container = buf;
+		freeze(st);
+		if (info->reshape_active == 2)
+			return reshape_container(container, NULL,
+						 st, info, 0, backup_file,
+						 0, 1);
 	}
 	return reshape_array(container, mdfd, "array", st, info, 1,
 			     backup_file, 0, 0, 1);

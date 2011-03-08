@@ -1647,6 +1647,13 @@ static int reshape_array(char *container, int fd, char *devname,
 		fprintf(stderr, Name ": %s\n", msg);
 		goto release;
 	}
+	if (reshape.level != info->array.level ||
+	    reshape.before.layout != info->array.layout ||
+	    reshape.before.data_disks + reshape.parity != info->array.raid_disks) {
+		fprintf(stderr, Name ": reshape info is not in native format -"
+			" cannot continue.\n");
+		goto release;
+	}
 	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
 		dprintf("Cannot get array information.\n");
 		goto release;
@@ -1928,7 +1935,7 @@ started:
 
 	sra->new_chunk = info->new_chunk;
 
-	if (info->reshape_active)
+	if (restart)
 		sra->reshape_progress = info->reshape_progress;
 	else {
 		sra->reshape_progress = 0;
@@ -1944,7 +1951,7 @@ started:
 		/* use SET_ARRAY_INFO but only if reshape hasn't started */
 		ioctl(fd, GET_ARRAY_INFO, &array);
 		array.raid_disks = reshape.after.data_disks + reshape.parity;
-		if (!info->reshape_active &&
+		if (!restart &&
 		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 			int err = errno;
 
@@ -1960,17 +1967,9 @@ started:
 
 			goto release;
 		}
-	} else if (info->reshape_active && !st->ss->external) {
-		/* We don't need to set anything here for internal
-		 * metadata, and for kernels before 2.6.38 we can
-		 * fail if we try.
-		 */
-	} else {
+	} else if (!restart) {
 		/* set them all just in case some old 'new_*' value
 		 * persists from some earlier problem.
-		 * We even set them when restarting in the middle.  They will
-		 * already be set in that case so this will be a no-op,
-		 * but it is hard to tell the difference.
 		 */
 		int err = 0;
 		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
@@ -1995,9 +1994,11 @@ started:
 		}
 	}
 
-	err = start_reshape(sra, (info->reshape_active && !st->ss->external));
+	err = start_reshape(sra, restart);
 	if (err) {
-		fprintf(stderr, Name ": Cannot start reshape for %s\n",
+		fprintf(stderr, 
+			Name ": Cannot %s reshape for %s\n",
+			restart ? "continue" : "start",
 			devname);
 		goto release;
 	}
@@ -3327,16 +3328,13 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	char *container = NULL;
 	int err;
 
-	if (!st->ss->external) {
-		err = sysfs_set_str(info, NULL, "array_state", "readonly");
-		if (err)
-			return err;
-	} else {
+	err = sysfs_set_str(info, NULL, "array_state", "readonly");
+	if (err)
+		return err;
+	if (st->ss->external) {
 		fmt_devname(buf, st->container_dev);
 		container = buf;
 	}
 	return reshape_array(container, mdfd, "array", st, info, 1,
 			     backup_file, 0, 0, 1);
 }
-
-

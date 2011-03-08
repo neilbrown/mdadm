@@ -574,8 +574,11 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		rv |= sysfs_set_num(info, NULL, "reshape_position",
 				    info->reshape_progress);
 		rv |= sysfs_set_num(info, NULL, "chunk_size", info->new_chunk);
-		/* Don't set layout or raid_disks here as they require some
-		 * analysis and are set by reshape_array 
+		rv |= sysfs_set_num(info, NULL, "layout", info->new_layout);
+		rv |= sysfs_set_num(info, NULL, "raid_disks",
+				    info->array.raid_disks + info->delta_disks);
+		/* We don't set 'new_level' here.  That can only happen
+		 * once the reshape completes.
 		 */
 	}
 	return rv;

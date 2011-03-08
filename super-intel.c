@@ -1756,14 +1756,47 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->custom_array_size   = __le32_to_cpu(dev->size_high);
 	info->custom_array_size   <<= 32;
 	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
-	if (prev_map) {
+	if (prev_map && map->map_state == prev_map->map_state) {
+		info->reshape_active = 1;
 		info->new_level = get_imsm_raid_level(map);
 		info->new_layout = imsm_level_to_layout(info->new_level);
 		info->new_chunk = __le16_to_cpu(map->blocks_per_strip) << 9;
+		info->delta_disks = map->num_members - prev_map->num_members;
+		/* We shape information that we give to md might have to be
+		 * modify to cope with md's requirement for reshaping arrays.
+		 * For example, when reshaping a RAID0, md requires it to be
+		 * presented as a degraded RAID4.
+		 * Also if a RAID0 is migrating to a RAID5 we need to specify
+		 * the array as already being RAID5, but the 'before' layout
+		 * is a RAID4-like layout.
+		 */
+		switch (info->array.level) {
+		case 0:
+			switch(info->new_level) {
+			case 0:
+				/* conversion is happening as RAID4 */
+				info->array.level = 4;
+				info->array.raid_disks += 1;
+				break;
+			case 5:
+				/* conversion is happening as RAID5 */
+				info->array.level = 5;
+				info->array.layout = ALGORITHM_PARITY_N;
+				info->array.raid_disks += 1;
+				info->delta_disks -= 1;
+				break;
+			default:
+				/* FIXME error message */
+				info->array.level = UnSet;
+				break;
+			}
+			break;
+		}
 	} else {
 		info->new_level = UnSet;
 		info->new_layout = UnSet;
 		info->new_chunk = info->array.chunk_size;
+		info->delta_disks = 0;
 	}
 	info->disk.major = 0;
 	info->disk.minor = 0;
@@ -1777,12 +1810,6 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		__le32_to_cpu(map_to_analyse->blocks_per_member);
 	memset(info->uuid, 0, sizeof(info->uuid));
 	info->recovery_start = MaxSector;
-	info->reshape_active = (prev_map != NULL) &&
-			       (map->map_state == prev_map->map_state);
-	if (info->reshape_active)
-		info->delta_disks = map->num_members - prev_map->num_members;
-	else
-		info->delta_disks = 0;
 
 	info->reshape_progress = 0;
 	if (map_to_analyse->map_state == IMSM_T_STATE_UNINITIALIZED ||

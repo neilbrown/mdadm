@@ -1707,7 +1707,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 
-	if (reshape.level != info->array.level) {
+	if (reshape.level != array.level) {
 		char *c = map_num(pers, reshape.level);
 		int err;
 		if (c == NULL)
@@ -1727,7 +1727,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		if (!quiet)
 			fprintf(stderr, Name ": level of %s changed to %s\n",
 				devname, c);	
-		orig_level = info->array.level;
+		orig_level = array.level;
 		sysfs_freeze_array(info);
 
 		if (reshape.level > 0 && st->ss->external) {

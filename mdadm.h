@@ -1129,7 +1129,8 @@ extern int flush_metadata_updates(struct supertype *st);
 extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
 				      struct mdinfo *content, int runstop,
-				      char *chosen_name, int verbose);
+				      char *chosen_name, int verbose,
+				      char *backup_file);
 extern struct mdinfo *container_choose_spares(struct supertype *st,
 					      unsigned long long min_size,
 					      struct domainlist *domlist,

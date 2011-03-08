@@ -698,18 +698,9 @@ int Assemble(struct supertype *st, char *mddev,
 		/* This is a member of a container.  Try starting the array. */
 		int err;
 		err = assemble_container_content(st, mdfd, content, runstop,
-						 chosen_name, verbose);
-		if (!err) {
-			/* check if reshape of external metadata
-			 * is in progress
-			 * and it is need to be monitored by mdadm
-			 */
-			if (content->reshape_active)
-				err = Grow_continue(mdfd, st, content,
-						    backup_file);
-		}
+						 chosen_name, verbose,
+						 backup_file);
 		close(mdfd);
-
 		return err;
 	}
 #endif
@@ -1513,7 +1504,8 @@ int Assemble(struct supertype *st, char *mddev,
 #ifndef MDASSEMBLE
 int assemble_container_content(struct supertype *st, int mdfd,
 			       struct mdinfo *content, int runstop,
-			       char *chosen_name, int verbose)
+			       char *chosen_name, int verbose,
+			       char *backup_file)
 {
 	struct mdinfo *dev, *sra;
 	int working = 0, preexist = 0;
@@ -1550,7 +1542,40 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			content->array.working_disks) {
 		int err;
 
-		switch(content->array.level) {
+		if (content->reshape_active) {
+			int spare = content->array.raid_disks + expansion;
+			int i;
+			int *fdlist = malloc(sizeof(int) *
+					     (working + expansion
+					      + content->array.raid_disks));
+			for (i=0; i<spare; i++)
+				fdlist[i] = -1;
+			for (dev = content->devs; dev; dev = dev->next) {
+				int fd = open_dev(makedev(dev->disk.major,
+							  dev->disk.minor));
+				if (dev->disk.raid_disk >= 0)
+					fdlist[dev->disk.raid_disk] = fd;
+				else
+					fdlist[spare++] = fd;
+			}
+			err = Grow_restart(st, content, fdlist, spare,
+					   backup_file, verbose > 0);
+			while (spare > 0) {
+				spare--;
+				if (fdlist[spare] >= 0)
+					close(fdlist[spare]);
+			}
+			if (err) {
+				fprintf(stderr, Name ": Failed to restore critical"
+					" section for reshape - sorry.\n");
+				if (!backup_file)
+					fprintf(stderr, Name ":  Possibly you need"
+						" to specify a --backup-file\n");
+				return 1;
+			}
+
+			err = Grow_continue(mdfd, st, content, backup_file);
+		} else switch(content->array.level) {
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:
 		case 0:

@@ -1830,13 +1830,13 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		case MIGR_GEN_MIGR: {
 			__u64 blocks_per_unit = blocks_per_migr_unit(dev);
 			__u64 units = __le32_to_cpu(dev->vol.curr_migr_unit);
+			unsigned long long array_blocks;
+			int used_disks;
 
 			info->reshape_progress = blocks_per_unit * units;
 			dprintf("IMSM: General Migration checkpoint : %llu "
 			       "(%llu) -> read reshape progress : %llu\n",
 				units, blocks_per_unit, info->reshape_progress);
-			unsigned long long array_blocks;
-			int used_disks;
 
 			used_disks = imsm_num_data_members(dev, 1);
 			if (used_disks > 0) {

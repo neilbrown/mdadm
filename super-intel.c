@@ -5243,18 +5243,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		 */
 		if (a->curr_action == reshape) {
 			/* still reshaping, maybe update curr_migr_unit */
-			long long blocks_per_unit = blocks_per_migr_unit(dev);
-			long long unit = a->last_checkpoint;
-			if (blocks_per_unit) {
-				unit /= blocks_per_unit;
-				if (unit >
-				    __le32_to_cpu(dev->vol.curr_migr_unit)) {
-					dev->vol.curr_migr_unit =
-						__cpu_to_le32(unit);
-					super->updates_pending++;
-				}
-			}
-			return 0;
+			goto mark_checkpoint;
 		} else {
 			if (a->last_checkpoint == 0 && a->prev_action == reshape) {
 				/* for some reason we aborted the reshape.
@@ -5288,7 +5277,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 					 */
 
 					a->check_reshape = 1;
-}
+				}
 				/* finalize online capacity expansion/reshape */
 				for (mdi = a->info.devs; mdi; mdi = mdi->next)
 					imsm_set_disk(a,
@@ -5331,6 +5320,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		super->updates_pending++;
 	}
 
+mark_checkpoint:
 	/* check if we can update curr_migr_unit from resync_start, recovery_start */
 	blocks_per_unit = blocks_per_migr_unit(dev);
 	if (blocks_per_unit) {

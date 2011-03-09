@@ -482,7 +482,7 @@ This is pretty boring
 				if (load_sys(path, vbuf) < 0)
 					continue;
 				if (strncmp(vbuf, "external:", 9) != 0 ||
-				    !is_subarray(sra->sys_name+9) ||
+				    !is_subarray(vbuf+9) ||
 				    strncmp(vbuf+10, sra->sys_name, nlen) != 0 ||
 				    vbuf[10+nlen] != '/')
 					continue;

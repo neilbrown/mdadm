@@ -1649,7 +1649,13 @@ static int reshape_array(char *container, int fd, char *devname,
 	int done;
 	struct mdinfo *sra = NULL;
 
-	msg = analyse_change(info, &reshape);
+	if (info->reshape_active) {
+		int new_level = info->new_level;
+		info->new_level = UnSet;
+		msg = analyse_change(info, &reshape);
+		info->new_level = new_level;
+	} else
+		msg = analyse_change(info, &reshape);
 	if (msg) {
 		fprintf(stderr, Name ": %s\n", msg);
 		goto release;

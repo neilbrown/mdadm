@@ -2312,8 +2312,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 *   1 if more data from backup_point - but only as far as suspend_point,
 	 *     should be backed up
 	 *   0 if things are progressing smoothly
-	 *  -1 if the reshape is finished, either because it is all done,
-	 *     or due to an error.
+	 *  -1 if the reshape is finished because it is all done,
+	 *  -2 if the reshape is finished due to an error.
 	 */
 
 	int advancing = (reshape->after.data_disks

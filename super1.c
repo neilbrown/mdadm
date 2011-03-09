@@ -1666,11 +1666,11 @@ static int validate_geometry1(struct supertype *st, int level,
 			fprintf(stderr, Name ": 1.x metadata does not support containers\n");
 		return 0;
 	}
+	if (chunk && *chunk == UnSet)
+		*chunk = DEFAULT_CHUNK;
+
 	if (!subdev)
 		return 1;
-
-	if (chunk && (*chunk == 0 || *chunk == UnSet))
-		*chunk = DEFAULT_CHUNK;
 
 	fd = open(subdev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {

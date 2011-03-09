@@ -2566,6 +2566,10 @@ static int validate_geometry_ddf(struct supertype *st,
 	 * If given BVDs, we make an SVD, changing all the GUIDs in the process.
 	 */
 
+	if (chunk && *chunk == UnSet)
+		*chunk = DEFAULT_CHUNK;
+
+
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
@@ -2733,9 +2737,6 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	/* We must have the container info already read in. */
 	if (!ddf)
 		return 0;
-
-	if (chunk && (*chunk == 0 || *chunk == UnSet))
-		*chunk = DEFAULT_CHUNK;
 
 	if (!dev) {
 		/* General test:  make sure there is space for

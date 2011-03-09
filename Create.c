@@ -230,9 +230,11 @@ int Create(struct supertype *st, char *mddev,
 	case 10:
 	case 6:
 	case 0:
-		if (chunk == 0 || chunk == UnSet)
+		if (chunk == 0 || chunk == UnSet) {
+			chunk = UnSet;
 			do_default_chunk = 1;
 			/* chunk will be set later */
+		}
 		break;
 	case LEVEL_LINEAR:
 		/* a chunksize of zero 0s perfectly valid (and preferred) since 2.6.16 */
@@ -257,12 +259,17 @@ int Create(struct supertype *st, char *mddev,
 		return 1;
 	}
 	
-	if (size && chunk)
+	if (size && chunk && chunk != UnSet)
 		size &= ~(unsigned long long)(chunk - 1);
 	newsize = size * 2;
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
 					      &chunk, size*2, NULL, &newsize, verbose>=0))
 		return 1;
+
+	if (chunk) {
+		newsize &= ~(unsigned long long)(chunk*2 - 1);
+		size &= ~(unsigned long long)(chunk - 1);
+	}
 	if (size == 0) {
 		size = newsize / 2;
 		if (size && verbose > 0)

@@ -1113,11 +1113,11 @@ static int validate_geometry0(struct supertype *st, int level,
 			fprintf(stderr, Name ": 0.90 metadata supports at most 2 terrabytes per device\n");
 		return 0;
 	}
+	if (chunk && *chunk == UnSet)
+		*chunk = DEFAULT_CHUNK;
+
 	if (!subdev)
 		return 1;
-
-	if (chunk && (*chunk == 0 || *chunk == UnSet))
-		*chunk = DEFAULT_CHUNK;
 
 	fd = open(subdev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {

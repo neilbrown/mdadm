@@ -1506,7 +1506,10 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	info.component_size = size*2;
 	info.new_level = level;
 	info.new_chunk = chunksize * 1024;
-	if (raid_disks)
+	if (info.array.level == LEVEL_CONTAINER) {
+		info.delta_disks = UnSet;
+		info.array.raid_disks = raid_disks;
+	} else if (raid_disks)
 		info.delta_disks = raid_disks - info.array.raid_disks;
 	else
 		info.delta_disks = UnSet;

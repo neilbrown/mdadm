@@ -3370,10 +3370,17 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		fmt_devname(buf, st->container_dev);
 		container = buf;
 		freeze(st);
-		if (info->reshape_active == 2)
+
+		if (info->reshape_active == 2) {
+			int cfd = open_dev(st->container_dev);
+			if (cfd < 0)
+				return 1;
+			st->ss->load_container(st, cfd, container);
+			close(cfd);
 			return reshape_container(container, NULL,
 						 st, info, 0, backup_file,
 						 0, 1);
+		}
 	}
 	return reshape_array(container, mdfd, "array", st, info, 1,
 			     backup_file, 0, 0, 1);

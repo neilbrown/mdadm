@@ -1526,13 +1526,14 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		sysfs_free(sra);
 
 	for (dev = content->devs; dev; dev = dev->next)
-		if (sysfs_add_disk(content, dev, 1) == 0)
-			working++;
-		else if (errno == EEXIST)
+		if (sysfs_add_disk(content, dev, 1) == 0) {
+			if (dev->disk.raid_disk >= content->array.raid_disks &&
+			    content->reshape_active)
+				expansion++;
+			else
+				working++;
+		} else if (errno == EEXIST)
 			preexist++;
-		else if (dev->disk.raid_disk >= content->array.raid_disks &&
-			  content->reshape_active)
-			expansion++;
 	if (working == 0)
 		return 1;/* Nothing new, don't try to start */
 

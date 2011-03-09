@@ -952,13 +952,17 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		}
 		if (info->array.raid_disks == 2 &&
 		    info->new_level == 5) {
-			if (info->delta_disks != UnSet &&
-			    info->delta_disks != 0)
-				return "Cannot change number of disks "
-					"with RAID1->RAID5 conversion";
+
 			re->level = 5;
 			re->before.data_disks = 1;
-			re->after.data_disks = 1;
+			if (info->delta_disks != UnSet &&
+			    info->delta_disks != 0)
+				re->after.data_disks = 1 + info->delta_disks;
+			else
+				re->after.data_disks = 1;
+			if (re->after.data_disks < 1)
+				return "Number of disks too small for RAID5";
+
 			re->before.layout = ALGORITHM_LEFT_SYMMETRIC;
 			info->array.chunk_size = 65536;
 			break;

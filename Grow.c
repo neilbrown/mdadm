@@ -1675,6 +1675,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	 * freeze_array and freeze_container.
 	 */
 	sysfs_freeze_array(info);
+	/* Check we have enough spares to not be degraded */
 	spares_needed = max(reshape.before.data_disks,
 			    reshape.after.data_disks)
 		+ reshape.parity - array.raid_disks;
@@ -1686,6 +1687,20 @@ static int reshape_array(char *container, int fd, char *devname,
 			Name ": Need %d spare%s to avoid degraded array,"
 			" and only have %d.\n"
 			"       Use --force to over-ride this check.\n",
+			spares_needed,
+			spares_needed == 1 ? "" : "s", 
+			info->array.spare_disks);
+		goto release;
+	}
+	/* Check we have enough spares to not fail */
+	spares_needed = max(reshape.before.data_disks,
+			    reshape.after.data_disks)
+		- array.raid_disks;
+	if ((info->new_level > 1 || info->new_level == 0) &&
+	    spares_needed > info->array.spare_disks) {
+		fprintf(stderr,
+			Name ": Need %d spare%s to create working array,"
+			" and only have %d.\n",
 			spares_needed,
 			spares_needed == 1 ? "" : "s", 
 			info->array.spare_disks);

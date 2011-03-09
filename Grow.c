@@ -1651,9 +1651,10 @@ static int reshape_array(char *container, int fd, char *devname,
 		fprintf(stderr, Name ": %s\n", msg);
 		goto release;
 	}
-	if (reshape.level != info->array.level ||
-	    reshape.before.layout != info->array.layout ||
-	    reshape.before.data_disks + reshape.parity != info->array.raid_disks) {
+	if (restart &&
+	    (reshape.level != info->array.level ||
+	     reshape.before.layout != info->array.layout ||
+	     reshape.before.data_disks + reshape.parity != info->array.raid_disks)) {
 		fprintf(stderr, Name ": reshape info is not in native format -"
 			" cannot continue.\n");
 		goto release;

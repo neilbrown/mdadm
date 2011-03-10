@@ -2847,6 +2847,66 @@ static struct intel_super *alloc_super(void)
 	return super;
 }
 
+
+/*
+ * find and allocate hba and OROM/EFI based on valid fd of RAID component device
+ */
+static int find_intel_hba_capability(int fd, struct intel_super *super, int verbose)
+{
+	struct sys_dev *hba_name;
+	int rv = 0;
+
+	if ((fd < 0) || check_env("IMSM_NO_PLATFORM")) {
+		super->hba = NULL;
+		return 0;
+	}
+	hba_name = find_disk_attached_hba(fd, NULL);
+	if (!hba_name) {
+		if (verbose) {
+			char str[256];
+
+			fd2devname(fd, str);
+			fprintf(stderr,
+				Name ": %s is not attached to Intel(R) RAID controller.\n",
+				str);
+		}
+		return 1;
+	}
+	rv = attach_hba_to_super(super, hba_name);
+	if (rv == 2) {
+		if (verbose) {
+			char str[256];
+
+			fd2devname(fd, str);
+			fprintf(stderr, Name ": %s is attached to Intel(R) %s RAID "
+				"controller (%s),\n"
+				"    but the container is assigned to Intel(R) "
+				"%s RAID controller (",
+				str,
+				hba_name->path,
+				hba_name->pci_id ? : "Err!",
+				get_sys_dev_type(hba_name->type));
+
+			struct intel_hba *hba = super->hba;
+			while (hba) {
+				fprintf(stderr, "%s", hba->pci_id ? : "Err!");
+				if (hba->next)
+					fprintf(stderr, ", ");
+				hba = hba->next;
+			}
+
+			fprintf(stderr, ").\n"
+				"    Mixing devices attached to different controllers "
+				"is not allowed.\n");
+		}
+		free_sys_dev(&hba_name);
+		return 2;
+	}
+	free_sys_dev(&hba_name);
+	return 0;
+}
+
+
 #ifndef MDASSEMBLE
 /* find_missing - helper routine for load_super_imsm_all that identifies
  * disks that have disappeared from the system.  This routine relies on
@@ -3707,43 +3767,12 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	 * We do not need to test disks attachment for container based additions,
 	 * they shall be already tested when container was created/assembled.
 	 */
-	if ((fd != -1) && !check_env("IMSM_NO_PLATFORM")) {
-		struct sys_dev *hba_name;
-		struct intel_hba *hba;
-
-		hba_name = find_disk_attached_hba(fd, NULL);
-		if (!hba_name) {
-			fprintf(stderr,
-				Name ": %s is not attached to Intel(R) RAID controller.\n",
-				devname ? : "disk");
-			return 1;
-		}
-		rv = attach_hba_to_super(super, hba_name);
-		switch (rv) {
-		case 2:
-			fprintf(stderr, Name ": %s is attached to Intel(R) %s RAID "
-				"controller (%s),\n    but the container is assigned to Intel(R) "
-				"%s RAID controller (",
-				devname,
-				get_sys_dev_type(hba_name->type),
-				hba_name->pci_id ? : "Err!",
-				get_sys_dev_type(hba_name->type));
-
-			hba = super->hba;
-			while (hba) {
-				fprintf(stderr, "%s", hba->pci_id ? : "Err!");
-				if (hba->next)
-					fprintf(stderr, ", ");
-				hba = hba->next;
-			}
-
-			fprintf(stderr, ").\n"
-				"    Mixing devices attached to different controllers "
-				"is not allowed.\n");
-			free_sys_dev(&hba_name);
-			return 1;
-		}
-		free_sys_dev(&hba_name);
+	rv = find_intel_hba_capability(fd, super, 1);
+	/* no intel hba of the disk */
+	if (rv != 0) {
+		dprintf("capability: %p fd: %d ret: %d\n",
+			super->orom, fd, rv);
+		return 1;
 	}
 
 	if (super->current_vol >= 0)

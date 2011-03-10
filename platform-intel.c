@@ -205,7 +205,8 @@ static int scan(const void *start, const void *end, const void *data)
 
 	for (offset = 0; offset < len; offset += 4) {
 		imsm_mem = start + offset;
-		if (memcmp(imsm_mem->signature, "$VER", 4) == 0) {
+		if ((memcmp(imsm_mem->signature, "$VER", 4) == 0) ||
+		    (memcmp(imsm_mem->signature, "$OEM", 4) == 0)) {
 			imsm_orom[dev] = *imsm_mem;
 			populated_orom[dev] = 1;
 			return populated_orom[SYS_DEV_SATA] && populated_orom[SYS_DEV_SAS];

@@ -1654,6 +1654,9 @@ static int reshape_array(char *container, int fd, char *devname,
 		info->new_level = UnSet;
 		msg = analyse_change(info, &reshape);
 		info->new_level = new_level;
+		if (!restart)
+			/* Make sure the array isn't read-only */
+			ioctl(fd, RESTART_ARRAY_RW, 0);
 	} else
 		msg = analyse_change(info, &reshape);
 	if (msg) {

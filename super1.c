@@ -698,6 +698,20 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			sb->dev_roles[d] = __cpu_to_le16(want);
 			rv = 1;
 		}
+		if (info->reshape_active &&
+		    sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE) &&
+		    info->delta_disks >= 0 &&
+		    info->reshape_progress < __le64_to_cpu(sb->reshape_position)) {
+			sb->reshape_position = __cpu_to_le64(info->reshape_progress);
+			rv = 1;
+		}
+		if (info->reshape_active &&
+		    sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE) &&
+		    info->delta_disks < 0 &&
+		    info->reshape_progress > __le64_to_cpu(sb->reshape_position)) {
+			sb->reshape_position = __cpu_to_le64(info->reshape_progress);
+			rv = 1;
+		}
 	} else if (strcmp(update, "linear-grow-new") == 0) {
 		unsigned int i;
 		int rfd, fd;

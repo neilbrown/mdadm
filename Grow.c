@@ -1649,6 +1649,18 @@ static int reshape_array(char *container, int fd, char *devname,
 	int done;
 	struct mdinfo *sra = NULL;
 
+	/* when reshaping a RAID0, the component_size might be zero.
+	 * So try to fix that up.
+	 */
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+		dprintf("Cannot get array information.\n");
+		goto release;
+	}
+	if (array.level == 0 && info->component_size == 0) {
+		get_dev_size(fd, NULL, &array_size);
+		info->component_size = array_size / array.raid_disks;
+	}
+
 	if (info->reshape_active) {
 		int new_level = info->new_level;
 		info->new_level = UnSet;
@@ -1669,10 +1681,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	     reshape.before.data_disks + reshape.parity != info->array.raid_disks)) {
 		fprintf(stderr, Name ": reshape info is not in native format -"
 			" cannot continue.\n");
-		goto release;
-	}
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
-		dprintf("Cannot get array information.\n");
 		goto release;
 	}
 

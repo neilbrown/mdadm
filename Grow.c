@@ -1508,6 +1508,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		ping_monitor(container);
 	}
 
+	memset(&info, 0, sizeof(info));
 	info.array = array;
 	sysfs_init(&info, fd, NoMdDev);
 	strcpy(info.text_version, sra->text_version);

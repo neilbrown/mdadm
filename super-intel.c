@@ -2207,6 +2207,18 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
                 tst->sb = NULL;
                 return 0;
         }
+	/* in platform dependent environment test if the disks
+	 * use the same Intel hba
+	 */
+	if (!check_env("IMSM_NO_PLATFORM")) {
+		if (first->hba->type != sec->hba->type)  {
+			fprintf(stderr,
+				"HBAs of devices does not match %s != %s\n",
+				get_sys_dev_type(first->hba->type),
+				get_sys_dev_type(sec->hba->type));
+			return 3;
+		}
+	}
 
 	/* if an anchor does not have num_raid_devs set then it is a free
 	 * floating spare

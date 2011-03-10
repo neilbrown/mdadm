@@ -122,9 +122,10 @@ missing, spare, or failed drives, so there is nothing to monitor.
 .B "Grow"
 Grow (or shrink) an array, or otherwise reshape it in some way.
 Currently supported growth options including changing the active size
-of component devices and changing the number of active devices in RAID
-levels 1/4/5/6, changing the RAID level between 1, 5, and 6, changing
-the chunk size and layout for RAID5 and RAID5, as well as adding or
+of component devices and changing the number of active devices in
+Linear and RAID levels 0/1/4/5/6,
+changing the RAID level between 0, 1, 5, and 6, and between 0 and 10,
+changing the chunk size and layout for RAID 0,4,5,6, as well as adding or
 removing a write-intent bitmap.
 
 .TP
@@ -899,6 +900,28 @@ not as reliable as you would like.
 .TP
 .BR \-a ", " "\-\-auto{=no,yes,md,mdp,part}"
 See this option under Create and Build options.
+
+.TP
+.BR \-a ", " "\-\-add"
+This option can be used in Grow mode in two cases.
+
+If the target array is a Linear array, then
+.B \-\-add
+can be used to add one or more devices to the array.  They
+are simply catenated on to the end of the array.  Once added, the
+devices cannot be removed.
+
+If the
+.B \-\-raid\-disks
+option is being used to increase the number of devices in an array,
+then
+.B \-\-add
+can be used to add some extra devices to be included in the array.
+In most cases this is not needed as the extra devices can be added as
+spares first, and then the number of raid-disks can be changed.
+However for RAID0, it is not possible to add spares.  So to increase
+the number of devices in a RAID0, it is necessary to set the new
+number of devices, and to add the new devices, in the same command.
 
 .TP
 .BR \-b ", " \-\-bitmap=
@@ -2181,31 +2204,33 @@ and then follow similar steps as above if a matching spare is found.
 The GROW mode is used for changing the size or shape of an active
 array.
 For this to work, the kernel must support the necessary change.
-Various types of growth are being added during 2.6 development,
-including restructuring a RAID5 array to have more active devices.
+Various types of growth are being added during 2.6 development.
 
-Currently the only support available is to
+Currently the supported changes include
 .IP \(bu 4
-change the "size" attribute
-for RAID1, RAID5 and RAID6.
+change the "size" attribute for RAID1, RAID4, RAID5 and RAID6.
 .IP \(bu 4
-increase or decrease the "raid\-devices" attribute of RAID1, RAID5,
-and RAID6.
+increase or decrease the "raid\-devices" attribute of RAID0, RAID1, RAID4,
+RAID5, and RAID6.
 .IP \bu 4
-change the chunk-size and layout of RAID5 and RAID6.
+change the chunk-size and layout of RAID0, RAID4, RAID5 and RAID6.
 .IP \bu 4
-convert between RAID1 and RAID5, and between RAID5 and RAID6.
+convert between RAID1 and RAID5, between RAID5 and RAID6, between
+RAID0, RAID5, and RAID5, and between RAID0 and RAID10 (in the near-2 mode).
 .IP \(bu 4
 add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
 .PP
 
-GROW mode is not currently supported for
-.B CONTAINERS
-or arrays inside containers.
+Using GROW on containers is currently only support for Intel's IMSM
+container format.  The number of devices in a container can be
+increased - which affects all arrays in the container - or an array
+in a container can be converted between levels where those levels are
+supported by the container, and the conversion is on of those listed
+above.
 
 .SS SIZE CHANGES
-Normally when an array is built the "size" it taken from the smallest
+Normally when an array is built the "size" is taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a
 time, removed and replaced with larger drives, then you could have an
 array of large drives with only a small amount used.  In this
@@ -2243,6 +2268,16 @@ back to a new location.  From 2.6.17, the Linux Kernel is able to
 increase the number of devices in a RAID5 safely, including restarting
 an interrupted "reshape".  From 2.6.31, the Linux Kernel is able to
 increase or decrease the number of devices in a RAID5 or RAID6.
+
+From 2.6.35, the Linux Kernel is able to convert a RAID0 in to a RAID4
+or RAID5.
+.I mdadm
+uses this functionality and the ability to add
+devices to a RAID4 to allow devices to be added to a RAID0.  When
+requested to do this,
+.I mdadm
+will convert the RAID0 to a RAID4, add the necessary disks and make
+the reshape happen, and then convert the RAID4 back to RAID0.
 
 When decreasing the number of devices, the size of the array will also
 decrease.  If there was data in the array, it could get destroyed and

@@ -197,6 +197,21 @@ struct sys_dev {
 	struct sys_dev *next;
 };
 
+struct efi_guid {
+	__u8 b[16];
+};
+
+static inline char *guid_str(char *buf, struct efi_guid guid)
+{
+	sprintf(buf, "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+		     "%02x%02x-%02x%02x%02x%02x%02x%02x",
+		 guid.b[3], guid.b[2], guid.b[1], guid.b[0],
+		 guid.b[5], guid.b[4], guid.b[7], guid.b[6],
+		 guid.b[8], guid.b[9], guid.b[10], guid.b[11],
+		 guid.b[12], guid.b[13], guid.b[14], guid.b[15]);
+	return buf;
+}
+
 char *diskfd_to_devpath(int fd);
 struct sys_dev *find_driver_devices(const char *bus, const char *driver);
 struct sys_dev *find_intel_devices(void);

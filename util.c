@@ -994,7 +994,7 @@ int open_dev(int devnum)
 	char buf[20];
 
 	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
-	return dev_open(buf, O_RDWR);
+	return dev_open(buf, O_RDONLY);
 }
 
 int open_dev_excl(int devnum)

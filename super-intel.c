@@ -4230,12 +4230,30 @@ static int is_raid_level_supported(const struct imsm_orom *orom, int level, int 
 	return 0;
 }
 
+
 #define pr_vrb(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
+/*
+ * validate volume parameters with OROM/EFI capabilities
+ */
 static int
 validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 			    int raiddisks, int *chunk, int verbose)
 {
-	if (!is_raid_level_supported(super->orom, level, raiddisks)) {
+#if DEBUG
+	verbose = 1;
+#endif
+	/* validate container capabilities */
+	if (super->orom && raiddisks > super->orom->tds) {
+		if (verbose)
+			fprintf(stderr, Name ": %d exceeds maximum number of"
+				" platform supported disks: %d\n",
+				raiddisks, super->orom->tds);
+		return 0;
+	}
+
+        /* capabilities of OROM tested - copied from validate_geometry_imsm_volume */
+	if (super->orom && (!is_raid_level_supported(super->orom, level,
+						     raiddisks))) {
 		pr_vrb(": platform does not support raid%d with %d disk%s\n",
 			level, raiddisks, raiddisks > 1 ? "s" : "");
 		return 0;
@@ -4259,7 +4277,6 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 				layout, level);
 		return 0;
 	}
-
 	return 1;
 }
 

@@ -1273,7 +1273,8 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
-			 int force, char *backup_file, int quiet, int forked,
+			 int force, struct mddev_dev *devlist,
+			 char *backup_file, int quiet, int forked,
 			 int restart);
 static int reshape_container(char *container, char *devname,
 			     struct supertype *st, 
@@ -1285,6 +1286,7 @@ static int reshape_container(char *container, char *devname,
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks,
+		 struct mddev_dev *devlist,
 		 int force)
 {
 	/* Make some changes in the shape of an array.
@@ -1314,6 +1316,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	char *container = NULL;
 	char container_buf[20];
 	int cfd = -1;
+
+	struct mddev_dev *dv;
+	int added_disks;
 
 	struct mdinfo info;
 	struct mdinfo *sra;
@@ -1390,10 +1395,13 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 		if (mdmon_running(container_dev))
 			st->update_tail = &st->updates;
-	} 
+	}
 
+	added_disks = 0;
+	for (dv = devlist; dv; dv = dv->next)
+		added_disks++;
 	if (raid_disks > array.raid_disks &&
-	    array.spare_disks < (raid_disks - array.raid_disks) &&
+	    array.spare_disks +added_disks < (raid_disks - array.raid_disks) &&
 	    !force) {
 		fprintf(stderr,
 			Name ": Need %d spare%s to avoid degraded array,"
@@ -1401,7 +1409,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			"       Use --force to over-ride this check.\n",
 			raid_disks - array.raid_disks, 
 			raid_disks - array.raid_disks == 1 ? "" : "s", 
-			array.spare_disks);
+			array.spare_disks + added_disks);
 		return 1;
 	}
 
@@ -1614,7 +1622,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		}
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, force,
-				   backup_file, quiet, 0, 0);
+				   devlist, backup_file, quiet, 0, 0);
 		frozen = 0;
 	}
 release:
@@ -1625,7 +1633,7 @@ release:
 
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
-			 int force,
+			 int force, struct mddev_dev *devlist,
 			 char *backup_file, int quiet, int forked,
 			 int restart)
 {
@@ -1637,6 +1645,9 @@ static int reshape_array(char *container, int fd, char *devname,
 
 	struct mdu_array_info_s array;
 	char *c;
+
+	struct mddev_dev *dv;
+	int added_disks;
 
 	int *fdlist;
 	unsigned long long *offsets;
@@ -1697,20 +1708,23 @@ static int reshape_array(char *container, int fd, char *devname,
 	 */
 	sysfs_freeze_array(info);
 	/* Check we have enough spares to not be degraded */
+	added_disks = 0;
+	for (dv = devlist; dv ; dv=dv->next)
+		added_disks++;
 	spares_needed = max(reshape.before.data_disks,
 			    reshape.after.data_disks)
 		+ reshape.parity - array.raid_disks;
 
 	if (!force &&
-	    info->new_level > 1 &&
-	    spares_needed > info->array.spare_disks) {
+	    info->new_level > 1 && info->array.level > 1 &&
+	    spares_needed > info->array.spare_disks + added_disks) {
 		fprintf(stderr,
 			Name ": Need %d spare%s to avoid degraded array,"
 			" and only have %d.\n"
 			"       Use --force to over-ride this check.\n",
 			spares_needed,
 			spares_needed == 1 ? "" : "s", 
-			info->array.spare_disks);
+			info->array.spare_disks + added_disks);
 		goto release;
 	}
 	/* Check we have enough spares to not fail */
@@ -1718,13 +1732,13 @@ static int reshape_array(char *container, int fd, char *devname,
 			    reshape.after.data_disks)
 		- array.raid_disks;
 	if ((info->new_level > 1 || info->new_level == 0) &&
-	    spares_needed > info->array.spare_disks) {
+	    spares_needed > info->array.spare_disks +added_disks) {
 		fprintf(stderr,
 			Name ": Need %d spare%s to create working array,"
 			" and only have %d.\n",
 			spares_needed,
 			spares_needed == 1 ? "" : "s", 
-			info->array.spare_disks);
+			info->array.spare_disks + added_disks);
 		goto release;
 	}
 
@@ -1783,6 +1797,13 @@ static int reshape_array(char *container, int fd, char *devname,
 			sysfs_free(info2);
 		}
 	}
+	/* We might have been given some devices to add to the
+	 * array.  Now that the array has been changed to the right
+	 * level and frozen, we can safely add them.
+	 */
+	if (devlist)
+		Manage_subdevs(devname, fd, devlist, !quiet,
+			       0,NULL);
 
 	if (reshape.backup_blocks == 0) {
 		/* No restriping needed, but we might need to impose
@@ -2263,7 +2284,7 @@ int reshape_container(char *container, char *devname,
 		sysfs_init(content, fd, mdstat->devnum);
 
 		rv = reshape_array(container, fd, adev, st,
-				   content, force,
+				   content, force, NULL,
 				   backup_file, quiet, 1, restart);
 		close(fd);
 		restart = 0;
@@ -3399,5 +3420,5 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		}
 	}
 	return reshape_array(container, mdfd, "array", st, info, 1,
-			     backup_file, 0, 0, 1);
+			     NULL, backup_file, 0, 0, 1);
 }

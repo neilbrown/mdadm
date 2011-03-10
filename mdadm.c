@@ -1630,22 +1630,26 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		if (devs_found > 1) {
-
+		if (devs_found > 1 && raiddisks == 0) {
 			/* must be '-a'. */
-			if (size >= 0 || raiddisks || chunk || layout_str != NULL || bitmap_file) {
-				fprintf(stderr, Name ": --add cannot be used with other geometry changes in --grow mode\n");
+			if (size >= 0 || chunk || layout_str != NULL || bitmap_file) {
+				fprintf(stderr, Name ": --add cannot be used with "
+					"other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
 			}
 			for (dv=devlist->next; dv ; dv=dv->next) {
-				rv = Grow_Add_device(devlist->devname, mdfd, dv->devname);
+				rv = Grow_Add_device(devlist->devname, mdfd,
+						     dv->devname);
 				if (rv)
 					break;
 			}
 		} else if (bitmap_file) {
-			if (size >= 0 || raiddisks || chunk || layout_str != NULL) {
-				fprintf(stderr, Name ": --bitmap changes cannot be used with other geometry changes in --grow mode\n");
+			if (size >= 0 || raiddisks || chunk ||
+			    layout_str != NULL || devs_found) {
+				fprintf(stderr, Name ": --bitmap changes cannot be "
+					"used with other geometry changes "
+					"in --grow mode\n");
 				rv = 1;
 				break;
 			}
@@ -1657,6 +1661,7 @@ int main(int argc, char *argv[])
 			   || chunk != 0 || level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout_str, chunk, raiddisks,
+					  devlist->next,
 					  force);
 		} else if (array_size < 0)
 			fprintf(stderr, Name ": no changes to --grow\n");

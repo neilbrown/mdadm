@@ -20,6 +20,7 @@
  */
 
 #include "probe_roms.h"
+#include "mdadm.h"
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -130,50 +131,60 @@ static void *isa_bus_to_virt(unsigned long addr)
 struct resource {
 	unsigned long start;
 	unsigned long end;
+	unsigned long data;
 	const char *name;
 };
 
 static struct resource system_rom_resource = {
 	.name	= "System ROM",
 	.start	= 0xf0000,
+	.data   = 0,
 	.end	= 0xfffff,
 };
 
 static struct resource extension_rom_resource = {
 	.name	= "Extension ROM",
 	.start	= 0xe0000,
+	.data   = 0,
 	.end	= 0xeffff,
 };
 
 static struct resource adapter_rom_resources[] = { {
 	.name 	= "Adapter ROM",
 	.start	= 0xc8000,
+	.data   = 0,
 	.end	= 0,
 }, {
 	.name 	= "Adapter ROM",
 	.start	= 0,
+	.data   = 0,
 	.end	= 0,
 }, {
 	.name 	= "Adapter ROM",
 	.start	= 0,
+	.data   = 0,
 	.end	= 0,
 }, {
 	.name 	= "Adapter ROM",
 	.start	= 0,
+	.data   = 0,
 	.end	= 0,
 }, {
 	.name 	= "Adapter ROM",
 	.start	= 0,
+	.data   = 0,
 	.end	= 0,
 }, {
 	.name 	= "Adapter ROM",
 	.start	= 0,
+	.data   = 0,
 	.end	= 0,
 } };
 
 static struct resource video_rom_resource = {
 	.name 	= "Video ROM",
 	.start	= 0xc0000,
+	.data   = 0,
 	.end	= 0xc7fff,
 };
 
@@ -211,7 +222,8 @@ int scan_adapter_roms(scan_fn fn)
 
 		if (res->start) {
 			found = fn(isa_bus_to_virt(res->start),
-				   isa_bus_to_virt(res->end));
+				   isa_bus_to_virt(res->end),
+				   isa_bus_to_virt(res->data));
 			if (found)
 				break;
 		} else
@@ -232,6 +244,7 @@ void probe_roms(void)
 	unsigned long start, length, upper;
 	unsigned char c;
 	unsigned int i;
+	__u16 val=0;
 
 	if (rom_fd < 0)
 		return;
@@ -284,14 +297,23 @@ void probe_roms(void)
 		/* 0 < length <= 0x7f * 512, historically */
 		length = c * 512;
 
+		/* Retrieve 16-bit pointer to PCI Data Structure (offset 18h-19h)
+		 * The data can be within 64KB forward of the first location
+		 * of this code image. The pointer is in little-endian order
+		 */
+
+		if (probe_address16(rom + 0x18, &val) != 0)
+			continue;
+		val = __le16_to_cpu(val);
+
 		/* but accept any length that fits if checksum okay */
 		if (!length || start + length > upper || !romchecksum(rom, length))
 			continue;
 
 		adapter_rom_resources[i].start = start;
+		adapter_rom_resources[i].data = start + (unsigned long) val;
 		adapter_rom_resources[i].end = start + length - 1;
 
 		start = adapter_rom_resources[i++].end & ~(rom_align - 1);
 	}
 }
-

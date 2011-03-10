@@ -166,12 +166,30 @@ static int platform_has_intel_devices(void)
 	return 0;
 }
 
+/*
+ * PCI Expansion ROM Data Structure Format
+ */
+struct pciExpDataStructFormat {
+	__u8  ver[4];
+	__u16 vendorID;
+	__u16 deviceID;
+} __attribute__ ((packed));
+
 static struct imsm_orom imsm_orom;
-static int scan(const void *start, const void *end)
+static int scan(const void *start, const void *end, const void *data)
 {
 	int offset;
 	const struct imsm_orom *imsm_mem;
 	int len = (end - start);
+	struct pciExpDataStructFormat *ptr= (struct pciExpDataStructFormat *)data;
+
+	dprintf("ptr->vendorID: %lx __le16_to_cpu(ptr->deviceID): %lx \n",
+		(ulong) __le16_to_cpu(ptr->vendorID),
+		(ulong) __le16_to_cpu(ptr->deviceID));
+
+	if (!((__le16_to_cpu(ptr->vendorID) == 0x8086) &&
+	      (__le16_to_cpu(ptr->deviceID) == 0x2822)))
+		return 0;
 
 	for (offset = 0; offset < len; offset += 4) {
 		imsm_mem = start + offset;
@@ -180,7 +198,6 @@ static int scan(const void *start, const void *end)
 			return 1;
 		}
 	}
-
 	return 0;
 }
 

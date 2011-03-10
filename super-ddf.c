@@ -1158,6 +1158,9 @@ static void examine_pds(struct ddf_super *sb)
 		       (type&8) ? "spare" : "",
 		       (type&16)? ", foreign" : "",
 		       (type&32)? "pass-through" : "");
+		if (state & DDF_Failed)
+			/* This over-rides these three */
+			state &= ~(DDF_Online|DDF_Rebuilding|DDF_Transition);
 		printf("/%s%s%s%s%s%s%s",
 		       (state&1)? "Online": "Offline",
 		       (state&2)? ", Failed": "",

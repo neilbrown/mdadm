@@ -4824,7 +4824,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		struct imsm_map *map;
 		struct imsm_map *map2;
 		struct mdinfo *this;
-		int slot;
+		int slot, chunk;
 		char *ep;
 
 		if (subarray &&
@@ -4845,7 +4845,21 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				dev->volume);
 			continue;
 		}
+		/* do not publish arrays that are not support by controller's
+		 * OROM/EFI
+		 */
 
+		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
+		if (!validate_geometry_imsm_orom(super,
+						 get_imsm_raid_level(map), /* RAID level */
+						 imsm_level_to_layout(get_imsm_raid_level(map)),
+						 map->num_members, /* raid disks */
+						 &chunk,
+						 1 /* verbose */)) {
+			fprintf(stderr, Name ": RAID gemetry validation failed. "
+				"Cannot proceed with the action(s).\n");
+			continue;
+		}
 		this = malloc(sizeof(*this));
 		if (!this) {
 			fprintf(stderr, Name ": failed to allocate %zu bytes\n",

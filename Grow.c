@@ -2205,6 +2205,7 @@ int reshape_container(char *container, char *devname,
 		      int quiet, int restart)
 {
 	struct mdinfo *cc = NULL;
+	int rv = restart;
 
 	/* component_size is not meaningful for a container,
 	 * so pass '-1' meaning 'no change'
@@ -2249,7 +2250,6 @@ int reshape_container(char *container, char *devname,
 		 * will take over the reshape.
 		 */
 		struct mdinfo *content;
-		int rv;
 		int fd;
 		struct mdstat_ent *mdstat;
 		char *adev;
@@ -2292,7 +2292,8 @@ int reshape_container(char *container, char *devname,
 		if (rv)
 			break;
 	}
-	unfreeze(st);
+	if (!rv)
+		unfreeze(st);
 	sysfs_free(cc);
 	exit(0);
 }

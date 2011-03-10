@@ -3016,6 +3016,11 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 				done = 1;
 			break;
 		}
+		if (rv == 0 && increasing && !st->ss->external) {
+			/* No longer need to monitor this reshape */
+			done = 1;
+			break;
+		}
 
 		while (rv) {
 			unsigned long long offset;

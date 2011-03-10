@@ -1346,49 +1346,8 @@ static int ahci_get_port_count(const char *hba_path, int *port_count)
 	return host_base;
 }
 
-static int detail_platform_imsm(int verbose, int enumerate_only)
+static void print_imsm_capability(const struct imsm_orom *orom)
 {
-	/* There are two components to imsm platform support, the ahci SATA
-	 * controller and the option-rom.  To find the SATA controller we
-	 * simply look in /sys/bus/pci/drivers/ahci to see if an ahci
-	 * controller with the Intel vendor id is present.  This approach
-	 * allows mdadm to leverage the kernel's ahci detection logic, with the
-	 * caveat that if ahci.ko is not loaded mdadm will not be able to
-	 * detect platform raid capabilities.  The option-rom resides in a
-	 * platform "Adapter ROM".  We scan for its signature to retrieve the
-	 * platform capabilities.  If raid support is disabled in the BIOS the
-	 * option-rom capability structure will not be available.
-	 */
-	const struct imsm_orom *orom;
-	struct sys_dev *list, *hba;
-	int host_base = 0;
-	int port_count = 0;
-	int result=0;
-
-	if (enumerate_only) {
-		if (check_env("IMSM_NO_PLATFORM") || find_imsm_orom())
-			return 0;
-		return 2;
-	}
-
-	list = find_intel_devices();
-	if (!list) {
-		if (verbose)
-			fprintf(stderr, Name ": no active Intel(R) RAID "
-				"controller found.\n");
-		free_sys_dev(&list);
-		return 2;
-	} else if (verbose)
-		print_found_intel_controllers(list);
-
-	orom = find_imsm_orom();
-	if (!orom) {
-		free_sys_dev(&list);
-		if (verbose)
-			fprintf(stderr, Name ": imsm option-rom not found\n");
-		return 2;
-	}
-
 	printf("       Platform : Intel(R) Matrix Storage Manager\n");
 	printf("        Version : %d.%d.%d.%d\n", orom->major_ver, orom->minor_ver,
 	       orom->hotfix_ver, orom->build);
@@ -1417,6 +1376,63 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	       imsm_orom_has_chunk(orom, 1024*64) ? " 64M" : "");
 	printf("      Max Disks : %d\n", orom->tds);
 	printf("    Max Volumes : %d\n", orom->vpa);
+	return;
+}
+
+static int detail_platform_imsm(int verbose, int enumerate_only)
+{
+	/* There are two components to imsm platform support, the ahci SATA
+	 * controller and the option-rom.  To find the SATA controller we
+	 * simply look in /sys/bus/pci/drivers/ahci to see if an ahci
+	 * controller with the Intel vendor id is present.  This approach
+	 * allows mdadm to leverage the kernel's ahci detection logic, with the
+	 * caveat that if ahci.ko is not loaded mdadm will not be able to
+	 * detect platform raid capabilities.  The option-rom resides in a
+	 * platform "Adapter ROM".  We scan for its signature to retrieve the
+	 * platform capabilities.  If raid support is disabled in the BIOS the
+	 * option-rom capability structure will not be available.
+	 */
+	const struct imsm_orom *orom;
+	struct sys_dev *list, *hba;
+	int host_base = 0;
+	int port_count = 0;
+	int result=0;
+
+	if (enumerate_only) {
+		if (check_env("IMSM_NO_PLATFORM"))
+			return 0;
+		list = find_intel_devices();
+		if (!list)
+			return 2;
+		for (hba = list; hba; hba = hba->next) {
+			orom = find_imsm_capability(hba->type);
+			if (!orom) {
+				result = 2;
+				break;
+			}
+		}
+		free_sys_dev(&list);
+		return result;
+	}
+
+	list = find_intel_devices();
+	if (!list) {
+		if (verbose)
+			fprintf(stderr, Name ": no active Intel(R) RAID "
+				"controller found.\n");
+		free_sys_dev(&list);
+		return 2;
+	} else if (verbose)
+		print_found_intel_controllers(list);
+
+	for (hba = list; hba; hba = hba->next) {
+		orom = find_imsm_capability(hba->type);
+		if (!orom)
+			fprintf(stderr, Name ": imsm capabilities not found for controller: %s (type %s)\n",
+				hba->path, get_sys_dev_type(hba->type));
+		else
+			print_imsm_capability(orom);
+	}
 
 	for (hba = list; hba; hba = hba->next) {
 		printf(" I/O Controller : %s (%s)\n",
@@ -1430,11 +1446,6 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 						"ports on SATA controller at %s.", hba->pci_id);
 				result |= 2;
 			}
-		} else if (hba->type == SYS_DEV_SAS) {
-				if (verbose)
-					fprintf(stderr, Name ": failed to enumerate "
-						"devices on SAS controller at %s.", hba->pci_id);
-				result |= 2;
 		}
 	}
 

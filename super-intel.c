@@ -1820,10 +1820,12 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->recovery_start = MaxSector;
 
 	info->reshape_progress = 0;
+	info->resync_start = MaxSector;
 	if (map_to_analyse->map_state == IMSM_T_STATE_UNINITIALIZED ||
 	    dev->vol.dirty) {
 		info->resync_start = 0;
-	} else if (dev->vol.migr_state) {
+	}
+	if (dev->vol.migr_state) {
 		switch (migr_type(dev)) {
 		case MIGR_REPAIR:
 		case MIGR_INIT: {
@@ -1868,8 +1870,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			/* we are not dirty, so... */
 			info->resync_start = MaxSector;
 		}
-	} else
-		info->resync_start = MaxSector;
+	}
 
 	strncpy(info->name, (char *) dev->volume, MAX_RAID_SERIAL_LEN);
 	info->name[MAX_RAID_SERIAL_LEN] = 0;

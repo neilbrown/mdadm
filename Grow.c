@@ -1054,7 +1054,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				break;
 			}
 			memset(buf, 0, 512);
-			for (i=0; i < (signed)blocks + 1 ; i++) {
+			for (i=0; i < (signed)blocks + 8 ; i++) {
 				if (write(fdlist[d], buf, 512) != 512) {
 					fprintf(stderr, Name ": %s: cannot create backup file %s: %s\n",
 						devname, backup_file, strerror(errno));

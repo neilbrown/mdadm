@@ -1555,8 +1555,13 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			for (i=0; i<spare; i++)
 				fdlist[i] = -1;
 			for (dev = content->devs; dev; dev = dev->next) {
-				int fd = open_dev(makedev(dev->disk.major,
-							  dev->disk.minor));
+				char buf[20];
+				int fd;
+				sprintf(buf, "%d:%d",
+					dev->disk.major,
+					dev->disk.minor);
+				fd = dev_open(buf, O_RDWR);
+
 				if (dev->disk.raid_disk >= 0)
 					fdlist[dev->disk.raid_disk] = fd;
 				else

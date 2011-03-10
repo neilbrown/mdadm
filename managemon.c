@@ -596,6 +596,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	char *inst;
 	int i;
 	int failed = 0;
+	char buf[40];
 
 	/* check if array is ready to be monitored */
 	if (!mdstat->active)
@@ -656,6 +657,20 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->sync_completed_fd = sysfs_open(new->devnum, NULL, "sync_completed");
 	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
 		new->action_fd, new->info.state_fd);
+
+	/* reshape_position is set by mdadm in sysfs
+	 * read this information for new arrays only (empty victim)
+	 */
+	if ((victim == NULL) &&
+	    (sysfs_get_str(mdi, NULL, "sync_action", buf, 40) > 0) &&
+	    (strncmp(buf, "reshape", 7) == 0)) {
+		if (sysfs_get_ll(mdi, NULL, "reshape_position",
+			&new->last_checkpoint) != 0)
+			new->last_checkpoint = 0;
+		dprintf("mdmon: New monitored array is under reshape.\n"
+			"       Last checkpoint is: %llu\n",
+			new->last_checkpoint);
+	}
 
 	sysfs_free(mdi);
 

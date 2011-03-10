@@ -79,8 +79,20 @@ struct imsm_orom {
 	#define IMSM_OROM_ATTR_2TB (1 << 29)
 	#define IMSM_OROM_ATTR_PM (1 << 30)
 	#define IMSM_OROM_ATTR_ChecksumVerify (1 << 31)
-	__u32 reserved1;
-	__u32 reserved2;
+	__u32 capabilities;
+	#define IMSM_OROM_CAPABILITIES_Ext_SATA (1 << 0)
+	#define IMSM_OROM_CAPABILITIES_TurboMemory (1 << 1)
+	#define IMSM_OROM_CAPABILITIES_HddPassword (1 << 2)
+	#define IMSM_OROM_CAPABILITIES_DiskCoercion (1 << 3)
+	__u32 driver_features;
+	#define IMSM_OROM_CAPABILITIES_HDDUnlock (1 << 0)
+	#define IMSM_OROM_CAPABILITIES_LEDLoc (1 << 1)
+	#define IMSM_OROM_CAPABILITIES_EnterpriseSystem (1 << 2)
+	#define IMSM_OROM_CAPABILITIES_Zpodd (1 << 3)
+	#define IMSM_OROM_CAPABILITIES_LargeDramCache (1 << 4)
+	#define IMSM_OROM_CAPABILITIES_Rohi (1 << 5)
+	#define IMSM_OROM_CAPABILITIES_ReadPatrol (1 << 6)
+	#define IMSM_OROM_CAPABILITIES_XorHw (1 << 7)
 } __attribute__((packed));
 
 static inline int imsm_orom_has_raid0(const struct imsm_orom *orom)

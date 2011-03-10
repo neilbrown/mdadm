@@ -4285,9 +4285,11 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	if (!super)
 		return 0;
 
-	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, verbose))
+	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, verbose)) {
+		fprintf(stderr, Name ": RAID gemetry validation failed. "
+			"Cannot proceed with the action(s).\n");
 		return 0;
-
+	}
 	if (!dev) {
 		/* General test:  make sure there is space for
 		 * 'raiddisks' device extents of size 'size' at a given
@@ -4494,7 +4496,8 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	struct mdinfo *sra;
 	int is_member = 0;
 
-	/* if given unused devices create a container 
+	/* load capability
+	 * if given unused devices create a container
 	 * if given given devices in a container create a member volume
 	 */
 	if (level == LEVEL_CONTAINER) {

@@ -408,8 +408,7 @@ static struct intel_hba * find_intel_hba(struct intel_hba *hba, struct sys_dev *
 }
 
 
-static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device,
-			       const char *devname)
+static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device)
 {
 	struct intel_hba *hba;
 
@@ -3696,7 +3695,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 				devname ? : "disk");
 			return 1;
 		}
-		rv = attach_hba_to_super(super, hba_name, devname);
+		rv = attach_hba_to_super(super, hba_name);
 		switch (rv) {
 		case 2:
 			fprintf(stderr, Name ": %s is attached to Intel(R) %s RAID "

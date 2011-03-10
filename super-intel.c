@@ -476,7 +476,8 @@ static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
 #endif /* MDASSEMBLE */
 
 
-static int find_intel_hba_capability(int fd, struct intel_super *super, int verbose);
+static int find_intel_hba_capability(int fd, struct intel_super *super,
+				     char *devname);
 
 static struct supertype *match_metadata_desc_imsm(char *arg)
 {
@@ -2683,7 +2684,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	/*  reload capability and hba */
 
 	/* capability and hba must be updated with new super allocation */
-	find_intel_hba_capability(fd, super, 0);
+	find_intel_hba_capability(fd, super, devname);
 	super->len = ROUND_UP(anchor->mpb_size, 512);
 	if (posix_memalign(&super->buf, 512, super->len) != 0) {
 		if (devname)
@@ -2855,7 +2856,7 @@ static struct intel_super *alloc_super(void)
 /*
  * find and allocate hba and OROM/EFI based on valid fd of RAID component device
  */
-static int find_intel_hba_capability(int fd, struct intel_super *super, int verbose)
+static int find_intel_hba_capability(int fd, struct intel_super *super, char *devname)
 {
 	struct sys_dev *hba_name;
 	int rv = 0;
@@ -2867,32 +2868,26 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, int verb
 	}
 	hba_name = find_disk_attached_hba(fd, NULL);
 	if (!hba_name) {
-		if (verbose) {
-			char str[256];
-
-			fd2devname(fd, str);
+		if (devname)
 			fprintf(stderr,
 				Name ": %s is not attached to Intel(R) RAID controller.\n",
-				str);
-		}
+				devname);
 		return 1;
 	}
 	rv = attach_hba_to_super(super, hba_name);
 	if (rv == 2) {
-		if (verbose) {
-			char str[256];
+		if (devname) {
+			struct intel_hba *hba = super->hba;
 
-			fd2devname(fd, str);
 			fprintf(stderr, Name ": %s is attached to Intel(R) %s RAID "
 				"controller (%s),\n"
 				"    but the container is assigned to Intel(R) "
 				"%s RAID controller (",
-				str,
+				devname,
 				hba_name->path,
 				hba_name->pci_id ? : "Err!",
 				get_sys_dev_type(hba_name->type));
 
-			struct intel_hba *hba = super->hba;
 			while (hba) {
 				fprintf(stderr, "%s", hba->pci_id ? : "Err!");
 				if (hba->next)
@@ -3308,7 +3303,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		if (dfd < 0)
 			goto error;
 
-		rv = find_intel_hba_capability(dfd, s, 1);
+		rv = find_intel_hba_capability(dfd, s, devname);
 		/* no orom/efi or non-intel hba of the disk */
 		if (rv != 0)
 			goto error;
@@ -3387,7 +3382,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 			sizeof(*super));
 		return 1;
 	}
-	rv = find_intel_hba_capability(fd, super, 1);
+	rv = find_intel_hba_capability(fd, super, devname);
 	/* no orom/efi or non-intel hba of the disk */
 	if (rv != 0) {
 		if (devname)
@@ -3789,7 +3784,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	 * We do not need to test disks attachment for container based additions,
 	 * they shall be already tested when container was created/assembled.
 	 */
-	rv = find_intel_hba_capability(fd, super, 1);
+	rv = find_intel_hba_capability(fd, super, devname);
 	/* no orom/efi or non-intel hba of the disk */
 	if (rv != 0) {
 		dprintf("capability: %p fd: %d ret: %d\n",
@@ -4158,7 +4153,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 		return 0;
 	}
 
-	rv = find_intel_hba_capability(fd, super, verbose);
+	rv = find_intel_hba_capability(fd, super, verbose ? dev : NULL);
 	if (rv != 0) {
 #if DEBUG
 		char str[256];

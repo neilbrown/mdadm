@@ -3371,6 +3371,11 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		container = buf;
 		freeze(st);
 
+		if (!mdmon_running(st->container_dev))
+			start_mdmon(st->container_dev);
+		ping_monitor(devnum2devname(st->container_dev));
+
+
 		if (info->reshape_active == 2) {
 			int cfd = open_dev(st->container_dev);
 			if (cfd < 0)

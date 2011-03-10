@@ -19,7 +19,7 @@
 #include <asm/types.h>
 #include <strings.h>
 
-/* The IMSM OROM Version Table definition */
+/* The IMSM Capability (IMSM AHCI and ISCU OROM/EFI variable) Version Table definition */
 struct imsm_orom {
 	__u8 signature[4];
 	__u8 table_ver_major; /* Currently 2 (can change with future revs) */
@@ -58,9 +58,13 @@ struct imsm_orom {
 	#define IMSM_OROM_SSS_32MB (1 << 14)
 	#define IMSM_OROM_SSS_64MB (1 << 15)
 	__u16 dpa; /* Disks Per Array supported */
+	#define IMSM_OROM_DISKS_PER_ARRAY 6
 	__u16 tds; /* Total Disks Supported */
+	#define IMSM_OROM_TOTAL_DISKS 6
 	__u8 vpa; /* # Volumes Per Array supported */
+	#define IMSM_OROM_VOLUMES_PER_ARRAY 2
 	__u8 vphba; /* # Volumes Per Host Bus Adapter supported */
+	#define IMSM_OROM_VOLUMES_PER_HBA 4
 	/* Attributes supported. This should map to the
 	 * attributes in the MPB. Also, lower 16 bits
 	 * should match/duplicate RLC bits above.
@@ -184,8 +188,8 @@ struct sys_dev {
 char *diskfd_to_devpath(int fd);
 struct sys_dev *find_driver_devices(const char *bus, const char *driver);
 struct sys_dev *find_intel_devices(void);
-__u16 devpath_to_vendor(const char *dev_path);
 void free_sys_dev(struct sys_dev **list);
+const struct imsm_orom *find_imsm_capability(enum sys_dev_type hba_id);
 const struct imsm_orom *find_imsm_orom(void);
 int disk_attached_to_hba(int fd, const char *hba_path);
 char *devt_to_devpath(dev_t dev);

@@ -2990,19 +2990,23 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 
 		/* Clear any backup region that is before 'here' */
 		if (increasing) {
-			if (reshape_completed >= (__le64_to_cpu(bsb.arraystart) +
+			if (__le64_to_cpu(bsb.length) > 0 &&
+			    reshape_completed >= (__le64_to_cpu(bsb.arraystart) +
 						  __le64_to_cpu(bsb.length)))
 				forget_backup(dests, destfd,
 					      destoffsets, 0);
-			if (reshape_completed >= (__le64_to_cpu(bsb.arraystart2) +
+			if (__le64_to_cpu(bsb.length2) > 0 &&
+			    reshape_completed >= (__le64_to_cpu(bsb.arraystart2) +
 						  __le64_to_cpu(bsb.length2)))
 				forget_backup(dests, destfd,
 					      destoffsets, 1);
 		} else {
-			if (reshape_completed <= (__le64_to_cpu(bsb.arraystart)))
+			if (__le64_to_cpu(bsb.length) > 0 &&
+			    reshape_completed <= (__le64_to_cpu(bsb.arraystart)))
 				forget_backup(dests, destfd,
 					      destoffsets, 0);
-			if (reshape_completed <= (__le64_to_cpu(bsb.arraystart2)))
+			if (__le64_to_cpu(bsb.length2) > 0 &&
+			    reshape_completed <= (__le64_to_cpu(bsb.arraystart2)))
 				forget_backup(dests, destfd,
 					      destoffsets, 1);
 		}

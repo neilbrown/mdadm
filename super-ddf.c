@@ -900,6 +900,15 @@ static void free_super_ddf(struct supertype *st)
 			free(d->spare);
 		free(d);
 	}
+	while (ddf->add_list) {
+		struct dl *d = ddf->add_list;
+		ddf->add_list = d->next;
+		if (d->fd >= 0)
+			close(d->fd);
+		if (d->spare)
+			free(d->spare);
+		free(d);
+	}
 	free(ddf);
 	st->sb = NULL;
 }

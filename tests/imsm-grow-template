@@ -17,8 +17,10 @@ function grow_member() {
 	local offset=$6
 	local chunk=$7
 	local array_size=$((comps * size))
+	local backup_imsm=/tmp/backup_imsm
 
-	( set -ex; mdadm --grow $member --chunk=$chunk --level=$level --backup-file=/tmp/backup_imsm )
+	rm -f $backup_imsm
+	( set -ex; mdadm --grow $member --chunk=$chunk --level=$level --backup-file=$backup_imsm )
 	local status=$?
 	if [ $negative_test -ne 0 ]; then
 		if [ $status -eq 0 ]; then
@@ -71,6 +73,7 @@ done
 
 imsm_check container $num_disks
 num_disks=$((num_disks + add_to_num_disks))
+backup_imsm=/tmp/backup_imsm
 
 # Grow each member or a container depending on the type of an operation
 if [ $migration_test -ne 0 ]; then
@@ -82,7 +85,8 @@ if [ $migration_test -ne 0 ]; then
 		grow_member $member1 $new_num_disks $vol1_new_num_comps $vol1_new_level $vol1_comp_size $vol1_offset $vol1_new_chunk
 	fi
 else
-	( set -x; mdadm --grow $container --raid-disks=$num_disks --backup-file=/tmp/backup_imsm )
+	rm -f $backup_imsm
+	( set -x; mdadm --grow $container --raid-disks=$num_disks --backup-file=$backup_imsm )
 	grow_status=$?
 	if [ $negative_test -ne 0 ]; then
 		if [ $grow_status -eq 0 ]; then

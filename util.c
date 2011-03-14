@@ -1370,7 +1370,8 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 	return retval;
 }
 
-int check_partitions(int fd, char *dname, unsigned long long freesize)
+int check_partitions(int fd, char *dname, unsigned long long freesize,
+			unsigned long long size)
 {
 	/*
 	 * Check where the last partition ends
@@ -1391,6 +1392,12 @@ int check_partitions(int fd, char *dname, unsigned long long freesize)
 			/* last partition overlaps metadata */
 			fprintf(stderr,
 				Name ": metadata will over-write last partition on %s.\n",
+				dname);
+			return 1;
+		} else if (size && endofpart > size) {
+			/* partitions will be truncated in new device */
+			fprintf(stderr,
+				Name ": array size is too small to cover all partitions on %s.\n",
 				dname);
 			return 1;
 		}

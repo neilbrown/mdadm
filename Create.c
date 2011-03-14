@@ -387,14 +387,14 @@ int Create(struct supertype *st, char *mddev,
 			if (strcmp(st->ss->name, "1.x") == 0 &&
 			    st->minor_version >= 1)
 				/* metadata at front */
-				warn |= check_partitions(fd, dname, 0);
+				warn |= check_partitions(fd, dname, 0, 0);
 			else if (level == 1 || level == LEVEL_CONTAINER
 				    || (level == 0 && raiddisks == 1))
 				/* partitions could be meaningful */
-				warn |= check_partitions(fd, dname, freesize*2);
+				warn |= check_partitions(fd, dname, freesize*2, size*2);
 			else
 				/* partitions cannot be meaningful */
-				warn |= check_partitions(fd, dname, 0);
+				warn |= check_partitions(fd, dname, 0, 0);
 			if (strcmp(st->ss->name, "1.x") == 0 &&
 			    st->minor_version >= 1 &&
 			    did_default &&

@@ -3417,6 +3417,14 @@ static void ddf_process_update(struct supertype *st,
 			memcpy(&vcl->conf, vc, update->len);
 			vcl->lba_offset = (__u64*)
 				&vcl->conf.phys_refnum[mppe];
+			for (ent = 0;
+			     ent < __be16_to_cpu(ddf->virt->populated_vdes);
+			     ent++)
+				if (memcmp(vc->guid, ddf->virt->entries[ent].guid,
+					   DDF_GUID_LEN) == 0) {
+					vcl->vcnum = ent;
+					break;
+				}
 			ddf->conflist = vcl;
 		}
 		/* Now make sure vlist is correct for each dl. */

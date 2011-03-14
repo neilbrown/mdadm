@@ -421,6 +421,7 @@ static int read_and_act(struct active_array *a)
 			if (remove_result > 0) {
 				dprintf(" %d:removed", mdi->disk.raid_disk);
 				close(mdi->state_fd);
+				close(mdi->recovery_fd);
 				mdi->state_fd = -1;
 			}
 		}

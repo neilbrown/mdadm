@@ -871,6 +871,15 @@ static void free_super_ddf(struct supertype *st)
 			free(d->spare);
 		free(d);
 	}
+	while (ddf->add_list) {
+		struct dl *d = ddf->add_list;
+		ddf->add_list = d->next;
+		if (d->fd >= 0)
+			close(d->fd);
+		if (d->spare)
+			free(d->spare);
+		free(d);
+	}
 	free(ddf);
 	st->sb = NULL;
 }
@@ -1130,6 +1139,9 @@ static void examine_pds(struct ddf_super *sb)
 		       (type&8) ? "spare" : "",
 		       (type&16)? ", foreign" : "",
 		       (type&32)? "pass-through" : "");
+		if (state & DDF_Failed)
+			/* This over-rides these three */
+			state &= ~(DDF_Online|DDF_Rebuilding|DDF_Transition);
 		printf("/%s%s%s%s%s%s%s",
 		       (state&1)? "Online": "Offline",
 		       (state&2)? ", Failed": "",
@@ -3125,6 +3137,9 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	return consistent;
 }
 
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
 /*
  * The state of each disk is stored in the global phys_disk structure
  * in phys_disk.entries[n].state.
@@ -3146,20 +3161,42 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	struct vd_config *vc = find_vdcr(ddf, inst);
 	int pd = find_phys(ddf, vc->phys_refnum[n]);
 	int i, st, working;
+	struct mdinfo *mdi;
+	struct dl *dl;
 
 	if (vc == NULL) {
 		dprintf("ddf: cannot find instance %d!!\n", inst);
 		return;
 	}
-	if (pd < 0) {
-		/* disk doesn't currently exist. If it is now in_sync,
-		 * insert it. */
+	/* Find the matching slot in 'info'. */
+	for (mdi = a->info.devs; mdi; mdi = mdi->next)
+		if (mdi->disk.raid_disk == n)
+			break;
+	if (!mdi)
+		return;
+
+	/* and find the 'dl' entry corresponding to that. */
+	for (dl = ddf->dlist; dl; dl = dl->next)
+		if (mdi->disk.major == dl->major &&
+		    mdi->disk.minor == dl->minor)
+			break;
+	if (!dl)
+		return;
+
+	if (pd < 0 || pd != dl->pdnum) {
+		/* disk doesn't currently exist or has changed.
+		 * If it is now in_sync, insert it. */
 		if ((state & DS_INSYNC) && ! (state & DS_FAULTY)) {
-			/* Find dev 'n' in a->info->devs, determine the
-			 * ddf refnum, and set vc->phys_refnum and update
-			 * phys->entries[]
-			 */
-			/* FIXME */
+			struct vcl *vcl;
+			pd = dl->pdnum;
+			vc->phys_refnum[n] = dl->disk.refnum;
+			vcl = container_of(vc, struct vcl, conf);
+			vcl->lba_offset[n] = mdi->data_offset;
+			ddf->phys->entries[pd].type &=
+				~__cpu_to_be16(DDF_Global_Spare);
+			ddf->phys->entries[pd].type |=
+				__cpu_to_be16(DDF_Active_in_VD);
+			ddf->updates_pending = 1;
 		}
 	} else {
 		int old = ddf->phys->entries[pd].state;
@@ -3366,6 +3403,14 @@ static void ddf_process_update(struct supertype *st,
 			memcpy(&vcl->conf, vc, update->len);
 			vcl->lba_offset = (__u64*)
 				&vcl->conf.phys_refnum[mppe];
+			for (ent = 0;
+			     ent < __be16_to_cpu(ddf->virt->populated_vdes);
+			     ent++)
+				if (memcmp(vc->guid, ddf->virt->entries[ent].guid,
+					   DDF_GUID_LEN) == 0) {
+					vcl->vcnum = ent;
+					break;
+				}
 			ddf->conflist = vcl;
 		}
 		/* Now make sure vlist is correct for each dl. */
@@ -3509,7 +3554,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			unsigned int j;
 			/* If in this array, skip */
 			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
-				if (d2->disk.major == dl->major &&
+				if (d2->state_fd >= 0 &&
+				    d2->disk.major == dl->major &&
 				    d2->disk.minor == dl->minor) {
 					dprintf("%x:%x already in array\n", dl->major, dl->minor);
 					break;
@@ -3622,7 +3668,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	}
 		
 	mu->buf = malloc(ddf->conf_rec_len * 512);
-	mu->len = ddf->conf_rec_len;
+	mu->len = ddf->conf_rec_len * 512;
+	mu->space = NULL;
 	mu->next = *updates;
 	vc = find_vdcr(ddf, a->info.container_member);
 	memcpy(mu->buf, vc, ddf->conf_rec_len * 512);

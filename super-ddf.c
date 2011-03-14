@@ -3670,6 +3670,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	mu->buf = malloc(ddf->conf_rec_len * 512);
 	mu->len = ddf->conf_rec_len * 512;
 	mu->space = NULL;
+	mu->space_list = NULL;
 	mu->next = *updates;
 	vc = find_vdcr(ddf, a->info.container_member);
 	memcpy(mu->buf, vc, ddf->conf_rec_len * 512);

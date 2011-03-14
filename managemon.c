@@ -667,6 +667,15 @@ static void manage_new(struct mdstat_ent *mdstat,
 		if (sysfs_get_ll(mdi, NULL, "reshape_position",
 			&new->last_checkpoint) != 0)
 			new->last_checkpoint = 0;
+		else {
+			int data_disks = mdi->array.raid_disks;
+			if (mdi->array.level == 4 || mdi->array.level == 5)
+				data_disks--;
+			if (mdi->array.level == 6)
+				data_disks -= 2;
+
+			new->last_checkpoint /= data_disks;
+		}
 		dprintf("mdmon: New monitored array is under reshape.\n"
 			"       Last checkpoint is: %llu\n",
 			new->last_checkpoint);

@@ -2276,6 +2276,40 @@ static int add_to_super_ddf(struct supertype *st,
 	return 0;
 }
 
+static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
+{
+	struct ddf_super *ddf = st->sb;
+	struct dl *dl;
+
+	/* mdmon has noticed that this disk (dk->major/dk->minor) has
+	 * disappeared from the container.
+	 * We need to arrange that it disappears from the metadata and
+	 * internal data structures too.
+	 * Most of the work is done by ddf_process_update which edits
+	 * the metadata and closes the file handle and attaches the memory
+	 * where free_updates will free it.
+	 */
+	for (dl = ddf->dlist; dl ; dl = dl->next)
+		if (dl->major == dk->major &&
+		    dl->minor == dk->minor)
+			break;
+	if (!dl)
+		return -1;
+
+	if (st->update_tail) {
+		int len = (sizeof(struct phys_disk) +
+			   sizeof(struct phys_disk_entry));
+		struct phys_disk *pd;
+
+		pd = malloc(len);
+		pd->magic = DDF_PHYS_RECORDS_MAGIC;
+		pd->used_pdes = __cpu_to_be16(dl->pdnum);
+		pd->entries[0].state = __cpu_to_be16(DDF_Missing);
+		append_metadata_update(st, pd, len);
+	}
+	return 0;
+}
+
 /*
  * This is the write_init_super method for a ddf container.  It is
  * called when creating a container or adding another device to a
@@ -3291,8 +3325,8 @@ static void ddf_process_update(struct supertype *st,
 	 * our actions.
 	 * Possible update are:
 	 *  DDF_PHYS_RECORDS_MAGIC
-	 *    Add a new physical device.  Changes to this record
-	 *    only happen implicitly.
+	 *    Add a new physical device or remove an old one.
+	 *    Changes to this record only happen implicitly.
 	 *    used_pdes is the device number.
 	 *  DDF_VIRT_RECORDS_MAGIC
 	 *    Add a new VD.  Possibly also change the 'access' bits.
@@ -3336,6 +3370,25 @@ static void ddf_process_update(struct supertype *st,
 		ent = __be16_to_cpu(pd->used_pdes);
 		if (ent >= __be16_to_cpu(ddf->phys->max_pdes))
 			return;
+		if (pd->entries[0].state & __cpu_to_be16(DDF_Missing)) {
+			struct dl **dlp;
+			/* removing this disk. */
+			ddf->phys->entries[ent].state |= __cpu_to_be16(DDF_Missing);
+			for (dlp = &ddf->dlist; *dlp; dlp = &(*dlp)->next) {
+				struct dl *dl = *dlp;
+				if (dl->pdnum == (signed)ent) {
+					close(dl->fd);
+					dl->fd = -1;
+					/* FIXME this doesn't free
+					 * dl->devname */
+					update->space = dl;
+					*dlp = dl->next;
+					break;
+				}
+			}
+			ddf->updates_pending = 1;
+			return;
+		}
 		if (!all_ff(ddf->phys->entries[ent].guid))
 			return;
 		ddf->phys->entries[ent] = pd->entries[0];
@@ -3724,6 +3777,7 @@ struct superswitch super_ddf = {
 	.validate_geometry = validate_geometry_ddf,
 	.write_init_super = write_init_super_ddf,
 	.add_to_super	= add_to_super_ddf,
+	.remove_from_super = remove_from_super_ddf,
 	.load_container	= load_container_ddf,
 #endif
 	.match_home	= match_home_ddf,

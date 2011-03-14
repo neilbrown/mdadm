@@ -1703,8 +1703,6 @@ static __u64 blocks_per_migr_unit(struct imsm_dev *dev)
 		migr_chunk = migr_strip_blocks_resync(dev);
 		disks = imsm_num_data_members(dev, 0);
 		blocks_per_unit = stripes_per_unit * migr_chunk * disks;
-		if (migr_type(dev) == MIGR_GEN_MIGR)
-			return blocks_per_unit;
 		stripe = __le32_to_cpu(map->blocks_per_strip) * disks;
 		segment = blocks_per_unit / stripe;
 		block_rel = blocks_per_unit - segment * stripe;
@@ -1855,6 +1853,12 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			int used_disks;
 
 			info->reshape_progress = blocks_per_unit * units;
+
+			/* checkpoint is written per disks unit
+			 * recalculate it to reshape position
+			 */
+			used_disks = imsm_num_data_members(dev, 0);
+			info->reshape_progress *= used_disks;
 			dprintf("IMSM: General Migration checkpoint : %llu "
 			       "(%llu) -> read reshape progress : %llu\n",
 				units, blocks_per_unit, info->reshape_progress);

@@ -3526,7 +3526,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			unsigned int j;
 			/* If in this array, skip */
 			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
-				if (d2->disk.major == dl->major &&
+				if (d2->state_fd >= 0 &&
+				    d2->disk.major == dl->major &&
 				    d2->disk.minor == dl->minor) {
 					dprintf("%x:%x already in array\n", dl->major, dl->minor);
 					break;
@@ -3639,7 +3640,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	}
 		
 	mu->buf = malloc(ddf->conf_rec_len * 512);
-	mu->len = ddf->conf_rec_len;
+	mu->len = ddf->conf_rec_len * 512;
+	mu->space = NULL;
 	mu->next = *updates;
 	vc = find_vdcr(ddf, a->info.container_member);
 	memcpy(mu->buf, vc, ddf->conf_rec_len * 512);

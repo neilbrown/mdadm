@@ -312,16 +312,15 @@ static void remove_disk_from_container(struct supertype *st, struct mdinfo *sd)
 		.raid_disk = -1,
 		.state = 0,
 	};
-	/* nothing to do if super type handler does not support
-	 * remove disk primitive
-	 */
-	if (!st->ss->remove_from_super)
-		return;
 	dprintf("%s: remove %d:%d from container\n",
 		__func__, sd->disk.major, sd->disk.minor);
 
 	st->update_tail = &update;
 	st->ss->remove_from_super(st, &dk);
+	/* FIXME this write_init_super shouldn't be here.
+	 * We have it after add_to_super to write to new device,
+	 * but with 'remove' we don't ant to write to that device!
+	 */
 	st->ss->write_init_super(st);
 	queue_metadata_update(update);
 	st->update_tail = NULL;

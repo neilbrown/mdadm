@@ -194,6 +194,7 @@ struct sys_dev {
 	enum sys_dev_type type;
 	char *path;
 	char *pci_id;
+	__u16  dev_id;
 	struct sys_dev *next;
 };
 

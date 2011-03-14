@@ -3151,6 +3151,9 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	return consistent;
 }
 
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
 /*
  * The state of each disk is stored in the global phys_disk structure
  * in phys_disk.entries[n].state.
@@ -3172,20 +3175,42 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	struct vd_config *vc = find_vdcr(ddf, inst);
 	int pd = find_phys(ddf, vc->phys_refnum[n]);
 	int i, st, working;
+	struct mdinfo *mdi;
+	struct dl *dl;
 
 	if (vc == NULL) {
 		dprintf("ddf: cannot find instance %d!!\n", inst);
 		return;
 	}
-	if (pd < 0) {
-		/* disk doesn't currently exist. If it is now in_sync,
-		 * insert it. */
+	/* Find the matching slot in 'info'. */
+	for (mdi = a->info.devs; mdi; mdi = mdi->next)
+		if (mdi->disk.raid_disk == n)
+			break;
+	if (!mdi)
+		return;
+
+	/* and find the 'dl' entry corresponding to that. */
+	for (dl = ddf->dlist; dl; dl = dl->next)
+		if (mdi->disk.major == dl->major &&
+		    mdi->disk.minor == dl->minor)
+			break;
+	if (!dl)
+		return;
+
+	if (pd < 0 || pd != dl->pdnum) {
+		/* disk doesn't currently exist or has changed.
+		 * If it is now in_sync, insert it. */
 		if ((state & DS_INSYNC) && ! (state & DS_FAULTY)) {
-			/* Find dev 'n' in a->info->devs, determine the
-			 * ddf refnum, and set vc->phys_refnum and update
-			 * phys->entries[]
-			 */
-			/* FIXME */
+			struct vcl *vcl;
+			pd = dl->pdnum;
+			vc->phys_refnum[n] = dl->disk.refnum;
+			vcl = container_of(vc, struct vcl, conf);
+			vcl->lba_offset[n] = mdi->data_offset;
+			ddf->phys->entries[pd].type &=
+				~__cpu_to_be16(DDF_Global_Spare);
+			ddf->phys->entries[pd].type |=
+				__cpu_to_be16(DDF_Active_in_VD);
+			ddf->updates_pending = 1;
 		}
 	} else {
 		int old = ddf->phys->entries[pd].state;

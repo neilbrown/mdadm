@@ -2240,8 +2240,12 @@ space to start being used.  If the size is increased in this way, a
 are synchronised.
 
 Note that when an array changes size, any filesystem that may be
-stored in the array will not automatically grow to use the space.  The
-filesystem will need to be explicitly told to use the extra space.
+stored in the array will not automatically grow for shrink to use or
+vacate the space.  The
+filesystem will need to be explicitly told to use the extra space
+after growing, or to reduce its size
+.B prior
+to shrinking the array.
 
 Also the size of an array cannot be changed while it has an active
 bitmap.  If an array has a bitmap, it must be removed before the size
@@ -2281,7 +2285,8 @@ the reshape happen, and then convert the RAID4 back to RAID0.
 
 When decreasing the number of devices, the size of the array will also
 decrease.  If there was data in the array, it could get destroyed and
-this is not reversible.  To help prevent accidents,
+this is not reversible, so you should firstly shrink the filesystem on
+the array to fit within the new size.  To help prevent accidents,
 .I mdadm
 requires that the size of the array be decreased first with
 .BR "mdadm --grow --array-size" .

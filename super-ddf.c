@@ -3211,7 +3211,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 
 	/* and find the 'dl' entry corresponding to that. */
 	for (dl = ddf->dlist; dl; dl = dl->next)
-		if (mdi->disk.major == dl->major &&
+		if (mdi->state_fd >= 0 &&
+		    mdi->disk.major == dl->major &&
 		    mdi->disk.minor == dl->minor)
 			break;
 	if (!dl)
@@ -3273,6 +3274,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	case DDF_RAID1:
 		if (working == 0)
 			state = DDF_state_failed;
+		else if (working == 2 && state == DDF_state_degraded)
+			state = DDF_state_part_optimal;
 		break;
 	case DDF_RAID4:
 	case DDF_RAID5:
@@ -3356,6 +3359,7 @@ static void ddf_process_update(struct supertype *st,
 	struct dl *dl;
 	unsigned int mppe;
 	unsigned int ent;
+	unsigned int pdnum, pd2;
 
 	dprintf("Process update %x\n", *magic);
 
@@ -3466,17 +3470,38 @@ static void ddf_process_update(struct supertype *st,
 				}
 			ddf->conflist = vcl;
 		}
+		/* Set DDF_Transition on all Failed devices - to help
+		 * us detect those that are no longer in use
+		 */
+		for (pdnum = 0; pdnum < __be16_to_cpu(ddf->phys->used_pdes); pdnum++)
+			if (ddf->phys->entries[pdnum].state
+			    & __be16_to_cpu(DDF_Failed))
+				ddf->phys->entries[pdnum].state
+					|= __be16_to_cpu(DDF_Transition);
 		/* Now make sure vlist is correct for each dl. */
 		for (dl = ddf->dlist; dl; dl = dl->next) {
 			unsigned int dn;
 			unsigned int vn = 0;
+			int in_degraded = 0;
 			for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 				for (dn=0; dn < ddf->mppe ; dn++)
 					if (vcl->conf.phys_refnum[dn] ==
 					    dl->disk.refnum) {
+						int vstate;
 						dprintf("dev %d has %p at %d\n",
 							dl->pdnum, vcl, vn);
+						/* Clear the Transition flag */
+						if (ddf->phys->entries[dl->pdnum].state
+						    & __be16_to_cpu(DDF_Failed))
+							ddf->phys->entries[dl->pdnum].state &=
+								~__be16_to_cpu(DDF_Transition);
+
 						dl->vlist[vn++] = vcl;
+						vstate = ddf->virt->entries[vcl->vcnum].state
+							& DDF_state_mask;
+						if (vstate == DDF_state_degraded ||
+						    vstate == DDF_state_part_optimal)
+							in_degraded = 1;
 						break;
 					}
 			while (vn < ddf->max_part)
@@ -3484,8 +3509,14 @@ static void ddf_process_update(struct supertype *st,
 			if (dl->vlist[0]) {
 				ddf->phys->entries[dl->pdnum].type &=
 					~__cpu_to_be16(DDF_Global_Spare);
-				ddf->phys->entries[dl->pdnum].type |=
-					__cpu_to_be16(DDF_Active_in_VD);
+				if (!(ddf->phys->entries[dl->pdnum].type &
+				      __cpu_to_be16(DDF_Active_in_VD))) {
+					    ddf->phys->entries[dl->pdnum].type |=
+						    __cpu_to_be16(DDF_Active_in_VD);
+					    if (in_degraded)
+						    ddf->phys->entries[dl->pdnum].state |=
+							    __cpu_to_be16(DDF_Rebuilding);
+				    }
 			}
 			if (dl->spare) {
 				ddf->phys->entries[dl->pdnum].type &=
@@ -3501,6 +3532,33 @@ static void ddf_process_update(struct supertype *st,
 						       DDF_Active_in_VD);
 			}
 		}
+
+		/* Now remove any 'Failed' devices that are not part
+		 * of any VD.  They will have the Transition flag set.
+		 * Once done, we need to update all dl->pdnum numbers.
+		 */
+		pd2 = 0;
+		for (pdnum = 0; pdnum < __be16_to_cpu(ddf->phys->used_pdes); pdnum++)
+			if ((ddf->phys->entries[pdnum].state
+			     & __be16_to_cpu(DDF_Failed))
+			    && (ddf->phys->entries[pdnum].state
+				& __be16_to_cpu(DDF_Transition)))
+				/* skip this one */;
+			else if (pdnum == pd2)
+				pd2++;
+			else {
+				ddf->phys->entries[pd2] = ddf->phys->entries[pdnum];
+				for (dl = ddf->dlist; dl; dl = dl->next)
+					if (dl->pdnum == (int)pdnum)
+						dl->pdnum = pd2;
+				pd2++;
+			}
+		ddf->phys->used_pdes = __cpu_to_be16(pd2);
+		while (pd2 < pdnum) {
+			memset(ddf->phys->entries[pd2].guid, 0xff, DDF_GUID_LEN);
+			pd2++;
+		}
+
 		ddf->updates_pending = 1;
 		break;
 	case DDF_SPARE_ASSIGN_MAGIC:
@@ -3657,13 +3715,14 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 				esize = ex[j].start - pos;
 				if (esize >= a->info.component_size)
 					break;
-				pos = ex[i].start + ex[i].size;
-				i++;
-			} while (ex[i-1].size);
+				pos = ex[j].start + ex[j].size;
+				j++;
+			} while (ex[j-1].size);
 
 			free(ex);
 			if (esize < a->info.component_size) {
-				dprintf("%x:%x has no room: %llu %llu\n", dl->major, dl->minor,
+				dprintf("%x:%x has no room: %llu %llu\n",
+					dl->major, dl->minor,
 					esize, a->info.component_size);
 				/* No room */
 				continue;

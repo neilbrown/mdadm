@@ -1646,7 +1646,7 @@ int main(int argc, char *argv[])
 			}
 		} else if (bitmap_file) {
 			if (size >= 0 || raiddisks || chunk ||
-			    layout_str != NULL || devs_found) {
+			    layout_str != NULL || devs_found > 1) {
 				fprintf(stderr, Name ": --bitmap changes cannot be "
 					"used with other geometry changes "
 					"in --grow mode\n");

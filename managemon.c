@@ -398,7 +398,12 @@ static void manage_member(struct mdstat_ent *mdstat,
 	a->info.array.raid_disks = mdstat->raid_disks;
 	// MORE
 
-	if (a->check_degraded) {
+	/* We don't check the array while any update is pending, as it
+	 * might container a change (such as a spare assignment) which 
+	 * could affect our decisions.
+	 */
+	if (a->check_degraded &&
+	    update_queue == NULL && update_queue_pending == NULL) {
 		struct metadata_update *updates = NULL;
 		struct mdinfo *newdev = NULL;
 		struct active_array *newa;

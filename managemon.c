@@ -297,12 +297,44 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	st->update_tail = NULL;
 }
 
+/*
+ * Create and queue update structure about the removed disks.
+ * The update is prepared by super type handler and passed to the monitor
+ * thread.
+ */
+static void remove_disk_from_container(struct supertype *st, struct mdinfo *sd)
+{
+	struct metadata_update *update = NULL;
+	mdu_disk_info_t dk = {
+		.number = -1,
+		.major = sd->disk.major,
+		.minor = sd->disk.minor,
+		.raid_disk = -1,
+		.state = 0,
+	};
+	/* nothing to do if super type handler does not support
+	 * remove disk primitive
+	 */
+	if (!st->ss->remove_from_super)
+		return;
+	dprintf("%s: remove %d:%d from container\n",
+		__func__, sd->disk.major, sd->disk.minor);
+
+	st->update_tail = &update;
+	st->ss->remove_from_super(st, &dk);
+	st->ss->write_init_super(st);
+	queue_metadata_update(update);
+	st->update_tail = NULL;
+}
+
 static void manage_container(struct mdstat_ent *mdstat,
 			     struct supertype *container)
 {
-	/* The only thing of interest here is if a new device
-	 * has been added to the container.  We add it to the
-	 * array ignoring any metadata on it.
+	/* Of interest here are:
+	 * - if a new device has been added to the container, we 
+	 *   add it to the array ignoring any metadata on it.
+	 * - if a device has been removed from the container, we
+	 *   remove it from the device list and update the metadata.
 	 * FIXME should we look for compatible metadata and take hints
 	 * about spare assignment.... probably not.
 	 */
@@ -334,6 +366,7 @@ static void manage_container(struct mdstat_ent *mdstat,
 			if (!found) {
 				cd = *cdp;
 				*cdp = (*cdp)->next;
+				remove_disk_from_container(container, cd);
 				free(cd);
 			} else
 				cdp = &(*cdp)->next;

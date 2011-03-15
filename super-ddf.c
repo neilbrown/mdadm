@@ -3191,7 +3191,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 
 	/* and find the 'dl' entry corresponding to that. */
 	for (dl = ddf->dlist; dl; dl = dl->next)
-		if (mdi->disk.major == dl->major &&
+		if (mdi->state_fd >= 0 &&
+		    mdi->disk.major == dl->major &&
 		    mdi->disk.minor == dl->minor)
 			break;
 	if (!dl)

@@ -3432,13 +3432,20 @@ static void ddf_process_update(struct supertype *st,
 		for (dl = ddf->dlist; dl; dl = dl->next) {
 			unsigned int dn;
 			unsigned int vn = 0;
+			int in_degraded = 0;
 			for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 				for (dn=0; dn < ddf->mppe ; dn++)
 					if (vcl->conf.phys_refnum[dn] ==
 					    dl->disk.refnum) {
+						int vstate;
 						dprintf("dev %d has %p at %d\n",
 							dl->pdnum, vcl, vn);
 						dl->vlist[vn++] = vcl;
+						vstate = ddf->virt->entries[vcl->vcnum].state
+							& DDF_state_mask;
+						if (vstate == DDF_state_degraded ||
+						    vstate == DDF_state_part_optimal)
+							in_degraded = 1;
 						break;
 					}
 			while (vn < ddf->max_part)
@@ -3446,8 +3453,14 @@ static void ddf_process_update(struct supertype *st,
 			if (dl->vlist[0]) {
 				ddf->phys->entries[dl->pdnum].type &=
 					~__cpu_to_be16(DDF_Global_Spare);
-				ddf->phys->entries[dl->pdnum].type |=
-					__cpu_to_be16(DDF_Active_in_VD);
+				if (!(ddf->phys->entries[dl->pdnum].type &
+				      __cpu_to_be16(DDF_Active_in_VD))) {
+					    ddf->phys->entries[dl->pdnum].type |=
+						    __cpu_to_be16(DDF_Active_in_VD);
+					    if (in_degraded)
+						    ddf->phys->entries[dl->pdnum].state |=
+							    __cpu_to_be16(DDF_Rebuilding);
+				    }
 			}
 			if (dl->spare) {
 				ddf->phys->entries[dl->pdnum].type &=

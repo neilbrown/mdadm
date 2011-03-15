@@ -3254,6 +3254,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	case DDF_RAID1:
 		if (working == 0)
 			state = DDF_state_failed;
+		else if (working == 2 && state == DDF_state_degraded)
+			state = DDF_state_part_optimal;
 		break;
 	case DDF_RAID4:
 	case DDF_RAID5:

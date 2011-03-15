@@ -774,7 +774,7 @@ int Manage_subdevs(char *devname, int fd,
 			disc.minor = minor(stb.st_rdev);
 			disc.number =j;
 			disc.state = 0;
-			if (array.not_persistent==0 || tst->ss->external) {
+			if (array.not_persistent==0) {
 				int dfd;
 				if (dv->writemostly == 1)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
@@ -785,10 +785,7 @@ int Manage_subdevs(char *devname, int fd,
 					return 1;
 				}
 				/* write_init_super will close 'dfd' */
-				if (tst->ss->external)
-					/* mdmon will write the metadata */
-					close(dfd);
-				else if (tst->ss->write_init_super(tst))
+				if (tst->ss->write_init_super(tst))
 					return 1;
 			} else if (dv->re_add) {
 				/*  this had better be raid1.
@@ -830,6 +827,7 @@ int Manage_subdevs(char *devname, int fd,
 				struct mdinfo *sra;
 				int container_fd;
 				int devnum = fd2devnum(fd);
+				int dfd;
 
 				container_fd = open_dev_excl(devnum);
 				if (container_fd < 0) {
@@ -845,6 +843,15 @@ int Manage_subdevs(char *devname, int fd,
 					close(container_fd);
 					return 1;
 				}
+
+				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
+				if (tst->ss->add_to_super(tst, &disc, dfd,
+							  dv->devname)) {
+					close(dfd);
+					close(container_fd);
+					return 1;
+				}
+				close(dfd);
 
 				sra = sysfs_read(container_fd, -1, 0);
 				if (!sra) {

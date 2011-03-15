@@ -3337,6 +3337,7 @@ static void ddf_process_update(struct supertype *st,
 	struct dl *dl;
 	unsigned int mppe;
 	unsigned int ent;
+	unsigned int pdnum, pd2;
 
 	dprintf("Process update %x\n", *magic);
 
@@ -3428,6 +3429,14 @@ static void ddf_process_update(struct supertype *st,
 				}
 			ddf->conflist = vcl;
 		}
+		/* Set DDF_Transition on all Failed devices - to help
+		 * us detect those that are no longer in use
+		 */
+		for (pdnum = 0; pdnum < __be16_to_cpu(ddf->phys->used_pdes); pdnum++)
+			if (ddf->phys->entries[pdnum].state
+			    & __be16_to_cpu(DDF_Failed))
+				ddf->phys->entries[pdnum].state
+					|= __be16_to_cpu(DDF_Transition);
 		/* Now make sure vlist is correct for each dl. */
 		for (dl = ddf->dlist; dl; dl = dl->next) {
 			unsigned int dn;
@@ -3440,6 +3449,12 @@ static void ddf_process_update(struct supertype *st,
 						int vstate;
 						dprintf("dev %d has %p at %d\n",
 							dl->pdnum, vcl, vn);
+						/* Clear the Transition flag */
+						if (ddf->phys->entries[dl->pdnum].state
+						    & __be16_to_cpu(DDF_Failed))
+							ddf->phys->entries[dl->pdnum].state &=
+								~__be16_to_cpu(DDF_Transition);
+
 						dl->vlist[vn++] = vcl;
 						vstate = ddf->virt->entries[vcl->vcnum].state
 							& DDF_state_mask;
@@ -3476,6 +3491,33 @@ static void ddf_process_update(struct supertype *st,
 						       DDF_Active_in_VD);
 			}
 		}
+
+		/* Now remove any 'Failed' devices that are not part
+		 * of any VD.  They will have the Transition flag set.
+		 * Once done, we need to update all dl->pdnum numbers.
+		 */
+		pd2 = 0;
+		for (pdnum = 0; pdnum < __be16_to_cpu(ddf->phys->used_pdes); pdnum++)
+			if ((ddf->phys->entries[pdnum].state
+			     & __be16_to_cpu(DDF_Failed))
+			    && (ddf->phys->entries[pdnum].state
+				& __be16_to_cpu(DDF_Transition)))
+				/* skip this one */;
+			else if (pdnum == pd2)
+				pd2++;
+			else {
+				ddf->phys->entries[pd2] = ddf->phys->entries[pdnum];
+				for (dl = ddf->dlist; dl; dl = dl->next)
+					if (dl->pdnum == (int)pdnum)
+						dl->pdnum = pd2;
+				pd2++;
+			}
+		ddf->phys->used_pdes = __cpu_to_be16(pd2);
+		while (pd2 < pdnum) {
+			memset(ddf->phys->entries[pd2].guid, 0xff, DDF_GUID_LEN);
+			pd2++;
+		}
+
 		ddf->updates_pending = 1;
 		break;
 	case DDF_SPARE_ASSIGN_MAGIC:

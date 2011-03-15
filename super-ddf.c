@@ -3619,13 +3619,14 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 				esize = ex[j].start - pos;
 				if (esize >= a->info.component_size)
 					break;
-				pos = ex[i].start + ex[i].size;
-				i++;
-			} while (ex[i-1].size);
+				pos = ex[j].start + ex[j].size;
+				j++;
+			} while (ex[j-1].size);
 
 			free(ex);
 			if (esize < a->info.component_size) {
-				dprintf("%x:%x has no room: %llu %llu\n", dl->major, dl->minor,
+				dprintf("%x:%x has no room: %llu %llu\n",
+					dl->major, dl->minor,
 					esize, a->info.component_size);
 				/* No room */
 				continue;

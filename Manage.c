@@ -208,10 +208,26 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		struct stat stb;
 		struct mdinfo *mdi;
 		int devnum;
+		int err;
+		int count;
 		/* If this is an mdmon managed array, just write 'inactive'
 		 * to the array state and let mdmon clear up.
 		 */
 		devnum = fd2devnum(fd);
+		/* Get EXCL access first.  If this fails, then attempting
+		 * to stop is probably a bad idea.
+		 */
+		close(fd);
+		fd = open(devname, O_RDONLY|O_EXCL);
+		if (fd < 0 || fd2devnum(fd) != devnum) {
+			if (fd >= 0)
+				close(fd);
+			fprintf(stderr,
+				Name ": Cannot get exclusive access to %s:"
+				" possibly it is still in use.\n",
+				devname);
+			return 1;
+		}
 		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
 		if (mdi &&
 		    mdi->array.level > 0 &&
@@ -230,7 +246,14 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			/* Give monitor a chance to act */
 			ping_monitor(mdi->text_version);
 
-			fd = open(devname, O_RDONLY);
+			fd = open_dev_excl(devnum);
+			if (fd < 0) {
+				fprintf(stderr, Name
+					": failed to completely stop %s"
+					": Device is busy\n",
+					devname);
+				return 1;
+			}
 		} else if (mdi &&
 			   mdi->array.major_version == -1 &&
 			   mdi->array.minor_version == -2 &&
@@ -263,7 +286,18 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				}
 		}
 
-		if (fd >= 0 && ioctl(fd, STOP_ARRAY, NULL)) {
+		/* As we have an O_EXCL open, any use of the device
+		 * which blocks STOP_ARRAY is probably a transient use,
+		 * so it is reasonable to retry for a while - 5 seconds.
+		 */
+		count = 25;
+		while (count && fd >= 0
+		       && (err = ioctl(fd, STOP_ARRAY, NULL)) < 0
+		       && errno == EBUSY) {
+			usleep(200000);
+			count --;
+		}
+		if (fd >= 0 && err) {
 			if (quiet == 0) {
 				fprintf(stderr, Name
 					": failed to stop array %s: %s\n",

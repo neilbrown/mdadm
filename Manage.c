@@ -224,7 +224,9 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				close(fd);
 			fprintf(stderr,
 				Name ": Cannot get exclusive access to %s:"
-				" possibly it is still in use.\n",
+				"Perhaps a running "
+				"process, mounted filesystem "
+				"or active volume group?\n",
 				devname);
 			return 1;
 		}
@@ -232,14 +234,23 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		if (mdi &&
 		    mdi->array.level > 0 &&
 		    is_subarray(mdi->text_version)) {
+			int err;
 			/* This is mdmon managed. */
 			close(fd);
-			if (sysfs_set_str(mdi, NULL,
-					  "array_state", "inactive") < 0) {
-				if (quiet == 0)
-					fprintf(stderr, Name
-						": failed to stop array %s: %s\n",
-						devname, strerror(errno));
+
+			count = 25;
+			while (count &&
+			       (err = sysfs_set_str(mdi, NULL,
+						    "array_state",
+						    "inactive")) < 0
+			       && errno == EBUSY) {
+				usleep(200000);
+				count--;
+			}
+			if (err && !quiet) {
+				fprintf(stderr, Name
+					": failed to stop array %s: %s\n",
+					devname, strerror(errno));
 				return 1;
 			}
 

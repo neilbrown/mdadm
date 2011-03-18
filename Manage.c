@@ -835,9 +835,6 @@ int Manage_subdevs(char *devname, int fd,
 				if (dv->writemostly == 1)
 					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
-				if (tst->ss->external &&
-				    mdmon_running(tst->container_dev))
-					tst->update_tail = &tst->updates;
 				if (tst->ss->add_to_super(tst, &disc, dfd,
 							  dv->devname)) {
 					close(dfd);
@@ -898,13 +895,18 @@ int Manage_subdevs(char *devname, int fd,
 				}
 
 				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
+				if (mdmon_running(tst->container_dev))
+					tst->update_tail = &tst->updates;
 				if (tst->ss->add_to_super(tst, &disc, dfd,
 							  dv->devname)) {
 					close(dfd);
 					close(container_fd);
 					return 1;
 				}
-				close(dfd);
+				if (st->update_tail)
+					flush_metadata_updates(st);
+				else
+					tst->ss->sync_metadata(st);
 
 				sra = sysfs_read(container_fd, -1, 0);
 				if (!sra) {

@@ -1598,7 +1598,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			if (!err) {
 				if (!mdmon_running(st->container_dev))
 					start_mdmon(st->container_dev);
-				ping_monitor(devnum2devname(st->container_dev));
+				ping_monitor_by_id(st->container_dev);
 			}
 			break;
 		}

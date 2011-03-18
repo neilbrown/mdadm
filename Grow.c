@@ -3416,7 +3416,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 
 		if (!mdmon_running(st->container_dev))
 			start_mdmon(st->container_dev);
-		ping_monitor(devnum2devname(st->container_dev));
+		ping_monitor_by_id(st->container_dev);
 
 
 		if (info->reshape_active == 2) {

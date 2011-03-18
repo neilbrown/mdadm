@@ -929,7 +929,7 @@ int Create(struct supertype *st, char *mddev,
 			if (need_mdmon)
 				start_mdmon(st->container_dev);
 
-			ping_monitor(devnum2devname(st->container_dev));
+			ping_monitor_by_id(st->container_dev);
 			close(container_fd);
 		}
 		wait_for(chosen_name, mdfd);

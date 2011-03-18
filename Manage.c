@@ -932,7 +932,7 @@ int Manage_subdevs(char *devname, int fd,
 					sysfs_free(sra);
 					return 1;
 				}
-				ping_monitor(devnum2devname(devnum));
+				ping_monitor_by_id(devnum);
 				sysfs_free(sra);
 				close(container_fd);
 			} else {

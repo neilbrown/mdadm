@@ -975,7 +975,7 @@ int Wait(char *dev)
 				if (is_subarray(&e->metadata_version[9]))
 					ping_monitor(&e->metadata_version[9]);
 				else
-					ping_monitor(devnum2devname(devnum));
+					ping_monitor_by_id(devnum);
 			}
 			free_mdstat(ms);
 			return rv;

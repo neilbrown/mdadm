@@ -213,6 +213,20 @@ int ping_monitor(char *devname)
 	return err;
 }
 
+/* ping monitor using device number */
+int ping_monitor_by_id(int devnum)
+{
+	int err = -1;
+	char *container = devnum2devname(devnum);
+
+	if (container) {
+		err = ping_monitor(container);
+		free(container);
+	}
+
+	return err;
+}
+
 static char *ping_monitor_version(char *devname)
 {
 	int sfd = connect_monitor(devname);

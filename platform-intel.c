@@ -349,6 +349,7 @@ static const struct imsm_orom *find_imsm_hba_orom(enum sys_dev_type hba_id)
 
 #define SYS_EFI_VAR_PATH "/sys/firmware/efi/vars"
 #define SCU_PROP "RstScuV"
+#define SCU_PROP_OEM "RstScuO"
 #define AHCI_PROP "RstSataV"
 
 #define VENDOR_GUID \
@@ -393,8 +394,14 @@ const struct imsm_orom *find_imsm_efi(enum sys_dev_type hba_id)
 		snprintf(path, PATH_MAX, "%s/%s-%s", SYS_EFI_VAR_PATH, AHCI_PROP, guid_str(buf, VENDOR_GUID));
 
 	dprintf("EFI VAR: path=%s\n", path);
-
-	if ((dfd = open(path, O_RDONLY)) < 0) {
+	dfd = open(path, O_RDONLY);
+	if ((dfd < 0) && (hba_id == SYS_DEV_SAS)) {
+		/* check OEM parameters */
+		snprintf(path, PATH_MAX, "%s/%s-%s", SYS_EFI_VAR_PATH, SCU_PROP_OEM, guid_str(buf, VENDOR_GUID));
+		dfd = open(path, O_RDONLY);
+		dprintf("EFI VAR: path=%s\n", path);
+	}
+	if (dfd < 0) {
 		populated_efi[hba_id] = 0;
 		return NULL;
 	}

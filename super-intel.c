@@ -3838,6 +3838,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	} else {
 		dd->next = super->disks;
 		super->disks = dd;
+		super->updates_pending++;
 	}
 
 	return 0;

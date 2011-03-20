@@ -746,7 +746,7 @@ int Manage_subdevs(char *devname, int fd,
 									st, NULL, update,
 									devname, verbose, 0, NULL);
 							if (rv == 0)
-								rv = tst->ss->store_super(st, tfd);
+								rv = st->ss->store_super(st, tfd);
 							close(tfd);
 							tfd = -1;
 							if (rv != 0) {
@@ -914,10 +914,10 @@ int Manage_subdevs(char *devname, int fd,
 					close(container_fd);
 					return 1;
 				}
-				if (st->update_tail)
-					flush_metadata_updates(st);
+				if (tst->update_tail)
+					flush_metadata_updates(tst);
 				else
-					tst->ss->sync_metadata(st);
+					tst->ss->sync_metadata(tst);
 
 				sra = sysfs_read(container_fd, -1, 0);
 				if (!sra) {

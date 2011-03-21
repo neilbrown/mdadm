@@ -875,6 +875,14 @@ main(int argc, char *argv[])
 		exit(3);
 	}
 	for (i=0; i<raid_disks; i++) {
+		char *p;
+		p = strchr(argv[9+i], ':');
+
+		if(p != NULL) {
+			*p++ = '\0';
+			offsets[i] = atoll(p) * 512;
+		}
+			
 		fds[i] = open(argv[9+i], O_RDWR);
 		if (fds[i] < 0) {
 			perror(argv[9+i]);

@@ -33,7 +33,7 @@
  *
  */
 
-static int geo_map(int block, unsigned long long stripe, int raid_disks,
+int geo_map(int block, unsigned long long stripe, int raid_disks,
 		   int level, int layout)
 {
 	/* On the given stripe, find which disk in the array will have
@@ -223,7 +223,7 @@ static void xor_blocks(char *target, char **sources, int disks, int size)
 	}
 }
 
-static void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size)
+void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size)
 {
 	int d, z;
 	uint8_t wq0, wp0, wd0, w10, w20;

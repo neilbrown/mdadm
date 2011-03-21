@@ -106,6 +106,8 @@ OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o Manage.o Assemble.o 
 	restripe.o sysfs.o sha1.o mapfile.o crc32.o sg_io.o msg.o \
 	platform-intel.o probe_roms.o
 
+OBJSX = restripe.o
+
 SRCS =  mdadm.c config.c policy.c mdstat.c  ReadMe.c util.c Manage.c Assemble.c Build.c \
 	Create.c Detail.c Examine.c Grow.c Monitor.c dlink.c Kill.c Query.c \
 	Incremental.c \
@@ -181,6 +183,9 @@ msg.o: msg.c msg.h
 
 test_stripe : restripe.c mdadm.h
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe -DMAIN restripe.c
+
+raid6check : raid6check.o mdadm.h $(OBJSX)
+	$(CC) $(CXFLAGS) $(LDFLAGS) -o raid6check raid6check.o $(OBJSX)
 
 mdassemble : $(ASSEMBLE_SRCS) $(INCL)
 	rm -f $(OBJS)
@@ -265,7 +270,7 @@ clean :
 	mdadm.Os mdadm.O2 mdmon.O2 \
 	mdassemble mdassemble.static mdassemble.auto mdassemble.uclibc \
 	mdassemble.klibc swap_super \
-	init.cpio.gz mdadm.uclibc.static test_stripe mdmon \
+	init.cpio.gz mdadm.uclibc.static test_stripe raid6check raid6check.o mdmon \
 	mdadm.8
 
 dist : clean

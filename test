@@ -101,6 +101,9 @@ mdadm() {
         * )   $mdadm 2> $targetdir/stderr --quiet "$@"
     esac
     rv=$?
+    case $* in
+       *-S* ) udevadm settle;;
+    esac
     cat >&2 $targetdir/stderr
     return $rv
 }

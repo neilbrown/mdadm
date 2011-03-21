@@ -3019,9 +3019,25 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			struct mdinfo *dev;
 			struct dl *d;
 			int stt;
+			int pd;
 
 			if (vc->conf.phys_refnum[i] == 0xFFFFFFFF)
 				continue;
+
+			for (pd = __be16_to_cpu(ddf->phys->used_pdes);
+			     pd--;)
+				if (ddf->phys->entries[pd].refnum
+				    == vc->conf.phys_refnum[i])
+					break;
+			if (pd < 0)
+				continue;
+
+			stt = __be16_to_cpu(ddf->phys->entries[pd].state);
+			if ((stt & (DDF_Online|DDF_Failed|DDF_Rebuilding))
+			    != DDF_Online)
+				continue;
+
+			this->array.working_disks++;
 
 			for (d = ddf->dlist; d ; d=d->next)
 				if (d->disk.refnum == vc->conf.phys_refnum[i])
@@ -3029,12 +3045,6 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			if (d == NULL)
 				/* Haven't found that one yet, maybe there are others */
 				continue;
-			stt = __be16_to_cpu(ddf->phys->entries[d->pdnum].state);
-			if ((stt & (DDF_Online|DDF_Failed|DDF_Rebuilding))
-			    != DDF_Online)
-				continue;
-
-			this->array.working_disks++;
 
 			dev = malloc(sizeof(*dev));
 			memset(dev, 0, sizeof(*dev));

@@ -1786,6 +1786,15 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		if (info2) {
 			sysfs_init(info2, fd, st->devnum);
+			/* When increasing number of devices, we need to set
+			 * new raid_disks before adding these, or they might
+			 * be rejected.
+			 */
+			if (reshape.backup_blocks &&
+			    reshape.after.data_disks > reshape.before.data_disks)
+				subarray_set_num(container, info2, "raid_disks",
+						 reshape.after.data_disks +
+						 reshape.parity);
 			for (d = info2->devs; d; d = d->next) {
 				if (d->disk.state == 0 &&
 				    d->disk.raid_disk >= 0) {

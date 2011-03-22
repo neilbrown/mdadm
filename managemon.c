@@ -460,7 +460,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 
 	if (mdstat->level) {
 		int level = map_name(pers, mdstat->level);
-		if (a->info.array.level != level && level >= 0) {
+		if (level == 0 || level == LEVEL_LINEAR) {
+			a->container = NULL;
+			return;
+		}
+		else if (a->info.array.level != level && level > 0) {
 			struct active_array *newa = duplicate_aa(a);
 			if (newa) {
 				newa->info.array.level = level;
@@ -608,7 +612,10 @@ static void manage_new(struct mdstat_ent *mdstat,
 	char buf[40];
 
 	/* check if array is ready to be monitored */
-	if (!mdstat->active)
+	if (!mdstat->active || !mdstat->level)
+		return;
+	if (strcmp(mdstat->level, "raid0") == 0 ||
+	    strcmp(mdstat->level, "linear") == 0)
 		return;
 
 	mdi = sysfs_read(-1, mdstat->devnum,

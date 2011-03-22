@@ -998,12 +998,17 @@ int dev_open(char *dev, int flags)
 	return fd;
 }
 
-int open_dev(int devnum)
+int open_dev_flags(int devnum, int flags)
 {
 	char buf[20];
 
 	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
-	return dev_open(buf, O_RDONLY);
+	return dev_open(buf, flags);
+}
+
+int open_dev(int devnum)
+{
+	return open_dev_flags(devnum, O_RDONLY);
 }
 
 int open_dev_excl(int devnum)

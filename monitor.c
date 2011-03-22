@@ -563,7 +563,11 @@ static int wait_and_act(struct supertype *container, int nowait)
 		 * problem as there are no active arrays, there is
 		 * nothing that we need to be ready to do.
 		 */
-		int fd = open_dev_excl(container->devnum);
+		int fd;
+		if (sigterm)
+			fd = open_dev_excl(container->devnum);
+		else
+			fd = open_dev_flags(container->devnum, O_RDONLY|O_EXCL);
 		if (fd >= 0 || errno != EBUSY) {
 			/* OK, we are safe to leave */
 			if (sigterm && !dirty_arrays)
@@ -584,10 +588,18 @@ static int wait_and_act(struct supertype *container, int nowait)
 
 	if (!nowait) {
 		sigset_t set;
+		struct timespec ts;
+		ts.tv_sec = 24*3600;
+		ts.tv_nsec = 0;
+		if (*aap == NULL) {
+			/* just waiting to get O_EXCL access */
+			ts.tv_sec = 0;
+			ts.tv_nsec = 20000000ULL;
+		}
 		sigprocmask(SIG_UNBLOCK, NULL, &set);
 		sigdelset(&set, SIGUSR1);
 		monitor_loop_cnt |= 1;
-		rv = pselect(maxfd+1, NULL, NULL, &rfds, NULL, &set);
+		rv = pselect(maxfd+1, NULL, NULL, &rfds, &ts, &set);
 		monitor_loop_cnt += 1;
 		if (rv == -1 && errno == EINTR)
 			rv = 0;

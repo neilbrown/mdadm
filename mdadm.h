@@ -1086,6 +1086,7 @@ extern int check_partitions(int fd, char *dname,
 extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
 extern int open_dev(int devnum);
+extern int open_dev_flags(int devnum, int flags);
 extern int open_dev_excl(int devnum);
 extern int is_standard(char *dev, int *nump);
 extern int same_dev(char *one, char *two);

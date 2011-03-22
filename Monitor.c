@@ -607,7 +607,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		} else if (mse &&  mse->pattern && i < (int)strlen(mse->pattern)) {
 			switch(mse->pattern[i]) {
 			case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
-			case '_': newstate = 0; break;
+			case '_': newstate = 8 /* REMOVED */; break;
 			}
 			disc.major = disc.minor = 0;
 		}

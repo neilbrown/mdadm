@@ -436,6 +436,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 	 */
 	char buf[64];
 	int frozen;
+	struct supertype *container = a->container;
+
+	if (container == NULL)
+		/* Raced with something */
+		return;
 
 	// FIXME
 	a->info.array.raid_disks = mdstat->raid_disks;
@@ -459,7 +464,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 			struct active_array *newa = duplicate_aa(a);
 			if (newa) {
 				newa->info.array.level = level;
-				replace_array(a->container, a, newa);
+				replace_array(container, a, newa);
 				a = newa;
 			}
 		}
@@ -481,7 +486,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		/* The array may not be degraded, this is just a good time
 		 * to check.
 		 */
-		newdev = a->container->ss->activate_spare(a, &updates);
+		newdev = container->ss->activate_spare(a, &updates);
 		if (!newdev)
 			return;
 
@@ -506,7 +511,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		}
 		queue_metadata_update(updates);
 		updates = NULL;
-		replace_array(a->container, a, newa);
+		replace_array(container, a, newa);
 		sysfs_set_str(&a->info, NULL, "sync_action", "recover");
  out:
 		while (newdev) {
@@ -560,7 +565,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 	out2:
 		sysfs_free(info);
 		if (newa)
-			replace_array(a->container, a, newa);
+			replace_array(container, a, newa);
 	}
 }
 

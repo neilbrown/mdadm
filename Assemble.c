@@ -905,6 +905,8 @@ int Assemble(struct supertype *st, char *mddev,
 			continue;
 		if (!devices[j].uptodate)
 			continue;
+		if (devices[j].i.events < devices[most_recent].i.events)
+			continue;
 		chosen_drive = j;
 		if ((fd=dev_open(devices[j].devname, O_RDONLY|O_EXCL))< 0) {
 			fprintf(stderr, Name ": Cannot open %s: %s\n",
@@ -996,6 +998,9 @@ int Assemble(struct supertype *st, char *mddev,
 			close(mdfd);
 			return 1;
 		}
+		if (verbose >= 0)
+			fprintf(stderr, Name ": Marking array %s as 'clean'\n",
+				mddev);
 		close(fd);
 	}
 

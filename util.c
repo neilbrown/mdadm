@@ -1196,6 +1196,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 		if (guess_type == guess_partitions && ss->add_to_super != NULL)
 			continue;
 		memset(st, 0, sizeof(*st));
+		st->ignore_hw_compat = 1;
 		rv = ss->load_super(st, fd, NULL);
 		if (rv == 0) {
 			struct mdinfo info;
@@ -1211,9 +1212,11 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	if (bestsuper != -1) {
 		int rv;
 		memset(st, 0, sizeof(*st));
+		st->ignore_hw_compat = 1;
 		rv = superlist[bestsuper]->load_super(st, fd, NULL);
 		if (rv == 0) {
 			superlist[bestsuper]->free_super(st);
+			st->ignore_hw_compat = 0;
 			return st;
 		}
 	}

@@ -87,6 +87,7 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 				st = guess_super(fd);
 			if (st) {
 				err = 1;
+				st->ignore_hw_compat = 1;
 				if (!container)
 					err = st->ss->load_super(st, fd,
 								 (brief||scan) ? NULL
@@ -98,6 +99,7 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 					if (!err)
 						have_container = 1;
 				}
+				st->ignore_hw_compat = 0;
 			} else {
 				if (!brief) {
 					fprintf(stderr, Name ": No md superblock detected on %s.\n", devlist->devname);

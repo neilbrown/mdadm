@@ -827,7 +827,11 @@ struct supertype {
 	int container_dev;    /* devnum of container */
 	void *sb;
 	void *info;
-
+	int ignore_hw_compat; /* used to inform metadata handlers that it should ignore
+				 HW/firmware related incompatability to load metadata.
+				 Used when examining metadata to display content of disk
+				 when user has no hw/firmare compatible system.
+			      */
 	struct metadata_update *updates;
 	struct metadata_update **update_tail;
 

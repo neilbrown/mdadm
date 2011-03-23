@@ -5218,8 +5218,6 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 	__u32 ord;
 	int slot;
 	struct imsm_map *map;
-	char buf[MAX_RAID_SERIAL_LEN+3];
-	unsigned int len, shift = 0;
 
 	/* new failures are always set in map[0] */
 	map = get_imsm_map(dev, 0);
@@ -5231,11 +5229,6 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 	ord = __le32_to_cpu(map->disk_ord_tbl[slot]);
 	if (is_failed(disk) && (ord & IMSM_ORD_REBUILD))
 		return 0;
-
-	sprintf(buf, "%s:0", disk->serial);
-	if ((len = strlen(buf)) >= MAX_RAID_SERIAL_LEN)
-		shift = len - MAX_RAID_SERIAL_LEN + 1;
-	strncpy((char *)disk->serial, &buf[shift], MAX_RAID_SERIAL_LEN);
 
 	disk->status |= FAILED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);

@@ -1665,6 +1665,13 @@ The reason for requiring arrays to be tagged with the homehost for
 auto assembly is to guard against problems that can arise when moving
 devices from one host to another.
 ..
+Note: Auto assembly cannot be used for assembling and activating some
+arrays which are undergoing reshape.  In particular as the
+.B backup\-file
+cannot be given, any reshape which requires a backup-file to continue
+cannot be started by auto assembly.  An array which is growing to more
+devices and has passed the critical section can be assembled using
+auto-assembly.
 
 .SH BUILD MODE
 

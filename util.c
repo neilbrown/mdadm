@@ -1471,7 +1471,7 @@ int is_subarray_active(char *subarray, char *container)
 		if (is_container_member(ent, container)) {
 			char *inst = &ent->metadata_version[10+strlen(container)+1];
 
-			if (!subarray || strcmp(inst, subarray) == 0)
+			if (strcmp(inst, subarray) == 0)
 				break;
 		}
 	}
@@ -1479,11 +1479,6 @@ int is_subarray_active(char *subarray, char *container)
 	free_mdstat(mdstat);
 
 	return ent != NULL;
-}
-
-int is_container_active(char *container)
-{
-	return is_subarray_active(NULL, container);
 }
 
 /* open_subarray - opens a subarray in a container

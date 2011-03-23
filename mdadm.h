@@ -936,7 +936,6 @@ extern int open_mddev(char *dev, int report_errors);
 extern int open_container(int fd);
 extern int is_container_member(struct mdstat_ent *ent, char *devname);
 extern int is_subarray_active(char *subarray, char *devname);
-int is_container_active(char *devname);
 extern int open_subarray(char *dev, struct supertype *st, int quiet);
 extern struct superswitch *version_to_superswitch(char *vers);
 

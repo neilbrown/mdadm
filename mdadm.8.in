@@ -2229,6 +2229,23 @@ in a container can be converted between levels where those levels are
 supported by the container, and the conversion is on of those listed
 above.
 
+Grow functionality (e.g. expand a number of raid devices) for Intel's
+IMSM container format has an experimental status. It is guarded by the
+.B MDADM_EXPERIMENTAL
+environment variable which must be set to '1' for a GROW command to
+succeed.
+This is for the following reasons:
+
+.IP 1.
+Intel's native IMSM check-pointing is not fully implemented yet.
+This causes IMSM incompatibility during the grow process: an array
+which is growing cannot roam between Microsoft Windows(R) and Linux
+systems.
+
+.IP 2.
+Interrupting a grow operation is not recommended, because it
+has not been fully tested for Intel's IMSM container format yet.
+
 .SS SIZE CHANGES
 Normally when an array is built the "size" is taken from the smallest
 of the drives.  If all the small drives in an arrays are, one at a

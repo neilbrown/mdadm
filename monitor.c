@@ -219,6 +219,7 @@ static int read_and_act(struct active_array *a)
 	int deactivate = 0;
 	struct mdinfo *mdi;
 	int dirty = 0;
+	int count = 0;
 
 	a->next_state = bad_word;
 	a->next_action = bad_action;
@@ -311,7 +312,10 @@ static int read_and_act(struct active_array *a)
 						   mdi->curr_state);
 			if (! (mdi->curr_state & DS_INSYNC))
 				check_degraded = 1;
+			count++;
 		}
+		if (count != a->info.array.raid_disks)
+			check_degraded = 1;
 	}
 
 	if (!deactivate &&

@@ -13,7 +13,6 @@ imsm_check() {
         t_size=$6
         t_offset=$7
         t_chunk=$8
-	t_takeover10=$9
 
         err=0
 
@@ -27,13 +26,7 @@ imsm_check() {
             echo "**Error**: Chunk size mismatch - expected $t_chunk, actual $_chunk" >&2
             err=$((err + 1))
         fi
-	if [ ! -z $t_takeover10 ] ; then
-		t_num_disks=$(( t_num_disks * 2 ))
-	fi
         for i in `seq 0 $((t_num_disks - 1))`; do
-	    if [ ! -z $t_takeover10 ] && [ ! -z $(( $i % 2 )) ] ; then
-		continue
-	    fi
 	    _offset=`cat ${sysfs}/md/rd${i}/offset`
 	    if [ $t_offset -ne $((_offset / 2)) ]; then
 		echo "**Error**: Offset mismatch - expected $t_offset, actual $_offset" >&2

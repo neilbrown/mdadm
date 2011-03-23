@@ -5,9 +5,6 @@ negative_test=$1
 # 0 - On-line Capacity Expansion test, otherwise LEVEL migration or CHUNK size migration test
 migration_test=$2
 
-# 1 - raid0 -> raid10 takeover verification
-takeover10_test=$3
-
 function grow_member() {
 	local member=$1
 	local disks=$2
@@ -31,8 +28,8 @@ function grow_member() {
 	fi
 	check wait
 	sleep 5
-	imsm_check member $member $disks $level $size $array_size $offset $chunk $takeover10_test
-	testdev $member $comps $size $chunk $takeover10_test
+	imsm_check member $member $disks $level $size $array_size $offset $chunk
+	testdev $member $comps $size $chunk
 }
 
 # Create container

@@ -2218,11 +2218,12 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	 * use the same Intel hba
 	 */
 	if (!check_env("IMSM_NO_PLATFORM")) {
-		if (first->hba->type != sec->hba->type)  {
+		if (!first->hba || !sec->hba ||
+		    (first->hba->type != sec->hba->type))  {
 			fprintf(stderr,
 				"HBAs of devices does not match %s != %s\n",
-				get_sys_dev_type(first->hba->type),
-				get_sys_dev_type(sec->hba->type));
+				first->hba ? get_sys_dev_type(first->hba->type) : NULL,
+				sec->hba ? get_sys_dev_type(sec->hba->type) : NULL);
 			return 3;
 		}
 	}
@@ -3386,16 +3387,19 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 			sizeof(*super));
 		return 1;
 	}
+	/* Load hba and capabilities if they exist.
+	 * But do not preclude loading metadata in case capabilities or hba are
+	 * non-compliant and ignore_hw_compat is set.
+	 */
 	rv = find_intel_hba_capability(fd, super, devname);
 	/* no orom/efi or non-intel hba of the disk */
-	if (rv != 0) {
+	if ((rv != 0) && (st->ignore_hw_compat == 0)) {
 		if (devname)
 			fprintf(stderr,
 				Name ": No OROM/EFI properties for %s\n", devname);
 		free_imsm(super);
 		return 2;
 	}
-
 	rv = load_and_parse_mpb(fd, super, devname, 0);
 
 	if (rv) {

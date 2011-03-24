@@ -1015,12 +1015,17 @@ int open_dev_excl(int devnum)
 {
 	char buf[20];
 	int i;
+	int flags = O_RDWR;
 
 	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
 	for (i=0 ; i<25 ; i++) {
-		int fd = dev_open(buf, O_RDWR|O_EXCL);
+		int fd = dev_open(buf, flags|O_EXCL);
 		if (fd >= 0)
 			return fd;
+		if (errno == EACCES && flags == O_RDWR) {
+			flags = O_RDONLY;
+			continue;
+		}
 		if (errno != EBUSY)
 			return fd;
 		usleep(200000);

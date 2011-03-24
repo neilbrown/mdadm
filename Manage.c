@@ -301,7 +301,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		 * which blocks STOP_ARRAY is probably a transient use,
 		 * so it is reasonable to retry for a while - 5 seconds.
 		 */
-		count = 25;
+		count = 25; err = 0;
 		while (count && fd >= 0
 		       && (err = ioctl(fd, STOP_ARRAY, NULL)) < 0
 		       && errno == EBUSY) {

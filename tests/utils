@@ -15,7 +15,7 @@ devices="/dev/loop[0-9] /dev/loop10 /dev/loop11 /dev/loop12"
 # uses testdsc and platform global variables
 err(){
        echo >&2 "ERROR: $*"
-       cat /etc/mdadm.conf >&2 || true
+       cat /tmp/mdadm.conf >&2 || true
        cat /proc/mdstat >&2
        [ -z "$testdsc" ] || { echo >&2 $platform: $testdsc "- failed"; }
        ps -e | grep mdadm >&2 || true
@@ -45,7 +45,7 @@ tidyup(){
        mdadm -Ss
        mdadm --zero-superblock $devices || true
        udevadm settle
-       rm -f /etc/mdadm.conf
+       rm -f /tmp/mdadm.conf
 }
 
 trap tidyup 0 1 2 3 15
@@ -167,7 +167,7 @@ chksparemoved(){
 
 # for domains defined through policy
 createconfig(){
-conf=/etc/mdadm.conf
+conf=/tmp/mdadm.conf
 if [ "$1" != "a" ]; then
 {
        domain=$1
@@ -188,5 +188,5 @@ else
        mdadm -Ebs
 } >  $conf
 fi
-#[ "$verbose" != "yes" ] || cat /etc/mdadm.conf | grep policy || true
+#[ "$verbose" != "yes" ] || cat /tmp/mdadm.conf | grep policy || true
 }

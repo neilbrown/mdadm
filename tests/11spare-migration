@@ -25,7 +25,7 @@ listfailed="yes"
 monitor(){
        [ -z $monitorpid ] || return
        if [ "$scan" == "yes" ]; then
-               $mdadm -F -d 1 --scan --mail root@localhost &
+               $mdadm -F -d 1 --scan --mail root@localhost -c $config &
                monitorpid=$!
                return
        fi
@@ -44,10 +44,10 @@ monitor(){
        done
        if [ -n "$mddevs" ]; then
                if [ "$verbose" != "yes" ]; then
-                       $mdadm -F -d 1 $mddevs >&2 &
+                       $mdadm -F -d 1 $mddevs -c $config >&2 &
                        monitorpid=$!
                else
-                       $mdadm -F -t -d 1 $mddevs &
+                       $mdadm -F -t -d 1 $mddevs -c $config &
                        monitorpid=$!
                fi
        fi

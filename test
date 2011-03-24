@@ -48,6 +48,8 @@ mdsize12=19988
 # ddf needs bigger devices as 32Meg is reserved!
 ddfsize=65536
 
+config=/tmp/mdadm.conf
+
 cleanup() {
 	udevadm settle
 	$mdadm -Ssq 2> /dev/null

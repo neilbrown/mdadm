@@ -57,6 +57,7 @@ monitor(){
 test0()
 {
 dsc "Test 0: No config file, no spare should be moved"
+> $config
 setupdevs 0 0 1 $platform
 setupdevs 1 3 4 $platform
 monitor 0 1

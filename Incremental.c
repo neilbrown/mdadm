@@ -438,7 +438,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
 	if (info.array.level == LEVEL_CONTAINER) {
-		int devnum;
+		int devnum = devnum; /* defined and used iff ->external */
 		/* Try to assemble within the container */
 		map_unlock(&map);
 		sysfs_uevent(&info, "change");

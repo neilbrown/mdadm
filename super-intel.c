@@ -383,7 +383,6 @@ const char *get_sys_dev_type(enum sys_dev_type type)
 	return _sys_dev_type[type];
 }
 
-#ifndef MDASSEMBLE
 static struct intel_hba * alloc_intel_hba(struct sys_dev *device)
 {
 	struct intel_hba *result = malloc(sizeof(*result));
@@ -406,7 +405,6 @@ static struct intel_hba * find_intel_hba(struct intel_hba *hba, struct sys_dev *
 	}
 	return result;
 }
-
 
 static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device)
 {
@@ -473,7 +471,6 @@ static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
 
 	return NULL;
 }
-#endif /* MDASSEMBLE */
 
 
 static int find_intel_hba_capability(int fd, struct intel_super *super,
@@ -4962,6 +4959,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		 */
 
 		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
+#ifndef MDASSEMBLE
 		if (!validate_geometry_imsm_orom(super,
 						 get_imsm_raid_level(map), /* RAID level */
 						 imsm_level_to_layout(get_imsm_raid_level(map)),
@@ -4972,6 +4970,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				"Cannot proceed with the action(s).\n");
 			continue;
 		}
+#endif /* MDASSEMBLE */
 		this = malloc(sizeof(*this));
 		if (!this) {
 			fprintf(stderr, Name ": failed to allocate %zu bytes\n",

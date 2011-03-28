@@ -462,6 +462,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		int level = map_name(pers, mdstat->level);
 		if (level == 0 || level == LEVEL_LINEAR) {
 			a->container = NULL;
+			wakeup_monitor();
 			return;
 		}
 		else if (a->info.array.level != level && level > 0) {

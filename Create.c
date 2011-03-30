@@ -266,7 +266,7 @@ int Create(struct supertype *st, char *mddev,
 					      &chunk, size*2, NULL, &newsize, verbose>=0))
 		return 1;
 
-	if (chunk) {
+	if (chunk && chunk != UnSet) {
 		newsize &= ~(unsigned long long)(chunk*2 - 1);
 		size &= ~(unsigned long long)(chunk - 1);
 	}
@@ -353,7 +353,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 
 		freesize /= 2; /* convert to K */
-		if (chunk) {
+		if (chunk && chunk != UnSet) {
 			/* round to chunk size */
 			freesize = freesize & ~(chunk-1);
 		}

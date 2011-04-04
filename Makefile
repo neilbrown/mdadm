@@ -107,7 +107,7 @@ OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o maps.o lib.o \
 	restripe.o sysfs.o sha1.o mapfile.o crc32.o sg_io.o msg.o \
 	platform-intel.o probe_roms.o
 
-OBJSX = restripe.o
+CHECK_OBJS = restripe.o sysfs.o maps.o lib.o
 
 SRCS =  $(patsubst %.o,%.c,$(OBJS))
 
@@ -177,8 +177,8 @@ msg.o: msg.c msg.h
 test_stripe : restripe.c mdadm.h
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe -DMAIN restripe.c
 
-raid6check : raid6check.o mdadm.h $(OBJSX)
-	$(CC) $(CXFLAGS) $(LDFLAGS) -o raid6check raid6check.o $(OBJSX)
+raid6check : raid6check.o mdadm.h $(CHECK_OBJS)
+	$(CC) $(CXFLAGS) $(LDFLAGS) -o raid6check raid6check.o $(CHECK_OBJS)
 
 mdassemble : $(ASSEMBLE_SRCS) $(INCL)
 	rm -f $(OBJS)

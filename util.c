@@ -566,27 +566,6 @@ int ask(char *mesg)
 }
 #endif /* MDASSEMBLE */
 
-char *map_num(mapping_t *map, int num)
-{
-	while (map->name) {
-		if (map->num == num)
-			return map->name;
-		map++;
-	}
-	return NULL;
-}
-
-int map_name(mapping_t *map, char *name)
-{
-	while (map->name) {
-		if (strcmp(map->name, name)==0)
-			return map->num;
-		map++;
-	}
-	return UnSet;
-}
-
-
 int is_standard(char *dev, int *nump)
 {
 	/* tests if dev is a "standard" md dev name.

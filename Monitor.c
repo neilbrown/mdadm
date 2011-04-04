@@ -688,7 +688,8 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			st->devnum = mse->devnum;
 			st->percent = -2;
 			st->expected_spares = -1;
-			if (strncmp(mse->metadata_version, "external:", 9) == 0 &&
+			if (mse->metadata_version &&
+			    strncmp(mse->metadata_version, "external:", 9) == 0 &&
 			    is_subarray(mse->metadata_version+9))
 				st->parent_dev =
 					devname2devnum(mse->metadata_version+10);

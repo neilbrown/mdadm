@@ -98,7 +98,7 @@ MAN4DIR = $(MANDIR)/man4
 MAN5DIR = $(MANDIR)/man5
 MAN8DIR = $(MANDIR)/man8
 
-OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o maps.o \
+OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o maps.o lib.o \
 	Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
 	Incremental.o \
@@ -114,7 +114,7 @@ SRCS =  $(patsubst %.o,%.c,$(OBJS))
 INCL = mdadm.h part.h bitmap.h
 
 MON_OBJS = mdmon.o monitor.o managemon.o util.o maps.o mdstat.o sysfs.o \
-	config.o policy.o \
+	config.o policy.o lib.o \
 	Kill.o sg_io.o dlink.o ReadMe.o super0.o super1.o super-intel.o \
 	super-mbr.o super-gpt.o \
 	super-ddf.o sha1.o crc32.o msg.o bitmap.o \
@@ -126,7 +126,7 @@ STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c policy.c dlink.c util.c \
-	maps.c \
+	maps.c lib.c \
 	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
 	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c
 ASSEMBLE_AUTO_SRCS := mdopen.c

@@ -268,8 +268,16 @@ int Create(struct supertype *st, char *mddev,
 
 	if (chunk && chunk != UnSet) {
 		newsize &= ~(unsigned long long)(chunk*2 - 1);
-		size &= ~(unsigned long long)(chunk - 1);
+		if (do_default_chunk) {
+			/* default chunk was just set */
+			if (verbose > 0)
+				fprintf(stderr, Name ": chunk size "
+					"defaults to %dK\n", chunk);
+			size &= ~(unsigned long long)(chunk - 1);
+			do_default_chunk = 0;
+		}
 	}
+
 	if (size == 0) {
 		size = newsize / 2;
 		if (size && verbose > 0)
@@ -316,7 +324,7 @@ int Create(struct supertype *st, char *mddev,
 						 verbose > 0)) {
 					free(st);
 					st = NULL;
-					chunk = do_default_chunk ? 0 : chunk;
+					chunk = do_default_chunk ? UnSet : chunk;
 				}
 			}
 
@@ -346,16 +354,19 @@ int Create(struct supertype *st, char *mddev,
 				continue;
 			}
 		}
-		if (verbose > 0 && do_default_chunk) {
-			do_default_chunk = 0;
-			fprintf(stderr, Name ": chunk size "
-				"defaults to %dK\n", chunk);
-		}
 
 		freesize /= 2; /* convert to K */
 		if (chunk && chunk != UnSet) {
 			/* round to chunk size */
 			freesize = freesize & ~(chunk-1);
+			if (do_default_chunk) {
+				/* default chunk was just set */
+				if (verbose > 0)
+					fprintf(stderr, Name ": chunk size "
+						"defaults to %dK\n", chunk);
+				size &= ~(unsigned long long)(chunk - 1);
+				do_default_chunk = 0;
+			}
 		}
 
 		if (size && freesize < size) {

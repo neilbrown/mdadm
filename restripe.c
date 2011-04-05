@@ -334,6 +334,7 @@ void make_tables(void)
 }
 
 uint8_t *zero;
+int zero_size;
 /* Following was taken from linux/drivers/md/raid6recov.c */
 
 /* Recover two failed data blocks. */
@@ -490,9 +491,13 @@ int save_stripes(int *source, unsigned long long *offsets,
 	if (!tables_ready)
 		make_tables();
 
-	if (zero == NULL) {
+	if (zero == NULL || chunk_size > zero_size) {
+		if (zero)
+			free(zero);
 		zero = malloc(chunk_size);
-		memset(zero, 0, chunk_size);
+		if (zero)
+			memset(zero, 0, chunk_size);
+		zero_size = chunk_size;
 	}
 
 	len = data_disks * chunk_size;
@@ -651,11 +656,16 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 
 	if (posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size))
 		stripe_buf = NULL;
-	if (zero == NULL) {
+
+	if (zero == NULL || chunk_size > zero_size) {
+		if (zero)
+			free(zero);
 		zero = malloc(chunk_size);
 		if (zero)
 			memset(zero, 0, chunk_size);
+		zero_size = chunk_size;
 	}
+
 	if (stripe_buf == NULL || stripes == NULL || blocks == NULL
 	    || zero == NULL) {
 		free(stripe_buf);

@@ -6946,6 +6946,14 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 					 geo->raid_disks > 1 ? "s" : "");
 				break;
 			}
+			/* check if component size is aligned to chunk size
+			 */
+			if (info->component_size %
+			    (info->array.chunk_size/512)) {
+				dprintf("Component size is not aligned to "
+					"chunk size\n");
+				break;
+			}
 		}
 
 		if (*old_raid_disks &&

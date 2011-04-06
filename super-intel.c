@@ -1745,6 +1745,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	struct imsm_map *map_to_analyse = map;
 	struct dl *dl;
 	char *devname;
+	unsigned int component_size_alligment;
 	int map_disks = info->array.raid_disks;
 
 	if (prev_map)
@@ -1824,6 +1825,21 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->data_offset	  = __le32_to_cpu(map_to_analyse->pba_of_lba0);
 	info->component_size	  =
 		__le32_to_cpu(map_to_analyse->blocks_per_member);
+
+	/* check component size aligment
+	 */
+	component_size_alligment =
+		info->component_size % (info->array.chunk_size/512);
+
+	if (component_size_alligment &&
+	    (info->array.level != 1) && (info->array.level != UnSet)) {
+		dprintf("imsm: reported component size alligned from %llu ",
+			info->component_size);
+		info->component_size -= component_size_alligment;
+		dprintf("to %llu (%i).\n",
+			info->component_size, component_size_alligment);
+	}
+
 	memset(info->uuid, 0, sizeof(info->uuid));
 	info->recovery_start = MaxSector;
 

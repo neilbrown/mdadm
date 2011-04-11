@@ -136,14 +136,15 @@ ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
-all : mdadm mdmon mdadm.man md.man mdadm.conf.man mdmon.man
+all : mdadm mdmon
+man : mdadm.man md.man mdadm.conf.man mdmon.man
 
 everything: all mdadm.static swap_super test_stripe \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
-	mdadm.Os mdadm.O2
+	mdadm.Os mdadm.O2 man
 everything-test: all mdadm.static swap_super test_stripe \
 	mdassemble.auto mdassemble.static mdassemble.man \
-	mdadm.Os mdadm.O2
+	mdadm.Os mdadm.O2 man
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
 

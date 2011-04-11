@@ -3102,9 +3102,6 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	unsigned long long  nstripe, ostripe;
 	int ndata, odata;
 
-	if (info->new_level != info->array.level)
-		return 1; /* Cannot handle level changes (they are instantaneous) */
-
 	odata = info->array.raid_disks - info->delta_disks - 1;
 	if (info->array.level == 6) odata--; /* number of data disks */
 	ndata = info->array.raid_disks - 1;

@@ -149,10 +149,10 @@ everything-test: all mdadm.static swap_super test_stripe \
 # mdadm.tcc doesn't work..
 
 mdadm : $(OBJS)
-	$(CC) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
 mdadm.static : $(OBJS) $(STATICOBJS)
-	$(CC) $(LDFLAGS) -static -o mdadm.static $(OBJS) $(STATICOBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -static -o mdadm.static $(OBJS) $(STATICOBJS)
 
 mdadm.tcc : $(SRCS) $(INCL)
 	$(TCC) -o mdadm.tcc $(SRCS)
@@ -172,7 +172,7 @@ mdmon.O2 : $(MON_SRCS) $(INCL) mdmon.h
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
 mdmon : $(MON_OBJS)
-	$(CC) $(LDFLAGS) $(MON_LDFLAGS) -Wl,-z,now -o mdmon $(MON_OBJS) $(LDLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -Wl,-z,now -o mdmon $(MON_OBJS) $(LDLIBS)
 msg.o: msg.c msg.h
 
 test_stripe : restripe.c mdadm.h

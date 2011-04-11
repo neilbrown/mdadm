@@ -143,7 +143,7 @@ int Monitor(struct mddev_dev *devlist,
 			fprintf(stderr, Name ": Monitor using program \"%s\" from config file\n",
 			       alert_cmd);
 	}
-	if (scan && !mailaddr && !alert_cmd) {
+	if (scan && !mailaddr && !alert_cmd && !dosyslog) {
 		fprintf(stderr, Name ": No mail address or alert command - not monitoring.\n");
 		return 1;
 	}
@@ -335,7 +335,7 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 {
 	int priority;
 
-	if (!info->alert_cmd && !info->mailaddr) {
+	if (!info->alert_cmd && !info->mailaddr && !info->dosyslog) {
 		time_t now = time(0);
 
 		printf("%1.15s: %s on %s %s\n", ctime(&now)+4, event, dev, disc?disc:"unknown device");

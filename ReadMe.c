@@ -506,6 +506,7 @@ char Help_monitor[] =
 "  --mail=       -m   : Address to mail alerts of failure to\n"
 "  --program=    -p   : Program to run when an event is detected\n"
 "  --alert=           : same as --program\n"
+"  --syslog      -y   : Report alerts via syslog\n"
 "  --increment=  -r   : Report RebuildNN events in the given increment. default=20\n"
 "  --delay=      -d   : seconds of delay between polling state. default=60\n"
 "  --config=     -c   : specify a different config file\n"

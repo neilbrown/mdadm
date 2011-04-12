@@ -577,7 +577,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			info[i].major = info[i].minor = 0;
 	}
 
-	if (strncmp(mse->metadata_version, "external:", 9) == 0 &&
+	if (mse->metadata_version &&
+	    strncmp(mse->metadata_version, "external:", 9) == 0 &&
 	    is_subarray(mse->metadata_version+9))
 		st->parent_dev =
 			devname2devnum(mse->metadata_version+10);

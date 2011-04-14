@@ -2933,7 +2933,7 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			continue;
 		ok = st->ss->load_super(st, devfd, NULL);
 		close(devfd);
-		if (ok >= 0)
+		if (ok == 0)
 			break;
 	}
 	if (!sd) {

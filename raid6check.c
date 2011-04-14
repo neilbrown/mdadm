@@ -207,6 +207,7 @@ int main(int argc, char *argv[])
 	char **disk_name = NULL;
 	unsigned long long *offsets = NULL;
 	int raid_disks = 0;
+	int active_disks;
 	int chunk_size = 0;
 	int layout = -1;
 	int level = 6;
@@ -242,6 +243,7 @@ int main(int argc, char *argv[])
 			  GET_LEVEL|
 			  GET_LAYOUT|
 			  GET_DISKS|
+			  GET_DEGRADED |
 			  GET_COMPONENT|
 			  GET_CHUNK|
 			  GET_DEVS|
@@ -254,6 +256,12 @@ int main(int argc, char *argv[])
 		goto exitHere;
 	}
 
+	if(info->array.failed_disks > 0) {
+		fprintf(stderr, "%s: %s degraded array\n", prg, argv[1]);
+		exit_err = 8;
+		goto exitHere;
+	}
+
 	printf("layout: %d\n", info->array.layout);
 	printf("disks: %d\n", info->array.raid_disks);
 	printf("component size: %llu\n", info->component_size * 512);
@@ -262,12 +270,13 @@ int main(int argc, char *argv[])
 	printf("\n");
 
 	comp = info->devs;
-	for(i = 0; i < info->array.raid_disks; i++) {
+	for(i = 0, active_disks = 0; active_disks < info->array.raid_disks; i++) {
 		printf("disk: %d - offset: %llu - size: %llu - name: %s - slot: %d\n",
 			i, comp->data_offset * 512, comp->component_size * 512,
 			map_dev(comp->disk.major, comp->disk.minor, 0),
 			comp->disk.raid_disk);
-
+		if(comp->disk.raid_disk >= 0)
+			active_disks++;
 		comp = comp->next;
 	}
 	printf("\n");
@@ -317,18 +326,20 @@ int main(int argc, char *argv[])
 	close_flag = 1;
 
 	comp = info->devs;
-	for (i=0; i<raid_disks; i++) {
+	for (i=0, active_disks=0; active_disks<raid_disks; i++) {
 		int disk_slot = comp->disk.raid_disk;
-		disk_name[disk_slot] = map_dev(comp->disk.major, comp->disk.minor, 0);
-		offsets[disk_slot] = comp->data_offset * 512;
-		fds[disk_slot] = open(disk_name[disk_slot], O_RDWR);
-		if (fds[disk_slot] < 0) {
-			perror(disk_name[disk_slot]);
-			fprintf(stderr,"%s: cannot open %s\n", prg, disk_name[disk_slot]);
-			exit_err = 6;
-			goto exitHere;
+		if(disk_slot >= 0) {
+			disk_name[disk_slot] = map_dev(comp->disk.major, comp->disk.minor, 0);
+			offsets[disk_slot] = comp->data_offset * 512;
+			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR);
+			if (fds[disk_slot] < 0) {
+				perror(disk_name[disk_slot]);
+				fprintf(stderr,"%s: cannot open %s\n", prg, disk_name[disk_slot]);
+				exit_err = 6;
+				goto exitHere;
+			}
+			active_disks++;
 		}
-
 		comp = comp->next;
 	}
 

@@ -1755,7 +1755,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		if (dl->raiddisk == info->disk.raid_disk)
 			break;
 	info->container_member	  = super->current_vol;
-	info->array.raid_disks    = map_to_analyse->num_members;
+	info->array.raid_disks    = map->num_members;
 	info->array.level	  = get_imsm_raid_level(map_to_analyse);
 	info->array.layout	  = imsm_level_to_layout(info->array.level);
 	info->array.md_minor	  = -1;

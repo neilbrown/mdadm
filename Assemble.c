@@ -1516,6 +1516,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	int working = 0, preexist = 0;
 	int expansion = 0;
 	struct map_ent *map = NULL;
+	int old_raid_disks;
 
 	sysfs_init(content, mdfd, 0);
 
@@ -1529,10 +1530,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 	if (sra)
 		sysfs_free(sra);
-
+	old_raid_disks = content->array.raid_disks - content->delta_disks;
 	for (dev = content->devs; dev; dev = dev->next)
 		if (sysfs_add_disk(content, dev, 1) == 0) {
-			if (dev->disk.raid_disk >= content->array.raid_disks &&
+			if (dev->disk.raid_disk >= old_raid_disks &&
 			    content->reshape_active)
 				expansion++;
 			else

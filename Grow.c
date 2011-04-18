@@ -1676,8 +1676,10 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (info->reshape_active) {
 		int new_level = info->new_level;
 		info->new_level = UnSet;
+		info->array.raid_disks -= info->delta_disks;
 		msg = analyse_change(info, &reshape);
 		info->new_level = new_level;
+		info->array.raid_disks += info->delta_disks;
 		if (!restart)
 			/* Make sure the array isn't read-only */
 			ioctl(fd, RESTART_ARRAY_RW, 0);

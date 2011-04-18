@@ -531,6 +531,7 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 {
 	int rv = 0;
 	char ver[100];
+	int raid_disks = info->array.raid_disks;
 
 	ver[0] = 0;
 	if (info->array.major_version == -1 &&
@@ -549,7 +550,9 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		return 0; /* FIXME */
 	rv |= sysfs_set_str(info, NULL, "level",
 			    map_num(pers, info->array.level));
-	rv |= sysfs_set_num(info, NULL, "raid_disks", info->array.raid_disks);
+	if (info->reshape_active && info->delta_disks != UnSet)
+		raid_disks -= info->delta_disks;
+	rv |= sysfs_set_num(info, NULL, "raid_disks", raid_disks);
 	rv |= sysfs_set_num(info, NULL, "chunk_size", info->array.chunk_size);
 	rv |= sysfs_set_num(info, NULL, "layout", info->array.layout);
 	rv |= sysfs_set_num(info, NULL, "component_size", info->component_size/2);
@@ -576,7 +579,7 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		rv |= sysfs_set_num(info, NULL, "chunk_size", info->new_chunk);
 		rv |= sysfs_set_num(info, NULL, "layout", info->new_layout);
 		rv |= sysfs_set_num(info, NULL, "raid_disks",
-				    info->array.raid_disks + info->delta_disks);
+				    info->array.raid_disks);
 		/* We don't set 'new_level' here.  That can only happen
 		 * once the reshape completes.
 		 */

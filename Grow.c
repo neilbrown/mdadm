@@ -1692,7 +1692,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (restart &&
 	    (reshape.level != info->array.level ||
 	     reshape.before.layout != info->array.layout ||
-	     reshape.before.data_disks + reshape.parity != info->array.raid_disks)) {
+	     reshape.before.data_disks + reshape.parity
+	     != info->array.raid_disks - info->delta_disks)) {
 		fprintf(stderr, Name ": reshape info is not in native format -"
 			" cannot continue.\n");
 		goto release;

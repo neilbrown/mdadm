@@ -103,7 +103,6 @@ int main(int argc, char *argv[])
 	char *shortopt = short_options;
 	int dosyslog = 0;
 	int rebuild_map = 0;
-	int auto_update_home = 0;
 	char *subarray = NULL;
 	char *remove_path = NULL;
 	char *udev_filename = NULL;
@@ -365,11 +364,6 @@ int main(int argc, char *argv[])
 			chunk /= 2;
 			continue;
 
-#if 0
-		case O(ASSEMBLE,AutoHomeHost):
-			auto_update_home = 1;
-			continue;
-#endif
 		case O(INCREMENTAL, 'e'):
 		case O(CREATE,'e'):
 		case O(ASSEMBLE,'e'):
@@ -1325,38 +1319,9 @@ int main(int argc, char *argv[])
 							cnt++;
 							acnt++;
 						}
-						if (rv2 == 1)
-							/* found something so even though assembly failed  we
-							 * want to avoid auto-updates
-							 */
-							auto_update_home = 0;
 					} while (rv2!=2);
 					/* Incase there are stacked devices, we need to go around again */
 				} while (acnt);
-#if 0
-				if (cnt == 0 && auto_update_home && homehost) {
-					/* Nothing found, maybe we need to bootstrap homehost info */
-					do {
-						acnt = 0;
-						do {
-							rv2 = Assemble(
-								ss, NULL,
-								&ident,
-								NULL, NULL, 0,
-								readonly, runstop,
-								"homehost",
-								homehost,
-								require_homehost,
-								verbose-quiet, force);
-							if (rv2==0) {
-								cnt++;
-								acnt++;
-							}
-						} while (rv2!=2);
-						/* Incase there are stacked devices, we need to go around again */
-					} while (acnt);
-				}
-#endif
 				if (cnt == 0 && rv == 0) {
 					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
 					rv = 1;

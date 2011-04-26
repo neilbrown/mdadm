@@ -143,9 +143,6 @@ struct option long_options[] = {
     {"write-mostly",0, 0, WriteMostly},
     {"re-add",    0, 0,  ReAdd},
     {"homehost",  1, 0,  HomeHost},
-#if 0
-    {"auto-update-homehost", 0, 0, AutoHomeHost},
-#endif
     {"symlinks",  1, 0,  Symlinks},
 
     /* For assemble */

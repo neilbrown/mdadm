@@ -1068,16 +1068,6 @@ option can be used when an array has an internal bitmap which is
 corrupt in some way so that assembling the array normally fails.  It
 will cause any internal bitmap to be ignored.
 
-.ig
-.TP
-.B \-\-auto\-update\-homehost
-This flag is only meaningful with auto-assembly (see discussion below).
-In that situation, if no suitable arrays are found for this homehost,
-.I mdadm
-will rescan for any arrays at all and will assemble them and update the
-homehost to match the current host.
-..
-
 .SH For Manage mode:
 
 .TP
@@ -1646,25 +1636,6 @@ See
 .IR mdadm.conf (5)
 for further details.
 
-.ig
-If
-.I mdadm
-cannot find any array for the given host at all, and if
-.B \-\-auto\-update\-homehost
-is given, then
-.I mdadm
-will search again for any array (not just an array created for this
-host) and will assemble each assuming
-.BR \-\-update=homehost .
-This will change the host tag in the superblock so that on the next run,
-these arrays will be found without the second pass.  The intention of
-this feature is to support transitioning a set of md arrays to using
-homehost tagging.
-
-The reason for requiring arrays to be tagged with the homehost for
-auto assembly is to guard against problems that can arise when moving
-devices from one host to another.
-..
 Note: Auto assembly cannot be used for assembling and activating some
 arrays which are undergoing reshape.  In particular as the
 .B backup\-file

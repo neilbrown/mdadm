@@ -5479,6 +5479,7 @@ mark_checkpoint:
 		 * curr_migr_unit needs updating
 		 */
 		if (units32 == units &&
+		    units32 != 0 &&
 		    __le32_to_cpu(dev->vol.curr_migr_unit) != units32) {
 			dprintf("imsm: mark checkpoint (%u)\n", units32);
 			dev->vol.curr_migr_unit = __cpu_to_le32(units32);

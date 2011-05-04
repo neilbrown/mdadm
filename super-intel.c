@@ -7248,10 +7248,6 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				check_devs = 1;
 			}
 			break;
-		case 5:
-			if (geo->level == 0)
-				change = CH_MIGRATION;
-			break;
 		case 10:
 			if (geo->level == 0) {
 				change = CH_TAKEOVER;

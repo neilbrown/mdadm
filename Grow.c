@@ -2625,10 +2625,9 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	if (fd < 0)
 		goto check_progress;
 
-	if (sysfs_fd_get_ll(fd, &completed) < 0) {
-		close(fd);
+	if (sysfs_fd_get_ll(fd, &completed) < 0)
 		goto check_progress;
-	}
+
 	while (completed < max_progress && completed < wait_point) {
 		/* Check that sync_action is still 'reshape' to avoid
 		 * waiting forever on a dead array
@@ -2653,10 +2652,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
 		select(fd+1, NULL, NULL, &rfds, NULL);
-		if (sysfs_fd_get_ll(fd, &completed) < 0) {
-			close(fd);
+		if (sysfs_fd_get_ll(fd, &completed) < 0)
 			goto check_progress;
-		}
 	}
 	/* Some kernels reset 'sync_completed' to zero,
 	 * we need to have real point we are in md
@@ -2689,13 +2686,37 @@ check_progress:
 	/* if we couldn't read a number from sync_completed, then
 	 * either the reshape did complete, or it aborted.
 	 * We can tell which by checking for 'none' in reshape_position.
+	 * If it did abort, then it might immediately restart if it
+	 * it was just a device failure that leaves us degraded but
+	 * functioning.
 	 */
 	strcpy(buf, "hi");
 	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0
-	    || strncmp(buf, "none", 4) != 0)
-		return -2; /* abort */
-	else {
+	    || strncmp(buf, "none", 4) != 0) {
+		/* The abort might only be temporary.  Wait up to 10
+		 * seconds for fd to contain a valid number again.
+		 */
+		struct timeval tv;
+		int rv = -2;
+		tv.tv_sec = 10;
+		tv.tv_usec = 0;
+		while (fd >= 0 && rv < 0) {
+			fd_set rfds;
+			FD_ZERO(&rfds);
+			FD_SET(fd, &rfds);
+			if (select(fd+1, NULL, NULL, &rfds, &tv) != 1)
+				break;
+			if (sysfs_fd_get_ll(fd, &completed) >= 0)
+				/* all good again */
+				rv = 1;
+		}
+		if (fd >= 0)
+			close(fd);
+		return rv; /* abort */
+	} else {
 		/* Maybe racing with array shutdown - check state */
+		if (fd >= 0)
+			close(fd);
 		if (sysfs_get_str(info, NULL, "array_state", buf, sizeof(buf)) < 0
 		    || strncmp(buf, "inactive", 8) == 0
 		    || strncmp(buf, "clear",5) == 0)

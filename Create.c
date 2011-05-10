@@ -292,6 +292,8 @@ int Create(struct supertype *st, char *mddev,
 	for (dv=devlist; dv && !have_container; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
 		unsigned long long freesize;
+		int dfd;
+
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
 				first_missing = dnum;
@@ -300,6 +302,20 @@ int Create(struct supertype *st, char *mddev,
 			missing_disks ++;
 			continue;
 		}
+		dfd = open(dname, O_RDONLY|O_EXCL);
+		if (dfd < 0) {
+			fprintf(stderr, Name ": cannot open %s: %s\n",
+				dname, strerror(errno));
+			exit(2);
+		}
+		if (fstat(dfd, &stb) != 0 ||
+		    (stb.st_mode & S_IFMT) != S_IFBLK) {
+			close(dfd);
+			fprintf(stderr, Name ": %s is not a block device\n",
+				dname);
+			exit(2);
+		}
+		close(dfd);
 		info.array.working_disks++;
 		if (dnum < raiddisks)
 			info.array.active_disks++;

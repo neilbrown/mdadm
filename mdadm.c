@@ -253,6 +253,12 @@ int main(int argc, char *argv[])
 			exit(2);
 		} else if (!mode && newmode) {
 			mode = newmode;
+			if (mode == MISC && devs_found) {
+				fprintf(stderr, Name ": No action given for %s in --misc mode\n",
+					devlist->devname);
+				fprintf(stderr,"       Action options must come before device names\n");
+				exit(2);
+			}
 		} else {
 			/* special case of -c --help */
 			if ((opt == 'c' || opt == ConfigFile) &&

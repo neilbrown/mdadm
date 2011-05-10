@@ -1437,8 +1437,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 	/* ========= set size =============== */
 	if (size >= 0 && (size == 0 || size != array.size)) {
-		long long orig_size = array.size;
+		long long orig_size = get_component_size(fd)/2;
 		struct mdinfo *mdi;
+
+		if (orig_size == 0)
+			orig_size = array.size;
 
 		if (reshape_super(st, size, UnSet, UnSet, 0, 0, UnSet, NULL,
 				  devname, !quiet)) {
@@ -1486,9 +1489,16 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		size = get_component_size(fd)/2;
 		if (size == 0)
 			size = array.size;
-		if (!quiet)
-			fprintf(stderr, Name ": component size of %s has been set to %lluK\n",
-				devname, size);
+		if (!quiet) {
+			if (size == orig_size)
+				fprintf(stderr, Name ": component size of %s "
+					"unchanged at %lluK\n",
+					devname, size);
+			else
+				fprintf(stderr, Name ": component size of %s "
+					"has been set to %lluK\n",
+					devname, size);
+		}
 		changed = 1;
 	} else if (array.level != LEVEL_CONTAINER) {
 		size = get_component_size(fd)/2;

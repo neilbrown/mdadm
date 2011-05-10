@@ -1496,6 +1496,18 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			size = array.size;
 	}
 
+	/* See if there is anything else to do */
+	if ((level == UnSet || level == array.level) &&
+	    (layout_str == NULL) &&
+	    (chunksize == 0 || chunksize == array.chunk_size) &&
+	    (raid_disks == 0 || raid_disks == array.raid_disks)) {
+		/* Nothing more to do */
+		if (!changed && !quiet)
+			fprintf(stderr, Name ": %s: no change requested\n",
+				devname);
+		goto release;
+	}
+
 	/* ========= check for Raid10/Raid1 -> Raid0 conversion ===============
 	 * current implementation assumes that following conditions must be met:
 	 * - RAID10:

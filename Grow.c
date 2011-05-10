@@ -1617,7 +1617,33 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		}
 	}
 
-	if (array.level == LEVEL_CONTAINER) {
+	if (array.level == LEVEL_FAULTY) {
+		if (level != UnSet && level != array.level) {
+			fprintf(stderr, Name ": cannot change level of Faulty device\n");
+			rv =1 ;
+		}
+		if (chunksize) {
+			fprintf(stderr, Name ": cannot set chunksize of Faulty device\n");
+			rv =1 ;
+		}
+		if (raid_disks && raid_disks != 1) {
+			fprintf(stderr, Name ": cannot set raid_disks of Faulty device\n");
+			rv =1 ;
+		}
+		if (layout_str) {
+			if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+				dprintf("Cannot get array information.\n");
+				goto release;
+			}
+			array.layout = info.new_layout;
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+				fprintf(stderr, Name ": failed to set new layout\n");
+				rv = 1;
+			} else if (!quiet)
+				printf("layout for %s set to %d\n",
+				       devname, array.layout);
+		}
+	} else if (array.level == LEVEL_CONTAINER) {
 		/* This change is to be applied to every array in the
 		 * container.  This is only needed when the metadata imposes
 		 * restraints of the various arrays in the container.

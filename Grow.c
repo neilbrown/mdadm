@@ -1438,6 +1438,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	/* ========= set size =============== */
 	if (size >= 0 && (size == 0 || size != array.size)) {
 		long long orig_size = array.size;
+		struct mdinfo *mdi;
 
 		if (reshape_super(st, size, UnSet, UnSet, 0, 0, UnSet, NULL,
 				  devname, !quiet)) {
@@ -1445,6 +1446,15 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 		sync_metadata(st);
+
+		/* Update the size of each member device in case
+		 * they have been resized.  This will never reduce
+		 * below the current used-size.  The "size" attribute
+		 * understand '0' to mean 'max'.
+		 */
+		for (mdi = sra->devs; mdi; mdi = mdi->next)
+			sysfs_set_num(sra, mdi, "size", size);
+
 		array.size = size;
 		if (array.size != size) {
 			/* got truncated to 32bit, write to

@@ -704,13 +704,7 @@ int Manage_subdevs(char *devname, int fd,
 				 */
 				tst->ss->uuid_from_super(tst, duuid);
 
-				/* re-add doesn't work for version-1 superblocks
-				 * before 2.6.18 :-(
-				 */
-				if (array.major_version == 1 &&
-				    get_linux_version() <= 2006018)
-					;
-				else if (st->sb) {
+				if (st->sb) {
 					struct mdinfo mdi;
 					st->ss->getinfo_super(st, &mdi, NULL);
 					st->ss->uuid_from_super(st, ouuid);
@@ -720,6 +714,12 @@ int Manage_subdevs(char *devname, int fd,
 						/* look like it is worth a try.  Need to
 						 * make sure kernel will accept it though.
 						 */
+						/* re-add doesn't work for version-1 superblocks
+						 * before 2.6.18 :-(
+						 */
+						if (array.major_version == 1 &&
+						    get_linux_version() <= 2006018)
+							goto skip_re_add;
 						disc.number = mdi.disk.number;
 						if (ioctl(fd, GET_DISK_INFO, &disc) != 0
 						    || disc.major != 0 || disc.minor != 0

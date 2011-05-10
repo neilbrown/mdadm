@@ -521,9 +521,15 @@ static int freeze(struct supertype *st)
 	else {
 		struct mdinfo *sra = sysfs_read(-1, st->devnum, GET_VERSION);
 		int err;
+		char buf[20];
 
 		if (!sra)
 			return -1;
+		/* Need to clear any 'read-auto' status */
+		if (sysfs_get_str(sra, NULL, "array_state", buf, 20) > 0 &&
+		    strncmp(buf, "read-auto", 9) == 0)
+			sysfs_set_str(sra, NULL, "array_state", "clean");
+
 		err = sysfs_freeze_array(sra);
 		sysfs_free(sra);
 		return err;

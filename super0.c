@@ -541,7 +541,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		sb->state &= ~(1<<MD_SB_CLEAN);
 		sb->recovery_cp = 0;
 	} else if (strcmp(update, "homehost") == 0 &&
-	    homehost) {
+		   homehost) {
 		uuid_set = 0;
 		update = "uuid";
 		info->uuid[0] = sb->set_uuid0;

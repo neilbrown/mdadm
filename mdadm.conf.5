@@ -339,14 +339,15 @@ line gives a default value for the
 .B \-\-homehost=
 option to mdadm.  There should normally be only one other word on the line.
 It should either be a host name, or one of the special words
-.B <system>
+.BR <system>,
+.B <none>
 and
 .BR <ignore> .
 If
 .B <system>
 is given, then the
 .BR gethostname ( 2 )
-systemcall is used to get the host name.
+systemcall is used to get the host name.  This is the default.
 
 If
 .B <ignore>
@@ -361,6 +362,12 @@ used when creating arrays.  This is the only case when there can be
 more that one other word on the
 .B HOMEHOST
 line.
+
+If
+.B <none>
+is given, then the default of using
+.BR gethostname ( 2 )
+is over-ridden and no homehost name is assumed.
 
 When arrays are created, this host name will be stored in the
 metadata.  When arrays are assembled using auto-assembly, arrays which

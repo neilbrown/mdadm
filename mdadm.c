@@ -1167,11 +1167,15 @@ int main(int argc, char *argv[])
 
 	if (homehost == NULL)
 		homehost = conf_get_homehost(&require_homehost);
-	if (homehost == NULL || strcmp(homehost, "<system>")==0) {
+	if (homehost == NULL || strcasecmp(homehost, "<system>")==0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			sys_hostname[sizeof(sys_hostname)-1] = 0;
 			homehost = sys_hostname;
 		}
+	}
+	if (homehost && (!homehost[0] || strcasecmp(homehost, "<none>") == 0)) {
+		homehost = NULL;
+		require_homehost = 0;
 	}
 
 	if ((mode != MISC || devmode != 'E') &&

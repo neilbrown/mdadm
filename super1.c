@@ -772,7 +772,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	} else if (strcmp(update, "no-bitmap") == 0) {
 		sb->feature_map &= ~__cpu_to_le32(MD_FEATURE_BITMAP_OFFSET);
 	} else if (strcmp(update, "homehost") == 0 &&
-	    homehost) {
+		   homehost) {
 		char *c;
 		update = "name";
 		c = strchr(sb->set_name, ':');

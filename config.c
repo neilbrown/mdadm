@@ -589,9 +589,12 @@ void homehostline(char *line)
 	for (w=dl_next(line); w != line ; w=dl_next(w)) {
 		if (strcasecmp(w, "<ignore>")==0)
 			require_homehost = 0;
-		else if (home_host == NULL)
-			home_host = strdup(w);
-		else
+		else if (home_host == NULL) {
+			if (strcasecmp(w, "<none>")==0)
+				home_host = strdup("");
+			else
+				home_host = strdup(w);
+		}else
 			fprintf(stderr, Name ": excess host name on HOMEHOST line: %s - ignored\n",
 				w);
 	}

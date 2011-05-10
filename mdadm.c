@@ -361,12 +361,12 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			chunk = parse_size(optarg);
-			if (chunk < 8 || ((chunk-1)&chunk)) {
+			if (chunk < 8 || (chunk&1)) {
 				fprintf(stderr, Name ": invalid chunk/rounding value: %s\n",
 					optarg);
 				exit(2);
 			}
-			/* Covert sectors to K */
+			/* Convert sectors to K */
 			chunk /= 2;
 			continue;
 

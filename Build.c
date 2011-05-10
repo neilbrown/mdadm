@@ -254,6 +254,10 @@ int Build(char *mddev, int chunk, int level, int layout,
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 				strerror(errno));
+			if (chunk & (chunk-1)) {
+				fprintf(stderr, "     : Problem may be that chunk size"
+					" is not a power of 2\n");
+			}
 			goto abort;
 		}
 	} else {

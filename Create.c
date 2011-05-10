@@ -930,6 +930,10 @@ int Create(struct supertype *st, char *mddev,
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {
 				fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
 					strerror(errno));
+				if (info.array.chunk_size & (info.array.chunk_size-1)) {
+					fprintf(stderr, "     : Problem may be that "
+						"chunk size is not a power of 2\n");
+				}
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;
 			}

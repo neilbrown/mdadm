@@ -890,7 +890,13 @@ int Create(struct supertype *st, char *mddev,
 				me = map_by_devnum(&map, st->container_dev);
 			}
 
-			st->ss->write_init_super(st);
+			if (st->ss->write_init_super(st)) {
+				fprintf(stderr,
+					Name ": Failed to write metadata to %s\n",
+					dv->devname);
+				st->ss->free_super(st);
+				goto abort;
+			}
 
 			/* update parent container uuid */
 			if (me) {

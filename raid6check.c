@@ -24,6 +24,8 @@
 
 #include "mdadm.h"
 #include <stdint.h>
+#include <signal.h>
+#include <sys/mman.h>
 
 int geo_map(int block, unsigned long long stripe, int raid_disks,
 	    int level, int layout);
@@ -99,7 +101,7 @@ int raid6_stats(int *results, int raid_disks, int chunk_size)
 	return curr_broken_disk;
 }
 
-int check_stripes(int *source, unsigned long long *offsets,
+int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  int raid_disks, int chunk_size, int level, int layout,
 		  unsigned long long start, unsigned long long length, char *name[])
 {
@@ -115,6 +117,8 @@ int check_stripes(int *source, unsigned long long *offsets,
 	int diskP, diskQ;
 	int data_disks = raid_disks - 2;
 	int err = 0;
+	sighandler_t sig[3];
+	int rv;
 
 	extern int tables_ready;
 
@@ -139,10 +143,35 @@ int check_stripes(int *source, unsigned long long *offsets,
 
 		printf("pos --> %llu\n", start);
 
+		if(mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+			err = 2;
+			goto exitCheck;
+		}
+		sig[0] = signal(SIGTERM, SIG_IGN);
+		sig[1] = signal(SIGINT, SIG_IGN);
+		sig[2] = signal(SIGQUIT, SIG_IGN);
+		rv = sysfs_set_num(info, NULL, "suspend_lo", start * chunk_size * data_disks);
+		rv |= sysfs_set_num(info, NULL, "suspend_hi", (start + 1) * chunk_size * data_disks);
 		for (i = 0 ; i < raid_disks ; i++) {
 			lseek64(source[i], offsets[i] + start * chunk_size, 0);
 			read(source[i], stripes[i], chunk_size);
 		}
+		rv |= sysfs_set_num(info, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
+		rv |= sysfs_set_num(info, NULL, "suspend_hi", 0);
+		rv |= sysfs_set_num(info, NULL, "suspend_lo", 0);
+		signal(SIGQUIT, sig[2]);
+		signal(SIGINT, sig[1]);
+		signal(SIGTERM, sig[0]);
+		if(munlockall() != 0) {
+			err = 3;
+			goto exitCheck;
+		}
+
+		if(rv != 0) {
+			err = rv * 256;
+			goto exitCheck;
+		}
+
 		for (i = 0 ; i < data_disks ; i++) {
 			int disk = geo_map(i, start, raid_disks, level, layout);
 			blocks[i] = stripes[disk];
@@ -214,7 +243,7 @@ int main(int argc, char *argv[])
 	unsigned long long start, length;
 	int i;
 	int mdfd;
-	struct mdinfo *info, *comp;
+	struct mdinfo *info = NULL, *comp = NULL;
 	char *err = NULL;
 	int exit_err = 0;
 	int close_flag = 0;
@@ -249,6 +278,12 @@ int main(int argc, char *argv[])
 			  GET_DEVS|
 			  GET_OFFSET|
 			  GET_SIZE);
+
+	if(info == NULL) {
+		fprintf(stderr, "%s: Error reading sysfs information of %s\n", prg, argv[1]);
+		exit_err = 9;
+		goto exitHere;
+	}
 
 	if(info->array.level != level) {
 		fprintf(stderr, "%s: %s not a RAID-6\n", prg, argv[1]);
@@ -343,7 +378,7 @@ int main(int argc, char *argv[])
 		comp = comp->next;
 	}
 
-	int rv = check_stripes(fds, offsets,
+	int rv = check_stripes(info, fds, offsets,
 			       raid_disks, chunk_size, level, layout,
 			       start, length, disk_name);
 	if (rv != 0) {

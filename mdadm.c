@@ -542,6 +542,7 @@ int main(int argc, char *argv[])
 
 		case O(CREATE,AssumeClean):
 		case O(BUILD,AssumeClean): /* assume clean */
+		case O(GROW,AssumeClean):
 			assume_clean = 1;
 			continue;
 
@@ -1637,7 +1638,7 @@ int main(int argc, char *argv[])
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout_str, chunk, raiddisks,
 					  devlist->next,
-					  force);
+					  assume_clean, force);
 		} else if (array_size < 0)
 			fprintf(stderr, Name ": no changes to --grow\n");
 		break;

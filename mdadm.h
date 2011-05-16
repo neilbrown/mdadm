@@ -1013,7 +1013,7 @@ extern int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			long long size,
 			int level, char *layout_str, int chunksize, int raid_disks,
 			struct mddev_dev *devlist,
-			int force);
+			int assume_clean, int force);
 extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file, int verbose);
 extern int Grow_continue(int mdfd, struct supertype *st,

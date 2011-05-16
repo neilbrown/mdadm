@@ -702,6 +702,13 @@ with zeros before creation the operator knows the array is
 actually clean. If that is the case, such as after running
 badblocks, this argument can be used to tell mdadm the
 facts the operator knows.
+.IP
+When an array is resized to a larger size with
+.B "\-\-grow \-\-size="
+the new space is normally resynced in that same way that the whole
+array is resynced at creation.  From Linux version 2.6.40,
+.B \-\-assume\-clean
+can be used with that command to avoid the automatic resync.
 
 .TP
 .BR \-\-backup\-file=

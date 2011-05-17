@@ -300,7 +300,8 @@ int main(int argc, char *argv[])
 		/* launch an mdmon instance for each container found */
 		mdstat = mdstat_read(0, 0);
 		for (e = mdstat; e; e = e->next) {
-			if (strncmp(e->metadata_version, "external:", 9) == 0 &&
+			if (e->metadata_version &&
+			    strncmp(e->metadata_version, "external:", 9) == 0 &&
 			    !is_subarray(&e->metadata_version[9])) {
 				devname = devnum2devname(e->devnum);
 				/* update cmdline so this mdmon instance can be

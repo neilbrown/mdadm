@@ -302,7 +302,7 @@ int Create(struct supertype *st, char *mddev,
 			missing_disks ++;
 			continue;
 		}
-		dfd = open(dname, O_RDONLY|O_EXCL);
+		dfd = open(dname, O_RDONLY);
 		if (dfd < 0) {
 			fprintf(stderr, Name ": cannot open %s: %s\n",
 				dname, strerror(errno));
@@ -345,6 +345,12 @@ int Create(struct supertype *st, char *mddev,
 			}
 
 			if (!st) {
+				int dfd = open(dname, O_RDONLY|O_EXCL);
+				if (dfd < 0) {
+					fprintf(stderr, Name ": cannot open %s: %s\n",
+						dname, strerror(errno));
+					exit(2);
+				}
 				fprintf(stderr, Name ": device %s not suitable "
 					"for any style of array\n",
 					dname);

@@ -449,6 +449,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	char *dev = st->devname;
 	int fd;
 	int i;
+	int remaining_disks;
+	int last_disk;
 
 	if (test)
 		alert("TestMessage", dev, NULL, ainfo);
@@ -565,7 +567,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	}
 	st->percent = mse->percent;
 
-	for (i=0; i<MaxDisks && i <= array.raid_disks + array.nr_disks;
+	remaining_disks = array.nr_disks;
+	for (i=0; i<MaxDisks && remaining_disks > 0;
 	     i++) {
 		mdu_disk_info_t disc;
 		disc.number = i;
@@ -573,9 +576,12 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			info[i].state = disc.state;
 			info[i].major = disc.major;
 			info[i].minor = disc.minor;
+			if (disc.major || disc.minor)
+				remaining_disks --;
 		} else
 			info[i].major = info[i].minor = 0;
 	}
+	last_disk = i;
 
 	if (mse->metadata_version &&
 	    strncmp(mse->metadata_version, "external:", 9) == 0 &&
@@ -596,7 +602,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		int change;
 		char *dv = NULL;
 		disc.number = i;
-		if (i > array.raid_disks + array.nr_disks) {
+		if (i >= last_disk) {
 			newstate = 0;
 			disc.major = disc.minor = 0;
 		} else if (info[i].major || info[i].minor) {

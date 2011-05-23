@@ -438,19 +438,21 @@ int Manage_subdevs(char *devname, int fd,
 
 		if (strcmp(dv->devname, "failed")==0 ||
 		    strcmp(dv->devname, "faulty")==0) {
+			int remaining_disks = array.nr_disks;
 			if (dv->disposition != 'r') {
 				fprintf(stderr, Name ": %s only meaningful "
 					"with -r, not -%c\n",
 					dv->devname, dv->disposition);
 				return 1;
 			}
-			for (; j < array.raid_disks + array.nr_disks ; j++) {
+			for (; j < 1024 && remaining_disks > 0; j++) {
 				unsigned dev;
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					continue;
 				if (disc.major == 0 && disc.minor == 0)
 					continue;
+				remaining_disks --;
 				if ((disc.state & 1) == 0) /* faulty */
 					continue;
 				dev = makedev(disc.major, disc.minor);
@@ -469,13 +471,14 @@ int Manage_subdevs(char *devname, int fd,
 			if (next != dv)
 				continue;
 		} else if (strcmp(dv->devname, "detached") == 0) {
+			int remaining_disks = array.nr_disks;
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
 				fprintf(stderr, Name ": %s only meaningful "
 					"with -r of -f, not -%c\n",
 					dv->devname, dv->disposition);
 				return 1;
 			}
-			for (; j < array.raid_disks + array.nr_disks; j++) {
+			for (; j < 1024 && remaining_disks > 0; j++) {
 				int sfd;
 				unsigned dev;
 				disc.number = j;
@@ -483,6 +486,7 @@ int Manage_subdevs(char *devname, int fd,
 					continue;
 				if (disc.major == 0 && disc.minor == 0)
 					continue;
+				remaining_disks --;
 				sprintf(dvname,"%d:%d", disc.major, disc.minor);
 				sfd = dev_open(dvname, O_RDONLY);
 				if (sfd >= 0) {

@@ -370,10 +370,14 @@ int enough_fd(int fd)
 	    array.raid_disks <= 0)
 		return 0;
 	avail = calloc(array.raid_disks, 1);
-	for (i=0; i<array.raid_disks + array.nr_disks; i++) {
+	for (i=0; i < 1024 && array.nr_disks > 0; i++) {
 		disk.number = i;
 		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
 			continue;
+		if (disk.major == 0 && disk.minor == 0)
+			continue;
+		array.nr_disks--;
+
 		if (! (disk.state & (1<<MD_DISK_SYNC)))
 			continue;
 		if (disk.raid_disk < 0 || disk.raid_disk >= array.raid_disks)
@@ -1256,10 +1260,13 @@ int check_partitions(int fd, char *dname, unsigned long long freesize,
 void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
 {
 	int d;
+
 	ioctl(mdfd, GET_ARRAY_INFO, ainf);
-	for (d = 0 ; d < ainf->raid_disks + ainf->nr_disks ; d++)
-		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0)
+	for (d = 0 ; d < 1024 ; d++) {
+		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0 &&
+		    (disk->major || disk->minor))
 			return;
+	}
 }
 
 int open_container(int fd)

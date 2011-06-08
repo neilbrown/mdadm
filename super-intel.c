@@ -8404,30 +8404,6 @@ int imsm_takeover(struct supertype *st, struct geo_params *geo)
 	return 0;
 }
 
-static int warn_user_about_risk(void)
-{
-	int rv = 0;
-
-	fprintf(stderr,
-		"\nThis is an experimental feature. Data on the RAID volume(s) "
-		"can be lost!!!\n\n"
-		"To continue command execution please make sure that\n"
-		"the grow process will not be interrupted. Use safe power\n"
-		"supply to avoid unexpected system reboot. Make sure that\n"
-		"reshaped container is not assembled automatically during\n"
-		"system boot.\n"
-		"If reshape is interrupted, assemble array manually\n"
-		"using e.g. '-Ac' option and up to date mdadm.conf file.\n"
-		"Assembly in scan mode is not possible in such case.\n"
-		"Growing container with boot array is not possible.\n"
-		"If boot array reshape is interrupted, whole file system\n"
-		"can be lost.\n\n");
-	rv = ask("Do you want to continue? ");
-	fprintf(stderr, "\n");
-
-	return rv;
-}
-
 static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			      int layout, int chunksize, int raid_disks,
 			      int delta_disks, char *backup, char *dev,
@@ -8460,13 +8436,6 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 		/* On container level we can only increase number of devices. */
 		dprintf("imsm: info: Container operation\n");
 		int old_raid_disks = 0;
-
-		/* this warning will be removed when imsm checkpointing
-		 * will be implemented, and restoring from check-point
-		 * operation will be transparent for reboot process
-		 */
-		if (warn_user_about_risk() == 0)
-			return ret_val;
 
 		if (imsm_reshape_is_allowed_on_container(
 			    st, &geo, &old_raid_disks)) {

@@ -1190,6 +1190,7 @@ extern int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			 struct supertype *st, unsigned long stripes,
 			 int *fds, unsigned long long *offsets,
 			 int dests, int *destfd, unsigned long long *destoffsets);
+void abort_reshape(struct mdinfo *sra);
 
 extern char *devnum2devname(int num);
 extern void fmt_devname(char *name, int num);

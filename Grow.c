@@ -1848,6 +1848,9 @@ static int reshape_array(char *container, int fd, char *devname,
 			if (!mdmon_running(st->container_dev))
 				start_mdmon(st->container_dev);
 			ping_monitor(container);
+			if (mdmon_running(st->container_dev) &&
+			    st->update_tail == NULL)
+				st->update_tail = &st->updates;
 		}
 	}
 	/* ->reshape_super might have chosen some spares from the
@@ -2265,6 +2268,8 @@ started:
 					": %s: could not set level "
 					"to %s\n", devname, c);
 		}
+		if (info->new_level == 0)
+			st->update_tail = NULL;
 	}
 out:
 	if (forked)

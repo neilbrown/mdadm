@@ -2039,25 +2039,29 @@ started:
 	if (d < 0) {
 		goto release;
 	}
-	if (backup_file == NULL) {
-		if (reshape.after.data_disks <= reshape.before.data_disks) {
-			fprintf(stderr,
-				Name ": %s: Cannot grow - need backup-file\n", 
-				devname);
-			goto release;
-		} else if (sra->array.spare_disks == 0) {
-			fprintf(stderr, Name ": %s: Cannot grow - need a spare or "
-				"backup-file to backup critical section\n",
-				devname);
-			goto release;
+	if ((st->ss->manage_reshape == NULL) ||
+	    (st->ss->recover_backup == NULL)) {
+		if (backup_file == NULL) {
+			if (reshape.after.data_disks <=
+			    reshape.before.data_disks) {
+				fprintf(stderr, Name ": %s: Cannot grow - "
+					"need backup-file\n", devname);
+				goto release;
+			} else if (sra->array.spare_disks == 0) {
+				fprintf(stderr, Name ": %s: Cannot grow - "
+					"need a spare or backup-file to backup "
+					"critical section\n", devname);
+				goto release;
+			}
+		} else {
+			if (!reshape_open_backup_file(backup_file, fd, devname,
+						      (signed)blocks,
+						      fdlist+d, offsets+d,
+						      restart)) {
+				goto release;
+			}
+			d++;
 		}
-	} else {
-		if (!reshape_open_backup_file(backup_file, fd, devname,
-					      (signed)blocks,
-					      fdlist+d, offsets+d, restart)) {
-			goto release;
-		}
-		d++;
 	}
 
 	/* lastly, check that the internal stripe cache is

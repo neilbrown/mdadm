@@ -929,6 +929,8 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		info->new_chunk = info->array.chunk_size;
 
 	switch (info->array.level) {
+	default:
+		return "Cannot understand this RAID level";
 	case 1:
 		/* RAID1 can convert to RAID1 with different disks, or
 		 * raid5 with 2 disks, or

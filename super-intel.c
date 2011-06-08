@@ -1945,6 +1945,51 @@ out:
 }
 
 /*******************************************************************************
+ * function: imsm_create_metadata_checkpoint_update
+ * Description: It creates update for checkpoint change.
+ * Parameters:
+ *	super	: imsm internal array info
+ *	u	: pointer to prepared update
+ * Returns:
+ *	Uptate length.
+ *	If length is equal to 0, input pointer u contains no update
+ ******************************************************************************/
+static int imsm_create_metadata_checkpoint_update(
+	struct intel_super *super,
+	struct imsm_update_general_migration_checkpoint **u)
+{
+
+	int update_memory_size = 0;
+
+	dprintf("imsm_create_metadata_checkpoint_update(enter)\n");
+
+	if (u == NULL)
+		return 0;
+	*u = NULL;
+
+	/* size of all update data without anchor */
+	update_memory_size =
+		sizeof(struct imsm_update_general_migration_checkpoint);
+
+	*u = calloc(1, update_memory_size);
+	if (*u == NULL) {
+		dprintf("error: cannot get memory for "
+			"imsm_create_metadata_checkpoint_update update\n");
+		return 0;
+	}
+	(*u)->type = update_general_migration_checkpoint;
+	(*u)->curr_migr_unit = __le32_to_cpu(super->migr_rec->curr_migr_unit);
+	dprintf("imsm_create_metadata_checkpoint_update: prepared for %u\n",
+		(*u)->curr_migr_unit);
+
+	return update_memory_size;
+}
+
+
+static void imsm_update_metadata_locally(struct supertype *st,
+					 void *buf, int len);
+
+/*******************************************************************************
  * Function:	write_imsm_migr_rec
  * Description:	Function writes imsm migration record
  *		(at the last sector of disk)
@@ -1962,6 +2007,8 @@ static int write_imsm_migr_rec(struct supertype *st)
 	int fd = -1;
 	int retval = -1;
 	struct dl *sd;
+	int len;
+	struct imsm_update_general_migration_checkpoint *u;
 
 	for (sd = super->disks ; sd ; sd = sd->next) {
 		/* write to 2 first slots only */
@@ -1987,6 +2034,26 @@ static int write_imsm_migr_rec(struct supertype *st)
 		close(fd);
 		fd = -1;
 	}
+	/* update checkpoint information in metadata */
+	len = imsm_create_metadata_checkpoint_update(super, &u);
+
+	if (len <= 0) {
+		dprintf("imsm: Cannot prepare update\n");
+		goto out;
+	}
+	/* update metadata locally */
+	imsm_update_metadata_locally(st, u, len);
+	/* and possibly remotely */
+	if (st->update_tail) {
+		append_metadata_update(st, u, len);
+		/* during reshape we do all work inside metadata handler
+		 * manage_reshape(), so metadata update has to be triggered
+		 * insida it
+		 */
+		flush_metadata_updates(st);
+		st->update_tail = &st->updates;
+	} else
+		free(u);
 
 	retval = 0;
  out:

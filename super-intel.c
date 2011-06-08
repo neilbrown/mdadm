@@ -6914,6 +6914,24 @@ static void imsm_process_update(struct supertype *st,
 	mpb = super->anchor;
 
 	switch (type) {
+	case update_general_migration_checkpoint: {
+		struct intel_dev *id;
+		struct imsm_update_general_migration_checkpoint *u =
+							(void *)update->buf;
+
+		dprintf("imsm: process_update() "
+			"for update_general_migration_checkpoint called\n");
+
+		/* find device under general migration */
+		for (id = super->devlist ; id; id = id->next) {
+			if (is_gen_migration(id->dev)) {
+				id->dev->vol.curr_migr_unit =
+					__cpu_to_le32(u->curr_migr_unit);
+				super->updates_pending++;
+			}
+		}
+		break;
+	}
 	case update_takeover: {
 		struct imsm_update_takeover *u = (void *)update->buf;
 		if (apply_takeover_update(u, super, &update->space_list)) {
@@ -7251,6 +7269,10 @@ static void imsm_prepare_update(struct supertype *st,
 	size_t len = 0;
 
 	switch (type) {
+	case update_general_migration_checkpoint:
+		dprintf("imsm: prepare_update() "
+			"for update_general_migration_checkpoint called\n");
+		break;
 	case update_takeover: {
 		struct imsm_update_takeover *u = (void *)update->buf;
 		if (u->direction == R0_TO_R10) {

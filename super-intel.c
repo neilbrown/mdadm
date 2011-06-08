@@ -345,7 +345,8 @@ enum imsm_update_type {
 	update_add_remove_disk,
 	update_reshape_container_disks,
 	update_reshape_migration,
-	update_takeover
+	update_takeover,
+	update_general_migration_checkpoint,
 };
 
 struct imsm_update_activate_spare {
@@ -396,6 +397,11 @@ struct imsm_update_reshape_migration {
 	int new_chunksize;
 
 	int new_disks[1]; /* new_raid_disks - old_raid_disks makedev number */
+};
+
+struct imsm_update_general_migration_checkpoint {
+	enum imsm_update_type type;
+	__u32 curr_migr_unit;
 };
 
 struct disk_info {

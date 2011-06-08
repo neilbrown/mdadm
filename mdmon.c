@@ -527,3 +527,26 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 {
 	return 0;
 }
+
+int restore_stripes(int *dest, unsigned long long *offsets,
+		    int raid_disks, int chunk_size, int level, int layout,
+		    int source, unsigned long long read_offset,
+		    unsigned long long start, unsigned long long length,
+		    char *src_buf)
+{
+	return 1;
+}
+
+void abort_reshape(struct mdinfo *sra)
+{
+	return;
+}
+
+int save_stripes(int *source, unsigned long long *offsets,
+		 int raid_disks, int chunk_size, int level, int layout,
+		 int nwrites, int *dest,
+		 unsigned long long start, unsigned long long length,
+		 char *buf)
+{
+	return 0;
+}

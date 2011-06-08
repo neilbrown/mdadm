@@ -5851,6 +5851,12 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 	}
 
 mark_checkpoint:
+	/* skip checkpointing for general migration,
+	 * it is controlled in mdadm
+	 */
+	if (is_gen_migration(dev))
+		goto skip_mark_checkpoint;
+
 	/* check if we can update curr_migr_unit from resync_start, recovery_start */
 	blocks_per_unit = blocks_per_migr_unit(super, dev);
 	if (blocks_per_unit) {
@@ -5872,6 +5878,7 @@ mark_checkpoint:
 		}
 	}
 
+skip_mark_checkpoint:
 	/* mark dirty / clean */
 	if (dev->vol.dirty != !consistent) {
 		dprintf("imsm: mark '%s'\n", consistent ? "clean" : "dirty");

@@ -1190,8 +1190,11 @@ int Assemble(struct supertype *st, char *mddev,
 				fdlist[i] = -1;
 		}
 		if (!err) {
-			err = Grow_restart(st, content, fdlist, bestcnt,
-					   backup_file, verbose > 0);
+			if (st->ss->external && st->ss->recover_backup)
+				err = st->ss->recover_backup(st, content);
+			else
+				err = Grow_restart(st, content, fdlist, bestcnt,
+						   backup_file, verbose > 0);
 			if (err && invalid_backup) {
 				if (verbose > 0)
 					fprintf(stderr, Name ": continuing"
@@ -1571,8 +1574,11 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				else
 					fdlist[spare++] = fd;
 			}
-			err = Grow_restart(st, content, fdlist, spare,
-					   backup_file, verbose > 0);
+			if (st->ss->external && st->ss->recover_backup)
+				err = st->ss->recover_backup(st, content);
+			else
+				err = Grow_restart(st, content, fdlist, spare,
+						   backup_file, verbose > 0);
 			while (spare > 0) {
 				spare--;
 				if (fdlist[spare] >= 0)

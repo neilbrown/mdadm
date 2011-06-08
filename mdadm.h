@@ -786,6 +786,9 @@ extern struct superswitch {
 	 */
 	const char *(*get_disk_controller_domain)(const char *path);
 
+	/* for external backup area */
+	int (*recover_backup)(struct supertype *st, struct mdinfo *info);
+
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 	const char *name; /* canonical metadata name */

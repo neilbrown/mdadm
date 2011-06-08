@@ -202,7 +202,6 @@ int Incremental(char *devname, int verbose, int runstop,
 	}
 	close (dfd); dfd = -1;
 
-	memset(&info, 0, sizeof(info));
 	st->ss->getinfo_super(st, &info, NULL);
 
 	/* 3/ Check if there is a match in mdadm.conf */
@@ -396,7 +395,6 @@ int Incremental(char *devname, int verbose, int runstop,
 				goto out;
 			}
 			close(dfd2);
-			memset(&info2, 0, sizeof(info2));
 			st2->ss->getinfo_super(st2, &info2, NULL);
 			st2->ss->free_super(st2);
 			if (info.array.level != info2.array.level ||
@@ -1435,7 +1433,6 @@ static int Incremental_container(struct supertype *st, char *devname,
 	int suuid[4];
 	int sfd;
 
-	memset(&info, 0, sizeof(info));
 	st->ss->getinfo_super(st, &info, NULL);
 
 	if ((runstop > 0 && info.container_enough >= 0) ||

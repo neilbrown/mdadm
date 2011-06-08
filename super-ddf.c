@@ -1341,6 +1341,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 		getinfo_super_ddf_bvd(st, info, map);
 		return;
 	}
+	memset(info, 0, sizeof(*info));
 
 	info->array.raid_disks    = __be16_to_cpu(ddf->phys->used_pdes);
 	info->array.level	  = LEVEL_CONTAINER;
@@ -1406,6 +1407,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	struct dl *dl;
 	int map_disks = info->array.raid_disks;
 
+	memset(info, 0, sizeof(*info));
 	/* FIXME this returns BVD info - what if we want SVD ?? */
 
 	info->array.raid_disks    = __be16_to_cpu(vc->conf.prim_elmnt_count);

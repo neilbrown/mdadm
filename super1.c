@@ -566,6 +566,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	unsigned int role;
 	unsigned int map_disks = info->array.raid_disks;
 
+	memset(info, 0, sizeof(*info));
 	info->array.major_version = 1;
 	info->array.minor_version = st->minor_version;
 	info->array.patch_version = 0;

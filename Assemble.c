@@ -418,7 +418,6 @@ int Assemble(struct supertype *st, char *mddev,
 					int uuid[4];
 
 					content = &info;
-					memset(content, 0, sizeof(*content));
 					tst->ss->getinfo_super(tst, content, NULL);
 
 					if (!parse_uuid(ident->container, uuid) ||
@@ -484,7 +483,6 @@ int Assemble(struct supertype *st, char *mddev,
 		} else {
 
 			content = &info;
-			memset(content, 0, sizeof(*content));
 			tst->ss->getinfo_super(tst, content, NULL);
 
 			if (!ident_matches(ident, content, tst,

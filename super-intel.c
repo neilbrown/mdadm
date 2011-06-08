@@ -1764,6 +1764,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	unsigned int component_size_alligment;
 	int map_disks = info->array.raid_disks;
 
+	memset(info, 0, sizeof(*info));
 	if (prev_map)
 		map_to_analyse = prev_map;
 
@@ -1972,6 +1973,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 		getinfo_super_imsm_volume(st, info, map);
 		return;
 	}
+	memset(info, 0, sizeof(*info));
 
 	/* Set raid_disks to zero so that Assemble will always pull in valid
 	 * spares

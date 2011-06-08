@@ -658,8 +658,8 @@ int Create(struct supertype *st, char *mddev,
 		goto abort;
 
 	total_slots = info.array.nr_disks;
-	sysfs_init(&info, mdfd, 0);
 	st->ss->getinfo_super(st, &info, NULL);
+	sysfs_init(&info, mdfd, 0);
 
 	if (did_default && verbose >= 0) {
 		if (is_subarray(info.text_version)) {

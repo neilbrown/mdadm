@@ -616,6 +616,7 @@ extern struct superswitch {
 	 * (raid_disk must already be set and correct) and it is filled
 	 * with 1 for slots that are thought to be active and 0 for slots which
 	 * appear to be failed/missing.
+	 * *info is zeroed out before data is added.
 	 */
 	void (*getinfo_super)(struct supertype *st, struct mdinfo *info, char *map);
 	struct mdinfo *(*getinfo_super_disks)(struct supertype *st);

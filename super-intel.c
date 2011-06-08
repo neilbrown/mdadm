@@ -8242,6 +8242,68 @@ exit_imsm_reshape_super:
 	return ret_val;
 }
 
+/*******************************************************************************
+ * Function:	wait_for_reshape_imsm
+ * Description:	Function writes new sync_max value and waits until
+ *		reshape process reach new position
+ * Parameters:
+ *	sra		: general array info
+ *	to_complete	: new sync_max position
+ *	ndata		: number of disks in new array's layout
+ * Returns:
+ *	 0 : success,
+ *	 1 : there is no reshape in progress,
+ *	-1 : fail
+ ******************************************************************************/
+int wait_for_reshape_imsm(struct mdinfo *sra, unsigned long long to_complete,
+			  int ndata)
+{
+	int fd = sysfs_get_fd(sra, NULL, "reshape_position");
+	unsigned long long completed;
+
+	struct timeval timeout;
+
+	if (fd < 0)
+		return 1;
+
+	sysfs_fd_get_ll(fd, &completed);
+
+	if (to_complete == 0) {/* reshape till the end of array */
+		sysfs_set_str(sra, NULL, "sync_max", "max");
+		to_complete = MaxSector;
+	} else {
+		if (completed > to_complete)
+			return -1;
+		if (sysfs_set_num(sra, NULL, "sync_max",
+				  to_complete / ndata) != 0) {
+			close(fd);
+			return -1;
+		}
+	}
+
+	/* FIXME should not need a timeout at all */
+	timeout.tv_sec = 30;
+	timeout.tv_usec = 0;
+	do {
+		char action[20];
+		fd_set rfds;
+		FD_ZERO(&rfds);
+		FD_SET(fd, &rfds);
+		select(fd+1, NULL, NULL, &rfds, &timeout);
+		if (sysfs_fd_get_ll(fd, &completed) < 0) {
+			close(fd);
+			return 1;
+		}
+		if (sysfs_get_str(sra, NULL, "sync_action",
+				  action, 20) > 0 &&
+		    strncmp(action, "reshape", 7) != 0)
+			break;
+	} while (completed < to_complete);
+	close(fd);
+	return 0;
+
+}
+
 static int imsm_manage_reshape(
 	int afd, struct mdinfo *sra, struct reshape *reshape,
 	struct supertype *st, unsigned long stripes,

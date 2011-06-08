@@ -467,16 +467,35 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 	return curr_broken_disk;
 }
 
-/* Save data:
- * We are given:
- *  A list of 'fds' of the active disks.  Some may be absent.
- *  A geometry: raid_disks, chunk_size, level, layout
- *  A list of 'fds' for mirrored targets.  They are already seeked to
- *    right (Write) location
- *  A start and length which must be stripe-aligned
- *  'buf' is large enough to hold one stripe, and is aligned
- */
-
+/*******************************************************************************
+ * Function:	save_stripes
+ * Description:
+ *	Function reads data (only data without P and Q) from array and writes
+ * it to buf and opcjonaly to backup files
+ * Parameters:
+ *	source		: A list of 'fds' of the active disks.
+ *			  Some may be absent
+ *	offsets		: A list of offsets on disk belonging
+ *			 to the array [bytes]
+ *	raid_disks	: geometry: number of disks in the array
+ *	chunk_size	: geometry: chunk size [bytes]
+ *	level		: geometry: RAID level
+ *	layout		: geometry: layout
+ *	nwrites		: number of backup files
+ *	dest		: A list of 'fds' for mirrored targets
+ *			  (e.g. backup files). They are already seeked to right
+ *			  (write) location. If NULL, data will be wrote
+ *			  to the buf only
+ *	start		: start address of data to read (must be stripe-aligned)
+ *			  [bytes]
+ *	length	-	: length of data to read (must be stripe-aligned)
+ *			  [bytes]
+ *	buf		: buffer for data. It is large enough to hold
+ *			  one stripe. It is stripe aligned
+ * Returns:
+ *	 0 : success
+ *	-1 : fail
+ ******************************************************************************/
 int save_stripes(int *source, unsigned long long *offsets,
 		 int raid_disks, int chunk_size, int level, int layout,
 		 int nwrites, int *dest,
@@ -487,6 +506,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 	int data_disks = raid_disks - (level == 0 ? 0 : level <=5 ? 1 : 2);
 	int disk;
 	int i;
+	unsigned long long length_test;
 
 	if (!tables_ready)
 		make_tables();
@@ -501,6 +521,18 @@ int save_stripes(int *source, unsigned long long *offsets,
 	}
 
 	len = data_disks * chunk_size;
+	length_test = length / len;
+	length_test *= len;
+
+	if (length != length_test) {
+		dprintf("Error: save_stripes(): Data are not alligned. EXIT\n");
+		dprintf("\tArea for saving stripes (length) = %llu\n", length);
+		dprintf("\tWork step (len)                  = %i\n", len);
+		dprintf("\tExpected save area (length_test) = %llu\n",
+			length_test);
+		abort();
+	}
+
 	while (length > 0) {
 		int failed = 0;
 		int fdisk[3], fblock[3];
@@ -620,11 +652,10 @@ int save_stripes(int *source, unsigned long long *offsets,
 						  fdisk[0], fdisk[1], bufs);
 			}
 		}
-
-		for (i=0; i<nwrites; i++)
-			if (write(dest[i], buf, len) != len)
-				return -1;
-
+		if (dest)
+			for (i = 0; i < nwrites; i++)
+				if (write(dest[i], buf, len) != len)
+					return -1;
 		length -= len;
 		start += len;
 	}
@@ -645,7 +676,8 @@ int save_stripes(int *source, unsigned long long *offsets,
 int restore_stripes(int *dest, unsigned long long *offsets,
 		    int raid_disks, int chunk_size, int level, int layout,
 		    int source, unsigned long long read_offset,
-		    unsigned long long start, unsigned long long length)
+		    unsigned long long start, unsigned long long length,
+		    char *src_buf)
 {
 	char *stripe_buf;
 	char **stripes = malloc(raid_disks * sizeof(char*));
@@ -674,7 +706,7 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		free(zero);
 		return -2;
 	}
-	for (i=0; i<raid_disks; i++)
+	for (i = 0; i < raid_disks; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 	while (length > 0) {
 		unsigned int len = data_disks * chunk_size;
@@ -683,15 +715,24 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		int syndrome_disks;
 		if (length < len)
 			return -3;
-		for (i=0; i < data_disks; i++) {
+		for (i = 0; i < data_disks; i++) {
 			int disk = geo_map(i, start/chunk_size/data_disks,
 					   raid_disks, level, layout);
-			if ((unsigned long long)lseek64(source, read_offset, 0)
-			    != read_offset)
-				return -1;
-			if (read(source, stripes[disk],
-						     chunk_size) != chunk_size)
-				return -1;
+			if (src_buf == NULL) {
+				/* read from file */
+				if (lseek64(source,
+					read_offset, 0) != (off64_t)read_offset)
+					return -1;
+				if (read(source,
+					 stripes[disk],
+					 chunk_size) != chunk_size)
+					return -1;
+			} else {
+				/* read from input buffer */
+				memcpy(stripes[disk],
+				       src_buf + read_offset,
+				       chunk_size);
+			}
 			read_offset += chunk_size;
 		}
 		/* We have the data, now do the parity */

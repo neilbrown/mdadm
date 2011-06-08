@@ -507,7 +507,8 @@ extern int save_stripes(int *source, unsigned long long *offsets,
 extern int restore_stripes(int *dest, unsigned long long *offsets,
 			   int raid_disks, int chunk_size, int level, int layout,
 			   int source, unsigned long long read_offset,
-			   unsigned long long start, unsigned long long length);
+			   unsigned long long start, unsigned long long length,
+			   char *src_buf);
 
 #ifndef Sendmail
 #define Sendmail "/usr/lib/sendmail -t"

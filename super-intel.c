@@ -8305,6 +8305,53 @@ int wait_for_reshape_imsm(struct mdinfo *sra, unsigned long long to_complete,
 }
 
 /*******************************************************************************
+ * Function:	check_degradation_change
+ * Description:	Check that array hasn't become failed.
+ * Parameters:
+ *	info	: for sysfs access
+ *	sources	: source disks descriptors
+ *	degraded: previous degradation level
+ * Returns:
+ *	degradation level
+ ******************************************************************************/
+int check_degradation_change(struct mdinfo *info,
+			     int *sources,
+			     int degraded)
+{
+	unsigned long long new_degraded;
+	sysfs_get_ll(info, NULL, "degraded", &new_degraded);
+	if (new_degraded != (unsigned long long)degraded) {
+		/* check each device to ensure it is still working */
+		struct mdinfo *sd;
+		new_degraded = 0;
+		for (sd = info->devs ; sd ; sd = sd->next) {
+			if (sd->disk.state & (1<<MD_DISK_FAULTY))
+				continue;
+			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
+				char sbuf[20];
+				if (sysfs_get_str(info,
+					sd, "state", sbuf, 20) < 0 ||
+					strstr(sbuf, "faulty") ||
+					strstr(sbuf, "in_sync") == NULL) {
+					/* this device is dead */
+					sd->disk.state = (1<<MD_DISK_FAULTY);
+					if (sd->disk.raid_disk >= 0 &&
+					    sources[sd->disk.raid_disk] >= 0) {
+						close(sources[
+							sd->disk.raid_disk]);
+						sources[sd->disk.raid_disk] =
+							-1;
+					}
+					new_degraded++;
+				}
+			}
+		}
+	}
+
+	return new_degraded;
+}
+
+/*******************************************************************************
  * Function:	imsm_manage_reshape
  * Description:	Function finds array under reshape and it manages reshape
  *		process. It creates stripes backups (if required) and sets
@@ -8348,6 +8395,7 @@ static int imsm_manage_reshape(
 	unsigned long long start_src; /* [bytes] */
 	unsigned long long start; /* [bytes] */
 	unsigned long long start_buf_shift; /* [bytes] */
+	int degraded = 0;
 
 	if (!fds || !offsets || !destfd || !destoffsets || !sra)
 		goto abort;
@@ -8413,6 +8461,15 @@ static int imsm_manage_reshape(
 			__le32_to_cpu(migr_rec->blocks_per_unit)
 			* __le32_to_cpu(migr_rec->curr_migr_unit);
 		unsigned long long border;
+
+		/* Check that array hasn't become failed.
+		 */
+		degraded = check_degradation_change(sra, fds, degraded);
+		if (degraded > 1) {
+			dprintf("imsm: Abort reshape due to degradation"
+				" level (%i)\n", degraded);
+			goto abort;
+		}
 
 		next_step = __le32_to_cpu(migr_rec->blocks_per_unit);
 

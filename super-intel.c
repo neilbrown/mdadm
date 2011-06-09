@@ -8764,9 +8764,7 @@ static int imsm_manage_reshape(
 		if ((current_position + next_step) > max_position)
 			next_step = max_position - current_position;
 
-		start = (__le32_to_cpu(map_src->pba_of_lba0) +
-			 __le32_to_cpu(dev->reserved_blocks) +
-			 current_position) * 512;
+		start = current_position * 512;
 
 		/* allign reading start to old geometry */
 		start_buf_shift = start % old_data_stripe_length;

@@ -2079,9 +2079,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	if (prev_map)
 		map_to_analyse = prev_map;
 
-	for (dl = super->disks; dl; dl = dl->next)
-		if (dl->raiddisk == info->disk.raid_disk)
-			break;
+	dl = super->disks;
+
 	info->container_member	  = super->current_vol;
 	info->array.raid_disks    = map->num_members;
 	info->array.level	  = get_imsm_raid_level(map_to_analyse);
@@ -5446,11 +5445,10 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				sizeof(*this));
 			break;
 		}
-		memset(this, 0, sizeof(*this));
-		this->next = rest;
 
 		super->current_vol = i;
 		getinfo_super_imsm_volume(st, this, NULL);
+		this->next = rest;
 		for (slot = 0 ; slot <  map->num_members; slot++) {
 			unsigned long long recovery_start;
 			struct mdinfo *info_d;

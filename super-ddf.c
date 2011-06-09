@@ -1429,9 +1429,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 			info->component_size = __be64_to_cpu(vc->conf.blocks);
 	}
 
-	for (dl = ddf->dlist; dl ; dl = dl->next)
-		if (dl->raiddisk == info->disk.raid_disk)
-			break;
+	dl = ddf->dlist;
 	info->disk.major = 0;
 	info->disk.minor = 0;
 	if (dl) {

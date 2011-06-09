@@ -7849,7 +7849,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 
 	write_offset = ((unsigned long long)
 			__le32_to_cpu(migr_rec->dest_1st_member_lba) +
-			info->data_offset) * 512;
+			__le32_to_cpu(map_dest->pba_of_lba0)) * 512;
 
 	unit_len = __le32_to_cpu(migr_rec->dest_depth_per_unit) * 512;
 	if (posix_memalign((void **)&buf, 512, unit_len) != 0)

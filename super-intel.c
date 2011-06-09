@@ -8549,8 +8549,10 @@ int wait_for_reshape_imsm(struct mdinfo *sra, unsigned long long to_complete,
 		sysfs_set_str(sra, NULL, "sync_max", "max");
 		to_complete = MaxSector;
 	} else {
-		if (completed > to_complete)
+		if (completed > to_complete) {
+			close(fd);
 			return -1;
+		}
 		if (sysfs_set_num(sra, NULL, "sync_max",
 				  to_complete / ndata) != 0) {
 			close(fd);

@@ -1822,7 +1822,7 @@ static __u64 blocks_per_migr_unit(struct intel_super *super,
 		migr_chunk = migr_strip_blocks_resync(dev);
 		disks = imsm_num_data_members(dev, 0);
 		blocks_per_unit = stripes_per_unit * migr_chunk * disks;
-		stripe = __le32_to_cpu(map->blocks_per_strip) * disks;
+		stripe = __le16_to_cpu(map->blocks_per_strip) * disks;
 		segment = blocks_per_unit / stripe;
 		block_rel = blocks_per_unit - segment * stripe;
 		parity_depth = parity_segment_depth(dev);
@@ -8715,7 +8715,7 @@ static int imsm_manage_reshape(
 	ndata = imsm_num_data_members(dev, 0);
 	odata = imsm_num_data_members(dev, 1);
 
-	chunk = map_src->blocks_per_strip * 512;
+	chunk = __le16_to_cpu(map_src->blocks_per_strip) * 512;
 	old_data_stripe_length = odata * chunk;
 
 	migr_rec = super->migr_rec;
@@ -8764,7 +8764,8 @@ static int imsm_manage_reshape(
 		if ((current_position + next_step) > max_position)
 			next_step = max_position - current_position;
 
-		start = (map_src->pba_of_lba0 + dev->reserved_blocks +
+		start = (__le32_to_cpu(map_src->pba_of_lba0) +
+			 __le32_to_cpu(dev->reserved_blocks) +
 			 current_position) * 512;
 
 		/* allign reading start to old geometry */

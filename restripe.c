@@ -967,7 +967,7 @@ main(int argc, char *argv[])
 		int rv = restore_stripes(fds, offsets,
 					 raid_disks, chunk_size, level, layout,
 					 storefd, 0ULL,
-					 start, length);
+					 start, length, NULL);
 		if (rv != 0) {
 			fprintf(stderr,
 				"test_stripe: restore_stripes returned %d\n",

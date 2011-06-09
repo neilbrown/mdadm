@@ -8688,7 +8688,7 @@ static int imsm_manage_reshape(
 	unsigned long long start_buf_shift; /* [bytes] */
 	int degraded = 0;
 
-	if (!fds || !offsets || !destfd || !destoffsets || !sra)
+	if (!fds || !offsets || !sra)
 		goto abort;
 
 	/* Find volume during the reshape */

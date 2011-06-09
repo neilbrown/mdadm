@@ -8277,7 +8277,6 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int chunk;
 
 	getinfo_super_imsm_volume(st, &info, NULL);
-
 	if ((geo->level != info.array.level) &&
 	    (geo->level >= 0) &&
 	    (geo->level != UnSet)) {
@@ -8285,6 +8284,14 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 		case 0:
 			if (geo->level == 5) {
 				change = CH_MIGRATION;
+				if (geo->layout != ALGORITHM_LEFT_ASYMMETRIC) {
+					fprintf(stderr,
+					Name " Error. Requested Layout "
+					"not supported (left-asymmetric layout "
+					"is supported only)!\n");
+					change = -1;
+					goto analyse_change_exit;
+				}
 				check_devs = 1;
 			}
 			if (geo->level == 10) {

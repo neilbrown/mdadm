@@ -7759,6 +7759,8 @@ abort:
  * Returns:
  *	0: success
  *	1: failure
+ *	2: failure, means no valid migration record
+ *		   / no general migration in progress /
  ******************************************************************************/
 int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 {
@@ -7770,8 +7772,8 @@ int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 	}
 
 	if (__le32_to_cpu(super->migr_rec->blocks_per_unit) == 0) {
-		dprintf("ERROR: blocks_per_unit = 0!!!\n");
-		return 1;
+		dprintf("imsm: no migration in progress.\n");
+		return 2;
 	}
 
 	super->migr_rec->curr_migr_unit =
@@ -8841,7 +8843,9 @@ static int imsm_manage_reshape(
 
 		sra->reshape_progress = next_step;
 
-		if (save_checkpoint_imsm(st, sra, UNIT_SRC_NORMAL)) {
+		if (save_checkpoint_imsm(st, sra, UNIT_SRC_NORMAL) == 1) {
+			/* ignore error == 2, this can mean end of reshape here
+			 */
 			dprintf("imsm: Cannot write checkpoint to "
 				"migration record (UNIT_SRC_NORMAL)\n");
 			goto abort;

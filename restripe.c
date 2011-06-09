@@ -652,10 +652,14 @@ int save_stripes(int *source, unsigned long long *offsets,
 						  fdisk[0], fdisk[1], bufs);
 			}
 		}
-		if (dest)
+		if (dest) {
 			for (i = 0; i < nwrites; i++)
 				if (write(dest[i], buf, len) != len)
 					return -1;
+		} else {
+			/* build next stripe in buffer */
+			buf += len;
+		}
 		length -= len;
 		start += len;
 	}

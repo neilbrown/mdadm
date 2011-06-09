@@ -7697,6 +7697,8 @@ int save_backup_imsm(struct supertype *st,
 	int i;
 	struct imsm_map *map_dest = get_imsm_map(dev, 0);
 	int new_disks = map_dest->num_members;
+	int dest_layout = 0;
+	int dest_chunk;
 
 	targets = malloc(new_disks * sizeof(int));
 	if (!targets)
@@ -7715,15 +7717,19 @@ int save_backup_imsm(struct supertype *st,
 	if (open_backup_targets(info, new_disks, targets))
 		goto abort;
 
+	if (map_dest->raid_level != 0)
+		dest_layout = ALGORITHM_LEFT_ASYMMETRIC;
+	dest_chunk = __le16_to_cpu(map_dest->blocks_per_strip) * 512;
+
 	if (restore_stripes(targets, /* list of dest devices */
 			    target_offsets, /* migration record offsets */
 			    new_disks,
-			    info->new_chunk,
-			    info->new_level,
-			    info->new_layout,
-			    -1,		/* source backup file descriptor */
-			    0,		/* input buf offset
-					 * always 0 buf is already offset */
+			    dest_chunk,
+			    map_dest->raid_level,
+			    dest_layout,
+			    -1,    /* source backup file descriptor */
+			    0,     /* input buf offset
+				    * always 0 buf is already offseted */
 			    0,
 			    length,
 			    buf) != 0) {
@@ -8686,6 +8692,7 @@ static int imsm_manage_reshape(
 	unsigned long long start; /* [bytes] */
 	unsigned long long start_buf_shift; /* [bytes] */
 	int degraded = 0;
+	int source_layout = 0;
 
 	if (!fds || !offsets || !sra)
 		goto abort;
@@ -8740,6 +8747,8 @@ static int imsm_manage_reshape(
 	}
 
 	max_position = sra->component_size * ndata;
+	if (map_src->raid_level != 0)
+		source_layout = ALGORITHM_LEFT_ASYMMETRIC;
 
 	while (__le32_to_cpu(migr_rec->curr_migr_unit) <
 	       __le32_to_cpu(migr_rec->num_migr_units)) {
@@ -8796,8 +8805,8 @@ static int imsm_manage_reshape(
 				start_buf_shift, next_step_filler);
 
 			if (save_stripes(fds, offsets, map_src->num_members,
-					 chunk, sra->array.level,
-					 sra->array.layout, 0, NULL, start_src,
+					 chunk, map_src->raid_level,
+					 source_layout, 0, NULL, start_src,
 					 copy_length +
 					 next_step_filler + start_buf_shift,
 					 buf)) {

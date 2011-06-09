@@ -8694,7 +8694,7 @@ static int imsm_manage_reshape(
 	struct intel_super *super = st->sb;
 	struct intel_dev *dv = NULL;
 	struct imsm_dev *dev = NULL;
-	struct imsm_map *map_src, *map_dest;
+	struct imsm_map *map_src;
 	int migr_vol_qan = 0;
 	int ndata, odata; /* [bytes] */
 	int chunk; /* [bytes] */
@@ -8704,7 +8704,6 @@ static int imsm_manage_reshape(
 	unsigned long long max_position; /* array size [bytes] */
 	unsigned long long next_step; /* [blocks]/[bytes] */
 	unsigned long long old_data_stripe_length;
-	unsigned long long new_data_stripe_length;
 	unsigned long long start_src; /* [bytes] */
 	unsigned long long start; /* [bytes] */
 	unsigned long long start_buf_shift; /* [bytes] */
@@ -8733,7 +8732,6 @@ static int imsm_manage_reshape(
 	map_src = get_imsm_map(dev, 1);
 	if (map_src == NULL)
 		goto abort;
-	map_dest = get_imsm_map(dev, 0);
 
 	ndata = imsm_num_data_members(dev, 0);
 	odata = imsm_num_data_members(dev, 1);
@@ -8742,11 +8740,6 @@ static int imsm_manage_reshape(
 	old_data_stripe_length = odata * chunk;
 
 	migr_rec = super->migr_rec;
-
-	/* [bytes] */
-	sra->new_chunk = __le16_to_cpu(map_dest->blocks_per_strip) * 512;
-	sra->new_level = map_dest->raid_level;
-	new_data_stripe_length = sra->new_chunk * ndata;
 
 	/* initialize migration record for start condition */
 	if (sra->reshape_progress == 0)
@@ -8846,11 +8839,6 @@ static int imsm_manage_reshape(
 					"migration record (UNIT_SRC_IN_CP_AREA)\n");
 				goto abort;
 			}
-			/* decrease backup_blocks */
-			if (backup_blocks > (unsigned long)next_step)
-				backup_blocks -= next_step;
-			else
-				backup_blocks = 0;
 		}
 		/* When data backed up, checkpoint stored,
 		 * kick the kernel to reshape unit of data

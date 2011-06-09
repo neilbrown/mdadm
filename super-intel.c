@@ -2194,6 +2194,13 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			unsigned long long array_blocks;
 			int used_disks;
 
+			if (__le32_to_cpu(migr_rec->ascending_migr) &&
+			    (units <
+				(__le32_to_cpu(migr_rec->num_migr_units)-1)) &&
+			    (super->migr_rec->rec_status ==
+					__cpu_to_le32(UNIT_SRC_IN_CP_AREA)))
+				units++;
+
 			info->reshape_progress = blocks_per_unit * units;
 
 			dprintf("IMSM: General Migration checkpoint : %llu "
@@ -7823,7 +7830,6 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	int retval = 1;
 	unsigned long curr_migr_unit = __le32_to_cpu(migr_rec->curr_migr_unit);
 	unsigned long num_migr_units = __le32_to_cpu(migr_rec->num_migr_units);
-	int ascending = __le32_to_cpu(migr_rec->ascending_migr);
 	char buffer[20];
 	int skipped_disks = 0;
 	int max_degradation;
@@ -7906,16 +7912,13 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 		goto abort;
 	}
 
-	if (ascending && curr_migr_unit < (num_migr_units-1))
-		curr_migr_unit++;
-
-	migr_rec->curr_migr_unit = __le32_to_cpu(curr_migr_unit);
-	super->migr_rec->rec_status = __cpu_to_le32(UNIT_SRC_NORMAL);
-	if (write_imsm_migr_rec(st) == 0) {
-		__u64 blocks_per_unit = blocks_per_migr_unit(super, id->dev);
-		info->reshape_progress = curr_migr_unit * blocks_per_unit;
+	if (save_checkpoint_imsm(st, info, UNIT_SRC_NORMAL)) {
+		/* ignore error == 2, this can mean end of reshape here
+		 */
+		dprintf("imsm: Cannot write checkpoint to "
+			"migration record (UNIT_SRC_NORMAL) during restart\n");
+	} else
 		retval = 0;
-	}
 
 abort:
 	if (targets) {

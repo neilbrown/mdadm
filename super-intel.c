@@ -8854,11 +8854,19 @@ static int imsm_manage_reshape(
 					"migration record (UNIT_SRC_IN_CP_AREA)\n");
 				goto abort;
 			}
+		} else {
+			/* set next step to use whole border area */
+			border /= next_step;
+			if (border > 1)
+				next_step *= border;
 		}
 		/* When data backed up, checkpoint stored,
 		 * kick the kernel to reshape unit of data
 		 */
 		next_step = next_step + sra->reshape_progress;
+		/* limit next step to array max position */
+		if (next_step > max_position)
+			next_step = max_position;
 		sysfs_set_num(sra, NULL, "suspend_lo", sra->reshape_progress);
 		sysfs_set_num(sra, NULL, "suspend_hi", next_step);
 		sra->reshape_progress = next_step;

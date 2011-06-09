@@ -7676,9 +7676,9 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
  *		and to write it to the Copy Area.
  * Parameters:
  *	st		: supertype information
+ *	dev		: imsm device that backup is saved for
  *	info		: general array info
  *	buf		: input buffer
- *	write_offset	: address of data to backup
  *	length		: length of data to backup (blocks_per_unit)
  * Returns:
  *	 0 : success
@@ -7688,7 +7688,6 @@ int save_backup_imsm(struct supertype *st,
 		     struct imsm_dev *dev,
 		     struct mdinfo *info,
 		     void *buf,
-		     int new_data,
 		     int length)
 {
 	int rv = -1;
@@ -8810,8 +8809,7 @@ static int imsm_manage_reshape(
 			 * in backup general migration area
 			 */
 			if (save_backup_imsm(st, dev, sra,
-					     buf + start_buf_shift,
-					     ndata, copy_length)) {
+				buf + start_buf_shift, copy_length)) {
 				dprintf("imsm: Cannot save stripes to "
 					"target devices\n");
 				goto abort;

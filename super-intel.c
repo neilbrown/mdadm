@@ -8573,8 +8573,6 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 	unsigned long long to_complete = sra->reshape_progress;
 	unsigned long long position_to_set = to_complete / ndata;
 
-	struct timeval timeout;
-
 	if (fd < 0) {
 		dprintf("imsm: wait_for_reshape_imsm() "
 			"cannot open reshape_position\n");
@@ -8605,25 +8603,22 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 		return -1;
 	}
 
-	/* FIXME should not need a timeout at all */
-	timeout.tv_sec = 30;
-	timeout.tv_usec = 0;
 	do {
 		char action[20];
 		fd_set rfds;
 		FD_ZERO(&rfds);
 		FD_SET(fd, &rfds);
-		select(fd+1, NULL, NULL, &rfds, &timeout);
+		select(fd+1, &rfds, NULL, NULL, NULL);
+		if (sysfs_get_str(sra, NULL, "sync_action",
+				  action, 20) > 0 &&
+				strncmp(action, "reshape", 7) != 0)
+			break;
 		if (sysfs_fd_get_ll(fd, &completed) < 0) {
 			dprintf("imsm: wait_for_reshape_imsm() "
 				"cannot read reshape_position (in loop)\n");
 			close(fd);
 			return 1;
 		}
-		if (sysfs_get_str(sra, NULL, "sync_action",
-				  action, 20) > 0 &&
-		    strncmp(action, "reshape", 7) != 0)
-			break;
 	} while (completed < to_complete);
 	close(fd);
 	return 0;

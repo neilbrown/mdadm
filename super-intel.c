@@ -7620,10 +7620,7 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 	struct imsm_map *map_dest = get_imsm_map(dev, 0);
 	struct imsm_map *map_src = get_imsm_map(dev, 1);
 	unsigned long long num_migr_units;
-
-	unsigned long long array_blocks =
-		(((unsigned long long)__le32_to_cpu(dev->size_high)) << 32) +
-		__le32_to_cpu(dev->size_low);
+	unsigned long long array_blocks;
 
 	memset(migr_rec, 0, sizeof(struct migr_record));
 	migr_rec->family_num = __cpu_to_le32(super->anchor->family_num);
@@ -7639,7 +7636,7 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 		__cpu_to_le32(migr_rec->dest_depth_per_unit * new_data_disks);
 	migr_rec->dest_depth_per_unit =
 		__cpu_to_le32(migr_rec->dest_depth_per_unit);
-
+	array_blocks = info->component_size * new_data_disks;
 	num_migr_units =
 		array_blocks / __le32_to_cpu(migr_rec->blocks_per_unit);
 
@@ -8736,10 +8733,7 @@ static int imsm_manage_reshape(
 		goto abort;
 	}
 
-	max_position =
-		__le32_to_cpu(migr_rec->post_migr_vol_cap) +
-		((unsigned long long)__le32_to_cpu(
-			 migr_rec->post_migr_vol_cap_hi) << 32);
+	max_position = sra->component_size * ndata;
 
 	while (__le32_to_cpu(migr_rec->curr_migr_unit) <
 	       __le32_to_cpu(migr_rec->num_migr_units)) {

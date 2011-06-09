@@ -8744,6 +8744,13 @@ static int imsm_manage_reshape(
 	/* initialize migration record for start condition */
 	if (sra->reshape_progress == 0)
 		init_migr_record_imsm(st, dev, sra);
+	else {
+		if (__le32_to_cpu(migr_rec->rec_status) != UNIT_SRC_NORMAL) {
+			dprintf("imsm: cannot restart migration when data "
+				"are present in copy area.\n");
+			goto abort;
+		}
+	}
 
 	/* size for data */
 	buf_size = __le32_to_cpu(migr_rec->blocks_per_unit) * 512;

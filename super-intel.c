@@ -7825,6 +7825,8 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	unsigned long num_migr_units = __le32_to_cpu(migr_rec->num_migr_units);
 	int ascending = __le32_to_cpu(migr_rec->ascending_migr);
 	char buffer[20];
+	int skipped_disks = 0;
+	int max_degradation;
 
 	err = sysfs_get_str(info, NULL, "array_state", (char *)buffer, 20);
 	if (err < 1)
@@ -7848,6 +7850,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 
 	map_dest = get_imsm_map(id->dev, 0);
 	new_disks = map_dest->num_members;
+	max_degradation = new_disks - imsm_num_data_members(id->dev, 0);
 
 	read_offset = (unsigned long long)
 			__le32_to_cpu(migr_rec->ckpt_area_pba) * 512;
@@ -7866,6 +7869,10 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	open_backup_targets(info, new_disks, targets);
 
 	for (i = 0; i < new_disks; i++) {
+		if (targets[i] < 0) {
+			skipped_disks++;
+			continue;
+		}
 		if (lseek64(targets[i], read_offset, SEEK_SET) < 0) {
 			fprintf(stderr,
 				Name ": Cannot seek to block: %s\n",
@@ -7890,6 +7897,13 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 				strerror(errno));
 			goto abort;
 		}
+	}
+
+	if (skipped_disks > max_degradation) {
+		fprintf(stderr,
+			Name ": Cannot restore data from backup."
+			" Too many failed disks\n");
+		goto abort;
 	}
 
 	if (ascending && curr_migr_unit < (num_migr_units-1))

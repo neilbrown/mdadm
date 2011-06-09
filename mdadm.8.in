@@ -2225,14 +2225,19 @@ succeed.
 This is for the following reasons:
 
 .IP 1.
-Intel's native IMSM check-pointing is not fully implemented yet.
-This causes IMSM incompatibility during the grow process: an array
+Intel's native IMSM check-pointing is not fully tested yet.
+This can causes IMSM incompatibility during the grow process: an array
 which is growing cannot roam between Microsoft Windows(R) and Linux
 systems.
 
 .IP 2.
 Interrupting a grow operation is not recommended, because it
 has not been fully tested for Intel's IMSM container format yet.
+
+.PP
+Note: Intel's native checkpointing doesn't use
+.B --backup-file
+option and it is transparent for assembly feature.
 
 .SS SIZE CHANGES
 Normally when an array is built the "size" is taken from the smallest

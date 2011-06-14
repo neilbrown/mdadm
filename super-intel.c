@@ -5312,6 +5312,9 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 
 static int is_gen_migration(struct imsm_dev *dev)
 {
+	if (dev == NULL)
+		return 0;
+
 	if (!dev->vol.migr_state)
 		return 0;
 

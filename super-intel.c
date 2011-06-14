@@ -7788,24 +7788,34 @@ abort:
 int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 {
 	struct intel_super *super = st->sb;
+	unsigned long long blocks_per_unit;
+	unsigned long long curr_migr_unit;
+
 	if (load_imsm_migr_rec(super, info) != 0) {
 		dprintf("imsm: ERROR: Cannot read migration record "
 			"for checkpoint save.\n");
 		return 1;
 	}
 
-	if (__le32_to_cpu(super->migr_rec->blocks_per_unit) == 0) {
+	blocks_per_unit = __le32_to_cpu(super->migr_rec->blocks_per_unit);
+	if (blocks_per_unit == 0) {
 		dprintf("imsm: no migration in progress.\n");
 		return 2;
 	}
+	curr_migr_unit = info->reshape_progress / blocks_per_unit;
+	/* check if array is alligned to copy area
+	 * if it is not alligned, add one to current migration unit value
+	 * this can happend on array reshape finish only
+	 */
+	if (info->reshape_progress % blocks_per_unit)
+		curr_migr_unit++;
 
 	super->migr_rec->curr_migr_unit =
-	  __cpu_to_le32(info->reshape_progress /
-			__le32_to_cpu(super->migr_rec->blocks_per_unit));
+		__cpu_to_le32(curr_migr_unit);
 	super->migr_rec->rec_status = __cpu_to_le32(state);
 	super->migr_rec->dest_1st_member_lba =
-	  __cpu_to_le32((__le32_to_cpu(super->migr_rec->curr_migr_unit))
-			* __le32_to_cpu(super->migr_rec->dest_depth_per_unit));
+		__cpu_to_le32(curr_migr_unit *
+			      __le32_to_cpu(super->migr_rec->dest_depth_per_unit));
 	if (write_imsm_migr_rec(st) < 0) {
 		dprintf("imsm: Cannot write migration record "
 			"outside backup area\n");

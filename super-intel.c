@@ -7724,8 +7724,7 @@ int save_backup_imsm(struct supertype *st,
 	if (open_backup_targets(info, new_disks, targets))
 		goto abort;
 
-	if (map_dest->raid_level != 0)
-		dest_layout = ALGORITHM_LEFT_ASYMMETRIC;
+	dest_layout = imsm_level_to_layout(map_dest->raid_level);
 	dest_chunk = __le16_to_cpu(map_dest->blocks_per_strip) * 512;
 
 	if (restore_stripes(targets, /* list of dest devices */
@@ -8772,8 +8771,7 @@ static int imsm_manage_reshape(
 	}
 
 	max_position = sra->component_size * ndata;
-	if (map_src->raid_level != 0)
-		source_layout = ALGORITHM_LEFT_ASYMMETRIC;
+	source_layout = imsm_level_to_layout(map_src->raid_level);
 
 	while (__le32_to_cpu(migr_rec->curr_migr_unit) <
 	       __le32_to_cpu(migr_rec->num_migr_units)) {

@@ -2126,7 +2126,6 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 				/* conversion is happening as RAID5 */
 				info->array.level = 5;
 				info->array.layout = ALGORITHM_PARITY_N;
-				info->array.raid_disks += 1;
 				info->delta_disks -= 1;
 				break;
 			default:

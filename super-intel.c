@@ -7716,13 +7716,15 @@ int save_backup_imsm(struct supertype *st,
 	if (!targets)
 		goto abort;
 
+	for (i = 0; i < new_disks; i++)
+		targets[i] = -1;
+
 	target_offsets = malloc(new_disks * sizeof(unsigned long long));
 	if (!target_offsets)
 		goto abort;
 
 	start = info->reshape_progress * 512;
 	for (i = 0; i < new_disks; i++) {
-		targets[i] = -1;
 		target_offsets[i] = (unsigned long long)
 		  __le32_to_cpu(super->migr_rec->ckpt_area_pba) * 512;
 		/* move back copy area adderss, it will be moved forward

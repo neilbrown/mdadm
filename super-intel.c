@@ -5856,14 +5856,18 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 		} else {
 			if (a->last_checkpoint == 0 && a->prev_action == reshape) {
 				/* for some reason we aborted the reshape.
-				 * Better clean up
+				 *
+				 * disable automatic metadata rollback
+				 * user action is required to recover process
 				 */
+				if (0) {
 				struct imsm_map *map2 = get_imsm_map(dev, 1);
 				dev->vol.migr_state = 0;
 				dev->vol.migr_type = 0;
 				dev->vol.curr_migr_unit = 0;
 				memcpy(map, map2, sizeof_imsm_map(map2));
 				super->updates_pending++;
+				}
 			}
 			if (a->last_checkpoint >= a->info.component_size) {
 				unsigned long long array_blocks;

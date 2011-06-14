@@ -7710,6 +7710,8 @@ int save_backup_imsm(struct supertype *st,
 	int new_disks = map_dest->num_members;
 	int dest_layout = 0;
 	int dest_chunk;
+	unsigned long long start;
+	int data_disks = imsm_num_data_members(dev, 0);
 
 	targets = malloc(new_disks * sizeof(int));
 	if (!targets)
@@ -7719,10 +7721,15 @@ int save_backup_imsm(struct supertype *st,
 	if (!target_offsets)
 		goto abort;
 
+	start = info->reshape_progress * 512;
 	for (i = 0; i < new_disks; i++) {
 		targets[i] = -1;
 		target_offsets[i] = (unsigned long long)
 		  __le32_to_cpu(super->migr_rec->ckpt_area_pba) * 512;
+		/* move back copy area adderss, it will be moved forward
+		 * in restore_stripes() using start input variable
+		 */
+		target_offsets[i] -= start/data_disks;
 	}
 
 	if (open_backup_targets(info, new_disks, targets))
@@ -7740,7 +7747,7 @@ int save_backup_imsm(struct supertype *st,
 			    -1,    /* source backup file descriptor */
 			    0,     /* input buf offset
 				    * always 0 buf is already offseted */
-			    0,
+			    start,
 			    length,
 			    buf) != 0) {
 		fprintf(stderr, Name ": Error restoring stripes\n");

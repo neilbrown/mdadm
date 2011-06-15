@@ -14,6 +14,13 @@ imsm_check() {
         t_offset=$7
         t_chunk=$8
 
+	if [ $t_level -ne 1 ]; then
+	   t_rd_size=$((t_rd_size & ~(t_chunk - 1)))
+	else
+	   t_chunk=64
+	fi
+	t_size=$((t_size/1024))
+	t_size=$((t_size*1024))
         err=0
 
         eval `stat -L -c "let major=0x%t; let minor=0x%T;" $t_member`
@@ -62,3 +69,6 @@ export MDADM_EXPERIMENTAL=1
 container=/dev/md/container
 member0=/dev/md/vol0
 member1=/dev/md/vol1
+member2=/dev/md/vol2
+member3=/dev/md/vol3
+member4=/dev/md/vol4

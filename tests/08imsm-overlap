@@ -1,11 +1,6 @@
 
 . tests/env-imsm-template
 
-member2=/dev/md/vol2
-member3=/dev/md/vol3
-member4=/dev/md/vol4
-
-
 # create raid arrays with varying degress of overlap
 mdadm -CR $container -e imsm -n 6 $dev0 $dev1 $dev2 $dev3 $dev4 $dev5
 imsm_check container 6

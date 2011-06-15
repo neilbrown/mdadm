@@ -33,6 +33,7 @@ mdadm -Ss
 mdadm -A /dev/md/ddf0  $dev8 $dev9 $dev10 $dev11 $dev12
 mdadm -I /dev/md/ddf0
 
+udevadm settle
 s0a=`sha1sum /dev/md/r0`
 s1a=`sha1sum /dev/md/r1`
 s5a=`sha1sum /dev/md/r5`

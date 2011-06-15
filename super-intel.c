@@ -8037,7 +8037,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 				strerror(errno));
 			goto abort;
 		}
-		if (read(targets[i], buf, unit_len) != unit_len) {
+		if ((unsigned)read(targets[i], buf, unit_len) != unit_len) {
 			fprintf(stderr,
 				Name ": Cannot read copy area block: %s\n",
 				strerror(errno));
@@ -8049,7 +8049,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 				strerror(errno));
 			goto abort;
 		}
-		if (write(targets[i], buf, unit_len) != unit_len) {
+		if ((unsigned)write(targets[i], buf, unit_len) != unit_len) {
 			fprintf(stderr,
 				Name ": Cannot restore block: %s\n",
 				strerror(errno));

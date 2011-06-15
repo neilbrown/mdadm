@@ -1429,16 +1429,20 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 			info->component_size = __be64_to_cpu(vc->conf.blocks);
 	}
 
-	dl = ddf->dlist;
+	for (dl = ddf->dlist; dl ; dl = dl->next)
+		if (dl->raiddisk == ddf->currentdev)
+			break;
+
 	info->disk.major = 0;
 	info->disk.minor = 0;
+	info->disk.state = 0;
 	if (dl) {
 		info->disk.major = dl->major;
 		info->disk.minor = dl->minor;
+		info->disk.raid_disk = dl->raiddisk;
+		info->disk.number = dl->pdnum;
+		info->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
 	}
-//	info->disk.number = __be32_to_cpu(ddf->disk.refnum);
-//	info->disk.raid_disk = find refnum in the table and use index;
-//	info->disk.state = ???;
 
 	info->container_member = ddf->currentconf->vcnum;
 

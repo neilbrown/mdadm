@@ -22,7 +22,7 @@ imsm_check() {
    udevadm settle
    case $1 in
     container )
-      grep -s "$(((418 * $2)/2)) blocks super external:imsm" /proc/mdstat > /dev/null || {
+      grep -s " blocks super external:imsm" /proc/mdstat > /dev/null || {
    		echo >&2 "ERROR correctly formed container not found"; cat /proc/mdstat; exit 1;}
       ;;
     member )
@@ -94,7 +94,7 @@ mdadm -CR $container -e imsm -n $num_disks $dev0 $dev1
 imsm_check container $num_disks
 
 # RAID0 + RAID1
-size=10000
+size=9000
 level=0
 chunk=64
 offset=0
@@ -103,7 +103,7 @@ imsm_check member $member0 $num_disks $level $size $offset $chunk
 testdev $member0 $num_disks $size $chunk
 
 offset=$(((size & ~(chunk - 1)) + 2048))
-size=5000
+size=4000
 level=1
 chunk=0
 mdadm -CR $member1 $dev0 $dev1 -n $num_disks -l $level -z $size
@@ -118,7 +118,7 @@ num_disks=4
 mdadm -CR $container -e imsm -n $num_disks $dev0 $dev1 $dev2 $dev3
 imsm_check container $num_disks
 
-size=10000
+size=9000
 level=10
 chunk=64
 offset=0
@@ -127,7 +127,7 @@ imsm_check member $member0 $num_disks $level $size $offset $chunk
 testdev $member0 $((num_disks-2)) $size $chunk
 
 offset=$(((size & ~(chunk - 1)) + 2048))
-size=5000
+size=4000
 level=5
 mdadm -CR $member1 $dev0 $dev1 $dev2 $dev3 -n $num_disks -l $level -z $size -c $chunk
 imsm_check member $member1 $num_disks $level $size $offset $chunk

@@ -595,7 +595,7 @@ static __u8 *get_imsm_version(struct imsm_super *mpb)
 {
 	return &mpb->sig[MPB_SIG_LEN];
 }
-#endif 
+#endif
 
 /* retrieve a disk directly from the anchor when the anchor is known to be
  * up-to-date, currently only at load time
@@ -1127,7 +1127,7 @@ void examine_migr_rec_imsm(struct intel_super *super)
 		break;
 	}
 }
-
+#endif /* MDASSEMBLE */
 /*******************************************************************************
  * function: imsm_check_attributes
  * Description: Function checks if features represented by attributes flags
@@ -1212,6 +1212,7 @@ static int imsm_check_attributes(__u32 attributes)
 	return ret_val;
 }
 
+#ifndef MDASSEMBLE
 static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *map);
 
 static void examine_super_imsm(struct supertype *st, char *homehost)
@@ -1539,8 +1540,6 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 
 	return err;
 }
-
-
 
 static void print_found_intel_controllers(struct sys_dev *elem)
 {
@@ -2065,6 +2064,7 @@ out:
 	return retval;
 }
 
+#ifndef MDASSEMBLE
 /*******************************************************************************
  * function: imsm_create_metadata_checkpoint_update
  * Description: It creates update for checkpoint change.
@@ -2182,6 +2182,7 @@ static int write_imsm_migr_rec(struct supertype *st)
 		close(fd);
 	return retval;
 }
+#endif /* MDASSEMBLE */
 
 static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info, char *dmap)
 {
@@ -4512,8 +4513,6 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 	return 0;
 }
 
-static int is_gen_migration(struct imsm_dev *dev);
-
 static int write_super_imsm(struct supertype *st, int doclose)
 {
 	struct intel_super *super = st->sb;
@@ -4585,7 +4584,8 @@ static int write_super_imsm(struct supertype *st, int doclose)
 
 			get_dev_size(d->fd, NULL, &dsize);
 			if (lseek64(d->fd, dsize - 512, SEEK_SET) >= 0) {
-				write(d->fd, super->migr_rec_buf, 512);
+				if (write(d->fd, super->migr_rec_buf, 512) != 512)
+					perror("Write migr_rec failed");
 			}
 		}
 		if (doclose) {
@@ -5496,7 +5496,9 @@ static void update_recovery_start(struct intel_super *super,
 	rebuild->recovery_start = units * blocks_per_migr_unit(super, dev);
 }
 
+#ifndef MDASSEMBLE
 static int recover_backup_imsm(struct supertype *st, struct mdinfo *info);
+#endif
 
 static struct mdinfo *container_content_imsm(struct supertype *st, char *subarray)
 {
@@ -5667,10 +5669,11 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		update_recovery_start(super, dev, this);
 		this->array.spare_disks += spare_disks;
 
+#ifndef MDASSEMBLE
 		/* check for reshape */
 		if (this->reshape_active == 1)
 			recover_backup_imsm(st, this);
-
+#endif
 		rest = this;
 	}
 
@@ -7697,7 +7700,7 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 		__free_imsm_disk(dl);
 	}
 }
-
+#endif /* MDASSEMBLE */
 /*******************************************************************************
  * Function:	open_backup_targets
  * Description:	Function opens file descriptors for all devices given in
@@ -7737,6 +7740,7 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds)
 	return 0;
 }
 
+#ifndef MDASSEMBLE
 /*******************************************************************************
  * Function:	init_migr_record_imsm
  * Description:	Function inits imsm migration record
@@ -7952,9 +7956,6 @@ int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 
 	return 0;
 }
-
-static __u64 blocks_per_migr_unit(struct intel_super *super,
-				  struct imsm_dev *dev);
 
 /*******************************************************************************
  * Function:	recover_backup_imsm
@@ -9068,6 +9069,7 @@ struct superswitch super_imsm = {
 	.get_disk_controller_domain = imsm_get_disk_controller_domain,
 	.reshape_super  = imsm_reshape_super,
 	.manage_reshape = imsm_manage_reshape,
+	.recover_backup = recover_backup_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
@@ -9087,7 +9089,6 @@ struct superswitch super_imsm = {
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
 
-	.recover_backup = recover_backup_imsm,
 
 	.external	= 1,
 	.name = "imsm",

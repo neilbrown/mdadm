@@ -8,7 +8,7 @@ dd if=/dev/urandom of=/tmp/RandFile bs=1024 count=$testK
 export MDADM_GROW_VERIFY=1
 
 dotest() {
- sleep 0.5
+ sleep 2
  check wait
  testdev $md0 $1 19968 64 nd
  blockdev --flushbufs $md0

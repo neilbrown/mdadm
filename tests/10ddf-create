@@ -59,7 +59,7 @@ mdadm -Ss
 # Now try to assemble using mdadm.conf
 mdadm -Asc /var/tmp/mdadm.conf
 check nosync  # This failed once. The raid5 was resyncing.
-
+udevadm settle
 mdadm -Dbs | sort > /tmp/mdadm.conf
 sort /var/tmp/mdadm.conf | diff /tmp/mdadm.conf -
 mdadm -Ss
@@ -74,7 +74,7 @@ do
   [ `cat /tmp/cnt` -eq 3 ]
 done
 check nosync
-
+udevadm settle
 mdadm -Dbs | sort > /tmp/mdadm.conf
 sort /var/tmp/mdadm.conf | diff /tmp/mdadm.conf -
 mdadm -Ss

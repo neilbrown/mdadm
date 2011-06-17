@@ -146,16 +146,16 @@ int get_linux_version()
 {
 	struct utsname name;
 	char *cp;
-	int a,b,c;
+	int a = 0, b = 0,c = 0;
 	if (uname(&name) <0)
 		return -1;
 
 	cp = name.release;
 	a = strtoul(cp, &cp, 10);
-	if (*cp != '.') return -1;
-	b = strtoul(cp+1, &cp, 10);
-	if (*cp != '.') return -1;
-	c = strtoul(cp+1, NULL, 10);
+	if (*cp == '.')
+		b = strtoul(cp+1, &cp, 10);
+	if (*cp == '.')
+		c = strtoul(cp+1, &cp, 10);
 
 	return (a*1000000)+(b*1000)+c;
 }

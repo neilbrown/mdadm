@@ -424,6 +424,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 	 * ignored.
 	 */
 	int rv = 0;
+	int uuid[4];
 	mdp_super_t *sb = st->sb;
 	if (strcmp(update, "sparc2.2")==0 ) {
 		/* 2.2 sparc put the events in the wrong place
@@ -562,7 +563,8 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		if (sb->state & (1<<MD_SB_BITMAP_PRESENT)) {
 			struct bitmap_super_s *bm;
 			bm = (struct bitmap_super_s*)(sb+1);
-			uuid_from_super0(st, (int*)bm->uuid);
+			uuid_from_super0(st, uuid);
+			memcpy(bm->uuid, uuid, 16);
 		}
 	} else if (strcmp(update, "no-bitmap") == 0) {
 		sb->state &= ~(1<<MD_SB_BITMAP_PRESENT);
@@ -988,6 +990,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	int chunk = *chunkp;
 	mdp_super_t *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MD_SB_BYTES);
+	int uuid[4];
 
 
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
@@ -1011,7 +1014,8 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	memset(bms, 0, sizeof(*bms));
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
 	bms->version = __cpu_to_le32(major);
-	uuid_from_super0(st, (int*)bms->uuid);
+	uuid_from_super0(st, uuid);
+	memcpy(bms->uuid, uuid, 16);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);

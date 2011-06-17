@@ -3023,6 +3023,7 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	int chunk = sra->array.chunk_size;
 	struct mdinfo *sd;
 	unsigned long stripes;
+	int uuid[4];
 
 	/* set up the backup-super-block.  This requires the
 	 * uuid from the array.
@@ -3050,7 +3051,8 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 
 	memset(&bsb, 0, 512);
 	memcpy(bsb.magic, "md_backup_data-1", 16);
-	st->ss->uuid_from_super(st, (int*)&bsb.set_uuid);
+	st->ss->uuid_from_super(st, uuid);
+	memcpy(bsb.set_uuid, uuid, 16);
 	bsb.mtime = __cpu_to_le64(time(0));
 	bsb.devstart2 = blocks;
 

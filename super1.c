@@ -1493,6 +1493,7 @@ add_internal_bitmap1(struct supertype *st,
 	int room = 0;
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + 1024);
+	int uuid[4];
 
 	switch(st->minor_version) {
 	case 0:
@@ -1580,7 +1581,8 @@ add_internal_bitmap1(struct supertype *st,
 	memset(bms, 0, sizeof(*bms));
 	bms->magic = __cpu_to_le32(BITMAP_MAGIC);
 	bms->version = __cpu_to_le32(major);
-	uuid_from_super1(st, (int*)bms->uuid);
+	uuid_from_super1(st, uuid);
+	memcpy(bms->uuid, uuid, 16);
 	bms->chunksize = __cpu_to_le32(chunk);
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);

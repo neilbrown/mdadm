@@ -7009,7 +7009,7 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 	for (du = super->missing; du; du = du->next)
 		if (du->index >= 0) {
 			set_imsm_ord_tbl_ent(map, du->index, du->index);
-			mark_missing(dev_new, &du->disk, du->index);
+			mark_missing(dv->dev, &du->disk, du->index);
 		}
 
 	return 1;
@@ -8301,6 +8301,7 @@ static int imsm_create_metadata_update_for_reshape(
 	    || delta_disks > spares->array.spare_disks) {
 		fprintf(stderr, Name ": imsm: ERROR: Cannot get spare devices "
 			"for %s.\n", geo->dev_name);
+		i = -1;
 		goto abort;
 	}
 

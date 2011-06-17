@@ -705,7 +705,7 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 	int cnt = 0;
 	__u64 max_events = 0;
 	char *avail = NULL;
-	int *best;
+	int *best = NULL;
 	char *devmap = NULL;
 	int numdevs = 0;
 	int devnum;

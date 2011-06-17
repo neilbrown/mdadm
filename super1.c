@@ -111,7 +111,6 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 	unsigned long long newcsum;
 	int size = sizeof(*sb) + __le32_to_cpu(sb->max_dev)*2;
 	unsigned int *isuper = (unsigned int*)sb;
-	int i;
 
 /* make sure I can count... */
 	if (offsetof(struct mdp_superblock_1,data_offset) != 128 ||
@@ -123,7 +122,7 @@ static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 	disk_csum = sb->sb_csum;
 	sb->sb_csum = 0;
 	newcsum = 0;
-	for (i=0; size>=4; size -= 4 ) {
+	for (; size>=4; size -= 4 ) {
 		newcsum += __le32_to_cpu(*isuper);
 		isuper++;
 	}
@@ -387,15 +386,11 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf("   Array State : ");
 	for (d=0; d<__le32_to_cpu(sb->raid_disks) + delta_extra; d++) {
 		int cnt = 0;
-		int me = 0;
 		unsigned int i;
 		for (i=0; i< __le32_to_cpu(sb->max_dev); i++) {
 			unsigned int role = __le16_to_cpu(sb->dev_roles[i]);
-			if (role == d) {
-				if (i == __le32_to_cpu(sb->dev_number))
-					me = 1;
+			if (role == d)
 				cnt++;
-			}
 		}
 		if (cnt > 1) printf("?");
 		else if (cnt == 1) printf("A");

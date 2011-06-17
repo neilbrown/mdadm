@@ -514,6 +514,12 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	ignore = dup(0);
 #endif
 
+	/* This silliness is to stop the compiler complaining
+	 * that we ignore 'ignore'
+	 */
+	if (ignore)
+		ignore++;
+
 	do_manager(container);
 
 	exit(0);

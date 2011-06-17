@@ -428,6 +428,11 @@ int sysfs_uevent(struct mdinfo *sra, char *event)
 		return -1;
 	n = write(fd, event, strlen(event));
 	close(fd);
+	if (n != (int)strlen(event)) {
+		dprintf(Name ": failed to write '%s' to '%s' (%s)\n",
+			event, fname, strerror(errno));
+		return -1;
+	}
 	return 0;
 }	
 

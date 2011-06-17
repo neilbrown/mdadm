@@ -11,6 +11,7 @@ ANNOUNCE-3.1.4
 ANNOUNCE-3.1.5
 ANNOUNCE-3.2
 ANNOUNCE-3.2.1
+ANNOUNCE-3.2.2
 Assemble.c
 bitmap.c
 bitmap.h
@@ -37,11 +38,13 @@ kernel-patch-2.6.19
 kernel-patch-2.6.25
 kernel-patch-2.6.27
 Kill.c
+lib.c
 makedist
 Makefile
 Manage.c
 managemon.c
 mapfile.c
+maps.c
 md.4
 md5.h
 mdadm.8.in

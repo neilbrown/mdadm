@@ -1119,9 +1119,8 @@ int must_be_container(int fd)
 static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 {
 	struct GPT gpt;
-	unsigned char buf[512];
 	unsigned char empty_gpt_entry[16]= {0};
-	struct GPT_part_entry *part;
+	struct GPT_part_entry part;
 	unsigned long long curr_part_end;
 	unsigned all_partitions, entry_size;
 	unsigned part_nr;
@@ -1129,8 +1128,9 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 	*endofpart = 0;
 
 	BUILD_BUG_ON(sizeof(gpt) != 512);
-	/* read GPT header */
+	/* skip protective MBR */
 	lseek(fd, 512, SEEK_SET);
+	/* read GPT header */
 	if (read(fd, &gpt, 512) != 512)
 		return 0;
 
@@ -1147,28 +1147,19 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 	    entry_size > 512)
 		return -1;
 
-	/* read first GPT partition entries */
-	if (read(fd, buf, 512) != 512)
-		return 0;
-
-	part = (struct GPT_part_entry*)buf;
-
 	for (part_nr=0; part_nr < all_partitions; part_nr++) {
+		/* read partition entry */
+		if (read(fd, &part, entry_size) != (ssize_t)entry_size)
+			return 0;
+
 		/* is this valid partition? */
-		if (memcmp(part->type_guid, empty_gpt_entry, 16) != 0) {
+		if (memcmp(part.type_guid, empty_gpt_entry, 16) != 0) {
 			/* check the last lba for the current partition */
-			curr_part_end = __le64_to_cpu(part->ending_lba);
+			curr_part_end = __le64_to_cpu(part.ending_lba);
 			if (curr_part_end > *endofpart)
 				*endofpart = curr_part_end;
 		}
 
-		part = (struct GPT_part_entry*)((unsigned char*)part + entry_size);
-
-		if ((unsigned char *)part >= buf + 512) {
-			if (read(fd, buf, 512) != 512)
-				return 0;
-			part = (struct GPT_part_entry*)buf;
-		}
 	}
 	return 1;
 }

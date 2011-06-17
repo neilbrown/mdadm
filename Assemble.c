@@ -1383,7 +1383,7 @@ int Assemble(struct supertype *st, char *mddev,
 					 * might allow them to be included, or
 					 * they will become spares.
 					 */
-					for (i = 0; i <= bestcnt; i++) {
+					for (i = 0; i < bestcnt; i++) {
 						int j = best[i];
 						if (j >= 0 && !devices[j].uptodate) {
 							if (!disk_action_allows(&devices[j].i, st->ss->name, act_re_add))

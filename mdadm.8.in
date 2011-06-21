@@ -811,6 +811,11 @@ number, and there is no entry in /dev for that number and with a
 non-standard name.  Names that are not in 'standard' format are only
 allowed in "/dev/md/".
 
+This is meaningful with
+.B \-\-create
+or
+.BR \-\-build .
+
 .ig XX
 .\".TP
 .\".BR \-\-symlink = no
@@ -834,6 +839,28 @@ allowed in "/dev/md/".
 .\".IR mdadm.conf .
 .\"
 .XX
+
+.TP
+.BR \-a ", " "\-\-add"
+This option can be used in Grow mode in two cases.
+
+If the target array is a Linear array, then
+.B \-\-add
+can be used to add one or more devices to the array.  They
+are simply catenated on to the end of the array.  Once added, the
+devices cannot be removed.
+
+If the
+.B \-\-raid\-disks
+option is being used to increase the number of devices in an array,
+then
+.B \-\-add
+can be used to add some extra devices to be included in the array.
+In most cases this is not needed as the extra devices can be added as
+spares first, and then the number of raid-disks can be changed.
+However for RAID0, it is not possible to add spares.  So to increase
+the number of devices in a RAID0, it is necessary to set the new
+number of devices, and to add the new devices, in the same command.
 
 .SH For assemble:
 
@@ -910,28 +937,6 @@ not as reliable as you would like.
 .TP
 .BR \-a ", " "\-\-auto{=no,yes,md,mdp,part}"
 See this option under Create and Build options.
-
-.TP
-.BR \-a ", " "\-\-add"
-This option can be used in Grow mode in two cases.
-
-If the target array is a Linear array, then
-.B \-\-add
-can be used to add one or more devices to the array.  They
-are simply catenated on to the end of the array.  Once added, the
-devices cannot be removed.
-
-If the
-.B \-\-raid\-disks
-option is being used to increase the number of devices in an array,
-then
-.B \-\-add
-can be used to add some extra devices to be included in the array.
-In most cases this is not needed as the extra devices can be added as
-spares first, and then the number of raid-disks can be changed.
-However for RAID0, it is not possible to add spares.  So to increase
-the number of devices in a RAID0, it is necessary to set the new
-number of devices, and to add the new devices, in the same command.
 
 .TP
 .BR \-b ", " \-\-bitmap=

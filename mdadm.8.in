@@ -706,7 +706,7 @@ facts the operator knows.
 When an array is resized to a larger size with
 .B "\-\-grow \-\-size="
 the new space is normally resynced in that same way that the whole
-array is resynced at creation.  From Linux version 2.6.40,
+array is resynced at creation.  From Linux version 3.0,
 .B \-\-assume\-clean
 can be used with that command to avoid the automatic resync.
 

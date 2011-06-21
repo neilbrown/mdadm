@@ -1494,7 +1494,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 		if (assume_clean) {
-			/* This will fail on kernels newer than 2.6.40 unless
+			/* This will fail on kernels newer than 3.0 unless
 			 * a backport has been arranged.
 			 */
 			if (sra == NULL ||

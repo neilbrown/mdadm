@@ -372,11 +372,13 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			else
 				st = ", degraded";
 
-			printf("          State : %s%s%s%s\n",
-			       (array.state&(1<<MD_SB_CLEAN))?"clean":"active",
-			       st,
-			       (!e || e->percent < 0) ? "" : sync_action[e->resync],
-			       larray_size ? "": ", Not Started");
+			printf("          State : %s%s%s%s%s%s \n",
+			       (array.state&(1<<MD_SB_CLEAN))?"clean":"active", st,
+			       (!e || (e->percent < 0 && e->percent != PROCESS_PENDING &&
+			       e->percent != PROCESS_DELAYED)) ? "" : sync_action[e->resync],
+			       larray_size ? "": ", Not Started",
+			       e->percent == PROCESS_DELAYED ? " (DELAYED)": "",
+			       e->percent == PROCESS_PENDING ? " (PENDING)": "");
 		}
 		if (array.raid_disks)
 			printf(" Active Devices : %d\n", array.active_disks);
@@ -416,10 +418,8 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		}
 
 		if (e && e->percent >= 0) {
-			printf(" Re%s Status : %d%% complete\n",
-			       (st && st->sb && info->reshape_active)?
-			          "shape":"build",
-			       e->percent);
+			static char *sync_action[] = {"Rebuild", "Resync", "Reshape", "Check"};
+			printf(" %7s Status : %d%% complete\n", sync_action[e->resync], e->percent);
 			is_rebuilding = 1;
 		}
 		free_mdstat(ms);

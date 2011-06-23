@@ -257,10 +257,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				if (strncmp(w, "check", 5)==0)
 					ent->resync = 3;
 
-				if (l > 8 && strcmp(w+l-8, "=DELAYED"))
-					ent->percent = 0;
-				if (l > 8 && strcmp(w+l-8, "=PENDING"))
-					ent->percent = 0;
+				if (l > 8 && strcmp(w+l-8, "=DELAYED") == 0)
+					ent->percent = PROCESS_DELAYED;
+				if (l > 8 && strcmp(w+l-8, "=PENDING") == 0)
+					ent->percent = PROCESS_PENDING;
 			} else if (ent->percent == -1 &&
 				   w[0] >= '0' &&
 				   w[0] <= '9' &&

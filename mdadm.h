@@ -1345,3 +1345,5 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 #define PATH_MAX	4096
 #endif
 
+#define PROCESS_DELAYED -2
+#define PROCESS_PENDING -3

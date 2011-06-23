@@ -2,6 +2,7 @@
 /*.man
 /*-stamp
 /mdadm
+/mdadm.8
 /mdadm.udeb
 /mdmon
 /swap_super

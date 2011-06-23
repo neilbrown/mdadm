@@ -430,12 +430,9 @@ This is pretty boring
 			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info->reshape_progress<<9,
 			       human_size((unsigned long long)info->reshape_progress<<9));
 #endif
-			if (info->delta_disks > 0)
+			if (info->delta_disks != 0)
 				printf("  Delta Devices : %d, (%d->%d)\n",
 				       info->delta_disks, array.raid_disks - info->delta_disks, array.raid_disks);
-			if (info->delta_disks < 0)
-				printf("  Delta Devices : %d, (%d->%d)\n",
-				       info->delta_disks, array.raid_disks, array.raid_disks + info->delta_disks);
 			if (info->new_level != array.level) {
 				char *c = map_num(pers, info->new_level);
 				printf("      New Level : %s\n", c?c:"-unknown-");

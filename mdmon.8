@@ -104,7 +104,7 @@ within those disks.  MD metadata in comparison defines a 1:1
 relationship between a set of block devices and a raid array.  For
 example to create 2 arrays at different raid levels on a single
 set of disks, MD metadata requires the disks be partitioned and then
-each array can created be created with a subset of those partitions.  The
+each array can be created with a subset of those partitions.  The
 supported external formats perform this disk carving internally.
 .P
 Container devices simply hold references to all member disks and allow
@@ -172,7 +172,7 @@ Note that
 is automatically started by
 .I mdadm
 when needed and so does not need to be considered when working with
-RAID arrays.  The only times it is run other that by
+RAID arrays.  The only times it is run other than by
 .I  mdadm
 is when the boot scripts need to restart it after mounting the new
 root filesystem.

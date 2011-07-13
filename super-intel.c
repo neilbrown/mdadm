@@ -1518,9 +1518,9 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 			fd2devname(fd, buf);
 			printf("          Port%d : %s", port, buf);
 			if (imsm_read_serial(fd, NULL, (__u8 *) buf) == 0)
-				printf(" (%s)\n", buf);
+				printf(" (%.*s)\n", MAX_RAID_SERIAL_LEN, buf);
 			else
-				printf("()\n");
+				printf(" ()\n");
 		}
 		close(fd);
 		free(path);

@@ -341,7 +341,7 @@ struct intel_super {
 		struct extent *e; /* for determining freespace @ create */
 		int raiddisk; /* slot to fill in autolayout */
 		enum action action;
-	} *disks;
+	} *disks, *current_disk;
 	struct dl *disk_mgmt_list; /* list of disks to add/remove while mdmon
 				      active */
 	struct dl *missing; /* disks removed while we weren't looking */
@@ -2201,7 +2201,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	if (prev_map)
 		map_to_analyse = prev_map;
 
-	dl = super->disks;
+	dl = super->current_disk;
 
 	info->container_member	  = super->current_vol;
 	info->array.raid_disks    = map->num_members;
@@ -2263,11 +2263,12 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		info->new_chunk = info->array.chunk_size;
 		info->delta_disks = 0;
 	}
-	info->disk.major = 0;
-	info->disk.minor = 0;
+
 	if (dl) {
 		info->disk.major = dl->major;
 		info->disk.minor = dl->minor;
+		info->disk.number = dl->index;
+		info->disk.raid_disk = dl->index;
 	}
 
 	info->data_offset	  = __le32_to_cpu(map_to_analyse->pba_of_lba0);
@@ -4349,7 +4350,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		mpb->family_num = __cpu_to_le32(sum);
 		mpb->orig_family_num = mpb->family_num;
 	}
-
+	super->current_disk = dl;
 	return 0;
 }
 

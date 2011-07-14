@@ -856,15 +856,6 @@ int Create(struct supertype *st, char *mddev,
 					/* getinfo_super might have lost these ... */
 					inf->disk.major = major(stb.st_rdev);
 					inf->disk.minor = minor(stb.st_rdev);
-					/* FIXME the following should not be needed
-					 * as getinfo_super is suppose to set
-					 * them.  However it doesn't for imsm,
-					 * so we have this hack for now
-					 */
-					if (st->ss == &super_imsm) {
-						inf->disk.number = dnum;
-						inf->disk.raid_disk = dnum;
-					}
 				}
 				break;
 			case 2:

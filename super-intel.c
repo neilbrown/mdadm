@@ -2326,7 +2326,9 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 
 			dprintf("IMSM: General Migration checkpoint : %llu "
 			       "(%llu) -> read reshape progress : %llu\n",
-				units, blocks_per_unit, info->reshape_progress);
+				(unsigned long long)units,
+				(unsigned long long)blocks_per_unit,
+				info->reshape_progress);
 
 			used_disks = imsm_num_data_members(dev, 1);
 			if (used_disks > 0) {
@@ -8661,8 +8663,9 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 		dprintf("imsm: info: Volume operation\n");
 		/* find requested device */
 		while (dev) {
-			imsm_find_array_minor_by_subdev(dev->index, st->container_dev, &devnum);
-			if (devnum == geo.dev_id)
+			if (imsm_find_array_minor_by_subdev(
+				    dev->index, st->container_dev, &devnum) == 0
+			    && devnum == geo.dev_id)
 				break;
 			dev = dev->next;
 		}

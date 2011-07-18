@@ -167,28 +167,12 @@ static inline int fls(int x)
 	return r;
 }
 
-/**
- * imsm_orom_default_chunk - return the largest chunk size supported via orom
- * @orom: orom pointer from find_imsm_orom
- */
-static inline int imsm_orom_default_chunk(const struct imsm_orom *orom)
-{
-	int fs = fls(orom->sss);
-
-	if (!fs)
-		return 0;
-
-	return min(512, (1 << fs));
-}
-
-
 enum sys_dev_type {
 	SYS_DEV_UNKNOWN = 0,
 	SYS_DEV_SAS,
 	SYS_DEV_SATA,
 	SYS_DEV_MAX
 };
-
 
 struct sys_dev {
 	enum sys_dev_type type;

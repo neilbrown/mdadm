@@ -4915,6 +4915,15 @@ static int is_raid_level_supported(const struct imsm_orom *orom, int level, int 
 	return 0;
 }
 
+static int imsm_default_chunk(const struct imsm_orom *orom)
+{
+	/* up to 512 if the plaform supports it, otherwise the platform max.
+	 * 128 if no platform detected
+	 */
+	int fs = max(7, orom ? fls(orom->sss) : 0);
+
+	return min(512, (1 << fs));
+}
 
 #define pr_vrb(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
 /*
@@ -4943,15 +4952,16 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 			level, raiddisks, raiddisks > 1 ? "s" : "");
 		return 0;
 	}
-	if (super->orom && level != 1) {
-		if (chunk && (*chunk == 0 || *chunk == UnSet))
-			*chunk = imsm_orom_default_chunk(super->orom);
-		else if (chunk && !imsm_orom_has_chunk(super->orom, *chunk)) {
-			pr_vrb(": platform does not support a chunk size of: "
-			       "%d\n", *chunk);
-			return 0;
-		}
+
+	if (chunk && (*chunk == 0 || *chunk == UnSet))
+		*chunk = imsm_default_chunk(super->orom);
+
+	if (super->orom && chunk && !imsm_orom_has_chunk(super->orom, *chunk)) {
+		pr_vrb(": platform does not support a chunk size of: "
+		       "%d\n", *chunk);
+		return 0;
 	}
+
 	if (layout != imsm_level_to_layout(level)) {
 		if (level == 5)
 			pr_vrb(": imsm raid 5 only supports the left-asymmetric layout\n");
@@ -5301,9 +5311,8 @@ static void default_geometry_imsm(struct supertype *st, int *level, int *layout,
 	if (level && layout && *layout == UnSet)
 		*layout = imsm_level_to_layout(*level);
 
-	if (chunk && (*chunk == UnSet || *chunk == 0) && 
-	    super && super->orom)
-		*chunk = imsm_orom_default_chunk(super->orom);
+	if (chunk && (*chunk == UnSet || *chunk == 0))
+		*chunk = imsm_default_chunk(super->orom);
 }
 
 static void handle_missing(struct intel_super *super, struct imsm_dev *dev);

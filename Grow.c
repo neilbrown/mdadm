@@ -1268,7 +1268,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 	if (re->after.data_disks < re->before.data_disks &&
 	    get_linux_version() < 2006030)
-		return "reshape to fewer devices is not supported before 2.6.32 - sorry.";
+		return "reshape to fewer devices is not supported before 2.6.30 - sorry.";
 
 	re->backup_blocks = compute_backup_blocks(
 		info->new_chunk, info->array.chunk_size,

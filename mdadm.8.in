@@ -418,11 +418,22 @@ issued.
 A suffix of 'M' or 'G' can be given to indicate Megabytes or
 Gigabytes respectively.
 
+Sometimes a replacement drive can be a little smaller than the
+original drives though this should be minimised by IDEMA standards.
+Such a replacement drive will be rejected by
+.IR md .
+To guard against this it can be useful to set the initial size
+slightly smaller than the smaller device with the aim that it will
+still be larger than any replacement.
+
 This value can be set with
 .B \-\-grow
-for RAID level 1/4/5/6.  If the array was created with a size smaller
-than the currently active drives, the extra space can be accessed
-using
+for RAID level 1/4/5/6 though
+.B CONTAINER
+based arrays such as those with IMSM metadata may not be able to
+support this.
+If the array was created with a size smaller than the currently
+active drives, the extra space can be accessed using
 .BR \-\-grow .
 The size can be given as
 .B max
@@ -440,9 +451,10 @@ problems the array can be made bigger again with no loss with another
 .B "\-\-grow \-\-size="
 command.
 
-This value can not be used with
+This value cannot be used when creating a
 .B CONTAINER
-metadata such as DDF and IMSM.
+such as with DDF and IMSM metadata, though it perfectly valid when
+creating an array inside a container.
 
 .TP
 .BR \-Z ", " \-\-array\-size=
@@ -2215,12 +2227,14 @@ add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
 .PP
 
-Using GROW on containers is currently only support for Intel's IMSM
+Using GROW on containers is currently supported only for Intel's IMSM
 container format.  The number of devices in a container can be
 increased - which affects all arrays in the container - or an array
 in a container can be converted between levels where those levels are
 supported by the container, and the conversion is on of those listed
-above.
+above.  Resizing arrays in an IMSM container with
+.B "--grow --size"
+is not yet supported.
 
 Grow functionality (e.g. expand a number of raid devices) for Intel's
 IMSM container format has an experimental status. It is guarded by the

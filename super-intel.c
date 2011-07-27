@@ -2268,7 +2268,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		info->disk.major = dl->major;
 		info->disk.minor = dl->minor;
 		info->disk.number = dl->index;
-		info->disk.raid_disk = dl->index;
+		info->disk.raid_disk = get_imsm_disk_slot(map_to_analyse,
+							  dl->index);
 	}
 
 	info->data_offset	  = __le32_to_cpu(map_to_analyse->pba_of_lba0);
@@ -4330,7 +4331,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 			devname);
 		return 1;
 	}
-	set_imsm_ord_tbl_ent(map, dk->number, dl->index);
+	set_imsm_ord_tbl_ent(map, dk->raid_disk, dl->index);
 	dl->disk.status = CONFIGURED_DISK;
 
 	/* if we are creating the first raid device update the family number */

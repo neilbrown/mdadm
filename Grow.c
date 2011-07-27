@@ -2725,15 +2725,21 @@ check_progress:
 		int rv = -2;
 		tv.tv_sec = 10;
 		tv.tv_usec = 0;
-		while (fd >= 0 && rv < 0) {
+		while (fd >= 0 && rv < 0 && tv.tv_sec > 0) {
 			fd_set rfds;
 			FD_ZERO(&rfds);
 			FD_SET(fd, &rfds);
 			if (select(fd+1, NULL, NULL, &rfds, &tv) != 1)
 				break;
-			if (sysfs_fd_get_ll(fd, &completed) >= 0)
+			switch (sysfs_fd_get_ll(fd, &completed)) {
+			case 0:
 				/* all good again */
 				rv = 1;
+				break;
+			case -2: /* read error - abort */
+				tv.tv_sec = 0;
+				break;
+			}
 		}
 		if (fd >= 0)
 			close(fd);

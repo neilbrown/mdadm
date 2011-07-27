@@ -470,7 +470,7 @@ int sysfs_fd_get_ll(int fd, unsigned long long *val)
 	lseek(fd, 0, 0);
 	n = read(fd, buf, sizeof(buf));
 	if (n <= 0)
-		return -1;
+		return -2;
 	buf[n] = 0;
 	*val = strtoull(buf, &ep, 0);
 	if (ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' '))

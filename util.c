@@ -1370,7 +1370,7 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 		if (!quiet)
 			fprintf(stderr, Name ": Couldn't open %s, aborting\n",
 				dev);
-		return 2;
+		return -1;
 	}
 
 	st->devnum = fd2devnum(fd);

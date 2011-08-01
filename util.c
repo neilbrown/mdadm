@@ -535,6 +535,7 @@ int check_raid(int fd, char *name)
 	struct supertype *st = guess_super(fd);
 
 	if (!st) return 0;
+	st->ignore_hw_compat = 1;
 	st->ss->load_super(st, fd, name);
 	/* Looks like a raid array .. */
 	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",

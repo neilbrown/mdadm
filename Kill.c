@@ -59,6 +59,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 		close(fd);
 		return 2;
 	}
+	st->ignore_hw_compat = 1;
 	rv = st->ss->load_super(st, fd, dev);
 	if (force && rv >= 2)
 		rv = 0; /* ignore bad data in superblock */

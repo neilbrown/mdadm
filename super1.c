@@ -313,7 +313,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 		printf("\n");
 	}
 	if (sb->devflags) {
-		printf("      Flags :");
+		printf("          Flags :");
 		if (sb->devflags & WriteMostly1)
 			printf(" write-mostly");
 		printf("\n");

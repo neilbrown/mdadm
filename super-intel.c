@@ -74,14 +74,17 @@
 
 /* Define all supported attributes that have to be accepted by mdadm
  */
-#define MPB_ATTRIB_SUPPORTED		MPB_ATTRIB_CHECKSUM_VERIFY | \
+#define MPB_ATTRIB_SUPPORTED	       (MPB_ATTRIB_CHECKSUM_VERIFY | \
 					MPB_ATTRIB_2TB             | \
 					MPB_ATTRIB_2TB_DISK        | \
 					MPB_ATTRIB_RAID0           | \
 					MPB_ATTRIB_RAID1           | \
 					MPB_ATTRIB_RAID10          | \
 					MPB_ATTRIB_RAID5           | \
-					MPB_ATTRIB_EXP_STRIPE_SIZE
+					MPB_ATTRIB_EXP_STRIPE_SIZE)
+
+/* Define attributes that are unused but not harmful */
+#define MPB_ATTRIB_IGNORED		(MPB_ATTRIB_NEVER_USE)
 
 #define MPB_SECTOR_CNT 2210
 #define IMSM_RESERVED_SECTORS 4096
@@ -1141,11 +1144,14 @@ void examine_migr_rec_imsm(struct intel_super *super)
 static int imsm_check_attributes(__u32 attributes)
 {
 	int ret_val = 1;
-	__u32 not_supported = (MPB_ATTRIB_SUPPORTED)^0xffffffff;
+	__u32 not_supported = MPB_ATTRIB_SUPPORTED^0xffffffff;
+
+	not_supported &= ~MPB_ATTRIB_IGNORED;
 
 	not_supported &= attributes;
 	if (not_supported) {
-		fprintf(stderr, Name "(IMSM): Unsupported attributes : %x\n", not_supported);
+		fprintf(stderr, Name "(IMSM): Unsupported attributes : %x\n",
+			(unsigned)__le32_to_cpu(not_supported));
 		if (not_supported & MPB_ATTRIB_CHECKSUM_VERIFY) {
 			dprintf("\t\tMPB_ATTRIB_CHECKSUM_VERIFY \n");
 			not_supported ^= MPB_ATTRIB_CHECKSUM_VERIFY;

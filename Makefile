@@ -137,7 +137,7 @@ ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
 all : mdadm mdmon
-man : mdadm.man md.man mdadm.conf.man mdmon.man
+man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
 
 everything: all mdadm.static swap_super test_stripe \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
@@ -220,6 +220,9 @@ mdadm.conf.man : mdadm.conf.5
 
 mdassemble.man : mdassemble.8
 	nroff -man mdassemble.8 > mdassemble.man
+
+raid6check.man : raid6check.8
+	nroff -man raid6check.8 > raid6check.man
 
 $(OBJS) : $(INCL) mdmon.h
 $(MON_OBJS) : $(INCL) mdmon.h

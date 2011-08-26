@@ -707,6 +707,8 @@ void autoline(char *line)
 	for (i = 0; i < super_cnt; i++)
 		if (!seen[i])
 			policy_add(rule_policy, pol_auto, dflt, pol_metadata, superlist[i]->name, NULL);
+
+	free(seen);
 }
 
 int loaded = 0;

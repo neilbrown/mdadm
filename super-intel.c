@@ -833,7 +833,16 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	struct extent *rv, *e;
 	int i;
 	int memberships = count_memberships(dl, super);
-	__u32 reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+	__u32 reservation;
+
+	/* trim the reserved area for spares, so they can join any array
+	 * regardless of whether the OROM has assigned sectors from the
+	 * IMSM_RESERVED_SECTORS region
+	 */
+	if (dl->index == -1)
+		reservation = MPB_SECTOR_CNT;
+	else
+		reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
 
 	rv = malloc(sizeof(struct extent) * (memberships + 1));
 	if (!rv)

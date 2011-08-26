@@ -709,9 +709,9 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 	/* from an open block device, try to retrieve it scsi_id */
 	struct stat st;
 	char path[256];
-	char *c1, *c2;
 	DIR *dir;
 	struct dirent *de;
+	int host, bus, target, lun;
 
 	if (fstat(fd, &st))
 		return 1;
@@ -723,32 +723,22 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 	if (!dir)
 		return 1;
 
-	de = readdir(dir);
-	while (de) {
-		if (strchr(de->d_name, ':'))
+	for (de = readdir(dir); de; de = readdir(dir)) {
+		int count;
+
+		if (de->d_type != DT_DIR)
+			continue;
+
+		count = sscanf(de->d_name, "%d:%d:%d:%d", &host, &bus, &target, &lun);
+		if (count == 4)
 			break;
-		de = readdir(dir);
 	}
 	closedir(dir);
 
 	if (!de)
 		return 1;
 
-	c1 = de->d_name;
-	c2 = strchr(c1, ':');
-	*c2 = '\0';
-	*id = strtol(c1, NULL, 10) << 24; /* host */
-	c1 = c2 + 1;
-	c2 = strchr(c1, ':');
-	*c2 = '\0';
-	*id |= strtol(c1, NULL, 10) << 16; /* bus */
-	c1 = c2 + 1;
-	c2 = strchr(c1, ':');
-	*c2 = '\0';
-	*id |= strtol(c1, NULL, 10) << 8; /* target */
-	c1 = c2 + 1;
-	*id |= strtol(c1, NULL, 10); /* lun */
-
+	*id = (host << 24) | (bus << 16) | (target << 8) | (lun << 0);
 	return 0;
 }
 

@@ -498,7 +498,10 @@ static void manage_member(struct mdstat_ent *mdstat,
 		newa = duplicate_aa(a);
 		if (!newa)
 			goto out;
-		/* Cool, we can add a device or several. */
+		/* prevent the kernel from activating the disk(s) before we
+		 * finish adding them
+		 */
+		sysfs_set_str(&a->info, NULL, "sync_action", "frozen");
 
 		/* Add device to array and set offset/size/slot.
 		 * and open files for each newdev */

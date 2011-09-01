@@ -28,6 +28,7 @@ struct active_array {
 	struct mdinfo info;
 	struct supertype *container;
 	struct active_array *next, *replaces;
+	int to_remove;
 
 	int action_fd;
 	int resync_start_fd;

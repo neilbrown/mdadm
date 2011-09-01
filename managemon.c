@@ -461,7 +461,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 	if (mdstat->level) {
 		int level = map_name(pers, mdstat->level);
 		if (level == 0 || level == LEVEL_LINEAR) {
-			a->container = NULL;
+			a->to_remove = 1;
 			wakeup_monitor();
 			return;
 		}
@@ -739,7 +739,7 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 		/* Looks like a member of this container */
 		for (a = container->arrays; a; a = a->next) {
 			if (mdstat->devnum == a->devnum) {
-				if (a->container)
+				if (a->container && a->to_remove == 0)
 					manage_member(mdstat, a);
 				break;
 			}

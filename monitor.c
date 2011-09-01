@@ -479,7 +479,7 @@ static void reconcile_failed(struct active_array *aa, struct mdinfo *failed)
 	struct mdinfo *victim;
 
 	for (a = aa; a; a = a->next) {
-		if (!a->container)
+		if (!a->container || a->to_remove)
 			continue;
 		victim = find_device(a, failed->disk.major, failed->disk.minor);
 		if (!victim)
@@ -539,7 +539,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		/* once an array has been deactivated we want to
 		 * ask the manager to discard it.
 		 */
-		if (!a->container) {
+		if (!a->container || a->to_remove) {
 			if (discard_this) {
 				ap = &(*ap)->next;
 				continue;
@@ -642,7 +642,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 			/* FIXME check if device->state_fd need to be cleared?*/
 			signal_manager();
 		}
-		if (a->container) {
+		if (a->container && !a->to_remove) {
 			is_dirty = read_and_act(a);
 			rv |= 1;
 			dirty_arrays += is_dirty;
@@ -657,7 +657,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 
 	/* propagate failures across container members */
 	for (a = *aap; a ; a = a->next) {
-		if (!a->container)
+		if (!a->container || a->to_remove)
 			continue;
 		for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
 			if (mdi->curr_state & DS_FAULTY)

@@ -1573,7 +1573,7 @@ int mdmon_running(int devnum)
 
 int start_mdmon(int devnum)
 {
-	int i;
+	int i, skipped;
 	int len;
 	pid_t pid;	
 	int status;
@@ -1604,8 +1604,13 @@ int start_mdmon(int devnum)
 	switch(fork()) {
 	case 0:
 		/* FIXME yuk. CLOSE_EXEC?? */
-		for (i=3; i < 100; i++)
-			close(i);
+		skipped = 0;
+		for (i=3; skipped < 20; i++)
+			if (close(i) < 0)
+				skipped++;
+			else
+				skipped = 0;
+
 		for (i=0; paths[i]; i++)
 			if (paths[i][0])
 				execl(paths[i], "mdmon",

@@ -678,6 +678,8 @@ struct domainlist *domain_from_array(struct mdinfo *mdi, const char *metadata)
 {
 	struct domainlist *domlist = NULL;
 
+	if (!mdi)
+		return NULL;
 	for (mdi = mdi->devs ; mdi ; mdi = mdi->next)
 		domainlist_add_dev(&domlist, makedev(mdi->disk.major,
 						     mdi->disk.minor),

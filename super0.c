@@ -1115,6 +1115,13 @@ static int validate_geometry0(struct supertype *st, int level,
 {
 	unsigned long long ldsize;
 	int fd;
+	unsigned int tbmax = 4;
+
+	/* prior to linux 3.1, a but limits usable device size to 2TB.
+	 * It was introduced in 2.6.29, but we won't worry about that detail
+	 */
+	if (get_linux_version() < 3001000)
+		tbmax = 2;
 
 	if (level == LEVEL_CONTAINER) {
 		if (verbose)
@@ -1127,9 +1134,10 @@ static int validate_geometry0(struct supertype *st, int level,
 				MD_SB_DISKS);
 		return 0;
 	}
-	if (size > (0x7fffffffULL<<9)) {
+	if (size >= tbmax * 1024*1024*1024*2ULL) {
 		if (verbose)
-			fprintf(stderr, Name ": 0.90 metadata supports at most 2 terrabytes per device\n");
+			fprintf(stderr, Name ": 0.90 metadata supports at most "
+				"%d terabytes per device\n", tbmax);
 		return 0;
 	}
 	if (chunk && *chunk == UnSet)
@@ -1153,8 +1161,6 @@ static int validate_geometry0(struct supertype *st, int level,
 	close(fd);
 
 	if (ldsize < MD_RESERVED_SECTORS * 512)
-		return 0;
-	if (size > (0x7fffffffULL<<9))
 		return 0;
 	*freesize = MD_NEW_SIZE_SECTORS(ldsize >> 9);
 	return 1;

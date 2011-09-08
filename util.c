@@ -640,7 +640,7 @@ char *human_size(long long bytes)
 	 * We allow upto 2048Megabytes before converting to
 	 * gigabytes, as that shows more precision and isn't
 	 * too large a number.
-	 * Terrabytes are not yet handled.
+	 * Terabytes are not yet handled.
 	 */
 
 	if (bytes < 5000*1024)

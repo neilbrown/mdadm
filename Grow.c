@@ -1893,7 +1893,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	 */
 	if (devlist)
 		Manage_subdevs(devname, fd, devlist, !quiet,
-			       0,NULL);
+			       0,NULL, 0);
 
 	if (reshape.backup_blocks == 0) {
 		/* No restriping needed, but we might need to impose

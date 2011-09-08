@@ -1035,7 +1035,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			close(dfd);
 			*dfdp = -1;
 			rv =  Manage_subdevs(chosen->sys_name, mdfd, &devlist,
-					     -1, 0, NULL);
+					     -1, 0, NULL, 0);
 			close(mdfd);
 		}
 		if (verbose > 0) {
@@ -1666,15 +1666,15 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 				if (subfd >= 0) {
 					Manage_subdevs(memb->dev, subfd,
 						       &devlist, verbose, 0,
-						       NULL);
+						       NULL, 0);
 					close(subfd);
 				}
 			}
 		free_mdstat(mdstat);
 	} else
-		Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0, NULL);
+		Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0, NULL, 0);
 	devlist.disposition = 'r';
-	rv = Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0, NULL);
+	rv = Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0, NULL, 0);
 	close(mdfd);
 	free_mdstat(ent);
 	return rv;

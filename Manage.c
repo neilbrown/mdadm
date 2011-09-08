@@ -371,7 +371,7 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 
 int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
-		   char *update)
+		   char *update, int force)
 {
 	/* do something to each dev.
 	 * devmode can be
@@ -632,6 +632,27 @@ int Manage_subdevs(char *devname, int fd,
 				continue;
 			}
 
+			if (tst->ss->validate_geometry(
+				    tst, array.level, array.layout,
+				    array.raid_disks, NULL,
+				    ldsize >> 9, NULL, NULL, 0) == 0) {
+				if (!force) {
+					fprintf(stderr, Name
+						": %s is larger than %s can "
+						"effectively use.\n"
+						"       Add --force is you "
+						"really wan to add this device.\n",
+						add_dev, devname);
+					close(tfd);
+					return 1;
+				}
+				fprintf(stderr, Name
+					": %s is larger than %s can "
+					"effectively use.\n"
+					"       Adding anyway as --force "
+					"was given.\n",
+					add_dev, devname);
+			}
 			if (!tst->ss->external &&
 			    array.major_version == 0 &&
 			    md_get_version(fd)%100 < 2) {
@@ -1188,9 +1209,9 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 	sprintf(devname, "%d:%d", major(devid), minor(devid));
 
 	devlist.disposition = 'r';
-	if (Manage_subdevs(from_devname, fd2, &devlist, -1, 0, NULL) == 0) {
+	if (Manage_subdevs(from_devname, fd2, &devlist, -1, 0, NULL, 0) == 0) {
 		devlist.disposition = 'a';
-		if (Manage_subdevs(to_devname, fd1, &devlist, -1, 0, NULL) == 0) {
+		if (Manage_subdevs(to_devname, fd1, &devlist, -1, 0, NULL, 0) == 0) {
 			/* make sure manager is aware of changes */
 			ping_manager(to_devname);
 			ping_manager(from_devname);
@@ -1198,7 +1219,7 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 			close(fd2);
 			return 1;
 		}
-		else Manage_subdevs(from_devname, fd2, &devlist, -1, 0, NULL);
+		else Manage_subdevs(from_devname, fd2, &devlist, -1, 0, NULL, 0);
 	}
 	close(fd1);
 	close(fd2);

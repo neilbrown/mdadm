@@ -609,6 +609,7 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,Force): /* force assembly */
 		case O(MISC,'f'): /* force zero */
 		case O(MISC,Force): /* force zero */
+		case O(MANAGE,Force): /* add device which is too large */
 			force=1;
 			continue;
 
@@ -1202,7 +1203,7 @@ int main(int argc, char *argv[])
 		if (!rv && devs_found>1)
 			rv = Manage_subdevs(devlist->devname, mdfd,
 					    devlist->next, verbose-quiet, test,
-					    update);
+					    update, force);
 		if (!rv && readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, readonly);
 		if (!rv && runstop)

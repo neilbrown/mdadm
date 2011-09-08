@@ -1446,6 +1446,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	/* ========= set size =============== */
 	if (size >= 0 && (size == 0 || size != array.size)) {
 		long long orig_size = get_component_size(fd)/2;
+		long long min_csize;
 		struct mdinfo *mdi;
 
 		if (orig_size == 0)
@@ -1461,10 +1462,40 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		/* Update the size of each member device in case
 		 * they have been resized.  This will never reduce
 		 * below the current used-size.  The "size" attribute
-		 * understand '0' to mean 'max'.
+		 * understands '0' to mean 'max'.
 		 */
-		for (mdi = sra->devs; mdi; mdi = mdi->next)
-			sysfs_set_num(sra, mdi, "size", size);
+		min_csize = 0;
+		for (mdi = sra->devs; mdi; mdi = mdi->next) {
+			if (sysfs_set_num(sra, mdi, "size", size) < 0)
+				break;
+			if (array.not_persistent == 0 &&
+			    array.major_version == 0 &&
+			    get_linux_version() < 3001000) {
+				/* Dangerous to allow size to exceed 2TB */
+				unsigned long long csize;
+				if (sysfs_get_ll(sra, mdi, "size", &csize) == 0) {
+					if (csize >= 2ULL*1024*1024*1024)
+						csize = 2ULL*1024*1024*1024;
+					if ((min_csize == 0 || (min_csize
+								> (long long)csize)))
+						min_csize = csize;
+				}
+			}
+		}
+		if (min_csize && size > min_csize) {
+			fprintf(stderr, Name ": Cannot safely make this array "
+				"use more than 2TB per device on this kernel.\n");
+			rv = 1;
+			goto release;
+		}
+		if (min_csize && size == 0) {
+			/* Don't let the kernel choose a size - it will get
+			 * it wrong
+			 */
+			fprintf(stderr, Name ": Limited v0.90 array to "
+				"2TB per device\n");
+			size = min_csize;
+		}
 
 		array.size = size;
 		if (array.size != size) {

@@ -570,6 +570,10 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		sb->state &= ~(1<<MD_SB_BITMAP_PRESENT);
 	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = info->reshape_progress;
+	else if (strcmp(update, "writemostly")==0)
+		sb->state |= (1<<MD_DISK_WRITEMOSTLY);
+	else if (strcmp(update, "readwrite")==0)
+		sb->state &= ~(1<<MD_DISK_WRITEMOSTLY);
 	else
 		rv = -1;
 
@@ -688,6 +692,8 @@ static int add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 	dk->minor = dinfo->minor;
 	dk->raid_disk = dinfo->raid_disk;
 	dk->state = dinfo->state;
+	/* In case our source disk was writemostly, don't copy that bit */
+	dk->state &= ~(1<<MD_DISK_WRITEMOSTLY);
 
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);

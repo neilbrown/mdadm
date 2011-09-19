@@ -762,11 +762,24 @@ int Manage_subdevs(char *devname, int fd,
 						remove_partitions(tfd);
 						close(tfd);
 						tfd = -1;
-						if (update) {
+						if (update || dv->writemostly > 0) {
 							int rv = -1;
 							tfd = dev_open(dv->devname, O_RDWR);
+							if (tfd < 0) {
+								fprintf(stderr, Name ": failed to open %s for"
+									" superblock update during re-add\n", dv->devname);
+								return 1;
+							}
 
-							if (tfd >= 0)
+							if (dv->writemostly == 1)
+								rv = st->ss->update_super(
+									st, NULL, "writemostly",
+									devname, verbose, 0, NULL);
+							if (dv->writemostly == 2)
+								rv = st->ss->update_super(
+									st, NULL, "readwrite",
+									devname, verbose, 0, NULL);
+							if (update)
 								rv = st->ss->update_super(
 									st, NULL, update,
 									devname, verbose, 0, NULL);

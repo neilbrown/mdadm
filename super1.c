@@ -803,6 +803,10 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		       __le64_to_cpu(sb->data_size));
 	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
+	else if (strcmp(update, "writemostly")==0)
+		sb->devflags |= WriteMostly1;
+	else if (strcmp(update, "readwrite")==0)
+		sb->devflags &= ~WriteMostly1;
 	else
 		rv = -1;
 
@@ -923,6 +927,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 		sb->max_dev = __cpu_to_le32(dk->number+1);
 
 	sb->dev_number = __cpu_to_le32(dk->number);
+	sb->devflags = 0; /* don't copy another disks flags */
 	sb->sb_csum = calc_sb_1_csum(sb);
 
 	dip = (struct devinfo **)&st->info;

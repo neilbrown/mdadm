@@ -646,6 +646,8 @@ extern struct superswitch {
 	 *   linear-grow-new - add a new device to a linear array, but don't
 	 *                   change the size: so superblock still matches
 	 *   linear-grow-update - now change the size of the array.
+	 *   writemostly - set the WriteMostly1 bit in the superblock devflags
+	 *   readwrite - clear the WriteMostly1 bit in the superblock devflags
 	 */
 	int (*update_super)(struct supertype *st, struct mdinfo *info,
 			    char *update,

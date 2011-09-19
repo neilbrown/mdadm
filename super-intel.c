@@ -5070,6 +5070,12 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	if (!super)
 		return 0;
 
+	if (mpb->num_raid_devs > 0 && mpb->num_disks != raiddisks) {
+		fprintf(stderr, Name ": the option-rom requires all "
+			"member disks to be a member of all volumes.\n");
+		return 0;
+	}
+
 	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, verbose)) {
 		fprintf(stderr, Name ": RAID gemetry validation failed. "
 			"Cannot proceed with the action(s).\n");

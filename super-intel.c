@@ -88,6 +88,7 @@
 
 #define MPB_SECTOR_CNT 2210
 #define IMSM_RESERVED_SECTORS 4096
+#define NUM_BLOCKS_DIRTY_STRIPE_REGION 2056
 #define SECT_PER_MB_SHIFT 11
 
 /* Disk configuration info. */
@@ -827,6 +828,8 @@ static int count_memberships(struct dl *dl, struct intel_super *super)
 	return memberships;
 }
 
+static __u32 imsm_min_reserved_sectors(struct intel_super *super);
+
 static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 {
 	/* find a list of used extents on the given physical device */
@@ -840,7 +843,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	 * IMSM_RESERVED_SECTORS region
 	 */
 	if (dl->index == -1)
-		reservation = MPB_SECTOR_CNT;
+		reservation = imsm_min_reserved_sectors(super);
 	else
 		reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
 
@@ -933,6 +936,51 @@ static int is_failed(struct imsm_disk *disk)
 	return (disk->status & FAILED_DISK) == FAILED_DISK;
 }
 
+/* try to determine how much space is reserved for metadata from
+ * the last get_extents() entry on the smallest active disk,
+ * otherwise fallback to the default
+ */
+static __u32 imsm_min_reserved_sectors(struct intel_super *super)
+{
+	struct extent *e;
+	int i;
+	__u32 min_active, remainder;
+	__u32 rv = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+	struct dl *dl, *dl_min = NULL;
+
+	if (!super)
+		return rv;
+
+	min_active = 0;
+	for (dl = super->disks; dl; dl = dl->next) {
+		if (dl->index < 0)
+			continue;
+		if (dl->disk.total_blocks < min_active || min_active == 0) {
+			dl_min = dl;
+			min_active = dl->disk.total_blocks;
+		}
+	}
+	if (!dl_min)
+		return rv;
+
+	/* find last lba used by subarrays on the smallest active disk */
+	e = get_extents(super, dl_min);
+	if (!e)
+		return rv;
+	for (i = 0; e[i].size; i++)
+		continue;
+
+	remainder = min_active - e[i].start;
+	free(e);
+
+	/* to give priority to recovery we should not require full
+	   IMSM_RESERVED_SECTORS from the spare */
+	rv = MPB_SECTOR_CNT + NUM_BLOCKS_DIRTY_STRIPE_REGION;
+
+	/* if real reservation is smaller use that value */
+	return  (remainder < rv) ? remainder : rv;
+}
+
 /* Return minimum size of a spare that can be used in this array*/
 static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 {
@@ -941,6 +989,7 @@ static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 	struct extent *e;
 	int i;
 	unsigned long long rv = 0;
+	__u32 reservation;
 
 	if (!super)
 		return rv;
@@ -958,9 +1007,12 @@ static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 		continue;
 	if (i > 0)
 		rv = e[i-1].start + e[i-1].size;
+	reservation = __le32_to_cpu(dl->disk.total_blocks) - e[i].start;
 	free(e);
+
 	/* add the amount of space needed for metadata */
-	rv = rv + MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
+	rv = rv + imsm_min_reserved_sectors(super);
+
 	return rv * 512;
 }
 

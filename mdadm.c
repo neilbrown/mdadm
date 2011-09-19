@@ -841,6 +841,7 @@ int main(int argc, char *argv[])
 			continue;
 		case O(MONITOR,'1'): /* oneshot */
 			oneshot = 1;
+			spare_sharing = 0;
 			continue;
 		case O(MONITOR,'t'): /* test */
 			test = 1;

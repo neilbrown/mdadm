@@ -336,7 +336,8 @@ It can easily be moved between hosts with different endian-ness, and a
 recovery operation can be checkpointed and restarted.  The different
 sub-versions store the superblock at different locations on the
 device, either at the end (for 1.0), at the start (for 1.1) or 4K from
-the start (for 1.2).  "1" is equivalent to "1.0".
+the start (for 1.2).  "1" is equivalent to "1.2" (the commonly
+preferred 1.x format).
 'if '{DEFAULT_METADATA}'1.2'  "default" is equivalent to "1.2".
 .IP ddf
 Use the "Industry Standard" DDF (Disk Data Format) format defined by

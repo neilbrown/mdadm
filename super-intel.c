@@ -5369,7 +5369,8 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			return validate_geometry_imsm_volume(st, level, layout,
 							     raiddisks, chunk,
 							     size, dev,
-							     freesize, verbose);
+							     freesize, 1)
+				? 1 : -1;
 		}
 	}
 

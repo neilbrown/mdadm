@@ -332,15 +332,25 @@ int Create(struct supertype *st, char *mddev,
 			char *name = "default";
 			for(i=0; !st && superlist[i]; i++) {
 				st = superlist[i]->match_metadata_desc(name);
+				if (!st)
+					continue;
 				if (do_default_layout)
 					layout = default_layout(st, level, verbose);
-				if (st && !st->ss->validate_geometry
-					    	(st, level, layout, raiddisks,
-						 &chunk, size*2, dname, &freesize,
-						 verbose > 0)) {
+				switch (st->ss->validate_geometry(
+						st, level, layout, raiddisks,
+						&chunk, size*2, dname, &freesize,
+						verbose > 0)) {
+				case -1: /* Not valid, message printed, and not
+					  * worth checking any further */
+					exit(2);
+					break;
+				case 0: /* Geometry not valid */
 					free(st);
 					st = NULL;
 					chunk = do_default_chunk ? UnSet : chunk;
+					break;
+				case 1:	/* All happy */
+					break;
 				}
 			}
 

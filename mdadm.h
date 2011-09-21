@@ -702,6 +702,12 @@ extern struct superswitch {
 	 * inter-device dependencies, it should record sufficient details
 	 * so these can be validated.
 	 * Both 'size' and '*freesize' are in sectors.  chunk is KiB.
+	 * Return value is:
+	 *  1: everything is OK
+	 *  0: not OK for some reason - if 'verbose', then error was reported.
+	 * -1: st->sb was NULL, 'subdev' is a member of a container of this
+	 *     types, but array is not acceptable for some reason
+	 *     message was reported even if verbose is 0.
 	 */
 	int (*validate_geometry)(struct supertype *st, int level, int layout,
 				 int raiddisks,

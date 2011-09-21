@@ -541,7 +541,20 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 	ver[0] = 0;
 	if (info->array.major_version == -1 &&
 	    info->array.minor_version == -2) {
+		char buf[1024];
+
 		strcat(strcpy(ver, "external:"), info->text_version);
+
+		/* meta version might already be set if we are setting
+		 * new geometry for a reshape.  In that case we don't
+		 * want to over-write the 'readonly' flag that is
+		 * stored in the metadata version.  So read the current
+		 * version first, and preserve the flag
+		 */
+		if (sysfs_get_str(info, NULL, "metadata_version",
+				  buf, 1024) > 0)
+			if (strlen(buf) >= 9 && buf[9] == '-')
+				ver[9] = '-';
 
 		if ((vers % 100) < 2 ||
 		    sysfs_set_str(info, NULL, "metadata_version",

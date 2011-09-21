@@ -1584,6 +1584,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				if (fdlist[spare] >= 0)
 					close(fdlist[spare]);
 			}
+			free(fdlist);
 			if (err) {
 				fprintf(stderr, Name ": Failed to restore critical"
 					" section for reshape - sorry.\n");

@@ -1555,44 +1555,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 		if (content->reshape_active) {
 			int spare = content->array.raid_disks + expansion;
-			int i;
-			int *fdlist = malloc(sizeof(int) *
-					     (working + expansion
-					      + content->array.raid_disks));
-			for (i=0; i<spare; i++)
-				fdlist[i] = -1;
-			for (dev = content->devs; dev; dev = dev->next) {
-				char buf[20];
-				int fd;
-				sprintf(buf, "%d:%d",
-					dev->disk.major,
-					dev->disk.minor);
-				fd = dev_open(buf, O_RDWR);
-
-				if (dev->disk.raid_disk >= 0)
-					fdlist[dev->disk.raid_disk] = fd;
-				else
-					fdlist[spare++] = fd;
-			}
-			if (st->ss->external && st->ss->recover_backup)
-				err = st->ss->recover_backup(st, content);
-			else
-				err = Grow_restart(st, content, fdlist, spare,
-						   backup_file, verbose > 0);
-			while (spare > 0) {
-				spare--;
-				if (fdlist[spare] >= 0)
-					close(fdlist[spare]);
-			}
-			free(fdlist);
-			if (err) {
-				fprintf(stderr, Name ": Failed to restore critical"
-					" section for reshape - sorry.\n");
-				if (!backup_file)
-					fprintf(stderr, Name ":  Possibly you need"
-						" to specify a --backup-file\n");
+			if (restore_backup(st, content,
+					   working,
+					   spare, backup_file, verbose) == 1)
 				return 1;
-			}
 
 			err = Grow_continue(mdfd, st, content, backup_file);
 		} else switch(content->array.level) {

@@ -35,6 +35,67 @@
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
+int restore_backup(struct supertype *st,
+		   struct mdinfo *content,
+		   int working_disks,
+		   int next_spare,
+		   char *backup_file,
+		   int verbose)
+{
+	int i;
+	int *fdlist;
+	struct mdinfo *dev;
+	int err;
+	int disk_count = next_spare + working_disks;
+
+	dprintf("Called restore_backup()\n");
+	fdlist = malloc(sizeof(int) * disk_count);
+	if (fdlist == NULL) {
+		fprintf(stderr,
+			Name ": cannot allocate memory for disk list\n");
+		return 1;
+	}
+	for (i = 0; i < next_spare; i++)
+		fdlist[i] = -1;
+	for (dev = content->devs; dev; dev = dev->next) {
+		char buf[22];
+		int fd;
+		sprintf(buf, "%d:%d",
+			dev->disk.major,
+			dev->disk.minor);
+		fd = dev_open(buf, O_RDWR);
+
+		if (dev->disk.raid_disk >= 0)
+			fdlist[dev->disk.raid_disk] = fd;
+		else
+			fdlist[next_spare++] = fd;
+	}
+
+	if (st->ss->external && st->ss->recover_backup)
+		err = st->ss->recover_backup(st, content);
+	else
+		err = Grow_restart(st, content, fdlist, next_spare,
+				   backup_file, verbose > 0);
+
+	while (next_spare > 0) {
+		disk_count--;
+		if (fdlist[disk_count] >= 0)
+			close(fdlist[disk_count]);
+	}
+	free(fdlist);
+	if (err) {
+		fprintf(stderr, Name ": Failed to restore critical"
+			" section for reshape - sorry.\n");
+		if (!backup_file)
+			fprintf(stderr, Name ":  Possibly you need"
+				" to specify a --backup-file\n");
+		return 1;
+	}
+
+	dprintf("restore_backup() returns status OK.\n");
+	return 0;
+}
+
 int Grow_Add_device(char *devname, int fd, char *newdev)
 {
 	/* Add a device to an active array.

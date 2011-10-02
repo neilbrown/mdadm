@@ -1096,6 +1096,18 @@ option can be used when an array has an internal bitmap which is
 corrupt in some way so that assembling the array normally fails.  It
 will cause any internal bitmap to be ignored.
 
+.TP
+.BR \-\-freeze\-reshape
+Option is intended to be used in start-up scripts during initrd boot phase.
+When array under reshape is assembled during initrd phase, this option
+stops reshape after reshape critical section is being restored. This happens
+before file system pivot operation and avoids loss of file system context.
+Losing file system context would cause reshape to be broken.
+
+Reshape can be continued later using
+.B\-\-continue
+option for grow command.
+
 .SH For Manage mode:
 
 .TP

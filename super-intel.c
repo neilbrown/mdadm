@@ -2237,6 +2237,31 @@ static int write_imsm_migr_rec(struct supertype *st)
 }
 #endif /* MDASSEMBLE */
 
+/* spare/missing disks activations are not allowe when
+ * array/container performs reshape operation, because
+ * all arrays in container works on the same disks set
+ */
+int imsm_reshape_blocks_arrays_changes(struct intel_super *super)
+{
+	int rv = 0;
+	struct intel_dev *i_dev;
+	struct imsm_dev *dev;
+
+	/* check whole container
+	 */
+	for (i_dev = super->devlist; i_dev; i_dev = i_dev->next) {
+		dev = i_dev->dev;
+		if (dev->vol.migr_state &&
+		    dev->vol.migr_type == MIGR_GEN_MIGR) {
+			/* No repair during any migration in container
+			 */
+			rv = 1;
+			break;
+		}
+	}
+	return rv;
+}
+
 static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info, char *dmap)
 {
 	struct intel_super *super = st->sb;
@@ -6592,10 +6617,8 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	dprintf("imsm: activate spare: inst=%d failed=%d (%d) level=%d\n",
 		inst, failed, a->info.array.raid_disks, a->info.array.level);
 
-	if (dev->vol.migr_state &&
-	    dev->vol.migr_type == MIGR_GEN_MIGR)
-		/* No repair during migration */
-		return NULL;
+	if (imsm_reshape_blocks_arrays_changes(super))
+			return NULL;
 
 	if (a->info.array.level == 4)
 		/* No repair for takeovered array

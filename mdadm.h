@@ -427,6 +427,7 @@ extern void map_add(struct map_ent **melp,
 		    int devnum, char *metadata, int uuid[4], char *path);
 extern int map_lock(struct map_ent **melp);
 extern void map_unlock(struct map_ent **melp);
+extern void map_fork(void);
 
 /* various details can be requested */
 enum sysfs_read_flags {

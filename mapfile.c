@@ -159,6 +159,18 @@ void map_unlock(struct map_ent **melp)
 	lf = NULL;
 }
 
+void map_fork(void)
+{
+	/* We are forking, so must close the lock file.
+	 * Don't risk flushing anything though.
+	 */
+	if (lf) {
+		close(fileno(lf));
+		fclose(lf);
+		lf = NULL;
+	}
+}
+
 void map_add(struct map_ent **melp,
 	    int devnum, char *metadata, int uuid[4], char *path)
 {

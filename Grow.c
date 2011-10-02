@@ -2265,6 +2265,7 @@ started:
 	default:
 		return 0;
 	case 0:
+		map_fork();
 		break;
 	}
 
@@ -2421,6 +2422,7 @@ int reshape_container(char *container, char *devname,
 		printf(Name ": multi-array reshape continues in background\n");
 		return 0;
 	case 0: /* child */
+		map_fork();
 		break;
 	}
 

@@ -1469,6 +1469,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 					"Cannot activate array(s).\n");
 		/* free container data and exit */
 		sysfs_free(list);
+		map_unlock(&map);
 		return 2;
 	}
 
@@ -1532,6 +1533,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 					fprintf(stderr, Name ": array %s/%s is "
 						"explicitly ignored by mdadm.conf\n",
 						match->container, match->member);
+				map_unlock(&map);
 				return 2;
 			}
 			if (match)
@@ -1547,6 +1549,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 		if (mdfd < 0) {
 			fprintf(stderr, Name ": failed to open %s: %s.\n",
 				chosen_name, strerror(errno));
+			map_unlock(&map);
 			return 2;
 		}
 

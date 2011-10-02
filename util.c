@@ -703,6 +703,12 @@ void print_r10_layout(int layout)
 unsigned long long calc_array_size(int level, int raid_disks, int layout,
 				   int chunksize, unsigned long long devsize)
 {
+	devsize &= ~(unsigned long long)((chunksize>>9)-1);
+	return get_data_disks(level, layout, raid_disks) * devsize;
+}
+
+int get_data_disks(int level, int layout, int raid_disks)
+{
 	int data_disks = 0;
 	switch (level) {
 	case 0: data_disks = raid_disks; break;
@@ -713,8 +719,8 @@ unsigned long long calc_array_size(int level, int raid_disks, int layout,
 	case 10: data_disks = raid_disks / (layout & 255) / ((layout>>8)&255);
 		break;
 	}
-	devsize &= ~(unsigned long long)((chunksize>>9)-1);
-	return data_disks * devsize;
+
+	return data_disks;
 }
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)

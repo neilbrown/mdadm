@@ -3632,6 +3632,137 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	return 1;
 }
 
+int Grow_continue_command(char *devname, int fd,
+			  char *backup_file, int verbose)
+{
+	int ret_val = 0;
+	struct supertype *st = NULL;
+	struct mdinfo *content = NULL;
+	struct mdinfo array;
+	char *subarray = NULL;
+	struct mdinfo *cc = NULL;
+	struct mdstat_ent *mdstat = NULL;
+	char buf[40];
+	int cfd = -1;
+	int fd2 = -1;
+
+	dprintf("Grow continue from command line called for %s\n",
+		devname);
+
+	st = super_by_fd(fd, &subarray);
+	if (!st || !st->ss) {
+		fprintf(stderr,
+			Name ": Unable to determine metadata format for %s\n",
+			devname);
+		return 1;
+	}
+	dprintf("Grow continue is run for ");
+	if (st->ss->external == 0) {
+		dprintf("native array (%s)\n", devname);
+		if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
+			fprintf(stderr, Name ": %s is not an active md array -"
+				" aborting\n", devname);
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+		content = &array;
+		sysfs_init(content, fd, st->devnum);
+	} else {
+		int container_dev;
+
+		if (subarray) {
+			dprintf("subarray (%s)\n", subarray);
+			container_dev = st->container_dev;
+			cfd = open_dev_excl(st->container_dev);
+		} else {
+			container_dev = st->devnum;
+			close(fd);
+			cfd = open_dev_excl(st->devnum);
+			dprintf("container (%i)\n", container_dev);
+			fd = cfd;
+		}
+		if (cfd < 0) {
+			fprintf(stderr, Name ": Unable to open container "
+				"for %s\n", devname);
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+		fmt_devname(buf, container_dev);
+
+		/* find in container array under reshape
+		 */
+		ret_val = st->ss->load_container(st, cfd, NULL);
+		if (ret_val) {
+			fprintf(stderr,
+				Name ": Cannot read superblock for %s\n",
+				devname);
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+
+		cc = st->ss->container_content(st, NULL);
+		for (content = cc; content ; content = content->next) {
+			char *array;
+
+			if (content->reshape_active == 0)
+				continue;
+
+			array = strchr(content->text_version+1, '/')+1;
+			mdstat = mdstat_by_subdev(array, container_dev);
+			if (!mdstat)
+				continue;
+			break;
+		}
+		if (!content) {
+			fprintf(stderr,
+				Name ": Unable to determine reshaped "
+				"array for %s\n", devname);
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+		fd2 = open_dev(mdstat->devnum);
+		if (fd2 < 0) {
+			fprintf(stderr, Name ": cannot open (md%i)\n",
+				mdstat->devnum);
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+
+		sysfs_init(content, fd2, mdstat->devnum);
+
+		/* start mdmon in case it is not running
+		 */
+		if (!mdmon_running(container_dev))
+			start_mdmon(container_dev);
+		ping_monitor(buf);
+
+		if (mdmon_running(container_dev))
+			st->update_tail = &st->updates;
+		else {
+			fprintf(stderr, Name ":  No mdmon found. "
+				"Grow cannot continue.\n");
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+	}
+
+	/* continue reshape
+	 */
+	ret_val = Grow_continue(fd, st, content, backup_file, 0);
+
+Grow_continue_command_exit:
+	if (fd2 > -1)
+		close(fd2);
+	if (cfd > -1)
+		close(cfd);
+	st->ss->free_super(st);
+	free_mdstat(mdstat);
+	sysfs_free(cc);
+	free(subarray);
+
+	return ret_val;
+}
+
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		  char *backup_file, int freeze_reshape)
 {

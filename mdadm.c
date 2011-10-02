@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 	int export = 0;
 	int assume_clean = 0;
 	char *symlinks = NULL;
+	int grow_continue = 0;
 	/* autof indicates whether and how to create device node.
 	 * bottom 3 bits are style.  Rest (when shifted) are number of parts
 	 * 0  - unset
@@ -996,6 +997,11 @@ int main(int argc, char *argv[])
 			backup_file = optarg;
 			continue;
 
+		case O(GROW, Continue):
+			/* Continue interrupted grow
+			 */
+			grow_continue = 1;
+			continue;
 		case O(ASSEMBLE, InvalidBackup):
 			/* Acknowledge that the backupfile is invalid, but ask
 			 * to continue anyway
@@ -1649,7 +1655,11 @@ int main(int argc, char *argv[])
 				delay = DEFAULT_BITMAP_DELAY;
 			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
 					    bitmap_chunk, delay, write_behind, force);
-		} else if (size >= 0 || raiddisks != 0 || layout_str != NULL
+		} else if (grow_continue)
+			rv = Grow_continue_command(devlist->devname,
+						   mdfd, backup_file,
+						   verbose);
+		else if (size >= 0 || raiddisks != 0 || layout_str != NULL
 			   || chunk != 0 || level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout_str, chunk, raiddisks,

@@ -314,6 +314,7 @@ enum special_options {
 	InvalidBackup,
 	UdevRules,
 	FreezeReshape,
+	Continue,
 };
 
 /* structures read from config file */
@@ -1041,6 +1042,8 @@ extern int restore_backup(struct supertype *st,
 			  int spares,
 			  char *backup_file,
 			  int verbose);
+extern int Grow_continue_command(char *devname, int fd,
+				 char *backup_file, int verbose);
 
 extern int Assemble(struct supertype *st, char *mddev,
 		    struct mddev_ident *ident,

@@ -757,8 +757,10 @@ int policy_check_path(struct mdinfo *disk, struct map_ent *array)
 
 	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
 	f = fopen(path, "r");
-	if (!f)
+	if (!f) {
+		free(id_path);
 		return 0;
+	}
 
 	rv = fscanf(f, " %s %x:%x:%x:%x\n",
 		    array->metadata,
@@ -767,6 +769,7 @@ int policy_check_path(struct mdinfo *disk, struct map_ent *array)
 		    array->uuid+2,
 		    array->uuid+3);
 	fclose(f);
+	free(id_path);
 	return rv == 5;
 }
 

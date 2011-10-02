@@ -281,33 +281,14 @@ int block_subarray(struct mdinfo *sra)
 
 	return rc;
 }
-/**
- * block_monitor - prevent mdmon spare assignment
- * @container - container to block
- * @freeze - flag to additionally freeze sync_action
- *
- * This is used by the reshape code to freeze the container, and the
- * auto-rebuild implementation to atomically move spares.
- * In both cases we need to stop mdmon from assigning spares to replace
- * failed devices as we might have other plans for the spare.
- * For the reshape case we also need to 'freeze' sync_action so that
- * no recovery happens until we have fully prepared for the reshape.
- *
- * We tell mdmon that the array is frozen by marking the 'metadata' name
- * with a leading '-'.  The previously told mdmon "Don't make this array
- * read/write, leave it readonly".  Now it means a more general "Don't
- * reconfigure this array at all".
- * As older versions of mdmon (which might run from initrd) don't understand
- * this, we first check that the running mdmon is new enough.
+
+/* check mdmon version if it supports
+ * array blocking mechanism
  */
-int block_monitor(char *container, const int freeze)
+int check_mdmon_version(char *container)
 {
-	int devnum = devname2devnum(container);
-	struct mdstat_ent *ent, *e, *e2;
-	struct mdinfo *sra = NULL;
 	char *version = NULL;
-	char buf[64];
-	int rv = 0;
+	int devnum = devname2devnum(container);
 
 	if (!mdmon_running(devnum)) {
 		/* if mdmon is not active we assume that any instance that is
@@ -330,6 +311,38 @@ int block_monitor(char *container, const int freeze)
 			return -1;
 		}
 	}
+
+	return 0;
+}
+
+/**
+ * block_monitor - prevent mdmon spare assignment
+ * @container - container to block
+ * @freeze - flag to additionally freeze sync_action
+ *
+ * This is used by the reshape code to freeze the container, and the
+ * auto-rebuild implementation to atomically move spares.
+ * In both cases we need to stop mdmon from assigning spares to replace
+ * failed devices as we might have other plans for the spare.
+ * For the reshape case we also need to 'freeze' sync_action so that
+ * no recovery happens until we have fully prepared for the reshape.
+ *
+ * We tell mdmon that the array is frozen by marking the 'metadata' name
+ * with a leading '-'.  The previously told mdmon "Don't make this array
+ * read/write, leave it readonly".  Now it means a more general "Don't
+ * reconfigure this array at all".
+ * As older versions of mdmon (which might run from initrd) don't understand
+ * this, we first check that the running mdmon is new enough.
+ */
+int block_monitor(char *container, const int freeze)
+{
+	struct mdstat_ent *ent, *e, *e2;
+	struct mdinfo *sra = NULL;
+	char buf[64];
+	int rv = 0;
+
+	if (check_mdmon_version(container))
+		return -1;
 
 	ent = mdstat_read(0, 0);
 	if (!ent) {

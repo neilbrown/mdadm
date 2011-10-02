@@ -734,6 +734,31 @@ The file must be stored on a separate device, not on the RAID array
 being reshaped.
 
 .TP
+.BR \-\-continue
+This option is complementary to the
+.B \-\-freeze-reshape
+option for assembly. It is needed when
+.B \-\-grow
+operation is interrupted and it is not restarted automatically due to
+.B \-\-freeze-reshape
+usage during array assembly.  This option is used together with
+.BR \-G
+, (
+.BR \-\-grow
+) command and device for a pending reshape to be continued.
+All parameters required for reshape continuation will be read from array metadata.
+If initial
+.BR \-\-grow
+command had required
+.BR \-\-backup\-file=
+option to be set, continuation option will require to have exactly the same
+backup file given as well.
+.IP
+Any other parameter passed together with
+.BR \-\-continue
+option will be ignored.
+
+.TP
 .BR \-N ", " \-\-name=
 Set a
 .B name

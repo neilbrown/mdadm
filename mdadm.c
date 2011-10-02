@@ -112,6 +112,8 @@ int main(int argc, char *argv[])
 
 	int mdfd = -1;
 
+	int freeze_reshape = 0;
+
 	srandom(time(0) ^ getpid());
 
 	ident.uuid_set=0;
@@ -612,8 +614,12 @@ int main(int argc, char *argv[])
 		case O(MANAGE,Force): /* add device which is too large */
 			force=1;
 			continue;
-
 			/* now for the Assemble options */
+		case O(ASSEMBLE, FreezeReshape):   /* Freeze reshape during
+						    * initrd phase */
+		case O(INCREMENTAL, FreezeReshape):
+			freeze_reshape = 1;
+			continue;
 		case O(CREATE,'u'): /* uuid of array */
 		case O(ASSEMBLE,'u'): /* uuid of array */
 			if (ident.uuid_set) {
@@ -1228,14 +1234,16 @@ int main(int argc, char *argv[])
 					       NULL, backup_file, invalid_backup,
 					       readonly, runstop, update,
 					       homehost, require_homehost,
-					       verbose-quiet, force);
+					       verbose-quiet, force,
+					       freeze_reshape);
 			}
 		} else if (!scan)
 			rv = Assemble(ss, devlist->devname, &ident,
 				      devlist->next, backup_file, invalid_backup,
 				      readonly, runstop, update,
 				      homehost, require_homehost,
-				      verbose-quiet, force);
+				      verbose-quiet, force,
+				      freeze_reshape);
 		else if (devs_found>0) {
 			if (update && devs_found > 1) {
 				fprintf(stderr, Name ": can only update a single array at a time\n");
@@ -1259,7 +1267,8 @@ int main(int argc, char *argv[])
 					       NULL, backup_file, invalid_backup,
 					       readonly, runstop, update,
 					       homehost, require_homehost,
-					       verbose-quiet, force);
+					       verbose-quiet, force,
+					       freeze_reshape);
 			}
 		} else {
 			struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
@@ -1300,7 +1309,8 @@ int main(int argc, char *argv[])
 						     NULL, NULL, 0,
 						     readonly, runstop, NULL,
 						     homehost, require_homehost,
-						     verbose-quiet, force);
+						     verbose-quiet, force,
+						     freeze_reshape);
 					if (r == 0) {
 						a->assembled = 1;
 						successes++;
@@ -1325,9 +1335,13 @@ int main(int argc, char *argv[])
 						rv2 = Assemble(ss, NULL,
 							       &ident,
 							       devlist, NULL, 0,
-							       readonly, runstop, NULL,
-							       homehost, require_homehost,
-							       verbose-quiet, force);
+							       readonly,
+							       runstop, NULL,
+							       homehost,
+							       require_homehost,
+							       verbose-quiet,
+							       force,
+							       freeze_reshape);
 						if (rv2==0) {
 							cnt++;
 							acnt++;
@@ -1681,7 +1695,8 @@ int main(int argc, char *argv[])
 		else
 			rv = Incremental(devlist->devname, verbose-quiet,
 					 runstop, ss, homehost,
-					 require_homehost, autof);
+					 require_homehost, autof,
+					 freeze_reshape);
 		break;
 	case AUTODETECT:
 		autodetect();

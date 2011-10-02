@@ -44,7 +44,8 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 
 static int Incremental_container(struct supertype *st, char *devname,
 				 char *homehost,
-				 int verbose, int runstop, int autof);
+				 int verbose, int runstop, int autof,
+				 int freeze_reshape);
 
 static struct mddev_ident *search_mdstat(struct supertype *st,
 					   struct mdinfo *info,
@@ -53,7 +54,7 @@ static struct mddev_ident *search_mdstat(struct supertype *st,
 
 int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st, char *homehost, int require_homehost,
-		int autof)
+		int autof, int freeze_reshape)
 {
 	/* Add this device to an array, creating the array if necessary
 	 * and starting the array if sensible or - if runstop>0 - if possible.
@@ -140,7 +141,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(dfd);
 		if (!rv && st->ss->container_content)
 			return Incremental_container(st, devname, homehost,
-						     verbose, runstop, autof);
+						     verbose, runstop, autof,
+						     freeze_reshape);
 
 		fprintf(stderr, Name ": %s is not part of an md array.\n",
 			devname);
@@ -450,7 +452,8 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(mdfd);
 		sysfs_free(sra);
 		rv = Incremental(chosen_name, verbose, runstop,
-				 NULL, homehost, require_homehost, autof);
+				 NULL, homehost, require_homehost, autof,
+				 freeze_reshape);
 		if (rv == 1)
 			/* Don't fail the whole -I if a subarray didn't
 			 * have enough devices to start yet
@@ -1416,7 +1419,7 @@ static char *container2devname(char *devname)
 
 static int Incremental_container(struct supertype *st, char *devname,
 				 char *homehost, int verbose,
-				 int runstop, int autof)
+				 int runstop, int autof, int freeze_reshape)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
@@ -1554,7 +1557,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 		}
 
 		assemble_container_content(st, mdfd, ra, runstop,
-					   chosen_name, verbose, NULL);
+					   chosen_name, verbose, NULL,
+					   freeze_reshape);
 		close(mdfd);
 	}
 

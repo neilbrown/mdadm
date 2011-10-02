@@ -153,6 +153,7 @@ struct option long_options[] = {
     {"scan",      0, 0, 's'},
     {"force",	  0, 0, Force},
     {"update",	  1, 0, 'U'},
+    {"freeze-reshape", 0, 0, FreezeReshape},
 
     /* Management */
     {"add",       0, 0, Add},

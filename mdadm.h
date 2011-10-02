@@ -313,6 +313,7 @@ enum special_options {
 	RebuildMapOpt,
 	InvalidBackup,
 	UdevRules,
+	FreezeReshape,
 };
 
 /* structures read from config file */
@@ -1031,7 +1032,9 @@ extern int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file, int verbose);
 extern int Grow_continue(int mdfd, struct supertype *st,
-			 struct mdinfo *info, char *backup_file);
+			 struct mdinfo *info, char *backup_file,
+			 int freeze_reshape);
+
 extern int restore_backup(struct supertype *st,
 			  struct mdinfo *content,
 			  int working_disks,
@@ -1045,7 +1048,7 @@ extern int Assemble(struct supertype *st, char *mddev,
 		    char *backup_file, int invalid_backup,
 		    int readonly, int runstop,
 		    char *update, char *homehost, int require_homehost,
-		    int verbose, int force);
+		    int verbose, int force, int freeze_reshape);
 
 extern int Build(char *mddev, int chunk, int level, int layout,
 		 int raiddisks, struct mddev_dev *devlist, int assume_clean,
@@ -1079,7 +1082,7 @@ extern int WaitClean(char *dev, int sock, int verbose);
 
 extern int Incremental(char *devname, int verbose, int runstop,
 		       struct supertype *st, char *homehost, int require_homehost,
-		       int autof);
+		       int autof, int freeze_reshape);
 extern void RebuildMap(void);
 extern int IncrementalScan(int verbose);
 extern int IncrementalRemove(char *devname, char *path, int verbose);
@@ -1158,7 +1161,7 @@ extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
 				      struct mdinfo *content, int runstop,
 				      char *chosen_name, int verbose,
-				      char *backup_file);
+				      char *backup_file, int freeze_reshape);
 extern struct mdinfo *container_choose_spares(struct supertype *st,
 					      unsigned long long min_size,
 					      struct domainlist *domlist,

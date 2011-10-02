@@ -138,7 +138,7 @@ int Assemble(struct supertype *st, char *mddev,
 	     char *backup_file, int invalid_backup,
 	     int readonly, int runstop,
 	     char *update, char *homehost, int require_homehost,
-	     int verbose, int force)
+	     int verbose, int force, int freeze_reshape)
 {
 	/*
 	 * The task of Assemble is to find a collection of
@@ -697,7 +697,7 @@ int Assemble(struct supertype *st, char *mddev,
 		int err;
 		err = assemble_container_content(st, mdfd, content, runstop,
 						 chosen_name, verbose,
-						 backup_file);
+						 backup_file, freeze_reshape);
 		close(mdfd);
 		return err;
 	}
@@ -1344,7 +1344,8 @@ int Assemble(struct supertype *st, char *mddev,
 #ifndef MDASSEMBLE
 			if (content->reshape_active &&
 			    content->delta_disks <= 0)
-				rv = Grow_continue(mdfd, st, content, backup_file);
+				rv = Grow_continue(mdfd, st, content,
+						   backup_file, freeze_reshape);
 			else
 #endif
 				rv = ioctl(mdfd, RUN_ARRAY, NULL);
@@ -1511,7 +1512,7 @@ int Assemble(struct supertype *st, char *mddev,
 int assemble_container_content(struct supertype *st, int mdfd,
 			       struct mdinfo *content, int runstop,
 			       char *chosen_name, int verbose,
-			       char *backup_file)
+			       char *backup_file, int freeze_reshape)
 {
 	struct mdinfo *dev, *sra;
 	int working = 0, preexist = 0;
@@ -1560,7 +1561,8 @@ int assemble_container_content(struct supertype *st, int mdfd,
 					   spare, backup_file, verbose) == 1)
 				return 1;
 
-			err = Grow_continue(mdfd, st, content, backup_file);
+			err = Grow_continue(mdfd, st, content, backup_file,
+					    freeze_reshape);
 		} else switch(content->array.level) {
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:

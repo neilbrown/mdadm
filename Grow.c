@@ -1344,13 +1344,13 @@ static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
 			 char *backup_file, int quiet, int forked,
-			 int restart);
+			 int restart, int freeze_reshape);
 static int reshape_container(char *container, char *devname,
 			     struct supertype *st, 
 			     struct mdinfo *info,
 			     int force,
 			     char *backup_file,
-			     int quiet, int restart);
+			     int quiet, int restart, int freeze_reshape);
 
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
@@ -1761,7 +1761,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * performed at the level of the container
 		 */
 		rv = reshape_container(container, devname, st, &info,
-				       force, backup_file, quiet, 0);
+				       force, backup_file, quiet, 0, 0);
 		frozen = 0;
 	} else {
 		/* get spare devices from external metadata
@@ -1789,7 +1789,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		}
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, force,
-				   devlist, backup_file, quiet, 0, 0);
+				   devlist, backup_file, quiet, 0, 0, 0);
 		frozen = 0;
 	}
 release:
@@ -1802,7 +1802,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
 			 char *backup_file, int quiet, int forked,
-			 int restart)
+			 int restart, int freeze_reshape)
 {
 	struct reshape reshape;
 	int spares_needed;
@@ -2251,6 +2251,15 @@ started:
 	}
 	if (restart)
 		sysfs_set_str(sra, NULL, "array_state", "active");
+	if (freeze_reshape) {
+		free(fdlist);
+		free(offsets);
+		sysfs_free(sra);
+		fprintf(stderr, Name ": Reshape has to be continued from"
+			" location %llu when root fileststem has been mounted\n",
+			sra->reshape_progress);
+		return 1;
+	}
 
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
@@ -2390,7 +2399,7 @@ int reshape_container(char *container, char *devname,
 		      struct mdinfo *info,
 		      int force,
 		      char *backup_file,
-		      int quiet, int restart)
+		      int quiet, int restart, int freeze_reshape)
 {
 	struct mdinfo *cc = NULL;
 	int rv = restart;
@@ -2419,7 +2428,9 @@ int reshape_container(char *container, char *devname,
 		unfreeze(st);
 		return 1;
 	default: /* parent */
-		printf(Name ": multi-array reshape continues in background\n");
+		if (!freeze_reshape)
+			printf(Name ": multi-array reshape continues"
+			       " in background\n");
 		return 0;
 	case 0: /* child */
 		map_fork();
@@ -2475,8 +2486,15 @@ int reshape_container(char *container, char *devname,
 
 		rv = reshape_array(container, fd, adev, st,
 				   content, force, NULL,
-				   backup_file, quiet, 1, restart);
+				   backup_file, quiet, 1, restart,
+				   freeze_reshape);
 		close(fd);
+
+		if (freeze_reshape) {
+			sysfs_free(cc);
+			exit(0);
+		}
+
 		restart = 0;
 		if (rv)
 			break;
@@ -3615,7 +3633,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 }
 
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
-		  char *backup_file)
+		  char *backup_file, int freeze_reshape)
 {
 	char buf[40];
 	char *container = NULL;
@@ -3642,9 +3660,9 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 			close(cfd);
 			return reshape_container(container, NULL,
 						 st, info, 0, backup_file,
-						 0, 1);
+						 0, 1, freeze_reshape);
 		}
 	}
 	return reshape_array(container, mdfd, "array", st, info, 1,
-			     NULL, backup_file, 0, 0, 1);
+			     NULL, backup_file, 0, 0, 1, freeze_reshape);
 }

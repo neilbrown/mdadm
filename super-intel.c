@@ -2373,8 +2373,9 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 
 	info->reshape_progress = 0;
 	info->resync_start = MaxSector;
-	if (map_to_analyse->map_state == IMSM_T_STATE_UNINITIALIZED ||
-	    dev->vol.dirty) {
+	if ((map_to_analyse->map_state == IMSM_T_STATE_UNINITIALIZED ||
+	    dev->vol.dirty) &&
+	    imsm_reshape_blocks_arrays_changes(super) == 0) {
 		info->resync_start = 0;
 	}
 	if (dev->vol.migr_state) {
@@ -6230,7 +6231,8 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 			super->updates_pending++;
 			a->last_checkpoint = 0;
 		}
-	} else if (!is_resyncing(dev) && !failed) {
+	} else if ((!is_resyncing(dev) && !failed) &&
+		   (imsm_reshape_blocks_arrays_changes(super) == 0)) {
 		/* mark the start of the init process if nothing is failed */
 		dprintf("imsm: mark resync start\n");
 		if (map->map_state == IMSM_T_STATE_UNINITIALIZED)

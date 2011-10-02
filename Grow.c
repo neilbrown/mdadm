@@ -3645,6 +3645,8 @@ int Grow_continue_command(char *devname, int fd,
 	char buf[40];
 	int cfd = -1;
 	int fd2 = -1;
+	char *ep;
+	unsigned long long position;
 
 	dprintf("Grow continue from command line called for %s\n",
 		devname);
@@ -3744,6 +3746,35 @@ int Grow_continue_command(char *devname, int fd,
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
+	}
+
+	/* verify that array under reshape is started from
+	 * correct position
+	 */
+	ret_val = sysfs_get_str(content, NULL, "sync_max", buf, 40);
+	if (ret_val <= 0) {
+		fprintf(stderr, Name
+			": cannot open verify reshape progress for %s (%i)\n",
+			content->sys_name, ret_val);
+		ret_val = 1;
+		goto Grow_continue_command_exit;
+	}
+	dprintf(Name ": Read sync_max sysfs entry is: %s\n", buf);
+	position = strtoull(buf, &ep, 0);
+	if (ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' ')) {
+		fprintf(stderr, Name ": Fatal error: array reshape was"
+			" not properly frozen\n");
+		ret_val = 1;
+		goto Grow_continue_command_exit;
+	}
+	position *= get_data_disks(map_name(pers, mdstat->level),
+				   content->new_layout,
+				   content->array.raid_disks);
+	if (position != content->reshape_progress) {
+		fprintf(stderr, Name ": Fatal error: array reshape was"
+			" not properly frozen.\n");
+		ret_val = 1;
+		goto Grow_continue_command_exit;
 	}
 
 	/* continue reshape

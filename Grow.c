@@ -78,9 +78,9 @@ int restore_backup(struct supertype *st,
 				   backup_file, verbose > 0);
 
 	while (next_spare > 0) {
-		disk_count--;
-		if (fdlist[disk_count] >= 0)
-			close(fdlist[disk_count]);
+		next_spare--;
+		if (fdlist[next_spare] >= 0)
+			close(fdlist[next_spare]);
 	}
 	free(fdlist);
 	if (err) {

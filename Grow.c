@@ -3807,7 +3807,6 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	if (st->ss->external) {
 		fmt_devname(buf, st->container_dev);
 		container = buf;
-		freeze(st);
 
 		if (!mdmon_running(st->container_dev))
 			start_mdmon(st->container_dev);

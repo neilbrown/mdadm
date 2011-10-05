@@ -3111,7 +3111,7 @@ static void end_migration(struct imsm_dev *dev, __u8 map_state)
 			}
 
 	dev->vol.migr_state = 0;
-	dev->vol.migr_type = 0;
+	set_migr_type(dev, 0);
 	dev->vol.curr_migr_unit = 0;
 	map->map_state = map_state;
 }
@@ -6123,7 +6123,7 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 		map->num_members = prev_disks;
 		dev->vol.migr_state = 1;
 		dev->vol.curr_migr_unit = 0;
-		dev->vol.migr_type = MIGR_GEN_MIGR;
+		set_migr_type(dev, MIGR_GEN_MIGR);
 		for (i = prev_num_members;
 		     i < map->num_members; i++)
 			set_imsm_ord_tbl_ent(map, i, i);
@@ -6173,7 +6173,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 				if (0) {
 				struct imsm_map *map2 = get_imsm_map(dev, 1);
 				dev->vol.migr_state = 0;
-				dev->vol.migr_type = 0;
+				set_migr_type(dev, 0);
 				dev->vol.curr_migr_unit = 0;
 				memcpy(map, map2, sizeof_imsm_map(map2));
 				super->updates_pending++;
@@ -7052,7 +7052,7 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 			devices_to_reshape--;
 			newdev->vol.migr_state = 1;
 			newdev->vol.curr_migr_unit = 0;
-			newdev->vol.migr_type = MIGR_GEN_MIGR;
+			set_migr_type(newdev, MIGR_GEN_MIGR);
 			newmap->num_members = u->new_raid_disks;
 			for (i = 0; i < delta_disks; i++) {
 				set_imsm_ord_tbl_ent(newmap,

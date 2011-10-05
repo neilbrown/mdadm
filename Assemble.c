@@ -1561,6 +1561,12 @@ int assemble_container_content(struct supertype *st, int mdfd,
 					   spare, backup_file, verbose) == 1)
 				return 1;
 
+			if (st->ss->external) {
+				if (!mdmon_running(st->container_dev))
+					start_mdmon(st->container_dev);
+				ping_monitor_by_id(st->container_dev);
+			}
+
 			err = Grow_continue(mdfd, st, content, backup_file,
 					    freeze_reshape);
 		} else switch(content->array.level) {

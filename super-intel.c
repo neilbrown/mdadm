@@ -2251,8 +2251,7 @@ int imsm_reshape_blocks_arrays_changes(struct intel_super *super)
 	 */
 	for (i_dev = super->devlist; i_dev; i_dev = i_dev->next) {
 		dev = i_dev->dev;
-		if (dev->vol.migr_state &&
-		    dev->vol.migr_type == MIGR_GEN_MIGR) {
+		if (is_gen_migration(dev)) {
 			/* No repair during any migration in container
 			 */
 			rv = 1;
@@ -2294,6 +2293,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->custom_array_size   = __le32_to_cpu(dev->size_high);
 	info->custom_array_size   <<= 32;
 	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
+	info->recovery_blocked = imsm_reshape_blocks_arrays_changes(st->sb);
+
 	if (prev_map && map->map_state == prev_map->map_state) {
 		info->reshape_active = 1;
 		info->new_level = get_imsm_raid_level(map);
@@ -2516,6 +2517,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 	info->disk.state = 0;
 	info->name[0] = 0;
 	info->recovery_start = MaxSector;
+	info->recovery_blocked = imsm_reshape_blocks_arrays_changes(st->sb);
 
 	/* do we have the all the insync disks that we expect? */
 	mpb = super->anchor;

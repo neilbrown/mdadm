@@ -6671,9 +6671,9 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		 */
 		dl = imsm_readd(super, i, a);
 		if (!dl)
-			dl = imsm_add_spare(super, i, a, 0, NULL);
+			dl = imsm_add_spare(super, i, a, 0, rv);
 		if (!dl)
-			dl = imsm_add_spare(super, i, a, 1, NULL);
+			dl = imsm_add_spare(super, i, a, 1, rv);
 		if (!dl)
 			continue;
  
@@ -6710,8 +6710,6 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		num_spares++;
 		dprintf("%x:%x to be %d at %llu\n", dl->major, dl->minor,
 			i, di->data_offset);
-
-		break;
 	}
 
 	if (!rv)

@@ -1527,7 +1527,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		if (sysfs_set_array(content, md_get_version(mdfd)) != 0)
 			return 1;
 
-	if (content->reshape_active)
+	if (st->ss->external && content->recovery_blocked)
 		block_subarray(content);
 
 	if (sra)

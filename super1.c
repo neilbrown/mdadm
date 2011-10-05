@@ -626,6 +626,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	} else
 		info->reshape_active = 0;
 
+	info->recovery_blocked = info->reshape_active;
+
 	if (map)
 		for (i=0; i<map_disks; i++)
 			map[i] = 0;

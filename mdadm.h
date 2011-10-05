@@ -196,6 +196,13 @@ struct mdinfo {
 						    */
 	int			reshape_active;
 	unsigned long long	reshape_progress;
+	int			recovery_blocked; /* for external metadata it
+						   * indicates that there is
+						   * reshape in progress in
+						   * container,
+						   * for native metadata it is
+						   * reshape_active field mirror
+						   */
 	union {
 		unsigned long long resync_start; /* per-array resync position */
 		unsigned long long recovery_start; /* per-device rebuild position */

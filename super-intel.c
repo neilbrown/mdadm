@@ -989,7 +989,6 @@ static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 	struct extent *e;
 	int i;
 	unsigned long long rv = 0;
-	__u32 reservation;
 
 	if (!super)
 		return rv;
@@ -1007,7 +1006,6 @@ static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 		continue;
 	if (i > 0)
 		rv = e[i-1].start + e[i-1].size;
-	reservation = __le32_to_cpu(dl->disk.total_blocks) - e[i].start;
 	free(e);
 
 	/* add the amount of space needed for metadata */

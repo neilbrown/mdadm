@@ -1343,10 +1343,14 @@ int Assemble(struct supertype *st, char *mddev,
 			int rv;
 #ifndef MDASSEMBLE
 			if (content->reshape_active &&
-			    content->delta_disks <= 0)
-				rv = Grow_continue(mdfd, st, content,
-						   backup_file, freeze_reshape);
-			else
+			    content->delta_disks <= 0) {
+				rv = sysfs_set_str(content, NULL,
+						   "array_state", "readonly");
+				if (rv == 0)
+					rv = Grow_continue(mdfd, st, content,
+							   backup_file,
+							   freeze_reshape);
+			} else
 #endif
 				rv = ioctl(mdfd, RUN_ARRAY, NULL);
 			if (rv == 0) {
@@ -1559,6 +1563,11 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			if (restore_backup(st, content,
 					   working,
 					   spare, backup_file, verbose) == 1)
+				return 1;
+
+			err = sysfs_set_str(content, NULL,
+					    "array_state", "readonly");
+			if (err)
 				return 1;
 
 			if (st->ss->external) {

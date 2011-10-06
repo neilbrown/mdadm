@@ -3802,33 +3802,28 @@ Grow_continue_command_exit:
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		  char *backup_file, int freeze_reshape)
 {
-	char buf[40];
-	char *container = NULL;
-	int err;
+	int ret_val = 2;
 
-	err = sysfs_set_str(info, NULL, "array_state", "readonly");
-	if (err)
-		return err;
+	if (!info->reshape_active)
+		return ret_val;
+
 	if (st->ss->external) {
-		fmt_devname(buf, st->container_dev);
-		container = buf;
+		char container[40];
+		int cfd = open_dev(st->container_dev);
 
-		if (!mdmon_running(st->container_dev))
-			start_mdmon(st->container_dev);
-		ping_monitor_by_id(st->container_dev);
+		if (cfd < 0)
+			return 1;
 
+		fmt_devname(container, st->container_dev);
+		st->ss->load_container(st, cfd, container);
+		close(cfd);
+		ret_val = reshape_container(container, NULL,
+					    st, info, 0, backup_file,
+					    0, 1, freeze_reshape);
+	} else
+		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
+					NULL, backup_file, 0, 0, 1,
+					freeze_reshape);
 
-		if (info->reshape_active == 2) {
-			int cfd = open_dev(st->container_dev);
-			if (cfd < 0)
-				return 1;
-			st->ss->load_container(st, cfd, container);
-			close(cfd);
-			return reshape_container(container, NULL,
-						 st, info, 0, backup_file,
-						 0, 1, freeze_reshape);
-		}
-	}
-	return reshape_array(container, mdfd, "array", st, info, 1,
-			     NULL, backup_file, 0, 0, 1, freeze_reshape);
+	return ret_val;
 }

@@ -2295,7 +2295,8 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
 	info->recovery_blocked = imsm_reshape_blocks_arrays_changes(st->sb);
 
-	if (prev_map && map->map_state == prev_map->map_state) {
+	if (prev_map && map->map_state == prev_map->map_state &&
+	    (migr_type(dev) == MIGR_GEN_MIGR)) {
 		info->reshape_active = 1;
 		info->new_level = get_imsm_raid_level(map);
 		info->new_layout = imsm_level_to_layout(info->new_level);

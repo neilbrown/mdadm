@@ -222,7 +222,7 @@ static char *disk_path(struct mdinfo *disk)
 	closedir(by_path);
 	/* A NULL path isn't really acceptable - use the devname.. */
 	sprintf(symlink, "/sys/dev/block/%d:%d", disk->disk.major, disk->disk.minor);
-	rv = readlink(symlink, nm, sizeof(nm));
+	rv = readlink(symlink, nm, sizeof(nm)-1);
 	if (rv > 0) {
 		char *dname;
 		nm[rv] = 0;

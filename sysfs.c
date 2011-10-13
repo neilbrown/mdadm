@@ -619,7 +619,7 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 
 	memset(nm, 0, sizeof(nm));
 	sprintf(dv, "/sys/dev/block/%d:%d", sd->disk.major, sd->disk.minor);
-	rv = readlink(dv, nm, sizeof(nm));
+	rv = readlink(dv, nm, sizeof(nm)-1);
 	if (rv <= 0)
 		return -1;
 	nm[rv] = '\0';

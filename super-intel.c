@@ -2864,7 +2864,7 @@ static void fd2devname(int fd, char *name)
 	sprintf(path, "/sys/dev/block/%d:%d",
 		major(st.st_rdev), minor(st.st_rdev));
 
-	rv = readlink(path, dname, sizeof(dname));
+	rv = readlink(path, dname, sizeof(dname)-1);
 	if (rv <= 0)
 		return;
 	

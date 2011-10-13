@@ -1594,7 +1594,7 @@ int start_mdmon(int devnum)
 	if (check_env("MDADM_NO_MDMON"))
 		return 0;
 
-	len = readlink("/proc/self/exe", pathbuf, sizeof(pathbuf));
+	len = readlink("/proc/self/exe", pathbuf, sizeof(pathbuf)-1);
 	if (len > 0) {
 		char *sl;
 		pathbuf[len] = 0;

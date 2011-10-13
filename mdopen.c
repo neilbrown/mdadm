@@ -360,8 +360,12 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 			if (lstat(chosen, &stb) == 0) {
 				char buf[300];
+				ssize_t link_len = readlink(chosen, buf, sizeof(buf)-1);
+				if (link_len >= 0)
+					buf[link_len] = '\0';
+
 				if ((stb.st_mode & S_IFMT) != S_IFLNK ||
-				    readlink(chosen, buf, 300) <0 ||
+				    link_len < 0 ||
 				    strcmp(buf, devname) != 0) {
 					fprintf(stderr, Name ": %s exists - ignoring\n",
 						chosen);

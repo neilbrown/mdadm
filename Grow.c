@@ -1648,8 +1648,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			rv = 1;
 			goto release;
 		}
-		/* FIXME this is added with no justification - why is it here */
-		ping_monitor(container);
+		/* Make sure mdmon has seen the device removal
+		 * and updated metadata before we continue with
+		 * level change
+		 */
+		if (container)
+			ping_monitor(container);
 	}
 
 	memset(&info, 0, sizeof(info));

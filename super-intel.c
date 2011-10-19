@@ -6015,7 +6015,9 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 	if (is_failed(disk) && (ord & IMSM_ORD_REBUILD))
 		return 0;
 
-	sprintf(buf, "%s:0", disk->serial);
+	memcpy(buf, disk->serial, MAX_RAID_SERIAL_LEN);
+	buf[MAX_RAID_SERIAL_LEN] = '\000';
+	strcat(buf, ":0");
 	if ((len = strlen(buf)) >= MAX_RAID_SERIAL_LEN)
 		shift = len - MAX_RAID_SERIAL_LEN + 1;
 	strncpy((char *)disk->serial, &buf[shift], MAX_RAID_SERIAL_LEN);

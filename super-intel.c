@@ -6642,9 +6642,9 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	 * are removed from container.
 	 */
 	if (failed) {
-		dprintf("found failed disks in %s, check if there another"
+		dprintf("found failed disks in %.*s, check if there another"
 			"failed sub-array.\n",
-			dev->volume);
+			MAX_RAID_SERIAL_LEN, dev->volume);
 		/* check if states of the other volumes allow for rebuild */
 		for (i = 0; i <  super->anchor->num_raid_devs; i++) {
 			if (i != inst) {

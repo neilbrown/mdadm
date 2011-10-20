@@ -1142,7 +1142,7 @@ static int validate_geometry0(struct supertype *st, int level,
 				MD_SB_DISKS);
 		return 0;
 	}
-	if (size >= tbmax * 1024*1024*1024*2ULL) {
+	if (size >= tbmax * 2ULL*1024*1024*1024) {
 		if (verbose)
 			fprintf(stderr, Name ": 0.90 metadata supports at most "
 				"%d terabytes per device\n", tbmax);

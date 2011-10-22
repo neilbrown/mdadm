@@ -1059,6 +1059,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		}
 		sysfs_free(chosen);
 	}
+	map_unlock(&map);
 	return rv;
 }
 

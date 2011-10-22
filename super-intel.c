@@ -6982,6 +6982,108 @@ error_disk_add:
 	return ret_val;
 }
 
+static int apply_update_activate_spare(struct imsm_update_activate_spare *u,
+				       struct intel_super *super,	
+				       struct active_array *active_array)
+{
+	struct imsm_super *mpb = super->anchor;
+	struct imsm_dev *dev = get_imsm_dev(super, u->array);
+	struct imsm_map *map = get_imsm_map(dev, 0);
+	struct imsm_map *migr_map;
+	struct active_array *a;
+	struct imsm_disk *disk;
+	__u8 to_state;
+	struct dl *dl;
+	unsigned int found;
+	int failed;
+	int victim = get_imsm_disk_idx(dev, u->slot, -1);
+	int i;
+
+	for (dl = super->disks; dl; dl = dl->next)
+		if (dl == u->dl)
+			break;
+
+	if (!dl) {
+		fprintf(stderr, "error: imsm_activate_spare passed "
+			"an unknown disk (index: %d)\n",
+			u->dl->index);
+		return 0;
+	}
+
+	/* count failures (excluding rebuilds and the victim)
+	 * to determine map[0] state
+	 */
+	failed = 0;
+	for (i = 0; i < map->num_members; i++) {
+		if (i == u->slot)
+			continue;
+		disk = get_imsm_disk(super,
+				     get_imsm_disk_idx(dev, i, -1));
+		if (!disk || is_failed(disk))
+			failed++;
+	}
+
+	/* adding a pristine spare, assign a new index */
+	if (dl->index < 0) {
+		dl->index = super->anchor->num_disks;
+		super->anchor->num_disks++;
+	}
+	disk = &dl->disk;
+	disk->status |= CONFIGURED_DISK;
+	disk->status &= ~SPARE_DISK;
+
+	/* mark rebuild */
+	to_state = imsm_check_degraded(super, dev, failed);
+	map->map_state = IMSM_T_STATE_DEGRADED;
+	migrate(dev, super, to_state, MIGR_REBUILD);
+	migr_map = get_imsm_map(dev, 1);
+	set_imsm_ord_tbl_ent(map, u->slot, dl->index);
+	set_imsm_ord_tbl_ent(migr_map, u->slot,
+			     dl->index | IMSM_ORD_REBUILD);
+
+	/* update the family_num to mark a new container
+	 * generation, being careful to record the existing
+	 * family_num in orig_family_num to clean up after
+	 * earlier mdadm versions that neglected to set it.
+	 */
+	if (mpb->orig_family_num == 0)
+		mpb->orig_family_num = mpb->family_num;
+	mpb->family_num += super->random;
+
+	/* count arrays using the victim in the metadata */
+	found = 0;
+	for (a = active_array; a ; a = a->next) {
+		dev = get_imsm_dev(super, a->info.container_member);
+		map = get_imsm_map(dev, 0);
+
+		if (get_imsm_disk_slot(map, victim) >= 0)
+			found++;
+	}
+
+	/* delete the victim if it is no longer being
+	 * utilized anywhere
+	 */
+	if (!found) {
+		struct dl **dlp;
+
+		/* We know that 'manager' isn't touching anything,
+		 * so it is safe to delete
+		 */
+		for (dlp = &super->disks; *dlp; dlp = &(*dlp)->next)
+			if ((*dlp)->index == victim)
+				break;
+
+		/* victim may be on the missing list */
+		if (!*dlp)
+			for (dlp = &super->missing; *dlp;
+			     dlp = &(*dlp)->next)
+				if ((*dlp)->index == victim)
+					break;
+		imsm_delete(super, dlp, victim);
+	}
+
+	return 1;
+}
 
 static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 						struct intel_super *super,
@@ -7276,99 +7378,8 @@ static void imsm_process_update(struct supertype *st,
 	}
 	case update_activate_spare: {
 		struct imsm_update_activate_spare *u = (void *) update->buf; 
-		struct imsm_dev *dev = get_imsm_dev(super, u->array);
-		struct imsm_map *map = get_imsm_map(dev, 0);
-		struct imsm_map *migr_map;
-		struct active_array *a;
-		struct imsm_disk *disk;
-		__u8 to_state;
-		struct dl *dl;
-		unsigned int found;
-		int failed;
-		int victim = get_imsm_disk_idx(dev, u->slot, -1);
-		int i;
-
-		for (dl = super->disks; dl; dl = dl->next)
-			if (dl == u->dl)
-				break;
-
-		if (!dl) {
-			fprintf(stderr, "error: imsm_activate_spare passed "
-				"an unknown disk (index: %d)\n",
-				u->dl->index);
-			return;
-		}
-
-		super->updates_pending++;
-		/* count failures (excluding rebuilds and the victim)
-		 * to determine map[0] state
-		 */
-		failed = 0;
-		for (i = 0; i < map->num_members; i++) {
-			if (i == u->slot)
-				continue;
-			disk = get_imsm_disk(super,
-					     get_imsm_disk_idx(dev, i, -1));
-			if (!disk || is_failed(disk))
-				failed++;
-		}
-
-		/* adding a pristine spare, assign a new index */
-		if (dl->index < 0) {
-			dl->index = super->anchor->num_disks;
-			super->anchor->num_disks++;
-		}
-		disk = &dl->disk;
-		disk->status |= CONFIGURED_DISK;
-		disk->status &= ~SPARE_DISK;
-
-		/* mark rebuild */
-		to_state = imsm_check_degraded(super, dev, failed);
-		map->map_state = IMSM_T_STATE_DEGRADED;
-		migrate(dev, super, to_state, MIGR_REBUILD);
-		migr_map = get_imsm_map(dev, 1);
-		set_imsm_ord_tbl_ent(map, u->slot, dl->index);
-		set_imsm_ord_tbl_ent(migr_map, u->slot, dl->index | IMSM_ORD_REBUILD);
-
-		/* update the family_num to mark a new container
-		 * generation, being careful to record the existing
-		 * family_num in orig_family_num to clean up after
-		 * earlier mdadm versions that neglected to set it.
-		 */
-		if (mpb->orig_family_num == 0)
-			mpb->orig_family_num = mpb->family_num;
-		mpb->family_num += super->random;
-
-		/* count arrays using the victim in the metadata */
-		found = 0;
-		for (a = st->arrays; a ; a = a->next) {
-			dev = get_imsm_dev(super, a->info.container_member);
-			map = get_imsm_map(dev, 0);
-
-			if (get_imsm_disk_slot(map, victim) >= 0)
-				found++;
-		}
-
-		/* delete the victim if it is no longer being
-		 * utilized anywhere
-		 */
-		if (!found) {
-			struct dl **dlp;
-
-			/* We know that 'manager' isn't touching anything,
-			 * so it is safe to delete
-			 */
-			for (dlp = &super->disks; *dlp; dlp = &(*dlp)->next)
-				if ((*dlp)->index == victim)
-					break;
-
-			/* victim may be on the missing list */
-			if (!*dlp)
-				for (dlp = &super->missing; *dlp; dlp = &(*dlp)->next)
-					if ((*dlp)->index == victim)
-						break;
-			imsm_delete(super, dlp, victim);
-		}
+		if (apply_update_activate_spare(u, super, st->arrays))
+			super->updates_pending++;
 		break;
 	}
 	case update_create_array: {

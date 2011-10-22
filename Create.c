@@ -790,6 +790,10 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	infos = malloc(sizeof(*infos) * total_slots);
+	if (!infos) {
+		fprintf(stderr, Name ": Unable to allocate memory\n");
+		goto abort;
+	}
 
 	for (pass=1; pass <=2 ; pass++) {
 		struct mddev_dev *moved_disk = NULL; /* the disk that was moved out of the insert point */

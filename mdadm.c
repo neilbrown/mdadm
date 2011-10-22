@@ -1279,6 +1279,7 @@ int main(int argc, char *argv[])
 		} else {
 			struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
 			struct mddev_dev *devlist = conf_get_devs();
+			struct map_ent *map = NULL;
 			int cnt = 0;
 			int failures, successes;
 			if (devlist == NULL) {
@@ -1298,6 +1299,10 @@ int main(int argc, char *argv[])
 				if (a->autof == 0)
 					a->autof = autof;
 			}
+			if (map_lock(&map))
+				fprintf(stderr, Name " %s: failed to get "
+					"exclusive lock on mapfile\n",
+					__func__);
 			do {
 				failures = 0;
 				successes = 0;
@@ -1364,6 +1369,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": No arrays found in config file\n");
 				rv = 1;
 			}
+			map_unlock(&map);
 		}
 		break;
 	case BUILD:

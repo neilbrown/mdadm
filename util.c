@@ -1709,7 +1709,8 @@ int experimental(void)
 	if (check_env("MDADM_EXPERIMENTAL"))
 		return 1;
 	else {
-		fprintf(stderr, Name ": To use this feature MDADM_EXPERIMENTAL enviroment variable has to defined.\n");
+		fprintf(stderr, Name ": To use this feature MDADM_EXPERIMENTAL"
+				" environment variable has to be defined.\n");
 		return 0;
 	}
 }

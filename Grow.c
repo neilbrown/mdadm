@@ -1350,6 +1350,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			 char *backup_file, int quiet, int forked,
 			 int restart, int freeze_reshape);
 static int reshape_container(char *container, char *devname,
+			     int mdfd,
 			     struct supertype *st, 
 			     struct mdinfo *info,
 			     int force,
@@ -1768,7 +1769,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * number of devices (On-Line Capacity Expansion) must be
 		 * performed at the level of the container
 		 */
-		rv = reshape_container(container, devname, st, &info,
+		rv = reshape_container(container, devname, -1, st, &info,
 				       force, backup_file, quiet, 0, 0);
 		frozen = 0;
 	} else {
@@ -2403,7 +2404,10 @@ release:
 	return 1;
 }
 
+/* mdfd handle is passed to be closed in child process (after fork).
+ */
 int reshape_container(char *container, char *devname,
+		      int mdfd,
 		      struct supertype *st, 
 		      struct mdinfo *info,
 		      int force,
@@ -2445,6 +2449,11 @@ int reshape_container(char *container, char *devname,
 		map_fork();
 		break;
 	}
+
+	/* close unused handle in child process
+	 */
+	if (mdfd > -1)
+		close(mdfd);
 
 	while(1) {
 		/* For each member array with reshape_active,
@@ -3821,7 +3830,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		fmt_devname(container, st->container_dev);
 		st->ss->load_container(st, cfd, container);
 		close(cfd);
-		ret_val = reshape_container(container, NULL,
+		ret_val = reshape_container(container, NULL, mdfd,
 					    st, info, 0, backup_file,
 					    0, 1, freeze_reshape);
 	} else

@@ -1127,7 +1127,8 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 {
 	struct GPT gpt;
 	unsigned char empty_gpt_entry[16]= {0};
-	struct GPT_part_entry part;
+	struct GPT_part_entry *part;
+	char buf[512];
 	unsigned long long curr_part_end;
 	unsigned all_partitions, entry_size;
 	unsigned part_nr;
@@ -1151,18 +1152,20 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 
 	/* sanity checks */
 	if (all_partitions > 1024 ||
-	    entry_size > 512)
+	    entry_size > sizeof(buf))
 		return -1;
+
+	part = (struct GPT_part_entry *)buf;
 
 	for (part_nr=0; part_nr < all_partitions; part_nr++) {
 		/* read partition entry */
-		if (read(fd, &part, entry_size) != (ssize_t)entry_size)
+		if (read(fd, buf, entry_size) != (ssize_t)entry_size)
 			return 0;
 
 		/* is this valid partition? */
-		if (memcmp(part.type_guid, empty_gpt_entry, 16) != 0) {
+		if (memcmp(part->type_guid, empty_gpt_entry, 16) != 0) {
 			/* check the last lba for the current partition */
-			curr_part_end = __le64_to_cpu(part.ending_lba);
+			curr_part_end = __le64_to_cpu(part->ending_lba);
 			if (curr_part_end > *endofpart)
 				*endofpart = curr_part_end;
 		}

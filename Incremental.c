@@ -1446,6 +1446,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 	struct map_ent *smp;
 	int suuid[4];
 	int sfd;
+	int ra_blocked = 0;
+	int ra_all = 0;
 
 	st->ss->getinfo_super(st, &info, NULL);
 
@@ -1473,21 +1475,26 @@ static int Incremental_container(struct supertype *st, char *devname,
 		trustworthy = FOREIGN;
 
 	list = st->ss->container_content(st, NULL);
-	/* do not assemble arrays that might have bad blocks */
-	if (list && list->array.state & (1<<MD_SB_BBM_ERRORS)) {
-		fprintf(stderr, Name ": BBM log found in metadata. "
-					"Cannot activate array(s).\n");
-		/* free container data and exit */
-		sysfs_free(list);
-		return 2;
-	}
-
+	/* when nothing to activate - quit */
+	if (list == NULL)
+		return 0;
+	if (map_lock(&map))
+		fprintf(stderr, Name ": failed to get exclusive lock on "
+			"mapfile\n");
 	for (ra = list ; ra ; ra = ra->next) {
 		int mdfd;
 		char chosen_name[1024];
 		struct map_ent *mp;
 		struct mddev_ident *match = NULL;
 
+		ra_all++;
+		/* do not activate arrays blocked by metadata handler */
+		if (ra->array.state & (1 << MD_SB_BLOCK_VOLUME)) {
+			fprintf(stderr, Name ": Cannot activate array %s in %s.\n",
+				ra->text_version, devname);
+			ra_blocked++;
+			continue;
+		}
 		mp = map_by_uuid(&map, ra->uuid);
 
 		if (mp) {
@@ -1564,6 +1571,13 @@ static int Incremental_container(struct supertype *st, char *devname,
 					   chosen_name, verbose, NULL,
 					   freeze_reshape);
 		close(mdfd);
+	}
+
+	/* don't move spares to container with volume being activated
+	   when all volumes are blocked */
+	if (ra_all == ra_blocked) {
+		map_unlock(&map);
+		return 0;
 	}
 
 	/* Now move all suitable spares from spare container */

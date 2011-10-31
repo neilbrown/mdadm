@@ -1357,6 +1357,36 @@ static int reshape_container(char *container, char *devname,
 			     char *backup_file,
 			     int quiet, int restart, int freeze_reshape);
 
+/*
+ * helper routine to check metadata reshape avalability
+ * 1. Do not "grow" arrays with volume activation blocked
+ * 2. do not reshape containers with container reshape blocked
+ *
+ * IN:
+ *	subarray - array name or NULL for container wide reshape
+ *	content - md device info from container_content
+ * OUT:
+ *	0 - block reshape
+ */
+static int check_reshape(char *subarray, struct mdinfo *content)
+{
+	char *ep;
+	unsigned int idx;
+
+	if (!subarray) {
+		if (content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))
+			return 0;
+	} else {
+		/* do not "grow" arrays with volume activation blocked */
+		idx = strtoul(subarray, &ep, 10);
+		if (*ep == '\0'
+		    && content->container_member == (int) idx
+		    && (content->array.state & (1<<MD_SB_BLOCK_VOLUME)))
+			return 0;
+	}
+	return 1;
+}
+
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks,
@@ -1467,6 +1497,32 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			return 1;
 		}
 
+		/* check if operation is supported for metadata handler */
+		if (st->ss->container_content) {
+			struct mdinfo *cc = NULL;
+			struct mdinfo *content = NULL;
+
+			cc = st->ss->container_content(st, subarray);
+			for (content = cc; content ; content = content->next) {
+				int allow_reshape;
+
+				/* check if reshape is allowed based on metadata
+				 * indications stored in content.array.status
+				 */
+				allow_reshape = check_reshape(subarray, content);
+				if (!allow_reshape) {
+					fprintf(stderr, Name
+						" cannot reshape arrays in"
+						" container with unsupported"
+						" metadata: %s(%s)\n",
+						devname, container_buf);
+					sysfs_free(cc);
+					free(subarray);
+					return 1;
+				}
+			}
+			sysfs_free(cc);
+		}
 		if (mdmon_running(container_dev))
 			st->update_tail = &st->updates;
 	}
@@ -3723,9 +3779,28 @@ int Grow_continue_command(char *devname, int fd,
 		cc = st->ss->container_content(st, NULL);
 		for (content = cc; content ; content = content->next) {
 			char *array;
+			int allow_reshape;
 
 			if (content->reshape_active == 0)
 				continue;
+			/* The decision about array or container wide
+			 * reshape is taken in Grow_continue based
+			 * content->reshape_active state, therefore we
+			 * need to check_reshape based on
+			 * reshape_active and subarray name
+			*/
+			allow_reshape =
+			  check_reshape((content->reshape_active == CONTAINER_RESHAPE)? NULL : subarray,
+					content);
+			if (!allow_reshape) {
+				fprintf(stderr, Name
+					": cannot continue reshape of an array"
+					" in container with unsupported"
+					" metadata: %s(%s)\n",
+					devname, buf);
+				ret_val = 1;
+				goto Grow_continue_command_exit;
+			}
 
 			array = strchr(content->text_version+1, '/')+1;
 			mdstat = mdstat_by_subdev(array, container_dev);

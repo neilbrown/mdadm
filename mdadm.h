@@ -194,6 +194,9 @@ struct mdinfo {
 	unsigned long long	custom_array_size; /* size for non-default sized
 						    * arrays (in sectors)
 						    */
+#define NO_RESHAPE		0
+#define VOLUME_RESHAPE		1
+#define CONTAINER_RESHAPE	2
 	int			reshape_active;
 	unsigned long long	reshape_progress;
 	int			recovery_blocked; /* for external metadata it

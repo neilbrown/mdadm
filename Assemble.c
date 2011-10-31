@@ -439,13 +439,6 @@ int Assemble(struct supertype *st, char *mddev,
 			     content;
 			     content = content->next) {
 
-				/* do not assemble arrays that might have bad blocks */
-				if (content->array.state & (1<<MD_SB_BBM_ERRORS)) {
-					fprintf(stderr, Name ": BBM log found in metadata. "
-								"Cannot activate array(s).\n");
-					tmpdev->used = 2;
-					goto loop;
-				}
 				if (!ident_matches(ident, content, tst,
 						   homehost, update,
 						   report_missmatch ? devname : NULL))
@@ -455,6 +448,11 @@ int Assemble(struct supertype *st, char *mddev,
 						fprintf(stderr, Name ": member %s in %s is already assembled\n",
 							content->text_version,
 							devname);
+				} else if (content->array.state & (1<<MD_SB_BLOCK_VOLUME)) {
+					/* do not assemble arrays with unsupported configurations */
+					fprintf(stderr, Name ": Cannot activate member %s in %s.\n",
+						content->text_version,
+						devname);
 				} else
 					break;
 			}
@@ -1557,8 +1555,15 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		 (working + preexist + expansion) >=
 			content->array.working_disks) {
 		int err;
+		int start_reshape;
 
-		if (content->reshape_active) {
+		/* There are two types of reshape: container wide or sub-array specific
+		 * Check if metadata requests blocking container wide reshapes
+		 */
+		start_reshape = (content->reshape_active &&
+				 !((content->reshape_active == CONTAINER_RESHAPE) &&
+				   (content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))));
+		if (start_reshape) {
 			int spare = content->array.raid_disks + expansion;
 			if (restore_backup(st, content,
 					   working,

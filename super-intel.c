@@ -2304,7 +2304,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			/* this needs to be applied to every array
 			 * in the container.
 			 */
-			info->reshape_active = 2;
+			info->reshape_active = CONTAINER_RESHAPE;
 		}
 		/* We shape information that we give to md might have to be
 		 * modify to cope with md's requirement for reshaping arrays.
@@ -5684,20 +5684,24 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	struct imsm_super *mpb = super->anchor;
 	struct mdinfo *rest = NULL;
 	unsigned int i;
-	int bbm_errors = 0;
+	int sb_errors = 0;
 	struct dl *d;
 	int spare_disks = 0;
 
 	/* do not assemble arrays when not all attributes are supported */
 	if (imsm_check_attributes(mpb->attributes) == 0) {
-		fprintf(stderr, Name ": IMSM metadata loading not allowed "
-			"due to attributes incompatibility.\n");
-		return NULL;
+		sb_errors = 1;
+		fprintf(stderr, Name ": Unsupported attributes in IMSM metadata."
+			"Arrays activation is blocked.\n");
 	}
 
 	/* check for bad blocks */
-	if (imsm_bbm_log_size(super->anchor))
-		bbm_errors = 1;
+	if (imsm_bbm_log_size(super->anchor)) {
+		fprintf(stderr,	Name ": BBM log found in IMSM metadata."
+			"Arrays activation is blocked.\n");
+		sb_errors = 1;
+	}
+
 
 	/* count spare devices, not used in maps
 	 */
@@ -5736,18 +5740,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		 */
 
 		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
-#ifndef MDASSEMBLE
-		if (!validate_geometry_imsm_orom(super,
-						 get_imsm_raid_level(map), /* RAID level */
-						 imsm_level_to_layout(get_imsm_raid_level(map)),
-						 map->num_members, /* raid disks */
-						 &chunk,
-						 1 /* verbose */)) {
-			fprintf(stderr, Name ": RAID gemetry validation failed. "
-				"Cannot proceed with the action(s).\n");
-			continue;
-		}
-#endif /* MDASSEMBLE */
 		this = malloc(sizeof(*this));
 		if (!this) {
 			fprintf(stderr, Name ": failed to allocate %zu bytes\n",
@@ -5758,6 +5750,29 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		super->current_vol = i;
 		getinfo_super_imsm_volume(st, this, NULL);
 		this->next = rest;
+#ifndef MDASSEMBLE
+		/* mdadm does not support all metadata features- set the bit in all arrays state */
+		if (!validate_geometry_imsm_orom(super,
+						 get_imsm_raid_level(map), /* RAID level */
+						 imsm_level_to_layout(get_imsm_raid_level(map)),
+						 map->num_members, /* raid disks */
+						 &chunk,
+						 1 /* verbose */)) {
+			fprintf(stderr, Name ": IMSM RAID gemetry validation failed. "
+				"Array %s activation is blocked.\n",
+				dev->volume);
+			this->array.state |=
+			  (1<<MD_SB_BLOCK_CONTAINER_RESHAPE) |
+			  (1<<MD_SB_BLOCK_VOLUME);
+		}
+#endif
+
+		/* if array has bad blocks, set suitable bit in all arrays state */
+		if (sb_errors)
+			this->array.state |=
+			  (1<<MD_SB_BLOCK_CONTAINER_RESHAPE) |
+			  (1<<MD_SB_BLOCK_VOLUME);
+
 		for (slot = 0 ; slot <  map->num_members; slot++) {
 			unsigned long long recovery_start;
 			struct mdinfo *info_d;
@@ -5845,10 +5860,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 #endif
 		rest = this;
 	}
-
-	/* if array has bad blocks, set suitable bit in array status */
-	if (bbm_errors)
-		rest->array.state |= (1<<MD_SB_BBM_ERRORS);
 
 	return rest;
 }

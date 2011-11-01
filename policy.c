@@ -883,7 +883,8 @@ int Write_rules(char *rule_name)
        char udev_rule_file[PATH_MAX];
 
        if (rule_name) {
-	       strcpy(udev_rule_file, rule_name);
+	       strncpy(udev_rule_file, rule_name, sizeof(udev_rule_file) - 6);
+	       udev_rule_file[sizeof(udev_rule_file) - 6] = '\0';
 	       strcat(udev_rule_file, ".temp");
                fd = creat(udev_rule_file,
                           S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);

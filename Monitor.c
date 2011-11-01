@@ -124,6 +124,7 @@ int Monitor(struct mddev_dev *devlist,
 	 */
 
 	struct state *statelist = NULL;
+	struct state *st2;
 	int finished = 0;
 	struct mdstat_ent *mdstat = NULL;
 	char *mailfrom = NULL;
@@ -242,6 +243,11 @@ int Monitor(struct mddev_dev *devlist,
 		}
 		test = 0;
 	}
+	for (st2 = statelist; st2; st2 = statelist) {
+		statelist = st2->next;
+		free(st2);
+	}
+
 	if (pidfile)
 		unlink(pidfile);
 	return 0;

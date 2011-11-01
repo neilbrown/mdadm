@@ -5139,7 +5139,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 {
 	struct stat stb;
 	struct intel_super *super = st->sb;
-	struct imsm_super *mpb = super->anchor;
+	struct imsm_super *mpb;
 	struct dl *dl;
 	unsigned long long pos = 0;
 	unsigned long long maxsize;
@@ -5149,6 +5149,8 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	/* We must have the container info already read in. */
 	if (!super)
 		return 0;
+
+	mpb = super->anchor;
 
 	if (mpb->num_raid_devs > 0 && mpb->num_disks != raiddisks) {
 		fprintf(stderr, Name ": the option-rom requires all "

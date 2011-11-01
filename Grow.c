@@ -174,7 +174,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 			return 1;
 		}
 		fd2 = dev_open(dv, O_RDWR);
-		if (!fd2) {
+		if (fd2 < 0) {
 			fprintf(stderr, Name ": cannot open device file %s\n", dv);
 			close(nfd);
 			free(st);

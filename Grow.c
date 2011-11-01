@@ -1881,8 +1881,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	struct mddev_dev *dv;
 	int added_disks;
 
-	int *fdlist;
-	unsigned long long *offsets;
+	int *fdlist = NULL;
+	unsigned long long *offsets = NULL;
 	int d;
 	int nrdisks;
 	int err;
@@ -2338,6 +2338,9 @@ started:
 		abort_reshape(sra);
 		goto release;
 	default:
+		free(fdlist);
+		free(offsets);
+		sysfs_free(sra);
 		return 0;
 	case 0:
 		map_fork();
@@ -2365,6 +2368,9 @@ started:
 			d - odisks, fdlist+odisks,
 			offsets+odisks);
 
+	free(fdlist);
+	free(offsets);
+
 	if (backup_file && done)
 		unlink(backup_file);
 	if (!done) {
@@ -2380,6 +2386,7 @@ started:
 		/* no need to wait for the reshape to finish as
 		 * there is nothing more to do.
 		 */
+		sysfs_free(sra);
 		exit(0);
 	}
 	wait_reshape(sra);
@@ -2444,17 +2451,21 @@ started:
 			st->update_tail = NULL;
 	}
 out:
+	sysfs_free(sra);
 	if (forked)
 		return 0;
 	unfreeze(st);
 	exit(0);
 
 release:
+	free(fdlist);
+	free(offsets);
 	if (orig_level != UnSet && sra) {
 		c = map_num(pers, orig_level);
 		if (c && sysfs_set_str(sra, NULL, "level", c) == 0)
 			fprintf(stderr, Name ": aborting level change\n");
 	}
+	sysfs_free(sra);
 	if (!forked)
 		unfreeze(st);
 	return 1;

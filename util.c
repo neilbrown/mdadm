@@ -363,7 +363,7 @@ int enough_fd(int fd)
 	struct mdu_array_info_s array;
 	struct mdu_disk_info_s disk;
 	int avail_disks = 0;
-	int i;
+	int i, rv;
 	char *avail;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0 ||
@@ -386,9 +386,10 @@ int enough_fd(int fd)
 		avail[disk.raid_disk] = 1;
 	}
 	/* This is used on an active array, so assume it is clean */
-	return enough(array.level, array.raid_disks, array.layout,
-		      1,
-		      avail, avail_disks);
+	rv = enough(array.level, array.raid_disks, array.layout,
+		    1, avail, avail_disks);
+	free(avail);
+	return rv;
 }
 
 

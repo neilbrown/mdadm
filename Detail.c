@@ -58,7 +58,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 
 	int rv = test ? 4 : 1;
 	int avail_disks = 0;
-	char *avail;
+	char *avail = NULL;
 
 	if (fd < 0) {
 		fprintf(stderr, Name ": cannot open %s: %s\n",
@@ -587,6 +587,7 @@ This is pretty boring
 out:
 	close(fd);
 	free(subarray);
+	free(avail);
 	sysfs_free(sra);
 	return rv;
 }

@@ -61,9 +61,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 	}
 	st->ignore_hw_compat = 1;
 	rv = st->ss->load_super(st, fd, dev);
-	if (force && rv >= 2)
-		rv = 0; /* ignore bad data in superblock */
-	if (rv== 0 || (force && rv >= 2)) {
+	if (rv == 0 || (force && rv >= 2)) {
 		st->ss->free_super(st);
 		st->ss->init_super(st, NULL, 0, "", NULL, NULL);
 		if (st->ss->store_super(st, fd)) {

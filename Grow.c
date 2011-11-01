@@ -442,13 +442,14 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			dv = map_dev(disk.major, disk.minor, 1);
 			if (!dv) continue;
 			fd2 = dev_open(dv, O_RDONLY);
-			if (fd2 >= 0 &&
-			    st->ss->load_super(st, fd2, NULL) == 0) {
+			if (fd2 >= 0) {
+				if (st->ss->load_super(st, fd2, NULL) == 0) {
+					close(fd2);
+					st->ss->uuid_from_super(st, uuid);
+					break;
+				}
 				close(fd2);
-				st->ss->uuid_from_super(st, uuid);
-				break;
 			}
-			close(fd2);
 		}
 		if (d == max_devs) {
 			fprintf(stderr, Name ": cannot find UUID for array!\n");

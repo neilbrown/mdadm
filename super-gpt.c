@@ -179,8 +179,10 @@ static struct supertype *match_metadata_desc(char *arg)
 
 	if (!st)
 		return st;
-	if (strcmp(arg, "gpt") != 0)
+	if (strcmp(arg, "gpt") != 0) {
+		free(st);
 		return NULL;
+	}
 
 	st->ss = &gpt;
 	st->info = NULL;

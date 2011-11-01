@@ -1121,6 +1121,8 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			close(fd);
 	}
 
+	closedir(dir);
+
 	if (!chosen)
 		return 1;
 

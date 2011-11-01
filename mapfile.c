@@ -431,7 +431,9 @@ void RebuildMap(void)
 				 *   find a unique name based on metadata name.
 				 *   
 				 */
-				struct mddev_ident *match = conf_match(info, st);
+				struct mddev_ident *match = conf_match(st, info,
+								       NULL, 0,
+								       NULL);
 				struct stat stb;
 				if (match && match->devname && match->devname[0] == '/') {
 					path = match->devname;

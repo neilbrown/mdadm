@@ -47,11 +47,6 @@ static int Incremental_container(struct supertype *st, char *devname,
 				 int verbose, int runstop, int autof,
 				 int freeze_reshape);
 
-static struct mddev_ident *search_mdstat(struct supertype *st,
-					   struct mdinfo *info,
-					   char *devname,
-					   int verbose, int *rvp);
-
 int Incremental(char *devname, int verbose, int runstop,
 		struct supertype *st, char *homehost, int require_homehost,
 		int autof, int freeze_reshape)
@@ -213,7 +208,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	st->ss->getinfo_super(st, &info, NULL);
 
 	/* 3/ Check if there is a match in mdadm.conf */
-	match = search_mdstat(st, &info, devname, verbose, &rv);
+	match = conf_match(st, &info, devname, verbose, &rv);
 	if (!match && rv == 2)
 		goto out;
 
@@ -589,79 +584,6 @@ out:
 out_unlock:
 	map_unlock(&map);
 	goto out;
-}
-
-static struct mddev_ident *search_mdstat(struct supertype *st,
-					   struct mdinfo *info,
-					   char *devname,
-					   int verbose, int *rvp)
-{
-	struct mddev_ident *array_list, *match;
-	array_list = conf_get_ident(NULL);
-	match = NULL;
-	for (; array_list; array_list = array_list->next) {
-		if (array_list->uuid_set &&
-		    same_uuid(array_list->uuid, info->uuid, st->ss->swapuuid)
-		    == 0) {
-			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": UUID differs from %s.\n",
-					array_list->devname);
-			continue;
-		}
-		if (array_list->name[0] &&
-		    strcasecmp(array_list->name, info->name) != 0) {
-			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": Name differs from %s.\n",
-					array_list->devname);
-			continue;
-		}
-		if (array_list->devices &&
-		    !match_oneof(array_list->devices, devname)) {
-			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": Not a listed device for %s.\n",
-					array_list->devname);
-			continue;
-		}
-		if (array_list->super_minor != UnSet &&
-		    array_list->super_minor != info->array.md_minor) {
-			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": Different super-minor to %s.\n",
-					array_list->devname);
-			continue;
-		}
-		if (!array_list->uuid_set &&
-		    !array_list->name[0] &&
-		    !array_list->devices &&
-		    array_list->super_minor == UnSet) {
-			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": %s doesn't have any identifying information.\n",
-					array_list->devname);
-			continue;
-		}
-		/* FIXME, should I check raid_disks and level too?? */
-
-		if (match) {
-			if (verbose >= 0) {
-				if (match->devname && array_list->devname)
-					fprintf(stderr, Name
-						": we match both %s and %s - cannot decide which to use.\n",
-						match->devname, array_list->devname);
-				else
-					fprintf(stderr, Name
-						": multiple lines in mdadm.conf match\n");
-			}
-			*rvp = 2;
-			match = NULL;
-			break;
-		}
-		match = array_list;
-	}
-	return match;
 }
 
 static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
@@ -1460,7 +1382,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 		return 0;
 	}
 
-	match = search_mdstat(st, &info, devname, verbose, &rv);
+	match = conf_match(st, &info, devname, verbose, &rv);
 	if (match == NULL && rv == 2)
 		return rv;
 

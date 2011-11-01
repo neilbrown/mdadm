@@ -1019,11 +1019,12 @@ int conf_name_is_free(char *name)
 	return 1;
 }
 
-struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st)
+struct mddev_ident *conf_match(struct supertype *st,
+			       struct mdinfo *info,
+			       char *devname,
+			       int verbose, int *rvp)
 {
 	struct mddev_ident *array_list, *match;
-	int verbose = 0;
-	char *devname = NULL;
 	array_list = conf_get_ident(NULL);
 	match = NULL;
 	for (; array_list; array_list = array_list->next) {
@@ -1044,7 +1045,7 @@ struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st)
 					array_list->devname);
 			continue;
 		}
-		if (array_list->devices && devname &&
+		if (array_list->devices &&
 		    !match_oneof(array_list->devices, devname)) {
 			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
@@ -1066,7 +1067,8 @@ struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st)
 		    array_list->super_minor == UnSet) {
 			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name
-			     ": %s doesn't have any identifying information.\n",
+					": %s doesn't have any identifying"
+					" information.\n",
 					array_list->devname);
 			continue;
 		}
@@ -1076,13 +1078,19 @@ struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st)
 			if (verbose >= 0) {
 				if (match->devname && array_list->devname)
 					fprintf(stderr, Name
-		   ": we match both %s and %s - cannot decide which to use.\n",
-						match->devname, array_list->devname);
+						": we match both %s and %s - "
+						"cannot decide which to use.\n",
+						match->devname,
+						array_list->devname);
 				else
 					fprintf(stderr, Name
-						": multiple lines in mdadm.conf match\n");
+						": multiple lines in mdadm.conf"
+						" match\n");
 			}
-			return NULL;
+			if (rvp)
+				*rvp = 2;
+			match = NULL;
+			break;
 		}
 		match = array_list;
 	}

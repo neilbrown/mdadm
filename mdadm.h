@@ -1146,7 +1146,10 @@ extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern int conf_name_is_free(char *name);
 extern int devname_matches(char *name, char *match);
-extern struct mddev_ident *conf_match(struct mdinfo *info, struct supertype *st);
+extern struct mddev_ident *conf_match(struct supertype *st,
+				      struct mdinfo *info,
+				      char *devname,
+				      int verbose, int *rvp);
 extern int experimental(void);
 
 extern void free_line(char *line);

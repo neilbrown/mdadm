@@ -1404,9 +1404,6 @@ static int Incremental_container(struct supertype *st, char *devname,
 	/* when nothing to activate - quit */
 	if (list == NULL)
 		return 0;
-	if (map_lock(&map))
-		fprintf(stderr, Name ": failed to get exclusive lock on "
-			"mapfile\n");
 	for (ra = list ; ra ; ra = ra->next) {
 		int mdfd;
 		char chosen_name[1024];
@@ -1501,10 +1498,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 	/* don't move spares to container with volume being activated
 	   when all volumes are blocked */
-	if (ra_all == ra_blocked) {
-		map_unlock(&map);
+	if (ra_all == ra_blocked)
 		return 0;
-	}
 
 	/* Now move all suitable spares from spare container */
 	domains = domain_from_array(list, st->ss->name);

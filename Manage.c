@@ -44,6 +44,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 #ifndef MDASSEMBLE
 	struct mdinfo *mdi;
 #endif
+	int rv = 0;
 
 	if (md_get_version(fd) < 9000) {
 		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
@@ -75,7 +76,8 @@ int Manage_ro(char *devname, int fd, int readonly)
 
 				vers[9] = mdi->text_version[0];
 				sysfs_set_str(mdi, NULL, "metadata_version", vers);
-				return 1;
+				rv = 1;
+				goto out;
 			}
 		} else {
 			char *cp;
@@ -90,29 +92,37 @@ int Manage_ro(char *devname, int fd, int readonly)
 			if (mdi->array.level <= 0)
 				sysfs_set_str(mdi, NULL, "array_state", "active");
 		}
-		return 0;
+		goto out;
 	}
 #endif
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": %s does not appear to be active.\n",
 			devname);
-		return 1;
+		rv = 1;
+		goto out;
 	}
 
 	if (readonly>0) {
 		if (ioctl(fd, STOP_ARRAY_RO, NULL)) {
 			fprintf(stderr, Name ": failed to set readonly for %s: %s\n",
 				devname, strerror(errno));
-			return 1;
+			rv = 1;
+			goto out;
 		}
 	} else if (readonly < 0) {
 		if (ioctl(fd, RESTART_ARRAY_RW, NULL)) {
 			fprintf(stderr, Name ": failed to set writable for %s: %s\n",
 				devname, strerror(errno));
-			return 1;
+			rv = 1;
+			goto out;
 		}
 	}
-	return 0;
+out:
+#ifndef MDASSEMBLE
+	if (mdi)
+		sysfs_free(mdi);
+#endif
+	return rv;
 }
 
 #ifndef MDASSEMBLE

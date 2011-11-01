@@ -587,6 +587,7 @@ This is pretty boring
 out:
 	close(fd);
 	free(subarray);
+	sysfs_free(sra);
 	return rv;
 }
 

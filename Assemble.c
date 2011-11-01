@@ -293,7 +293,7 @@ int Assemble(struct supertype *st, char *mddev,
 		char *devname = tmpdev->devname;
 		int dfd;
 		struct stat stb;
-		struct supertype *tst = dup_super(st);
+		struct supertype *tst;
 		struct dev_policy *pol = NULL;
 		int found_container = 0;
 
@@ -305,6 +305,8 @@ int Assemble(struct supertype *st, char *mddev,
 				fprintf(stderr, Name ": %s is not one of %s\n", devname, ident->devices);
 			continue;
 		}
+
+		tst = dup_super(st);
 
 		dfd = dev_open(devname, O_RDONLY|O_EXCL);
 		if (dfd < 0) {

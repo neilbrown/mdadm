@@ -4200,6 +4200,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				__func__);
 			free(super->buf);
 			free(super);
+			free(mpb_new);
 			return 0;
 		}
 		memcpy(mpb_new, mpb, size_old);

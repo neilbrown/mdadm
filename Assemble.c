@@ -1375,6 +1375,7 @@ int Assemble(struct supertype *st, char *mddev,
 							sysfs_set_num(sra, NULL,
 								      "stripe_cache_size",
 								      (4 * content->array.chunk_size / 4096) + 1);
+						sysfs_free(sra);
 					}
 				}
 				if (okcnt < (unsigned)content->array.raid_disks) {

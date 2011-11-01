@@ -156,7 +156,7 @@ static void remove_devices(int devnum, char *path)
 				sprintf(pe, "%d", part);
 		}
 		n = readlink(path2, link, sizeof(link));
-		if (n && (int)strlen(base) == n &&
+		if (n > 0 && (int)strlen(base) == n &&
 		    strncmp(link, base, n) == 0)
 			unlink(path2);
 	}

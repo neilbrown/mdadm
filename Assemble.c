@@ -1527,8 +1527,11 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 	sra = sysfs_read(mdfd, 0, GET_VERSION);
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0)
-		if (sysfs_set_array(content, md_get_version(mdfd)) != 0)
+		if (sysfs_set_array(content, md_get_version(mdfd)) != 0) {
+			if (sra)
+				sysfs_free(sra);
 			return 1;
+		}
 
 	if (st->ss->external && content->recovery_blocked)
 		block_subarray(content);

@@ -878,8 +878,10 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			 * to obtain minimum spare size */
 			struct supertype *st3 = dup_super(st2);
 			int mdfd = open_dev(mp->devnum);
-			if (!mdfd)
+			if (!mdfd) {
+				free(st3);
 				goto next;
+			}
 			if (st3->ss->load_container &&
 			    !st3->ss->load_container(st3, mdfd, mp->path)) {
 				component_size = st3->ss->min_acceptable_spare_size(st3);

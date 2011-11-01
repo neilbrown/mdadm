@@ -1358,36 +1358,6 @@ static int reshape_container(char *container, char *devname,
 			     char *backup_file,
 			     int quiet, int restart, int freeze_reshape);
 
-/*
- * helper routine to check metadata reshape avalability
- * 1. Do not "grow" arrays with volume activation blocked
- * 2. do not reshape containers with container reshape blocked
- *
- * IN:
- *	subarray - array name or NULL for container wide reshape
- *	content - md device info from container_content
- * OUT:
- *	0 - block reshape
- */
-static int check_reshape(char *subarray, struct mdinfo *content)
-{
-	char *ep;
-	unsigned int idx;
-
-	if (!subarray) {
-		if (content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))
-			return 0;
-	} else {
-		/* do not "grow" arrays with volume activation blocked */
-		idx = strtoul(subarray, &ep, 10);
-		if (*ep == '\0'
-		    && content->container_member == (int) idx
-		    && (content->array.state & (1<<MD_SB_BLOCK_VOLUME)))
-			return 0;
-	}
-	return 1;
-}
-
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks,
@@ -1505,12 +1475,16 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 			cc = st->ss->container_content(st, subarray);
 			for (content = cc; content ; content = content->next) {
-				int allow_reshape;
+				int allow_reshape = 1;
 
 				/* check if reshape is allowed based on metadata
 				 * indications stored in content.array.status
 				 */
-				allow_reshape = check_reshape(subarray, content);
+				if (content->array.state & (1<<MD_SB_BLOCK_VOLUME))
+					allow_reshape = 0;
+				if (content->array.state
+				    & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))
+					allow_reshape = 0;
 				if (!allow_reshape) {
 					fprintf(stderr, Name
 						" cannot reshape arrays in"
@@ -3788,10 +3762,10 @@ int Grow_continue_command(char *devname, int fd,
 			goto Grow_continue_command_exit;
 		}
 
-		cc = st->ss->container_content(st, NULL);
+		cc = st->ss->container_content(st, subarray);
 		for (content = cc; content ; content = content->next) {
 			char *array;
-			int allow_reshape;
+			int allow_reshape = 1;
 
 			if (content->reshape_active == 0)
 				continue;
@@ -3800,10 +3774,14 @@ int Grow_continue_command(char *devname, int fd,
 			 * content->reshape_active state, therefore we
 			 * need to check_reshape based on
 			 * reshape_active and subarray name
-			*/
-			allow_reshape =
-			  check_reshape((content->reshape_active == CONTAINER_RESHAPE)? NULL : subarray,
-					content);
+			 */
+			if (content->array.state & (1<<MD_SB_BLOCK_VOLUME))
+				allow_reshape = 0;
+			if (content->reshape_active == CONTAINER_RESHAPE &&
+			    (content->array.state
+			     & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE)))
+				allow_reshape = 0;
+
 			if (!allow_reshape) {
 				fprintf(stderr, Name
 					": cannot continue reshape of an array"

@@ -5759,8 +5759,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 						 map->num_members, /* raid disks */
 						 &chunk,
 						 1 /* verbose */)) {
-			fprintf(stderr, Name ": IMSM RAID gemetry validation failed. "
-				"Array %s activation is blocked.\n",
+			fprintf(stderr, Name ": IMSM RAID geometry validation"
+				" failed.  Array %s activation is blocked.\n",
 				dev->volume);
 			this->array.state |=
 			  (1<<MD_SB_BLOCK_CONTAINER_RESHAPE) |

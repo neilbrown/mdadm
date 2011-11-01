@@ -796,6 +796,8 @@ int sysfs_unique_holder(int devnum, long rdev)
 		}
 		n = read(fd, buf, sizeof(buf)-1);
 		close(fd);
+		if (n < 0)
+			continue;
 		buf[n] = 0;
 		if (sscanf(buf, "%d:%d%c", &mj, &mn, &c) != 3 ||
 		    c != '\n') {

@@ -1329,6 +1329,7 @@ int IncrementalScan(int verbose)
 					strerror(errno));
 				rv = 1;
 			}
+			sysfs_free(sra);
 		}
 	}
 	return rv;

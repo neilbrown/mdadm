@@ -386,6 +386,12 @@ int Incremental(char *devname, int verbose, int runstop,
 			sprintf(dn, "%d:%d", sra->devs->disk.major,
 				sra->devs->disk.minor);
 			dfd2 = dev_open(dn, O_RDONLY);
+			if (dfd2 < 0) {
+				fprintf(stderr, Name
+					": unable to open %s\n", devname);
+				rv = 2;
+				goto out_unlock;
+			}
 			st2 = dup_super(st);
 			if (st2->ss->load_super(st2, dfd2, NULL) ||
 			    st->ss->compare_super(st, st2) != 0) {

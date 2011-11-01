@@ -457,8 +457,14 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	sigaction(SIGPIPE, &act, NULL);
 
 	victim = mdmon_pid(container->devnum);
-	if (victim >= 0)
+	if (victim >= 0) {
 		victim_sock = connect_monitor(container->devname);
+		if (victim_sock < 0) {
+			fprintf(stderr, "mdmon: %s unable to connect monitor\n",
+				container->devname);
+			exit(3);
+		}
+	}
 
 	ignore = chdir("/");
 	if (!takeover && victim > 0 && victim_sock >= 0) {

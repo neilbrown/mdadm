@@ -134,6 +134,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		fprintf(stderr, Name ": Cannot grow linear sub-arrays yet\n");
 		free(subarray);
 		free(st);
+		return 1;
 	}
 
 	nfd = open(newdev, O_RDWR|O_EXCL|O_DIRECT);

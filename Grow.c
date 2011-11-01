@@ -3577,6 +3577,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (verbose)
 				fprintf(stderr, Name ": Error restoring backup from %s\n",
 					devname);
+			free(offsets);
 			return 1;
 		}
 		
@@ -3594,9 +3595,11 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			if (verbose)
 				fprintf(stderr, Name ": Error restoring second backup from %s\n",
 					devname);
+			free(offsets);
 			return 1;
 		}
 
+		free(offsets);
 
 		/* Ok, so the data is restored. Let's update those superblocks. */
 

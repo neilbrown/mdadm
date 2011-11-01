@@ -510,6 +510,7 @@ void policy_add(char *type, ...)
 	}
 	pr->next = config_rules;
 	config_rules = pr;
+	va_end(ap);
 }
 
 void policy_free(void)

@@ -147,6 +147,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 		fprintf(stderr, Name ": failed to allocate %zd bytes\n",
 				sizeof(*info));
 #endif
+		free(buf);
 		return NULL;
 	}
 
@@ -154,6 +155,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 		fprintf(stderr, Name ": failed to read superblock of bitmap "
 			"file: %s\n", strerror(errno));
 		free(info);
+		free(buf);
 		return NULL;
 	}
 	memcpy(&info->sb, buf, sizeof(info->sb));
@@ -198,6 +200,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 		total_bits = read_bits;
 	}
 out:
+	free(buf);
 	info->total_bits = total_bits;
 	info->dirty_bits = dirty_bits;
 	return info;

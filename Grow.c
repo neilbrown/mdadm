@@ -1534,10 +1534,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	frozen = freeze(st);
 	if (frozen < -1) {
 		/* freeze() already spewed the reason */
+		sysfs_free(sra);
 		return 1;
 	} else if (frozen < 0) {
 		fprintf(stderr, Name ": %s is performing resync/recovery and cannot"
 			" be reshaped\n", devname);
+		sysfs_free(sra);
 		return 1;
 	}
 
@@ -1834,6 +1836,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		frozen = 0;
 	}
 release:
+	sysfs_free(sra);
 	if (frozen > 0)
 		unfreeze(st);
 	return rv;

@@ -86,7 +86,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 			sysfs_set_str(mdi, NULL, "metadata_version", vers);
 
 			cp = strchr(vers+10, '/');
-			if (*cp)
+			if (cp)
 				*cp = 0;
 			ping_monitor(vers+10);
 			if (mdi->array.level <= 0)

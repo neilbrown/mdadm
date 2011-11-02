@@ -207,9 +207,14 @@ int fping_monitor(int sfd)
 int ping_monitor(char *devname)
 {
 	int sfd = connect_monitor(devname);
-	int err = fping_monitor(sfd);
+	int err;
 
-	close(sfd);
+	if (sfd >= 0) {
+		err = fping_monitor(sfd);
+		close(sfd);
+	} else
+		err = -1;
+
 	return err;
 }
 

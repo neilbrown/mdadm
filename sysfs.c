@@ -379,7 +379,7 @@ unsigned long long get_component_size(int fd)
 		return 0;
 	n = read(fd, fname, sizeof(fname));
 	close(fd);
-	if (n == sizeof(fname))
+	if (n < 0 || n == sizeof(fname))
 		return 0;
 	fname[n] = 0;
 	return strtoull(fname, NULL, 10) * 2;

@@ -409,7 +409,13 @@ static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
 
 	*disk = *clone;
 	disk->recovery_fd = sysfs_open(aa->devnum, disk->sys_name, "recovery_start");
+	if (disk->recovery_fd < 0)
+		return -1;
 	disk->state_fd = sysfs_open(aa->devnum, disk->sys_name, "state");
+	if (disk->state_fd < 0) {
+		close(disk->recovery_fd);
+		return -1;
+	}
 	disk->prev_state = read_dev_state(disk->state_fd);
 	disk->curr_state = disk->prev_state;
 	disk->next = aa->info.devs;

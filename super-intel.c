@@ -1572,8 +1572,8 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 				printf(" (%.*s)\n", MAX_RAID_SERIAL_LEN, buf);
 			else
 				printf(" ()\n");
+			close(fd);
 		}
-		close(fd);
 		free(path);
 		path = NULL;
 	}

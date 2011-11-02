@@ -2868,8 +2868,10 @@ static void fd2devname(int fd, char *name)
 	
 	dname[rv] = '\0';
 	nm = strrchr(dname, '/');
-	nm++;
-	snprintf(name, MAX_RAID_SERIAL_LEN, "/dev/%s", nm);
+	if (nm) {
+		nm++;
+		snprintf(name, MAX_RAID_SERIAL_LEN, "/dev/%s", nm);
+	}
 }
 
 extern int scsi_get_serial(int fd, void *buf, size_t buf_len);

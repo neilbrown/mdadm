@@ -448,6 +448,8 @@ void unblock_monitor(char *container, const int unfreeze)
 			continue;
 		sysfs_free(sra);
 		sra = sysfs_read(-1, e->devnum, GET_VERSION|GET_LEVEL);
+		if (!sra)
+			continue;
 		if (sra->array.level > 0)
 			to_ping++;
 		if (unblock_subarray(sra, unfreeze))

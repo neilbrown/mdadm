@@ -884,7 +884,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			 * to obtain minimum spare size */
 			struct supertype *st3 = dup_super(st2);
 			int mdfd = open_dev(mp->devnum);
-			if (!mdfd) {
+			if (mdfd < 0) {
 				free(st3);
 				goto next;
 			}

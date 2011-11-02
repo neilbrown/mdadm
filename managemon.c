@@ -117,11 +117,16 @@ static void close_aa(struct active_array *aa)
 		close(d->state_fd);
 	}
 
-	close(aa->action_fd);
-	close(aa->info.state_fd);
-	close(aa->resync_start_fd);
-	close(aa->metadata_fd);
-	close(aa->sync_completed_fd);
+	if (aa->action_fd >= 0)
+		close(aa->action_fd);
+	if (aa->info.state_fd >= 0)
+		close(aa->info.state_fd);
+	if (aa->resync_start_fd >= 0)
+		close(aa->resync_start_fd);
+	if (aa->metadata_fd >= 0)
+		close(aa->metadata_fd);
+	if (aa->sync_completed_fd >= 0)
+		close(aa->sync_completed_fd);
 }
 
 static void free_aa(struct active_array *aa)

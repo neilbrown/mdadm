@@ -169,13 +169,14 @@ static void getinfo_mbr(struct supertype *st, struct mdinfo *info, char *map)
 
 static struct supertype *match_metadata_desc(char *arg)
 {
-	struct supertype *st = malloc(sizeof(*st));
+	struct supertype *st;
 
-	if (!st)
-		return st;
 	if (strcmp(arg, "mbr") != 0)
 		return NULL;
 
+	st = malloc(sizeof(*st));
+	if (!st)
+		return st;
 	st->ss = &mbr;
 	st->info = NULL;
 	st->minor_version = 0;

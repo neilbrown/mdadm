@@ -131,10 +131,15 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 	FILE *f;
 	struct mdstat_ent *all, *rv, **end, **insert_here;
 	char *line;
+	int fd;
 
 	if (hold && mdstat_fd != -1) {
 		lseek(mdstat_fd, 0L, 0);
-		f = fdopen(dup(mdstat_fd), "r");
+		fd = dup(mdstat_fd);
+		if (fd >= 0)
+			f = fdopen(fd, "r");
+		else
+			return NULL;
 	} else
 		f = fopen("/proc/mdstat", "r");
 	if (f == NULL)

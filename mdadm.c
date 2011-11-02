@@ -212,13 +212,17 @@ int main(int argc, char *argv[])
 		case 'I': newmode = INCREMENTAL;
 			shortopt = short_bitmap_auto_options; break;
 		case AutoDetect:
-			newmode = AUTODETECT; break;
+			newmode = AUTODETECT;
+			break;
 
 		case MiscOpt:
 		case 'D':
 		case 'E':
 		case 'X':
-		case 'Q': newmode = MISC; break;
+		case 'Q':
+			newmode = MISC;
+			break;
+
 		case 'R':
 		case 'S':
 		case 'o':
@@ -229,17 +233,15 @@ int main(int argc, char *argv[])
 		case DetailPlatform:
 		case KillSubarray:
 		case UpdateSubarray:
-			if (opt == KillSubarray || opt == UpdateSubarray) {
-				if (subarray) {
-					fprintf(stderr, Name ": subarray can only"
-						" be specified once\n");
-					exit(2);
-				}
-				subarray = optarg;
-			}
 		case UdevRules:
-		case 'K': if (!mode) newmode = MISC; break;
-		case NoSharing: newmode = MONITOR; break;
+		case 'K':
+			if (!mode)
+				newmode = MISC;
+			break;
+
+		case NoSharing:
+			newmode = MONITOR;
+			break;
 		}
 		if (mode && newmode == mode) {
 			/* everybody happy ! */
@@ -924,6 +926,14 @@ int main(int argc, char *argv[])
 		case O(MISC, DetailPlatform):
 		case O(MISC, KillSubarray):
 		case O(MISC, UpdateSubarray):
+			if (opt == KillSubarray || opt == UpdateSubarray) {
+				if (subarray) {
+					fprintf(stderr, Name ": subarray can only"
+						" be specified once\n");
+					exit(2);
+				}
+				subarray = optarg;
+			}
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
 				fprintf(stderr, Name ": --examine/-E cannot be given with ");

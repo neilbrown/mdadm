@@ -189,6 +189,9 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 
 	kill(pid, SIGTERM);
 
+	if (sock < 0)
+		return;
+
 	/* Wait for monitor to exit by reading from the socket, after
 	 * clearing the non-blocking flag */
 	fl = fcntl(sock, F_GETFL, 0);
@@ -468,6 +471,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 			exit(3);
 		}
 		close(victim_sock);
+		victim_sock = -1;
 	}
 	if (container->ss->load_container(container, mdfd, devname)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",
@@ -501,7 +505,8 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 
 	if (victim > 0) {
 		try_kill_monitor(victim, container->devname, victim_sock);
-		close(victim_sock);
+		if (victim_sock >= 0)
+			close(victim_sock);
 	}
 
 	setsid();

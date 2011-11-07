@@ -5943,6 +5943,7 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 	struct imsm_disk *disk;
 	struct imsm_map *map = get_imsm_map(dev, 0);
 	struct imsm_map *prev = get_imsm_map(dev, dev->vol.migr_state);
+	struct imsm_map *map_for_loop;
 	__u32 ord;
 	int idx;
 
@@ -5951,13 +5952,18 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev)
 	 * map[0].  So we look through all the disks we started with and
 	 * see if any failures are still present, or if any new ones
 	 * have arrived
-	 *
-	 * FIXME add support for online capacity expansion and
-	 * raid-level-migration
 	 */
-	for (i = 0; i < prev->num_members; i++) {
-		ord = __le32_to_cpu(prev->disk_ord_tbl[i]);
-		ord |= __le32_to_cpu(map->disk_ord_tbl[i]);
+	map_for_loop = prev;
+	if (is_gen_migration(dev))
+		if (prev && (map->num_members > prev->num_members))
+			map_for_loop = map;
+
+	for (i = 0; i < map_for_loop->num_members; i++) {
+		ord = 0;
+		if (i < prev->num_members)
+			ord |= __le32_to_cpu(prev->disk_ord_tbl[i]);
+		if (i < map->num_members)
+			ord |= __le32_to_cpu(map->disk_ord_tbl[i]);
 		idx = ord_to_idx(ord);
 
 		disk = get_imsm_disk(super, idx);

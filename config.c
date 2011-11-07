@@ -1096,3 +1096,36 @@ struct mddev_ident *conf_match(struct supertype *st,
 	}
 	return match;
 }
+
+int conf_verify_devnames(struct mddev_ident *array_list)
+{
+	struct mddev_ident *a1, *a2;
+
+	for (a1 = array_list; a1; a1 = a1->next) {
+		if (!a1->devname)
+			continue;
+		for (a2 = a1->next; a2; a2 = a2->next) {
+			if (!a2->devname)
+				continue;
+			if (strcmp(a1->devname, a2->devname) != 0)
+				continue;
+
+			if (a1->uuid_set && a2->uuid_set) {
+				char nbuf[64];
+				__fname_from_uuid(a1->uuid, 0, nbuf, ':');
+				fprintf(stderr,
+					Name ": Devices %s and ",
+					nbuf);
+				__fname_from_uuid(a2->uuid, 0, nbuf, ':');
+				fprintf(stderr,
+					"%s have the same name: %s\n",
+					nbuf, a1->devname);
+			} else
+				fprintf(stderr, Name ": Device %s given twice"
+					" in config file\n", a1->devname);
+			return 1;
+		}
+	}
+
+	return 0;
+}

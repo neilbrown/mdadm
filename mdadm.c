@@ -1292,6 +1292,13 @@ int main(int argc, char *argv[])
 			struct map_ent *map = NULL;
 			int cnt = 0;
 			int failures, successes;
+
+			if (conf_verify_devnames(array_list)) {
+				fprintf(stderr, Name
+					": Duplicate MD device names in "
+					"conf file were found.\n");
+				exit(1);
+			}
 			if (devlist == NULL) {
 				fprintf(stderr, Name ": No devices listed in conf file were found.\n");
 				exit(1);

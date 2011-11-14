@@ -5276,6 +5276,15 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 			i += dl->extent_cnt;
 
 	maxsize = merge_extents(super, i);
+
+	if (!check_env("IMSM_NO_PLATFORM") &&
+	    mpb->num_raid_devs > 0 && size && size != maxsize) {
+		fprintf(stderr, Name ": attempting to create a second "
+			"volume with size less then remaining space. "
+			"Aborting...\n");
+		return 0;
+	}
+
 	if (maxsize < size || maxsize == 0) {
 		if (verbose)
 			fprintf(stderr, Name ": not enough space after merge (%llu < %llu)\n",

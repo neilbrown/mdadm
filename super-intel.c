@@ -5394,7 +5394,11 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	}
 	
 	if (!dev) {
-		if (st->sb && freesize) {
+		if (st->sb) {
+			if (!validate_geometry_imsm_orom(st->sb, level, layout,
+							 raiddisks, chunk,
+							 verbose))
+				return 0;
 			/* we are being asked to automatically layout a
 			 * new volume based on the current contents of
 			 * the container.  If the the parameters can be
@@ -5403,12 +5407,9 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			 * created.  add_to_super and getinfo_super
 			 * detect when autolayout is in progress.
 			 */
-			if (!validate_geometry_imsm_orom(st->sb, level, layout,
-							 raiddisks, chunk,
-							 verbose))
-				return 0;
-			return reserve_space(st, raiddisks, size,
-					     chunk?*chunk:0, freesize);
+			if (freesize)
+				return reserve_space(st, raiddisks, size,
+						     chunk?*chunk:0, freesize);
 		}
 		return 1;
 	}
@@ -8679,6 +8680,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int change = -1;
 	int check_devs = 0;
 	int chunk;
+	int devNumChange=0;
+	int layout = -1;
 
 	getinfo_super_imsm_volume(st, &info, NULL);
 	if ((geo->level != info.array.level) &&
@@ -8696,23 +8699,23 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 					change = -1;
 					goto analyse_change_exit;
 				}
+				layout =  geo->layout;
 				check_devs = 1;
-			}
-			if (geo->level == 10) {
+				devNumChange = 1; /* parity disk added */
+			} else if (geo->level == 10) {
 				change = CH_TAKEOVER;
 				check_devs = 1;
+				devNumChange = 2; /* two mirrors added */
+				layout = 0x102; /* imsm supported layout */
 			}
 			break;
 		case 1:
-			if (geo->level == 0) {
-				change = CH_TAKEOVER;
-				check_devs = 1;
-			}
-			break;
 		case 10:
 			if (geo->level == 0) {
 				change = CH_TAKEOVER;
 				check_devs = 1;
+				devNumChange = -(geo->raid_disks/2);
+				layout = 0; /* imsm raid0 layout */
 			}
 			break;
 		}
@@ -8759,8 +8762,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	chunk = geo->chunksize / 1024;
 	if (!validate_geometry_imsm(st,
 				    geo->level,
-				    geo->layout,
-				    geo->raid_disks,
+				    layout,
+				    geo->raid_disks + devNumChange,
 				    &chunk,
 				    geo->size,
 				    0, 0, 1))

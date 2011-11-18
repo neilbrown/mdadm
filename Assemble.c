@@ -1585,6 +1585,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				if (!mdmon_running(st->container_dev))
 					start_mdmon(st->container_dev);
 				ping_monitor_by_id(st->container_dev);
+				if (mdmon_running(st->container_dev) &&
+						st->update_tail == NULL)
+					st->update_tail = &st->updates;
 			}
 
 			err = Grow_continue(mdfd, st, content, backup_file,

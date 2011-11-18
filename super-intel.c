@@ -1018,6 +1018,8 @@ static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 static __u64 blocks_per_migr_unit(struct intel_super *super,
 				  struct imsm_dev *dev);
 
+static int is_gen_migration(struct imsm_dev *dev);
+
 static void print_imsm_dev(struct intel_super *super,
 			   struct imsm_dev *dev,
 			   char *uuid,
@@ -1110,9 +1112,13 @@ static void print_imsm_dev(struct intel_super *super,
 		struct imsm_map *map = get_imsm_map(dev, 1);
 
 		printf(" <-- %s", map_state_str[map->map_state]);
-		printf("\n     Checkpoint : %u (%llu)",
-		       __le32_to_cpu(dev->vol.curr_migr_unit),
-		       (unsigned long long)blocks_per_migr_unit(super, dev));
+		printf("\n     Checkpoint : %u ",
+			   __le32_to_cpu(dev->vol.curr_migr_unit));
+		if ((is_gen_migration(dev)) && (super->disks->index > 1))
+			printf("(N/A)");
+		else
+			printf("(%llu)", (unsigned long long)
+				   blocks_per_migr_unit(super, dev));
 	}
 	printf("\n");
 	printf("    Dirty State : %s\n", dev->vol.dirty ? "dirty" : "clean");
@@ -1140,8 +1146,6 @@ static void print_imsm_disk(struct imsm_disk *disk, int index, __u32 reserved)
 	printf("    Usable Size : %llu%s\n", (unsigned long long)sz,
 	       human_size(sz * 512));
 }
-
-static int is_gen_migration(struct imsm_dev *dev);
 
 void examine_migr_rec_imsm(struct intel_super *super)
 {

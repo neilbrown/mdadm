@@ -2539,7 +2539,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 		 * (catches single-degraded vs double-degraded)
 		 */
 		for (j = 0; j < map->num_members; j++) {
-			__u32 ord = get_imsm_ord_tbl_ent(dev, i, 0);
+			__u32 ord = get_imsm_ord_tbl_ent(dev, j, 0);
 			__u32 idx = ord_to_idx(ord);
 
 			if (!(ord & IMSM_ORD_REBUILD) &&

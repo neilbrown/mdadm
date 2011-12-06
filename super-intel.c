@@ -8018,6 +8018,75 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 	}
 }
 #endif /* MDASSEMBLE */
+
+static void close_targets(int *targets, int new_disks)
+{
+	int i;
+
+	if (!targets)
+		return;
+
+	for (i = 0; i < new_disks; i++) {
+		if (targets[i] >= 0) {
+			close(targets[i]);
+			targets[i] = -1;
+		}
+	}
+}
+
+static int imsm_get_allowed_degradation(int level, int raid_disks,
+					struct intel_super *super,
+					struct imsm_dev *dev)
+{
+	switch (level) {
+	case 10:{
+		int ret_val = 0;
+		struct imsm_map *map;
+		int i;
+
+		ret_val = raid_disks/2;
+		/* check map if all disks pairs not failed
+		 * in both maps
+		 */
+		map = get_imsm_map(dev, 0);
+		for (i = 0; i < ret_val; i++) {
+			int degradation = 0;
+			if (get_imsm_disk(super, i) == NULL)
+				degradation++;
+			if (get_imsm_disk(super, i + 1) == NULL)
+				degradation++;
+			if (degradation == 2)
+				return 0;
+		}
+		map = get_imsm_map(dev, 1);
+		/* if there is no second map
+		 * result can be returned
+		 */
+		if (map == NULL)
+			return ret_val;
+		/* check degradation in second map
+		 */
+		for (i = 0; i < ret_val; i++) {
+			int degradation = 0;
+		if (get_imsm_disk(super, i) == NULL)
+				degradation++;
+			if (get_imsm_disk(super, i + 1) == NULL)
+				degradation++;
+			if (degradation == 2)
+				return 0;
+		}
+		return ret_val;
+	}
+	case 5:
+		return 1;
+	case 6:
+		return 2;
+	default:
+		return 0;
+	}
+}
+
+
 /*******************************************************************************
  * Function:	open_backup_targets
  * Description:	Function opens file descriptors for all devices given in
@@ -8026,14 +8095,18 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
  *	info		: general array info
  *	raid_disks	: number of disks
  *	raid_fds	: table of device's file descriptors
+ *	super		: intel super for raid10 degradation check
+ *	dev		: intel device for raid10 degradation check
  * Returns:
  *	 0 : success
  *	-1 : fail
  ******************************************************************************/
-int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds)
+int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds,
+			struct intel_super *super, struct imsm_dev *dev)
 {
 	struct mdinfo *sd;
 	int i;
+	int opened = 0;
 
 	for (i = 0; i < raid_disks; i++)
 		raid_fds[i] = -1;
@@ -8055,8 +8128,19 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds)
 		raid_fds[sd->disk.raid_disk] = dev_open(dn, O_RDWR);
 		if (raid_fds[sd->disk.raid_disk] < 0) {
 			fprintf(stderr, "cannot open component\n");
-			return -1;
+			continue;
 		}
+		opened++;
+	}
+	/* check if maximum array degradation level is not exceeded
+	*/
+	if ((raid_disks - opened) >
+			imsm_get_allowed_degradation(info->new_level,
+						     raid_disks,
+						     super, dev)) {
+		fprintf(stderr, "Not enough disks can be opened.\n");
+		close_targets(raid_fds, raid_disks);
+		return -2;
 	}
 	return 0;
 }
@@ -8189,7 +8273,8 @@ int save_backup_imsm(struct supertype *st,
 		target_offsets[i] -= start/data_disks;
 	}
 
-	if (open_backup_targets(info, new_disks, targets))
+	if (open_backup_targets(info, new_disks, targets,
+				super, dev))
 		goto abort;
 
 	dest_layout = imsm_level_to_layout(map_dest->raid_level);
@@ -8215,9 +8300,7 @@ int save_backup_imsm(struct supertype *st,
 
 abort:
 	if (targets) {
-		for (i = 0; i < new_disks; i++)
-			if (targets[i] >= 0)
-				close(targets[i]);
+		close_targets(targets, new_disks);
 		free(targets);
 	}
 	free(target_offsets);
@@ -8346,7 +8429,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	if (!targets)
 		goto abort;
 
-	if (open_backup_targets(info, new_disks, targets)) {
+	if (open_backup_targets(info, new_disks, targets, super, id->dev)) {
 		fprintf(stderr,
 			Name ": Cannot open some devices belonging to array.\n");
 		goto abort;

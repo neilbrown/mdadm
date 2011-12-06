@@ -6112,17 +6112,12 @@ static void mark_missing(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 
 static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 {
-	__u8 map_state;
 	struct dl *dl;
-	int failed;
 
 	if (!super->missing)
 		return;
-	failed = imsm_count_failed(super, dev);
-	map_state = imsm_check_degraded(super, dev, failed);
 
 	dprintf("imsm: mark missing\n");
-	end_migration(dev, map_state);
 	for (dl = super->missing; dl; dl = dl->next)
 		mark_missing(dev, &dl->disk, dl->index);
 	super->updates_pending++;

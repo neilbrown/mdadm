@@ -665,18 +665,34 @@ struct imsm_map *get_imsm_map(struct imsm_dev *dev, int second_map)
 	 *    0   - we return the first map
 	 *    1   - we return the second map if it exists, else NULL
 	 *   -1   - we return the second map if it exists, else the first
+	 *   -2   - we return longer map /excluding uninitialized state/
 	 */
 	struct imsm_map *map = &dev->vol.map[0];
+	struct imsm_map *map2 = NULL;
 
-	if (second_map == 1 && !dev->vol.migr_state)
-		return NULL;
-	else if (second_map == 1 ||
-		 (second_map < 0 && dev->vol.migr_state)) {
-		void *ptr = map;
+	if (dev->vol.migr_state)
+		map2 = (void *)map + sizeof_imsm_map(map);
 
-		return ptr + sizeof_imsm_map(map);
-	} else
-		return map;
+	switch (second_map) {
+	case 0:
+		break;
+	case 1:
+		map = map2;
+		break;
+	case -1:
+		if (map2)
+			map = map2;
+		break;
+	case -2:
+		if (map2
+		    && map2->map_state != IMSM_T_STATE_UNINITIALIZED
+		    && map2->num_members > map->num_members)
+			map = map2;
+		break;
+	default:
+		map = NULL;
+	}
+	return map;
 
 }
 
@@ -6343,7 +6359,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	dprintf("imsm: set_disk %d:%x\n", n, state);
 
-	ord = get_imsm_ord_tbl_ent(dev, n, -1);
+	ord = get_imsm_ord_tbl_ent(dev, n, -2);
 	disk = get_imsm_disk(super, ord_to_idx(ord));
 
 	/* check for new failures */

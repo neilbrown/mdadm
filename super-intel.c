@@ -7983,6 +7983,10 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds)
 {
 	struct mdinfo *sd;
+	int i;
+
+	for (i = 0; i < raid_disks; i++)
+		raid_fds[i] = -1;
 
 	for (sd = info->devs ; sd ; sd = sd->next) {
 		char *dn;
@@ -8292,7 +8296,11 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	if (!targets)
 		goto abort;
 
-	open_backup_targets(info, new_disks, targets);
+	if (open_backup_targets(info, new_disks, targets)) {
+		fprintf(stderr,
+			Name ": Cannot open some devices belonging to array.\n");
+		goto abort;
+	}
 
 	for (i = 0; i < new_disks; i++) {
 		if (targets[i] < 0) {

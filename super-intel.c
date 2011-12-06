@@ -4484,6 +4484,20 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 			if ((ord & IMSM_ORD_REBUILD) == 0)
 				continue;
 			set_imsm_ord_tbl_ent(map, slot, df->index | IMSM_ORD_REBUILD);
+			if (is_gen_migration(dev)) {
+				struct imsm_map *map2 = get_imsm_map(dev, 1);
+				if (slot < map2->num_members) {
+					__u32 ord2 = get_imsm_ord_tbl_ent(dev,
+									  slot,
+									  1);
+					if ((unsigned)df->index ==
+							       ord_to_idx(ord2))
+						set_imsm_ord_tbl_ent(map2,
+							slot,
+							df->index |
+							IMSM_ORD_REBUILD);
+				}
+			}
 			dprintf("set slot:%d to missing disk:%d\n", slot, df->index);
 			break;
 		}
@@ -6074,6 +6088,12 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 
 	disk->status |= FAILED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
+	if (is_gen_migration(dev)) {
+		struct imsm_map *map2 = get_imsm_map(dev, 1);
+		if (slot < map2->num_members)
+			set_imsm_ord_tbl_ent(map2, slot,
+					     idx | IMSM_ORD_REBUILD);
+	}
 	if (map->failed_disk_num == 0xff)
 		map->failed_disk_num = slot;
 	return 1;

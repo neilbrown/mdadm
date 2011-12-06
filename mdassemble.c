@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
 			rv |= Assemble(array_list->st, array_list->devname,
 				       array_list, NULL, NULL, 0,
 				       readonly, runstop, NULL, NULL, 0,
-				       verbose, force);
+				       verbose, force, 1);
 		}
 	return rv;
 }

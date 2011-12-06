@@ -1039,11 +1039,11 @@ static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
 	return rv * 512;
 }
 
+static int is_gen_migration(struct imsm_dev *dev);
+
 #ifndef MDASSEMBLE
 static __u64 blocks_per_migr_unit(struct intel_super *super,
 				  struct imsm_dev *dev);
-
-static int is_gen_migration(struct imsm_dev *dev);
 
 static void print_imsm_dev(struct intel_super *super,
 			   struct imsm_dev *dev,
@@ -5680,6 +5680,7 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 
 	return 0;
 }
+#endif /* MDASSEMBLE */
 
 static int is_gen_migration(struct imsm_dev *dev)
 {
@@ -5694,7 +5695,6 @@ static int is_gen_migration(struct imsm_dev *dev)
 
 	return 0;
 }
-#endif /* MDASSEMBLE */
 
 static int is_rebuilding(struct imsm_dev *dev)
 {

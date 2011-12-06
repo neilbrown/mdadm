@@ -6416,20 +6416,24 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		a->last_checkpoint = 0;
 	} else if (is_gen_migration(dev)) {
 		dprintf("imsm: Detected General Migration in state: ");
-		if (map_state == IMSM_T_STATE_NORMAL) {
-			end_migration(dev, map_state);
+
+		switch (map_state) {
+		case IMSM_T_STATE_NORMAL:
+			dprintf("normal\n");
+			if (a->last_checkpoint >= a->info.component_size)
+				end_migration(dev, map_state);
 			map = get_imsm_map(dev, 0);
 			map->failed_disk_num = ~0;
-			dprintf("normal\n");
-		} else {
-			if (map_state == IMSM_T_STATE_DEGRADED) {
-				printf("degraded\n");
+			break;
+		case IMSM_T_STATE_DEGRADED:
+			dprintf("degraded\n");
+			if (a->last_checkpoint >= a->info.component_size)
 				end_migration(dev, map_state);
-			} else {
-				dprintf("failed\n");
-			}
-			map->map_state = map_state;
+			break;
+		default:
+			dprintf("failed\n");
 		}
+		map->map_state = map_state;
 		super->updates_pending++;
 	}
 }

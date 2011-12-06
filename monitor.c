@@ -339,7 +339,8 @@ static int read_and_act(struct active_array *a)
 			a->container->ss->set_disk(a, mdi->disk.raid_disk,
 						   mdi->curr_state);
 			check_degraded = 1;
-			mdi->next_state |= DS_UNBLOCK;
+			if (mdi->curr_state & DS_BLOCKED)
+				mdi->next_state |= DS_UNBLOCK;
 			if (a->curr_state == read_auto) {
 				a->container->ss->set_array_state(a, 0);
 				a->next_state = active;

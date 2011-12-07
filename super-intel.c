@@ -5718,6 +5718,25 @@ static int is_rebuilding(struct imsm_dev *dev)
 		return 0;
 }
 
+static int is_initializing(struct imsm_dev *dev)
+{
+	struct imsm_map *migr_map;
+
+	if (!dev->vol.migr_state)
+		return 0;
+
+	if (migr_type(dev) != MIGR_INIT)
+		return 0;
+
+	migr_map = get_imsm_map(dev, 1);
+
+	if (migr_map->map_state == IMSM_T_STATE_UNINITIALIZED)
+		return 1;
+
+	return 0;
+
+}
+
 static void update_recovery_start(struct intel_super *super,
 					struct imsm_dev *dev,
 					struct mdinfo *array)
@@ -6498,6 +6517,12 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 				map->map_state = map_state;
 				manage_second_map(super, dev);
 			}
+			super->updates_pending++;
+			break;
+		}
+		if (is_initializing(dev)) {
+			dprintf("while initialization.");
+			map->map_state = map_state;
 			super->updates_pending++;
 			break;
 		}

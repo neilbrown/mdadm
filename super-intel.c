@@ -667,12 +667,9 @@ struct imsm_map *get_imsm_map(struct imsm_dev *dev, int second_map)
 {
 	/* A device can have 2 maps if it is in the middle of a migration.
 	 * If second_map is:
-	 *    MAP_0 or
-	 *    0   - we return the first map
-	 *    MAP_1 or
-	 *    1   - we return the second map if it exists, else NULL
+	 *    MAP_0 or 0   - we return the first map
+	 *    MAP_1 or 1   - we return the second map if it exists, else NULL
 	 *   -1   - we return the second map if it exists, else the first
-	 *   -2   - we return longer map /excluding uninitialized state/
 	 */
 	struct imsm_map *map = &dev->vol.map[0];
 	struct imsm_map *map2 = NULL;
@@ -690,12 +687,6 @@ struct imsm_map *get_imsm_map(struct imsm_dev *dev, int second_map)
 		break;
 	case -1:
 		if (map2)
-			map = map2;
-		break;
-	case -2:
-		if (map2
-		    && map2->map_state != IMSM_T_STATE_UNINITIALIZED
-		    && map2->num_members > map->num_members)
 			map = map2;
 		break;
 	default:
@@ -6421,7 +6412,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 
 	dprintf("imsm: set_disk %d:%x\n", n, state);
 
-	ord = get_imsm_ord_tbl_ent(dev, n, -2);
+	ord = get_imsm_ord_tbl_ent(dev, n, 0);
 	disk = get_imsm_disk(super, ord_to_idx(ord));
 
 	/* check for new failures */

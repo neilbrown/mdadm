@@ -6158,7 +6158,11 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 
 	disk->status |= FAILED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
-	if (is_gen_migration(dev)) {
+	/* mark failures in second map if second map exists and this disk
+	 * in this slot.
+	 * This is valid for migration, initialization and rebuild
+	 */
+	if (dev->vol.migr_state) {
 		struct imsm_map *map2 = get_imsm_map(dev, 1);
 		if (slot < map2->num_members)
 			set_imsm_ord_tbl_ent(map2, slot,

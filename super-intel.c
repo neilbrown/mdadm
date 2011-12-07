@@ -4522,14 +4522,16 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 			set_imsm_ord_tbl_ent(map, slot, df->index | IMSM_ORD_REBUILD);
 			if (is_gen_migration(dev)) {
 				struct imsm_map *map2 = get_imsm_map(dev, 1);
-				if (slot < map2->num_members) {
+				int slot2 = get_imsm_disk_slot(map2, df->index);
+				if ((slot2 < map2->num_members) &&
+				    (slot2 >= 0)) {
 					__u32 ord2 = get_imsm_ord_tbl_ent(dev,
-									  slot,
+									  slot2,
 									  1);
 					if ((unsigned)df->index ==
 							       ord_to_idx(ord2))
 						set_imsm_ord_tbl_ent(map2,
-							slot,
+							slot2,
 							df->index |
 							IMSM_ORD_REBUILD);
 				}
@@ -6164,8 +6166,11 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 	 */
 	if (dev->vol.migr_state) {
 		struct imsm_map *map2 = get_imsm_map(dev, 1);
-		if (slot < map2->num_members)
-			set_imsm_ord_tbl_ent(map2, slot,
+		int slot2 = get_imsm_disk_slot(map2, idx);
+
+		if ((slot2 < map2->num_members) &&
+		    (slot2 >= 0))
+			set_imsm_ord_tbl_ent(map2, slot2,
 					     idx | IMSM_ORD_REBUILD);
 	}
 	if (map->failed_disk_num == 0xff)

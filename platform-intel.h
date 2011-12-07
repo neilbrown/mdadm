@@ -124,13 +124,12 @@ static inline int imsm_orom_has_raid5(const struct imsm_orom *orom)
 static inline int imsm_orom_has_chunk(const struct imsm_orom *orom, int chunk)
 {
 	int fs = ffs(chunk);
-	int orom_chunk_bit;
-
 	if (!fs)
 		return 0;
 	fs--; /* bit num to bit index */
-	orom_chunk_bit = (orom->sss & (1 << (fs - 1)));
-	return orom_chunk_bit && 1 << orom_chunk_bit == chunk;
+	if (chunk & (chunk-1))
+		return 0; /* not a power of 2 */
+	return !!(orom->sss & (1 << (fs - 1)));
 }
 
 

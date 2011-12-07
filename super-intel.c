@@ -6784,6 +6784,14 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	if (imsm_reshape_blocks_arrays_changes(super))
 			return NULL;
 
+	/* Cannot activate another spare if rebuild is in progress already
+	 */
+	if (is_rebuilding(dev)) {
+		dprintf("imsm: No spare activation allowed. "
+			"Rebuild in progress already.\n");
+		return NULL;
+	}
+
 	if (a->info.array.level == 4)
 		/* No repair for takeovered array
 		 * imsm doesn't support raid4

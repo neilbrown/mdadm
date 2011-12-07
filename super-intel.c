@@ -6192,6 +6192,17 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 		return;
 
 	dprintf("imsm: mark missing\n");
+	/* end process for initialization and rebuild only
+	 */
+	if (is_gen_migration(dev) == 0) {
+		__u8 map_state;
+		int failed;
+
+		failed = imsm_count_failed(super, dev, MAP_0);
+		map_state = imsm_check_degraded(super, dev, failed, MAP_0);
+
+		end_migration(dev, super, map_state);
+	}
 	for (dl = super->missing; dl; dl = dl->next)
 		mark_missing(dev, &dl->disk, dl->index);
 	super->updates_pending++;

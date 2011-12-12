@@ -1178,8 +1178,8 @@ void examine_migr_rec_imsm(struct intel_super *super)
 
 		printf("\nMigration Record Information:");
 
-		/* map under migration */
-		map = get_imsm_map(dev, MAP_1);
+		/* first map under migration */
+		map = get_imsm_map(dev, MAP_0);
 		if (map)
 			slot = get_imsm_disk_slot(map, super->disks->index);
 		if ((map == NULL) || (slot > 1) || (slot < 0)) {
@@ -2131,7 +2131,7 @@ static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 	*/
 	if (dev == NULL)
 		return 0;
-	map = get_imsm_map(dev, MAP_1);
+	map = get_imsm_map(dev, MAP_0);
 
 	if (info) {
 		for (sd = info->devs ; sd ; sd = sd->next) {
@@ -2257,7 +2257,7 @@ static int write_imsm_migr_rec(struct supertype *st)
 		dev = get_imsm_dev(super, super->current_vol < 0 ? 0 :
 					  super->current_vol);
 
-	map = get_imsm_map(dev, MAP_X);
+	map = get_imsm_map(dev, MAP_0);
 
 	for (sd = super->disks ; sd ; sd = sd->next) {
 		int slot;

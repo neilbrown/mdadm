@@ -240,6 +240,12 @@ static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed"
 
 #define GEN_MIGR_AREA_SIZE 2048 /* General Migration Copy Area size in blocks */
 
+#define MIGR_REC_BUF_SIZE 512 /* size of migr_record i/o buffer */
+#define MIGR_REC_POSITION 512 /* migr_record position offset on disk,
+			       * MIGR_REC_BUF_SIZE <= MIGR_REC_POSITION
+			       */
+
+
 #define UNIT_SRC_NORMAL     0   /* Source data for curr_migr_unit must
 				 *  be recovered using srcMap */
 #define UNIT_SRC_IN_CP_AREA 1   /* Source data for curr_migr_unit has
@@ -2072,13 +2078,14 @@ static int read_imsm_migr_rec(int fd, struct intel_super *super)
 	unsigned long long dsize;
 
 	get_dev_size(fd, NULL, &dsize);
-	if (lseek64(fd, dsize - 512, SEEK_SET) < 0) {
+	if (lseek64(fd, dsize - MIGR_REC_POSITION, SEEK_SET) < 0) {
 		fprintf(stderr,
 			Name ": Cannot seek to anchor block: %s\n",
 			strerror(errno));
 		goto out;
 	}
-	if (read(fd, super->migr_rec_buf, 512) != 512) {
+	if (read(fd, super->migr_rec_buf, MIGR_REC_BUF_SIZE) !=
+							    MIGR_REC_BUF_SIZE) {
 		fprintf(stderr,
 			Name ": Cannot read migr record block: %s\n",
 			strerror(errno));
@@ -2276,13 +2283,14 @@ static int write_imsm_migr_rec(struct supertype *st)
 		if (fd < 0)
 			continue;
 		get_dev_size(fd, NULL, &dsize);
-		if (lseek64(fd, dsize - 512, SEEK_SET) < 0) {
+		if (lseek64(fd, dsize - MIGR_REC_POSITION, SEEK_SET) < 0) {
 			fprintf(stderr,
 				Name ": Cannot seek to anchor block: %s\n",
 				strerror(errno));
 			goto out;
 		}
-		if (write(fd, super->migr_rec_buf, 512) != 512) {
+		if (write(fd, super->migr_rec_buf, MIGR_REC_BUF_SIZE) !=
+							    MIGR_REC_BUF_SIZE) {
 			fprintf(stderr,
 				Name ": Cannot write migr record block: %s\n",
 				strerror(errno));
@@ -3416,7 +3424,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	sectors = mpb_sectors(anchor) - 1;
 	free(anchor);
 
-	if (posix_memalign(&super->migr_rec_buf, 512, 512) != 0) {
+	if (posix_memalign(&super->migr_rec_buf, 512, MIGR_REC_BUF_SIZE) != 0) {
 		fprintf(stderr, Name
 			": %s could not allocate migr_rec buffer\n", __func__);
 		free(super->buf);
@@ -4313,7 +4321,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 			fprintf(stderr, Name": could not allocate new mpb\n");
 			return 0;
 		}
-		if (posix_memalign(&super->migr_rec_buf, 512, 512) != 0) {
+		if (posix_memalign(&super->migr_rec_buf, 512,
+				   MIGR_REC_BUF_SIZE) != 0) {
 			fprintf(stderr, Name
 				": %s could not allocate migr_rec buffer\n",
 				__func__);
@@ -4481,7 +4490,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 			": %s could not allocate superblock\n", __func__);
 		return 0;
 	}
-	if (posix_memalign(&super->migr_rec_buf, 512, 512) != 0) {
+	if (posix_memalign(&super->migr_rec_buf, 512, MIGR_REC_BUF_SIZE) != 0) {
 		fprintf(stderr, Name
 			": %s could not allocate migr_rec buffer\n", __func__);
 		free(super->buf);
@@ -4875,7 +4884,7 @@ static int write_super_imsm(struct supertype *st, int doclose)
 	mpb->check_sum = __cpu_to_le32(sum);
 
 	if (clear_migration_record)
-		memset(super->migr_rec_buf, 0, 512);
+		memset(super->migr_rec_buf, 0, MIGR_REC_BUF_SIZE);
 
 	/* write the mpb for disks that compose raid devices */
 	for (d = super->disks; d ; d = d->next) {
@@ -4889,7 +4898,8 @@ static int write_super_imsm(struct supertype *st, int doclose)
 
 			get_dev_size(d->fd, NULL, &dsize);
 			if (lseek64(d->fd, dsize - 512, SEEK_SET) >= 0) {
-				if (write(d->fd, super->migr_rec_buf, 512) != 512)
+				if (write(d->fd, super->migr_rec_buf,
+					MIGR_REC_BUF_SIZE) != MIGR_REC_BUF_SIZE)
 					perror("Write migr_rec failed");
 			}
 		}

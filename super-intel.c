@@ -5900,7 +5900,10 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		struct imsm_map *map;
 		struct imsm_map *map2;
 		struct mdinfo *this;
-		int slot, chunk;
+		int slot;
+#ifndef MDASSEMBLE
+		int chunk;
+#endif
 		char *ep;
 
 		if (subarray &&
@@ -5925,7 +5928,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		 * OROM/EFI
 		 */
 
-		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
 		this = malloc(sizeof(*this));
 		if (!this) {
 			fprintf(stderr, Name ": failed to allocate %zu bytes\n",
@@ -5937,6 +5939,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		getinfo_super_imsm_volume(st, this, NULL);
 		this->next = rest;
 #ifndef MDASSEMBLE
+		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
 		/* mdadm does not support all metadata features- set the bit in all arrays state */
 		if (!validate_geometry_imsm_orom(super,
 						 get_imsm_raid_level(map), /* RAID level */

@@ -220,7 +220,9 @@ int Assemble(struct supertype *st, char *mddev,
 	int change = 0;
 	int inargv = 0;
 	int report_missmatch;
+#ifndef MDASSEMBLE
 	int bitmap_done;
+#endif
 	int start_partial_ok = (runstop >= 0) && 
 		(force || devlist==NULL || auto_assem);
 	unsigned int num_devs;
@@ -701,9 +703,9 @@ int Assemble(struct supertype *st, char *mddev,
 		close(mdfd);
 		return err;
 	}
+	bitmap_done = 0;
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
-	bitmap_done = 0;
 	content->update_private = NULL;
 	devices = malloc(num_devs * sizeof(*devices));
 	devmap = calloc(num_devs * content->array.raid_disks, 1);

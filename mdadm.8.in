@@ -1129,9 +1129,9 @@ stops reshape after reshape critical section is being restored. This happens
 before file system pivot operation and avoids loss of file system context.
 Losing file system context would cause reshape to be broken.
 
-Reshape can be continued later using
-.B\-\-continue
-option for grow command.
+Reshape can be continued later using the
+.B \-\-continue
+option for the grow command.
 
 .SH For Manage mode:
 

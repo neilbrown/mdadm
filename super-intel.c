@@ -2120,6 +2120,7 @@ static struct imsm_dev *imsm_get_device_during_migration(
  * Returns:
  *	 0 : success
  *	-1 : fail
+ *	-2 : no migration in progress
  ******************************************************************************/
 static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 {
@@ -2137,7 +2138,7 @@ static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 	/* nothing to load,no migration in progress?
 	*/
 	if (dev == NULL)
-		return 0;
+		return -2;
 	map = get_imsm_map(dev, MAP_0);
 
 	if (info) {
@@ -4079,13 +4080,16 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 	/* load migration record */
 	err = load_imsm_migr_rec(super, NULL);
-	if (err) {
+	if (err == -1) {
+		/* migration is in progress,
+		 * but migr_rec cannot be loaded,
+		 */
 		err = 4;
 		goto error;
 	}
 
 	/* Check migration compatibility */
-	if (check_mpb_migr_compatibility(super) != 0) {
+	if ((err == 0) && (check_mpb_migr_compatibility(super) != 0)) {
 		fprintf(stderr, Name ": Unsupported migration detected");
 		if (devname)
 			fprintf(stderr, " on %s\n", devname);

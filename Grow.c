@@ -2538,14 +2538,18 @@ int reshape_container(char *container, char *devname,
 		if (!content)
 			break;
 
-		fd = open_dev(mdstat->devnum);
-		if (fd < 0)
-			break;
 		adev = map_dev(dev2major(mdstat->devnum),
 			       dev2minor(mdstat->devnum),
 			       0);
 		if (!adev)
 			adev = content->text_version;
+
+		fd = open_dev(mdstat->devnum);
+		if (fd < 0) {
+			printf(Name ": Device %s cannot be opened for reshape.",
+			       adev);
+			break;
+		}
 
 		if (last_devnum == mdstat->devnum) {
 			/* Do not allow for multiple reshape_array() calls for

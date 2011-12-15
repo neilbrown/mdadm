@@ -2462,6 +2462,7 @@ int reshape_container(char *container, char *devname,
 {
 	struct mdinfo *cc = NULL;
 	int rv = restart;
+	int last_devnum = -1;
 
 	/* component_size is not meaningful for a container,
 	 * so pass '-1' meaning 'no change'
@@ -2545,6 +2546,24 @@ int reshape_container(char *container, char *devname,
 			       0);
 		if (!adev)
 			adev = content->text_version;
+
+		if (last_devnum == mdstat->devnum) {
+			/* Do not allow for multiple reshape_array() calls for
+			 * the same array.
+			 * It can happen when reshape_array() returns without
+			 * error, when reshape is not finished (wrong reshape
+			 * starting/continuation conditions).  Mdmon doesn't
+			 * switch to next array in container and reentry
+			 * conditions for the same array occur.
+			 * This is possibly interim until the behaviour of
+			 * reshape_array is resolved().
+			 */
+			printf(Name ": Multiple reshape execution detected for "
+			       "device  %s.", adev);
+			close(fd);
+			break;
+		}
+		last_devnum = mdstat->devnum;
 
 		sysfs_init(content, fd, mdstat->devnum);
 

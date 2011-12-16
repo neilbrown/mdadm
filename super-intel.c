@@ -5445,9 +5445,16 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	}
 
 	if (maxsize < size || maxsize == 0) {
-		if (verbose)
-			fprintf(stderr, Name ": not enough space after merge (%llu < %llu)\n",
-				maxsize, size);
+		if (verbose) {
+			if (maxsize == 0)
+				fprintf(stderr, Name ": no free space"
+						" left on device. Aborting...\n");
+			else
+				fprintf(stderr, Name ": not enough space"
+						" to create volume of given size"
+						" (%llu < %llu). Aborting...\n",
+						maxsize, size);
+		}
 		return 0;
 	}
 

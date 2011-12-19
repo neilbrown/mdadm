@@ -706,7 +706,6 @@ int Assemble(struct supertype *st, char *mddev,
 	bitmap_done = 0;
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
-	content->update_private = NULL;
 	devices = malloc(num_devs * sizeof(*devices));
 	devmap = calloc(num_devs * content->array.raid_disks, 1);
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
@@ -891,8 +890,6 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		devcnt++;
 	}
-	free(content->update_private);
-	content->update_private = NULL;
 
 	if (devcnt == 0) {
 		fprintf(stderr, Name ": no devices found for %s\n",

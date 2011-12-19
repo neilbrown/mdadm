@@ -2791,25 +2791,30 @@ static int update_super_imsm(struct supertype *st, struct mdinfo *info,
 
 	mpb = super->anchor;
 
-	if (strcmp(update, "uuid") == 0 && uuid_set && !info->update_private)
-		rv = -1;
-	else if (strcmp(update, "uuid") == 0 && uuid_set && info->update_private) {
-		mpb->orig_family_num = *((__u32 *) info->update_private);
-		rv = 0;
-	} else if (strcmp(update, "uuid") == 0) {
-		__u32 *new_family = malloc(sizeof(*new_family));
-
-		/* update orig_family_number with the incoming random
-		 * data, report the new effective uuid, and store the
-		 * new orig_family_num for future updates.
+	if (strcmp(update, "uuid") == 0) {
+		/* We take this to mean that the family_num should be updated.
+		 * However that is much smaller than the uuid so we cannot really
+		 * allow an explicit uuid to be given.  And it is hard to reliably
+		 * know if one was.
+		 * So if !uuid_set we know the current uuid is random and just used
+		 * the first 'int' and copy it to the other 3 positions.
+		 * Otherwise we require the 4 'int's to be the same as would be the
+		 * case if we are using a random uuid.  So an explicit uuid will be
+		 * accepted as long as all for ints are the same... which shouldn't hurt
 		 */
-		if (new_family) {
-			memcpy(&mpb->orig_family_num, info->uuid, sizeof(__u32));
-			uuid_from_super_imsm(st, info->uuid);
-			*new_family = mpb->orig_family_num;
-			info->update_private = new_family;
+		if (!uuid_set) {
+			info->uuid[1] = info->uuid[2] = info->uuid[3] = info->uuid[0];
 			rv = 0;
+		} else {
+			if (info->uuid[0] != info->uuid[1] ||
+			    info->uuid[1] != info->uuid[2] ||
+			    info->uuid[2] != info->uuid[3])
+				rv = -1;
+			else
+				rv = 0;
 		}
+		if (rv == 0)
+			mpb->orig_family_num = info->uuid[0];
 	} else if (strcmp(update, "assemble") == 0)
 		rv = 0;
 	else

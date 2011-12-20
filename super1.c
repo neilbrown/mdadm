@@ -600,6 +600,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		info->disk.state = 6; /* active and in sync */
 		info->disk.raid_disk = role;
 	}
+	if (sb->devflags & WriteMostly1)
+		info->disk.state |= (1 << MD_DISK_WRITEMOSTLY);
 	info->events = __le64_to_cpu(sb->events);
 	sprintf(info->text_version, "1.%d", st->minor_version);
 	info->safe_mode_delay = 200;

@@ -450,8 +450,9 @@ int Incremental(char *devname, int verbose, int runstop,
 		sysfs_uevent(sra, "change");
 		if (verbose >= 0)
 			fprintf(stderr, Name
-				": container %s now has %d devices\n",
-				chosen_name, info.array.working_disks);
+				": container %s now has %d device%s\n",
+				chosen_name, info.array.working_disks,
+				info.array.working_disks==1?"":"s");
 		wait_for(chosen_name, mdfd);
 		if (st->ss->external)
 			devnum = fd2devnum(mdfd);

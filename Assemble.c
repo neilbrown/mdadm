@@ -1614,12 +1614,14 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		if (verbose >= 0) {
 			if (err)
 				fprintf(stderr, Name
-					": array %s now has %d devices",
-					chosen_name, working + preexist);
+					": array %s now has %d device%s",
+					chosen_name, working + preexist,
+					working + preexist == 1 ? "":"s");
 			else
 				fprintf(stderr, Name
-					": Started %s with %d devices",
-					chosen_name, working + preexist);
+					": Started %s with %d device%s",
+					chosen_name, working + preexist,
+					working + preexist == 1 ? "":"s");
 			if (preexist)
 				fprintf(stderr, " (%d new)", working);
 			if (expansion)
@@ -1634,9 +1636,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	} else {
 		if (verbose >= 0)
 			fprintf(stderr, Name
-				": %s assembled with %d devices but "
+				": %s assembled with %d device%s but "
 				"not started\n",
-				chosen_name, working);
+				chosen_name, working, working == 1 ? "":"s");
 		return 1;
 	}
 }

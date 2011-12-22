@@ -1209,7 +1209,8 @@ int main(int argc, char *argv[])
 		require_homehost = 0;
 	}
 
-	if ((mode != MISC || devmode != 'E') &&
+	if (!((mode == MISC && devmode == 'E')
+	      || (mode == MONITOR && spare_sharing == 0)) &&
 	    geteuid() != 0) {
 		fprintf(stderr, Name ": must be super-user to perform this action\n");
 		exit(1);

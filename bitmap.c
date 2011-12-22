@@ -334,7 +334,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 		goto free_info;
 	printf("          Bitmap : %llu bits (chunks), %llu dirty (%2.1f%%)\n",
 			info->total_bits, info->dirty_bits,
-			100.0 * info->dirty_bits / (info->total_bits + 1));
+			100.0 * info->dirty_bits / (info->total_bits?:1));
 free_info:
 	free(info);
 	return rv;

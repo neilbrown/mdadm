@@ -480,7 +480,6 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 	return 0;
 }
 
-
 /*
  * When reshaping an array we might need to backup some data.
  * This is written to all spares with a 'super_block' describing it.
@@ -526,7 +525,7 @@ static int check_idle(struct supertype *st)
 	char container[40];
 	struct mdstat_ent *ent, *e;
 	int is_idle = 1;
-	
+
 	fmt_devname(container, container_dev);
 	ent = mdstat_read(0, 0);
 	for (e = ent ; e; e = e->next) {
@@ -549,7 +548,7 @@ static int freeze_container(struct supertype *st)
 
 	if (!check_idle(st))
 		return -1;
-	
+
 	fmt_devname(container, container_dev);
 
 	if (block_monitor(container, 1)) {
@@ -565,7 +564,7 @@ static void unfreeze_container(struct supertype *st)
 	int container_dev = (st->container_dev != NoMdDev
 			     ? st->container_dev : st->devnum);
 	char container[40];
-	
+
 	fmt_devname(container, container_dev);
 
 	unblock_monitor(container, 1);
@@ -1358,7 +1357,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			 int restart, int freeze_reshape);
 static int reshape_container(char *container, char *devname,
 			     int mdfd,
-			     struct supertype *st, 
+			     struct supertype *st,
 			     struct mdinfo *info,
 			     int force,
 			     char *backup_file,
@@ -1518,15 +1517,15 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			Name ": Need %d spare%s to avoid degraded array,"
 			" and only have %d.\n"
 			"       Use --force to over-ride this check.\n",
-			raid_disks - array.raid_disks, 
-			raid_disks - array.raid_disks == 1 ? "" : "s", 
+			raid_disks - array.raid_disks,
+			raid_disks - array.raid_disks == 1 ? "" : "s",
 			array.spare_disks + added_disks);
 		return 1;
 	}
 
 	sra = sysfs_read(fd, 0, GET_LEVEL | GET_DISKS | GET_DEVS
 			 | GET_STATE | GET_VERSION);
- 	if (sra) {
+	if (sra) {
 		if (st->ss->external && subarray == NULL) {
 			array.level = LEVEL_CONTAINER;
 			sra->array.level = LEVEL_CONTAINER;
@@ -1623,7 +1622,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				sync_metadata(st);
 			fprintf(stderr, Name ": Cannot set device size for %s: %s\n",
 				devname, strerror(err));
-			if (err == EBUSY && 
+			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
 				fprintf(stderr, "       Bitmap must be removed before size can be changed\n");
 			rv = 1;
@@ -1673,11 +1672,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	/* ========= check for Raid10/Raid1 -> Raid0 conversion ===============
 	 * current implementation assumes that following conditions must be met:
 	 * - RAID10:
-	 * 	- far_copies == 1
-	 * 	- near_copies == 2
+	 *	- far_copies == 1
+	 *	- near_copies == 2
 	 */
 	if ((level == 0 && array.level == 10 && sra &&
-	    array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) ||
+	     array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) ||
 	    (level == 0 && array.level == 1 && sra)) {
 		int err;
 		err = remove_disks_for_takeover(st, sra, array.layout);
@@ -1727,7 +1726,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 	} else if (strcmp(layout_str, "normalise") == 0 ||
-		 strcmp(layout_str, "normalize") == 0) {
+		   strcmp(layout_str, "normalize") == 0) {
 		/* If we have a -6 RAID6 layout, remove the '-6'. */
 		info.new_layout = UnSet;
 		if (info.array.level == 6 && info.new_level == UnSet) {
@@ -1944,7 +1943,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			" and only have %d.\n"
 			"       Use --force to over-ride this check.\n",
 			spares_needed,
-			spares_needed == 1 ? "" : "s", 
+			spares_needed == 1 ? "" : "s",
 			info->array.spare_disks + added_disks);
 		goto release;
 	}
@@ -1958,7 +1957,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			Name ": Need %d spare%s to create working array,"
 			" and only have %d.\n",
 			spares_needed,
-			spares_needed == 1 ? "" : "s", 
+			spares_needed == 1 ? "" : "s",
 			info->array.spare_disks + added_disks);
 		goto release;
 	}
@@ -1974,7 +1973,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			err = errno;
 			fprintf(stderr, Name ": %s: could not set level to %s\n",
 				devname, c);
-			if (err == EBUSY && 
+			if (err == EBUSY &&
 			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
 				fprintf(stderr, "       Bitmap must be removed"
 					" before level can be changed\n");
@@ -1982,7 +1981,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		}
 		if (!quiet)
 			fprintf(stderr, Name ": level of %s changed to %s\n",
-				devname, c);	
+				devname, c);
 		orig_level = array.level;
 		sysfs_freeze_array(info);
 
@@ -2090,7 +2089,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	 * 1/ The array will shrink.
 	 *    We need to ensure the reshape will pause before reaching
 	 *    the 'critical section'.  We also need to fork and wait for
-	 *    that to happen.  When it does we 
+	 *    that to happen.  When it does we
 	 *       suspend/backup/complete/unfreeze
 	 *
 	 * 2/ The array will not change size.
@@ -2143,7 +2142,7 @@ started:
 	 * unit.  The number we have so far is just a minimum
 	 */
 	blocks = reshape.backup_blocks;
-	if (reshape.before.data_disks == 
+	if (reshape.before.data_disks ==
 	    reshape.after.data_disks) {
 		/* Make 'blocks' bigger for better throughput, but
 		 * not so big that we reject it below.
@@ -2257,7 +2256,7 @@ started:
 				Name ": Cannot set device shape for %s: %s\n",
 				devname, strerror(errno));
 
-			if (err == EBUSY && 
+			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
 				fprintf(stderr,
 					"       Bitmap must be removed before"
@@ -2272,18 +2271,18 @@ started:
 		int err = 0;
 		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
 			err = errno;
-		if (!err && sysfs_set_num(sra, NULL, "layout", 
-					 reshape.after.layout) < 0)
+		if (!err && sysfs_set_num(sra, NULL, "layout",
+					  reshape.after.layout) < 0)
 			err = errno;
 		if (!err && subarray_set_num(container, sra, "raid_disks",
-					    reshape.after.data_disks +
-					    reshape.parity) < 0)
+					     reshape.after.data_disks +
+					     reshape.parity) < 0)
 			err = errno;
 		if (err) {
 			fprintf(stderr, Name ": Cannot set device shape for %s\n",
 				devname);
 
-			if (err == EBUSY && 
+			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
 				fprintf(stderr,
 					"       Bitmap must be removed before"
@@ -2295,7 +2294,7 @@ started:
 	err = start_reshape(sra, restart, reshape.before.data_disks,
 			    reshape.after.data_disks);
 	if (err) {
-		fprintf(stderr, 
+		fprintf(stderr,
 			Name ": Cannot %s reshape for %s\n",
 			restart ? "continue" : "start",
 			devname);
@@ -2461,7 +2460,7 @@ release:
  */
 int reshape_container(char *container, char *devname,
 		      int mdfd,
-		      struct supertype *st, 
+		      struct supertype *st,
 		      struct mdinfo *info,
 		      int force,
 		      char *backup_file,
@@ -2626,7 +2625,7 @@ int reshape_container(char *container, char *devname,
  * suspend/backup/allow always come together
  * wait/resume/discard do too.
  * For the same-size case we have two backups to improve flow.
- * 
+ *
  */
 
 int progress_reshape(struct mdinfo *info, struct reshape *reshape,
@@ -2771,7 +2770,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * this much.
 	 */
 	target = 64*1024*2 * min(reshape->before.data_disks,
-				  reshape->after.data_disks);
+				 reshape->after.data_disks);
 	target /= reshape->backup_blocks;
 	if (target < 2)
 		target = 2;
@@ -2908,7 +2907,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			- completed;
 	}
 	*reshape_completed = completed;
-	
+
 	close(fd);
 
 	/* We return the need_backup flag.  Caller will decide
@@ -2967,7 +2966,6 @@ check_progress:
 		return -1; /* complete */
 	}
 }
-
 
 /* FIXME return status is never checked */
 static int grow_backup(struct mdinfo *sra,
@@ -3038,7 +3036,7 @@ static int grow_backup(struct mdinfo *sra,
 		else
 			lseek64(destfd[i], destoffsets[i], 0);
 
-	rv = save_stripes(sources, offsets, 
+	rv = save_stripes(sources, offsets,
 			  disks, chunk, level, layout,
 			  dests, destfd,
 			  offset*512*odata, stripes * chunk * odata,
@@ -3086,11 +3084,11 @@ static int grow_backup(struct mdinfo *sra,
  * every works.
  */
 /* FIXME return value is often ignored */
-static int forget_backup(
-		int dests, int *destfd, unsigned long long *destoffsets,
-		int part)
+static int forget_backup(int dests, int *destfd,
+			 unsigned long long *destoffsets,
+			 int part)
 {
-	/* 
+	/*
 	 * Erase backup 'part' (which is 0 or 1)
 	 */
 	int i;
@@ -3114,7 +3112,7 @@ static int forget_backup(
 		if ((unsigned long long)lseek64(destfd[i], destoffsets[i]-4096, 0) !=
 		    destoffsets[i]-4096)
 			rv = -1;
-		if (rv == 0 && 
+		if (rv == 0 &&
 		    write(destfd[i], &bsb, 512) != 512)
 			rv = -1;
 		fsync(destfd[i]);
@@ -3150,7 +3148,7 @@ static void validate(int afd, int bfd, unsigned long long offset)
 		fail("magic is bad");
 	if (memcmp(bsb2.magic, "md_backup_data-2", 16) == 0 &&
 	    bsb2.sb_csum2 != bsb_csum((char*)&bsb2,
-				     ((char*)&bsb2.sb_csum2)-((char*)&bsb2)))
+				      ((char*)&bsb2.sb_csum2)-((char*)&bsb2)))
 		fail("second csum bad");
 
 	if (__le64_to_cpu(bsb2.devstart)*512 != offset)
@@ -3180,7 +3178,7 @@ static void validate(int afd, int bfd, unsigned long long offset)
 		if ((unsigned long long)read(afd, abuf, len) != len)
 			fail("read first from array failed");
 		if (memcmp(bbuf, abuf, len) != 0) {
-			#if 0
+#if 0
 			int i;
 			printf("offset=%llu len=%llu\n",
 			       (unsigned long long)__le64_to_cpu(bsb2.arraystart)*512, len);
@@ -3189,7 +3187,7 @@ static void validate(int afd, int bfd, unsigned long long offset)
 					printf("first diff byte %d\n", i);
 					break;
 				}
-			#endif
+#endif
 			fail("data1 compare failed");
 		}
 	}
@@ -3540,7 +3538,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				nonew:
 					if (verbose)
 						fprintf(stderr, Name
-                  ": backup-metadata found on %s but is not needed\n", devname);
+							": backup-metadata found on %s but is not needed\n", devname);
 					continue; /* No new data here */
 				}
 			} else {
@@ -3575,7 +3573,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		second_fail:
 			if (verbose)
 				fprintf(stderr, Name
-		     ": Failed to verify secondary backup-metadata block on %s\n",
+					": Failed to verify secondary backup-metadata block on %s\n",
 					devname);
 			continue; /* Cannot seek */
 		}
@@ -3619,7 +3617,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			free(offsets);
 			return 1;
 		}
-		
+
 		if (bsb.magic[15] == '2' &&
 		    restore_stripes(fdlist, offsets,
 				    info->array.raid_disks,

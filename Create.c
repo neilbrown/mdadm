@@ -558,6 +558,18 @@ int Create(struct supertype *st, char *mddev,
 		map_unlock(&map);
 		return 1;
 	}
+	/* verify if chosen_name is not in use,
+	 * it could be in conflict with already existing device
+	 * e.g. container, array
+	 */
+	if (strncmp(chosen_name, "/dev/md/", 8) == 0
+	    && map_by_name(&map, chosen_name+8) != NULL) {
+		fprintf(stderr, Name ": Array name %s is in use already.\n",
+			chosen_name);
+		close(mdfd);
+		map_unlock(&map);
+		return 1;
+	}
 	mddev = chosen_name;
 
 	vers = md_get_version(mdfd);

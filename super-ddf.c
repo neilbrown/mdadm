@@ -2557,7 +2557,7 @@ static int reserve_space(struct supertype *st, int raiddisks,
 				continue;
 			/* This is bigger than 'size', see if there are enough */
 			cnt = 0;
-			for (dl2 = dl; dl2 ; dl2=dl2->next)
+			for (dl2 = ddf->dlist; dl2 ; dl2=dl2->next)
 				if (dl2->esize >= dl->esize)
 					cnt++;
 			if (cnt >= raiddisks)

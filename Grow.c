@@ -698,7 +698,8 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 	return rc;
 }
 
-int start_reshape(struct mdinfo *sra, int already_running, int data_disks)
+int start_reshape(struct mdinfo *sra, int already_running,
+		  int before_data_disks, int data_disks)
 {
 	int err;
 	unsigned long long sync_max_to_set;
@@ -707,7 +708,11 @@ int start_reshape(struct mdinfo *sra, int already_running, int data_disks)
 	err = sysfs_set_num(sra, NULL, "suspend_hi", sra->reshape_progress);
 	err = err ?: sysfs_set_num(sra, NULL, "suspend_lo",
 				   sra->reshape_progress);
-	sync_max_to_set = sra->reshape_progress / data_disks;
+	if (before_data_disks <= data_disks)
+		sync_max_to_set = sra->reshape_progress / data_disks;
+	else
+		sync_max_to_set = (sra->component_size * data_disks
+				   - sra->reshape_progress) / data_disks;
 	if (!already_running)
 		sysfs_set_num(sra, NULL, "sync_min", sync_max_to_set);
 	err = err ?: sysfs_set_num(sra, NULL, "sync_max", sync_max_to_set);
@@ -2285,8 +2290,8 @@ started:
 		}
 	}
 
-	err = start_reshape(sra, restart,
-			    info->array.raid_disks - reshape.parity);
+	err = start_reshape(sra, restart, reshape.before.data_disks,
+			    reshape.after.data_disks);
 	if (err) {
 		fprintf(stderr, 
 			Name ": Cannot %s reshape for %s\n",

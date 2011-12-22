@@ -1634,11 +1634,15 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		return err;
 		/* FIXME should have an O_EXCL and wait for read-auto */
 	} else {
-		if (verbose >= 0)
+		if (verbose >= 0) {
 			fprintf(stderr, Name
-				": %s assembled with %d device%s but "
-				"not started\n",
-				chosen_name, working, working == 1 ? "":"s");
+				": %s assembled with %d device%s",
+				chosen_name, preexist + working,
+				preexist + working == 1 ? "":"s");
+			if (preexist)
+				fprintf(stderr, " (%d new)", working);
+			fprintf(stderr, " but not started\n");
+		}
 		return 1;
 	}
 }

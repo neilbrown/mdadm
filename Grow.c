@@ -1891,10 +1891,12 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (info->reshape_active) {
 		int new_level = info->new_level;
 		info->new_level = UnSet;
-		info->array.raid_disks -= info->delta_disks;
+		if (info->delta_disks > 0)
+			info->array.raid_disks -= info->delta_disks;
 		msg = analyse_change(info, &reshape);
 		info->new_level = new_level;
-		info->array.raid_disks += info->delta_disks;
+		if (info->delta_disks > 0)
+			info->array.raid_disks += info->delta_disks;
 		if (!restart)
 			/* Make sure the array isn't read-only */
 			ioctl(fd, RESTART_ARRAY_RW, 0);
@@ -1908,7 +1910,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	    (reshape.level != info->array.level ||
 	     reshape.before.layout != info->array.layout ||
 	     reshape.before.data_disks + reshape.parity
-	     != info->array.raid_disks - info->delta_disks)) {
+	     != info->array.raid_disks - max(0, info->delta_disks))) {
 		fprintf(stderr, Name ": reshape info is not in native format -"
 			" cannot continue.\n");
 		goto release;

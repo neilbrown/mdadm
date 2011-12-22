@@ -447,6 +447,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (info.array.level == LEVEL_CONTAINER) {
 		int devnum = devnum; /* defined and used iff ->external */
 		/* Try to assemble within the container */
+		sysfs_uevent(sra, "change");
 		if (verbose >= 0)
 			fprintf(stderr, Name
 				": container %s now has %d devices\n",

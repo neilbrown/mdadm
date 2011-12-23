@@ -1064,9 +1064,9 @@ static int write_init_super1(struct supertype *st)
 
 		sb->dev_number = __cpu_to_le32(di->disk.number);
 		if (di->disk.state & (1<<MD_DISK_WRITEMOSTLY))
-			sb->devflags |= __cpu_to_le32(WriteMostly1);
+			sb->devflags |= WriteMostly1;
 		else
-			sb->devflags &= ~(__cpu_to_le32(WriteMostly1));
+			sb->devflags &= ~WriteMostly1;
 
 		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
 		    read(rfd, sb->device_uuid, 16) != 16) {

@@ -375,12 +375,18 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	}
 	if (strcmp(file, "internal") == 0) {
+		int rv;
 		int d;
+		int offset_setable = 0;
+		struct mdinfo *mdi;
 		if (st->ss->add_internal_bitmap == NULL) {
 			fprintf(stderr, Name ": Internal bitmaps not supported "
 				"with %s metadata\n", st->ss->name);
 			return 1;
 		}
+		mdi = sysfs_read(fd, -1, GET_BITMAP_LOCATION);
+		if (mdi)
+			offset_setable = 1;
 		for (d=0; d< st->max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;
@@ -401,11 +407,13 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 					if (st->ss->add_internal_bitmap(
 						    st,
 						    &chunk, delay, write_behind,
-						    bitmapsize, 0, major)
+						    bitmapsize, offset_setable,
+						    major)
 						)
 						st->ss->write_bitmap(st, fd2);
 					else {
-						fprintf(stderr, Name ": failed to create internal bitmap - chunksize problem.\n");
+						fprintf(stderr, Name ": failed "
+				"to create internal bitmap - chunksize problem.\n");
 						close(fd2);
 						return 1;
 					}
@@ -413,8 +421,16 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				close(fd2);
 			}
 		}
-		array.state |= (1<<MD_SB_BITMAP_PRESENT);
-		if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
+		if (offset_setable) {
+			st->ss->getinfo_super(st, mdi, NULL);
+			sysfs_init(mdi, fd, -1);
+			rv = sysfs_set_num(mdi, NULL, "bitmap/location",
+					   mdi->bitmap_offset);
+		} else {
+			array.state |= (1<<MD_SB_BITMAP_PRESENT);
+			rv = ioctl(fd, SET_ARRAY_INFO, &array);
+		}
+		if (rv < 0) {
 			if (errno == EBUSY)
 				fprintf(stderr, Name
 					": Cannot add bitmap while array is"

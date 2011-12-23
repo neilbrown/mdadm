@@ -211,6 +211,7 @@ struct mdinfo {
 		unsigned long long recovery_start; /* per-device rebuild position */
 		#define MaxSector  (~0ULL) /* resync/recovery complete position */
 	};
+	unsigned long		bitmap_offset;	/* 0 == none, 1 == a file */
 	unsigned long		safe_mode_delay; /* ms delay to mark clean */
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;
@@ -448,11 +449,13 @@ enum sysfs_read_flags {
 	GET_DISKS	= (1 << 7),
 	GET_DEGRADED	= (1 << 8),
 	GET_SAFEMODE	= (1 << 9),
-	GET_DEVS	= (1 << 10), /* gets role, major, minor */
-	GET_OFFSET	= (1 << 11),
-	GET_SIZE	= (1 << 12),
-	GET_STATE	= (1 << 13),
-	GET_ERROR	= (1 << 14),
+	GET_BITMAP_LOCATION = (1 << 10),
+
+	GET_DEVS	= (1 << 20), /* gets role, major, minor */
+	GET_OFFSET	= (1 << 21),
+	GET_SIZE	= (1 << 22),
+	GET_STATE	= (1 << 23),
+	GET_ERROR	= (1 << 24),
 };
 
 /* If fd >= 0, get the array it is open on,

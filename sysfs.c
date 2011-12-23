@@ -217,6 +217,19 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		msec = (msec * 1000) / scale;
 		sra->safe_mode_delay = msec;
 	}
+	if (options & GET_BITMAP_LOCATION) {
+		strcpy(base, "bitmap/location");
+		if (load_sys(fname, buf))
+			goto abort;
+		if (strncmp(buf, "file", 4) == 0)
+			sra->bitmap_offset = 1;
+		else if (strncmp(buf, "none", 4) == 0)
+			sra->bitmap_offset = 0;
+		else if (buf[0] == '+')
+			sra->bitmap_offset = strtoul(buf+1, NULL, 10);
+		else
+			goto abort;
+	}
 
 	if (! (options & GET_DEVS))
 		return sra;

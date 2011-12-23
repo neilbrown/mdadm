@@ -360,6 +360,9 @@ static void getinfo_super0(struct supertype *st, struct mdinfo *info, char *map)
 	info->array.state = sb->state;
 	info->component_size = sb->size*2;
 
+	if (sb->state & (1<<MD_SB_BITMAP_PRESENT))
+		info->bitmap_offset = 8;
+
 	info->disk.state = sb->this_disk.state;
 	info->disk.major = sb->this_disk.major;
 	info->disk.minor = sb->this_disk.minor;

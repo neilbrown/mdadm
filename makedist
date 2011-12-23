@@ -67,8 +67,18 @@ then
   cp ChangeLog $target/ChangeLog
   if [ " $arg" != " test" ]
   then
-    scp $target/$base master.kernel.org:/pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
-    scp $target/ANNOUNCE $target/ChangeLog master.kernel.org:/pub/linux/utils/raid/mdadm/
+    echo -n "Confirm signing this release? "
+    read a
+    if [ " $a" != " y" ]; then echo OK - bye. ; exit 1; fi
+    if zcat $target/$base | gpg -ba > $target/$base.sign && gpg -ba $target/ANNOUNCE
+    then
+      kup put $target/$base  $target/$base.sign \
+	  /pub/linux/utils/raid/mdadm/mdadm-$version.tar.gz
+      kup put $target/ANNOUNCE $target/ANNOUNCE.asc /pub/linux/utils/raid/mdadm/ANNOUNCE
+    else
+      echo signing failed
+      exit 1
+    fi
   fi
 else
   if [ ! -f $target/$base ] 

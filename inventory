@@ -12,6 +12,7 @@ ANNOUNCE-3.1.5
 ANNOUNCE-3.2
 ANNOUNCE-3.2.1
 ANNOUNCE-3.2.2
+ANNOUNCE-3.2.3
 Assemble.c
 bitmap.c
 bitmap.h
@@ -79,6 +80,7 @@ probe_roms.h
 pwgr.c
 Query.c
 raid5extend.c
+raid6check.8
 raid6check.c
 ReadMe.c
 README.initramfs

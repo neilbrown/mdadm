@@ -1631,7 +1631,7 @@ static int write_bitmap1(struct supertype *st, int fd)
 	int rv = 0;
 
 	int towrite, n;
-	char *buf = (char*)(((long)(abuf+4096))&~4095UL);
+	char buf[4096];
 
 	locate_bitmap1(st, fd);
 
@@ -1646,7 +1646,7 @@ static int write_bitmap1(struct supertype *st, int fd)
 		n = towrite;
 		if (n > 4096)
 			n = 4096;
-		n = write(fd, buf, n);
+		n = awrite(fd, buf, n);
 		if (n > 0)
 			towrite -= n;
 		else

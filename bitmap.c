@@ -132,7 +132,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	void *buf;
 	unsigned int n, skip;
 
-	if (posix_memalign(&buf, 512, 8192) != 0) {
+	if (posix_memalign(&buf, 4096, 8192) != 0) {
 		fprintf(stderr, Name ": failed to allocate 8192 bytes\n");
 		return NULL;
 	}

@@ -212,6 +212,7 @@ static void signal_manager(void)
  */
 
 #define ARRAY_DIRTY 1
+#define ARRAY_BUSY 2
 static int read_and_act(struct active_array *a)
 {
 	unsigned long long sync_completed;
@@ -419,9 +420,9 @@ static int read_and_act(struct active_array *a)
 		if ((mdi->next_state & DS_REMOVE) && mdi->state_fd >= 0) {
 			int remove_result;
 
-			/* the kernel may not be able to immediately remove the
-			 * disk, we can simply wait until the next event to try
-			 * again.
+			/* The kernel may not be able to immediately remove the
+			 * disk.  In that case we wait a little while and
+			 * try again.
 			 */
 			remove_result = write_attr("remove", mdi->state_fd);
 			if (remove_result > 0) {
@@ -429,7 +430,8 @@ static int read_and_act(struct active_array *a)
 				close(mdi->state_fd);
 				close(mdi->recovery_fd);
 				mdi->state_fd = -1;
-			}
+			} else
+				ret |= ARRAY_BUSY;
 		}
 		if (mdi->next_state & DS_INSYNC) {
 			write_attr("+in_sync", mdi->state_fd);
@@ -597,7 +599,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		struct timespec ts;
 		ts.tv_sec = 24*3600;
 		ts.tv_nsec = 0;
-		if (*aap == NULL) {
+		if (*aap == NULL || container->retry_soon) {
 			/* just waiting to get O_EXCL access */
 			ts.tv_sec = 0;
 			ts.tv_nsec = 20000000ULL;
@@ -612,7 +614,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		#ifdef DEBUG
 		dprint_wake_reasons(&rfds);
 		#endif
-
+		container->retry_soon = 0;
 	}
 
 	if (update_queue) {
@@ -653,6 +655,8 @@ static int wait_and_act(struct supertype *container, int nowait)
 			 */
 			if (sigterm && !(ret & ARRAY_DIRTY))
 				a->container = NULL; /* stop touching this array */
+			if (ret & ARRAY_BUSY)
+				container->retry_soon = 1;
 		}
 	}
 

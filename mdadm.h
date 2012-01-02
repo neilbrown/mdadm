@@ -867,6 +867,7 @@ struct supertype {
 			*  external:/md0/12
 			*/
 	int devcnt;
+	int retry_soon;
 
 	struct mdinfo *devs;
 

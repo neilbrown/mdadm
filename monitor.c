@@ -211,6 +211,7 @@ static void signal_manager(void)
  *
  */
 
+#define ARRAY_DIRTY 1
 static int read_and_act(struct active_array *a)
 {
 	unsigned long long sync_completed;
@@ -218,7 +219,7 @@ static int read_and_act(struct active_array *a)
 	int check_reshape = 0;
 	int deactivate = 0;
 	struct mdinfo *mdi;
-	int dirty = 0;
+	int ret = 0;
 	int count = 0;
 
 	a->next_state = bad_word;
@@ -254,14 +255,14 @@ static int read_and_act(struct active_array *a)
 	if (a->curr_state == write_pending) {
 		a->container->ss->set_array_state(a, 0);
 		a->next_state = active;
-		dirty = 1;
+		ret |= ARRAY_DIRTY;
 	}
 	if (a->curr_state == active_idle) {
 		/* Set array to 'clean' FIRST, then mark clean
 		 * in the metadata
 		 */
 		a->next_state = clean;
-		dirty = 1;
+		ret |= ARRAY_DIRTY;
 	}
 	if (a->curr_state == clean) {
 		a->container->ss->set_array_state(a, 1);
@@ -269,7 +270,7 @@ static int read_and_act(struct active_array *a)
 	if (a->curr_state == active ||
 	    a->curr_state == suspended ||
 	    a->curr_state == bad_word)
-		dirty = 1;
+		ret |= ARRAY_DIRTY;
 	if (a->curr_state == readonly) {
 		/* Well, I'm ready to handle things.  If readonly
 		 * wasn't requested, transition to read-auto.
@@ -284,7 +285,7 @@ static int read_and_act(struct active_array *a)
 				a->next_state = read_auto; /* array is clean */
 			else {
 				a->next_state = active; /* Now active for recovery etc */
-				dirty = 1;
+				ret |= ARRAY_DIRTY;
 			}
 		}
 	}
@@ -459,7 +460,7 @@ static int read_and_act(struct active_array *a)
 	if (deactivate)
 		a->container = NULL;
 
-	return dirty;
+	return ret;
 }
 
 static struct mdinfo *
@@ -629,7 +630,6 @@ static int wait_and_act(struct supertype *container, int nowait)
 	rv = 0;
 	dirty_arrays = 0;
 	for (a = *aap; a ; a = a->next) {
-		int is_dirty;
 
 		if (a->replaces && !discard_this) {
 			struct active_array **ap;
@@ -644,14 +644,14 @@ static int wait_and_act(struct supertype *container, int nowait)
 			signal_manager();
 		}
 		if (a->container && !a->to_remove) {
-			is_dirty = read_and_act(a);
+			int ret = read_and_act(a);
 			rv |= 1;
-			dirty_arrays += is_dirty;
+			dirty_arrays += !!(ret & ARRAY_DIRTY);
 			/* when terminating stop manipulating the array after it
 			 * is clean, but make sure read_and_act() is given a
 			 * chance to handle 'active_idle'
 			 */
-			if (sigterm && !is_dirty)
+			if (sigterm && !(ret & ARRAY_DIRTY))
 				a->container = NULL; /* stop touching this array */
 		}
 	}

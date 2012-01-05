@@ -1336,6 +1336,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 {
 	struct ddf_super *ddf = st->sb;
 	int map_disks = info->array.raid_disks;
+	__u32 *cptr;
 
 	if (ddf->currentconf) {
 		getinfo_super_ddf_bvd(st, info, map);
@@ -1347,8 +1348,9 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	info->array.level	  = LEVEL_CONTAINER;
 	info->array.layout	  = 0;
 	info->array.md_minor	  = -1;
-	info->array.ctime	  = DECADE + __be32_to_cpu(*(__u32*)
-							 (ddf->anchor.guid+16));
+	cptr = (__u32 *)(ddf->anchor.guid + 16);
+	info->array.ctime	  = DECADE + __be32_to_cpu(*cptr);
+
 	info->array.utime	  = 0;
 	info->array.chunk_size	  = 0;
 	info->container_enough	  = 1;
@@ -1407,6 +1409,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	int j;
 	struct dl *dl;
 	int map_disks = info->array.raid_disks;
+	__u32 *cptr;
 
 	memset(info, 0, sizeof(*info));
 	/* FIXME this returns BVD info - what if we want SVD ?? */
@@ -1416,8 +1419,8 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->array.layout	  = rlq_to_layout(vc->conf.rlq, vc->conf.prl,
 						  info->array.raid_disks);
 	info->array.md_minor	  = -1;
-	info->array.ctime	  = DECADE +
-		__be32_to_cpu(*(__u32*)(vc->conf.guid+16));
+	cptr = (__u32 *)(vc->conf.guid + 16);
+	info->array.ctime	  = DECADE + __be32_to_cpu(*cptr);
 	info->array.utime	  = DECADE + __be32_to_cpu(vc->conf.timestamp);
 	info->array.chunk_size	  = 512 << vc->conf.chunk_shift;
 	info->custom_array_size	  = 0;
@@ -2192,6 +2195,7 @@ static int add_to_super_ddf(struct supertype *st,
 	struct phys_disk_entry *pde;
 	unsigned int n, i;
 	struct stat stb;
+	__u32 *tptr;
 
 	if (ddf->currentconf) {
 		add_to_super_ddf_bvd(st, dk, fd, devname);
@@ -2220,8 +2224,9 @@ static int add_to_super_ddf(struct supertype *st,
 	tm = localtime(&now);
 	sprintf(dd->disk.guid, "%8s%04d%02d%02d",
 		T10, tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday);
-	*(__u32*)(dd->disk.guid + 16) = random32();
-	*(__u32*)(dd->disk.guid + 20) = random32();
+	tptr = (__u32 *)(dd->disk.guid + 16);
+	*tptr++ = random32();
+	*tptr = random32();
 
 	do {
 		/* Cannot be bothered finding a CRC of some irrelevant details*/
@@ -2967,6 +2972,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		unsigned int j;
 		struct mdinfo *this;
 		char *ep;
+		__u32 *cptr;
 
 		if (subarray &&
 		    (strtoul(subarray, &ep, 10) != vc->vcnum ||
@@ -2986,8 +2992,8 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		this->array.md_minor      = -1;
 		this->array.major_version = -1;
 		this->array.minor_version = -2;
-		this->array.ctime         = DECADE +
-			__be32_to_cpu(*(__u32*)(vc->conf.guid+16));
+		cptr = (__u32 *)(vc->conf.guid + 16);
+		this->array.ctime         = DECADE + __be32_to_cpu(*cptr);
 		this->array.utime	  = DECADE +
 			__be32_to_cpu(vc->conf.timestamp);
 		this->array.chunk_size	  = 512 << vc->conf.chunk_shift;

@@ -101,6 +101,7 @@ sha1_finish_ctx (struct sha1_ctx *ctx, void *resbuf)
   /* Take yet unprocessed bytes into account.  */
   md5_uint32 bytes = ctx->buflen;
   size_t pad;
+  md5_uint32 *ptr;
 
   /* Now count remaining bytes.  */
   ctx->total[0] += bytes;
@@ -111,9 +112,10 @@ sha1_finish_ctx (struct sha1_ctx *ctx, void *resbuf)
   memcpy (&ctx->buffer[bytes], fillbuf, pad);
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-  *(md5_uint32 *) &ctx->buffer[bytes + pad + 4] = SWAP (ctx->total[0] << 3);
-  *(md5_uint32 *) &ctx->buffer[bytes + pad] = SWAP ((ctx->total[1] << 3) |
-						    (ctx->total[0] >> 29));
+  ptr = (md5_uint32 *) &ctx->buffer[bytes + pad + 4];
+  *ptr = SWAP (ctx->total[0] << 3);
+  ptr = (md5_uint32 *) &ctx->buffer[bytes + pad];
+  *ptr = SWAP ((ctx->total[1] << 3) | (ctx->total[0] >> 29));
 
   /* Process last bytes.  */
   sha1_process_block (ctx->buffer, bytes + pad + 8, ctx);

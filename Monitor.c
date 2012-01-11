@@ -563,8 +563,9 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		struct mdinfo *sra =
 			sysfs_read(-1, st->devnum, GET_MISMATCH);
 		if (sra && sra->mismatch_cnt > 0) {
-			char cnt[40];
-			sprintf(cnt, " mismatches found: %d (on raid level %d)",
+			char cnt[80];
+			snprintf(cnt, sizeof(cnt),
+				 " mismatches found: %d (on raid level %d)",
 				sra->mismatch_cnt, array.level);
 			alert("RebuildFinished", dev, cnt, ainfo);
 		} else

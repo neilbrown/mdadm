@@ -259,8 +259,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	name_to_use = info.name;
 	if (name_to_use[0] == 0 &&
-	    info.array.level == LEVEL_CONTAINER &&
-	    trustworthy == LOCAL) {
+	    info.array.level == LEVEL_CONTAINER) {
 		name_to_use = info.text_version;
 		trustworthy = METADATA;
 	}

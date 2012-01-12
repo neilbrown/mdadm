@@ -2608,12 +2608,6 @@ int reshape_container(char *container, char *devname,
 		restart = 0;
 		if (rv)
 			break;
-		rv = !mdmon_running(devname2devnum(container));
-		if (rv) {
-			printf(Name ": Mdmon is not found. "
-			       "Cannot continue container reshape.\n");
-			break;
-		}
 	}
 	if (!rv)
 		unfreeze(st);

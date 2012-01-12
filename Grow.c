@@ -2323,7 +2323,7 @@ started:
 		free(offsets);
 		sysfs_free(sra);
 		fprintf(stderr, Name ": Reshape has to be continued from"
-			" location %llu when root fileststem has been mounted\n",
+			" location %llu when root filesystem has been mounted.\n",
 			sra->reshape_progress);
 		return 1;
 	}

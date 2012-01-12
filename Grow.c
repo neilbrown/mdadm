@@ -2396,6 +2396,7 @@ started:
 		/* Re-load the metadata as much could have changed */
 		int cfd = open_dev(st->container_dev);
 		if (cfd >= 0) {
+			ping_manager(container);
 			ping_monitor(container);
 			st->ss->free_super(st);
 			st->ss->load_container(st, cfd, container);

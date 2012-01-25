@@ -5,7 +5,7 @@ mdmon \- monitor MD external metadata arrays
 
 .SH SYNOPSIS
 
-.BI mdmon " [--all] [--takeover] CONTAINER"
+.BI mdmon " [--all] [--takeover] [--offroot] CONTAINER"
 
 .SH OVERVIEW
 The 2.6.27 kernel brings the ability to support external metadata arrays.
@@ -165,6 +165,16 @@ argument is over-written with the name of the container.  To allow for
 containers with names longer than 5 characters, this argument can be
 arbitrarily extended, e.g. to
 .BR \-\-all-active-arrays .
+.TP
+.BR \-\-offroot
+Set first character of argv[0] to @ to indicate mdmon was launched
+from initrd/initramfs and should not be shutdown by systemd as part of
+the regular shutdown process. This option is normally only used by
+the system's initscripts. Please see here for more details on how
+systemd handled argv[0]:
+.IP
+.B http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons
+.PP
 
 .PP
 Note that

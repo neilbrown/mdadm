@@ -272,6 +272,10 @@ void usage(void)
 "  --help        -h   : This message\n"
 "  --all              : All devices\n"
 "  --takeover    -t   : Takeover container\n"
+"  --offroot          : Set first character of argv[0] to @ to indicate the\n"
+"                       application was launched from initrd/initramfs and\n"
+"                       should not be shutdown by systemd as part of the\n"
+"                       regular shutdown process.\n"
 );
 	exit(2);
 }
@@ -291,6 +295,7 @@ int main(int argc, char *argv[])
 		{"all", 0, NULL, 'a'},
 		{"takeover", 0, NULL, 't'},
 		{"help", 0, NULL, 'h'},
+		{"offroot", 0, NULL, OffRootOpt},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -303,6 +308,9 @@ int main(int argc, char *argv[])
 		case 't':
 			container_name = optarg;
 			takeover = 1;
+			break;
+		case OffRootOpt:
+			argv[0][0] = '@';
 			break;
 		case 'h':
 		default:

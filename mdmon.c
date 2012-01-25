@@ -265,7 +265,14 @@ static int do_fork(void)
 
 void usage(void)
 {
-	fprintf(stderr, "Usage: mdmon [--all] [--takeover] CONTAINER\n");
+	fprintf(stderr,
+"Usage: mdmon [options] CONTAINER\n"
+"\n"
+"Options are:\n"
+"  --help        -h   : This message\n"
+"  --all              : All devices\n"
+"  --takeover    -t   : Takeover container\n"
+);
 	exit(2);
 }
 
@@ -277,24 +284,46 @@ int main(int argc, char *argv[])
 	int devnum;
 	char *devname;
 	int status = 0;
-	int arg;
+	int opt;
 	int all = 0;
 	int takeover = 0;
+	static struct option options[] = {
+		{"all", 0, NULL, 'a'},
+		{"takeover", 0, NULL, 't'},
+		{"help", 0, NULL, 'h'},
+		{NULL, 0, NULL, 0}
+	};
 
-	for (arg = 1; arg < argc; arg++) {
-		if (strncmp(argv[arg], "--all",5) == 0 ||
-		    strcmp(argv[arg], "/proc/mdstat") == 0) {
-			container_name = argv[arg];
+	while ((opt = getopt_long(argc, argv, "th", options, NULL)) != -1) {
+		switch (opt) {
+		case 'a':
+			container_name = argv[optind-1];
 			all = 1;
-		} else if (strcmp(argv[arg], "--takeover") == 0)
+			break;
+		case 't':
+			container_name = optarg;
 			takeover = 1;
-		else if (container_name == NULL)
-			container_name = argv[arg];
-		else
+			break;
+		case 'h':
+		default:
 			usage();
+			break;
+		}
 	}
+
+	if (all == 0 && container_name == NULL) {
+		if (argv[optind])
+			container_name = argv[optind];
+	}
+
 	if (container_name == NULL)
 		usage();
+
+	if (argc - optind > 1)
+		usage();
+
+	if (strcmp(container_name, "/proc/mdstat") == 0)
+		all = 1;
 
 	if (all) {
 		struct mdstat_ent *mdstat, *e;

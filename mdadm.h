@@ -321,6 +321,7 @@ enum special_options {
 	UdevRules,
 	FreezeReshape,
 	Continue,
+	OffRootOpt,
 };
 
 /* structures read from config file */

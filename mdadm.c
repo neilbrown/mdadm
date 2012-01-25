@@ -174,6 +174,15 @@ int main(int argc, char *argv[])
 				homehost = optarg;
 			continue;
 
+		/*
+		 * --offroot sets first char of argv[0] to @. This is used
+		 * by systemd to signal that the tast was launched from
+		 * initrd/initramfs and should be preserved during shutdown
+		 */
+		case OffRootOpt:
+			argv[0][0] = '@';
+			continue;
+
 		case ':':
 		case '?':
 			fputs(Usage, stderr);

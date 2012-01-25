@@ -181,6 +181,7 @@ int main(int argc, char *argv[])
 		 */
 		case OffRootOpt:
 			argv[0][0] = '@';
+			__offroot = 1;
 			continue;
 
 		case ':':

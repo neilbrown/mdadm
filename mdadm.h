@@ -1383,3 +1383,5 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 
 #define PROCESS_DELAYED -2
 #define PROCESS_PENDING -3
+
+extern int __offroot;

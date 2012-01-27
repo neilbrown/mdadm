@@ -6029,8 +6029,15 @@ static int reserve_space(struct supertype *st, int raiddisks,
 			size /= 2 * chunk;
 			size *= 2 * chunk;
 		}
+		maxsize = size;
 	}
-
+	if (!check_env("IMSM_NO_PLATFORM") &&
+	    mpb->num_raid_devs > 0 && size && size != maxsize) {
+		fprintf(stderr, Name ": attempting to create a second "
+			"volume with size less then remaining space. "
+			"Aborting...\n");
+		return 0;
+	}
 	cnt = 0;
 	for (dl = super->disks; dl; dl = dl->next)
 		if (dl->e)

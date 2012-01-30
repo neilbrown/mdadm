@@ -5027,8 +5027,9 @@ static int write_super_imsm(struct supertype *st, int doclose)
 		if (d->index < 0 || is_failed(&d->disk))
 			continue;
 		if (store_imsm_mpb(d->fd, mpb))
-			fprintf(stderr, "%s: failed for device %d:%d %s\n",
-				__func__, d->major, d->minor, strerror(errno));
+			fprintf(stderr, "%s: failed for device %d:%d (fd: %d)%s\n",
+				__func__, d->major, d->minor, d->fd, strerror(errno));
+
 		if (clear_migration_record) {
 			unsigned long long dsize;
 

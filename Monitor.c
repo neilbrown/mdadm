@@ -294,8 +294,10 @@ static int check_one_sharer(int scan)
 	int pid, rv;
 	FILE *fp;
 	char dir[20];
+	char path[100];
 	struct stat buf;
-	fp = fopen("/var/run/mdadm/autorebuild.pid", "r");
+	sprintf(path, "%s/autorebuild.pid", MDMON_DIR);
+	fp = fopen(path, "r");
 	if (fp) {
 		if (fscanf(fp, "%d", &pid) != 1)
 			pid = -1;
@@ -317,12 +319,12 @@ static int check_one_sharer(int scan)
 		fclose(fp);
 	}
 	if (scan) {
-		if (mkdir("/var/run/mdadm", S_IRWXU) < 0 &&
+		if (mkdir(MDMON_DIR, S_IRWXU) < 0 &&
 		    errno != EEXIST) {
 			fprintf(stderr, Name ": Can't create "
 				"autorebuild.pid file\n");
 		} else {
-			fp = fopen("/var/run/mdadm/autorebuild.pid", "w");
+			fp = fopen(path, "w");
 			if (!fp)
 				fprintf(stderr, Name ": Cannot create"
 					" autorebuild.pid"

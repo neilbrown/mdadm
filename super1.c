@@ -573,7 +573,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->array.utime = __le64_to_cpu(sb->utime);
 	info->array.chunk_size = __le32_to_cpu(sb->chunksize)*512;
 	info->array.state =
-		(__le64_to_cpu(sb->resync_offset) >= __le64_to_cpu(sb->size))
+		(__le64_to_cpu(sb->resync_offset) == MaxSector)
 		? 1 : 0;
 
 	info->data_offset = __le64_to_cpu(sb->data_offset);

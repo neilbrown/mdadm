@@ -486,6 +486,12 @@ static void manage_member(struct mdstat_ent *mdstat,
 		}
 	}
 
+	/* we are after monitor kick,
+	 * so container field can be cleared - check it again
+	 */
+	if (a->container == NULL)
+		return;
+
 	/* We don't check the array while any update is pending, as it
 	 * might container a change (such as a spare assignment) which
 	 * could affect our decisions.

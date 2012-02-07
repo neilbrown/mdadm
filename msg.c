@@ -487,3 +487,13 @@ int ping_manager(char *devname)
 	close(sfd);
 	return err;
 }
+
+/* using takeover operation for grow purposes, mdadm has to be sure
+ * that mdmon processes all updates, and if necessary it will be closed
+ * at takeover to raid0 operation
+  */
+void flush_mdmon(char *container)
+{
+	ping_manager(container);
+	ping_monitor(container);
+}

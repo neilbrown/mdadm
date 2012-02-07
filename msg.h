@@ -34,5 +34,6 @@ extern int block_monitor(char *container, const int freeze);
 extern void unblock_monitor(char *container, const int unfreeze);
 extern int fping_monitor(int sock);
 extern int ping_manager(char *devname);
+extern void flush_mdmon(char *container);
 
 #define MSG_MAX_LEN (4*1024*1024)

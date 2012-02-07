@@ -2003,6 +2003,9 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		if (reshape.level > 0 && st->ss->external) {
 			/* make sure mdmon is aware of the new level */
+			if (mdmon_running(st->container_dev))
+				flush_mdmon(container);
+
 			if (!mdmon_running(st->container_dev))
 				start_mdmon(st->container_dev);
 			ping_monitor(container);
@@ -2396,8 +2399,7 @@ started:
 		/* Re-load the metadata as much could have changed */
 		int cfd = open_dev(st->container_dev);
 		if (cfd >= 0) {
-			ping_manager(container);
-			ping_monitor(container);
+			flush_mdmon(container);
 			st->ss->free_super(st);
 			st->ss->load_container(st, cfd, container);
 			close(cfd);
@@ -2594,6 +2596,9 @@ int reshape_container(char *container, char *devname,
 
 		sysfs_init(content, fd, mdstat->devnum);
 
+		if (mdmon_running(devname2devnum(container)))
+			flush_mdmon(container);
+
 		rv = reshape_array(container, fd, adev, st,
 				   content, force, NULL,
 				   backup_file, quiet, 1, restart,
@@ -2608,6 +2613,9 @@ int reshape_container(char *container, char *devname,
 		restart = 0;
 		if (rv)
 			break;
+
+		if (mdmon_running(devname2devnum(container)))
+			flush_mdmon(container);
 	}
 	if (!rv)
 		unfreeze(st);

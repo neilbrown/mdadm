@@ -367,7 +367,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 			if (avail_disks == array.raid_disks)
 				st = "";
 			else if (!enough(array.level, array.raid_disks,
-					 array.layout, 1, avail, avail_disks))
+					 array.layout, 1, avail))
 				st = ", FAILED";
 			else
 				st = ", degraded";
@@ -580,7 +580,7 @@ This is pretty boring
 	if (brief) printf("\n");
 	if (test &&
 	    !enough(array.level, array.raid_disks, array.layout,
-		    1, avail, avail_disks))
+		    1, avail))
 		rv = 2;
 
 	free(disks);

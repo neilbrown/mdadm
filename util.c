@@ -311,10 +311,15 @@ int test_partition_from_id(dev_t id)
 	return rv;
 }
 
-int enough(int level, int raid_disks, int layout, int clean,
-	   char *avail, int avail_disks)
+int enough(int level, int raid_disks, int layout, int clean, char *avail)
 {
 	int copies, first;
+	int i;
+	int avail_disks = 0;
+
+	for (i = 0; i < raid_disks; i++)
+		avail_disks += !!avail[i];
+
 	switch (level) {
 	case 10:
 		/* This is the tricky one - we need to check
@@ -389,7 +394,7 @@ int enough_fd(int fd)
 	}
 	/* This is used on an active array, so assume it is clean */
 	rv = enough(array.level, array.raid_disks, array.layout,
-		    1, avail, avail_disks);
+		    1, avail);
 	free(avail);
 	return rv;
 }

@@ -934,7 +934,7 @@ int Assemble(struct supertype *st, char *mddev,
 				}
 				continue;
 			}
-		/* If this devices thinks that 'most_recent' has failed, then
+		/* If this device thinks that 'most_recent' has failed, then
 		 * we must reject this device.
 		 */
 		if (j != most_recent &&
@@ -965,7 +965,7 @@ int Assemble(struct supertype *st, char *mddev,
 	free(devmap);
 	while (force && !enough(content->array.level, content->array.raid_disks,
 				content->array.layout, 1,
-				avail, okcnt)) {
+				avail)) {
 		/* Choose the newest best drive which is
 		 * not up-to-date, update the superblock
 		 * and add it.
@@ -1132,7 +1132,7 @@ int Assemble(struct supertype *st, char *mddev,
 	if (force && !clean &&
 	    !enough(content->array.level, content->array.raid_disks,
 		    content->array.layout, clean,
-		    avail, okcnt)) {
+		    avail)) {
 		change += st->ss->update_super(st, content, "force-array",
 					devices[chosen_drive].devname, verbose,
 					       0, NULL);
@@ -1331,7 +1331,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (runstop == 1 ||
 		    (runstop <= 0 &&
 		     ( enough(content->array.level, content->array.raid_disks,
-			      content->array.layout, clean, avail, okcnt) &&
+			      content->array.layout, clean, avail) &&
 		       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)
 			     ))) {
 			/* This array is good-to-go.
@@ -1437,13 +1437,13 @@ int Assemble(struct supertype *st, char *mddev,
 				mddev, strerror(errno));
 
 			if (!enough(content->array.level, content->array.raid_disks,
-				    content->array.layout, 1, avail, okcnt))
+				    content->array.layout, 1, avail))
 				fprintf(stderr, Name ": Not enough devices to "
 					"start the array.\n");
 			else if (!enough(content->array.level,
 					 content->array.raid_disks,
 					 content->array.layout, clean,
-					 avail, okcnt))
+					 avail))
 				fprintf(stderr, Name ": Not enough devices to "
 					"start the array while not clean "
 					"- consider --force.\n");
@@ -1471,12 +1471,12 @@ int Assemble(struct supertype *st, char *mddev,
 			if (sparecnt)
 				fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 			if (!enough(content->array.level, content->array.raid_disks,
-				    content->array.layout, 1, avail, okcnt))
+				    content->array.layout, 1, avail))
 				fprintf(stderr, " - not enough to start the array.\n");
 			else if (!enough(content->array.level,
 					 content->array.raid_disks,
 					 content->array.layout, clean,
-					 avail, okcnt))
+					 avail))
 				fprintf(stderr, " - not enough to start the "
 					"array while not clean - consider "
 					"--force.\n");

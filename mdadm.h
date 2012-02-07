@@ -1164,7 +1164,7 @@ extern char *fname_from_uuid(struct supertype *st,
 			     struct mdinfo *info, char *buf, char sep);
 extern unsigned long calc_csum(void *super, int bytes);
 extern int enough(int level, int raid_disks, int layout, int clean,
-		   char *avail, int avail_disks);
+		   char *avail);
 extern int enough_fd(int fd);
 extern int ask(char *mesg);
 extern unsigned long long get_component_size(int fd);

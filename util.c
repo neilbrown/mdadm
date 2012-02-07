@@ -966,9 +966,10 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		char *dev = verstr+1;
 
 		subarray = strchr(dev, '/');
-		if (subarray)
+		if (subarray) {
 			*subarray++ = '\0';
-		subarray = strdup(subarray);
+			subarray = strdup(subarray);
+		}
 		container = devname2devnum(dev);
 		if (sra)
 			sysfs_free(sra);

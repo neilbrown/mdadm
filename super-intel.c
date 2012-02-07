@@ -8771,6 +8771,7 @@ static int imsm_get_allowed_degradation(int level, int raid_disks,
 					struct imsm_dev *dev)
 {
 	switch (level) {
+	case 1:
 	case 10:{
 		int ret_val = 0;
 		struct imsm_map *map;

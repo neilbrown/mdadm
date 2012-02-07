@@ -2683,7 +2683,17 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 			enough = 0;
 		else /* we're normal, or already degraded */
 			enough = 1;
-
+		if (is_gen_migration(dev) && missing) {
+			/* during general migration we need all disks
+			 * that process is running on.
+			 * No new missing disk is allowed.
+			 */
+			max_enough = -1;
+			enough = -1;
+			/* no more checks necessary
+			 */
+			break;
+		}
 		/* in the missing/failed disk case check to see
 		 * if at least one array is runnable
 		 */

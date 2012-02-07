@@ -143,17 +143,19 @@ static int aread(int fd, void *buf, int len)
 	 * the full sector and copy relevant bits into
 	 * the buffer
 	 */
-	int bsize;
+	int bsize, iosize;
 	char *b;
 	int n;
-	if (ioctl(fd, BLKSSZGET, &bsize) != 0 ||
-	    bsize <= len)
-		return read(fd, buf, len);
-	if (bsize > 4096)
+	if (ioctl(fd, BLKSSZGET, &bsize) != 0)
+		bsize = 512;
+
+	if (bsize > 4096 || len > 4096)
 		return -1;
 	b = (char*)(((long)(abuf+4096))&~4095UL);
 
-	n = read(fd, b, bsize);
+	for (iosize = 0; iosize < len; iosize += bsize)
+		;
+	n = read(fd, b, iosize);
 	if (n <= 0)
 		return n;
 	lseek(fd, len - n, 1);
@@ -171,22 +173,27 @@ static int awrite(int fd, void *buf, int len)
 	 * than the write.
 	 * The address must be sector-aligned.
 	 */
-	int bsize;
+	int bsize, iosize;
 	char *b;
 	int n;
-	if (ioctl(fd, BLKSSZGET, &bsize) != 0 ||
-	    bsize <= len)
-		return write(fd, buf, len);
-	if (bsize > 4096)
+	if (ioctl(fd, BLKSSZGET, &bsize) != 0)
+		bsize = 512;
+	if (bsize > 4096 || len > 4096)
 		return -1;
 	b = (char*)(((long)(abuf+4096))&~4095UL);
 
-	n = read(fd, b, bsize);
-	if (n <= 0)
-		return n;
-	lseek(fd, -n, 1);
+	for (iosize = 0; iosize < len ; iosize += bsize)
+		;
+
+	if (len != iosize) {
+		n = read(fd, b, iosize);
+		if (n <= 0)
+			return n;
+		lseek(fd, -n, 1);
+	}
+
 	memcpy(b, buf, len);
-	n = write(fd, b, bsize);
+	n = write(fd, b, iosize);
 	if (n <= 0)
 		return n;
 	lseek(fd, len - n, 1);

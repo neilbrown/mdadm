@@ -8913,7 +8913,8 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 
 	migr_rec->dest_depth_per_unit = GEN_MIGR_AREA_SIZE /
 		max(map_dest->blocks_per_strip, map_src->blocks_per_strip);
-	migr_rec->dest_depth_per_unit *= map_dest->blocks_per_strip;
+	migr_rec->dest_depth_per_unit *=
+		max(map_dest->blocks_per_strip, map_src->blocks_per_strip);
 	new_data_disks = imsm_num_data_members(dev, MAP_0);
 	migr_rec->blocks_per_unit =
 		__cpu_to_le32(migr_rec->dest_depth_per_unit * new_data_disks);

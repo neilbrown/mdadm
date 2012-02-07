@@ -963,9 +963,17 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 	}
 	free(devmap);
-	while (force && !enough(content->array.level, content->array.raid_disks,
-				content->array.layout, 1,
-				avail)) {
+	while (force &&
+	       (!enough(content->array.level, content->array.raid_disks,
+			content->array.layout, 1,
+			avail)
+		||
+		(content->reshape_active && content->delta_disks > 0 &&
+		 !enough(content->array.level, (content->array.raid_disks
+						- content->delta_disks),
+			 content->new_layout, 1,
+			 avail)
+			))) {
 		/* Choose the newest best drive which is
 		 * not up-to-date, update the superblock
 		 * and add it.

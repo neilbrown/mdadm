@@ -1980,6 +1980,18 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 
+	if (st->ss->external && restart && (info->reshape_progress == 0)) {
+		/* When reshape is restarted from '0', very begin of array
+		 * it is possible that for external metadata reshape and array
+		 * configuration doesn't happen.
+		 * Check if md has the same opinion, and reshape is restarted
+		 * from 0. If so, this is regular reshape start after reshape
+		 * switch in metadata to next array only.
+		 */
+		if ((verify_reshape_position(info, reshape.level) >= 0) &&
+		    (info->reshape_progress == 0))
+			restart = 0;
+	}
 	if (restart) {
 		/* reshape already started. just skip to monitoring the reshape */
 		if (reshape.backup_blocks == 0)

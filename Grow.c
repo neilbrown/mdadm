@@ -2626,6 +2626,13 @@ int reshape_container(char *container, char *devname,
 						  devname2devnum(container));
 			if (!mdstat)
 				continue;
+			if (mdstat->active == 0) {
+				fprintf(stderr, Name ": Skipping inactive "
+					"array md%i.\n", mdstat->devnum);
+				free_mdstat(mdstat);
+				mdstat = NULL;
+				continue;
+			}
 			break;
 		}
 		if (!content)
@@ -3922,6 +3929,13 @@ int Grow_continue_command(char *devname, int fd,
 			mdstat = mdstat_by_subdev(array, container_dev);
 			if (!mdstat)
 				continue;
+			if (mdstat->active == 0) {
+				fprintf(stderr, Name ": Skipping inactive "
+					"array md%i.\n", mdstat->devnum);
+				free_mdstat(mdstat);
+				mdstat = NULL;
+				continue;
+			}
 			break;
 		}
 		if (!content) {

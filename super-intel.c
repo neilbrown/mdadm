@@ -353,6 +353,9 @@ struct intel_super {
 		void *migr_rec_buf; /* buffer for I/O operations */
 		struct migr_record *migr_rec; /* migration record */
 	};
+	int clean_migration_record_by_mdmon; /* when reshape is switched to next
+		array, it indicates that mdmon is allowed to clean migration
+		record */
 	size_t len; /* size of the 'buf' allocation */
 	void *next_buf; /* for realloc'ing buf from the manager */
 	size_t next_len;
@@ -3465,6 +3468,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 		free(super->buf);
 		return 2;
 	}
+	super->clean_migration_record_by_mdmon = 0;
 
 	if (!sectors) {
 		check_sum = __gen_imsm_checksum(super->anchor);
@@ -5029,6 +5033,10 @@ static int write_super_imsm(struct supertype *st, int doclose)
 	sum = __gen_imsm_checksum(mpb);
 	mpb->check_sum = __cpu_to_le32(sum);
 
+	if (super->clean_migration_record_by_mdmon) {
+		clear_migration_record = 1;
+		super->clean_migration_record_by_mdmon = 0;
+	}
 	if (clear_migration_record)
 		memset(super->migr_rec_buf, 0, MIGR_REC_BUF_SIZE);
 
@@ -5036,9 +5044,6 @@ static int write_super_imsm(struct supertype *st, int doclose)
 	for (d = super->disks; d ; d = d->next) {
 		if (d->index < 0 || is_failed(&d->disk))
 			continue;
-		if (store_imsm_mpb(d->fd, mpb))
-			fprintf(stderr, "%s: failed for device %d:%d (fd: %d)%s\n",
-				__func__, d->major, d->minor, d->fd, strerror(errno));
 
 		if (clear_migration_record) {
 			unsigned long long dsize;
@@ -5050,6 +5055,13 @@ static int write_super_imsm(struct supertype *st, int doclose)
 					perror("Write migr_rec failed");
 			}
 		}
+
+		if (store_imsm_mpb(d->fd, mpb))
+			fprintf(stderr,
+				"%s: failed for device %d:%d (fd: %d)%s\n",
+				__func__, d->major, d->minor,
+				d->fd, strerror(errno));
+
 		if (doclose) {
 			close(d->fd);
 			d->fd = -1;
@@ -6928,6 +6940,7 @@ static void imsm_progress_container_reshape(struct intel_super *super)
 		map2->num_members = prev_num_members;
 
 		imsm_set_array_size(dev);
+		super->clean_migration_record_by_mdmon = 1;
 		super->updates_pending++;
 	}
 }

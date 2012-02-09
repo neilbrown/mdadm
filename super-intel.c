@@ -10067,6 +10067,18 @@ static int imsm_manage_reshape(
 				"are present in copy area.\n");
 			goto abort;
 		}
+		/* Save checkpoint to update migration record for current
+		 * reshape position (in md). It can be farther than current
+		 * reshape position in metadata.
+		 */
+		if (save_checkpoint_imsm(st, sra, UNIT_SRC_NORMAL) == 1) {
+			/* ignore error == 2, this can mean end of reshape here
+			 */
+			dprintf("imsm: Cannot write checkpoint to "
+				"migration record (UNIT_SRC_NORMAL, "
+				"initial save)\n");
+			goto abort;
+		}
 	}
 
 	/* size for data */

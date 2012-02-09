@@ -641,7 +641,7 @@ void autoline(char *line)
 	 * We translate that to policy by creating 'auto=yes' when we see
 	 * a '+version' line, 'auto=no' if we see '-version' before 'homehost',
 	 * or 'auto=homehost' if we see '-version' after 'homehost'.
-	 * When we see yes, no, +all or -all we stop an any version that hasn't
+	 * When we see yes, no, +all or -all we stop and any version that hasn't
 	 * been seen gets an appropriate auto= entry.
 	 */
 
@@ -921,19 +921,19 @@ int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homeh
 	 * else 'yes'.
 	 */
 	struct dev_policy *p;
-	int no=0, found_auto=0;
+	int no=0, found_homehost=0;
 	load_conffile();
 
 	pol = pol_find(pol, pol_auto);
 	pol_for_each(p, pol, version) {
 		if (strcmp(p->value, "yes") == 0)
 			return 1;
-		if (strcmp(p->value, "auto") == 0)
-			found_auto = 1;
+		if (strcmp(p->value, "homehost") == 0)
+			found_homehost = 1;
 		if (strcmp(p->value, "no") == 0)
 			no = 1;
 	}
-	if (is_homehost && found_auto)
+	if (is_homehost && found_homehost)
 		return 1;
 	if (no)
 		return 0;

@@ -1065,12 +1065,10 @@ static int write_bitmap0(struct supertype *st, int fd)
 	int rv = 0;
 
 	int towrite, n;
-	char abuf[4096+4096];
-	char *buf = (char*)(((long)(abuf+4096))&~4095L);
+	void *buf;
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
-
 
 	if (dsize < MD_RESERVED_SECTORS*512)
 		return -1;
@@ -1081,6 +1079,9 @@ static int write_bitmap0(struct supertype *st, int fd)
 
 	if (lseek64(fd, offset + 4096, 0)< 0LL)
 		return 3;
+
+	if (posix_memalign(&buf, 4096, 4096))
+		return -ENOMEM;
 
 	memset(buf, 0xff, 4096);
 	memcpy(buf,  ((char*)sb)+MD_SB_BYTES, sizeof(bitmap_super_t));
@@ -1100,6 +1101,7 @@ static int write_bitmap0(struct supertype *st, int fd)
 	if (towrite)
 		rv = -2;
 
+	free(buf);
 	return rv;
 }
 

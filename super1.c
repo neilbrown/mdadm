@@ -1641,11 +1641,13 @@ static int write_bitmap1(struct supertype *st, int fd)
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+1024);
 	int rv = 0;
-
+	void *buf;
 	int towrite, n;
-	char buf[4096];
 
 	locate_bitmap1(st, fd);
+
+	if (posix_memalign(&buf, 4096, 4096))
+		return -ENOMEM;
 
 	memset(buf, 0xff, 4096);
 	memcpy(buf, ((char*)sb)+1024, sizeof(bitmap_super_t));
@@ -1669,6 +1671,7 @@ static int write_bitmap1(struct supertype *st, int fd)
 	if (towrite)
 		rv = -2;
 
+	free(buf);
 	return rv;
 }
 

@@ -1045,7 +1045,7 @@ struct mddev_ident *conf_match(struct supertype *st,
 					array_list->devname);
 			continue;
 		}
-		if (array_list->devices &&
+		if (array_list->devices && devname &&
 		    !match_oneof(array_list->devices, devname)) {
 			if (verbose >= 2 && array_list->devname)
 				fprintf(stderr, Name

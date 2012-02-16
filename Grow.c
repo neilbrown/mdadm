@@ -1876,9 +1876,12 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 {
 	int ret_val = 0;
 	char buf[40];
+	int rv;
 
 	/* read sync_max, failure can mean raid0 array */
-	if (sysfs_get_str(info, NULL, "sync_max", buf, 40) > 0) {
+	rv = sysfs_get_str(info, NULL, "sync_max", buf, 40);
+
+	if (rv > 0) {
 		char *ep;
 		unsigned long long position = strtoull(buf, &ep, 0);
 
@@ -1906,6 +1909,11 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 				ret_val = 1;
 			}
 		}
+	} else if (rv == 0) {
+		/* for valid sysfs entry, 0-length content
+		 * should be indicated as error
+		 */
+		ret_val = -1;
 	}
 
 	return ret_val;
@@ -3975,7 +3983,7 @@ int Grow_continue_command(char *devname, int fd,
 	 * correct position
 	 */
 	if (verify_reshape_position(content,
-				    map_name(pers, mdstat->level)) <= 0) {
+				    map_name(pers, mdstat->level)) < 0) {
 		ret_val = 1;
 		goto Grow_continue_command_exit;
 	}

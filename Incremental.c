@@ -325,7 +325,6 @@ int Incremental(char *devname, int verbose, int runstop,
 			fprintf(stderr, Name
 		      ": You have an old buggy kernel which cannot support\n"
 				"      --incremental reliably.  Aborting.\n");
-			sysfs_free(sra);
 			rv = 2;
 			goto out_unlock;
 		}

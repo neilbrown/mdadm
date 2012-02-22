@@ -924,9 +924,6 @@ int Create(struct supertype *st, char *mddev,
 			}
 
 			if (st->ss->write_init_super(st)) {
-				fprintf(stderr,
-					Name ": Failed to write metadata to %s\n",
-					dv->devname);
 				st->ss->free_super(st);
 				goto abort_locked;
 			}

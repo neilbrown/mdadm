@@ -1106,13 +1106,16 @@ static int write_init_super1(struct supertype *st)
 		}
 		free(refst);
 
-		if (!get_dev_size(di->fd, NULL, &dsize))
-			return 1;
+		if (!get_dev_size(di->fd, NULL, &dsize)) {
+			rv = 1;
+			goto error_out;
+		}
 		dsize >>= 9;
 
 		if (dsize < 24) {
 			close(di->fd);
-			return 2;
+			rv = 2;
+			goto error_out;
 		}
 
 
@@ -1176,22 +1179,26 @@ static int write_init_super1(struct supertype *st)
 			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
 		default:
-			return -EINVAL;
+			fprintf(stderr,	Name ": Failed to write invalid "
+				"metadata format 1.%i to %s\n",
+				st->minor_version, di->devname);
+			rv = -EINVAL;
+			goto out;
 		}
 
 
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);
-		if (rv)
-			fprintf(stderr,
-				Name ": failed to write superblock to %s\n",
-				di->devname);
-
 		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
 			rv = st->ss->write_bitmap(st, di->fd);
 		close(di->fd);
 		di->fd = -1;
 	}
+error_out:
+	if (rv)
+		fprintf(stderr,	Name ": Failed to write metadata to %s\n",
+			di->devname);
+out:
 	return rv;
 }
 #endif

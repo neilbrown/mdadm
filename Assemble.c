@@ -310,7 +310,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 		tst = dup_super(st);
 
-		dfd = dev_open(devname, O_RDONLY|O_EXCL);
+		dfd = dev_open(devname, O_RDONLY);
 		if (dfd < 0) {
 			if (report_missmatch)
 				fprintf(stderr, Name ": cannot open device %s: %s\n",
@@ -408,6 +408,17 @@ int Assemble(struct supertype *st, char *mddev,
 			/* tmpdev is a container.  We need to be either
 			 * looking for a member, or auto-assembling
 			 */
+			/* should be safe to try an exclusive open now, we
+			 * have rejected anything that some other mdadm might
+			 * be looking at
+			 */
+			dfd = dev_open(devname, O_RDONLY | O_EXCL);
+			if (dfd < 0) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": %s is busy - skipping\n", devname);
+				goto loop;
+			}
+			close(dfd);
 
 			if (ident->container) {
 				if (ident->container[0] == '/' &&
@@ -492,6 +503,18 @@ int Assemble(struct supertype *st, char *mddev,
 					   report_missmatch ? devname : NULL))
 				goto loop;
 				
+			/* should be safe to try an exclusive open now, we
+			 * have rejected anything that some other mdadm might
+			 * be looking at
+			 */
+			dfd = dev_open(devname, O_RDONLY | O_EXCL);
+			if (dfd < 0) {
+				if (report_missmatch)
+					fprintf(stderr, Name ": %s is busy - skipping\n", devname);
+				goto loop;
+			}
+			close(dfd);
+
 			if (st == NULL)
 				st = dup_super(tst);
 			if (st->minor_version == -1)

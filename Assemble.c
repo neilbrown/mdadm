@@ -976,7 +976,9 @@ int Assemble(struct supertype *st, char *mddev,
 			if (i < content->array.raid_disks) {
 				if (devices[j].i.recovery_start == MaxSector ||
 				    (content->reshape_active &&
-				     j >= content->array.raid_disks - content->delta_disks)) {
+				     ((i >= content->array.raid_disks - content->delta_disks) ||
+				      (i >= content->array.raid_disks - content->delta_disks - 1
+				       && content->array.level == 4)))) {
 					okcnt++;
 					avail[i]=1;
 				} else

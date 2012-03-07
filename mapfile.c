@@ -246,6 +246,7 @@ int map_update(struct map_ent **mpp, int devnum, char *metadata,
 			memcpy(mp->uuid, uuid, 16);
 			free(mp->path);
 			mp->path = path ? strdup(path) : NULL;
+			mp->bad = 0;
 			break;
 		}
 	if (!mp)

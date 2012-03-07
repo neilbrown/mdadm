@@ -723,7 +723,13 @@ int Manage_subdevs(char *devname, int fd,
 					break;
 				}
 				/* FIXME this is a bad test to be using */
-				if (!tst->sb) {
+				if (!tst->sb &&
+				    dv->re_add) {
+					/* we are re-adding a device to a
+					 * completely dead array - have to depend
+					 * on kernel to check
+					 */
+				} else if (!tst->sb) {
 					close(tfd);
 					st->ss->free_super(st);
 					fprintf(stderr, Name ": cannot load array metadata from %s\n", devname);
@@ -747,12 +753,16 @@ int Manage_subdevs(char *devname, int fd,
 				 * and was temporarily removed, and is now being re-added.
 				 * If so, we can simply re-add it.
 				 */
-				tst->ss->uuid_from_super(tst, duuid);
 
 				if (st->sb) {
 					struct mdinfo mdi;
 					st->ss->getinfo_super(st, &mdi, NULL);
 					st->ss->uuid_from_super(st, ouuid);
+					if (tst->sb)
+						tst->ss->uuid_from_super(tst, duuid);
+					else
+						/* Assume uuid matches: kernel will check */
+						memcpy(duuid, ouuid, sizeof(ouuid));
 					if ((mdi.disk.state & (1<<MD_DISK_ACTIVE)) &&
 					    !(mdi.disk.state & (1<<MD_DISK_FAULTY)) &&
 					    memcmp(duuid, ouuid, sizeof(ouuid))==0) {
@@ -768,7 +778,7 @@ int Manage_subdevs(char *devname, int fd,
 						disc.number = mdi.disk.number;
 						if (ioctl(fd, GET_DISK_INFO, &disc) != 0
 						    || disc.major != 0 || disc.minor != 0
-						    || !enough_fd(fd))
+							)
 							goto skip_re_add;
 						disc.major = major(stb.st_rdev);
 						disc.minor = minor(stb.st_rdev);

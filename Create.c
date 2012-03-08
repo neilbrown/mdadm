@@ -371,7 +371,7 @@ int Create(struct supertype *st, char *mddev,
 				did_default = 1;
 		} else {
 			if (do_default_layout)
-				layout = default_layout(st, level, verbose);
+				layout = default_layout(st, level, 0);
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
 						       &chunk, size*2, dname,

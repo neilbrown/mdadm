@@ -843,7 +843,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	char defname[10];
 	int sbsize;
 
-	if (posix_memalign((void**)&sb, 512, SUPER1_SIZE) != 0) {
+	if (posix_memalign((void**)&sb, 4096, SUPER1_SIZE) != 0) {
 		fprintf(stderr, Name
 			": %s could not allocate superblock\n", __func__);
 		return 0;
@@ -1227,7 +1227,7 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 		return 1;
 
 	if (!first) {
-		if (posix_memalign((void**)&first, 512, SUPER1_SIZE) != 0) {
+		if (posix_memalign((void**)&first, 4096, SUPER1_SIZE) != 0) {
 			fprintf(stderr, Name
 				": %s could not allocate superblock\n", __func__);
 			return 1;
@@ -1339,7 +1339,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	if (posix_memalign((void**)&super, 512, SUPER1_SIZE) != 0) {
+	if (posix_memalign((void**)&super, 4096, SUPER1_SIZE) != 0) {
 		fprintf(stderr, Name ": %s could not allocate superblock\n",
 			__func__);
 		return 1;

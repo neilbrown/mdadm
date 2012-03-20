@@ -848,7 +848,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 			": %s could not allocate superblock\n", __func__);
 		return 0;
 	}
-	memset(sb, 0, MAX_SB_SIZE);
+	memset(sb, 0, SUPER1_SIZE);
 
 	st->sb = sb;
 	if (info == NULL) {
@@ -883,7 +883,6 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 		sprintf(defname, "%d", info->md_minor);
 		name = defname;
 	}
-	memset(sb->set_name, 0, 32);
 	if (homehost &&
 	    strchr(name, ':')== NULL &&
 	    strlen(homehost)+1+strlen(name) < 32) {

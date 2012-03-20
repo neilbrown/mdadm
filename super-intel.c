@@ -318,7 +318,7 @@ static void set_migr_type(struct imsm_dev *dev, __u8 migr_type)
 
 static unsigned int sector_count(__u32 bytes)
 {
-	return ((bytes + (512-1)) & (~(512-1))) / 512;
+	return ROUND_UP(bytes, 512) / 512;
 }
 
 static unsigned int mpb_sectors(struct imsm_super *mpb)

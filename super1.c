@@ -1395,8 +1395,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 	 * should get that written out.
 	 */
 	locate_bitmap1(st, fd);
-	if (aread(fd, ((char*)super)+MAX_SB_SIZE, 512)
-	    != 512)
+	if (aread(fd, bsb, 512) != 512)
 		goto no_bitmap;
 
 	uuid_from_super1(st, uuid);
@@ -1663,7 +1662,7 @@ static int write_bitmap1(struct supertype *st, int fd)
 		return -ENOMEM;
 
 	memset(buf, 0xff, 4096);
-	memcpy(buf, ((char*)sb)+MAX_SB_SIZE, sizeof(bitmap_super_t));
+	memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
 
 	towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
 	towrite = (towrite+7) >> 3; /* bits to bytes */

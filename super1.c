@@ -93,6 +93,8 @@ struct mdp_superblock_1 {
 /* bitmap super size is 256, but we round up to a sector for alignment */
 #define BM_SUPER_SIZE 512
 #define MAX_DEVS ((int)(MAX_SB_SIZE - sizeof(struct mdp_superblock_1)) / 2)
+#define SUPER1_SIZE	(MAX_SB_SIZE + BM_SUPER_SIZE \
+			 + sizeof(struct misc_dev_info))
 
 struct misc_dev_info {
 	__u64 device_size;
@@ -841,8 +843,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	char defname[10];
 	int sbsize;
 
-	if (posix_memalign((void**)&sb, 512, (MAX_SB_SIZE + BM_SUPER_SIZE + 
-			   sizeof(struct misc_dev_info))) != 0) {
+	if (posix_memalign((void**)&sb, 512, SUPER1_SIZE) != 0) {
 		fprintf(stderr, Name
 			": %s could not allocate superblock\n", __func__);
 		return 0;
@@ -1227,15 +1228,12 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 		return 1;
 
 	if (!first) {
-		if (posix_memalign((void**)&first, 512,
-			       MAX_SB_SIZE + BM_SUPER_SIZE +
-			       sizeof(struct misc_dev_info)) != 0) {
+		if (posix_memalign((void**)&first, 512, SUPER1_SIZE) != 0) {
 			fprintf(stderr, Name
 				": %s could not allocate superblock\n", __func__);
 			return 1;
 		}
-		memcpy(first, second, MAX_SB_SIZE + BM_SUPER_SIZE +
-		       sizeof(struct misc_dev_info));
+		memcpy(first, second, SUPER1_SIZE);
 		st->sb = first;
 		return 0;
 	}
@@ -1342,9 +1340,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	if (posix_memalign((void**)&super, 512,
-			   MAX_SB_SIZE + BM_SUPER_SIZE +
-			   sizeof(struct misc_dev_info)) != 0) {
+	if (posix_memalign((void**)&super, 512, SUPER1_SIZE) != 0) {
 		fprintf(stderr, Name ": %s could not allocate superblock\n",
 			__func__);
 		return 1;

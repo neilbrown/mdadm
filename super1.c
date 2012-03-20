@@ -1408,10 +1408,10 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 static struct supertype *match_metadata_desc1(char *arg)
 {
-	struct supertype *st = malloc(sizeof(*st));
-	if (!st) return st;
+	struct supertype *st = calloc(1, sizeof(*st));
+	if (!st)
+		return st;
 
-	memset(st, 0, sizeof(*st));
 	st->container_dev = NoMdDev;
 	st->ss = &super1;
 	st->max_devs = MAX_DEVS;

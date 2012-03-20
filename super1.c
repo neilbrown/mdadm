@@ -179,7 +179,7 @@ static int aread(struct align_fd *afd, void *buf, int len)
 				"invalid block size\n");
 		return -1;
 	}
-	b = (char*)(((long)(abuf+4096))&~4095UL);
+	b = ROUND_UP_PTR((char *)abuf, 4096);
 
 	for (iosize = 0; iosize < len; iosize += bsize)
 		;
@@ -212,7 +212,7 @@ static int awrite(struct align_fd *afd, void *buf, int len)
 				"invalid block size\n");
 		return -1;
 	}
-	b = (char*)(((long)(abuf+4096))&~4095UL);
+	b = ROUND_UP_PTR((char *)abuf, 4096);
 
 	for (iosize = 0; iosize < len ; iosize += bsize)
 		;
@@ -1044,8 +1044,7 @@ static int store_super1(struct supertype *st, int fd)
 	if (lseek64(fd, sb_offset << 9, 0)< 0LL)
 		return 3;
 
-	sbsize = sizeof(*sb) + 2 * __le32_to_cpu(sb->max_dev);
-	sbsize = (sbsize+511)&(~511UL);
+	sbsize = ROUND_UP(sizeof(*sb) + 2 * __le32_to_cpu(sb->max_dev), 512);
 
 	if (awrite(&afd, sb, sbsize) != sbsize)
 		return 4;

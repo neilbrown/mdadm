@@ -9,7 +9,7 @@ rm -f $bmf
 mdadm -B $md0 -l1 -n2 -b$bmf -d1 $dev1 $dev2
 check resync
 check wait
-testdev $md0 1 $size 64
+testdev $md0 1 $size 1
 sleep 4
 
 mdadm $md0 -f $dev2
@@ -21,7 +21,7 @@ check nosync
 mdadm $md0 -f $dev2
 sleep 1
 mdadm $md0 -r $dev2
-testdev $md0 1 $size 64
+testdev $md0 1 $size 1
 mdadm $md0 --re-add $dev2
 check wait
 cmp --bytes=$[$mdsize0*1024] $dev1 $dev2

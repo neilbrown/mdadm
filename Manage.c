@@ -416,12 +416,15 @@ int Manage_subdevs(char *devname, int fd,
 	int lfd = -1;
 	int sysfd = -1;
 	int count = 0; /* number of actions taken */
+	struct mdinfo info;
+	int frozen = 0;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
 			devname);
 		goto abort;
 	}
+	sysfs_init(&info, fd, 0);
 
 	/* array.size is only 32 bit and may be truncated.
 	 * So read from sysfs if possible, and record number of sectors
@@ -628,6 +631,12 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
 				goto abort;
+			}
+			if (!frozen) {
+				if (sysfs_freeze_array(&info) == 1)
+					frozen = 1;
+				else
+					frozen = -1;
 			}
 
 			st = dup_super(tst);
@@ -1166,11 +1175,15 @@ int Manage_subdevs(char *devname, int fd,
 			break;
 		}
 	}
+	if (frozen > 0)
+		sysfs_set_str(&info, NULL, "sync_action","idle");
 	if (test && count == 0)
 		return 2;
 	return 0;
 
 abort:
+	if (frozen > 0)
+		sysfs_set_str(&info, NULL, "sync_action","idle");
 	return 1;
 }
 

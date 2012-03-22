@@ -420,7 +420,7 @@ int Manage_subdevs(char *devname, int fd,
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		fprintf(stderr, Name ": cannot get array info for %s\n",
 			devname);
-		return 1;
+		goto abort;
 	}
 
 	/* array.size is only 32 bit and may be truncated.
@@ -435,7 +435,7 @@ int Manage_subdevs(char *devname, int fd,
 	if (!tst) {
 		fprintf(stderr, Name ": unsupport array - version %d.%d\n",
 			array.major_version, array.minor_version);
-		return 1;
+		goto abort;
 	}
 
 	stb.st_rdev = 0;
@@ -457,7 +457,7 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": %s only meaningful "
 					"with -r, not -%c\n",
 					dv->devname, dv->disposition);
-				return 1;
+				goto abort;
 			}
 			for (; j < 1024 && remaining_disks > 0; j++) {
 				unsigned dev;
@@ -490,7 +490,7 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": %s only meaningful "
 					"with -r of -f, not -%c\n",
 					dv->devname, dv->disposition);
-				return 1;
+				goto abort;
 			}
 			for (; j < 1024 && remaining_disks > 0; j++) {
 				int sfd;
@@ -530,7 +530,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (dv->disposition != 'a' || dv->re_add == 0) {
 				fprintf(stderr, Name ": 'missing' only meaningful "
 					"with --re-add\n");
-				return 1;
+				goto abort;
 			}
 			if (add_devlist == NULL)
 				add_devlist = conf_get_devs();
@@ -554,7 +554,7 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": %s only meaningful "
 					"with -r or -f, not -%c\n",
 					dv->devname, dv->disposition);
-				return 1;
+				goto abort;
 			}
 
 			sprintf(dname, "dev-%s", dv->devname);
@@ -576,7 +576,7 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name ": %s does not appear "
 						"to be a component of %s\n",
 						dv->devname, devname);
-					return 1;
+					goto abort;
 				}
 			}
 		} else {
@@ -595,7 +595,7 @@ int Manage_subdevs(char *devname, int fd,
 						dv->devname, strerror(errno));
 					if (tfd >= 0)
 						close(tfd);
-					return 1;
+					goto abort;
 				}
 				close(tfd);
 				tfd = -1;
@@ -604,21 +604,21 @@ int Manage_subdevs(char *devname, int fd,
 				fprintf(stderr, Name ": %s is not a "
 					"block device.\n",
 					dv->devname);
-				return 1;
+				goto abort;
 			}
 		}
 		switch(dv->disposition){
 		default:
 			fprintf(stderr, Name ": internal error - devmode[%s]=%d\n",
 				dv->devname, dv->disposition);
-			return 1;
+			goto abort;
 		case 'a':
 			/* add the device */
 			if (subarray) {
 				fprintf(stderr, Name ": Cannot add disks to a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
-				return 1;
+				goto abort;
 			}
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = dev_open(add_dev, O_RDONLY|O_EXCL|O_DIRECT);
@@ -627,7 +627,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (tfd < 0) {
 				fprintf(stderr, Name ": Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
-				return 1;
+				goto abort;
 			}
 
 			st = dup_super(tst);
@@ -639,7 +639,7 @@ int Manage_subdevs(char *devname, int fd,
 				if (!get_dev_size(tfd, dv->devname, &ldsize)) {
 					st->ss->free_super(st);
 					close(tfd);
-					return 1;
+					goto abort;
 				}
 			} else if (!get_dev_size(tfd, NULL, &ldsize)) {
 				st->ss->free_super(st);
@@ -661,7 +661,7 @@ int Manage_subdevs(char *devname, int fd,
 						add_dev, devname);
 					st->ss->free_super(st);
 					close(tfd);
-					return 1;
+					goto abort;
 				}
 				fprintf(stderr, Name
 					": %s is larger than %s can "
@@ -686,7 +686,7 @@ int Manage_subdevs(char *devname, int fd,
 
 				fprintf(stderr, Name ": hot add failed for %s: %s\n",
 					add_dev, strerror(errno));
-				return 1;
+				goto abort;
 			}
 
 			if (array.not_persistent == 0 || tst->ss->external) {
@@ -733,7 +733,7 @@ int Manage_subdevs(char *devname, int fd,
 					close(tfd);
 					st->ss->free_super(st);
 					fprintf(stderr, Name ": cannot load array metadata from %s\n", devname);
-					return 1;
+					goto abort;
 				}
 
 				/* Make sure device is large enough */
@@ -746,7 +746,7 @@ int Manage_subdevs(char *devname, int fd,
 						continue;
 					fprintf(stderr, Name ": %s not large enough to join array\n",
 						dv->devname);
-					return 1;
+					goto abort;
 				}
 
 				/* Possibly this device was recently part of the array
@@ -799,7 +799,7 @@ int Manage_subdevs(char *devname, int fd,
 								fprintf(stderr, Name ": failed to open %s for"
 									" superblock update during re-add\n", dv->devname);
 								st->ss->free_super(st);
-								return 1;
+								goto abort;
 							}
 
 							if (dv->writemostly == 1)
@@ -822,7 +822,7 @@ int Manage_subdevs(char *devname, int fd,
 								fprintf(stderr, Name ": failed to update"
 									" superblock during re-add\n");
 								st->ss->free_super(st);
-								return 1;
+								goto abort;
 							}
 						}
 						/* don't even try if disk is marked as faulty */
@@ -840,7 +840,7 @@ int Manage_subdevs(char *devname, int fd,
 							st->ss->free_super(st);
 							if (add_dev != dv->devname)
 								continue;
-							return 1;
+							goto abort;
 						}
 					skip_re_add:
 						re_add_failed = 1;
@@ -864,7 +864,7 @@ int Manage_subdevs(char *devname, int fd,
 					fprintf(stderr, Name
 						": --re-add for %s to %s is not possible\n",
 						dv->devname, devname);
-					return 1;
+					goto abort;
 				}
 				if (re_add_failed) {
 					fprintf(stderr, Name ": %s reports being an active member for %s, but a --re-add fails.\n",
@@ -875,7 +875,7 @@ int Manage_subdevs(char *devname, int fd,
 						dv->devname);
 					if (tfd >= 0)
 						close(tfd);
-					return 1;
+					goto abort;
 				}
 			} else {
 				/* non-persistent. Must ensure that new drive
@@ -886,7 +886,7 @@ int Manage_subdevs(char *devname, int fd,
 						dv->devname);
 					if (tfd >= 0)
 						close(tfd);
-					return 1;
+					goto abort;
 				}
 			}
 			/* committed to really trying this device now*/
@@ -921,11 +921,11 @@ int Manage_subdevs(char *devname, int fd,
 				if (tst->ss->add_to_super(tst, &disc, dfd,
 							  dv->devname)) {
 					close(dfd);
-					return 1;
+					goto abort;
 				}
 				if (tst->ss->write_init_super(tst)) {
 					close(dfd);
-					return 1;
+					goto abort;
 				}
 			} else if (dv->re_add) {
 				/*  this had better be raid1.
@@ -974,7 +974,7 @@ int Manage_subdevs(char *devname, int fd,
 						" could not get exclusive access to container\n",
 						dv->devname);
 					tst->ss->free_super(tst);
-					return 1;
+					goto abort;
 				}
 
 				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
@@ -984,7 +984,7 @@ int Manage_subdevs(char *devname, int fd,
 							  dv->devname)) {
 					close(dfd);
 					close(container_fd);
-					return 1;
+					goto abort;
 				}
 				if (tst->update_tail)
 					flush_metadata_updates(tst);
@@ -997,7 +997,7 @@ int Manage_subdevs(char *devname, int fd,
 						dv->devname);
 					close(container_fd);
 					tst->ss->free_super(tst);
-					return 1;
+					goto abort;
 				}
 				sra->array.level = LEVEL_CONTAINER;
 				/* Need to set data_offset and component_size */
@@ -1013,7 +1013,7 @@ int Manage_subdevs(char *devname, int fd,
 						" failed for %s\n", dv->devname);
 					close(container_fd);
 					sysfs_free(sra);
-					return 1;
+					goto abort;
 				}
 				ping_monitor_by_id(devnum);
 				sysfs_free(sra);
@@ -1023,7 +1023,7 @@ int Manage_subdevs(char *devname, int fd,
 				if (ioctl(fd, ADD_NEW_DISK, &disc)) {
 					fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
 						dv->devname, j, strerror(errno));
-					return 1;
+					goto abort;
 				}
 			}
 			if (verbose >= 0)
@@ -1038,7 +1038,7 @@ int Manage_subdevs(char *devname, int fd,
 					" operation on the parent container\n");
 				if (sysfd >= 0)
 					close(sysfd);
-				return 1;
+				goto abort;
 			}
 			if (tst->ss->external) {
 				/* To remove a device from a container, we must
@@ -1058,7 +1058,7 @@ int Manage_subdevs(char *devname, int fd,
 						" to container - odd\n");
 					if (sysfd >= 0)
 						close(sysfd);
-					return 1;
+					goto abort;
 				}
 				/* in the detached case it is not possible to
 				 * check if we are the unique holder, so just
@@ -1075,7 +1075,7 @@ int Manage_subdevs(char *devname, int fd,
 						errno == EEXIST ? "still in use":
 						"not a member");
 					close(lfd);
-					return 1;
+					goto abort;
 				}
 			}
 			/* FIXME check that it is a current member */
@@ -1118,7 +1118,7 @@ int Manage_subdevs(char *devname, int fd,
 					strerror(errno));
 				if (lfd >= 0)
 					close(lfd);
-				return 1;
+				goto abort;
 			}
 			if (tst->ss->external) {
 				/*
@@ -1131,7 +1131,7 @@ int Manage_subdevs(char *devname, int fd,
 
 				if (!name) {
 					fprintf(stderr, Name ": unable to get container name\n");
-					return 1;
+					goto abort;
 				}
 
 				ping_manager(name);
@@ -1154,7 +1154,7 @@ int Manage_subdevs(char *devname, int fd,
 					dnprintable, strerror(errno));
 				if (sysfd >= 0)
 					close(sysfd);
-				return 1;
+				goto abort;
 			}
 			if (sysfd >= 0)
 				close(sysfd);
@@ -1169,6 +1169,9 @@ int Manage_subdevs(char *devname, int fd,
 	if (test && count == 0)
 		return 2;
 	return 0;
+
+abort:
+	return 1;
 }
 
 int autodetect(void)

@@ -280,6 +280,13 @@ int Create(struct supertype *st, char *mddev,
 
 	if (size == 0) {
 		size = newsize / 2;
+		if (level == 1)
+			/* If this is ever reshaped to RAID5, we will
+			 * need a chunksize.  So round it off a bit
+			 * now just to be safe
+			 */
+			size &= ~(64ULL-1);
+
 		if (size && verbose > 0)
 			fprintf(stderr, Name ": setting size to %lluK\n",
 				(unsigned long long)size);
@@ -482,6 +489,12 @@ int Create(struct supertype *st, char *mddev,
 				return 1;
 			}
 			size = minsize;
+			if (level == 1)
+				/* If this is ever reshaped to RAID5, we will
+				 * need a chunksize.  So round it off a bit
+				 * now just to be safe
+				 */
+				size &= ~(64ULL-1);
 			if (verbose > 0)
 				fprintf(stderr, Name ": size set to %lluK\n", size);
 		}

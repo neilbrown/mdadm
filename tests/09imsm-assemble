@@ -49,7 +49,7 @@ mdadm -Ss
 # reassemble and make sure one of the families falls out
 mdadm -A $container $dev0 $dev1 $dev2 $dev3
 mdadm -IR $container
-testdev ${member}_0 1 $size 1
+testdev ${member}_0 1 $size 64
 if mdadm --remove $container $dev0 ; then
     # the dev[23] family won
     imsm_check_removal $container $dev1
@@ -69,5 +69,5 @@ mdadm -IR $container
 mdadm -A ${container}2 $dev2 $dev3 --update=uuid
 mdadm -IR ${container}2
 
-testdev ${member}_0 1 $size 1
-testdev ${member}_1 1 $size 1
+testdev ${member}_0 1 $size 64
+testdev ${member}_1 1 $size 64

@@ -18,7 +18,7 @@ mdadm -CR r1 -l1 -n2 /dev/md/ddf0
 mdadm -CR r5 -l5 -n3 /dev/md/ddf0
 testdev /dev/md/r0 5 5000 512
 # r0 will use 4608 due to chunk size, so that leaves 28160 for the rest
-testdev /dev/md/r1 1 28160 1
+testdev /dev/md/r1 1 28160 64
 testdev /dev/md/r5 2 28160 512
 dd if=/dev/sda of=/dev/md/r0 || true
 dd if=/dev/sda of=/dev/md/r1 || true

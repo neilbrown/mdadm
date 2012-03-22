@@ -42,7 +42,7 @@ level=1
 chunk=0
 mdadm -CR $member1 $dev0 $dev1 -n $num_disks -l $level -z $size
 imsm_check member $member1 $num_disks $level $size $size $offset $chunk
-testdev $member1 1 $size 1
+testdev $member1 1 $size 64
 check wait
 
 mdadm -Ss

@@ -8,7 +8,7 @@
 mdadm -CR $md0 -l1 -n2 -binternal --bitmap-chunk=4 -d1 $dev1 $dev2
 check resync
 check wait
-testdev $md0 1 $mdsize1a 1
+testdev $md0 1 $mdsize1a 64
 sleep 4
 
 mdadm $md0 -f $dev2
@@ -21,7 +21,7 @@ check nosync
 mdadm $md0 -f $dev2
 sleep 1
 mdadm $md0 -r $dev2
-testdev $md0 1 $mdsize1a 1
+testdev $md0 1 $mdsize1a 64
 mdadm $md0 -a $dev2
 check wait
 cmp --ignore-initial=$[16*512] --bytes=$[$mdsize0*1024] $dev1 $dev2

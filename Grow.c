@@ -1023,6 +1023,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		 * raid5 with 2 disks, or
 		 * raid0 with 1 disk
 		 */
+		if (info->new_level > 1 &&
+		    (info->component_size & 7))
+			return "Cannot convert RAID1 of this size - "
+				"reduce size to multiple of 4K first.";
 		if (info->new_level == 0) {
 			if (info->delta_disks != UnSet &&
 			    info->delta_disks != 0)

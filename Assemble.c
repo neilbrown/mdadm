@@ -1334,9 +1334,11 @@ int Assemble(struct supertype *st, char *mddev,
 						sparecnt--;
 				} else if (verbose > 0)
 					fprintf(stderr, Name ": added %s "
-						        "to %s as %d\n",
+						        "to %s as %d%s\n",
 						devices[j].devname, mddev,
-						devices[j].i.disk.raid_disk);
+						devices[j].i.disk.raid_disk,
+						devices[j].uptodate?"":
+						" (possibly out of date)");
 			} else if (verbose > 0 && i < content->array.raid_disks)
 				fprintf(stderr, Name ": no uptodate device for "
 					        "slot %d of %s\n",

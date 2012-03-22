@@ -1252,7 +1252,7 @@ static inline int dev2minor(int d)
 	return (-1-d) << MdpMinorShift;
 }
 
-#define _ROUND_UP(val, base)	(((val) + (base)) & ~(base - 1))
+#define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))
 #define ROUND_UP_PTR(ptr, base)	((typeof(ptr)) \
 				 (ROUND_UP((unsigned long)(ptr), base)))

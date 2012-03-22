@@ -114,7 +114,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	c=map_num(pers, sb->level);
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	if ((int)sb->level > 0) {
-		int ddsks=0;
+		int ddsks = 0, ddsks_denom = 1;
 		printf("  Used Dev Size : %d%s\n", sb->size,
 		       human_size((long long)sb->size<<10));
 		switch(sb->level) {
@@ -122,11 +122,15 @@ static void examine_super0(struct supertype *st, char *homehost)
 		case 4:
 		case 5: ddsks = sb->raid_disks-1; break;
 		case 6: ddsks = sb->raid_disks-2; break;
-		case 10: ddsks = sb->raid_disks / (sb->layout&255) / ((sb->layout>>8)&255);
+		case 10: ddsks = sb->raid_disks;
+			ddsks_denom =  (sb->layout&255) * ((sb->layout>>8)&255);
 		}
-		if (ddsks)
-			printf("     Array Size : %llu%s\n", (unsigned long long)ddsks * sb->size,
-			       human_size(ddsks*(long long)sb->size<<10));
+		if (ddsks) {
+			long long asize = sb->size;
+			asize = (asize << 10) * ddsks / ddsks_denom;
+			printf("     Array Size : %llu%s\n",
+			       asize >> 10,  human_size(asize));
+		}
 	}
 	printf("   Raid Devices : %d\n", sb->raid_disks);
 	printf("  Total Devices : %d\n", sb->nr_disks);

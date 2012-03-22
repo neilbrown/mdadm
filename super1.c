@@ -278,7 +278,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	       (unsigned long long)__le64_to_cpu(sb->data_size),
 	       human_size(__le64_to_cpu(sb->data_size)<<9));
 	if (__le32_to_cpu(sb->level) > 0) {
-		int ddsks=0;
+		int ddsks = 0, ddsks_denom = 1;
 		switch(__le32_to_cpu(sb->level)) {
 		case 1: ddsks=1;break;
 		case 4:
@@ -286,13 +286,15 @@ static void examine_super1(struct supertype *st, char *homehost)
 		case 6: ddsks = __le32_to_cpu(sb->raid_disks)-2; break;
 		case 10:
 			layout = __le32_to_cpu(sb->layout);
-			ddsks = __le32_to_cpu(sb->raid_disks)
-				 / (layout&255) / ((layout>>8)&255);
+			ddsks = __le32_to_cpu(sb->raid_disks);
+			ddsks_denom = (layout&255) * ((layout>>8)&255);
 		}
-		if (ddsks)
+		if (ddsks) {
+			long long asize = __le64_to_cpu(sb->size);
+			asize = (asize << 9) * ddsks / ddsks_denom;
 			printf("     Array Size : %llu%s\n",
-			       ddsks*(unsigned long long)__le64_to_cpu(sb->size),
-			       human_size(ddsks*__le64_to_cpu(sb->size)<<9));
+			       asize >> 10,  human_size(asize));
+		}
 		if (sb->size != sb->data_size)
 			printf("  Used Dev Size : %llu%s\n",
 			       (unsigned long long)__le64_to_cpu(sb->size),

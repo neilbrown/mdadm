@@ -1275,7 +1275,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		break;
 
 	case 5:
-		/* We get to RAID5 for RAID5 or RAID6 */
+		/* We get to RAID5 from RAID5 or RAID6 */
 		if (re->level != 5 && re->level != 6)
 			return "Cannot convert to RAID5 from this level";
 
@@ -1297,11 +1297,27 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				char layout[40];
 				char *ls = map_num(r5layout, info->new_layout);
 				int l;
-				strcat(strcpy(layout, ls), "-6");
-				l = map_name(r6layout, layout);
-				if (l == UnSet)
-					return "Cannot find RAID6 layout"
-						" to convert to";
+				if (ls) {
+					/* Current RAID6 layout has a RAID5
+					 * equivalent - good
+					 */
+					strcat(strcpy(layout, ls), "-6");
+					l = map_name(r6layout, layout);
+					if (l == UnSet)
+						return "Cannot find RAID6 layout"
+							" to convert to";
+				} else {
+					/* Current RAID6 has no equivalent.
+					 * If it is already a '-6' layout we
+					 * can leave it unchanged, else we must
+					 * fail
+					 */
+					ls = map_num(r6layout, info->new_layout);
+					if (!ls ||
+					    strcmp(ls+strlen(ls)-2, "-6") != 0)
+						return "Please specify new layout";
+					l = info->new_layout;
+				}
 				re->after.layout = l;
 			}
 		}

@@ -837,7 +837,6 @@ int sysfs_freeze_array(struct mdinfo *sra)
 {
 	/* Try to freeze resync/rebuild on this array/container.
 	 * Return -1 if the array is busy,
-	 * return -2 container cannot be frozen,
 	 * return 0 if this kernel doesn't support 'frozen'
 	 * return 1 if it worked.
 	 */
@@ -847,8 +846,10 @@ int sysfs_freeze_array(struct mdinfo *sra)
 		return 1; /* no sync_action == frozen */
 	if (sysfs_get_str(sra, NULL, "sync_action", buf, 20) <= 0)
 		return 0;
-	if (strcmp(buf, "idle\n") != 0 &&
-	    strcmp(buf, "frozen\n") != 0)
+	if (strcmp(buf, "frozen\n") == 0)
+		/* Already frozen */
+		return 0;
+	if (strcmp(buf, "idle\n") != 0)
 		return -1;
 	if (sysfs_set_str(sra, NULL, "sync_action", "frozen") < 0)
 		return 0;

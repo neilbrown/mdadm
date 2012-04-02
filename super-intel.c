@@ -3590,6 +3590,32 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 
 static int read_imsm_migr_rec(int fd, struct intel_super *super);
 
+/* clears hi bits in metadata if MPB_ATTRIB_2TB_DISK not set */
+static void clear_hi(struct intel_super *super)
+{
+	struct imsm_super *mpb = super->anchor;
+	int i, n;
+	if (mpb->attributes & MPB_ATTRIB_2TB_DISK)
+		return;
+	for (i = 0; i < mpb->num_disks; ++i) {
+		struct imsm_disk *disk = &mpb->disk[i];
+		disk->total_blocks_hi = 0;
+	}
+	for (i = 0; i < mpb->num_raid_devs; ++i) {
+		struct imsm_dev *dev = get_imsm_dev(super, i);
+		if (!dev)
+			return;
+		for (n = 0; n < 2; ++n) {
+			struct imsm_map *map = get_imsm_map(dev, n);
+			if (!map)
+				continue;
+			map->pba_of_lba0_hi = 0;
+			map->blocks_per_member_hi = 0;
+			map->num_data_stripes_hi = 0;
+		}
+	}
+}
+
 static int
 load_and_parse_mpb(int fd, struct intel_super *super, char *devname, int keep_fd)
 {
@@ -3602,7 +3628,7 @@ load_and_parse_mpb(int fd, struct intel_super *super, char *devname, int keep_fd
 	if (err)
 		return err;
 	err = parse_raid_devices(super);
-
+	clear_hi(super);
 	return err;
 }
 

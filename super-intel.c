@@ -5331,14 +5331,22 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 		return 0;
 	}
 	close(fd);
-	if (super->orom && raiddisks > super->orom->tds) {
-		if (verbose)
-			fprintf(stderr, Name ": %d exceeds maximum number of"
-				" platform supported disks: %d\n",
-				raiddisks, super->orom->tds);
-
-		free_imsm(super);
-		return 0;
+	if (super->orom) {
+		if (raiddisks > super->orom->tds) {
+			if (verbose)
+				fprintf(stderr, Name ": %d exceeds maximum number of"
+					" platform supported disks: %d\n",
+					raiddisks, super->orom->tds);
+			free_imsm(super);
+			return 0;
+		}
+		if ((super->orom->attr & IMSM_OROM_ATTR_2TB_DISK) == 0 &&
+		    (ldsize >> 9) >> 32 > 0) {
+			if (verbose)
+				fprintf(stderr, Name ": %s exceeds maximum platform supported size\n", dev);
+			free_imsm(super);
+			return 0;
+		}
 	}
 
 	*freesize = avail_size_imsm(st, ldsize >> 9);

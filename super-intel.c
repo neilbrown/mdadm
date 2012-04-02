@@ -5048,6 +5048,9 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 			continue;
 
 		spare->disk[0] = d->disk;
+		if (__le32_to_cpu(d->disk.total_blocks_hi) > 0)
+			spare->attributes |= MPB_ATTRIB_2TB_DISK;
+
 		sum = __gen_imsm_checksum(spare);
 		spare->family_num = __cpu_to_le32(sum);
 		spare->orig_family_num = 0;

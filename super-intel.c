@@ -4108,6 +4108,8 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 		if (s == champion)
 			continue;
 
+		mpb->attributes |= s->anchor->attributes & MPB_ATTRIB_2TB_DISK;
+
 		for (i = 0; i < mpb->num_disks; i++) {
 			struct imsm_disk *disk;
 

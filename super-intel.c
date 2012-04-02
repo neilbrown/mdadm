@@ -4623,10 +4623,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	}
 
 	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
-	if (info->level == 1)
-		array_blocks = info_to_blocks_per_member(info, size);
-	else
-		array_blocks = calc_array_size(info->level, info->raid_disks,
+	array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
 					       size * 2);
 	/* round array size down to closest MB */

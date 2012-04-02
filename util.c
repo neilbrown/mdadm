@@ -711,6 +711,8 @@ void print_r10_layout(int layout)
 unsigned long long calc_array_size(int level, int raid_disks, int layout,
 				   int chunksize, unsigned long long devsize)
 {
+	if (level == 1)
+		return devsize;
 	devsize &= ~(unsigned long long)((chunksize>>9)-1);
 	return get_data_disks(level, layout, raid_disks) * devsize;
 }

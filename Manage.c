@@ -666,7 +666,7 @@ int Manage_subdevs(char *devname, int fd,
 						": %s is larger than %s can "
 						"effectively use.\n"
 						"       Add --force is you "
-						"really wan to add this device.\n",
+						"really want to add this device.\n",
 						add_dev, devname);
 					st->ss->free_super(st);
 					close(tfd);

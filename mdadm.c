@@ -1056,15 +1056,14 @@ int main(int argc, char *argv[])
 		case O(BUILD,BitmapChunk):
 		case O(CREATE,BitmapChunk): /* bitmap chunksize */
 			bitmap_chunk = parse_size(optarg);
-			if (bitmap_chunk < 0 ||
+			if (bitmap_chunk <= 0 ||
 			    bitmap_chunk & (bitmap_chunk - 1)) {
 				fprintf(stderr,
 					Name ": invalid bitmap chunksize: %s\n",
 					optarg);
 				exit(2);
 			}
-			/* convert sectors to B, chunk of 0 means 512B */
-			bitmap_chunk = bitmap_chunk ? bitmap_chunk * 512 : 512;
+			bitmap_chunk = bitmap_chunk * 512;
 			continue;
 
 		case O(GROW, WriteBehind):

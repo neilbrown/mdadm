@@ -194,6 +194,7 @@ long long parse_size(char *size)
 	 * followed by 'K', 'M', or 'G'.
 	 * Without a suffix, K is assumed.
 	 * Number returned is in sectors (half-K)
+	 * -1 returned on error.
 	 */
 	char *c;
 	long long s = strtoll(size, &c, 10);
@@ -215,7 +216,7 @@ long long parse_size(char *size)
 		}
 	}
 	if (*c)
-		s = 0;
+		s = -1;
 	return s;
 }
 

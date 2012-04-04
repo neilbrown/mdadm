@@ -226,7 +226,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		else if (strncmp(buf, "none", 4) == 0)
 			sra->bitmap_offset = 0;
 		else if (buf[0] == '+')
-			sra->bitmap_offset = strtoul(buf+1, NULL, 10);
+			sra->bitmap_offset = strtol(buf+1, NULL, 10);
 		else
 			goto abort;
 	}

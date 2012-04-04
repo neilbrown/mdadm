@@ -1094,7 +1094,7 @@ static int write_init_super1(struct supertype *st)
 	unsigned long long reserved;
 	struct devinfo *di;
 	unsigned long long dsize, array_size;
-	unsigned long long sb_offset;
+	unsigned long long sb_offset, headroom;
 
 	for (di = st->info; di && ! rv ; di = di->next) {
 		if (di->disk.state == 1)
@@ -1167,6 +1167,14 @@ static int write_init_super1(struct supertype *st)
 		/* work out how much space we left for a bitmap */
 		bm_space = choose_bm_space(array_size);
 
+		/* We try to leave 0.1% at the start for reshape
+		 * operations, but limit this to 128Meg (0.1% of 10Gig)
+		 * which is plenty for efficient reshapes
+		 */
+		headroom = 128 * 1024 * 2;
+		while  (headroom << 10 > array_size)
+			headroom >>= 1;
+
 		switch(st->minor_version) {
 		case 0:
 			sb_offset = dsize;
@@ -1189,6 +1197,9 @@ static int write_init_super1(struct supertype *st)
 			/* force 4K alignment */
 			reserved &= ~7ULL;
 
+			if (reserved < headroom)
+				reserved = headroom;
+
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
@@ -1208,6 +1219,9 @@ static int write_init_super1(struct supertype *st)
 				reserved = dsize - __le64_to_cpu(sb->size);
 			/* force 4K alignment */
 			reserved &= ~7ULL;
+
+			if (reserved < headroom)
+				reserved = headroom;
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
@@ -1506,12 +1520,13 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 		st->minor_version = 2;
 	if (super == NULL && st->minor_version > 0) {
 		/* haven't committed to a size yet, so allow some
-		 * slack for alignment of data_offset.
-		 * We haven't access to device details so allow
-		 * 1 Meg if bigger than 1Gig
+		 * slack for space for reshape.
+		 * Limit slack to 128M, but aim for about 0.1%
 		 */
-		if (devsize > 1024*1024*2)
-			devsize -= 1024*2;
+		unsigned long long headroom = 128*1024*2;
+		while ((headroom << 10) > devsize)
+			headroom >>= 1;
+		devsize -= headroom;
 	}
 	switch(st->minor_version) {
 	case 0:

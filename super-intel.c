@@ -6089,7 +6089,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		int count = count_volumes(super->hba->path,
 				      super->orom->dpa, verbose);
 		if (super->orom->vphba <= count) {
-			pr_vrb(": platform does not support more then %d raid volumes.\n",
+			pr_vrb(": platform does not support more than %d raid volumes.\n",
 			       super->orom->vphba);
 			return 0;
 		}
@@ -6223,7 +6223,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 						      super->orom->dpa, verbose);
 				if (super->orom->vphba <= count) {
 					pr_vrb(": platform does not support more"
-					       "then %d raid volumes.\n",
+					       " than %d raid volumes.\n",
 					       super->orom->vphba);
 					return 0;
 				}

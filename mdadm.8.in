@@ -1166,7 +1166,7 @@ will report failure if these specifiers didn't find any match.
 .BR \-a ", " \-\-add
 hot-add listed devices.
 If a device appears to have recently been part of the array
-(possibly it failed or was removed) the device is re\-added as describe
+(possibly it failed or was removed) the device is re\-added as described
 in the next point.
 If that fails or the device was never part of the array, the device is
 added as a hot-spare.

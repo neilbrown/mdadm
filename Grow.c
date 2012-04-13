@@ -1626,6 +1626,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		long long orig_size = get_component_size(fd)/2;
 		long long min_csize;
 		struct mdinfo *mdi;
+		int raid0_takeover = 0;
 
 		if (orig_size == 0)
 			orig_size = array.size;
@@ -1674,6 +1675,28 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				"2TB per device\n");
 			size = min_csize;
 		}
+		if (st->ss->external) {
+			if (sra->array.level == 0) {
+				rv = sysfs_set_str(sra, NULL, "level",
+						   "raid5");
+				if (!rv) {
+					raid0_takeover = 1;
+					/* get array parametes after takeover
+					 * to chane one parameter at time only
+					 */
+					rv = ioctl(fd, GET_ARRAY_INFO, &array);
+				}
+			}
+			/* make sure mdmon is
+			 * aware of the new level */
+			if (!mdmon_running(st->container_dev))
+				start_mdmon(st->container_dev);
+			ping_monitor(container);
+			if (mdmon_running(st->container_dev) &&
+					st->update_tail == NULL)
+				st->update_tail = &st->updates;
+		}
+
 		array.size = size;
 		if (array.size != size) {
 			/* got truncated to 32bit, write to
@@ -1686,10 +1709,22 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				rv = -1;
 		} else {
 			rv = ioctl(fd, SET_ARRAY_INFO, &array);
+
 			/* manage array size when it is managed externally
 			 */
 			if ((rv == 0) && st->ss->external)
 				rv = set_array_size(st, sra, sra->text_version);
+		}
+
+		if (raid0_takeover) {
+			/* do not recync non-existing parity,
+			 * we will drop it anyway
+			 */
+			sysfs_set_str(sra, NULL, "sync_action", "idle");
+			/* go back to raid0, drop parity disk
+			 */
+			sysfs_set_str(sra, NULL, "level", "raid0");
+			ioctl(fd, GET_ARRAY_INFO, &array);
 		}
 
 		if (rv != 0) {

@@ -9470,7 +9470,8 @@ static int imsm_find_array_minor_by_subdev(int subdev, int container, int *minor
 
 static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 						struct geo_params *geo,
-						int *old_raid_disks)
+						int *old_raid_disks,
+						int direction)
 {
 	/* currently we only support increasing the number of devices
 	 * for a container.  This increases the number of device for each
@@ -9491,6 +9492,12 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 	    geo->raid_disks == UnSet) {
 		dprintf("imsm: Container operation is allowed for "
 			"raid disks number change only.\n");
+		return ret_val;
+	}
+
+	if (direction == ROLLBACK_METADATA_CHANGES) {
+		dprintf("imsm: Metadata changes rollback is not supported for "
+			"container operation.\n");
 		return ret_val;
 	}
 
@@ -9814,11 +9821,13 @@ static void imsm_update_metadata_locally(struct supertype *st,
 * Function:	imsm_analyze_change
 * Description:	Function analyze change for single volume
 * 		and validate if transition is supported
-* Parameters:	Geometry parameters, supertype structure
+* Parameters:	Geometry parameters, supertype structure,
+*		metadata change direction (apply/rollback)
 * Returns:	Operation type code on success, -1 if fail
 ****************************************************************************/
 enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
-					   struct geo_params *geo)
+					   struct geo_params *geo,
+					   int direction)
 {
 	struct mdinfo info;
 	int change = -1;
@@ -9937,18 +9946,24 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			goto analyse_change_exit;
 		}
 		geo->size *= 2;
-		/* round size due to metadata compatibility
-		 */
-		geo->size = (geo->size >> SECT_PER_MB_SHIFT)
-			    << SECT_PER_MB_SHIFT;
-		dprintf("Prepare update for size change to %llu\n", geo->size );
-		if (current_size >= geo->size) {
-			fprintf(stderr,
-				Name " Error. Size expanssion is supported only"
-				" (current size is %llu, requested size "
-				"/rounded/ is %llu).\n",
-				current_size, geo->size);
-			goto analyse_change_exit;
+		if ((direction == ROLLBACK_METADATA_CHANGES)) {
+			/* accept size for rollback only
+			*/
+		} else {
+			/* round size due to metadata compatibility
+			*/
+			geo->size = (geo->size >> SECT_PER_MB_SHIFT)
+				    << SECT_PER_MB_SHIFT;
+			dprintf("Prepare update for size change to %llu\n",
+				geo->size );
+			if (current_size >= geo->size) {
+				fprintf(stderr,
+					Name " Error. Size expanssion is "
+					"supported only (current size is %llu, "
+					"requested size /rounded/ is %llu).\n",
+					current_size, geo->size);
+				goto analyse_change_exit;
+			}
 		}
 		geo->size *= data_disks;
 		geo->raid_disks = dev->vol.map->num_members;
@@ -9978,7 +9993,12 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	}
 
 analyse_change_exit:
-
+	if ((direction == ROLLBACK_METADATA_CHANGES) &&
+	     ((change == CH_MIGRATION) || (change == CH_TAKEOVER))) {
+		dprintf("imsm: Metadata changes rollback is not supported for "
+			"migration and takeover operations.\n");
+		change = -1;
+	}
 	return change;
 }
 
@@ -10049,7 +10069,7 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 		int old_raid_disks = 0;
 
 		if (imsm_reshape_is_allowed_on_container(
-			    st, &geo, &old_raid_disks)) {
+			    st, &geo, &old_raid_disks, direction)) {
 			struct imsm_update_reshape *u = NULL;
 			int len;
 
@@ -10098,7 +10118,7 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			goto exit_imsm_reshape_super;
 		}
 		super->current_vol = dev->index;
-		change = imsm_analyze_change(st, &geo);
+		change = imsm_analyze_change(st, &geo, direction);
 		switch (change) {
 		case CH_TAKEOVER:
 			ret_val = imsm_takeover(st, &geo);

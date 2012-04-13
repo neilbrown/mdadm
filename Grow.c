@@ -1973,7 +1973,7 @@ size_change_error:
 		/* Impose these changes on a single array.  First
 		 * check that the metadata is OK with the change. */
 
-		if (reshape_super(st, info.component_size, info.new_level,
+		if (reshape_super(st, -1, info.new_level,
 				  info.new_layout, info.new_chunk,
 				  info.array.raid_disks, info.delta_disks,
 				  backup_file, devname, APPLY_METADATA_CHANGES,

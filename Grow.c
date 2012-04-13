@@ -1665,9 +1665,12 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 * understands '0' to mean 'max'.
 		 */
 		min_csize = 0;
+		rv = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
-			if (sysfs_set_num(sra, mdi, "size", size) < 0)
+			if (sysfs_set_num(sra, mdi, "size", size) < 0) {
+				rv = 1;
 				break;
+			}
 			if (array.not_persistent == 0 &&
 			    array.major_version == 0 &&
 			    get_linux_version() < 3001000) {
@@ -1682,11 +1685,16 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 				}
 			}
 		}
+		if (rv) {
+			fprintf(stderr, Name ": Cannot set size on "
+				"array members.\n");
+			goto size_change_error;
+		}
 		if (min_csize && size > min_csize) {
 			fprintf(stderr, Name ": Cannot safely make this array "
 				"use more than 2TB per device on this kernel.\n");
 			rv = 1;
-			goto release;
+			goto size_change_error;
 		}
 		if (min_csize && size == 0) {
 			/* Don't let the kernel choose a size - it will get
@@ -1748,6 +1756,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			ioctl(fd, GET_ARRAY_INFO, &array);
 		}
 
+size_change_error:
 		if (rv != 0) {
 			int err = errno;
 

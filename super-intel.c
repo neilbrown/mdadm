@@ -2032,9 +2032,11 @@ static __u8 imsm_num_data_members(struct imsm_dev *dev, int second_map)
 
 	switch (get_imsm_raid_level(map)) {
 	case 0:
+		return map->num_members;
+		break;
 	case 1:
 	case 10:
-		return map->num_members;
+		return map->num_members/2;
 	case 5:
 		return map->num_members - 1;
 	default:

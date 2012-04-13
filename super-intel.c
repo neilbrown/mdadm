@@ -9953,7 +9953,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	 */
 	current_size = info.custom_array_size / 2 / data_disks;
 
-	if ((current_size != geo->size) && (geo->size > 0)) {
+	if ((current_size != geo->size) && (geo->size >= 0)) {
 		if (change != -1) {
 			fprintf(stderr,
 				Name " Error. Size change should be the only "
@@ -9968,7 +9968,27 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				super->current_vol, st->devnum);
 			goto analyse_change_exit;
 		}
-		geo->size *= 2;
+		if (geo->size == 0) {
+			/* requested size change to the maximum available size
+			 */
+			unsigned long long freesize;
+			int rv;
+
+			rv =  imsm_get_free_size(st, dev->vol.map->num_members,
+						 0, chunk, &freesize);
+			if (rv == 0) {
+				fprintf(stderr, Name " Error. Cannot find "
+					"maximum available space.\n");
+				change = -1;
+				goto analyse_change_exit;
+			}
+			geo->size = freesize + current_size;
+
+			/* round to chunk size */
+			geo->size &= ~(chunk-1);
+		} else
+			geo->size *= 2;
+
 		if ((direction == ROLLBACK_METADATA_CHANGES)) {
 			/* accept size for rollback only
 			*/

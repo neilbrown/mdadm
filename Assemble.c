@@ -1558,6 +1558,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	int expansion = 0;
 	struct map_ent *map = NULL;
 	int old_raid_disks;
+	int start_reshape;
 
 	sysfs_init(content, mdfd, 0);
 
@@ -1569,7 +1570,17 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			return 1;
 		}
 
-	if (st->ss->external && content->recovery_blocked)
+	/* There are two types of reshape: container wide or sub-array specific
+	 * Check if metadata requests blocking container wide reshapes
+	 */
+	start_reshape = (content->reshape_active &&
+		!((content->reshape_active == CONTAINER_RESHAPE) &&
+		(content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))));
+
+	/* Block subarray here if it is under reshape now
+	 * Do not allow for any changes in this array
+	 */
+	if (st->ss->external && content->recovery_blocked && start_reshape)
 		block_subarray(content);
 
 	if (sra)
@@ -1595,14 +1606,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		 (working + preexist + expansion) >=
 			content->array.working_disks) {
 		int err;
-		int start_reshape;
 
-		/* There are two types of reshape: container wide or sub-array specific
-		 * Check if metadata requests blocking container wide reshapes
-		 */
-		start_reshape = (content->reshape_active &&
-				 !((content->reshape_active == CONTAINER_RESHAPE) &&
-				   (content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))));
 		if (start_reshape) {
 			int spare = content->array.raid_disks + expansion;
 			if (restore_backup(st, content,
@@ -1646,6 +1650,15 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		}
 		if (!err)
 			sysfs_set_safemode(content, content->safe_mode_delay);
+
+		/* Block subarray here if it is not reshaped now
+		 * It has be blocked a little later to allow mdmon to switch in
+		 * in to R/W state
+		 */
+		if (st->ss->external && content->recovery_blocked &&
+		    !start_reshape)
+			block_subarray(content);
+
 		if (verbose >= 0) {
 			if (err)
 				fprintf(stderr, Name

@@ -405,6 +405,7 @@ struct extent {
 enum imsm_reshape_type {
 	CH_TAKEOVER,
 	CH_MIGRATION,
+	CH_ARRAY_SIZE,
 };
 
 /* definition of messages passed to imsm_process_update */
@@ -9726,6 +9727,10 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int devNumChange = 0;
 	/* imsm compatible layout value for array geometry verification */
 	int imsm_layout = -1;
+	int data_disks;
+	struct imsm_dev *dev;
+	struct intel_super *super;
+	long long current_size;
 
 	getinfo_super_imsm_volume(st, &info, NULL);
 	if ((geo->level != info.array.level) &&
@@ -9807,6 +9812,47 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 		geo->chunksize = info.array.chunk_size;
 
 	chunk = geo->chunksize / 1024;
+
+	super = st->sb;
+	dev = get_imsm_dev(super, super->current_vol);
+	data_disks = imsm_num_data_members(dev , MAP_0);
+	/* compute current size in K per disk member
+	 */
+	current_size = info.custom_array_size / 2 / data_disks;
+
+	if ((current_size != geo->size) && (geo->size > 0)) {
+		if (change != -1) {
+			fprintf(stderr,
+				Name " Error. Size change should be the only "
+				"one at a time.\n");
+			change = -1;
+			goto analyse_change_exit;
+		}
+		if ((super->current_vol + 1) != super->anchor->num_raid_devs) {
+			fprintf(stderr,
+				Name " Error. The last volume in container "
+				"can be expanded only (%i/%i).\n",
+				super->current_vol, st->devnum);
+			goto analyse_change_exit;
+		}
+		geo->size *= 2;
+		/* round size due to metadata compatibility
+		 */
+		geo->size = (geo->size >> SECT_PER_MB_SHIFT)
+			    << SECT_PER_MB_SHIFT;
+		dprintf("Prepare update for size change to %llu\n", geo->size );
+		if (current_size >= geo->size) {
+			fprintf(stderr,
+				Name " Error. Size expanssion is supported only"
+				" (current size is %llu, requested size "
+				"/rounded/ is %llu).\n",
+				current_size, geo->size);
+			goto analyse_change_exit;
+		}
+		geo->size *= data_disks;
+		geo->raid_disks = dev->vol.map->num_members;
+		change = CH_ARRAY_SIZE;
+	}
 	if (!validate_geometry_imsm(st,
 				    geo->level,
 				    imsm_layout,
@@ -9974,6 +10020,11 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 				append_metadata_update(st, u, len);
 			else
 				free(u);
+		}
+		break;
+		case CH_ARRAY_SIZE: {
+			/* ToDo: Prepare metadata update here
+			 */
 		}
 		break;
 		default:

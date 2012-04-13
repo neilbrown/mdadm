@@ -650,7 +650,7 @@ static void wait_reshape(struct mdinfo *sra)
 static int reshape_super(struct supertype *st, long long size, int level,
 			 int layout, int chunksize, int raid_disks,
 			 int delta_disks, char *backup_file, char *dev,
-			 int verbose)
+			 int direction, int verbose)
 {
 	/* nothing extra to check in the native case */
 	if (!st->ss->external)
@@ -664,7 +664,7 @@ static int reshape_super(struct supertype *st, long long size, int level,
 
 	return st->ss->reshape_super(st, size, level, layout, chunksize,
 				     raid_disks, delta_disks, backup_file, dev,
-				     verbose);
+				     direction, verbose);
 }
 
 static void sync_metadata(struct supertype *st)
@@ -1631,7 +1631,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			orig_size = array.size;
 
 		if (reshape_super(st, size, UnSet, UnSet, 0, 0, UnSet, NULL,
-				  devname, !quiet)) {
+				  devname, APPLY_METADATA_CHANGES, !quiet)) {
 			rv = 1;
 			goto release;
 		}
@@ -1697,7 +1697,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 			/* restore metadata */
 			if (reshape_super(st, orig_size, UnSet, UnSet, 0, 0,
-					  UnSet, NULL, devname, !quiet) == 0)
+					  UnSet, NULL, devname,
+					  ROLLBACK_METADATA_CHANGES,
+					  !quiet) == 0)
 				sync_metadata(st);
 			fprintf(stderr, Name ": Cannot set device size for %s: %s\n",
 				devname, strerror(err));
@@ -1909,7 +1911,8 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		if (reshape_super(st, info.component_size, info.new_level,
 				  info.new_layout, info.new_chunk,
 				  info.array.raid_disks, info.delta_disks,
-				  backup_file, devname, quiet)) {
+				  backup_file, devname, APPLY_METADATA_CHANGES,
+				  quiet)) {
 			rv = 1;
 			goto release;
 		}
@@ -2608,7 +2611,8 @@ int reshape_container(char *container, char *devname,
 	    reshape_super(st, -1, info->new_level,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks, info->delta_disks,
-			  backup_file, devname, quiet)) {
+			  backup_file, devname, APPLY_METADATA_CHANGES,
+			  quiet)) {
 		unfreeze(st);
 		return 1;
 	}

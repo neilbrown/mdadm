@@ -10018,7 +10018,7 @@ int imsm_takeover(struct supertype *st, struct geo_params *geo)
 static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			      int layout, int chunksize, int raid_disks,
 			      int delta_disks, char *backup, char *dev,
-			      int verbose)
+			      int direction, int verbose)
 {
 	int ret_val = 1;
 	struct geo_params geo;

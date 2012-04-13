@@ -740,9 +740,13 @@ extern struct superswitch {
 	 * initialized to indicate if reshape is being performed at the
 	 * container or subarray level
 	 */
+#define APPLY_METADATA_CHANGES		1
+#define ROLLBACK_METADATA_CHANGES	0
+
 	int (*reshape_super)(struct supertype *st, long long size, int level,
 			     int layout, int chunksize, int raid_disks,
 			     int delta_disks, char *backup, char *dev,
+			     int direction,
 			     int verbose); /* optional */
 	int (*manage_reshape)( /* optional */
 		int afd, struct mdinfo *sra, struct reshape *reshape,

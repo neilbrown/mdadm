@@ -6108,7 +6108,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	return 1;
 }
 
-static int reserve_space(struct supertype *st, int raiddisks,
+static int imsm_get_free_size(struct supertype *st, int raiddisks,
 			 unsigned long long size, int chunk,
 			 unsigned long long *freesize)
 {
@@ -6186,7 +6186,30 @@ static int reserve_space(struct supertype *st, int raiddisks,
 
 	*freesize = size;
 
+	dprintf("imsm: imsm_get_free_size() returns : %llu\n", size);
+
 	return 1;
+}
+
+static int reserve_space(struct supertype *st, int raiddisks,
+			 unsigned long long size, int chunk,
+			 unsigned long long *freesize)
+{
+	struct intel_super *super = st->sb;
+	struct dl *dl;
+	int cnt;
+	int rv = 0;
+
+	rv = imsm_get_free_size(st, raiddisks, size, chunk, freesize);
+	if (rv) {
+		cnt = 0;
+		for (dl = super->disks; dl; dl = dl->next)
+			if (dl->e)
+				dl->raiddisk = cnt++;
+		rv = 1;
+	}
+
+	return rv;
 }
 
 static int validate_geometry_imsm(struct supertype *st, int level, int layout,

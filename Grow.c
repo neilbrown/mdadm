@@ -1637,6 +1637,27 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			goto release;
 		}
 		sync_metadata(st);
+		if (st->ss->external) {
+			/* metadata can have size limitation
+			 * update size value according to metadata information
+			 */
+			struct mdinfo *sizeinfo =
+				st->ss->container_content(st, subarray);
+			if (sizeinfo) {
+				unsigned long long new_size =
+					sizeinfo->custom_array_size/2;
+				int data_disks = get_data_disks(
+						sizeinfo->array.level,
+						sizeinfo->array.layout,
+						sizeinfo->array.raid_disks);
+				new_size /= data_disks;
+				dprintf("Metadata size correction from %llu to "
+					"%llu (%llu)\n", orig_size, new_size,
+					new_size * data_disks);
+				size = new_size;
+				sysfs_free(sizeinfo);
+			}
+		}
 
 		/* Update the size of each member device in case
 		 * they have been resized.  This will never reduce

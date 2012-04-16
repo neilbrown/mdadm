@@ -918,6 +918,7 @@ static unsigned long long blocks_per_member(struct imsm_map *map)
 	return join_u32(map->blocks_per_member_lo, map->blocks_per_member_hi);
 }
 
+#ifndef MDASSEMBLE
 static unsigned long long num_data_stripes(struct imsm_map *map)
 {
 	if (map == NULL)
@@ -929,6 +930,7 @@ static void set_total_blocks(struct imsm_disk *disk, unsigned long long n)
 {
 	split_ull(n, &disk->total_blocks_lo, &disk->total_blocks_hi);
 }
+#endif
 
 static void set_pba_of_lba0(struct imsm_map *map, unsigned long long n)
 {

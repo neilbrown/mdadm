@@ -462,7 +462,7 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, dv->disposition);
 				goto abort;
 			}
-			for (; j < 1024 && remaining_disks > 0; j++) {
+			for (; j < MAX_DISKS && remaining_disks > 0; j++) {
 				unsigned dev;
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
@@ -495,7 +495,7 @@ int Manage_subdevs(char *devname, int fd,
 					dv->devname, dv->disposition);
 				goto abort;
 			}
-			for (; j < 1024 && remaining_disks > 0; j++) {
+			for (; j < MAX_DISKS && remaining_disks > 0; j++) {
 				int sfd;
 				unsigned dev;
 				disc.number = j;

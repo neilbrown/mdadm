@@ -378,7 +378,7 @@ int enough_fd(int fd)
 	    array.raid_disks <= 0)
 		return 0;
 	avail = calloc(array.raid_disks, 1);
-	for (i=0; i < 1024 && array.nr_disks > 0; i++) {
+	for (i=0; i < MAX_DISKS && array.nr_disks > 0; i++) {
 		disk.number = i;
 		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
 			continue;
@@ -1275,7 +1275,7 @@ void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
 	int d;
 
 	ioctl(mdfd, GET_ARRAY_INFO, ainf);
-	for (d = 0 ; d < 1024 ; d++) {
+	for (d = 0 ; d < MAX_DISKS ; d++) {
 		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0 &&
 		    (disk->major || disk->minor))
 			return;

@@ -1388,4 +1388,12 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 #define PROCESS_DELAYED -2
 #define PROCESS_PENDING -3
 
+/* When using "GET_DISK_INFO" it isn't certain how high
+ * we need to check.  So we impose an absolute limit of
+ * MAX_DISKS.  This needs to be much more than the largest
+ * number of devices any metadata can support.  Currently
+ * v1.x can support 1920
+ */
+#define MAX_DISKS	4096
+
 extern int __offroot;

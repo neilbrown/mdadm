@@ -448,7 +448,7 @@ int Manage_subdevs(char *devname, int fd,
 		char *dnprintable = dv->devname;
 		char *add_dev = dv->devname;
 		int err;
-		int re_add_failed = 0;
+		int array_failed;
 
 		next = dv->next;
 		jnext = 0;
@@ -851,9 +851,8 @@ int Manage_subdevs(char *devname, int fd,
 								continue;
 							goto abort;
 						}
-					skip_re_add:
-						re_add_failed = 1;
 					}
+				skip_re_add:
 					st->ss->free_super(st);
 				}
 				if (add_dev != dv->devname) {
@@ -875,12 +874,30 @@ int Manage_subdevs(char *devname, int fd,
 						dv->devname, devname);
 					goto abort;
 				}
-				if (re_add_failed) {
-					fprintf(stderr, Name ": %s reports being an active member for %s, but a --re-add fails.\n",
-						dv->devname, devname);
-					fprintf(stderr, Name ": not performing --add as that would convert %s in to a spare.\n",
-						dv->devname);
-					fprintf(stderr, Name ": To make this a spare, use \"mdadm --zero-superblock %s\" first.\n",	
+				if (array.active_disks < array.raid_disks) {
+					char *avail = calloc(array.raid_disks, 1);
+					int d;
+					int found = 0;
+
+					for (d = 0; d < MAX_DISKS && found < array.active_disks; d++) {
+						disc.number = d;
+						if (ioctl(fd, GET_DISK_INFO, &disc))
+							continue;
+						if (disc.major == 0 && disc.minor == 0)
+							continue;
+						if (!(disc.state & (1<<MD_DISK_SYNC)))
+							continue;
+						avail[disc.raid_disk] = 1;
+						found++;
+					}
+					array_failed = !enough(array.level, array.raid_disks, 
+							       array.layout, 1, avail);
+				} else
+					array_failed = 0;
+				if (array_failed) {
+					fprintf(stderr, Name ": %s has failed so using --add cannot work and might destroy\n",
+						devname);
+					fprintf(stderr, Name ": data on %s.  You should stop the array and re-assemble it.\n",
 						dv->devname);
 					if (tfd >= 0)
 						close(tfd);

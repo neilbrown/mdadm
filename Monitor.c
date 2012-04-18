@@ -69,7 +69,7 @@ static int check_one_sharer(int scan);
 static void alert(char *event, char *dev, char *disc, struct alert_info *info);
 static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		       int test, struct alert_info *info,
-		       int increments);
+		       int increments, char *prefer);
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			  int test, struct alert_info *info);
 static void try_spare_migration(struct state *statelist, struct alert_info *info);
@@ -79,7 +79,7 @@ int Monitor(struct mddev_dev *devlist,
 	    char *mailaddr, char *alert_cmd,
 	    int period, int daemonise, int scan, int oneshot,
 	    int dosyslog, int test, char *pidfile, int increments,
-	    int share)
+	    int share, char *prefer)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -221,7 +221,8 @@ int Monitor(struct mddev_dev *devlist,
 		mdstat = mdstat_read(oneshot?0:1, 0);
 
 		for (st=statelist; st; st=st->next)
-			if (check_array(st, mdstat, test, &info, increments))
+			if (check_array(st, mdstat, test, &info,
+					increments, prefer))
 				anydegraded = 1;
 		
 		/* now check if there are any new devices found in mdstat */
@@ -445,7 +446,7 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 
 static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		       int test, struct alert_info *ainfo,
-		       int increments)
+		       int increments, char *prefer)
 {
 	/* Update the state 'st' to reflect any changes shown in mdstat,
 	 * or found by directly examining the array, and return
@@ -617,7 +618,9 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			disc.major = disc.minor = 0;
 		} else if (info[i].major || info[i].minor) {
 			newstate = info[i].state;
-			dv = map_dev(info[i].major, info[i].minor, 1);
+			dv = map_dev_preferred(
+				info[i].major, info[i].minor, 1,
+				prefer);
 			disc.state = newstate;
 			disc.major = info[i].major;
 			disc.minor = info[i].minor;
@@ -629,8 +632,9 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			disc.major = disc.minor = 0;
 		}
 		if (dv == NULL && st->devid[i])
-			dv = map_dev(major(st->devid[i]),
-				     minor(st->devid[i]), 1);
+			dv = map_dev_preferred(
+				major(st->devid[i]),
+				minor(st->devid[i]), 1, prefer);
 		change = newstate ^ st->devstate[i];
 		if (st->utime && change && !st->err) {
 			if (i < array.raid_disks &&

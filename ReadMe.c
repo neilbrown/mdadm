@@ -174,6 +174,7 @@ struct option long_options[] = {
     {"export",	  0, 0, 'Y'},
     {"sparc2.2",  0, 0, Sparc22},
     {"test",      0, 0, 't'},
+    {"prefer",    1, 0, Prefer},
 
     /* For Follow/monitor */
     {"mail",      1, 0, EMail},

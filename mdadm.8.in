@@ -389,6 +389,28 @@ will be allowed to use 'local' names (i.e. not ending in '_' followed
 by a digit string).  See below under
 .BR "Auto Assembly" .
 
+.TP
+.B \-\-prefer=
+When
+.I mdadm
+needs to print the name for a device it normally finds the name in
+.B /dev
+which refers to the device and is shortest.  When a path component is
+given with
+.B \-\-prefer
+.I mdadm
+will prefer a longer name if it contains that component.  For example
+.B \-\-prefer=by-uuid
+will prefer a name in a subdirectory of
+.B /dev
+called
+.BR by-uuid .
+
+This functionality is currently only provided by
+.B \-\-detail
+and
+.BR \-\-monitor .
+
 .SH For create, build, or grow:
 
 .TP

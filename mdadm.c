@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
 	int test = 0;
 	int export = 0;
 	int assume_clean = 0;
+	char *prefer = NULL;
 	char *symlinks = NULL;
 	int grow_continue = 0;
 	/* autof indicates whether and how to create device node.
@@ -182,6 +183,13 @@ int main(int argc, char *argv[])
 		case OffRootOpt:
 			argv[0][0] = '@';
 			__offroot = 1;
+			continue;
+
+		case Prefer:
+			if (prefer)
+				free(prefer);
+			if (asprintf(&prefer, "/%s/", optarg) <= 0)
+				prefer = NULL;
 			continue;
 
 		case ':':
@@ -1498,7 +1506,7 @@ int main(int argc, char *argv[])
 						if (devmode == 'D')
 							rv |= Detail(name, v,
 								     export, test,
-								     homehost);
+								     homehost, prefer);
 						else
 							rv |= WaitClean(name, -1, v);
 						put_md_name(name);
@@ -1552,7 +1560,7 @@ int main(int argc, char *argv[])
 				case 'D':
 					rv |= Detail(dv->devname,
 						     brief?1+verbose:0,
-						     export, test, homehost);
+						     export, test, homehost, prefer);
 					continue;
 				case 'K': /* Zero superblock */
 					if (ss)
@@ -1626,7 +1634,8 @@ int main(int argc, char *argv[])
 		}
 		rv= Monitor(devlist, mailaddr, program,
 			    delay?delay:60, daemonise, scan, oneshot,
-			    dosyslog, test, pidfile, increments, spare_sharing);
+			    dosyslog, test, pidfile, increments,
+			    spare_sharing, prefer);
 		break;
 
 	case GROW:

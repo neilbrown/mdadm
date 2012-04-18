@@ -27,7 +27,7 @@
 #include	"md_u.h"
 #include	<dirent.h>
 
-int Detail(char *dev, int brief, int export, int test, char *homehost)
+int Detail(char *dev, int brief, int export, int test, char *homehost, char *prefer)
 {
 	/*
 	 * Print out details for an md array by using
@@ -105,7 +105,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost)
 		int dn = st->container_dev;
 
 		member = subarray;
-		container = map_dev(dev2major(dn), dev2minor(dn), 1);
+		container = map_dev_preferred(dev2major(dn), dev2minor(dn), 1, prefer);
 	}
 
 	/* try to load a superblock */
@@ -491,8 +491,9 @@ This is pretty boring
 				    vbuf[10+nlen] != '/')
 					continue;
 				dn = devname2devnum(de->d_name);
-				printf(" %s", map_dev(dev2major(dn),
-						      dev2minor(dn), 1));
+				printf(" %s", map_dev_preferred(
+					       dev2major(dn),
+					       dev2minor(dn), 1, prefer));
 			}
 			if (dir)
 				closedir(dir);
@@ -558,7 +559,7 @@ This is pretty boring
 		if (test && d < array.raid_disks
 		    && !(disk.state & (1<<MD_DISK_SYNC)))
 			rv |= 1;
-		if ((dv=map_dev(disk.major, disk.minor, 0))) {
+		if ((dv=map_dev_preferred(disk.major, disk.minor, 0, prefer))) {
 			if (brief) {
 				if (devices) {
 					devices = realloc(devices,

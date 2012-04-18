@@ -188,8 +188,11 @@ int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, 
  * If we find multiple names, choose the shortest.
  * If we find a name in /dev/md/, we prefer that.
  * This applies only to names for MD devices.
+ * If 'prefer' is set (normally to e.g. /by-path/)
+ * then we prefer a name which contains that string.
  */
-char *map_dev(int major, int minor, int create)
+char *map_dev_preferred(int major, int minor, int create,
+			char *prefer)
 {
 	struct devmap *p;
 	char *regular = NULL, *preferred=NULL;
@@ -219,7 +222,8 @@ char *map_dev(int major, int minor, int create)
 	for (p=devlist; p; p=p->next)
 		if (p->major == major &&
 		    p->minor == minor) {
-			if (strncmp(p->name, "/dev/md/",8) == 0) {
+			if (strncmp(p->name, "/dev/md/",8) == 0
+			    || (prefer && strstr(p->name, prefer))) {
 				if (preferred == NULL ||
 				    strlen(p->name) < strlen(preferred))
 					preferred = p->name;
@@ -241,6 +245,7 @@ char *map_dev(int major, int minor, int create)
 
 	return preferred ? preferred : regular;
 }
+
 
 
 /* conf_word gets one word from the conf file.

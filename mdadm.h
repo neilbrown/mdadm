@@ -322,6 +322,7 @@ enum special_options {
 	FreezeReshape,
 	Continue,
 	OffRootOpt,
+	Prefer,
 };
 
 /* structures read from config file */
@@ -532,7 +533,12 @@ extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
 extern mapping_t r5layout[], r6layout[], pers[], modes[], faultylayout[];
 
-extern char *map_dev(int major, int minor, int create);
+extern char *map_dev_preferred(int major, int minor, int create,
+			       char *prefer);
+static inline char *map_dev(int major, int minor, int create)
+{
+	return map_dev_preferred(major, minor, create, NULL);
+}
 
 struct active_array;
 struct metadata_update;
@@ -1080,7 +1086,7 @@ extern int Create(struct supertype *st, char *mddev,
 		  int runstop, int verbose, int force, int assume_clean,
 		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof);
 
-extern int Detail(char *dev, int brief, int export, int test, char *homehost);
+extern int Detail(char *dev, int brief, int export, int test, char *homehost, char *prefer);
 extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);
 extern int Query(char *dev);
 extern int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
@@ -1089,7 +1095,7 @@ extern int Monitor(struct mddev_dev *devlist,
 		   char *mailaddr, char *alert_cmd,
 		   int period, int daemonise, int scan, int oneshot,
 		   int dosyslog, int test, char *pidfile, int increments,
-		   int share);
+		   int share, char *prefer);
 
 extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
 extern int Kill_subarray(char *dev, char *subarray, int quiet);

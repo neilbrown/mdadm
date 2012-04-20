@@ -1749,7 +1749,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			/* do not recync non-existing parity,
 			 * we will drop it anyway
 			 */
-			sysfs_set_str(sra, NULL, "sync_action", "idle");
+			sysfs_set_str(sra, NULL, "sync_action", "frozen");
 			/* go back to raid0, drop parity disk
 			 */
 			sysfs_set_str(sra, NULL, "level", "raid0");

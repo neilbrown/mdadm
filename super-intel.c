@@ -7273,6 +7273,8 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	struct imsm_dev *dev = get_imsm_dev(super, inst);
 	struct imsm_map *map = get_imsm_map(dev, MAP_0);
 	struct imsm_disk *disk;
+	struct mdinfo *mdi;
+	int recovery_not_finished = 0;
 	int failed;
 	__u32 ord;
 	__u8 map_state;
@@ -7313,6 +7315,21 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		dprintf("normal: ");
 		if (is_rebuilding(dev)) {
 			dprintf("while rebuilding");
+			/* check if recovery is really finished */
+			for (mdi = a->info.devs; mdi ; mdi = mdi->next)
+				if (mdi->recovery_start != MaxSector) {
+					recovery_not_finished = 1;
+					break;
+				}
+			if (recovery_not_finished) {
+				dprintf("\nimsm: Rebuild has not finished yet, "
+						"state not changed");
+				if (a->last_checkpoint < mdi->recovery_start) {
+					a->last_checkpoint = mdi->recovery_start;
+					super->updates_pending++;
+				}
+				break;
+			}
 			end_migration(dev, super, map_state);
 			map = get_imsm_map(dev, MAP_0);
 			map->failed_disk_num = ~0;

@@ -620,7 +620,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET))
-		info->bitmap_offset = (long)__le32_to_cpu(sb->bitmap_offset);
+		info->bitmap_offset = (int32_t)__le32_to_cpu(sb->bitmap_offset);
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
@@ -1651,7 +1651,7 @@ add_internal_bitmap1(struct supertype *st,
 		offset = -room;
 	}
 
-	sb->bitmap_offset = (long)__cpu_to_le32(offset);
+	sb->bitmap_offset = (int32_t)__cpu_to_le32(offset);
 
 	sb->feature_map = __cpu_to_le32(__le32_to_cpu(sb->feature_map)
 					| MD_FEATURE_BITMAP_OFFSET);

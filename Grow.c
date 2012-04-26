@@ -424,8 +424,8 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);
 			sysfs_init(mdi, fd, -1);
-			rv = sysfs_set_num(mdi, NULL, "bitmap/location",
-					   mdi->bitmap_offset);
+			rv = sysfs_set_num_signed(mdi, NULL, "bitmap/location",
+						  mdi->bitmap_offset);
 		} else {
 			array.state |= (1<<MD_SB_BITMAP_PRESENT);
 			rv = ioctl(fd, SET_ARRAY_INFO, &array);

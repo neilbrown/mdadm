@@ -428,6 +428,14 @@ int sysfs_set_num(struct mdinfo *sra, struct mdinfo *dev,
 	return sysfs_set_str(sra, dev, name, valstr);
 }
 
+int sysfs_set_num_signed(struct mdinfo *sra, struct mdinfo *dev,
+			 char *name, long long val)
+{
+	char valstr[50];
+	sprintf(valstr, "%lli", val);
+	return sysfs_set_str(sra, dev, name, valstr);
+}
+
 int sysfs_uevent(struct mdinfo *sra, char *event)
 {
 	char fname[50];

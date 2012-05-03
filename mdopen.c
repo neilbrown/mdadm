@@ -321,7 +321,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	 * If we cannot detect udev, we need to make
 	 * devices and links ourselves.
 	 */
-	if (stat("/dev/.udev", &stb) != 0 ||
+	if ((stat("/dev/.udev", &stb) != 0 && stat("/run/udev", &stb) != 0) ||
 	    check_env("MDADM_NO_UDEV")) {
 		/* Make sure 'devname' exists and 'chosen' is a symlink to it */
 		if (lstat(devname, &stb) == 0) {

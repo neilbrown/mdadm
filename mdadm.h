@@ -71,10 +71,10 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 /* MAP_DIR should be somewhere that persists across the pivotroot
  * from early boot to late boot.
- * Currently /dev seems to be the only option on most distros.
+ * /run  seems to have emerged as the best standard.
  */
 #ifndef MAP_DIR
-#define MAP_DIR "/dev/.mdadm"
+#define MAP_DIR "/run/mdadm"
 #endif /* MAP_DIR */
 /* MAP_FILE is what we name the map file we put in MAP_DIR, in case you
  * want something other than the default of "map"
@@ -83,7 +83,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define MAP_FILE "map"
 #endif /* MAP_FILE */
 /* MDMON_DIR is where pid and socket files used for communicating
- * with mdmon normally live.  It *should* be /var/run, but when
+ * with mdmon normally live.  Best is /var/run/mdadm as
  * mdmon is needed at early boot then it needs to write there prior
  * to /var/run being mounted read/write, and it also then needs to
  * persist beyond when /var/run is mounter read-only.  So, to be
@@ -91,7 +91,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
  * boot process and stays up as long as possible during shutdown.
  */
 #ifndef MDMON_DIR
-#define MDMON_DIR "/dev/.mdadm/"
+#define MDMON_DIR "/run/mdadm"
 #endif /* MDMON_DIR */
 
 /* FAILED_SLOTS is where to save files storing recent removal of array
@@ -99,7 +99,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
  * slot for array recovery
  */
 #ifndef FAILED_SLOTS_DIR
-#define FAILED_SLOTS_DIR "/dev/.mdadm/failed-slots"
+#define FAILED_SLOTS_DIR "/run/mdadm/failed-slots"
 #endif /* FAILED_SLOTS */
 
 #include	"md_u.h"

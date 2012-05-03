@@ -66,13 +66,13 @@ MAILCMD =/usr/sbin/sendmail -t
 CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 # Both MAP_DIR and MDMON_DIR should be somewhere that persists across the
 # pivotroot from early boot to late boot.
-# /dev is an odd place to put this, but it is the only directory that
-# meets the requirements.
-MAP_DIR=/dev/.mdadm
+# /run is best, but for distros that don't support that, /dev can work.
+MAP_DIR=/run/mdadm
 MAP_FILE = map
-MDMON_DIR = /dev/.mdadm
+MAP_PATH = $(MAP_DIR)/$(MAP_FILE)
+MDMON_DIR = $(MAP_DIR)
 # place for autoreplace cookies
-FAILED_SLOTS_DIR = /dev/.mdadm/failed-slots
+FAILED_SLOTS_DIR = /run/mdadm/failed-slots
 DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
 DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
 DIRFLAGS += -DFAILED_SLOTS_DIR=\"$(FAILED_SLOTS_DIR)\"
@@ -204,7 +204,8 @@ mdassemble.klibc : $(ASSEMBLE_SRCS) $(INCL)
 	$(KLIBC_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)
 
 mdadm.8 : mdadm.8.in
-	sed -e 's/{DEFAULT_METADATA}/$(DEFAULT_METADATA)/g' mdadm.8.in > mdadm.8
+	sed -e 's/{DEFAULT_METADATA}/$(DEFAULT_METADATA)/g' \
+	-e 's,{MAP_PATH},$(MAP_PATH),g'  mdadm.8.in > mdadm.8
 
 mdadm.man : mdadm.8
 	nroff -man mdadm.8 > mdadm.man

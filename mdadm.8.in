@@ -1434,7 +1434,7 @@ if safe-mode handling is disabled.
 .TP
 .BR \-\-rebuild\-map ", " \-r
 Rebuild the map file
-.RB ( /var/run/mdadm/map )
+.RB ( {MAP_PATH} )
 that
 .I mdadm
 uses to help track which arrays are currently being assembled.
@@ -1641,7 +1641,7 @@ does not create any entries in
 but leaves that to
 .IR udev .
 It does record information in
-.B /var/run/mdadm/map
+.B {MAP_PATH}
 which will allow
 .I udev
 to choose the correct name.
@@ -2561,11 +2561,7 @@ current host, the device will be rejected.
 .PP
 .I mdadm
 keeps a list of arrays that it has partially assembled in
-.B /var/run/mdadm/map
-(or
-.B /var/run/mdadm.map
-if the directory doesn't exist.  Or maybe even
-.BR /dev/.mdadm.map ).
+.BR {MAP_PATH} .
 If no array exists which matches
 the metadata on the new device,
 .I mdadm
@@ -2709,12 +2705,12 @@ and assemble
 .B /dev/md0
 out of all such devices with a RAID superblock with a minor number of 0.
 
-.B "  mdadm \-\-monitor \-\-scan \-\-daemonise > /var/run/mdadm"
+.B "  mdadm \-\-monitor \-\-scan \-\-daemonise > /run/mdadm/mon.pid"
 .br
 If config file contains a mail address or alert program, run mdadm in
 the background in monitor mode monitoring all md devices.  Also write
 pid of mdadm daemon to
-.BR /var/run/mdadm .
+.BR /run/mdadm/mon.pid .
 
 .B "  mdadm \-Iq /dev/somedevice"
 .br
@@ -2792,21 +2788,10 @@ they contain MD super block, and gives identifying information
 .BR mdadm.conf (5)
 for more details.
 
-.SS /var/run/mdadm/map
+.SS {MAP_PATH}
 When
 .B \-\-incremental
 mode is used, this file gets a list of arrays currently being created.
-If
-.B /var/run/mdadm
-does not exist as a directory, then
-.B /var/run/mdadm.map
-is used instead.  If
-.B /var/run
-is not available (as may be the case during early boot),
-.B /dev/.mdadm.map
-is used on the basis that
-.B /dev
-is usually available very early in boot.
 
 .SH DEVICE NAMES
 

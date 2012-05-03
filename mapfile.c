@@ -38,27 +38,19 @@
  *  UUID       -  uuid of the array
  *  path       -  path where device created: /dev/md/home
  *
- * The best place for the mapfile wold be /var/run/mdadm/map.  However
- * it is needed during initramfs early-boot, and /var/run doesn't exist there
- * and certainly doesn't persist through to normal boot.
- * So we store it in /dev/.mdadm/map but allow this to be changed at
- * compile time. via MAP_DIR and MAP_FILE
- *
+ * The best place for the mapfile is /run/mdadm/map.  Distros and users
+ * which have not switched to /run yet can choose a different location
+ * at compile time via MAP_DIR and MAP_FILE.
  */
 #include	"mdadm.h"
 #include	<sys/file.h>
 #include	<ctype.h>
 
-#ifndef MAP_DIR
-#define MAP_DIR "/dev/.mdadm"
-#define MAP_FILE "map"
-#endif
 
 #define MAP_READ 0
 #define MAP_NEW 1
 #define MAP_LOCK 2
 #define MAP_DIRNAME 3
-#define mapnames(dir, base) { \
 
 char *mapname[4] = {
 	MAP_DIR "/" MAP_FILE,

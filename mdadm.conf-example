@@ -59,7 +59,7 @@
 # When used in --follow (aka --monitor) mode, mdadm needs a
 # mail address and/or a program.  This can be given with "mailaddr"
 # and "program" lines to that monitoring can be started using
-#    mdadm --follow --scan & echo $! > /var/run/mdadm
+#    mdadm --follow --scan & echo $! > /run/mdadm/mon.pid
 # If the lines are not found, mdadm will exit quietly
 #MAILADDR root@mydomain.tld
 #PROGRAM /usr/sbin/handle-mdadm-events

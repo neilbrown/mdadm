@@ -1668,7 +1668,9 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		rv = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
 			if (sysfs_set_num(sra, mdi, "size", size) < 0) {
-				rv = 1;
+				/* Probably kernel refusing to let us
+				 * reduce the size - not an error.
+				 */
 				break;
 			}
 			if (array.not_persistent == 0 &&

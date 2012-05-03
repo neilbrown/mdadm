@@ -190,9 +190,10 @@ testdev() {
       rasize=$[rasize*DEV_ROUND_K*2]
    fi
    if [ `/sbin/blockdev --getsize $dev` -eq 0 ]; then sleep 2 ; fi
-   if [ $rasize -ne `/sbin/blockdev --getsize $dev` ]
+   _sz=`/sbin/blockdev --getsize $dev`
+   if [ $rasize -lt $_sz -o $[rasize*4/5] -gt $_sz ]
    then
-     echo "ERROR: size is wrong for $dev: $cnt * $dvsize (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize $dev`"
+     echo "ERROR: size is wrong for $dev: $cnt * $dvsize (chunk=$chunk) = $rasize, not $_sz"
      exit 1
    fi
 }

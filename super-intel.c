@@ -5686,6 +5686,7 @@ get_devices(const char *hba_path)
 			free(dv);
 		}
 	}
+	closedir(dir);
 	return devlist;
 }
 

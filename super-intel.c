@@ -4353,7 +4353,7 @@ static int get_super_block(struct intel_super **super_list, int devnum, char *de
 	} else {
 		if (s)
 			free(s);
-		if (dfd)
+		if (dfd >= 0)
 			close(dfd);
 	}
 	if ((dfd >= 0) && (!keep_fd))

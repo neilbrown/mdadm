@@ -1,4 +1,6 @@
 #!/bin/sh
+# avoid silly sorting
+export LANG=C
 arg=$1
 target=~/public_html/source/mdadm
 if [ " $arg" = " test" ]
@@ -42,7 +44,7 @@ else { cat inventory ; echo ANNOUNCE-$version ; } | sort -o inventory
 fi
 
 echo version = $version
-base=mdadm-$version.tgz
+base=mdadm-$version.tar.gz
 if [ " $arg" != " diff" ]
 then
   if [ -f $target/$base ] 
@@ -51,7 +53,7 @@ then
     exit 1
   fi
   trap "rm $target/$base; exit" 1 2 3
-  ( cd .. ; ln -s mdadm.v2 mdadm-$version ; tar chvf - --exclude=.git --exclude="TAGS" --exclude='*~' --exclude=.patches --exclude='*,v' --exclude='*.o' --exclude mdadm --exclude=mdadm'.[^ch0-9]' --exclude=RCS mdadm-$version ; rm mdadm-$version ) | gzip --best > $target/$base
+  git archive --prefix=mdadm-$version/ HEAD | gzip --best > $target/$base
   chmod a+r $target/$base
   ls -l $target/$base
   if tar tzf $target/$base | sed 's,[^/]*/,,' | sort | diff -u inventory -

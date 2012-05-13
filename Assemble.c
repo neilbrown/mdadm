@@ -1069,6 +1069,7 @@ int Assemble(struct supertype *st, char *mddev,
 			int j = best[i];
 			if (j >= 0 &&
 			    !devices[j].uptodate &&
+			    devices[j].i.recovery_start == MaxSector &&
 			    devices[j].i.events == current_events) {
 				chosen_drive = j;
 				goto add_another;

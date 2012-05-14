@@ -1189,16 +1189,17 @@ static int write_init_super1(struct supertype *st)
 		case 1:
 			sb->super_offset = __cpu_to_le64(0);
 			reserved = bm_space + 4*2;
-			/* Try for multiple of 1Meg so it is nicely aligned */
-			#define ONE_MEG (2*1024)
-			reserved = ((reserved + ONE_MEG-1)/ONE_MEG) * ONE_MEG;
-			if (reserved + __le64_to_cpu(sb->size) > dsize)
-				reserved = dsize - __le64_to_cpu(sb->size);
-			/* force 4K alignment */
-			reserved &= ~7ULL;
-
 			if (reserved < headroom)
 				reserved = headroom;
+			if (reserved + array_size > dsize)
+				reserved = dsize - array_size;
+			/* Try for multiple of 1Meg so it is nicely aligned */
+			#define ONE_MEG (2*1024)
+			if (reserved > ONE_MEG)
+				reserved = (reserved/ONE_MEG) * ONE_MEG;
+
+			/* force 4K alignment */
+			reserved &= ~7ULL;
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
@@ -1206,22 +1207,23 @@ static int write_init_super1(struct supertype *st)
 		case 2:
 			sb_offset = 4*2;
 			sb->super_offset = __cpu_to_le64(4*2);
-			if (4*2 + 4*2 + bm_space + __le64_to_cpu(sb->size)
+			if (4*2 + 4*2 + bm_space + array_size
 			    > dsize)
-				bm_space = dsize - __le64_to_cpu(sb->size)
+				bm_space = dsize - array_size
 					- 4*2 - 4*2;
 
 			reserved = bm_space + 4*2 + 4*2;
-			/* Try for multiple of 1Meg so it is nicely aligned */
-			#define ONE_MEG (2*1024)
-			reserved = ((reserved + ONE_MEG-1)/ONE_MEG) * ONE_MEG;
-			if (reserved + __le64_to_cpu(sb->size) > dsize)
-				reserved = dsize - __le64_to_cpu(sb->size);
-			/* force 4K alignment */
-			reserved &= ~7ULL;
-
 			if (reserved < headroom)
 				reserved = headroom;
+			if (reserved + array_size > dsize)
+				reserved = dsize - array_size;
+			/* Try for multiple of 1Meg so it is nicely aligned */
+			#define ONE_MEG (2*1024)
+			if (reserved > ONE_MEG)
+				reserved = (reserved/ONE_MEG) * ONE_MEG;
+
+			/* force 4K alignment */
+			reserved &= ~7ULL;
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
@@ -1233,7 +1235,6 @@ static int write_init_super1(struct supertype *st)
 			rv = -EINVAL;
 			goto out;
 		}
-
 
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);

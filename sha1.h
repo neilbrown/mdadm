@@ -1,10 +1,11 @@
 /* Declarations of functions and data types used for SHA1 sum
    library functions.
-   Copyright (C) 2000, 2001, 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2005, 2006, 2008, 2010
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
-   Free Software Foundation; either version 2, or (at your option) any
+   Free Software Foundation; either version 3, or (at your option) any
    later version.
 
    This program is distributed in the hope that it will be useful,
@@ -19,21 +20,70 @@
 #ifndef SHA1_H
 # define SHA1_H 1
 
-# include <stdio.h>
-# include "md5.h"
+#include <stdio.h>
+
+#if defined HAVE_LIMITS_H || _LIBC
+# include <limits.h>
+#endif
+
+#include "ansidecl.h"
+
+/* The following contortions are an attempt to use the C preprocessor
+   to determine an unsigned integral type that is 32 bits wide.  An
+   alternative approach is to use autoconf's AC_CHECK_SIZEOF macro, but
+   doing that would require that the configure script compile and *run*
+   the resulting executable.  Locally running cross-compiled executables
+   is usually not possible.  */
+
+#ifdef _LIBC
+# include <sys/types.h>
+typedef u_int32_t sha1_uint32;
+typedef uintptr_t sha1_uintptr;
+#else
+#  define INT_MAX_32_BITS 2147483647
+
+/* If UINT_MAX isn't defined, assume it's a 32-bit type.
+   This should be valid for all systems GNU cares about because
+   that doesn't include 16-bit systems, and only modern systems
+   (that certainly have <limits.h>) have 64+-bit integral types.  */
+
+# ifndef INT_MAX
+#  define INT_MAX INT_MAX_32_BITS
+# endif
+
+# if INT_MAX == INT_MAX_32_BITS
+   typedef unsigned int sha1_uint32;
+# else
+#  if SHRT_MAX == INT_MAX_32_BITS
+    typedef unsigned short sha1_uint32;
+#  else
+#   if LONG_MAX == INT_MAX_32_BITS
+     typedef unsigned long sha1_uint32;
+#   else
+     /* The following line is intended to evoke an error.
+        Using #error is not portable enough.  */
+     "Cannot determine unsigned 32-bit data type."
+#   endif
+#  endif
+# endif
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Structure to save state of computation between the single steps.  */
 struct sha1_ctx
 {
-  md5_uint32 A;
-  md5_uint32 B;
-  md5_uint32 C;
-  md5_uint32 D;
-  md5_uint32 E;
+  sha1_uint32 A;
+  sha1_uint32 B;
+  sha1_uint32 C;
+  sha1_uint32 D;
+  sha1_uint32 E;
 
-  md5_uint32 total[2];
-  md5_uint32 buflen;
-  char buffer[128] __attribute__ ((__aligned__ (__alignof__ (md5_uint32))));
+  sha1_uint32 total[2];
+  sha1_uint32 buflen;
+  sha1_uint32 buffer[32];
 };
 
 
@@ -83,5 +133,9 @@ extern int sha1_stream (FILE *stream, void *resblock);
    output yields to the wanted ASCII representation of the message
    digest.  */
 extern void *sha1_buffer (const char *buffer, size_t len, void *resblock);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

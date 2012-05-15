@@ -189,6 +189,7 @@ static struct supertype *match_metadata_desc(char *arg)
 static int validate_geometry(struct supertype *st, int level,
 			     int layout, int raiddisks,
 			     int *chunk, unsigned long long size,
+			     long long data_offset,
 			     char *subdev, unsigned long long *freesize,
 			     int verbose)
 {

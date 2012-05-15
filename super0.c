@@ -1130,6 +1130,7 @@ static void free_super0(struct supertype *st)
 static int validate_geometry0(struct supertype *st, int level,
 			      int layout, int raiddisks,
 			      int *chunk, unsigned long long size,
+			      long long data_offset,
 			      char *subdev, unsigned long long *freesize,
 			      int verbose)
 {

@@ -660,7 +660,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (tst->ss->validate_geometry(
 				    tst, array.level, array.layout,
 				    array.raid_disks, NULL,
-				    ldsize >> 9, NULL, NULL, 0) == 0) {
+				    ldsize >> 9, -1LL, NULL, NULL, 0) == 0) {
 				if (!force) {
 					fprintf(stderr, Name
 						": %s is larger than %s can "

@@ -263,7 +263,8 @@ int Create(struct supertype *st, char *mddev,
 		size &= ~(unsigned long long)(chunk - 1);
 	newsize = size * 2;
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
-					      &chunk, size*2, NULL, &newsize, verbose>=0))
+					      &chunk, size*2, -1LL, NULL,
+					      &newsize, verbose>=0))
 		return 1;
 
 	if (chunk && chunk != UnSet) {
@@ -345,8 +346,8 @@ int Create(struct supertype *st, char *mddev,
 					layout = default_layout(st, level, verbose);
 				switch (st->ss->validate_geometry(
 						st, level, layout, raiddisks,
-						&chunk, size*2, dname, &freesize,
-						verbose > 0)) {
+						&chunk, size*2, -1LL, dname,
+						&freesize, verbose > 0)) {
 				case -1: /* Not valid, message printed, and not
 					  * worth checking any further */
 					exit(2);
@@ -381,8 +382,8 @@ int Create(struct supertype *st, char *mddev,
 				layout = default_layout(st, level, 0);
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
-						       &chunk, size*2, dname,
-						       &freesize,
+						       &chunk, size*2, -1LL,
+						       dname, &freesize,
 						       verbose >= 0)) {
 
 				fprintf(stderr,
@@ -483,7 +484,7 @@ int Create(struct supertype *st, char *mddev,
 			/* size is meaningful */
 			if (!st->ss->validate_geometry(st, level, layout,
 						       raiddisks,
-						       &chunk, minsize*2,
+						       &chunk, minsize*2, -1LL,
 						       NULL, NULL, 0)) {
 				fprintf(stderr, Name ": devices too large for RAID level %d\n", level);
 				return 1;

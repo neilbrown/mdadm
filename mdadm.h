@@ -188,6 +188,7 @@ struct mdinfo {
 	int			uuid[4];
 	char			name[33];
 	unsigned long long	data_offset;
+	unsigned long long	new_data_offset;
 	unsigned long long	component_size; /* same as array.size, except in
 						 * sectors and up to 64bits.
 						 */

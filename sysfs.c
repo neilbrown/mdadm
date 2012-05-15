@@ -307,6 +307,11 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 			if (load_sys(fname, buf))
 				goto abort;
 			dev->data_offset = strtoull(buf, NULL, 0);
+			strcpy(dbase, "new_offset");
+			if (load_sys(fname, buf) == 0)
+				dev->new_data_offset = strtoull(buf, NULL, 0);
+			else
+				dev->new_data_offset = dev->data_offset;
 		}
 		if (options & GET_SIZE) {
 			strcpy(dbase, "size");

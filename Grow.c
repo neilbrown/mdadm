@@ -1885,9 +1885,37 @@ size_change_error:
 				*h = 0;
 				info.new_layout = map_name(r6layout, l);
 			}
+		} else {
+			fprintf(stderr, Name
+				": %s is only meaningful when reshaping"
+				" a RAID6 array.\n", layout_str);
+			rv = 1;
+			goto release;
 		}
 	} else if (strcmp(layout_str, "preserve") == 0) {
-		info.new_layout = UnSet;
+		/* This means that a non-standard RAID6 layout
+		 * is OK.
+		 * In particular:
+		 * - When reshape a RAID6 (e.g. adding a device)
+		 *   which is in a non-standard layout, it is OK
+		 *   to preserve that layout.
+		 * - When converting a RAID5 to RAID6, leave it in
+		 *   the XXX-6 layout, don't re-layout.
+		 */
+		if (info.array.level == 6 && info.new_level == UnSet)
+			info.new_layout = info.array.layout;
+		else if (info.array.level == 5 && info.new_level == 6) {
+			char l[40];
+			strcpy(l, map_num(r5layout, info.array.layout));
+			strcat(l, "-6");
+			info.new_layout = map_name(r6layout, l);
+		} else {
+			fprintf(stderr, Name
+				": %s in only meaningful when reshaping"
+				" to RAID6\n", layout_str);
+			rv = 1;
+			goto release;
+		}
 	} else {
 		int l = info.new_level;
 		if (l == UnSet)

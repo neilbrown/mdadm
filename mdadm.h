@@ -206,6 +206,12 @@ struct mdinfo {
 						   * for native metadata it is
 						   * reshape_active field mirror
 						   */
+	/* During reshape we can sometimes change the data_offset to avoid
+	 * over-writing still-valid data.  We need to know if there is space.
+	 * So getinfo_super will fill in space_before and space_after in sectors.
+	 * data_offset can be increased or decreased by this amount.
+	 */
+	unsigned long long	space_before, space_after;
 	union {
 		unsigned long long resync_start; /* per-array resync position */
 		unsigned long long recovery_start; /* per-device rebuild position */
@@ -547,7 +553,7 @@ struct active_array;
 struct metadata_update;
 
 
-/* 'struct reshape' records the intermediate states
+/* 'struct reshape' records the intermediate states of
  * a general reshape.
  * The starting geometry is converted to the 'before' geometry
  * by at most an atomic level change. They could be the same.

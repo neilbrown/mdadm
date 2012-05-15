@@ -1189,9 +1189,9 @@ static int write_init_super1(struct supertype *st)
 			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
 			break;
 		case 1:
+			sb->super_offset = __cpu_to_le64(0);
 			data_offset = (long long)(int64_t)__le64_to_cpu(sb->data_offset);
 			if (data_offset < 0) {
-				sb->super_offset = __cpu_to_le64(0);
 				reserved = bm_space + 4*2;
 				if (reserved < headroom)
 					reserved = headroom;
@@ -1212,10 +1212,10 @@ static int write_init_super1(struct supertype *st)
 			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
 		case 2:
+			sb_offset = 4*2;
+			sb->super_offset = __cpu_to_le64(4*2);
 			data_offset = (long long)(int64_t)__le64_to_cpu(sb->data_offset);
 			if (data_offset < 0) {
-				sb_offset = 4*2;
-				sb->super_offset = __cpu_to_le64(4*2);
 				if (4*2 + 4*2 + bm_space + array_size
 				    > dsize)
 					bm_space = dsize - array_size

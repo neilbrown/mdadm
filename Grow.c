@@ -1438,6 +1438,7 @@ static int reshape_container(char *container, char *devname,
 int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks,
+		 long long data_offset,
 		 struct mddev_dev *devlist,
 		 int assume_clean, int force)
 {
@@ -1474,6 +1475,11 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 
 	struct mdinfo info;
 	struct mdinfo *sra;
+
+	if (data_offset >= 0) {
+		fprintf(stderr, Name ": --grow --data-offset not yet supported\n");
+		return 1;
+	}
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
 		fprintf(stderr, Name ": %s is not an active md array - aborting\n",

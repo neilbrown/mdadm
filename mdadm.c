@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 	int chunk = 0;
 	long long size = -1;
 	long long array_size = -1;
+	long long data_offset = -1;
 	int level = UnSet;
 	int layout = UnSet;
 	char *layout_str = NULL;
@@ -463,6 +464,21 @@ int main(int argc, char *argv[])
 						optarg);
 					exit(2);
 				}
+			}
+			continue;
+
+		case O(CREATE,DataOffset):
+		case O(GROW,DataOffset):
+			if (data_offset >= 0) {
+				fprintf(stderr, Name ": data-offset may only be specified one. "
+					"Second value is %s.\n", optarg);
+				exit(2);
+			}
+			data_offset = parse_size(optarg);
+			if (data_offset < 0) {
+				fprintf(stderr, Name ": invalid data-offset: %s\n",
+					optarg);
+				exit(2);
 			}
 			continue;
 
@@ -1449,7 +1465,8 @@ int main(int argc, char *argv[])
 			    raiddisks, sparedisks, ident.name, homehost,
 			    ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next, runstop, verbose-quiet, force, assume_clean,
-			    bitmap_file, bitmap_chunk, write_behind, delay, autof);
+			    bitmap_file, bitmap_chunk, write_behind, delay, autof,
+			    data_offset);
 		break;
 	case MISC:
 		if (devmode == 'E') {
@@ -1705,6 +1722,7 @@ int main(int argc, char *argv[])
 			   || chunk != 0 || level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout_str, chunk, raiddisks,
+					  data_offset,
 					  devlist->next,
 					  assume_clean, force);
 		} else if (array_size < 0)

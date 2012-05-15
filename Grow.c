@@ -942,6 +942,17 @@ int reshape_open_backup_file(char *backup_file,
 	return 1;
 }
 
+unsigned long GCD(unsigned long a, unsigned long b)
+{
+	while (a != b) {
+		if (a < b)
+			b -= a;
+		if (b < a)
+			a -= b;
+	}
+	return a;
+}
+
 unsigned long compute_backup_blocks(int nchunk, int ochunk,
 				    unsigned int ndata, unsigned int odata)
 {
@@ -954,12 +965,7 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	a = (ochunk/512) * odata;
 	b = (nchunk/512) * ndata;
 	/* Find GCD */
-	while (a != b) {
-		if (a < b)
-			b -= a;
-		if (b < a)
-			a -= b;
-	}
+	a = GCD(a, b);
 	/* LCM == product / GCD */
 	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
 
@@ -983,7 +989,9 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	 * This can be called as part of starting a reshape, or
 	 * when assembling an array that is undergoing reshape.
 	 */
+	int near, far, offset, copies;
 	int new_disks;
+	int old_chunk, new_chunk;
 	/* delta_parity records change in number of devices
 	 * caused by level change
 	 */
@@ -1070,38 +1078,90 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		return "Impossibly level change request for RAID1";
 
 	case 10:
-		/* RAID10 can only be converted from near mode to
-		 * RAID0 by removing some devices
+		/* RAID10 can be converted from near mode to
+		 * RAID0 by removing some devices.
+		 * It can also be reshaped if the kernel supports
+		 * new_data_offset.
 		 */
-		if ((info->array.layout & ~0xff) != 0x100)
-			return "Cannot Grow RAID10 with far/offset layout";
-		/* number of devices must be multiple of number of copies */
-		if (info->array.raid_disks % (info->array.layout & 0xff))
-			return "RAID10 layout too complex for Grow operation";
+		switch (info->new_level) {
+		case 0:
+			if ((info->array.layout & ~0xff) != 0x100)
+				return "Cannot Grow RAID10 with far/offset layout";
+			/* number of devices must be multiple of number of copies */
+			if (info->array.raid_disks % (info->array.layout & 0xff))
+				return "RAID10 layout too complex for Grow operation";
 
-		if (info->new_level != 0)
+			new_disks = (info->array.raid_disks
+				     / (info->array.layout & 0xff));
+			if (info->delta_disks == UnSet)
+				info->delta_disks = (new_disks
+						     - info->array.raid_disks);
+
+			if (info->delta_disks != new_disks - info->array.raid_disks)
+				return "New number of raid-devices impossible for RAID10";
+			if (info->new_chunk &&
+			    info->new_chunk != info->array.chunk_size)
+				return "Cannot change chunk-size with RAID10 Grow";
+
+			/* looks good */
+			re->level = 0;
+			re->parity = 0;
+			re->before.data_disks = new_disks;
+			re->after.data_disks = re->before.data_disks;
+			re->before.layout = 0;
+			re->backup_blocks = 0;
+			return NULL;
+
+		case 10:
+			near = info->array.layout & 0xff;
+			far = (info->array.layout >> 8) & 0xff;
+			offset = info->array.layout & 0x10000;
+			if (far > 1 && !offset)
+				return "Cannot reshape RAID10 in far-mode";
+			copies = near * far;
+
+			old_chunk = info->array.chunk_size * far;
+
+			if (info->new_layout == UnSet)
+				info->new_layout = info->array.layout;
+			else {
+				near = info->new_layout & 0xff;
+				far = (info->new_layout >> 8) & 0xff;
+				offset = info->new_layout & 0x10000;
+				if (far > 1 && !offset)
+					return "Cannot reshape RAID10 to far-mode";
+				if (near * far != copies)
+					return "Cannot change number of copies"
+						" when reshaping RAID10";
+			}
+			if (info->delta_disks == UnSet)
+				info->delta_disks = 0;
+			new_disks = (info->array.raid_disks +
+				     info->delta_disks);
+
+			new_chunk = info->new_chunk * far;
+
+			re->level = 10;
+			re->parity = 0;
+			re->before.layout = info->array.layout;
+			re->before.data_disks = info->array.raid_disks;
+			re->after.layout = info->new_layout;
+			re->after.data_disks = new_disks;
+			/* For RAID10 we don't do backup, and there is
+			 * no need to synchronise stripes on both
+			 * 'old' and  'new'.  So the important
+			 * number is the minimum data_offset difference
+			 * which is the large of (offset copies * chunk).
+			 */
+
+			re->backup_blocks = max(old_chunk, new_chunk) / 512;
+			re->new_size = (info->component_size * new_disks
+					/ copies);
+			return NULL;
+
+		default:
 			return "RAID10 can only be changed to RAID0";
-		new_disks = (info->array.raid_disks
-			     / (info->array.layout & 0xff));
-		if (info->delta_disks == UnSet)
-			info->delta_disks = (new_disks
-					     - info->array.raid_disks);
-
-		if (info->delta_disks != new_disks - info->array.raid_disks)
-			return "New number of raid-devices impossible for RAID10";
-		if (info->new_chunk &&
-		    info->new_chunk != info->array.chunk_size)
-			return "Cannot change chunk-size with RAID10 Grow";
-
-		/* looks good */
-		re->level = 0;
-		re->parity = 0;
-		re->before.data_disks = new_disks;
-		re->after.data_disks = re->before.data_disks;
-		re->before.layout = 0;
-		re->backup_blocks = 0;
-		return NULL;
-
+		}
 	case 0:
 		/* RAID0 can be converted to RAID10, or to RAID456 */
 		if (info->new_level == 10) {
@@ -1425,6 +1485,7 @@ static int set_array_size(struct supertype *st, struct mdinfo *sra,
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
+			 long long data_offset,
 			 char *backup_file, int quiet, int forked,
 			 int restart, int freeze_reshape);
 static int reshape_container(char *container, char *devname,
@@ -1476,14 +1537,14 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 	struct mdinfo info;
 	struct mdinfo *sra;
 
-	if (data_offset >= 0) {
-		fprintf(stderr, Name ": --grow --data-offset not yet supported\n");
-		return 1;
-	}
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
 		fprintf(stderr, Name ": %s is not an active md array - aborting\n",
 			devname);
+		return 1;
+	}
+	if (data_offset >= 0 && array.level != 10) {
+		fprintf(stderr, Name ": --grow --data-offset not yet supported\n");
 		return 1;
 	}
 
@@ -2017,7 +2078,8 @@ size_change_error:
 		}
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, force,
-				   devlist, backup_file, quiet, 0, 0, 0);
+				   devlist, data_offset, backup_file, quiet,
+				   0, 0, 0);
 		frozen = 0;
 	}
 release:
@@ -2084,9 +2146,222 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 	return ret_val;
 }
 
+static int raid10_reshape(char *container, int fd, char *devname,
+			  struct supertype *st, struct mdinfo *info,
+			  struct reshape *reshape,
+			  long long data_offset,
+			  int force, int quiet)
+{
+	/* Changing raid_disks, layout, chunksize or possibly
+	 * just data_offset for a RAID10.
+	 * We must always change data_offset.
+	 * The amount is change it relates to the minimum copy size.
+	 * This is  reshape->backup_blocks * copies / raid_disks
+	 * where 'raid_disks' is the smaller of 'new' and 'old'.
+	 * If raid_disks is increasing, then data_offset must decrease
+	 * by at least this copy size.
+	 * If raid_disks is unchanged, data_offset must increase or
+	 * decrease by at least min-copy-size but preferably by much more.
+	 * We choose half of the available space.
+	 * If raid_disks is decreasing, data_offset must increase by
+	 * at least min-copy-size.
+	 *
+	 * So we calculate the required minimum and direction, then iterate
+	 * through the devices and set the new_data_offset.
+	 * If that all works, we set chunk_size, layout, raid_disks, and start
+	 * 'reshape'
+	 */
+	struct mdinfo *sra, *sd;
+	unsigned long long min;
+	int dir = 0;
+	int err = 0;
+
+	sra = sysfs_read(fd, 0,
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK
+		);
+	if (!sra) {
+		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
+			devname);
+		goto release;
+	}
+	min = reshape->backup_blocks;
+
+	if (info->delta_disks)
+		sysfs_set_str(sra, NULL, "reshape_direction",
+			      info->delta_disks < 0 ? "backwards" : "forwards");
+	for (sd = sra->devs; sd; sd = sd->next) {
+		char *dn;
+		int dfd;
+		int rv;
+		struct supertype *st2;
+		struct mdinfo info2;
+
+		if (sd->disk.state & (1<<MD_DISK_FAULTY))
+			continue;
+		dn = map_dev(sd->disk.major, sd->disk.minor, 0);
+		dfd = dev_open(dn, O_RDONLY);
+		if (dfd < 0) {
+			fprintf(stderr,
+				Name ": %s: cannot open component %s\n",
+				devname, dn ? dn : "-unknown-");
+			rv = -1;
+			goto release;
+		}
+		st2 = dup_super(st);
+		rv = st2->ss->load_super(st2,dfd, NULL);
+		close(dfd);
+		if (rv) {
+			free(st2);
+			fprintf(stderr, ": %s: cannot get superblock from %s\n",
+				devname, dn);
+			goto release;
+		}
+		st2->ss->getinfo_super(st2, &info2, NULL);
+		st2->ss->free_super(st2);
+		free(st2);
+		if (info->delta_disks < 0) {
+			/* Don't need any space as array is shrinking
+			 * just move data_offset up by min
+			 */
+			if (data_offset < 0)
+				info2.new_data_offset = info2.data_offset + min;
+			else {
+				if ((unsigned long long)data_offset
+				    < info2.data_offset + min) {
+					fprintf(stderr, Name ": --data-offset too small for %s\n",
+						dn);
+					goto release;
+				}
+				info2.new_data_offset = data_offset;
+			}
+		} else if (info->delta_disks > 0) {
+			/* need space before */
+			if (info2.space_before < min) {
+				fprintf(stderr, Name ": Insufficient head-space for reshape on %s\n",
+					dn);
+				goto release;
+			}
+			if (data_offset < 0)
+				info2.new_data_offset = info2.data_offset - min;
+			else {
+				if ((unsigned long long)data_offset
+				    > info2.data_offset - min) {
+					fprintf(stderr, Name ": --data-offset too large for %s\n",
+						dn);
+					goto release;
+				}
+				info2.new_data_offset = data_offset;
+			}
+		} else {
+			if (dir == 0) {
+				/* can move up or down. 'data_offset'
+				 * might guide us, otherwise choose
+				 * direction with most space
+				 */
+				if (data_offset < 0) {
+					if (info2.space_before > info2.space_after)
+						dir = -1;
+					else
+						dir = 1;
+				} else if ((unsigned long long)data_offset
+					   < info2.data_offset)
+					dir = -1;
+				else
+					dir = 1;
+				sysfs_set_str(sra, NULL, "reshape_direction",
+					      dir == 1 ? "backwards" : "forwards");
+			}
+			switch (dir) {
+			case 1: /* Increase data offset */
+				if (info2.space_after < min) {
+					fprintf(stderr, Name ": Insufficient tail-space for reshape on %s\n",
+						dn);
+					goto release;
+				}
+				if (data_offset >= 0 &&
+				    (unsigned long long)data_offset
+				    < info2.data_offset + min) {
+					fprintf(stderr, Name ": --data-offset too small on %s\n",
+						dn);
+					goto release;
+				}
+				if (data_offset >= 0)
+					info2.new_data_offset = data_offset;
+				else {
+					unsigned long long off =
+						info2.space_after / 2;
+					off &= ~7ULL;
+					if (off < min)
+						off = min;
+					info2.new_data_offset =
+						info2.data_offset + off;
+				}
+				break;
+			case -1: /* Decrease data offset */
+				if (info2.space_before < min) {
+					fprintf(stderr, Name ": insufficient head-room on %s\n",
+						dn);
+					goto release;
+				}
+				if (data_offset >= 0 &&
+				    (unsigned long long)data_offset
+				    < info2.data_offset - min) {
+					fprintf(stderr, Name ": --data-offset too small on %s\n",
+						dn);
+					goto release;
+				}
+				if (data_offset >= 0)
+					info2.new_data_offset = data_offset;
+				else {
+					unsigned long long off =
+						info2.space_before / 2;
+					off &= ~7ULL;
+					if (off < min)
+						off = min;
+					info2.new_data_offset =
+						info2.data_offset - off;
+				}
+				break;
+			}
+		}
+		if (sysfs_set_num(sra, sd, "new_offset",
+				  info2.new_data_offset) < 0) {
+			err = errno;
+			fprintf(stderr, Name ": Cannot set new_offset for %s\n",
+				dn);
+			break;
+		}
+	}
+	if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
+		err = errno;
+	if (!err && sysfs_set_num(sra, NULL, "layout", reshape->after.layout) < 0)
+		err = errno;
+	if (!err && sysfs_set_num(sra, NULL, "raid_disks",
+				  info->array.raid_disks + info->delta_disks) < 0)
+		err = errno;
+	if (!err && sysfs_set_str(sra, NULL, "sync_action", "reshape") < 0)
+		err = errno;
+	if (err) {
+		fprintf(stderr, Name ": Cannot set array shape for %s\n",
+			devname);
+			if (err == EBUSY &&
+			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				fprintf(stderr,
+					"       Bitmap must be removed before"
+					" shape can be changed\n");
+			goto release;
+	}
+	sysfs_free(sra);
+	return 0;
+release:
+	sysfs_free(sra);
+	return 1;
+}
+
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
+			 long long data_offset,
 			 char *backup_file, int quiet, int forked,
 			 int restart, int freeze_reshape)
 {
@@ -2370,7 +2645,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	 *   -  request the shape change.
 	 *   -  fork to handle backup etc.
 	 */
-started:
 	/* Check that we can hold all the data */
 	get_dev_size(fd, NULL, &array_size);
 	if (reshape.new_size < (array_size/512)) {
@@ -2382,6 +2656,21 @@ started:
 		goto release;
 	}
 
+started:
+
+	if (array.level == 10) {
+		/* Reshaping RAID10 does not require and data backup by
+		 * user-space.  Instead it requires that the data_offset
+		 * is changed to avoid the need for backup.
+		 * So this is handled very separately
+		 */
+		if (restart)
+			/* Nothing to do. */
+			return 0;
+		return raid10_reshape(container, fd, devname, st, info,
+				      &reshape, data_offset,
+				      force, quiet);
+	}
 	sra = sysfs_read(fd, 0,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
 			 GET_CACHE);
@@ -2822,7 +3111,7 @@ int reshape_container(char *container, char *devname,
 			flush_mdmon(container);
 
 		rv = reshape_array(container, fd, adev, st,
-				   content, force, NULL,
+				   content, force, NULL, 0ULL,
 				   backup_file, quiet, 1, restart,
 				   freeze_reshape);
 		close(fd);
@@ -4167,7 +4456,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 					    0, 1, freeze_reshape);
 	} else
 		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
-					NULL, backup_file, 0, 0, 1,
+					NULL, 0ULL, backup_file, 0, 0, 1,
 					freeze_reshape);
 
 	return ret_val;

@@ -198,6 +198,7 @@ struct mdinfo {
 #define NO_RESHAPE		0
 #define VOLUME_RESHAPE		1
 #define CONTAINER_RESHAPE	2
+#define RESHAPE_NO_BACKUP	16 /* Mask 'or'ed in */
 	int			reshape_active;
 	unsigned long long	reshape_progress;
 	int			recovery_blocked; /* for external metadata it

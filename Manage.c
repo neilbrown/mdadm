@@ -746,7 +746,7 @@ int Manage_subdevs(char *devname, int fd,
 				}
 
 				/* Make sure device is large enough */
-				if (tst->ss->avail_size(tst, ldsize/512) <
+				if (tst->ss->avail_size(tst, ldsize/512, -1) <
 				    array_size) {
 					close(tfd);
 					tfd = -1;

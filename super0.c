@@ -981,8 +981,11 @@ static struct supertype *match_metadata_desc0(char *arg)
 	return NULL;
 }
 
-static __u64 avail_size0(struct supertype *st, __u64 devsize)
+static __u64 avail_size0(struct supertype *st, __u64 devsize,
+			 long long data_offset)
 {
+	if (data_offset > 0)
+		return 0ULL;
 	if (devsize < MD_RESERVED_SECTORS)
 		return 0ULL;
 	return MD_NEW_SIZE_SECTORS(devsize);

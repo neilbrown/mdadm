@@ -705,7 +705,8 @@ extern struct superswitch {
 	int (*load_super)(struct supertype *st, int fd, char *devname);
 	int (*load_container)(struct supertype *st, int fd, char *devname);
 	struct supertype * (*match_metadata_desc)(char *arg);
-	__u64 (*avail_size)(struct supertype *st, __u64 size);
+	__u64 (*avail_size)(struct supertype *st, __u64 size,
+			    long long data_offset);
 	unsigned long long (*min_acceptable_spare_size)(struct supertype *st);
 	int (*add_internal_bitmap)(struct supertype *st, int *chunkp,
 				   int delay, int write_behind,

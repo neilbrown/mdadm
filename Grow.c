@@ -623,8 +623,6 @@ static void unfreeze(struct supertype *st)
 
 		if (sra)
 			sysfs_set_str(sra, NULL, "sync_action", "idle");
-		else
-			fprintf(stderr, Name ": failed to unfreeze array\n");
 		sysfs_free(sra);
 	}
 }

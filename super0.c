@@ -601,10 +601,15 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 
 static int init_super0(struct supertype *st, mdu_array_info_t *info,
 		       unsigned long long size, char *ignored_name, char *homehost,
-		       int *uuid)
+		       int *uuid, long long data_offset)
 {
 	mdp_super_t *sb;
 	int spares;
+
+	if (data_offset >= 0) {
+		fprintf(stderr, Name ": data-offset not support for 0.90\n");
+		return 0;
+	}
 
 	if (posix_memalign((void**)&sb, 4096,
 			   MD_SB_BYTES + ROUND_UP(sizeof(bitmap_super_t), 4096)) != 0) {

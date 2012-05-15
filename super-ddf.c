@@ -1584,12 +1584,12 @@ static int init_super_ddf_bvd(struct supertype *st,
 			      mdu_array_info_t *info,
 			      unsigned long long size,
 			      char *name, char *homehost,
-			      int *uuid);
+			      int *uuid, long long data_offset);
 
 static int init_super_ddf(struct supertype *st,
 			  mdu_array_info_t *info,
 			  unsigned long long size, char *name, char *homehost,
-			  int *uuid)
+			  int *uuid, long long data_offset)
 {
 	/* This is primarily called by Create when creating a new array.
 	 * We will then get add_to_super called for each component, and then
@@ -1625,8 +1625,14 @@ static int init_super_ddf(struct supertype *st,
 	struct phys_disk *pd;
 	struct virtual_disk *vd;
 
+	if (data_offset >= 0) {
+		fprintf(stderr, Name ": data-offset not supported by DDF\n");
+		return 0;
+	}
+
 	if (st->sb)
-		return init_super_ddf_bvd(st, info, size, name, homehost, uuid);
+		return init_super_ddf_bvd(st, info, size, name, homehost, uuid,
+					  data_offset);
 
 	if (posix_memalign((void**)&ddf, 512, sizeof(*ddf)) != 0) {
 		fprintf(stderr, Name ": %s could not allocate superblock\n", __func__);
@@ -1956,7 +1962,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 			      mdu_array_info_t *info,
 			      unsigned long long size,
 			      char *name, char *homehost,
-			      int *uuid)
+			      int *uuid, long long data_offset)
 {
 	/* We are creating a BVD inside a pre-existing container.
 	 * so st->sb is already set.

@@ -63,7 +63,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 	rv = st->ss->load_super(st, fd, dev);
 	if (rv == 0 || (force && rv >= 2)) {
 		st->ss->free_super(st);
-		st->ss->init_super(st, NULL, 0, "", NULL, NULL);
+		st->ss->init_super(st, NULL, 0, "", NULL, NULL, -1LL);
 		if (st->ss->store_super(st, fd)) {
 			if (!quiet)
 				fprintf(stderr, Name ": Could not zero superblock on %s\n",

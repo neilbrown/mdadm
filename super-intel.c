@@ -4557,7 +4557,8 @@ static int check_name(struct intel_super *super, char *name, int quiet)
 
 static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 				  unsigned long long size, char *name,
-				  char *homehost, int *uuid)
+				  char *homehost, int *uuid,
+				  long long data_offset)
 {
 	/* We are creating a volume inside a pre-existing container.
 	 * so st->sb is already set.
@@ -4726,7 +4727,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 
 static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 			   unsigned long long size, char *name,
-			   char *homehost, int *uuid)
+			   char *homehost, int *uuid, long long data_offset)
 {
 	/* This is primarily called by Create when creating a new array.
 	 * We will then get add_to_super called for each component, and then
@@ -4741,8 +4742,14 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	size_t mpb_size;
 	char *version;
 
+	if (data_offset >= 0) {
+		fprintf(stderr, Name ": data-offset not supported by imsm\n");
+		return 0;
+	}
+
 	if (st->sb)
-		return init_super_imsm_volume(st, info, size, name, homehost, uuid);
+		return init_super_imsm_volume(st, info, size, name, homehost, uuid,
+					      data_offset);
 
 	if (info)
 		mpb_size = disks_to_mpb_size(info->nr_disks);

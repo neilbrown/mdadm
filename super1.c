@@ -862,7 +862,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 }
 
 static int init_super1(struct supertype *st, mdu_array_info_t *info,
-		       unsigned long long size, char *name, char *homehost, int *uuid)
+		       unsigned long long size, char *name, char *homehost,
+		       int *uuid, long long data_offset)
 {
 	struct mdp_superblock_1 *sb;
 	int spares;
@@ -926,7 +927,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	sb->chunksize = __cpu_to_le32(info->chunk_size>>9);
 	sb->raid_disks = __cpu_to_le32(info->raid_disks);
 
-	sb->data_offset = __cpu_to_le64(0);
+	sb->data_offset = __cpu_to_le64(data_offset);
 	sb->data_size = __cpu_to_le64(0);
 	sb->super_offset = __cpu_to_le64(0);
 	sb->recovery_offset = __cpu_to_le64(0);
@@ -1095,6 +1096,7 @@ static int write_init_super1(struct supertype *st)
 	struct devinfo *di;
 	unsigned long long dsize, array_size;
 	unsigned long long sb_offset, headroom;
+	long long data_offset;
 
 	for (di = st->info; di && ! rv ; di = di->next) {
 		if (di->disk.state == 1)
@@ -1181,49 +1183,59 @@ static int write_init_super1(struct supertype *st)
 			sb_offset -= 8*2;
 			sb_offset &= ~(4*2-1);
 			sb->super_offset = __cpu_to_le64(sb_offset);
-			sb->data_offset = __cpu_to_le64(0);
+			/* data_offset already set */
 			if (sb_offset < array_size + bm_space)
 				bm_space = sb_offset - array_size;
 			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
 			break;
 		case 1:
-			sb->super_offset = __cpu_to_le64(0);
-			reserved = bm_space + 4*2;
-			if (reserved < headroom)
-				reserved = headroom;
-			if (reserved + array_size > dsize)
-				reserved = dsize - array_size;
-			/* Try for multiple of 1Meg so it is nicely aligned */
-			#define ONE_MEG (2*1024)
-			if (reserved > ONE_MEG)
-				reserved = (reserved/ONE_MEG) * ONE_MEG;
+			data_offset = (long long)(int64_t)__le64_to_cpu(sb->data_offset);
+			if (data_offset < 0) {
+				sb->super_offset = __cpu_to_le64(0);
+				reserved = bm_space + 4*2;
+				if (reserved < headroom)
+					reserved = headroom;
+				if (reserved + array_size > dsize)
+					reserved = dsize - array_size;
+				/* Try for multiple of 1Meg so it is nicely aligned */
+#define ONE_MEG (2*1024)
+				if (reserved > ONE_MEG)
+					reserved = (reserved/ONE_MEG) * ONE_MEG;
 
-			/* force 4K alignment */
-			reserved &= ~7ULL;
+				/* force 4K alignment */
+				reserved &= ~7ULL;
+
+			} else
+				reserved = data_offset;
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
 		case 2:
-			sb_offset = 4*2;
-			sb->super_offset = __cpu_to_le64(4*2);
-			if (4*2 + 4*2 + bm_space + array_size
-			    > dsize)
-				bm_space = dsize - array_size
-					- 4*2 - 4*2;
+			data_offset = (long long)(int64_t)__le64_to_cpu(sb->data_offset);
+			if (data_offset < 0) {
+				sb_offset = 4*2;
+				sb->super_offset = __cpu_to_le64(4*2);
+				if (4*2 + 4*2 + bm_space + array_size
+				    > dsize)
+					bm_space = dsize - array_size
+						- 4*2 - 4*2;
 
-			reserved = bm_space + 4*2 + 4*2;
-			if (reserved < headroom)
-				reserved = headroom;
-			if (reserved + array_size > dsize)
-				reserved = dsize - array_size;
-			/* Try for multiple of 1Meg so it is nicely aligned */
-			#define ONE_MEG (2*1024)
-			if (reserved > ONE_MEG)
-				reserved = (reserved/ONE_MEG) * ONE_MEG;
+				reserved = bm_space + 4*2 + 4*2;
+				if (reserved < headroom)
+					reserved = headroom;
+				if (reserved + array_size > dsize)
+					reserved = dsize - array_size;
+				/* Try for multiple of 1Meg so it is nicely aligned */
+#define ONE_MEG (2*1024)
+				if (reserved > ONE_MEG)
+					reserved = (reserved/ONE_MEG) * ONE_MEG;
 
-			/* force 4K alignment */
-			reserved &= ~7ULL;
+				/* force 4K alignment */
+				reserved &= ~7ULL;
+
+			} else
+				reserved = data_offset;
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);

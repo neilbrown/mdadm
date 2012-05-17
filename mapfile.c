@@ -404,6 +404,8 @@ void RebuildMap(void)
 			if (ok != 0)
 				continue;
 			info = st->ss->container_content(st, subarray);
+			if (!info)
+				continue;
 
 			if (md->devnum >= 0)
 				path = map_dev(MD_MAJOR, md->devnum, 0);

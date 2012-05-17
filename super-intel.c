@@ -10051,7 +10051,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				geo->size );
 			if (current_size >= geo->size) {
 				fprintf(stderr,
-					Name " Error. Size expanssion is "
+					Name " Error. Size expansion is "
 					"supported only (current size is %llu, "
 					"requested size /rounded/ is %llu).\n",
 					current_size, geo->size);

@@ -20,5 +20,5 @@ mdadm -CR $md0 -l0 -n2 $md1 $dev2  --homehost=testing
 mdadm -Ss
 mdadm -As -c /dev/null --homehost=testing -vvv
 testdev $md1 1 $mdsize1a 64
-testdev $md0 1 $[mdsize1a+mdsize11a-1024] 512
+testdev $md0 1 $[mdsize1a+mdsize11a] 512
 mdadm -Ss

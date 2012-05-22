@@ -19,6 +19,12 @@ then
    echo >&2 "test: $mdadm isn't usable."
 fi
 
+# Check whether to run multipath tests
+modprobe multipath 2> /dev/null
+if grep -s 'Personalities : .*multipath' > /dev/null /proc/mdstat ; then
+    MULTIPATH="yes"
+fi
+
 # assume md0, md1, md2 exist in /dev
 md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
 mdp0=/dev/md_d0

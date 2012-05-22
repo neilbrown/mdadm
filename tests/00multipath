@@ -2,6 +2,11 @@
 #
 # create a multipath, and fail and stuff
 
+if [ "$MULTIPATH" != "yes" ]; then
+  echo -ne 'skipping... '
+  exit 0
+fi
+
 mdadm -CR $md1 -l multipath -n2 $path0 $path1
 
 testdev $md1 1 $mdsize12 1

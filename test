@@ -8,9 +8,6 @@ then echo >&2 "test: testing can only be done as 'root'."
 fi
 
 prefix='[0-9][0-9]'
-if [ -n "$1" ]
-then prefix=$1
-fi
 
 dir=`pwd`
 mdadm=$dir/mdadm
@@ -93,10 +90,6 @@ ulimit -c unlimited
 [ -f /proc/mdstat ] || modprobe md_mod
 echo 2000 > /proc/sys/dev/raid/speed_limit_max
 echo 0 > /sys/module/md_mod/parameters/start_ro
-
-if [ " $1" = " setup" ]
-then trap 0 ; exit 0
-fi
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {
@@ -209,23 +202,72 @@ rotest() {
   fsck -fn $dev >&2
 }
 
-for script in tests/$prefix tests/$prefix*[^~]
-do
-  if [ -f "$script" ]
+do_test() {
+  _script=$1
+  if [ -f "$_script" ]
   then
-   rm -f $targetdir/stderr
-   # stop all arrays, just incase some script left an array active.
-   $mdadm -Ssq 2> /dev/null
-   mdadm --zero $devlist 2> /dev/null
-   mdadm --zero $devlist 2> /dev/null
-   # source script in a subshell, so it has access to our
-   # namespace, but cannot change it.
-   echo -ne "$script... "
-   if ( set -ex ; . $script )  2> $targetdir/log
-   then echo "succeeded"
-   else echo "FAILED - see $targetdir/log for details"
-       exit 1
-   fi
+    rm -f $targetdir/stderr
+    # stop all arrays, just incase some script left an array active.
+    $mdadm -Ssq 2> /dev/null
+    mdadm --zero $devlist 2> /dev/null
+    mdadm --zero $devlist 2> /dev/null
+    # source script in a subshell, so it has access to our
+    # namespace, but cannot change it.
+    echo -ne "$_script... "
+    if ( set -ex ; . $_script )  2> $targetdir/log
+    then echo "succeeded"
+    else echo "FAILED - see $targetdir/log for details"
+      exit 1
+    fi
   fi
+}
+
+do_help() {
+  echo "Usage: "
+  echo " $0 [--tests=<test1,test2,..>] [--disable-multipath] [setup] [prefix]"
+}
+
+parse_args() {
+  for i in $*
+  do
+    case $i in
+    [0-9]*)
+      prefix=$i
+      ;;
+    setup)
+      echo "mdadm test environment setup"
+      trap 0; exit 0
+      ;;
+    --tests=*)
+      TESTLIST=`expr "x$i" : 'x[^=]*=\(.*\)' | sed -e 's/,/ /g'`
+      ;;
+    --disable-multipath)
+      unset MULTIPATH
+      ;;
+    --help)
+      do_help
+      exit 0;
+      ;;
+    -*)
+      echo " $0: Unknown argument: $i"
+      do_help
+      exit 0;
+      ;;
+    esac
 done
+}
+
+parse_args $@
+
+if [ "x$TESTLIST" != "x" ]; then
+  for script in $TESTLIST
+  do
+    do_test tests/$script
+  done
+else
+  for script in tests/$prefix tests/$prefix*[^~]
+  do
+    do_test $script
+  done
+fi
 exit 0

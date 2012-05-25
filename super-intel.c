@@ -10370,8 +10370,10 @@ int check_degradation_change(struct mdinfo *info,
 			     int degraded)
 {
 	unsigned long long new_degraded;
-	sysfs_get_ll(info, NULL, "degraded", &new_degraded);
-	if (new_degraded != (unsigned long long)degraded) {
+	int rv;
+
+	rv = sysfs_get_ll(info, NULL, "degraded", &new_degraded);
+	if ((rv == -1) || (new_degraded != (unsigned long long)degraded)) {
 		/* check each device to ensure it is still working */
 		struct mdinfo *sd;
 		new_degraded = 0;

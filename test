@@ -238,8 +238,15 @@ do_test() {
 }
 
 do_help() {
-  echo "Usage: "
-  echo " $0 [--tests=<test1,test2,..>] [--disable-multipath] [--logdir] [--save-logs] [--no-error] [setup] [prefix]"
+  echo "Usage: $0 [options]"
+  echo " Options:"
+  echo "    --tests=<test1,test2,..>    Comma separated list of tests to run"
+  echo "    --disable-multipath         Disable any tests involving multipath"
+  echo "    --logdir=<directory>        Directory to save logfiles in"
+  echo "    --save-logs                 Save all logs in <logdir>"
+  echo "    --no-error                  Don't stop on error, ie. run all tests"
+  echo "    setup                       Setup test environment and exit"
+  echo "    <prefix>                    Run tests with <prefix>"
 }
 
 parse_args() {

@@ -68,33 +68,35 @@ cleanup() {
 	done
 }
 
-trap cleanup 0 1 2 3 15
+do_setup() {
+  trap cleanup 0 1 2 3 15
 
-devlist=
-for d in 0 1 2 3 4 5 6 7 8 9 10 11 12
-do
-   sz=$size
-   if [ $d -gt 7 ]; then sz=$ddfsize ; fi
-   [ -f $targetdir/mdtest$d ] || dd if=/dev/zero of=$targetdir/mdtest$d count=$sz bs=1K > /dev/null 2>&1
-   [ -b /dev/loop$d ] || mknod /dev/loop$d b 7 $d
-   if [ $d -eq 7 ]
-   then
-     losetup /dev/loop$d $targetdir/mdtest6 # for multipath use
-   else
-     losetup /dev/loop$d $targetdir/mdtest$d
-   fi
-   eval dev$d=/dev/loop$d
-   eval file$d=$targetdir/mdtest$d
-   eval devlist=\"\$devlist \$dev$d\"
+  devlist=
+  for d in 0 1 2 3 4 5 6 7 8 9 10 11 12
+  do
+    sz=$size
+    if [ $d -gt 7 ]; then sz=$ddfsize ; fi
+    [ -f $targetdir/mdtest$d ] || dd if=/dev/zero of=$targetdir/mdtest$d count=$sz bs=1K > /dev/null 2>&1
+    [ -b /dev/loop$d ] || mknod /dev/loop$d b 7 $d
+    if [ $d -eq 7 ]
+    then
+      losetup /dev/loop$d $targetdir/mdtest6 # for multipath use
+    else
+      losetup /dev/loop$d $targetdir/mdtest$d
+    fi
+    eval dev$d=/dev/loop$d
+    eval file$d=$targetdir/mdtest$d
+    eval devlist=\"\$devlist \$dev$d\"
    #" <-- add this quote to un-confuse vim syntax highlighting
-done
-path0=$dev6
-path1=$dev7
+  done
+  path0=$dev6
+  path1=$dev7
 
-ulimit -c unlimited
-[ -f /proc/mdstat ] || modprobe md_mod
-echo 2000 > /proc/sys/dev/raid/speed_limit_max
-echo 0 > /sys/module/md_mod/parameters/start_ro
+  ulimit -c unlimited
+  [ -f /proc/mdstat ] || modprobe md_mod
+  echo 2000 > /proc/sys/dev/raid/speed_limit_max
+  echo 0 > /sys/module/md_mod/parameters/start_ro
+}
 
 # mdadm always adds --quiet, and we want to see any unexpected messages
 mdadm() {
@@ -246,6 +248,7 @@ do_help() {
   echo "    --save-logs                 Save all logs in <logdir>"
   echo "    --no-error                  Don't stop on error, ie. run all tests"
   echo "    setup                       Setup test environment and exit"
+  echo "    cleanup                     Cleanup test environment"
   echo "    <prefix>                    Run tests with <prefix>"
 }
 
@@ -258,7 +261,12 @@ parse_args() {
       ;;
     setup)
       echo "mdadm test environment setup"
+      do_setup
       trap 0; exit 0
+      ;;
+    cleanup)
+      cleanup
+      exit 0
       ;;
     --tests=*)
       TESTLIST=`expr "x$i" : 'x[^=]*=\(.*\)' | sed -e 's/,/ /g'`
@@ -295,6 +303,8 @@ done
 }
 
 parse_args $@
+
+do_setup
 
 if [ "$savelogs" == "1" ]; then
   echo "Saving logs to $logdir"

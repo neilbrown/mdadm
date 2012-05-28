@@ -19,6 +19,7 @@ fi
 testdir="tests"
 logdir="$testdir/logs"
 logsave=0
+exitonerror=1
 
 # Check whether to run multipath tests
 modprobe multipath 2> /dev/null
@@ -230,7 +231,7 @@ do_test() {
     if [ "$savelogs" == "1" ]; then
       cp $targetdir/log $logdir/$_basename.log
     fi
-    if [ "$_fail" == "1" ]; then
+    if [ "$_fail" == "1" -a "$exitonerror" == "1" ]; then
       exit 1
     fi
   fi
@@ -238,7 +239,7 @@ do_test() {
 
 do_help() {
   echo "Usage: "
-  echo " $0 [--tests=<test1,test2,..>] [--disable-multipath] [--logdir] [--save-logs] [setup] [prefix]"
+  echo " $0 [--tests=<test1,test2,..>] [--disable-multipath] [--logdir] [--save-logs] [--no-error] [setup] [prefix]"
 }
 
 parse_args() {
@@ -266,6 +267,9 @@ parse_args() {
 	  exit 1;
 	fi
       fi
+      ;;
+    --no-error)
+      exit_on_error=0
       ;;
     --disable-multipath)
       unset MULTIPATH

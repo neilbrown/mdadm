@@ -533,7 +533,19 @@ This is pretty boring
 					failed++;
 			}
 			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
-			if (disk.state & (1<<MD_DISK_SYNC)) printf(" sync");
+			if (disk.state & (1<<MD_DISK_SYNC)) {
+				printf(" sync");
+				if (array.level == 10 && (array.layout & ~0x1FFFF) == 0) {
+					int nc = array.layout & 0xff;
+					int fc = (array.layout >> 8) & 0xff;
+					int copies = nc*fc;
+					if (array.raid_disks % copies == 0 && copies <= 26) {
+						/* We can divide the devices into 'sets' */
+						int set = disk.raid_disk % copies;
+						printf(" set-%c", set + 'A');
+					}
+				}
+			}
 			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
 			if (disk.state & (1<<MD_DISK_WRITEMOSTLY)) printf(" writemostly");
 			if ((disk.state &

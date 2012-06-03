@@ -30,11 +30,6 @@
 #include	<limits.h>
 #include	<syslog.h>
 
-/* The largest number of disks current arrays can manage is 384
- * This really should be dynamically, but that will have to wait
- * At least it isn't MD_SB_DISKS.
- */
-#define MaxDisks 384
 struct state {
 	char *devname;
 	int devnum;	/* to sync with mdstat info */
@@ -43,8 +38,8 @@ struct state {
 	char *spare_group;
 	int active, working, failed, spare, raid;
 	int expected_spares;
-	int devstate[MaxDisks];
-	dev_t devid[MaxDisks];
+	int devstate[MAX_DISKS];
+	dev_t devid[MAX_DISKS];
 	int percent;
 	int parent_dev; /* For subarray, devnum of parent.
 			 * For others, NoMdDev
@@ -452,7 +447,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	 * or found by directly examining the array, and return
 	 * '1' if the array is degraded, or '0' if it is optimal (or dead).
 	 */
-	struct { int state, major, minor; } info[MaxDisks];
+	struct { int state, major, minor; } info[MAX_DISKS];
 	mdu_array_info_t array;
 	struct mdstat_ent *mse = NULL, *mse2;
 	char *dev = st->devname;
@@ -579,7 +574,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	st->percent = mse->percent;
 
 	remaining_disks = array.nr_disks;
-	for (i=0; i<MaxDisks && remaining_disks > 0;
+	for (i=0; i<MAX_DISKS && remaining_disks > 0;
 	     i++) {
 		mdu_disk_info_t disc;
 		disc.number = i;
@@ -607,7 +602,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 
 	close(fd);
 
-	for (i=0; i<MaxDisks; i++) {
+	for (i=0; i<MAX_DISKS; i++) {
 		mdu_disk_info_t disc = {0,0,0,0,0};
 		int newstate=0;
 		int change;
@@ -782,7 +777,7 @@ static dev_t choose_spare(struct state *from, struct state *to,
 	int d;
 	dev_t dev = 0;
 
-	for (d = from->raid; !dev && d < MaxDisks; d++) {
+	for (d = from->raid; !dev && d < MAX_DISKS; d++) {
 		if (from->devid[d] > 0 &&
 		    from->devstate[d] == 0) {
 			struct dev_policy *pol;
@@ -909,7 +904,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				if (devid > 0)
 					continue;
 			}
-			for (d = 0; d < MaxDisks; d++)
+			for (d = 0; d < MAX_DISKS; d++)
 				if (to->devid[d])
 					domainlist_add_dev(&domlist,
 							   to->devid[d],

@@ -185,7 +185,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		}
 		ent->dev = ent->level = ent->pattern= NULL;
 		ent->next = NULL;
-		ent->percent = -1;
+		ent->percent = RESYNC_NONE;
 		ent->active = -1;
 		ent->resync = 0;
 		ent->metadata_version = NULL;
@@ -240,7 +240,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				ent->pattern = strdup(w+1);
 				if (ent->pattern[l-2]==']')
 					ent->pattern[l-2] = '\0';
-			} else if (ent->percent == -1 &&
+			} else if (ent->percent == RESYNC_NONE &&
 				   strncmp(w, "re", 2)== 0 &&
 				   w[l-1] == '%' &&
 				   (eq=strchr(w, '=')) != NULL ) {
@@ -251,7 +251,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					ent->resync = 2;
 				else
 					ent->resync = 0;
-			} else if (ent->percent == -1 &&
+			} else if (ent->percent == RESYNC_NONE &&
 				   (w[0] == 'r' || w[0] == 'c')) {
 				if (strncmp(w, "resync", 4)==0)
 					ent->resync = 1;
@@ -263,10 +263,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					ent->resync = 3;
 
 				if (l > 8 && strcmp(w+l-8, "=DELAYED") == 0)
-					ent->percent = PROCESS_DELAYED;
+					ent->percent = RESYNC_DELAYED;
 				if (l > 8 && strcmp(w+l-8, "=PENDING") == 0)
-					ent->percent = PROCESS_PENDING;
-			} else if (ent->percent == -1 &&
+					ent->percent = RESYNC_PENDING;
+			} else if (ent->percent == RESYNC_NONE &&
 				   w[0] >= '0' &&
 				   w[0] <= '9' &&
 				   w[l-1] == '%') {

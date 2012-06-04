@@ -178,7 +178,7 @@ int Monitor(struct mddev_dev *devlist,
 			}
 			st->next = statelist;
 			st->devnum = INT_MAX;
-			st->percent = -2;
+			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = mdlist->spare_disks;
 			if (mdlist->spare_group)
 				st->spare_group = strdup(mdlist->spare_group);
@@ -194,7 +194,7 @@ int Monitor(struct mddev_dev *devlist,
 			st->devname = strdup(dv->devname);
 			st->next = statelist;
 			st->devnum = INT_MAX;
-			st->percent = -2;
+			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = -1;
 			if (mdlist) {
 				st->expected_spares = mdlist->spare_disks;
@@ -536,7 +536,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	    st->expected_spares > 0 &&
 	    array.spare_disks < st->expected_spares)
 		alert("SparesMissing", dev, NULL, ainfo);
-	if (st->percent == -1 &&
+	if (st->percent < 0 && st->percent != RESYNC_UNKNOWN &&
 	    mse->percent >= 0)
 		alert("RebuildStarted", dev, NULL, ainfo);
 	if (st->percent >= 0 &&
@@ -552,7 +552,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		alert(percentalert, dev, NULL, ainfo);
 	}
 
-	if (mse->percent == -1 &&
+	if (mse->percent == RESYNC_NONE &&
 	    st->percent >= 0) {
 		/* Rebuild/sync/whatever just finished.
 		 * If there is a number in /mismatch_cnt,
@@ -702,7 +702,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			st->next = *statelist;
 			st->err = 1;
 			st->devnum = mse->devnum;
-			st->percent = -2;
+			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = -1;
 			if (mse->metadata_version &&
 			    strncmp(mse->metadata_version, "external:", 9) == 0 &&

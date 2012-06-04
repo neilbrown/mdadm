@@ -374,11 +374,11 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 
 			printf("          State : %s%s%s%s%s%s \n",
 			       (array.state&(1<<MD_SB_CLEAN))?"clean":"active", st,
-			       (!e || (e->percent < 0 && e->percent != PROCESS_PENDING &&
-			       e->percent != PROCESS_DELAYED)) ? "" : sync_action[e->resync],
+			       (!e || (e->percent < 0 && e->percent != RESYNC_PENDING &&
+			       e->percent != RESYNC_DELAYED)) ? "" : sync_action[e->resync],
 			       larray_size ? "": ", Not Started",
-			       e->percent == PROCESS_DELAYED ? " (DELAYED)": "",
-			       e->percent == PROCESS_PENDING ? " (PENDING)": "");
+			       e->percent == RESYNC_DELAYED ? " (DELAYED)": "",
+			       e->percent == RESYNC_PENDING ? " (PENDING)": "");
 		}
 		if (array.raid_disks)
 			printf(" Active Devices : %d\n", array.active_disks);

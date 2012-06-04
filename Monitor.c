@@ -518,6 +518,13 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		 * just make sure it is always different. */
 		array.utime = st->utime + 1;;
 
+	if (st->err) {
+		/* New array appeared where previously had and error */
+		st->err = 0;
+		st->percent = RESYNC_NONE;
+		alert("NewArray", st->devname, NULL, ainfo);
+	}
+
 	if (st->utime == array.utime &&
 	    st->failed == array.failed_disks &&
 	    st->working == array.working_disks &&
@@ -526,7 +533,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		    mse->percent == st->percent
 		    ))) {
 		close(fd);
-		st->err = 0;
 		if ((st->active < st->raid) && st->spare == 0)
 			return 1;
 		else
@@ -719,7 +725,6 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			*statelist = st;
 			if (test)
 				alert("TestMessage", st->devname, NULL, info);
-			alert("NewArray", st->devname, NULL, info);
 			new_found = 1;
 		}
 	return new_found;

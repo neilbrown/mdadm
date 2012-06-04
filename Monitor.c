@@ -460,6 +460,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	int i;
 	int remaining_disks;
 	int last_disk;
+	int new_array = 0;
 
 	if (test)
 		alert("TestMessage", dev, NULL, ainfo);
@@ -522,6 +523,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		/* New array appeared where previously had and error */
 		st->err = 0;
 		st->percent = RESYNC_NONE;
+		new_array = 1;
 		alert("NewArray", st->devname, NULL, ainfo);
 	}
 
@@ -619,10 +621,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		int change;
 		char *dv = NULL;
 		disc.number = i;
-		if (i >= last_disk) {
-			newstate = 0;
-			disc.major = disc.minor = 0;
-		} else if (info[i].major || info[i].minor) {
+		if (i < last_disk &&
+		    (info[i].major || info[i].minor)) {
 			newstate = info[i].state;
 			dv = map_dev_preferred(
 				info[i].major, info[i].minor, 1,
@@ -630,37 +630,22 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			disc.state = newstate;
 			disc.major = info[i].major;
 			disc.minor = info[i].minor;
-		} else if (mse &&  mse->pattern && i < (int)strlen(mse->pattern)) {
-			switch(mse->pattern[i]) {
-			case 'U': newstate = 6 /* ACTIVE/SYNC */; break;
-			case '_': newstate = 8 /* REMOVED */; break;
-			}
-			disc.major = disc.minor = 0;
-		}
+		} else
+			newstate = (1 << MD_DISK_REMOVED);
+
 		if (dv == NULL && st->devid[i])
 			dv = map_dev_preferred(
 				major(st->devid[i]),
 				minor(st->devid[i]), 1, prefer);
 		change = newstate ^ st->devstate[i];
-		if (st->utime && change && !st->err) {
-			if (i < array.raid_disks &&
-			    (((newstate&change)&(1<<MD_DISK_FAULTY)) ||
-			     ((st->devstate[i]&change)&(1<<MD_DISK_ACTIVE)) ||
-			     ((st->devstate[i]&change)&(1<<MD_DISK_SYNC)))
-				)
+		if (st->utime && change && !st->err && !new_array) {
+			if ((st->devstate[i]&change)&(1<<MD_DISK_SYNC))
 				alert("Fail", dev, dv, ainfo);
-			else if (i >= array.raid_disks &&
+			else if ((newstate & (1<<MD_DISK_FAULTY)) &&
 				 (disc.major || disc.minor) &&
-				 st->devid[i] == makedev(disc.major, disc.minor) &&
-				 ((newstate&change)&(1<<MD_DISK_FAULTY))
-				)
+				 st->devid[i] == makedev(disc.major, disc.minor))
 				alert("FailSpare", dev, dv, ainfo);
-			else if (i < array.raid_disks &&
-				 ! (newstate & (1<<MD_DISK_REMOVED)) &&
-				 (((st->devstate[i]&change)&(1<<MD_DISK_FAULTY)) ||
-				  ((newstate&change)&(1<<MD_DISK_ACTIVE)) ||
-				  ((newstate&change)&(1<<MD_DISK_SYNC)))
-				)
+			else if ((newstate&change)&(1<<MD_DISK_SYNC))
 				alert("SpareActive", dev, dv, ainfo);
 		}
 		st->devstate[i] = newstate;

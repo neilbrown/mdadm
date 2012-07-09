@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2010 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -32,37 +32,16 @@ char Version[] = Name " - v3.2.5 - 18th May 2012\n";
  * This file contains general comments about the implementation
  * and the various usage messages that can be displayed by mdadm
  *
- * mdadm is a single program that can be used to control Linux md devices.
- * It is intended to provide all the functionality of the mdtools and
- * raidtools but with a very different interface.
- * mdadm can perform all functions without a configuration file.
- * There is the option of using a configuration file, but not in the same
- * way that raidtools uses one
- * raidtools uses a configuration file to describe how to create a RAID
- * array, and also uses this file partially to start a previously
- * created RAID array.  Further, raidtools requires the configuration
- * file for such things as stopping a raid array which needs to know
- * nothing about the array.
- *
- * The configuration file that can be used by mdadm lists two
- * different things:
- * 1/ a mapping from uuid to md device to identify which arrays are
- *    expect and what names (numbers) they should be given
- * 2/ a list of devices that should be scanned for md sub-devices
- *
- *
  */
 
 /*
  * mdadm has 7 major modes of operation:
  * 1/ Create
  *     This mode is used to create a new array with a superblock
- *     It can progress in several step create-add-add-run
- *     or it can all happen with one command
  * 2/ Assemble
  *     This mode is used to assemble the parts of a previously created
  *     array into an active array.  Components can be explicitly given
- *     or can be searched for.  mdadm (optionally) check that the components
+ *     or can be searched for.  mdadm (optionally) checks that the components
  *     do form a bona-fide array, and can, on request, fiddle superblock
  *     version numbers so as to assemble a faulty array.
  * 3/ Build
@@ -83,7 +62,11 @@ char Version[] = Name " - v3.2.5 - 18th May 2012\n";
  * 7/ Grow
  *     This mode allows for changing of key attributes of a raid array, such
  *     as size, number of devices, and possibly even layout.
- *     At the time if writing, there is only minimal support.
+ * 8/ Incremental
+ *     Is assembles an array incrementally instead of all at once.
+ *     As devices are discovered they can be passed to "mdadm --incremental"
+ *     which will collect them.  When enough devices to for an array are
+ *     found, it is started.
  */
 
 char short_options[]="-ABCDEFGIQhVXYWZ:vqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
@@ -103,7 +86,7 @@ struct option long_options[] = {
     {"follow",    0, 0, 'F'},
     {"grow",      0, 0, 'G'},
     {"incremental",0,0, 'I'},
-    {"zero-superblock", 0, 0, 'K'}, /* deliberately no a short_option */
+    {"zero-superblock", 0, 0, 'K'}, /* deliberately not a short_option */
     {"query",	  0, 0, 'Q'},
     {"examine-bitmap", 0, 0, 'X'},
     {"auto-detect", 0, 0, AutoDetect},
@@ -117,6 +100,7 @@ struct option long_options[] = {
     {"monitor",   0, 0, 'F'},
 
     /* after those will normally come the name of the md device */
+
     {"help",      0, 0, 'h'},
     {"help-options",0,0, HelpOptions},
     {"version",	  0, 0, 'V'},
@@ -281,15 +265,16 @@ char OptionHelp[] =
 "  --bitmap=     -b   : File to store bitmap in - may pre-exist for --build\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,6,linear,mp.  0 or linear for build\n"
+"  --level=      -l   : raid level: 0,1,4,5,6,10,linear, or mp for create.\n"
+"                     :    0,1,10,mp,faulty or linear for build.\n"
 "  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
-"  --layout=          : same as --parity\n"
+"  --layout=          : same as --parity, for RAID10: [fno]NN \n"
 "  --raid-devices= -n : number of active devices in array\n"
-"  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
+"  --spare-devices= -x: number of spare (eXtra) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
-"  --assume-clean     : Assume the array is already in-sync. This is dangerous.\n"
+"  --assume-clean     : Assume the array is already in-sync. This is dangerous for RAID5.\n"
 "  --bitmap-chunk=    : chunksize of bitmap in bitmap file (Kilobytes)\n"
 "  --delay=      -d   : seconds between bitmap updates\n"
 "  --write-behind=    : number of simultaneous write-behind requests to allow (requires bitmap)\n"
@@ -319,8 +304,9 @@ char OptionHelp[] =
 "\n"
 " General management:\n"
 "  --add         -a   : add, or hotadd subsequent devices\n"
+"  --re-add           : re-add a recently removed device\n"
 "  --remove      -r   : remove subsequent devices\n"
-"  --fail        -f   : mark subsequent devices a faulty\n"
+"  --fail        -f   : mark subsequent devices as faulty\n"
 "  --set-faulty       : same as --fail\n"
 "  --run         -R   : start a partially built array\n"
 "  --stop        -S   : deactivate array, releasing all resources\n"
@@ -354,13 +340,14 @@ char Help_create[] =
 "\n"
 " Options that are valid with --create (-C) are:\n"
 "  --bitmap=          : Create a bitmap for the array with the given filename\n"
-"  --chunk=      -c   : chunk size of kibibytes\n"
+"                     : or an internal bitmap is 'internal' is given\n"
+"  --chunk=      -c   : chunk size in kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,6,linear,multipath and synonyms\n"
+"  --level=      -l   : raid level: 0,1,4,5,6,10,linear,multipath and synonyms\n"
 "  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
-"  --layout=          : same as --parity\n"
+"  --layout=          : same as --parity, for RAID10: [fno]NN \n"
 "  --raid-devices= -n : number of active devices in array\n"
-"  --spare-devices= -x: number of spares (eXtras) devices in initial array\n"
+"  --spare-devices= -x: number of spare (eXtra) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
@@ -382,13 +369,13 @@ char Help_build[] =
 " assembling the array, except that hopefully there is useful data\n"
 " there in the second case.\n"
 "\n"
-" The level may only be 0, raid0, or linear.\n"
+" The level may only be 0, 1, 10, linear, multipath, or faulty.\n"
 " All devices must be listed and the array will be started once complete.\n"
 " Options that are valid with --build (-B) are:\n"
 "  --bitmap=          : file to store/find bitmap information in.\n"
 "  --chunk=      -c   : chunk size of kibibytes\n"
 "  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : 0, raid0, or linear\n"
+"  --level=      -l   : 0, 1, 10, linear, multipath, faulty\n"
 "  --raid-devices= -n : number of active devices in array\n"
 "  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
 "  --delay=      -d   : bitmap update delay in seconds.\n"
@@ -404,9 +391,10 @@ char Help_assemble[] =
 "the array, and a number of sub devices. These can be found in a number\n"
 "of ways.\n"
 "\n"
-"The md device is either given on the command line or is found listed\n"
-"in the config file.  The array identity is determined either from the\n"
-"--uuid or --super-minor commandline arguments, from the config file,\n"
+"The md device is given on the command line, is found listed in the\n"
+"config file, or can be deduced from the array identity.\n"
+"The array identity is determined either from the --uuid, --name, or\n"
+"--super-minor commandline arguments, from the config file,\n"
 "or from the first component device on the command line.\n"
 "\n"
 "The different combinations of these are as follows:\n"
@@ -421,6 +409,9 @@ char Help_assemble[] =
 " If the --scan option is given, and no devices are listed, then\n"
 " every array listed in the config file is considered for assembly.\n"
 " The identity of candidate devices are determined from the config file.\n"
+" After these arrays are assembled, mdadm will look for other devices\n"
+" that could form further arrays and tries to assemble them.  This can\n"
+" be disabled using the 'AUTO' option in the config file.\n"
 "\n"
 " If the --scan option is given as well as one or more devices, then\n"
 " Those devices are md devices that are to be assembled.  Their identity\n"
@@ -435,7 +426,7 @@ char Help_assemble[] =
 " is only newly missing devices that cause the array not to be started.\n"
 "\n"
 "Options that are valid with --assemble (-A) are:\n"
-"  --bitmap=          : bitmap file to use wit the array\n"
+"  --bitmap=          : bitmap file to use with the array\n"
 "  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
 "                       have this uuid are excluded\n"
 "  --super-minor= -m  : minor number to look for in super-block when\n"
@@ -457,11 +448,13 @@ char Help_manage[] =
 "This usage is for managing the component devices within an array.\n"
 "The --manage option is not needed and is assumed if the first argument\n"
 "is a device name or a management option.\n"
-"The first device listed will be taken to be an md array device, and\n"
+"The first device listed will be taken to be an md array device, any\n"
 "subsequent devices are (potential) components of that array.\n"
 "\n"
 "Options that are valid with management mode are:\n"
 "  --add         -a   : hotadd subsequent devices to the array\n"
+"  --re-add           : subsequent devices are re-added if there were\n"
+"                     : recent members of the array\n"
 "  --remove      -r   : remove subsequent devices, which must not be active\n"
 "  --fail        -f   : mark subsequent devices a faulty\n"
 "  --set-faulty       : same as --fail\n"
@@ -504,8 +497,8 @@ char Help_monitor[] =
 "all devices listed in the config file are monitored.\n"
 "The address for mailing advisories to, and the program to handle\n"
 "each change can be specified in the config file or on the command line.\n"
-"If no mail address or program are specified, then mdadm reports all\n"
-"state changes to stdout.\n"
+"There must be at least one destination for advisories, whether\n"
+"an email address, a program, or --syslog\n"
 "\n"
 "Options that are valid with the monitor (-F --follow) mode are:\n"
 "  --mail=       -m   : Address to mail alerts of failure to\n"
@@ -527,24 +520,28 @@ char Help_grow[] =
 "\n"
 "This usage causes mdadm to attempt to reconfigure a running array.\n"
 "This is only possibly if the kernel being used supports a particular\n"
-"reconfiguration.  This version supports changing the number of\n"
-"devices in a RAID1/5/6, changing the active size of all devices in\n"
-"a RAID1/4/5/6, adding or removing a write-intent bitmap, and changing\n"
-"the error mode for a 'FAULTY' array.\n"
+"reconfiguration.\n"
 "\n"
 "Options that are valid with the grow (-G --grow) mode are:\n"
-"  --level=       -l   : Tell mdadm what level the array is so that it can\n"
-"                      : interpret '--layout' properly.\n"
+"  --level=       -l   : Tell mdadm what level to convert the array to.\n"
 "  --layout=      -p   : For a FAULTY array, set/change the error mode.\n"
+"                      : for other arrays, update the layout\n"
 "  --size=        -z   : Change the active size of devices in an array.\n"
 "                      : This is useful if all devices have been replaced\n"
 "                      : with larger devices.   Value is in Kilobytes, or\n"
 "                      : the special word 'max' meaning 'as large as possible'.\n"
+"  --assume-clean      : When increasing the --size, this flag will avoid\n"
+"                      : a resync of the new space\n"
+"  --chunk=       -c   : Change the chunksize of the array\n"
 "  --raid-devices= -n  : Change the number of active devices in an array.\n"
+"  --add=         -a   : Add listed devices as part of reshape.  This is\n"
+"                      : needed for resizing a RAID0 which cannot have\n"
+"                      : spares already present.\n"
 "  --bitmap=      -b   : Add or remove a write-intent bitmap.\n"
-"  --backup-file= file : A file on a differt device to store data for a\n"
+"  --backup-file= file : A file on a different device to store data for a\n"
 "                      : short time while increasing raid-devices on a\n"
-"                      : RAID4/5/6 array. Not needed when a spare is present.\n"
+"                      : RAID4/5/6 array. Also needed throughout a reshape\n"
+"                      : when changing parameters other than raid-devices\n"
 "  --array-size=  -Z   : Change visible size of array.  This does not change\n"
 "                      : any data on the device, and is not stable across restarts.\n"
 ;
@@ -568,18 +565,17 @@ char Help_incr[] =
 "                   : partial arrays.\n"
 "  --scan        -s : Use with -R to start any arrays that have the minimal\n"
 "                   : required number of devices, but are not yet started.\n"
-"  --fail      -f  : First fail (if needed) and then remove device from\n"
-"                  : any array that it is a member of.\n"
+"  --fail        -f : First fail (if needed) and then remove device from\n"
+"                   : any array that it is a member of.\n"
 ;
 
 char Help_config[] =
 "The /etc/mdadm.conf config file:\n\n"
 " The config file contains, apart from blank lines and comment lines that\n"
-" start with a hash(#), four sorts of configuration lines: array lines, \n"
-" device lines, mailaddr lines and program lines.\n"
-" Each configuration line is constructed of a number of space separated\n"
-" words, and can be continued on subsequent physical lines by indenting\n"
-" those lines.\n"
+" start with a hash(#), array lines, device lines, and various\n"
+" configuration lines.\n"
+" Each line is constructed of a number of space separated words, and can\n"
+" be continued on subsequent physical lines by indenting those lines.\n"
 "\n"
 " A device line starts with the word 'device' and then has a number of words\n"
 " which identify devices.  These words should be names of devices in the\n"
@@ -596,13 +592,11 @@ char Help_config[] =
 " containing wildcards, preceded by 'devices='. If multiple critea are given,\n"
 " than a device must match all of them to be considered.\n"
 "\n"
-" A mailaddr line starts with the word 'mailaddr' and should contain exactly\n"
-" one Email address.  'mdadm --monitor --scan' will send alerts of failed drives\n"
-" to this Email address."
-"\n"
-" A program line starts with the word 'program' and should contain exactly\n"
-" one program name.  'mdadm --monitor --scan' will run this program when any\n"
-" event is detected.\n"
+" Other configuration lines include:\n"
+"  mailaddr, mailfrom, program     used for --monitor mode\n"
+"  create, auto                    used when creating device names in /dev\n"
+"  homehost, policy, part-policy   used to guide policy in various\n"
+"                                  situations\n"
 "\n"
 ;
 

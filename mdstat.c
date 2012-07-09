@@ -173,13 +173,13 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		else
 			continue;
 		if (ep == NULL || *ep ) {
-			/* fprintf(stderr, Name ": bad /proc/mdstat line starts: %s\n", line); */
+			/* pr_err("bad /proc/mdstat line starts: %s\n", line); */
 			continue;
 		}
 
 		ent = malloc(sizeof(*ent));
 		if (!ent) {
-			fprintf(stderr, Name ": malloc failed reading /proc/mdstat.\n");
+			pr_err("malloc failed reading /proc/mdstat.\n");
 			free_line(line);
 			break;
 		}

@@ -505,7 +505,7 @@ int check_ext2(int fd, char *name)
 	mtime = sb[44]|(sb[45]|(sb[46]|sb[47]<<8)<<8)<<8;
 	bsize = sb[24]|(sb[25]|(sb[26]|sb[27]<<8)<<8)<<8;
 	size = sb[4]|(sb[5]|(sb[6]|sb[7]<<8)<<8)<<8;
-	fprintf(stderr, Name ": %s appears to contain an ext2fs file system\n",
+	pr_err("%s appears to contain an ext2fs file system\n",
 		name);
 	fprintf(stderr,"    size=%dK  mtime=%s",
 		size*(1<<bsize), ctime(&mtime));
@@ -529,7 +529,7 @@ int check_reiser(int fd, char *name)
 	if (strncmp((char*)sb+52, "ReIsErFs",8)!=0 &&
 	    strncmp((char*)sb+52, "ReIsEr2Fs",9)!=0)
 		return 0;
-	fprintf(stderr, Name ": %s appears to contain a reiserfs file system\n",name);
+	pr_err("%s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
 	fprintf(stderr, "    size = %luK\n", size*4);
 
@@ -547,7 +547,7 @@ int check_raid(int fd, char *name)
 	st->ignore_hw_compat = 1;
 	st->ss->load_super(st, fd, name);
 	/* Looks like a raid array .. */
-	fprintf(stderr, Name ": %s appears to be part of a raid array:\n",
+	pr_err("%s appears to be part of a raid array:\n",
 		name);
 	st->ss->getinfo_super(st, &info, NULL);
 	st->ss->free_super(st);
@@ -575,7 +575,7 @@ int ask(char *mesg)
 			return 0;
 		add = "(y/n) ";
 	}
-	fprintf(stderr, Name ": assuming 'no'\n");
+	pr_err("assuming 'no'\n");
 	return 0;
 }
 #endif /* MDASSEMBLE */
@@ -1106,7 +1106,7 @@ int get_dev_size(int fd, char *dname, unsigned long long *sizep)
 			ldsize <<= 9;
 		} else {
 			if (dname)
-				fprintf(stderr, Name ": Cannot get size of %s: %s\b",
+				pr_err("Cannot get size of %s: %s\b",
 					dname, strerror(errno));
 			return 0;
 		}
@@ -1248,22 +1248,19 @@ int check_partitions(int fd, char *dname, unsigned long long freesize,
 		/* There appears to be a partition table here */
 		if (freesize == 0) {
 			/* partitions will not be visible in new device */
-			fprintf(stderr,
-				Name ": partition table exists on %s but will be lost or\n"
-				"       meaningless after creating array\n",
-				dname);
+			pr_err("partition table exists on %s but will be lost or\n"
+			       "       meaningless after creating array\n",
+			       dname);
 			return 1;
 		} else if (endofpart > freesize) {
 			/* last partition overlaps metadata */
-			fprintf(stderr,
-				Name ": metadata will over-write last partition on %s.\n",
-				dname);
+			pr_err("metadata will over-write last partition on %s.\n",
+			       dname);
 			return 1;
 		} else if (size && endofpart > size) {
 			/* partitions will be truncated in new device */
-			fprintf(stderr,
-				Name ": array size is too small to cover all partitions on %s.\n",
-				dname);
+			pr_err("array size is too small to cover all partitions on %s.\n",
+			       dname);
 			return 1;
 		}
 	}
@@ -1389,7 +1386,7 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
 		if (!quiet)
-			fprintf(stderr, Name ": Couldn't open %s, aborting\n",
+			pr_err("Couldn't open %s, aborting\n",
 				dev);
 		return -1;
 	}
@@ -1397,51 +1394,49 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 	st->devnum = fd2devnum(fd);
 	if (st->devnum == NoMdDev) {
 		if (!quiet)
-			fprintf(stderr,
-				Name ": Failed to determine device number for %s\n",
-				dev);
+			pr_err("Failed to determine device number for %s\n",
+			       dev);
 		goto close_fd;
 	}
 
 	mdi = sysfs_read(fd, st->devnum, GET_VERSION|GET_LEVEL);
 	if (!mdi) {
 		if (!quiet)
-			fprintf(stderr, Name ": Failed to read sysfs for %s\n",
+			pr_err("Failed to read sysfs for %s\n",
 				dev);
 		goto close_fd;
 	}
 
 	if (mdi->array.level != UnSet) {
 		if (!quiet)
-			fprintf(stderr, Name ": %s is not a container\n", dev);
+			pr_err("%s is not a container\n", dev);
 		goto free_sysfs;
 	}
 
 	st->ss = version_to_superswitch(mdi->text_version);
 	if (!st->ss) {
 		if (!quiet)
-			fprintf(stderr,
-				Name ": Operation not supported for %s metadata\n",
-				mdi->text_version);
+			pr_err("Operation not supported for %s metadata\n",
+			       mdi->text_version);
 		goto free_sysfs;
 	}
 
 	st->devname = devnum2devname(st->devnum);
 	if (!st->devname) {
 		if (!quiet)
-			fprintf(stderr, Name ": Failed to allocate device name\n");
+			pr_err("Failed to allocate device name\n");
 		goto free_sysfs;
 	}
 
 	if (!st->ss->load_container) {
 		if (!quiet)
-			fprintf(stderr, Name ": %s is not a container\n", dev);
+			pr_err("%s is not a container\n", dev);
 		goto free_name;
 	}
 
 	if (st->ss->load_container(st, fd, NULL)) {
 		if (!quiet)
-			fprintf(stderr, Name ": Failed to load metadata for %s\n",
+			pr_err("Failed to load metadata for %s\n",
 				dev);
 		goto free_name;
 	}
@@ -1449,7 +1444,7 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 	info = st->ss->container_content(st, subarray);
 	if (!info) {
 		if (!quiet)
-			fprintf(stderr, Name ": Failed to find subarray-%s in %s\n",
+			pr_err("Failed to find subarray-%s in %s\n",
 				subarray, dev);
 		goto free_super;
 	}
@@ -1645,7 +1640,7 @@ int start_mdmon(int devnum)
 				}
 			}
 		exit(1);
-	case -1: fprintf(stderr, Name ": cannot run mdmon. "
+	case -1: pr_err("cannot run mdmon. "
 			 "Array remains readonly\n");
 		return -1;
 	default: /* parent - good */
@@ -1731,7 +1726,7 @@ int experimental(void)
 	if (check_env("MDADM_EXPERIMENTAL"))
 		return 1;
 	else {
-		fprintf(stderr, Name ": To use this feature MDADM_EXPERIMENTAL"
+		pr_err("To use this feature MDADM_EXPERIMENTAL"
 				" environment variable has to be defined.\n");
 		return 0;
 	}

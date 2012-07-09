@@ -66,19 +66,19 @@ int Build(char *mddev, int chunk, int level, int layout,
 			continue;
 		}
 		if (stat(dv->devname, &stb)) {
-			fprintf(stderr, Name ": Cannot find %s: %s\n",
+			pr_err("Cannot find %s: %s\n",
 				dv->devname, strerror(errno));
 			return 1;
 		}
 		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			fprintf(stderr, Name ": %s is not a block device.\n",
+			pr_err("%s is not a block device.\n",
 				dv->devname);
 			return 1;
 		}
 	}
 
 	if (raiddisks != subdevs) {
-		fprintf(stderr, Name ": requested %d devices in array but listed %d\n",
+		pr_err("requested %d devices in array but listed %d\n",
 			raiddisks, subdevs);
 		return 1;
 	}
@@ -91,22 +91,19 @@ int Build(char *mddev, int chunk, int level, int layout,
 		case 10:
 			layout = 0x102; /* near=2, far=1 */
 			if (verbose > 0)
-				fprintf(stderr,
-					Name ": layout defaults to n1\n");
+				pr_err("layout defaults to n1\n");
 			break;
 		case 5:
 		case 6:
 			layout = map_name(r5layout, "default");
 			if (verbose > 0)
-				fprintf(stderr,
-					Name ": layout defaults to %s\n", map_num(r5layout, layout));
+				pr_err("layout defaults to %s\n", map_num(r5layout, layout));
 			break;
 		case LEVEL_FAULTY:
 			layout = map_name(faultylayout, "default");
 
 			if (verbose > 0)
-				fprintf(stderr,
-					Name ": layout defaults to %s\n", map_num(faultylayout, layout));
+				pr_err("layout defaults to %s\n", map_num(faultylayout, layout));
 			break;
 		}
 
@@ -148,17 +145,17 @@ int Build(char *mddev, int chunk, int level, int layout,
 		array.chunk_size = chunk*1024;
 		array.layout = layout;
 		if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
-			fprintf(stderr, Name ": SET_ARRAY_INFO failed for %s: %s\n",
+			pr_err("SET_ARRAY_INFO failed for %s: %s\n",
 				mddev, strerror(errno));
 			goto abort;
 		}
 	} else if (bitmap_file) {
-		fprintf(stderr, Name ": bitmaps not supported with this kernel\n");
+		pr_err("bitmaps not supported with this kernel\n");
 		goto abort;
 	}
 
 	if (bitmap_file && level <= 0) {
-		fprintf(stderr, Name ": bitmaps not meaningful with level %s\n",
+		pr_err("bitmaps not meaningful with level %s\n",
 			map_num(pers, level)?:"given");
 		goto abort;
 	}
@@ -169,18 +166,18 @@ int Build(char *mddev, int chunk, int level, int layout,
 		if (strcmp("missing", dv->devname) == 0)
 			continue;
 		if (stat(dv->devname, &stb)) {
-			fprintf(stderr, Name ": Weird: %s has disappeared.\n",
+			pr_err("Weird: %s has disappeared.\n",
 				dv->devname);
 			goto abort;
 		}
 		if ((stb.st_mode & S_IFMT)!= S_IFBLK) {
-			fprintf(stderr, Name ": Wierd: %s is no longer a block device.\n",
+			pr_err("Wierd: %s is no longer a block device.\n",
 				dv->devname);
 			goto abort;
 		}
 		fd = open(dv->devname, O_RDONLY|O_EXCL);
 		if (fd < 0) {
-			fprintf(stderr, Name ": Cannot open %s: %s\n",
+			pr_err("Cannot open %s: %s\n",
 				dv->devname, strerror(errno));
 			goto abort;
 		}
@@ -198,13 +195,13 @@ int Build(char *mddev, int chunk, int level, int layout,
 			disk.major = major(stb.st_rdev);
 			disk.minor = minor(stb.st_rdev);
 			if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
-				fprintf(stderr, Name ": ADD_NEW_DISK failed for %s: %s\n",
+				pr_err("ADD_NEW_DISK failed for %s: %s\n",
 					dv->devname, strerror(errno));
 				goto abort;
 			}
 		} else {
 			if (ioctl(mdfd, REGISTER_DEV, &stb.st_rdev)) {
-				fprintf(stderr, Name ": REGISTER_DEV failed for %s: %s.\n",
+				pr_err("REGISTER_DEV failed for %s: %s.\n",
 					dv->devname, strerror(errno));
 				goto abort;
 			}
@@ -219,7 +216,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 				int major = BITMAP_MAJOR_HI;
 #if 0
 				if (bitmap_chunk == UnSet) {
-					fprintf(stderr, Name ": %s cannot be openned.",
+					pr_err("%s cannot be openned.",
 						bitmap_file);
 					goto abort;
 				}
@@ -227,7 +224,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 				if (vers < 9003) {
 					major = BITMAP_MAJOR_HOSTENDIAN;
 #ifdef __BIG_ENDIAN
-					fprintf(stderr, Name ": Warning - bitmaps created on this kernel are not portable\n"
+					pr_err("Warning - bitmaps created on this kernel are not portable\n"
 						"  between different architectures.  Consider upgrading the Linux kernel.\n");
 #endif
 				}
@@ -238,25 +235,25 @@ int Build(char *mddev, int chunk, int level, int layout,
 				}
 				bitmap_fd = open(bitmap_file, O_RDWR);
 				if (bitmap_fd < 0) {
-					fprintf(stderr, Name ": %s cannot be openned.",
+					pr_err("%s cannot be openned.",
 						bitmap_file);
 					goto abort;
 				}
 			}
 			if (bitmap_fd >= 0) {
 				if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {
-					fprintf(stderr, Name ": Cannot set bitmap file for %s: %s\n",
+					pr_err("Cannot set bitmap file for %s: %s\n",
 						mddev, strerror(errno));
 					goto abort;
 				}
 			}
 		}
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
-			fprintf(stderr, Name ": RUN_ARRAY failed: %s\n",
+			pr_err("RUN_ARRAY failed: %s\n",
 				strerror(errno));
 			if (chunk & (chunk-1)) {
-				fprintf(stderr, "     : Problem may be that chunk size"
-					" is not a power of 2\n");
+				cont_err("Problem may be that chunk size"
+					 " is not a power of 2\n");
 			}
 			goto abort;
 		}
@@ -271,13 +268,13 @@ int Build(char *mddev, int chunk, int level, int layout,
 			chunk |= 0x20000;
 		else 	chunk |= 0x10000;
 		if (ioctl(mdfd, START_MD, arg)) {
-			fprintf(stderr, Name ": START_MD failed: %s\n",
+			pr_err("START_MD failed: %s\n",
 				strerror(errno));
 			goto abort;
 		}
 	}
 	if (verbose >= 0)
-		fprintf(stderr, Name ": array %s built and started.\n",
+		pr_err("array %s built and started.\n",
 			mddev);
 	wait_for(mddev, mdfd);
 	close(mdfd);

@@ -128,7 +128,7 @@ int Monitor(struct mddev_dev *devlist,
 	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr();
 		if (mailaddr && ! scan)
-			fprintf(stderr, Name ": Monitor using email address \"%s\" from config file\n",
+			pr_err("Monitor using email address \"%s\" from config file\n",
 			       mailaddr);
 	}
 	mailfrom = conf_get_mailfrom();
@@ -136,11 +136,11 @@ int Monitor(struct mddev_dev *devlist,
 	if (!alert_cmd) {
 		alert_cmd = conf_get_program();
 		if (alert_cmd && ! scan)
-			fprintf(stderr, Name ": Monitor using program \"%s\" from config file\n",
+			pr_err("Monitor using program \"%s\" from config file\n",
 			       alert_cmd);
 	}
 	if (scan && !mailaddr && !alert_cmd && !dosyslog) {
-		fprintf(stderr, Name ": No mail address or alert command - not monitoring.\n");
+		pr_err("No mail address or alert command - not monitoring.\n");
 		return 1;
 	}
 	info.alert_cmd = alert_cmd;
@@ -301,13 +301,13 @@ static int check_one_sharer(int scan)
 		rv = stat(dir, &buf);
 		if (rv != -1) {
 			if (scan) {
-				fprintf(stderr, Name ": Only one "
+				pr_err("Only one "
 					"autorebuild process allowed"
 					" in scan mode, aborting\n");
 				fclose(fp);
 				return 1;
 			} else {
-				fprintf(stderr, Name ": Warning: One"
+				pr_err("Warning: One"
 					" autorebuild process already"
 					" running.\n");
 			}
@@ -317,12 +317,12 @@ static int check_one_sharer(int scan)
 	if (scan) {
 		if (mkdir(MDMON_DIR, S_IRWXU) < 0 &&
 		    errno != EEXIST) {
-			fprintf(stderr, Name ": Can't create "
+			pr_err("Can't create "
 				"autorebuild.pid file\n");
 		} else {
 			fp = fopen(path, "w");
 			if (!fp)
-				fprintf(stderr, Name ": Cannot create"
+				pr_err("Cannot create"
 					" autorebuild.pid"
 					"file\n");
 			else {
@@ -962,7 +962,7 @@ int Wait(char *dev)
 	int rv = 1;
 
 	if (stat(dev, &stb) != 0) {
-		fprintf(stderr, Name ": Cannot find %s: %s\n", dev,
+		pr_err("Cannot find %s: %s\n", dev,
 			strerror(errno));
 		return 2;
 	}
@@ -1008,7 +1008,7 @@ int WaitClean(char *dev, int sock, int verbose)
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": Couldn't open %s: %s\n", dev, strerror(errno));
+			pr_err("Couldn't open %s: %s\n", dev, strerror(errno));
 		return 1;
 	}
 
@@ -1016,8 +1016,8 @@ int WaitClean(char *dev, int sock, int verbose)
 	mdi = sysfs_read(fd, devnum, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
 	if (!mdi) {
 		if (verbose)
-			fprintf(stderr, Name ": Failed to read sysfs attributes for "
-				"%s\n", dev);
+			pr_err("Failed to read sysfs attributes for "
+			       "%s\n", dev);
 		close(fd);
 		return 0;
 	}
@@ -1080,7 +1080,7 @@ int WaitClean(char *dev, int sock, int verbose)
 		} else
 			rv = 1;
 		if (rv && verbose)
-			fprintf(stderr, Name ": Error waiting for %s to be clean\n",
+			pr_err("Error waiting for %s to be clean\n",
 				dev);
 
 		/* restore the original safe_mode_delay */

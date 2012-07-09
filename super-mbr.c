@@ -81,7 +81,7 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
 	free_mbr(st);
 
 	if (posix_memalign((void**)&super, 512, 512) != 0) {
-		fprintf(stderr, Name ": %s could not allocate superblock\n",
+		pr_err("%s could not allocate superblock\n",
 			__func__);
 		return 1;
 	}
@@ -91,7 +91,7 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
 	lseek(fd, 0, 0);
 	if (read(fd, super, sizeof(*super)) != sizeof(*super)) {
 		if (devname)
-			fprintf(stderr, Name ": Cannot read partition table on %s\n",
+			pr_err("Cannot read partition table on %s\n",
 				devname);
 		free(super);
 		return 1;
@@ -99,7 +99,7 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
  
 	if (super->magic != MBR_SIGNATURE_MAGIC) {
 		if (devname)
-			fprintf(stderr, Name ": No partition table found on %s\n",
+			pr_err("No partition table found on %s\n",
 				devname);
 		free(super);
 		return 1;
@@ -121,7 +121,7 @@ static int store_mbr(struct supertype *st, int fd)
 	struct MBR *old, *super;
 
 	if (posix_memalign((void**)&old, 512, 512) != 0) {
-		fprintf(stderr, Name ": %s could not allocate superblock\n",
+		pr_err("%s could not allocate superblock\n",
 			__func__);
 		return 1;
 	}
@@ -192,7 +192,7 @@ static int validate_geometry(struct supertype *st, int level,
 			     char *subdev, unsigned long long *freesize,
 			     int verbose)
 {
-	fprintf(stderr, Name ": mbr metadata cannot be used this way\n");
+	pr_err("mbr metadata cannot be used this way\n");
 	return 0;
 }
 #endif

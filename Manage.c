@@ -47,7 +47,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 	int rv = 0;
 
 	if (md_get_version(fd) < 9000) {
-		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
+		pr_err("need md driver version 0.90.0 or later\n");
 		return 1;
 	}
 #ifndef MDASSEMBLE
@@ -71,7 +71,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 			rv = sysfs_set_str(mdi, NULL, "array_state", "readonly");
 
 			if (rv < 0) {
-				fprintf(stderr, Name ": failed to set readonly for %s: %s\n",
+				pr_err("failed to set readonly for %s: %s\n",
 					devname, strerror(errno));
 
 				vers[9] = mdi->text_version[0];
@@ -96,7 +96,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 	}
 #endif
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
-		fprintf(stderr, Name ": %s does not appear to be active.\n",
+		pr_err("%s does not appear to be active.\n",
 			devname);
 		rv = 1;
 		goto out;
@@ -104,14 +104,14 @@ int Manage_ro(char *devname, int fd, int readonly)
 
 	if (readonly>0) {
 		if (ioctl(fd, STOP_ARRAY_RO, NULL)) {
-			fprintf(stderr, Name ": failed to set readonly for %s: %s\n",
+			pr_err("failed to set readonly for %s: %s\n",
 				devname, strerror(errno));
 			rv = 1;
 			goto out;
 		}
 	} else if (readonly < 0) {
 		if (ioctl(fd, RESTART_ARRAY_RW, NULL)) {
-			fprintf(stderr, Name ": failed to set writable for %s: %s\n",
+			pr_err("failed to set writable for %s: %s\n",
 				devname, strerror(errno));
 			rv = 1;
 			goto out;
@@ -187,33 +187,32 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 
 	if (runstop == -1 && md_get_version(fd) < 9000) {
 		if (ioctl(fd, STOP_MD, 0)) {
-			if (quiet == 0) fprintf(stderr,
-						Name ": stopping device %s "
-						"failed: %s\n",
-						devname, strerror(errno));
+			pr_err("stopping device %s "
+			       "failed: %s\n",
+			       devname, strerror(errno));
 			return 1;
 		}
 	}
 
 	if (md_get_version(fd) < 9000) {
-		fprintf(stderr, Name ": need md driver version 0.90.0 or later\n");
+		pr_err("need md driver version 0.90.0 or later\n");
 		return 1;
 	}
 	/*
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
-		fprintf(stderr, Name ": %s does not appear to be active.\n",
+		pr_err("%s does not appear to be active.\n",
 			devname);
 		return 1;
 	}
 	*/
 	if (runstop>0) {
 		if (ioctl(fd, RUN_ARRAY, &param)) {
-			fprintf(stderr, Name ": failed to run array %s: %s\n",
+			pr_err("failed to run array %s: %s\n",
 				devname, strerror(errno));
 			return 1;
 		}
 		if (quiet <= 0)
-			fprintf(stderr, Name ": started %s\n", devname);
+			pr_err("started %s\n", devname);
 	} else if (runstop < 0){
 		struct map_ent *map = NULL;
 		struct stat stb;
@@ -233,12 +232,11 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		if (fd < 0 || fd2devnum(fd) != devnum) {
 			if (fd >= 0)
 				close(fd);
-			fprintf(stderr,
-				Name ": Cannot get exclusive access to %s:"
-				"Perhaps a running "
-				"process, mounted filesystem "
-				"or active volume group?\n",
-				devname);
+			pr_err("Cannot get exclusive access to %s:"
+			       "Perhaps a running "
+			       "process, mounted filesystem "
+			       "or active volume group?\n",
+			       devname);
 			return 1;
 		}
 		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
@@ -259,9 +257,8 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				count--;
 			}
 			if (err && !quiet) {
-				fprintf(stderr, Name
-					": failed to stop array %s: %s\n",
-					devname, strerror(errno));
+				pr_err("failed to stop array %s: %s\n",
+				       devname, strerror(errno));
 				rv = 1;
 				goto out;
 			}
@@ -271,10 +268,9 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 
 			fd = open_dev_excl(devnum);
 			if (fd < 0) {
-				fprintf(stderr, Name
-					": failed to completely stop %s"
-					": Device is busy\n",
-					devname);
+				pr_err("failed to completely stop %s"
+				       ": Device is busy\n",
+				       devname);
 				rv = 1;
 				goto out;
 			}
@@ -299,10 +295,9 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				    is_subarray(m->metadata_version+9) &&
 				    devname2devnum(m->metadata_version+10) == devnum) {
 					if (!quiet)
-						fprintf(stderr, Name
-							": Cannot stop container %s: "
-							"member %s still active\n",
-							devname, m->dev);
+						pr_err("Cannot stop container %s: "
+						       "member %s still active\n",
+						       devname, m->dev);
 					free_mdstat(mds);
 					rv = 1;
 					goto out;
@@ -322,9 +317,8 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		}
 		if (fd >= 0 && err) {
 			if (quiet == 0) {
-				fprintf(stderr, Name
-					": failed to stop array %s: %s\n",
-					devname, strerror(errno));
+				pr_err("failed to stop array %s: %s\n",
+				       devname, strerror(errno));
 				if (errno == EBUSY)
 					fprintf(stderr, "Perhaps a running "
 						"process, mounted filesystem "
@@ -352,7 +346,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 
 
 		if (quiet <= 0)
-			fprintf(stderr, Name ": stopped %s\n", devname);
+			pr_err("stopped %s\n", devname);
 		map_lock(&map);
 		map_remove(&map, devnum);
 		map_unlock(&map);
@@ -367,7 +361,7 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 {
 	mdu_array_info_t info;
 	if (ioctl(fd, GET_ARRAY_INFO, &info) != 0) {
-		fprintf(stderr, Name ": Cannot get array information for %s: %s\n",
+		pr_err("Cannot get array information for %s: %s\n",
 			devname, strerror(errno));
 		return 1;
 	}
@@ -376,7 +370,7 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 	if (raid_disks > 0)
 		info.raid_disks = raid_disks;
 	if (ioctl(fd, SET_ARRAY_INFO, &info) != 0) {
-		fprintf(stderr, Name ": Cannot set device size/shape for %s: %s\n",
+		pr_err("Cannot set device size/shape for %s: %s\n",
 			devname, strerror(errno));
 		return 1;
 	}
@@ -420,7 +414,7 @@ int Manage_subdevs(char *devname, int fd,
 	int frozen = 0;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
-		fprintf(stderr, Name ": cannot get array info for %s\n",
+		pr_err("cannot get array info for %s\n",
 			devname);
 		goto abort;
 	}
@@ -436,7 +430,7 @@ int Manage_subdevs(char *devname, int fd,
 
 	tst = super_by_fd(fd, &subarray);
 	if (!tst) {
-		fprintf(stderr, Name ": unsupport array - version %d.%d\n",
+		pr_err("unsupport array - version %d.%d\n",
 			array.major_version, array.minor_version);
 		goto abort;
 	}
@@ -457,7 +451,7 @@ int Manage_subdevs(char *devname, int fd,
 		    strcmp(dv->devname, "faulty")==0) {
 			int remaining_disks = array.nr_disks;
 			if (dv->disposition != 'r') {
-				fprintf(stderr, Name ": %s only meaningful "
+				pr_err("%s only meaningful "
 					"with -r, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
@@ -490,7 +484,7 @@ int Manage_subdevs(char *devname, int fd,
 		} else if (strcmp(dv->devname, "detached") == 0) {
 			int remaining_disks = array.nr_disks;
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
-				fprintf(stderr, Name ": %s only meaningful "
+				pr_err("%s only meaningful "
 					"with -r of -f, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
@@ -531,14 +525,14 @@ int Manage_subdevs(char *devname, int fd,
 				continue;
 		} else if (strcmp(dv->devname, "missing") == 0) {
 			if (dv->disposition != 'a' || dv->re_add == 0) {
-				fprintf(stderr, Name ": 'missing' only meaningful "
+				pr_err("'missing' only meaningful "
 					"with --re-add\n");
 				goto abort;
 			}
 			if (add_devlist == NULL)
 				add_devlist = conf_get_devs();
 			if (add_devlist == NULL) {
-				fprintf(stderr, Name ": no devices to scan for missing members.");
+				pr_err("no devices to scan for missing members.");
 				continue;
 			}
 			add_dev = add_devlist->devname;
@@ -554,7 +548,7 @@ int Manage_subdevs(char *devname, int fd,
 			int found = 0;
 			char dname[55];
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
-				fprintf(stderr, Name ": %s only meaningful "
+				pr_err("%s only meaningful "
 					"with -r or -f, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
@@ -576,7 +570,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (!found) {
 				sysfd = sysfs_open(fd2devnum(fd), dname, "state");
 				if (sysfd < 0) {
-					fprintf(stderr, Name ": %s does not appear "
+					pr_err("%s does not appear "
 						"to be a component of %s\n",
 						dv->devname, devname);
 					goto abort;
@@ -594,7 +588,7 @@ int Manage_subdevs(char *devname, int fd,
 				;
 			else {
 				if (tfd < 0 || fstat(tfd, &stb) != 0) {
-					fprintf(stderr, Name ": cannot find %s: %s\n",
+					pr_err("cannot find %s: %s\n",
 						dv->devname, strerror(errno));
 					if (tfd >= 0)
 						close(tfd);
@@ -604,7 +598,7 @@ int Manage_subdevs(char *devname, int fd,
 				tfd = -1;
 			}
 			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-				fprintf(stderr, Name ": %s is not a "
+				pr_err("%s is not a "
 					"block device.\n",
 					dv->devname);
 				goto abort;
@@ -612,13 +606,13 @@ int Manage_subdevs(char *devname, int fd,
 		}
 		switch(dv->disposition){
 		default:
-			fprintf(stderr, Name ": internal error - devmode[%s]=%d\n",
+			pr_err("internal error - devmode[%s]=%d\n",
 				dv->devname, dv->disposition);
 			goto abort;
 		case 'a':
 			/* add the device */
 			if (subarray) {
-				fprintf(stderr, Name ": Cannot add disks to a"
+				pr_err("Cannot add disks to a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
 				goto abort;
@@ -628,7 +622,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (tfd < 0 && add_dev != dv->devname)
 				continue;
 			if (tfd < 0) {
-				fprintf(stderr, Name ": Cannot open %s: %s\n",
+				pr_err("Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
 				goto abort;
 			}
@@ -662,22 +656,20 @@ int Manage_subdevs(char *devname, int fd,
 				    array.raid_disks, NULL,
 				    ldsize >> 9, NULL, NULL, 0) == 0) {
 				if (!force) {
-					fprintf(stderr, Name
-						": %s is larger than %s can "
-						"effectively use.\n"
-						"       Add --force is you "
-						"really want to add this device.\n",
-						add_dev, devname);
+					pr_err("%s is larger than %s can "
+					       "effectively use.\n"
+					       "       Add --force is you "
+					       "really want to add this device.\n",
+					       add_dev, devname);
 					st->ss->free_super(st);
 					close(tfd);
 					goto abort;
 				}
-				fprintf(stderr, Name
-					": %s is larger than %s can "
-					"effectively use.\n"
-					"       Adding anyway as --force "
-					"was given.\n",
-					add_dev, devname);
+				pr_err("%s is larger than %s can "
+				       "effectively use.\n"
+				       "       Adding anyway as --force "
+				       "was given.\n",
+				       add_dev, devname);
 			}
 			if (!tst->ss->external &&
 			    array.major_version == 0 &&
@@ -688,12 +680,12 @@ int Manage_subdevs(char *devname, int fd,
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
 					if (verbose >= 0)
-						fprintf(stderr, Name ": hot added %s\n",
+						pr_err("hot added %s\n",
 							add_dev);
 					continue;
 				}
 
-				fprintf(stderr, Name ": hot add failed for %s: %s\n",
+				pr_err("hot add failed for %s: %s\n",
 					add_dev, strerror(errno));
 				goto abort;
 			}
@@ -741,7 +733,7 @@ int Manage_subdevs(char *devname, int fd,
 				} else if (!tst->sb) {
 					close(tfd);
 					st->ss->free_super(st);
-					fprintf(stderr, Name ": cannot load array metadata from %s\n", devname);
+					pr_err("cannot load array metadata from %s\n", devname);
 					goto abort;
 				}
 
@@ -753,7 +745,7 @@ int Manage_subdevs(char *devname, int fd,
 					st->ss->free_super(st);
 					if (add_dev != dv->devname)
 						continue;
-					fprintf(stderr, Name ": %s not large enough to join array\n",
+					pr_err("%s not large enough to join array\n",
 						dv->devname);
 					goto abort;
 				}
@@ -805,7 +797,7 @@ int Manage_subdevs(char *devname, int fd,
 							int rv = -1;
 							tfd = dev_open(dv->devname, O_RDWR);
 							if (tfd < 0) {
-								fprintf(stderr, Name ": failed to open %s for"
+								pr_err("failed to open %s for"
 									" superblock update during re-add\n", dv->devname);
 								st->ss->free_super(st);
 								goto abort;
@@ -828,8 +820,8 @@ int Manage_subdevs(char *devname, int fd,
 							close(tfd);
 							tfd = -1;
 							if (rv != 0) {
-								fprintf(stderr, Name ": failed to update"
-									" superblock during re-add\n");
+								pr_err("failed to update"
+								       " superblock during re-add\n");
 								st->ss->free_super(st);
 								goto abort;
 							}
@@ -838,13 +830,13 @@ int Manage_subdevs(char *devname, int fd,
 						errno = 0;
 						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
-								fprintf(stderr, Name ": re-added %s\n", add_dev);
+								pr_err("re-added %s\n", add_dev);
 							count++;
 							st->ss->free_super(st);
 							continue;
 						}
 						if (errno == ENOMEM || errno == EROFS) {
-							fprintf(stderr, Name ": add new device failed for %s: %s\n",
+							pr_err("add new device failed for %s: %s\n",
 								add_dev, strerror(errno));
 							st->ss->free_super(st);
 							if (add_dev != dv->devname)
@@ -857,9 +849,8 @@ int Manage_subdevs(char *devname, int fd,
 				}
 				if (add_dev != dv->devname) {
 					if (verbose > 0)
-						fprintf(stderr, Name
-							": --re-add for %s to %s is not possible\n",
-							add_dev, devname);
+						pr_err("--re-add for %s to %s is not possible\n",
+						       add_dev, devname);
 					if (tfd >= 0) {
 						close(tfd);
 						tfd = -1;
@@ -869,9 +860,8 @@ int Manage_subdevs(char *devname, int fd,
 				if (dv->re_add) {
 					if (tfd >= 0)
 						close(tfd);
-					fprintf(stderr, Name
-						": --re-add for %s to %s is not possible\n",
-						dv->devname, devname);
+					pr_err("--re-add for %s to %s is not possible\n",
+					       dv->devname, devname);
 					goto abort;
 				}
 				if (array.active_disks < array.raid_disks) {
@@ -895,9 +885,9 @@ int Manage_subdevs(char *devname, int fd,
 				} else
 					array_failed = 0;
 				if (array_failed) {
-					fprintf(stderr, Name ": %s has failed so using --add cannot work and might destroy\n",
+					pr_err("%s has failed so using --add cannot work and might destroy\n",
 						devname);
-					fprintf(stderr, Name ": data on %s.  You should stop the array and re-assemble it.\n",
+					pr_err("data on %s.  You should stop the array and re-assemble it.\n",
 						dv->devname);
 					if (tfd >= 0)
 						close(tfd);
@@ -908,7 +898,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * is at least array.size big.
 				 */
 				if (ldsize/512 < array_size) {
-					fprintf(stderr, Name ": %s not large enough to join array\n",
+					pr_err("%s not large enough to join array\n",
 						dv->devname);
 					if (tfd >= 0)
 						close(tfd);
@@ -996,9 +986,9 @@ int Manage_subdevs(char *devname, int fd,
 
 				container_fd = open_dev_excl(devnum);
 				if (container_fd < 0) {
-					fprintf(stderr, Name ": add failed for %s:"
-						" could not get exclusive access to container\n",
-						dv->devname);
+					pr_err("add failed for %s:"
+					       " could not get exclusive access to container\n",
+					       dv->devname);
 					tst->ss->free_super(tst);
 					goto abort;
 				}
@@ -1019,7 +1009,7 @@ int Manage_subdevs(char *devname, int fd,
 
 				sra = sysfs_read(container_fd, -1, 0);
 				if (!sra) {
-					fprintf(stderr, Name ": add failed for %s: sysfs_read failed\n",
+					pr_err("add failed for %s: sysfs_read failed\n",
 						dv->devname);
 					close(container_fd);
 					tst->ss->free_super(tst);
@@ -1035,7 +1025,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * would block add_disk */
 				tst->ss->free_super(tst);
 				if (sysfs_add_disk(sra, &new_mdi, 0) != 0) {
-					fprintf(stderr, Name ": add new device to external metadata"
+					pr_err("add new device to external metadata"
 						" failed for %s\n", dv->devname);
 					close(container_fd);
 					sysfs_free(sra);
@@ -1047,19 +1037,19 @@ int Manage_subdevs(char *devname, int fd,
 			} else {
 				tst->ss->free_super(tst);
 				if (ioctl(fd, ADD_NEW_DISK, &disc)) {
-					fprintf(stderr, Name ": add new device failed for %s as %d: %s\n",
+					pr_err("add new device failed for %s as %d: %s\n",
 						dv->devname, j, strerror(errno));
 					goto abort;
 				}
 			}
 			if (verbose >= 0)
-				fprintf(stderr, Name ": added %s\n", dv->devname);
+				pr_err("added %s\n", dv->devname);
 			break;
 
 		case 'r':
 			/* hot remove */
 			if (subarray) {
-				fprintf(stderr, Name ": Cannot remove disks from a"
+				pr_err("Cannot remove disks from a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
 				if (sysfd >= 0)
@@ -1079,9 +1069,8 @@ int Manage_subdevs(char *devname, int fd,
 				int dnum = fd2devnum(fd);
 				lfd = open_dev_excl(dnum);
 				if (lfd < 0) {
-					fprintf(stderr, Name
-						": Cannot get exclusive access "
-						" to container - odd\n");
+					pr_err("Cannot get exclusive access "
+					       " to container - odd\n");
 					if (sysfd >= 0)
 						close(sysfd);
 					goto abort;
@@ -1095,11 +1084,10 @@ int Manage_subdevs(char *devname, int fd,
 				    sysfs_unique_holder(dnum, stb.st_rdev))
 					/* pass */;
 				else {
-					fprintf(stderr, Name
-						": %s is %s, cannot remove.\n",
-						dnprintable,
-						errno == EEXIST ? "still in use":
-						"not a member");
+					pr_err("%s is %s, cannot remove.\n",
+					       dnprintable,
+					       errno == EEXIST ? "still in use":
+					       "not a member");
 					close(lfd);
 					goto abort;
 				}
@@ -1139,9 +1127,9 @@ int Manage_subdevs(char *devname, int fd,
 				}
 			}
 			if (err) {
-				fprintf(stderr, Name ": hot remove failed "
-					"for %s: %s\n",	dnprintable,
-					strerror(errno));
+				pr_err("hot remove failed "
+				       "for %s: %s\n",	dnprintable,
+				       strerror(errno));
 				if (lfd >= 0)
 					close(lfd);
 				goto abort;
@@ -1156,7 +1144,7 @@ int Manage_subdevs(char *devname, int fd,
 				char *name = devnum2devname(fd2devnum(fd));
 
 				if (!name) {
-					fprintf(stderr, Name ": unable to get container name\n");
+					pr_err("unable to get container name\n");
 					goto abort;
 				}
 
@@ -1167,7 +1155,7 @@ int Manage_subdevs(char *devname, int fd,
 				close(lfd);
 			count++;
 			if (verbose >= 0)
-				fprintf(stderr, Name ": hot removed %s from %s\n",
+				pr_err("hot removed %s from %s\n",
 					dnprintable, devname);
 			break;
 
@@ -1176,7 +1164,7 @@ int Manage_subdevs(char *devname, int fd,
 			if ((sysfd >= 0 && write(sysfd, "faulty", 6) != 6) ||
 			    (sysfd < 0 && ioctl(fd, SET_DISK_FAULTY,
 						(unsigned long) stb.st_rdev))) {
-				fprintf(stderr, Name ": set device faulty failed for %s:  %s\n",
+				pr_err("set device faulty failed for %s:  %s\n",
 					dnprintable, strerror(errno));
 				if (sysfd >= 0)
 					close(sysfd);
@@ -1187,7 +1175,7 @@ int Manage_subdevs(char *devname, int fd,
 			sysfd = -1;
 			count++;
 			if (verbose >= 0)
-				fprintf(stderr, Name ": set %s faulty in %s\n",
+				pr_err("set %s faulty in %s\n",
 					dnprintable, devname);
 			break;
 		}
@@ -1230,9 +1218,8 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 
 	if (!st->ss->update_subarray) {
 		if (!quiet)
-			fprintf(stderr,
-				Name ": Operation not supported for %s metadata\n",
-				st->ss->name);
+			pr_err("Operation not supported for %s metadata\n",
+			       st->ss->name);
 		goto free_super;
 	}
 
@@ -1243,7 +1230,7 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 
 	if (rv) {
 		if (!quiet)
-			fprintf(stderr, Name ": Failed to update %s of subarray-%s in %s\n",
+			pr_err("Failed to update %s of subarray-%s in %s\n",
 				update, subarray, dev);
 	} else if (st->update_tail)
 		flush_metadata_updates(st);
@@ -1251,9 +1238,8 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 		st->ss->sync_metadata(st);
 
 	if (rv == 0 && strcmp(update, "name") == 0 && !quiet)
-		fprintf(stderr,
-			Name ": Updated subarray-%s name from %s, UUIDs may have changed\n",
-			subarray, dev);
+		pr_err("Updated subarray-%s name from %s, UUIDs may have changed\n",
+		       subarray, dev);
 
  free_super:
 	st->ss->free_super(st);

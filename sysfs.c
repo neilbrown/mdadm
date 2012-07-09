@@ -580,7 +580,7 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		if ((vers % 100) < 2 ||
 		    sysfs_set_str(info, NULL, "metadata_version",
 				  ver) < 0) {
-			fprintf(stderr, Name ": This kernel does not "
+			pr_err("This kernel does not "
 				"support external metadata.\n");
 			return 1;
 		}
@@ -601,7 +601,7 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		rc = sysfs_set_num(info, NULL, "array_size",
 				   info->custom_array_size/2);
 		if (rc && errno == ENOENT) {
-			fprintf(stderr, Name ": This kernel does not "
+			pr_err("This kernel does not "
 				"have the md/array_size attribute, "
 				"the array may be larger than expected\n");
 			rc = 0;

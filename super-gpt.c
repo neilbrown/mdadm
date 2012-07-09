@@ -77,7 +77,7 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 	free_gpt(st);
 
 	if (posix_memalign((void**)&super, 4096, 32*512) != 0) {
-		fprintf(stderr, Name ": %s could not allocate superblock\n",
+		pr_err("%s could not allocate superblock\n",
 			__func__);
 		return 1;
 	}
@@ -88,7 +88,7 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 	if (read(fd, super, sizeof(*super)) != sizeof(*super)) {
 	no_read:
 		if (devname)
-			fprintf(stderr, Name ": Cannot read partition table on %s\n",
+			pr_err("Cannot read partition table on %s\n",
 				devname);
 		free(super);
 		return 1;
@@ -98,7 +98,7 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 	    super->parts[0].part_type != MBR_GPT_PARTITION_TYPE) {
 	not_found:
 		if (devname)
-			fprintf(stderr, Name ": No partition table found on %s\n",
+			pr_err("No partition table found on %s\n",
 				devname);
 		free(super);
 		return 1;
@@ -199,7 +199,7 @@ static int validate_geometry(struct supertype *st, int level,
 			     char *subdev, unsigned long long *freesize,
 			     int verbose)
 {
-	fprintf(stderr, Name ": gpt metadata cannot be used this way\n");
+	pr_err("gpt metadata cannot be used this way\n");
 	return 0;
 }
 #endif

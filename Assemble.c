@@ -81,36 +81,34 @@ static int ident_matches(struct mddev_ident *ident,
 	    same_uuid(content->uuid, ident->uuid, tst->ss->swapuuid)==0 &&
 	    memcmp(content->uuid, uuid_zero, sizeof(int[4])) != 0) {
 		if (devname)
-			fprintf(stderr, Name ": %s has wrong uuid.\n",
-				devname);
+			pr_err("%s has wrong uuid.\n", devname);
 		return 0;
 	}
 	if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
 	    name_matches(content->name, ident->name, homehost)==0) {
 		if (devname)
-			fprintf(stderr, Name ": %s has wrong name.\n",
-				devname);
+			pr_err("%s has wrong name.\n", devname);
 		return 0;
 	}
 	if (ident->super_minor != UnSet &&
 	    ident->super_minor != content->array.md_minor) {
 		if (devname)
-			fprintf(stderr, Name ": %s has wrong super-minor.\n",
-				devname);
+			pr_err("%s has wrong super-minor.\n",
+			       devname);
 		return 0;
 	}
 	if (ident->level != UnSet &&
 	    ident->level != content->array.level) {
 		if (devname)
-			fprintf(stderr, Name ": %s has wrong raid level.\n",
-				devname);
+			pr_err("%s has wrong raid level.\n",
+			       devname);
 		return 0;
 	}
 	if (ident->raid_disks != UnSet &&
 	    ident->raid_disks!= content->array.raid_disks) {
 		if (devname)
-			fprintf(stderr, Name ": %s requires wrong number of drives.\n",
-				devname);
+			pr_err("%s requires wrong number of drives.\n",
+			       devname);
 		return 0;
 	}
 	if (ident->member && ident->member[0]) {
@@ -118,13 +116,13 @@ static int ident_matches(struct mddev_ident *ident,
 		char *s = strchr(content->text_version+1, '/');
 		if (s == NULL) {
 			if (devname)
-				fprintf(stderr, Name ": %s is not a container and one is required.\n",
-					devname);
+				pr_err("%s is not a container and one is required.\n",
+				       devname);
 			return 0;
 		} else if (strcmp(ident->member, s+1) != 0) {
 			if (devname)
-				fprintf(stderr, Name ": skipping wrong member %s is %s\n",
-					content->text_version, devname);
+				pr_err("skipping wrong member %s is %s\n",
+				       content->text_version, devname);
 			return 0;
 		}
 	}
@@ -253,8 +251,8 @@ int Assemble(struct supertype *st, char *mddev,
 	    ident->name[0] == 0 &&
 	    (ident->container == NULL || ident->member == NULL) &&
 	    ident->devices == NULL) {
-		fprintf(stderr, Name ": No identity information available for %s - cannot assemble.\n",
-			mddev ? mddev : "further assembly");
+		pr_err("No identity information available for %s - cannot assemble.\n",
+		       mddev ? mddev : "further assembly");
 		return 1;
 	}
 
@@ -282,8 +280,8 @@ int Assemble(struct supertype *st, char *mddev,
 	if (!st && ident->st) st = ident->st;
 
 	if (verbose>0)
-	    fprintf(stderr, Name ": looking for devices for %s\n",
-		    mddev ? mddev : "further assembly");
+		pr_err("looking for devices for %s\n",
+		       mddev ? mddev : "further assembly");
 
 	/* first walk the list of devices to find a consistent set
 	 * that match the criterea, if that is possible.
@@ -304,7 +302,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
 			if (report_missmatch)
-				fprintf(stderr, Name ": %s is not one of %s\n", devname, ident->devices);
+				pr_err("%s is not one of %s\n", devname, ident->devices);
 			continue;
 		}
 
@@ -313,17 +311,17 @@ int Assemble(struct supertype *st, char *mddev,
 		dfd = dev_open(devname, O_RDONLY);
 		if (dfd < 0) {
 			if (report_missmatch)
-				fprintf(stderr, Name ": cannot open device %s: %s\n",
-					devname, strerror(errno));
+				pr_err("cannot open device %s: %s\n",
+				       devname, strerror(errno));
 			tmpdev->used = 2;
 		} else if (fstat(dfd, &stb)< 0) {
 			/* Impossible! */
-			fprintf(stderr, Name ": fstat failed for %s: %s\n",
-				devname, strerror(errno));
+			pr_err("fstat failed for %s: %s\n",
+			       devname, strerror(errno));
 			tmpdev->used = 2;
 		} else if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			fprintf(stderr, Name ": %s is not a block device.\n",
-				devname);
+			pr_err("%s is not a block device.\n",
+			       devname);
 			tmpdev->used = 2;
 		} else if (must_be_container(dfd)) {
 			if (st) {
@@ -331,55 +329,55 @@ int Assemble(struct supertype *st, char *mddev,
 				 * be another one.
 				 */
 				if (report_missmatch)
-					fprintf(stderr, Name ": %s is a container, but we are looking for components\n",
-						devname);
+					pr_err("%s is a container, but we are looking for components\n",
+					       devname);
 				tmpdev->used = 2;
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 			} if (!tst && (tst = super_by_fd(dfd, NULL)) == NULL) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": not a recognisable container: %s\n",
-						devname);
+					pr_err("not a recognisable container: %s\n",
+					       devname);
 				tmpdev->used = 2;
 #endif
 			} else if (!tst->ss->load_container
 				   || tst->ss->load_container(tst, dfd, NULL)) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": no correct container type: %s\n",
-						devname);
+					pr_err("no correct container type: %s\n",
+					       devname);
 				tmpdev->used = 2;
 			} else if (auto_assem &&
 				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, homehost) == 1)) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": %s has metadata type %s for which "
-						"auto-assembly is disabled\n",
-						devname, tst->ss->name);
+					pr_err("%s has metadata type %s for which "
+					       "auto-assembly is disabled\n",
+					       devname, tst->ss->name);
 				tmpdev->used = 2;
 			} else
 				found_container = 1;
 		} else {
 			if (!tst && (tst = guess_super(dfd)) == NULL) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": no recogniseable superblock on %s\n",
-						devname);
+					pr_err("no recogniseable superblock on %s\n",
+					       devname);
 				tmpdev->used = 2;
 			} else if (tst->ss->load_super(tst,dfd, NULL)) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": no RAID superblock on %s\n",
-						devname);
+					pr_err("no RAID superblock on %s\n",
+					       devname);
 				tmpdev->used = 2;
 			} else if (tst->ss->compare_super == NULL) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": Cannot assemble %s metadata on %s\n",
-						tst->ss->name, devname);
+					pr_err("Cannot assemble %s metadata on %s\n",
+					       tst->ss->name, devname);
 				tmpdev->used = 2;
 			} else if (auto_assem && st == NULL &&
 				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, homehost) == 1)) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": %s has metadata type %s for which "
-						"auto-assembly is disabled\n",
-						devname, tst->ss->name);
+					pr_err("%s has metadata type %s for which "
+					       "auto-assembly is disabled\n",
+					       devname, tst->ss->name);
 				tmpdev->used = 2;
 			}
 		}
@@ -395,7 +393,7 @@ int Assemble(struct supertype *st, char *mddev,
 				goto loop;
 			    
 
-			fprintf(stderr, Name ": %s has no superblock - assembly aborted\n",
+			pr_err("%s has no superblock - assembly aborted\n",
 				devname);
 			if (st)
 				st->ss->free_super(st);
@@ -415,7 +413,7 @@ int Assemble(struct supertype *st, char *mddev,
 			dfd = dev_open(devname, O_RDONLY | O_EXCL);
 			if (dfd < 0) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": %s is busy - skipping\n", devname);
+					pr_err("%s is busy - skipping\n", devname);
 				goto loop;
 			}
 			close(dfd);
@@ -424,7 +422,7 @@ int Assemble(struct supertype *st, char *mddev,
 				if (ident->container[0] == '/' &&
 				    !same_dev(ident->container, devname)) {
 					if (report_missmatch)
-						fprintf(stderr, Name ": %s is not the container required (%s)\n",
+						pr_err("%s is not the container required (%s)\n",
 							devname, ident->container);
 					goto loop;
 				}
@@ -438,7 +436,7 @@ int Assemble(struct supertype *st, char *mddev,
 					if (!parse_uuid(ident->container, uuid) ||
 					    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
 						if (report_missmatch)
-							fprintf(stderr, Name ": %s has wrong UUID to be required container\n",
+							pr_err("%s has wrong UUID to be required container\n",
 								devname);
 						goto loop;
 					}
@@ -447,7 +445,7 @@ int Assemble(struct supertype *st, char *mddev,
 			/* It is worth looking inside this container.
 			 */
 			if (verbose > 0)
-				fprintf(stderr, Name ": looking in container %s\n",
+				pr_err("looking in container %s\n",
 					devname);
 
 			for (content = tst->ss->container_content(tst, NULL);
@@ -460,12 +458,12 @@ int Assemble(struct supertype *st, char *mddev,
 					/* message already printed */;
 				else if (is_member_busy(content->text_version)) {
 					if (report_missmatch)
-						fprintf(stderr, Name ": member %s in %s is already assembled\n",
+						pr_err("member %s in %s is already assembled\n",
 							content->text_version,
 							devname);
 				} else if (content->array.state & (1<<MD_SB_BLOCK_VOLUME)) {
 					/* do not assemble arrays with unsupported configurations */
-					fprintf(stderr, Name ": Cannot activate member %s in %s.\n",
+					pr_err("Cannot activate member %s in %s.\n",
 						content->text_version,
 						devname);
 				} else
@@ -478,7 +476,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 			st = tst; tst = NULL;
 			if (!auto_assem && inargv && tmpdev->next != NULL) {
-				fprintf(stderr, Name ": %s is a container, but is not "
+				pr_err("%s is a container, but is not "
 					"only device given: confused and aborting\n",
 					devname);
 				st->ss->free_super(st);
@@ -487,7 +485,7 @@ int Assemble(struct supertype *st, char *mddev,
 				return 1;
 			}
 			if (verbose > 0)
-				fprintf(stderr, Name ": found match on member %s in %s\n",
+				pr_err("found match on member %s in %s\n",
 					content->text_version, devname);
 
 			/* make sure we finished the loop */
@@ -510,7 +508,7 @@ int Assemble(struct supertype *st, char *mddev,
 			dfd = dev_open(devname, O_RDONLY | O_EXCL);
 			if (dfd < 0) {
 				if (report_missmatch)
-					fprintf(stderr, Name ": %s is busy - skipping\n", devname);
+					pr_err("%s is busy - skipping\n", devname);
 				goto loop;
 			}
 			close(dfd);
@@ -549,13 +547,13 @@ int Assemble(struct supertype *st, char *mddev,
 						/* We can do something */
 						if (first) {/* just ignore this one */
 							if (report_missmatch)
-								fprintf(stderr, Name ": %s misses out due to wrong homehost\n",
+								pr_err("%s misses out due to wrong homehost\n",
 									devname);
 							goto loop;
 						} else { /* reject all those sofar */
 							struct mddev_dev *td;
 							if (report_missmatch)
-								fprintf(stderr, Name ": %s overrides previous devices due to good homehost\n",
+								pr_err("%s overrides previous devices due to good homehost\n",
 									devname);
 							for (td=devlist; td != tmpdev; td=td->next)
 								if (td->used == 1)
@@ -565,7 +563,7 @@ int Assemble(struct supertype *st, char *mddev,
 						}
 					}
 				}
-				fprintf(stderr, Name ": superblock on %s doesn't match others - assembly aborted\n",
+				pr_err("superblock on %s doesn't match others - assembly aborted\n",
 					devname);
 				tst->ss->free_super(tst);
 				st->ss->free_super(st);
@@ -616,7 +614,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (tmpdev->used != 3)
 			continue;
 		if (stat(tmpdev->devname, &stb)< 0) {
-			fprintf(stderr, Name ": fstat failed for %s: %s\n",
+			pr_err("fstat failed for %s: %s\n",
 				tmpdev->devname, strerror(errno));
 			tmpdev->used = 2;
 		} else {
@@ -692,20 +690,20 @@ int Assemble(struct supertype *st, char *mddev,
 	mddev = chosen_name;
 	vers = md_get_version(mdfd);
 	if (vers < 9000) {
-		fprintf(stderr, Name ": Assemble requires driver version 0.90.0 or later.\n"
+		pr_err("Assemble requires driver version 0.90.0 or later.\n"
 			"    Upgrade your kernel or try --build\n");
 		close(mdfd);
 		return 1;
 	}
 	if (mddev_busy(fd2devnum(mdfd))) {
-		fprintf(stderr, Name ": %s already active, cannot restart it!\n",
+		pr_err("%s already active, cannot restart it!\n",
 			mddev);
 		for (tmpdev = devlist ;
 		     tmpdev && tmpdev->used != 1;
 		     tmpdev = tmpdev->next)
 			;
 		if (tmpdev && auto_assem)
-			fprintf(stderr, Name ":   %s needed for %s...\n",
+			pr_err("%s needed for %s...\n",
 				mddev, tmpdev->devname);
 		close(mdfd);
 		mdfd = -3;
@@ -760,7 +758,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 			tst = dup_super(st);
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
-				fprintf(stderr, Name ": cannot re-read metadata from %s - aborting\n",
+				pr_err("cannot re-read metadata from %s - aborting\n",
 					devname);
 				if (dfd >= 0)
 					close(dfd);
@@ -783,10 +781,9 @@ int Assemble(struct supertype *st, char *mddev,
 							    ident->uuid_set,
 							    homehost);
 			if (err < 0) {
-				fprintf(stderr,
-					Name ": --update=%s not understood"
-					" for %s metadata\n",
-					update, tst->ss->name);
+				pr_err("--update=%s not understood"
+				       " for %s metadata\n",
+				       update, tst->ss->name);
 				tst->ss->free_super(tst);
 				free(tst);
 				close(mdfd);
@@ -801,7 +798,7 @@ int Assemble(struct supertype *st, char *mddev,
 				memcpy(ident->uuid, content->uuid, 16);
 			}
 			if (tst->ss->store_super(tst, dfd))
-				fprintf(stderr, Name ": Could not re-write superblock on %s.\n",
+				pr_err("Could not re-write superblock on %s.\n",
 					devname);
 			close(dfd);
 
@@ -810,7 +807,7 @@ int Assemble(struct supertype *st, char *mddev,
 				if (bitmap_update_uuid(ident->bitmap_fd,
 						       content->uuid,
 						       tst->ss->swapuuid) != 0)
-					fprintf(stderr, Name ": Could not update uuid on external bitmap.\n");
+					pr_err("Could not update uuid on external bitmap.\n");
 				else
 					bitmap_done = 1;
 			}
@@ -823,7 +820,7 @@ int Assemble(struct supertype *st, char *mddev,
 			dfd = dev_open(devname, O_RDWR|O_EXCL);
 
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
-				fprintf(stderr, Name ": cannot re-read metadata from %s - aborting\n",
+				pr_err("cannot re-read metadata from %s - aborting\n",
 					devname);
 				if (dfd >= 0)
 					close(dfd);
@@ -840,7 +837,7 @@ int Assemble(struct supertype *st, char *mddev,
 		stat(devname, &stb);
 
 		if (verbose > 0)
-			fprintf(stderr, Name ": %s is identified as a member of %s, slot %d.\n",
+			pr_err("%s is identified as a member of %s, slot %d.\n",
 				devname, mddev, content->disk.raid_disk);
 		devices[devcnt].devname = devname;
 		devices[devcnt].uptodate = 0;
@@ -891,7 +888,7 @@ int Assemble(struct supertype *st, char *mddev,
 				 * Could be a mis-detection caused by overlapping
 				 * partitions.  fail-safe.
 				 */
-				fprintf(stderr, Name ": WARNING %s and %s appear"
+				pr_err("WARNING %s and %s appear"
 					" to have very similar superblocks.\n"
 					"      If they are really different, "
 					"please --zero the superblock on one\n"
@@ -915,7 +912,7 @@ int Assemble(struct supertype *st, char *mddev,
 	}
 
 	if (devcnt == 0) {
-		fprintf(stderr, Name ": no devices found for %s\n",
+		pr_err("no devices found for %s\n",
 			mddev);
 		if (st)
 			st->ss->free_super(st);
@@ -965,7 +962,7 @@ int Assemble(struct supertype *st, char *mddev,
 		    devices[most_recent].i.disk.raid_disk >= 0 &&
 		    devmap[j * content->array.raid_disks + devices[most_recent].i.disk.raid_disk] == 0) {
 			if (verbose > -1)
-				fprintf(stderr, Name ": ignoring %s as it reports %s as failed\n",
+				pr_err("ignoring %s as it reports %s as failed\n",
 					devices[j].devname, devices[most_recent].devname);
 			best[i] = -1;
 			continue;
@@ -1022,14 +1019,14 @@ int Assemble(struct supertype *st, char *mddev,
 		current_events = devices[chosen_drive].i.events;
 	add_another:
 		if (verbose >= 0)
-			fprintf(stderr, Name ": forcing event count in %s(%d) from %d upto %d\n",
+			pr_err("forcing event count in %s(%d) from %d upto %d\n",
 				devices[chosen_drive].devname,
 				devices[chosen_drive].i.disk.raid_disk,
 				(int)(devices[chosen_drive].i.events),
 				(int)(devices[most_recent].i.events));
 		fd = dev_open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
 		if (fd < 0) {
-			fprintf(stderr, Name ": Couldn't open %s for write - not updating\n",
+			pr_err("Couldn't open %s for write - not updating\n",
 				devices[chosen_drive].devname);
 			devices[chosen_drive].i.events = 0;
 			continue;
@@ -1037,7 +1034,7 @@ int Assemble(struct supertype *st, char *mddev,
 		tst = dup_super(st);
 		if (tst->ss->load_super(tst,fd, NULL)) {
 			close(fd);
-			fprintf(stderr, Name ": RAID superblock disappeared from %s - not updating.\n",
+			pr_err("RAID superblock disappeared from %s - not updating.\n",
 				devices[chosen_drive].devname);
 			devices[chosen_drive].i.events = 0;
 			continue;
@@ -1049,7 +1046,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 		if (tst->ss->store_super(tst, fd)) {
 			close(fd);
-			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
+			pr_err("Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
 			devices[chosen_drive].i.events = 0;
 			tst->ss->free_super(tst);
@@ -1097,7 +1094,7 @@ int Assemble(struct supertype *st, char *mddev,
 			continue;
 		chosen_drive = j;
 		if ((fd=dev_open(devices[j].devname, O_RDONLY|O_EXCL))< 0) {
-			fprintf(stderr, Name ": Cannot open %s: %s\n",
+			pr_err("Cannot open %s: %s\n",
 				devices[j].devname, strerror(errno));
 			close(mdfd);
 			free(devices);
@@ -1105,7 +1102,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (st->ss->load_super(st,fd, NULL)) {
 			close(fd);
-			fprintf(stderr, Name ": RAID superblock has disappeared from %s\n",
+			pr_err("RAID superblock has disappeared from %s\n",
 				devices[j].devname);
 			close(mdfd);
 			free(devices);
@@ -1114,7 +1111,7 @@ int Assemble(struct supertype *st, char *mddev,
 		close(fd);
 	}
 	if (st->sb == NULL) {
-		fprintf(stderr, Name ": No suitable drives found for %s\n", mddev);
+		pr_err("No suitable drives found for %s\n", mddev);
 		close(mdfd);
 		free(devices);
 		return 1;
@@ -1145,20 +1142,18 @@ int Assemble(struct supertype *st, char *mddev,
 					 verbose, 0, NULL)) {
 			if (force) {
 				if (verbose >= 0)
-					fprintf(stderr, Name ": "
-						"clearing FAULTY flag for device %d in %s for %s\n",
+					pr_err("clearing FAULTY flag for device %d in %s for %s\n",
 						j, mddev, devices[j].devname);
 				change = 1;
 			} else {
 				if (verbose >= -1)
-					fprintf(stderr, Name ": "
-						"device %d in %s has wrong state in superblock, but %s seems ok\n",
+					pr_err("device %d in %s has wrong state in superblock, but %s seems ok\n",
 						i, mddev, devices[j].devname);
 			}
 		}
 #if 0
 		if (!(super.disks[i].i.disk.state & (1 << MD_DISK_FAULTY))) {
-			fprintf(stderr, Name ": devices %d of %s is not marked FAULTY in superblock, but cannot be found\n",
+			pr_err("devices %d of %s is not marked FAULTY in superblock, but cannot be found\n",
 				i, mddev);
 		}
 #endif
@@ -1177,7 +1172,7 @@ int Assemble(struct supertype *st, char *mddev,
 		int fd;
 		fd = dev_open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
 		if (fd < 0) {
-			fprintf(stderr, Name ": Could not open %s for write - cannot Assemble array.\n",
+			pr_err("Could not open %s for write - cannot Assemble array.\n",
 				devices[chosen_drive].devname);
 			close(mdfd);
 			free(devices);
@@ -1185,14 +1180,14 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (st->ss->store_super(st, fd)) {
 			close(fd);
-			fprintf(stderr, Name ": Could not re-write superblock on %s\n",
+			pr_err("Could not re-write superblock on %s\n",
 				devices[chosen_drive].devname);
 			close(mdfd);
 			free(devices);
 			return 1;
 		}
 		if (verbose >= 0)
-			fprintf(stderr, Name ": Marking array %s as 'clean'\n",
+			pr_err("Marking array %s as 'clean'\n",
 				mddev);
 		close(fd);
 	}
@@ -1206,7 +1201,7 @@ int Assemble(struct supertype *st, char *mddev,
 		int err = 0;
 		int *fdlist = malloc(sizeof(int)* bestcnt);
 		if (verbose > 0)
-			fprintf(stderr, Name ":%s has an active reshape - checking "
+			pr_err(":%s has an active reshape - checking "
 				"if critical section needs to be restored\n",
 				chosen_name);
 		for (i=0; i<bestcnt; i++) {
@@ -1214,7 +1209,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (j >= 0) {
 				fdlist[i] = dev_open(devices[j].devname, O_RDWR|O_EXCL);
 				if (fdlist[i] < 0) {
-					fprintf(stderr, Name ": Could not open %s for write - cannot Assemble array.\n",
+					pr_err("Could not open %s for write - cannot Assemble array.\n",
 						devices[j].devname);
 					err = 1;
 					break;
@@ -1230,7 +1225,7 @@ int Assemble(struct supertype *st, char *mddev,
 						   backup_file, verbose > 0);
 			if (err && invalid_backup) {
 				if (verbose > 0)
-					fprintf(stderr, Name ": continuing"
+					pr_err("continuing"
 						" without restoring backup\n");
 				err = 0;
 			}
@@ -1240,9 +1235,9 @@ int Assemble(struct supertype *st, char *mddev,
 			if (fdlist[i]>=0) close(fdlist[i]);
 		}
 		if (err) {
-			fprintf(stderr, Name ": Failed to restore critical section for reshape, sorry.\n");
+			pr_err("Failed to restore critical section for reshape, sorry.\n");
 			if (backup_file == NULL)
-				fprintf(stderr,"      Possibly you needed to specify the --backup-file\n");
+				cont_err("Possibly you needed to specify the --backup-file\n");
 			close(mdfd);
 			free(devices);
 			return err;
@@ -1266,7 +1261,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 		rv = set_array_info(mdfd, st, content);
 		if (rv) {
-			fprintf(stderr, Name ": failed to set array info for %s: %s\n",
+			pr_err("failed to set array info for %s: %s\n",
 				mddev, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, NULL);
 			close(mdfd);
@@ -1275,7 +1270,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (ident->bitmap_fd >= 0) {
 			if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
-				fprintf(stderr, Name ": SET_BITMAP_FILE failed.\n");
+				pr_err("SET_BITMAP_FILE failed.\n");
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				free(devices);
@@ -1285,7 +1280,7 @@ int Assemble(struct supertype *st, char *mddev,
 			/* From config file */
 			int bmfd = open(ident->bitmap_file, O_RDWR);
 			if (bmfd < 0) {
-				fprintf(stderr, Name ": Could not open bitmap file %s\n",
+				pr_err("Could not open bitmap file %s\n",
 					ident->bitmap_file);
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
@@ -1293,7 +1288,7 @@ int Assemble(struct supertype *st, char *mddev,
 				return 1;
 			}
 			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
-				fprintf(stderr, Name ": Failed to set bitmapfile for %s\n", mddev);
+				pr_err("Failed to set bitmapfile for %s\n", mddev);
 				close(bmfd);
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
@@ -1323,32 +1318,31 @@ int Assemble(struct supertype *st, char *mddev,
 				rv = add_disk(mdfd, st, content, &devices[j].i);
 
 				if (rv) {
-					fprintf(stderr, Name ": failed to add "
-						        "%s to %s: %s\n",
-						devices[j].devname,
-						mddev,
-						strerror(errno));
+					pr_err("failed to add "
+					       "%s to %s: %s\n",
+					       devices[j].devname,
+					       mddev,
+					       strerror(errno));
 					if (i < content->array.raid_disks
 					    || i == bestcnt)
 						okcnt--;
 					else
 						sparecnt--;
 				} else if (verbose > 0)
-					fprintf(stderr, Name ": added %s "
-						        "to %s as %d%s\n",
-						devices[j].devname, mddev,
-						devices[j].i.disk.raid_disk,
-						devices[j].uptodate?"":
-						" (possibly out of date)");
+					pr_err("added %s to %s as %d%s\n",
+					       devices[j].devname, mddev,
+					       devices[j].i.disk.raid_disk,
+					       devices[j].uptodate?"":
+					       " (possibly out of date)");
 			} else if (verbose > 0 && i < content->array.raid_disks)
-				fprintf(stderr, Name ": no uptodate device for "
+				pr_err("no uptodate device for "
 					        "slot %d of %s\n",
 					i, mddev);
 		}
 
 		if (content->array.level == LEVEL_CONTAINER) {
 			if (verbose >= 0) {
-				fprintf(stderr, Name ": Container %s has been "
+				pr_err("Container %s has been "
 					"assembled with %d drive%s",
 					mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
 				if (okcnt < (unsigned)content->array.raid_disks)
@@ -1390,7 +1384,7 @@ int Assemble(struct supertype *st, char *mddev,
 				rv = ioctl(mdfd, RUN_ARRAY, NULL);
 			if (rv == 0) {
 				if (verbose >= 0) {
-					fprintf(stderr, Name ": %s has been started with %d drive%s",
+					pr_err("%s has been started with %d drive%s",
 						mddev, okcnt, okcnt==1?"":"s");
 					if (okcnt < (unsigned)content->array.raid_disks)
 						fprintf(stderr, " (out of %d)", content->array.raid_disks);
@@ -1432,9 +1426,8 @@ int Assemble(struct supertype *st, char *mddev,
 							rv = add_disk(mdfd, st, content,
 								      &devices[j].i);
 							if (rv == 0 && verbose >= 0)
-								fprintf(stderr,
-									Name ": %s has been re-added.\n",
-									devices[j].devname);
+								pr_err("%s has been re-added.\n",
+								       devices[j].devname);
 						}
 					}
 				}
@@ -1469,18 +1462,18 @@ int Assemble(struct supertype *st, char *mddev,
 				free(devices);
 				return 0;
 			}
-			fprintf(stderr, Name ": failed to RUN_ARRAY %s: %s\n",
+			pr_err("failed to RUN_ARRAY %s: %s\n",
 				mddev, strerror(errno));
 
 			if (!enough(content->array.level, content->array.raid_disks,
 				    content->array.layout, 1, avail))
-				fprintf(stderr, Name ": Not enough devices to "
+				pr_err("Not enough devices to "
 					"start the array.\n");
 			else if (!enough(content->array.level,
 					 content->array.raid_disks,
 					 content->array.layout, clean,
 					 avail))
-				fprintf(stderr, Name ": Not enough devices to "
+				pr_err("Not enough devices to "
 					"start the array while not clean "
 					"- consider --force.\n");
 
@@ -1491,8 +1484,8 @@ int Assemble(struct supertype *st, char *mddev,
 			return 1;
 		}
 		if (runstop == -1) {
-			fprintf(stderr, Name ": %s assembled from %d drive%s",
-				mddev, okcnt, okcnt==1?"":"s");
+			pr_err("%s assembled from %d drive%s",
+			       mddev, okcnt, okcnt==1?"":"s");
 			if (okcnt != (unsigned)content->array.raid_disks)
 				fprintf(stderr, " (out of %d)", content->array.raid_disks);
 			fprintf(stderr, ", but not started.\n");
@@ -1501,7 +1494,7 @@ int Assemble(struct supertype *st, char *mddev,
 			return 0;
 		}
 		if (verbose >= -1) {
-			fprintf(stderr, Name ": %s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
+			pr_err("%s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
 			if (rebuilding_cnt)
 				fprintf(stderr, "%s %d rebuilding", sparecnt?", ":" and ", rebuilding_cnt);
 			if (sparecnt)
@@ -1538,7 +1531,7 @@ int Assemble(struct supertype *st, char *mddev,
 		dev = makedev(devices[chosen_drive].i.disk.major,
 			    devices[chosen_drive].i.disk.minor);
 		if (ioctl(mdfd, START_ARRAY, dev)) {
-		    fprintf(stderr, Name ": Cannot start array: %s\n",
+		    pr_err("Cannot start array: %s\n",
 			    strerror(errno));
 		}
 
@@ -1662,15 +1655,13 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 		if (verbose >= 0) {
 			if (err)
-				fprintf(stderr, Name
-					": array %s now has %d device%s",
-					chosen_name, working + preexist,
-					working + preexist == 1 ? "":"s");
+				pr_err("array %s now has %d device%s",
+				       chosen_name, working + preexist,
+				       working + preexist == 1 ? "":"s");
 			else
-				fprintf(stderr, Name
-					": Started %s with %d device%s",
-					chosen_name, working + preexist,
-					working + preexist == 1 ? "":"s");
+				pr_err("Started %s with %d device%s",
+				       chosen_name, working + preexist,
+				       working + preexist == 1 ? "":"s");
 			if (preexist)
 				fprintf(stderr, " (%d new)", working);
 			if (expansion)
@@ -1684,10 +1675,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		/* FIXME should have an O_EXCL and wait for read-auto */
 	} else {
 		if (verbose >= 0) {
-			fprintf(stderr, Name
-				": %s assembled with %d device%s",
-				chosen_name, preexist + working,
-				preexist + working == 1 ? "":"s");
+			pr_err("%s assembled with %d device%s",
+			       chosen_name, preexist + working,
+			       preexist + working == 1 ? "":"s");
 			if (preexist)
 				fprintf(stderr, " (%d new)", working);
 			fprintf(stderr, " but not started\n");

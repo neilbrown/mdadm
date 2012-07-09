@@ -295,7 +295,7 @@ struct md_list {
 	struct md_list *next;
 };
 
-#define pr_vrb(fmt, arg...) (void) (verbose && fprintf(stderr, Name fmt, ##arg))
+#define pr_vrb(fmt, arg...) (void) (verbose && pr_err(fmt, ##arg))
 
 static __u8 migr_type(struct imsm_dev *dev)
 {
@@ -1341,7 +1341,7 @@ static int imsm_check_attributes(__u32 attributes)
 
 	not_supported &= attributes;
 	if (not_supported) {
-		fprintf(stderr, Name "(IMSM): Unsupported attributes : %x\n",
+		pr_err("(IMSM): Unsupported attributes : %x\n",
 			(unsigned)__le32_to_cpu(not_supported));
 		if (not_supported & MPB_ATTRIB_CHECKSUM_VERIFY) {
 			dprintf("\t\tMPB_ATTRIB_CHECKSUM_VERIFY \n");
@@ -1573,7 +1573,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 
 	if (port_count > (int)sizeof(port_mask) * 8) {
 		if (verbose)
-			fprintf(stderr, Name ": port_count %d out of range\n", port_count);
+			pr_err("port_count %d out of range\n", port_count);
 		return 2;
 	}
 
@@ -1606,14 +1606,14 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 		/* retrieve the scsi device type */
 		if (asprintf(&device, "/sys/dev/block/%d:%d/device/xxxxxxx", major, minor) < 0) {
 			if (verbose)
-				fprintf(stderr, Name ": failed to allocate 'device'\n");
+				pr_err("failed to allocate 'device'\n");
 			err = 2;
 			break;
 		}
 		sprintf(device, "/sys/dev/block/%d:%d/device/type", major, minor);
 		if (load_sys(device, buf) != 0) {
 			if (verbose)
-				fprintf(stderr, Name ": failed to read device type for %s\n",
+				pr_err("failed to read device type for %s\n",
 					path);
 			err = 2;
 			free(device);
@@ -1666,7 +1666,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 		c = strchr(&path[hba_len], '/');
 		if (!c) {
 			if (verbose)
-				fprintf(stderr, Name ": %s - invalid path name\n", path + hba_len);
+				pr_err("%s - invalid path name\n", path + hba_len);
 			err = 2;
 			break;
 		}
@@ -1676,7 +1676,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 		else {
 			if (verbose) {
 				*c = '/'; /* repair the full string */
-				fprintf(stderr, Name ": failed to determine port number for %s\n",
+				pr_err("failed to determine port number for %s\n",
 					path);
 			}
 			err = 2;
@@ -1725,7 +1725,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 static void print_found_intel_controllers(struct sys_dev *elem)
 {
 	for (; elem; elem = elem->next) {
-		fprintf(stderr, Name ": found Intel(R) ");
+		pr_err("found Intel(R) ");
 		if (elem->type == SYS_DEV_SATA)
 			fprintf(stderr, "SATA ");
 		else if (elem->type == SYS_DEV_SAS)
@@ -1842,7 +1842,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	list = find_intel_devices();
 	if (!list) {
 		if (verbose)
-			fprintf(stderr, Name ": no active Intel(R) RAID "
+			pr_err("no active Intel(R) RAID "
 				"controller found.\n");
 		free_sys_dev(&list);
 		return 2;
@@ -1852,7 +1852,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	for (hba = list; hba; hba = hba->next) {
 		orom = find_imsm_capability(hba->type);
 		if (!orom)
-			fprintf(stderr, Name ": imsm capabilities not found for controller: %s (type %s)\n",
+			pr_err("imsm capabilities not found for controller: %s (type %s)\n",
 				hba->path, get_sys_dev_type(hba->type));
 		else
 			print_imsm_capability(orom);
@@ -1866,7 +1866,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 			host_base = ahci_get_port_count(hba->path, &port_count);
 			if (ahci_enumerate_ports(hba->path, port_count, host_base, verbose)) {
 				if (verbose)
-					fprintf(stderr, Name ": failed to enumerate "
+					pr_err("failed to enumerate "
 						"ports on SATA controller at %s.", hba->pci_id);
 				result |= 2;
 			}
@@ -2183,16 +2183,14 @@ static int read_imsm_migr_rec(int fd, struct intel_super *super)
 
 	get_dev_size(fd, NULL, &dsize);
 	if (lseek64(fd, dsize - MIGR_REC_POSITION, SEEK_SET) < 0) {
-		fprintf(stderr,
-			Name ": Cannot seek to anchor block: %s\n",
-			strerror(errno));
+		pr_err("Cannot seek to anchor block: %s\n",
+		       strerror(errno));
 		goto out;
 	}
 	if (read(fd, super->migr_rec_buf, MIGR_REC_BUF_SIZE) !=
 							    MIGR_REC_BUF_SIZE) {
-		fprintf(stderr,
-			Name ": Cannot read migr record block: %s\n",
-			strerror(errno));
+		pr_err("Cannot read migr record block: %s\n",
+		       strerror(errno));
 		goto out;
 	}
 	ret_val = 0;
@@ -2389,16 +2387,14 @@ static int write_imsm_migr_rec(struct supertype *st)
 			continue;
 		get_dev_size(fd, NULL, &dsize);
 		if (lseek64(fd, dsize - MIGR_REC_POSITION, SEEK_SET) < 0) {
-			fprintf(stderr,
-				Name ": Cannot seek to anchor block: %s\n",
-				strerror(errno));
+			pr_err("Cannot seek to anchor block: %s\n",
+			       strerror(errno));
 			goto out;
 		}
 		if (write(fd, super->migr_rec_buf, MIGR_REC_BUF_SIZE) !=
 							    MIGR_REC_BUF_SIZE) {
-			fprintf(stderr,
-				Name ": Cannot write migr record block: %s\n",
-				strerror(errno));
+			pr_err("Cannot write migr record block: %s\n",
+			       strerror(errno));
 			goto out;
 		}
 		close(fd);
@@ -2851,7 +2847,7 @@ struct mdinfo *getinfo_super_disks_imsm(struct supertype *st)
 	dl = super->disks;
 	mddev = malloc(sizeof(*mddev));
 	if (!mddev) {
-		fprintf(stderr, Name ": Failed to allocate memory.\n");
+		pr_err("Failed to allocate memory.\n");
 		return NULL;
 	}
 	memset(mddev, 0, sizeof(*mddev));
@@ -2860,7 +2856,7 @@ struct mdinfo *getinfo_super_disks_imsm(struct supertype *st)
 		disk = &dl->disk;
 		tmp = malloc(sizeof(*tmp));
 		if (!tmp) {
-			fprintf(stderr, Name ": Failed to allocate memory.\n");
+			pr_err("Failed to allocate memory.\n");
 			if (mddev)
 				sysfs_free(mddev);
 			return NULL;
@@ -3149,18 +3145,16 @@ static int imsm_read_serial(int fd, char *devname,
 
 	if (rv != 0) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to retrieve serial for %s\n",
-				devname);
+			pr_err("Failed to retrieve serial for %s\n",
+			       devname);
 		return rv;
 	}
 
 	rsp_len = scsi_serial[3];
 	if (!rsp_len) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to retrieve serial for %s\n",
-				devname);
+			pr_err("Failed to retrieve serial for %s\n",
+			       devname);
 		return 2;
 	}
 	rsp_buf = (char *) &scsi_serial[4];
@@ -3252,9 +3246,8 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	dl = calloc(1, sizeof(*dl));
 	if (!dl) {
 		if (devname)
-			fprintf(stderr,
-				Name ": failed to allocate disk buffer for %s\n",
-				devname);
+			pr_err("failed to allocate disk buffer for %s\n",
+			       devname);
 		return 2;
 	}
 
@@ -3505,40 +3498,35 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	get_dev_size(fd, NULL, &dsize);
 	if (dsize < 1024) {
 		if (devname)
-			fprintf(stderr,
-				Name ": %s: device to small for imsm\n",
-				devname);
+			pr_err("%s: device to small for imsm\n",
+			       devname);
 		return 1;
 	}
 
 	if (lseek64(fd, dsize - (512 * 2), SEEK_SET) < 0) {
 		if (devname)
-			fprintf(stderr, Name
-				": Cannot seek to anchor block on %s: %s\n",
-				devname, strerror(errno));
+			pr_err("Cannot seek to anchor block on %s: %s\n",
+			       devname, strerror(errno));
 		return 1;
 	}
 
 	if (posix_memalign((void**)&anchor, 512, 512) != 0) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to allocate imsm anchor buffer"
-				" on %s\n", devname);
+			pr_err("Failed to allocate imsm anchor buffer"
+			       " on %s\n", devname);
 		return 1;
 	}
 	if (read(fd, anchor, 512) != 512) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Cannot read anchor block on %s: %s\n",
-				devname, strerror(errno));
+			pr_err("Cannot read anchor block on %s: %s\n",
+			       devname, strerror(errno));
 		free(anchor);
 		return 1;
 	}
 
 	if (strncmp((char *) anchor->sig, MPB_SIGNATURE, MPB_SIG_LEN) != 0) {
 		if (devname)
-			fprintf(stderr,
-				Name ": no IMSM anchor on %s\n", devname);
+			pr_err("no IMSM anchor on %s\n", devname);
 		free(anchor);
 		return 2;
 	}
@@ -3551,9 +3539,8 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	super->len = ROUND_UP(anchor->mpb_size, 512);
 	if (posix_memalign(&super->buf, 512, super->len) != 0) {
 		if (devname)
-			fprintf(stderr,
-				Name ": unable to allocate %zu byte mpb buffer\n",
-				super->len);
+			pr_err("unable to allocate %zu byte mpb buffer\n",
+			       super->len);
 		free(anchor);
 		return 2;
 	}
@@ -3563,8 +3550,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	free(anchor);
 
 	if (posix_memalign(&super->migr_rec_buf, 512, MIGR_REC_BUF_SIZE) != 0) {
-		fprintf(stderr, Name
-			": %s could not allocate migr_rec buffer\n", __func__);
+		pr_err("%s could not allocate migr_rec buffer\n", __func__);
 		free(super->buf);
 		return 2;
 	}
@@ -3574,11 +3560,10 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 		check_sum = __gen_imsm_checksum(super->anchor);
 		if (check_sum != __le32_to_cpu(super->anchor->check_sum)) {
 			if (devname)
-				fprintf(stderr,
-					Name ": IMSM checksum %x != %x on %s\n",
-					check_sum,
-					__le32_to_cpu(super->anchor->check_sum),
-					devname);
+				pr_err("IMSM checksum %x != %x on %s\n",
+				       check_sum,
+				       __le32_to_cpu(super->anchor->check_sum),
+				       devname);
 			return 2;
 		}
 
@@ -3588,27 +3573,24 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 	/* read the extended mpb */
 	if (lseek64(fd, dsize - (512 * (2 + sectors)), SEEK_SET) < 0) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Cannot seek to extended mpb on %s: %s\n",
-				devname, strerror(errno));
+			pr_err("Cannot seek to extended mpb on %s: %s\n",
+			       devname, strerror(errno));
 		return 1;
 	}
 
 	if ((unsigned)read(fd, super->buf + 512, super->len - 512) != super->len - 512) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Cannot read extended mpb on %s: %s\n",
-				devname, strerror(errno));
+			pr_err("Cannot read extended mpb on %s: %s\n",
+			       devname, strerror(errno));
 		return 2;
 	}
 
 	check_sum = __gen_imsm_checksum(super->anchor);
 	if (check_sum != __le32_to_cpu(super->anchor->check_sum)) {
 		if (devname)
-			fprintf(stderr,
-				Name ": IMSM checksum %x != %x on %s\n",
-				check_sum, __le32_to_cpu(super->anchor->check_sum),
-				devname);
+			pr_err("IMSM checksum %x != %x on %s\n",
+			       check_sum, __le32_to_cpu(super->anchor->check_sum),
+			       devname);
 		return 3;
 	}
 
@@ -3773,9 +3755,8 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 	hba_name = find_disk_attached_hba(fd, NULL);
 	if (!hba_name) {
 		if (devname)
-			fprintf(stderr,
-				Name ": %s is not attached to Intel(R) RAID controller.\n",
-				devname);
+			pr_err("%s is not attached to Intel(R) RAID controller.\n",
+			       devname);
 		return 1;
 	}
 	rv = attach_hba_to_super(super, hba_name);
@@ -3783,7 +3764,7 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 		if (devname) {
 			struct intel_hba *hba = super->hba;
 
-			fprintf(stderr, Name ": %s is attached to Intel(R) %s RAID "
+			pr_err("%s is attached to Intel(R) %s RAID "
 				"controller (%s),\n"
 				"    but the container is assigned to Intel(R) "
 				"%s RAID controller (",
@@ -4219,7 +4200,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 	/* Check migration compatibility */
 	if ((err == 0) && (check_mpb_migr_compatibility(super) != 0)) {
-		fprintf(stderr, Name ": Unsupported migration detected");
+		pr_err("Unsupported migration detected");
 		if (devname)
 			fprintf(stderr, " on %s\n", devname);
 		else
@@ -4272,7 +4253,7 @@ get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list
 			int lmax = 0;
 			int fd = dev_open(tmpdev->devname, O_RDONLY|O_EXCL);
 			if (fd < 0) {
-				fprintf(stderr, Name ": cannot open device %s: %s\n",
+				pr_err("cannot open device %s: %s\n",
 					tmpdev->devname, strerror(errno));
 				err = 8;
 				goto error;
@@ -4414,9 +4395,8 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 
 	super = alloc_super();
 	if (!super) {
-		fprintf(stderr,
-			Name ": malloc of %zu failed.\n",
-			sizeof(*super));
+		pr_err("malloc of %zu failed.\n",
+		       sizeof(*super));
 		return 1;
 	}
 	/* Load hba and capabilities if they exist.
@@ -4427,8 +4407,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	/* no orom/efi or non-intel hba of the disk */
 	if ((rv != 0) && (st->ignore_hw_compat == 0)) {
 		if (devname)
-			fprintf(stderr,
-				Name ": No OROM/EFI properties for %s\n", devname);
+			pr_err("No OROM/EFI properties for %s\n", devname);
 		free_imsm(super);
 		return 2;
 	}
@@ -4436,9 +4415,8 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 
 	if (rv) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to load all information "
-				"sections on %s\n", devname);
+			pr_err("Failed to load all information "
+			       "sections on %s\n", devname);
 		free_imsm(super);
 		return rv;
 	}
@@ -4454,8 +4432,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	if (load_imsm_migr_rec(super, NULL) == 0) {
 		/* Check for unsupported migration features */
 		if (check_mpb_migr_compatibility(super) != 0) {
-			fprintf(stderr,
-				Name ": Unsupported migration detected");
+			pr_err("Unsupported migration detected");
 			if (devname)
 				fprintf(stderr, " on %s\n", devname);
 			else
@@ -4549,7 +4526,7 @@ static int check_name(struct intel_super *super, char *name, int quiet)
 	}
 
 	if (reason && !quiet)
-		fprintf(stderr, Name ": imsm volume name %s\n", reason);
+		pr_err("imsm volume name %s\n", reason);
 
 	return !reason;
 }
@@ -4574,7 +4551,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	unsigned long long num_data_stripes;
 
 	if (super->orom && mpb->num_raid_devs >= super->orom->vpa) {
-		fprintf(stderr, Name": This imsm-container already has the "
+		pr_err("This imsm-container already has the "
 			"maximum of %d volumes\n", super->orom->vpa);
 		return 0;
 	}
@@ -4587,14 +4564,13 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		size_t size_round = ROUND_UP(size_new, 512);
 
 		if (posix_memalign(&mpb_new, 512, size_round) != 0) {
-			fprintf(stderr, Name": could not allocate new mpb\n");
+			pr_err("could not allocate new mpb\n");
 			return 0;
 		}
 		if (posix_memalign(&super->migr_rec_buf, 512,
 				   MIGR_REC_BUF_SIZE) != 0) {
-			fprintf(stderr, Name
-				": %s could not allocate migr_rec buffer\n",
-				__func__);
+			pr_err("%s could not allocate migr_rec buffer\n",
+			       __func__);
 			free(super->buf);
 			free(super);
 			free(mpb_new);
@@ -4638,7 +4614,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		for (d = super->missing; d; d = d->next)
 			missing++;
 		if (info->failed_disks > missing) {
-			fprintf(stderr, Name": unable to add 'missing' disk to container\n");
+			pr_err("unable to add 'missing' disk to container\n");
 			return 0;
 		}
 	}
@@ -4647,13 +4623,13 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		return 0;
 	dv = malloc(sizeof(*dv));
 	if (!dv) {
-		fprintf(stderr, Name ": failed to allocate device list entry\n");
+		pr_err("failed to allocate device list entry\n");
 		return 0;
 	}
 	dev = calloc(1, sizeof(*dev) + sizeof(__u32) * (info->raid_disks - 1));
 	if (!dev) {
 		free(dv);
-		fprintf(stderr, Name": could not allocate raid device\n");
+		pr_err("could not allocate raid device\n");
 		return 0;
 	}
 
@@ -4687,7 +4663,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	if (info->level == 1 && info->raid_disks > 2) {
 		free(dev);
 		free(dv);
-		fprintf(stderr, Name": imsm does not support more than 2 disks"
+		pr_err("imsm does not support more than 2 disks"
 				"in a raid1 volume\n");
 		return 0;
 	}
@@ -4754,13 +4730,11 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 		super = NULL;
 	}
 	if (!super) {
-		fprintf(stderr, Name
-			": %s could not allocate superblock\n", __func__);
+		pr_err("%s could not allocate superblock\n", __func__);
 		return 0;
 	}
 	if (posix_memalign(&super->migr_rec_buf, 512, MIGR_REC_BUF_SIZE) != 0) {
-		fprintf(stderr, Name
-			": %s could not allocate migr_rec buffer\n", __func__);
+		pr_err("%s could not allocate migr_rec buffer\n", __func__);
 		free(super->buf);
 		free(super);
 		return 0;
@@ -4801,7 +4775,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	map = get_imsm_map(dev, MAP_0);
 
 	if (! (dk->state & (1<<MD_DISK_SYNC))) {
-		fprintf(stderr, Name ": %s: Cannot add spare devices to IMSM volume\n",
+		pr_err("%s: Cannot add spare devices to IMSM volume\n",
 			devname);
 		return 1;
 	}
@@ -4821,7 +4795,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	}
 
 	if (!dl) {
-		fprintf(stderr, Name ": %s is not a member of the same container\n", devname);
+		pr_err("%s is not a member of the same container\n", devname);
 		return 1;
 	}
 
@@ -4834,7 +4808,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 	slot = get_imsm_disk_slot(map, dl->index);
 	if (slot >= 0 &&
 	    (get_imsm_ord_tbl_ent(dev, slot, MAP_X) & IMSM_ORD_REBUILD) == 0) {
-		fprintf(stderr, Name ": %s has been included in this array twice\n",
+		pr_err("%s has been included in this array twice\n",
 			devname);
 		return 1;
 	}
@@ -4890,7 +4864,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 
 		_disk = __get_imsm_disk(mpb, dl->index);
 		if (!_dev || !_disk) {
-			fprintf(stderr, Name ": BUG mpb setup error\n");
+			pr_err("BUG mpb setup error\n");
 			return 1;
 		}
 		*_dev = *dev;
@@ -4965,8 +4939,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	fstat(fd, &stb);
 	dd = malloc(sizeof(*dd));
 	if (!dd) {
-		fprintf(stderr,
-			Name ": malloc failed %s:%d.\n", __func__, __LINE__);
+		pr_err("malloc failed %s:%d.\n", __func__, __LINE__);
 		return 1;
 	}
 	memset(dd, 0, sizeof(*dd));
@@ -4978,8 +4951,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	dd->action = DISK_ADD;
 	rv = imsm_read_serial(fd, devname, dd->serial);
 	if (rv) {
-		fprintf(stderr,
-			Name ": failed to retrieve scsi serial, aborting\n");
+		pr_err("failed to retrieve scsi serial, aborting\n");
 		free(dd);
 		abort();
 	}
@@ -5021,15 +4993,13 @@ static int remove_from_super_imsm(struct supertype *st, mdu_disk_info_t *dk)
 	 * is prepared.
 	 */
 	if (!st->update_tail) {
-		fprintf(stderr,
-			Name ": %s shall be used in mdmon context only"
-			"(line %d).\n", __func__, __LINE__);
+		pr_err("%s shall be used in mdmon context only"
+		       "(line %d).\n", __func__, __LINE__);
 		return 1;
 	}
 	dd = malloc(sizeof(*dd));
 	if (!dd) {
-		fprintf(stderr,
-			Name ": malloc failed %s:%d.\n", __func__, __LINE__);
+		pr_err("malloc failed %s:%d.\n", __func__, __LINE__);
 		return 1;
 	}
 	memset(dd, 0, sizeof(*dd));
@@ -5330,7 +5300,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": imsm: Cannot open %s: %s\n",
+			pr_err("imsm: Cannot open %s: %s\n",
 				dev, strerror(errno));
 		return 0;
 	}
@@ -5344,9 +5314,8 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	 */
 	super = alloc_super();
 	if (!super) {
-		fprintf(stderr,
-			Name ": malloc of %zu failed.\n",
-			sizeof(*super));
+		pr_err("malloc of %zu failed.\n",
+		       sizeof(*super));
 		close(fd);
 		return 0;
 	}
@@ -5368,7 +5337,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	if (super->orom) {
 		if (raiddisks > super->orom->tds) {
 			if (verbose)
-				fprintf(stderr, Name ": %d exceeds maximum number of"
+				pr_err("%d exceeds maximum number of"
 					" platform supported disks: %d\n",
 					raiddisks, super->orom->tds);
 			free_imsm(super);
@@ -5377,7 +5346,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 		if ((super->orom->attr & IMSM_OROM_ATTR_2TB_DISK) == 0 &&
 		    (ldsize >> 9) >> 32 > 0) {
 			if (verbose)
-				fprintf(stderr, Name ": %s exceeds maximum platform supported size\n", dev);
+				pr_err("%s exceeds maximum platform supported size\n", dev);
 			free_imsm(super);
 			return 0;
 		}
@@ -5567,7 +5536,7 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 				if (*devlist && (found < dpa)) {
 				  dv = calloc(1, sizeof(*dv));
 					if (dv == NULL)
-						fprintf(stderr, Name ": calloc failed\n");
+						pr_err("calloc failed\n");
 					else {
 						dv->devname = malloc(strlen(memb->dev) + strlen("/dev/") + 1);
 						if (dv->devname != NULL) {
@@ -5600,12 +5569,12 @@ get_loop_devices(void)
 	for(i = 0; i < 12; i++) {
 		dv = calloc(1, sizeof(*dv));
 		if (dv == NULL) {
-			fprintf(stderr, Name ": calloc failed\n");
+			pr_err("calloc failed\n");
 			break;
 		}
 		dv->devname = malloc(40);
 		if (dv->devname == NULL) {
-			fprintf(stderr, Name ": malloc failed\n");
+			pr_err("malloc failed\n");
 			free(dv);
 			break;
 		}
@@ -5656,7 +5625,7 @@ get_devices(const char *hba_path)
 			fd2devname(fd, buf);
 			close(fd);
 		} else {
-			fprintf(stderr, Name ": cannot open device: %s\n",
+			pr_err("cannot open device: %s\n",
 				ent->d_name);
 			continue;
 		}
@@ -5664,13 +5633,13 @@ get_devices(const char *hba_path)
 
 		dv = calloc(1, sizeof(*dv));
 		if (dv == NULL) {
-			fprintf(stderr, Name ": malloc failed\n");
+			pr_err("malloc failed\n");
 			err = 1;
 			break;
 		}
 		dv->devname = strdup(buf);
 		if (dv->devname == NULL) {
-			fprintf(stderr, Name ": malloc failed\n");
+			pr_err("malloc failed\n");
 			err = 1;
 			free(dv);
 			break;
@@ -5972,7 +5941,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	mpb = super->anchor;
 
 	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, size, verbose)) {
-		fprintf(stderr, Name ": RAID gemetry validation failed. "
+		pr_err("RAID gemetry validation failed. "
 			"Cannot proceed with the action(s).\n");
 		return 0;
 	}
@@ -6014,7 +5983,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		}
 		if (dcnt < raiddisks) {
 			if (verbose)
-				fprintf(stderr, Name ": imsm: Not enough "
+				pr_err("imsm: Not enough "
 					"devices with space for this array "
 					"(%d < %d)\n",
 					dcnt, raiddisks);
@@ -6035,7 +6004,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	}
 	if (!dl) {
 		if (verbose)
-			fprintf(stderr, Name ": %s is not in the "
+			pr_err("%s is not in the "
 				"same imsm set\n", dev);
 		return 0;
 	} else if (super->orom && dl->index < 0 && mpb->num_raid_devs) {
@@ -6044,14 +6013,14 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		 * understand this configuration (all member disks must be
 		 * members of each array in the container).
 		 */
-		fprintf(stderr, Name ": %s is a spare and a volume"
+		pr_err("%s is a spare and a volume"
 			" is already defined for this container\n", dev);
-		fprintf(stderr, Name ": The option-rom requires all member"
+		pr_err("The option-rom requires all member"
 			" disks to be a member of all volumes\n");
 		return 0;
 	} else if (super->orom && mpb->num_raid_devs > 0 &&
 		   mpb->num_disks != raiddisks) {
-		fprintf(stderr, Name ": The option-rom requires all member"
+		pr_err("The option-rom requires all member"
 			" disks to be a member of all volumes\n");
 		return 0;
 	}
@@ -6074,13 +6043,13 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		dl->extent_cnt = i;
 	} else {
 		if (verbose)
-			fprintf(stderr, Name ": unable to determine free space for: %s\n",
+			pr_err("unable to determine free space for: %s\n",
 				dev);
 		return 0;
 	}
 	if (maxsize < size) {
 		if (verbose)
-			fprintf(stderr, Name ": %s not enough space (%llu < %llu)\n",
+			pr_err("%s not enough space (%llu < %llu)\n",
 				dev, maxsize, size);
 		return 0;
 	}
@@ -6095,7 +6064,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 
 	if (!check_env("IMSM_NO_PLATFORM") &&
 	    mpb->num_raid_devs > 0 && size && size != maxsize) {
-		fprintf(stderr, Name ": attempting to create a second "
+		pr_err("attempting to create a second "
 			"volume with size less then remaining space. "
 			"Aborting...\n");
 		return 0;
@@ -6104,10 +6073,10 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	if (maxsize < size || maxsize == 0) {
 		if (verbose) {
 			if (maxsize == 0)
-				fprintf(stderr, Name ": no free space"
+				pr_err("no free space"
 						" left on device. Aborting...\n");
 			else
-				fprintf(stderr, Name ": not enough space"
+				pr_err("not enough space"
 						" to create volume of given size"
 						" (%llu < %llu). Aborting...\n",
 						maxsize, size);
@@ -6181,7 +6150,7 @@ static int imsm_get_free_size(struct supertype *st, int raiddisks,
 	    (super->orom && used && used != raiddisks) ||
 	    maxsize < minsize ||
 	    maxsize == 0) {
-		fprintf(stderr, Name ": not enough devices with space to create array.\n");
+		pr_err("not enough devices with space to create array.\n");
 		return 0; /* No enough free spaces large enough */
 	}
 
@@ -6195,7 +6164,7 @@ static int imsm_get_free_size(struct supertype *st, int raiddisks,
 	}
 	if (!check_env("IMSM_NO_PLATFORM") &&
 	    mpb->num_raid_devs > 0 && size && size != maxsize) {
-		fprintf(stderr, Name ": attempting to create a second "
+		pr_err("attempting to create a second "
 			"volume with size less then remaining space. "
 			"Aborting...\n");
 		return 0;
@@ -6300,15 +6269,14 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {
 		if (verbose)
-			fprintf(stderr,
-				Name ": Cannot create this array on device %s\n",
-				dev);
+			pr_err("Cannot create this array on device %s\n",
+			       dev);
 		close(fd);
 		return 0;
 	}
 	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": Cannot open %s: %s\n",
+			pr_err("Cannot open %s: %s\n",
 				dev, strerror(errno));
 		return 0;
 	}
@@ -6317,7 +6285,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	close(fd);
 	if (cfd < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": Cannot use %s: It is busy\n",
+			pr_err("Cannot use %s: It is busy\n",
 				dev);
 		return 0;
 	}
@@ -6345,7 +6313,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 	}
 
 	if (verbose)
-		fprintf(stderr, Name ": failed container membership check\n");
+		pr_err("failed container membership check\n");
 
 	close(cfd);
 	return 0;
@@ -6393,9 +6361,8 @@ static int kill_subarray_imsm(struct supertype *st)
 			continue;
 		sprintf(subarray, "%u", i);
 		if (is_subarray_active(subarray, st->devname)) {
-			fprintf(stderr,
-				Name ": deleting subarray-%d would change the UUID of active subarray-%d, aborting\n",
-				current_vol, i);
+			pr_err("deleting subarray-%d would change the UUID of active subarray-%d, aborting\n",
+			       current_vol, i);
 
 			return 2;
 		}
@@ -6452,8 +6419,7 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 		int vol;
 
 		if (is_subarray_active(subarray, st->devname)) {
-			fprintf(stderr,
-				Name ": Unable to update name of active subarray\n");
+			pr_err("Unable to update name of active subarray\n");
 			return 2;
 		}
 
@@ -6602,14 +6568,14 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	/* do not assemble arrays when not all attributes are supported */
 	if (imsm_check_attributes(mpb->attributes) == 0) {
 		sb_errors = 1;
-		fprintf(stderr, Name ": Unsupported attributes in IMSM metadata."
+		pr_err("Unsupported attributes in IMSM metadata."
 			"Arrays activation is blocked.\n");
 	}
 
 	/* check for bad blocks */
 	if (imsm_bbm_log_size(super->anchor)) {
-		fprintf(stderr,	Name ": BBM log found in IMSM metadata."
-			"Arrays activation is blocked.\n");
+		pr_err("BBM log found in IMSM metadata."
+		       "Arrays activation is blocked.\n");
 		sb_errors = 1;
 	}
 
@@ -6644,7 +6610,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		 */
 		if (dev->vol.migr_state &&
 		    (migr_type(dev) == MIGR_STATE_CHANGE)) {
-			fprintf(stderr, Name ": cannot assemble volume '%.16s':"
+			pr_err("cannot assemble volume '%.16s':"
 				" unsupported migration in progress\n",
 				dev->volume);
 			continue;
@@ -6655,7 +6621,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 
 		this = malloc(sizeof(*this));
 		if (!this) {
-			fprintf(stderr, Name ": failed to allocate %zu bytes\n",
+			pr_err("failed to allocate %zu bytes\n",
 				sizeof(*this));
 			break;
 		}
@@ -6672,7 +6638,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 						 map->num_members, /* raid disks */
 						 &chunk, join_u32(dev->size_low, dev->size_high),
 						 1 /* verbose */)) {
-			fprintf(stderr, Name ": IMSM RAID geometry validation"
+			pr_err("IMSM RAID geometry validation"
 				" failed.  Array %s activation is blocked.\n",
 				dev->volume);
 			this->array.state |=
@@ -6724,8 +6690,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 
 			info_d = calloc(1, sizeof(*info_d));
 			if (!info_d) {
-				fprintf(stderr, Name ": failed to allocate disk"
-					" for volume %.16s\n", dev->volume);
+				pr_err("failed to allocate disk"
+				       " for volume %.16s\n", dev->volume);
 				info_d = this->devs;
 				while (info_d) {
 					struct mdinfo *d = info_d->next;
@@ -9276,7 +9242,7 @@ int save_backup_imsm(struct supertype *st,
 			    start,
 			    length,
 			    buf) != 0) {
-		fprintf(stderr, Name ": Error restoring stripes\n");
+		pr_err("Error restoring stripes\n");
 		goto abort;
 	}
 
@@ -9412,8 +9378,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 		goto abort;
 
 	if (open_backup_targets(info, new_disks, targets, super, id->dev)) {
-		fprintf(stderr,
-			Name ": Cannot open some devices belonging to array.\n");
+		pr_err("Cannot open some devices belonging to array.\n");
 		goto abort;
 	}
 
@@ -9423,30 +9388,26 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 			continue;
 		}
 		if (lseek64(targets[i], read_offset, SEEK_SET) < 0) {
-			fprintf(stderr,
-				Name ": Cannot seek to block: %s\n",
-				strerror(errno));
+			pr_err("Cannot seek to block: %s\n",
+			       strerror(errno));
 			skipped_disks++;
 			continue;
 		}
 		if ((unsigned)read(targets[i], buf, unit_len) != unit_len) {
-			fprintf(stderr,
-				Name ": Cannot read copy area block: %s\n",
-				strerror(errno));
+			pr_err("Cannot read copy area block: %s\n",
+			       strerror(errno));
 			skipped_disks++;
 			continue;
 		}
 		if (lseek64(targets[i], write_offset, SEEK_SET) < 0) {
-			fprintf(stderr,
-				Name ": Cannot seek to block: %s\n",
-				strerror(errno));
+			pr_err("Cannot seek to block: %s\n",
+			       strerror(errno));
 			skipped_disks++;
 			continue;
 		}
 		if ((unsigned)write(targets[i], buf, unit_len) != unit_len) {
-			fprintf(stderr,
-				Name ": Cannot restore block: %s\n",
-				strerror(errno));
+			pr_err("Cannot restore block: %s\n",
+			       strerror(errno));
 			skipped_disks++;
 			continue;
 		}
@@ -9456,9 +9417,8 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 							 new_disks,
 							 super,
 							 id->dev)) {
-		fprintf(stderr,
-			Name ": Cannot restore data from backup."
-			" Too many failed disks\n");
+		pr_err("Cannot restore data from backup."
+		       " Too many failed disks\n");
 		goto abort;
 	}
 
@@ -9703,7 +9663,7 @@ static int imsm_create_metadata_update_for_reshape(
 
 	if (spares == NULL
 	    || delta_disks > spares->array.spare_disks) {
-		fprintf(stderr, Name ": imsm: ERROR: Cannot get spare devices "
+		pr_err("imsm: ERROR: Cannot get spare devices "
 			"for %s.\n", geo->dev_name);
 		i = -1;
 		goto abort;
@@ -9915,10 +9875,9 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			if (geo->level == 5) {
 				change = CH_MIGRATION;
 				if (geo->layout != ALGORITHM_LEFT_ASYMMETRIC) {
-					fprintf(stderr,
-					Name " Error. Requested Layout "
-					"not supported (left-asymmetric layout "
-					"is supported only)!\n");
+					pr_err("Error. Requested Layout "
+					       "not supported (left-asymmetric layout "
+					       "is supported only)!\n");
 					change = -1;
 					goto analyse_change_exit;
 				}
@@ -9943,10 +9902,9 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			break;
 		}
 		if (change == -1) {
-			fprintf(stderr,
-				Name " Error. Level Migration from %d to %d "
-				"not supported!\n",
-				info.array.level, geo->level);
+			pr_err("Error. Level Migration from %d to %d "
+			       "not supported!\n",
+			       info.array.level, geo->level);
 			goto analyse_change_exit;
 		}
 	} else
@@ -9966,10 +9924,9 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			geo->layout = 0;
 			geo->level = 5;
 		} else {
-			fprintf(stderr,
-				Name " Error. Layout Migration from %d to %d "
-				"not supported!\n",
-				info.array.layout, geo->layout);
+			pr_err("Error. Layout Migration from %d to %d "
+			       "not supported!\n",
+			       info.array.layout, geo->layout);
 			change = -1;
 			goto analyse_change_exit;
 		}
@@ -10005,17 +9962,15 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 
 	if ((current_size != geo->size) && (geo->size >= 0)) {
 		if (change != -1) {
-			fprintf(stderr,
-				Name " Error. Size change should be the only "
+			pr_err("Error. Size change should be the only "
 				"one at a time.\n");
 			change = -1;
 			goto analyse_change_exit;
 		}
 		if ((super->current_vol + 1) != super->anchor->num_raid_devs) {
-			fprintf(stderr,
-				Name " Error. The last volume in container "
-				"can be expanded only (%i/%i).\n",
-				super->current_vol, st->devnum);
+			pr_err("Error. The last volume in container "
+			       "can be expanded only (%i/%i).\n",
+			       super->current_vol, st->devnum);
 			goto analyse_change_exit;
 		}
 		/* check the maximum available size
@@ -10039,7 +9994,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			/* requested size change to the maximum available size
 			 */
 			if (max_size == 0) {
-				fprintf(stderr, Name " Error. Cannot find "
+				pr_err("Error. Cannot find "
 					"maximum available space.\n");
 				change = -1;
 				goto analyse_change_exit;
@@ -10058,20 +10013,18 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			dprintf("Prepare update for size change to %llu\n",
 				geo->size );
 			if (current_size >= geo->size) {
-				fprintf(stderr,
-					Name " Error. Size expansion is "
-					"supported only (current size is %llu, "
-					"requested size /rounded/ is %llu).\n",
-					current_size, geo->size);
+				pr_err("Error. Size expansion is "
+				       "supported only (current size is %llu, "
+				       "requested size /rounded/ is %llu).\n",
+				       current_size, geo->size);
 				goto analyse_change_exit;
 			}
 			if (max_size && geo->size > max_size) {
-				fprintf(stderr,
-					Name " Error. Requested size is larger "
-					"than maximum available size (maximum "
-					"available size is %llu, "
-					"requested size /rounded/ is %llu).\n",
-					max_size, geo->size);
+				pr_err("Error. Requested size is larger "
+				       "than maximum available size (maximum "
+				       "available size is %llu, "
+				       "requested size /rounded/ is %llu).\n",
+				       max_size, geo->size);
 				goto analyse_change_exit;
 			}
 		}
@@ -10093,11 +10046,10 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 		struct imsm_super *mpb = super->anchor;
 
 		if (mpb->num_raid_devs > 1) {
-			fprintf(stderr,
-				Name " Error. Cannot perform operation on %s"
-				"- for this operation it MUST be single "
-				"array in container\n",
-				geo->dev_name);
+			pr_err("Error. Cannot perform operation on %s"
+			       "- for this operation it MUST be single "
+			       "array in container\n",
+			       geo->dev_name);
 			change = -1;
 		}
 	}
@@ -10201,7 +10153,7 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 				free(u);
 
 		} else {
-			fprintf(stderr, Name ": (imsm) Operation "
+			pr_err("(imsm) Operation "
 				"is not allowed on this container\n");
 		}
 	} else {
@@ -10223,7 +10175,7 @@ static int imsm_reshape_super(struct supertype *st, long long size, int level,
 			dev = dev->next;
 		}
 		if (dev == NULL) {
-			fprintf(stderr, Name " Cannot find %s (%i) subarray\n",
+			pr_err("Cannot find %s (%i) subarray\n",
 				geo.dev_name, geo.dev_id);
 			goto exit_imsm_reshape_super;
 		}
@@ -10463,7 +10415,7 @@ static int imsm_manage_reshape(
 	}
 	/* Only one volume can migrate at the same time */
 	if (migr_vol_qan != 1) {
-		fprintf(stderr, Name " : %s", migr_vol_qan ?
+		pr_err(": %s", migr_vol_qan ?
 			"Number of migrating volumes greater than 1\n" :
 			"There is no volume during migrationg\n");
 		goto abort;

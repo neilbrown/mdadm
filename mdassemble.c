@@ -32,10 +32,10 @@ int open_mddev(char *dev, int report_errors/*unused*/)
 {
 	int mdfd = open(dev, O_RDWR);
 	if (mdfd < 0)
-		fprintf(stderr, Name ": error opening %s: %s\n",
+		pr_err("error opening %s: %s\n",
 			dev, strerror(errno));
 	else if (md_get_version(mdfd) <= 0) {
-		fprintf(stderr, Name ": %s does not appear to be an md device\n",
+		pr_err("%s does not appear to be an md device\n",
 			dev);
 		close(mdfd);
 		mdfd = -1;
@@ -68,7 +68,7 @@ int force = 0;
 int main(int argc, char *argv[]) {
 	struct mddev_ident *array_list =  conf_get_ident(NULL);
 	if (!array_list) {
-		fprintf(stderr, Name ": No arrays found in config file\n");
+		pr_err("No arrays found in config file\n");
 		rv = 1;
 	} else
 		for (; array_list; array_list = array_list->next) {

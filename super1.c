@@ -871,8 +871,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	int sbsize;
 
 	if (posix_memalign((void**)&sb, 4096, SUPER1_SIZE) != 0) {
-		fprintf(stderr, Name
-			": %s could not allocate superblock\n", __func__);
+		pr_err("%s could not allocate superblock\n", __func__);
 		return 0;
 	}
 	memset(sb, 0, SUPER1_SIZE);
@@ -885,7 +884,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 
 	spares = info->working_disks - info->active_disks;
 	if (info->raid_disks + spares  > MAX_DEVS) {
-		fprintf(stderr, Name ": too many devices requested: %d+%d > %d\n",
+		pr_err("too many devices requested: %d+%d > %d\n",
 			info->raid_disks , spares, MAX_DEVS);
 		return 0;
 	}
@@ -1039,7 +1038,7 @@ static int store_super1(struct supertype *st, int fd)
 	if (sb_offset != __le64_to_cpu(sb->super_offset) &&
 	    0 != __le64_to_cpu(sb->super_offset)
 		) {
-		fprintf(stderr, Name ": internal error - sb_offset is wrong\n");
+		pr_err("internal error - sb_offset is wrong\n");
 		abort();
 	}
 
@@ -1229,9 +1228,9 @@ static int write_init_super1(struct supertype *st)
 			sb->data_size = __cpu_to_le64(dsize - reserved);
 			break;
 		default:
-			fprintf(stderr,	Name ": Failed to write invalid "
-				"metadata format 1.%i to %s\n",
-				st->minor_version, di->devname);
+			pr_err("Failed to write invalid "
+			       "metadata format 1.%i to %s\n",
+			       st->minor_version, di->devname);
 			rv = -EINVAL;
 			goto out;
 		}
@@ -1247,8 +1246,8 @@ static int write_init_super1(struct supertype *st)
 	}
 error_out:
 	if (rv)
-		fprintf(stderr,	Name ": Failed to write metadata to %s\n",
-			di->devname);
+		pr_err("Failed to write metadata to %s\n",
+		       di->devname);
 out:
 	return rv;
 }
@@ -1273,8 +1272,7 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 
 	if (!first) {
 		if (posix_memalign((void**)&first, 4096, SUPER1_SIZE) != 0) {
-			fprintf(stderr, Name
-				": %s could not allocate superblock\n", __func__);
+			pr_err("%s could not allocate superblock\n", __func__);
 			return 1;
 		}
 		memcpy(first, second, SUPER1_SIZE);
@@ -1348,7 +1346,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	if (dsize < 24) {
 		if (devname)
-			fprintf(stderr, Name ": %s is too small for md: size is %llu sectors.\n",
+			pr_err("%s is too small for md: size is %llu sectors.\n",
 				devname, dsize);
 		return 1;
 	}
@@ -1382,20 +1380,20 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	if (lseek64(fd, sb_offset << 9, 0)< 0LL) {
 		if (devname)
-			fprintf(stderr, Name ": Cannot seek to superblock on %s: %s\n",
+			pr_err("Cannot seek to superblock on %s: %s\n",
 				devname, strerror(errno));
 		return 1;
 	}
 
 	if (posix_memalign((void**)&super, 4096, SUPER1_SIZE) != 0) {
-		fprintf(stderr, Name ": %s could not allocate superblock\n",
+		pr_err("%s could not allocate superblock\n",
 			__func__);
 		return 1;
 	}
 
 	if (aread(&afd, super, MAX_SB_SIZE) != MAX_SB_SIZE) {
 		if (devname)
-			fprintf(stderr, Name ": Cannot read superblock on %s\n",
+			pr_err("Cannot read superblock on %s\n",
 				devname);
 		free(super);
 		return 1;
@@ -1403,7 +1401,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	if (__le32_to_cpu(super->magic) != MD_SB_MAGIC) {
 		if (devname)
-			fprintf(stderr, Name ": No super block found on %s (Expected magic %08x, got %08x)\n",
+			pr_err("No super block found on %s (Expected magic %08x, got %08x)\n",
 				devname, MD_SB_MAGIC, __le32_to_cpu(super->magic));
 		free(super);
 		return 2;
@@ -1411,14 +1409,14 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	if (__le32_to_cpu(super->major_version) != 1) {
 		if (devname)
-			fprintf(stderr, Name ": Cannot interpret superblock on %s - version is %d\n",
+			pr_err("Cannot interpret superblock on %s - version is %d\n",
 				devname, __le32_to_cpu(super->major_version));
 		free(super);
 		return 2;
 	}
 	if (__le64_to_cpu(super->super_offset) != sb_offset) {
 		if (devname)
-			fprintf(stderr, Name ": No superblock found on %s (super_offset is wrong)\n",
+			pr_err("No superblock found on %s (super_offset is wrong)\n",
 				devname);
 		free(super);
 		return 2;
@@ -1760,7 +1758,7 @@ static int validate_geometry1(struct supertype *st, int level,
 
 	if (level == LEVEL_CONTAINER) {
 		if (verbose)
-			fprintf(stderr, Name ": 1.x metadata does not support containers\n");
+			pr_err("1.x metadata does not support containers\n");
 		return 0;
 	}
 	if (chunk && *chunk == UnSet)
@@ -1772,7 +1770,7 @@ static int validate_geometry1(struct supertype *st, int level,
 	fd = open(subdev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": super1.x cannot open %s: %s\n",
+			pr_err("super1.x cannot open %s: %s\n",
 				subdev, strerror(errno));
 		return 0;
 	}

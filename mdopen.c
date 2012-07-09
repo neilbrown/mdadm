@@ -175,7 +175,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			/* name *must* be mdXX or md_dXX in this context */
 			if (num < 0 ||
 			    (strcmp(cname, "md") != 0 && strcmp(cname, "md_d") != 0)) {
-				fprintf(stderr, Name ": %s is an invalid name "
+				pr_err("%s is an invalid name "
 					"for an md device.  Try /dev/md/%s\n",
 					dev, dev+5);
 				return -1;
@@ -193,12 +193,12 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		 * empty.
 		 */
 		if (strchr(cname, '/') != NULL) {
-			fprintf(stderr, Name ": %s is an invalid name "
+			pr_err("%s is an invalid name "
 				"for an md device.\n", dev);
 			return -1;
 		}
 		if (cname[0] == 0) {
-			fprintf(stderr, Name ": %s is an invalid name "
+			pr_err("%s is an invalid name "
 				"for an md device (empty!).", dev);
 			return -1;
 		}
@@ -225,7 +225,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	if (name && name[0] == 0)
 		name = NULL;
 	if (name && trustworthy == METADATA && use_mdp == 1) {
-		fprintf(stderr, Name ": %s is not allowed for a %s container. "
+		pr_err("%s is not allowed for a %s container. "
 			"Consider /dev/md%d.\n", dev, name, num);
 		return -1;
 	}
@@ -260,13 +260,13 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		/* need to choose a free number. */
 		num = find_free_devnum(use_mdp);
 		if (num == NoMdDev) {
-			fprintf(stderr, Name ": No avail md devices - aborting\n");
+			pr_err("No avail md devices - aborting\n");
 			return -1;
 		}
 	} else {
 		num = use_mdp ? (-1-num) : num;
 		if (mddev_busy(num)) {
-			fprintf(stderr, Name ": %s is already in use.\n",
+			pr_err("%s is already in use.\n",
 				dev);
 			return -1;
 		}
@@ -328,14 +328,14 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			/* Must be the correct device, else error */
 			if ((stb.st_mode&S_IFMT) != S_IFBLK ||
 			    stb.st_rdev != makedev(dev2major(num),dev2minor(num))) {
-				fprintf(stderr, Name ": %s exists but looks wrong, please fix\n",
+				pr_err("%s exists but looks wrong, please fix\n",
 					devname);
 				return -1;
 			}
 		} else {
 			if (mknod(devname, S_IFBLK|0600,
 				  makedev(dev2major(num),dev2minor(num))) != 0) {
-				fprintf(stderr, Name ": failed to create %s\n",
+				pr_err("failed to create %s\n",
 					devname);
 				return -1;
 			}
@@ -370,12 +370,12 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				if ((stb.st_mode & S_IFMT) != S_IFLNK ||
 				    link_len < 0 ||
 				    strcmp(buf, devname) != 0) {
-					fprintf(stderr, Name ": %s exists - ignoring\n",
+					pr_err("%s exists - ignoring\n",
 						chosen);
 					strcpy(chosen, devname);
 				}
 			} else if (symlink(devname, chosen) != 0)
-				fprintf(stderr, Name ": failed to create %s: %s\n",
+				pr_err("failed to create %s: %s\n",
 					chosen, strerror(errno));
 			if (use_mdp && strcmp(chosen, devname) != 0)
 				make_parts(chosen, parts);
@@ -383,7 +383,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	}
 	mdfd = open_dev_excl(num);
 	if (mdfd < 0)
-		fprintf(stderr, Name ": unexpected failure opening %s\n",
+		pr_err("unexpected failure opening %s\n",
 			devname);
 	return mdfd;
 }
@@ -401,14 +401,14 @@ int open_mddev(char *dev, int report_errors)
 		mdfd = open(dev, O_RDONLY);
 	if (mdfd < 0) {
 		if (report_errors)
-			fprintf(stderr, Name ": error opening %s: %s\n",
+			pr_err("error opening %s: %s\n",
 				dev, strerror(errno));
 		return -1;
 	}
 	if (md_get_version(mdfd) <= 0) {
 		close(mdfd);
 		if (report_errors)
-			fprintf(stderr, Name ": %s does not appear to be "
+			pr_err("%s does not appear to be "
 				"an md device\n", dev);
 		return -2;
 	}

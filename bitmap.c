@@ -133,7 +133,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	unsigned int n, skip;
 
 	if (posix_memalign(&buf, 4096, 8192) != 0) {
-		fprintf(stderr, Name ": failed to allocate 8192 bytes\n");
+		pr_err("failed to allocate 8192 bytes\n");
 		return NULL;
 	}
 	n = read(fd, buf, 8192);
@@ -141,10 +141,10 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	info = malloc(sizeof(*info));
 	if (info == NULL) {
 #if __GNUC__ < 3
-		fprintf(stderr, Name ": failed to allocate %d bytes\n",
+		pr_err("failed to allocate %d bytes\n",
 				(int)sizeof(*info));
 #else
-		fprintf(stderr, Name ": failed to allocate %zd bytes\n",
+		pr_err("failed to allocate %zd bytes\n",
 				sizeof(*info));
 #endif
 		free(buf);
@@ -152,8 +152,8 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	}
 
 	if (n < sizeof(info->sb)) {
-		fprintf(stderr, Name ": failed to read superblock of bitmap "
-			"file: %s\n", strerror(errno));
+		pr_err("failed to read superblock of bitmap "
+		       "file: %s\n", strerror(errno));
 		free(info);
 		free(buf);
 		return NULL;
@@ -194,7 +194,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	}
 
 	if (read_bits < total_bits) { /* file truncated... */
-		fprintf(stderr, Name ": WARNING: bitmap file is not large "
+		pr_err("WARNING: bitmap file is not large "
 			"enough for array size %llu!\n\n",
 			(unsigned long long)info->sb.sync_size);
 		total_bits = read_bits;
@@ -214,14 +214,14 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 	struct supertype *st = *stp;
 
 	if (stat(filename, &stb) < 0) {
-		fprintf(stderr, Name ": failed to find file %s: %s\n",
+		pr_err("failed to find file %s: %s\n",
 			filename, strerror(errno));
 		return NULL;
 	}
 	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
 		fd = open(filename, O_RDONLY);
 		if (fd < 0) {
-			fprintf(stderr, Name ": failed to open bitmap file %s: %s\n",
+			pr_err("failed to open bitmap file %s: %s\n",
 				filename, strerror(errno));
 			return NULL;
 		}
@@ -231,7 +231,7 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 			/* just look at device... */
 			lseek(fd, 0, 0);
 		} else if (!st->ss->locate_bitmap) {
-			fprintf(stderr, Name ": No bitmap possible with %s metadata\n",
+			pr_err("No bitmap possible with %s metadata\n",
 				st->ss->name);
 			return NULL;
 		} else
@@ -242,7 +242,7 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 	} else {
 		fd = open(filename, O_RDONLY|O_DIRECT);
 		if (fd < 0) {
-			fprintf(stderr, Name ": failed to open bitmap file %s: %s\n",
+			pr_err("failed to open bitmap file %s: %s\n",
 				filename, strerror(errno));
 			return NULL;
 		}
@@ -286,12 +286,12 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	printf("        Filename : %s\n", filename);
 	printf("           Magic : %08x\n", sb->magic);
 	if (sb->magic != BITMAP_MAGIC) {
-		fprintf(stderr, Name ": invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);
+		pr_err("invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);
 	}
 	printf("         Version : %d\n", sb->version);
 	if (sb->version < BITMAP_MAJOR_LO ||
 	    sb->version > BITMAP_MAJOR_HI) {
-		fprintf(stderr, Name ": unknown bitmap version %d, either the bitmap file is corrupted or you need to upgrade your tools\n", sb->version);
+		pr_err("unknown bitmap version %d, either the bitmap file is corrupted or you need to upgrade your tools\n", sb->version);
 		goto free_info;
 	}
 
@@ -357,13 +357,13 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 	long long bytes, filesize;
 
 	if (!force && access(filename, F_OK) == 0) {
-		fprintf(stderr, Name ": bitmap file %s already exists, use --force to overwrite\n", filename);
+		pr_err("bitmap file %s already exists, use --force to overwrite\n", filename);
 		return rv;
 	}
 
 	fp = fopen(filename, "w");
 	if (fp == NULL) {
-		fprintf(stderr, Name ": failed to open bitmap file %s: %s\n",
+		pr_err("failed to open bitmap file %s: %s\n",
 			filename, strerror(errno));
 		return rv;
 	}
@@ -393,7 +393,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 	sb_cpu_to_le(&sb); /* convert to on-disk byte ordering */
 
 	if (fwrite(&sb, sizeof(sb), 1, fp) != 1) {
-		fprintf(stderr, Name ": failed to write superblock to bitmap file %s: %s\n", filename, strerror(errno));
+		pr_err("failed to write superblock to bitmap file %s: %s\n", filename, strerror(errno));
 		goto out;
 	}
 
@@ -410,7 +410,7 @@ int CreateBitmap(char *filename, int force, char uuid[16],
 
 	while (bytes > 0) {
 		if (fwrite(block, sizeof(block), 1, fp) != 1) {
-			fprintf(stderr, Name ": failed to write bitmap file %s: %s\n", filename, strerror(errno));
+			pr_err("failed to write bitmap file %s: %s\n", filename, strerror(errno));
 			goto out;
 		}
 		bytes -= sizeof(block);

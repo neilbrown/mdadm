@@ -47,7 +47,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 	fd = open(dev, O_RDWR|(noexcl ? 0 : O_EXCL));
 	if (fd < 0) {
 		if (!quiet)
-			fprintf(stderr, Name ": Couldn't open %s for write - not zeroing\n",
+			pr_err("Couldn't open %s for write - not zeroing\n",
 				dev);
 		return 2;
 	}
@@ -55,7 +55,7 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 		st = guess_super(fd);
 	if (st == NULL || st->ss->init_super == NULL) {
 		if (!quiet)
-			fprintf(stderr, Name ": Unrecognised md component device - %s\n", dev);
+			pr_err("Unrecognised md component device - %s\n", dev);
 		close(fd);
 		return 2;
 	}
@@ -66,12 +66,12 @@ int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl)
 		st->ss->init_super(st, NULL, 0, "", NULL, NULL);
 		if (st->ss->store_super(st, fd)) {
 			if (!quiet)
-				fprintf(stderr, Name ": Could not zero superblock on %s\n",
+				pr_err("Could not zero superblock on %s\n",
 					dev);
 			rv = 1;
 		} else if (rv) {
 			if (!quiet)
-				fprintf(stderr, Name ": superblock zeroed anyway\n");
+				pr_err("superblock zeroed anyway\n");
 			rv = 0;
 		}
 	}
@@ -101,17 +101,15 @@ int Kill_subarray(char *dev, char *subarray, int quiet)
 
 	if (!st->ss->kill_subarray) {
 		if (!quiet)
-			fprintf(stderr,
-				Name ": Operation not supported for %s metadata\n",
-				st->ss->name);
+			pr_err("Operation not supported for %s metadata\n",
+			       st->ss->name);
 		goto free_super;
 	}
 
 	if (is_subarray_active(subarray, st->devname)) {
 		if (!quiet)
-			fprintf(stderr,
-				Name ": Subarray-%s still active, aborting\n",
-				subarray);
+			pr_err("Subarray-%s still active, aborting\n",
+			       subarray);
 		goto free_super;
 	}
 
@@ -122,9 +120,8 @@ int Kill_subarray(char *dev, char *subarray, int quiet)
 	rv = st->ss->kill_subarray(st);
 	if (rv) {
 		if (!quiet)
-			fprintf(stderr,
-				Name ": Failed to delete subarray-%s from %s\n",
-				subarray, dev);
+			pr_err("Failed to delete subarray-%s from %s\n",
+			       subarray, dev);
 		goto free_super;
 	}
 
@@ -135,9 +132,8 @@ int Kill_subarray(char *dev, char *subarray, int quiet)
 		st->ss->sync_metadata(st);
 
 	if (!quiet)
-		fprintf(stderr,
-			Name ": Deleted subarray-%s from %s, UUIDs may have changed\n",
-			subarray, dev);
+		pr_err("Deleted subarray-%s from %s, UUIDs may have changed\n",
+		       subarray, dev);
 
 	rv = 0;
 

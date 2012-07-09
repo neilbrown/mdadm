@@ -310,9 +310,8 @@ int check_mdmon_version(char *container)
 		ver = version ? mdadm_version(version) : -1;
 		free(version);
 		if (ver < 3002000) {
-			fprintf(stderr, Name
-				": mdmon instance for %s cannot be disabled\n",
-				container);
+			pr_err("mdmon instance for %s cannot be disabled\n",
+			       container);
 			return -1;
 		}
 	}
@@ -351,8 +350,7 @@ int block_monitor(char *container, const int freeze)
 
 	ent = mdstat_read(0, 0);
 	if (!ent) {
-		fprintf(stderr, Name
-			": failed to read /proc/mdstat while disabling mdmon\n");
+		pr_err("failed to read /proc/mdstat while disabling mdmon\n");
 		return -1;
 	}
 
@@ -363,9 +361,8 @@ int block_monitor(char *container, const int freeze)
 		sysfs_free(sra);
 		sra = sysfs_read(-1, e->devnum, GET_VERSION);
 		if (!sra) {
-			fprintf(stderr, Name
-				": failed to read sysfs for subarray%s\n",
-				to_subarray(e, container));
+			pr_err("failed to read sysfs for subarray%s\n",
+			       to_subarray(e, container));
 			break;
 		}
 		/* can't reshape an array that we can't monitor */
@@ -406,7 +403,7 @@ int block_monitor(char *container, const int freeze)
 	}
 
 	if (e) {
-		fprintf(stderr, Name ": failed to freeze subarray%s\n",
+		pr_err("failed to freeze subarray%s\n",
 			to_subarray(e, container));
 
 		/* thaw the partially frozen container */
@@ -416,7 +413,7 @@ int block_monitor(char *container, const int freeze)
 			sysfs_free(sra);
 			sra = sysfs_read(-1, e2->devnum, GET_VERSION);
 			if (unblock_subarray(sra, freeze))
-				fprintf(stderr, Name ": Failed to unfreeze %s\n", e2->dev);
+				pr_err("Failed to unfreeze %s\n", e2->dev);
 		}
 
 		ping_monitor(container); /* cleared frozen */
@@ -437,8 +434,7 @@ void unblock_monitor(char *container, const int unfreeze)
 
 	ent = mdstat_read(0, 0);
 	if (!ent) {
-		fprintf(stderr, Name
-			": failed to read /proc/mdstat while unblocking container\n");
+		pr_err("failed to read /proc/mdstat while unblocking container\n");
 		return;
 	}
 
@@ -453,7 +449,7 @@ void unblock_monitor(char *container, const int unfreeze)
 		if (sra->array.level > 0)
 			to_ping++;
 		if (unblock_subarray(sra, unfreeze))
-			fprintf(stderr, Name ": Failed to unfreeze %s\n", e->dev);
+			pr_err("Failed to unfreeze %s\n", e->dev);
 	}
 	if (to_ping)
 		ping_monitor(container);

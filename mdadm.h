@@ -1310,6 +1310,9 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 	return ret;
 }
 
+#define pr_err(fmt ...) fprintf(stderr, Name ": " fmt)
+#define cont_err(fmt ...) fprintf(stderr, "       " fmt)
+
 #define	LEVEL_MULTIPATH		(-4)
 #define	LEVEL_LINEAR		(-1)
 #define	LEVEL_FAULTY		(-5)

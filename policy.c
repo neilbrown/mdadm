@@ -67,7 +67,7 @@ static void pol_new(struct dev_policy **pol, char *name, const char *val,
 		if (!real_metadata) {
 			static const char *prev = NULL;
 			if (prev != metadata) {
-				fprintf(stderr, Name ": metadata=%s unrecognised - ignoring rule\n",
+				pr_err("metadata=%s unrecognised - ignoring rule\n",
 					metadata);
 				prev = metadata;
 			}
@@ -479,7 +479,7 @@ void policyline(char *line, char *type)
 			 ! try_rule(w, pol_act, &pr->rule) &&
 			 ! try_rule(w, pol_domain, &pr->rule) &&
 			 ! try_rule(w, pol_auto, &pr->rule))
-			fprintf(stderr, Name ": policy rule %s unrecognised and ignored\n",
+			pr_err("policy rule %s unrecognised and ignored\n",
 				w);
 	}
 	pr->next = config_rules;
@@ -731,7 +731,7 @@ void policy_save_path(char *id_path, struct map_ent *array)
 	FILE *f = NULL;
 
 	if (mkdir(FAILED_SLOTS_DIR, S_IRWXU) < 0 && errno != EEXIST) {
-		fprintf(stderr, Name ": can't create file to save path "
+		pr_err("can't create file to save path "
 			"to old disk: %s\n", strerror(errno));
 		return;
 	}
@@ -739,7 +739,7 @@ void policy_save_path(char *id_path, struct map_ent *array)
 	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
 	f = fopen(path, "w");
 	if (!f) {
-		fprintf(stderr, Name ": can't create file to"
+		pr_err("can't create file to"
 			" save path to old disk: %s\n",
 			strerror(errno));
 		return;
@@ -749,8 +749,8 @@ void policy_save_path(char *id_path, struct map_ent *array)
 		    array->metadata,
 		    array->uuid[0], array->uuid[1],
 		    array->uuid[2], array->uuid[3]) <= 0)
-		fprintf(stderr, Name ": Failed to write to "
-			"<id_path> cookie\n");
+		pr_err("Failed to write to "
+		       "<id_path> cookie\n");
 
 	fclose(f);
 }

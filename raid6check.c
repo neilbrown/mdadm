@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 	mdfd = open(argv[1], O_RDONLY);
 	if(mdfd < 0) {
 		perror(argv[1]);
-		fprintf(stderr,"%s: cannot open %s\n", prg, argv[1]);
+		fprintf(stderr, "%s: cannot open %s\n", prg, argv[1]);
 		exit_err = 2;
 		goto exitHere;
 	}

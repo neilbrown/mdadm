@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
 			/* everybody happy ! */
 		} else if (mode && newmode != mode) {
 			/* not allowed.. */
-			fprintf(stderr, Name ": ");
+			pr_err("");
 			if (option_index >= 0)
 				fprintf(stderr, "--%s", long_options[option_index].name);
 			else
@@ -301,7 +301,7 @@ int main(int argc, char *argv[])
 		} else if (!mode && newmode) {
 			mode = newmode;
 			if (mode == MISC && devs_found) {
-				fprintf(stderr, Name ": No action given for %s in --misc mode\n",
+				pr_err("No action given for %s in --misc mode\n",
 					devlist->devname);
 				fprintf(stderr,"       Action options must come before device names\n");
 				exit(2);
@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 				if (devs_found == 0) {
 					dv = malloc(sizeof(*dv));
 					if (dv == NULL) {
-						fprintf(stderr, Name ": malloc failed\n");
+						pr_err("malloc failed\n");
 						exit(3);
 					}
 					dv->devname = optarg;
@@ -336,14 +336,14 @@ int main(int argc, char *argv[])
 					continue;
 				}
 				/* No mode yet, and this is the second device ... */
-				fprintf(stderr, Name ": An option must be given to set the mode before a second device\n"
+				pr_err("An option must be given to set the mode before a second device\n"
 					"       (%s) is listed\n", optarg);
 				exit(2);
 			}
 			if (option_index >= 0)
-				fprintf(stderr, Name ": --%s", long_options[option_index].name);
+				pr_err("--%s", long_options[option_index].name);
 			else
-				fprintf(stderr, Name ": -%c", opt);
+				pr_err("-%c", opt);
 			fprintf(stderr, " does not set the mode, and so cannot be the first option.\n");
 			exit(2);
 		}
@@ -365,18 +365,18 @@ int main(int argc, char *argv[])
 		        /* an undecorated option - must be a device name.
 			 */
 			if (devs_found > 0 && mode == MANAGE && !devmode) {
-				fprintf(stderr, Name ": Must give one of -a/-r/-f"
+				pr_err("Must give one of -a/-r/-f"
 					" for subsequent devices at %s\n", optarg);
 				exit(2);
 			}
 			if (devs_found > 0 && mode == GROW && !devmode) {
-				fprintf(stderr, Name ": Must give -a/--add for"
-					" devices to add: %s\n", optarg);
+				pr_err("Must give -a/--add for"
+				       " devices to add: %s\n", optarg);
 				exit(2);
 			}
 			dv = malloc(sizeof(*dv));
 			if (dv == NULL) {
-				fprintf(stderr, Name ": malloc failed\n");
+				pr_err("malloc failed\n");
 				exit(3);
 			}
 			dv->devname = optarg;
@@ -403,13 +403,13 @@ int main(int argc, char *argv[])
 		case O(BUILD,'c'): /* chunk or rounding */
 		case O(BUILD,ChunkSize): /* chunk or rounding */
 			if (chunk) {
-				fprintf(stderr, Name ": chunk/rounding may only be specified once. "
+				pr_err("chunk/rounding may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
 			chunk = parse_size(optarg);
 			if (chunk < 8 || (chunk&1)) {
-				fprintf(stderr, Name ": invalid chunk/rounding value: %s\n",
+				pr_err("invalid chunk/rounding value: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -422,14 +422,14 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'e'):
 		case O(MISC,'e'): /* set metadata (superblock) information */
 			if (ss) {
-				fprintf(stderr, Name ": metadata information already given\n");
+				pr_err("metadata information already given\n");
 				exit(2);
 			}
 			for(i=0; !ss && superlist[i]; i++)
 				ss = superlist[i]->match_metadata_desc(optarg);
 
 			if (!ss) {
-				fprintf(stderr, Name ": unrecognised metadata identifier: %s\n", optarg);
+				pr_err("unrecognised metadata identifier: %s\n", optarg);
 				exit(2);
 			}
 			continue;
@@ -454,7 +454,7 @@ int main(int argc, char *argv[])
 		case O(CREATE,'z'):
 		case O(BUILD,'z'): /* size */
 			if (size >= 0) {
-				fprintf(stderr, Name ": size may only be specified once. "
+				pr_err("size may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
@@ -463,7 +463,7 @@ int main(int argc, char *argv[])
 			else {
 				size = parse_size(optarg);
 				if (size < 8) {
-					fprintf(stderr, Name ": invalid size: %s\n",
+					pr_err("invalid size: %s\n",
 						optarg);
 					exit(2);
 				}
@@ -474,7 +474,7 @@ int main(int argc, char *argv[])
 
 		case O(GROW,'Z'): /* array size */
 			if (array_size >= 0) {
-				fprintf(stderr, Name ": array-size may only be specified once. "
+				pr_err("array-size may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
@@ -483,7 +483,7 @@ int main(int argc, char *argv[])
 			else {
 				array_size = parse_size(optarg);
 				if (array_size <= 0) {
-					fprintf(stderr, Name ": invalid array size: %s\n",
+					pr_err("invalid array size: %s\n",
 						optarg);
 					exit(2);
 				}
@@ -494,13 +494,13 @@ int main(int argc, char *argv[])
 		case O(CREATE,'l'):
 		case O(BUILD,'l'): /* set raid level*/
 			if (level != UnSet) {
-				fprintf(stderr, Name ": raid level may only be set once.  "
+				pr_err("raid level may only be set once.  "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
 			level = map_name(pers, optarg);
 			if (level == UnSet) {
-				fprintf(stderr, Name ": invalid raid level: %s\n",
+				pr_err("invalid raid level: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -508,12 +508,12 @@ int main(int argc, char *argv[])
 			    level != LEVEL_MULTIPATH && level != LEVEL_FAULTY &&
 			    level != 10 &&
 			    mode == BUILD) {
-				fprintf(stderr, Name ": Raid level %s not permitted with --build.\n",
+				pr_err("Raid level %s not permitted with --build.\n",
 					optarg);
 				exit(2);
 			}
 			if (sparedisks > 0 && level < 1 && level >= -1) {
-				fprintf(stderr, Name ": raid level %s is incompatible with spare-devices setting.\n",
+				pr_err("raid level %s is incompatible with spare-devices setting.\n",
 					optarg);
 				exit(2);
 			}
@@ -523,8 +523,8 @@ int main(int argc, char *argv[])
 		case O(GROW, 'p'): /* new layout */
 		case O(GROW, Layout):
 			if (layout_str) {
-				fprintf(stderr,Name ": layout may only be sent once.  "
-					"Second value was %s\n", optarg);
+				pr_err("layout may only be sent once.  "
+				       "Second value was %s\n", optarg);
 				exit(2);
 			}
 			layout_str = optarg;
@@ -536,23 +536,23 @@ int main(int argc, char *argv[])
 		case O(BUILD,'p'): /* faulty layout */
 		case O(BUILD,Layout):
 			if (layout != UnSet) {
-				fprintf(stderr,Name ": layout may only be sent once.  "
-					"Second value was %s\n", optarg);
+				pr_err("layout may only be sent once.  "
+				       "Second value was %s\n", optarg);
 				exit(2);
 			}
 			switch(level) {
 			default:
-				fprintf(stderr, Name ": layout not meaningful for %s arrays.\n",
+				pr_err("layout not meaningful for %s arrays.\n",
 					map_num(pers, level));
 				exit(2);
 			case UnSet:
-				fprintf(stderr, Name ": raid level must be given before layout.\n");
+				pr_err("raid level must be given before layout.\n");
 				exit(2);
 
 			case 5:
 				layout = map_name(r5layout, optarg);
 				if (layout==UnSet) {
-					fprintf(stderr, Name ": layout %s not understood for raid5.\n",
+					pr_err("layout %s not understood for raid5.\n",
 						optarg);
 					exit(2);
 				}
@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
 			case 6:
 				layout = map_name(r6layout, optarg);
 				if (layout==UnSet) {
-					fprintf(stderr, Name ": layout %s not understood for raid6.\n",
+					pr_err("layout %s not understood for raid6.\n",
 						optarg);
 					exit(2);
 				}
@@ -569,7 +569,7 @@ int main(int argc, char *argv[])
 			case 10:
 				layout = parse_layout_10(optarg);
 				if (layout < 0) {
-					fprintf(stderr, Name ": layout for raid10 must be 'nNN', 'oNN' or 'fNN' where NN is a number, not %s\n", optarg);
+					pr_err("layout for raid10 must be 'nNN', 'oNN' or 'fNN' where NN is a number, not %s\n", optarg);
 					exit(2);
 				}
 				break;
@@ -579,7 +579,7 @@ int main(int argc, char *argv[])
 				 */
 				layout = parse_layout_faulty(optarg);
 				if (layout == -1) {
-					fprintf(stderr, Name ": layout %s not understood for faulty.\n",
+					pr_err("layout %s not understood for faulty.\n",
 						optarg);
 					exit(2);
 				}
@@ -597,13 +597,13 @@ int main(int argc, char *argv[])
 		case O(CREATE,'n'):
 		case O(BUILD,'n'): /* number of raid disks */
 			if (raiddisks) {
-				fprintf(stderr, Name ": raid-devices set twice: %d and %s\n",
+				pr_err("raid-devices set twice: %d and %s\n",
 					raiddisks, optarg);
 				exit(2);
 			}
 			raiddisks = strtol(optarg, &c, 10);
 			if (!optarg[0] || *c || raiddisks<=0) {
-				fprintf(stderr, Name ": invalid number of raid devices: %s\n",
+				pr_err("invalid number of raid devices: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -612,18 +612,18 @@ int main(int argc, char *argv[])
 
 		case O(CREATE,'x'): /* number of spare (eXtra) disks */
 			if (sparedisks) {
-				fprintf(stderr,Name ": spare-devices set twice: %d and %s\n",
-					sparedisks, optarg);
+				pr_err("spare-devices set twice: %d and %s\n",
+				       sparedisks, optarg);
 				exit(2);
 			}
 			if (level != UnSet && level <= 0 && level >= -1) {
-				fprintf(stderr, Name ": spare-devices setting is incompatible with raid level %d\n",
+				pr_err("spare-devices setting is incompatible with raid level %d\n",
 					level);
 				exit(2);
 			}
 			sparedisks = strtol(optarg, &c, 10);
 			if (!optarg[0] || *c || sparedisks < 0) {
-				fprintf(stderr, Name ": invalid number of spare-devices: %s\n",
+				pr_err("invalid number of spare-devices: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -668,14 +668,14 @@ int main(int argc, char *argv[])
 		case O(CREATE,'u'): /* uuid of array */
 		case O(ASSEMBLE,'u'): /* uuid of array */
 			if (ident.uuid_set) {
-				fprintf(stderr, Name ": uuid cannot be set twice.  "
+				pr_err("uuid cannot be set twice.  "
 					"Second value %s.\n", optarg);
 				exit(2);
 			}
 			if (parse_uuid(optarg, ident.uuid))
 				ident.uuid_set = 1;
 			else {
-				fprintf(stderr,Name ": Bad uuid: %s\n", optarg);
+				pr_err("Bad uuid: %s\n", optarg);
 				exit(2);
 			}
 			continue;
@@ -684,16 +684,16 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'N'):
 		case O(MISC,'N'):
 			if (ident.name[0]) {
-				fprintf(stderr, Name ": name cannot be set twice.   "
+				pr_err("name cannot be set twice.   "
 					"Second value %s.\n", optarg);
 				exit(2);
 			}
 			if (mode == MISC && !subarray) {
-				fprintf(stderr, Name ": -N/--name only valid with --update-subarray in misc mode\n");
+				pr_err("-N/--name only valid with --update-subarray in misc mode\n");
 				exit(2);
 			}
 			if (strlen(optarg) > 32) {
-				fprintf(stderr, Name ": name '%s' is too long, 32 chars max.\n",
+				pr_err("name '%s' is too long, 32 chars max.\n",
 					optarg);
 				exit(2);
 			}
@@ -703,7 +703,7 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'m'): /* super-minor for array */
 		case O(ASSEMBLE,SuperMinor):
 			if (ident.super_minor != UnSet) {
-				fprintf(stderr, Name ": super-minor cannot be set twice.  "
+				pr_err("super-minor cannot be set twice.  "
 					"Second value: %s.\n", optarg);
 				exit(2);
 			}
@@ -712,7 +712,7 @@ int main(int argc, char *argv[])
 			else {
 				ident.super_minor = strtoul(optarg, &cp, 10);
 				if (!optarg[0] || *cp) {
-					fprintf(stderr, Name ": Bad super-minor number: %s.\n", optarg);
+					pr_err("Bad super-minor number: %s.\n", optarg);
 					exit(2);
 				}
 			}
@@ -721,13 +721,13 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'U'): /* update the superblock */
 		case O(MISC,'U'):
 			if (update) {
-				fprintf(stderr, Name ": Can only update one aspect"
+				pr_err("Can only update one aspect"
 					" of superblock, both %s and %s given.\n",
 					update, optarg);
 				exit(2);
 			}
 			if (mode == MISC && !subarray) {
-				fprintf(stderr, Name ": Only subarrays can be"
+				pr_err("Only subarrays can be"
 					" updated in misc mode\n");
 				exit(2);
 			}
@@ -752,16 +752,15 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(update, "byteorder")==0) {
 				if (ss) {
-					fprintf(stderr,
-						Name ": must not set metadata"
-						" type with --update=byteorder.\n");
+					pr_err("must not set metadata"
+					       " type with --update=byteorder.\n");
 					exit(2);
 				}
 				for(i=0; !ss && superlist[i]; i++)
 					ss = superlist[i]->match_metadata_desc(
 						"0.swap");
 				if (!ss) {
-					fprintf(stderr, Name ": INTERNAL ERROR"
+					pr_err("INTERNAL ERROR"
 						" cannot find 0.swap\n");
 					exit(2);
 				}
@@ -787,26 +786,26 @@ int main(int argc, char *argv[])
 		case O(MANAGE,'U'):
 			/* update=devicesize is allowed with --re-add */
 			if (devmode != 'a' || re_add != 1) {
-				fprintf(stderr, Name "--update in Manage mode only"
+				pr_err("--update in Manage mode only"
 					" allowed with --re-add.\n");
 				exit(1);
 			}
 			if (update) {
-				fprintf(stderr, Name ": Can only update one aspect"
+				pr_err("Can only update one aspect"
 					" of superblock, both %s and %s given.\n",
 					update, optarg);
 				exit(2);
 			}
 			update = optarg;
 			if (strcmp(update, "devicesize") != 0) {
-				fprintf(stderr, Name ": only 'devicesize' can be"
+				pr_err("only 'devicesize' can be"
 					" updated with --re-add\n");
 				exit(2);
 			}
 			continue;
 
 		case O(INCREMENTAL,NoDegraded):
-			fprintf(stderr, Name ": --no-degraded is deprecated in Incremental mode\n");
+			pr_err("--no-degraded is deprecated in Incremental mode\n");
 		case O(ASSEMBLE,NoDegraded): /* --no-degraded */
 			runstop = -1; /* --stop isn't allowed for --assemble,
 				       * so we overload slightly */
@@ -821,7 +820,7 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'c'):
 		case O(MONITOR,ConfigFile):
 			if (configfile) {
-				fprintf(stderr, Name ": configfile cannot be set twice.  "
+				pr_err("configfile cannot be set twice.  "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
@@ -839,7 +838,7 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'m'): /* mail address */
 		case O(MONITOR,EMail):
 			if (mailaddr)
-				fprintf(stderr, Name ": only specify one mailaddress. %s ignored.\n",
+				pr_err("only specify one mailaddress. %s ignored.\n",
 					optarg);
 			else
 				mailaddr = optarg;
@@ -848,7 +847,7 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'p'): /* alert program */
 		case O(MONITOR,ProgramOpt): /* alert program */
 			if (program)
-				fprintf(stderr, Name ": only specify one alter program. %s ignored.\n",
+				pr_err("only specify one alter program. %s ignored.\n",
 					optarg);
 			else
 				program = optarg;
@@ -858,7 +857,7 @@ int main(int argc, char *argv[])
 		case O(MONITOR,Increment):
 			increments = atoi(optarg);
 			if (increments > 99 || increments < 1) {
-				fprintf(stderr, Name ": please specify positive integer between 1 and 99 as rebuild increments.\n");
+				pr_err("please specify positive integer between 1 and 99 as rebuild increments.\n");
 				exit(2);
 			}
 			continue;
@@ -868,12 +867,12 @@ int main(int argc, char *argv[])
 		case O(BUILD,'d'): /* delay for bitmap updates */
 		case O(CREATE,'d'):
 			if (delay)
-				fprintf(stderr, Name ": only specify delay once. %s ignored.\n",
+				pr_err("only specify delay once. %s ignored.\n",
 					optarg);
 			else {
 				delay = strtol(optarg, &c, 10);
 				if (!optarg[0] || *c || delay<1) {
-					fprintf(stderr, Name ": invalid delay: %s\n",
+					pr_err("invalid delay: %s\n",
 						optarg);
 					exit(2);
 				}
@@ -885,7 +884,7 @@ int main(int argc, char *argv[])
 			continue;
 		case O(MONITOR,'i'): /* pid */
 			if (pidfile)
-				fprintf(stderr, Name ": only specify one pid file. %s ignored.\n",
+				pr_err("only specify one pid file. %s ignored.\n",
 					optarg);
 			else
 				pidfile = optarg;
@@ -938,14 +937,14 @@ int main(int argc, char *argv[])
 		case O(BUILD,'R'):
 		case O(CREATE,'R'): /* Run the array */
 			if (runstop < 0) {
-				fprintf(stderr, Name ": Cannot both Stop and Run an array\n");
+				pr_err("Cannot both Stop and Run an array\n");
 				exit(2);
 			}
 			runstop = 1;
 			continue;
 		case O(MANAGE,'S'):
 			if (runstop > 0) {
-				fprintf(stderr, Name ": Cannot both Run and Stop an array\n");
+				pr_err("Cannot both Run and Stop an array\n");
 				exit(2);
 			}
 			runstop = -1;
@@ -971,7 +970,7 @@ int main(int argc, char *argv[])
 		case O(MISC, UpdateSubarray):
 			if (opt == KillSubarray || opt == UpdateSubarray) {
 				if (subarray) {
-					fprintf(stderr, Name ": subarray can only"
+					pr_err("subarray can only"
 						" be specified once\n");
 					exit(2);
 				}
@@ -979,7 +978,7 @@ int main(int argc, char *argv[])
 			}
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
-				fprintf(stderr, Name ": --examine/-E cannot be given with ");
+				pr_err("--examine/-E cannot be given with ");
 				if (devmode == 'E') {
 					if (option_index >= 0)
 						fprintf(stderr, "--%s\n",
@@ -996,11 +995,11 @@ int main(int argc, char *argv[])
 			continue;
 		case O(MISC, UdevRules):
 			if (devmode && devmode != opt) {
-				fprintf(stderr, Name ": --udev-rules must"
-					" be the only option.\n");
+				pr_err("--udev-rules must"
+				       " be the only option.\n");
 			} else {
 				if (udev_filename)
-					fprintf(stderr, Name ": only specify one udev "
+					pr_err("only specify one udev "
 						"rule filename. %s ignored.\n",
 						optarg);
 				else
@@ -1014,7 +1013,7 @@ int main(int argc, char *argv[])
 
 		case O(MISC, Sparc22):
 			if (devmode != 'E') {
-				fprintf(stderr, Name ": --sparc2.2 only allowed with --examine\n");
+				pr_err("--sparc2.2 only allowed with --examine\n");
 				exit(2);
 			}
 			SparcAdjust = 1;
@@ -1023,16 +1022,16 @@ int main(int argc, char *argv[])
 		case O(ASSEMBLE,'b'): /* here we simply set the bitmap file */
 		case O(ASSEMBLE,Bitmap):
 			if (!optarg) {
-				fprintf(stderr, Name ": bitmap file needed with -b in --assemble mode\n");
+				pr_err("bitmap file needed with -b in --assemble mode\n");
 				exit(2);
 			}
 			if (strcmp(optarg, "internal")==0) {
-				fprintf(stderr, Name ": there is no need to specify --bitmap when assembling arrays with internal bitmaps\n");
+				pr_err("there is no need to specify --bitmap when assembling arrays with internal bitmaps\n");
 				continue;
 			}
 			bitmap_fd = open(optarg, O_RDWR);
 			if (!*optarg || bitmap_fd < 0) {
-				fprintf(stderr, Name ": cannot open bitmap file %s: %s\n", optarg, strerror(errno));
+				pr_err("cannot open bitmap file %s: %s\n", optarg, strerror(errno));
 				exit(2);
 			}
 			ident.bitmap_fd = bitmap_fd; /* for Assemble */
@@ -1044,7 +1043,7 @@ int main(int argc, char *argv[])
 			 * or from which assemble might recover a backup
 			 */
 			if (backup_file) {
-				fprintf(stderr, Name ": backup file already specified, rejecting %s\n", optarg);
+				pr_err("backup file already specified, rejecting %s\n", optarg);
 				exit(2);
 			}
 			backup_file = optarg;
@@ -1067,7 +1066,7 @@ int main(int argc, char *argv[])
 		case O(CREATE,'b'):
 		case O(CREATE,Bitmap): /* here we create the bitmap */
 			if (strcmp(optarg, "none") == 0) {
-				fprintf(stderr, Name ": '--bitmap none' only"
+				pr_err("'--bitmap none' only"
 					" supported for --grow\n");
 				exit(2);
 			}
@@ -1081,7 +1080,7 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			/* probable typo */
-			fprintf(stderr, Name ": bitmap file must contain a '/', or be 'internal', or 'none'\n"
+			pr_err("bitmap file must contain a '/', or be 'internal', or 'none'\n"
 				"       not '%s'\n", optarg);
 			exit(2);
 
@@ -1091,9 +1090,8 @@ int main(int argc, char *argv[])
 			bitmap_chunk = parse_size(optarg);
 			if (bitmap_chunk <= 0 ||
 			    bitmap_chunk & (bitmap_chunk - 1)) {
-				fprintf(stderr,
-					Name ": invalid bitmap chunksize: %s\n",
-					optarg);
+				pr_err("invalid bitmap chunksize: %s\n",
+				       optarg);
 				exit(2);
 			}
 			bitmap_chunk = bitmap_chunk * 512;
@@ -1107,7 +1105,7 @@ int main(int argc, char *argv[])
 				write_behind = strtol(optarg, &c, 10);
 				if (write_behind < 0 || *c ||
 				    write_behind > 16383) {
-					fprintf(stderr, Name ": Invalid value for maximum outstanding write-behind writes: %s.\n\tMust be between 0 and 16383.\n", optarg);
+					pr_err("Invalid value for maximum outstanding write-behind writes: %s.\n\tMust be between 0 and 16383.\n", optarg);
 					exit(2);
 				}
 			}
@@ -1125,11 +1123,11 @@ int main(int argc, char *argv[])
 		 * an error
 		 */
 		if (option_index > 0)
-			fprintf(stderr, Name ":option --%s not valid in %s mode\n",
+			pr_err(":option --%s not valid in %s mode\n",
 				long_options[option_index].name,
 				map_num(modes, mode));
 		else
-			fprintf(stderr, Name ": option -%c not valid in %s mode\n",
+			pr_err("option -%c not valid in %s mode\n",
 				opt, map_num(modes, mode));
 		exit(2);
 
@@ -1166,7 +1164,7 @@ int main(int argc, char *argv[])
 		else if (strcasecmp(symlinks, "no") == 0)
 			ci->symlinks = 0;
 		else {
-			fprintf(stderr, Name ": option --symlinks must be 'no' or 'yes'\n");
+			pr_err("option --symlinks must be 'no' or 'yes'\n");
 			exit(2);
 		}
 	}
@@ -1184,11 +1182,11 @@ int main(int argc, char *argv[])
 	    || mode == GROW
 	    || (mode == ASSEMBLE && ! scan)) {
 		if (devs_found < 1) {
-			fprintf(stderr, Name ": an md device must be given in this mode\n");
+			pr_err("an md device must be given in this mode\n");
 			exit(2);
 		}
 		if ((int)ident.super_minor == -2 && autof) {
-			fprintf(stderr, Name ": --super-minor=dev is incompatible with --auto\n");
+			pr_err("--super-minor=dev is incompatible with --auto\n");
 			exit(2);
 		}
 		if (mode == MANAGE || mode == GROW) {
@@ -1199,14 +1197,14 @@ int main(int argc, char *argv[])
 			/* non-existent device is OK */
 			mdfd = open_mddev(devlist->devname, 0);
 		if (mdfd == -2) {
-			fprintf(stderr, Name ": device %s exists but is not an "
+			pr_err("device %s exists but is not an "
 				"md array.\n", devlist->devname);
 			exit(1);
 		}
 		if ((int)ident.super_minor == -2) {
 			struct stat stb;
 			if (mdfd < 0) {
-				fprintf(stderr, Name ": --super-minor=dev given, and "
+				pr_err("--super-minor=dev given, and "
 					"listed device %s doesn't exist.\n",
 					devlist->devname);
 				exit(1);
@@ -1225,7 +1223,7 @@ int main(int argc, char *argv[])
 
 	if (raiddisks) {
 		if (raiddisks == 1 &&  !force && level != LEVEL_FAULTY) {
-			fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
+			pr_err("'1' is an unusual number of drives for an array, so it is probably\n"
 				"     a mistake.  If you really mean it you will need to specify --force before\n"
 				"     setting the number of drives.\n");
 			exit(2);
@@ -1249,7 +1247,7 @@ int main(int argc, char *argv[])
 	    || (mode == MONITOR && spare_sharing == 0))
 		/* Anyone may try this */;
 	else if (geteuid() != 0) {
-		fprintf(stderr, Name ": must be super-user to perform this action\n");
+		pr_err("must be super-user to perform this action\n");
 		exit(1);
 	}
 
@@ -1276,7 +1274,7 @@ int main(int argc, char *argv[])
 			/* Only a device has been given, so get details from config file */
 			struct mddev_ident *array_ident = conf_get_ident(devlist->devname);
 			if (array_ident == NULL) {
-				fprintf(stderr, Name ": %s not identified in config file.\n",
+				pr_err("%s not identified in config file.\n",
 					devlist->devname);
 				rv |= 1;
 				if (mdfd >= 0)
@@ -1300,17 +1298,17 @@ int main(int argc, char *argv[])
 				      freeze_reshape);
 		else if (devs_found > 0) {
 			if (update && devs_found > 1) {
-				fprintf(stderr, Name ": can only update a single array at a time\n");
+				pr_err("can only update a single array at a time\n");
 				exit(1);
 			}
 			if (backup_file && devs_found > 1) {
-				fprintf(stderr, Name ": can only assemble a single array when providing a backup file.\n");
+				pr_err("can only assemble a single array when providing a backup file.\n");
 				exit(1);
 			}
 			for (dv = devlist ; dv ; dv=dv->next) {
 				struct mddev_ident *array_ident = conf_get_ident(dv->devname);
 				if (array_ident == NULL) {
-					fprintf(stderr, Name ": %s not identified in config file.\n",
+					pr_err("%s not identified in config file.\n",
 						dv->devname);
 					rv |= 1;
 					continue;
@@ -1326,11 +1324,11 @@ int main(int argc, char *argv[])
 			}
 		} else {
 			if (update) {
-				fprintf(stderr, Name ": --update not meaningful with a --scan assembly.\n");
+				pr_err("--update not meaningful with a --scan assembly.\n");
 				exit(1);
 			}
 			if (backup_file) {
-				fprintf(stderr, Name ": --backup_file not meaningful with a --scan assembly.\n");
+				pr_err("--backup_file not meaningful with a --scan assembly.\n");
 				exit(1);
 			}
 			rv = scan_assemble(autof, ss, readonly, runstop,
@@ -1344,19 +1342,19 @@ int main(int argc, char *argv[])
 	case BUILD:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (write_behind && !bitmap_file) {
-			fprintf(stderr, Name ": write-behind mode requires a bitmap.\n");
+			pr_err("write-behind mode requires a bitmap.\n");
 			rv = 1;
 			break;
 		}
 		if (raiddisks == 0) {
-			fprintf(stderr, Name ": no raid-devices specified.\n");
+			pr_err("no raid-devices specified.\n");
 			rv = 1;
 			break;
 		}
 
 		if (bitmap_file) {
 			if (strcmp(bitmap_file, "internal")==0) {
-				fprintf(stderr, Name ": 'internal' bitmaps not supported with --build\n");
+				pr_err("'internal' bitmaps not supported with --build\n");
 				rv |= 1;
 				break;
 			}
@@ -1369,12 +1367,12 @@ int main(int argc, char *argv[])
 	case CREATE:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
 		if (write_behind && !bitmap_file) {
-			fprintf(stderr, Name ": write-behind mode requires a bitmap.\n");
+			pr_err("write-behind mode requires a bitmap.\n");
 			rv = 1;
 			break;
 		}
 		if (raiddisks == 0) {
-			fprintf(stderr, Name ": no raid-devices specified.\n");
+			pr_err("no raid-devices specified.\n");
 			rv = 1;
 			break;
 		}
@@ -1388,13 +1386,13 @@ int main(int argc, char *argv[])
 	case MISC:
 		if (devmode == 'E') {
 			if (devlist == NULL && !scan) {
-				fprintf(stderr, Name ": No devices to examine\n");
+				pr_err("No devices to examine\n");
 				exit(2);
 			}
 			if (devlist == NULL)
 				devlist = conf_get_devs();
 			if (devlist == NULL) {
-				fprintf(stderr, Name ": No devices listed in %s\n", configfile?configfile:DefaultConfFile);
+				pr_err("No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
 			if (brief && verbose)
@@ -1413,7 +1411,7 @@ int main(int argc, char *argv[])
 			else if (devmode == UdevRules)
 				rv = Write_rules(udev_filename);
 			else {
-				fprintf(stderr, Name ": No devices given.\n");
+				pr_err("No devices given.\n");
 				exit(2);
 			}
 		} else
@@ -1424,12 +1422,12 @@ int main(int argc, char *argv[])
 		break;
 	case MONITOR:
 		if (!devlist && !scan) {
-			fprintf(stderr, Name ": Cannot monitor: need --scan or at least one device\n");
+			pr_err("Cannot monitor: need --scan or at least one device\n");
 			rv = 1;
 			break;
 		}
 		if (pidfile && !daemonise) {
-			fprintf(stderr, Name ": Cannot write a pid file when not in daemon mode\n");
+			pr_err("Cannot write a pid file when not in daemon mode\n");
 			rv = 1;
 			break;
 		}
@@ -1456,7 +1454,7 @@ int main(int argc, char *argv[])
 			struct mdinfo sra;
 			int err;
 			if (raiddisks || level != UnSet) {
-				fprintf(stderr, Name ": cannot change array size in same operation "
+				pr_err("cannot change array size in same operation "
 					"as changing raiddisks or level.\n"
 					"    Change size first, then check that data is still intact.\n");
 				rv = 1;
@@ -1469,10 +1467,10 @@ int main(int argc, char *argv[])
 				err = sysfs_set_num(&sra, NULL, "array_size", array_size / 2);
 			if (err < 0) {
 				if (errno == E2BIG)
-					fprintf(stderr, Name ": --array-size setting"
+					pr_err("--array-size setting"
 						" is too large.\n");
 				else
-					fprintf(stderr, Name ": current kernel does"
+					pr_err("current kernel does"
 						" not support setting --array-size\n");
 				rv = 1;
 				break;
@@ -1481,7 +1479,7 @@ int main(int argc, char *argv[])
 		if (devs_found > 1 && raiddisks == 0) {
 			/* must be '-a'. */
 			if (size >= 0 || chunk || layout_str != NULL || bitmap_file) {
-				fprintf(stderr, Name ": --add cannot be used with "
+				pr_err("--add cannot be used with "
 					"other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
@@ -1495,7 +1493,7 @@ int main(int argc, char *argv[])
 		} else if (bitmap_file) {
 			if (size >= 0 || raiddisks || chunk ||
 			    layout_str != NULL || devs_found > 1) {
-				fprintf(stderr, Name ": --bitmap changes cannot be "
+				pr_err("--bitmap changes cannot be "
 					"used with other geometry changes "
 					"in --grow mode\n");
 				rv = 1;
@@ -1516,7 +1514,7 @@ int main(int argc, char *argv[])
 					  devlist->next,
 					  assume_clean, force);
 		} else if (array_size < 0)
-			fprintf(stderr, Name ": no changes to --grow\n");
+			pr_err("no changes to --grow\n");
 		break;
 	case INCREMENTAL:
 		if (rebuild_map) {
@@ -1524,28 +1522,24 @@ int main(int argc, char *argv[])
 		}
 		if (scan) {
 			if (runstop <= 0) {
-				fprintf(stderr, Name
-					": --incremental --scan meaningless without --run.\n");
+				pr_err("--incremental --scan meaningless without --run.\n");
 				break;
 			}
 			if (devmode == 'f') {
-				fprintf(stderr, Name
-					": --incremental --scan --fail not supported.\n");
+				pr_err("--incremental --scan --fail not supported.\n");
 				break;
 			}
 			rv = IncrementalScan(verbose);
 		}
 		if (!devlist) {
 			if (!rebuild_map && !scan) {
-				fprintf(stderr, Name
-					": --incremental requires a device.\n");
+				pr_err("--incremental requires a device.\n");
 				rv = 1;
 			}
 			break;
 		}
 		if (devlist->next) {
-			fprintf(stderr, Name
-				": --incremental can only handle one device.\n");
+			pr_err("--incremental can only handle one device.\n");
 			rv = 1;
 			break;
 		}
@@ -1580,13 +1574,12 @@ static int scan_assemble(int autof, struct supertype *ss,
 	int failures, successes;
 
 	if (conf_verify_devnames(array_list)) {
-		fprintf(stderr, Name
-			": Duplicate MD device names in "
-			"conf file were found.\n");
+		pr_err("Duplicate MD device names in "
+		       "conf file were found.\n");
 		return 1;
 	}
 	if (devlist == NULL) {
-		fprintf(stderr, Name ": No devices listed in conf file were found.\n");
+		pr_err("No devices listed in conf file were found.\n");
 		return 1;
 	}
 	for (a = array_list; a ; a = a->next) {
@@ -1595,9 +1588,9 @@ static int scan_assemble(int autof, struct supertype *ss,
 			a->autof = autof;
 	}
 	if (map_lock(&map))
-		fprintf(stderr, Name " %s: failed to get "
-			"exclusive lock on mapfile\n",
-			__func__);
+		pr_err("%s: failed to get "
+		       "exclusive lock on mapfile\n",
+		       __func__);
 	do {
 		failures = 0;
 		successes = 0;
@@ -1656,12 +1649,12 @@ static int scan_assemble(int autof, struct supertype *ss,
 			/* Incase there are stacked devices, we need to go around again */
 		} while (acnt);
 		if (cnt == 0 && rv == 0) {
-			fprintf(stderr, Name ": No arrays found in config file or automatically\n");
+			pr_err("No arrays found in config file or automatically\n");
 			rv = 1;
 		} else if (cnt)
 			rv = 0;
 	} else if (cnt == 0 && rv == 0) {
-		fprintf(stderr, Name ": No arrays found in config file\n");
+		pr_err("No arrays found in config file\n");
 		rv = 1;
 	}
 	map_unlock(&map);
@@ -1698,7 +1691,7 @@ static int misc_scan(char devmode, int verbose, int export, int test,
 				name = get_md_name(e->devnum);
 
 			if (!name) {
-				fprintf(stderr, Name ": cannot find device file for %s\n",
+				pr_err("cannot find device file for %s\n",
 					e->dev);
 				continue;
 			}
@@ -1735,7 +1728,7 @@ static int stop_scan(int quiet)
 			int mdfd;
 
 			if (!name) {
-				fprintf(stderr, Name ": cannot find device file for %s\n",
+				pr_err("cannot find device file for %s\n",
 					e->dev);
 				continue;
 			}
@@ -1801,8 +1794,7 @@ static int misc_list(struct mddev_dev *devlist,
 			continue;
 		case UpdateSubarray:
 			if (update == NULL) {
-				fprintf(stderr,
-					Name ": -U/--update must be specified with --update-subarray\n");
+				pr_err("-U/--update must be specified with --update-subarray\n");
 				rv |= 1;
 				continue;
 			}

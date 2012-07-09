@@ -47,7 +47,7 @@ int Query(char *dev)
 	char *activity;
 
 	if (fd < 0){
-		fprintf(stderr, Name ": cannot open %s: %s\n",
+		pr_err("cannot open %s: %s\n",
 			dev, strerror(errno));
 		return 1;
 	}

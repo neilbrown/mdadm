@@ -159,7 +159,7 @@ struct mddev_dev *load_partitions(void)
 	char buf[1024];
 	struct mddev_dev *rv = NULL;
 	if (f == NULL) {
-		fprintf(stderr, Name ": cannot open /proc/partitions\n");
+		pr_err("cannot open /proc/partitions\n");
 		return NULL;
 	}
 	while (fgets(buf, 1024, f)) {
@@ -264,7 +264,7 @@ int parse_auto(char *str, char *msg, int config)
 			   (len >= 4 && strncasecmp(str,"part",4)==0)) {
 			autof = 6;
 		} else {
-			fprintf(stderr, Name ": %s arg of \"%s\" unrecognised: use no,yes,md,mdp,part\n"
+			pr_err("%s arg of \"%s\" unrecognised: use no,yes,md,mdp,part\n"
 				"        optionally followed by a number.\n",
 				msg, str);
 			exit(2);
@@ -284,7 +284,7 @@ static void createline(char *line)
 			createinfo.autof = parse_auto(w+5, "auto=", 1);
 		else if (strncasecmp(w, "owner=", 6) == 0) {
 			if (w[6] == 0) {
-				fprintf(stderr, Name ": missing owner name\n");
+				pr_err("missing owner name\n");
 				continue;
 			}
 			createinfo.uid = strtoul(w+6, &ep, 10);
@@ -295,11 +295,11 @@ static void createline(char *line)
 				if (pw)
 					createinfo.uid = pw->pw_uid;
 				else
-					fprintf(stderr, Name ": CREATE user %s not found\n", w+6);
+					pr_err("CREATE user %s not found\n", w+6);
 			}
 		} else if (strncasecmp(w, "group=", 6) == 0) {
 			if (w[6] == 0) {
-				fprintf(stderr, Name ": missing group name\n");
+				pr_err("missing group name\n");
 				continue;
 			}
 			createinfo.gid = strtoul(w+6, &ep, 10);
@@ -310,17 +310,17 @@ static void createline(char *line)
 				if (gr)
 					createinfo.gid = gr->gr_gid;
 				else
-					fprintf(stderr, Name ": CREATE group %s not found\n", w+6);
+					pr_err("CREATE group %s not found\n", w+6);
 			}
 		} else if (strncasecmp(w, "mode=", 5) == 0) {
 			if (w[5] == 0) {
-				fprintf(stderr, Name ": missing CREATE mode\n");
+				pr_err("missing CREATE mode\n");
 				continue;
 			}
 			createinfo.mode = strtoul(w+5, &ep, 8);
 			if (*ep != 0) {
 				createinfo.mode = 0600;
-				fprintf(stderr, Name ": unrecognised CREATE mode %s\n",
+				pr_err("unrecognised CREATE mode %s\n",
 					w+5);
 			}
 		} else if (strncasecmp(w, "metadata=", 9) == 0) {
@@ -330,14 +330,14 @@ static void createline(char *line)
 				createinfo.supertype =
 					superlist[i]->match_metadata_desc(w+9);
 			if (!createinfo.supertype)
-				fprintf(stderr, Name ": metadata format %s unknown, ignoring\n",
+				pr_err("metadata format %s unknown, ignoring\n",
 					w+9);
 		} else if (strncasecmp(w, "symlinks=yes", 12) == 0)
 			createinfo.symlinks = 1;
 		else if  (strncasecmp(w, "symlinks=no", 11) == 0)
 			createinfo.symlinks = 0;
 		else {
-			fprintf(stderr, Name ": unrecognised word on CREATE line: %s\n",
+			pr_err("unrecognised word on CREATE line: %s\n",
 				w);
 		}
 	}
@@ -356,7 +356,7 @@ void devline(char *line)
 			cd->next = cdevlist;
 			cdevlist = cd;
 		} else {
-			fprintf(stderr, Name ": unreconised word on DEVICE line: %s\n",
+			pr_err("unreconised word on DEVICE line: %s\n",
 				w);
 		}
 	}
@@ -421,64 +421,64 @@ void arrayline(char *line)
 				) {
 				/* This is acceptable */;
 				if (mis.devname)
-					fprintf(stderr, Name ": only give one "
+					pr_err("only give one "
 						"device per ARRAY line: %s and %s\n",
 						mis.devname, w);
 				else
 					mis.devname = w;
 			}else {
-				fprintf(stderr, Name ": %s is an invalid name for "
+				pr_err("%s is an invalid name for "
 					"an md device - ignored.\n", w);
 			}
 		} else if (strncasecmp(w, "uuid=", 5)==0 ) {
 			if (mis.uuid_set)
-				fprintf(stderr, Name ": only specify uuid once, %s ignored.\n",
+				pr_err("only specify uuid once, %s ignored.\n",
 					w);
 			else {
 				if (parse_uuid(w+5, mis.uuid))
 					mis.uuid_set = 1;
 				else
-					fprintf(stderr, Name ": bad uuid: %s\n", w);
+					pr_err("bad uuid: %s\n", w);
 			}
 		} else if (strncasecmp(w, "super-minor=", 12)==0 ) {
 			if (mis.super_minor != UnSet)
-				fprintf(stderr, Name ": only specify super-minor once, %s ignored.\n",
+				pr_err("only specify super-minor once, %s ignored.\n",
 					w);
 			else {
 				char *endptr;
 				int minor = strtol(w+12, &endptr, 10);
 
 				if (w[12]==0 || endptr[0]!=0 || minor < 0)
-					fprintf(stderr, Name ": invalid super-minor number: %s\n",
+					pr_err("invalid super-minor number: %s\n",
 						w);
 				else
 					mis.super_minor = minor;
 			}
 		} else if (strncasecmp(w, "name=", 5)==0) {
 			if (mis.name[0])
-				fprintf(stderr, Name ": only specify name once, %s ignored.\n",
+				pr_err("only specify name once, %s ignored.\n",
 					w);
 			else if (strlen(w+5) > 32)
-				fprintf(stderr, Name ": name too long, ignoring %s\n", w);
+				pr_err("name too long, ignoring %s\n", w);
 			else
 				strcpy(mis.name, w+5);
 
 		} else if (strncasecmp(w, "bitmap=", 7) == 0) {
 			if (mis.bitmap_file)
-				fprintf(stderr, Name ": only specify bitmap file once. %s ignored\n",
+				pr_err("only specify bitmap file once. %s ignored\n",
 					w);
 			else
 				mis.bitmap_file = strdup(w+7);
 
 		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
 			if (mis.devices)
-				fprintf(stderr, Name ": only specify devices once (use a comma separated list). %s ignored\n",
+				pr_err("only specify devices once (use a comma separated list). %s ignored\n",
 					w);
 			else
 				mis.devices = strdup(w+8);
 		} else if (strncasecmp(w, "spare-group=", 12) == 0 ) {
 			if (mis.spare_group)
-				fprintf(stderr, Name ": only specify one spare group per array. %s ignored.\n",
+				pr_err("only specify one spare group per array. %s ignored.\n",
 					w);
 			else
 				mis.spare_group = strdup(w+12);
@@ -502,7 +502,7 @@ void arrayline(char *line)
 				mis.st = superlist[i]->match_metadata_desc(w+9);
 
 			if (!mis.st)
-				fprintf(stderr, Name ": metadata format %s unknown, ignored.\n", w+9);
+				pr_err("metadata format %s unknown, ignored.\n", w+9);
 		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
 			/* whether to create device special files as needed */
 			mis.autof = parse_auto(w+5, "auto type", 0);
@@ -514,14 +514,14 @@ void arrayline(char *line)
 			 * or a uuid */
 			mis.container = strdup(w+10);
 		} else {
-			fprintf(stderr, Name ": unrecognised word on ARRAY line: %s\n",
+			pr_err("unrecognised word on ARRAY line: %s\n",
 				w);
 		}
 	}
 	if (mis.uuid_set == 0 && mis.devices == NULL &&
 	    mis.super_minor == UnSet && mis.name[0] == 0 &&
 	    (mis.container == NULL || mis.member == NULL))
-		fprintf(stderr, Name ": ARRAY line %s has no identity information.\n", mis.devname);
+		pr_err("ARRAY line %s has no identity information.\n", mis.devname);
 	else {
 		mi = malloc(sizeof(*mi));
 		*mi = mis;
@@ -541,7 +541,7 @@ void mailline(char *line)
 		if (alert_email == NULL)
 			alert_email = strdup(w);
 		else
-			fprintf(stderr, Name ": excess address on MAIL line: %s - ignored\n",
+			pr_err("excess address on MAIL line: %s - ignored\n",
 				w);
 	}
 }
@@ -575,7 +575,7 @@ void programline(char *line)
 		if (alert_program == NULL)
 			alert_program = strdup(w);
 		else
-			fprintf(stderr, Name ": excess program on PROGRAM line: %s - ignored\n",
+			pr_err("excess program on PROGRAM line: %s - ignored\n",
 				w);
 	}
 }
@@ -595,7 +595,7 @@ void homehostline(char *line)
 			else
 				home_host = strdup(w);
 		}else
-			fprintf(stderr, Name ": excess host name on HOMEHOST line: %s - ignored\n",
+			pr_err("excess host name on HOMEHOST line: %s - ignored\n",
 				w);
 	}
 }
@@ -615,7 +615,7 @@ void autoline(char *line)
 	int i;
 
 	if (auto_seen) {
-		fprintf(stderr, Name ": AUTO line may only be give once."
+		pr_err("AUTO line may only be give once."
 			"  Subsequent lines ignored\n");
 		return;
 	}
@@ -790,7 +790,7 @@ void load_conffile(void)
 			policyline(line, rule_part);
 			break;
 		default:
-			fprintf(stderr, Name ": Unknown keyword %s\n", line);
+			pr_err("Unknown keyword %s\n", line);
 		}
 		free_line(line);
 	}
@@ -1032,33 +1032,29 @@ struct mddev_ident *conf_match(struct supertype *st,
 		    same_uuid(array_list->uuid, info->uuid, st->ss->swapuuid)
 		    == 0) {
 			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": UUID differs from %s.\n",
-					array_list->devname);
+				pr_err("UUID differs from %s.\n",
+				       array_list->devname);
 			continue;
 		}
 		if (array_list->name[0] &&
 		    strcasecmp(array_list->name, info->name) != 0) {
 			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": Name differs from %s.\n",
-					array_list->devname);
+				pr_err("Name differs from %s.\n",
+				       array_list->devname);
 			continue;
 		}
 		if (array_list->devices && devname &&
 		    !match_oneof(array_list->devices, devname)) {
 			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": Not a listed device for %s.\n",
-					array_list->devname);
+				pr_err("Not a listed device for %s.\n",
+				       array_list->devname);
 			continue;
 		}
 		if (array_list->super_minor != UnSet &&
 		    array_list->super_minor != info->array.md_minor) {
 			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": Different super-minor to %s.\n",
-					array_list->devname);
+				pr_err("Different super-minor to %s.\n",
+				       array_list->devname);
 			continue;
 		}
 		if (!array_list->uuid_set &&
@@ -1066,10 +1062,9 @@ struct mddev_ident *conf_match(struct supertype *st,
 		    !array_list->devices &&
 		    array_list->super_minor == UnSet) {
 			if (verbose >= 2 && array_list->devname)
-				fprintf(stderr, Name
-					": %s doesn't have any identifying"
-					" information.\n",
-					array_list->devname);
+				pr_err("%s doesn't have any identifying"
+				       " information.\n",
+				       array_list->devname);
 			continue;
 		}
 		/* FIXME, should I check raid_disks and level too?? */
@@ -1077,15 +1072,13 @@ struct mddev_ident *conf_match(struct supertype *st,
 		if (match) {
 			if (verbose >= 0) {
 				if (match->devname && array_list->devname)
-					fprintf(stderr, Name
-						": we match both %s and %s - "
-						"cannot decide which to use.\n",
-						match->devname,
-						array_list->devname);
+					pr_err("we match both %s and %s - "
+					       "cannot decide which to use.\n",
+					       match->devname,
+					       array_list->devname);
 				else
-					fprintf(stderr, Name
-						": multiple lines in mdadm.conf"
-						" match\n");
+					pr_err("multiple lines in mdadm.conf"
+					       " match\n");
 			}
 			if (rvp)
 				*rvp = 2;
@@ -1113,15 +1106,14 @@ int conf_verify_devnames(struct mddev_ident *array_list)
 			if (a1->uuid_set && a2->uuid_set) {
 				char nbuf[64];
 				__fname_from_uuid(a1->uuid, 0, nbuf, ':');
-				fprintf(stderr,
-					Name ": Devices %s and ",
-					nbuf);
+				pr_err("Devices %s and ",
+				       nbuf);
 				__fname_from_uuid(a2->uuid, 0, nbuf, ':');
 				fprintf(stderr,
 					"%s have the same name: %s\n",
 					nbuf, a1->devname);
 			} else
-				fprintf(stderr, Name ": Device %s given twice"
+				pr_err("Device %s given twice"
 					" in config file\n", a1->devname);
 			return 1;
 		}

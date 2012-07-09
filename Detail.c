@@ -61,29 +61,29 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 	char *avail = NULL;
 
 	if (fd < 0) {
-		fprintf(stderr, Name ": cannot open %s: %s\n",
+		pr_err("cannot open %s: %s\n",
 			dev, strerror(errno));
 		return rv;
 	}
 	vers = md_get_version(fd);
 	if (vers < 0) {
-		fprintf(stderr, Name ": %s does not appear to be an md device\n",
+		pr_err("%s does not appear to be an md device\n",
 			dev);
 		close(fd);
 		return rv;
 	}
 	if (vers < 9000) {
-		fprintf(stderr, Name ": cannot get detail for md device %s: driver version too old.\n",
+		pr_err("cannot get detail for md device %s: driver version too old.\n",
 			dev);
 		close(fd);
 		return rv;
 	}
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 		if (errno == ENODEV)
-			fprintf(stderr, Name ": md device %s does not appear to be active.\n",
+			pr_err("md device %s does not appear to be active.\n",
 				dev);
 		else
-			fprintf(stderr, Name ": cannot get array detail for %s: %s\n",
+			pr_err("cannot get array detail for %s: %s\n",
 				dev, strerror(errno));
 		close(fd);
 		return rv;
@@ -239,7 +239,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
 			if (d < array.raid_disks)
-				fprintf(stderr, Name ": cannot get device detail for device %d: %s\n",
+				pr_err("cannot get device detail for device %d: %s\n",
 					d, strerror(errno));
 			continue;
 		}
@@ -617,11 +617,11 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 		err = ss->detail_platform(verbose, 0);
 	else if (ss) {
 		if (verbose)
-			fprintf(stderr, Name ": %s metadata is platform independent\n",
+			pr_err("%s metadata is platform independent\n",
 				ss->name ? : "[no name]");
 	} else if (!scan) {
 		if (verbose)
-			fprintf(stderr, Name ": specify a metadata type or --scan\n");
+			pr_err("specify a metadata type or --scan\n");
 	}
 
 	if (!scan)
@@ -633,11 +633,11 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 		if (meta == ss)
 			continue;
 		if (verbose)
-			fprintf(stderr, Name ": checking metadata %s\n",
+			pr_err("checking metadata %s\n",
 				meta->name ? : "[no name]");
 		if (!meta->detail_platform) {
 			if (verbose)
-				fprintf(stderr, Name ": %s metadata is platform independent\n",
+				pr_err("%s metadata is platform independent\n",
 					meta->name ? : "[no name]");
 		} else
 			err |= meta->detail_platform(verbose, 0);

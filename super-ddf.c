@@ -543,34 +543,32 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 
 	if (lseek64(fd, dsize-512, 0) < 0) {
 		if (devname)
-			fprintf(stderr,
-				Name": Cannot seek to anchor block on %s: %s\n",
-				devname, strerror(errno));
+			pr_err("Cannot seek to anchor block on %s: %s\n",
+			       devname, strerror(errno));
 		return 1;
 	}
 	if (read(fd, &super->anchor, 512) != 512) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Cannot read anchor block on %s: %s\n",
-				devname, strerror(errno));
+			pr_err("Cannot read anchor block on %s: %s\n",
+			       devname, strerror(errno));
 		return 1;
 	}
 	if (super->anchor.magic != DDF_HEADER_MAGIC) {
 		if (devname)
-			fprintf(stderr, Name ": no DDF anchor found on %s\n",
+			pr_err("no DDF anchor found on %s\n",
 				devname);
 		return 2;
 	}
 	if (calc_crc(&super->anchor, 512) != super->anchor.crc) {
 		if (devname)
-			fprintf(stderr, Name ": bad CRC on anchor on %s\n",
+			pr_err("bad CRC on anchor on %s\n",
 				devname);
 		return 2;
 	}
 	if (memcmp(super->anchor.revision, DDF_REVISION_0, 8) != 0 &&
 	    memcmp(super->anchor.revision, DDF_REVISION_2, 8) != 0) {
 		if (devname)
-			fprintf(stderr, Name ": can only support super revision"
+			pr_err("can only support super revision"
 				" %.8s and earlier, not %.8s on %s\n",
 				DDF_REVISION_2, super->anchor.revision,devname);
 		return 2;
@@ -579,9 +577,8 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 			    dsize >> 9,  1,
 			    &super->primary, &super->anchor) == 0) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to load primary DDF header "
-				"on %s\n", devname);
+			pr_err("Failed to load primary DDF header "
+			       "on %s\n", devname);
 		return 2;
 	}
 	super->active = &super->primary;
@@ -652,7 +649,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	if (posix_memalign((void**)&dl, 512,
 		       sizeof(*dl) +
 		       (super->max_part) * sizeof(dl->vlist[0])) != 0) {
-		fprintf(stderr, Name ": %s could not allocate disk info buffer\n",
+		pr_err("%s could not allocate disk info buffer\n",
 			__func__);
 		return 1;
 	}
@@ -706,9 +703,8 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 				continue;
 			if (posix_memalign((void**)&dl->spare, 512,
 				       super->conf_rec_len*512) != 0) {
-				fprintf(stderr, Name
-					": %s could not allocate spare info buf\n",
-					__func__);
+				pr_err("%s could not allocate spare info buf\n",
+				       __func__);
 				return 1;
 			}
 				
@@ -732,9 +728,8 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			if (posix_memalign((void**)&vcl, 512,
 				       (super->conf_rec_len*512 +
 					offsetof(struct vcl, conf))) != 0) {
-				fprintf(stderr, Name
-					": %s could not allocate vcl buf\n",
-					__func__);
+				pr_err("%s could not allocate vcl buf\n",
+				       __func__);
 				return 1;
 			}
 			vcl->next = super->conflist;
@@ -782,25 +777,23 @@ static int load_super_ddf(struct supertype *st, int fd,
 	/* 32M is a lower bound */
 	if (dsize <= 32*1024*1024) {
 		if (devname)
-			fprintf(stderr,
-				Name ": %s is too small for ddf: "
-				"size is %llu sectors.\n",
-				devname, dsize>>9);
+			pr_err("%s is too small for ddf: "
+			       "size is %llu sectors.\n",
+			       devname, dsize>>9);
 		return 1;
 	}
 	if (dsize & 511) {
 		if (devname)
-			fprintf(stderr,
-				Name ": %s is an odd size for ddf: "
-				"size is %llu bytes.\n",
-				devname, dsize);
+			pr_err("%s is an odd size for ddf: "
+			       "size is %llu bytes.\n",
+			       devname, dsize);
 		return 1;
 	}
 
 	free_super_ddf(st);
 
 	if (posix_memalign((void**)&super, 512, sizeof(*super))!= 0) {
-		fprintf(stderr, Name ": malloc of %zu failed.\n",
+		pr_err("malloc of %zu failed.\n",
 			sizeof(*super));
 		return 1;
 	}
@@ -818,9 +811,8 @@ static int load_super_ddf(struct supertype *st, int fd,
 
 	if (rv) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to load all information "
-				"sections on %s\n", devname);
+			pr_err("Failed to load all information "
+			       "sections on %s\n", devname);
 		free(super);
 		return rv;
 	}
@@ -829,9 +821,8 @@ static int load_super_ddf(struct supertype *st, int fd,
 
 	if (rv) {
 		if (devname)
-			fprintf(stderr,
-				Name ": Failed to load all information "
-				"sections on %s\n", devname);
+			pr_err("Failed to load all information "
+			       "sections on %s\n", devname);
 		free(super);
 		return rv;
 	}
@@ -1629,7 +1620,7 @@ static int init_super_ddf(struct supertype *st,
 		return init_super_ddf_bvd(st, info, size, name, homehost, uuid);
 
 	if (posix_memalign((void**)&ddf, 512, sizeof(*ddf)) != 0) {
-		fprintf(stderr, Name ": %s could not allocate superblock\n", __func__);
+		pr_err("%s could not allocate superblock\n", __func__);
 		return 0;
 	}
 	memset(ddf, 0, sizeof(*ddf));
@@ -1767,7 +1758,7 @@ static int init_super_ddf(struct supertype *st,
 		strcpy((char*)ddf->controller.vendor_data, homehost);
 
 	if (posix_memalign((void**)&pd, 512, pdsize) != 0) {
-		fprintf(stderr, Name ": %s could not allocate pd\n", __func__);
+		pr_err("%s could not allocate pd\n", __func__);
 		return 0;
 	}
 	ddf->phys = pd;
@@ -1781,7 +1772,7 @@ static int init_super_ddf(struct supertype *st,
 	memset(pd->pad, 0xff, 52);
 
 	if (posix_memalign((void**)&vd, 512, vdsize) != 0) {
-		fprintf(stderr, Name ": %s could not allocate vd\n", __func__);
+		pr_err("%s could not allocate vd\n", __func__);
 		return 0;
 	}
 	ddf->virt = vd;
@@ -1970,9 +1961,9 @@ static int init_super_ddf_bvd(struct supertype *st,
 
 	if (__be16_to_cpu(ddf->virt->populated_vdes)
 	    >= __be16_to_cpu(ddf->virt->max_vdes)) {
-		fprintf(stderr, Name": This ddf already has the "
-			"maximum of %d virtual devices\n",
-			__be16_to_cpu(ddf->virt->max_vdes));
+		pr_err("This ddf already has the "
+		       "maximum of %d virtual devices\n",
+		       __be16_to_cpu(ddf->virt->max_vdes));
 		return 0;
 	}
 
@@ -1982,9 +1973,9 @@ static int init_super_ddf_bvd(struct supertype *st,
 				char *n = ddf->virt->entries[venum].name;
 
 				if (strncmp(name, n, 16) == 0) {
-					fprintf(stderr, Name ": This ddf already"
-						" has an array called %s\n",
-						name);
+					pr_err("This ddf already"
+					       " has an array called %s\n",
+					       name);
 					return 0;
 				}
 			}
@@ -1993,7 +1984,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 		if (all_ff(ddf->virt->entries[venum].guid))
 			break;
 	if (venum == __be16_to_cpu(ddf->virt->max_vdes)) {
-		fprintf(stderr, Name ": Cannot find spare slot for "
+		pr_err("Cannot find spare slot for "
 			"virtual disk - DDF is corrupt\n");
 		return 0;
 	}
@@ -2023,7 +2014,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	/* Now create a new vd_config */
 	if (posix_memalign((void**)&vcl, 512,
 		           (offsetof(struct vcl, conf) + ddf->conf_rec_len * 512)) != 0) {
-		fprintf(stderr, Name ": %s could not allocate vd_config\n", __func__);
+		pr_err("%s could not allocate vd_config\n", __func__);
 		return 0;
 	}
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
@@ -2208,9 +2199,8 @@ static int add_to_super_ddf(struct supertype *st,
 	fstat(fd, &stb);
 	if (posix_memalign((void**)&dd, 512,
 		           sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part) != 0) {
-		fprintf(stderr, Name
-			": %s could allocate buffer for new disk, aborting\n",
-			__func__);
+		pr_err("%s could allocate buffer for new disk, aborting\n",
+		       __func__);
 		return 1;
 	}
 	dd->major = major(stb.st_rdev);
@@ -2554,7 +2544,7 @@ static int reserve_space(struct supertype *st, int raiddisks,
 		free(e);
 	}
 	if (cnt < raiddisks) {
-		fprintf(stderr, Name ": not enough devices with space to create array.\n");
+		pr_err("not enough devices with space to create array.\n");
 		return 0; /* No enough free spaces large enough */
 	}
 	if (size == 0) {
@@ -2577,7 +2567,7 @@ static int reserve_space(struct supertype *st, int raiddisks,
 		}
 		*freesize = size;
 		if (size < 32) {
-			fprintf(stderr, Name ": not enough spare devices to create array.\n");
+			pr_err("not enough spare devices to create array.\n");
 			return 0;
 		}
 	}
@@ -2646,7 +2636,7 @@ static int validate_geometry_ddf(struct supertype *st,
 				break;
 		if (ddf_level_num[i].num1 == MAXINT) {
 			if (verbose)
-				fprintf(stderr, Name ": DDF does not support level %d arrays\n",
+				pr_err("DDF does not support level %d arrays\n",
 					level);
 			return 0;
 		}
@@ -2695,15 +2685,14 @@ static int validate_geometry_ddf(struct supertype *st,
 		}
 
 		if (verbose)
-			fprintf(stderr,
-				Name ": ddf: Cannot create this array "
-				"on device %s - a container is required.\n",
-				dev);
+			pr_err("ddf: Cannot create this array "
+			       "on device %s - a container is required.\n",
+			       dev);
 		return 0;
 	}
 	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": ddf: Cannot open %s: %s\n",
+			pr_err("ddf: Cannot open %s: %s\n",
 				dev, strerror(errno));
 		return 0;
 	}
@@ -2712,7 +2701,7 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (cfd < 0) {
 		close(fd);
 		if (verbose)
-			fprintf(stderr, Name ": ddf: Cannot use %s: %s\n",
+			pr_err("ddf: Cannot use %s: %s\n",
 				dev, strerror(EBUSY));
 		return 0;
 	}
@@ -2758,7 +2747,7 @@ validate_geometry_ddf_container(struct supertype *st,
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
 		if (verbose)
-			fprintf(stderr, Name ": ddf: Cannot open %s: %s\n",
+			pr_err("ddf: Cannot open %s: %s\n",
 				dev, strerror(errno));
 		return 0;
 	}
@@ -2791,7 +2780,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	/* ddf/bvd supports lots of things, but not containers */
 	if (level == LEVEL_CONTAINER) {
 		if (verbose)
-			fprintf(stderr, Name ": DDF cannot create a container within an container\n");
+			pr_err("DDF cannot create a container within an container\n");
 		return 0;
 	}
 	/* We must have the container info already read in. */
@@ -2828,10 +2817,9 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		}
 		if (dcnt < raiddisks) {
 			if (verbose)
-				fprintf(stderr,
-					Name ": ddf: Not enough devices with "
-					"space for this array (%d < %d)\n",
-					dcnt, raiddisks);
+				pr_err("ddf: Not enough devices with "
+				       "space for this array (%d < %d)\n",
+				       dcnt, raiddisks);
 			return 0;
 		}
 		return 1;
@@ -2848,7 +2836,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	}
 	if (!dl) {
 		if (verbose)
-			fprintf(stderr, Name ": ddf: %s is not in the "
+			pr_err("ddf: %s is not in the "
 				"same DDF set\n",
 				dev);
 		return 0;

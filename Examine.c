@@ -69,8 +69,8 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 		fd = dev_open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
 			if (!scan) {
-				fprintf(stderr,Name ": cannot open %s: %s\n",
-					devlist->devname, strerror(errno));
+				pr_err("cannot open %s: %s\n",
+				       devlist->devname, strerror(errno));
 				rv = 1;
 			}
 			err = 1;
@@ -102,7 +102,7 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 				st->ignore_hw_compat = 0;
 			} else {
 				if (!brief) {
-					fprintf(stderr, Name ": No md superblock detected on %s.\n", devlist->devname);
+					pr_err("No md superblock detected on %s.\n", devlist->devname);
 					rv = 1;
 				}
 				err = 1;
@@ -119,7 +119,7 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 
 		if (brief && st->ss->brief_examine_super == NULL) {
 			if (!scan)
-				fprintf(stderr, Name ": No brief listing for %s on %s\n",
+				pr_err("No brief listing for %s on %s\n",
 					st->ss->name, devlist->devname);
 		} else if (brief) {
 			struct array *ap;

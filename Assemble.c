@@ -1229,6 +1229,7 @@ int Assemble(struct supertype *st, char *mddev,
 			i--;
 			if (fdlist[i]>=0) close(fdlist[i]);
 		}
+		free(fdlist);
 		if (err) {
 			pr_err("Failed to restore critical section for reshape, sorry.\n");
 			if (c->backup_file == NULL)

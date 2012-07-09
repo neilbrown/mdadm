@@ -31,6 +31,12 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 	    int level, int layout);
 void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size);
 void make_tables(void);
+void ensure_zero_has_size(int chunk_size);
+void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs);
+void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
+		       uint8_t **ptrs);
+void xor_blocks(char *target, char **sources, int disks, int size);
+
 
 /* Collect per stripe consistency information */
 void raid6_collect(int chunk_size, uint8_t *p, uint8_t *q,
@@ -103,7 +109,8 @@ int raid6_stats(int *results, int raid_disks, int chunk_size)
 
 int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  int raid_disks, int chunk_size, int level, int layout,
-		  unsigned long long start, unsigned long long length, char *name[])
+		  unsigned long long start, unsigned long long length, char *name[],
+		  int repair, int failed_disk1, int failed_disk2)
 {
 	/* read the data and p and q blocks, and check we got them right */
 	char *stripe_buf = xmalloc(raid_disks * chunk_size);
@@ -170,10 +177,13 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 
 		qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);
 		diskP = geo_map(-1, start, raid_disks, level, layout);
+		diskQ = geo_map(-2, start, raid_disks, level, layout);
+		blocks[data_disks] = stripes[diskP];
+		blocks[data_disks+1] = stripes[diskQ];
+
 		if (memcmp(p, stripes[diskP], chunk_size) != 0) {
 			printf("P(%d) wrong at %llu\n", diskP, start);
 		}
-		diskQ = geo_map(-2, start, raid_disks, level, layout);
 		if (memcmp(q, stripes[diskQ], chunk_size) != 0) {
 			printf("Q(%d) wrong at %llu\n", diskQ, start);
 		}
@@ -190,6 +200,86 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		if(disk == -65535) {
 			printf("Error detected at %llu: disk slot unknown\n", start);
 		}
+		if(repair == 1) {
+			printf("Repairing stripe %llu\n", start);
+			printf("Assuming slots %d (%s) and %d (%s) are incorrect\n",
+			       failed_disk1, name[failed_disk1],
+			       failed_disk2, name[failed_disk2]);
+
+			if (failed_disk1 == diskQ || failed_disk2 == diskQ) {
+				char *all_but_failed_blocks[data_disks];
+				int failed_data;
+				int failed_block_index;
+
+				if (failed_disk1 == diskQ)
+					failed_data = failed_disk2;
+				else
+					failed_data = failed_disk1;
+				printf("Repairing D/P(%d) and Q\n", failed_data);
+				failed_block_index = geo_map(
+					failed_data, start, raid_disks,
+					level, layout);
+				for (i=0; i < data_disks; i++)
+					if (failed_block_index == i)
+						all_but_failed_blocks[i] = stripes[diskP];
+					else
+						all_but_failed_blocks[i] = blocks[i];
+				xor_blocks(stripes[failed_data],
+					all_but_failed_blocks, data_disks, chunk_size);
+				qsyndrome(p, (uint8_t*)stripes[diskQ], (uint8_t**)blocks, data_disks, chunk_size);
+			} else {
+				ensure_zero_has_size(chunk_size);
+				if (failed_disk1 == diskP || failed_disk2 == diskP) {
+					int failed_data, failed_block_index;
+					if (failed_disk1 == diskP)
+						failed_data = failed_disk2;
+					else
+						failed_data = failed_disk1;
+					failed_block_index = geo_map(failed_data, start, raid_disks, level, layout);
+					printf("Repairing D(%d) and P\n", failed_data);
+					raid6_datap_recov(raid_disks, chunk_size, failed_block_index, (uint8_t**)blocks);
+				} else {
+					printf("Repairing D and D\n");
+					int failed_block_index1 = geo_map(failed_disk1, start, raid_disks, level, layout);
+					int failed_block_index2 = geo_map(failed_disk2, start, raid_disks, level, layout);
+					if (failed_block_index1 > failed_block_index2) {
+						int t = failed_block_index1;
+						failed_block_index1 = failed_block_index2;
+						failed_block_index2 = t;
+					}
+					raid6_2data_recov(raid_disks, chunk_size, failed_block_index1, failed_block_index2, (uint8_t**)blocks);
+				}
+			}
+			if(mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+				err = 2;
+				goto exitCheck;
+			}
+			sig[0] = signal(SIGTERM, SIG_IGN);
+			sig[1] = signal(SIGINT, SIG_IGN);
+			sig[2] = signal(SIGQUIT, SIG_IGN);
+			rv = sysfs_set_num(info, NULL, "suspend_lo", start * chunk_size * data_disks);
+			rv |= sysfs_set_num(info, NULL, "suspend_hi", (start + 1) * chunk_size * data_disks);
+			lseek64(source[failed_disk1], offsets[failed_disk1] + start * chunk_size, 0);
+			write(source[failed_disk1], stripes[failed_disk1], chunk_size);
+			lseek64(source[failed_disk2], offsets[failed_disk2] + start * chunk_size, 0);
+			write(source[failed_disk2], stripes[failed_disk2], chunk_size);
+			rv |= sysfs_set_num(info, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
+			rv |= sysfs_set_num(info, NULL, "suspend_hi", 0);
+			rv |= sysfs_set_num(info, NULL, "suspend_lo", 0);
+			signal(SIGQUIT, sig[2]);
+			signal(SIGINT, sig[1]);
+			signal(SIGTERM, sig[0]);
+			if(munlockall() != 0) {
+				err = 3;
+				goto exitCheck;
+			}
+
+			if(rv != 0) {
+				err = rv * 256;
+				goto exitCheck;
+			}
+		}
+
 
 		length--;
 		start++;
@@ -230,6 +320,8 @@ int main(int argc, char *argv[])
 	int chunk_size = 0;
 	int layout = -1;
 	int level = 6;
+	int repair = 0;
+	int failed_disk1, failed_disk2;
 	unsigned long long start, length;
 	int i;
 	int mdfd;
@@ -246,6 +338,7 @@ int main(int argc, char *argv[])
 
 	if (argc < 4) {
 		fprintf(stderr, "Usage: %s md_device start_stripe length_stripes\n", prg);
+		fprintf(stderr, "   or: %s md_device repair stripe failed_slot_1 failed_slot_2\n", prg);
 		exit_err = 1;
 		goto exitHere;
 	}
@@ -311,8 +404,38 @@ int main(int argc, char *argv[])
 	raid_disks = info->array.raid_disks;
 	chunk_size = info->array.chunk_size;
 	layout = info->array.layout;
-	start = getnum(argv[2], &err);
-	length = getnum(argv[3], &err);
+	if (strcmp(argv[2], "repair")==0) {
+		if (argc < 6) {
+			fprintf(stderr, "For repair mode, call %s md_device repair stripe failed_slot_1 failed_slot_2\n", prg);
+			exit_err = 1;
+			goto exitHere;
+		}
+		repair = 1;
+		start = getnum(argv[3], &err);
+		length = 1;
+		failed_disk1 = getnum(argv[4], &err);
+		failed_disk2 = getnum(argv[5], &err);
+
+		if(failed_disk1 > info->array.raid_disks) {
+			fprintf(stderr, "%s: failed_slot_1 index is higher than number of devices in raid\n", prg);
+			exit_err = 4;
+			goto exitHere;
+		}
+		if(failed_disk2 > info->array.raid_disks) {
+			fprintf(stderr, "%s: failed_slot_2 index is higher than number of devices in raid\n", prg);
+			exit_err = 4;
+			goto exitHere;
+		}
+		if(failed_disk1 == failed_disk2) {
+			fprintf(stderr, "%s: failed_slot_1 and failed_slot_2 are the same\n", prg);
+			exit_err = 4;
+			goto exitHere;
+		}
+	}
+	else {
+		start = getnum(argv[2], &err);
+		length = getnum(argv[3], &err);
+	}
 
 	if (err) {
 		fprintf(stderr, "%s: Bad number: %s\n", prg, err);
@@ -360,7 +483,7 @@ int main(int argc, char *argv[])
 
 	int rv = check_stripes(info, fds, offsets,
 			       raid_disks, chunk_size, level, layout,
-			       start, length, disk_name);
+			       start, length, disk_name, repair, failed_disk1, failed_disk2);
 	if (rv != 0) {
 		fprintf(stderr,
 			"%s: check_stripes returned %d\n", prg, rv);

@@ -211,7 +211,7 @@ static int is_ddf(int layout)
 }
 
 
-static void xor_blocks(char *target, char **sources, int disks, int size)
+void xor_blocks(char *target, char **sources, int disks, int size)
 {
 	int i, j;
 	/* Amazingly inefficient... */
@@ -335,6 +335,17 @@ void make_tables(void)
 
 uint8_t *zero;
 int zero_size;
+
+void ensure_zero_has_size(int chunk_size)
+{
+	if (zero == NULL || chunk_size > zero_size) {
+		if (zero)
+			free(zero);
+		zero = xcalloc(1, chunk_size);
+		zero_size = chunk_size;
+	}
+}
+
 /* Following was taken from linux/drivers/md/raid6recov.c */
 
 /* Recover two failed data blocks. */
@@ -510,13 +521,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 
 	if (!tables_ready)
 		make_tables();
-
-	if (zero == NULL || chunk_size > zero_size) {
-		if (zero)
-			free(zero);
-		zero = xcalloc(1, chunk_size);
-		zero_size = chunk_size;
-	}
+	ensure_zero_has_size(chunk_size);
 
 	len = data_disks * chunk_size;
 	length_test = length / len;

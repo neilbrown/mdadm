@@ -440,6 +440,7 @@ char Help_assemble[] =
 "                     : out-of-date.  This involves modifying the superblocks.\n"
 "  --update=     -U   : Update superblock: try '-A --update=?' for option list.\n"
 "  --no-degraded      : Assemble but do not start degraded arrays.\n"
+"  --readonly    -o   : Mark the array as read-only. No resync will start.\n"
 ;
 
 char Help_manage[] =

@@ -44,7 +44,8 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 
 static int Incremental_container(struct supertype *st, char *devname,
 				 char *homehost,
-				 int verbose, int runstop, int autof,
+				 int verbose, int runstop,
+				 int readonly, int autof,
 				 int freeze_reshape);
 
 int Incremental(char *devname, int verbose, int runstop,
@@ -139,7 +140,8 @@ int Incremental(char *devname, int verbose, int runstop,
 				pr_err("failed to get "
 				       "exclusive lock on mapfile\n");
 			rv = Incremental_container(st, devname, homehost,
-						   verbose, runstop, autof,
+						   verbose, runstop,
+						   0, autof,
 						   freeze_reshape);
 			map_unlock(&map);
 			return rv;
@@ -451,7 +453,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		sysfs_free(sra);
 		if (!rv)
 			rv = Incremental_container(st, chosen_name, homehost,
-						   verbose, runstop, autof,
+						   verbose, runstop, 0, autof,
 						   freeze_reshape);
 		map_unlock(&map);
 		if (rv == 1)
@@ -1335,7 +1337,8 @@ static char *container2devname(char *devname)
 
 static int Incremental_container(struct supertype *st, char *devname,
 				 char *homehost, int verbose,
-				 int runstop, int autof, int freeze_reshape)
+				 int runstop, int readonly,
+				 int autof, int freeze_reshape)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
@@ -1470,7 +1473,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 			return 2;
 		}
 
-		assemble_container_content(st, mdfd, ra, runstop,
+		assemble_container_content(st, mdfd, ra, runstop, readonly,
 					   chosen_name, verbose, NULL,
 					   freeze_reshape);
 		close(mdfd);

@@ -832,6 +832,13 @@ initial resync work faster).  With
 will not try to be so clever.
 
 .TP
+.BR \-o ", " \-\-readonly
+Start the array
+.B read only
+rather than read-write as normal.  No writes will be allowed to the
+array, and no resync, recovery, or reshape will be started.
+
+.TP
 .BR \-a ", " "\-\-auto{=yes,md,mdp,part,p}{NN}"
 Instruct mdadm how to create the device file if needed, possibly allocating
 an unused minor number.  "md" causes a non-partitionable array

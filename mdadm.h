@@ -1193,6 +1193,7 @@ extern int flush_metadata_updates(struct supertype *st);
 extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
 				      struct mdinfo *content, int runstop,
+				      int readonly,
 				      char *chosen_name, int verbose,
 				      char *backup_file, int freeze_reshape);
 extern struct mdinfo *container_choose_spares(struct supertype *st,

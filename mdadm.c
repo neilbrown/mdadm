@@ -707,6 +707,12 @@ int main(int argc, char *argv[])
 			}
 			continue;
 
+		case O(ASSEMBLE,'o'):
+		case O(MANAGE,'o'):
+		case O(CREATE,'o'):
+			readonly = 1;
+			continue;
+
 		case O(ASSEMBLE,'U'): /* update the superblock */
 		case O(MISC,'U'):
 			if (update) {

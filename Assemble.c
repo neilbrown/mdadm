@@ -719,6 +719,7 @@ int Assemble(struct supertype *st, char *mddev,
 		/* This is a member of a container.  Try starting the array. */
 		int err;
 		err = assemble_container_content(st, mdfd, content, runstop,
+						 readonly,
 						 chosen_name, verbose,
 						 backup_file, freeze_reshape);
 		close(mdfd);
@@ -1378,6 +1379,11 @@ int Assemble(struct supertype *st, char *mddev,
 					rv = Grow_continue(mdfd, st, content,
 							   backup_file,
 							   freeze_reshape);
+			} else if (readonly &&
+				   sysfs_attribute_available(
+					   content, NULL, "array_state")) {
+				rv = sysfs_set_str(content, NULL,
+						   "array_state", "readonly");
 			} else
 #endif
 				rv = ioctl(mdfd, RUN_ARRAY, NULL);
@@ -1543,6 +1549,7 @@ int Assemble(struct supertype *st, char *mddev,
 #ifndef MDASSEMBLE
 int assemble_container_content(struct supertype *st, int mdfd,
 			       struct mdinfo *content, int runstop,
+			       int readonly,
 			       char *chosen_name, int verbose,
 			       char *backup_file, int freeze_reshape)
 {
@@ -1556,12 +1563,18 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	sysfs_init(content, mdfd, 0);
 
 	sra = sysfs_read(mdfd, 0, GET_VERSION);
-	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0)
+	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0) {
+		if (content->array.major_version == -1 &&
+		    content->array.minor_version == -2 &&
+		    readonly &&
+		    content->text_version[0] == '/')
+			content->text_version[0] = '-';
 		if (sysfs_set_array(content, md_get_version(mdfd)) != 0) {
 			if (sra)
 				sysfs_free(sra);
 			return 1;
 		}
+	}
 
 	/* There are two types of reshape: container wide or sub-array specific
 	 * Check if metadata requests blocking container wide reshapes
@@ -1628,7 +1641,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		case LEVEL_MULTIPATH:
 		case 0:
 			err = sysfs_set_str(content, NULL, "array_state",
-					    "active");
+					    readonly ? "readonly" : "active");
 			break;
 		default:
 			err = sysfs_set_str(content, NULL, "array_state",

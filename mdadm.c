@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 		case 'v': c.verbose++;
 			continue;
 
-		case 'q': c.quiet++;
+		case 'q': c.verbose--;
 			continue;
 
 		case 'b':
@@ -1234,12 +1234,12 @@ int main(int argc, char *argv[])
 			rv = Manage_ro(devlist->devname, mdfd, c.readonly);
 		if (!rv && devs_found>1)
 			rv = Manage_subdevs(devlist->devname, mdfd,
-					    devlist->next, c.verbose-c.quiet, c.test,
+					    devlist->next, c.verbose, c.test,
 					    c.update, c.force);
 		if (!rv && c.readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, c.readonly);
 		if (!rv && c.runstop)
-			rv = Manage_runstop(devlist->devname, mdfd, c.runstop, c.verbose-c.quiet, 0);
+			rv = Manage_runstop(devlist->devname, mdfd, c.runstop, c.verbose, 0);
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
@@ -1259,7 +1259,7 @@ int main(int argc, char *argv[])
 					       NULL, c.backup_file, c.invalid_backup,
 					       c.readonly, c.runstop, c.update,
 					       c.homehost, c.require_homehost,
-					       c.verbose-c.quiet, c.force,
+					       c.verbose, c.force,
 					       c.freeze_reshape);
 			}
 		} else if (!c.scan)
@@ -1267,7 +1267,7 @@ int main(int argc, char *argv[])
 				      devlist->next, c.backup_file, c.invalid_backup,
 				      c.readonly, c.runstop, c.update,
 				      c.homehost, c.require_homehost,
-				      c.verbose-c.quiet, c.force,
+				      c.verbose, c.force,
 				      c.freeze_reshape);
 		else if (devs_found > 0) {
 			if (c.update && devs_found > 1) {
@@ -1292,7 +1292,7 @@ int main(int argc, char *argv[])
 					       NULL, c.backup_file, c.invalid_backup,
 					       c.readonly, c.runstop, c.update,
 					       c.homehost, c.require_homehost,
-					       c.verbose-c.quiet, c.force,
+					       c.verbose, c.force,
 					       c.freeze_reshape);
 			}
 		} else {
@@ -1307,7 +1307,7 @@ int main(int argc, char *argv[])
 			rv = scan_assemble(c.autof, ss, c.readonly, c.runstop,
 					   &ident, c.homehost,
 					   c.require_homehost,
-					   c.verbose - c.quiet,
+					   c.verbose,
 					   c.force, c.freeze_reshape);
 		}
 
@@ -1336,7 +1336,7 @@ int main(int argc, char *argv[])
 		rv = Build(devlist->devname, chunk, level, layout,
 			   raiddisks, devlist->next, assume_clean,
 			   bitmap_file, bitmap_chunk, write_behind,
-			   c.delay, c.verbose-c.quiet, c.autof, size);
+			   c.delay, c.verbose, c.autof, size);
 		break;
 	case CREATE:
 		if (c.delay == 0)
@@ -1356,7 +1356,7 @@ int main(int argc, char *argv[])
 			    raiddisks, sparedisks, ident.name, c.homehost,
 			    ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next, c.runstop,
-			    c.readonly, c.verbose-c.quiet, c.force, assume_clean,
+			    c.readonly, c.verbose, c.force, assume_clean,
 			    bitmap_file, bitmap_chunk, write_behind, c.delay, c.autof);
 		break;
 	case MISC:
@@ -1377,12 +1377,12 @@ int main(int argc, char *argv[])
 				     c.export, c.scan,
 				     c.SparcAdjust, ss, c.homehost);
 		} else if (devmode == DetailPlatform) {
-			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose-c.quiet);
+			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose);
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
-				rv = stop_scan(c.verbose-c.quiet);
+				rv = stop_scan(c.verbose);
 			else if ((devmode == 'D' || devmode == Waitclean) && c.scan)
-				rv = misc_scan(devmode, c.verbose-c.quiet, c.export,
+				rv = misc_scan(devmode, c.verbose, c.export,
 					       c.test, c.homehost, c.prefer);
 			else if (devmode == UdevRules)
 				rv = Write_rules(udev_filename);
@@ -1391,7 +1391,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 		} else
-			rv = misc_list(devlist, c.brief, c.verbose-c.quiet, c.export, c.test,
+			rv = misc_list(devlist, c.brief, c.verbose, c.export, c.test,
 				       c.homehost, c.prefer, c.subarray, c.update,
 				       &ident,
 				       ss, c.force);
@@ -1482,10 +1482,10 @@ int main(int argc, char *argv[])
 		} else if (grow_continue)
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,
-						   c.verbose-c.quiet);
+						   c.verbose);
 		else if (size >= 0 || raiddisks != 0 || layout_str != NULL
 			 || chunk != 0 || level != UnSet) {
-			rv = Grow_reshape(devlist->devname, mdfd, c.verbose-c.quiet, c.backup_file,
+			rv = Grow_reshape(devlist->devname, mdfd, c.verbose, c.backup_file,
 					  size, level, layout_str, chunk, raiddisks,
 					  devlist->next,
 					  assume_clean, c.force);
@@ -1505,7 +1505,7 @@ int main(int argc, char *argv[])
 				pr_err("--incremental --scan --fail not supported.\n");
 				break;
 			}
-			rv = IncrementalScan(c.verbose-c.quiet);
+			rv = IncrementalScan(c.verbose);
 		}
 		if (!devlist) {
 			if (!rebuild_map && !c.scan) {
@@ -1521,9 +1521,9 @@ int main(int argc, char *argv[])
 		}
 		if (devmode == 'f')
 			rv = IncrementalRemove(devlist->devname, remove_path,
-					       c.verbose-c.quiet);
+					       c.verbose);
 		else
-			rv = Incremental(devlist->devname, c.verbose-c.quiet,
+			rv = Incremental(devlist->devname, c.verbose,
 					 c.runstop, ss, c.homehost,
 					 c.require_homehost, c.autof,
 					 c.freeze_reshape);

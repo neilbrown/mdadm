@@ -378,7 +378,6 @@ struct context {
 	int	readonly;
 	int	runstop;
 	int	verbose;
-	int	quiet;
 	int	brief;
 	int	force;
 	char	*homehost;

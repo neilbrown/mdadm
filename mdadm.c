@@ -48,26 +48,15 @@ int main(int argc, char *argv[])
 	int rv;
 	int i;
 
-	int chunk = 0;
-	unsigned long long size = 0;
 	unsigned long long array_size = 0;
-	int level = UnSet;
-	int layout = UnSet;
-	char *layout_str = NULL;
-	int raiddisks = 0;
-	int sparedisks = 0;
 	struct mddev_ident ident;
 	char *configfile = NULL;
 	int devmode = 0;
-	int write_behind = 0;
 	int bitmap_fd = -1;
-	char *bitmap_file = NULL;
-	int bitmap_chunk = UnSet;
 	struct mddev_dev *devlist = NULL;
 	struct mddev_dev **devlistend = & devlist;
 	struct mddev_dev *dv;
 	int devs_found = 0;
-	int assume_clean = 0;
 	char *symlinks = NULL;
 	int grow_continue = 0;
 	/* autof indicates whether and how to create device node.
@@ -82,6 +71,11 @@ int main(int argc, char *argv[])
 	 */
 	struct context c = {
 		.require_homehost = 1,
+	};
+	struct shape s = {
+		.level		= UnSet,
+		.layout		= UnSet,
+		.bitmap_chunk	= UnSet,
 	};
 
 	char sys_hostname[256];
@@ -365,19 +359,19 @@ int main(int argc, char *argv[])
 		case O(CREATE,ChunkSize):
 		case O(BUILD,'c'): /* chunk or rounding */
 		case O(BUILD,ChunkSize): /* chunk or rounding */
-			if (chunk) {
+			if (s.chunk) {
 				pr_err("chunk/rounding may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
-			chunk = parse_size(optarg);
-			if (chunk < 8 || (chunk&1)) {
+			s.chunk = parse_size(optarg);
+			if (s.chunk < 8 || (s.chunk&1)) {
 				pr_err("invalid chunk/rounding value: %s\n",
 					optarg);
 				exit(2);
 			}
 			/* Convert sectors to K */
-			chunk /= 2;
+			s.chunk /= 2;
 			continue;
 
 		case O(INCREMENTAL, 'e'):
@@ -416,22 +410,22 @@ int main(int argc, char *argv[])
 		case O(GROW,'z'):
 		case O(CREATE,'z'):
 		case O(BUILD,'z'): /* size */
-			if (size > 0) {
+			if (s.size > 0) {
 				pr_err("size may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
 			if (strcmp(optarg, "max")==0)
-				size = MAX_SIZE;
+				s.size = MAX_SIZE;
 			else {
-				size = parse_size(optarg);
-				if (size < 8) {
+				s.size = parse_size(optarg);
+				if (s.size < 8) {
 					pr_err("invalid size: %s\n",
 						optarg);
 					exit(2);
 				}
 				/* convert sectors to K */
-				size /= 2;
+				s.size /= 2;
 			}
 			continue;
 
@@ -456,41 +450,41 @@ int main(int argc, char *argv[])
 		case O(GROW,'l'):
 		case O(CREATE,'l'):
 		case O(BUILD,'l'): /* set raid level*/
-			if (level != UnSet) {
+			if (s.level != UnSet) {
 				pr_err("raid level may only be set once.  "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
-			level = map_name(pers, optarg);
-			if (level == UnSet) {
+			s.level = map_name(pers, optarg);
+			if (s.level == UnSet) {
 				pr_err("invalid raid level: %s\n",
 					optarg);
 				exit(2);
 			}
-			if (level != 0 && level != LEVEL_LINEAR && level != 1 &&
-			    level != LEVEL_MULTIPATH && level != LEVEL_FAULTY &&
-			    level != 10 &&
+			if (s.level != 0 && s.level != LEVEL_LINEAR && s.level != 1 &&
+			    s.level != LEVEL_MULTIPATH && s.level != LEVEL_FAULTY &&
+			    s.level != 10 &&
 			    mode == BUILD) {
 				pr_err("Raid level %s not permitted with --build.\n",
 					optarg);
 				exit(2);
 			}
-			if (sparedisks > 0 && level < 1 && level >= -1) {
+			if (s.sparedisks > 0 && s.level < 1 && s.level >= -1) {
 				pr_err("raid level %s is incompatible with spare-devices setting.\n",
 					optarg);
 				exit(2);
 			}
-			ident.level = level;
+			ident.level = s.level;
 			continue;
 
 		case O(GROW, 'p'): /* new layout */
 		case O(GROW, Layout):
-			if (layout_str) {
+			if (s.layout_str) {
 				pr_err("layout may only be sent once.  "
 				       "Second value was %s\n", optarg);
 				exit(2);
 			}
-			layout_str = optarg;
+			s.layout_str = optarg;
 			/* 'Grow' will parse the value */
 			continue;
 
@@ -498,31 +492,31 @@ int main(int argc, char *argv[])
 		case O(CREATE,Layout):
 		case O(BUILD,'p'): /* faulty layout */
 		case O(BUILD,Layout):
-			if (layout != UnSet) {
+			if (s.layout != UnSet) {
 				pr_err("layout may only be sent once.  "
 				       "Second value was %s\n", optarg);
 				exit(2);
 			}
-			switch(level) {
+			switch(s.level) {
 			default:
 				pr_err("layout not meaningful for %s arrays.\n",
-					map_num(pers, level));
+					map_num(pers, s.level));
 				exit(2);
 			case UnSet:
 				pr_err("raid level must be given before layout.\n");
 				exit(2);
 
 			case 5:
-				layout = map_name(r5layout, optarg);
-				if (layout==UnSet) {
+				s.layout = map_name(r5layout, optarg);
+				if (s.layout==UnSet) {
 					pr_err("layout %s not understood for raid5.\n",
 						optarg);
 					exit(2);
 				}
 				break;
 			case 6:
-				layout = map_name(r6layout, optarg);
-				if (layout==UnSet) {
+				s.layout = map_name(r6layout, optarg);
+				if (s.layout==UnSet) {
 					pr_err("layout %s not understood for raid6.\n",
 						optarg);
 					exit(2);
@@ -530,8 +524,8 @@ int main(int argc, char *argv[])
 				break;
 
 			case 10:
-				layout = parse_layout_10(optarg);
-				if (layout < 0) {
+				s.layout = parse_layout_10(optarg);
+				if (s.layout < 0) {
 					pr_err("layout for raid10 must be 'nNN', 'oNN' or 'fNN' where NN is a number, not %s\n", optarg);
 					exit(2);
 				}
@@ -540,8 +534,8 @@ int main(int argc, char *argv[])
 				/* Faulty
 				 * modeNNN
 				 */
-				layout = parse_layout_faulty(optarg);
-				if (layout == -1) {
+				s.layout = parse_layout_faulty(optarg);
+				if (s.layout == -1) {
 					pr_err("layout %s not understood for faulty.\n",
 						optarg);
 					exit(2);
@@ -553,39 +547,39 @@ int main(int argc, char *argv[])
 		case O(CREATE,AssumeClean):
 		case O(BUILD,AssumeClean): /* assume clean */
 		case O(GROW,AssumeClean):
-			assume_clean = 1;
+			s.assume_clean = 1;
 			continue;
 
 		case O(GROW,'n'):
 		case O(CREATE,'n'):
 		case O(BUILD,'n'): /* number of raid disks */
-			if (raiddisks) {
+			if (s.raiddisks) {
 				pr_err("raid-devices set twice: %d and %s\n",
-					raiddisks, optarg);
+					s.raiddisks, optarg);
 				exit(2);
 			}
-			raiddisks = parse_num(optarg);
-			if (raiddisks <= 0) {
+			s.raiddisks = parse_num(optarg);
+			if (s.raiddisks <= 0) {
 				pr_err("invalid number of raid devices: %s\n",
 					optarg);
 				exit(2);
 			}
-			ident.raid_disks = raiddisks;
+			ident.raid_disks = s.raiddisks;
 			continue;
 
 		case O(CREATE,'x'): /* number of spare (eXtra) disks */
-			if (sparedisks) {
+			if (s.sparedisks) {
 				pr_err("spare-devices set twice: %d and %s\n",
-				       sparedisks, optarg);
+				       s.sparedisks, optarg);
 				exit(2);
 			}
-			if (level != UnSet && level <= 0 && level >= -1) {
+			if (s.level != UnSet && s.level <= 0 && s.level >= -1) {
 				pr_err("spare-devices setting is incompatible with raid level %d\n",
-					level);
+					s.level);
 				exit(2);
 			}
-			sparedisks = parse_num(optarg);
-			if (sparedisks < 0) {
+			s.sparedisks = parse_num(optarg);
+			if (s.sparedisks < 0) {
 				pr_err("invalid number of spare-devices: %s\n",
 					optarg);
 				exit(2);
@@ -1043,7 +1037,7 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "internal")== 0 ||
 			    strcmp(optarg, "none")== 0 ||
 			    strchr(optarg, '/') != NULL) {
-				bitmap_file = optarg;
+				s.bitmap_file = optarg;
 				continue;
 			}
 			/* probable typo */
@@ -1054,24 +1048,24 @@ int main(int argc, char *argv[])
 		case O(GROW,BitmapChunk):
 		case O(BUILD,BitmapChunk):
 		case O(CREATE,BitmapChunk): /* bitmap chunksize */
-			bitmap_chunk = parse_size(optarg);
-			if (bitmap_chunk <= 0 ||
-			    bitmap_chunk & (bitmap_chunk - 1)) {
+			s.bitmap_chunk = parse_size(optarg);
+			if (s.bitmap_chunk <= 0 ||
+			    s.bitmap_chunk & (s.bitmap_chunk - 1)) {
 				pr_err("invalid bitmap chunksize: %s\n",
 				       optarg);
 				exit(2);
 			}
-			bitmap_chunk = bitmap_chunk * 512;
+			s.bitmap_chunk = s.bitmap_chunk * 512;
 			continue;
 
 		case O(GROW, WriteBehind):
 		case O(BUILD, WriteBehind):
 		case O(CREATE, WriteBehind): /* write-behind mode */
-			write_behind = DEFAULT_MAX_WRITE_BEHIND;
+			s.write_behind = DEFAULT_MAX_WRITE_BEHIND;
 			if (optarg) {
-				write_behind = parse_num(optarg);
-				if (write_behind < 0 ||
-				    write_behind > 16383) {
+				s.write_behind = parse_num(optarg);
+				if (s.write_behind < 0 ||
+				    s.write_behind > 16383) {
 					pr_err("Invalid value for maximum outstanding write-behind writes: %s.\n\tMust be between 0 and 16383.\n", optarg);
 					exit(2);
 				}
@@ -1188,8 +1182,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (raiddisks) {
-		if (raiddisks == 1 &&  !c.force && level != LEVEL_FAULTY) {
+	if (s.raiddisks) {
+		if (s.raiddisks == 1 &&  !c.force && s.level != LEVEL_FAULTY) {
 			pr_err("'1' is an unusual number of drives for an array, so it is probably\n"
 				"     a mistake.  If you really mean it you will need to specify --force before\n"
 				"     setting the number of drives.\n");
@@ -1297,49 +1291,49 @@ int main(int argc, char *argv[])
 	case BUILD:
 		if (c.delay == 0)
 			c.delay = DEFAULT_BITMAP_DELAY;
-		if (write_behind && !bitmap_file) {
+		if (s.write_behind && !s.bitmap_file) {
 			pr_err("write-behind mode requires a bitmap.\n");
 			rv = 1;
 			break;
 		}
-		if (raiddisks == 0) {
+		if (s.raiddisks == 0) {
 			pr_err("no raid-devices specified.\n");
 			rv = 1;
 			break;
 		}
 
-		if (bitmap_file) {
-			if (strcmp(bitmap_file, "internal")==0) {
+		if (s.bitmap_file) {
+			if (strcmp(s.bitmap_file, "internal")==0) {
 				pr_err("'internal' bitmaps not supported with --build\n");
 				rv |= 1;
 				break;
 			}
 		}
-		rv = Build(devlist->devname, chunk, level, layout,
-			   raiddisks, devlist->next, assume_clean,
-			   bitmap_file, bitmap_chunk, write_behind,
-			   &c, size);
+		rv = Build(devlist->devname, s.chunk, s.level, s.layout,
+			   s.raiddisks, devlist->next, s.assume_clean,
+			   s.bitmap_file, s.bitmap_chunk, s.write_behind,
+			   &c, s.size);
 		break;
 	case CREATE:
 		if (c.delay == 0)
 			c.delay = DEFAULT_BITMAP_DELAY;
-		if (write_behind && !bitmap_file) {
+		if (s.write_behind && !s.bitmap_file) {
 			pr_err("write-behind mode requires a bitmap.\n");
 			rv = 1;
 			break;
 		}
-		if (raiddisks == 0) {
+		if (s.raiddisks == 0) {
 			pr_err("no raid-devices specified.\n");
 			rv = 1;
 			break;
 		}
 
-		rv = Create(ss, devlist->devname, chunk, level, layout, size,
-			    raiddisks, sparedisks, ident.name,
+		rv = Create(ss, devlist->devname, s.chunk, s.level, s.layout, s.size,
+			    s.raiddisks, s.sparedisks, ident.name,
 			    ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next,
-			    assume_clean,
-			    bitmap_file, bitmap_chunk, write_behind, &c);
+			    s.assume_clean,
+			    s.bitmap_file, s.bitmap_chunk, s.write_behind, &c);
 		break;
 	case MISC:
 		if (devmode == 'E') {
@@ -1405,7 +1399,7 @@ int main(int argc, char *argv[])
 			 */
 			struct mdinfo sra;
 			int err;
-			if (raiddisks || level != UnSet) {
+			if (s.raiddisks || s.level != UnSet) {
 				pr_err("cannot change array size in same operation "
 					"as changing raiddisks or level.\n"
 					"    Change size first, then check that data is still intact.\n");
@@ -1428,9 +1422,9 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		if (devs_found > 1 && raiddisks == 0) {
+		if (devs_found > 1 && s.raiddisks == 0) {
 			/* must be '-a'. */
-			if (size > 0 || chunk || layout_str != NULL || bitmap_file) {
+			if (s.size > 0 || s.chunk || s.layout_str != NULL || s.bitmap_file) {
 				pr_err("--add cannot be used with "
 					"other geometry changes in --grow mode\n");
 				rv = 1;
@@ -1442,9 +1436,9 @@ int main(int argc, char *argv[])
 				if (rv)
 					break;
 			}
-		} else if (bitmap_file) {
-			if (size > 0 || raiddisks || chunk ||
-			    layout_str != NULL || devs_found > 1) {
+		} else if (s.bitmap_file) {
+			if (s.size > 0 || s.raiddisks || s.chunk ||
+			    s.layout_str != NULL || devs_found > 1) {
 				pr_err("--bitmap changes cannot be "
 					"used with other geometry changes "
 					"in --grow mode\n");
@@ -1453,18 +1447,18 @@ int main(int argc, char *argv[])
 			}
 			if (c.delay == 0)
 				c.delay = DEFAULT_BITMAP_DELAY;
-			rv = Grow_addbitmap(devlist->devname, mdfd, bitmap_file,
-					    bitmap_chunk, c.delay, write_behind, c.force);
+			rv = Grow_addbitmap(devlist->devname, mdfd, s.bitmap_file,
+					    s.bitmap_chunk, c.delay, s.write_behind, c.force);
 		} else if (grow_continue)
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,
 						   c.verbose);
-		else if (size > 0 || raiddisks != 0 || layout_str != NULL
-			 || chunk != 0 || level != UnSet) {
+		else if (s.size > 0 || s.raiddisks || s.layout_str != NULL
+			 || s.chunk != 0 || s.level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, c.verbose, c.backup_file,
-					  size, level, layout_str, chunk, raiddisks,
+					  s.size, s.level, s.layout_str, s.chunk, s.raiddisks,
 					  devlist->next,
-					  assume_clean, c.force);
+					  s.assume_clean, c.force);
 		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");
 		break;

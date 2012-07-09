@@ -396,6 +396,20 @@ struct context {
 	int	invalid_backup;
 };
 
+struct shape {
+	int	raiddisks;
+	int	sparedisks;
+	int	level;
+	int	layout;
+	char	*layout_str;
+	int	chunk;
+	int	bitmap_chunk;
+	char	*bitmap_file;
+	int	assume_clean;
+	int	write_behind;
+	unsigned long long size;
+};
+
 /* List of device names - wildcards expanded */
 struct mddev_dev {
 	char *devname;

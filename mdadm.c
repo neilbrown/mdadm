@@ -1499,10 +1499,7 @@ int main(int argc, char *argv[])
 			rv = IncrementalRemove(devlist->devname, remove_path,
 					       c.verbose);
 		else
-			rv = Incremental(devlist->devname, c.verbose,
-					 c.runstop, ss, c.homehost,
-					 c.require_homehost, c.autof,
-					 c.freeze_reshape);
+			rv = Incremental(devlist->devname, &c, ss);
 		break;
 	case AUTODETECT:
 		autodetect();

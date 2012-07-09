@@ -43,14 +43,10 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		     struct supertype *st, int verbose);
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 char *homehost,
-				 int verbose, int runstop,
-				 int readonly, int autof,
-				 int freeze_reshape);
+				 struct context *c);
 
-int Incremental(char *devname, int verbose, int runstop,
-		struct supertype *st, char *homehost, int require_homehost,
-		int autof, int freeze_reshape)
+int Incremental(char *devname, struct context *c,
+		struct supertype *st)
 {
 	/* Add this device to an array, creating the array if necessary
 	 * and starting the array if sensible or - if runstop>0 - if possible.
@@ -109,20 +105,20 @@ int Incremental(char *devname, int verbose, int runstop,
 	struct createinfo *ci = conf_get_create_info();
 
 	if (stat(devname, &stb) < 0) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("stat failed for %s: %s.\n",
 				devname, strerror(errno));
 		return rv;
 	}
 	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("%s is not a block device.\n",
 				devname);
 		return rv;
 	}
 	dfd = dev_open(devname, O_RDONLY|O_EXCL);
 	if (dfd < 0) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("cannot open %s: %s.\n",
 				devname, strerror(errno));
 		return rv;
@@ -139,10 +135,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			if (map_lock(&map))
 				pr_err("failed to get "
 				       "exclusive lock on mapfile\n");
-			rv = Incremental_container(st, devname, homehost,
-						   verbose, runstop,
-						   0, autof,
-						   freeze_reshape);
+			rv = Incremental_container(st, devname, c);
 			map_unlock(&map);
 			return rv;
 		}
@@ -155,7 +148,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/* 1/ Check if device is permitted by mdadm.conf */
 
 	if (!conf_test_dev(devname)) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("%s not permitted by mdadm.conf.\n",
 			       devname);
 		goto out;
@@ -165,13 +158,13 @@ int Incremental(char *devname, int verbose, int runstop,
 	 *            version/name from args) */
 
 	if (fstat(dfd, &stb) < 0) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("fstat failed for %s: %s.\n",
 				devname, strerror(errno));
 		goto out;
 	}
 	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("%s is not a block device.\n",
 				devname);
 		goto out;
@@ -184,22 +177,22 @@ int Incremental(char *devname, int verbose, int runstop,
 	have_target = policy_check_path(&dinfo, &target_array);
 
 	if (st == NULL && (st = guess_super(dfd)) == NULL) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("no recognisable superblock on %s.\n",
 			       devname);
 		rv = try_spare(devname, &dfd, policy,
 			       have_target ? &target_array : NULL,
-			       st, verbose);
+			       st, c->verbose);
 		goto out;
 	}
 	if (st->ss->compare_super == NULL ||
 	    st->ss->load_super(st, dfd, NULL)) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("no RAID superblock on %s.\n",
 				devname);
 		rv = try_spare(devname, &dfd, policy,
 			       have_target ? &target_array : NULL,
-			       st, verbose);
+			       st, c->verbose);
 		free(st);
 		goto out;
 	}
@@ -208,13 +201,13 @@ int Incremental(char *devname, int verbose, int runstop,
 	st->ss->getinfo_super(st, &info, NULL);
 
 	/* 3/ Check if there is a match in mdadm.conf */
-	match = conf_match(st, &info, devname, verbose, &rv);
+	match = conf_match(st, &info, devname, c->verbose, &rv);
 	if (!match && rv == 2)
 		goto out;
 
 	if (match && match->devname
 	    && strcasecmp(match->devname, "<ignore>") == 0) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("array containing %s is explicitly"
 				" ignored by mdadm.conf\n",
 				devname);
@@ -227,7 +220,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * on that. */
 	if (match)
 		trustworthy = LOCAL;
-	else if (st->ss->match_home(st, homehost) == 1)
+	else if (st->ss->match_home(st, c->homehost) == 1)
 		trustworthy = LOCAL;
 	else if (st->ss->match_home(st, "any") == 1)
 		trustworthy = LOCAL_ANY;
@@ -237,7 +230,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 	if (!match && !conf_test_metadata(st->ss->name, policy,
 					  (trustworthy == LOCAL))) {
-		if (verbose >= 1)
+		if (c->verbose >= 1)
 			pr_err("%s has metadata type %s for which "
 			       "auto-assembly is disabled\n",
 			       devname, st->ss->name);
@@ -252,9 +245,9 @@ int Incremental(char *devname, int verbose, int runstop,
 	 * CREATE.
 	 */
 	if (match && match->autof)
-		autof = match->autof;
-	if (autof == 0)
-		autof = ci->autof;
+		c->autof = match->autof;
+	if (c->autof == 0)
+		c->autof = ci->autof;
 
 	name_to_use = info.name;
 	if (name_to_use[0] == 0 &&
@@ -263,7 +256,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		trustworthy = METADATA;
 	}
 	if (name_to_use[0] && trustworthy != LOCAL &&
-	    ! require_homehost &&
+	    ! c->require_homehost &&
 	    conf_name_is_free(name_to_use))
 		trustworthy = LOCAL;
 
@@ -288,7 +281,7 @@ int Incremental(char *devname, int verbose, int runstop,
 
 		/* Couldn't find an existing array, maybe make a new one */
 		mdfd = create_mddev(match ? match->devname : NULL,
-				    name_to_use, autof, trustworthy, chosen_name);
+				    name_to_use, c->autof, trustworthy, chosen_name);
 
 		if (mdfd < 0)
 			goto out_unlock;
@@ -365,7 +358,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		    && (info.disk.state & (1<<MD_DISK_SYNC)) != 0
 		    && ! policy_action_allows(policy, st->ss->name,
 					      act_re_add)
-		    && runstop < 1) {
+		    && c->runstop < 1) {
 			if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
 				pr_err("not adding %s to active array (without --run) %s\n",
 				       devname, chosen_name);
@@ -419,7 +412,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			 * disk.number. Find and reject any such
 			 */
 			find_reject(mdfd, st, sra, info.disk.number,
-				    info.events, verbose, chosen_name);
+				    info.events, c->verbose, chosen_name);
 			err = add_disk(mdfd, st, sra, &info);
 		}
 		if (err < 0) {
@@ -440,7 +433,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		int devnum = devnum; /* defined and used iff ->external */
 		/* Try to assemble within the container */
 		sysfs_uevent(sra, "change");
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("container %s now has %d device%s\n",
 			       chosen_name, info.array.working_disks,
 			       info.array.working_disks==1?"":"s");
@@ -452,9 +445,7 @@ int Incremental(char *devname, int verbose, int runstop,
 		close(mdfd);
 		sysfs_free(sra);
 		if (!rv)
-			rv = Incremental_container(st, chosen_name, homehost,
-						   verbose, runstop, 0, autof,
-						   freeze_reshape);
+			rv = Incremental_container(st, chosen_name, c);
 		map_unlock(&map);
 		if (rv == 1)
 			/* Don't fail the whole -I if a subarray didn't
@@ -479,7 +470,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
 		   avail) == 0) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("%s attached to %s, not enough to start (%d).\n",
 			       devname, chosen_name, active_disks);
 		rv = 0;
@@ -493,7 +484,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	/*   + start the array (auto-readonly). */
 
 	if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("%s attached to %s which is already active.\n",
 			       devname, chosen_name);
 		rv = 0;
@@ -501,7 +492,7 @@ int Incremental(char *devname, int verbose, int runstop,
 	}
 
 	map_unlock(&map);
-	if (runstop > 0 || active_disks >= info.array.working_disks) {
+	if (c->runstop > 0 || active_disks >= info.array.working_disks) {
 		struct mdinfo *dsk;
 		/* Let's try to start it */
 		if (match && match->bitmap_file) {
@@ -533,7 +524,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			rv = sysfs_set_str(sra, NULL,
 					   "array_state", "read-auto");
 		if (rv == 0) {
-			if (verbose >= 0)
+			if (c->verbose >= 0)
 				pr_err("%s attached to %s, which has been started.\n",
 				       devname, chosen_name);
 			rv = 0;
@@ -556,7 +547,7 @@ int Incremental(char *devname, int verbose, int runstop,
 			rv = 1;
 		}
 	} else {
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("%s attached to %s, not enough to start safely.\n",
 			       devname, chosen_name);
 		rv = 0;
@@ -1336,9 +1327,7 @@ static char *container2devname(char *devname)
 }
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 char *homehost, int verbose,
-				 int runstop, int readonly,
-				 int autof, int freeze_reshape)
+				 struct context *c)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
@@ -1360,23 +1349,23 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 	st->ss->getinfo_super(st, &info, NULL);
 
-	if ((runstop > 0 && info.container_enough >= 0) ||
+	if ((c->runstop > 0 && info.container_enough >= 0) ||
 	    info.container_enough > 0)
 		/* pass */;
 	else {
-		if (verbose)
+		if (c->verbose)
 			pr_err("not enough devices to start the container\n");
 		return 0;
 	}
 
-	match = conf_match(st, &info, devname, verbose, &rv);
+	match = conf_match(st, &info, devname, c->verbose, &rv);
 	if (match == NULL && rv == 2)
 		return rv;
 
 	/* Need to compute 'trustworthy' */
 	if (match)
 		trustworthy = LOCAL;
-	else if (st->ss->match_home(st, homehost) == 1)
+	else if (st->ss->match_home(st, c->homehost) == 1)
 		trustworthy = LOCAL;
 	else if (st->ss->match_home(st, "any") == 1)
 		trustworthy = LOCAL;
@@ -1443,7 +1432,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 				free(dn);
 				/* we have a match */
 				match = array_list;
-				if (verbose>0)
+				if (c->verbose>0)
 					pr_err("match found for member %s\n",
 						array_list->member);
 				break;
@@ -1451,7 +1440,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 			if (match && match->devname &&
 			    strcasecmp(match->devname, "<ignore>") == 0) {
-				if (verbose > 0)
+				if (c->verbose > 0)
 					pr_err("array %s/%s is "
 					       "explicitly ignored by mdadm.conf\n",
 					       match->container, match->member);
@@ -1462,7 +1451,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 			mdfd = create_mddev(match ? match->devname : NULL,
 					    ra->name,
-					    autof,
+					    c->autof,
 					    trustworthy,
 					    chosen_name);
 		}
@@ -1473,9 +1462,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 			return 2;
 		}
 
-		assemble_container_content(st, mdfd, ra, runstop, readonly,
-					   chosen_name, verbose, NULL,
-					   freeze_reshape);
+		assemble_container_content(st, mdfd, ra, c,
+					   chosen_name);
 		close(mdfd);
 	}
 

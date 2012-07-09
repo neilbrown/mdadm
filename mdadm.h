@@ -1131,9 +1131,8 @@ extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 
-extern int Incremental(char *devname, int verbose, int runstop,
-		       struct supertype *st, char *homehost, int require_homehost,
-		       int autof, int freeze_reshape);
+extern int Incremental(char *devname, struct context *c,
+		       struct supertype *st);
 extern void RebuildMap(void);
 extern int IncrementalScan(int verbose);
 extern int IncrementalRemove(char *devname, char *path, int verbose);
@@ -1216,10 +1215,9 @@ extern unsigned long long calc_array_size(int level, int raid_disks, int layout,
 extern int flush_metadata_updates(struct supertype *st);
 extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
-				      struct mdinfo *content, int runstop,
-				      int readonly,
-				      char *chosen_name, int verbose,
-				      char *backup_file, int freeze_reshape);
+				      struct mdinfo *content,
+				      struct context *c,
+				      char *chosen_name);
 extern struct mdinfo *container_choose_spares(struct supertype *st,
 					      unsigned long long min_size,
 					      struct domainlist *domlist,

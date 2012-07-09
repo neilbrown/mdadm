@@ -715,10 +715,8 @@ int Assemble(struct supertype *st, char *mddev,
 	if (content != &info) {
 		/* This is a member of a container.  Try starting the array. */
 		int err;
-		err = assemble_container_content(st, mdfd, content, c->runstop,
-						 c->readonly,
-						 chosen_name, c->verbose,
-						 c->backup_file, c->freeze_reshape);
+		err = assemble_container_content(st, mdfd, content, c,
+						 chosen_name);
 		close(mdfd);
 		return err;
 	}
@@ -1545,10 +1543,8 @@ int Assemble(struct supertype *st, char *mddev,
 
 #ifndef MDASSEMBLE
 int assemble_container_content(struct supertype *st, int mdfd,
-			       struct mdinfo *content, int runstop,
-			       int readonly,
-			       char *chosen_name, int verbose,
-			       char *backup_file, int freeze_reshape)
+			       struct mdinfo *content, struct context *c,
+			       char *chosen_name)
 {
 	struct mdinfo *dev, *sra;
 	int working = 0, preexist = 0;
@@ -1563,7 +1559,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0) {
 		if (content->array.major_version == -1 &&
 		    content->array.minor_version == -2 &&
-		    readonly &&
+		    c->readonly &&
 		    content->text_version[0] == '/')
 			content->text_version[0] = '-';
 		if (sysfs_set_array(content, md_get_version(mdfd)) != 0) {
@@ -1605,7 +1601,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		   content->text_version,
 		   content->uuid, chosen_name);
 
-	if (runstop > 0 ||
+	if (c->runstop > 0 ||
 		 (working + preexist + expansion) >=
 			content->array.working_disks) {
 		int err;
@@ -1614,7 +1610,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			int spare = content->array.raid_disks + expansion;
 			if (restore_backup(st, content,
 					   working,
-					   spare, backup_file, verbose) == 1)
+					   spare, c->backup_file, c->verbose) == 1)
 				return 1;
 
 			err = sysfs_set_str(content, NULL,
@@ -1631,14 +1627,14 @@ int assemble_container_content(struct supertype *st, int mdfd,
 					st->update_tail = &st->updates;
 			}
 
-			err = Grow_continue(mdfd, st, content, backup_file,
-					    freeze_reshape);
+			err = Grow_continue(mdfd, st, content, c->backup_file,
+					    c->freeze_reshape);
 		} else switch(content->array.level) {
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:
 		case 0:
 			err = sysfs_set_str(content, NULL, "array_state",
-					    readonly ? "readonly" : "active");
+					    c->readonly ? "readonly" : "active");
 			break;
 		default:
 			err = sysfs_set_str(content, NULL, "array_state",
@@ -1662,7 +1658,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		    !start_reshape)
 			block_subarray(content);
 
-		if (verbose >= 0) {
+		if (c->verbose >= 0) {
 			if (err)
 				pr_err("array %s now has %d device%s",
 				       chosen_name, working + preexist,
@@ -1683,7 +1679,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		return err;
 		/* FIXME should have an O_EXCL and wait for read-auto */
 	} else {
-		if (verbose >= 0) {
+		if (c->verbose >= 0) {
 			pr_err("%s assembled with %d device%s",
 			       chosen_name, preexist + working,
 			       preexist + working == 1 ? "":"s");

@@ -1113,7 +1113,7 @@ extern int Create(struct supertype *st, char *mddev,
 		  char *bitmap_file, int bitmap_chunk, int write_behind,
 		  struct context *c);
 
-extern int Detail(char *dev, int brief, int export, int test, char *homehost, char *prefer);
+extern int Detail(char *dev, struct context *c);
 extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);
 extern int Query(char *dev);
 extern int Examine(struct mddev_dev *devlist, struct context *c,

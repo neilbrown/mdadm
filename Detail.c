@@ -27,7 +27,7 @@
 #include	"md_u.h"
 #include	<dirent.h>
 
-int Detail(char *dev, int brief, int export, int test, char *homehost, char *prefer)
+int Detail(char *dev, struct context *c)
 {
 	/*
 	 * Print out details for an md array by using
@@ -56,7 +56,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 	char *member = NULL;
 	char *container = NULL;
 
-	int rv = test ? 4 : 1;
+	int rv = c->test ? 4 : 1;
 	int avail_disks = 0;
 	char *avail = NULL;
 
@@ -105,7 +105,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		int dn = st->container_dev;
 
 		member = subarray;
-		container = map_dev_preferred(dev2major(dn), dev2minor(dn), 1, prefer);
+		container = map_dev_preferred(dev2major(dn), dev2minor(dn), 1, c->prefer);
 	}
 
 	/* try to load a superblock */
@@ -178,7 +178,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 	/* Ok, we have some info to print... */
 	str = map_num(pers, array.level);
 
-	if (export) {
+	if (c->export) {
 		if (array.raid_disks) {
 			if (str)
 				printf("MD_LEVEL=%s\n", str);
@@ -262,10 +262,10 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		}
 	}
 
-	if (brief) {
+	if (c->brief) {
 		mdu_bitmap_file_t bmf;
 		printf("ARRAY %s", dev);
-		if (brief > 1) {
+		if (c->brief > 1) {
 			if (array.raid_disks)
 				printf(" level=%s num-devices=%d",
 				       str?str:"-unknown-",
@@ -463,7 +463,7 @@ This is pretty boring
 		} else if (e && e->percent >= 0)
 			printf("\n");
 		if (st && st->sb)
-			st->ss->detail_super(st, homehost);
+			st->ss->detail_super(st, c->homehost);
 
 		if (array.raid_disks == 0 && sra && sra->array.major_version == -1
 		    && sra->array.minor_version == -2 && sra->text_version[0] != '/') {
@@ -494,7 +494,7 @@ This is pretty boring
 				dn = devname2devnum(de->d_name);
 				printf(" %s", map_dev_preferred(
 					       dev2major(dn),
-					       dev2minor(dn), 1, prefer));
+					       dev2minor(dn), 1, c->prefer));
 			}
 			if (dir)
 				closedir(dir);
@@ -516,7 +516,7 @@ This is pretty boring
 		    disk.major == 0 &&
 		    disk.minor == 0)
 			continue;
-		if (!brief) {
+		if (!c->brief) {
 			if (d == array.raid_disks) printf("\n");
 			if (disk.raid_disk < 0)
 				printf("   %5d   %5d    %5d        -     ",
@@ -525,7 +525,7 @@ This is pretty boring
 				printf("   %5d   %5d    %5d    %5d     ",
 				       disk.number, disk.major, disk.minor, disk.raid_disk);
 		}
-		if (!brief && array.raid_disks) {
+		if (!c->brief && array.raid_disks) {
 
 			if (disk.state & (1<<MD_DISK_FAULTY)) {
 				printf(" faulty");
@@ -569,11 +569,11 @@ This is pretty boring
 			}
 		}
 		if (disk.state == 0) spares++;
-		if (test && d < array.raid_disks
+		if (c->test && d < array.raid_disks
 		    && !(disk.state & (1<<MD_DISK_SYNC)))
 			rv |= 1;
-		if ((dv=map_dev_preferred(disk.major, disk.minor, 0, prefer))) {
-			if (brief) {
+		if ((dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer))) {
+			if (c->brief) {
 				if (devices) {
 					devices = xrealloc(devices,
 							  strlen(devices)+1+strlen(dv)+1);
@@ -583,16 +583,17 @@ This is pretty boring
 			} else
 				printf("   %s", dv);
 		}
-		if (!brief) printf("\n");
+		if (!c->brief) printf("\n");
 	}
-	if (spares && brief && array.raid_disks) printf(" spares=%d", spares);
-	if (brief && st && st->sb)
+	if (spares && c->brief && array.raid_disks) printf(" spares=%d", spares);
+	if (c->brief && st && st->sb)
 		st->ss->brief_detail_super(st);
 	st->ss->free_super(st);
 
-	if (brief > 1 && devices) printf("\n   devices=%s", devices);
-	if (brief) printf("\n");
-	if (test &&
+	if (c->brief > 1 && devices) printf("\n   devices=%s", devices);
+	if (c->brief)
+		printf("\n");
+	if (c->test &&
 	    !enough(array.level, array.raid_disks, array.layout,
 		    1, avail))
 		rv = 2;

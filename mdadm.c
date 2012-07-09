@@ -33,8 +33,7 @@
 static int scan_assemble(struct supertype *ss,
 			 struct context *c,
 			 struct mddev_ident *ident);
-static int misc_scan(char devmode, int verbose, int export, int test,
-		     char *homehost, char *prefer);
+static int misc_scan(char devmode, struct context *c);
 static int stop_scan(int verbose);
 static int misc_list(struct mddev_dev *devlist,
 		     struct mddev_ident *ident,
@@ -1361,8 +1360,7 @@ int main(int argc, char *argv[])
 			if (devmode == 'S' && c.scan)
 				rv = stop_scan(c.verbose);
 			else if ((devmode == 'D' || devmode == Waitclean) && c.scan)
-				rv = misc_scan(devmode, c.verbose, c.export,
-					       c.test, c.homehost, c.prefer);
+				rv = misc_scan(devmode, &c);
 			else if (devmode == UdevRules)
 				rv = Write_rules(udev_filename);
 			else {
@@ -1598,8 +1596,7 @@ static int scan_assemble(struct supertype *ss,
 	return rv;
 }
 
-static int misc_scan(char devmode, int verbose, int export, int test,
-		     char *homehost, char *prefer)
+static int misc_scan(char devmode, struct context *c)
 {
 	/* apply --detail or --wait-clean to
 	 * all devices in /proc/mdstat
@@ -1608,7 +1605,6 @@ static int misc_scan(char devmode, int verbose, int export, int test,
 	struct mdstat_ent *e;
 	struct map_ent *map = NULL;
 	int members;
-	int v = verbose>1?0:verbose+1;
 	int rv = 0;
 
 	for (members = 0; members <= 1; members++) {
@@ -1633,11 +1629,9 @@ static int misc_scan(char devmode, int verbose, int export, int test,
 				continue;
 			}
 			if (devmode == 'D')
-				rv |= Detail(name, v,
-					     export, test,
-					     homehost, prefer);
+				rv |= Detail(name, c);
 			else
-				rv |= WaitClean(name, -1, v);
+				rv |= WaitClean(name, -1, c->verbose);
 			put_md_name(name);
 		}
 	}
@@ -1699,9 +1693,7 @@ static int misc_list(struct mddev_dev *devlist,
 
 		switch(dv->disposition) {
 		case 'D':
-			rv |= Detail(dv->devname,
-				     c->brief?1+c->verbose:0,
-				     c->export, c->test, c->homehost, c->prefer);
+			rv |= Detail(dv->devname, c);
 			continue;
 		case KillOpt: /* Zero superblock */
 			if (ss)

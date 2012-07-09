@@ -1450,10 +1450,8 @@ int main(int argc, char *argv[])
 						   c.verbose);
 		else if (s.size > 0 || s.raiddisks || s.layout_str != NULL
 			 || s.chunk != 0 || s.level != UnSet) {
-			rv = Grow_reshape(devlist->devname, mdfd, c.verbose, c.backup_file,
-					  s.size, s.level, s.layout_str, s.chunk, s.raiddisks,
-					  devlist->next,
-					  s.assume_clean, c.force);
+			rv = Grow_reshape(devlist->devname, mdfd,
+					  devlist->next, &c, &s);
 		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");
 		break;

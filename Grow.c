@@ -1428,11 +1428,9 @@ static int reshape_container(char *container, char *devname,
 			     char *backup_file,
 			     int verbose, int restart, int freeze_reshape);
 
-int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
-		 unsigned long long size,
-		 int level, char *layout_str, int chunksize, int raid_disks,
+int Grow_reshape(char *devname, int fd,
 		 struct mddev_dev *devlist,
-		 int assume_clean, int force)
+		 struct context *c, struct shape *s)
 {
 	/* Make some changes in the shape of an array.
 	 * The kernel must support the change.
@@ -1474,8 +1472,8 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		return 1;
 	}
 
-	if (size > 0 &&
-	    (chunksize || level!= UnSet || layout_str || raid_disks)) {
+	if (s->size > 0 &&
+	    (s->chunk || s->level!= UnSet || s->layout_str || s->raiddisks)) {
 		pr_err("cannot change component size at the same time "
 			"as other changes.\n"
 			"   Change size first, then check data is intact before "
@@ -1483,7 +1481,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		return 1;
 	}
 
-	if (raid_disks && raid_disks < array.raid_disks && array.level > 1 &&
+	if (s->raiddisks && s->raiddisks < array.raid_disks && array.level > 1 &&
 	    get_linux_version() < 2006032 &&
 	    !check_env("MDADM_FORCE_FEWER")) {
 		pr_err("reducing the number of devices is not safe before Linux 2.6.32\n"
@@ -1496,7 +1494,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		pr_err("Unable to determine metadata format for %s\n", devname);
 		return 1;
 	}
-	if (raid_disks > st->max_devs) {
+	if (s->raiddisks > st->max_devs) {
 		pr_err("Cannot increase raid-disks on this array"
 			" beyond %d\n", st->max_devs);
 		return 1;
@@ -1574,14 +1572,14 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 	added_disks = 0;
 	for (dv = devlist; dv; dv = dv->next)
 		added_disks++;
-	if (raid_disks > array.raid_disks &&
-	    array.spare_disks +added_disks < (raid_disks - array.raid_disks) &&
-	    !force) {
+	if (s->raiddisks > array.raid_disks &&
+	    array.spare_disks +added_disks < (s->raiddisks - array.raid_disks) &&
+	    !c->force) {
 		pr_err("Need %d spare%s to avoid degraded array,"
 		       " and only have %d.\n"
 		       "       Use --force to over-ride this check.\n",
-		       raid_disks - array.raid_disks,
-		       raid_disks - array.raid_disks == 1 ? "" : "s",
+		       s->raiddisks - array.raid_disks,
+		       s->raiddisks - array.raid_disks == 1 ? "" : "s",
 		       array.spare_disks + added_disks);
 		return 1;
 	}
@@ -1611,7 +1609,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 	}
 
 	/* ========= set size =============== */
-	if (size > 0 && (size == MAX_DISKS || size != (unsigned)array.size)) {
+	if (s->size > 0 && (s->size == MAX_DISKS || s->size != (unsigned)array.size)) {
 		unsigned long long orig_size = get_component_size(fd)/2;
 		unsigned long long min_csize;
 		struct mdinfo *mdi;
@@ -1620,8 +1618,8 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		if (orig_size == 0)
 			orig_size = (unsigned) array.size;
 
-		if (reshape_super(st, size, UnSet, UnSet, 0, 0, UnSet, NULL,
-				  devname, APPLY_METADATA_CHANGES, verbose > 0)) {
+		if (reshape_super(st, s->size, UnSet, UnSet, 0, 0, UnSet, NULL,
+				  devname, APPLY_METADATA_CHANGES, c->verbose > 0)) {
 			rv = 1;
 			goto release;
 		}
@@ -1643,7 +1641,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 				dprintf("Metadata size correction from %llu to "
 					"%llu (%llu)\n", orig_size, new_size,
 					new_size * data_disks);
-				size = new_size;
+				s->size = new_size;
 				sysfs_free(sizeinfo);
 			}
 		}
@@ -1657,7 +1655,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		rv = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
 			if (sysfs_set_num(sra, mdi, "size",
-					  size == MAX_SIZE ? 0 : size) < 0) {
+					  s->size == MAX_SIZE ? 0 : s->size) < 0) {
 				/* Probably kernel refusing to let us
 				 * reduce the size - not an error.
 				 */
@@ -1682,19 +1680,19 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 				"array members.\n");
 			goto size_change_error;
 		}
-		if (min_csize && size > min_csize) {
+		if (min_csize && s->size > min_csize) {
 			pr_err("Cannot safely make this array "
 				"use more than 2TB per device on this kernel.\n");
 			rv = 1;
 			goto size_change_error;
 		}
-		if (min_csize && size == MAX_SIZE) {
+		if (min_csize && s->size == MAX_SIZE) {
 			/* Don't let the kernel choose a size - it will get
 			 * it wrong
 			 */
 			pr_err("Limited v0.90 array to "
 			       "2TB per device\n");
-			size = min_csize;
+			s->size = min_csize;
 		}
 		if (st->ss->external) {
 			if (sra->array.level == 0) {
@@ -1718,14 +1716,14 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 				st->update_tail = &st->updates;
 		}
 
-		array.size = size == MAX_SIZE ? 0 : size;
-		if ((unsigned)array.size != size) {
+		array.size = s->size == MAX_SIZE ? 0 : s->size;
+		if ((unsigned)array.size != s->size) {
 			/* got truncated to 32bit, write to
 			 * component_size instead
 			 */
 			if (sra)
 				rv = sysfs_set_num(sra, NULL,
-						   "component_size", size);
+						   "component_size", s->size);
 			else
 				rv = -1;
 		} else {
@@ -1756,7 +1754,7 @@ size_change_error:
 			if (reshape_super(st, orig_size, UnSet, UnSet, 0, 0,
 					  UnSet, NULL, devname,
 					  ROLLBACK_METADATA_CHANGES,
-					  verbose) == 0)
+					  c->verbose) == 0)
 				sync_metadata(st);
 			pr_err("Cannot set device size for %s: %s\n",
 				devname, strerror(err));
@@ -1766,7 +1764,7 @@ size_change_error:
 			rv = 1;
 			goto release;
 		}
-		if (assume_clean) {
+		if (s->assume_clean) {
 			/* This will fail on kernels newer than 3.0 unless
 			 * a backport has been arranged.
 			 */
@@ -1775,33 +1773,33 @@ size_change_error:
 				pr_err("--assume-clean not support with --grow on this kernel\n");
 		}
 		ioctl(fd, GET_ARRAY_INFO, &array);
-		size = get_component_size(fd)/2;
-		if (size == 0)
-			size = array.size;
-		if (verbose >= 0) {
-			if (size == orig_size)
+		s->size = get_component_size(fd)/2;
+		if (s->size == 0)
+			s->size = array.size;
+		if (c->verbose >= 0) {
+			if (s->size == orig_size)
 				pr_err("component size of %s "
 					"unchanged at %lluK\n",
-					devname, size);
+					devname, s->size);
 			else
 				pr_err("component size of %s "
 					"has been set to %lluK\n",
-					devname, size);
+					devname, s->size);
 		}
 		changed = 1;
 	} else if (array.level != LEVEL_CONTAINER) {
-		size = get_component_size(fd)/2;
-		if (size == 0)
-			size = array.size;
+		s->size = get_component_size(fd)/2;
+		if (s->size == 0)
+			s->size = array.size;
 	}
 
 	/* See if there is anything else to do */
-	if ((level == UnSet || level == array.level) &&
-	    (layout_str == NULL) &&
-	    (chunksize == 0 || chunksize == array.chunk_size) &&
-	    (raid_disks == 0 || raid_disks == array.raid_disks)) {
+	if ((s->level == UnSet || s->level == array.level) &&
+	    (s->layout_str == NULL) &&
+	    (s->chunk == 0 || s->chunk == array.chunk_size) &&
+	    (s->raiddisks == 0 || s->raiddisks == array.raid_disks)) {
 		/* Nothing more to do */
-		if (!changed && verbose >= 0)
+		if (!changed && c->verbose >= 0)
 			pr_err("%s: no change requested\n",
 				devname);
 		goto release;
@@ -1813,9 +1811,9 @@ size_change_error:
 	 *	- far_copies == 1
 	 *	- near_copies == 2
 	 */
-	if ((level == 0 && array.level == 10 && sra &&
+	if ((s->level == 0 && array.level == 10 && sra &&
 	     array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) ||
-	    (level == 0 && array.level == 1 && sra)) {
+	    (s->level == 0 && array.level == 1 && sra)) {
 		int err;
 		err = remove_disks_for_takeover(st, sra, array.layout);
 		if (err) {
@@ -1837,17 +1835,17 @@ size_change_error:
 	info.array = array;
 	sysfs_init(&info, fd, NoMdDev);
 	strcpy(info.text_version, sra->text_version);
-	info.component_size = size*2;
-	info.new_level = level;
-	info.new_chunk = chunksize * 1024;
+	info.component_size = s->size*2;
+	info.new_level = s->level;
+	info.new_chunk = s->chunk * 1024;
 	if (info.array.level == LEVEL_CONTAINER) {
 		info.delta_disks = UnSet;
-		info.array.raid_disks = raid_disks;
-	} else if (raid_disks)
-		info.delta_disks = raid_disks - info.array.raid_disks;
+		info.array.raid_disks = s->raiddisks;
+	} else if (s->raiddisks)
+		info.delta_disks = s->raiddisks - info.array.raid_disks;
 	else
 		info.delta_disks = UnSet;
-	if (layout_str == NULL) {
+	if (s->layout_str == NULL) {
 		info.new_layout = UnSet;
 		if (info.array.level == 6 &&
 		    (info.new_level == 6 || info.new_level == UnSet) &&
@@ -1861,8 +1859,8 @@ size_change_error:
 			rv = 1;
 			goto release;
 		}
-	} else if (strcmp(layout_str, "normalise") == 0 ||
-		   strcmp(layout_str, "normalize") == 0) {
+	} else if (strcmp(s->layout_str, "normalise") == 0 ||
+		   strcmp(s->layout_str, "normalize") == 0) {
 		/* If we have a -6 RAID6 layout, remove the '-6'. */
 		info.new_layout = UnSet;
 		if (info.array.level == 6 && info.new_level == UnSet) {
@@ -1875,11 +1873,11 @@ size_change_error:
 			}
 		} else {
 			pr_err("%s is only meaningful when reshaping"
-			       " a RAID6 array.\n", layout_str);
+			       " a RAID6 array.\n", s->layout_str);
 			rv = 1;
 			goto release;
 		}
-	} else if (strcmp(layout_str, "preserve") == 0) {
+	} else if (strcmp(s->layout_str, "preserve") == 0) {
 		/* This means that a non-standard RAID6 layout
 		 * is OK.
 		 * In particular:
@@ -1898,7 +1896,7 @@ size_change_error:
 			info.new_layout = map_name(r6layout, l);
 		} else {
 			pr_err("%s in only meaningful when reshaping"
-			       " to RAID6\n", layout_str);
+			       " to RAID6\n", s->layout_str);
 			rv = 1;
 			goto release;
 		}
@@ -1908,16 +1906,16 @@ size_change_error:
 			l = info.array.level;
 		switch (l) {
 		case 5:
-			info.new_layout = map_name(r5layout, layout_str);
+			info.new_layout = map_name(r5layout, s->layout_str);
 			break;
 		case 6:
-			info.new_layout = map_name(r6layout, layout_str);
+			info.new_layout = map_name(r6layout, s->layout_str);
 			break;
 		case 10:
-			info.new_layout = parse_layout_10(layout_str);
+			info.new_layout = parse_layout_10(s->layout_str);
 			break;
 		case LEVEL_FAULTY:
-			info.new_layout = parse_layout_faulty(layout_str);
+			info.new_layout = parse_layout_faulty(s->layout_str);
 			break;
 		default:
 			pr_err("layout not meaningful"
@@ -1928,26 +1926,26 @@ size_change_error:
 		if (info.new_layout == UnSet) {
 			pr_err("layout %s not understood"
 				" for this level\n",
-				layout_str);
+				s->layout_str);
 			rv = 1;
 			goto release;
 		}
 	}
 
 	if (array.level == LEVEL_FAULTY) {
-		if (level != UnSet && level != array.level) {
+		if (s->level != UnSet && s->level != array.level) {
 			pr_err("cannot change level of Faulty device\n");
 			rv =1 ;
 		}
-		if (chunksize) {
+		if (s->chunk) {
 			pr_err("cannot set chunksize of Faulty device\n");
 			rv =1 ;
 		}
-		if (raid_disks && raid_disks != 1) {
+		if (s->raiddisks && s->raiddisks != 1) {
 			pr_err("cannot set raid_disks of Faulty device\n");
 			rv =1 ;
 		}
-		if (layout_str) {
+		if (s->layout_str) {
 			if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
 				dprintf("Cannot get array information.\n");
 				goto release;
@@ -1956,7 +1954,7 @@ size_change_error:
 			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				rv = 1;
-			} else if (verbose >= 0)
+			} else if (c->verbose >= 0)
 				printf("layout for %s set to %d\n",
 				       devname, array.layout);
 		}
@@ -1970,7 +1968,7 @@ size_change_error:
 		 * performed at the level of the container
 		 */
 		rv = reshape_container(container, devname, -1, st, &info,
-				       force, backup_file, verbose, 0, 0);
+				       c->force, c->backup_file, c->verbose, 0, 0);
 		frozen = 0;
 	} else {
 		/* get spare devices from external metadata
@@ -1992,14 +1990,14 @@ size_change_error:
 		if (reshape_super(st, -1, info.new_level,
 				  info.new_layout, info.new_chunk,
 				  info.array.raid_disks, info.delta_disks,
-				  backup_file, devname, APPLY_METADATA_CHANGES,
-				  verbose)) {
+				  c->backup_file, devname, APPLY_METADATA_CHANGES,
+				  c->verbose)) {
 			rv = 1;
 			goto release;
 		}
 		sync_metadata(st);
-		rv = reshape_array(container, fd, devname, st, &info, force,
-				   devlist, backup_file, verbose, 0, 0, 0);
+		rv = reshape_array(container, fd, devname, st, &info, c->force,
+				   devlist, c->backup_file, c->verbose, 0, 0, 0);
 		frozen = 0;
 	}
 release:

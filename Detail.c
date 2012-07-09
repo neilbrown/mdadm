@@ -41,7 +41,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 	int next;
 	int d;
 	time_t atime;
-	char *c;
+	char *str;
 	char *devices = NULL;
 	int spares = 0;
 	struct stat stb;
@@ -176,12 +176,12 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 	}
 
 	/* Ok, we have some info to print... */
-	c = map_num(pers, array.level);
+	str = map_num(pers, array.level);
 
 	if (export) {
 		if (array.raid_disks) {
-			if (c)
-				printf("MD_LEVEL=%s\n", c);
+			if (str)
+				printf("MD_LEVEL=%s\n", str);
 			printf("MD_DEVICES=%d\n", array.raid_disks);
 		} else {
 			printf("MD_LEVEL=container\n");
@@ -268,7 +268,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		if (brief > 1) {
 			if (array.raid_disks)
 				printf(" level=%s num-devices=%d",
-				       c?c:"-unknown-",
+				       str?str:"-unknown-",
 				       array.raid_disks );
 			else
 				printf(" level=container num-devices=%d",
@@ -321,8 +321,9 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		atime = array.ctime;
 		if (atime)
 			printf("  Creation Time : %.24s\n", ctime(&atime));
-		if (array.raid_disks == 0) c = "container";
-		printf("     Raid Level : %s\n", c?c:"-unknown-");
+		if (array.raid_disks == 0)
+			str = "container";
+		printf("     Raid Level : %s\n", str?str:"-unknown-");
 		if (larray_size)
 			printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
 		if (array.level >= 1) {
@@ -389,12 +390,12 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		}
 		printf("\n");
 		if (array.level == 5) {
-			c = map_num(r5layout, array.layout);
-			printf("         Layout : %s\n", c?c:"-unknown-");
+			str = map_num(r5layout, array.layout);
+			printf("         Layout : %s\n", str?str:"-unknown-");
 		}
 		if (array.level == 6) {
-			c = map_num(r6layout, array.layout);
-			printf("         Layout : %s\n", c?c:"-unknown-");
+			str = map_num(r6layout, array.layout);
+			printf("         Layout : %s\n", str?str:"-unknown-");
 		}
 		if (array.level == 10) {
 			printf("         Layout :");
@@ -434,20 +435,20 @@ This is pretty boring
 				printf("  Delta Devices : %d, (%d->%d)\n",
 				       info->delta_disks, array.raid_disks - info->delta_disks, array.raid_disks);
 			if (info->new_level != array.level) {
-				char *c = map_num(pers, info->new_level);
-				printf("      New Level : %s\n", c?c:"-unknown-");
+				str = map_num(pers, info->new_level);
+				printf("      New Level : %s\n", str?str:"-unknown-");
 			}
 			if (info->new_level != array.level ||
 			    info->new_layout != array.layout) {
 				if (info->new_level == 5) {
-					char *c = map_num(r5layout, info->new_layout);
+					str = map_num(r5layout, info->new_layout);
 					printf("     New Layout : %s\n",
-					       c?c:"-unknown-");
+					       str?str:"-unknown-");
 				}
 				if (info->new_level == 6) {
-					char *c = map_num(r6layout, info->new_layout);
+					str = map_num(r6layout, info->new_layout);
 					printf("     New Layout : %s\n",
-					       c?c:"-unknown-");
+					       str?str:"-unknown-");
 				}
 				if (info->new_level == 10) {
 					printf("     New Layout : near=%d, %s=%d\n",

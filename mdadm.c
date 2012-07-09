@@ -1354,9 +1354,7 @@ int main(int argc, char *argv[])
 				pr_err("No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			rv = Examine(devlist, c.brief, c.verbose,
-				     c.export, c.scan,
-				     c.SparcAdjust, ss, c.homehost);
+			rv = Examine(devlist, &c, ss);
 		} else if (devmode == DetailPlatform) {
 			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose);
 		} else if (devlist == NULL) {

@@ -174,16 +174,19 @@ static void remove_devices(int devnum, char *path)
 }
 	
 
-int Manage_runstop(char *devname, int fd, int runstop, int quiet)
+int Manage_runstop(char *devname, int fd, int runstop,
+		   int verbose,	int will_retry)
 {
 	/* Run or stop the array. array must already be configured
-	 * required >= 0.90.0
-	 * Only print failure messages if quiet == 0;
-	 * quiet > 0 means really be quiet
-	 * quiet < 0 means we will try again if it fails.
+	 * 'Run' requires >= 0.90.0
+	 * 'will_retry' is only relevant for 'stop', and means
+	 * that error messages are not wanted.
 	 */
 	mdu_param_t param; /* unused */
 	int rv = 0;
+
+	if (will_retry && verbose == 0)
+		verbose = -1;
 
 	if (runstop == -1 && md_get_version(fd) < 9000) {
 		if (ioctl(fd, STOP_MD, 0)) {
@@ -198,20 +201,15 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		pr_err("need md driver version 0.90.0 or later\n");
 		return 1;
 	}
-	/*
-	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
-		pr_err("%s does not appear to be active.\n",
-			devname);
-		return 1;
-	}
-	*/
+
 	if (runstop>0) {
 		if (ioctl(fd, RUN_ARRAY, &param)) {
-			pr_err("failed to run array %s: %s\n",
-				devname, strerror(errno));
+			if (verbose >= 0)
+				pr_err("failed to run array %s: %s\n",
+				       devname, strerror(errno));
 			return 1;
 		}
-		if (quiet <= 0)
+		if (verbose >= 0)
 			pr_err("started %s\n", devname);
 	} else if (runstop < 0){
 		struct map_ent *map = NULL;
@@ -232,11 +230,12 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		if (fd < 0 || fd2devnum(fd) != devnum) {
 			if (fd >= 0)
 				close(fd);
-			pr_err("Cannot get exclusive access to %s:"
-			       "Perhaps a running "
-			       "process, mounted filesystem "
-			       "or active volume group?\n",
-			       devname);
+			if (verbose >= 0)
+				pr_err("Cannot get exclusive access to %s:"
+				       "Perhaps a running "
+				       "process, mounted filesystem "
+				       "or active volume group?\n",
+				       devname);
 			return 1;
 		}
 		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
@@ -256,9 +255,10 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				usleep(200000);
 				count--;
 			}
-			if (err && !quiet) {
-				pr_err("failed to stop array %s: %s\n",
-				       devname, strerror(errno));
+			if (err) {
+				if (verbose >= 0)
+					pr_err("failed to stop array %s: %s\n",
+					       devname, strerror(errno));
 				rv = 1;
 				goto out;
 			}
@@ -268,9 +268,10 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 
 			fd = open_dev_excl(devnum);
 			if (fd < 0) {
-				pr_err("failed to completely stop %s"
-				       ": Device is busy\n",
-				       devname);
+				if (verbose >= 0)
+					pr_err("failed to completely stop %s"
+					       ": Device is busy\n",
+					       devname);
 				rv = 1;
 				goto out;
 			}
@@ -294,7 +295,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 				    strncmp(m->metadata_version, "external:", 9)==0 &&
 				    is_subarray(m->metadata_version+9) &&
 				    devname2devnum(m->metadata_version+10) == devnum) {
-					if (!quiet)
+					if (verbose >= 0)
 						pr_err("Cannot stop container %s: "
 						       "member %s still active\n",
 						       devname, m->dev);
@@ -316,7 +317,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 			count --;
 		}
 		if (fd >= 0 && err) {
-			if (quiet == 0) {
+			if (verbose >= 0) {
 				pr_err("failed to stop array %s: %s\n",
 				       devname, strerror(errno));
 				if (errno == EBUSY)
@@ -345,7 +346,7 @@ int Manage_runstop(char *devname, int fd, int runstop, int quiet)
 		}
 
 
-		if (quiet <= 0)
+		if (verbose >= 0)
 			pr_err("stopped %s\n", devname);
 		map_lock(&map);
 		map_remove(&map, devnum);
@@ -1204,19 +1205,19 @@ int autodetect(void)
 	return rv;
 }
 
-int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet)
+int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int verbose)
 {
 	struct supertype supertype, *st = &supertype;
 	int fd, rv = 2;
 
 	memset(st, 0, sizeof(*st));
 
-	fd = open_subarray(dev, subarray, st, quiet);
+	fd = open_subarray(dev, subarray, st, verbose < 0);
 	if (fd < 0)
 		return 2;
 
 	if (!st->ss->update_subarray) {
-		if (!quiet)
+		if (verbose >= 0)
 			pr_err("Operation not supported for %s metadata\n",
 			       st->ss->name);
 		goto free_super;
@@ -1228,7 +1229,7 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 	rv = st->ss->update_subarray(st, subarray, update, ident);
 
 	if (rv) {
-		if (!quiet)
+		if (verbose >= 0)
 			pr_err("Failed to update %s of subarray-%s in %s\n",
 				update, subarray, dev);
 	} else if (st->update_tail)
@@ -1236,7 +1237,7 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 	else
 		st->ss->sync_metadata(st);
 
-	if (rv == 0 && strcmp(update, "name") == 0 && !quiet)
+	if (rv == 0 && strcmp(update, "name") == 0 && verbose >= 0)
 		pr_err("Updated subarray-%s name from %s, UUIDs may have changed\n",
 		       subarray, dev);
 

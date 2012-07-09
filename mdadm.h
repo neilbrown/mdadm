@@ -1065,7 +1065,8 @@ extern int add_dev(const char *name, const struct stat *stb, int flag, struct FT
 
 
 extern int Manage_ro(char *devname, int fd, int readonly);
-extern int Manage_runstop(char *devname, int fd, int runstop, int quiet);
+extern int Manage_runstop(char *devname, int fd, int runstop, int quiet,
+			  int will_retry);
 extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_subdevs(char *devname, int fd,
 			  struct mddev_dev *devlist, int verbose, int test,
@@ -1127,8 +1128,8 @@ extern int Monitor(struct mddev_dev *devlist,
 		   int dosyslog, int test, char *pidfile, int increments,
 		   int share, char *prefer);
 
-extern int Kill(char *dev, struct supertype *st, int force, int quiet, int noexcl);
-extern int Kill_subarray(char *dev, char *subarray, int quiet);
+extern int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl);
+extern int Kill_subarray(char *dev, char *subarray, int verbose);
 extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);

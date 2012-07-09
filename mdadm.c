@@ -38,12 +38,12 @@ static int scan_assemble(int autof, struct supertype *ss,
 			 int freeze_reshape);
 static int misc_scan(char devmode, int verbose, int export, int test,
 		     char *homehost, char *prefer);
-static int stop_scan(int quiet);
+static int stop_scan(int verbose);
 static int misc_list(struct mddev_dev *devlist,
 		     int brief, int verbose, int export, int test,
 		     char *homehost, char *prefer, char *subarray,
 		     char *update, struct mddev_ident *ident,
-		     struct supertype *ss, int force, int quiet);
+		     struct supertype *ss, int force);
 
 
 int main(int argc, char *argv[])
@@ -1239,7 +1239,7 @@ int main(int argc, char *argv[])
 		if (!rv && c.readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, c.readonly);
 		if (!rv && c.runstop)
-			rv = Manage_runstop(devlist->devname, mdfd, c.runstop, c.quiet);
+			rv = Manage_runstop(devlist->devname, mdfd, c.runstop, c.verbose-c.quiet, 0);
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
@@ -1371,18 +1371,18 @@ int main(int argc, char *argv[])
 				pr_err("No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			if (c.brief && c.verbose)
+			if (c.brief && c.verbose > 0)
 				c.brief = 2;
-			rv = Examine(devlist, c.scan?(c.verbose>1?0:c.verbose+1):c.brief,
+			rv = Examine(devlist, c.scan?(c.verbose>1?0:c.verbose):c.brief,
 				     c.export, c.scan,
 				     c.SparcAdjust, ss, c.homehost);
 		} else if (devmode == DetailPlatform) {
-			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose);
+			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose-c.quiet);
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
-				rv = stop_scan(c.quiet);
+				rv = stop_scan(c.verbose-c.quiet);
 			else if ((devmode == 'D' || devmode == Waitclean) && c.scan)
-				rv = misc_scan(devmode, c.verbose, c.export,
+				rv = misc_scan(devmode, c.verbose-c.quiet, c.export,
 					       c.test, c.homehost, c.prefer);
 			else if (devmode == UdevRules)
 				rv = Write_rules(udev_filename);
@@ -1391,10 +1391,10 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 		} else
-			rv = misc_list(devlist, c.brief, c.verbose, c.export, c.test,
+			rv = misc_list(devlist, c.brief, c.verbose-c.quiet, c.export, c.test,
 				       c.homehost, c.prefer, c.subarray, c.update,
 				       &ident,
-				       ss, c.force, c.quiet);
+				       ss, c.force);
 		break;
 	case MONITOR:
 		if (!devlist && !c.scan) {
@@ -1482,10 +1482,10 @@ int main(int argc, char *argv[])
 		} else if (grow_continue)
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,
-						   c.verbose);
+						   c.verbose-c.quiet);
 		else if (size >= 0 || raiddisks != 0 || layout_str != NULL
 			 || chunk != 0 || level != UnSet) {
-			rv = Grow_reshape(devlist->devname, mdfd, c.quiet, c.backup_file,
+			rv = Grow_reshape(devlist->devname, mdfd, c.verbose-c.quiet, c.backup_file,
 					  size, level, layout_str, chunk, raiddisks,
 					  devlist->next,
 					  assume_clean, c.force);
@@ -1505,7 +1505,7 @@ int main(int argc, char *argv[])
 				pr_err("--incremental --scan --fail not supported.\n");
 				break;
 			}
-			rv = IncrementalScan(c.verbose);
+			rv = IncrementalScan(c.verbose-c.quiet);
 		}
 		if (!devlist) {
 			if (!rebuild_map && !c.scan) {
@@ -1684,7 +1684,7 @@ static int misc_scan(char devmode, int verbose, int export, int test,
 	return rv;
 }
 
-static int stop_scan(int quiet)
+static int stop_scan(int verbose)
 {
 	/* apply --stop to all devices in /proc/mdstat */
 	/* Due to possible stacking of devices, repeat until
@@ -1710,7 +1710,7 @@ static int stop_scan(int quiet)
 			}
 			mdfd = open_mddev(name, 1);
 			if (mdfd >= 0) {
-				if (Manage_runstop(name, mdfd, -1, quiet?1:last?0:-1))
+				if (Manage_runstop(name, mdfd, -1, verbose, !last))
 					err = 1;
 				else
 					progress = 1;
@@ -1730,7 +1730,7 @@ static int misc_list(struct mddev_dev *devlist,
 		     int brief, int verbose, int export, int test,
 		     char *homehost, char *prefer, char *subarray,
 		     char *update, struct mddev_ident *ident,
-		     struct supertype *ss, int force, int quiet)
+		     struct supertype *ss, int force)
 {
 	struct mddev_dev *dv;
 	int rv = 0;
@@ -1746,12 +1746,12 @@ static int misc_list(struct mddev_dev *devlist,
 			continue;
 		case KillOpt: /* Zero superblock */
 			if (ss)
-				rv |= Kill(dv->devname, ss, force, quiet,0);
+				rv |= Kill(dv->devname, ss, force, verbose,0);
 			else {
-				int q = quiet;
+				int v = verbose;
 				do {
-					rv |= Kill(dv->devname, NULL, force, q, 0);
-					q = 1;
+					rv |= Kill(dv->devname, NULL, force, v, 0);
+					v = -1;
 				} while (rv == 0);
 				rv &= ~2;
 			}
@@ -1764,9 +1764,9 @@ static int misc_list(struct mddev_dev *devlist,
 		case WaitOpt:
 			rv |= Wait(dv->devname); continue;
 		case Waitclean:
-			rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;
+			rv |= WaitClean(dv->devname, -1, verbose); continue;
 		case KillSubarray:
-			rv |= Kill_subarray(dv->devname, subarray, quiet);
+			rv |= Kill_subarray(dv->devname, subarray, verbose);
 			continue;
 		case UpdateSubarray:
 			if (update == NULL) {
@@ -1775,16 +1775,16 @@ static int misc_list(struct mddev_dev *devlist,
 				continue;
 			}
 			rv |= Update_subarray(dv->devname, subarray,
-					      update, ident, quiet);
+					      update, ident, verbose);
 			continue;
 		}
 		mdfd = open_mddev(dv->devname, 1);
 		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':
-				rv |= Manage_runstop(dv->devname, mdfd, 1, quiet); break;
+				rv |= Manage_runstop(dv->devname, mdfd, 1, verbose, 0); break;
 			case 'S':
-				rv |= Manage_runstop(dv->devname, mdfd, -1, quiet); break;
+				rv |= Manage_runstop(dv->devname, mdfd, -1, verbose, 0); break;
 			case 'o':
 				rv |= Manage_ro(dv->devname, mdfd, 1); break;
 			case 'w':

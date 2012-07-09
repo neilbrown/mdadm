@@ -1418,7 +1418,7 @@ static int set_array_size(struct supertype *st, struct mdinfo *sra,
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
-			 char *backup_file, int quiet, int forked,
+			 char *backup_file, int verbose, int forked,
 			 int restart, int freeze_reshape);
 static int reshape_container(char *container, char *devname,
 			     int mdfd,
@@ -1426,9 +1426,9 @@ static int reshape_container(char *container, char *devname,
 			     struct mdinfo *info,
 			     int force,
 			     char *backup_file,
-			     int quiet, int restart, int freeze_reshape);
+			     int verbose, int restart, int freeze_reshape);
 
-int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
+int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		 long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks,
 		 struct mddev_dev *devlist,
@@ -1621,7 +1621,7 @@ int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
 			orig_size = array.size;
 
 		if (reshape_super(st, size, UnSet, UnSet, 0, 0, UnSet, NULL,
-				  devname, APPLY_METADATA_CHANGES, !quiet)) {
+				  devname, APPLY_METADATA_CHANGES, verbose > 0)) {
 			rv = 1;
 			goto release;
 		}
@@ -1755,7 +1755,7 @@ size_change_error:
 			if (reshape_super(st, orig_size, UnSet, UnSet, 0, 0,
 					  UnSet, NULL, devname,
 					  ROLLBACK_METADATA_CHANGES,
-					  !quiet) == 0)
+					  verbose) == 0)
 				sync_metadata(st);
 			pr_err("Cannot set device size for %s: %s\n",
 				devname, strerror(err));
@@ -1777,7 +1777,7 @@ size_change_error:
 		size = get_component_size(fd)/2;
 		if (size == 0)
 			size = array.size;
-		if (!quiet) {
+		if (verbose >= 0) {
 			if (size == orig_size)
 				pr_err("component size of %s "
 					"unchanged at %lluK\n",
@@ -1800,7 +1800,7 @@ size_change_error:
 	    (chunksize == 0 || chunksize == array.chunk_size) &&
 	    (raid_disks == 0 || raid_disks == array.raid_disks)) {
 		/* Nothing more to do */
-		if (!changed && !quiet)
+		if (!changed && verbose >= 0)
 			pr_err("%s: no change requested\n",
 				devname);
 		goto release;
@@ -1955,7 +1955,7 @@ size_change_error:
 			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				rv = 1;
-			} else if (!quiet)
+			} else if (verbose >= 0)
 				printf("layout for %s set to %d\n",
 				       devname, array.layout);
 		}
@@ -1969,7 +1969,7 @@ size_change_error:
 		 * performed at the level of the container
 		 */
 		rv = reshape_container(container, devname, -1, st, &info,
-				       force, backup_file, quiet, 0, 0);
+				       force, backup_file, verbose, 0, 0);
 		frozen = 0;
 	} else {
 		/* get spare devices from external metadata
@@ -1992,13 +1992,13 @@ size_change_error:
 				  info.new_layout, info.new_chunk,
 				  info.array.raid_disks, info.delta_disks,
 				  backup_file, devname, APPLY_METADATA_CHANGES,
-				  quiet)) {
+				  verbose)) {
 			rv = 1;
 			goto release;
 		}
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, force,
-				   devlist, backup_file, quiet, 0, 0, 0);
+				   devlist, backup_file, verbose, 0, 0, 0);
 		frozen = 0;
 	}
 release:
@@ -2068,7 +2068,7 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
-			 char *backup_file, int quiet, int forked,
+			 char *backup_file, int verbose, int forked,
 			 int restart, int freeze_reshape)
 {
 	struct reshape reshape;
@@ -2208,7 +2208,7 @@ static int reshape_array(char *container, int fd, char *devname,
 					 " before level can be changed\n");
 			goto release;
 		}
-		if (!quiet)
+		if (verbose >= 0)
 			pr_err("level of %s changed to %s\n",
 				devname, c);
 		orig_level = array.level;
@@ -2266,7 +2266,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	 * level and frozen, we can safely add them.
 	 */
 	if (devlist)
-		Manage_subdevs(devname, fd, devlist, !quiet,
+		Manage_subdevs(devname, fd, devlist, verbose,
 			       0,NULL, 0);
 
 	if (reshape.backup_blocks == 0) {
@@ -2286,7 +2286,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				goto release;
-			} else if (!quiet)
+			} else if (verbose >= 0)
 				printf("layout for %s set to %d\n",
 				       devname, array.layout);
 		}
@@ -2297,7 +2297,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
 				pr_err("failed to set raid disks\n");
 				goto release;
-			} else if (!quiet) {
+			} else if (verbose >= 0) {
 				printf("raid_disks for %s set to %d\n",
 				       devname, array.raid_disks);
 			}
@@ -2308,7 +2308,7 @@ static int reshape_array(char *container, int fd, char *devname,
 					  "chunk_size", info->new_chunk) != 0) {
 				pr_err("failed to set chunk size\n");
 				goto release;
-			} else if (!quiet)
+			} else if (verbose >= 0)
 				printf("chunk size for %s set to %d\n",
 				       devname, array.chunk_size);
 		}
@@ -2666,7 +2666,7 @@ int reshape_container(char *container, char *devname,
 		      struct mdinfo *info,
 		      int force,
 		      char *backup_file,
-		      int quiet, int restart, int freeze_reshape)
+		      int verbose, int restart, int freeze_reshape)
 {
 	struct mdinfo *cc = NULL;
 	int rv = restart;
@@ -2680,7 +2680,7 @@ int reshape_container(char *container, char *devname,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks, info->delta_disks,
 			  backup_file, devname, APPLY_METADATA_CHANGES,
-			  quiet)) {
+			  verbose)) {
 		unfreeze(st);
 		return 1;
 	}
@@ -2792,7 +2792,7 @@ int reshape_container(char *container, char *devname,
 
 		rv = reshape_array(container, fd, adev, st,
 				   content, force, NULL,
-				   backup_file, quiet, 1, restart,
+				   backup_file, verbose, 1, restart,
 				   freeze_reshape);
 		close(fd);
 

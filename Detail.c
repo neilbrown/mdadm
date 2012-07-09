@@ -616,11 +616,11 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 	if (ss && ss->detail_platform)
 		err = ss->detail_platform(verbose, 0);
 	else if (ss) {
-		if (verbose)
+		if (verbose > 0)
 			pr_err("%s metadata is platform independent\n",
 				ss->name ? : "[no name]");
 	} else if (!scan) {
-		if (verbose)
+		if (verbose > 0)
 			pr_err("specify a metadata type or --scan\n");
 	}
 
@@ -632,11 +632,11 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 
 		if (meta == ss)
 			continue;
-		if (verbose)
+		if (verbose > 0)
 			pr_err("checking metadata %s\n",
 				meta->name ? : "[no name]");
 		if (!meta->detail_platform) {
-			if (verbose)
+			if (verbose > 0)
 				pr_err("%s metadata is platform independent\n",
 					meta->name ? : "[no name]");
 		} else

@@ -1567,7 +1567,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 	unsigned long port_mask = (1 << port_count) - 1;
 
 	if (port_count > (int)sizeof(port_mask) * 8) {
-		if (verbose)
+		if (verbose > 0)
 			pr_err("port_count %d out of range\n", port_count);
 		return 2;
 	}
@@ -1600,14 +1600,14 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 
 		/* retrieve the scsi device type */
 		if (asprintf(&device, "/sys/dev/block/%d:%d/device/xxxxxxx", major, minor) < 0) {
-			if (verbose)
+			if (verbose > 0)
 				pr_err("failed to allocate 'device'\n");
 			err = 2;
 			break;
 		}
 		sprintf(device, "/sys/dev/block/%d:%d/device/type", major, minor);
 		if (load_sys(device, buf) != 0) {
-			if (verbose)
+			if (verbose > 0)
 				pr_err("failed to read device type for %s\n",
 					path);
 			err = 2;
@@ -1660,7 +1660,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 		/* chop device path to 'host%d' and calculate the port number */
 		c = strchr(&path[hba_len], '/');
 		if (!c) {
-			if (verbose)
+			if (verbose > 0)
 				pr_err("%s - invalid path name\n", path + hba_len);
 			err = 2;
 			break;
@@ -1669,7 +1669,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 		if (sscanf(&path[hba_len], "host%d", &port) == 1)
 			port -= host_base;
 		else {
-			if (verbose) {
+			if (verbose > 0) {
 				*c = '/'; /* repair the full string */
 				pr_err("failed to determine port number for %s\n",
 					path);
@@ -1836,12 +1836,12 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 
 	list = find_intel_devices();
 	if (!list) {
-		if (verbose)
+		if (verbose > 0)
 			pr_err("no active Intel(R) RAID "
 				"controller found.\n");
 		free_sys_dev(&list);
 		return 2;
-	} else if (verbose)
+	} else if (verbose > 0)
 		print_found_intel_controllers(list);
 
 	for (hba = list; hba; hba = hba->next) {
@@ -1860,7 +1860,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 		if (hba->type == SYS_DEV_SATA) {
 			host_base = ahci_get_port_count(hba->path, &port_count);
 			if (ahci_enumerate_ports(hba->path, port_count, host_base, verbose)) {
-				if (verbose)
+				if (verbose > 0)
 					pr_err("failed to enumerate "
 						"ports on SATA controller at %s.", hba->pci_id);
 				result |= 2;
@@ -5175,7 +5175,7 @@ static int write_init_super_imsm(struct supertype *st)
 	} else {
 		struct dl *d;
 		for (d = super->disks; d; d = d->next)
-			Kill(d->devname, NULL, 0, 1, 1);
+			Kill(d->devname, NULL, 0, -1, 1);
 		return write_super_imsm(st, 1);
 	}
 }
@@ -5220,7 +5220,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
-		if (verbose)
+		if (verbose > 0)
 			pr_err("imsm: Cannot open %s: %s\n",
 				dev, strerror(errno));
 		return 0;
@@ -5234,7 +5234,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	 * note that there is no fd for the disks in array.
 	 */
 	super = alloc_super();
-	rv = find_intel_hba_capability(fd, super, verbose ? dev : NULL);
+	rv = find_intel_hba_capability(fd, super, verbose > 0 ? dev : NULL);
 	if (rv != 0) {
 #if DEBUG
 		char str[256];

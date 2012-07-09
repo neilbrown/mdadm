@@ -374,6 +374,29 @@ struct mddev_ident {
 	};
 };
 
+struct context {
+	int	readonly;
+	int	runstop;
+	int	verbose;
+	int	quiet;
+	int	brief;
+	int	force;
+	char	*homehost;
+	int	require_homehost;
+	char	*prefer;
+	int	export;
+	int	test;
+	char	*subarray;
+	char	*update;
+	int	scan;
+	int	SparcAdjust;
+	int	autof;
+	int	delay;
+	int	freeze_reshape;
+	char	*backup_file;
+	int	invalid_backup;
+};
+
 /* List of device names - wildcards expanded */
 struct mddev_dev {
 	char *devname;

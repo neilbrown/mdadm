@@ -265,7 +265,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	return 0;
 }
 
-int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force)
+int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 {
 	/*
 	 * First check that array doesn't have a bitmap
@@ -300,7 +300,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	}
 	if (bmf.pathname[0]) {
-		if (strcmp(file,"none")==0) {
+		if (strcmp(s->bitmap_file,"none")==0) {
 			if (ioctl(fd, SET_BITMAP_FILE, -1)!= 0) {
 				pr_err("failed to remove bitmap %s\n",
 					bmf.pathname);
@@ -317,7 +317,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	}
 	if (array.state & (1<<MD_SB_BITMAP_PRESENT)) {
-		if (strcmp(file, "none")==0) {
+		if (strcmp(s->bitmap_file, "none")==0) {
 			array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
 			if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
 				pr_err("failed to remove internal bitmap.\n");
@@ -330,7 +330,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		return 1;
 	}
 
-	if (strcmp(file, "none") == 0) {
+	if (strcmp(s->bitmap_file, "none") == 0) {
 		pr_err("no bitmap found on %s\n", devname);
 		return 1;
 	}
@@ -370,7 +370,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 		free(st);
 		return 1;
 	}
-	if (strcmp(file, "internal") == 0) {
+	if (strcmp(s->bitmap_file, "internal") == 0) {
 		int rv;
 		int d;
 		int offset_setable = 0;
@@ -402,7 +402,7 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 				if (st->ss->load_super(st, fd2, NULL)==0) {
 					if (st->ss->add_internal_bitmap(
 						    st,
-						    &chunk, delay, write_behind,
+						    &s->bitmap_chunk, c->delay, s->write_behind,
 						    bitmapsize, offset_setable,
 						    major)
 						)
@@ -466,14 +466,14 @@ int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int 
 			pr_err("cannot find UUID for array!\n");
 			return 1;
 		}
-		if (CreateBitmap(file, force, (char*)uuid, chunk,
-				 delay, write_behind, bitmapsize, major)) {
+		if (CreateBitmap(s->bitmap_file, c->force, (char*)uuid, s->bitmap_chunk,
+				 c->delay, s->write_behind, bitmapsize, major)) {
 			return 1;
 		}
-		bitmap_fd = open(file, O_RDWR);
+		bitmap_fd = open(s->bitmap_file, O_RDWR);
 		if (bitmap_fd < 0) {
 			pr_err("weird: %s cannot be opened\n",
-				file);
+				s->bitmap_file);
 			return 1;
 		}
 		if (ioctl(fd, SET_BITMAP_FILE, bitmap_fd) < 0) {

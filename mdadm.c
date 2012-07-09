@@ -1442,8 +1442,7 @@ int main(int argc, char *argv[])
 			}
 			if (c.delay == 0)
 				c.delay = DEFAULT_BITMAP_DELAY;
-			rv = Grow_addbitmap(devlist->devname, mdfd, s.bitmap_file,
-					    s.bitmap_chunk, c.delay, s.write_behind, c.force);
+			rv = Grow_addbitmap(devlist->devname, mdfd, &c, &s);
 		} else if (grow_continue)
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,

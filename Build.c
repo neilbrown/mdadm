@@ -31,7 +31,7 @@
 int Build(char *mddev, int chunk, int level, int layout,
 	  int raiddisks, struct mddev_dev *devlist, int assume_clean,
 	  char *bitmap_file, int bitmap_chunk, int write_behind,
-	  int delay, int verbose, int autof, unsigned long long size)
+	  struct context *c, unsigned long long size)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -90,26 +90,26 @@ int Build(char *mddev, int chunk, int level, int layout,
 			break;
 		case 10:
 			layout = 0x102; /* near=2, far=1 */
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("layout defaults to n1\n");
 			break;
 		case 5:
 		case 6:
 			layout = map_name(r5layout, "default");
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("layout defaults to %s\n", map_num(r5layout, layout));
 			break;
 		case LEVEL_FAULTY:
 			layout = map_name(faultylayout, "default");
 
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("layout defaults to %s\n", map_num(faultylayout, layout));
 			break;
 		}
 
 	/* We need to create the device.  It can have no name. */
 	map_lock(&map);
-	mdfd = create_mddev(mddev, NULL, autof, LOCAL,
+	mdfd = create_mddev(mddev, NULL, c->autof, LOCAL,
 			    chosen_name);
 	if (mdfd < 0) {
 		map_unlock(&map);
@@ -230,7 +230,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 				}
 				bitmapsize = size>>9; /* FIXME wrong for RAID10 */
 				if (CreateBitmap(bitmap_file, 1, NULL, bitmap_chunk,
-						 delay, write_behind, bitmapsize, major)) {
+						 c->delay, write_behind, bitmapsize, major)) {
 					goto abort;
 				}
 				bitmap_fd = open(bitmap_file, O_RDWR);
@@ -273,7 +273,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 			goto abort;
 		}
 	}
-	if (verbose >= 0)
+	if (c->verbose >= 0)
 		pr_err("array %s built and started.\n",
 			mddev);
 	wait_for(mddev, mdfd);

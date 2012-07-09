@@ -1315,7 +1315,7 @@ int main(int argc, char *argv[])
 		rv = Build(devlist->devname, chunk, level, layout,
 			   raiddisks, devlist->next, assume_clean,
 			   bitmap_file, bitmap_chunk, write_behind,
-			   c.delay, c.verbose, c.autof, size);
+			   &c, size);
 		break;
 	case CREATE:
 		if (c.delay == 0)

@@ -28,10 +28,8 @@
 #define START_MD     		_IO (MD_MAJOR, 2)
 #define STOP_MD      		_IO (MD_MAJOR, 3)
 
-int Build(char *mddev, int chunk, int level, int layout,
-	  int raiddisks, struct mddev_dev *devlist, int assume_clean,
-	  char *bitmap_file, int bitmap_chunk, int write_behind,
-	  struct context *c, unsigned long long size)
+int Build(char *mddev, struct mddev_dev *devlist,
+	  struct shape *s, struct context *c)
 {
 	/* Build a linear or raid0 arrays without superblocks
 	 * We cannot really do any checks, we just do it.
@@ -77,33 +75,33 @@ int Build(char *mddev, int chunk, int level, int layout,
 		}
 	}
 
-	if (raiddisks != subdevs) {
+	if (s->raiddisks != subdevs) {
 		pr_err("requested %d devices in array but listed %d\n",
-			raiddisks, subdevs);
+			s->raiddisks, subdevs);
 		return 1;
 	}
 
-	if (layout == UnSet)
-		switch(level) {
+	if (s->layout == UnSet)
+		switch(s->level) {
 		default: /* no layout */
-			layout = 0;
+			s->layout = 0;
 			break;
 		case 10:
-			layout = 0x102; /* near=2, far=1 */
+			s->layout = 0x102; /* near=2, far=1 */
 			if (c->verbose > 0)
 				pr_err("layout defaults to n1\n");
 			break;
 		case 5:
 		case 6:
-			layout = map_name(r5layout, "default");
+			s->layout = map_name(r5layout, "default");
 			if (c->verbose > 0)
-				pr_err("layout defaults to %s\n", map_num(r5layout, layout));
+				pr_err("layout defaults to %s\n", map_num(r5layout, s->layout));
 			break;
 		case LEVEL_FAULTY:
-			layout = map_name(faultylayout, "default");
+			s->layout = map_name(faultylayout, "default");
 
 			if (c->verbose > 0)
-				pr_err("layout defaults to %s\n", map_num(faultylayout, layout));
+				pr_err("layout defaults to %s\n", map_num(faultylayout, s->layout));
 			break;
 		}
 
@@ -125,38 +123,38 @@ int Build(char *mddev, int chunk, int level, int layout,
 	/* looks Ok, go for it */
 	if (vers >= 9000) {
 		mdu_array_info_t array;
-		array.level = level;
-		array.size = size == MAX_SIZE ? 0 : size;
-		array.nr_disks = raiddisks;
-		array.raid_disks = raiddisks;
+		array.level = s->level;
+		array.size = s->size == MAX_SIZE ? 0 : s->size;
+		array.nr_disks = s->raiddisks;
+		array.raid_disks = s->raiddisks;
 		array.md_minor = 0;
 		if (fstat(mdfd, &stb)==0)
 			array.md_minor = minor(stb.st_rdev);
 		array.not_persistent = 1;
 		array.state = 0; /* not clean, but no errors */
-		if (assume_clean)
+		if (s->assume_clean)
 			array.state |= 1;
-		array.active_disks = raiddisks - missing_disks;
-		array.working_disks = raiddisks - missing_disks;
+		array.active_disks = s->raiddisks - missing_disks;
+		array.working_disks = s->raiddisks - missing_disks;
 		array.spare_disks = 0;
 		array.failed_disks = missing_disks;
-		if (chunk == 0 && (level==0 || level==LEVEL_LINEAR))
-			chunk = 64;
-		array.chunk_size = chunk*1024;
-		array.layout = layout;
+		if (s->chunk == 0 && (s->level==0 || s->level==LEVEL_LINEAR))
+			s->chunk = 64;
+		array.chunk_size = s->chunk*1024;
+		array.layout = s->layout;
 		if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
 			pr_err("SET_ARRAY_INFO failed for %s: %s\n",
 				mddev, strerror(errno));
 			goto abort;
 		}
-	} else if (bitmap_file) {
+	} else if (s->bitmap_file) {
 		pr_err("bitmaps not supported with this kernel\n");
 		goto abort;
 	}
 
-	if (bitmap_file && level <= 0) {
+	if (s->bitmap_file && s->level <= 0) {
 		pr_err("bitmaps not meaningful with level %s\n",
-			map_num(pers, level)?:"given");
+			map_num(pers, s->level)?:"given");
 		goto abort;
 	}
 	/* now add the devices */
@@ -182,8 +180,8 @@ int Build(char *mddev, int chunk, int level, int layout,
 			goto abort;
 		}
 		if (get_dev_size(fd, NULL, &dsize) &&
-		    (size == 0 || size == MAX_SIZE || dsize < size))
-				size = dsize;
+		    (s->size == 0 || s->size == MAX_SIZE || dsize < s->size))
+				s->size = dsize;
 		close(fd);
 		if (vers >= 9000) {
 			mdu_disk_info_t disk;
@@ -210,14 +208,14 @@ int Build(char *mddev, int chunk, int level, int layout,
 	/* now to start it */
 	if (vers >= 9000) {
 		mdu_param_t param; /* not used by syscall */
-		if (bitmap_file) {
-			bitmap_fd = open(bitmap_file, O_RDWR);
+		if (s->bitmap_file) {
+			bitmap_fd = open(s->bitmap_file, O_RDWR);
 			if (bitmap_fd < 0) {
 				int major = BITMAP_MAJOR_HI;
 #if 0
-				if (bitmap_chunk == UnSet) {
+				if (s->bitmap_chunk == UnSet) {
 					pr_err("%s cannot be openned.",
-						bitmap_file);
+						s->bitmap_file);
 					goto abort;
 				}
 #endif
@@ -228,15 +226,15 @@ int Build(char *mddev, int chunk, int level, int layout,
 						"  between different architectures.  Consider upgrading the Linux kernel.\n");
 #endif
 				}
-				bitmapsize = size>>9; /* FIXME wrong for RAID10 */
-				if (CreateBitmap(bitmap_file, 1, NULL, bitmap_chunk,
-						 c->delay, write_behind, bitmapsize, major)) {
+				bitmapsize = s->size>>9; /* FIXME wrong for RAID10 */
+				if (CreateBitmap(s->bitmap_file, 1, NULL, s->bitmap_chunk,
+						 c->delay, s->write_behind, bitmapsize, major)) {
 					goto abort;
 				}
-				bitmap_fd = open(bitmap_file, O_RDWR);
+				bitmap_fd = open(s->bitmap_file, O_RDWR);
 				if (bitmap_fd < 0) {
 					pr_err("%s cannot be openned.",
-						bitmap_file);
+						s->bitmap_file);
 					goto abort;
 				}
 			}
@@ -251,7 +249,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 		if (ioctl(mdfd, RUN_ARRAY, &param)) {
 			pr_err("RUN_ARRAY failed: %s\n",
 				strerror(errno));
-			if (chunk & (chunk-1)) {
+			if (s->chunk & (s->chunk-1)) {
 				cont_err("Problem may be that chunk size"
 					 " is not a power of 2\n");
 			}
@@ -260,11 +258,11 @@ int Build(char *mddev, int chunk, int level, int layout,
 	} else {
 		unsigned long arg;
 		arg=0;
-		while (chunk > 4096) {
+		while (s->chunk > 4096) {
 			arg++;
-			chunk >>= 1;
+			s->chunk >>= 1;
 		}
-		if (level == 0)
+		if (s->level == 0)
 			arg |= 0x20000;
 		else
 			arg |= 0x10000;

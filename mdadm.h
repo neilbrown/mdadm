@@ -1113,11 +1113,8 @@ extern int Assemble(struct supertype *st, char *mddev,
 		    struct mddev_dev *devlist,
 		    struct context *c);
 
-extern int Build(char *mddev, int chunk, int level, int layout,
-		 int raiddisks, struct mddev_dev *devlist, int assume_clean,
-		 char *bitmap_file, int bitmap_chunk, int write_behind,
-		 struct context *c, unsigned long long size);
-
+extern int Build(char *mddev, struct mddev_dev *devlist,
+		 struct shape *s, struct context *c);
 
 extern int Create(struct supertype *st, char *mddev,
 		  int chunk, int level, int layout, unsigned long long size,

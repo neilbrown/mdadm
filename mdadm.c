@@ -1309,10 +1309,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		rv = Build(devlist->devname, s.chunk, s.level, s.layout,
-			   s.raiddisks, devlist->next, s.assume_clean,
-			   s.bitmap_file, s.bitmap_chunk, s.write_behind,
-			   &c, s.size);
+		rv = Build(devlist->devname, devlist->next, &s, &c);
 		break;
 	case CREATE:
 		if (c.delay == 0)

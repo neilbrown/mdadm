@@ -30,7 +30,8 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
+int Examine(struct mddev_dev *devlist, int brief, int verbose,
+	    int export, int scan,
 	    int SparcAdjust, struct supertype *forcest,
 	    char *homehost)
 {
@@ -161,10 +162,10 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 			char *d;
 			int newline = 0;
 
-			ap->st->ss->brief_examine_super(ap->st, brief > 1);
+			ap->st->ss->brief_examine_super(ap->st, verbose > 0);
 			if (ap->spares)
 				newline += printf("   spares=%d", ap->spares);
-			if (brief > 1) {
+			if (verbose > 0) {
 				newline += printf("   devices");
 				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
 					printf("%c%s", sep, d);
@@ -174,11 +175,11 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 			if (ap->st->ss->brief_examine_subarrays) {
 				if (newline)
 					printf("\n");
-				ap->st->ss->brief_examine_subarrays(ap->st, brief > 1);
+				ap->st->ss->brief_examine_subarrays(ap->st, verbose);
 			}
 			ap->st->ss->free_super(ap->st);
 			/* FIXME free ap */
-			if (ap->spares || brief > 1)
+			if (ap->spares || verbose > 0)
 				printf("\n");
 		}
 	}

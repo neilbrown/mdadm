@@ -1221,6 +1221,10 @@ int main(int argc, char *argv[])
 
 	ident.autof = c.autof;
 
+	if (c.scan && c.verbose < 2)
+		/* --scan implied --brief unless -vv */
+		c.brief = 1;
+
 	rv = 0;
 	switch(mode) {
 	case MANAGE:
@@ -1350,9 +1354,7 @@ int main(int argc, char *argv[])
 				pr_err("No devices listed in %s\n", configfile?configfile:DefaultConfFile);
 				exit(1);
 			}
-			if (c.brief && c.verbose > 0)
-				c.brief = 2;
-			rv = Examine(devlist, c.scan?(c.verbose>1?0:c.verbose):c.brief,
+			rv = Examine(devlist, c.brief, c.verbose,
 				     c.export, c.scan,
 				     c.SparcAdjust, ss, c.homehost);
 		} else if (devmode == DetailPlatform) {

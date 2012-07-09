@@ -1116,7 +1116,7 @@ extern int Create(struct supertype *st, char *mddev,
 extern int Detail(char *dev, int brief, int export, int test, char *homehost, char *prefer);
 extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);
 extern int Query(char *dev);
-extern int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
+extern int Examine(struct mddev_dev *devlist, int brief, int verbose, int export, int scan,
 		   int SparcAdjust, struct supertype *forcest, char *homehost);
 extern int Monitor(struct mddev_dev *devlist,
 		   char *mailaddr, char *alert_cmd,

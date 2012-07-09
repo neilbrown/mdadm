@@ -433,7 +433,7 @@ struct imsm_update_activate_spare {
 struct geo_params {
 	int dev_id;
 	char *dev_name;
-	long long size;
+	unsigned long long size;
 	int level;
 	int layout;
 	int chunksize;
@@ -9307,7 +9307,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 		"st->devnum = (%i)\n",
 		st->devnum);
 
-	if (geo->size != -1 ||
+	if (geo->size > 0 ||
 	    geo->level != UnSet ||
 	    geo->layout != UnSet ||
 	    geo->chunksize != 0 ||
@@ -9647,9 +9647,9 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int data_disks;
 	struct imsm_dev *dev;
 	struct intel_super *super;
-	long long current_size;
+	unsigned long long current_size;
 	unsigned long long free_size;
-	long long max_size;
+	unsigned long long max_size;
 	int rv;
 
 	getinfo_super_imsm_volume(st, &info, NULL);
@@ -9746,7 +9746,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				    geo->size * 2);
 	}
 
-	if ((current_size != geo->size) && (geo->size >= 0)) {
+	if ((current_size != geo->size) && (geo->size > 0)) {
 		if (change != -1) {
 			pr_err("Error. Size change should be the only "
 				"one at a time.\n");
@@ -9776,7 +9776,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 					chunk * 1024,
 					max_size);
 		}
-		if (geo->size == 0) {
+		if (geo->size == MAX_SIZE) {
 			/* requested size change to the maximum available size
 			 */
 			if (max_size == 0) {
@@ -9881,7 +9881,8 @@ int imsm_takeover(struct supertype *st, struct geo_params *geo)
 	return 0;
 }
 
-static int imsm_reshape_super(struct supertype *st, long long size, int level,
+static int imsm_reshape_super(struct supertype *st, unsigned long long size,
+			      int level,
 			      int layout, int chunksize, int raid_disks,
 			      int delta_disks, char *backup, char *dev,
 			      int direction, int verbose)

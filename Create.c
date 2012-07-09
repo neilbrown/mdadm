@@ -249,7 +249,9 @@ int Create(struct supertype *st, char *mddev,
 		pr_err("unknown level %d\n", level);
 		return 1;
 	}
-	
+	if (size == MAX_SIZE)
+		/* use '0' to mean 'max' now... */
+		size = 0;
 	if (size && chunk && chunk != UnSet)
 		size &= ~(unsigned long long)(chunk - 1);
 	newsize = size * 2;

@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 	int i;
 
 	int chunk = 0;
-	long long size = -1;
+	unsigned long long size = 0;
 	long long array_size = -1;
 	int level = UnSet;
 	int layout = UnSet;
@@ -416,13 +416,13 @@ int main(int argc, char *argv[])
 		case O(GROW,'z'):
 		case O(CREATE,'z'):
 		case O(BUILD,'z'): /* size */
-			if (size >= 0) {
+			if (size > 0) {
 				pr_err("size may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
 			if (strcmp(optarg, "max")==0)
-				size = 0;
+				size = MAX_SIZE;
 			else {
 				size = parse_size(optarg);
 				if (size < 8) {
@@ -1334,7 +1334,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		rv = Create(ss, devlist->devname, chunk, level, layout, size<0 ? 0 : size,
+		rv = Create(ss, devlist->devname, chunk, level, layout, size,
 			    raiddisks, sparedisks, ident.name,
 			    ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next,
@@ -1430,7 +1430,7 @@ int main(int argc, char *argv[])
 		}
 		if (devs_found > 1 && raiddisks == 0) {
 			/* must be '-a'. */
-			if (size >= 0 || chunk || layout_str != NULL || bitmap_file) {
+			if (size > 0 || chunk || layout_str != NULL || bitmap_file) {
 				pr_err("--add cannot be used with "
 					"other geometry changes in --grow mode\n");
 				rv = 1;
@@ -1443,7 +1443,7 @@ int main(int argc, char *argv[])
 					break;
 			}
 		} else if (bitmap_file) {
-			if (size >= 0 || raiddisks || chunk ||
+			if (size > 0 || raiddisks || chunk ||
 			    layout_str != NULL || devs_found > 1) {
 				pr_err("--bitmap changes cannot be "
 					"used with other geometry changes "
@@ -1459,7 +1459,7 @@ int main(int argc, char *argv[])
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,
 						   c.verbose);
-		else if (size >= 0 || raiddisks != 0 || layout_str != NULL
+		else if (size > 0 || raiddisks != 0 || layout_str != NULL
 			 || chunk != 0 || level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, c.verbose, c.backup_file,
 					  size, level, layout_str, chunk, raiddisks,

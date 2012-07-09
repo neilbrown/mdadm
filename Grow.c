@@ -1429,7 +1429,7 @@ static int reshape_container(char *container, char *devname,
 			     int verbose, int restart, int freeze_reshape);
 
 int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
-		 long long size,
+		 unsigned long long size,
 		 int level, char *layout_str, int chunksize, int raid_disks,
 		 struct mddev_dev *devlist,
 		 int assume_clean, int force)
@@ -1474,7 +1474,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		return 1;
 	}
 
-	if (size >= 0 &&
+	if (size > 0 &&
 	    (chunksize || level!= UnSet || layout_str || raid_disks)) {
 		pr_err("cannot change component size at the same time "
 			"as other changes.\n"
@@ -1611,14 +1611,14 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 	}
 
 	/* ========= set size =============== */
-	if (size >= 0 && (size == 0 || size != array.size)) {
-		long long orig_size = get_component_size(fd)/2;
-		long long min_csize;
+	if (size > 0 && (size == MAX_DISKS || size != (unsigned)array.size)) {
+		unsigned long long orig_size = get_component_size(fd)/2;
+		unsigned long long min_csize;
 		struct mdinfo *mdi;
 		int raid0_takeover = 0;
 
 		if (orig_size == 0)
-			orig_size = array.size;
+			orig_size = (unsigned) array.size;
 
 		if (reshape_super(st, size, UnSet, UnSet, 0, 0, UnSet, NULL,
 				  devname, APPLY_METADATA_CHANGES, verbose > 0)) {
@@ -1656,7 +1656,8 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 		min_csize = 0;
 		rv = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
-			if (sysfs_set_num(sra, mdi, "size", size) < 0) {
+			if (sysfs_set_num(sra, mdi, "size",
+					  size == MAX_SIZE ? 0 : size) < 0) {
 				/* Probably kernel refusing to let us
 				 * reduce the size - not an error.
 				 */
@@ -1671,7 +1672,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 					if (csize >= 2ULL*1024*1024*1024)
 						csize = 2ULL*1024*1024*1024;
 					if ((min_csize == 0 || (min_csize
-								> (long long)csize)))
+								> csize)))
 						min_csize = csize;
 				}
 			}
@@ -1687,7 +1688,7 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 			rv = 1;
 			goto size_change_error;
 		}
-		if (min_csize && size == 0) {
+		if (min_csize && size == MAX_SIZE) {
 			/* Don't let the kernel choose a size - it will get
 			 * it wrong
 			 */
@@ -1717,8 +1718,8 @@ int Grow_reshape(char *devname, int fd, int verbose, char *backup_file,
 				st->update_tail = &st->updates;
 		}
 
-		array.size = size;
-		if (array.size != size) {
+		array.size = size == MAX_SIZE ? 0 : size;
+		if ((unsigned)array.size != size) {
 			/* got truncated to 32bit, write to
 			 * component_size instead
 			 */

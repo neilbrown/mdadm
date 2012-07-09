@@ -776,7 +776,8 @@ extern struct superswitch {
 #define APPLY_METADATA_CHANGES		1
 #define ROLLBACK_METADATA_CHANGES	0
 
-	int (*reshape_super)(struct supertype *st, long long size, int level,
+	int (*reshape_super)(struct supertype *st,
+			     unsigned long long size, int level,
 			     int layout, int chunksize, int raid_disks,
 			     int delta_disks, char *backup, char *dev,
 			     int direction,
@@ -1074,7 +1075,7 @@ extern int autodetect(void);
 extern int Grow_Add_device(char *devname, int fd, char *newdev);
 extern int Grow_addbitmap(char *devname, int fd, char *file, int chunk, int delay, int write_behind, int force);
 extern int Grow_reshape(char *devname, int fd, int quiet, char *backup_file,
-			long long size,
+			unsigned long long size,
 			int level, char *layout_str, int chunksize, int raid_disks,
 			struct mddev_dev *devlist,
 			int assume_clean, int force);
@@ -1440,4 +1441,8 @@ char *xstrdup(const char *str);
  */
 #define MAX_DISKS	4096
 
+/* Sometimes the 'size' value passed needs to mean "Maximum".
+ * In those cases with use MAX_SIZE
+ */
+#define MAX_SIZE	1
 extern int __offroot;

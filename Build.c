@@ -126,7 +126,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 	if (vers >= 9000) {
 		mdu_array_info_t array;
 		array.level = level;
-		array.size = size;
+		array.size = size == MAX_SIZE ? 0 : size;
 		array.nr_disks = raiddisks;
 		array.raid_disks = raiddisks;
 		array.md_minor = 0;
@@ -182,7 +182,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 			goto abort;
 		}
 		if (get_dev_size(fd, NULL, &dsize) &&
-		    (size == 0 || dsize < size))
+		    (size == 0 || size == MAX_SIZE || dsize < size))
 				size = dsize;
 		close(fd);
 		if (vers >= 9000) {

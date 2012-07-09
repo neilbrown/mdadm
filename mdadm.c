@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
 	int chunk = 0;
 	unsigned long long size = 0;
-	long long array_size = -1;
+	unsigned long long array_size = 0;
 	int level = UnSet;
 	int layout = UnSet;
 	char *layout_str = NULL;
@@ -436,13 +436,13 @@ int main(int argc, char *argv[])
 			continue;
 
 		case O(GROW,'Z'): /* array size */
-			if (array_size >= 0) {
+			if (array_size > 0) {
 				pr_err("array-size may only be specified once. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
 			if (strcmp(optarg, "max") == 0)
-				array_size = 0;
+				array_size = MAX_SIZE;
 			else {
 				array_size = parse_size(optarg);
 				if (array_size <= 0) {
@@ -1397,7 +1397,7 @@ int main(int argc, char *argv[])
 		break;
 
 	case GROW:
-		if (array_size >= 0) {
+		if (array_size > 0) {
 			/* alway impose array size first, independent of
 			 * anything else
 			 * Do not allow level or raid_disks changes at the
@@ -1413,7 +1413,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 			sysfs_init(&sra, mdfd, 0);
-			if (array_size == 0)
+			if (array_size == MAX_SIZE)
 				err = sysfs_set_str(&sra, NULL, "array_size", "default");
 			else
 				err = sysfs_set_num(&sra, NULL, "array_size", array_size / 2);
@@ -1465,7 +1465,7 @@ int main(int argc, char *argv[])
 					  size, level, layout_str, chunk, raiddisks,
 					  devlist->next,
 					  assume_clean, c.force);
-		} else if (array_size < 0)
+		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");
 		break;
 	case INCREMENTAL:

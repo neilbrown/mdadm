@@ -378,6 +378,80 @@ int Manage_resize(char *devname, int fd, long long size, int raid_disks)
 	return 0;
 }
 
+static void add_faulty(struct mddev_dev *dv, int fd, char disp)
+{
+	mdu_array_info_t array;
+	mdu_disk_info_t disk;
+	int remaining_disks;
+	int i;
+
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0)
+		return;
+
+	remaining_disks = array.nr_disks;
+	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
+		struct mddev_dev *new;
+		char buf[40];
+		disk.number = i;
+		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+			continue;
+		if (disk.major == 0 && disk.minor == 0)
+			continue;
+		remaining_disks--;
+		if ((disk.state & 1) == 0) /* not faulty */
+			continue;
+		sprintf(buf, "%d:%d", disk.major, disk.minor);
+		new = xmalloc(sizeof(*new));
+		new->devname = xstrdup(buf);
+		new->disposition = disp;
+		new->next = dv->next;
+		dv->next = new;
+		dv = new;
+	}
+}
+
+static void add_detached(struct mddev_dev *dv, int fd, char disp)
+{
+	mdu_array_info_t array;
+	mdu_disk_info_t disk;
+	int remaining_disks;
+	int i;
+
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0)
+		return;
+
+	remaining_disks = array.nr_disks;
+	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
+		struct mddev_dev *new;
+		char buf[40];
+		int sfd;
+		disk.number = i;
+		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+			continue;
+		if (disk.major == 0 && disk.minor == 0)
+			continue;
+		remaining_disks--;
+		if (disp == 'f' && (disk.state & 1) != 0) /* already faulty */
+			continue;
+		sprintf(buf, "%d:%d", disk.major, disk.minor);
+		sfd = dev_open(buf, O_RDONLY);
+		if (sfd >= 0) {
+			/* Not detached */
+			close(sfd);
+			continue;
+		}
+		if (errno != ENXIO)
+			/* Probably not detached */
+			continue;
+		new = xmalloc(sizeof(*new));
+		new->devname = xstrdup(buf);
+		new->disposition = disp;
+		new->next = dv->next;
+		dv->next = new;
+		dv = new;
+	}
+}
+
 int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
 		   char *update, int force)
@@ -396,13 +470,12 @@ int Manage_subdevs(char *devname, int fd,
 	 * For 'f' and 'r', the device can also be a kernel-internal
 	 * name such as 'sdb'.
 	 */
-	struct mddev_dev *add_devlist = NULL;
 	mdu_array_info_t array;
 	mdu_disk_info_t disc;
 	unsigned long long array_size;
-	struct mddev_dev *dv, *next = NULL;
+	struct mddev_dev *dv;
 	struct stat stb;
-	int j, jnext = 0;
+	int j;
 	int tfd = -1;
 	struct supertype *st, *tst;
 	char *subarray = NULL;
@@ -437,112 +510,55 @@ int Manage_subdevs(char *devname, int fd,
 	}
 
 	stb.st_rdev = 0;
-	for (dv = devlist, j=0 ; dv; dv = next, j = jnext) {
+	for (dv = devlist, j=0 ; dv; dv = dv->next) {
 		unsigned long long ldsize;
-		char dvname[20];
-		char *dnprintable = dv->devname;
-		char *add_dev = dv->devname;
 		int err;
 		int array_failed;
 
-		next = dv->next;
-		jnext = 0;
-
-		if (strcmp(dv->devname, "failed")==0 ||
-		    strcmp(dv->devname, "faulty")==0) {
-			int remaining_disks = array.nr_disks;
+		if (strcmp(dv->devname, "failed") == 0 ||
+		    strcmp(dv->devname, "faulty") == 0) {
 			if (dv->disposition != 'r') {
 				pr_err("%s only meaningful "
 					"with -r, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
 			}
-			for (; j < MAX_DISKS && remaining_disks > 0; j++) {
-				unsigned dev;
-				disc.number = j;
-				if (ioctl(fd, GET_DISK_INFO, &disc))
-					continue;
-				if (disc.major == 0 && disc.minor == 0)
-					continue;
-				remaining_disks --;
-				if ((disc.state & 1) == 0) /* faulty */
-					continue;
-				dev = makedev(disc.major, disc.minor);
-				if (stb.st_rdev == dev)
-					/* already did that one */
-					continue;
-				stb.st_rdev = dev;
-				next = dv;
-				/* same slot again next time - things might
-				 * have reshuffled */
-				jnext = j;
-				sprintf(dvname,"%d:%d", disc.major, disc.minor);
-				dnprintable = dvname;
-				break;
-			}
-			if (next != dv)
-				continue;
-		} else if (strcmp(dv->devname, "detached") == 0) {
-			int remaining_disks = array.nr_disks;
+			add_faulty(dv, fd, 'r');
+			continue;
+		}
+		if (strcmp(dv->devname, "detached") == 0) {
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
 				pr_err("%s only meaningful "
 					"with -r of -f, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
 			}
-			for (; j < MAX_DISKS && remaining_disks > 0; j++) {
-				int sfd;
-				unsigned dev;
-				disc.number = j;
-				if (ioctl(fd, GET_DISK_INFO, &disc))
-					continue;
-				if (disc.major == 0 && disc.minor == 0)
-					continue;
-				remaining_disks --;
-				sprintf(dvname,"%d:%d", disc.major, disc.minor);
-				sfd = dev_open(dvname, O_RDONLY);
-				if (sfd >= 0) {
-					close(sfd);
-					continue;
-				}
-				if (dv->disposition == 'f' &&
-				    (disc.state & 1) == 1) /* already faulty */
-					continue;
-				if (errno != ENXIO)
-					continue;
-				dev = makedev(disc.major, disc.minor);
-				if (stb.st_rdev == dev)
-					/* already did that one */
-					continue;
-				stb.st_rdev = dev;
-				next = dv;
-				/* same slot again next time - things might
-				 * have reshuffled */
-				jnext = j;
-				dnprintable = dvname;
-				break;
-			}
-			if (next != dv)
-				continue;
-		} else if (strcmp(dv->devname, "missing") == 0) {
+			add_detached(dv, fd, dv->disposition);
+			continue;
+		}
+
+		if (strcmp(dv->devname, "missing") == 0) {
+			struct mddev_dev *add_devlist = NULL;
+			struct mddev_dev **dp;
 			if (dv->disposition != 'A') {
 				pr_err("'missing' only meaningful "
 					"with --re-add\n");
 				goto abort;
 			}
-			if (add_devlist == NULL)
-				add_devlist = conf_get_devs();
+			add_devlist = conf_get_devs();
 			if (add_devlist == NULL) {
 				pr_err("no devices to scan for missing members.");
 				continue;
 			}
-			add_dev = add_devlist->devname;
-			add_devlist = add_devlist->next;
-			if (add_devlist != NULL)
-				next = dv;
-			if (stat(add_dev, &stb) < 0)
-				continue;
-		} else if (strchr(dv->devname, '/') == NULL &&
+			for (dp = &add_devlist; *dp; dp = & (*dp)->next)
+				/* 'M' is like 'A' without errors */
+				(*dp)->disposition = 'M';
+			*dp = dv->next;
+			dv->next = add_devlist;
+			continue;
+		}
+
+		if (strchr(dv->devname, '/') == NULL &&
 			   strchr(dv->devname, ':') == NULL &&
 			   strlen(dv->devname) < 50) {
 			/* Assume this is a kernel-internal name like 'sda1' */
@@ -589,16 +605,22 @@ int Manage_subdevs(char *devname, int fd,
 				;
 			else {
 				if (tfd < 0 || fstat(tfd, &stb) != 0) {
-					pr_err("cannot find %s: %s\n",
-						dv->devname, strerror(errno));
 					if (tfd >= 0)
 						close(tfd);
+					if (dv->disposition == 'M')
+						/* non-fatal */
+						continue;
+					pr_err("cannot find %s: %s\n",
+						dv->devname, strerror(errno));
 					goto abort;
 				}
 				close(tfd);
 				tfd = -1;
 			}
 			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
+				if (dv->disposition == 'M')
+					/* non-fatal. Also improbable */
+					continue;
 				pr_err("%s is not a "
 					"block device.\n",
 					dv->devname);
@@ -612,6 +634,7 @@ int Manage_subdevs(char *devname, int fd,
 			goto abort;
 		case 'a':
 		case 'A':
+		case 'M':
 			/* add the device */
 			if (subarray) {
 				pr_err("Cannot add disks to a"
@@ -620,10 +643,10 @@ int Manage_subdevs(char *devname, int fd,
 				goto abort;
 			}
 			/* Make sure it isn't in use (in 2.6 or later) */
-			tfd = dev_open(add_dev, O_RDONLY|O_EXCL|O_DIRECT);
-			if (tfd < 0 && add_dev != dv->devname)
-				continue;
+			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd < 0) {
+				if (dv->disposition == 'M')
+					continue;
 				pr_err("Cannot open %s: %s\n",
 					dv->devname, strerror(errno));
 				goto abort;
@@ -640,17 +663,14 @@ int Manage_subdevs(char *devname, int fd,
 			if (array.not_persistent==0)
 				st->ss->load_super(st, tfd, NULL);
 
-			if (add_dev == dv->devname) {
-				if (!get_dev_size(tfd, dv->devname, &ldsize)) {
-					st->ss->free_super(st);
-					close(tfd);
-					goto abort;
-				}
-			} else if (!get_dev_size(tfd, NULL, &ldsize)) {
+			if (!get_dev_size(tfd, dv->devname, &ldsize)) {
 				st->ss->free_super(st);
 				close(tfd);
 				tfd = -1;
-				continue;
+				if (dv->disposition == 'M')
+					continue;
+				else
+					goto abort;
 			}
 
 			if (tst->ss->validate_geometry(
@@ -662,7 +682,7 @@ int Manage_subdevs(char *devname, int fd,
 					       "effectively use.\n"
 					       "       Add --force is you "
 					       "really want to add this device.\n",
-					       add_dev, devname);
+					       dv->devname, devname);
 					st->ss->free_super(st);
 					close(tfd);
 					goto abort;
@@ -671,7 +691,7 @@ int Manage_subdevs(char *devname, int fd,
 				       "effectively use.\n"
 				       "       Adding anyway as --force "
 				       "was given.\n",
-				       add_dev, devname);
+				       dv->devname, devname);
 			}
 			if (!tst->ss->external &&
 			    array.major_version == 0 &&
@@ -683,12 +703,12 @@ int Manage_subdevs(char *devname, int fd,
 					  (unsigned long)stb.st_rdev)==0) {
 					if (verbose >= 0)
 						pr_err("hot added %s\n",
-							add_dev);
+							dv->devname);
 					continue;
 				}
 
 				pr_err("hot add failed for %s: %s\n",
-					add_dev, strerror(errno));
+					dv->devname, strerror(errno));
 				goto abort;
 			}
 
@@ -726,7 +746,7 @@ int Manage_subdevs(char *devname, int fd,
 					break;
 				}
 				/* FIXME this is a bad test to be using */
-				if (!tst->sb && dv->disposition == 'A') {
+				if (!tst->sb && dv->disposition != 'a') {
 					/* we are re-adding a device to a
 					 * completely dead array - have to depend
 					 * on kernel to check
@@ -744,7 +764,7 @@ int Manage_subdevs(char *devname, int fd,
 					close(tfd);
 					tfd = -1;
 					st->ss->free_super(st);
-					if (add_dev != dv->devname)
+					if (dv->disposition == 'M')
 						continue;
 					pr_err("%s not large enough to join array\n",
 						dv->devname);
@@ -831,16 +851,16 @@ int Manage_subdevs(char *devname, int fd,
 						errno = 0;
 						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
 							if (verbose >= 0)
-								pr_err("re-added %s\n", add_dev);
+								pr_err("re-added %s\n", dv->devname);
 							count++;
 							st->ss->free_super(st);
 							continue;
 						}
 						if (errno == ENOMEM || errno == EROFS) {
 							pr_err("add new device failed for %s: %s\n",
-								add_dev, strerror(errno));
+								dv->devname, strerror(errno));
 							st->ss->free_super(st);
-							if (add_dev != dv->devname)
+							if (dv->disposition == 'M')
 								continue;
 							goto abort;
 						}
@@ -848,10 +868,10 @@ int Manage_subdevs(char *devname, int fd,
 				skip_re_add:
 					st->ss->free_super(st);
 				}
-				if (add_dev != dv->devname) {
+				if (dv->disposition == 'M') {
 					if (verbose > 0)
 						pr_err("--re-add for %s to %s is not possible\n",
-						       add_dev, devname);
+						       dv->devname, devname);
 					if (tfd >= 0) {
 						close(tfd);
 						tfd = -1;
@@ -1085,7 +1105,7 @@ int Manage_subdevs(char *devname, int fd,
 					/* pass */;
 				else {
 					pr_err("%s is %s, cannot remove.\n",
-					       dnprintable,
+					       dv->devname,
 					       errno == EEXIST ? "still in use":
 					       "not a member");
 					close(lfd);
@@ -1128,7 +1148,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (err) {
 				pr_err("hot remove failed "
-				       "for %s: %s\n",	dnprintable,
+				       "for %s: %s\n",	dv->devname,
 				       strerror(errno));
 				if (lfd >= 0)
 					close(lfd);
@@ -1156,7 +1176,7 @@ int Manage_subdevs(char *devname, int fd,
 			count++;
 			if (verbose >= 0)
 				pr_err("hot removed %s from %s\n",
-					dnprintable, devname);
+					dv->devname, devname);
 			break;
 
 		case 'f': /* set faulty */
@@ -1165,7 +1185,7 @@ int Manage_subdevs(char *devname, int fd,
 			    (sysfd < 0 && ioctl(fd, SET_DISK_FAULTY,
 						(unsigned long) stb.st_rdev))) {
 				pr_err("set device faulty failed for %s:  %s\n",
-					dnprintable, strerror(errno));
+					dv->devname, strerror(errno));
 				if (sysfd >= 0)
 					close(sysfd);
 				goto abort;
@@ -1176,7 +1196,7 @@ int Manage_subdevs(char *devname, int fd,
 			count++;
 			if (verbose >= 0)
 				pr_err("set %s faulty in %s\n",
-					dnprintable, devname);
+					dv->devname, devname);
 			break;
 		}
 	}

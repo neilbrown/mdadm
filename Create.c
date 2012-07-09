@@ -67,7 +67,8 @@ int Create(struct supertype *st, char *mddev,
 	   int raiddisks, int sparedisks,
 	   char *name, char *homehost, int *uuid,
 	   int subdevs, struct mddev_dev *devlist,
-	   int runstop, int verbose, int force, int assume_clean,
+	   int runstop, int readonly, int verbose,
+	   int force, int assume_clean,
 	   char *bitmap_file, int bitmap_chunk, int write_behind,
 	   int delay, int autof)
 {
@@ -958,7 +959,9 @@ int Create(struct supertype *st, char *mddev,
 			case LEVEL_MULTIPATH:
 			case 0:
 				err = sysfs_set_str(&info, NULL, "array_state",
-						    "active");
+						    readonly
+						    ? "readonly"
+						    : "active");
 				need_mdmon = 0;
 				break;
 			default:
@@ -973,12 +976,22 @@ int Create(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;
 			}
+		} else if (readonly &&
+			   sysfs_attribute_available(
+				   &info, NULL, "array_state")) {
+			if (sysfs_set_str(&info, NULL,
+					  "array_state", "readonly") < 0) {
+				pr_err("Failed to start array: %s\n",
+				       strerror(errno));
+				ioctl(mdfd, STOP_ARRAY, NULL);
+				goto abort;
+			}
 		} else {
 			/* param is not actually used */
 			mdu_param_t param;
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {
 				pr_err("RUN_ARRAY failed: %s\n",
-					strerror(errno));
+				       strerror(errno));
 				if (info.array.chunk_size & (info.array.chunk_size-1)) {
 					cont_err("Problem may be that "
 						 "chunk size is not a power of 2\n");

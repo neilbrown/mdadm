@@ -29,6 +29,14 @@
 #include "md_p.h"
 #include <ctype.h>
 
+
+static int scan_assemble(int autof, struct supertype *ss,
+			 int readonly, int runstop,
+			 struct mddev_ident *ident,
+			 char *homehost, int require_homehost,
+			 int verbose, int force,
+			 int freeze_reshape);
+
 int main(int argc, char *argv[])
 {
 	int mode = 0;
@@ -1315,22 +1323,6 @@ int main(int argc, char *argv[])
 					       freeze_reshape);
 			}
 		} else {
-			struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
-			struct mddev_dev *devlist = conf_get_devs();
-			struct map_ent *map = NULL;
-			int cnt = 0;
-			int failures, successes;
-
-			if (conf_verify_devnames(array_list)) {
-				fprintf(stderr, Name
-					": Duplicate MD device names in "
-					"conf file were found.\n");
-				exit(1);
-			}
-			if (devlist == NULL) {
-				fprintf(stderr, Name ": No devices listed in conf file were found.\n");
-				exit(1);
-			}
 			if (update) {
 				fprintf(stderr, Name ": --update not meaningful with a --scan assembly.\n");
 				exit(1);
@@ -1339,83 +1331,13 @@ int main(int argc, char *argv[])
 				fprintf(stderr, Name ": --backup_file not meaningful with a --scan assembly.\n");
 				exit(1);
 			}
-			for (a = array_list; a ; a = a->next) {
-				a->assembled = 0;
-				if (a->autof == 0)
-					a->autof = autof;
-			}
-			if (map_lock(&map))
-				fprintf(stderr, Name " %s: failed to get "
-					"exclusive lock on mapfile\n",
-					__func__);
-			do {
-				failures = 0;
-				successes = 0;
-				rv = 0;
-				for (a = array_list; a ; a = a->next) {
-					int r;
-					if (a->assembled)
-						continue;
-					if (a->devname &&
-					    strcasecmp(a->devname, "<ignore>") == 0)
-						continue;
-				
-					r = Assemble(ss, a->devname,
-						     a,
-						     NULL, NULL, 0,
-						     readonly, runstop, NULL,
-						     homehost, require_homehost,
-						     verbose-quiet, force,
-						     freeze_reshape);
-					if (r == 0) {
-						a->assembled = 1;
-						successes++;
-					} else
-						failures++;
-					rv |= r;
-					cnt++;
-				}
-			} while (failures && successes);
-			if (homehost && cnt == 0) {
-				/* Maybe we can auto-assemble something.
-				 * Repeatedly call Assemble in auto-assemble mode
-				 * until it fails
-				 */
-				int rv2;
-				int acnt;
-				ident.autof = autof;
-				do {
-					struct mddev_dev *devlist = conf_get_devs();
-					acnt = 0;
-					do {
-						rv2 = Assemble(ss, NULL,
-							       &ident,
-							       devlist, NULL, 0,
-							       readonly,
-							       runstop, NULL,
-							       homehost,
-							       require_homehost,
-							       verbose-quiet,
-							       force,
-							       freeze_reshape);
-						if (rv2==0) {
-							cnt++;
-							acnt++;
-						}
-					} while (rv2!=2);
-					/* Incase there are stacked devices, we need to go around again */
-				} while (acnt);
-				if (cnt == 0 && rv == 0) {
-					fprintf(stderr, Name ": No arrays found in config file or automatically\n");
-					rv = 1;
-				} else if (cnt)
-					rv = 0;
-			} else if (cnt == 0 && rv == 0) {
-				fprintf(stderr, Name ": No arrays found in config file\n");
-				rv = 1;
-			}
-			map_unlock(&map);
+			rv = scan_assemble(autof, ss, readonly, runstop,
+					   &ident, homehost,
+					   require_homehost,
+					   verbose - quiet,
+					   force, freeze_reshape);
 		}
+
 		break;
 	case BUILD:
 		if (delay == 0) delay = DEFAULT_BITMAP_DELAY;
@@ -1765,4 +1687,107 @@ int main(int argc, char *argv[])
 		break;
 	}
 	exit(rv);
+}
+
+static int scan_assemble(int autof, struct supertype *ss,
+			 int readonly, int runstop,
+			 struct mddev_ident *ident,
+			 char *homehost, int require_homehost,
+			 int verbose, int force,
+			 int freeze_reshape)
+{
+	struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
+	struct mddev_dev *devlist = conf_get_devs();
+	struct map_ent *map = NULL;
+	int cnt = 0;
+	int rv = 0;
+	int failures, successes;
+
+	if (conf_verify_devnames(array_list)) {
+		fprintf(stderr, Name
+			": Duplicate MD device names in "
+			"conf file were found.\n");
+		return 1;
+	}
+	if (devlist == NULL) {
+		fprintf(stderr, Name ": No devices listed in conf file were found.\n");
+		return 1;
+	}
+	for (a = array_list; a ; a = a->next) {
+		a->assembled = 0;
+		if (a->autof == 0)
+			a->autof = autof;
+	}
+	if (map_lock(&map))
+		fprintf(stderr, Name " %s: failed to get "
+			"exclusive lock on mapfile\n",
+			__func__);
+	do {
+		failures = 0;
+		successes = 0;
+		rv = 0;
+		for (a = array_list; a ; a = a->next) {
+			int r;
+			if (a->assembled)
+				continue;
+			if (a->devname &&
+			    strcasecmp(a->devname, "<ignore>") == 0)
+				continue;
+				
+			r = Assemble(ss, a->devname,
+				     a,
+				     NULL, NULL, 0,
+				     readonly, runstop, NULL,
+				     homehost, require_homehost,
+				     verbose, force,
+				     freeze_reshape);
+			if (r == 0) {
+				a->assembled = 1;
+				successes++;
+			} else
+				failures++;
+			rv |= r;
+			cnt++;
+		}
+	} while (failures && successes);
+	if (homehost && cnt == 0) {
+		/* Maybe we can auto-assemble something.
+		 * Repeatedly call Assemble in auto-assemble mode
+		 * until it fails
+		 */
+		int rv2;
+		int acnt;
+		ident->autof = autof;
+		do {
+			struct mddev_dev *devlist = conf_get_devs();
+			acnt = 0;
+			do {
+				rv2 = Assemble(ss, NULL,
+					       ident,
+					       devlist, NULL, 0,
+					       readonly,
+					       runstop, NULL,
+					       homehost,
+					       require_homehost,
+					       verbose,
+					       force,
+					       freeze_reshape);
+				if (rv2==0) {
+					cnt++;
+					acnt++;
+				}
+			} while (rv2!=2);
+			/* Incase there are stacked devices, we need to go around again */
+		} while (acnt);
+		if (cnt == 0 && rv == 0) {
+			fprintf(stderr, Name ": No arrays found in config file or automatically\n");
+			rv = 1;
+		} else if (cnt)
+			rv = 0;
+	} else if (cnt == 0 && rv == 0) {
+		fprintf(stderr, Name ": No arrays found in config file\n");
+		rv = 1;
+	}
+	map_unlock(&map);
+	return rv;
 }

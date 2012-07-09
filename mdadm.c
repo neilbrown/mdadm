@@ -51,7 +51,6 @@ int main(int argc, char *argv[])
 	int mode = 0;
 	int opt;
 	int option_index;
-	char *c;
 	int rv;
 	int i;
 
@@ -65,7 +64,6 @@ int main(int argc, char *argv[])
 	int sparedisks = 0;
 	struct mddev_ident ident;
 	char *configfile = NULL;
-	char *cp;
 	char *update = NULL;
 	int scan = 0;
 	int devmode = 0;
@@ -590,8 +588,8 @@ int main(int argc, char *argv[])
 					raiddisks, optarg);
 				exit(2);
 			}
-			raiddisks = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || raiddisks<=0) {
+			raiddisks = parse_num(optarg);
+			if (raiddisks <= 0) {
 				pr_err("invalid number of raid devices: %s\n",
 					optarg);
 				exit(2);
@@ -610,8 +608,8 @@ int main(int argc, char *argv[])
 					level);
 				exit(2);
 			}
-			sparedisks = strtol(optarg, &c, 10);
-			if (!optarg[0] || *c || sparedisks < 0) {
+			sparedisks = parse_num(optarg);
+			if (sparedisks < 0) {
 				pr_err("invalid number of spare-devices: %s\n",
 					optarg);
 				exit(2);
@@ -699,8 +697,8 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "dev")==0)
 				ident.super_minor = -2;
 			else {
-				ident.super_minor = strtoul(optarg, &cp, 10);
-				if (!optarg[0] || *cp) {
+				ident.super_minor = parse_num(optarg);
+				if (ident.super_minor < 0) {
 					pr_err("Bad super-minor number: %s.\n", optarg);
 					exit(2);
 				}
@@ -865,8 +863,8 @@ int main(int argc, char *argv[])
 				pr_err("only specify delay once. %s ignored.\n",
 					optarg);
 			else {
-				delay = strtol(optarg, &c, 10);
-				if (!optarg[0] || *c || delay<1) {
+				delay = parse_num(optarg);
+				if (delay<1) {
 					pr_err("invalid delay: %s\n",
 						optarg);
 					exit(2);
@@ -1095,8 +1093,8 @@ int main(int argc, char *argv[])
 		case O(CREATE, WriteBehind): /* write-behind mode */
 			write_behind = DEFAULT_MAX_WRITE_BEHIND;
 			if (optarg) {
-				write_behind = strtol(optarg, &c, 10);
-				if (write_behind < 0 || *c ||
+				write_behind = parse_num(optarg);
+				if (write_behind < 0 ||
 				    write_behind > 16383) {
 					pr_err("Invalid value for maximum outstanding write-behind writes: %s.\n\tMust be between 0 and 16383.\n", optarg);
 					exit(2);

@@ -253,6 +253,17 @@ int parse_layout_faulty(char *layout)
 
 	return mode | (atoi(layout+ln)<< ModeShift);
 }
+
+long parse_num(char *num)
+{
+	/* Either return a valid number, or -1 */
+	char *c;
+	long rv = strtol(num, &c, 10);
+	if (rv < 0 || *c || !num[0])
+		return -1;
+	else
+		return rv;
+}
 #endif
 
 void remove_partitions(int fd)

@@ -37,10 +37,8 @@ static int misc_scan(char devmode, int verbose, int export, int test,
 		     char *homehost, char *prefer);
 static int stop_scan(int verbose);
 static int misc_list(struct mddev_dev *devlist,
-		     int brief, int verbose, int export, int test,
-		     char *homehost, char *prefer, char *subarray,
-		     char *update, struct mddev_ident *ident,
-		     struct supertype *ss, int force);
+		     struct mddev_ident *ident,
+		     struct supertype *ss, struct context *c);
 
 
 int main(int argc, char *argv[])
@@ -1372,10 +1370,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 		} else
-			rv = misc_list(devlist, c.brief, c.verbose, c.export, c.test,
-				       c.homehost, c.prefer, c.subarray, c.update,
-				       &ident,
-				       ss, c.force);
+			rv = misc_list(devlist, &ident, ss, &c);
 		break;
 	case MONITOR:
 		if (!devlist && !c.scan) {
@@ -1693,10 +1688,8 @@ static int stop_scan(int verbose)
 }
 
 static int misc_list(struct mddev_dev *devlist,
-		     int brief, int verbose, int export, int test,
-		     char *homehost, char *prefer, char *subarray,
-		     char *update, struct mddev_ident *ident,
-		     struct supertype *ss, int force)
+		     struct mddev_ident *ident,
+		     struct supertype *ss, struct context *c)
 {
 	struct mddev_dev *dv;
 	int rv = 0;
@@ -1707,16 +1700,16 @@ static int misc_list(struct mddev_dev *devlist,
 		switch(dv->disposition) {
 		case 'D':
 			rv |= Detail(dv->devname,
-				     brief?1+verbose:0,
-				     export, test, homehost, prefer);
+				     c->brief?1+c->verbose:0,
+				     c->export, c->test, c->homehost, c->prefer);
 			continue;
 		case KillOpt: /* Zero superblock */
 			if (ss)
-				rv |= Kill(dv->devname, ss, force, verbose,0);
+				rv |= Kill(dv->devname, ss, c->force, c->verbose,0);
 			else {
-				int v = verbose;
+				int v = c->verbose;
 				do {
-					rv |= Kill(dv->devname, NULL, force, v, 0);
+					rv |= Kill(dv->devname, NULL, c->force, v, 0);
 					v = -1;
 				} while (rv == 0);
 				rv &= ~2;
@@ -1725,32 +1718,32 @@ static int misc_list(struct mddev_dev *devlist,
 		case 'Q':
 			rv |= Query(dv->devname); continue;
 		case 'X':
-			rv |= ExamineBitmap(dv->devname, brief, ss); continue;
+			rv |= ExamineBitmap(dv->devname, c->brief, ss); continue;
 		case 'W':
 		case WaitOpt:
 			rv |= Wait(dv->devname); continue;
 		case Waitclean:
-			rv |= WaitClean(dv->devname, -1, verbose); continue;
+			rv |= WaitClean(dv->devname, -1, c->verbose); continue;
 		case KillSubarray:
-			rv |= Kill_subarray(dv->devname, subarray, verbose);
+			rv |= Kill_subarray(dv->devname, c->subarray, c->verbose);
 			continue;
 		case UpdateSubarray:
-			if (update == NULL) {
+			if (c->update == NULL) {
 				pr_err("-U/--update must be specified with --update-subarray\n");
 				rv |= 1;
 				continue;
 			}
-			rv |= Update_subarray(dv->devname, subarray,
-					      update, ident, verbose);
+			rv |= Update_subarray(dv->devname, c->subarray,
+					      c->update, ident, c->verbose);
 			continue;
 		}
 		mdfd = open_mddev(dv->devname, 1);
 		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':
-				rv |= Manage_runstop(dv->devname, mdfd, 1, verbose, 0); break;
+				rv |= Manage_runstop(dv->devname, mdfd, 1, c->verbose, 0); break;
 			case 'S':
-				rv |= Manage_runstop(dv->devname, mdfd, -1, verbose, 0); break;
+				rv |= Manage_runstop(dv->devname, mdfd, -1, c->verbose, 0); break;
 			case 'o':
 				rv |= Manage_ro(dv->devname, mdfd, 1); break;
 			case 'w':

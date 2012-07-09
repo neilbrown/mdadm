@@ -1096,10 +1096,7 @@ extern int Grow_continue_command(char *devname, int fd,
 extern int Assemble(struct supertype *st, char *mddev,
 		    struct mddev_ident *ident,
 		    struct mddev_dev *devlist,
-		    char *backup_file, int invalid_backup,
-		    int readonly, int runstop,
-		    char *update, char *homehost, int require_homehost,
-		    int verbose, int force, int freeze_reshape);
+		    struct context *c);
 
 extern int Build(char *mddev, int chunk, int level, int layout,
 		 int raiddisks, struct mddev_dev *devlist, int assume_clean,

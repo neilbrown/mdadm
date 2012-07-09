@@ -30,12 +30,9 @@
 #include <ctype.h>
 
 
-static int scan_assemble(int autof, struct supertype *ss,
-			 int readonly, int runstop,
-			 struct mddev_ident *ident,
-			 char *homehost, int require_homehost,
-			 int verbose, int force,
-			 int freeze_reshape);
+static int scan_assemble(struct supertype *ss,
+			 struct context *c,
+			 struct mddev_ident *ident);
 static int misc_scan(char devmode, int verbose, int export, int test,
 		     char *homehost, char *prefer);
 static int stop_scan(int verbose);
@@ -1256,19 +1253,11 @@ int main(int argc, char *argv[])
 				if (array_ident->autof == 0)
 					array_ident->autof = c.autof;
 				rv |= Assemble(ss, devlist->devname, array_ident,
-					       NULL, c.backup_file, c.invalid_backup,
-					       c.readonly, c.runstop, c.update,
-					       c.homehost, c.require_homehost,
-					       c.verbose, c.force,
-					       c.freeze_reshape);
+					       NULL, &c);
 			}
 		} else if (!c.scan)
 			rv = Assemble(ss, devlist->devname, &ident,
-				      devlist->next, c.backup_file, c.invalid_backup,
-				      c.readonly, c.runstop, c.update,
-				      c.homehost, c.require_homehost,
-				      c.verbose, c.force,
-				      c.freeze_reshape);
+				      devlist->next, &c);
 		else if (devs_found > 0) {
 			if (c.update && devs_found > 1) {
 				pr_err("can only update a single array at a time\n");
@@ -1289,11 +1278,7 @@ int main(int argc, char *argv[])
 				if (array_ident->autof == 0)
 					array_ident->autof = c.autof;
 				rv |= Assemble(ss, dv->devname, array_ident,
-					       NULL, c.backup_file, c.invalid_backup,
-					       c.readonly, c.runstop, c.update,
-					       c.homehost, c.require_homehost,
-					       c.verbose, c.force,
-					       c.freeze_reshape);
+					       NULL, &c);
 			}
 		} else {
 			if (c.update) {
@@ -1304,11 +1289,7 @@ int main(int argc, char *argv[])
 				pr_err("--backup_file not meaningful with a --scan assembly.\n");
 				exit(1);
 			}
-			rv = scan_assemble(c.autof, ss, c.readonly, c.runstop,
-					   &ident, c.homehost,
-					   c.require_homehost,
-					   c.verbose,
-					   c.force, c.freeze_reshape);
+			rv = scan_assemble(ss, &c, &ident);
 		}
 
 		break;
@@ -1535,12 +1516,9 @@ int main(int argc, char *argv[])
 	exit(rv);
 }
 
-static int scan_assemble(int autof, struct supertype *ss,
-			 int readonly, int runstop,
-			 struct mddev_ident *ident,
-			 char *homehost, int require_homehost,
-			 int verbose, int force,
-			 int freeze_reshape)
+static int scan_assemble(struct supertype *ss,
+			 struct context *c,
+			 struct mddev_ident *ident)
 {
 	struct mddev_ident *a, *array_list =  conf_get_ident(NULL);
 	struct mddev_dev *devlist = conf_get_devs();
@@ -1561,7 +1539,7 @@ static int scan_assemble(int autof, struct supertype *ss,
 	for (a = array_list; a ; a = a->next) {
 		a->assembled = 0;
 		if (a->autof == 0)
-			a->autof = autof;
+			a->autof = c->autof;
 	}
 	if (map_lock(&map))
 		pr_err("%s: failed to get "
@@ -1580,12 +1558,7 @@ static int scan_assemble(int autof, struct supertype *ss,
 				continue;
 				
 			r = Assemble(ss, a->devname,
-				     a,
-				     NULL, NULL, 0,
-				     readonly, runstop, NULL,
-				     homehost, require_homehost,
-				     verbose, force,
-				     freeze_reshape);
+				     a, NULL, c);
 			if (r == 0) {
 				a->assembled = 1;
 				successes++;
@@ -1595,28 +1568,21 @@ static int scan_assemble(int autof, struct supertype *ss,
 			cnt++;
 		}
 	} while (failures && successes);
-	if (homehost && cnt == 0) {
+	if (c->homehost && cnt == 0) {
 		/* Maybe we can auto-assemble something.
 		 * Repeatedly call Assemble in auto-assemble mode
 		 * until it fails
 		 */
 		int rv2;
 		int acnt;
-		ident->autof = autof;
+		ident->autof = c->autof;
 		do {
 			struct mddev_dev *devlist = conf_get_devs();
 			acnt = 0;
 			do {
 				rv2 = Assemble(ss, NULL,
 					       ident,
-					       devlist, NULL, 0,
-					       readonly,
-					       runstop, NULL,
-					       homehost,
-					       require_homehost,
-					       verbose,
-					       force,
-					       freeze_reshape);
+					       devlist, c);
 				if (rv2==0) {
 					cnt++;
 					acnt++;

@@ -60,13 +60,11 @@ struct map_ent *map_by_name(struct map_ent **mpp, char *name)
 
 int rv;
 int mdfd = -1;
-int runstop = 0;
-int readonly = 0;
-int verbose = 0;
-int force = 0;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	struct mddev_ident *array_list =  conf_get_ident(NULL);
+	struct context c = { .freeze_reshape = 1 };
 	if (!array_list) {
 		pr_err("No arrays found in config file\n");
 		rv = 1;
@@ -83,9 +81,7 @@ int main(int argc, char *argv[]) {
 			if (mdfd >= 0)
 				close(mdfd);
 			rv |= Assemble(array_list->st, array_list->devname,
-				       array_list, NULL, NULL, 0,
-				       readonly, runstop, NULL, NULL, 0,
-				       verbose, force, 1);
+				       array_list, NULL, &c);
 		}
 	return rv;
 }

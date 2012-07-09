@@ -133,10 +133,7 @@ static int ident_matches(struct mddev_ident *ident,
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
 	     struct mddev_dev *devlist,
-	     char *backup_file, int invalid_backup,
-	     int readonly, int runstop,
-	     char *update, char *homehost, int require_homehost,
-	     int verbose, int force, int freeze_reshape)
+	     struct context *c)
 {
 	/*
 	 * The task of Assemble is to find a collection of
@@ -221,8 +218,8 @@ int Assemble(struct supertype *st, char *mddev,
 #ifndef MDASSEMBLE
 	int bitmap_done;
 #endif
-	int start_partial_ok = (runstop >= 0) && 
-		(force || devlist==NULL || auto_assem);
+	int start_partial_ok = (c->runstop >= 0) &&
+		(c->force || devlist==NULL || auto_assem);
 	unsigned int num_devs;
 	struct mddev_dev *tmpdev;
 	struct mdinfo info;
@@ -261,7 +258,7 @@ int Assemble(struct supertype *st, char *mddev,
 	else if (mddev)
 		inargv = 1;
 
-	report_missmatch = ((inargv && verbose >= 0) || verbose > 0);
+	report_missmatch = ((inargv && c->verbose >= 0) || c->verbose > 0);
  try_again:
 	/* We come back here when doing auto-assembly and attempting some
 	 * set of devices failed.  Those are now marked as ->used==2 and
@@ -279,7 +276,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	if (!st && ident->st) st = ident->st;
 
-	if (verbose>0)
+	if (c->verbose>0)
 		pr_err("looking for devices for %s\n",
 		       mddev ? mddev : "further assembly");
 
@@ -347,7 +344,7 @@ int Assemble(struct supertype *st, char *mddev,
 				tmpdev->used = 2;
 			} else if (auto_assem &&
 				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
-						       tst->ss->match_home(tst, homehost) == 1)) {
+						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_missmatch)
 					pr_err("%s has metadata type %s for which "
 					       "auto-assembly is disabled\n",
@@ -373,7 +370,7 @@ int Assemble(struct supertype *st, char *mddev,
 				tmpdev->used = 2;
 			} else if (auto_assem && st == NULL &&
 				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
-						       tst->ss->match_home(tst, homehost) == 1)) {
+						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_missmatch)
 					pr_err("%s has metadata type %s for which "
 					       "auto-assembly is disabled\n",
@@ -444,7 +441,7 @@ int Assemble(struct supertype *st, char *mddev,
 			}
 			/* It is worth looking inside this container.
 			 */
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("looking in container %s\n",
 					devname);
 
@@ -453,7 +450,7 @@ int Assemble(struct supertype *st, char *mddev,
 			     content = content->next) {
 
 				if (!ident_matches(ident, content, tst,
-						   homehost, update,
+						   c->homehost, c->update,
 						   report_missmatch ? devname : NULL))
 					/* message already printed */;
 				else if (is_member_busy(content->text_version)) {
@@ -484,7 +481,7 @@ int Assemble(struct supertype *st, char *mddev,
 				domain_free(domains);
 				return 1;
 			}
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("found match on member %s in %s\n",
 					content->text_version, devname);
 
@@ -497,7 +494,7 @@ int Assemble(struct supertype *st, char *mddev,
 			tst->ss->getinfo_super(tst, content, NULL);
 
 			if (!ident_matches(ident, content, tst,
-					   homehost, update,
+					   c->homehost, c->update,
 					   report_missmatch ? devname : NULL))
 				goto loop;
 				
@@ -539,9 +536,9 @@ int Assemble(struct supertype *st, char *mddev,
 				 */
 				if (auto_assem)
 					goto loop;
-				if (homehost) {
-					int first = st->ss->match_home(st, homehost);
-					int last = tst->ss->match_home(tst, homehost);
+				if (c->homehost) {
+					int first = st->ss->match_home(st, c->homehost);
+					int last = tst->ss->match_home(tst, c->homehost);
 					if (first != last &&
 					    (first == 1 || last == 1)) {
 						/* We can do something */
@@ -645,7 +642,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	trustworthy = FOREIGN;
 	name = content->name;
-	switch (st->ss->match_home(st, homehost)
+	switch (st->ss->match_home(st, c->homehost)
 		?: st->ss->match_home(st, "any")) {
 	case 1:
 		trustworthy = LOCAL;
@@ -670,7 +667,7 @@ int Assemble(struct supertype *st, char *mddev,
 	}
 
 	if (name[0] && trustworthy != LOCAL &&
-	    ! require_homehost &&
+	    ! c->require_homehost &&
 	    conf_name_is_free(name))
 		trustworthy = LOCAL;
 
@@ -718,10 +715,10 @@ int Assemble(struct supertype *st, char *mddev,
 	if (content != &info) {
 		/* This is a member of a container.  Try starting the array. */
 		int err;
-		err = assemble_container_content(st, mdfd, content, runstop,
-						 readonly,
-						 chosen_name, verbose,
-						 backup_file, freeze_reshape);
+		err = assemble_container_content(st, mdfd, content, c->runstop,
+						 c->readonly,
+						 chosen_name, c->verbose,
+						 c->backup_file, c->freeze_reshape);
 		close(mdfd);
 		return err;
 	}
@@ -735,7 +732,7 @@ int Assemble(struct supertype *st, char *mddev,
 		struct stat stb;
 		/* looks like a good enough match to update the super block if needed */
 #ifndef MDASSEMBLE
-		if (update) {
+		if (c->update) {
 			int dfd;
 			/* prepare useful information in info structures */
 			struct stat stb2;
@@ -743,7 +740,7 @@ int Assemble(struct supertype *st, char *mddev,
 			int err;
 			fstat(mdfd, &stb2);
 
-			if (strcmp(update, "uuid")==0 &&
+			if (strcmp(c->update, "uuid")==0 &&
 			    !ident->uuid_set) {
 				int rfd;
 				if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
@@ -774,17 +771,17 @@ int Assemble(struct supertype *st, char *mddev,
 			strcpy(content->name, ident->name);
 			content->array.md_minor = minor(stb2.st_rdev);
 
-			if (strcmp(update, "byteorder") == 0)
+			if (strcmp(c->update, "byteorder") == 0)
 				err = 0;
 			else
-				err = tst->ss->update_super(tst, content, update,
-							    devname, verbose,
+				err = tst->ss->update_super(tst, content, c->update,
+							    devname, c->verbose,
 							    ident->uuid_set,
-							    homehost);
+							    c->homehost);
 			if (err < 0) {
 				pr_err("--update=%s not understood"
 				       " for %s metadata\n",
-				       update, tst->ss->name);
+				       c->update, tst->ss->name);
 				tst->ss->free_super(tst);
 				free(tst);
 				close(mdfd);
@@ -793,7 +790,7 @@ int Assemble(struct supertype *st, char *mddev,
 				free(devmap);
 				return 1;
 			}
-			if (strcmp(update, "uuid")==0 &&
+			if (strcmp(c->update, "uuid")==0 &&
 			    !ident->uuid_set) {
 				ident->uuid_set = 1;
 				memcpy(ident->uuid, content->uuid, 16);
@@ -803,7 +800,7 @@ int Assemble(struct supertype *st, char *mddev,
 					devname);
 			close(dfd);
 
-			if (strcmp(update, "uuid")==0 &&
+			if (strcmp(c->update, "uuid")==0 &&
 			    ident->bitmap_fd >= 0 && !bitmap_done) {
 				if (bitmap_update_uuid(ident->bitmap_fd,
 						       content->uuid,
@@ -837,7 +834,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 		stat(devname, &stb);
 
-		if (verbose > 0)
+		if (c->verbose > 0)
 			pr_err("%s is identified as a member of %s, slot %d.\n",
 				devname, mddev, content->disk.raid_disk);
 		devices[devcnt].devname = devname;
@@ -923,7 +920,7 @@ int Assemble(struct supertype *st, char *mddev,
 		return 1;
 	}
 
-	if (update && strcmp(update, "byteorder")==0)
+	if (c->update && strcmp(c->update, "byteorder")==0)
 		st->minor_version = 90;
 
 	st->ss->getinfo_super(st, content, NULL);
@@ -961,7 +958,7 @@ int Assemble(struct supertype *st, char *mddev,
 		    content->array.raid_disks > 0 &&
 		    devices[most_recent].i.disk.raid_disk >= 0 &&
 		    devmap[j * content->array.raid_disks + devices[most_recent].i.disk.raid_disk] == 0) {
-			if (verbose > -1)
+			if (c->verbose > -1)
 				pr_err("ignoring %s as it reports %s as failed\n",
 					devices[j].devname, devices[most_recent].devname);
 			best[i] = -1;
@@ -985,7 +982,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 	}
 	free(devmap);
-	while (force &&
+	while (c->force &&
 	       (!enough(content->array.level, content->array.raid_disks,
 			content->array.layout, 1,
 			avail)
@@ -1018,7 +1015,7 @@ int Assemble(struct supertype *st, char *mddev,
 			break;
 		current_events = devices[chosen_drive].i.events;
 	add_another:
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("forcing event count in %s(%d) from %d upto %d\n",
 				devices[chosen_drive].devname,
 				devices[chosen_drive].i.disk.raid_disk,
@@ -1041,7 +1038,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		content->events = devices[most_recent].i.events;
 		tst->ss->update_super(tst, content, "force-one",
-				     devices[chosen_drive].devname, verbose,
+				     devices[chosen_drive].devname, c->verbose,
 				     0, NULL);
 
 		if (tst->ss->store_super(tst, fd)) {
@@ -1139,14 +1136,14 @@ int Assemble(struct supertype *st, char *mddev,
 			clean = 0;
 
 		if (st->ss->update_super(st, &devices[j].i, "assemble", NULL,
-					 verbose, 0, NULL)) {
-			if (force) {
-				if (verbose >= 0)
+					 c->verbose, 0, NULL)) {
+			if (c->force) {
+				if (c->verbose >= 0)
 					pr_err("clearing FAULTY flag for device %d in %s for %s\n",
 						j, mddev, devices[j].devname);
 				change = 1;
 			} else {
-				if (verbose >= -1)
+				if (c->verbose >= -1)
 					pr_err("device %d in %s has wrong state in superblock, but %s seems ok\n",
 						i, mddev, devices[j].devname);
 			}
@@ -1158,12 +1155,12 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 #endif
 	}
-	if (force && !clean &&
+	if (c->force && !clean &&
 	    !enough(content->array.level, content->array.raid_disks,
 		    content->array.layout, clean,
 		    avail)) {
 		change += st->ss->update_super(st, content, "force-array",
-					devices[chosen_drive].devname, verbose,
+					devices[chosen_drive].devname, c->verbose,
 					       0, NULL);
 		clean = 1;
 	}
@@ -1186,7 +1183,7 @@ int Assemble(struct supertype *st, char *mddev,
 			free(devices);
 			return 1;
 		}
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("Marking array %s as 'clean'\n",
 				mddev);
 		close(fd);
@@ -1200,7 +1197,7 @@ int Assemble(struct supertype *st, char *mddev,
 	if (content->reshape_active) {
 		int err = 0;
 		int *fdlist = xmalloc(sizeof(int)* bestcnt);
-		if (verbose > 0)
+		if (c->verbose > 0)
 			pr_err(":%s has an active reshape - checking "
 				"if critical section needs to be restored\n",
 				chosen_name);
@@ -1222,9 +1219,9 @@ int Assemble(struct supertype *st, char *mddev,
 				err = st->ss->recover_backup(st, content);
 			else
 				err = Grow_restart(st, content, fdlist, bestcnt,
-						   backup_file, verbose > 0);
-			if (err && invalid_backup) {
-				if (verbose > 0)
+						   c->backup_file, c->verbose > 0);
+			if (err && c->invalid_backup) {
+				if (c->verbose > 0)
 					pr_err("continuing"
 						" without restoring backup\n");
 				err = 0;
@@ -1236,7 +1233,7 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 		if (err) {
 			pr_err("Failed to restore critical section for reshape, sorry.\n");
-			if (backup_file == NULL)
+			if (c->backup_file == NULL)
 				cont_err("Possibly you needed to specify the --backup-file\n");
 			close(mdfd);
 			free(devices);
@@ -1328,20 +1325,20 @@ int Assemble(struct supertype *st, char *mddev,
 						okcnt--;
 					else
 						sparecnt--;
-				} else if (verbose > 0)
+				} else if (c->verbose > 0)
 					pr_err("added %s to %s as %d%s\n",
 					       devices[j].devname, mddev,
 					       devices[j].i.disk.raid_disk,
 					       devices[j].uptodate?"":
 					       " (possibly out of date)");
-			} else if (verbose > 0 && i < content->array.raid_disks)
+			} else if (c->verbose > 0 && i < content->array.raid_disks)
 				pr_err("no uptodate device for "
 					        "slot %d of %s\n",
 					i, mddev);
 		}
 
 		if (content->array.level == LEVEL_CONTAINER) {
-			if (verbose >= 0) {
+			if (c->verbose >= 0) {
 				pr_err("Container %s has been "
 					"assembled with %d drive%s",
 					mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
@@ -1358,8 +1355,8 @@ int Assemble(struct supertype *st, char *mddev,
 			return 0;
 		}
 
-		if (runstop == 1 ||
-		    (runstop <= 0 &&
+		if (c->runstop == 1 ||
+		    (c->runstop <= 0 &&
 		     ( enough(content->array.level, content->array.raid_disks,
 			      content->array.layout, clean, avail) &&
 		       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)
@@ -1377,9 +1374,9 @@ int Assemble(struct supertype *st, char *mddev,
 						   "array_state", "readonly");
 				if (rv == 0)
 					rv = Grow_continue(mdfd, st, content,
-							   backup_file,
-							   freeze_reshape);
-			} else if (readonly &&
+							   c->backup_file,
+							   c->freeze_reshape);
+			} else if (c->readonly &&
 				   sysfs_attribute_available(
 					   content, NULL, "array_state")) {
 				rv = sysfs_set_str(content, NULL,
@@ -1388,7 +1385,7 @@ int Assemble(struct supertype *st, char *mddev,
 #endif
 				rv = ioctl(mdfd, RUN_ARRAY, NULL);
 			if (rv == 0) {
-				if (verbose >= 0) {
+				if (c->verbose >= 0) {
 					pr_err("%s has been started with %d drive%s",
 						mddev, okcnt, okcnt==1?"":"s");
 					if (okcnt < (unsigned)content->array.raid_disks)
@@ -1430,7 +1427,7 @@ int Assemble(struct supertype *st, char *mddev,
 								continue;
 							rv = add_disk(mdfd, st, content,
 								      &devices[j].i);
-							if (rv == 0 && verbose >= 0)
+							if (rv == 0 && c->verbose >= 0)
 								pr_err("%s has been re-added.\n",
 								       devices[j].devname);
 						}
@@ -1488,7 +1485,7 @@ int Assemble(struct supertype *st, char *mddev,
 			free(devices);
 			return 1;
 		}
-		if (runstop == -1) {
+		if (c->runstop == -1) {
 			pr_err("%s assembled from %d drive%s",
 			       mddev, okcnt, okcnt==1?"":"s");
 			if (okcnt != (unsigned)content->array.raid_disks)
@@ -1498,7 +1495,7 @@ int Assemble(struct supertype *st, char *mddev,
 			free(devices);
 			return 0;
 		}
-		if (verbose >= -1) {
+		if (c->verbose >= -1) {
 			pr_err("%s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
 			if (rebuilding_cnt)
 				fprintf(stderr, "%s %d rebuilding", sparecnt?", ":" and ", rebuilding_cnt);

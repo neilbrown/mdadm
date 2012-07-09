@@ -36,6 +36,15 @@ static int scan_assemble(int autof, struct supertype *ss,
 			 char *homehost, int require_homehost,
 			 int verbose, int force,
 			 int freeze_reshape);
+static int misc_scan(char devmode, int verbose, int export, int test,
+		     char *homehost, char *prefer);
+static int stop_scan(int quiet);
+static int misc_list(struct mddev_dev *devlist,
+		     int brief, int verbose, int export, int test,
+		     char *homehost, char *prefer, char *subarray,
+		     char *update, struct mddev_ident *ident,
+		     struct supertype *ss, int force, int quiet);
+
 
 int main(int argc, char *argv[])
 {
@@ -919,8 +928,8 @@ int main(int argc, char *argv[])
 		case O(INCREMENTAL,'f'):
 		case O(INCREMENTAL,Remove):
 		case O(INCREMENTAL,Fail): /* r for incremental is taken, use f
-					  * even though we will both fail and
-					  * remove the device */
+					   * even though we will both fail and
+					   * remove the device */
 			devmode = 'f';
 			continue;
 		case O(INCREMENTAL,'R'):
@@ -985,20 +994,20 @@ int main(int argc, char *argv[])
 			}
 			devmode = opt;
 			continue;
-               case O(MISC, UdevRules):
-		       if (devmode && devmode != opt) {
-                               fprintf(stderr, Name ": --udev-rules must"
-				       " be the only option.\n");
-		       } else {
-			       if (udev_filename)
-				       fprintf(stderr, Name ": only specify one udev "
-					       "rule filename. %s ignored.\n",
-					       optarg);
-			       else
-				       udev_filename = optarg;
-		       }
-		       devmode = opt;
-		       continue;
+		case O(MISC, UdevRules):
+			if (devmode && devmode != opt) {
+				fprintf(stderr, Name ": --udev-rules must"
+					" be the only option.\n");
+			} else {
+				if (udev_filename)
+					fprintf(stderr, Name ": only specify one udev "
+						"rule filename. %s ignored.\n",
+						optarg);
+				else
+					udev_filename = optarg;
+			}
+			devmode = opt;
+			continue;
 		case O(MISC,'t'):
 			test = 1;
 			continue;
@@ -1402,149 +1411,23 @@ int main(int argc, char *argv[])
 				     SparcAdjust, ss, homehost);
 		} else if (devmode == DetailPlatform) {
 			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? scan : 1, verbose);
-		} else {
-			if (devlist == NULL) {
-				if ((devmode=='D' || devmode == Waitclean) && scan) {
-					/* apply --detail or --wait-clean to
-					 * all devices in /proc/mdstat
-					 */
-					struct mdstat_ent *ms = mdstat_read(0, 1);
-					struct mdstat_ent *e;
-					struct map_ent *map = NULL;
-					int members;
-					int v = verbose>1?0:verbose+1;
-
-					for (members = 0; members <= 1; members++) {
-					for (e=ms ; e ; e=e->next) {
-						char *name;
-						struct map_ent *me;
-						int member = e->metadata_version &&
-							strncmp(e->metadata_version,
-								"external:/", 10) == 0;
-						if (members != member)
-							continue;
-						me = map_by_devnum(&map, e->devnum);
-						if (me && me->path
-						    && strcmp(me->path, "/unknown") != 0)
-							name = me->path;
-						else
-							name = get_md_name(e->devnum);
-
-						if (!name) {
-							fprintf(stderr, Name ": cannot find device file for %s\n",
-								e->dev);
-							continue;
-						}
-						if (devmode == 'D')
-							rv |= Detail(name, v,
-								     export, test,
-								     homehost, prefer);
-						else
-							rv |= WaitClean(name, -1, v);
-						put_md_name(name);
-					}
-					}
-					free_mdstat(ms);
-				} else	if (devmode == 'S' && scan) {
-					/* apply --stop to all devices in /proc/mdstat */
-					/* Due to possible stacking of devices, repeat until
-					 * nothing more can be stopped
-					 */
-					int progress=1, err;
-					int last = 0;
-					do {
-						struct mdstat_ent *ms = mdstat_read(0, 0);
-						struct mdstat_ent *e;
-
-						if (!progress) last = 1;
-						progress = 0; err = 0;
-						for (e=ms ; e ; e=e->next) {
-							char *name = get_md_name(e->devnum);
-
-							if (!name) {
-								fprintf(stderr, Name ": cannot find device file for %s\n",
-									e->dev);
-								continue;
-							}
-							mdfd = open_mddev(name, 1);
-							if (mdfd >= 0) {
-								if (Manage_runstop(name, mdfd, -1, quiet?1:last?0:-1))
-									err = 1;
-								else
-									progress = 1;
-								close(mdfd);
-							}
-
-							put_md_name(name);
-						}
-						free_mdstat(ms);
-					} while (!last && err);
-					if (err) rv |= 1;
-				} else if (devmode == UdevRules) {
-					rv = Write_rules(udev_filename);
-				} else {
-					fprintf(stderr, Name ": No devices given.\n");
-					exit(2);
-				}
+		} else if (devlist == NULL) {
+			if (devmode == 'S' && scan)
+				rv = stop_scan(quiet);
+			else if ((devmode == 'D' || devmode == Waitclean) && scan)
+				rv = misc_scan(devmode, verbose, export,
+					       test, homehost, prefer);
+			else if (devmode == UdevRules)
+				rv = Write_rules(udev_filename);
+			else {
+				fprintf(stderr, Name ": No devices given.\n");
+				exit(2);
 			}
-			for (dv=devlist ; dv; dv=dv->next) {
-				switch(dv->disposition) {
-				case 'D':
-					rv |= Detail(dv->devname,
-						     brief?1+verbose:0,
-						     export, test, homehost, prefer);
-					continue;
-				case KillOpt: /* Zero superblock */
-					if (ss)
-						rv |= Kill(dv->devname, ss, force, quiet,0);
-					else {
-						int q = quiet;
-						do {
-							rv |= Kill(dv->devname, NULL, force, q, 0);
-							q = 1;
-						} while (rv == 0);
-						rv &= ~2;
-					}
-					continue;
-				case 'Q':
-					rv |= Query(dv->devname); continue;
-				case 'X':
-					rv |= ExamineBitmap(dv->devname, brief, ss); continue;
-				case 'W':
-				case WaitOpt:
-					rv |= Wait(dv->devname); continue;
-				case Waitclean:
-					rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;
-				case KillSubarray:
-					rv |= Kill_subarray(dv->devname, subarray, quiet);
-					continue;
-				case UpdateSubarray:
-					if (update == NULL) {
-						fprintf(stderr,
-							Name ": -U/--update must be specified with --update-subarray\n");
-						rv |= 1;
-						continue;
-					}
-					rv |= Update_subarray(dv->devname, subarray, update, &ident, quiet);
-					continue;
-				}
-				mdfd = open_mddev(dv->devname, 1);
-				if (mdfd>=0) {
-					switch(dv->disposition) {
-					case 'R':
-						rv |= Manage_runstop(dv->devname, mdfd, 1, quiet); break;
-					case 'S':
-						rv |= Manage_runstop(dv->devname, mdfd, -1, quiet); break;
-					case 'o':
-						rv |= Manage_ro(dv->devname, mdfd, 1); break;
-					case 'w':
-						rv |= Manage_ro(dv->devname, mdfd, -1); break;
-					}
-					close(mdfd);
-				} else
-					rv |= 1;
-			}
-		}
+		} else
+			rv = misc_list(devlist, brief, verbose, export, test,
+				       homehost, prefer, subarray, update,
+				       &ident,
+				       ss, force, quiet);
 		break;
 	case MONITOR:
 		if (!devlist && !scan) {
@@ -1634,7 +1517,7 @@ int main(int argc, char *argv[])
 						   mdfd, backup_file,
 						   verbose);
 		else if (size >= 0 || raiddisks != 0 || layout_str != NULL
-			   || chunk != 0 || level != UnSet) {
+			 || chunk != 0 || level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd, quiet, backup_file,
 					  size, level, layout_str, chunk, raiddisks,
 					  devlist->next,
@@ -1649,12 +1532,12 @@ int main(int argc, char *argv[])
 		if (scan) {
 			if (runstop <= 0) {
 				fprintf(stderr, Name
-			 ": --incremental --scan meaningless without --run.\n");
+					": --incremental --scan meaningless without --run.\n");
 				break;
 			}
 			if (devmode == 'f') {
 				fprintf(stderr, Name
-			 ": --incremental --scan --fail not supported.\n");
+					": --incremental --scan --fail not supported.\n");
 				break;
 			}
 			rv = IncrementalScan(verbose);
@@ -1669,7 +1552,7 @@ int main(int argc, char *argv[])
 		}
 		if (devlist->next) {
 			fprintf(stderr, Name
-			       ": --incremental can only handle one device.\n");
+				": --incremental can only handle one device.\n");
 			rv = 1;
 			break;
 		}
@@ -1789,5 +1672,166 @@ static int scan_assemble(int autof, struct supertype *ss,
 		rv = 1;
 	}
 	map_unlock(&map);
+	return rv;
+}
+
+static int misc_scan(char devmode, int verbose, int export, int test,
+		     char *homehost, char *prefer)
+{
+	/* apply --detail or --wait-clean to
+	 * all devices in /proc/mdstat
+	 */
+	struct mdstat_ent *ms = mdstat_read(0, 1);
+	struct mdstat_ent *e;
+	struct map_ent *map = NULL;
+	int members;
+	int v = verbose>1?0:verbose+1;
+	int rv = 0;
+
+	for (members = 0; members <= 1; members++) {
+		for (e=ms ; e ; e=e->next) {
+			char *name;
+			struct map_ent *me;
+			int member = e->metadata_version &&
+				strncmp(e->metadata_version,
+					"external:/", 10) == 0;
+			if (members != member)
+				continue;
+			me = map_by_devnum(&map, e->devnum);
+			if (me && me->path
+			    && strcmp(me->path, "/unknown") != 0)
+				name = me->path;
+			else
+				name = get_md_name(e->devnum);
+
+			if (!name) {
+				fprintf(stderr, Name ": cannot find device file for %s\n",
+					e->dev);
+				continue;
+			}
+			if (devmode == 'D')
+				rv |= Detail(name, v,
+					     export, test,
+					     homehost, prefer);
+			else
+				rv |= WaitClean(name, -1, v);
+			put_md_name(name);
+		}
+	}
+	free_mdstat(ms);
+	return rv;
+}
+
+static int stop_scan(int quiet)
+{
+	/* apply --stop to all devices in /proc/mdstat */
+	/* Due to possible stacking of devices, repeat until
+	 * nothing more can be stopped
+	 */
+	int progress=1, err;
+	int last = 0;
+	int rv = 0;
+	do {
+		struct mdstat_ent *ms = mdstat_read(0, 0);
+		struct mdstat_ent *e;
+
+		if (!progress) last = 1;
+		progress = 0; err = 0;
+		for (e=ms ; e ; e=e->next) {
+			char *name = get_md_name(e->devnum);
+			int mdfd;
+
+			if (!name) {
+				fprintf(stderr, Name ": cannot find device file for %s\n",
+					e->dev);
+				continue;
+			}
+			mdfd = open_mddev(name, 1);
+			if (mdfd >= 0) {
+				if (Manage_runstop(name, mdfd, -1, quiet?1:last?0:-1))
+					err = 1;
+				else
+					progress = 1;
+				close(mdfd);
+			}
+
+			put_md_name(name);
+		}
+		free_mdstat(ms);
+	} while (!last && err);
+	if (err)
+		rv |= 1;
+	return rv;
+}
+
+static int misc_list(struct mddev_dev *devlist,
+		     int brief, int verbose, int export, int test,
+		     char *homehost, char *prefer, char *subarray,
+		     char *update, struct mddev_ident *ident,
+		     struct supertype *ss, int force, int quiet)
+{
+	struct mddev_dev *dv;
+	int rv = 0;
+
+	for (dv=devlist ; dv; dv=dv->next) {
+		int mdfd;
+
+		switch(dv->disposition) {
+		case 'D':
+			rv |= Detail(dv->devname,
+				     brief?1+verbose:0,
+				     export, test, homehost, prefer);
+			continue;
+		case KillOpt: /* Zero superblock */
+			if (ss)
+				rv |= Kill(dv->devname, ss, force, quiet,0);
+			else {
+				int q = quiet;
+				do {
+					rv |= Kill(dv->devname, NULL, force, q, 0);
+					q = 1;
+				} while (rv == 0);
+				rv &= ~2;
+			}
+			continue;
+		case 'Q':
+			rv |= Query(dv->devname); continue;
+		case 'X':
+			rv |= ExamineBitmap(dv->devname, brief, ss); continue;
+		case 'W':
+		case WaitOpt:
+			rv |= Wait(dv->devname); continue;
+		case Waitclean:
+			rv |= WaitClean(dv->devname, -1, verbose-quiet); continue;
+		case KillSubarray:
+			rv |= Kill_subarray(dv->devname, subarray, quiet);
+			continue;
+		case UpdateSubarray:
+			if (update == NULL) {
+				fprintf(stderr,
+					Name ": -U/--update must be specified with --update-subarray\n");
+				rv |= 1;
+				continue;
+			}
+			rv |= Update_subarray(dv->devname, subarray,
+					      update, ident, quiet);
+			continue;
+		}
+		mdfd = open_mddev(dv->devname, 1);
+		if (mdfd>=0) {
+			switch(dv->disposition) {
+			case 'R':
+				rv |= Manage_runstop(dv->devname, mdfd, 1, quiet); break;
+			case 'S':
+				rv |= Manage_runstop(dv->devname, mdfd, -1, quiet); break;
+			case 'o':
+				rv |= Manage_ro(dv->devname, mdfd, 1); break;
+			case 'w':
+				rv |= Manage_ro(dv->devname, mdfd, -1); break;
+			}
+			close(mdfd);
+		} else
+			rv |= 1;
+	}
 	return rv;
 }

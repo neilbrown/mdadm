@@ -323,6 +323,7 @@ enum special_options {
 	Continue,
 	OffRootOpt,
 	Prefer,
+	KillOpt,
 };
 
 /* structures read from config file */

@@ -86,7 +86,7 @@ struct option long_options[] = {
     {"follow",    0, 0, 'F'},
     {"grow",      0, 0, 'G'},
     {"incremental",0,0, 'I'},
-    {"zero-superblock", 0, 0, 'K'}, /* deliberately not a short_option */
+    {"zero-superblock", 0, 0, KillOpt}, /* deliberately not a short_option */
     {"query",	  0, 0, 'Q'},
     {"examine-bitmap", 0, 0, 'X'},
     {"auto-detect", 0, 0, AutoDetect},

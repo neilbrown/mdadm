@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 		case KillSubarray:
 		case UpdateSubarray:
 		case UdevRules:
-		case 'K':
+		case KillOpt:
 			if (!mode)
 				newmode = MISC;
 			break;
@@ -932,7 +932,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'Q'):
 		case O(MISC,'D'):
 		case O(MISC,'E'):
-		case O(MISC,'K'):
+		case O(MISC,KillOpt):
 		case O(MISC,'R'):
 		case O(MISC,'S'):
 		case O(MISC,'X'):
@@ -1562,7 +1562,7 @@ int main(int argc, char *argv[])
 						     brief?1+verbose:0,
 						     export, test, homehost, prefer);
 					continue;
-				case 'K': /* Zero superblock */
+				case KillOpt: /* Zero superblock */
 					if (ss)
 						rv |= Kill(dv->devname, ss, force, quiet,0);
 					else {

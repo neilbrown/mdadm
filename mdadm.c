@@ -117,7 +117,6 @@ int main(int argc, char *argv[])
 	int spare_sharing = 1;
 	struct supertype *ss = NULL;
 	int writemostly = 0;
-	int re_add = 0;
 	char *shortopt = short_options;
 	int dosyslog = 0;
 	int rebuild_map = 0;
@@ -326,7 +325,6 @@ int main(int argc, char *argv[])
 					dv->devname = optarg;
 					dv->disposition = devmode;
 					dv->writemostly = writemostly;
-					dv->re_add = re_add;
 					dv->used = 0;
 					dv->next = NULL;
 					*devlistend = dv;
@@ -382,7 +380,6 @@ int main(int argc, char *argv[])
 			dv->devname = optarg;
 			dv->disposition = devmode;
 			dv->writemostly = writemostly;
-			dv->re_add = re_add;
 			dv->used = 0;
 			dv->next = NULL;
 			*devlistend = dv;
@@ -785,7 +782,7 @@ int main(int argc, char *argv[])
 
 		case O(MANAGE,'U'):
 			/* update=devicesize is allowed with --re-add */
-			if (devmode != 'a' || re_add != 1) {
+			if (devmode != 'A') {
 				pr_err("--update in Manage mode only"
 					" allowed with --re-add.\n");
 				exit(1);
@@ -912,11 +909,9 @@ int main(int argc, char *argv[])
 		case O(MANAGE,'a'):
 		case O(MANAGE,Add): /* add a drive */
 			devmode = 'a';
-			re_add = 0;
 			continue;
 		case O(MANAGE,ReAdd):
-			devmode = 'a';
-			re_add = 1;
+			devmode = 'A';
 			continue;
 		case O(MANAGE,'r'): /* remove a drive */
 		case O(MANAGE,Remove):

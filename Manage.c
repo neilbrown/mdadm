@@ -524,7 +524,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (next != dv)
 				continue;
 		} else if (strcmp(dv->devname, "missing") == 0) {
-			if (dv->disposition != 'a' || dv->re_add == 0) {
+			if (dv->disposition != 'A') {
 				pr_err("'missing' only meaningful "
 					"with --re-add\n");
 				goto abort;
@@ -610,6 +610,7 @@ int Manage_subdevs(char *devname, int fd,
 				dv->devname, dv->disposition);
 			goto abort;
 		case 'a':
+		case 'A':
 			/* add the device */
 			if (subarray) {
 				pr_err("Cannot add disks to a"
@@ -724,8 +725,7 @@ int Manage_subdevs(char *devname, int fd,
 					break;
 				}
 				/* FIXME this is a bad test to be using */
-				if (!tst->sb &&
-				    dv->re_add) {
+				if (!tst->sb && dv->disposition == 'A') {
 					/* we are re-adding a device to a
 					 * completely dead array - have to depend
 					 * on kernel to check
@@ -857,7 +857,7 @@ int Manage_subdevs(char *devname, int fd,
 					}
 					continue;
 				}
-				if (dv->re_add) {
+				if (dv->disposition == 'A') {
 					if (tfd >= 0)
 						close(tfd);
 					pr_err("--re-add for %s to %s is not possible\n",
@@ -943,7 +943,7 @@ int Manage_subdevs(char *devname, int fd,
 					close(dfd);
 					goto abort;
 				}
-			} else if (dv->re_add) {
+			} else if (dv->disposition == 'A') {
 				/*  this had better be raid1.
 				 * As we are "--re-add"ing we must find a spare slot
 				 * to fill.
@@ -1269,7 +1269,6 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 
 	devlist.next = NULL;
 	devlist.used = 0;
-	devlist.re_add = 0;
 	devlist.writemostly = 0;
 	devlist.devname = devname;
 	sprintf(devname, "%d:%d", major(devid), minor(devid));

@@ -377,11 +377,11 @@ struct mddev_ident {
 /* List of device names - wildcards expanded */
 struct mddev_dev {
 	char *devname;
-	int disposition;	/* 'a' for add, 'r' for remove, 'f' for fail.
+	int disposition;	/* 'a' for add, 'r' for remove, 'f' for fail,
+				 * 'A' for re_add.
 				 * Not set for names read from .config
 				 */
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
-	char re_add;
 	char used;		/* set when used */
 	struct mddev_dev *next;
 };

@@ -950,7 +950,6 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			char devname[20];
 			devlist.next = NULL;
 			devlist.used = 0;
-			devlist.re_add = 0;
 			devlist.writemostly = 0;
 			devlist.devname = devname;
 			sprintf(devname, "%d:%d", major(stb.st_rdev),

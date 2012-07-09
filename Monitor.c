@@ -72,9 +72,10 @@ static void link_containers_with_subarrays(struct state *list);
 
 int Monitor(struct mddev_dev *devlist,
 	    char *mailaddr, char *alert_cmd,
-	    int period, int daemonise, int scan, int oneshot,
-	    int dosyslog, int test, char *pidfile, int increments,
-	    int share, char *prefer)
+	    struct context *c,
+	    int daemonise, int oneshot,
+	    int dosyslog, char *pidfile, int increments,
+	    int share)
 {
 	/*
 	 * Every few seconds, scan every md device looking for changes
@@ -127,7 +128,7 @@ int Monitor(struct mddev_dev *devlist,
 
 	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr();
-		if (mailaddr && ! scan)
+		if (mailaddr && ! c->scan)
 			pr_err("Monitor using email address \"%s\" from config file\n",
 			       mailaddr);
 	}
@@ -135,11 +136,11 @@ int Monitor(struct mddev_dev *devlist,
 
 	if (!alert_cmd) {
 		alert_cmd = conf_get_program();
-		if (alert_cmd && ! scan)
+		if (alert_cmd && ! c->scan)
 			pr_err("Monitor using program \"%s\" from config file\n",
 			       alert_cmd);
 	}
-	if (scan && !mailaddr && !alert_cmd && !dosyslog) {
+	if (c->scan && !mailaddr && !alert_cmd && !dosyslog) {
 		pr_err("No mail address or alert command - not monitoring.\n");
 		return 1;
 	}
@@ -155,7 +156,7 @@ int Monitor(struct mddev_dev *devlist,
 	}
 
 	if (share) 
-		if (check_one_sharer(scan))
+		if (check_one_sharer(c->scan))
 			return 1;
 
 	if (devlist == NULL) {
@@ -212,13 +213,13 @@ int Monitor(struct mddev_dev *devlist,
 		mdstat = mdstat_read(oneshot?0:1, 0);
 
 		for (st=statelist; st; st=st->next)
-			if (check_array(st, mdstat, test, &info,
-					increments, prefer))
+			if (check_array(st, mdstat, c->test, &info,
+					increments, c->prefer))
 				anydegraded = 1;
 		
 		/* now check if there are any new devices found in mdstat */
-		if (scan)
-			new_found = add_new_arrays(mdstat, &statelist, test,
+		if (c->scan)
+			new_found = add_new_arrays(mdstat, &statelist, c->test,
 						   &info);
 
 		/* If an array has active < raid && spare == 0 && spare_group != NULL
@@ -231,9 +232,9 @@ int Monitor(struct mddev_dev *devlist,
 			if (oneshot)
 				break;
 			else
-				mdstat_wait(period);
+				mdstat_wait(c->delay);
 		}
-		test = 0;
+		c->test = 0;
 	}
 	for (st2 = statelist; st2; st2 = statelist) {
 		statelist = st2->next;

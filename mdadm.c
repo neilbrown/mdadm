@@ -1388,10 +1388,12 @@ int main(int argc, char *argv[])
 			else
 				c.delay = 60;
 		}
+		if (c.delay == 0)
+			c.delay = 60;
 		rv= Monitor(devlist, mailaddr, program,
-			    c.delay?c.delay:60, daemonise, c.scan, oneshot,
-			    dosyslog, c.test, pidfile, increments,
-			    spare_sharing, c.prefer);
+			    &c, daemonise, oneshot,
+			    dosyslog, pidfile, increments,
+			    spare_sharing);
 		break;
 
 	case GROW:

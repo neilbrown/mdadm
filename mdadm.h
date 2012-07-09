@@ -1120,9 +1120,10 @@ extern int Examine(struct mddev_dev *devlist, struct context *c,
 		   struct supertype *forcest);
 extern int Monitor(struct mddev_dev *devlist,
 		   char *mailaddr, char *alert_cmd,
-		   int period, int daemonise, int scan, int oneshot,
-		   int dosyslog, int test, char *pidfile, int increments,
-		   int share, char *prefer);
+		   struct context *c,
+		   int daemonise, int oneshot,
+		   int dosyslog, char *pidfile, int increments,
+		   int share);
 
 extern int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl);
 extern int Kill_subarray(char *dev, char *subarray, int verbose);

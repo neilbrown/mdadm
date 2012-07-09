@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # run test suite for mdadm
 user=`id -un`

@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,6 @@
 #include "mdadm.h"
 #include "md_p.h"
 #include <ctype.h>
-
 
 int main(int argc, char *argv[])
 {
@@ -177,7 +176,7 @@ int main(int argc, char *argv[])
 
 		/*
 		 * --offroot sets first char of argv[0] to @. This is used
-		 * by systemd to signal that the tast was launched from
+		 * by systemd to signal that the task was launched from
 		 * initrd/initramfs and should be preserved during shutdown
 		 */
 		case OffRootOpt:
@@ -220,15 +219,23 @@ int main(int argc, char *argv[])
 			}
 			break;
 
-		case 'A': newmode = ASSEMBLE; shortopt = short_bitmap_auto_options; break;
-		case 'B': newmode = BUILD; shortopt = short_bitmap_auto_options; break;
-		case 'C': newmode = CREATE; shortopt = short_bitmap_auto_options; break;
-		case 'F': newmode = MONITOR;break;
+		case 'A': newmode = ASSEMBLE;
+			shortopt = short_bitmap_auto_options;
+			break;
+		case 'B': newmode = BUILD;
+			shortopt = short_bitmap_auto_options;
+			break;
+		case 'C': newmode = CREATE;
+			shortopt = short_bitmap_auto_options;
+			break;
+		case 'F': newmode = MONITOR;
+			break;
 		case 'G': newmode = GROW;
 			shortopt = short_bitmap_options;
 			break;
 		case 'I': newmode = INCREMENTAL;
-			shortopt = short_bitmap_auto_options; break;
+			shortopt = short_bitmap_auto_options;
+			break;
 		case AutoDetect:
 			newmode = AUTODETECT;
 			break;
@@ -586,7 +593,7 @@ int main(int argc, char *argv[])
 			ident.raid_disks = raiddisks;
 			continue;
 
-		case O(CREATE,'x'): /* number of spare (eXtra) discs */
+		case O(CREATE,'x'): /* number of spare (eXtra) disks */
 			if (sparedisks) {
 				fprintf(stderr,Name ": spare-devices set twice: %d and %s\n",
 					sparedisks, optarg);
@@ -833,7 +840,7 @@ int main(int argc, char *argv[])
 		case O(MONITOR,'r'): /* rebuild increments */
 		case O(MONITOR,Increment):
 			increments = atoi(optarg);
-			if (increments>99 || increments<1) {
+			if (increments > 99 || increments < 1) {
 				fprintf(stderr, Name ": please specify positive integer between 1 and 99 as rebuild increments.\n");
 				exit(2);
 			}
@@ -880,6 +887,7 @@ int main(int argc, char *argv[])
 		case O(MONITOR, NoSharing):
 			spare_sharing = 0;
 			continue;
+
 			/* now the general management options.  Some are applicable
 			 * to other modes. None have arguments.
 			 */
@@ -1043,7 +1051,7 @@ int main(int argc, char *argv[])
 		case O(CREATE,Bitmap): /* here we create the bitmap */
 			if (strcmp(optarg, "none") == 0) {
 				fprintf(stderr, Name ": '--bitmap none' only"
-					" support for --grow\n");
+					" supported for --grow\n");
 				exit(2);
 			}
 			/* FALL THROUGH */
@@ -1158,12 +1166,13 @@ int main(int argc, char *argv[])
 	 *
 	 * That is mosty checked in the per-mode stuff but...
 	 *
-	 * For @,B,C  and A without -s, the first device listed must be an md device
-	 * we check that here and open it.
+	 * For @,B,C and A without -s, the first device listed must be
+	 * an md device.  We check that here and open it.
 	 */
 
-	if (mode==MANAGE || mode == BUILD || mode == CREATE || mode == GROW ||
-	    (mode == ASSEMBLE && ! scan)) {
+	if (mode == MANAGE || mode == BUILD || mode == CREATE
+	    || mode == GROW
+	    || (mode == ASSEMBLE && ! scan)) {
 		if (devs_found < 1) {
 			fprintf(stderr, Name ": an md device must be given in this mode\n");
 			exit(2);
@@ -1205,7 +1214,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (raiddisks) {
-		if (raiddisks == 1 &&  !force && level != -5) {
+		if (raiddisks == 1 &&  !force && level != LEVEL_FAULTY) {
 			fprintf(stderr, Name ": '1' is an unusual number of drives for an array, so it is probably\n"
 				"     a mistake.  If you really mean it you will need to specify --force before\n"
 				"     setting the number of drives.\n");
@@ -1226,9 +1235,10 @@ int main(int argc, char *argv[])
 		require_homehost = 0;
 	}
 
-	if (!((mode == MISC && devmode == 'E')
-	      || (mode == MONITOR && spare_sharing == 0)) &&
-	    geteuid() != 0) {
+	if ((mode == MISC && devmode == 'E')
+	    || (mode == MONITOR && spare_sharing == 0))
+		/* Anyone may try this */;
+	else if (geteuid() != 0) {
 		fprintf(stderr, Name ": must be super-user to perform this action\n");
 		exit(1);
 	}
@@ -1278,7 +1288,7 @@ int main(int argc, char *argv[])
 				      homehost, require_homehost,
 				      verbose-quiet, force,
 				      freeze_reshape);
-		else if (devs_found>0) {
+		else if (devs_found > 0) {
 			if (update && devs_found > 1) {
 				fprintf(stderr, Name ": can only update a single array at a time\n");
 				exit(1);

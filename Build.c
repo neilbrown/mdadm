@@ -265,8 +265,9 @@ int Build(char *mddev, int chunk, int level, int layout,
 			chunk >>= 1;
 		}
 		if (level == 0)
-			chunk |= 0x20000;
-		else 	chunk |= 0x10000;
+			arg |= 0x20000;
+		else
+			arg |= 0x10000;
 		if (ioctl(mdfd, START_MD, arg)) {
 			pr_err("START_MD failed: %s\n",
 				strerror(errno));

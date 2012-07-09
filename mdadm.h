@@ -264,6 +264,7 @@ enum mode {
 	GROW,
 	INCREMENTAL,
 	AUTODETECT,
+	mode_count
 };
 
 extern char short_options[];
@@ -271,6 +272,7 @@ extern char short_bitmap_options[];
 extern char short_bitmap_auto_options[];
 extern struct option long_options[];
 extern char Version[], Usage[], Help[], OptionHelp[],
+	*mode_help[],
 	Help_create[], Help_build[], Help_assemble[], Help_grow[],
 	Help_incr[],
 	Help_manage[], Help_misc[], Help_monitor[], Help_config[];

@@ -1136,20 +1136,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (print_help) {
-		char *help_text = Help;
+		char *help_text;
 		if (print_help == 2)
 			help_text = OptionHelp;
 		else
-			switch (mode) {
-			case ASSEMBLE : help_text = Help_assemble; break;
-			case BUILD    : help_text = Help_build; break;
-			case CREATE   : help_text = Help_create; break;
-			case MANAGE   : help_text = Help_manage; break;
-			case MISC     : help_text = Help_misc; break;
-			case MONITOR  : help_text = Help_monitor; break;
-			case GROW     : help_text = Help_grow; break;
-			case INCREMENTAL:help_text= Help_incr; break;
-			}
+			help_text = mode_help[mode];
+		if (help_text == NULL)
+			help_text = Help;
 		fputs(help_text,stdout);
 		exit(0);
 	}

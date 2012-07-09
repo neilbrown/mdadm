@@ -600,3 +600,14 @@ char Help_config[] =
 "\n"
 ;
 
+char *mode_help[mode_count] = {
+	[0]		= Help,
+	[ASSEMBLE]	= Help_assemble,
+	[BUILD]		= Help_build,
+	[CREATE]	= Help_create,
+	[MANAGE]	= Help_manage,
+	[MISC]		= Help_misc,
+	[MONITOR]	= Help_monitor,
+	[GROW]		= Help_grow,
+	[INCREMENTAL]	= Help_incr,
+};

@@ -1107,11 +1107,11 @@ extern int Build(char *mddev, int chunk, int level, int layout,
 extern int Create(struct supertype *st, char *mddev,
 		  int chunk, int level, int layout, unsigned long long size,
 		  int raiddisks, int sparedisks,
-		  char *name, char *homehost, int *uuid,
+		  char *name, int *uuid,
 		  int subdevs, struct mddev_dev *devlist,
-		  int runstop, int readonly, int verbose,
-		  int force, int assume_clean,
-		  char *bitmap_file, int bitmap_chunk, int write_behind, int delay, int autof);
+		  int assume_clean,
+		  char *bitmap_file, int bitmap_chunk, int write_behind,
+		  struct context *c);
 
 extern int Detail(char *dev, int brief, int export, int test, char *homehost, char *prefer);
 extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);

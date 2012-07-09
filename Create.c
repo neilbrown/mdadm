@@ -65,12 +65,11 @@ static int default_layout(struct supertype *st, int level, int verbose)
 int Create(struct supertype *st, char *mddev,
 	   int chunk, int level, int layout, unsigned long long size,
 	   int raiddisks, int sparedisks,
-	   char *name, char *homehost, int *uuid,
+	   char *name, int *uuid,
 	   int subdevs, struct mddev_dev *devlist,
-	   int runstop, int readonly, int verbose,
-	   int force, int assume_clean,
+	   int assume_clean,
 	   char *bitmap_file, int bitmap_chunk, int write_behind,
-	   int delay, int autof)
+	   struct context *c)
 {
 	/*
 	 * Create a new raid array.
@@ -205,7 +204,7 @@ int Create(struct supertype *st, char *mddev,
 
 	if (layout == UnSet) {
 		do_default_layout = 1;
-		layout = default_layout(st, level, verbose);
+		layout = default_layout(st, level, c->verbose);
 	}
 
 	if (level == 10)
@@ -232,7 +231,7 @@ int Create(struct supertype *st, char *mddev,
 		/* a chunksize of zero 0s perfectly valid (and preferred) since 2.6.16 */
 		if (get_linux_version() < 2006016 && chunk == 0) {
 			chunk = 64;
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("chunk size defaults to 64K\n");
 		}
 		break;
@@ -242,7 +241,7 @@ int Create(struct supertype *st, char *mddev,
 	case LEVEL_CONTAINER:
 		if (chunk) {
 			chunk = 0;
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("chunk size ignored for this level\n");
 		}
 		break;
@@ -255,14 +254,14 @@ int Create(struct supertype *st, char *mddev,
 		size &= ~(unsigned long long)(chunk - 1);
 	newsize = size * 2;
 	if (st && ! st->ss->validate_geometry(st, level, layout, raiddisks,
-					      &chunk, size*2, NULL, &newsize, verbose>=0))
+					      &chunk, size*2, NULL, &newsize, c->verbose>=0))
 		return 1;
 
 	if (chunk && chunk != UnSet) {
 		newsize &= ~(unsigned long long)(chunk*2 - 1);
 		if (do_default_chunk) {
 			/* default chunk was just set */
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("chunk size "
 					"defaults to %dK\n", chunk);
 			size &= ~(unsigned long long)(chunk - 1);
@@ -279,7 +278,7 @@ int Create(struct supertype *st, char *mddev,
 			 */
 			size &= ~(64ULL-1);
 
-		if (size && verbose > 0)
+		if (size && c->verbose > 0)
 			pr_err("setting size to %lluK\n",
 				(unsigned long long)size);
 	}
@@ -334,11 +333,11 @@ int Create(struct supertype *st, char *mddev,
 				if (!st)
 					continue;
 				if (do_default_layout)
-					layout = default_layout(st, level, verbose);
+					layout = default_layout(st, level, c->verbose);
 				switch (st->ss->validate_geometry(
 						st, level, layout, raiddisks,
 						&chunk, size*2, dname, &freesize,
-						verbose > 0)) {
+						c->verbose > 0)) {
 				case -1: /* Not valid, message printed, and not
 					  * worth checking any further */
 					exit(2);
@@ -375,7 +374,7 @@ int Create(struct supertype *st, char *mddev,
 						       raiddisks,
 						       &chunk, size*2, dname,
 						       &freesize,
-						       verbose >= 0)) {
+						       c->verbose >= 0)) {
 
 				pr_err("%s is not suitable for "
 				       "this array.\n",
@@ -391,7 +390,7 @@ int Create(struct supertype *st, char *mddev,
 			freesize = freesize & ~(chunk-1);
 			if (do_default_chunk) {
 				/* default chunk was just set */
-				if (verbose > 0)
+				if (c->verbose > 0)
 					pr_err("chunk size "
 						"defaults to %dK\n", chunk);
 				size &= ~(unsigned long long)(chunk - 1);
@@ -414,7 +413,7 @@ int Create(struct supertype *st, char *mddev,
 			mindisc = dname;
 			minsize = freesize;
 		}
-		if (runstop != 1 || verbose >= 0) {
+		if (c->runstop != 1 || c->verbose >= 0) {
 			int fd = open(dname, O_RDONLY);
 			if (fd <0 ) {
 				pr_err("Cannot open %s: %s\n",
@@ -486,19 +485,19 @@ int Create(struct supertype *st, char *mddev,
 				 * now just to be safe
 				 */
 				size &= ~(64ULL-1);
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("size set to %lluK\n", size);
 		}
 	}
 	if (!have_container && level > 0 && ((maxsize-size)*100 > maxsize)) {
-		if (runstop != 1 || verbose >= 0)
+		if (c->runstop != 1 || c->verbose >= 0)
 			pr_err("largest drive (%s) exceeds size (%lluK) by more than 1%%\n",
 				maxdisc, size);
 		warn = 1;
 	}
 
 	if (st->ss->detail_platform && st->ss->detail_platform(0, 1) != 0) {
-		if (runstop != 1 || verbose >= 0)
+		if (c->runstop != 1 || c->verbose >= 0)
 			pr_err("%s unable to enumerate platform support\n"
 				"    array may not be compatible with hardware/firmware\n",
 				st->ss->name);
@@ -506,13 +505,13 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	if (warn) {
-		if (runstop!= 1) {
+		if (c->runstop!= 1) {
 			if (!ask("Continue creating array? ")) {
 				pr_err("create aborted.\n");
 				return 1;
 			}
 		} else {
-			if (verbose > 0)
+			if (c->verbose > 0)
 				pr_err("creation continuing despite oddities due to --run\n");
 		}
 	}
@@ -522,7 +521,7 @@ int Create(struct supertype *st, char *mddev,
 	 * FIX: Can we do this for raid6 as well?
 	 */
 	if (st->ss->external == 0 &&
-	    assume_clean==0 && force == 0 && first_missing >= raiddisks) {
+	    assume_clean==0 && c->force == 0 && first_missing >= raiddisks) {
 		switch ( level ) {
 		case 4:
 		case 5:
@@ -538,7 +537,7 @@ int Create(struct supertype *st, char *mddev,
 	/* For raid6, if creating with 1 missing drive, make a good drive
 	 * into a spare, else the create will fail
 	 */
-	if (assume_clean == 0 && force == 0 && first_missing < raiddisks &&
+	if (assume_clean == 0 && c->force == 0 && first_missing < raiddisks &&
 	    st->ss->external == 0 &&
 	    second_missing >= raiddisks && level == 6) {
 		insert_point = raiddisks - 1;
@@ -556,7 +555,7 @@ int Create(struct supertype *st, char *mddev,
 
 	/* We need to create the device */
 	map_lock(&map);
-	mdfd = create_mddev(mddev, name, autof, LOCAL, chosen_name);
+	mdfd = create_mddev(mddev, name, c->autof, LOCAL, chosen_name);
 	if (mdfd < 0) {
 		map_unlock(&map);
 		return 1;
@@ -681,14 +680,14 @@ int Create(struct supertype *st, char *mddev,
 				name += 2;
 		}
 	}
-	if (!st->ss->init_super(st, &info.array, size, name, homehost, uuid))
+	if (!st->ss->init_super(st, &info.array, size, name, c->homehost, uuid))
 		goto abort_locked;
 
 	total_slots = info.array.nr_disks;
 	st->ss->getinfo_super(st, &info, NULL);
 	sysfs_init(&info, mdfd, 0);
 
-	if (did_default && verbose >= 0) {
+	if (did_default && c->verbose >= 0) {
 		if (is_subarray(info.text_version)) {
 			int dnum = devname2devnum(info.text_version+1);
 			char *path;
@@ -733,7 +732,7 @@ int Create(struct supertype *st, char *mddev,
 			goto abort;
 		}
 		if (!st->ss->add_internal_bitmap(st, &bitmap_chunk,
-						 delay, write_behind,
+						 c->delay, write_behind,
 						 bitmapsize, 1, major_num)) {
 			pr_err("Given bitmap chunk size not supported.\n");
 			goto abort;
@@ -766,7 +765,7 @@ int Create(struct supertype *st, char *mddev,
 			goto abort;
 		}
 		if (mdmon_running(st->container_dev)) {
-			if (verbose)
+			if (c->verbose)
 				pr_err("reusing mdmon "
 					"for %s.\n",
 					devnum2devname(st->container_dev));
@@ -785,8 +784,8 @@ int Create(struct supertype *st, char *mddev,
 		int uuid[4];
 
 		st->ss->uuid_from_super(st, uuid);
-		if (CreateBitmap(bitmap_file, force, (char*)uuid, bitmap_chunk,
-				 delay, write_behind,
+		if (CreateBitmap(bitmap_file, c->force, (char*)uuid, bitmap_chunk,
+				 c->delay, write_behind,
 				 bitmapsize,
 				 major_num)) {
 			goto abort;
@@ -873,7 +872,7 @@ int Create(struct supertype *st, char *mddev,
 				st->ss->getinfo_super(st, inf, NULL);
 				safe_mode_delay = inf->safe_mode_delay;
 
-				if (have_container && verbose > 0)
+				if (have_container && c->verbose > 0)
 					pr_err("Using %s for device %d\n",
 						map_dev(inf->disk.major,
 							inf->disk.minor,
@@ -948,10 +947,10 @@ int Create(struct supertype *st, char *mddev,
 		/* No need to start.  But we should signal udev to
 		 * create links */
 		sysfs_uevent(&info, "change");
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("container %s prepared.\n", mddev);
 		wait_for(chosen_name, mdfd);
-	} else if (runstop == 1 || subdevs >= raiddisks) {
+	} else if (c->runstop == 1 || subdevs >= raiddisks) {
 		if (st->ss->external) {
 			int err;
 			switch(level) {
@@ -959,7 +958,7 @@ int Create(struct supertype *st, char *mddev,
 			case LEVEL_MULTIPATH:
 			case 0:
 				err = sysfs_set_str(&info, NULL, "array_state",
-						    readonly
+						    c->readonly
 						    ? "readonly"
 						    : "active");
 				need_mdmon = 0;
@@ -976,7 +975,7 @@ int Create(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;
 			}
-		} else if (readonly &&
+		} else if (c->readonly &&
 			   sysfs_attribute_available(
 				   &info, NULL, "array_state")) {
 			if (sysfs_set_str(&info, NULL,
@@ -1000,7 +999,7 @@ int Create(struct supertype *st, char *mddev,
 				goto abort;
 			}
 		}
-		if (verbose >= 0)
+		if (c->verbose >= 0)
 			pr_err("array %s started.\n", mddev);
 		if (st->ss->external && st->container_dev != NoMdDev) {
 			if (need_mdmon)

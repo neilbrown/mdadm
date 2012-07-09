@@ -1332,11 +1332,11 @@ int main(int argc, char *argv[])
 		}
 
 		rv = Create(ss, devlist->devname, chunk, level, layout, size<0 ? 0 : size,
-			    raiddisks, sparedisks, ident.name, c.homehost,
+			    raiddisks, sparedisks, ident.name,
 			    ident.uuid_set ? ident.uuid : NULL,
-			    devs_found-1, devlist->next, c.runstop,
-			    c.readonly, c.verbose, c.force, assume_clean,
-			    bitmap_file, bitmap_chunk, write_behind, c.delay, c.autof);
+			    devs_found-1, devlist->next,
+			    assume_clean,
+			    bitmap_file, bitmap_chunk, write_behind, &c);
 		break;
 	case MISC:
 		if (devmode == 'E') {

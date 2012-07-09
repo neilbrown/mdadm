@@ -306,7 +306,6 @@ int main(int argc, char *argv[])
 			all = 1;
 			break;
 		case 't':
-			container_name = optarg;
 			takeover = 1;
 			break;
 		case OffRootOpt:

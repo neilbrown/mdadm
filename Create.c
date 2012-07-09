@@ -803,11 +803,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 	}
 
-	infos = malloc(sizeof(*infos) * total_slots);
-	if (!infos) {
-		pr_err("Unable to allocate memory\n");
-		goto abort;
-	}
+	infos = xmalloc(sizeof(*infos) * total_slots);
 
 	for (pass=1; pass <=2 ; pass++) {
 		struct mddev_dev *moved_disk = NULL; /* the disk that was moved out of the insert point */
@@ -931,7 +927,7 @@ int Create(struct supertype *st, char *mddev,
 
 			/* update parent container uuid */
 			if (me) {
-				char *path = strdup(me->path);
+				char *path = xstrdup(me->path);
 
 				st->ss->getinfo_super(st, &info_new, NULL);
 				map_update(&map, st->container_dev,

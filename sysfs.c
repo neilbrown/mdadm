@@ -105,10 +105,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 	DIR *dir = NULL;
 	struct dirent *de;
 
-	sra = malloc(sizeof(*sra));
-	if (sra == NULL)
-		return sra;
-	memset(sra, 0, sizeof(*sra));
+	sra = xcalloc(1, sizeof(*sra));
 	sysfs_init(sra, fd, devnum);
 	if (sra->sys_name[0] == 0) {
 		free(sra);
@@ -250,9 +247,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 		dbase = base + strlen(base);
 		*dbase++ = '/';
 
-		dev = malloc(sizeof(*dev));
-		if (!dev)
-			goto abort;
+		dev = xmalloc(sizeof(*dev));
 
 		/* Always get slot, major, minor */
 		strcpy(dbase, "slot");

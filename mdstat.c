@@ -103,7 +103,7 @@ static int add_member_devname(struct dev_member **m, char *name)
 		/* not a device */
 		return 0;
 
-	new = malloc(sizeof(*new));
+	new = xmalloc(sizeof(*new));
 	new->name = strndup(name, t - name);
 	new->next = *m;
 	*m = new;
@@ -177,12 +177,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			continue;
 		}
 
-		ent = malloc(sizeof(*ent));
-		if (!ent) {
-			pr_err("malloc failed reading /proc/mdstat.\n");
-			free_line(line);
-			break;
-		}
+		ent = xmalloc(sizeof(*ent));
 		ent->dev = ent->level = ent->pattern= NULL;
 		ent->next = NULL;
 		ent->percent = RESYNC_NONE;
@@ -193,7 +188,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		ent->devcnt = 0;
 		ent->members = NULL;
 
-		ent->dev = strdup(line);
+		ent->dev = xstrdup(line);
 		ent->devnum = devnum;
 
 		for (w=dl_next(line); w!= line ; w=dl_next(w)) {
@@ -207,7 +202,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			} else if (ent->active > 0 &&
 				 ent->level == NULL &&
 				 w[0] != '(' /*readonly*/) {
-				ent->level = strdup(w);
+				ent->level = xstrdup(w);
 				in_devs = 1;
 			} else if (in_devs && strcmp(w, "blocks")==0)
 				in_devs = 0;
@@ -231,13 +226,13 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			} else if (strcmp(w, "super") == 0 &&
 				   dl_next(w) != line) {
 				w = dl_next(w);
-				ent->metadata_version = strdup(w);
+				ent->metadata_version = xstrdup(w);
 			} else if (w[0] == '[' && isdigit(w[1])) {
 				ent->raid_disks = atoi(w+1);
 			} else if (!ent->pattern &&
 				 w[0] == '[' &&
 				 (w[1] == 'U' || w[1] == '_')) {
-				ent->pattern = strdup(w+1);
+				ent->pattern = xstrdup(w+1);
 				if (ent->pattern[l-2]==']')
 					ent->pattern[l-2] = '\0';
 			} else if (ent->percent == RESYNC_NONE &&

@@ -106,12 +106,12 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  unsigned long long start, unsigned long long length, char *name[])
 {
 	/* read the data and p and q blocks, and check we got them right */
-	char *stripe_buf = malloc(raid_disks * chunk_size);
-	char **stripes = malloc(raid_disks * sizeof(char*));
-	char **blocks = malloc(raid_disks * sizeof(char*));
-	uint8_t *p = malloc(chunk_size);
-	uint8_t *q = malloc(chunk_size);
-	int *results = malloc(chunk_size * sizeof(int));
+	char *stripe_buf = xmalloc(raid_disks * chunk_size);
+	char **stripes = xmalloc(raid_disks * sizeof(char*));
+	char **blocks = xmalloc(raid_disks * sizeof(char*));
+	uint8_t *p = xmalloc(chunk_size);
+	uint8_t *q = xmalloc(chunk_size);
+	int *results = xmalloc(chunk_size * sizeof(int));
 
 	int i;
 	int diskP, diskQ;
@@ -121,16 +121,6 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	int rv;
 
 	extern int tables_ready;
-
-	if((stripe_buf == NULL) ||
-	   (stripes == NULL) ||
-	   (blocks == NULL) ||
-	   (p == NULL) ||
-	   (q == NULL) ||
-	   (results == NULL)) {
-		err = 1;
-		goto exitCheck;
-	}
 
 	if (!tables_ready)
 		make_tables();
@@ -340,21 +330,11 @@ int main(int argc, char *argv[])
 		length = (info->component_size * 512) / chunk_size - start;
 	}
 
-	disk_name = malloc(raid_disks * sizeof(*disk_name));
-	fds = malloc(raid_disks * sizeof(*fds));
-	offsets = malloc(raid_disks * sizeof(*offsets));
-	buf = malloc(raid_disks * chunk_size);
+	disk_name = xmalloc(raid_disks * sizeof(*disk_name));
+	fds = xmalloc(raid_disks * sizeof(*fds));
+	offsets = xcalloc(raid_disks, sizeof(*offsets));
+	buf = xmalloc(raid_disks * chunk_size);
 
-	if((disk_name == NULL) ||
-	   (fds == NULL) ||
-	   (offsets == NULL) ||
-	   (buf == NULL)) {
-		fprintf(stderr, "%s: allocation fail\n", prg);
-		exit_err = 5;
-		goto exitHere;
-	}
-
-	memset(offsets, 0, raid_disks * sizeof(*offsets));
 	for(i=0; i<raid_disks; i++) {
 		fds[i] = -1;
 	}

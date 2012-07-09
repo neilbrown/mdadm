@@ -727,8 +727,8 @@ int Assemble(struct supertype *st, char *mddev,
 	bitmap_done = 0;
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
-	devices = malloc(num_devs * sizeof(*devices));
-	devmap = calloc(num_devs * content->array.raid_disks, 1);
+	devices = xcalloc(num_devs, sizeof(*devices));
+	devmap = xcalloc(num_devs, content->array.raid_disks);
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
@@ -866,7 +866,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (i < 10000) {
 			if (i >= bestcnt) {
 				int newbestcnt = i+10;
-				int *newbest = malloc(sizeof(int)*newbestcnt);
+				int *newbest = xmalloc(sizeof(int)*newbestcnt);
 				int c;
 				for (c=0; c < newbestcnt; c++)
 					if (c < bestcnt)
@@ -931,8 +931,7 @@ int Assemble(struct supertype *st, char *mddev,
 	/* now we have some devices that might be suitable.
 	 * I wonder how many
 	 */
-	avail = malloc(content->array.raid_disks);
-	memset(avail, 0, content->array.raid_disks);
+	avail = xcalloc(content->array.raid_disks, 1);
 	okcnt = 0;
 	sparecnt=0;
 	rebuilding_cnt=0;
@@ -1199,7 +1198,7 @@ int Assemble(struct supertype *st, char *mddev,
 #ifndef MDASSEMBLE
 	if (content->reshape_active) {
 		int err = 0;
-		int *fdlist = malloc(sizeof(int)* bestcnt);
+		int *fdlist = xmalloc(sizeof(int)* bestcnt);
 		if (verbose > 0)
 			pr_err(":%s has an active reshape - checking "
 				"if critical section needs to be restored\n",

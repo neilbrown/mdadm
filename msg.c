@@ -106,9 +106,7 @@ int receive_message(int fd, struct metadata_update *msg, int tmo)
 	if (rv < 0 || len > MSG_MAX_LEN)
 		return -1;
 	if (len > 0) {
-		msg->buf = malloc(len);
-		if (msg->buf == NULL)
-			return -1;
+		msg->buf = xmalloc(len);
 		rv = recv_buf(fd, msg->buf, len, tmo);
 		if (rv < 0) {
 			free(msg->buf);

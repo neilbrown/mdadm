@@ -49,11 +49,8 @@ int restore_backup(struct supertype *st,
 	int disk_count = next_spare + working_disks;
 
 	dprintf("Called restore_backup()\n");
-	fdlist = malloc(sizeof(int) * disk_count);
-	if (fdlist == NULL) {
-		pr_err("cannot allocate memory for disk list\n");
-		return 1;
-	}
+	fdlist = xmalloc(sizeof(int) * disk_count);
+
 	for (i = 0; i < next_spare; i++)
 		fdlist[i] = -1;
 	for (dev = content->devs; dev; dev = dev->next) {
@@ -2401,12 +2398,8 @@ started:
 	nrdisks = max(reshape.before.data_disks,
 		      reshape.after.data_disks) + reshape.parity
 		+ sra->array.spare_disks;
-	fdlist = malloc((1+nrdisks) * sizeof(int));
-	offsets = malloc((1+nrdisks) * sizeof(offsets[0]));
-	if (!fdlist || !offsets) {
-		pr_err("malloc failed: grow aborted\n");
-		goto release;
-	}
+	fdlist = xcalloc((1+nrdisks), sizeof(int));
+	offsets = xcalloc((1+nrdisks), sizeof(offsets[0]));
 
 	odisks = reshape.before.data_disks + reshape.parity;
 	d = reshape_prepare_fdlist(devname, sra, odisks,
@@ -3415,8 +3408,8 @@ static void validate(int afd, int bfd, unsigned long long offset)
 			free(abuf);
 			free(bbuf);
 			abuflen = len;
-			abuf = malloc(abuflen);
-			bbuf = malloc(abuflen);
+			abuf = xmalloc(abuflen);
+			bbuf = xmalloc(abuflen);
 		}
 
 		lseek64(bfd, offset+__le64_to_cpu(bsb2.devstart2)*512, 0);
@@ -3804,7 +3797,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			goto second_fail; /* Cannot find leading superblock */
 
 		/* Now need the data offsets for all devices. */
-		offsets = malloc(sizeof(*offsets)*info->array.raid_disks);
+		offsets = xmalloc(sizeof(*offsets)*info->array.raid_disks);
 		for(j=0; j<info->array.raid_disks; j++) {
 			if (fdlist[j] < 0)
 				continue;

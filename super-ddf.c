@@ -658,7 +658,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 		     super->active->data_section_offset,
 		     super->active->data_section_length,
 		     0);
-	dl->devname = devname ? strdup(devname) : NULL;
+	dl->devname = devname ? xstrdup(devname) : NULL;
 
 	fstat(fd, &stb);
 	dl->major = major(stb.st_rdev);
@@ -884,8 +884,7 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 		)
 		return NULL;
 
-	st = malloc(sizeof(*st));
-	memset(st, 0, sizeof(*st));
+	st = xcalloc(1, sizeof(*st));
 	st->container_dev = NoMdDev;
 	st->ss = &super_ddf;
 	st->max_devs = 512;
@@ -1918,9 +1917,7 @@ FIXME ignore DDF_Legacy devices?
 	int n = 0;
 	unsigned int i, j;
 
-	rv = malloc(sizeof(struct extent) * (ddf->max_part + 2));
-	if (!rv)
-		return NULL;
+	rv = xmalloc(sizeof(struct extent) * (ddf->max_part + 2));
 
 	for (i = 0; i < ddf->max_part; i++) {
 		struct vcl *v = dl->vlist[i];
@@ -2244,7 +2241,7 @@ static int add_to_super_ddf(struct supertype *st,
 			   sizeof(struct phys_disk_entry));
 		struct phys_disk *pd;
 
-		pd = malloc(len);
+		pd = xmalloc(len);
 		pd->magic = DDF_PHYS_RECORDS_MAGIC;
 		pd->used_pdes = __cpu_to_be16(n);
 		pde = &pd->entries[0];
@@ -2302,7 +2299,7 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
 			   sizeof(struct phys_disk_entry));
 		struct phys_disk *pd;
 
-		pd = malloc(len);
+		pd = xmalloc(len);
 		pd->magic = DDF_PHYS_RECORDS_MAGIC;
 		pd->used_pdes = __cpu_to_be16(dl->pdnum);
 		pd->entries[0].state = __cpu_to_be16(DDF_Missing);
@@ -2463,7 +2460,7 @@ static int write_init_super_ddf(struct supertype *st)
 
 		/* First the virtual disk.  We have a slightly fake header */
 		len = sizeof(struct virtual_disk) + sizeof(struct virtual_entry);
-		vd = malloc(len);
+		vd = xmalloc(len);
 		*vd = *ddf->virt;
 		vd->entries[0] = ddf->virt->entries[currentconf->vcnum];
 		vd->populated_vdes = __cpu_to_be16(currentconf->vcnum);
@@ -2471,7 +2468,7 @@ static int write_init_super_ddf(struct supertype *st)
 
 		/* Then the vd_config */
 		len = ddf->conf_rec_len * 512;
-		vc = malloc(len);
+		vc = xmalloc(len);
 		memcpy(vc, &currentconf->conf, len);
 		append_metadata_update(st, vc, len);
 
@@ -2970,8 +2967,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		     *ep != '\0'))
 			continue;
 
-		this = malloc(sizeof(*this));
-		memset(this, 0, sizeof(*this));
+		this = xcalloc(1, sizeof(*this));
 		this->next = rest;
 		rest = this;
 
@@ -3049,8 +3045,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 				/* Haven't found that one yet, maybe there are others */
 				continue;
 
-			dev = malloc(sizeof(*dev));
-			memset(dev, 0, sizeof(*dev));
+			dev = xcalloc(1, sizeof(*dev));
 			dev->next = this->devs;
 			this->devs = dev;
 
@@ -3742,10 +3737,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			}
 
 			/* Cool, we have a device with some space at pos */
-			di = malloc(sizeof(*di));
-			if (!di)
-				continue;
-			memset(di, 0, sizeof(*di));
+			di = xcalloc(1, sizeof(*di));
 			di->disk.number = i;
 			di->disk.raid_disk = i;
 			di->disk.major = dl->major;
@@ -3777,22 +3769,12 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	 * Create a metadata_update record to update the
 	 * phys_refnum and lba_offset values
 	 */
-	mu = malloc(sizeof(*mu));
-	if (mu && posix_memalign(&mu->space, 512, sizeof(struct vcl)) != 0) {
+	mu = xmalloc(sizeof(*mu));
+	if (posix_memalign(&mu->space, 512, sizeof(struct vcl)) != 0) {
 		free(mu);
 		mu = NULL;
 	}
-	if (!mu) {
-		while (rv) {
-			struct mdinfo *n = rv->next;
-
-			free(rv);
-			rv = n;
-		}
-		return NULL;
-	}
-		
-	mu->buf = malloc(ddf->conf_rec_len * 512);
+	mu->buf = xmalloc(ddf->conf_rec_len * 512);
 	mu->len = ddf->conf_rec_len * 512;
 	mu->space = NULL;
 	mu->space_list = NULL;

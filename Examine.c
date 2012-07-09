@@ -130,7 +130,7 @@ int Examine(struct mddev_dev *devlist, int brief, int export, int scan,
 					break;
 			}
 			if (!ap) {
-				ap = malloc(sizeof(*ap));
+				ap = xmalloc(sizeof(*ap));
 				ap->devs = dl_head();
 				ap->next = arrays;
 				ap->spares = 0;

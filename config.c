@@ -178,8 +178,8 @@ struct mddev_dev *load_partitions(void)
 		name = map_dev(major, minor, 1);
 		if (!name)
 			continue;
-		d = malloc(sizeof(*d));
-		d->devname = strdup(name);
+		d = xmalloc(sizeof(*d));
+		d->devname = xstrdup(name);
 		d->next = rv;
 		d->used = 0;
 		rv = d;
@@ -202,9 +202,7 @@ struct mddev_dev *load_containers(void)
 		if (ent->metadata_version &&
 		    strncmp(ent->metadata_version, "external:", 9) == 0 &&
 		    !is_subarray(&ent->metadata_version[9])) {
-			d = malloc(sizeof(*d));
-			if (!d)
-				continue;
+			d = xmalloc(sizeof(*d));
 			if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
 				free(d);
 				continue;
@@ -351,8 +349,8 @@ void devline(char *line)
 	for (w=dl_next(line); w != line; w=dl_next(w)) {
 		if (w[0] == '/' || strcasecmp(w, "partitions") == 0 ||
 		    strcasecmp(w, "containers") == 0) {
-			cd = malloc(sizeof(*cd));
-			cd->name = strdup(w);
+			cd = xmalloc(sizeof(*cd));
+			cd->name = xstrdup(w);
 			cd->next = cdevlist;
 			cdevlist = cd;
 		} else {
@@ -468,20 +466,20 @@ void arrayline(char *line)
 				pr_err("only specify bitmap file once. %s ignored\n",
 					w);
 			else
-				mis.bitmap_file = strdup(w+7);
+				mis.bitmap_file = xstrdup(w+7);
 
 		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
 			if (mis.devices)
 				pr_err("only specify devices once (use a comma separated list). %s ignored\n",
 					w);
 			else
-				mis.devices = strdup(w+8);
+				mis.devices = xstrdup(w+8);
 		} else if (strncasecmp(w, "spare-group=", 12) == 0 ) {
 			if (mis.spare_group)
 				pr_err("only specify one spare group per array. %s ignored.\n",
 					w);
 			else
-				mis.spare_group = strdup(w+12);
+				mis.spare_group = xstrdup(w+12);
 		} else if (strncasecmp(w, "level=", 6) == 0 ) {
 			/* this is mainly for compatability with --brief output */
 			mis.level = map_name(pers, w+6);
@@ -508,11 +506,11 @@ void arrayline(char *line)
 			mis.autof = parse_auto(w+5, "auto type", 0);
 		} else if (strncasecmp(w, "member=", 7) == 0) {
 			/* subarray within a container */
-			mis.member = strdup(w+7);
+			mis.member = xstrdup(w+7);
 		} else if (strncasecmp(w, "container=", 10) == 0) {
 			/* the container holding this subarray.  Either a device name
 			 * or a uuid */
-			mis.container = strdup(w+10);
+			mis.container = xstrdup(w+10);
 		} else {
 			pr_err("unrecognised word on ARRAY line: %s\n",
 				w);
@@ -523,9 +521,9 @@ void arrayline(char *line)
 	    (mis.container == NULL || mis.member == NULL))
 		pr_err("ARRAY line %s has no identity information.\n", mis.devname);
 	else {
-		mi = malloc(sizeof(*mi));
+		mi = xmalloc(sizeof(*mi));
 		*mi = mis;
-		mi->devname = mis.devname ? strdup(mis.devname) : NULL;
+		mi->devname = mis.devname ? xstrdup(mis.devname) : NULL;
 		mi->next = NULL;
 		*mddevlp = mi;
 		mddevlp = &mi->next;
@@ -539,7 +537,7 @@ void mailline(char *line)
 
 	for (w=dl_next(line); w != line ; w=dl_next(w)) {
 		if (alert_email == NULL)
-			alert_email = strdup(w);
+			alert_email = xstrdup(w);
 		else
 			pr_err("excess address on MAIL line: %s - ignored\n",
 				w);
@@ -553,7 +551,7 @@ void mailfromline(char *line)
 
 	for (w=dl_next(line); w != line ; w=dl_next(w)) {
 		if (alert_mail_from == NULL)
-			alert_mail_from = strdup(w);
+			alert_mail_from = xstrdup(w);
 		else {
 			char *t = NULL;
 
@@ -573,7 +571,7 @@ void programline(char *line)
 
 	for (w=dl_next(line); w != line ; w=dl_next(w)) {
 		if (alert_program == NULL)
-			alert_program = strdup(w);
+			alert_program = xstrdup(w);
 		else
 			pr_err("excess program on PROGRAM line: %s - ignored\n",
 				w);
@@ -591,9 +589,9 @@ void homehostline(char *line)
 			require_homehost = 0;
 		else if (home_host == NULL) {
 			if (strcasecmp(w, "<none>")==0)
-				home_host = strdup("");
+				home_host = xstrdup("");
 			else
-				home_host = strdup(w);
+				home_host = xstrdup(w);
 		}else
 			pr_err("excess host name on HOMEHOST line: %s - ignored\n",
 				w);
@@ -647,7 +645,7 @@ void autoline(char *line)
 
 	for (super_cnt = 0; superlist[super_cnt]; super_cnt++)
 		;
-	seen = calloc(super_cnt, 1);
+	seen = xcalloc(super_cnt, 1);
 
 	for (w = dl_next(line); w != line ; w = dl_next(w)) {
 		char *val;
@@ -885,8 +883,8 @@ struct mddev_dev *conf_get_devs()
 	}
 	if (flags & GLOB_APPEND) {
 		for (i=0; i<globbuf.gl_pathc; i++) {
-			struct mddev_dev *t = malloc(sizeof(*t));
-			t->devname = strdup(globbuf.gl_pathv[i]);
+			struct mddev_dev *t = xmalloc(sizeof(*t));
+			t->devname = xstrdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
 			t->used = 0;
 			dlist = t;

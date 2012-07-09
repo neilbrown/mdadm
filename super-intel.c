@@ -525,14 +525,14 @@ const char *get_sys_dev_type(enum sys_dev_type type)
 
 static struct intel_hba * alloc_intel_hba(struct sys_dev *device)
 {
-	struct intel_hba *result = malloc(sizeof(*result));
-	if (result) {
-		result->type = device->type;
-		result->path = strdup(device->path);
-		result->next = NULL;
-		if (result->path && (result->pci_id = strrchr(result->path, '/')) != NULL)
-			result->pci_id++;
-	}
+	struct intel_hba *result = xmalloc(sizeof(*result));
+
+	result->type = device->type;
+	result->path = xstrdup(device->path);
+	result->next = NULL;
+	if (result->path && (result->pci_id = strrchr(result->path, '/')) != NULL)
+		result->pci_id++;
+
 	return result;
 }
 
@@ -625,10 +625,7 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 		)
 		return NULL;
 
-	st = malloc(sizeof(*st));
-	if (!st)
-		return NULL;
-	memset(st, 0, sizeof(*st));
+	st = xcalloc(1, sizeof(*st));
 	st->container_dev = NoMdDev;
 	st->ss = &super_imsm;
 	st->max_devs = IMSM_MAX_DEVICES;
@@ -964,9 +961,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	else
 		reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
 
-	rv = malloc(sizeof(struct extent) * (memberships + 1));
-	if (!rv)
-		return NULL;
+	rv = xcalloc(sizeof(struct extent), (memberships + 1));
 	e = rv;
 
 	for (i = 0; i < super->anchor->num_raid_devs; i++) {
@@ -2317,7 +2312,7 @@ static int imsm_create_metadata_checkpoint_update(
 	update_memory_size =
 		sizeof(struct imsm_update_general_migration_checkpoint);
 
-	*u = calloc(1, update_memory_size);
+	*u = xcalloc(1, update_memory_size);
 	if (*u == NULL) {
 		dprintf("error: cannot get memory for "
 			"imsm_create_metadata_checkpoint_update update\n");
@@ -2845,23 +2840,11 @@ struct mdinfo *getinfo_super_disks_imsm(struct supertype *st)
 	if (!super || !super->disks)
 		return NULL;
 	dl = super->disks;
-	mddev = malloc(sizeof(*mddev));
-	if (!mddev) {
-		pr_err("Failed to allocate memory.\n");
-		return NULL;
-	}
-	memset(mddev, 0, sizeof(*mddev));
+	mddev = xcalloc(1, sizeof(*mddev));
 	while (dl) {
 		struct mdinfo *tmp;
 		disk = &dl->disk;
-		tmp = malloc(sizeof(*tmp));
-		if (!tmp) {
-			pr_err("Failed to allocate memory.\n");
-			if (mddev)
-				sysfs_free(mddev);
-			return NULL;
-		}
-		memset(tmp, 0, sizeof(*tmp));
+		tmp = xcalloc(1, sizeof(*tmp));
 		if (mddev->devs)
 			tmp->next = mddev->devs;
 		mddev->devs = tmp;
@@ -3063,14 +3046,8 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 		 * fails here we don't associate the spare
 		 */
 		for (i = 0; i < sec->anchor->num_raid_devs; i++) {
-			dv = malloc(sizeof(*dv));
-			if (!dv)
-				break;
-			dev = malloc(sizeof_imsm_dev(get_imsm_dev(sec, i), 1));
-			if (!dev) {
-				free(dv);
-				break;
-			}
+			dv = xmalloc(sizeof(*dv));
+			dev = xmalloc(sizeof_imsm_dev(get_imsm_dev(sec, i), 1));
 			dv->dev = dev;
 			dv->index = i;
 			dv->next = first->devlist;
@@ -3243,13 +3220,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	if (rv != 0)
 		return 2;
 
-	dl = calloc(1, sizeof(*dl));
-	if (!dl) {
-		if (devname)
-			pr_err("failed to allocate disk buffer for %s\n",
-			       devname);
-		return 2;
-	}
+	dl = xcalloc(1, sizeof(*dl));
 
 	fstat(fd, &stb);
 	dl->major = major(stb.st_rdev);
@@ -3263,9 +3234,9 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	dl->e = NULL;
 	fd2devname(fd, name);
 	if (devname)
-		dl->devname = strdup(devname);
+		dl->devname = xstrdup(devname);
 	else
-		dl->devname = strdup(name);
+		dl->devname = xstrdup(name);
 
 	/* look up this disk's index in the current anchor */
 	disk = __serial_to_disk(dl->serial, super->anchor, &dl->index);
@@ -3392,18 +3363,12 @@ static int parse_raid_devices(struct intel_super *super)
 		if (len_migr > len)
 			space_needed += len_migr - len;
 
-		dv = malloc(sizeof(*dv));
-		if (!dv)
-			return 1;
+		dv = xmalloc(sizeof(*dv));
 		if (max_len < len_migr)
 			max_len = len_migr;
 		if (max_len > len_migr)
 			space_needed += max_len - len_migr;
-		dev_new = malloc(max_len);
-		if (!dev_new) {
-			free(dv);
-			return 1;
-		}
+		dev_new = xmalloc(max_len);
 		imsm_copy_dev(dev_new, dev_iter);
 		dv->dev = dev_new;
 		dv->index = i;
@@ -3729,13 +3694,10 @@ static void free_super_imsm(struct supertype *st)
 
 static struct intel_super *alloc_super(void)
 {
-	struct intel_super *super = malloc(sizeof(*super));
+	struct intel_super *super = xcalloc(1, sizeof(*super));
 
-	if (super) {
-		memset(super, 0, sizeof(*super));
-		super->current_vol = -1;
-		super->create_offset = ~((unsigned long long) 0);
-	}
+	super->current_vol = -1;
+	super->create_offset = ~((unsigned long long) 0);
 	return super;
 }
 
@@ -3811,13 +3773,11 @@ static int find_missing(struct intel_super *super)
 		if (dl)
 			continue;
 
-		dl = malloc(sizeof(*dl));
-		if (!dl)
-			return 1;
+		dl = xmalloc(sizeof(*dl));
 		dl->major = 0;
 		dl->minor = 0;
 		dl->fd = -1;
-		dl->devname = strdup("missing");
+		dl->devname = xstrdup("missing");
 		dl->index = i;
 		serialcpy(dl->serial, disk->serial);
 		dl->disk = *disk;
@@ -3932,9 +3892,7 @@ static int __prep_thunderdome(struct intel_super **table, int tbl_size,
 			    is_failed(&idisk->disk))
 				idisk->disk.status &= ~(SPARE_DISK);
 		} else {
-			idisk = calloc(1, sizeof(*idisk));
-			if (!idisk)
-				return -1;
+			idisk = xcalloc(1, sizeof(*idisk));
 			idisk->owner = IMSM_UNKNOWN_OWNER;
 			idisk->disk = *disk;
 			idisk->next = *disk_list;
@@ -4394,11 +4352,6 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	free_super_imsm(st);
 
 	super = alloc_super();
-	if (!super) {
-		pr_err("malloc of %zu failed.\n",
-		       sizeof(*super));
-		return 1;
-	}
 	/* Load hba and capabilities if they exist.
 	 * But do not preclude loading metadata in case capabilities or hba are
 	 * non-compliant and ignore_hw_compat is set.
@@ -4621,18 +4574,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 
 	if (!check_name(super, name, 0))
 		return 0;
-	dv = malloc(sizeof(*dv));
-	if (!dv) {
-		pr_err("failed to allocate device list entry\n");
-		return 0;
-	}
-	dev = calloc(1, sizeof(*dev) + sizeof(__u32) * (info->raid_disks - 1));
-	if (!dev) {
-		free(dv);
-		pr_err("could not allocate raid device\n");
-		return 0;
-	}
-
+	dv = xmalloc(sizeof(*dv));
+	dev = xcalloc(1, sizeof(*dev) + sizeof(__u32) * (info->raid_disks - 1));
 	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
 	array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
@@ -4937,15 +4880,10 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		return add_to_super_imsm_volume(st, dk, fd, devname);
 
 	fstat(fd, &stb);
-	dd = malloc(sizeof(*dd));
-	if (!dd) {
-		pr_err("malloc failed %s:%d.\n", __func__, __LINE__);
-		return 1;
-	}
-	memset(dd, 0, sizeof(*dd));
+	dd = xcalloc(sizeof(*dd), 1);
 	dd->major = major(stb.st_rdev);
 	dd->minor = minor(stb.st_rdev);
-	dd->devname = devname ? strdup(devname) : NULL;
+	dd->devname = devname ? xstrdup(devname) : NULL;
 	dd->fd = fd;
 	dd->e = NULL;
 	dd->action = DISK_ADD;
@@ -4997,12 +4935,7 @@ static int remove_from_super_imsm(struct supertype *st, mdu_disk_info_t *dk)
 		       "(line %d).\n", __func__, __LINE__);
 		return 1;
 	}
-	dd = malloc(sizeof(*dd));
-	if (!dd) {
-		pr_err("malloc failed %s:%d.\n", __func__, __LINE__);
-		return 1;
-	}
-	memset(dd, 0, sizeof(*dd));
+	dd = xcalloc(1, sizeof(*dd));
 	dd->major = dk->major;
 	dd->minor = dk->minor;
 	dd->fd = -1;
@@ -5183,13 +5116,7 @@ static int create_array(struct supertype *st, int dev_idx)
 
 	len = sizeof(*u) - sizeof(*dev) + sizeof_imsm_dev(dev, 0) +
 	      sizeof(*inf) * map->num_members;
-	u = malloc(len);
-	if (!u) {
-		fprintf(stderr, "%s: failed to allocate update buffer\n",
-			__func__);
-		return 1;
-	}
-
+	u = xmalloc(len);
 	u->type = update_create_array;
 	u->dev_idx = dev_idx;
 	imsm_copy_dev(&u->dev, dev);
@@ -5215,13 +5142,7 @@ static int mgmt_disk(struct supertype *st)
 		return 0;
 
 	len = sizeof(*u);
-	u = malloc(len);
-	if (!u) {
-		fprintf(stderr, "%s: failed to allocate update buffer\n",
-			__func__);
-		return 1;
-	}
-
+	u = xmalloc(len);
 	u->type = update_add_remove_disk;
 	append_metadata_update(st, u, len);
 
@@ -5313,13 +5234,6 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	 * note that there is no fd for the disks in array.
 	 */
 	super = alloc_super();
-	if (!super) {
-		pr_err("malloc of %zu failed.\n",
-		       sizeof(*super));
-		close(fd);
-		return 0;
-	}
-
 	rv = find_intel_hba_capability(fd, super, verbose ? dev : NULL);
 	if (rv != 0) {
 #if DEBUG
@@ -5391,7 +5305,7 @@ static unsigned long long merge_extents(struct intel_super *super, int sum_exten
 	 * 'maxsize' given the "all disks in an array must share a common start
 	 * offset" constraint
 	 */
-	struct extent *e = calloc(sum_extents, sizeof(*e));
+	struct extent *e = xcalloc(sum_extents, sizeof(*e));
 	struct dl *dl;
 	int i, j;
 	int start_extent;
@@ -5399,9 +5313,6 @@ static unsigned long long merge_extents(struct intel_super *super, int sum_exten
 	unsigned long long start = 0;
 	unsigned long long maxsize;
 	unsigned long reserve;
-
-	if (!e)
-		return 0;
 
 	/* coalesce and sort all extents. also, check to see if we need to
 	 * reserve space between member arrays
@@ -5509,17 +5420,15 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 			struct dev_member *dev = memb->members;
 			int fd = -1;
 			while(dev && (fd < 0)) {
-				char *path = malloc(strlen(dev->name) + strlen("/dev/") + 1);
-				if (path) {
-					num = sprintf(path, "%s%s", "/dev/", dev->name);
-					if (num > 0)
-						fd = open(path, O_RDONLY, 0);
-					if ((num <= 0) || (fd < 0)) {
-						pr_vrb(": Cannot open %s: %s\n",
-						       dev->name, strerror(errno));
-					}
-					free(path);
+				char *path = xmalloc(strlen(dev->name) + strlen("/dev/") + 1);
+				num = sprintf(path, "%s%s", "/dev/", dev->name);
+				if (num > 0)
+					fd = open(path, O_RDONLY, 0);
+				if ((num <= 0) || (fd < 0)) {
+					pr_vrb(": Cannot open %s: %s\n",
+					       dev->name, strerror(errno));
 				}
+				free(path);
 				dev = dev->next;
 			}
 			found = 0;
@@ -5534,20 +5443,13 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 					}
 				}
 				if (*devlist && (found < dpa)) {
-				  dv = calloc(1, sizeof(*dv));
-					if (dv == NULL)
-						pr_err("calloc failed\n");
-					else {
-						dv->devname = malloc(strlen(memb->dev) + strlen("/dev/") + 1);
-						if (dv->devname != NULL) {
-							sprintf(dv->devname, "%s%s", "/dev/", memb->dev);
-							dv->found = found;
-							dv->used = 0;
-							dv->next = *devlist;
-							*devlist = dv;
-						} else
-							free(dv);
-					}
+					dv = xcalloc(1, sizeof(*dv));
+					dv->devname = xmalloc(strlen(memb->dev) + strlen("/dev/") + 1);
+					sprintf(dv->devname, "%s%s", "/dev/", memb->dev);
+					dv->found = found;
+					dv->used = 0;
+					dv->next = *devlist;
+					*devlist = dv;
 				}
 			}
 			if (fd >= 0)
@@ -5567,17 +5469,8 @@ get_loop_devices(void)
 	struct md_list *dv = NULL;
 
 	for(i = 0; i < 12; i++) {
-		dv = calloc(1, sizeof(*dv));
-		if (dv == NULL) {
-			pr_err("calloc failed\n");
-			break;
-		}
-		dv->devname = malloc(40);
-		if (dv->devname == NULL) {
-			pr_err("malloc failed\n");
-			free(dv);
-			break;
-		}
+		dv = xcalloc(1, sizeof(*dv));
+		dv->devname = xmalloc(40);
 		sprintf(dv->devname, "/dev/loop%d", i);
 		dv->next = devlist;
 		devlist = dv;
@@ -5631,19 +5524,8 @@ get_devices(const char *hba_path)
 		}
 
 
-		dv = calloc(1, sizeof(*dv));
-		if (dv == NULL) {
-			pr_err("malloc failed\n");
-			err = 1;
-			break;
-		}
-		dv->devname = strdup(buf);
-		if (dv->devname == NULL) {
-			pr_err("malloc failed\n");
-			err = 1;
-			free(dv);
-			break;
-		}
+		dv = xcalloc(1, sizeof(*dv));
+		dv->devname = xstrdup(buf);
 		dv->next = devlist;
 		devlist = dv;
 	}
@@ -6369,10 +6251,8 @@ static int kill_subarray_imsm(struct supertype *st)
 	}
 
 	if (st->update_tail) {
-		struct imsm_update_kill_array *u = malloc(sizeof(*u));
+		struct imsm_update_kill_array *u = xmalloc(sizeof(*u));
 
-		if (!u)
-			return 2;
 		u->type = update_kill_array;
 		u->dev_idx = current_vol;
 		append_metadata_update(st, u, sizeof(*u));
@@ -6431,10 +6311,8 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 			return 2;
 
 		if (st->update_tail) {
-			struct imsm_update_rename_array *u = malloc(sizeof(*u));
+			struct imsm_update_rename_array *u = xmalloc(sizeof(*u));
 
-			if (!u)
-				return 2;
 			u->type = update_rename_array;
 			u->dev_idx = vol;
 			snprintf((char *) u->name, MAX_RAID_SERIAL_LEN, "%s", name);
@@ -6619,12 +6497,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		 * OROM/EFI
 		 */
 
-		this = malloc(sizeof(*this));
-		if (!this) {
-			pr_err("failed to allocate %zu bytes\n",
-				sizeof(*this));
-			break;
-		}
+		this = xmalloc(sizeof(*this));
 
 		super->current_vol = i;
 		getinfo_super_imsm_volume(st, this, NULL);
@@ -6688,21 +6561,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			if (skip)
 				continue;
 
-			info_d = calloc(1, sizeof(*info_d));
-			if (!info_d) {
-				pr_err("failed to allocate disk"
-				       " for volume %.16s\n", dev->volume);
-				info_d = this->devs;
-				while (info_d) {
-					struct mdinfo *d = info_d->next;
-
-					free(info_d);
-					info_d = d;
-				}
-				free(this);
-				this = rest;
-				break;
-			}
+			info_d = xcalloc(1, sizeof(*info_d));
 			info_d->next = this->devs;
 			this->devs = info_d;
 
@@ -7699,10 +7558,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			continue;
  
 		/* found a usable disk with enough space */
-		di = malloc(sizeof(*di));
-		if (!di)
-			continue;
-		memset(di, 0, sizeof(*di));
+		di = xcalloc(1, sizeof(*di));
 
 		/* dl->index will be -1 in the case we are activating a
 		 * pristine spare.  imsm_process_update() will create a
@@ -7740,24 +7596,9 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	 * Create a metadata_update record to update the
 	 * disk_ord_tbl for the array
 	 */
-	mu = malloc(sizeof(*mu));
-	if (mu) {
-		mu->buf = malloc(sizeof(struct imsm_update_activate_spare) * num_spares);
-		if (mu->buf == NULL) {
-			free(mu);
-			mu = NULL;
-		}
-	}
-	if (!mu) {
-		while (rv) {
-			struct mdinfo *n = rv->next;
-
-			free(rv);
-			rv = n;
-		}
-		return NULL;
-	}
-
+	mu = xmalloc(sizeof(*mu));
+	mu->buf = xcalloc(num_spares, 
+			  sizeof(struct imsm_update_activate_spare));
 	mu->space = NULL;
 	mu->space_list = NULL;
 	mu->len = sizeof(struct imsm_update_activate_spare) * num_spares;
@@ -8687,15 +8528,10 @@ static void imsm_prepare_update(struct supertype *st,
 			int num_members = map->num_members;
 			void *space;
 			int size, i;
-			int err = 0;
 			/* allocate memory for added disks */
 			for (i = 0; i < num_members; i++) {
 				size = sizeof(struct dl);
-				space = malloc(size);
-				if (!space) {
-					err++;
-					break;
-				}
+				space = xmalloc(size);
 				*tail = space;
 				tail = space;
 				*tail = NULL;
@@ -8703,24 +8539,11 @@ static void imsm_prepare_update(struct supertype *st,
 			/* allocate memory for new device */
 			size = sizeof_imsm_dev(super->devlist->dev, 0) +
 				(num_members * sizeof(__u32));
-			space = malloc(size);
-			if (!space)
-				err++;
-			else {
-				*tail = space;
-				tail = space;
-				*tail = NULL;
-			}
-			if (!err) {
-				len = disks_to_mpb_size(num_members * 2);
-			} else {
-				/* if allocation didn't success, free buffer */
-				while (update->space_list) {
-					void **sp = update->space_list;
-					update->space_list = *sp;
-					free(sp);
-				}
-			}
+			space = xmalloc(size);
+			*tail = space;
+			tail = space;
+			*tail = NULL;
+			len = disks_to_mpb_size(num_members * 2);
 		}
 
 		break;
@@ -8746,9 +8569,7 @@ static void imsm_prepare_update(struct supertype *st,
 			if (u->new_raid_disks > u->old_raid_disks)
 				size += sizeof(__u32)*2*
 					(u->new_raid_disks - u->old_raid_disks);
-			s = malloc(size);
-			if (!s)
-				break;
+			s = xmalloc(size);
 			*space_tail = s;
 			space_tail = s;
 			*space_tail = NULL;
@@ -8782,9 +8603,7 @@ static void imsm_prepare_update(struct supertype *st,
 				if (u->new_raid_disks > u->old_raid_disks)
 					size += sizeof(__u32)*2*
 					(u->new_raid_disks - u->old_raid_disks);
-				s = malloc(size);
-				if (!s)
-					break;
+				s = xmalloc(size);
 				*space_tail = s;
 				space_tail = s;
 				*space_tail = NULL;
@@ -8797,12 +8616,7 @@ static void imsm_prepare_update(struct supertype *st,
 		/* add space for disk in update
 		 */
 		size = sizeof(struct dl);
-		s = malloc(size);
-		if (!s) {
-			free(update->space_list);
-			update->space_list = NULL;
-			break;
-		}
+		s = xmalloc(size);
 		*space_tail = s;
 		space_tail = s;
 		*space_tail = NULL;
@@ -8861,16 +8675,9 @@ static void imsm_prepare_update(struct supertype *st,
 		inf = get_disk_info(u);
 		len = sizeof_imsm_dev(dev, 1);
 		/* allocate a new super->devlist entry */
-		dv = malloc(sizeof(*dv));
-		if (dv) {
-			dv->dev = malloc(len);
-			if (dv->dev)
-				update->space = dv;
-			else {
-				free(dv);
-				update->space = NULL;
-			}
-		}
+		dv = xmalloc(sizeof(*dv));
+		dv->dev = xmalloc(len);
+		update->space = dv;
 
 		/* count how many spares will be converted to members */
 		for (i = 0; i < map->num_members; i++) {
@@ -9202,16 +9009,12 @@ int save_backup_imsm(struct supertype *st,
 	unsigned long long start;
 	int data_disks = imsm_num_data_members(dev, MAP_0);
 
-	targets = malloc(new_disks * sizeof(int));
-	if (!targets)
-		goto abort;
+	targets = xmalloc(new_disks * sizeof(int));
 
 	for (i = 0; i < new_disks; i++)
 		targets[i] = -1;
 
-	target_offsets = malloc(new_disks * sizeof(unsigned long long));
-	if (!target_offsets)
-		goto abort;
+	target_offsets = xcalloc(new_disks, sizeof(unsigned long long));
 
 	start = info->reshape_progress * 512;
 	for (i = 0; i < new_disks; i++) {
@@ -9373,9 +9176,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	unit_len = __le32_to_cpu(migr_rec->dest_depth_per_unit) * 512;
 	if (posix_memalign((void **)&buf, 512, unit_len) != 0)
 		goto abort;
-	targets = malloc(new_disks * sizeof(int));
-	if (!targets)
-		goto abort;
+	targets = xcalloc(new_disks, sizeof(int));
 
 	if (open_backup_targets(info, new_disks, targets, super, id->dev)) {
 		pr_err("Cannot open some devices belonging to array.\n");
@@ -9647,12 +9448,7 @@ static int imsm_create_metadata_update_for_reshape(
 	/* now add space for spare disks that we need to add. */
 	update_memory_size += sizeof(u->new_disks[0]) * (delta_disks - 1);
 
-	u = calloc(1, update_memory_size);
-	if (u == NULL) {
-		dprintf("error: "
-			"cannot get memory for imsm_update_reshape update\n");
-		return 0;
-	}
+	u = xcalloc(1, update_memory_size);
 	u->type = update_reshape_container_disks;
 	u->old_raid_disks = old_raid_disks;
 	u->new_raid_disks = geo->raid_disks;
@@ -9727,12 +9523,7 @@ static int imsm_create_metadata_update_for_size_change(
 	/* size of all update data without anchor */
 	update_memory_size = sizeof(struct imsm_update_size_change);
 
-	u = calloc(1, update_memory_size);
-	if (u == NULL) {
-		dprintf("error: cannot get memory for "
-			"imsm_create_metadata_update_for_size_change\n");
-		return 0;
-	}
+	u = xcalloc(1, update_memory_size);
 	u->type = update_size_change;
 	u->subdev = super->current_vol;
 	u->new_size = geo->size;
@@ -9765,12 +9556,7 @@ static int imsm_create_metadata_update_for_migration(
 	/* size of all update data without anchor */
 	update_memory_size = sizeof(struct imsm_update_reshape_migration);
 
-	u = calloc(1, update_memory_size);
-	if (u == NULL) {
-		dprintf("error: cannot get memory for "
-			"imsm_create_metadata_update_for_migration\n");
-		return 0;
-	}
+	u = xcalloc(1, update_memory_size);
 	u->type = update_reshape_migration;
 	u->subdev = super->current_vol;
 	u->new_level = geo->level;
@@ -10069,9 +9855,7 @@ int imsm_takeover(struct supertype *st, struct geo_params *geo)
 	struct intel_super *super = st->sb;
 	struct imsm_update_takeover *u;
 
-	u = malloc(sizeof(struct imsm_update_takeover));
-	if (u == NULL)
-		return 1;
+	u = xmalloc(sizeof(struct imsm_update_takeover));
 
 	u->type = update_takeover;
 	u->subarray = super->current_vol;

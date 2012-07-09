@@ -317,11 +317,7 @@ int main(int argc, char *argv[])
 			/* If first option is a device, don't force the mode yet */
 			if (opt == 1) {
 				if (devs_found == 0) {
-					dv = malloc(sizeof(*dv));
-					if (dv == NULL) {
-						pr_err("malloc failed\n");
-						exit(3);
-					}
+					dv = xmalloc(sizeof(*dv));
 					dv->devname = optarg;
 					dv->disposition = devmode;
 					dv->writemostly = writemostly;
@@ -372,11 +368,7 @@ int main(int argc, char *argv[])
 				       " devices to add: %s\n", optarg);
 				exit(2);
 			}
-			dv = malloc(sizeof(*dv));
-			if (dv == NULL) {
-				pr_err("malloc failed\n");
-				exit(3);
-			}
+			dv = xmalloc(sizeof(*dv));
 			dv->devname = optarg;
 			dv->disposition = devmode;
 			dv->writemostly = writemostly;

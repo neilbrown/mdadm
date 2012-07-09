@@ -152,7 +152,7 @@ static void remove_devices(int devnum, char *path)
 		sprintf(base, "/dev/md_d%d", -1-devnum);
 	be = base + strlen(base);
 
-	path2 = malloc(strlen(path)+20);
+	path2 = xmalloc(strlen(path)+20);
 	strcpy(path2, path);
 	pe = path2 + strlen(path2);
 	
@@ -865,7 +865,7 @@ int Manage_subdevs(char *devname, int fd,
 					goto abort;
 				}
 				if (array.active_disks < array.raid_disks) {
-					char *avail = calloc(array.raid_disks, 1);
+					char *avail = xcalloc(array.raid_disks, 1);
 					int d;
 					int found = 0;
 
@@ -948,8 +948,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * As we are "--re-add"ing we must find a spare slot
 				 * to fill.
 				 */
-				char *used = malloc(array.raid_disks);
-				memset(used, 0, array.raid_disks);
+				char *used = xcalloc(array.raid_disks, 1);
 				for (j=0; j< tst->max_devs; j++) {
 					mdu_disk_info_t disc2;
 					disc2.number = j;

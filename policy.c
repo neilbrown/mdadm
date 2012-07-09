@@ -43,7 +43,7 @@
 static void pol_new(struct dev_policy **pol, char *name, const char *val,
 		    const char *metadata)
 {
-	struct dev_policy *n = malloc(sizeof(*n));
+	struct dev_policy *n = xmalloc(sizeof(*n));
 	const char *real_metadata = NULL;
 	int i;
 
@@ -217,7 +217,7 @@ static char *disk_path(struct mdinfo *disk)
 		if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
 			continue;
 		closedir(by_path);
-		return strdup(ent->d_name);
+		return xstrdup(ent->d_name);
 	}
 	closedir(by_path);
 	/* A NULL path isn't really acceptable - use the devname.. */
@@ -228,9 +228,9 @@ static char *disk_path(struct mdinfo *disk)
 		nm[rv] = 0;
 		dname = strrchr(nm, '/');
 		if (dname)
-			return strdup(dname + 1);
+			return xstrdup(dname + 1);
 	}
-	return strdup("unknown");
+	return xstrdup("unknown");
 }
 
 char type_part[] = "part";
@@ -451,10 +451,10 @@ static int try_rule(char *w, char *name, struct rule **rp)
 	if (strncmp(w, name, len) != 0 ||
 	    w[len] != '=')
 		return 0;
-	r = malloc(sizeof(*r));
+	r = xmalloc(sizeof(*r));
 	r->next = *rp;
 	r->name = name;
-	r->value = strdup(w+len+1);
+	r->value = xstrdup(w+len+1);
 	r->dups = NULL;
 	*rp = r;
 	return 1;
@@ -468,7 +468,7 @@ void policyline(char *line, char *type)
 	if (config_rules_end == NULL)
 		config_rules_end = &config_rules;
 
-	pr = malloc(sizeof(*pr));
+	pr = xmalloc(sizeof(*pr));
 	pr->type = type;
 	pr->rule = NULL;
 	for (w = dl_next(line); w != line ; w = dl_next(w)) {
@@ -492,7 +492,7 @@ void policy_add(char *type, ...)
 	struct pol_rule *pr;
 	char *name, *val;
 
-	pr = malloc(sizeof(*pr));
+	pr = xmalloc(sizeof(*pr));
 	pr->type = type;
 	pr->rule = NULL;
 
@@ -501,10 +501,10 @@ void policy_add(char *type, ...)
 		struct rule *r;
 
 		val = va_arg(ap, char*);
-		r = malloc(sizeof(*r));
+		r = xmalloc(sizeof(*r));
 		r->next = pr->rule;
 		r->name = name;
-		r->value = strdup(val);
+		r->value = xstrdup(val);
 		r->dups = NULL;
 		pr->rule = r;
 	}
@@ -618,7 +618,7 @@ static struct domainlist **domain_merge_one(struct domainlist **domp,
 		dom = *domp;
 	}
 	if (dom == NULL || strcmp(dom->dom, domain) != 0) {
-		dom = malloc(sizeof(*dom));
+		dom = xmalloc(sizeof(*dom));
 		dom->next = *domp;
 		dom->dom = domain;
 		*domp = dom;

@@ -146,7 +146,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		if (subarray)
 			info = st->ss->container_content(st, subarray);
 		else {
-			info = malloc(sizeof(*info));
+			info = xmalloc(sizeof(*info));
 			st->ss->getinfo_super(st, info, NULL);
 		}
 		if (!info)
@@ -226,7 +226,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 		goto out;
 	}
 
-	disks = malloc(max_disks * sizeof(mdu_disk_info_t));
+	disks = xmalloc(max_disks * sizeof(mdu_disk_info_t));
 	for (d=0; d<max_disks; d++) {
 		disks[d].state = (1<<MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
@@ -251,7 +251,7 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 			disks[next++] = disk;
 	}
 
-	avail = calloc(array.raid_disks, 1);
+	avail = xcalloc(array.raid_disks, 1);
 
 	for (d= 0; d < array.raid_disks; d++) {
 		mdu_disk_info_t disk = disks[d];
@@ -574,11 +574,11 @@ This is pretty boring
 		if ((dv=map_dev_preferred(disk.major, disk.minor, 0, prefer))) {
 			if (brief) {
 				if (devices) {
-					devices = realloc(devices,
+					devices = xrealloc(devices,
 							  strlen(devices)+1+strlen(dv)+1);
 					strcat(strcat(devices,","),dv);
 				} else
-					devices = strdup(dv);
+					devices = xstrdup(dv);
 			} else
 				printf("   %s", dv);
 		}

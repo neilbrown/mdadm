@@ -70,7 +70,7 @@ char *devnum2devname(int num)
 {
 	char name[100];
 	fmt_devname(name,num);
-	return strdup(name);
+	return xstrdup(name);
 }
 
 int devname2devnum(char *name)
@@ -150,8 +150,8 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 	}
 
 	if ((stb->st_mode&S_IFMT)== S_IFBLK) {
-		char *n = strdup(name);
-		struct devmap *dm = malloc(sizeof(*dm));
+		char *n = xstrdup(name);
+		struct devmap *dm = xmalloc(sizeof(*dm));
 		if (strncmp(n, "/dev/./", 7)==0)
 			strcpy(n+4, name+6);
 		if (dm) {
@@ -262,9 +262,7 @@ char *conf_word(FILE *file, int allow_key)
 	int c;
 	int quote;
 	int wordfound = 0;
-	char *word = malloc(wsize);
-
-	if (!word) abort();
+	char *word = xmalloc(wsize);
 
 	while (wordfound==0) {
 		/* at the end of a word.. */
@@ -294,8 +292,7 @@ char *conf_word(FILE *file, int allow_key)
 				else {
 					if (len == wsize-1) {
 						wsize += 100;
-						word = realloc(word, wsize);
-						if (!word) abort();
+						word = xrealloc(word, wsize);
 					}
 					word[len++] = c;
 				}

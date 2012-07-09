@@ -244,7 +244,7 @@ int parse_layout_faulty(char *layout)
 {
 	/* Parse the layout string for 'faulty' */
 	int ln = strcspn(layout, "0123456789");
-	char *m = strdup(layout);
+	char *m = xstrdup(layout);
 	int mode;
 	m[ln] = 0;
 	mode = map_name(faultylayout, m);
@@ -377,7 +377,7 @@ int enough_fd(int fd)
 	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0 ||
 	    array.raid_disks <= 0)
 		return 0;
-	avail = calloc(array.raid_disks, 1);
+	avail = xcalloc(array.raid_disks, 1);
 	for (i=0; i < MAX_DISKS && array.nr_disks > 0; i++) {
 		disk.number = i;
 		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
@@ -971,7 +971,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		subarray = strchr(dev, '/');
 		if (subarray) {
 			*subarray++ = '\0';
-			subarray = strdup(subarray);
+			subarray = xstrdup(subarray);
 		}
 		container = devname2devnum(dev);
 		if (sra)
@@ -1024,10 +1024,7 @@ struct supertype *dup_super(struct supertype *orig)
 
 	if (!orig)
 		return orig;
-	st = malloc(sizeof(*st));
-	if (!st)
-		return st;
-	memset(st, 0, sizeof(*st));
+	st = xcalloc(1, sizeof(*st));
 	st->ss = orig->ss;
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
@@ -1047,8 +1044,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	int bestsuper = -1;
 	int i;
 
-	st = malloc(sizeof(*st));
-	memset(st, 0, sizeof(*st));
+	st = xcalloc(1, sizeof(*st));
 	st->container_dev = NoMdDev;
 
 	for (i=0 ; superlist[i]; i++) {
@@ -1488,7 +1484,7 @@ int add_disk(int mdfd, struct supertype *st,
 				if (sd2 == info)
 					break;
 			if (sd2 == NULL) {
-				sd2 = malloc(sizeof(*sd2));
+				sd2 = xmalloc(sizeof(*sd2));
 				*sd2 = *info;
 				sd2->next = sra->devs;
 				sra->devs = sd2;
@@ -1704,7 +1700,7 @@ int flush_metadata_updates(struct supertype *st)
 void append_metadata_update(struct supertype *st, void *buf, int len)
 {
 
-	struct metadata_update *mu = malloc(sizeof(*mu));
+	struct metadata_update *mu = xmalloc(sizeof(*mu));
 
 	mu->buf = buf;
 	mu->len = len;
@@ -1791,4 +1787,44 @@ struct mdinfo *container_choose_spares(struct supertype *st,
 		}
 	}
 	return disks;
+}
+
+void *xmalloc(size_t len)
+{
+	void *rv = malloc(len);
+	char *msg;
+	if (rv)
+		return rv;
+	msg = Name ": memory allocation failure - aborting\n";
+	exit(4+!!write(2, msg, strlen(msg)));
+}
+
+void *xrealloc(void *ptr, size_t len)
+{
+	void *rv = realloc(ptr, len);
+	char *msg;
+	if (rv)
+		return rv;
+	msg = Name ": memory allocation failure - aborting\n";
+	exit(4+!!write(2, msg, strlen(msg)));
+}
+
+void *xcalloc(size_t num, size_t size)
+{
+	void *rv = calloc(num, size);
+	char *msg;
+	if (rv)
+		return rv;
+	msg = Name ": memory allocation failure - aborting\n";
+	exit(4+!!write(2, msg, strlen(msg)));
+}
+
+char *xstrdup(const char *str)
+{
+	char *rv = strdup(str);
+	char *msg;
+	if (rv)
+		return rv;
+	msg = Name ": memory allocation failure - aborting\n";
+	exit(4+!!write(2, msg, strlen(msg)));
 }

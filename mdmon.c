@@ -434,7 +434,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	} else
 		pfd[0] = pfd[1] = -1;
 
-	container = calloc(1, sizeof(*container));
+	container = xcalloc(1, sizeof(*container));
 	container->devnum = devnum;
 	container->devname = devname;
 	container->arrays = NULL;
@@ -473,7 +473,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 
 	container->devs = NULL;
 	for (di = mdi->devs; di; di = di->next) {
-		struct mdinfo *cd = malloc(sizeof(*cd));
+		struct mdinfo *cd = xmalloc(sizeof(*cd));
 		*cd = *di;
 		cd->next = container->devs;
 		container->devs = cd;

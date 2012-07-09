@@ -166,13 +166,11 @@ int Monitor(struct mddev_dev *devlist,
 				continue;
 			if (strcasecmp(mdlist->devname, "<ignore>") == 0)
 				continue;
-			st = calloc(1, sizeof *st);
-			if (st == NULL)
-				continue;
+			st = xcalloc(1, sizeof *st);
 			if (mdlist->devname[0] == '/')
-				st->devname = strdup(mdlist->devname);
+				st->devname = xstrdup(mdlist->devname);
 			else {
-				st->devname = malloc(8+strlen(mdlist->devname)+1);
+				st->devname = xmalloc(8+strlen(mdlist->devname)+1);
 				strcpy(strcpy(st->devname, "/dev/md/"),
 				       mdlist->devname);
 			}
@@ -181,17 +179,15 @@ int Monitor(struct mddev_dev *devlist,
 			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = mdlist->spare_disks;
 			if (mdlist->spare_group)
-				st->spare_group = strdup(mdlist->spare_group);
+				st->spare_group = xstrdup(mdlist->spare_group);
 			statelist = st;
 		}
 	} else {
 		struct mddev_dev *dv;
 		for (dv=devlist ; dv; dv=dv->next) {
 			struct mddev_ident *mdlist = conf_get_ident(dv->devname);
-			struct state *st = calloc(1, sizeof *st);
-			if (st == NULL)
-				continue;
-			st->devname = strdup(dv->devname);
+			struct state *st = xcalloc(1, sizeof *st);
+			st->devname = xstrdup(dv->devname);
 			st->next = statelist;
 			st->devnum = INT_MAX;
 			st->percent = RESYNC_UNKNOWN;
@@ -199,7 +195,7 @@ int Monitor(struct mddev_dev *devlist,
 			if (mdlist) {
 				st->expected_spares = mdlist->spare_disks;
 				if (mdlist->spare_group)
-					st->spare_group = strdup(mdlist->spare_group);
+					st->spare_group = xstrdup(mdlist->spare_group);
 			}
 			statelist = st;
 		}
@@ -670,12 +666,10 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 		     (strcmp(mse->level, "raid0") != 0 &&
 		      strcmp(mse->level, "linear") != 0))
 			) {
-			struct state *st = calloc(1, sizeof *st);
+			struct state *st = xcalloc(1, sizeof *st);
 			mdu_array_info_t array;
 			int fd;
-			if (st == NULL)
-				continue;
-			st->devname = strdup(get_md_name(mse->devnum));
+			st->devname = xstrdup(get_md_name(mse->devnum));
 			if ((fd = open(st->devname, O_RDONLY)) < 0 ||
 			    ioctl(fd, GET_ARRAY_INFO, &array)< 0) {
 				/* no such array */

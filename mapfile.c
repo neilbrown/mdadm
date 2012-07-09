@@ -166,12 +166,12 @@ void map_fork(void)
 void map_add(struct map_ent **melp,
 	    int devnum, char *metadata, int uuid[4], char *path)
 {
-	struct map_ent *me = malloc(sizeof(*me));
+	struct map_ent *me = xmalloc(sizeof(*me));
 
 	me->devnum = devnum;
 	strcpy(me->metadata, metadata);
 	memcpy(me->uuid, uuid, 16);
-	me->path = path ? strdup(path) : NULL;
+	me->path = path ? xstrdup(path) : NULL;
 	me->next = *melp;
 	me->bad = 0;
 	*melp = me;
@@ -237,7 +237,7 @@ int map_update(struct map_ent **mpp, int devnum, char *metadata,
 			strcpy(mp->metadata, metadata);
 			memcpy(mp->uuid, uuid, 16);
 			free(mp->path);
-			mp->path = path ? strdup(path) : NULL;
+			mp->path = path ? xstrdup(path) : NULL;
 			mp->bad = 0;
 			break;
 		}

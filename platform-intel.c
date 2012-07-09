@@ -102,10 +102,10 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 
 		/* start / add list entry */
 		if (!head) {
-			head = malloc(sizeof(*head));
+			head = xmalloc(sizeof(*head));
 			list = head;
 		} else {
-			list->next = malloc(sizeof(*head));
+			list->next = xmalloc(sizeof(*head));
 			list = list->next;
 		}
 

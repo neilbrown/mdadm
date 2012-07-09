@@ -514,9 +514,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 	if (zero == NULL || chunk_size > zero_size) {
 		if (zero)
 			free(zero);
-		zero = malloc(chunk_size);
-		if (zero)
-			memset(zero, 0, chunk_size);
+		zero = xcalloc(1, chunk_size);
 		zero_size = chunk_size;
 	}
 
@@ -684,8 +682,8 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		    char *src_buf)
 {
 	char *stripe_buf;
-	char **stripes = malloc(raid_disks * sizeof(char*));
-	char **blocks = malloc(raid_disks * sizeof(char*));
+	char **stripes = xmalloc(raid_disks * sizeof(char*));
+	char **blocks = xmalloc(raid_disks * sizeof(char*));
 	int i;
 	int rv;
 
@@ -697,9 +695,7 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 	if (zero == NULL || chunk_size > zero_size) {
 		if (zero)
 			free(zero);
-		zero = malloc(chunk_size);
-		if (zero)
-			memset(zero, 0, chunk_size);
+		zero = xcalloc(1, chunk_size);
 		zero_size = chunk_size;
 	}
 
@@ -816,11 +812,11 @@ int test_stripes(int *source, unsigned long long *offsets,
 		 unsigned long long start, unsigned long long length)
 {
 	/* ready the data and p (and q) blocks, and check we got them right */
-	char *stripe_buf = malloc(raid_disks * chunk_size);
-	char **stripes = malloc(raid_disks * sizeof(char*));
-	char **blocks = malloc(raid_disks * sizeof(char*));
-	char *p = malloc(chunk_size);
-	char *q = malloc(chunk_size);
+	char *stripe_buf = xmalloc(raid_disks * chunk_size);
+	char **stripes = xmalloc(raid_disks * sizeof(char*));
+	char **blocks = xmalloc(raid_disks * sizeof(char*));
+	char *p = xmalloc(chunk_size);
+	char *q = xmalloc(chunk_size);
 
 	int i;
 	int diskP, diskQ;
@@ -935,9 +931,8 @@ main(int argc, char *argv[])
 			raid_disks, argc-9);
 		exit(2);
 	}
-	fds = malloc(raid_disks * sizeof(*fds));
-	offsets = malloc(raid_disks * sizeof(*offsets));
-	memset(offsets, 0, raid_disks * sizeof(*offsets));
+	fds = xmalloc(raid_disks * sizeof(*fds));
+	offsets = xcalloc(raid_disks, sizeof(*offsets));
 
 	storefd = open(file, O_RDWR);
 	if (storefd < 0) {
@@ -962,7 +957,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	buf = malloc(raid_disks * chunk_size);
+	buf = xmalloc(raid_disks * chunk_size);
 
 	if (save == 1) {
 		int rv = save_stripes(fds, offsets,
@@ -998,4 +993,26 @@ main(int argc, char *argv[])
 	exit(0);
 }
 
+
+void *xmalloc(size_t len)
+{
+	void *rv = malloc(len);
+	char *msg;
+	if (rv)
+		return rv;
+	msg = Name ": memory allocation failure - aborting\n";
+	write(2, msg, strlen(msg));
+	exit(4);
+}
+
+void *xcalloc(size_t num, size_t size)
+{
+	void *rv = calloc(num, size);
+	char *msg;
+	if (rv)
+		return rv;
+	msg = Name ": memory allocation failure - aborting\n";
+	write(2, msg, strlen(msg));
+	exit(4);
+}
 #endif /* MAIN */

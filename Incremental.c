@@ -657,15 +657,11 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 		st->ss->getinfo_super(st, &info, devmap + raid_disks * devnum);
 		if (!avail) {
 			raid_disks = info.array.raid_disks;
-			avail = calloc(raid_disks, 1);
-			if (!avail) {
-				pr_err("out of memory.\n");
-				exit(1);
-			}
+			avail = xcalloc(raid_disks, 1);
 			*availp = avail;
 
-			best = calloc(raid_disks, sizeof(int));
-			devmap = calloc(raid_disks * numdevs, 1);
+			best = xcalloc(raid_disks, sizeof(int));
+			devmap = xcalloc(raid_disks, numdevs);
 
 			st->ss->getinfo_super(st, &info, devmap);
 		}

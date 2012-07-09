@@ -138,18 +138,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	}
 	n = read(fd, buf, 8192);
 
-	info = malloc(sizeof(*info));
-	if (info == NULL) {
-#if __GNUC__ < 3
-		pr_err("failed to allocate %d bytes\n",
-				(int)sizeof(*info));
-#else
-		pr_err("failed to allocate %zd bytes\n",
-				sizeof(*info));
-#endif
-		free(buf);
-		return NULL;
-	}
+	info = xmalloc(sizeof(*info));
 
 	if (n < sizeof(info->sb)) {
 		pr_err("failed to read superblock of bitmap "

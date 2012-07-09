@@ -174,9 +174,7 @@ static struct supertype *match_metadata_desc(char *arg)
 	if (strcmp(arg, "mbr") != 0)
 		return NULL;
 
-	st = malloc(sizeof(*st));
-	if (!st)
-		return st;
+	st = xmalloc(sizeof(*st));
 	st->ss = &mbr;
 	st->info = NULL;
 	st->minor_version = 0;

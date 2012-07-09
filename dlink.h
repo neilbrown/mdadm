@@ -8,7 +8,7 @@ struct __dl_head
     void * dh_next;
 };
 
-#define	dl_alloc(size)	((void*)(((char*)calloc(1,(size)+sizeof(struct __dl_head)))+sizeof(struct __dl_head)))
+#define	dl_alloc(size)	((void*)(((char*)xcalloc(1,(size)+sizeof(struct __dl_head)))+sizeof(struct __dl_head)))
 #define	dl_new(t)	((t*)dl_alloc(sizeof(t)))
 #define	dl_newv(t,n)	((t*)dl_alloc(sizeof(t)*n))
 

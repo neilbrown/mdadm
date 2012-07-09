@@ -1325,12 +1325,10 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		rv = Create(ss, devlist->devname, s.chunk, s.level, s.layout, s.size,
-			    s.raiddisks, s.sparedisks, ident.name,
-			    ident.uuid_set ? ident.uuid : NULL,
+		rv = Create(ss, devlist->devname,
+			    ident.name, ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next,
-			    s.assume_clean,
-			    s.bitmap_file, s.bitmap_chunk, s.write_behind, &c);
+			    &s, &c);
 		break;
 	case MISC:
 		if (devmode == 'E') {

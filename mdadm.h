@@ -1117,12 +1117,9 @@ extern int Build(char *mddev, struct mddev_dev *devlist,
 		 struct shape *s, struct context *c);
 
 extern int Create(struct supertype *st, char *mddev,
-		  int chunk, int level, int layout, unsigned long long size,
-		  int raiddisks, int sparedisks,
 		  char *name, int *uuid,
 		  int subdevs, struct mddev_dev *devlist,
-		  int assume_clean,
-		  char *bitmap_file, int bitmap_chunk, int write_behind,
+		  struct shape *s,
 		  struct context *c);
 
 extern int Detail(char *dev, struct context *c);

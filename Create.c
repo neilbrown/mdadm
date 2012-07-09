@@ -281,8 +281,7 @@ int Create(struct supertype *st, char *mddev,
 			size &= ~(64ULL-1);
 
 		if (size && c->verbose > 0)
-			pr_err("setting size to %lluK\n",
-				(unsigned long long)size);
+			pr_err("setting size to %lluK\n", size);
 	}
 
 	/* now look at the subdevs */
@@ -626,10 +625,10 @@ int Create(struct supertype *st, char *mddev,
 		 * .. but convert to sectors.
 		 */
 		int ncopies = ((layout>>8) & 255) * (layout & 255);
-		bitmapsize = (unsigned long long)size * raiddisks / ncopies * 2;
+		bitmapsize = size * raiddisks / ncopies * 2;
 /*		printf("bms=%llu as=%d rd=%d nc=%d\n", bitmapsize, size, raiddisks, ncopies);*/
 	} else
-		bitmapsize = (unsigned long long)size * 2;
+		bitmapsize = size * 2;
 
 	/* There is lots of redundancy in these disk counts,
 	 * raid_disks is the most meaningful value

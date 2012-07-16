@@ -998,26 +998,4 @@ main(int argc, char *argv[])
 	exit(0);
 }
 
-
-void *xmalloc(size_t len)
-{
-	void *rv = malloc(len);
-	char *msg;
-	if (rv)
-		return rv;
-	msg = Name ": memory allocation failure - aborting\n";
-	write(2, msg, strlen(msg));
-	exit(4);
-}
-
-void *xcalloc(size_t num, size_t size)
-{
-	void *rv = calloc(num, size);
-	char *msg;
-	if (rv)
-		return rv;
-	msg = Name ": memory allocation failure - aborting\n";
-	write(2, msg, strlen(msg));
-	exit(4);
-}
 #endif /* MAIN */

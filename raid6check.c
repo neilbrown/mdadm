@@ -416,12 +416,12 @@ int main(int argc, char *argv[])
 		failed_disk1 = getnum(argv[4], &err);
 		failed_disk2 = getnum(argv[5], &err);
 
-		if(failed_disk1 > info->array.raid_disks) {
+		if(failed_disk1 >= info->array.raid_disks) {
 			fprintf(stderr, "%s: failed_slot_1 index is higher than number of devices in raid\n", prg);
 			exit_err = 4;
 			goto exitHere;
 		}
-		if(failed_disk2 > info->array.raid_disks) {
+		if(failed_disk2 >= info->array.raid_disks) {
 			fprintf(stderr, "%s: failed_slot_2 index is higher than number of devices in raid\n", prg);
 			exit_err = 4;
 			goto exitHere;

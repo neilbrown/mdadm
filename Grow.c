@@ -642,8 +642,8 @@ static void wait_reshape(struct mdinfo *sra)
 	close(fd);
 }
 
-static int reshape_super(struct supertype *st, long long size, int level,
-			 int layout, int chunksize, int raid_disks,
+static int reshape_super(struct supertype *st, unsigned long long size,
+			 int level, int layout, int chunksize, int raid_disks,
 			 int delta_disks, char *backup_file, char *dev,
 			 int direction, int verbose)
 {
@@ -1999,7 +1999,7 @@ size_change_error:
 		/* Impose these changes on a single array.  First
 		 * check that the metadata is OK with the change. */
 
-		if (reshape_super(st, -1, info.new_level,
+		if (reshape_super(st, 0, info.new_level,
 				  info.new_layout, info.new_chunk,
 				  info.array.raid_disks, info.delta_disks,
 				  c->backup_file, devname, APPLY_METADATA_CHANGES,
@@ -2684,10 +2684,10 @@ int reshape_container(char *container, char *devname,
 	int last_devnum = -1;
 
 	/* component_size is not meaningful for a container,
-	 * so pass '-1' meaning 'no change'
+	 * so pass '0' meaning 'no change'
 	 */
 	if (!restart &&
-	    reshape_super(st, -1, info->new_level,
+	    reshape_super(st, 0, info->new_level,
 			  info->new_layout, info->new_chunk,
 			  info->array.raid_disks, info->delta_disks,
 			  backup_file, devname, APPLY_METADATA_CHANGES,

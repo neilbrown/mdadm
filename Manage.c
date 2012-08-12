@@ -529,6 +529,317 @@ skip_re_add:
 	return 0;
 }
 
+int Manage_add(int fd, int tfd, struct mddev_dev *dv,
+	       struct supertype *tst, mdu_array_info_t *array,
+	       int force, int verbose, char *devname,
+	       char *update, unsigned long rdev, unsigned long long array_size)
+{
+	unsigned long long ldsize;
+	struct supertype *dev_st;
+	int j;
+	mdu_disk_info_t disc;
+
+	if (!get_dev_size(tfd, dv->devname, &ldsize)) {
+		if (dv->disposition == 'M')
+			return 0;
+		else
+			return -1;
+	}
+
+	if (tst->ss->validate_geometry(
+		    tst, array->level, array->layout,
+		    array->raid_disks, NULL,
+		    ldsize >> 9, NULL, NULL, 0) == 0) {
+		if (!force) {
+			pr_err("%s is larger than %s can "
+			       "effectively use.\n"
+			       "       Add --force is you "
+			       "really want to add this device.\n",
+			       dv->devname, devname);
+			return -1;
+		}
+		pr_err("%s is larger than %s can "
+		       "effectively use.\n"
+		       "       Adding anyway as --force "
+		       "was given.\n",
+		       dv->devname, devname);
+	}
+	if (!tst->ss->external &&
+	    array->major_version == 0 &&
+	    md_get_version(fd)%100 < 2) {
+		if (ioctl(fd, HOT_ADD_DISK, rdev)==0) {
+			if (verbose >= 0)
+				pr_err("hot added %s\n",
+				       dv->devname);
+			return 1;
+		}
+
+		pr_err("hot add failed for %s: %s\n",
+		       dv->devname, strerror(errno));
+		return -1;
+	}
+
+	if (array->not_persistent == 0 || tst->ss->external) {
+
+		/* need to find a sample superblock to copy, and
+		 * a spare slot to use.
+		 * For 'external' array (well, container based),
+		 * We can just load the metadata for the array->
+		 */
+		int array_failed;
+		if (tst->sb)
+			/* already loaded */;
+		else if (tst->ss->external) {
+			tst->ss->load_container(tst, fd, NULL);
+		} else for (j = 0; j < tst->max_devs; j++) {
+				char *dev;
+				int dfd;
+				disc.number = j;
+				if (ioctl(fd, GET_DISK_INFO, &disc))
+					continue;
+				if (disc.major==0 && disc.minor==0)
+					continue;
+				if ((disc.state & 4)==0) /* sync */
+					continue;
+				/* Looks like a good device to try */
+				dev = map_dev(disc.major, disc.minor, 1);
+				if (!dev)
+					continue;
+				dfd = dev_open(dev, O_RDONLY);
+				if (dfd < 0)
+					continue;
+				if (tst->ss->load_super(tst, dfd,
+							NULL)) {
+					close(dfd);
+					continue;
+				}
+				close(dfd);
+				break;
+			}
+		/* FIXME this is a bad test to be using */
+		if (!tst->sb && dv->disposition != 'a') {
+			/* we are re-adding a device to a
+			 * completely dead array - have to depend
+			 * on kernel to check
+			 */
+		} else if (!tst->sb) {
+			pr_err("cannot load array metadata from %s\n", devname);
+			return -1;
+		}
+
+		/* Make sure device is large enough */
+		if (tst->ss->avail_size(tst, ldsize/512) <
+		    array_size) {
+			if (dv->disposition == 'M')
+				return 0;
+			pr_err("%s not large enough to join array\n",
+			       dv->devname);
+			return -1;
+		}
+
+		/* Possibly this device was recently part of
+		 * the array and was temporarily removed, and
+		 * is now being re-added.  If so, we can
+		 * simply re-add it.
+		 */
+
+		if (array->not_persistent==0) {
+			dev_st = dup_super(tst);
+			dev_st->ss->load_super(dev_st, tfd, NULL);
+		}
+		if (dev_st && dev_st->sb) {
+			int rv = attempt_re_add(fd, tfd, dv,
+						dev_st, tst,
+						rdev,
+						update, devname,
+						verbose,
+						array);
+			dev_st->ss->free_super(dev_st);
+			if (rv)
+				return rv;
+		}
+		if (dv->disposition == 'M') {
+			if (verbose > 0)
+				pr_err("--re-add for %s to %s is not possible\n",
+				       dv->devname, devname);
+			return 0;
+		}
+		if (dv->disposition == 'A') {
+			pr_err("--re-add for %s to %s is not possible\n",
+			       dv->devname, devname);
+			return -1;
+		}
+		if (array->active_disks < array->raid_disks) {
+			char *avail = xcalloc(array->raid_disks, 1);
+			int d;
+			int found = 0;
+
+			for (d = 0; d < MAX_DISKS && found < array->active_disks; d++) {
+				disc.number = d;
+				if (ioctl(fd, GET_DISK_INFO, &disc))
+					continue;
+				if (disc.major == 0 && disc.minor == 0)
+					continue;
+				if (!(disc.state & (1<<MD_DISK_SYNC)))
+					continue;
+				avail[disc.raid_disk] = 1;
+				found++;
+			}
+			array_failed = !enough(array->level, array->raid_disks,
+					       array->layout, 1, avail);
+		} else
+			array_failed = 0;
+		if (array_failed) {
+			pr_err("%s has failed so using --add cannot work and might destroy\n",
+			       devname);
+			pr_err("data on %s.  You should stop the array and re-assemble it.\n",
+			       dv->devname);
+			return -1;
+		}
+	} else {
+		/* non-persistent. Must ensure that new drive
+		 * is at least array->size big.
+		 */
+		if (ldsize/512 < array_size) {
+			pr_err("%s not large enough to join array\n",
+			       dv->devname);
+			return -1;
+		}
+	}
+	/* committed to really trying this device now*/
+	remove_partitions(tfd);
+
+	/* in 2.6.17 and earlier, version-1 superblocks won't
+	 * use the number we write, but will choose a free number.
+	 * we must choose the same free number, which requires
+	 * starting at 'raid_disks' and counting up
+	 */
+	for (j = array->raid_disks; j < tst->max_devs; j++) {
+		disc.number = j;
+		if (ioctl(fd, GET_DISK_INFO, &disc))
+			break;
+		if (disc.major==0 && disc.minor==0)
+			break;
+		if (disc.state & 8) /* removed */
+			break;
+	}
+	disc.major = major(rdev);
+	disc.minor = minor(rdev);
+	disc.number =j;
+	disc.state = 0;
+	if (array->not_persistent==0) {
+		int dfd;
+		if (dv->writemostly == 1)
+			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
+		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
+		if (tst->ss->add_to_super(tst, &disc, dfd,
+					  dv->devname))
+			return -1;
+		if (tst->ss->write_init_super(tst))
+			return -1;
+	} else if (dv->disposition == 'A') {
+		/*  this had better be raid1.
+		 * As we are "--re-add"ing we must find a spare slot
+		 * to fill.
+		 */
+		char *used = xcalloc(array->raid_disks, 1);
+		for (j = 0; j < tst->max_devs; j++) {
+			mdu_disk_info_t disc2;
+			disc2.number = j;
+			if (ioctl(fd, GET_DISK_INFO, &disc2))
+				continue;
+			if (disc2.major==0 && disc2.minor==0)
+				continue;
+			if (disc2.state & 8) /* removed */
+				continue;
+			if (disc2.raid_disk < 0)
+				continue;
+			if (disc2.raid_disk > array->raid_disks)
+				continue;
+			used[disc2.raid_disk] = 1;
+		}
+		for (j = 0 ; j < array->raid_disks; j++)
+			if (!used[j]) {
+				disc.raid_disk = j;
+				disc.state |= (1<<MD_DISK_SYNC);
+				break;
+			}
+		free(used);
+	}
+	if (dv->writemostly == 1)
+		disc.state |= (1 << MD_DISK_WRITEMOSTLY);
+	if (tst->ss->external) {
+		/* add a disk
+		 * to an external metadata container */
+		struct mdinfo new_mdi;
+		struct mdinfo *sra;
+		int container_fd;
+		int devnum = fd2devnum(fd);
+		int dfd;
+
+		container_fd = open_dev_excl(devnum);
+		if (container_fd < 0) {
+			pr_err("add failed for %s:"
+			       " could not get exclusive access to container\n",
+			       dv->devname);
+			tst->ss->free_super(tst);
+			return -1;
+		}
+
+		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
+		if (mdmon_running(tst->container_dev))
+			tst->update_tail = &tst->updates;
+		if (tst->ss->add_to_super(tst, &disc, dfd,
+					  dv->devname)) {
+			close(dfd);
+			close(container_fd);
+			return -1;
+		}
+		if (tst->update_tail)
+			flush_metadata_updates(tst);
+		else
+			tst->ss->sync_metadata(tst);
+
+		sra = sysfs_read(container_fd, -1, 0);
+		if (!sra) {
+			pr_err("add failed for %s: sysfs_read failed\n",
+			       dv->devname);
+			close(container_fd);
+			tst->ss->free_super(tst);
+			return -1;
+		}
+		sra->array.level = LEVEL_CONTAINER;
+		/* Need to set data_offset and component_size */
+		tst->ss->getinfo_super(tst, &new_mdi, NULL);
+		new_mdi.disk.major = disc.major;
+		new_mdi.disk.minor = disc.minor;
+		new_mdi.recovery_start = 0;
+		/* Make sure fds are closed as they are O_EXCL which
+		 * would block add_disk */
+		tst->ss->free_super(tst);
+		if (sysfs_add_disk(sra, &new_mdi, 0) != 0) {
+			pr_err("add new device to external metadata"
+			       " failed for %s\n", dv->devname);
+			close(container_fd);
+			sysfs_free(sra);
+			return -1;
+		}
+		ping_monitor_by_id(devnum);
+		sysfs_free(sra);
+		close(container_fd);
+	} else {
+		tst->ss->free_super(tst);
+		if (ioctl(fd, ADD_NEW_DISK, &disc)) {
+			pr_err("add new device failed for %s as %d: %s\n",
+			       dv->devname, j, strerror(errno));
+			return -1;
+		}
+	}
+	if (verbose >= 0)
+		pr_err("added %s\n", dv->devname);
+	return 1;
+}
+
 int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
 		   char *update, int force)
@@ -549,13 +860,11 @@ int Manage_subdevs(char *devname, int fd,
 	 * name such as 'sdb'.
 	 */
 	mdu_array_info_t array;
-	mdu_disk_info_t disc;
 	unsigned long long array_size;
 	struct mddev_dev *dv;
 	struct stat stb;
-	int j;
 	int tfd = -1;
-	struct supertype *dev_st, *tst;
+	struct supertype *tst;
 	char *subarray = NULL;
 	int lfd = -1;
 	int sysfd = -1;
@@ -586,10 +895,9 @@ int Manage_subdevs(char *devname, int fd,
 	}
 
 	stb.st_rdev = 0;
-	for (dv = devlist, j=0 ; dv; dv = dv->next) {
-		unsigned long long ldsize;
+	for (dv = devlist; dv; dv = dv->next) {
 		int err;
-		int array_failed;
+		int rv;
 
 		if (strcmp(dv->devname, "failed") == 0 ||
 		    strcmp(dv->devname, "faulty") == 0) {
@@ -670,8 +978,6 @@ int Manage_subdevs(char *devname, int fd,
 				}
 			}
 		} else {
-			j = 0;
-
 			tfd = dev_open(dv->devname, O_RDONLY);
 			if (tfd < 0 && dv->disposition == 'r' &&
 			    lstat(dv->devname, &stb) == 0)
@@ -720,6 +1026,14 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
+			if (tfd >= 0) {
+				/* We know no-one else is using it.  We'll
+				 * need non-exclusive access to add it, so
+				 * do that now.
+				 */
+				close(tfd);
+				tfd = dev_open(dv->devname, O_RDONLY);
+			}				
 			if (tfd < 0) {
 				if (dv->disposition == 'M')
 					continue;
@@ -733,339 +1047,15 @@ int Manage_subdevs(char *devname, int fd,
 				else
 					frozen = -1;
 			}
-			if (!get_dev_size(tfd, dv->devname, &ldsize)) {
-				close(tfd);
-				tfd = -1;
-				if (dv->disposition == 'M')
-					continue;
-				else
-					goto abort;
-			}
-
-			if (tst->ss->validate_geometry(
-				    tst, array.level, array.layout,
-				    array.raid_disks, NULL,
-				    ldsize >> 9, NULL, NULL, 0) == 0) {
-				if (!force) {
-					pr_err("%s is larger than %s can "
-					       "effectively use.\n"
-					       "       Add --force is you "
-					       "really want to add this device.\n",
-					       dv->devname, devname);
-					close(tfd);
-					goto abort;
-				}
-				pr_err("%s is larger than %s can "
-				       "effectively use.\n"
-				       "       Adding anyway as --force "
-				       "was given.\n",
-				       dv->devname, devname);
-			}
-			if (!tst->ss->external &&
-			    array.major_version == 0 &&
-			    md_get_version(fd)%100 < 2) {
-				close(tfd);
-				tfd = -1;
-				if (ioctl(fd, HOT_ADD_DISK,
-					  (unsigned long)stb.st_rdev)==0) {
-					if (verbose >= 0)
-						pr_err("hot added %s\n",
-							dv->devname);
-					continue;
-				}
-
-				pr_err("hot add failed for %s: %s\n",
-					dv->devname, strerror(errno));
+			rv = Manage_add(fd, tfd, dv, tst, &array,
+					force, verbose, devname, update,
+					stb.st_rdev, array_size);
+			close(tfd);
+			tfd = -1;
+			if (rv < 0)
 				goto abort;
-			}
-
-			if (array.not_persistent == 0 || tst->ss->external) {
-
-				/* need to find a sample superblock to copy, and
-				 * a spare slot to use.
-				 * For 'external' array (well, container based),
-				 * We can just load the metadata for the array.
-				 */
-				if (tst->sb)
-					/* already loaded */;
-				else if (tst->ss->external) {
-					tst->ss->load_container(tst, fd, NULL);
-				} else for (j = 0; j < tst->max_devs; j++) {
-					char *dev;
-					int dfd;
-					disc.number = j;
-					if (ioctl(fd, GET_DISK_INFO, &disc))
-						continue;
-					if (disc.major==0 && disc.minor==0)
-						continue;
-					if ((disc.state & 4)==0) /* sync */
-						continue;
-					/* Looks like a good device to try */
-					dev = map_dev(disc.major, disc.minor, 1);
-					if (!dev)
-						continue;
-					dfd = dev_open(dev, O_RDONLY);
-					if (dfd < 0)
-						continue;
-					if (tst->ss->load_super(tst, dfd,
-								NULL)) {
-						close(dfd);
-						continue;
-					}
-					close(dfd);
-					break;
-				}
-				/* FIXME this is a bad test to be using */
-				if (!tst->sb && dv->disposition != 'a') {
-					/* we are re-adding a device to a
-					 * completely dead array - have to depend
-					 * on kernel to check
-					 */
-				} else if (!tst->sb) {
-					close(tfd);
-					pr_err("cannot load array metadata from %s\n", devname);
-					goto abort;
-				}
-
-				/* Make sure device is large enough */
-				if (tst->ss->avail_size(tst, ldsize/512) <
-				    array_size) {
-					close(tfd);
-					tfd = -1;
-					if (dv->disposition == 'M')
-						continue;
-					pr_err("%s not large enough to join array\n",
-						dv->devname);
-					goto abort;
-				}
-
-				/* Possibly this device was recently part of
-				 * the array and was temporarily removed, and
-				 * is now being re-added.  If so, we can
-				 * simply re-add it.
-				 */
-
-				if (array.not_persistent==0) {
-					dev_st = dup_super(tst);
-					dev_st->ss->load_super(dev_st, tfd, NULL);
-				}
-				if (dev_st && dev_st->sb) {
-					int rv = attempt_re_add(fd, tfd, dv,
-								dev_st, tst,
-								stb.st_rdev,
-								update, devname,
-								verbose,
-								&array);
-					dev_st->ss->free_super(dev_st);
-					if (rv < 0) {
-						/* Bad failure */
-						close(tfd);
-						goto abort;
-					}
-					if (rv > 0) {
-						/* success! */
-						close(tfd);
-						tfd = -1;
-						count++;
-						continue;
-					}
-				}
-				if (dv->disposition == 'M') {
-					if (verbose > 0)
-						pr_err("--re-add for %s to %s is not possible\n",
-						       dv->devname, devname);
-					if (tfd >= 0) {
-						close(tfd);
-						tfd = -1;
-					}
-					continue;
-				}
-				if (dv->disposition == 'A') {
-					if (tfd >= 0)
-						close(tfd);
-					pr_err("--re-add for %s to %s is not possible\n",
-					       dv->devname, devname);
-					goto abort;
-				}
-				if (array.active_disks < array.raid_disks) {
-					char *avail = xcalloc(array.raid_disks, 1);
-					int d;
-					int found = 0;
-
-					for (d = 0; d < MAX_DISKS && found < array.active_disks; d++) {
-						disc.number = d;
-						if (ioctl(fd, GET_DISK_INFO, &disc))
-							continue;
-						if (disc.major == 0 && disc.minor == 0)
-							continue;
-						if (!(disc.state & (1<<MD_DISK_SYNC)))
-							continue;
-						avail[disc.raid_disk] = 1;
-						found++;
-					}
-					array_failed = !enough(array.level, array.raid_disks,
-							       array.layout, 1, avail);
-				} else
-					array_failed = 0;
-				if (array_failed) {
-					pr_err("%s has failed so using --add cannot work and might destroy\n",
-						devname);
-					pr_err("data on %s.  You should stop the array and re-assemble it.\n",
-						dv->devname);
-					if (tfd >= 0)
-						close(tfd);
-					goto abort;
-				}
-			} else {
-				/* non-persistent. Must ensure that new drive
-				 * is at least array.size big.
-				 */
-				if (ldsize/512 < array_size) {
-					pr_err("%s not large enough to join array\n",
-						dv->devname);
-					if (tfd >= 0)
-						close(tfd);
-					goto abort;
-				}
-			}
-			/* committed to really trying this device now*/
-			if (tfd >= 0) {
-				remove_partitions(tfd);
-				close(tfd);
-				tfd = -1;
-			}
-			/* in 2.6.17 and earlier, version-1 superblocks won't
-			 * use the number we write, but will choose a free number.
-			 * we must choose the same free number, which requires
-			 * starting at 'raid_disks' and counting up
-			 */
-			for (j = array.raid_disks; j < tst->max_devs; j++) {
-				disc.number = j;
-				if (ioctl(fd, GET_DISK_INFO, &disc))
-					break;
-				if (disc.major==0 && disc.minor==0)
-					break;
-				if (disc.state & 8) /* removed */
-					break;
-			}
-			disc.major = major(stb.st_rdev);
-			disc.minor = minor(stb.st_rdev);
-			disc.number =j;
-			disc.state = 0;
-			if (array.not_persistent==0) {
-				int dfd;
-				if (dv->writemostly == 1)
-					disc.state |= 1 << MD_DISK_WRITEMOSTLY;
-				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
-				if (tst->ss->add_to_super(tst, &disc, dfd,
-							  dv->devname)) {
-					close(dfd);
-					goto abort;
-				}
-				if (tst->ss->write_init_super(tst)) {
-					close(dfd);
-					goto abort;
-				}
-			} else if (dv->disposition == 'A') {
-				/*  this had better be raid1.
-				 * As we are "--re-add"ing we must find a spare slot
-				 * to fill.
-				 */
-				char *used = xcalloc(array.raid_disks, 1);
-				for (j = 0; j < tst->max_devs; j++) {
-					mdu_disk_info_t disc2;
-					disc2.number = j;
-					if (ioctl(fd, GET_DISK_INFO, &disc2))
-						continue;
-					if (disc2.major==0 && disc2.minor==0)
-						continue;
-					if (disc2.state & 8) /* removed */
-						continue;
-					if (disc2.raid_disk < 0)
-						continue;
-					if (disc2.raid_disk > array.raid_disks)
-						continue;
-					used[disc2.raid_disk] = 1;
-				}
-				for (j = 0 ; j < array.raid_disks; j++)
-					if (!used[j]) {
-						disc.raid_disk = j;
-						disc.state |= (1<<MD_DISK_SYNC);
-						break;
-					}
-				free(used);
-			}
-			if (dv->writemostly == 1)
-				disc.state |= (1 << MD_DISK_WRITEMOSTLY);
-			if (tst->ss->external) {
-				/* add a disk
-				 * to an external metadata container */
-				struct mdinfo new_mdi;
-				struct mdinfo *sra;
-				int container_fd;
-				int devnum = fd2devnum(fd);
-				int dfd;
-
-				container_fd = open_dev_excl(devnum);
-				if (container_fd < 0) {
-					pr_err("add failed for %s:"
-					       " could not get exclusive access to container\n",
-					       dv->devname);
-					tst->ss->free_super(tst);
-					goto abort;
-				}
-
-				dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
-				if (mdmon_running(tst->container_dev))
-					tst->update_tail = &tst->updates;
-				if (tst->ss->add_to_super(tst, &disc, dfd,
-							  dv->devname)) {
-					close(dfd);
-					close(container_fd);
-					goto abort;
-				}
-				if (tst->update_tail)
-					flush_metadata_updates(tst);
-				else
-					tst->ss->sync_metadata(tst);
-
-				sra = sysfs_read(container_fd, -1, 0);
-				if (!sra) {
-					pr_err("add failed for %s: sysfs_read failed\n",
-						dv->devname);
-					close(container_fd);
-					tst->ss->free_super(tst);
-					goto abort;
-				}
-				sra->array.level = LEVEL_CONTAINER;
-				/* Need to set data_offset and component_size */
-				tst->ss->getinfo_super(tst, &new_mdi, NULL);
-				new_mdi.disk.major = disc.major;
-				new_mdi.disk.minor = disc.minor;
-				new_mdi.recovery_start = 0;
-				/* Make sure fds are closed as they are O_EXCL which
-				 * would block add_disk */
-				tst->ss->free_super(tst);
-				if (sysfs_add_disk(sra, &new_mdi, 0) != 0) {
-					pr_err("add new device to external metadata"
-						" failed for %s\n", dv->devname);
-					close(container_fd);
-					sysfs_free(sra);
-					goto abort;
-				}
-				ping_monitor_by_id(devnum);
-				sysfs_free(sra);
-				close(container_fd);
-			} else {
-				tst->ss->free_super(tst);
-				if (ioctl(fd, ADD_NEW_DISK, &disc)) {
-					pr_err("add new device failed for %s as %d: %s\n",
-						dv->devname, j, strerror(errno));
-					goto abort;
-				}
-			}
-			if (verbose >= 0)
-				pr_err("added %s\n", dv->devname);
+			if (rv > 0)
+				count++;
 			break;
 
 		case 'r':

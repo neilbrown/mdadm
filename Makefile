@@ -180,6 +180,9 @@ raid6check : raid6check.o mdadm.h $(CHECK_OBJS)
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o raid6check raid6check.o $(CHECK_OBJS)
 
 mdassemble : $(ASSEMBLE_SRCS) $(INCL)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  $(STATICSRC)
+
+mdassemble.diet : $(ASSEMBLE_SRCS) $(INCL)
 	rm -f $(OBJS)
 	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  $(STATICSRC)
 

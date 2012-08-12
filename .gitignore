@@ -4,6 +4,7 @@
 /mdadm
 /mdadm.8
 /mdadm.udeb
+/mdassemble
 /mdmon
 /swap_super
 /test_stripe

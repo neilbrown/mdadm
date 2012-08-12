@@ -433,6 +433,102 @@ static void add_detached(struct mddev_dev *dv, int fd, char disp)
 	}
 }
 
+int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
+		   struct supertype *dev_st, struct supertype *tst,
+		   unsigned long rdev,
+		   char *update, char *devname, int verbose,
+		   mdu_array_info_t *array)
+{
+	struct mdinfo mdi;
+	int duuid[4];
+	int ouuid[4];
+
+	dev_st->ss->getinfo_super(dev_st, &mdi, NULL);
+	dev_st->ss->uuid_from_super(dev_st, ouuid);
+	if (tst->sb)
+		tst->ss->uuid_from_super(tst, duuid);
+	else
+		/* Assume uuid matches: kernel will check */
+		memcpy(duuid, ouuid, sizeof(ouuid));
+	if ((mdi.disk.state & (1<<MD_DISK_ACTIVE)) &&
+	    !(mdi.disk.state & (1<<MD_DISK_FAULTY)) &&
+	    memcmp(duuid, ouuid, sizeof(ouuid))==0) {
+		/* Looks like it is worth a
+		 * try.  Need to make sure
+		 * kernel will accept it
+		 * though.
+		 */
+		mdu_disk_info_t disc;
+		/* re-add doesn't work for version-1 superblocks
+		 * before 2.6.18 :-(
+		 */
+		if (array->major_version == 1 &&
+		    get_linux_version() <= 2006018)
+			goto skip_re_add;
+		disc.number = mdi.disk.number;
+		if (ioctl(fd, GET_DISK_INFO, &disc) != 0
+		    || disc.major != 0 || disc.minor != 0
+			)
+			goto skip_re_add;
+		disc.major = major(rdev);
+		disc.minor = minor(rdev);
+		disc.number = mdi.disk.number;
+		disc.raid_disk = mdi.disk.raid_disk;
+		disc.state = mdi.disk.state;
+		if (dv->writemostly == 1)
+			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
+		if (dv->writemostly == 2)
+			disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
+		remove_partitions(tfd);
+		if (update || dv->writemostly > 0) {
+			int rv = -1;
+			tfd = dev_open(dv->devname, O_RDWR);
+			if (tfd < 0) {
+				pr_err("failed to open %s for"
+				       " superblock update during re-add\n", dv->devname);
+				return -1;
+			}
+
+			if (dv->writemostly == 1)
+				rv = dev_st->ss->update_super(
+					dev_st, NULL, "writemostly",
+					devname, verbose, 0, NULL);
+			if (dv->writemostly == 2)
+				rv = dev_st->ss->update_super(
+					dev_st, NULL, "readwrite",
+					devname, verbose, 0, NULL);
+			if (update)
+				rv = dev_st->ss->update_super(
+					dev_st, NULL, update,
+					devname, verbose, 0, NULL);
+			if (rv == 0)
+				rv = dev_st->ss->store_super(dev_st, tfd);
+			close(tfd);
+			if (rv != 0) {
+				pr_err("failed to update"
+				       " superblock during re-add\n");
+				return -1;
+			}
+		}
+		/* don't even try if disk is marked as faulty */
+		errno = 0;
+		if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
+			if (verbose >= 0)
+				pr_err("re-added %s\n", dv->devname);
+			return 1;
+		}
+		if (errno == ENOMEM || errno == EROFS) {
+			pr_err("add new device failed for %s: %s\n",
+			       dv->devname, strerror(errno));
+			if (dv->disposition == 'M')
+				return 0;
+			return -1;
+		}
+	}
+skip_re_add:
+	return 0;
+}
+
 int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
 		   char *update, int force)
@@ -461,8 +557,6 @@ int Manage_subdevs(char *devname, int fd,
 	int tfd = -1;
 	struct supertype *dev_st, *tst;
 	char *subarray = NULL;
-	int duuid[4];
-	int ouuid[4];
 	int lfd = -1;
 	int sysfd = -1;
 	int count = 0; /* number of actions taken */
@@ -756,98 +850,25 @@ int Manage_subdevs(char *devname, int fd,
 					dev_st->ss->load_super(dev_st, tfd, NULL);
 				}
 				if (dev_st && dev_st->sb) {
-					struct mdinfo mdi;
-					dev_st->ss->getinfo_super(dev_st, &mdi, NULL);
-					dev_st->ss->uuid_from_super(dev_st, ouuid);
-					if (tst->sb)
-						tst->ss->uuid_from_super(tst, duuid);
-					else
-						/* Assume uuid matches: kernel will check */
-						memcpy(duuid, ouuid, sizeof(ouuid));
-					if ((mdi.disk.state & (1<<MD_DISK_ACTIVE)) &&
-					    !(mdi.disk.state & (1<<MD_DISK_FAULTY)) &&
-					    memcmp(duuid, ouuid, sizeof(ouuid))==0) {
-						/* Looks like it is worth a
-						 * try.  Need to make sure
-						 * kernel will accept it
-						 * though.
-						 */
-						/* re-add doesn't work for version-1 superblocks
-						 * before 2.6.18 :-(
-						 */
-						if (array.major_version == 1 &&
-						    get_linux_version() <= 2006018)
-							goto skip_re_add;
-						disc.number = mdi.disk.number;
-						if (ioctl(fd, GET_DISK_INFO, &disc) != 0
-						    || disc.major != 0 || disc.minor != 0
-							)
-							goto skip_re_add;
-						disc.major = major(stb.st_rdev);
-						disc.minor = minor(stb.st_rdev);
-						disc.number = mdi.disk.number;
-						disc.raid_disk = mdi.disk.raid_disk;
-						disc.state = mdi.disk.state;
-						if (dv->writemostly == 1)
-							disc.state |= 1 << MD_DISK_WRITEMOSTLY;
-						if (dv->writemostly == 2)
-							disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
-						remove_partitions(tfd);
+					int rv = attempt_re_add(fd, tfd, dv,
+								dev_st, tst,
+								stb.st_rdev,
+								update, devname,
+								verbose,
+								&array);
+					dev_st->ss->free_super(dev_st);
+					if (rv < 0) {
+						/* Bad failure */
+						close(tfd);
+						goto abort;
+					}
+					if (rv > 0) {
+						/* success! */
 						close(tfd);
 						tfd = -1;
-						if (update || dv->writemostly > 0) {
-							int rv = -1;
-							tfd = dev_open(dv->devname, O_RDWR);
-							if (tfd < 0) {
-								pr_err("failed to open %s for"
-									" superblock update during re-add\n", dv->devname);
-								dev_st->ss->free_super(dev_st);
-								goto abort;
-							}
-
-							if (dv->writemostly == 1)
-								rv = dev_st->ss->update_super(
-									dev_st, NULL, "writemostly",
-									devname, verbose, 0, NULL);
-							if (dv->writemostly == 2)
-								rv = dev_st->ss->update_super(
-									dev_st, NULL, "readwrite",
-									devname, verbose, 0, NULL);
-							if (update)
-								rv = dev_st->ss->update_super(
-									dev_st, NULL, update,
-									devname, verbose, 0, NULL);
-							if (rv == 0)
-								rv = dev_st->ss->store_super(dev_st, tfd);
-							close(tfd);
-							tfd = -1;
-							if (rv != 0) {
-								pr_err("failed to update"
-								       " superblock during re-add\n");
-								dev_st->ss->free_super(dev_st);
-								goto abort;
-							}
-						}
-						/* don't even try if disk is marked as faulty */
-						errno = 0;
-						if (ioctl(fd, ADD_NEW_DISK, &disc) == 0) {
-							if (verbose >= 0)
-								pr_err("re-added %s\n", dv->devname);
-							count++;
-							dev_st->ss->free_super(dev_st);
-							continue;
-						}
-						if (errno == ENOMEM || errno == EROFS) {
-							pr_err("add new device failed for %s: %s\n",
-								dv->devname, strerror(errno));
-							dev_st->ss->free_super(dev_st);
-							if (dv->disposition == 'M')
-								continue;
-							goto abort;
-						}
+						count++;
+						continue;
 					}
-				skip_re_add:
-					dev_st->ss->free_super(dev_st);
 				}
 				if (dv->disposition == 'M') {
 					if (verbose > 0)

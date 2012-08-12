@@ -840,6 +840,111 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	return 1;
 }
 
+int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
+		  int sysfd, unsigned long rdev, int verbose, char *devname)
+{
+	int lfd = -1;
+	int err;
+
+	if (tst->ss->external) {
+		/* To remove a device from a container, we must
+		 * check that it isn't in use in an array.
+		 * This involves looking in the 'holders'
+		 * directory - there must be just one entry,
+		 * the container.
+		 * To ensure that it doesn't get used as a
+		 * hot spare while we are checking, we
+		 * get an O_EXCL open on the container
+		 */
+		int dnum = fd2devnum(fd);
+		lfd = open_dev_excl(dnum);
+		if (lfd < 0) {
+			pr_err("Cannot get exclusive access "
+			       " to container - odd\n");
+			return -1;
+		}
+		/* In the detached case it is not possible to
+		 * check if we are the unique holder, so just
+		 * rely on the 'detached' checks
+		 */
+		if (strcmp(dv->devname, "detached") == 0 ||
+		    sysfd >= 0 ||
+		    sysfs_unique_holder(dnum, rdev))
+			/* pass */;
+		else {
+			pr_err("%s is %s, cannot remove.\n",
+			       dv->devname,
+			       errno == EEXIST ? "still in use":
+			       "not a member");
+			close(lfd);
+			return -1;
+		}
+	}
+	/* FIXME check that it is a current member */
+	if (sysfd >= 0) {
+		/* device has been removed and we don't know
+		 * the major:minor number
+		 */
+		int n = write(sysfd, "remove", 6);
+		if (n != 6)
+			err = -1;
+		else
+			err = 0;
+	} else {
+		err = ioctl(fd, HOT_REMOVE_DISK, rdev);
+		if (err && errno == ENODEV) {
+			/* Old kernels rejected this if no personality
+			 * is registered */
+			struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
+			struct mdinfo *dv = NULL;
+			if (sra)
+				dv = sra->devs;
+			for ( ; dv ; dv=dv->next)
+				if (dv->disk.major == (int)major(rdev) &&
+				    dv->disk.minor == (int)minor(rdev))
+					break;
+			if (dv)
+				err = sysfs_set_str(sra, dv,
+						    "state", "remove");
+			else
+				err = -1;
+			if (sra)
+				sysfs_free(sra);
+		}
+	}
+	if (err) {
+		pr_err("hot remove failed "
+		       "for %s: %s\n",	dv->devname,
+		       strerror(errno));
+		if (lfd >= 0)
+			close(lfd);
+		return -1;
+	}
+	if (tst->ss->external) {
+		/*
+		 * Before dropping our exclusive open we make an
+		 * attempt at preventing mdmon from seeing an
+		 * 'add' event before reconciling this 'remove'
+		 * event.
+		 */
+		char *name = devnum2devname(fd2devnum(fd));
+
+		if (!name) {
+			pr_err("unable to get container name\n");
+			return -1;
+		}
+
+		ping_manager(name);
+		free(name);
+	}
+	if (lfd >= 0)
+		close(lfd);
+	if (verbose >= 0)
+		pr_err("hot removed %s from %s\n",
+		       dv->devname, devname);
+	return 1;
+}
+
 int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
 		   char *update, int force)
@@ -866,7 +971,6 @@ int Manage_subdevs(char *devname, int fd,
 	int tfd = -1;
 	struct supertype *tst;
 	char *subarray = NULL;
-	int lfd = -1;
 	int sysfd = -1;
 	int count = 0; /* number of actions taken */
 	struct mdinfo info;
@@ -896,7 +1000,6 @@ int Manage_subdevs(char *devname, int fd,
 
 	stb.st_rdev = 0;
 	for (dv = devlist; dv; dv = dv->next) {
-		int err;
 		int rv;
 
 		if (strcmp(dv->devname, "failed") == 0 ||
@@ -1064,111 +1167,18 @@ int Manage_subdevs(char *devname, int fd,
 				pr_err("Cannot remove disks from a"
 					" \'member\' array, perform this"
 					" operation on the parent container\n");
-				if (sysfd >= 0)
-					close(sysfd);
-				goto abort;
-			}
-			if (tst->ss->external) {
-				/* To remove a device from a container, we must
-				 * check that it isn't in use in an array.
-				 * This involves looking in the 'holders'
-				 * directory - there must be just one entry,
-				 * the container.
-				 * To ensure that it doesn't get used as a
-				 * hot spare while we are checking, we
-				 * get an O_EXCL open on the container
-				 */
-				int dnum = fd2devnum(fd);
-				lfd = open_dev_excl(dnum);
-				if (lfd < 0) {
-					pr_err("Cannot get exclusive access "
-					       " to container - odd\n");
-					if (sysfd >= 0)
-						close(sysfd);
-					goto abort;
-				}
-				/* In the detached case it is not possible to
-				 * check if we are the unique holder, so just
-				 * rely on the 'detached' checks
-				 */
-				if (strcmp(dv->devname, "detached") == 0 ||
-				    sysfd >= 0 ||
-				    sysfs_unique_holder(dnum, stb.st_rdev))
-					/* pass */;
-				else {
-					pr_err("%s is %s, cannot remove.\n",
-					       dv->devname,
-					       errno == EEXIST ? "still in use":
-					       "not a member");
-					close(lfd);
-					goto abort;
-				}
-			}
-			/* FIXME check that it is a current member */
-			if (sysfd >= 0) {
-				/* device has been removed and we don't know
-				 * the major:minor number
-				 */
-				int n = write(sysfd, "remove", 6);
-				if (n != 6)
-					err = -1;
-				else
-					err = 0;
+				rv = -1;
+			} else
+				rv = Manage_remove(tst, fd, dv, sysfd,
+						   stb.st_rdev, verbose,
+						   devname);
+			if (sysfd >= 0)
 				close(sysfd);
-				sysfd = -1;
-			} else {
-				err = ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev);
-				if (err && errno == ENODEV) {
-					/* Old kernels rejected this if no personality
-					 * is registered */
-					struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
-					struct mdinfo *dv = NULL;
-					if (sra)
-						dv = sra->devs;
-					for ( ; dv ; dv=dv->next)
-						if (dv->disk.major == (int)major(stb.st_rdev) &&
-						    dv->disk.minor == (int)minor(stb.st_rdev))
-							break;
-					if (dv)
-						err = sysfs_set_str(sra, dv,
-								    "state", "remove");
-					else
-						err = -1;
-					if (sra)
-						sysfs_free(sra);
-				}
-			}
-			if (err) {
-				pr_err("hot remove failed "
-				       "for %s: %s\n",	dv->devname,
-				       strerror(errno));
-				if (lfd >= 0)
-					close(lfd);
+			sysfd = -1;
+			if (rv < 0)
 				goto abort;
-			}
-			if (tst->ss->external) {
-				/*
-				 * Before dropping our exclusive open we make an
-				 * attempt at preventing mdmon from seeing an
-				 * 'add' event before reconciling this 'remove'
-				 * event.
-				 */
-				char *name = devnum2devname(fd2devnum(fd));
-
-				if (!name) {
-					pr_err("unable to get container name\n");
-					goto abort;
-				}
-
-				ping_manager(name);
-				free(name);
-			}
-			if (lfd >= 0)
-				close(lfd);
-			count++;
-			if (verbose >= 0)
-				pr_err("hot removed %s from %s\n",
-					dv->devname, devname);
+			if (rv > 0)
+				count++;
 			break;
 
 		case 'f': /* set faulty */

@@ -459,7 +459,7 @@ int Manage_subdevs(char *devname, int fd,
 	struct stat stb;
 	int j;
 	int tfd = -1;
-	struct supertype *st, *tst;
+	struct supertype *dev_st, *tst;
 	char *subarray = NULL;
 	int duuid[4];
 	int ouuid[4];
@@ -639,14 +639,7 @@ int Manage_subdevs(char *devname, int fd,
 				else
 					frozen = -1;
 			}
-
-			st = dup_super(tst);
-
-			if (array.not_persistent==0)
-				st->ss->load_super(st, tfd, NULL);
-
 			if (!get_dev_size(tfd, dv->devname, &ldsize)) {
-				st->ss->free_super(st);
 				close(tfd);
 				tfd = -1;
 				if (dv->disposition == 'M')
@@ -665,7 +658,6 @@ int Manage_subdevs(char *devname, int fd,
 					       "       Add --force is you "
 					       "really want to add this device.\n",
 					       dv->devname, devname);
-					st->ss->free_super(st);
 					close(tfd);
 					goto abort;
 				}
@@ -679,7 +671,6 @@ int Manage_subdevs(char *devname, int fd,
 			    array.major_version == 0 &&
 			    md_get_version(fd)%100 < 2) {
 				close(tfd);
-				st->ss->free_super(st);
 				tfd = -1;
 				if (ioctl(fd, HOT_ADD_DISK,
 					  (unsigned long)stb.st_rdev)==0) {
@@ -738,7 +729,6 @@ int Manage_subdevs(char *devname, int fd,
 					 */
 				} else if (!tst->sb) {
 					close(tfd);
-					st->ss->free_super(st);
 					pr_err("cannot load array metadata from %s\n", devname);
 					goto abort;
 				}
@@ -748,7 +738,6 @@ int Manage_subdevs(char *devname, int fd,
 				    array_size) {
 					close(tfd);
 					tfd = -1;
-					st->ss->free_super(st);
 					if (dv->disposition == 'M')
 						continue;
 					pr_err("%s not large enough to join array\n",
@@ -762,10 +751,14 @@ int Manage_subdevs(char *devname, int fd,
 				 * simply re-add it.
 				 */
 
-				if (st->sb) {
+				if (array.not_persistent==0) {
+					dev_st = dup_super(tst);
+					dev_st->ss->load_super(dev_st, tfd, NULL);
+				}
+				if (dev_st && dev_st->sb) {
 					struct mdinfo mdi;
-					st->ss->getinfo_super(st, &mdi, NULL);
-					st->ss->uuid_from_super(st, ouuid);
+					dev_st->ss->getinfo_super(dev_st, &mdi, NULL);
+					dev_st->ss->uuid_from_super(dev_st, ouuid);
 					if (tst->sb)
 						tst->ss->uuid_from_super(tst, duuid);
 					else
@@ -808,30 +801,30 @@ int Manage_subdevs(char *devname, int fd,
 							if (tfd < 0) {
 								pr_err("failed to open %s for"
 									" superblock update during re-add\n", dv->devname);
-								st->ss->free_super(st);
+								dev_st->ss->free_super(dev_st);
 								goto abort;
 							}
 
 							if (dv->writemostly == 1)
-								rv = st->ss->update_super(
-									st, NULL, "writemostly",
+								rv = dev_st->ss->update_super(
+									dev_st, NULL, "writemostly",
 									devname, verbose, 0, NULL);
 							if (dv->writemostly == 2)
-								rv = st->ss->update_super(
-									st, NULL, "readwrite",
+								rv = dev_st->ss->update_super(
+									dev_st, NULL, "readwrite",
 									devname, verbose, 0, NULL);
 							if (update)
-								rv = st->ss->update_super(
-									st, NULL, update,
+								rv = dev_st->ss->update_super(
+									dev_st, NULL, update,
 									devname, verbose, 0, NULL);
 							if (rv == 0)
-								rv = st->ss->store_super(st, tfd);
+								rv = dev_st->ss->store_super(dev_st, tfd);
 							close(tfd);
 							tfd = -1;
 							if (rv != 0) {
 								pr_err("failed to update"
 								       " superblock during re-add\n");
-								st->ss->free_super(st);
+								dev_st->ss->free_super(dev_st);
 								goto abort;
 							}
 						}
@@ -841,20 +834,20 @@ int Manage_subdevs(char *devname, int fd,
 							if (verbose >= 0)
 								pr_err("re-added %s\n", dv->devname);
 							count++;
-							st->ss->free_super(st);
+							dev_st->ss->free_super(dev_st);
 							continue;
 						}
 						if (errno == ENOMEM || errno == EROFS) {
 							pr_err("add new device failed for %s: %s\n",
 								dv->devname, strerror(errno));
-							st->ss->free_super(st);
+							dev_st->ss->free_super(dev_st);
 							if (dv->disposition == 'M')
 								continue;
 							goto abort;
 						}
 					}
 				skip_re_add:
-					st->ss->free_super(st);
+					dev_st->ss->free_super(dev_st);
 				}
 				if (dv->disposition == 'M') {
 					if (verbose > 0)

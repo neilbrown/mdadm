@@ -60,7 +60,8 @@ eval $tst
 ### Now with a missing device
 # We don't want the recovery to complete while we are
 # messing about here.
-echo 1000 > /proc/sys/dev/raid/speed_limit_max
+echo 100 > /proc/sys/dev/raid/speed_limit_max
+echo 100 > /proc/sys/dev/raid/speed_limit_min
 
 mdadm -AR $md1 $dev0 $dev2 $dev3 $dev4 #
 check state U_U
@@ -124,3 +125,4 @@ mdadm -I -c $conf $dev1
 mdadm -I -c $conf $dev2
 eval $tst
 echo 2000 > /proc/sys/dev/raid/speed_limit_max
+echo 1000 > /proc/sys/dev/raid/speed_limit_min

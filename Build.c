@@ -124,7 +124,9 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	if (vers >= 9000) {
 		mdu_array_info_t array;
 		array.level = s->level;
-		array.size = s->size == MAX_SIZE ? 0 : s->size;
+		if (s->size == MAX_SIZE)
+			s->size = 0;
+		array.size = s->size;
 		array.nr_disks = s->raiddisks;
 		array.raid_disks = s->raiddisks;
 		array.md_minor = 0;

@@ -1081,7 +1081,6 @@ extern int add_dev(const char *name, const struct stat *stb, int flag, struct FT
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_runstop(char *devname, int fd, int runstop, int quiet,
 			  int will_retry);
-extern int Manage_resize(char *devname, int fd, long long size, int raid_disks);
 extern int Manage_subdevs(char *devname, int fd,
 			  struct mddev_dev *devlist, int verbose, int test,
 			  char *update, int force);

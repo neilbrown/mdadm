@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -51,7 +51,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 		return 1;
 	}
 #ifndef MDASSEMBLE
-	/* If this is an externally-manage array, we need to modify the
+	/* If this is an externally-managed array, we need to modify the
 	 * metadata_version so that mdmon doesn't undo our change.
 	 */
 	mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
@@ -102,7 +102,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 		goto out;
 	}
 
-	if (readonly>0) {
+	if (readonly > 0) {
 		if (ioctl(fd, STOP_ARRAY_RO, NULL)) {
 			pr_err("failed to set readonly for %s: %s\n",
 				devname, strerror(errno));
@@ -129,7 +129,7 @@ out:
 
 static void remove_devices(int devnum, char *path)
 {
-	/* 
+	/*
 	 * Remove names at 'path' - possibly with
 	 * partition suffixes - which link to the 'standard'
 	 * name for devnum.  These were probably created
@@ -155,7 +155,7 @@ static void remove_devices(int devnum, char *path)
 	path2 = xmalloc(strlen(path)+20);
 	strcpy(path2, path);
 	pe = path2 + strlen(path2);
-	
+
 	for (part = 0; part < 16; part++) {
 		if (part) {
 			sprintf(be, "p%d", part);
@@ -172,12 +172,11 @@ static void remove_devices(int devnum, char *path)
 	}
 	free(path2);
 }
-	
 
 int Manage_runstop(char *devname, int fd, int runstop,
 		   int verbose,	int will_retry)
 {
-	/* Run or stop the array. array must already be configured
+	/* Run or stop the array.  Array must already be configured
 	 * 'Run' requires >= 0.90.0
 	 * 'will_retry' is only relevant for 'stop', and means
 	 * that error messages are not wanted.
@@ -189,12 +188,12 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		verbose = -1;
 
 	if (runstop == -1 && md_get_version(fd) < 9000) {
-		if (ioctl(fd, STOP_MD, 0)) {
-			pr_err("stopping device %s "
-			       "failed: %s\n",
-			       devname, strerror(errno));
-			return 1;
-		}
+		if (ioctl(fd, STOP_MD, 0) == 0)
+			return 0;
+		pr_err("stopping device %s "
+		       "failed: %s\n",
+		       devname, strerror(errno));
+		return 1;
 	}
 
 	if (md_get_version(fd) < 9000) {
@@ -202,7 +201,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		return 1;
 	}
 
-	if (runstop>0) {
+	if (runstop > 0) {
 		if (ioctl(fd, RUN_ARRAY, &param)) {
 			if (verbose >= 0)
 				pr_err("failed to run array %s: %s\n",
@@ -246,6 +245,10 @@ int Manage_runstop(char *devname, int fd, int runstop,
 			/* This is mdmon managed. */
 			close(fd);
 
+			/* As we have an O_EXCL open, any use of the device
+			 * which blocks STOP_ARRAY is probably a transient use,
+			 * so it is reasonable to retry for a while - 5 seconds.
+			 */
 			count = 25;
 			while (count &&
 			       (err = sysfs_set_str(mdi, NULL,
@@ -290,7 +293,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 			 * which are members of this array
 			 */
 			mds = mdstat_read(0, 0);
-			for (m=mds; m; m=m->next)
+			for (m = mds; m; m = m->next)
 				if (m->metadata_version &&
 				    strncmp(m->metadata_version, "external:", 9)==0 &&
 				    is_subarray(m->metadata_version+9) &&
@@ -337,14 +340,12 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		if (mdi)
 			sysfs_uevent(mdi, "change");
 
-		
 		if (devnum != NoMdDev &&
 		    (stat("/dev/.udev", &stb) != 0 ||
 		     check_env("MDADM_NO_UDEV"))) {
 			struct map_ent *mp = map_by_devnum(&map, devnum);
 			remove_devices(devnum, mp ? mp->path : NULL);
 		}
-
 
 		if (verbose >= 0)
 			pr_err("stopped %s\n", devname);
@@ -356,26 +357,6 @@ int Manage_runstop(char *devname, int fd, int runstop,
 			sysfs_free(mdi);
 	}
 	return rv;
-}
-
-int Manage_resize(char *devname, int fd, long long size, int raid_disks)
-{
-	mdu_array_info_t info;
-	if (ioctl(fd, GET_ARRAY_INFO, &info) != 0) {
-		pr_err("Cannot get array information for %s: %s\n",
-			devname, strerror(errno));
-		return 1;
-	}
-	if (size >= 0)
-		info.size = size;
-	if (raid_disks > 0)
-		info.raid_disks = raid_disks;
-	if (ioctl(fd, SET_ARRAY_INFO, &info) != 0) {
-		pr_err("Cannot set device size/shape for %s: %s\n",
-			devname, strerror(errno));
-		return 1;
-	}
-	return 0;
 }
 
 static void add_faulty(struct mddev_dev *dv, int fd, char disp)
@@ -456,12 +437,13 @@ int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
 		   char *update, int force)
 {
-	/* do something to each dev.
+	/* Do something to each dev.
 	 * devmode can be
 	 *  'a' - add the device
 	 *	   try HOT_ADD_DISK
 	 *         If that fails EINVAL, try ADD_NEW_DISK
-	 *  'r' - remove the device HOT_REMOVE_DISK
+	 *  'A' - re-add the device
+	 *  'r' - remove the device: HOT_REMOVE_DISK
 	 *        device can be 'faulty' or 'detached' in which case all
 	 *	  matching devices are removed.
 	 *  'f' - set the device faulty SET_DISK_FAULTY
@@ -488,13 +470,13 @@ int Manage_subdevs(char *devname, int fd,
 	int frozen = 0;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
-		pr_err("cannot get array info for %s\n",
+		pr_err("Cannot get array info for %s\n",
 			devname);
 		goto abort;
 	}
 	sysfs_init(&info, fd, 0);
 
-	/* array.size is only 32 bit and may be truncated.
+	/* array.size is only 32 bits and may be truncated.
 	 * So read from sysfs if possible, and record number of sectors
 	 */
 
@@ -551,7 +533,7 @@ int Manage_subdevs(char *devname, int fd,
 				continue;
 			}
 			for (dp = &add_devlist; *dp; dp = & (*dp)->next)
-				/* 'M' is like 'A' without errors */
+				/* 'M' (for 'missing') is like 'A' without errors */
 				(*dp)->disposition = 'M';
 			*dp = dv->next;
 			dv->next = add_devlist;
@@ -731,12 +713,15 @@ int Manage_subdevs(char *devname, int fd,
 						continue;
 					if (disc.major==0 && disc.minor==0)
 						continue;
-					if ((disc.state & 4)==0) continue; /* sync */
+					if ((disc.state & 4)==0) /* sync */
+						continue;
 					/* Looks like a good device to try */
 					dev = map_dev(disc.major, disc.minor, 1);
-					if (!dev) continue;
+					if (!dev)
+						continue;
 					dfd = dev_open(dev, O_RDONLY);
-					if (dfd < 0) continue;
+					if (dfd < 0)
+						continue;
 					if (tst->ss->load_super(tst, dfd,
 								NULL)) {
 						close(dfd);
@@ -771,9 +756,10 @@ int Manage_subdevs(char *devname, int fd,
 					goto abort;
 				}
 
-				/* Possibly this device was recently part of the array
-				 * and was temporarily removed, and is now being re-added.
-				 * If so, we can simply re-add it.
+				/* Possibly this device was recently part of
+				 * the array and was temporarily removed, and
+				 * is now being re-added.  If so, we can
+				 * simply re-add it.
 				 */
 
 				if (st->sb) {
@@ -788,8 +774,10 @@ int Manage_subdevs(char *devname, int fd,
 					if ((mdi.disk.state & (1<<MD_DISK_ACTIVE)) &&
 					    !(mdi.disk.state & (1<<MD_DISK_FAULTY)) &&
 					    memcmp(duuid, ouuid, sizeof(ouuid))==0) {
-						/* look like it is worth a try.  Need to
-						 * make sure kernel will accept it though.
+						/* Looks like it is worth a
+						 * try.  Need to make sure
+						 * kernel will accept it
+						 * though.
 						 */
 						/* re-add doesn't work for version-1 superblocks
 						 * before 2.6.18 :-(
@@ -901,7 +889,7 @@ int Manage_subdevs(char *devname, int fd,
 						avail[disc.raid_disk] = 1;
 						found++;
 					}
-					array_failed = !enough(array.level, array.raid_disks, 
+					array_failed = !enough(array.level, array.raid_disks,
 							       array.layout, 1, avail);
 				} else
 					array_failed = 0;
@@ -937,7 +925,7 @@ int Manage_subdevs(char *devname, int fd,
 			 * we must choose the same free number, which requires
 			 * starting at 'raid_disks' and counting up
 			 */
-			for (j = array.raid_disks; j< tst->max_devs; j++) {
+			for (j = array.raid_disks; j < tst->max_devs; j++) {
 				disc.number = j;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					break;
@@ -970,7 +958,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * to fill.
 				 */
 				char *used = xcalloc(array.raid_disks, 1);
-				for (j=0; j< tst->max_devs; j++) {
+				for (j = 0; j < tst->max_devs; j++) {
 					mdu_disk_info_t disc2;
 					disc2.number = j;
 					if (ioctl(fd, GET_DISK_INFO, &disc2))
@@ -985,7 +973,7 @@ int Manage_subdevs(char *devname, int fd,
 						continue;
 					used[disc2.raid_disk] = 1;
 				}
-				for (j=0 ; j<array.raid_disks; j++)
+				for (j = 0 ; j < array.raid_disks; j++)
 					if (!used[j]) {
 						disc.raid_disk = j;
 						disc.state |= (1<<MD_DISK_SYNC);
@@ -1083,7 +1071,7 @@ int Manage_subdevs(char *devname, int fd,
 				 * directory - there must be just one entry,
 				 * the container.
 				 * To ensure that it doesn't get used as a
-				 * hold spare while we are checking, we
+				 * hot spare while we are checking, we
 				 * get an O_EXCL open on the container
 				 */
 				int dnum = fd2devnum(fd);
@@ -1095,7 +1083,7 @@ int Manage_subdevs(char *devname, int fd,
 						close(sysfd);
 					goto abort;
 				}
-				/* in the detached case it is not possible to
+				/* In the detached case it is not possible to
 				 * check if we are the unique holder, so just
 				 * rely on the 'detached' checks
 				 */
@@ -1128,7 +1116,7 @@ int Manage_subdevs(char *devname, int fd,
 				err = ioctl(fd, HOT_REMOVE_DISK, (unsigned long)stb.st_rdev);
 				if (err && errno == ENODEV) {
 					/* Old kernels rejected this if no personality
-					 * registered */
+					 * is registered */
 					struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
 					struct mdinfo *dv = NULL;
 					if (sra)
@@ -1268,9 +1256,8 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 	return rv;
 }
 
-/* Move spare from one array to another
- * If adding to destination array fails
- * add back to original array
+/* Move spare from one array to another If adding to destination array fails
+ * add back to original array.
  * Returns 1 on success, 0 on failure */
 int move_spare(char *from_devname, char *to_devname, dev_t devid)
 {

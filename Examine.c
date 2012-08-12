@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -47,7 +47,8 @@ int Examine(struct mddev_dev *devlist,
 	 *
 	 *   utime, state etc
 	 *
-	 * If (brief) gather devices for same array and just print a mdadm.conf line including devices=
+	 * If (brief) gather devices for same array and just print a mdadm.conf
+	 * line including devices=
 	 * if devlist==NULL, use conf_get_devs()
 	 */
 	int fd;
@@ -62,7 +63,7 @@ int Examine(struct mddev_dev *devlist,
 		int spares;
 	} *arrays = NULL;
 
-	for (; devlist ; devlist=devlist->next) {
+	for (; devlist ; devlist = devlist->next) {
 		struct supertype *st;
 		int have_container = 0;
 
@@ -124,9 +125,9 @@ int Examine(struct mddev_dev *devlist,
 		} else if (c->brief) {
 			struct array *ap;
 			char *d;
-			for (ap=arrays; ap; ap=ap->next) {
+			for (ap = arrays; ap; ap = ap->next) {
 				if (st->ss == ap->st->ss &&
-				    st->ss->compare_super(ap->st, st)==0)
+				    st->ss->compare_super(ap->st, st) == 0)
 					break;
 			}
 			if (!ap) {
@@ -156,7 +157,7 @@ int Examine(struct mddev_dev *devlist,
 	}
 	if (c->brief) {
 		struct array *ap;
-		for (ap=arrays; ap; ap=ap->next) {
+		for (ap = arrays; ap; ap = ap->next) {
 			char sep='=';
 			char *d;
 			int newline = 0;
@@ -166,7 +167,9 @@ int Examine(struct mddev_dev *devlist,
 				newline += printf("   spares=%d", ap->spares);
 			if (c->verbose > 0) {
 				newline += printf("   devices");
-				for (d=dl_next(ap->devs); d!= ap->devs; d=dl_next(d)) {
+				for (d = dl_next(ap->devs);
+				     d != ap->devs;
+				     d=dl_next(d)) {
 					printf("%c%s", sep, d);
 					sep=',';
 				}

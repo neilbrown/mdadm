@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,6 @@
 #include "md_p.h"
 #include <ctype.h>
 
-
 void make_parts(char *dev, int cnt)
 {
 	/* make 'cnt' partition devices for 'dev'
@@ -49,7 +48,8 @@ void make_parts(char *dev, int cnt)
 	char sym[1024];
 	int err;
 
-	if (cnt==0) cnt=4;
+	if (cnt == 0)
+		cnt = 4;
 	if (lstat(dev, &stb)!= 0)
 		return;
 
@@ -68,10 +68,10 @@ void make_parts(char *dev, int cnt)
 	} else
 		return;
 	name = xmalloc(nlen);
-	for (i=1; i <= cnt ; i++) {
+	for (i = 1; i <= cnt ; i++) {
 		struct stat stb2;
 		snprintf(name, nlen, "%s%s%d", dev, dig?"p":"", i);
-		if (stat(name, &stb2)==0) {
+		if (stat(name, &stb2) == 0) {
 			if (!S_ISBLK(stb2.st_mode) || !S_ISBLK(stb.st_mode))
 				continue;
 			if (stb2.st_rdev == makedev(major_num, minor_num+i))
@@ -100,7 +100,6 @@ void make_parts(char *dev, int cnt)
 	free(name);
 }
 
-
 /*
  * We need a new md device to assemble/build/create an array.
  * 'dev' is a name given us by the user (command line or mdadm.conf)
@@ -125,7 +124,7 @@ void make_parts(char *dev, int cnt)
  * supported by 'dev', we add a "_%d" suffix based on the minor number
  * use that.
  *
- * If udev is configured, we create a temporary device, open it, and 
+ * If udev is configured, we create a temporary device, open it, and
  * unlink it.
  * If not, we create the /dev/mdXX device, and is name is usable,
  * /dev/md/name
@@ -150,7 +149,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	if (chosen == NULL)
 		chosen = cbuf;
 
-
 	if (autof == 0)
 		autof = ci->autof;
 
@@ -159,7 +157,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 	strcpy(chosen, "/dev/md/");
 	cname = chosen + strlen(chosen);
-
 
 	if (dev) {
 		if (strncmp(dev, "/dev/md/", 8) == 0) {
@@ -238,7 +235,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			use_mdp = 0;
 	}
 	if (num < 0 && trustworthy == LOCAL && name) {
-		/* if name is numeric, possibly prefixed by 
+		/* if name is numeric, possibly prefixed by
 		 * 'md' or '/dev/md', use that for num
 		 * if it is not already in use */
 		char *ep;
@@ -302,7 +299,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			if (trustworthy == METADATA && !isdigit(cname[cnlen-1]))
 				sprintf(cname+cnlen, "%d", unum);
 			else
-				/* add _%d to FOREIGN array that don't 
+				/* add _%d to FOREIGN array that don't
 				 * a 'host:' prefix
 				 */
 				sprintf(cname+cnlen, "_%d", unum);
@@ -348,9 +345,9 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		}
 		if (use_mdp == 1)
 			make_parts(devname, parts);
-		if (strcmp(chosen, devname) != 0) {
 
-			if (mkdir("/dev/md",0700)==0) {
+		if (strcmp(chosen, devname) != 0) {
+			if (mkdir("/dev/md",0700) == 0) {
 				if (chown("/dev/md", ci->uid, ci->gid))
 					perror("chown /dev/md");
 				if (chmod("/dev/md", ci->mode| ((ci->mode>>2) & 0111)))
@@ -387,7 +384,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			devname);
 	return mdfd;
 }
-
 
 /* Open this and check that it is an md device.
  * On success, return filedescriptor.

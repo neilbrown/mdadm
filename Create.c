@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
  *    Email: <neilb@suse.de>
  */
 
-#include "mdadm.h"
+#include	"mdadm.h"
 #include	"md_u.h"
 #include	"md_p.h"
 #include	<ctype.h>
@@ -60,7 +60,6 @@ static int default_layout(struct supertype *st, int level, int verbose)
 
 	return layout;
 }
-
 
 int Create(struct supertype *st, char *mddev,
 	   char *name, int *uuid,
@@ -197,7 +196,6 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	/* now set some defaults */
-
 
 	if (s->layout == UnSet) {
 		do_default_layout = 1;
@@ -699,7 +697,7 @@ int Create(struct supertype *st, char *mddev,
 			mdi = sysfs_read(-1, dnum, GET_VERSION);
 
 			pr_err("Creating array inside "
-				"%s container %s\n", 
+				"%s container %s\n",
 				mdi?mdi->text_version:"managed", path);
 			sysfs_free(mdi);
 		} else
@@ -737,7 +735,6 @@ int Create(struct supertype *st, char *mddev,
 		}
 		s->bitmap_file = NULL;
 	}
-
 
 	sysfs_init(&info, mdfd, 0);
 

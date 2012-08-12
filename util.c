@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -89,15 +89,16 @@ int parse_uuid(char *str, int uuid[4])
 	int hit = 0; /* number of Hex digIT */
 	int i;
 	char c;
-	for (i=0; i<4; i++) uuid[i]=0;
+	for (i = 0; i < 4; i++)
+		uuid[i] = 0;
 
-	while ((c= *str++)) {
+	while ((c = *str++) != 0) {
 		int n;
-		if (c>='0' && c<='9')
+		if (c >= '0' && c <= '9')
 			n = c-'0';
-		else if (c>='a' && c <= 'f')
+		else if (c >= 'a' && c <= 'f')
 			n = 10 + c - 'a';
-		else if (c>='A' && c <= 'F')
+		else if (c >= 'A' && c <= 'F')
 			n = 10 + c - 'A';
 		else if (strchr(":. -", c))
 			continue;
@@ -113,7 +114,6 @@ int parse_uuid(char *str, int uuid[4])
 		return 1;
 	return 0;
 }
-
 
 /*
  * Get the md version number.
@@ -280,7 +280,7 @@ void remove_partitions(int fd)
 	a.datalen = sizeof(p);
 	a.flags = 0;
 	memset(a.data, 0, a.datalen);
-	for (p.pno=0; p.pno < 16; p.pno++)
+	for (p.pno = 0; p.pno < 16; p.pno++)
 		ioctl(fd, BLKPG, &a);
 #endif
 }
@@ -338,11 +338,11 @@ int enough(int level, int raid_disks, int layout, int clean, char *avail)
 		 * which actual disks are present.
 		 */
 		copies = (layout&255)* ((layout>>8) & 255);
-		first=0;
+		first = 0;
 		do {
 			/* there must be one of the 'copies' form 'first' */
 			int n = copies;
-			int cnt=0;
+			int cnt = 0;
 			while (n--) {
 				if (avail[first])
 					cnt++;
@@ -389,7 +389,7 @@ int enough_fd(int fd)
 	    array.raid_disks <= 0)
 		return 0;
 	avail = xcalloc(array.raid_disks, 1);
-	for (i=0; i < MAX_DISKS && array.nr_disks > 0; i++) {
+	for (i = 0; i < MAX_DISKS && array.nr_disks > 0; i++) {
 		disk.number = i;
 		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
 			continue;
@@ -411,7 +411,6 @@ int enough_fd(int fd)
 	return rv;
 }
 
-
 const int uuid_zero[4] = { 0, 0, 0, 0 };
 
 int same_uuid(int a[4], int b[4], int swapuuid)
@@ -424,7 +423,7 @@ int same_uuid(int a[4], int b[4], int swapuuid)
 		unsigned char *ac = (unsigned char *)a;
 		unsigned char *bc = (unsigned char *)b;
 		int i;
-		for (i=0; i<16; i+= 4) {
+		for (i = 0; i < 16; i += 4) {
 			if (ac[i+0] != bc[i+3] ||
 			    ac[i+1] != bc[i+2] ||
 			    ac[i+2] != bc[i+1] ||
@@ -441,6 +440,7 @@ int same_uuid(int a[4], int b[4], int swapuuid)
 		return 0;
 	}
 }
+
 void copy_uuid(void *a, int b[4], int swapuuid)
 {
 	if (swapuuid) {
@@ -451,7 +451,7 @@ void copy_uuid(void *a, int b[4], int swapuuid)
 		unsigned char *ac = (unsigned char *)a;
 		unsigned char *bc = (unsigned char *)b;
 		int i;
-		for (i=0; i<16; i+= 4) {
+		for (i = 0; i < 16; i += 4) {
 			ac[i+0] = bc[i+3];
 			ac[i+1] = bc[i+2];
 			ac[i+2] = bc[i+1];
@@ -537,8 +537,8 @@ int check_reiser(int fd, char *name)
 		return 0;
 	if (read(fd, sb, 1024) != 1024)
 		return 0;
-	if (strncmp((char*)sb+52, "ReIsErFs",8)!=0 &&
-	    strncmp((char*)sb+52, "ReIsEr2Fs",9)!=0)
+	if (strncmp((char*)sb+52, "ReIsErFs",8) != 0 &&
+	    strncmp((char*)sb+52, "ReIsEr2Fs",9) != 0)
 		return 0;
 	pr_err("%s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
@@ -574,7 +574,7 @@ int ask(char *mesg)
 {
 	char *add = "";
 	int i;
-	for (i=0; i<5; i++) {
+	for (i = 0; i < 5; i++) {
 		char buf[100];
 		fprintf(stderr, "%s%s", mesg, add);
 		fflush(stderr);
@@ -601,18 +601,18 @@ int is_standard(char *dev, int *nump)
 	 *   0 if not a standard name.
 	 */
 	char *d = strrchr(dev, '/');
-	int type=0;
+	int type = 0;
 	int num;
 	if (!d)
 		return 0;
-	if (strncmp(d, "/d",2)==0)
-		d += 2, type=1; /* /dev/md/dN{pM} */
-	else if (strncmp(d, "/md_d", 5)==0)
-		d += 5, type=1; /* /dev/md_dN{pM} */
-	else if (strncmp(d, "/md", 3)==0)
-		d += 3, type=-1; /* /dev/mdN */
-	else if (d-dev > 3 && strncmp(d-2, "md/", 3)==0)
-		d += 1, type=-1; /* /dev/md/N */
+	if (strncmp(d, "/d",2) == 0)
+		d += 2, type = 1; /* /dev/md/dN{pM} */
+	else if (strncmp(d, "/md_d", 5) == 0)
+		d += 5, type = 1; /* /dev/md_dN{pM} */
+	else if (strncmp(d, "/md", 3) == 0)
+		d += 3, type = -1; /* /dev/mdN */
+	else if (d-dev > 3 && strncmp(d-2, "md/", 3) == 0)
+		d += 1, type = -1; /* /dev/md/N */
 	else
 		return 0;
 	if (!*d)
@@ -634,13 +634,13 @@ unsigned long calc_csum(void *super, int bytes)
 	unsigned int csum;
 	unsigned int *superc = (unsigned int*) super;
 
-	for(i=0; i<bytes/4; i++)
-		newcsum+= superc[i];
+	for(i = 0; i < bytes/4; i++)
+		newcsum += superc[i];
 	csum = (newcsum& 0xffffffff) + (newcsum>>32);
 #ifdef __alpha__
 /* The in-kernel checksum calculation is always 16bit on
  * the alpha, though it is 32 bit on i386...
- * I wonder what it is elsewhere... (it uses and API in
+ * I wonder what it is elsewhere... (it uses an API in
  * a way that it shouldn't).
  */
 	csum = (csum & 0xffff) + (csum >> 16);
@@ -664,7 +664,7 @@ char *human_size(long long bytes)
 	 */
 
 	if (bytes < 5000*1024)
-		buf[0]=0;
+		buf[0] = 0;
 	else if (bytes < 2*1024LL*1024LL*1024LL) {
 		long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
 		long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
@@ -733,11 +733,15 @@ int get_data_disks(int level, int layout, int raid_disks)
 {
 	int data_disks = 0;
 	switch (level) {
-	case 0: data_disks = raid_disks; break;
-	case 1: data_disks = 1; break;
+	case 0: data_disks = raid_disks;
+		break;
+	case 1: data_disks = 1;
+		break;
 	case 4:
-	case 5: data_disks = raid_disks - 1; break;
-	case 6: data_disks = raid_disks - 2; break;
+	case 5: data_disks = raid_disks - 1;
+		break;
+	case 6: data_disks = raid_disks - 2;
+		break;
 	case 10: data_disks = raid_disks / (layout & 255) / ((layout>>8)&255);
 		break;
 	}
@@ -796,7 +800,7 @@ char *get_md_name(int dev)
 
 void put_md_name(char *name)
 {
-	if (strncmp(name, "/dev/.tmp.md", 12)==0)
+	if (strncmp(name, "/dev/.tmp.md", 12) == 0)
 		unlink(name);
 }
 
@@ -848,7 +852,7 @@ int dev_open(char *dev, int flags)
 		if (fd < 0) {
 			snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
 				 (int)getpid(), major, minor);
-			if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
+			if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
 				fd = open(devname, flags);
 				unlink(devname);
 			}
@@ -856,7 +860,7 @@ int dev_open(char *dev, int flags)
 		if (fd < 0) {
 			snprintf(devname, sizeof(devname), "/tmp/.tmp.md.%d:%d:%d",
 				 (int)getpid(), major, minor);
-			if (mknod(devname, S_IFBLK|0600, makedev(major, minor))==0) {
+			if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
 				fd = open(devname, flags);
 				unlink(devname);
 			}
@@ -886,7 +890,7 @@ int open_dev_excl(int devnum)
 	int flags = O_RDWR;
 
 	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
-	for (i=0 ; i<25 ; i++) {
+	for (i = 0 ; i < 25 ; i++) {
 		int fd = dev_open(buf, flags|O_EXCL);
 		if (fd >= 0)
 			return fd;
@@ -924,7 +928,7 @@ void wait_for(char *dev, int fd)
 	    (stb_want.st_mode & S_IFMT) != S_IFBLK)
 		return;
 
-	for (i=0 ; i<25 ; i++) {
+	for (i = 0 ; i < 25 ; i++) {
 		struct stat stb;
 		if (stat(dev, &stb) == 0 &&
 		    (stb.st_mode & S_IFMT) == S_IFBLK &&
@@ -1058,7 +1062,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	st = xcalloc(1, sizeof(*st));
 	st->container_dev = NoMdDev;
 
-	for (i=0 ; superlist[i]; i++) {
+	for (i = 0 ; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];
 		if (guess_type == guess_array && ss->add_to_super == NULL)
@@ -1176,7 +1180,7 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 
 	part = (struct GPT_part_entry *)buf;
 
-	for (part_nr=0; part_nr < all_partitions; part_nr++) {
+	for (part_nr = 0; part_nr < all_partitions; part_nr++) {
 		/* read partition entry */
 		if (read(fd, buf, entry_size) != (ssize_t)entry_size)
 			return 0;
@@ -1220,7 +1224,7 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 		/* found the correct signature */
 		part = boot_sect.parts;
 
-		for (part_nr=0; part_nr < MBR_PARTITIONS; part_nr++) {
+		for (part_nr = 0; part_nr < MBR_PARTITIONS; part_nr++) {
 			/* check for GPT type */
 			if (part->part_type == MBR_GPT_PARTITION_TYPE) {
 				retval = get_gpt_last_partition_end(fd, endofpart);
@@ -1598,7 +1602,7 @@ int start_mdmon(int devnum)
 {
 	int i, skipped;
 	int len;
-	pid_t pid;	
+	pid_t pid;
 	int status;
 	char pathbuf[1024];
 	char *paths[4] = {
@@ -1628,13 +1632,13 @@ int start_mdmon(int devnum)
 	case 0:
 		/* FIXME yuk. CLOSE_EXEC?? */
 		skipped = 0;
-		for (i=3; skipped < 20; i++)
+		for (i = 3; skipped < 20; i++)
 			if (close(i) < 0)
 				skipped++;
 			else
 				skipped = 0;
 
-		for (i=0; paths[i]; i++)
+		for (i = 0; paths[i]; i++)
 			if (paths[i][0]) {
 				if (__offroot) {
 					execl(paths[i], "mdmon", "--offroot",

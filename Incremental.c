@@ -2,7 +2,7 @@
  * Incremental.c - support --incremental.  Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2006-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2006-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -227,7 +227,6 @@ int Incremental(char *devname, struct context *c,
 	else
 		trustworthy = FOREIGN;
 
-
 	if (!match && !conf_test_metadata(st->ss->name, policy,
 					  (trustworthy == LOCAL))) {
 		if (c->verbose >= 1)
@@ -307,7 +306,7 @@ int Incremental(char *devname, struct context *c,
 		}
 		sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
 					    GET_OFFSET | GET_SIZE));
-	
+
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
 			 * kernel, and mdadm -I may not be able to complete.
@@ -337,7 +336,7 @@ int Incremental(char *devname, struct context *c,
 
 		sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
 					    GET_OFFSET | GET_SIZE));
-	
+
 		if (mp->path)
 			strcpy(chosen_name, mp->path);
 		else
@@ -424,7 +423,7 @@ int Incremental(char *devname, struct context *c,
 		info.array.working_disks = 0;
 		for (d = sra->devs; d; d=d->next)
 			info.array.working_disks ++;
-			
+
 	}
 
 	/* 7/ Is there enough devices to possibly start the array? */
@@ -436,7 +435,7 @@ int Incremental(char *devname, struct context *c,
 		if (c->verbose >= 0)
 			pr_err("container %s now has %d device%s\n",
 			       chosen_name, info.array.working_disks,
-			       info.array.working_disks==1?"":"s");
+			       info.array.working_disks == 1?"":"s");
 		wait_for(chosen_name, mdfd);
 		if (st->ss->external)
 			devnum = fd2devnum(mdfd);
@@ -632,7 +631,7 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 
 	for (d = sra->devs ; d ; d = d->next)
 		numdevs++;
-	for (d = sra->devs, devnum=0 ; d ; d = d->next, devnum++) {
+	for (d = sra->devs, devnum = 0 ; d ; d = d->next, devnum++) {
 		char dn[30];
 		int dfd;
 		int ok;
@@ -680,7 +679,7 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 			else if (info.events == max_events+1) {
 				int i;
 				max_events = info.events;
-				for (i=0; i < raid_disks; i++)
+				for (i = 0; i < raid_disks; i++)
 					if (avail[i])
 						avail[i]--;
 				avail[info.disk.raid_disk] = 2;
@@ -824,7 +823,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		if (st == NULL) {
 			int i;
 			st2 = NULL;
-			for(i=0; !st2 && superlist[i]; i++)
+			for(i = 0; !st2 && superlist[i]; i++)
 				st2 = superlist[i]->match_metadata_desc(
 					sra->text_version);
 			if (!st2) {
@@ -1314,7 +1313,7 @@ static char *container2devname(char *devname)
 	} else {
 		int uuid[4];
 		struct map_ent *mp, *map = NULL;
-					
+
 		if (!parse_uuid(devname, uuid))
 			return mdname;
 		mp = map_by_uuid(&map, uuid);

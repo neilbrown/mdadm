@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -197,7 +197,7 @@ int Detail(char *dev, struct context *c)
 				printf("MD_METADATA=%d.%d\n",
 				       array.major_version, array.minor_version);
 		}
-		
+
 		if (st && st->sb && info) {
 			char nbuf[64];
 			struct map_ent *mp, *map = NULL;
@@ -227,14 +227,14 @@ int Detail(char *dev, struct context *c)
 	}
 
 	disks = xmalloc(max_disks * sizeof(mdu_disk_info_t));
-	for (d=0; d<max_disks; d++) {
+	for (d = 0; d < max_disks; d++) {
 		disks[d].state = (1<<MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
 		disks[d].number = disks[d].raid_disk = d;
 	}
 
 	next = array.raid_disks;
-	for (d=0; d < max_disks; d++) {
+	for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
@@ -325,7 +325,8 @@ int Detail(char *dev, struct context *c)
 			str = "container";
 		printf("     Raid Level : %s\n", str?str:"-unknown-");
 		if (larray_size)
-			printf("     Array Size : %llu%s\n", (larray_size>>10), human_size(larray_size));
+			printf("     Array Size : %llu%s\n", (larray_size>>10),
+			       human_size(larray_size));
 		if (array.level >= 1) {
 			if (array.major_version != 0 &&
 			    (larray_size >= 0xFFFFFFFFULL|| array.size == 0)) {
@@ -343,7 +344,7 @@ int Detail(char *dev, struct context *c)
 		if (array.raid_disks)
 			printf("   Raid Devices : %d\n", array.raid_disks);
 		printf("  Total Devices : %d\n", array.nr_disks);
-		if (!container && 
+		if (!container &&
 		    ((sra == NULL && array.major_version == 0) ||
 		     (sra && sra->array.major_version == 0)))
 			printf("Preferred Minor : %d\n", array.md_minor);
@@ -363,7 +364,9 @@ int Detail(char *dev, struct context *c)
 		if (atime)
 			printf("    Update Time : %.24s\n", ctime(&atime));
 		if (array.raid_disks) {
-			static char *sync_action[] = {", recovering",", resyncing",", reshaping",", checking"};
+			static char *sync_action[] = {
+				", recovering",  ", resyncing",
+				", reshaping",   ", checking"  };
 			char *st;
 			if (avail_disks == array.raid_disks)
 				st = "";
@@ -419,7 +422,9 @@ int Detail(char *dev, struct context *c)
 		}
 
 		if (e && e->percent >= 0) {
-			static char *sync_action[] = {"Rebuild", "Resync", "Reshape", "Check"};
+			static char *sync_action[] = {
+				"Rebuild", "Resync",
+				"Reshape", "Check"};
 			printf(" %7s Status : %d%% complete\n", sync_action[e->resync], e->percent);
 			is_rebuilding = 1;
 		}
@@ -433,7 +438,9 @@ This is pretty boring
 #endif
 			if (info->delta_disks != 0)
 				printf("  Delta Devices : %d, (%d->%d)\n",
-				       info->delta_disks, array.raid_disks - info->delta_disks, array.raid_disks);
+				       info->delta_disks,
+				       array.raid_disks - info->delta_disks,
+				       array.raid_disks);
 			if (info->new_level != array.level) {
 				str = map_num(pers, info->new_level);
 				printf("      New Level : %s\n", str?str:"-unknown-");
@@ -572,7 +579,8 @@ This is pretty boring
 		if (c->test && d < array.raid_disks
 		    && !(disk.state & (1<<MD_DISK_SYNC)))
 			rv |= 1;
-		if ((dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer))) {
+		dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer);
+		if (dv != NULL) {
 			if (c->brief) {
 				if (devices) {
 					devices = xrealloc(devices,

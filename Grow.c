@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -122,7 +122,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 
 	st = super_by_fd(fd, &subarray);
 	if (!st) {
-		pr_err("cannot handle arrays with superblock version %d\n", info.array.major_version);
+		pr_err("cannot handle arrays with superblock version %d\n",
+		       info.array.major_version);
 		return 1;
 	}
 
@@ -146,7 +147,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		free(st);
 		return 1;
 	}
-	/* now check out all the devices and make sure we can read the superblock */
+	/* now check out all the devices and make sure we can read the
+	 * superblock */
 	for (d=0 ; d < info.array.raid_disks ; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
@@ -408,8 +410,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 						)
 						st->ss->write_bitmap(st, fd2);
 					else {
-						pr_err("failed "
-						       "to create internal bitmap - chunksize problem.\n");
+						pr_err("failed to create internal bitmap"
+						       " - chunksize problem.\n");
 						close(fd2);
 						return 1;
 					}
@@ -440,7 +442,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		int max_devs = st->max_devs;
 
 		/* try to load a superblock */
-		for (d=0; d<max_devs; d++) {
+		for (d = 0; d < max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;
 			int fd2;
@@ -451,7 +453,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			    (disk.state & (1<<MD_DISK_REMOVED)))
 				continue;
 			dv = map_dev(disk.major, disk.minor, 1);
-			if (!dv) continue;
+			if (!dv)
+				continue;
 			fd2 = dev_open(dv, O_RDONLY);
 			if (fd2 >= 0) {
 				if (st->ss->load_super(st, fd2, NULL) == 0) {
@@ -520,7 +523,7 @@ static __u32 bsb_csum(char *buf, int len)
 {
 	int i;
 	int csum = 0;
-	for (i=0; i<len; i++)
+	for (i = 0; i < len; i++)
 		csum = (csum<<3) + buf[0];
 	return __cpu_to_le32(csum);
 }
@@ -1250,9 +1253,11 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 		switch (re->level) {
 		case 4:
-			re->after.layout = 0 ; break;
+			re->after.layout = 0;
+			break;
 		case 5:
-			re->after.layout = ALGORITHM_PARITY_N; break;
+			re->after.layout = ALGORITHM_PARITY_N;
+			break;
 		}
 		break;
 
@@ -1263,9 +1268,11 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 		switch (re->level) {
 		case 4:
-			re->after.layout = 0 ; break;
+			re->after.layout = 0;
+			break;
 		case 5:
-			re->after.layout = ALGORITHM_PARITY_N; break;
+			re->after.layout = ALGORITHM_PARITY_N;
+			break;
 		}
 		break;
 
@@ -1337,10 +1344,13 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				+ info->delta_disks
 				- delta_parity);
 	switch (re->level) {
-	case 6: re->parity = 2; break;
+	case 6: re->parity = 2;
+		break;
 	case 4:
-	case 5: re->parity = 1; break;
-	default: re->parity = 0; break;
+	case 5: re->parity = 1;
+		break;
+	default: re->parity = 0;
+		break;
 	}
 	/* So we have a restripe operation, we need to calculate the number
 	 * of blocks per reshape operation.
@@ -3888,7 +3898,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			}
 		}
 		for (j=0; j<info->array.raid_disks; j++) {
-			if (fdlist[j] < 0) continue;
+			if (fdlist[j] < 0)
+				continue;
 			if (st->ss->load_super(st, fdlist[j], NULL))
 				continue;
 			st->ss->getinfo_super(st, &dinfo, NULL);

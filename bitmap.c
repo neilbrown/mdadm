@@ -97,7 +97,7 @@ int count_dirty_bits(char *buf, int num_bits)
 {
 	int i, num = 0;
 
-	for (i=0; i < num_bits / 8; i++)
+	for (i = 0; i < num_bits / 8; i++)
 		num += count_dirty_bits_byte(buf[i], 8);
 
 	if (num_bits % 8) /* not an even byte boundary */
@@ -120,7 +120,6 @@ unsigned long bitmap_sectors(struct bitmap_super_s *bsb)
 	int bits_per_sector = 8*512;
 	return (bits + bits_per_sector - 1) / bits_per_sector;
 }
-
 
 bitmap_info_t *bitmap_fd_read(int fd, int brief)
 {

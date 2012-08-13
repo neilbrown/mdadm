@@ -535,7 +535,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	       char *update, unsigned long rdev, unsigned long long array_size)
 {
 	unsigned long long ldsize;
-	struct supertype *dev_st;
+	struct supertype *dev_st = NULL;
 	int j;
 	mdu_disk_info_t disc;
 

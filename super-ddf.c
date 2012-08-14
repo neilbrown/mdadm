@@ -3693,6 +3693,10 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			} else if (ddf->phys->entries[dl->pdnum].type &
 				   __cpu_to_be16(DDF_Global_Spare)) {
 				is_global = 1;
+			} else if (!(ddf->phys->entries[dl->pdnum].state &
+				     __cpu_to_be16(DDF_Failed))) {
+				/* we can possibly use some of this */
+				is_global = 1;
 			}
 			if ( ! (is_dedicated ||
 				(is_global && global_ok))) {

@@ -786,6 +786,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			return -1;
 		}
 
+		Kill(dv->devname, NULL, 0, -1, 0);
 		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
 		if (mdmon_running(tst->container_dev))
 			tst->update_tail = &tst->updates;

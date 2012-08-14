@@ -439,7 +439,6 @@ struct ddf_super {
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
-
 static unsigned int calc_crc(void *buf, int len)
 {
 	/* crcs are always at the same place as in the ddf_header */
@@ -707,7 +706,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 				       __func__);
 				return 1;
 			}
-				
+
 			memcpy(dl->spare, vd, super->conf_rec_len*512);
 			continue;
 		}
@@ -893,7 +892,6 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 	return st;
 }
 
-
 #ifndef MDASSEMBLE
 
 static mapping_t ddf_state[] = {
@@ -1050,8 +1048,8 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 		}
 		printf(")\n");
 		if (vc->chunk_shift != 255)
-		printf("   Chunk Size[%d] : %d sectors\n", n,
-		       1 << vc->chunk_shift);
+			printf("   Chunk Size[%d] : %d sectors\n", n,
+			       1 << vc->chunk_shift);
 		printf("   Raid Level[%d] : %s\n", n,
 		       map_num(ddf_level, vc->prl)?:"-unknown-");
 		if (vc->sec_elmnt_count != 1) {
@@ -1110,7 +1108,7 @@ static void examine_pds(struct ddf_super *sb)
 		//printf("\n");
 		printf("       %3d    %08x  ", i,
 		       __be32_to_cpu(pd->refnum));
-		printf("%8lluK ", 
+		printf("%8lluK ",
 		       (unsigned long long)__be64_to_cpu(pd->config_size)>>1);
 		for (dl = sb->dlist; dl ; dl = dl->next) {
 			if (dl->disk.refnum == pd->refnum) {
@@ -1213,7 +1211,6 @@ static void export_examine_super_ddf(struct supertype *st)
 	printf("MD_LEVEL=container\n");
 	printf("MD_UUID=%s\n", nbuf+5);
 }
-	
 
 static void detail_super_ddf(struct supertype *st, char *homehost)
 {
@@ -1292,7 +1289,7 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 	 *    not the device-set.
 	 *  uuid to recognise same set when adding a missing device back
 	 *    to an array.   This is a uuid for the device-set.
-	 *  
+	 *
 	 * For each of these we can make do with a truncated
 	 * or hashed uuid rather than the original, as long as
 	 * everyone agrees.
@@ -1345,7 +1342,6 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	info->array.chunk_size	  = 0;
 	info->container_enough	  = 1;
 
-
 	info->disk.major = 0;
 	info->disk.minor = 0;
 	if (ddf->dlist) {
@@ -1353,8 +1349,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 		info->disk.raid_disk = find_phys(ddf, ddf->dlist->disk.refnum);
 
 		info->data_offset = __be64_to_cpu(ddf->phys->
-					  entries[info->disk.raid_disk].
-					  config_size);
+						  entries[info->disk.raid_disk].
+						  config_size);
 		info->component_size = ddf->dlist->size - info->data_offset;
 	} else {
 		info->disk.number = -1;
@@ -1362,7 +1358,6 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 //		info->disk.raid_disk = find refnum in the table and use index;
 	}
 	info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-
 
 	info->recovery_start = MaxSector;
 	info->reshape_active = 0;
@@ -1471,14 +1466,13 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 			map[j] = 0;
 			if (j <  info->array.raid_disks) {
 				int i = find_phys(ddf, vc->conf.phys_refnum[j]);
-				if (i >= 0 && 
+				if (i >= 0 &&
 				    (__be16_to_cpu(ddf->phys->entries[i].state) & DDF_Online) &&
 				    !(__be16_to_cpu(ddf->phys->entries[i].state) & DDF_Failed))
 					map[i] = 1;
 			}
 		}
 }
-
 
 static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 			    char *update,
@@ -1807,6 +1801,7 @@ static int level_to_prl(int level)
 	default: return -1;
 	}
 }
+
 static int layout_to_rlq(int level, int layout, int raiddisks)
 {
 	switch(level) {
@@ -1910,7 +1905,7 @@ static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 	 * (dnum) of the given ddf.
 	 * Return a malloced array of 'struct extent'
 
-FIXME ignore DDF_Legacy devices?
+	 * FIXME ignore DDF_Legacy devices?
 
 	 */
 	struct extent *rv;
@@ -1982,7 +1977,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 			break;
 	if (venum == __be16_to_cpu(ddf->virt->max_vdes)) {
 		pr_err("Cannot find spare slot for "
-			"virtual disk - DDF is corrupt\n");
+		       "virtual disk - DDF is corrupt\n");
 		return 0;
 	}
 	ve = &ddf->virt->entries[venum];
@@ -2474,7 +2469,7 @@ static int write_init_super_ddf(struct supertype *st)
 
 		/* FIXME I need to close the fds! */
 		return 0;
-	} else {	
+	} else {
 		struct dl *d;
 		for (d = ddf->dlist; d; d=d->next)
 			while (Kill(d->devname, NULL, 0, -1, 1) == 0);
@@ -2508,7 +2503,7 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	int cnt = 0;
 
 	for (dl = ddf->dlist; dl ; dl=dl->next) {
-		dl->raiddisk = -1;	
+		dl->raiddisk = -1;
 		dl->esize = 0;
 	}
 	/* Now find largest extent on each device */
@@ -2574,14 +2569,12 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	for (dl = ddf->dlist ; dl && cnt < raiddisks ; dl=dl->next) {
 		if (dl->esize < size)
 			continue;
-		
+
 		dl->raiddisk = cnt;
 		cnt++;
 	}
 	return 1;
 }
-
-
 
 static int
 validate_geometry_ddf_container(struct supertype *st,
@@ -2616,7 +2609,6 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (chunk && *chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
-
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
@@ -2634,7 +2626,7 @@ static int validate_geometry_ddf(struct supertype *st,
 		if (ddf_level_num[i].num1 == MAXINT) {
 			if (verbose)
 				pr_err("DDF does not support level %d arrays\n",
-					level);
+				       level);
 			return 0;
 		}
 		/* Should check layout? etc */
@@ -2690,7 +2682,7 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (errno != EBUSY || (fd = open(dev, O_RDONLY, 0)) < 0) {
 		if (verbose)
 			pr_err("ddf: Cannot open %s: %s\n",
-				dev, strerror(errno));
+			       dev, strerror(errno));
 		return 0;
 	}
 	/* Well, it is in use by someone, maybe a 'ddf' container. */
@@ -2699,7 +2691,7 @@ static int validate_geometry_ddf(struct supertype *st,
 		close(fd);
 		if (verbose)
 			pr_err("ddf: Cannot use %s: %s\n",
-				dev, strerror(EBUSY));
+			       dev, strerror(EBUSY));
 		return 0;
 	}
 	sra = sysfs_read(cfd, 0, GET_VERSION);
@@ -2745,7 +2737,7 @@ validate_geometry_ddf_container(struct supertype *st,
 	if (fd < 0) {
 		if (verbose)
 			pr_err("ddf: Cannot open %s: %s\n",
-				dev, strerror(errno));
+			       dev, strerror(errno));
 		return 0;
 	}
 	if (!get_dev_size(fd, dev, &ldsize)) {
@@ -2834,21 +2826,21 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	if (!dl) {
 		if (verbose)
 			pr_err("ddf: %s is not in the "
-				"same DDF set\n",
-				dev);
+			       "same DDF set\n",
+			       dev);
 		return 0;
 	}
 	e = get_extents(ddf, dl);
 	maxsize = 0;
 	i = 0;
 	if (e) do {
-		unsigned long long esize;
-		esize = e[i].start - pos;
-		if (esize >= maxsize)
-			maxsize = esize;
-		pos = e[i].start + e[i].size;
-		i++;
-	} while (e[i-1].size);
+			unsigned long long esize;
+			esize = e[i].start - pos;
+			if (esize >= maxsize)
+				maxsize = esize;
+			pos = e[i].start + e[i].size;
+			i++;
+		} while (e[i-1].size);
 	*freesize = maxsize;
 	// FIXME here I am
 
@@ -3274,29 +3266,29 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	if (working == a->info.array.raid_disks)
 		state = DDF_state_optimal;
 	else switch(vc->prl) {
-	case DDF_RAID0:
-	case DDF_CONCAT:
-	case DDF_JBOD:
-		state = DDF_state_failed;
-		break;
-	case DDF_RAID1:
-		if (working == 0)
+		case DDF_RAID0:
+		case DDF_CONCAT:
+		case DDF_JBOD:
 			state = DDF_state_failed;
-		else if (working == 2 && state == DDF_state_degraded)
-			state = DDF_state_part_optimal;
-		break;
-	case DDF_RAID4:
-	case DDF_RAID5:
-		if (working < a->info.array.raid_disks-1)
-			state = DDF_state_failed;
-		break;
-	case DDF_RAID6:
-		if (working < a->info.array.raid_disks-2)
-			state = DDF_state_failed;
-		else if (working == a->info.array.raid_disks-1)
-			state = DDF_state_part_optimal;
-		break;
-	}
+			break;
+		case DDF_RAID1:
+			if (working == 0)
+				state = DDF_state_failed;
+			else if (working == 2 && state == DDF_state_degraded)
+				state = DDF_state_part_optimal;
+			break;
+		case DDF_RAID4:
+		case DDF_RAID5:
+			if (working < a->info.array.raid_disks-1)
+				state = DDF_state_failed;
+			break;
+		case DDF_RAID6:
+			if (working < a->info.array.raid_disks-2)
+				state = DDF_state_failed;
+			else if (working == a->info.array.raid_disks-1)
+				state = DDF_state_part_optimal;
+			break;
+		}
 
 	if (ddf->virt->entries[inst].state !=
 	    ((ddf->virt->entries[inst].state & ~DDF_state_mask)
@@ -3405,7 +3397,7 @@ static void ddf_process_update(struct supertype *st,
 			return;
 		ddf->phys->entries[ent] = pd->entries[0];
 		ddf->phys->used_pdes = __cpu_to_be16(1 +
-					   __be16_to_cpu(ddf->phys->used_pdes));
+						     __be16_to_cpu(ddf->phys->used_pdes));
 		ddf->updates_pending = 1;
 		if (ddf->add_list) {
 			struct active_array *a;
@@ -3437,7 +3429,7 @@ static void ddf_process_update(struct supertype *st,
 			return;
 		ddf->virt->entries[ent] = vd->entries[0];
 		ddf->virt->populated_vdes = __cpu_to_be16(1 +
-			      __be16_to_cpu(ddf->virt->populated_vdes));
+							  __be16_to_cpu(ddf->virt->populated_vdes));
 		ddf->updates_pending = 1;
 		break;
 
@@ -3519,12 +3511,12 @@ static void ddf_process_update(struct supertype *st,
 					~__cpu_to_be16(DDF_Global_Spare);
 				if (!(ddf->phys->entries[dl->pdnum].type &
 				      __cpu_to_be16(DDF_Active_in_VD))) {
-					    ddf->phys->entries[dl->pdnum].type |=
-						    __cpu_to_be16(DDF_Active_in_VD);
-					    if (in_degraded)
-						    ddf->phys->entries[dl->pdnum].state |=
-							    __cpu_to_be16(DDF_Rebuilding);
-				    }
+					ddf->phys->entries[dl->pdnum].type |=
+						__cpu_to_be16(DDF_Active_in_VD);
+					if (in_degraded)
+						ddf->phys->entries[dl->pdnum].state |=
+							__cpu_to_be16(DDF_Rebuilding);
+				}
 			}
 			if (dl->spare) {
 				ddf->phys->entries[dl->pdnum].type &=
@@ -3585,8 +3577,8 @@ static void ddf_prepare_update(struct supertype *st,
 	__u32 *magic = (__u32*)update->buf;
 	if (*magic == DDF_VD_CONF_MAGIC)
 		if (posix_memalign(&update->space, 512,
-			       offsetof(struct vcl, conf)
-			       + ddf->conf_rec_len * 512) != 0)
+				   offsetof(struct vcl, conf)
+				   + ddf->conf_rec_len * 512) != 0)
 			update->space = NULL;
 }
 
@@ -3622,7 +3614,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 
 	for (d = a->info.devs ; d ; d = d->next) {
 		if ((d->curr_state & DS_FAULTY) &&
-			d->state_fd >= 0)
+		    d->state_fd >= 0)
 			/* wait for Removal to happen */
 			return NULL;
 		if (d->state_fd >= 0)
@@ -3705,7 +3697,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			if ( ! (is_dedicated ||
 				(is_global && global_ok))) {
 				dprintf("%x:%x not suitable: %d %d\n", dl->major, dl->minor,
-				       is_dedicated, is_global);
+					is_dedicated, is_global);
 				continue;
 			}
 

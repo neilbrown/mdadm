@@ -184,7 +184,11 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	buf[sizeof(buf)-1] = 0;
 	close(fd);
 
-	if (n < 0 || !strstr(buf, "mdmon"))
+	/* Note that if started with --offroot, the name
+	 * might be "@dmon"
+	 */
+	if (n < 0 || !(strstr(buf, "mdmon") ||
+		       strstr(buf, "@dmon")))
 		return;
 
 	kill(pid, SIGTERM);

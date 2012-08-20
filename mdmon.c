@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
 		{NULL, 0, NULL, 0}
 	};
 
-	while ((opt = getopt_long(argc, argv, "th", options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "tha", options, NULL)) != -1) {
 		switch (opt) {
 		case 'a':
 			container_name = argv[optind-1];

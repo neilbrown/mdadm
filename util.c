@@ -796,9 +796,13 @@ int find_free_devnum(int use_partitions)
 	     devnum = devnum ? devnum-1 : (1<<20)-1) {
 		char *dn;
 		int _devnum;
+		char nbuf[50];
 
 		_devnum = use_partitions ? (-1-devnum) : devnum;
 		if (mddev_busy(_devnum))
+			continue;
+		sprintf(nbuf, "%s%d", use_partitions?"mdp":"md", devnum);
+		if (!conf_name_is_free(nbuf))
 			continue;
 		/* make sure it is new to /dev too, at least as a
 		 * non-standard */

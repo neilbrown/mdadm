@@ -116,6 +116,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	char *stripe_buf = xmalloc(raid_disks * chunk_size);
 	char **stripes = xmalloc(raid_disks * sizeof(char*));
 	char **blocks = xmalloc(raid_disks * sizeof(char*));
+	int *block_index_for_slot = xmalloc(raid_disks * sizeof(int));
 	uint8_t *p = xmalloc(chunk_size);
 	uint8_t *q = xmalloc(chunk_size);
 	int *results = xmalloc(chunk_size * sizeof(int));
@@ -172,6 +173,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		for (i = 0 ; i < data_disks ; i++) {
 			int disk = geo_map(i, start, raid_disks, level, layout);
 			blocks[i] = stripes[disk];
+			block_index_for_slot[disk] = i;
 			printf("%d->%d\n", i, disk);
 		}
 
@@ -179,7 +181,9 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		diskP = geo_map(-1, start, raid_disks, level, layout);
 		diskQ = geo_map(-2, start, raid_disks, level, layout);
 		blocks[data_disks] = stripes[diskP];
+		block_index_for_slot[diskP] = data_disks;
 		blocks[data_disks+1] = stripes[diskQ];
+		block_index_for_slot[diskQ] = data_disks+1;
 
 		if (memcmp(p, stripes[diskP], chunk_size) != 0) {
 			printf("P(%d) wrong at %llu\n", diskP, start);
@@ -208,23 +212,21 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 
 			if (failed_disk1 == diskQ || failed_disk2 == diskQ) {
 				char *all_but_failed_blocks[data_disks];
-				int failed_data;
+				int failed_data_or_p;
 				int failed_block_index;
 
 				if (failed_disk1 == diskQ)
-					failed_data = failed_disk2;
+					failed_data_or_p = failed_disk2;
 				else
-					failed_data = failed_disk1;
-				printf("Repairing D/P(%d) and Q\n", failed_data);
-				failed_block_index = geo_map(
-					failed_data, start, raid_disks,
-					level, layout);
+					failed_data_or_p = failed_disk1;
+				printf("Repairing D/P(%d) and Q\n", failed_data_or_p);
+				failed_block_index = block_index_for_slot[failed_data_or_p];
 				for (i=0; i < data_disks; i++)
 					if (failed_block_index == i)
 						all_but_failed_blocks[i] = stripes[diskP];
 					else
 						all_but_failed_blocks[i] = blocks[i];
-				xor_blocks(stripes[failed_data],
+				xor_blocks(stripes[failed_data_or_p],
 					all_but_failed_blocks, data_disks, chunk_size);
 				qsyndrome(p, (uint8_t*)stripes[diskQ], (uint8_t**)blocks, data_disks, chunk_size);
 			} else {
@@ -235,13 +237,13 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 						failed_data = failed_disk2;
 					else
 						failed_data = failed_disk1;
-					failed_block_index = geo_map(failed_data, start, raid_disks, level, layout);
+					failed_block_index = block_index_for_slot[failed_data];
 					printf("Repairing D(%d) and P\n", failed_data);
 					raid6_datap_recov(raid_disks, chunk_size, failed_block_index, (uint8_t**)blocks);
 				} else {
 					printf("Repairing D and D\n");
-					int failed_block_index1 = geo_map(failed_disk1, start, raid_disks, level, layout);
-					int failed_block_index2 = geo_map(failed_disk2, start, raid_disks, level, layout);
+					int failed_block_index1 = block_index_for_slot[failed_disk1];
+					int failed_block_index2 = block_index_for_slot[failed_disk2];
 					if (failed_block_index1 > failed_block_index2) {
 						int t = failed_block_index1;
 						failed_block_index1 = failed_block_index2;

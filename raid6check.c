@@ -284,6 +284,35 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			err = unlock_all_stripes(info, sig);
 			if(err != 0)
 				goto exitCheck;
+		} else if (disk >= 0 && repair == 2) {
+			printf("Auto-repairing slot %d (%s)\n", disk, name[disk]);
+			if (disk == diskQ) {
+				qsyndrome(p, (uint8_t*)stripes[diskQ], (uint8_t**)blocks, data_disks, chunk_size);
+			} else {
+				char *all_but_failed_blocks[data_disks];
+				int failed_block_index = block_index_for_slot[disk];
+				for (i=0; i < data_disks; i++)
+					if (failed_block_index == i)
+						all_but_failed_blocks[i] = stripes[diskP];
+					else
+						all_but_failed_blocks[i] = blocks[i];
+				xor_blocks(stripes[disk],
+					all_but_failed_blocks, data_disks, chunk_size);
+			}
+
+			err = lock_stripe(info, start, chunk_size, data_disks, sig);
+			if(err != 0) {
+				if (err != 2)
+					unlock_all_stripes(info, sig);
+				goto exitCheck;
+			}
+
+			lseek64(source[disk], offsets[disk] + start * chunk_size, 0);
+			write(source[disk], stripes[disk], chunk_size);
+
+			err = unlock_all_stripes(info, sig);
+			if(err != 0)
+				goto exitCheck;
 		}
 
 
@@ -343,7 +372,7 @@ int main(int argc, char *argv[])
 		prg++;
 
 	if (argc < 4) {
-		fprintf(stderr, "Usage: %s md_device start_stripe length_stripes\n", prg);
+		fprintf(stderr, "Usage: %s md_device start_stripe length_stripes [autorepair]\n", prg);
 		fprintf(stderr, "   or: %s md_device repair stripe failed_slot_1 failed_slot_2\n", prg);
 		exit_err = 1;
 		goto exitHere;
@@ -441,6 +470,8 @@ int main(int argc, char *argv[])
 	else {
 		start = getnum(argv[2], &err);
 		length = getnum(argv[3], &err);
+		if (argc >= 5 && strcmp(argv[4], "autorepair")==0)
+			repair = 2;
 	}
 
 	if (err) {

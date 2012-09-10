@@ -107,6 +107,38 @@ int raid6_stats(int *results, int raid_disks, int chunk_size)
 	return curr_broken_disk;
 }
 
+int lock_stripe(struct mdinfo *info, unsigned long long start,
+		int chunk_size, int data_disks, sighandler_t *sig) {
+	int rv;
+	if(mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+		return 2;
+	}
+
+	sig[0] = signal(SIGTERM, SIG_IGN);
+	sig[1] = signal(SIGINT, SIG_IGN);
+	sig[2] = signal(SIGQUIT, SIG_IGN);
+
+	rv = sysfs_set_num(info, NULL, "suspend_lo", start * chunk_size * data_disks);
+	rv |= sysfs_set_num(info, NULL, "suspend_hi", (start + 1) * chunk_size * data_disks);
+	return rv * 256;
+}
+
+int unlock_all_stripes(struct mdinfo *info, sighandler_t *sig) {
+	int rv;
+	rv = sysfs_set_num(info, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
+	rv |= sysfs_set_num(info, NULL, "suspend_hi", 0);
+	rv |= sysfs_set_num(info, NULL, "suspend_lo", 0);
+
+	signal(SIGQUIT, sig[2]);
+	signal(SIGINT, sig[1]);
+	signal(SIGTERM, sig[0]);
+
+	if(munlockall() != 0)
+		return 3;
+	return rv * 256;
+}
+
+
 int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  int raid_disks, int chunk_size, int level, int layout,
 		  unsigned long long start, unsigned long long length, char *name[],
@@ -120,13 +152,12 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	uint8_t *p = xmalloc(chunk_size);
 	uint8_t *q = xmalloc(chunk_size);
 	int *results = xmalloc(chunk_size * sizeof(int));
+	sighandler_t *sig = xmalloc(3 * sizeof(sighandler_t));
 
 	int i;
 	int diskP, diskQ;
 	int data_disks = raid_disks - 2;
 	int err = 0;
-	sighandler_t sig[3];
-	int rv;
 
 	extern int tables_ready;
 
@@ -141,34 +172,19 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 
 		printf("pos --> %llu\n", start);
 
-		if(mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
-			err = 2;
+		err = lock_stripe(info, start, chunk_size, data_disks, sig);
+		if(err != 0) {
+			if (err != 2)
+				unlock_all_stripes(info, sig);
 			goto exitCheck;
 		}
-		sig[0] = signal(SIGTERM, SIG_IGN);
-		sig[1] = signal(SIGINT, SIG_IGN);
-		sig[2] = signal(SIGQUIT, SIG_IGN);
-		rv = sysfs_set_num(info, NULL, "suspend_lo", start * chunk_size * data_disks);
-		rv |= sysfs_set_num(info, NULL, "suspend_hi", (start + 1) * chunk_size * data_disks);
 		for (i = 0 ; i < raid_disks ; i++) {
 			lseek64(source[i], offsets[i] + start * chunk_size, 0);
 			read(source[i], stripes[i], chunk_size);
 		}
-		rv |= sysfs_set_num(info, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
-		rv |= sysfs_set_num(info, NULL, "suspend_hi", 0);
-		rv |= sysfs_set_num(info, NULL, "suspend_lo", 0);
-		signal(SIGQUIT, sig[2]);
-		signal(SIGINT, sig[1]);
-		signal(SIGTERM, sig[0]);
-		if(munlockall() != 0) {
-			err = 3;
+		err = unlock_all_stripes(info, sig);
+		if(err != 0)
 			goto exitCheck;
-		}
-
-		if(rv != 0) {
-			err = rv * 256;
-			goto exitCheck;
-		}
 
 		for (i = 0 ; i < data_disks ; i++) {
 			int disk = geo_map(i, start, raid_disks, level, layout);
@@ -252,34 +268,22 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 					raid6_2data_recov(raid_disks, chunk_size, failed_block_index1, failed_block_index2, (uint8_t**)blocks);
 				}
 			}
-			if(mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
-				err = 2;
+
+			err = lock_stripe(info, start, chunk_size, data_disks, sig);
+			if(err != 0) {
+				if (err != 2)
+					unlock_all_stripes(info, sig);
 				goto exitCheck;
 			}
-			sig[0] = signal(SIGTERM, SIG_IGN);
-			sig[1] = signal(SIGINT, SIG_IGN);
-			sig[2] = signal(SIGQUIT, SIG_IGN);
-			rv = sysfs_set_num(info, NULL, "suspend_lo", start * chunk_size * data_disks);
-			rv |= sysfs_set_num(info, NULL, "suspend_hi", (start + 1) * chunk_size * data_disks);
+
 			lseek64(source[failed_disk1], offsets[failed_disk1] + start * chunk_size, 0);
 			write(source[failed_disk1], stripes[failed_disk1], chunk_size);
 			lseek64(source[failed_disk2], offsets[failed_disk2] + start * chunk_size, 0);
 			write(source[failed_disk2], stripes[failed_disk2], chunk_size);
-			rv |= sysfs_set_num(info, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
-			rv |= sysfs_set_num(info, NULL, "suspend_hi", 0);
-			rv |= sysfs_set_num(info, NULL, "suspend_lo", 0);
-			signal(SIGQUIT, sig[2]);
-			signal(SIGINT, sig[1]);
-			signal(SIGTERM, sig[0]);
-			if(munlockall() != 0) {
-				err = 3;
-				goto exitCheck;
-			}
 
-			if(rv != 0) {
-				err = rv * 256;
+			err = unlock_all_stripes(info, sig);
+			if(err != 0)
 				goto exitCheck;
-			}
 		}
 
 

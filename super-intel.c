@@ -9737,7 +9737,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	 */
 	current_size = info.custom_array_size / data_disks;
 
-	if (geo->size > 0) {
+	if ((geo->size > 0) && (geo->size != MAX_SIZE)) {
 		/* align component size
 		 */
 		geo->size = imsm_component_size_aligment_check(

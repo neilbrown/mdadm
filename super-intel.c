@@ -9744,6 +9744,13 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				    get_imsm_raid_level(dev->vol.map),
 				    chunk * 1024,
 				    geo->size * 2);
+		if (geo->size == 0) {
+			pr_err("Error. Size expansion is " \
+				   "supported only (current size is %llu, " \
+				   "requested size /rounded/ is 0).\n",
+				   current_size);
+			goto analyse_change_exit;
+		}
 	}
 
 	if ((current_size != geo->size) && (geo->size > 0)) {

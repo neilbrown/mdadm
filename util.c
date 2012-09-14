@@ -188,13 +188,13 @@ int mdadm_version(char *version)
 	return (a*1000000)+(b*1000)+c;
 }
 
-long long parse_size(char *size)
+unsigned long long parse_size(char *size)
 {
 	/* parse 'size' which should be a number optionally
 	 * followed by 'K', 'M', or 'G'.
 	 * Without a suffix, K is assumed.
 	 * Number returned is in sectors (half-K)
-	 * -1 returned on error.
+	 * 0 returned on error.
 	 */
 	char *c;
 	long long s = strtoll(size, &c, 10);
@@ -214,9 +214,10 @@ long long parse_size(char *size)
 			s *= 1024 * 1024 * 2;
 			break;
 		}
-	}
+	} else
+		s = 0;
 	if (*c)
-		s = -1;
+		s = 0;
 	return s;
 }
 

@@ -430,7 +430,7 @@ int Detail(char *dev, struct context *c)
 		}
 		free_mdstat(ms);
 
-		if (st->sb && info->reshape_active) {
+		if ((st && st->sb) && (info && info->reshape_active)) {
 #if 0
 This is pretty boring
 			printf("  Reshape pos'n : %llu%s\n", (unsigned long long) info->reshape_progress<<9,
@@ -596,7 +596,8 @@ This is pretty boring
 	if (spares && c->brief && array.raid_disks) printf(" spares=%d", spares);
 	if (c->brief && st && st->sb)
 		st->ss->brief_detail_super(st);
-	st->ss->free_super(st);
+	if (st)
+		st->ss->free_super(st);
 
 	if (c->brief > 1 && devices) printf("\n   devices=%s", devices);
 	if (c->brief)

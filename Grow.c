@@ -1619,7 +1619,7 @@ int Grow_reshape(char *devname, int fd,
 	}
 
 	/* ========= set size =============== */
-	if (s->size > 0 && (s->size == MAX_DISKS || s->size != (unsigned)array.size)) {
+	if (s->size > 0 && (s->size == MAX_SIZE || s->size != (unsigned)array.size)) {
 		unsigned long long orig_size = get_component_size(fd)/2;
 		unsigned long long min_csize;
 		struct mdinfo *mdi;

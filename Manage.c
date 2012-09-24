@@ -857,6 +857,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		 * hot spare while we are checking, we
 		 * get an O_EXCL open on the container
 		 */
+		int ret;
 		int dnum = fd2devnum(fd);
 		lfd = open_dev_excl(dnum);
 		if (lfd < 0) {
@@ -864,19 +865,26 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 			       " to container - odd\n");
 			return -1;
 		}
-		/* In the detached case it is not possible to
-		 * check if we are the unique holder, so just
-		 * rely on the 'detached' checks
+		/* We may not be able to check on holders in
+		 * sysfs, either because we don't have the dev num
+		 * (rdev == 0) or because the device has been detached
+		 * and the 'holders' directory no longer exists
+		 * (ret == -1).  In that case, assume it is OK to
+		 * remove.
 		 */
-		if (strcmp(dv->devname, "detached") == 0 ||
-		    sysfd >= 0 ||
-		    sysfs_unique_holder(dnum, rdev))
-			/* pass */;
-		else {
-			pr_err("%s is %s, cannot remove.\n",
-			       dv->devname,
-			       errno == EEXIST ? "still in use":
-			       "not a member");
+		if (rdev == 0)
+			ret = -1;
+		else
+			ret = sysfs_unique_holder(dnum, rdev);
+		if (ret == 0) {
+			pr_err("%s is not a member, cannot remove.\n",
+			       dv->devname);
+			close(lfd);
+			return -1;
+		}
+		if (ret >= 2) {
+			pr_err("%s is still in use, cannot remove.\n",
+			       dv->devname);
 			close(lfd);
 			return -1;
 		}
@@ -1030,7 +1038,7 @@ int Manage_subdevs(char *devname, int fd,
 			struct mddev_dev **dp;
 			if (dv->disposition != 'A') {
 				pr_err("'missing' only meaningful "
-					"with --re-add\n");
+				       "with --re-add\n");
 				goto abort;
 			}
 			add_devlist = conf_get_devs();
@@ -1047,8 +1055,8 @@ int Manage_subdevs(char *devname, int fd,
 		}
 
 		if (strchr(dv->devname, '/') == NULL &&
-			   strchr(dv->devname, ':') == NULL &&
-			   strlen(dv->devname) < 50) {
+		    strchr(dv->devname, ':') == NULL &&
+		    strlen(dv->devname) < 50) {
 			/* Assume this is a kernel-internal name like 'sda1' */
 			int found = 0;
 			char dname[55];

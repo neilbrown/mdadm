@@ -778,18 +778,22 @@ int sysfs_unique_holder(int devnum, long rdev)
 	 * and is the only holder.
 	 * we should be locked against races by
 	 * an O_EXCL on devnum
+	 * Return values:
+	 *  0 - not unique, not even a holder
+	 *  1 - unique, this is the only holder.
+	 *  2/3 - not unique, there is another holder
+	 * -1 - error, cannot find the holders
 	 */
 	DIR *dir;
 	struct dirent *de;
 	char dirname[100];
 	char l;
-	int found = 0;
+	int ret = 0;
 	sprintf(dirname, "/sys/dev/block/%d:%d/holders",
 		major(rdev), minor(rdev));
 	dir = opendir(dirname);
-	errno = ENOENT;
 	if (!dir)
-		return 0;
+		return -1;
 	l = strlen(dirname);
 	while ((de = readdir(dir)) != NULL) {
 		char buf[10];
@@ -807,8 +811,8 @@ int sysfs_unique_holder(int devnum, long rdev)
 		strcat(dirname+l, "/dev");
 		fd = open(dirname, O_RDONLY);
 		if (fd < 0) {
-			errno = ENOENT;
-			break;
+			/* Probably a race, just ignore this */
+			continue;
 		}
 		n = read(fd, buf, sizeof(buf)-1);
 		close(fd);
@@ -816,24 +820,18 @@ int sysfs_unique_holder(int devnum, long rdev)
 			continue;
 		buf[n] = 0;
 		if (sscanf(buf, "%d:%d%c", &mj, &mn, &c) != 3 ||
-		    c != '\n') {
-			errno = ENOENT;
-			break;
-		}
+		    c != '\n')
+			continue;
 		if (mj != MD_MAJOR)
 			mn = -1-(mn>>6);
 
-		if (devnum != mn) {
-			errno = EEXIST;
-			break;
-		}
-		found = 1;
+		if (devnum == mn)
+			ret |= 1;
+		else
+			ret |= 2;
 	}
 	closedir(dir);
-	if (de)
-		return 0;
-	else
-		return found;
+	return ret;
 }
 
 int sysfs_freeze_array(struct mdinfo *sra)

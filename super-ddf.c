@@ -2629,7 +2629,7 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (chunk && *chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
-
+	if (level == -1000000) level = LEVEL_CONTAINER;
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,

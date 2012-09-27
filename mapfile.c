@@ -403,7 +403,12 @@ void RebuildMap(void)
 			close(dfd);
 			if (ok != 0)
 				continue;
-			info = st->ss->container_content(st, subarray);
+			if (subarray)
+				info = st->ss->container_content(st, subarray);
+			else {
+				info = malloc(sizeof(*info));
+				st->ss->getinfo_super(st, info, NULL);
+			}
 			if (!info)
 				continue;
 

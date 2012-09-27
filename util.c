@@ -332,14 +332,15 @@ int enough(int level, int raid_disks, int layout, int clean, char *avail)
 			/* there must be one of the 'copies' form 'first' */
 			int n = copies;
 			int cnt=0;
+			int this = first;
 			while (n--) {
-				if (avail[first])
+				if (avail[this])
 					cnt++;
-				first = (first+1) % raid_disks;
+				this = (this+1) % raid_disks;
 			}
 			if (cnt == 0)
 				return 0;
-
+			first = (first+(layout&255)) % raid_disks;
 		} while (first != 0);
 		return 1;
 

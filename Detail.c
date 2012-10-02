@@ -640,6 +640,7 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose, int export)
 	if (!scan)
 		return err;
 
+	err = 0;
 	for (i = 0; superlist[i]; i++) {
 		struct superswitch *meta = superlist[i];
 

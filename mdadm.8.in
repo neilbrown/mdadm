@@ -1321,7 +1321,7 @@ topology) for a given metadata format.
 .TP
 .BR \-Y ", " \-\-export
 When used with
-.B \-\-detail
+.B \-\-detail , \-\-detail-platform
 or
 .BR \-\-examine ,
 output will be formatted as

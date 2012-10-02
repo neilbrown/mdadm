@@ -1798,6 +1798,41 @@ static void print_imsm_capability(const struct imsm_orom *orom)
 	return;
 }
 
+static void print_imsm_capability_export(const struct imsm_orom *orom)
+{
+	printf("MD_FIRMWARE_TYPE=imsm\n");
+	printf("IMSM_VERSION=%d.%d.%d.%d\n",orom->major_ver, orom->minor_ver,
+			orom->hotfix_ver, orom->build);
+	printf("IMSM_SUPPORTED_RAID_LEVELS=%s%s%s%s%s\n",
+			imsm_orom_has_raid0(orom) ? "raid0 " : "",
+			imsm_orom_has_raid1(orom) ? "raid1 " : "",
+			imsm_orom_has_raid1e(orom) ? "raid1e " : "",
+			imsm_orom_has_raid5(orom) ? "raid10 " : "",
+			imsm_orom_has_raid10(orom) ? "raid5 " : "");
+	printf("IMSM_SUPPORTED_CHUNK_SIZES=%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+			imsm_orom_has_chunk(orom, 2) ? "2k " : "",
+			imsm_orom_has_chunk(orom, 4) ? "4k " : "",
+			imsm_orom_has_chunk(orom, 8) ? "8k " : "",
+			imsm_orom_has_chunk(orom, 16) ? "16k " : "",
+			imsm_orom_has_chunk(orom, 32) ? "32k " : "",
+			imsm_orom_has_chunk(orom, 64) ? "64k " : "",
+			imsm_orom_has_chunk(orom, 128) ? "128k " : "",
+			imsm_orom_has_chunk(orom, 256) ? "256k " : "",
+			imsm_orom_has_chunk(orom, 512) ? "512k " : "",
+			imsm_orom_has_chunk(orom, 1024*1) ? "1M " : "",
+			imsm_orom_has_chunk(orom, 1024*2) ? "2M " : "",
+			imsm_orom_has_chunk(orom, 1024*4) ? "4M " : "",
+			imsm_orom_has_chunk(orom, 1024*8) ? "8M " : "",
+			imsm_orom_has_chunk(orom, 1024*16) ? "16M " : "",
+			imsm_orom_has_chunk(orom, 1024*32) ? "32M " : "",
+			imsm_orom_has_chunk(orom, 1024*64) ? "64M " : "");
+	printf("IMSM_2TB_VOLUMES=%s\n",(orom->attr & IMSM_OROM_ATTR_2TB) ? "yes" : "no");
+	printf("IMSM_2TB_DISKS=%s\n",(orom->attr & IMSM_OROM_ATTR_2TB_DISK) ? "yes" : "no");
+	printf("IMSM_MAX_DISKS=%d\n",orom->tds);
+	printf("IMSM_MAX_VOLUMES_PER_ARRAY=%d\n",orom->vpa);
+	printf("IMSM_MAX_VOLUMES_PER_CONTROLLER=%d\n",orom->vphba);
+}
+
 static int detail_platform_imsm(int verbose, int enumerate_only)
 {
 	/* There are two components to imsm platform support, the ahci SATA
@@ -1871,6 +1906,40 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	free_sys_dev(&list);
 	return result;
 }
+
+static int export_detail_platform_imsm(int verbose)
+{
+	const struct imsm_orom *orom;
+	struct sys_dev *list, *hba;
+	int result=1;
+
+	list = find_intel_devices();
+	if (!list) {
+		if (verbose > 0)
+			pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_INTEL_DEVICES\n");
+		result = 2;
+		free_sys_dev(&list);
+		return result;
+	}
+
+	for (hba = list; hba; hba = hba->next) {
+		orom = find_imsm_capability(hba->type);
+		if (!orom) {
+			if (verbose > 0)
+				pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICE_UNDER_%s\n",hba->path);
+		}
+		else {
+			print_imsm_capability_export(orom);
+			result = 0;
+		}
+	}
+
+	if (result == 1 && verbose > 0)
+		pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICES\n");
+
+	return result;
+}
+
 #endif
 
 static int match_home_imsm(struct supertype *st, char *homehost)
@@ -10397,6 +10466,7 @@ struct superswitch super_imsm = {
 	.add_to_super	= add_to_super_imsm,
 	.remove_from_super = remove_from_super_imsm,
 	.detail_platform = detail_platform_imsm,
+	.export_detail_platform = export_detail_platform_imsm,
 	.kill_subarray = kill_subarray_imsm,
 	.update_subarray = update_subarray_imsm,
 	.load_container	= load_container_imsm,

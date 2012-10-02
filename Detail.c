@@ -616,7 +616,7 @@ out:
 	return rv;
 }
 
-int Detail_Platform(struct superswitch *ss, int scan, int verbose)
+int Detail_Platform(struct superswitch *ss, int scan, int verbose, int export)
 {
 	/* display platform capabilities for the given metadata format
 	 * 'scan' in this context means iterate over all metadata types
@@ -624,7 +624,9 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 	int i;
 	int err = 1;
 
-	if (ss && ss->detail_platform)
+	if (ss && export && ss->export_detail_platform)
+		err = ss->export_detail_platform(verbose);
+	else if (ss && ss->detail_platform)
 		err = ss->detail_platform(verbose, 0);
 	else if (ss) {
 		if (verbose > 0)
@@ -650,6 +652,8 @@ int Detail_Platform(struct superswitch *ss, int scan, int verbose)
 			if (verbose > 0)
 				pr_err("%s metadata is platform independent\n",
 					meta->name ? : "[no name]");
+		} else if (export && meta->export_detail_platform) {
+			err |= meta->export_detail_platform(verbose);
 		} else
 			err |= meta->detail_platform(verbose, 0);
 	}

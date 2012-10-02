@@ -655,6 +655,7 @@ extern struct superswitch {
 
 	/* Optional: platform hardware / firmware details */
 	int (*detail_platform)(int verbose, int enumerate_only);
+	int (*export_detail_platform)(int verbose);
 
 	/* Used:
 	 *   to get uuid to storing in bitmap metadata
@@ -1121,7 +1122,7 @@ extern int Create(struct supertype *st, char *mddev,
 		  struct context *c);
 
 extern int Detail(char *dev, struct context *c);
-extern int Detail_Platform(struct superswitch *ss, int scan, int verbose);
+extern int Detail_Platform(struct superswitch *ss, int scan, int verbose, int export);
 extern int Query(char *dev);
 extern int Examine(struct mddev_dev *devlist, struct context *c,
 		   struct supertype *forcest);

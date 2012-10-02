@@ -1344,7 +1344,7 @@ int main(int argc, char *argv[])
 			}
 			rv = Examine(devlist, &c, ss);
 		} else if (devmode == DetailPlatform) {
-			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose);
+			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose, c.export);
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
 				rv = stop_scan(c.verbose);

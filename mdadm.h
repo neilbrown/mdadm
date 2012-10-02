@@ -328,6 +328,11 @@ enum special_options {
 	KillOpt,
 };
 
+enum prefix_standard {
+	JEDEC,
+	IEC
+};
+
 /* structures read from config file */
 /* List of mddevice names and identifiers
  * Identifiers can be:
@@ -1240,7 +1245,7 @@ extern int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info);
 unsigned long long min_recovery_start(struct mdinfo *array);
 
 extern char *human_size(long long bytes);
-extern char *human_size_brief(long long bytes);
+extern char *human_size_brief(long long bytes, int prefix);
 extern void print_r10_layout(int layout);
 
 #define NoMdDev (1<<23)

@@ -76,7 +76,7 @@ int Query(char *dev)
 	else {
 		printf("%s: %s %s %d devices, %d spare%s. Use mdadm --detail for more detail.\n",
 		       dev,
-		       human_size_brief(larray_size),
+		       human_size_brief(larray_size,IEC),
 		       map_num(pers, array.level),
 		       array.raid_disks,
 		       array.spare_disks, array.spare_disks==1?"":"s");

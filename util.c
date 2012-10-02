@@ -682,7 +682,7 @@ char *human_size(long long bytes)
 	return buf;
 }
 
-char *human_size_brief(long long bytes)
+char *human_size_brief(long long bytes, int prefix)
 {
 	static char buf[30];
 
@@ -693,19 +693,37 @@ char *human_size_brief(long long bytes)
 	 * gigabytes, as that shows more precision and isn't
 	 * too large a number.
 	 * Terabytes are not yet handled.
+	 *
+	 * If prefix == IEC, we mean prefixes like kibi,mebi,gibi etc.
+	 * If prefix == JEDEC, we mean prefixes like kilo,mega,giga etc.
 	 */
 
 	if (bytes < 5000*1024)
 		buf[0] = 0;
-	else if (bytes < 2*1024LL*1024LL*1024LL) {
-		long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
-		snprintf(buf, sizeof(buf), " (%ld.%02ldMiB)",
-			cMiB/100 , cMiB % 100);
-	} else {
-		long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
-		snprintf(buf, sizeof(buf), " (%ld.%02ldGiB)",
-				cGiB/100 , cGiB % 100);
+	else if (prefix == IEC) {
+		if (bytes < 2*1024LL*1024LL*1024LL) {
+			long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
+			snprintf(buf, sizeof(buf), "%ld.%02ldMiB",
+				cMiB/100 , cMiB % 100);
+		} else {
+			long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
+			snprintf(buf, sizeof(buf), "%ld.%02ldGiB",
+					cGiB/100 , cGiB % 100);
+		}
 	}
+	else if (prefix == JEDEC) {
+		if (bytes < 2*1024LL*1024LL*1024LL) {
+			long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
+			snprintf(buf, sizeof(buf), "%ld.%02ldMB",
+					cMB/100, cMB % 100);
+		} else {
+			long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
+			snprintf(buf, sizeof(buf), "%ld.%02ldGB",
+					cGB/100 , cGB % 100);
+		}
+	}
+	else
+		buf[0] = 0;
 
 	return buf;
 }

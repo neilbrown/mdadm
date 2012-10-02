@@ -686,20 +686,27 @@ char *human_size_brief(long long bytes)
 {
 	static char buf[30];
 
+	/* We convert bytes to either centi-M{ega,ibi}bytes or
+	 * centi-G{igi,ibi}bytes, with appropriate rounding,
+	 * and then print 1/100th of those as a decimal.
+	 * We allow upto 2048Megabytes before converting to
+	 * gigabytes, as that shows more precision and isn't
+	 * too large a number.
+	 * Terabytes are not yet handled.
+	 */
+
 	if (bytes < 5000*1024)
-		snprintf(buf, sizeof(buf), "%ld.%02ldKiB",
-			(long)(bytes>>10), (long)(((bytes&1023)*100+512)/1024)
-			);
-	else if (bytes < 2*1024LL*1024LL*1024LL)
-		snprintf(buf, sizeof(buf), "%ld.%02ldMiB",
-			(long)(bytes>>20),
-			(long)((bytes&0xfffff)+0x100000/200)/(0x100000/100)
-			);
-	else
-		snprintf(buf, sizeof(buf), "%ld.%02ldGiB",
-			(long)(bytes>>30),
-			(long)(((bytes>>10)&0xfffff)+0x100000/200)/(0x100000/100)
-			);
+		buf[0] = 0;
+	else if (bytes < 2*1024LL*1024LL*1024LL) {
+		long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
+		snprintf(buf, sizeof(buf), " (%ld.%02ldMiB)",
+			cMiB/100 , cMiB % 100);
+	} else {
+		long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
+		snprintf(buf, sizeof(buf), " (%ld.%02ldGiB)",
+				cGiB/100 , cGiB % 100);
+	}
+
 	return buf;
 }
 

@@ -3775,9 +3775,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 					(unsigned long)__le64_to_cpu(bsb.mtime),
 					(unsigned long)info->array.utime);
 			} else {
-				if (verbose)
-					pr_err("too-old timestamp on "
-						"backup-metadata on %s\n", devname);
+				pr_err("too-old timestamp on backup-metadata on %s\n", devname);
+				pr_err("If you think it is should be safe, try 'export MDADM_GROW_ALLOW_OLD=1'\n");
 				continue; /* time stamp is too bad */
 			}
 		}

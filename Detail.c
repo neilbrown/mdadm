@@ -547,7 +547,7 @@ This is pretty boring
 					int nc = array.layout & 0xff;
 					int fc = (array.layout >> 8) & 0xff;
 					int copies = nc*fc;
-					if (array.raid_disks % copies == 0 && copies <= 26) {
+					if (fc == 1 && array.raid_disks % copies == 0 && copies <= 26) {
 						/* We can divide the devices into 'sets' */
 						int set = disk.raid_disk % copies;
 						printf(" set-%c", set + 'A');

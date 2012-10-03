@@ -70,7 +70,12 @@ struct mdp_superblock_1 {
 	__u8	device_uuid[16]; /* user-space setable, ignored by kernel */
         __u8    devflags;        /* per-device flags.  Only one defined...*/
 #define WriteMostly1    1        /* mask for writemostly flag in above */
-	__u8	pad2[64-57];	/* set to 0 when writing */
+	/* bad block log.  If there are any bad blocks the feature flag is set.
+	 * if offset and size are non-zero, that space is reserved and available.
+	 */
+	__u8	bblog_shift;	/* shift from sectors to block size for badblocklist */
+	__u16	bblog_size;	/* number of sectors reserved for badblocklist */
+	__u32	bblog_offset;	/* sector offset from superblock to bblog, signed */
 
 	/* array state information - 64 bytes */
 	__u64	utime;		/* 40 bits second, 24 btes microseconds */
@@ -106,8 +111,9 @@ struct misc_dev_info {
 					   * must be honoured
 					   */
 #define	MD_FEATURE_RESHAPE_ACTIVE	4
+#define	MD_FEATURE_BAD_BLOCKS		8 /* badblock list is not empty */
 
-#define	MD_FEATURE_ALL			(1|2|4)
+#define	MD_FEATURE_ALL			(1|2|4|8)
 
 #ifndef offsetof
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
@@ -319,7 +325,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 		printf("Internal Bitmap : %ld sectors from superblock\n",
 		       (long)(int32_t)__le32_to_cpu(sb->bitmap_offset));
 	}
-	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
+	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_RESHAPE_ACTIVE)) {
 		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)__le64_to_cpu(sb->reshape_position)/2,
 		       human_size(__le64_to_cpu(sb->reshape_position)<<9));
 		if (__le32_to_cpu(sb->delta_disks)) {
@@ -362,6 +368,17 @@ static void examine_super1(struct supertype *st, char *homehost)
 
 	atime = __le64_to_cpu(sb->utime) & 0xFFFFFFFFFFULL;
 	printf("    Update Time : %.24s\n", ctime(&atime));
+
+	if (sb->bblog_size && sb->bblog_offset) {
+		printf("  Bad Block Log : %d entries available at offset %ld sectors",
+		       __le16_to_cpu(sb->bblog_size)*512/8,
+		       (long)__le32_to_cpu(sb->bblog_offset));
+		if (sb->feature_map &
+		    __cpu_to_le32(MD_FEATURE_BAD_BLOCKS))
+			printf(" - bad blocks present.");
+		printf("\n");
+	}
+
 
 	if (calc_sb_1_csum(sb) == sb->sb_csum)
 		printf("       Checksum : %x - correct\n", __le32_to_cpu(sb->sb_csum));
@@ -1180,10 +1197,12 @@ static int write_init_super1(struct supertype *st)
 		 * 2: 4K from start of device.
 		 * Depending on the array size, we might leave extra space
 		 * for a bitmap.
+		 * Also leave 4K for bad-block log.
 		 */
 		array_size = __le64_to_cpu(sb->size);
-		/* work out how much space we left for a bitmap */
-		bm_space = choose_bm_space(array_size);
+		/* work out how much space we left for a bitmap,
+		 * Add 8 sectors for bad block log */
+		bm_space = choose_bm_space(array_size) + 8;
 
 		/* We try to leave 0.1% at the start for reshape
 		 * operations, but limit this to 128Meg (0.1% of 10Gig)
@@ -1203,6 +1222,10 @@ static int write_init_super1(struct supertype *st)
 			if (sb_offset < array_size + bm_space)
 				bm_space = sb_offset - array_size;
 			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
+			if (bm_space >= 8) {
+				sb->bblog_size = __cpu_to_le16(8);
+				sb->bblog_offset = __cpu_to_le32((unsigned)-8);
+			}
 			break;
 		case 1:
 			sb->super_offset = __cpu_to_le64(0);
@@ -1221,6 +1244,10 @@ static int write_init_super1(struct supertype *st)
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
+			if (reserved >= 16) {
+				sb->bblog_size = __cpu_to_le16(8);
+				sb->bblog_offset = __cpu_to_le32(reserved-8);
+			}
 			break;
 		case 2:
 			sb_offset = 4*2;
@@ -1245,6 +1272,14 @@ static int write_init_super1(struct supertype *st)
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
+			if (reserved >= 16+16) {
+				sb->bblog_size = __cpu_to_le16(8);
+				/* '8' sectors for the bblog, and another '8'
+				 * because we want offset from superblock, not
+				 * start of device.
+				 */
+				sb->bblog_offset = __cpu_to_le32(reserved-8-8);
+			}
 			break;
 		default:
 			pr_err("Failed to write invalid "

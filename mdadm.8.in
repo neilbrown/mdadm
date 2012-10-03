@@ -1871,6 +1871,11 @@ setting.
 .\".B \-\-size
 .\"is given, the apparent size of the smallest drive given is used.
 
+If the metadata type supports it (currently only 1.x metadata), space
+will be allocated to store a bad block list.  This allows a modest
+number of bad blocks to be recorded, allowing the drive to remain in
+service while only partially functional.
+
 When creating an array within a
 .B CONTAINER
 .I mdadm

@@ -1060,6 +1060,8 @@ argument given to this flag can be one of
 .BR byteorder ,
 .BR devicesize ,
 .BR no\-bitmap ,
+.BR bbl ,
+.BR no-\bbl ,
 or
 .BR super\-minor .
 
@@ -1162,6 +1164,18 @@ option can be used when an array has an internal bitmap which is
 corrupt in some way so that assembling the array normally fails.  It
 will cause any internal bitmap to be ignored.
 
+The
+.B bbl
+option will reserve space in each device for a bad block list.  This
+will be 4K in size and positioned near the end of any free space
+between the superblock and the data.
+
+The
+.B no\-bbl
+option will cause any reservation of space for a bad block list to be
+removed.  If the bad block list contains entries, this will fail, as
+removing the list could cause data corruption.
+
 .TP
 .BR \-\-freeze\-reshape
 Option is intended to be used in start-up scripts during initrd boot phase.
@@ -1221,12 +1235,14 @@ When used on an array that has no metadata (i.e. it was built with
 it will be assumed that bitmap-based recovery is enough to make the
 device fully consistent with the array.
 
-When
+When used with v1.x metadata,
 .B \-\-re\-add
 can be accompanied by
-.BR \-\-update=devicesize .
-See the description of this option when used in Assemble mode for an
-explanation of its use.
+.BR \-\-update=devicesize ,
+.BR \-\-update=bbl ", or"
+.BR \-\-update=no\-bbl .
+See the description of these option when used in Assemble mode for an
+explanation of their use.
 
 If the device name given is
 .B missing

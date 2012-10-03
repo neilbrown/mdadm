@@ -850,6 +850,56 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		}
 	} else if (strcmp(update, "no-bitmap") == 0) {
 		sb->feature_map &= ~__cpu_to_le32(MD_FEATURE_BITMAP_OFFSET);
+	} else if (strcmp(update, "bbl") == 0) {
+		/* only possible if there is room after the bitmap, or if
+		 * there is no bitmap
+		 */
+		unsigned long long sb_offset = __le64_to_cpu(sb->super_offset);
+		unsigned long long data_offset = __le64_to_cpu(sb->data_offset);
+		long bitmap_offset = (long)__le64_to_cpu(sb->bitmap_offset);
+		long bm_sectors = 0;
+		long space;
+
+		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
+			struct bitmap_super_s *bsb;
+			bsb = (struct bitmap_super_s *)(((char*)sb)+MAX_SB_SIZE);
+			bm_sectors = bitmap_sectors(bsb);
+		}
+
+		if (sb_offset < data_offset) {
+			/* 1.1 or 1.2.  Put bbl just before data
+			 */
+			long bb_offset;
+			space = data_offset - sb_offset;
+			bb_offset = space - 8;
+			if (bm_sectors && bitmap_offset > 0)
+				space -= (bitmap_offset + bm_sectors);
+			else
+				space -= 8; /* The superblock */
+			if (space >= 8) {
+				sb->bblog_size = __cpu_to_le16(8);
+				sb->bblog_offset = __cpu_to_le32(bb_offset);
+			}
+		} else {
+			/* 1.0 - Put bbl just before super block */
+			if (bm_sectors && bitmap_offset < 0)
+				space = -bitmap_offset - bm_sectors;
+			else
+				space = sb_offset - data_offset -
+					__le64_to_cpu(sb->data_size);
+			if (space >= 8) {
+				sb->bblog_size = __cpu_to_le16(8);
+				sb->bblog_offset = __cpu_to_le32((unsigned)-8);
+			}
+		}
+	} else if (strcmp(update, "no-bbl") == 0) {
+		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BAD_BLOCKS))
+			pr_err("Cannot remove active bbl from %s\n",devname);
+		else {
+			sb->bblog_size = 0;
+			sb->bblog_shift = 0;
+			sb->bblog_offset = 0;
+		}
 	} else if (strcmp(update, "homehost") == 0 &&
 		   homehost) {
 		char *c;

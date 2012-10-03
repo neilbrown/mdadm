@@ -713,6 +713,10 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "no-bitmap")==0)
 				continue;
+			if (strcmp(c.update, "bbl") == 0)
+				continue;
+			if (strcmp(c.update, "no-bbl") == 0)
+				continue;
 			if (strcmp(c.update, "byteorder")==0) {
 				if (ss) {
 					pr_err("must not set metadata"
@@ -760,8 +764,10 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			c.update = optarg;
-			if (strcmp(c.update, "devicesize") != 0) {
-				pr_err("only 'devicesize' can be"
+			if (strcmp(c.update, "devicesize") != 0 &&
+			    strcmp(c.update, "bbl") != 0 &&
+			    strcmp(c.update, "no-bbl") != 0) {
+				pr_err("only 'devicesize', 'bbl' and 'no-bbl' can be"
 					" updated with --re-add\n");
 				exit(2);
 			}

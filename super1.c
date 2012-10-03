@@ -1617,6 +1617,11 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 		devsize -= bitmap_sectors(bsb);
 	}
 #endif
+	/* Allow space for bad block log */
+	if (super && super->bblog_size)
+		devsize -= __le16_to_cpu(super->bblog_size);
+	else
+		devsize -= 8;
 
 	if (st->minor_version < 0)
 		/* not specified, so time to set default */
@@ -1664,12 +1669,14 @@ add_internal_bitmap1(struct supertype *st,
 	unsigned long long max_bits;
 	unsigned long long min_chunk;
 	long offset;
+	long bbl_offset, bbl_size;
 	unsigned long long chunk = *chunkp;
 	int room = 0;
 	int creating = 0;
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int uuid[4];
+
 
 	if (__le64_to_cpu(sb->data_size) == 0)
 		/* Must be creating the array, else data_size would be non-zero */
@@ -1685,15 +1692,23 @@ add_internal_bitmap1(struct supertype *st,
 			 */
 			offset = 0;
 			room = choose_bm_space(__le64_to_cpu(sb->size));
+			bbl_size = 8;
 		} else {
 			room = __le64_to_cpu(sb->super_offset)
 				- __le64_to_cpu(sb->data_offset)
 				- __le64_to_cpu(sb->data_size);
+			bbl_size = __le16_to_cpu(sb->bblog_size);
+			if (bbl_size < 8)
+				bbl_size = 8;
+			bbl_offset = (__s32)__le32_to_cpu(sb->bblog_offset);
+			if (bbl_size < -bbl_offset)
+				bbl_size = -bbl_offset;
 
 			if (!may_change || (room < 3*2 &&
 				  __le32_to_cpu(sb->max_dev) <= 384)) {
 				room = 3*2;
 				offset = 1*2;
+				bbl_size = 0;
 			} else {
 				offset = 0; /* means movable offset */
 			}
@@ -1704,12 +1719,20 @@ add_internal_bitmap1(struct supertype *st,
 		if (creating) {
 			offset = 4*2;
 			room = choose_bm_space(__le64_to_cpu(sb->size));
+			bbl_size = 8;
 		} else {
 			room = __le64_to_cpu(sb->data_offset)
 				- __le64_to_cpu(sb->super_offset);
+			bbl_size = __le16_to_cpu(sb->bblog_size);
+			if (bbl_size)
+				room = __le32_to_cpu(sb->bblog_offset) + bbl_size;
+			else
+				bbl_size = 8;
+
 			if (!may_change) {
 				room -= 2; /* Leave 1K for superblock */
 				offset = 2;
+				bbl_size = 0;
 			} else {
 				room -= 4*2; /* leave 4K for superblock */
 				offset = 4*2;
@@ -1720,6 +1743,7 @@ add_internal_bitmap1(struct supertype *st,
 		return 0;
 	}
 
+	room -= bbl_size;
 	if (chunk == UnSet && room > 128*2)
 		/* Limit to 128K of bitmap when chunk size not requested */
 		room = 128*2;
@@ -1751,7 +1775,7 @@ add_internal_bitmap1(struct supertype *st,
 		bits = (size*512) / chunk + 1;
 		room = ((bits+7)/8 + sizeof(bitmap_super_t) +4095)/4096;
 		room *= 8; /* convert 4K blocks to sectors */
-		offset = -room;
+		offset = -room - bbl_size;
 	}
 
 	sb->bitmap_offset = (int32_t)__cpu_to_le32(offset);

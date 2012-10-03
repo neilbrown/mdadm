@@ -2087,6 +2087,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	char *msg;
 	int orig_level = UnSet;
 	int disks, odisks;
+	int delayed;
 
 	struct mdu_array_info_s array;
 	char *c;
@@ -2572,6 +2573,39 @@ started:
 		map_fork();
 		break;
 	}
+
+	/* If another array on the same devices is busy, the
+	 * reshape will wait for them.  This would mean that
+	 * the first section that we suspend will stay suspended
+	 * for a long time.  So check on that possibility
+	 * by looking for "DELAYED" in /proc/mdstat, and if found,
+	 * wait a while
+	 */
+	do {
+		struct mdstat_ent *mds, *m;
+		delayed = 0;
+		mds = mdstat_read(0, 0);
+		for (m = mds; m; m = mds->next)
+			if (m->devnum == devname2devnum(sra->sys_name)) {
+				if (m->resync &&
+				    m->percent == RESYNC_DELAYED)
+					delayed = 1;
+				if (m->resync == 0)
+					/* Haven't started the reshape thread
+					 * yet, wait a bit
+					 */
+					delayed = 2;
+				break;
+			}
+		free_mdstat(mds);
+		if (delayed == 1 && get_linux_version() < 3007000) {
+			pr_err("Reshape is delayed, but cannot wait carefully with this kernel.\n"
+			       "       You might experience problems until other reshapes complete.\n");
+			delayed = 0;
+		}
+		if (delayed)
+			sleep(30 - (delayed-1) * 25);
+	} while (delayed);
 
 	close(fd);
 	if (check_env("MDADM_GROW_VERIFY"))

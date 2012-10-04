@@ -129,6 +129,7 @@ struct option long_options[] = {
     {"re-add",    0, 0,  ReAdd},
     {"homehost",  1, 0,  HomeHost},
     {"symlinks",  1, 0,  Symlinks},
+    {"data-offset",1, 0, DataOffset},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -349,6 +350,8 @@ char Help_create[] =
 "  --raid-devices= -n : number of active devices in array\n"
 "  --spare-devices= -x: number of spare (eXtra) devices in initial array\n"
 "  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
+"  --data-offset=     : Space to leave between start of device and start\n"
+"                     : of array data.\n"
 "  --force       -f   : Honour devices as listed on command line.  Don't\n"
 "                     : insert a missing drive for RAID5.\n"
 "  --run         -R   : insist of running the array even if not all\n"
@@ -545,6 +548,7 @@ char Help_grow[] =
 "                      : when changing parameters other than raid-devices\n"
 "  --array-size=  -Z   : Change visible size of array.  This does not change\n"
 "                      : any data on the device, and is not stable across restarts.\n"
+"  --data-offset=      : Location on device to move start of data to.\n"
 ;
 
 char Help_incr[] =

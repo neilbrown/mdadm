@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 	int i;
 
 	unsigned long long array_size = 0;
+	unsigned long long data_offset = INVALID_SECTORS;
 	struct mddev_ident ident;
 	char *configfile = NULL;
 	int devmode = 0;
@@ -454,6 +455,21 @@ int main(int argc, char *argv[])
 						optarg);
 					exit(2);
 				}
+			}
+			continue;
+
+		case O(CREATE,DataOffset):
+		case O(GROW,DataOffset):
+			if (data_offset != INVALID_SECTORS) {
+				fprintf(stderr, Name ": data-offset may only be specified one. "
+					"Second value is %s.\n", optarg);
+				exit(2);
+			}
+			data_offset = parse_size(optarg);
+			if (data_offset == INVALID_SECTORS) {
+				fprintf(stderr, Name ": invalid data-offset: %s\n",
+					optarg);
+				exit(2);
 			}
 			continue;
 
@@ -1345,7 +1361,7 @@ int main(int argc, char *argv[])
 		rv = Create(ss, devlist->devname,
 			    ident.name, ident.uuid_set ? ident.uuid : NULL,
 			    devs_found-1, devlist->next,
-			    &s, &c);
+			    &s, &c, data_offset);
 		break;
 	case MISC:
 		if (devmode == 'E') {
@@ -1469,7 +1485,8 @@ int main(int argc, char *argv[])
 		else if (s.size > 0 || s.raiddisks || s.layout_str != NULL
 			 || s.chunk != 0 || s.level != UnSet) {
 			rv = Grow_reshape(devlist->devname, mdfd,
-					  devlist->next, &c, &s);
+					  devlist->next,
+					  data_offset, &c, &s);
 		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");
 		break;

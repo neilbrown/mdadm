@@ -65,7 +65,7 @@ int Create(struct supertype *st, char *mddev,
 	   char *name, int *uuid,
 	   int subdevs, struct mddev_dev *devlist,
 	   struct shape *s,
-	   struct context *c)
+	   struct context *c, unsigned long long data_offset)
 {
 	/*
 	 * Create a new raid array.
@@ -252,7 +252,7 @@ int Create(struct supertype *st, char *mddev,
 	newsize = s->size * 2;
 	if (st && ! st->ss->validate_geometry(st, s->level, s->layout, s->raiddisks,
 					      &s->chunk, s->size*2,
-					      INVALID_SECTORS, NULL,
+					      data_offset, NULL,
 					      &newsize, c->verbose>=0))
 		return 1;
 
@@ -335,7 +335,7 @@ int Create(struct supertype *st, char *mddev,
 				switch (st->ss->validate_geometry(
 						st, s->level, s->layout, s->raiddisks,
 						&s->chunk, s->size*2,
-						INVALID_SECTORS, dname,
+						data_offset, dname,
 						&freesize, c->verbose > 0)) {
 				case -1: /* Not valid, message printed, and not
 					  * worth checking any further */
@@ -372,7 +372,7 @@ int Create(struct supertype *st, char *mddev,
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
 						       &s->chunk, s->size*2,
-						       INVALID_SECTORS,
+						       data_offset,
 						       dname, &freesize,
 						       c->verbose >= 0)) {
 
@@ -474,7 +474,7 @@ int Create(struct supertype *st, char *mddev,
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
 						       &s->chunk, minsize*2,
-						       INVALID_SECTORS,
+						       data_offset,
 						       NULL, NULL, 0)) {
 				pr_err("devices too large for RAID level %d\n", s->level);
 				return 1;
@@ -682,7 +682,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 	}
 	if (!st->ss->init_super(st, &info.array, s->size, name, c->homehost, uuid,
-				INVALID_SECTORS))
+				data_offset))
 		goto abort_locked;
 
 	total_slots = info.array.nr_disks;

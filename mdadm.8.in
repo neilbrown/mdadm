@@ -768,6 +768,34 @@ The file must be stored on a separate device, not on the RAID array
 being reshaped.
 
 .TP
+.B \-\-data\-offset=
+Arrays with 1.x metadata can leave a gap between the start of the
+device and the start of array data.  This gap can be used for various
+metadata.  The start of data is known as the
+.IR data\-offset .
+Normally an appropriate data offset is computed automatically.
+However it can be useful to set it explicitly such as when re-creating
+an array which was originally created using a different version of
+.I mdadm
+which computed a different offset.
+
+Setting the offset explicitly over-rides the default.  The value given
+is in Kilobytes unless an 'M' or 'G' suffix is given.
+
+Since Linux 3.4,
+.B \-\-data\-offset
+can also be used with
+.B --grow
+for some RAID levels (initially on RAID10).  This allows the
+data-offset to be changed as part of the reshape process.  When the
+data offset is changed, no backup file is required as the difference
+in offsets is used to provide the same functionality.
+
+When the new offset is earlier than the old offset, the number of
+devices in the array cannot shrink.  When it is after the old offset,
+the number of devices in the array cannot increase.
+
+.TP
 .BR \-\-continue
 This option is complementary to the
 .B \-\-freeze-reshape

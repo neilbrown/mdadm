@@ -1440,6 +1440,7 @@ static int reshape_container(char *container, char *devname,
 
 int Grow_reshape(char *devname, int fd,
 		 struct mddev_dev *devlist,
+		 unsigned long long data_offset,
 		 struct context *c, struct shape *s)
 {
 	/* Make some changes in the shape of an array.
@@ -1475,6 +1476,11 @@ int Grow_reshape(char *devname, int fd,
 
 	struct mdinfo info;
 	struct mdinfo *sra;
+
+	if (data_offset != INVALID_SECTORS) {
+		fprintf(stderr, Name ": --grow --data-offset not yet supported\n");
+		return 1;
+	}
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
 		pr_err("%s is not an active md array - aborting\n",

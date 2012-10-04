@@ -1151,8 +1151,14 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			 */
 
 			re->backup_blocks = max(old_chunk, new_chunk) / 512;
-			re->new_size = (info->component_size * new_disks
-					/ copies);
+			if (new_disks < re->before.data_disks &&
+			    info->space_after < re->backup_blocks)
+				/* Reduce component size by one chunk */
+				re->new_size = (info->component_size -
+						re->backup_blocks);
+			else
+				re->new_size = info->component_size;
+			re->new_size = re->new_size * new_disks / copies;
 			return NULL;
 
 		default:
@@ -2152,20 +2158,21 @@ static int raid10_reshape(char *container, int fd, char *devname,
 {
 	/* Changing raid_disks, layout, chunksize or possibly
 	 * just data_offset for a RAID10.
-	 * We must always change data_offset.
-	 * The amount is change it relates to the minimum copy size.
-	 * This is  reshape->backup_blocks * copies / raid_disks
-	 * where 'raid_disks' is the smaller of 'new' and 'old'.
+	 * We must always change data_offset.  We change by at least
+	 * ->backup_blocks which is the largest of the old and new
+	 * chunk sizes.
 	 * If raid_disks is increasing, then data_offset must decrease
 	 * by at least this copy size.
 	 * If raid_disks is unchanged, data_offset must increase or
-	 * decrease by at least min-copy-size but preferably by much more.
+	 * decrease by at least backup_blocks but preferably by much more.
 	 * We choose half of the available space.
 	 * If raid_disks is decreasing, data_offset must increase by
-	 * at least min-copy-size.
+	 * at least backup_blocks.  To allow of this, component_size
+	 * must be decreased by the same amount.
 	 *
-	 * So we calculate the required minimum and direction, then iterate
-	 * through the devices and set the new_data_offset.
+	 * So we calculate the required minimum and direction, possibly
+	 * reduce the component_size, then iterate through the devices
+	 * and set the new_data_offset.
 	 * If that all works, we set chunk_size, layout, raid_disks, and start
 	 * 'reshape'
 	 */
@@ -2187,6 +2194,16 @@ static int raid10_reshape(char *container, int fd, char *devname,
 	if (info->delta_disks)
 		sysfs_set_str(sra, NULL, "reshape_direction",
 			      info->delta_disks < 0 ? "backwards" : "forwards");
+	if (info->delta_disks < 0 &&
+	    info->space_after < reshape->backup_blocks) {
+		int rv = sysfs_set_num(sra, NULL, "component_size",
+				       (sra->component_size -
+					reshape->backup_blocks)/2);
+		if (rv) {
+			fprintf(stderr, Name ": cannot reduce component size\n");
+			goto release;
+		}
+	}
 	for (sd = sra->devs; sd; sd = sd->next) {
 		char *dn;
 		int dfd;
@@ -2327,7 +2344,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			break;
 		}
 	}
-	if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
+	if (!err && sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
 		err = errno;
 	if (!err && sysfs_set_num(sra, NULL, "layout", reshape->after.layout) < 0)
 		err = errno;
@@ -2351,6 +2368,52 @@ static int raid10_reshape(char *container, int fd, char *devname,
 release:
 	sysfs_free(sra);
 	return 1;
+}
+
+static void get_space_after(int fd, struct supertype *st, struct mdinfo *info)
+{
+	struct mdinfo *sra, *sd;
+	unsigned long long min_space_before, min_space_after;
+	int first = 1;
+
+	sra = sysfs_read(fd, 0, GET_DEVS);
+	if (!sra)
+		return;
+	for (sd = sra->devs; sd; sd = sd->next) {
+		char *dn;
+		int dfd;
+		struct supertype *st2;
+		struct mdinfo info2;
+
+		if (sd->disk.state & (1<<MD_DISK_FAULTY))
+			continue;
+		dn = map_dev(sd->disk.major, sd->disk.minor, 0);
+		dfd = dev_open(dn, O_RDONLY);
+		if (dfd < 0)
+			break;
+		st2 = dup_super(st);
+		if (st2->ss->load_super(st2,dfd, NULL)) {
+			close(dfd);
+			free(st2);
+			break;
+		}
+		close(dfd);
+		st2->ss->getinfo_super(st2, &info2, NULL);
+		st2->ss->free_super(st2);
+		free(st2);
+		if (first ||
+		    min_space_before > info2.space_before)
+			min_space_before = info2.space_before;
+		if (first ||
+		    min_space_after > info2.space_after)
+			min_space_after = info2.space_after;
+		first = 0;
+	}
+	if (sd == NULL && !first) {
+		info->space_after = min_space_after;
+		info->space_before = min_space_before;
+	}
+	sysfs_free(sra);
 }
 
 static int reshape_array(char *container, int fd, char *devname,
@@ -2395,6 +2458,10 @@ static int reshape_array(char *container, int fd, char *devname,
 		get_dev_size(fd, NULL, &array_size);
 		info->component_size = array_size / array.raid_disks;
 	}
+
+	if (array.level == 10)
+		/* Need space_after info */
+		get_space_after(fd, st, info);
 
 	if (info->reshape_active) {
 		int new_level = info->new_level;

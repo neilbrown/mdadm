@@ -3024,7 +3024,8 @@ static size_t disks_to_mpb_size(int disks)
 	return size;
 }
 
-static __u64 avail_size_imsm(struct supertype *st, __u64 devsize)
+static __u64 avail_size_imsm(struct supertype *st, __u64 devsize,
+			     unsigned long long data_offset)
 {
 	if (devsize < (MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS))
 		return 0;
@@ -5340,7 +5341,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 		}
 	}
 
-	*freesize = avail_size_imsm(st, ldsize >> 9);
+	*freesize = avail_size_imsm(st, ldsize >> 9, INVALID_SECTORS);
 	free_imsm(super);
 
 	return 1;

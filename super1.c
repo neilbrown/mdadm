@@ -1609,21 +1609,23 @@ static struct supertype *match_metadata_desc1(char *arg)
  * superblock type st, and reserving 'reserve' sectors for
  * a possible bitmap
  */
-static __u64 avail_size1(struct supertype *st, __u64 devsize)
+static __u64 avail_size1(struct supertype *st, __u64 devsize,
+			 unsigned long long data_offset)
 {
 	struct mdp_superblock_1 *super = st->sb;
+	int bmspace = 0;
 	if (devsize < 24)
 		return 0;
 
 	if (super == NULL)
 		/* creating:  allow suitable space for bitmap */
-		devsize -= choose_bm_space(devsize);
+		bmspace = choose_bm_space(devsize);
 #ifndef MDASSEMBLE
 	else if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
 		/* hot-add. allow for actual size of bitmap */
 		struct bitmap_super_s *bsb;
 		bsb = (struct bitmap_super_s *)(((char*)super)+MAX_SB_SIZE);
-		devsize -= bitmap_sectors(bsb);
+		bmspace = bitmap_sectors(bsb);
 	}
 #endif
 	/* Allow space for bad block log */
@@ -1632,9 +1634,24 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize)
 	else
 		devsize -= 8;
 
+
 	if (st->minor_version < 0)
 		/* not specified, so time to set default */
 		st->minor_version = 2;
+
+	if (data_offset != INVALID_SECTORS)
+		switch(st->minor_version) {
+		case 0:
+			return devsize - data_offset - 8*2;
+		case 1:
+		case 2:
+			return devsize - data_offset;
+		default:
+			return 0;
+		}
+
+	devsize -= bmspace;
+
 	if (super == NULL && st->minor_version > 0) {
 		/* haven't committed to a size yet, so allow some
 		 * slack for space for reshape.
@@ -1916,7 +1933,7 @@ static int validate_geometry1(struct supertype *st, int level,
 	}
 	close(fd);
 
-	*freesize = avail_size1(st, ldsize >> 9);
+	*freesize = avail_size1(st, ldsize >> 9, INVALID_SECTORS);
 	return 1;
 }
 #endif /* MDASSEMBLE */

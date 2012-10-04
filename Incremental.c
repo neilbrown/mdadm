@@ -867,7 +867,11 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			close(mdfd);
 		}
 		if ((sra->component_size > 0 &&
-		     st2->ss->avail_size(st2, devsize) < sra->component_size)
+		     st2->ss->avail_size(st2, devsize,
+					 sra->devs
+					 ? sra->devs->data_offset
+					 : INVALID_SECTORS)
+		     < sra->component_size)
 		    ||
 		    (sra->component_size == 0 && devsize < component_size)) {
 			if (verbose > 1)

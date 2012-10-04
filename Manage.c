@@ -628,7 +628,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		}
 
 		/* Make sure device is large enough */
-		if (tst->ss->avail_size(tst, ldsize/512) <
+		if (tst->ss->avail_size(tst, ldsize/512, INVALID_SECTORS) <
 		    array_size) {
 			if (dv->disposition == 'M')
 				return 0;

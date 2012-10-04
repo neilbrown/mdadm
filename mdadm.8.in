@@ -787,13 +787,24 @@ Since Linux 3.4,
 can also be used with
 .B --grow
 for some RAID levels (initially on RAID10).  This allows the
-data-offset to be changed as part of the reshape process.  When the
+data\-offset to be changed as part of the reshape process.  When the
 data offset is changed, no backup file is required as the difference
 in offsets is used to provide the same functionality.
 
 When the new offset is earlier than the old offset, the number of
 devices in the array cannot shrink.  When it is after the old offset,
 the number of devices in the array cannot increase.
+
+When creating an array,
+.B \-\-data\-offset
+can be specified as
+.BR variable .
+In the case each member device is expected to have a offset appended
+to the name, separated by a colon.  This makes it possible to recreate
+exactly an array which has varying data offsets (as can happen when
+different versions of
+.I mdadm
+are used to add different devices).
 
 .TP
 .BR \-\-continue

@@ -289,6 +289,7 @@ int Create(struct supertype *st, char *mddev,
 		char *dname = dv->devname;
 		unsigned long long freesize;
 		int dfd;
+		char *doff;
 
 		if (strcasecmp(dname, "missing")==0) {
 			if (first_missing > dnum)
@@ -298,6 +299,16 @@ int Create(struct supertype *st, char *mddev,
 			missing_disks ++;
 			continue;
 		}
+		if (data_offset != VARIABLE_OFFSET) {
+			doff = strchr(dname, ':');
+			if (doff) {
+				*doff++ = 0;
+				dv->data_offset = parse_size(doff);
+			} else
+				dv->data_offset = INVALID_SECTORS;
+		} else
+			dv->data_offset = data_offset;
+
 		dfd = open(dname, O_RDONLY);
 		if (dfd < 0) {
 			pr_err("cannot open %s: %s\n",
@@ -335,7 +346,7 @@ int Create(struct supertype *st, char *mddev,
 				switch (st->ss->validate_geometry(
 						st, s->level, s->layout, s->raiddisks,
 						&s->chunk, s->size*2,
-						data_offset, dname,
+						dv->data_offset, dname,
 						&freesize, c->verbose > 0)) {
 				case -1: /* Not valid, message printed, and not
 					  * worth checking any further */
@@ -372,7 +383,7 @@ int Create(struct supertype *st, char *mddev,
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
 						       &s->chunk, s->size*2,
-						       data_offset,
+						       dv->data_offset,
 						       dname, &freesize,
 						       c->verbose >= 0)) {
 
@@ -866,7 +877,8 @@ int Create(struct supertype *st, char *mddev,
 				if (fd >= 0)
 					remove_partitions(fd);
 				if (st->ss->add_to_super(st, &inf->disk,
-							 fd, dv->devname)) {
+							 fd, dv->devname,
+							 dv->data_offset)) {
 					ioctl(mdfd, STOP_ARRAY, NULL);
 					goto abort;
 				}

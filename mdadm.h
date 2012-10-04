@@ -433,6 +433,7 @@ struct mddev_dev {
 				 */
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
 	char used;		/* set when used */
+	long long data_offset;
 	struct mddev_dev *next;
 };
 
@@ -742,7 +743,8 @@ extern struct superswitch {
 	 * when hot-adding a spare.
 	 */
 	int (*add_to_super)(struct supertype *st, mdu_disk_info_t *dinfo,
-			    int fd, char *devname);
+			    int fd, char *devname,
+			    unsigned long long data_offset);
 	/* update the metadata to delete a device,
 	 * when hot-removing.
 	 */
@@ -1479,5 +1481,7 @@ char *xstrdup(const char *str);
  * a value for 'invalid'.  Use '1'.
  */
 #define INVALID_SECTORS 1
+/* And another special number needed for --data_offset=variable */
+#define VARIABLE_OFFSET 3
 
 extern int __offroot;

@@ -465,7 +465,11 @@ int main(int argc, char *argv[])
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
-			data_offset = parse_size(optarg);
+			if (mode == CREATE &&
+			    strcmp(optarg, "variable") == 0)
+				data_offset = VARIABLE_OFFSET;
+			else
+				data_offset = parse_size(optarg);
 			if (data_offset == INVALID_SECTORS) {
 				fprintf(stderr, Name ": invalid data-offset: %s\n",
 					optarg);

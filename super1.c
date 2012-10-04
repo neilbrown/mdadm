@@ -1106,13 +1106,14 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 struct devinfo {
 	int fd;
 	char *devname;
+	long long data_offset;
 	mdu_disk_info_t disk;
 	struct devinfo *next;
 };
 #ifndef MDASSEMBLE
 /* Add a device to the superblock being created */
 static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
-			  int fd, char *devname)
+			 int fd, char *devname, unsigned long long data_offset)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	__u16 *rp = sb->dev_roles + dk->number;
@@ -1140,6 +1141,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	di->fd = fd;
 	di->devname = devname;
 	di->disk = *dk;
+	di->data_offset = data_offset;
 	di->next = NULL;
 	*dip = di;
 
@@ -1338,14 +1340,13 @@ static int write_init_super1(struct supertype *st)
 			headroom/2 >= __le32_to_cpu(sb->chunksize) * 2)
 			headroom >>= 1;
 
-
+		data_offset = di->data_offset;
 		switch(st->minor_version) {
 		case 0:
 			sb_offset = dsize;
 			sb_offset -= 8*2;
 			sb_offset &= ~(4*2-1);
 			sb->super_offset = __cpu_to_le64(sb_offset);
-			data_offset = __le64_to_cpu(sb->data_offset);
 			if (data_offset == INVALID_SECTORS)
 				sb->data_offset = 0;
 			if (sb_offset < array_size + bm_space)
@@ -1358,7 +1359,6 @@ static int write_init_super1(struct supertype *st)
 			break;
 		case 1:
 			sb->super_offset = __cpu_to_le64(0);
-			data_offset = __le64_to_cpu(sb->data_offset);
 			if (data_offset == INVALID_SECTORS) {
 				reserved = bm_space + 4*2;
 				if (reserved < headroom)
@@ -1386,7 +1386,6 @@ static int write_init_super1(struct supertype *st)
 		case 2:
 			sb_offset = 4*2;
 			sb->super_offset = __cpu_to_le64(4*2);
-			data_offset = __le64_to_cpu(sb->data_offset);
 			if (data_offset == INVALID_SECTORS) {
 				if (4*2 + 4*2 + bm_space + array_size
 				    > dsize)

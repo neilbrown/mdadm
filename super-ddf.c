@@ -2174,7 +2174,8 @@ static void add_to_super_ddf_bvd(struct supertype *st,
  * expanding a pre-existing container
  */
 static int add_to_super_ddf(struct supertype *st,
-			     mdu_disk_info_t *dk, int fd, char *devname)
+			    mdu_disk_info_t *dk, int fd, char *devname,
+			    unsigned long long data_offset)
 {
 	struct ddf_super *ddf = st->sb;
 	struct dl *dd;

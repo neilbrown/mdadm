@@ -733,7 +733,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
 		if (tst->ss->add_to_super(tst, &disc, dfd,
-					  dv->devname))
+					  dv->devname, INVALID_SECTORS))
 			return -1;
 		if (tst->ss->write_init_super(tst))
 			return -1;
@@ -791,7 +791,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		if (mdmon_running(tst->container_dev))
 			tst->update_tail = &tst->updates;
 		if (tst->ss->add_to_super(tst, &disc, dfd,
-					  dv->devname)) {
+					  dv->devname, INVALID_SECTORS)) {
 			close(dfd);
 			close(container_fd);
 			return -1;

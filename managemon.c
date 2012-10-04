@@ -304,7 +304,7 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	st2->ss->free_super(st2);
 
 	st->update_tail = &update;
-	st->ss->add_to_super(st, &dk, dfd, NULL);
+	st->ss->add_to_super(st, &dk, dfd, NULL, INVALID_SECTORS);
 	st->ss->write_init_super(st);
 	queue_metadata_update(update);
 	st->update_tail = NULL;

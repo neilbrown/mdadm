@@ -492,7 +492,7 @@ int Create(struct supertype *st, char *mddev,
 		warn = 1;
 	}
 
-	if (st->ss->detail_platform && st->ss->detail_platform(0, 1) != 0) {
+	if (st->ss->detail_platform && st->ss->detail_platform(0, 1, NULL) != 0) {
 		if (c->runstop != 1 || c->verbose >= 0)
 			pr_err("%s unable to enumerate platform support\n"
 				"    array may not be compatible with hardware/firmware\n",

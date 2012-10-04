@@ -1834,3 +1834,24 @@ struct mdinfo *container_choose_spares(struct supertype *st,
 	}
 	return disks;
 }
+
+/* Checks if paths point to the same device
+ * Returns 0 if they do.
+ * Returns 1 if they don't.
+ * Returns -1 if something went wrong,
+ * e.g. paths are empty or the files
+ * they point to don't exist */
+int compare_paths (char* path1, char* path2)
+{
+	struct stat st1,st2;
+
+	if (path1 == NULL || path2 == NULL)
+		return -1;
+	if (stat(path1,&st1) != 0)
+		return -1;
+	if (stat(path2,&st2) != 0)
+		return -1;
+	if ((st1.st_ino == st2.st_ino) && (st1.st_dev == st2.st_dev))
+		return 0;
+	return 1;
+}

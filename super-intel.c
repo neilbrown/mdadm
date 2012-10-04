@@ -1833,7 +1833,7 @@ static void print_imsm_capability_export(const struct imsm_orom *orom)
 	printf("IMSM_MAX_VOLUMES_PER_CONTROLLER=%d\n",orom->vphba);
 }
 
-static int detail_platform_imsm(int verbose, int enumerate_only)
+static int detail_platform_imsm(int verbose, int enumerate_only, char *controller_path)
 {
 	/* There are two components to imsm platform support, the ahci SATA
 	 * controller and the option-rom.  To find the SATA controller we
@@ -1850,7 +1850,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 	struct sys_dev *list, *hba;
 	int host_base = 0;
 	int port_count = 0;
-	int result=0;
+	int result=1;
 
 	if (enumerate_only) {
 		if (check_env("IMSM_NO_PLATFORM"))
@@ -1864,6 +1864,8 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 				result = 2;
 				break;
 			}
+			else
+				result = 0;
 		}
 		free_sys_dev(&list);
 		return result;
@@ -1880,34 +1882,38 @@ static int detail_platform_imsm(int verbose, int enumerate_only)
 		print_found_intel_controllers(list);
 
 	for (hba = list; hba; hba = hba->next) {
+		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
+			continue;
 		orom = find_imsm_capability(hba->type);
 		if (!orom)
 			pr_err("imsm capabilities not found for controller: %s (type %s)\n",
 				hba->path, get_sys_dev_type(hba->type));
-		else
+		else {
+			result = 0;
 			print_imsm_capability(orom);
-	}
-
-	for (hba = list; hba; hba = hba->next) {
-		printf(" I/O Controller : %s (%s)\n",
-			hba->path, get_sys_dev_type(hba->type));
-
-		if (hba->type == SYS_DEV_SATA) {
-			host_base = ahci_get_port_count(hba->path, &port_count);
-			if (ahci_enumerate_ports(hba->path, port_count, host_base, verbose)) {
-				if (verbose > 0)
-					pr_err("failed to enumerate "
-						"ports on SATA controller at %s.", hba->pci_id);
-				result |= 2;
+			printf(" I/O Controller : %s (%s)\n",
+				hba->path, get_sys_dev_type(hba->type));
+			if (hba->type == SYS_DEV_SATA) {
+				host_base = ahci_get_port_count(hba->path, &port_count);
+				if (ahci_enumerate_ports(hba->path, port_count, host_base, verbose)) {
+					if (verbose > 0)
+						pr_err("failed to enumerate "
+							"ports on SATA controller at %s.\n", hba->pci_id);
+					result |= 2;
+				}
 			}
 		}
 	}
+
+	if (controller_path && result == 1)
+		pr_err("no active Intel(R) RAID "
+				"controller found under %s\n",controller_path);
 
 	free_sys_dev(&list);
 	return result;
 }
 
-static int export_detail_platform_imsm(int verbose)
+static int export_detail_platform_imsm(int verbose, char *controller_path)
 {
 	const struct imsm_orom *orom;
 	struct sys_dev *list, *hba;
@@ -1923,6 +1929,8 @@ static int export_detail_platform_imsm(int verbose)
 	}
 
 	for (hba = list; hba; hba = hba->next) {
+		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
+			continue;
 		orom = find_imsm_capability(hba->type);
 		if (!orom) {
 			if (verbose > 0)
@@ -1933,9 +1941,6 @@ static int export_detail_platform_imsm(int verbose)
 			result = 0;
 		}
 	}
-
-	if (result == 1 && verbose > 0)
-		pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICES\n");
 
 	return result;
 }

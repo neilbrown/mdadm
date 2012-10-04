@@ -1332,7 +1332,11 @@ Print details of one or more md devices.
 .TP
 .BR \-\-detail\-platform
 Print details of the platform's RAID capabilities (firmware / hardware
-topology) for a given metadata format.
+topology) for a given metadata format. If used without argument, mdadm
+will scan all controllers looking for their capabilities. Otherwise, mdadm
+will only look at the controller specified by the argument in form of an
+absolute filepath or a link, e.g.
+.IR /sys/devices/pci0000:00/0000:00:1f.2 .
 
 .TP
 .BR \-Y ", " \-\-export

@@ -324,8 +324,15 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		if (opt == 1) {
-		        /* an undecorated option - must be a device name.
+			/* an undecorated option - must be a device name.
 			 */
+
+			if (devs_found > 0 && devmode == DetailPlatform) {
+				pr_err("controller may only be specified once. %s ignored\n",
+						optarg);
+				continue;
+			}
+
 			if (devs_found > 0 && mode == MANAGE && !devmode) {
 				pr_err("Must give one of -a/-r/-f"
 					" for subsequent devices at %s\n", optarg);
@@ -1350,7 +1357,9 @@ int main(int argc, char *argv[])
 			}
 			rv = Examine(devlist, &c, ss);
 		} else if (devmode == DetailPlatform) {
-			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1, c.verbose, c.export);
+			rv = Detail_Platform(ss ? ss->ss : NULL, ss ? c.scan : 1,
+					     c.verbose, c.export,
+					     devlist ? devlist->devname : NULL);
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
 				rv = stop_scan(c.verbose);

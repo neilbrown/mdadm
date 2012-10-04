@@ -938,6 +938,17 @@ int reshape_open_backup_file(char *backup_file,
 	return 1;
 }
 
+unsigned long GCD(unsigned long a, unsigned long b)
+{
+	while (a != b) {
+		if (a < b)
+			b -= a;
+		if (b < a)
+			a -= b;
+	}
+	return a;
+}
+
 unsigned long compute_backup_blocks(int nchunk, int ochunk,
 				    unsigned int ndata, unsigned int odata)
 {
@@ -950,12 +961,7 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	a = (ochunk/512) * odata;
 	b = (nchunk/512) * ndata;
 	/* Find GCD */
-	while (a != b) {
-		if (a < b)
-			b -= a;
-		if (b < a)
-			a -= b;
-	}
+	a = GCD(a, b);
 	/* LCM == product / GCD */
 	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
 

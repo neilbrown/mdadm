@@ -681,7 +681,8 @@ int Create(struct supertype *st, char *mddev,
 				name += 2;
 		}
 	}
-	if (!st->ss->init_super(st, &info.array, s->size, name, c->homehost, uuid))
+	if (!st->ss->init_super(st, &info.array, s->size, name, c->homehost, uuid,
+				INVALID_SECTORS))
 		goto abort_locked;
 
 	total_slots = info.array.nr_disks;

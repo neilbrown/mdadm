@@ -726,7 +726,8 @@ extern struct superswitch {
 	 */
 	int (*init_super)(struct supertype *st, mdu_array_info_t *info,
 			  unsigned long long size, char *name,
-			  char *homehost, int *uuid);
+			  char *homehost, int *uuid,
+			  unsigned long long data_offset);
 
 	/* update the metadata to include new device, either at create or
 	 * when hot-adding a spare.

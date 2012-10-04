@@ -58,7 +58,10 @@ struct mdp_superblock_1 {
 	__u32	delta_disks;	/* change in number of raid_disks		*/
 	__u32	new_layout;	/* new layout					*/
 	__u32	new_chunk;	/* new chunk size (bytes)			*/
-	__u8	pad1[128-124];	/* set to 0 when written */
+	__u32	new_offset;	/* signed number to add to data_offset in new
+				 * layout.  0 == no-change.  This can be
+				 * different on each device in the array.
+				 */
 
 	/* constant this-device information - 64 bytes */
 	__u64	data_offset;	/* sector start of data, often 0 */
@@ -112,8 +115,23 @@ struct misc_dev_info {
 					   */
 #define	MD_FEATURE_RESHAPE_ACTIVE	4
 #define	MD_FEATURE_BAD_BLOCKS		8 /* badblock list is not empty */
-
-#define	MD_FEATURE_ALL			(1|2|4|8)
+#define	MD_FEATURE_REPLACEMENT		16 /* This device is replacing an
+					    * active device with same 'role'.
+					    * 'recovery_offset' is also set.
+					    */
+#define	MD_FEATURE_RESHAPE_BACKWARDS	32 /* Reshape doesn't change number
+					    * of devices, but is going
+					    * backwards anyway.
+					    */
+#define	MD_FEATURE_NEW_OFFSET		64 /* new_offset must be honoured */
+#define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
+					|MD_FEATURE_RECOVERY_OFFSET	\
+					|MD_FEATURE_RESHAPE_ACTIVE	\
+					|MD_FEATURE_BAD_BLOCKS		\
+					|MD_FEATURE_REPLACEMENT		\
+					|MD_FEATURE_RESHAPE_BACKWARDS	\
+					|MD_FEATURE_NEW_OFFSET		\
+					)
 
 #ifndef offsetof
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
@@ -309,6 +327,11 @@ static void examine_super1(struct supertype *st, char *homehost)
 	if (sb->data_offset)
 		printf("    Data Offset : %llu sectors\n",
 		       (unsigned long long)__le64_to_cpu(sb->data_offset));
+	if (sb->new_offset) {
+		unsigned long long offset = __le64_to_cpu(sb->data_offset);
+		offset += (signed)(int32_t)__le32_to_cpu(sb->new_offset);
+		printf("     New Offset : %llu sectors\n", offset);
+	}
 	printf("   Super Offset : %llu sectors\n",
 	       (unsigned long long)__le64_to_cpu(sb->super_offset));
 	if (__le32_to_cpu(sb->feature_map) & MD_FEATURE_RECOVERY_OFFSET)

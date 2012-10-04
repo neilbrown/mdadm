@@ -251,7 +251,9 @@ int Create(struct supertype *st, char *mddev,
 		s->size &= ~(unsigned long long)(s->chunk - 1);
 	newsize = s->size * 2;
 	if (st && ! st->ss->validate_geometry(st, s->level, s->layout, s->raiddisks,
-					      &s->chunk, s->size*2, NULL, &newsize, c->verbose>=0))
+					      &s->chunk, s->size*2,
+					      INVALID_SECTORS, NULL,
+					      &newsize, c->verbose>=0))
 		return 1;
 
 	if (s->chunk && s->chunk != UnSet) {
@@ -332,8 +334,9 @@ int Create(struct supertype *st, char *mddev,
 					s->layout = default_layout(st, s->level, c->verbose);
 				switch (st->ss->validate_geometry(
 						st, s->level, s->layout, s->raiddisks,
-						&s->chunk, s->size*2, dname, &freesize,
-						c->verbose > 0)) {
+						&s->chunk, s->size*2,
+						INVALID_SECTORS, dname,
+						&freesize, c->verbose > 0)) {
 				case -1: /* Not valid, message printed, and not
 					  * worth checking any further */
 					exit(2);
@@ -368,8 +371,9 @@ int Create(struct supertype *st, char *mddev,
 				s->layout = default_layout(st, s->level, 0);
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
-						       &s->chunk, s->size*2, dname,
-						       &freesize,
+						       &s->chunk, s->size*2,
+						       INVALID_SECTORS,
+						       dname, &freesize,
 						       c->verbose >= 0)) {
 
 				pr_err("%s is not suitable for "
@@ -470,6 +474,7 @@ int Create(struct supertype *st, char *mddev,
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
 						       &s->chunk, minsize*2,
+						       INVALID_SECTORS,
 						       NULL, NULL, 0)) {
 				pr_err("devices too large for RAID level %d\n", s->level);
 				return 1;

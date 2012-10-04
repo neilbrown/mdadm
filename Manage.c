@@ -549,7 +549,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	if (tst->ss->validate_geometry(
 		    tst, array->level, array->layout,
 		    array->raid_disks, NULL,
-		    ldsize >> 9, NULL, NULL, 0) == 0) {
+		    ldsize >> 9, INVALID_SECTORS, NULL, NULL, 0) == 0) {
 		if (!force) {
 			pr_err("%s is larger than %s can "
 			       "effectively use.\n"

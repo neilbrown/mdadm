@@ -1902,6 +1902,7 @@ static void free_super1(struct supertype *st)
 static int validate_geometry1(struct supertype *st, int level,
 			      int layout, int raiddisks,
 			      int *chunk, unsigned long long size,
+			      unsigned long long data_offset,
 			      char *subdev, unsigned long long *freesize,
 			      int verbose)
 {
@@ -1933,7 +1934,7 @@ static int validate_geometry1(struct supertype *st, int level,
 	}
 	close(fd);
 
-	*freesize = avail_size1(st, ldsize >> 9, INVALID_SECTORS);
+	*freesize = avail_size1(st, ldsize >> 9, data_offset);
 	return 1;
 }
 #endif /* MDASSEMBLE */

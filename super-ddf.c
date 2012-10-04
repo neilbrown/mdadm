@@ -2581,18 +2581,21 @@ static int
 validate_geometry_ddf_container(struct supertype *st,
 				int level, int layout, int raiddisks,
 				int chunk, unsigned long long size,
+				unsigned long long data_offset,
 				char *dev, unsigned long long *freesize,
 				int verbose);
 
 static int validate_geometry_ddf_bvd(struct supertype *st,
 				     int level, int layout, int raiddisks,
 				     int *chunk, unsigned long long size,
+				     unsigned long long data_offset,
 				     char *dev, unsigned long long *freesize,
 				     int verbose);
 
 static int validate_geometry_ddf(struct supertype *st,
 				 int level, int layout, int raiddisks,
 				 int *chunk, unsigned long long size,
+				 unsigned long long data_offset,
 				 char *dev, unsigned long long *freesize,
 				 int verbose)
 {
@@ -2615,7 +2618,8 @@ static int validate_geometry_ddf(struct supertype *st,
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
 						       raiddisks, chunk?*chunk:0,
-						       size, dev, freesize,
+						       size, data_offset, dev,
+						       freesize,
 						       verbose);
 	}
 
@@ -2652,7 +2656,8 @@ static int validate_geometry_ddf(struct supertype *st,
 		 * Should make a distinction one day.
 		 */
 		return validate_geometry_ddf_bvd(st, level, layout, raiddisks,
-						 chunk, size, dev, freesize,
+						 chunk, size, data_offset, dev,
+						 freesize,
 						 verbose);
 	}
 	/* This is the first device for the array.
@@ -2710,6 +2715,7 @@ static int validate_geometry_ddf(struct supertype *st,
 			close(cfd);
 			return validate_geometry_ddf_bvd(st, level, layout,
 							 raiddisks, chunk, size,
+							 data_offset,
 							 dev, freesize,
 							 verbose);
 		}
@@ -2724,6 +2730,7 @@ static int
 validate_geometry_ddf_container(struct supertype *st,
 				int level, int layout, int raiddisks,
 				int chunk, unsigned long long size,
+				unsigned long long data_offset,
 				char *dev, unsigned long long *freesize,
 				int verbose)
 {
@@ -2758,6 +2765,7 @@ validate_geometry_ddf_container(struct supertype *st,
 static int validate_geometry_ddf_bvd(struct supertype *st,
 				     int level, int layout, int raiddisks,
 				     int *chunk, unsigned long long size,
+				     unsigned long long data_offset,
 				     char *dev, unsigned long long *freesize,
 				     int verbose)
 {

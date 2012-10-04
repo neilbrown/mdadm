@@ -665,10 +665,14 @@ static void uuid_from_super1(struct supertype *st, int uuid[4])
 static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct mdp_superblock_1 *sb = st->sb;
+	struct bitmap_super_s *bsb = (void*)(((char*)sb)+MAX_SB_SIZE);
+	struct misc_dev_info *misc = (void*)(((char*)sb)+MAX_SB_SIZE+BM_SUPER_SIZE);
 	int working = 0;
 	unsigned int i;
 	unsigned int role;
 	unsigned int map_disks = info->array.raid_disks;
+	unsigned long long super_offset;
+	unsigned long long data_size;
 
 	memset(info, 0, sizeof(*info));
 	info->array.major_version = 1;
@@ -698,6 +702,39 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		role = 0xfffe;
 	else
 		role = __le16_to_cpu(sb->dev_roles[__le32_to_cpu(sb->dev_number)]);
+
+	super_offset = __le64_to_cpu(sb->super_offset);
+	data_size = __le64_to_cpu(sb->size);
+	if (info->data_offset < super_offset) {
+		unsigned long long end;
+		info->space_before = info->data_offset;
+		end = super_offset;
+		if (info->bitmap_offset < 0)
+			end += info->bitmap_offset;
+		if (info->data_offset + data_size < end)
+			info->space_after = end - data_size - info->data_offset;
+		else
+			info->space_after = 0;
+	} else {
+		info->space_before = (info->data_offset -
+				      super_offset);
+		if (info->bitmap_offset > 0) {
+			unsigned long long bmend = info->bitmap_offset;
+			unsigned long long size = __le64_to_cpu(bsb->sync_size);
+			size /= __le32_to_cpu(bsb->chunksize) >> 9;
+			size = (size + 7) >> 3;
+			size += sizeof(bitmap_super_t);
+			size = ROUND_UP(size, 4096);
+			size /= 512;
+			size += bmend;
+			if (size < info->space_before)
+				info->space_before -= size;
+			else
+				info->space_before = 0;
+		} else
+			info->space_before -= 8; /* superblock */
+		info->space_after = misc->device_size - data_size - info->data_offset;
+	}
 
 	info->disk.raid_disk = -1;
 	switch(role) {

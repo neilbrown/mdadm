@@ -4673,7 +4673,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->failed_disk_num = ~0;
 	if (info->level > 0)
-		map->map_state = IMSM_T_STATE_UNINITIALIZED;
+		map->map_state = (info->state ? IMSM_T_STATE_NORMAL
+				  : IMSM_T_STATE_UNINITIALIZED);
 	else
 		map->map_state = info->failed_disks ? IMSM_T_STATE_FAILED :
 						      IMSM_T_STATE_NORMAL;

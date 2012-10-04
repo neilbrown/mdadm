@@ -1156,6 +1156,8 @@ extern char *conf_get_program(void);
 extern char *conf_get_homehost(int *require_homehostp);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
+extern void print_quoted(char *str);
+extern void print_escape(char *str);
 extern int conf_name_is_free(char *name);
 extern int conf_verify_devnames(struct mddev_ident *array_list);
 extern int devname_matches(char *name, char *match);

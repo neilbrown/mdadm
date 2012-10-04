@@ -206,8 +206,11 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 			printf("MD_UUID=%s\n", nbuf+5);
 			mp = map_by_uuid(&map, info->uuid);
 			if (mp && mp->path &&
-			    strncmp(mp->path, "/dev/md/", 8) == 0)
-				printf("MD_DEVNAME=%s\n", mp->path+8);
+			    strncmp(mp->path, "/dev/md/", 8) == 0) {
+				printf("MD_DEVNAME=");
+				print_escape(mp->path+8);
+				putchar('\n');
+			}
 
 			if (st->ss->export_detail_super)
 				st->ss->export_detail_super(st);
@@ -220,8 +223,11 @@ int Detail(char *dev, int brief, int export, int test, char *homehost, char *pre
 				printf("MD_UUID=%s\n", nbuf+5);
 			}
 			if (mp && mp->path &&
-			    strncmp(mp->path, "/dev/md/", 8) == 0)
-				printf("MD_DEVNAME=%s\n", mp->path+8);
+			    strncmp(mp->path, "/dev/md/", 8) == 0) {
+				printf("MD_DEVNAME=");
+				print_escape(mp->path+8);
+				putchar('\n');
+			}
 		}
 		goto out;
 	}

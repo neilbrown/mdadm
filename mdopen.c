@@ -289,8 +289,17 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		int cnlen;
 		strncpy(cname, name, 200);
 		cname[200] = 0;
-		while ((cp = strchr(cname, '/')) != NULL)
-			*cp = '-';
+		for (cp = cname; *cp ; cp++)
+			switch (*cp) {
+			case '/':
+				*cp = '-';
+				break;
+			case ' ':
+			case '\t':
+				*cp = '_';
+				break;
+			}
+
 		if (trustworthy == LOCAL ||
 		    (trustworthy == FOREIGN && strchr(cname, ':') != NULL)) {
 			/* Only need suffix if there is a conflict */

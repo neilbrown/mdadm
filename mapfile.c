@@ -422,7 +422,7 @@ void RebuildMap(void)
 				 * an MD_DEVNAME for udev.
 				 * The name needs to be unique both in /dev/md/
 				 * and in this mapfile.
-				 * It needs to match watch -I or -As would come
+				 * It needs to match what -I or -As would come
 				 * up with.
 				 * That means:
 				 *   Check if array is in mdadm.conf 

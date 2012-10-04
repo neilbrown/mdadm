@@ -468,7 +468,12 @@ static void brief_examine_super1(struct supertype *st, int verbose)
 	else
 		nm = NULL;
 
-	printf("ARRAY%s%s", nm ? " /dev/md/":"", nm);
+	printf("ARRAY ");
+	if (nm) {
+		printf("/dev/md/");
+		print_escape(nm);
+		putchar(' ');
+	}
 	if (verbose && c)
 		printf(" level=%s", c);
 	sb_offset = __le64_to_cpu(sb->super_offset);
@@ -485,8 +490,10 @@ static void brief_examine_super1(struct supertype *st, int verbose)
 		if ((i&3)==0 && i != 0) printf(":");
 		printf("%02x", sb->set_uuid[i]);
 	}
-	if (sb->set_name[0])
-		printf(" name=%.32s", sb->set_name);
+	if (sb->set_name[0]) {
+		printf(" name=");
+		print_quoted(sb->set_name);
+	}
 	printf("\n");
 }
 
@@ -548,8 +555,10 @@ static void brief_detail_super1(struct supertype *st)
 	struct mdp_superblock_1 *sb = st->sb;
 	int i;
 
-	if (sb->set_name[0])
-		printf(" name=%.32s", sb->set_name);
+	if (sb->set_name[0]) {
+		printf(" name=");
+		print_quoted(sb->set_name);
+	}
 	printf(" UUID=");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");

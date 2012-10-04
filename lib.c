@@ -322,3 +322,71 @@ char *conf_word(FILE *file, int allow_key)
 	}
 	return word;
 }
+
+void print_quoted(char *str)
+{
+	/* Printf the string with surrounding quotes
+	 * iff needed.
+	 * If no space, tab, or quote - leave unchanged.
+	 * Else print surrounded by " or ', swapping quotes
+	 * when we find one that will cause confusion.
+	 */
+
+	char first_quote = 0, q;
+	char *c;
+
+	for (c = str; *c; c++) {
+		switch(*c) {
+		case '\'':
+		case '"':
+			first_quote = *c;
+			break;
+		case ' ':
+		case '\t':
+			first_quote = *c;
+			continue;
+		default:
+			continue;
+		}
+		break;
+	}
+	if (!first_quote) {
+		printf("%s", str);
+		return;
+	}
+
+	if (first_quote == '"')
+		q = '\'';
+	else
+		q = '"';
+	putchar(q);
+	for (c = str; *c; c++) {
+		if (*c == q) {
+			putchar(q);
+			q ^= '"' ^ '\'';
+			putchar(q);
+		}
+		putchar(*c);
+	}
+	putchar(q);
+}
+
+void print_escape(char *str)
+{
+	/* print str, but change space and tab to '_'
+	 * as is suitable for device names
+	 */
+	for (; *str ; str++) {
+		switch (*str) {
+		case ' ':
+		case '\t':
+			putchar('_');
+			break;
+		case '/':
+			putchar('-');
+			break;
+		default:
+			putchar(*str);
+		}
+	}
+}

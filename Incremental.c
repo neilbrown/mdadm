@@ -494,6 +494,14 @@ int Incremental(char *devname, struct context *c,
 	if (c->runstop > 0 || active_disks >= info.array.working_disks) {
 		struct mdinfo *dsk;
 		/* Let's try to start it */
+
+		if (info.reshape_active && !(info.reshape_active & RESHAPE_NO_BACKUP)) {
+			fprintf(stderr, Name
+				": %s: This array is being reshaped and cannot be started\n"
+				"      by --incremental.  Please use --assemble\n",
+				chosen_name);
+			goto out;
+		}
 		if (match && match->bitmap_file) {
 			int bmfd = open(match->bitmap_file, O_RDWR);
 			if (bmfd < 0) {
@@ -1285,6 +1293,9 @@ int IncrementalScan(int verbose)
 					       me->path, strerror(errno));
 			}
 		}
+		/* FIXME check for reshape_active and consider not
+		 * starting array.
+		 */
 		sra = sysfs_read(mdfd, 0, 0);
 		if (sra) {
 			if (sysfs_set_str(sra, NULL,

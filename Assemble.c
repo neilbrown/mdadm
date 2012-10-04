@@ -1192,7 +1192,8 @@ int Assemble(struct supertype *st, char *mddev,
 	 * The code of doing this lives in Grow.c
 	 */
 #ifndef MDASSEMBLE
-	if (content->reshape_active) {
+	if (content->reshape_active &&
+	    !(content->reshape_active & RESHAPE_NO_BACKUP)) {
 		int err = 0;
 		int *fdlist = xmalloc(sizeof(int)* bestcnt);
 		if (c->verbose > 0)
@@ -1368,6 +1369,7 @@ int Assemble(struct supertype *st, char *mddev,
 			int rv;
 #ifndef MDASSEMBLE
 			if (content->reshape_active &&
+			    !(content->reshape_active & RESHAPE_NO_BACKUP) &&
 			    content->delta_disks <= 0) {
 				rv = sysfs_set_str(content, NULL,
 						   "array_state", "readonly");

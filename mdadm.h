@@ -1460,4 +1460,10 @@ char *xstrdup(const char *str);
  * In those cases with use MAX_SIZE
  */
 #define MAX_SIZE	1
+
+/* We want to use unsigned numbers for sector counts, but need
+ * a value for 'invalid'.  Use '1'.
+ */
+#define INVALID_SECTORS 1
+
 extern int __offroot;

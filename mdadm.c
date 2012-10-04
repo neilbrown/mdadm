@@ -372,7 +372,8 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			s.chunk = parse_size(optarg);
-			if (s.chunk < 8 || (s.chunk&1)) {
+			if (s.chunk == INVALID_SECTORS ||
+			    s.chunk < 8 || (s.chunk&1)) {
 				pr_err("invalid chunk/rounding value: %s\n",
 					optarg);
 				exit(2);
@@ -426,7 +427,8 @@ int main(int argc, char *argv[])
 				s.size = MAX_SIZE;
 			else {
 				s.size = parse_size(optarg);
-				if (s.size < 8) {
+				if (s.size == INVALID_SECTORS ||
+				    s.size < 8) {
 					pr_err("invalid size: %s\n",
 						optarg);
 					exit(2);
@@ -446,7 +448,8 @@ int main(int argc, char *argv[])
 				array_size = MAX_SIZE;
 			else {
 				array_size = parse_size(optarg);
-				if (array_size <= 0) {
+				if (array_size == 0 ||
+				    array_size == INVALID_SECTORS) {
 					pr_err("invalid array size: %s\n",
 						optarg);
 					exit(2);
@@ -1062,7 +1065,8 @@ int main(int argc, char *argv[])
 		case O(BUILD,BitmapChunk):
 		case O(CREATE,BitmapChunk): /* bitmap chunksize */
 			s.bitmap_chunk = parse_size(optarg);
-			if (s.bitmap_chunk <= 0 ||
+			if (s.bitmap_chunk == 0 ||
+			    s.bitmap_chunk == INVALID_SECTORS ||
 			    s.bitmap_chunk & (s.bitmap_chunk - 1)) {
 				pr_err("invalid bitmap chunksize: %s\n",
 				       optarg);

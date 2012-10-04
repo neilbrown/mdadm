@@ -194,7 +194,7 @@ unsigned long long parse_size(char *size)
 	 * followed by 'K', 'M', or 'G'.
 	 * Without a suffix, K is assumed.
 	 * Number returned is in sectors (half-K)
-	 * 0 returned on error.
+	 * INVALID_SECTORS returned on error.
 	 */
 	char *c;
 	long long s = strtoll(size, &c, 10);
@@ -215,9 +215,9 @@ unsigned long long parse_size(char *size)
 			break;
 		}
 	} else
-		s = 0;
+		s = INVALID_SECTORS;
 	if (*c)
-		s = 0;
+		s = INVALID_SECTORS;
 	return s;
 }
 

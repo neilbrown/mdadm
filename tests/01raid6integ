@@ -1,7 +1,7 @@
 
 # Check integrity of raid6 in degraded modes
 # Create a 5 disk raid6, dump some data to it, then
-# sh1sum it with different pairs of devices failed
+# sha1sum it with different pairs of devices failed
 
 layouts='ls rs la ra'
 lv=`uname -r`
@@ -25,9 +25,9 @@ do
     mdadm $md0 -r $second
     blockdev --flushbufs $md0
     sum1=`sha1sum $md0`
-    if [ $sum != $sum1 ]
+    if [ "$sum" != "$sum1" ]
     then
-      echo $sum does not matc $sum1 with $second missing
+      echo $sum does not match $sum1 with $second missing
       exit 1
     fi
     for first in $totest
@@ -36,9 +36,9 @@ do
        mdadm $md0 -r $first
        blockdev --flushbufs $md0
        sum1=`sha1sum $md0`
-       if [ $sum != $sum1 ]
+       if [ "$sum" != "$sum1" ]
        then
-         echo $sum does not matc $sum1 with $first and $second missing
+         echo $sum does not match $sum1 with $first and $second missing
          exit 1
        fi
        mdadm $md0 -a $first

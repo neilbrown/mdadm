@@ -133,9 +133,9 @@ int fd2devnum(int fd)
  * Put them in a simple linked listfor now.
  */
 struct devmap {
-    int major, minor;
-    char *name;
-    struct devmap *next;
+	int major, minor;
+	char *name;
+	struct devmap *next;
 } *devlist = NULL;
 int devlist_ready = 0;
 

@@ -655,7 +655,7 @@ int Create(struct supertype *st, char *mddev,
 	 *          including spares
 	 * failed_disks is the number of disks marked failed
 	 *
-         * Ideally, the kernel would keep these (except raid_disks)
+	 * Ideally, the kernel would keep these (except raid_disks)
 	 * up-to-date as we ADD_NEW_DISK, but it doesn't (yet).
 	 * So for now, we assume that all raid and spare
 	 * devices will be given.

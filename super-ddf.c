@@ -3189,8 +3189,8 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 }
 
 #define container_of(ptr, type, member) ({                      \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
+	const typeof( ((type *)0)->member ) *__mptr = (ptr); \
+	(type *)( (char *)__mptr - offsetof(type,member) );})
 /*
  * The state of each disk is stored in the global phys_disk structure
  * in phys_disk.entries[n].state.

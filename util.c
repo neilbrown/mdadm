@@ -43,10 +43,10 @@ int __offroot;
 
 /* The argument structure */
 struct blkpg_ioctl_arg {
-        int op;
-        int flags;
-        int datalen;
-        void *data;
+	int op;
+	int flags;
+	int datalen;
+	void *data;
 };
 
 /* The subfunctions (for the op field) */
@@ -127,21 +127,21 @@ int parse_uuid(char *str, int uuid[4])
 
 int md_get_version(int fd)
 {
-    struct stat stb;
-    mdu_version_t vers;
+	struct stat stb;
+	mdu_version_t vers;
 
-    if (fstat(fd, &stb)<0)
-	return -1;
-    if ((S_IFMT&stb.st_mode) != S_IFBLK)
-	return -1;
+	if (fstat(fd, &stb)<0)
+		return -1;
+	if ((S_IFMT&stb.st_mode) != S_IFBLK)
+		return -1;
 
-    if (ioctl(fd, RAID_VERSION, &vers) == 0)
-	return  (vers.major*10000) + (vers.minor*100) + vers.patchlevel;
-    if (errno == EACCES)
-	    return -1;
-    if (major(stb.st_rdev) == MD_MAJOR)
-	return (3600);
-    return -1;
+	if (ioctl(fd, RAID_VERSION, &vers) == 0)
+		return  (vers.major*10000) + (vers.minor*100) + vers.patchlevel;
+	if (errno == EACCES)
+		return -1;
+	if (major(stb.st_rdev) == MD_MAJOR)
+		return (3600);
+	return -1;
 }
 
 int get_linux_version()

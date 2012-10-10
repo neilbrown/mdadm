@@ -685,12 +685,12 @@ static __u32 __gen_imsm_checksum(struct imsm_super *mpb)
 	__u32 *p = (__u32 *) mpb;
 	__u32 sum = 0;
 
-        while (end--) {
-                sum += __le32_to_cpu(*p);
+	while (end--) {
+		sum += __le32_to_cpu(*p);
 		p++;
 	}
 
-        return sum - __le32_to_cpu(mpb->check_sum);
+	return sum - __le32_to_cpu(mpb->check_sum);
 }
 
 static size_t sizeof_imsm_map(struct imsm_map *map)
@@ -3062,11 +3062,11 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	struct intel_super *first = st->sb;
 	struct intel_super *sec = tst->sb;
 
-        if (!first) {
-                st->sb = tst->sb;
-                tst->sb = NULL;
-                return 0;
-        }
+	if (!first) {
+		st->sb = tst->sb;
+		tst->sb = NULL;
+		return 0;
+	}
 	/* in platform dependent environment test if the disks
 	 * use the same Intel hba
 	 */
@@ -5850,7 +5850,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		return 0;
 	}
 
-        /* capabilities of OROM tested - copied from validate_geometry_imsm_volume */
+	/* capabilities of OROM tested - copied from validate_geometry_imsm_volume */
 	if (!is_raid_level_supported(super->orom, level, raiddisks)) {
 		pr_vrb(": platform does not support raid%d with %d disk%s\n",
 			level, raiddisks, raiddisks > 1 ? "s" : "");

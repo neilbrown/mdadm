@@ -297,7 +297,7 @@ static const struct imsm_orom *find_imsm_hba_orom(enum sys_dev_type hba_id)
 	}
 	if (check_env("IMSM_TEST_OROM")) {
 		dprintf("OROM CAP: %p,  pid: %d pop: %d\n",
-                     &imsm_orom[hba_id], (int) getpid(), populated_orom[hba_id]);
+			&imsm_orom[hba_id], (int) getpid(), populated_orom[hba_id]);
 		return imsm_platform_test(hba_id, &populated_orom[hba_id], &imsm_orom[hba_id]);
 	}
 	/* return empty OROM capabilities in EFI test mode */
@@ -381,7 +381,7 @@ int read_efi_variable(void *buffer, ssize_t buf_size, char *variable_name, struc
 	errno = 0;
 	var_data_len = strtoul(buf, NULL, 16);
 	if ((errno == ERANGE && (var_data_len == LONG_MAX))
-            || (errno != 0 && var_data_len == 0))
+	    || (errno != 0 && var_data_len == 0))
 		return 1;
 
 	/* get data */

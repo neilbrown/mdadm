@@ -791,13 +791,13 @@ char udev_template_start[] =
 /* find rule named rule_type and return its value */
 char *find_rule(struct rule *rule, char *rule_type)
 {
-       while (rule) {
-               if (rule->name == rule_type)
-                       return rule->value;
+	while (rule) {
+		if (rule->name == rule_type)
+			return rule->value;
 
-               rule = rule->next;
-       }
-       return NULL;
+		rule = rule->next;
+	}
+	return NULL;
 }
 
 #define UDEV_RULE_FORMAT \
@@ -834,44 +834,44 @@ int write_rule(struct rule *rule, int fd, int force_part)
  */
 int generate_entries(int fd)
 {
-       struct pol_rule *loop, *dup;
-       char *loop_value, *dup_value;
-       int duplicate;
+	struct pol_rule *loop, *dup;
+	char *loop_value, *dup_value;
+	int duplicate;
 
-       for (loop = config_rules; loop; loop = loop->next) {
-               if (loop->type != rule_policy && loop->type != rule_part)
-                       continue;
-               duplicate = 0;
+	for (loop = config_rules; loop; loop = loop->next) {
+		if (loop->type != rule_policy && loop->type != rule_part)
+			continue;
+		duplicate = 0;
 
-               /* only policies with paths and with actions supporting
-                * bare disks are considered */
-               loop_value = find_rule(loop->rule, pol_act);
-               if (!loop_value || map_act(loop_value) < act_spare_same_slot)
-                       continue;
-               loop_value = find_rule(loop->rule, rule_path);
-               if (!loop_value)
-                       continue;
-               for (dup = config_rules; dup != loop; dup = dup->next) {
-                       if (dup->type != rule_policy && loop->type != rule_part)
-                               continue;
-                       dup_value = find_rule(dup->rule, pol_act);
-                       if (!dup_value || map_act(dup_value) < act_spare_same_slot)
-                               continue;
-                       dup_value = find_rule(dup->rule, rule_path);
-                       if (!dup_value)
-                               continue;
-                       if (strcmp(loop_value, dup_value) == 0) {
-                               duplicate = 1;
-                               break;
-                       }
-               }
+		/* only policies with paths and with actions supporting
+		 * bare disks are considered */
+		loop_value = find_rule(loop->rule, pol_act);
+		if (!loop_value || map_act(loop_value) < act_spare_same_slot)
+			continue;
+		loop_value = find_rule(loop->rule, rule_path);
+		if (!loop_value)
+			continue;
+		for (dup = config_rules; dup != loop; dup = dup->next) {
+			if (dup->type != rule_policy && loop->type != rule_part)
+				continue;
+			dup_value = find_rule(dup->rule, pol_act);
+			if (!dup_value || map_act(dup_value) < act_spare_same_slot)
+				continue;
+			dup_value = find_rule(dup->rule, rule_path);
+			if (!dup_value)
+				continue;
+			if (strcmp(loop_value, dup_value) == 0) {
+				duplicate = 1;
+				break;
+			}
+		}
 
-               /* not a dup or first occurrence */
-               if (!duplicate)
-                       if (!write_rule(loop->rule, fd, loop->type == rule_part) )
-                               return 0;
-       }
-       return 1;
+		/* not a dup or first occurrence */
+		if (!duplicate)
+			if (!write_rule(loop->rule, fd, loop->type == rule_part) )
+				return 0;
+	}
+	return 1;
 }
 
 /* Write_rules routine creates dynamic udev rules used to handle
@@ -879,40 +879,40 @@ int generate_entries(int fd)
  */
 int Write_rules(char *rule_name)
 {
-       int fd;
-       char udev_rule_file[PATH_MAX];
+	int fd;
+	char udev_rule_file[PATH_MAX];
 
-       if (rule_name) {
-	       strncpy(udev_rule_file, rule_name, sizeof(udev_rule_file) - 6);
-	       udev_rule_file[sizeof(udev_rule_file) - 6] = '\0';
-	       strcat(udev_rule_file, ".temp");
-               fd = creat(udev_rule_file,
-                          S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	       if (fd == -1)
-		       return 1;
-       } else
-               fd = 1;
+	if (rule_name) {
+		strncpy(udev_rule_file, rule_name, sizeof(udev_rule_file) - 6);
+		udev_rule_file[sizeof(udev_rule_file) - 6] = '\0';
+		strcat(udev_rule_file, ".temp");
+		fd = creat(udev_rule_file,
+			   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		if (fd == -1)
+			return 1;
+	} else
+		fd = 1;
 
-       /* write static invocation */
-       if (write(fd, udev_template_start,
-		 sizeof(udev_template_start) - 1)
-	   != (int)sizeof(udev_template_start)-1)
-	       goto abort;
+	/* write static invocation */
+	if (write(fd, udev_template_start,
+		  sizeof(udev_template_start) - 1)
+	    != (int)sizeof(udev_template_start)-1)
+		goto abort;
 
-       /* iterate, if none created or error occurred, remove file */
-       if (generate_entries(fd) < 0)
-	       goto abort;
+	/* iterate, if none created or error occurred, remove file */
+	if (generate_entries(fd) < 0)
+		goto abort;
 
-       fsync(fd);
-       if (rule_name) {
-	       close(fd);
-	       rename(udev_rule_file, rule_name);
-       }
-       return 0;
+	fsync(fd);
+	if (rule_name) {
+		close(fd);
+		rename(udev_rule_file, rule_name);
+	}
+	return 0;
 abort:
-       if (rule_name) {
-	       close(fd);
-	       unlink(udev_rule_file);
-       }
-       return 1;
+	if (rule_name) {
+		close(fd);
+		unlink(udev_rule_file);
+	}
+	return 1;
 }

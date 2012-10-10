@@ -149,8 +149,8 @@ void free_line(char *line)
 
 
 struct conf_dev {
-    struct conf_dev *next;
-    char *name;
+	struct conf_dev *next;
+	char *name;
 } *cdevlist = NULL;
 
 struct mddev_dev *load_partitions(void)
@@ -940,26 +940,26 @@ int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homeh
 
 int match_oneof(char *devices, char *devname)
 {
-    /* check if one of the comma separated patterns in devices
-     * matches devname
-     */
+	/* check if one of the comma separated patterns in devices
+	 * matches devname
+	 */
 
-    while (devices && *devices) {
-	char patn[1024];
-	char *p = devices;
-	devices = strchr(devices, ',');
-	if (!devices)
-	    devices = p + strlen(p);
-	if (devices-p < 1024) {
-		strncpy(patn, p, devices-p);
-		patn[devices-p] = 0;
-		if (fnmatch(patn, devname, FNM_PATHNAME)==0)
-			return 1;
+	while (devices && *devices) {
+		char patn[1024];
+		char *p = devices;
+		devices = strchr(devices, ',');
+		if (!devices)
+			devices = p + strlen(p);
+		if (devices-p < 1024) {
+			strncpy(patn, p, devices-p);
+			patn[devices-p] = 0;
+			if (fnmatch(patn, devname, FNM_PATHNAME)==0)
+				return 1;
+		}
+		if (*devices == ',')
+			devices++;
 	}
-	if (*devices == ',')
-		devices++;
-    }
-    return 0;
+	return 0;
 }
 
 int devname_matches(char *name, char *match)

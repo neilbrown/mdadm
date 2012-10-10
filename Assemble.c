@@ -128,7 +128,6 @@ static int ident_matches(struct mddev_ident *ident,
 	}
 	return 1;
 }
-			 
 
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
@@ -201,6 +200,9 @@ int Assemble(struct supertype *st, char *mddev,
 		int uptodate; /* set once we decide that this device is as
 			       * recent as everything else in the array.
 			       */
+		int included; /* set if the device is already in the array
+			       * due to a previous '-I'
+			       */
 		struct mdinfo i;
 	} *devices;
 	char *devmap;
@@ -224,12 +226,14 @@ int Assemble(struct supertype *st, char *mddev,
 	struct mddev_dev *tmpdev;
 	struct mdinfo info;
 	struct mdinfo *content = NULL;
+	struct mdinfo *pre_exist = NULL;
 	char *avail;
 	int nextspare = 0;
 	char *name = NULL;
-	int trustworthy;
 	char chosen_name[1024];
 	struct domainlist *domains = NULL;
+	struct map_ent *map = NULL;
+	struct map_ent *mp;
 
 	if (get_linux_version() < 2004000)
 		old_linux = 1;
@@ -271,6 +275,7 @@ int Assemble(struct supertype *st, char *mddev,
 			tmpdev->used = 2;
 		else
 			num_devs++;
+		tmpdev->disposition = 0;
 		tmpdev = tmpdev->next;
 	}
 
@@ -388,7 +393,6 @@ int Assemble(struct supertype *st, char *mddev,
 				/* Ignore unrecognised device if looking for
 				 * specific array */
 				goto loop;
-			    
 
 			pr_err("%s has no superblock - assembly aborted\n",
 				devname);
@@ -636,48 +640,101 @@ int Assemble(struct supertype *st, char *mddev,
 	if (!st || !st->sb || !content)
 		return 2;
 
-	/* Now need to open the array device.  Use create_mddev */
 	if (content == &info)
 		st->ss->getinfo_super(st, content, NULL);
 
-	trustworthy = FOREIGN;
-	name = content->name;
-	switch (st->ss->match_home(st, c->homehost)
-		?: st->ss->match_home(st, "any")) {
-	case 1:
-		trustworthy = LOCAL;
-		name = strchr(content->name, ':');
-		if (name)
-			name++;
-		else
-			name = content->name;
-		break;
+	/* We have a full set of devices - we now need to find the
+	 * array device.
+	 * However there is a risk that we are racing with "mdadm -I"
+	 * and the array is already partially assembled - we will have
+	 * rejected any devices already in this address.
+	 * So we take a lock on the map file - to prevent further races -
+	 * and look for the uuid in there.  If found and the array is
+	 * active, we abort.  If found and the array is not active
+	 * we commit to that md device and add all the contained devices
+	 * to our list.  We flag them so that we don't try to re-add,
+	 * but can remove if they turn out to not be wanted.
+	 */
+	if (map_lock(&map))
+		pr_err("failed to get exclusive lock on mapfile - continue anyway...\n");
+	mp = map_by_uuid(&map, content->uuid);
+	if (mp) {
+		struct mdinfo *dv;
+		/* array already exists. */
+		pre_exist = sysfs_read(-1, mp->devnum, GET_LEVEL|GET_DEVS);
+		if (pre_exist->array.level != UnSet) {
+			pr_err("Found some drive for an array that is already active: %s\n",
+			       mp->path);
+			pr_err("giving up.\n");
+			return 1;
+		}
+		for (dv = pre_exist->devs; dv; dv = dv->next) {
+			/* We want to add this device to our list,
+			 * but it could already be there if "mdadm -I"
+			 * started *after* we checked for O_EXCL.
+			 * If we add it to the top of the list
+			 * it will be preferred over later copies.
+			 */
+			struct mddev_dev *newdev;
+			char *devname = map_dev(dv->disk.major,
+						dv->disk.minor,
+						0);
+			if (!devname)
+				continue;
+			newdev = xmalloc(sizeof(*newdev));
+			newdev->devname = devname;
+			newdev->disposition = 'I';
+			newdev->used = 1;
+			newdev->next = devlist;
+			devlist = newdev;
+			num_devs++;
+		}
+		strcpy(chosen_name, mp->path);
+		if (c->verbose > 0 || mddev == NULL ||
+		    strcmp(mddev, chosen_name) != 0)
+			pr_err("Merging with already-assembled %s\n",
+			       chosen_name);
+		mdfd = open_dev_excl(mp->devnum);
+	} else {
+		int trustworthy = FOREIGN;
+		name = content->name;
+		switch (st->ss->match_home(st, c->homehost)
+			?: st->ss->match_home(st, "any")) {
+		case 1:
+			trustworthy = LOCAL;
+			name = strchr(content->name, ':');
+			if (name)
+				name++;
+			else
+				name = content->name;
+			break;
+		}
+		if (!auto_assem)
+			/* If the array is listed in mdadm.conf or on
+			 * command line, then we trust the name
+			 * even if the array doesn't look local
+			 */
+			trustworthy = LOCAL;
+
+		if (name[0] == 0 &&
+		    content->array.level == LEVEL_CONTAINER) {
+			name = content->text_version;
+			trustworthy = METADATA;
+		}
+
+		if (name[0] && trustworthy != LOCAL &&
+		    ! c->require_homehost &&
+		    conf_name_is_free(name))
+			trustworthy = LOCAL;
+
+		if (trustworthy == LOCAL &&
+		    strchr(name, ':'))
+			/* Ignore 'host:' prefix of name */
+			name = strchr(name, ':')+1;
+
+		mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
+				    chosen_name);
 	}
-	if (!auto_assem)
-		/* If the array is listed in mdadm.conf or on
-		 * command line, then we trust the name
-		 * even if the array doesn't look local
-		 */
-		trustworthy = LOCAL;
-
-	if (name[0] == 0 &&
-	    content->array.level == LEVEL_CONTAINER) {
-		name = content->text_version;
-		trustworthy = METADATA;
-	}
-
-	if (name[0] && trustworthy != LOCAL &&
-	    ! c->require_homehost &&
-	    conf_name_is_free(name))
-		trustworthy = LOCAL;
-
-	if (trustworthy == LOCAL &&
-	    strchr(name, ':'))
-		/* Ignore 'host:' prefix of name */
-		name = strchr(name, ':')+1;
-
-	mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
-			    chosen_name);
 	if (mdfd < 0) {
 		st->ss->free_super(st);
 		if (auto_assem)
@@ -692,24 +749,27 @@ int Assemble(struct supertype *st, char *mddev,
 		close(mdfd);
 		return 1;
 	}
-	if (mddev_busy(fd2devnum(mdfd))) {
-		pr_err("%s already active, cannot restart it!\n",
-			mddev);
-		for (tmpdev = devlist ;
-		     tmpdev && tmpdev->used != 1;
-		     tmpdev = tmpdev->next)
-			;
-		if (tmpdev && auto_assem)
-			pr_err("%s needed for %s...\n",
-				mddev, tmpdev->devname);
-		close(mdfd);
-		mdfd = -3;
-		st->ss->free_super(st);
-		if (auto_assem)
-			goto try_again;
-		return 1;
+	if (pre_exist == NULL) {
+		if (mddev_busy(fd2devnum(mdfd))) {
+			pr_err("%s already active, cannot restart it!\n",
+			       mddev);
+			for (tmpdev = devlist ;
+			     tmpdev && tmpdev->used != 1;
+			     tmpdev = tmpdev->next)
+				;
+			if (tmpdev && auto_assem)
+				pr_err("%s needed for %s...\n",
+				       mddev, tmpdev->devname);
+			close(mdfd);
+			mdfd = -3;
+			st->ss->free_super(st);
+			if (auto_assem)
+				goto try_again;
+			return 1;
+		}
+		/* just incase it was started but has no content */
+		ioctl(mdfd, STOP_ARRAY, NULL);
 	}
-	ioctl(mdfd, STOP_ARRAY, NULL); /* just incase it was started but has no content */
 
 #ifndef MDASSEMBLE
 	if (content != &info) {
@@ -750,7 +810,9 @@ int Assemble(struct supertype *st, char *mddev,
 				}
 				if (rfd >= 0) close(rfd);
 			}
-			dfd = dev_open(devname, O_RDWR|O_EXCL);
+			dfd = dev_open(devname,
+				       tmpdev->disposition == 'I'
+				       ? O_RDWR : (O_RDWR|O_EXCL));
 
 			tst = dup_super(st);
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
@@ -813,7 +875,9 @@ int Assemble(struct supertype *st, char *mddev,
 		{
 			struct supertype *tst = dup_super(st);
 			int dfd;
-			dfd = dev_open(devname, O_RDWR|O_EXCL);
+			dfd = dev_open(devname,
+				       tmpdev->disposition == 'I'
+				       ? O_RDWR : (O_RDWR|O_EXCL));
 
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
 				pr_err("cannot re-read metadata from %s - aborting\n",
@@ -837,6 +901,7 @@ int Assemble(struct supertype *st, char *mddev,
 				devname, mddev, content->disk.raid_disk);
 		devices[devcnt].devname = devname;
 		devices[devcnt].uptodate = 0;
+		devices[devcnt].included = (tmpdev->disposition == 'I');
 		devices[devcnt].i = *content;
 		devices[devcnt].i.disk.major = major(stb.st_rdev);
 		devices[devcnt].i.disk.minor = minor(stb.st_rdev);
@@ -1019,7 +1084,9 @@ int Assemble(struct supertype *st, char *mddev,
 				devices[chosen_drive].i.disk.raid_disk,
 				(int)(devices[chosen_drive].i.events),
 				(int)(devices[most_recent].i.events));
-		fd = dev_open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
+		fd = dev_open(devices[chosen_drive].devname,
+			      devices[chosen_drive].included ? O_RDWR
+			      : (O_RDWR|O_EXCL));
 		if (fd < 0) {
 			pr_err("Couldn't open %s for write - not updating\n",
 				devices[chosen_drive].devname);
@@ -1088,7 +1155,9 @@ int Assemble(struct supertype *st, char *mddev,
 		if (devices[j].i.events < devices[most_recent].i.events)
 			continue;
 		chosen_drive = j;
-		if ((fd=dev_open(devices[j].devname, O_RDONLY|O_EXCL))< 0) {
+		if ((fd=dev_open(devices[j].devname,
+				 devices[j].included ? O_RDONLY
+				 : (O_RDONLY|O_EXCL)))< 0) {
 			pr_err("Cannot open %s: %s\n",
 				devices[j].devname, strerror(errno));
 			close(mdfd);
@@ -1165,7 +1234,9 @@ int Assemble(struct supertype *st, char *mddev,
 
 	if (change) {
 		int fd;
-		fd = dev_open(devices[chosen_drive].devname, O_RDWR|O_EXCL);
+		fd = dev_open(devices[chosen_drive].devname,
+			      devices[chosen_drive].included ?
+			      O_RDWR : (O_RDWR|O_EXCL));
 		if (fd < 0) {
 			pr_err("Could not open %s for write - cannot Assemble array.\n",
 				devices[chosen_drive].devname);
@@ -1203,7 +1274,9 @@ int Assemble(struct supertype *st, char *mddev,
 		for (i=0; i<bestcnt; i++) {
 			int j = best[i];
 			if (j >= 0) {
-				fdlist[i] = dev_open(devices[j].devname, O_RDWR|O_EXCL);
+				fdlist[i] = dev_open(devices[j].devname,
+						     devices[j].included
+						     ? O_RDWR : (O_RDWR|O_EXCL));
 				if (fdlist[i] < 0) {
 					pr_err("Could not open %s for write - cannot Assemble array.\n",
 						devices[j].devname);
@@ -1253,16 +1326,17 @@ int Assemble(struct supertype *st, char *mddev,
 		/* First, fill in the map, so that udev can find our name
 		 * as soon as we become active.
 		 */
-		map_update(NULL, fd2devnum(mdfd), content->text_version,
+		map_update(&map, fd2devnum(mdfd), content->text_version,
 			   content->uuid, chosen_name);
 
 		rv = set_array_info(mdfd, st, content);
-		if (rv) {
+		if (rv && !pre_exist) {
 			pr_err("failed to set array info for %s: %s\n",
 				mddev, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, NULL);
 			close(mdfd);
 			free(devices);
+			map_unlock(&map);
 			return 1;
 		}
 		if (ident->bitmap_fd >= 0) {
@@ -1271,6 +1345,7 @@ int Assemble(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				free(devices);
+				map_unlock(&map);
 				return 1;
 			}
 		} else if (ident->bitmap_file) {
@@ -1282,6 +1357,7 @@ int Assemble(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				free(devices);
+				map_unlock(&map);
 				return 1;
 			}
 			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
@@ -1290,6 +1366,7 @@ int Assemble(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				close(mdfd);
 				free(devices);
+				map_unlock(&map);
 				return 1;
 			}
 			close(bmfd);
@@ -1305,7 +1382,7 @@ int Assemble(struct supertype *st, char *mddev,
 			} else
 				j = chosen_drive;
 
-			if (j >= 0 /* && devices[j].uptodate */) {
+			if (j >= 0 && !devices[j].included) {
 				int dfd = dev_open(devices[j].devname,
 						   O_RDWR|O_EXCL);
 				if (dfd >= 0) {
@@ -1331,9 +1408,13 @@ int Assemble(struct supertype *st, char *mddev,
 					       devices[j].i.disk.raid_disk,
 					       devices[j].uptodate?"":
 					       " (possibly out of date)");
+			} else if (j >= 0) {
+				if (c->verbose > 0)
+					pr_err("%s is already in %s as %d\n",
+					       devices[j].devname, mddev,
+					       devices[j].i.disk.raid_disk);
 			} else if (c->verbose > 0 && i < content->array.raid_disks)
-				pr_err("no uptodate device for "
-					        "slot %d of %s\n",
+				pr_err("no uptodate device for slot %d of %s\n",
 					i, mddev);
 		}
 
@@ -1349,6 +1430,7 @@ int Assemble(struct supertype *st, char *mddev,
 			}
 			st->ss->free_super(st);
 			sysfs_uevent(content, "change");
+			map_unlock(&map);
 			wait_for(chosen_name, mdfd);
 			close(mdfd);
 			free(devices);
@@ -1434,6 +1516,7 @@ int Assemble(struct supertype *st, char *mddev,
 						}
 					}
 				}
+				map_unlock(&map);
 				wait_for(mddev, mdfd);
 				close(mdfd);
 				if (auto_assem) {
@@ -1484,6 +1567,7 @@ int Assemble(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 			close(mdfd);
 			free(devices);
+			map_unlock(&map);
 			return 1;
 		}
 		if (c->runstop == -1) {
@@ -1494,6 +1578,7 @@ int Assemble(struct supertype *st, char *mddev,
 			fprintf(stderr, ", but not started.\n");
 			close(mdfd);
 			free(devices);
+			map_unlock(&map);
 			return 0;
 		}
 		if (c->verbose >= -1) {
@@ -1524,6 +1609,7 @@ int Assemble(struct supertype *st, char *mddev,
 			ioctl(mdfd, STOP_ARRAY, NULL);
 		close(mdfd);
 		free(devices);
+		map_unlock(&map);
 		return 1;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has
@@ -1541,6 +1627,7 @@ int Assemble(struct supertype *st, char *mddev,
 	}
 	close(mdfd);
 	free(devices);
+	map_unlock(&map);
 	return 0;
 }
 

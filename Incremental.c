@@ -116,7 +116,7 @@ int Incremental(char *devname, struct context *c,
 				devname);
 		return rv;
 	}
-	dfd = dev_open(devname, O_RDONLY|O_EXCL);
+	dfd = dev_open(devname, O_RDONLY);
 	if (dfd < 0) {
 		if (c->verbose >= 0)
 			pr_err("cannot open %s: %s.\n",
@@ -270,6 +270,22 @@ int Incremental(char *devname, struct context *c,
 	if (map_lock(&map))
 		pr_err("failed to get exclusive lock on "
 			"mapfile\n");
+	/* Now check we can get O_EXCL.  If not, probably "mdadm -A" has
+	 * taken over
+	 */
+	dfd = dev_open(devname, O_RDONLY|O_EXCL);
+	if (dfd < 0) {
+		if (c->verbose >= 0)
+			pr_err("cannot reopen %s: %s.\n",
+				devname, strerror(errno));
+		goto out_unlock;
+	}
+	/* Cannot hold it open while we add the device to the array,
+	 * so we must release the O_EXCL and depend on the map_lock()
+	 */
+	close(dfd);
+	dfd = -1;
+
 	mp = map_by_uuid(&map, info.uuid);
 	if (mp)
 		mdfd = open_dev(mp->devnum);

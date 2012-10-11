@@ -1775,12 +1775,12 @@ size_change_error:
 			goto release;
 		}
 		if (assume_clean) {
-			/* This will fail on kernels newer than 3.0 unless
+			/* This will fail on kernels older than 3.0 unless
 			 * a backport has been arranged.
 			 */
 			if (sra == NULL ||
 			    sysfs_set_str(sra, NULL, "resync_start", "none") < 0)
-				fprintf(stderr, Name ": --assume-clean not support with --grow on this kernel\n");
+				fprintf(stderr, Name ": --assume-clean not supported with --grow on this kernel\n");
 		}
 		ioctl(fd, GET_ARRAY_INFO, &array);
 		size = get_component_size(fd)/2;

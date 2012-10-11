@@ -1315,6 +1315,20 @@ int open_container(int fd)
 			continue;
 		if (de->d_name[0] == '.')
 			continue;
+		/* Need to make sure it is a container and not a volume */
+		sprintf(e, "/%s/md/metadata_version", de->d_name);
+		dfd = open(path, O_RDONLY);
+		if (dfd < 0)
+			continue;
+		n = read(dfd, buf, sizeof(buf));
+		close(dfd);
+		if (n <= 0 || (unsigned)n >= sizeof(buf))
+			continue;
+		buf[n] = 0;
+		if (strncmp(buf, "external", 8) != 0 ||
+		    n < 10 ||
+		    buf[9] == '/')
+			continue;
 		sprintf(e, "/%s/dev", de->d_name);
 		dfd = open(path, O_RDONLY);
 		if (dfd < 0)

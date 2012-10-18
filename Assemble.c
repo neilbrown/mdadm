@@ -514,6 +514,231 @@ static int select_devices(struct mddev_dev *devlist,
 	return num_devs;
 }
 
+struct devs {
+	char *devname;
+	int uptodate; /* set once we decide that this device is as
+		       * recent as everything else in the array.
+		       */
+	int included; /* set if the device is already in the array
+		       * due to a previous '-I'
+		       */
+	struct mdinfo i;
+};
+
+static int load_devices(struct devs *devices, char *devmap,
+			struct mddev_ident *ident, struct supertype *st,
+			struct mddev_dev *devlist, struct context *c,
+			struct mdinfo *content,
+			int mdfd, char *mddev,
+			int *most_recentp, int *bestcntp, int **bestp,
+			int inargv)
+{
+	struct mddev_dev *tmpdev;
+	int devcnt = 0;
+	int nextspare = 0;
+#ifndef MDASSEMBLE
+	int bitmap_done = 0;
+#endif
+	int most_recent = 0;
+	int bestcnt = 0;
+	int *best = *bestp;
+
+	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) {
+		char *devname = tmpdev->devname;
+		struct stat stb;
+		int i;
+
+		if (tmpdev->used != 1)
+			continue;
+		/* looks like a good enough match to update the super block if needed */
+#ifndef MDASSEMBLE
+		if (c->update) {
+			int dfd;
+			/* prepare useful information in info structures */
+			struct stat stb2;
+			struct supertype *tst;
+			int err;
+			fstat(mdfd, &stb2);
+
+			if (strcmp(c->update, "uuid")==0 &&
+			    !ident->uuid_set) {
+				int rfd;
+				if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+				    read(rfd, ident->uuid, 16) != 16) {
+					*(__u32*)(ident->uuid) = random();
+					*(__u32*)(ident->uuid+1) = random();
+					*(__u32*)(ident->uuid+2) = random();
+					*(__u32*)(ident->uuid+3) = random();
+				}
+				if (rfd >= 0) close(rfd);
+			}
+			dfd = dev_open(devname,
+				       tmpdev->disposition == 'I'
+				       ? O_RDWR : (O_RDWR|O_EXCL));
+
+			tst = dup_super(st);
+			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
+				pr_err("cannot re-read metadata from %s - aborting\n",
+				       devname);
+				if (dfd >= 0)
+					close(dfd);
+				close(mdfd);
+				free(devices);
+				free(devmap);
+				return -1;
+			}
+			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
+
+			memcpy(content->uuid, ident->uuid, 16);
+			strcpy(content->name, ident->name);
+			content->array.md_minor = minor(stb2.st_rdev);
+
+			if (strcmp(c->update, "byteorder") == 0)
+				err = 0;
+			else
+				err = tst->ss->update_super(tst, content, c->update,
+							    devname, c->verbose,
+							    ident->uuid_set,
+							    c->homehost);
+			if (err < 0) {
+				pr_err("--update=%s not understood"
+				       " for %s metadata\n",
+				       c->update, tst->ss->name);
+				tst->ss->free_super(tst);
+				free(tst);
+				close(mdfd);
+				close(dfd);
+				free(devices);
+				free(devmap);
+				return -1;
+			}
+			if (strcmp(c->update, "uuid")==0 &&
+			    !ident->uuid_set) {
+				ident->uuid_set = 1;
+				memcpy(ident->uuid, content->uuid, 16);
+			}
+			if (tst->ss->store_super(tst, dfd))
+				pr_err("Could not re-write superblock on %s.\n",
+				       devname);
+			close(dfd);
+
+			if (strcmp(c->update, "uuid")==0 &&
+			    ident->bitmap_fd >= 0 && !bitmap_done) {
+				if (bitmap_update_uuid(ident->bitmap_fd,
+						       content->uuid,
+						       tst->ss->swapuuid) != 0)
+					pr_err("Could not update uuid on external bitmap.\n");
+				else
+					bitmap_done = 1;
+			}
+			tst->ss->free_super(tst);
+		} else
+#endif
+		{
+			struct supertype *tst = dup_super(st);
+			int dfd;
+			dfd = dev_open(devname,
+				       tmpdev->disposition == 'I'
+				       ? O_RDWR : (O_RDWR|O_EXCL));
+
+			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
+				pr_err("cannot re-read metadata from %s - aborting\n",
+				       devname);
+				if (dfd >= 0)
+					close(dfd);
+				close(mdfd);
+				free(devices);
+				free(devmap);
+				return -1;
+			}
+			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
+			tst->ss->free_super(tst);
+			close(dfd);
+		}
+
+		stat(devname, &stb);
+
+		if (c->verbose > 0)
+			pr_err("%s is identified as a member of %s, slot %d.\n",
+			       devname, mddev, content->disk.raid_disk);
+		devices[devcnt].devname = devname;
+		devices[devcnt].uptodate = 0;
+		devices[devcnt].included = (tmpdev->disposition == 'I');
+		devices[devcnt].i = *content;
+		devices[devcnt].i.disk.major = major(stb.st_rdev);
+		devices[devcnt].i.disk.minor = minor(stb.st_rdev);
+		if (most_recent < devcnt) {
+			if (devices[devcnt].i.events
+			    > devices[most_recent].i.events)
+				most_recent = devcnt;
+		}
+		if (content->array.level == LEVEL_MULTIPATH)
+			/* with multipath, the raid_disk from the superblock is meaningless */
+			i = devcnt;
+		else
+			i = devices[devcnt].i.disk.raid_disk;
+		if (i+1 == 0) {
+			if (nextspare < content->array.raid_disks)
+				nextspare = content->array.raid_disks;
+			i = nextspare++;
+		} else {
+			if (i >= content->array.raid_disks &&
+			    i >= nextspare)
+				nextspare = i+1;
+		}
+		if (i < 10000) {
+			if (i >= bestcnt) {
+				int newbestcnt = i+10;
+				int *newbest = xmalloc(sizeof(int)*newbestcnt);
+				int c;
+				for (c=0; c < newbestcnt; c++)
+					if (c < bestcnt)
+						newbest[c] = best[c];
+					else
+						newbest[c] = -1;
+				if (best)free(best);
+				best = newbest;
+				bestcnt = newbestcnt;
+			}
+			if (best[i] >=0 &&
+			    devices[best[i]].i.events
+			    == devices[devcnt].i.events
+			    && (devices[best[i]].i.disk.minor
+				!= devices[devcnt].i.disk.minor)
+			    && st->ss == &super0
+			    && content->array.level != LEVEL_MULTIPATH) {
+				/* two different devices with identical superblock.
+				 * Could be a mis-detection caused by overlapping
+				 * partitions.  fail-safe.
+				 */
+				pr_err("WARNING %s and %s appear"
+				       " to have very similar superblocks.\n"
+				       "      If they are really different, "
+				       "please --zero the superblock on one\n"
+				       "      If they are the same or overlap,"
+				       " please remove one from %s.\n",
+				       devices[best[i]].devname, devname,
+				       inargv ? "the list" :
+				       "the\n      DEVICE list in mdadm.conf"
+					);
+				close(mdfd);
+				free(devices);
+				free(devmap);
+				return -1;
+			}
+			if (best[i] == -1
+			    || (devices[best[i]].i.events
+				< devices[devcnt].i.events))
+				best[i] = devcnt;
+		}
+		devcnt++;
+	}
+	*most_recentp = most_recent;
+	*bestcntp = bestcnt;
+	*bestp = best;
+	return devcnt;
+}
+
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
 	     struct mddev_dev *devlist,
@@ -580,20 +805,11 @@ int Assemble(struct supertype *st, char *mddev,
 			  && (ident->container == NULL || ident->member == NULL));
 	int old_linux = 0;
 	int vers = vers; /* Keep gcc quite - it really is initialised */
-	struct {
-		char *devname;
-		int uptodate; /* set once we decide that this device is as
-			       * recent as everything else in the array.
-			       */
-		int included; /* set if the device is already in the array
-			       * due to a previous '-I'
-			       */
-		struct mdinfo i;
-	} *devices;
+	struct devs *devices;
 	char *devmap;
 	int *best = NULL; /* indexed by raid_disk */
 	int bestcnt = 0;
-	int devcnt = 0;
+	int devcnt;
 	unsigned int okcnt, sparecnt, rebuilding_cnt;
 	unsigned int req_cnt;
 	int i;
@@ -601,9 +817,6 @@ int Assemble(struct supertype *st, char *mddev,
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
-#ifndef MDASSEMBLE
-	int bitmap_done;
-#endif
 	int start_partial_ok = (c->runstop >= 0) &&
 		(c->force || devlist==NULL || auto_assem);
 	int num_devs;
@@ -612,7 +825,6 @@ int Assemble(struct supertype *st, char *mddev,
 	struct mdinfo *content = NULL;
 	struct mdinfo *pre_exist = NULL;
 	char *avail;
-	int nextspare = 0;
 	char *name = NULL;
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
@@ -802,197 +1014,15 @@ int Assemble(struct supertype *st, char *mddev,
 		close(mdfd);
 		return err;
 	}
-	bitmap_done = 0;
 #endif
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	devices = xcalloc(num_devs, sizeof(*devices));
 	devmap = xcalloc(num_devs, content->array.raid_disks);
-	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) if (tmpdev->used == 1) {
-		char *devname = tmpdev->devname;
-		struct stat stb;
-		/* looks like a good enough match to update the super block if needed */
-#ifndef MDASSEMBLE
-		if (c->update) {
-			int dfd;
-			/* prepare useful information in info structures */
-			struct stat stb2;
-			struct supertype *tst;
-			int err;
-			fstat(mdfd, &stb2);
-
-			if (strcmp(c->update, "uuid")==0 &&
-			    !ident->uuid_set) {
-				int rfd;
-				if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-				    read(rfd, ident->uuid, 16) != 16) {
-					*(__u32*)(ident->uuid) = random();
-					*(__u32*)(ident->uuid+1) = random();
-					*(__u32*)(ident->uuid+2) = random();
-					*(__u32*)(ident->uuid+3) = random();
-				}
-				if (rfd >= 0) close(rfd);
-			}
-			dfd = dev_open(devname,
-				       tmpdev->disposition == 'I'
-				       ? O_RDWR : (O_RDWR|O_EXCL));
-
-			tst = dup_super(st);
-			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
-				pr_err("cannot re-read metadata from %s - aborting\n",
-					devname);
-				if (dfd >= 0)
-					close(dfd);
-				close(mdfd);
-				free(devices);
-				free(devmap);
-				return 1;
-			}
-			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
-
-			memcpy(content->uuid, ident->uuid, 16);
-			strcpy(content->name, ident->name);
-			content->array.md_minor = minor(stb2.st_rdev);
-
-			if (strcmp(c->update, "byteorder") == 0)
-				err = 0;
-			else
-				err = tst->ss->update_super(tst, content, c->update,
-							    devname, c->verbose,
-							    ident->uuid_set,
-							    c->homehost);
-			if (err < 0) {
-				pr_err("--update=%s not understood"
-				       " for %s metadata\n",
-				       c->update, tst->ss->name);
-				tst->ss->free_super(tst);
-				free(tst);
-				close(mdfd);
-				close(dfd);
-				free(devices);
-				free(devmap);
-				return 1;
-			}
-			if (strcmp(c->update, "uuid")==0 &&
-			    !ident->uuid_set) {
-				ident->uuid_set = 1;
-				memcpy(ident->uuid, content->uuid, 16);
-			}
-			if (tst->ss->store_super(tst, dfd))
-				pr_err("Could not re-write superblock on %s.\n",
-					devname);
-			close(dfd);
-
-			if (strcmp(c->update, "uuid")==0 &&
-			    ident->bitmap_fd >= 0 && !bitmap_done) {
-				if (bitmap_update_uuid(ident->bitmap_fd,
-						       content->uuid,
-						       tst->ss->swapuuid) != 0)
-					pr_err("Could not update uuid on external bitmap.\n");
-				else
-					bitmap_done = 1;
-			}
-			tst->ss->free_super(tst);
-		} else
-#endif
-		{
-			struct supertype *tst = dup_super(st);
-			int dfd;
-			dfd = dev_open(devname,
-				       tmpdev->disposition == 'I'
-				       ? O_RDWR : (O_RDWR|O_EXCL));
-
-			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
-				pr_err("cannot re-read metadata from %s - aborting\n",
-					devname);
-				if (dfd >= 0)
-					close(dfd);
-				close(mdfd);
-				free(devices);
-				free(devmap);
-				return 1;
-			}
-			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
-			tst->ss->free_super(tst);
-			close(dfd);
-		}
-
-		stat(devname, &stb);
-
-		if (c->verbose > 0)
-			pr_err("%s is identified as a member of %s, slot %d.\n",
-				devname, mddev, content->disk.raid_disk);
-		devices[devcnt].devname = devname;
-		devices[devcnt].uptodate = 0;
-		devices[devcnt].included = (tmpdev->disposition == 'I');
-		devices[devcnt].i = *content;
-		devices[devcnt].i.disk.major = major(stb.st_rdev);
-		devices[devcnt].i.disk.minor = minor(stb.st_rdev);
-		if (most_recent < devcnt) {
-			if (devices[devcnt].i.events
-			    > devices[most_recent].i.events)
-				most_recent = devcnt;
-		}
-		if (content->array.level == LEVEL_MULTIPATH)
-			/* with multipath, the raid_disk from the superblock is meaningless */
-			i = devcnt;
-		else
-			i = devices[devcnt].i.disk.raid_disk;
-		if (i+1 == 0) {
-			if (nextspare < content->array.raid_disks)
-				nextspare = content->array.raid_disks;
-			i = nextspare++;
-		} else {
-			if (i >= content->array.raid_disks &&
-			    i >= nextspare)
-				nextspare = i+1;
-		}
-		if (i < 10000) {
-			if (i >= bestcnt) {
-				int newbestcnt = i+10;
-				int *newbest = xmalloc(sizeof(int)*newbestcnt);
-				int c;
-				for (c=0; c < newbestcnt; c++)
-					if (c < bestcnt)
-						newbest[c] = best[c];
-					else
-						newbest[c] = -1;
-				if (best)free(best);
-				best = newbest;
-				bestcnt = newbestcnt;
-			}
-			if (best[i] >=0 &&
-			    devices[best[i]].i.events
-			    == devices[devcnt].i.events
-			    && (devices[best[i]].i.disk.minor
-				!= devices[devcnt].i.disk.minor)
-			    && st->ss == &super0
-			    && content->array.level != LEVEL_MULTIPATH) {
-				/* two different devices with identical superblock.
-				 * Could be a mis-detection caused by overlapping
-				 * partitions.  fail-safe.
-				 */
-				pr_err("WARNING %s and %s appear"
-					" to have very similar superblocks.\n"
-					"      If they are really different, "
-					"please --zero the superblock on one\n"
-					"      If they are the same or overlap,"
-					" please remove one from %s.\n",
-					devices[best[i]].devname, devname,
-					inargv ? "the list" :
-					   "the\n      DEVICE list in mdadm.conf"
-					);
-				close(mdfd);
-				free(devices);
-				free(devmap);
-				return 1;
-			}
-			if (best[i] == -1
-			    || (devices[best[i]].i.events
-				< devices[devcnt].i.events))
-				best[i] = devcnt;
-		}
-		devcnt++;
-	}
+	devcnt = load_devices(devices, devmap, ident, st, devlist,
+			      c, content, mdfd, mddev,
+			      &most_recent, &bestcnt, &best, inargv);
+	if (devcnt < 0)
+		return 1;
 
 	if (devcnt == 0) {
 		pr_err("no devices found for %s\n",

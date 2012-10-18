@@ -739,6 +739,108 @@ static int load_devices(struct devs *devices, char *devmap,
 	return devcnt;
 }
 
+static int force_array(struct mdinfo *content,
+		       struct devs *devices,
+		       int *best, int bestcnt, char *avail,
+		       int most_recent,
+		       struct supertype *st,
+		       struct context *c)
+{
+	int okcnt = 0;
+	while (!enough(content->array.level, content->array.raid_disks,
+		       content->array.layout, 1,
+		       avail)
+	       ||
+	       (content->reshape_active && content->delta_disks > 0 &&
+		!enough(content->array.level, (content->array.raid_disks
+					       - content->delta_disks),
+			content->new_layout, 1,
+			avail)
+		       )) {
+		/* Choose the newest best drive which is
+		 * not up-to-date, update the superblock
+		 * and add it.
+		 */
+		int fd;
+		struct supertype *tst;
+		unsigned long long current_events;
+		int chosen_drive = -1;
+		int i;
+
+		for (i = 0; i < content->array.raid_disks && i < bestcnt; i++) {
+			int j = best[i];
+			if (j>=0 &&
+			    !devices[j].uptodate &&
+			    devices[j].i.recovery_start == MaxSector &&
+			    (chosen_drive < 0 ||
+			     devices[j].i.events
+			     > devices[chosen_drive].i.events))
+				chosen_drive = j;
+		}
+		if (chosen_drive < 0)
+			break;
+		current_events = devices[chosen_drive].i.events;
+	add_another:
+		if (c->verbose >= 0)
+			pr_err("forcing event count in %s(%d) from %d upto %d\n",
+				devices[chosen_drive].devname,
+				devices[chosen_drive].i.disk.raid_disk,
+				(int)(devices[chosen_drive].i.events),
+				(int)(devices[most_recent].i.events));
+		fd = dev_open(devices[chosen_drive].devname,
+			      devices[chosen_drive].included ? O_RDWR
+			      : (O_RDWR|O_EXCL));
+		if (fd < 0) {
+			pr_err("Couldn't open %s for write - not updating\n",
+				devices[chosen_drive].devname);
+			devices[chosen_drive].i.events = 0;
+			continue;
+		}
+		tst = dup_super(st);
+		if (tst->ss->load_super(tst,fd, NULL)) {
+			close(fd);
+			pr_err("RAID superblock disappeared from %s - not updating.\n",
+				devices[chosen_drive].devname);
+			devices[chosen_drive].i.events = 0;
+			continue;
+		}
+		content->events = devices[most_recent].i.events;
+		tst->ss->update_super(tst, content, "force-one",
+				     devices[chosen_drive].devname, c->verbose,
+				     0, NULL);
+
+		if (tst->ss->store_super(tst, fd)) {
+			close(fd);
+			pr_err("Could not re-write superblock on %s\n",
+				devices[chosen_drive].devname);
+			devices[chosen_drive].i.events = 0;
+			tst->ss->free_super(tst);
+			continue;
+		}
+		close(fd);
+		devices[chosen_drive].i.events = devices[most_recent].i.events;
+		devices[chosen_drive].uptodate = 1;
+		avail[chosen_drive] = 1;
+		okcnt++;
+		tst->ss->free_super(tst);
+
+		/* If there are any other drives of the same vintage,
+		 * add them in as well.  We can't lose and we might gain
+		 */
+		for (i = 0; i < content->array.raid_disks && i < bestcnt ; i++) {
+			int j = best[i];
+			if (j >= 0 &&
+			    !devices[j].uptodate &&
+			    devices[j].i.recovery_start == MaxSector &&
+			    devices[j].i.events == current_events) {
+				chosen_drive = j;
+				goto add_another;
+			}
+		}
+	}
+	return okcnt;
+}
+
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
 	     struct mddev_dev *devlist,
@@ -1097,96 +1199,9 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 	}
 	free(devmap);
-	while (c->force &&
-	       (!enough(content->array.level, content->array.raid_disks,
-			content->array.layout, 1,
-			avail)
-		||
-		(content->reshape_active && content->delta_disks > 0 &&
-		 !enough(content->array.level, (content->array.raid_disks
-						- content->delta_disks),
-			 content->new_layout, 1,
-			 avail)
-			))) {
-		/* Choose the newest best drive which is
-		 * not up-to-date, update the superblock
-		 * and add it.
-		 */
-		int fd;
-		struct supertype *tst;
-		unsigned long long current_events;
-		chosen_drive = -1;
-		for (i = 0; i < content->array.raid_disks && i < bestcnt; i++) {
-			int j = best[i];
-			if (j>=0 &&
-			    !devices[j].uptodate &&
-			    devices[j].i.recovery_start == MaxSector &&
-			    (chosen_drive < 0 ||
-			     devices[j].i.events
-			     > devices[chosen_drive].i.events))
-				chosen_drive = j;
-		}
-		if (chosen_drive < 0)
-			break;
-		current_events = devices[chosen_drive].i.events;
-	add_another:
-		if (c->verbose >= 0)
-			pr_err("forcing event count in %s(%d) from %d upto %d\n",
-				devices[chosen_drive].devname,
-				devices[chosen_drive].i.disk.raid_disk,
-				(int)(devices[chosen_drive].i.events),
-				(int)(devices[most_recent].i.events));
-		fd = dev_open(devices[chosen_drive].devname,
-			      devices[chosen_drive].included ? O_RDWR
-			      : (O_RDWR|O_EXCL));
-		if (fd < 0) {
-			pr_err("Couldn't open %s for write - not updating\n",
-				devices[chosen_drive].devname);
-			devices[chosen_drive].i.events = 0;
-			continue;
-		}
-		tst = dup_super(st);
-		if (tst->ss->load_super(tst,fd, NULL)) {
-			close(fd);
-			pr_err("RAID superblock disappeared from %s - not updating.\n",
-				devices[chosen_drive].devname);
-			devices[chosen_drive].i.events = 0;
-			continue;
-		}
-		content->events = devices[most_recent].i.events;
-		tst->ss->update_super(tst, content, "force-one",
-				     devices[chosen_drive].devname, c->verbose,
-				     0, NULL);
-
-		if (tst->ss->store_super(tst, fd)) {
-			close(fd);
-			pr_err("Could not re-write superblock on %s\n",
-				devices[chosen_drive].devname);
-			devices[chosen_drive].i.events = 0;
-			tst->ss->free_super(tst);
-			continue;
-		}
-		close(fd);
-		devices[chosen_drive].i.events = devices[most_recent].i.events;
-		devices[chosen_drive].uptodate = 1;
-		avail[chosen_drive] = 1;
-		okcnt++;
-		tst->ss->free_super(tst);
-
-		/* If there are any other drives of the same vintage,
-		 * add them in as well.  We can't lose and we might gain
-		 */
-		for (i = 0; i < content->array.raid_disks && i < bestcnt ; i++) {
-			int j = best[i];
-			if (j >= 0 &&
-			    !devices[j].uptodate &&
-			    devices[j].i.recovery_start == MaxSector &&
-			    devices[j].i.events == current_events) {
-				chosen_drive = j;
-				goto add_another;
-			}
-		}
-	}
+	if (c->force)
+		okcnt += force_array(content, devices, best, bestcnt,
+				     avail, most_recent, st, c);
 
 	/* Now we want to look at the superblock which the kernel will base things on
 	 * and compare the devices that we think are working with the devices that the

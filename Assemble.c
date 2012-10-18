@@ -129,145 +129,20 @@ static int ident_matches(struct mddev_ident *ident,
 	return 1;
 }
 
-int Assemble(struct supertype *st, char *mddev,
-	     struct mddev_ident *ident,
-	     struct mddev_dev *devlist,
-	     struct context *c)
+static int select_devices(struct mddev_dev *devlist,
+			  struct mddev_ident *ident,
+			  struct supertype **stp,
+			  struct mdinfo **contentp,
+			  struct context *c,
+			  int inargv, int auto_assem)
+
 {
-	/*
-	 * The task of Assemble is to find a collection of
-	 * devices that should (according to their superblocks)
-	 * form an array, and to give this collection to the MD driver.
-	 * In Linux-2.4 and later, this involves submitting a
-	 * SET_ARRAY_INFO ioctl with no arg - to prepare
-	 * the array - and then submit a number of
-	 * ADD_NEW_DISK ioctls to add disks into
-	 * the array.  Finally RUN_ARRAY might
-	 * be submitted to start the array.
-	 *
-	 * Much of the work of Assemble is in finding and/or
-	 * checking the disks to make sure they look right.
-	 *
-	 * If mddev is not set, then scan must be set and we
-	 *  read through the config file for dev+uuid mapping
-	 *  We recurse, setting mddev, for each device that
-	 *    - isn't running
-	 *    - has a valid uuid (or any uuid if !uuidset)
-	 *
-	 * If mddev is set, we try to determine state of md.
-	 *   check version - must be at least 0.90.0
-	 *   check kernel version.  must be at least 2.4.
-	 *    If not, we can possibly fall back on START_ARRAY
-	 *   Try to GET_ARRAY_INFO.
-	 *     If possible, give up
-	 *     If not, try to STOP_ARRAY just to make sure
-	 *
-	 * If !uuidset and scan, look in conf-file for uuid
-	 *       If not found, give up
-	 * If !devlist and scan and uuidset, get list of devs from conf-file
-	 *
-	 * For each device:
-	 *   Check superblock - discard if bad
-	 *   Check uuid (set if we don't have one) - discard if no match
-	 *   Check superblock similarity if we have a superblock - discard if different
-	 *   Record events, devicenum
-	 * This should give us a list of devices for the array
-	 * We should collect the most recent event number
-	 *
-	 * Count disks with recent enough event count
-	 * While force && !enough disks
-	 *    Choose newest rejected disks, update event count
-	 *     mark clean and rewrite superblock
-	 * If recent kernel:
-	 *    SET_ARRAY_INFO
-	 *    foreach device with recent events : ADD_NEW_DISK
-	 *    if runstop == 1 || "enough" disks and runstop==0 -> RUN_ARRAY
-	 * If old kernel:
-	 *    Check the device numbers in superblock are right
-	 *    update superblock if any changes
-	 *    START_ARRAY
-	 *
-	 */
-	int mdfd;
-	int clean;
-	int auto_assem = (mddev == NULL && !ident->uuid_set &&
-			  ident->super_minor == UnSet && ident->name[0] == 0
-			  && (ident->container == NULL || ident->member == NULL));
-	int old_linux = 0;
-	int vers = vers; /* Keep gcc quite - it really is initialised */
-	struct {
-		char *devname;
-		int uptodate; /* set once we decide that this device is as
-			       * recent as everything else in the array.
-			       */
-		int included; /* set if the device is already in the array
-			       * due to a previous '-I'
-			       */
-		struct mdinfo i;
-	} *devices;
-	char *devmap;
-	int *best = NULL; /* indexed by raid_disk */
-	int bestcnt = 0;
-	int devcnt = 0;
-	unsigned int okcnt, sparecnt, rebuilding_cnt;
-	unsigned int req_cnt;
-	int i;
-	int most_recent = 0;
-	int chosen_drive;
-	int change = 0;
-	int inargv = 0;
-	int report_missmatch;
-#ifndef MDASSEMBLE
-	int bitmap_done;
-#endif
-	int start_partial_ok = (c->runstop >= 0) &&
-		(c->force || devlist==NULL || auto_assem);
-	unsigned int num_devs;
 	struct mddev_dev *tmpdev;
-	struct mdinfo info;
+	int num_devs;
+	struct supertype *st = *stp;
 	struct mdinfo *content = NULL;
-	struct mdinfo *pre_exist = NULL;
-	char *avail;
-	int nextspare = 0;
-	char *name = NULL;
-	char chosen_name[1024];
+	int report_missmatch = ((inargv && c->verbose >= 0) || c->verbose > 0);
 	struct domainlist *domains = NULL;
-	struct map_ent *map = NULL;
-	struct map_ent *mp;
-
-	if (get_linux_version() < 2004000)
-		old_linux = 1;
-
-	/*
-	 * If any subdevs are listed, then any that don't
-	 * match ident are discarded.  Remainder must all match and
-	 * become the array.
-	 * If no subdevs, then we scan all devices in the config file, but
-	 * there must be something in the identity
-	 */
-
-	if (!devlist &&
-	    ident->uuid_set == 0 &&
-	    (ident->super_minor < 0 || ident->super_minor == UnSet) &&
-	    ident->name[0] == 0 &&
-	    (ident->container == NULL || ident->member == NULL) &&
-	    ident->devices == NULL) {
-		pr_err("No identity information available for %s - cannot assemble.\n",
-		       mddev ? mddev : "further assembly");
-		return 1;
-	}
-
-	if (devlist == NULL)
-		devlist = conf_get_devs();
-	else if (mddev)
-		inargv = 1;
-
-	report_missmatch = ((inargv && c->verbose >= 0) || c->verbose > 0);
- try_again:
-	/* We come back here when doing auto-assembly and attempting some
-	 * set of devices failed.  Those are now marked as ->used==2 and
-	 * we ignore them and try again
-	 */
 
 	tmpdev = devlist; num_devs = 0;
 	while (tmpdev) {
@@ -278,12 +153,6 @@ int Assemble(struct supertype *st, char *mddev,
 		tmpdev->disposition = 0;
 		tmpdev = tmpdev->next;
 	}
-
-	if (!st && ident->st) st = ident->st;
-
-	if (c->verbose>0)
-		pr_err("looking for devices for %s\n",
-		       mddev ? mddev : "further assembly");
 
 	/* first walk the list of devices to find a consistent set
 	 * that match the criterea, if that is possible.
@@ -299,7 +168,8 @@ int Assemble(struct supertype *st, char *mddev,
 		struct dev_policy *pol = NULL;
 		int found_container = 0;
 
-		if (tmpdev->used > 1) continue;
+		if (tmpdev->used > 1)
+			continue;
 
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
@@ -400,7 +270,7 @@ int Assemble(struct supertype *st, char *mddev,
 				st->ss->free_super(st);
 			dev_policy_free(pol);
 			domain_free(domains);
-			return 1;
+			return -1;
 		}
 
 		if (found_container) {
@@ -431,7 +301,7 @@ int Assemble(struct supertype *st, char *mddev,
 					/* we have a uuid */
 					int uuid[4];
 
-					content = &info;
+					content = *contentp;
 					tst->ss->getinfo_super(tst, content, NULL);
 
 					if (!parse_uuid(ident->container, uuid) ||
@@ -483,7 +353,7 @@ int Assemble(struct supertype *st, char *mddev,
 				st->ss->free_super(st);
 				dev_policy_free(pol);
 				domain_free(domains);
-				return 1;
+				return -1;
 			}
 			if (c->verbose > 0)
 				pr_err("found match on member %s in %s\n",
@@ -494,7 +364,7 @@ int Assemble(struct supertype *st, char *mddev,
 			goto loop;
 		} else {
 
-			content = &info;
+			content = *contentp;
 			tst->ss->getinfo_super(tst, content, NULL);
 
 			if (!ident_matches(ident, content, tst,
@@ -570,7 +440,7 @@ int Assemble(struct supertype *st, char *mddev,
 				st->ss->free_super(st);
 				dev_policy_free(pol);
 				domain_free(domains);
-				return 1;
+				return -1;
 			}
 			tmpdev->used = 1;
 		}
@@ -596,7 +466,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (tmpdev->used != 3)
 				continue;
 			tmpdev->used = 1;
-			content = &info;
+			content = *contentp;
 
 			if (!st->sb) {
 				/* we need sb from one of the spares */
@@ -636,12 +506,164 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 	}
 	domain_free(domains);
+	*stp = st;
+	if (st && st->sb && content == *contentp)
+		st->ss->getinfo_super(st, content, NULL);
+	*contentp = content;
+
+	return num_devs;
+}
+
+int Assemble(struct supertype *st, char *mddev,
+	     struct mddev_ident *ident,
+	     struct mddev_dev *devlist,
+	     struct context *c)
+{
+	/*
+	 * The task of Assemble is to find a collection of
+	 * devices that should (according to their superblocks)
+	 * form an array, and to give this collection to the MD driver.
+	 * In Linux-2.4 and later, this involves submitting a
+	 * SET_ARRAY_INFO ioctl with no arg - to prepare
+	 * the array - and then submit a number of
+	 * ADD_NEW_DISK ioctls to add disks into
+	 * the array.  Finally RUN_ARRAY might
+	 * be submitted to start the array.
+	 *
+	 * Much of the work of Assemble is in finding and/or
+	 * checking the disks to make sure they look right.
+	 *
+	 * If mddev is not set, then scan must be set and we
+	 *  read through the config file for dev+uuid mapping
+	 *  We recurse, setting mddev, for each device that
+	 *    - isn't running
+	 *    - has a valid uuid (or any uuid if !uuidset)
+	 *
+	 * If mddev is set, we try to determine state of md.
+	 *   check version - must be at least 0.90.0
+	 *   check kernel version.  must be at least 2.4.
+	 *    If not, we can possibly fall back on START_ARRAY
+	 *   Try to GET_ARRAY_INFO.
+	 *     If possible, give up
+	 *     If not, try to STOP_ARRAY just to make sure
+	 *
+	 * If !uuidset and scan, look in conf-file for uuid
+	 *       If not found, give up
+	 * If !devlist and scan and uuidset, get list of devs from conf-file
+	 *
+	 * For each device:
+	 *   Check superblock - discard if bad
+	 *   Check uuid (set if we don't have one) - discard if no match
+	 *   Check superblock similarity if we have a superblock - discard if different
+	 *   Record events, devicenum
+	 * This should give us a list of devices for the array
+	 * We should collect the most recent event number
+	 *
+	 * Count disks with recent enough event count
+	 * While force && !enough disks
+	 *    Choose newest rejected disks, update event count
+	 *     mark clean and rewrite superblock
+	 * If recent kernel:
+	 *    SET_ARRAY_INFO
+	 *    foreach device with recent events : ADD_NEW_DISK
+	 *    if runstop == 1 || "enough" disks and runstop==0 -> RUN_ARRAY
+	 * If old kernel:
+	 *    Check the device numbers in superblock are right
+	 *    update superblock if any changes
+	 *    START_ARRAY
+	 *
+	 */
+	int mdfd;
+	int clean;
+	int auto_assem = (mddev == NULL && !ident->uuid_set &&
+			  ident->super_minor == UnSet && ident->name[0] == 0
+			  && (ident->container == NULL || ident->member == NULL));
+	int old_linux = 0;
+	int vers = vers; /* Keep gcc quite - it really is initialised */
+	struct {
+		char *devname;
+		int uptodate; /* set once we decide that this device is as
+			       * recent as everything else in the array.
+			       */
+		int included; /* set if the device is already in the array
+			       * due to a previous '-I'
+			       */
+		struct mdinfo i;
+	} *devices;
+	char *devmap;
+	int *best = NULL; /* indexed by raid_disk */
+	int bestcnt = 0;
+	int devcnt = 0;
+	unsigned int okcnt, sparecnt, rebuilding_cnt;
+	unsigned int req_cnt;
+	int i;
+	int most_recent = 0;
+	int chosen_drive;
+	int change = 0;
+	int inargv = 0;
+#ifndef MDASSEMBLE
+	int bitmap_done;
+#endif
+	int start_partial_ok = (c->runstop >= 0) &&
+		(c->force || devlist==NULL || auto_assem);
+	int num_devs;
+	struct mddev_dev *tmpdev;
+	struct mdinfo info;
+	struct mdinfo *content = NULL;
+	struct mdinfo *pre_exist = NULL;
+	char *avail;
+	int nextspare = 0;
+	char *name = NULL;
+	char chosen_name[1024];
+	struct map_ent *map = NULL;
+	struct map_ent *mp;
+
+	if (get_linux_version() < 2004000)
+		old_linux = 1;
+
+	/*
+	 * If any subdevs are listed, then any that don't
+	 * match ident are discarded.  Remainder must all match and
+	 * become the array.
+	 * If no subdevs, then we scan all devices in the config file, but
+	 * there must be something in the identity
+	 */
+
+	if (!devlist &&
+	    ident->uuid_set == 0 &&
+	    (ident->super_minor < 0 || ident->super_minor == UnSet) &&
+	    ident->name[0] == 0 &&
+	    (ident->container == NULL || ident->member == NULL) &&
+	    ident->devices == NULL) {
+		pr_err("No identity information available for %s - cannot assemble.\n",
+		       mddev ? mddev : "further assembly");
+		return 1;
+	}
+
+	if (devlist == NULL)
+		devlist = conf_get_devs();
+	else if (mddev)
+		inargv = 1;
+
+ try_again:
+	/* We come back here when doing auto-assembly and attempting some
+	 * set of devices failed.  Those are now marked as ->used==2 and
+	 * we ignore them and try again
+	 */
+	if (!st && ident->st)
+		st = ident->st;
+	if (c->verbose>0)
+		pr_err("looking for devices for %s\n",
+		       mddev ? mddev : "further assembly");
+
+	content = &info;
+	num_devs = select_devices(devlist, ident, &st, &content, c,
+				  inargv, auto_assem);
+	if (num_devs < 0)
+		return 1;
 	
 	if (!st || !st->sb || !content)
 		return 2;
-
-	if (content == &info)
-		st->ss->getinfo_super(st, content, NULL);
 
 	/* We have a full set of devices - we now need to find the
 	 * array device.

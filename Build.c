@@ -171,7 +171,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			goto abort;
 		}
 		if ((stb.st_mode & S_IFMT)!= S_IFBLK) {
-			pr_err("Wierd: %s is no longer a block device.\n",
+			pr_err("Weird: %s is no longer a block device.\n",
 				dv->devname);
 			goto abort;
 		}

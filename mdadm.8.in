@@ -332,7 +332,6 @@ Options are:
 .IP "0, 0.90, default"
 .el
 .IP "0, 0.90"
-..
 Use the original 0.90 format superblock.  This format limits arrays to
 28 component devices and limits component devices of levels 1 and
 greater to 2 terabytes.  It is also possible for there to be confusion
@@ -342,7 +341,6 @@ last partition, if that partition starts on a 64K boundary.
 .IP "1, 1.0, 1.1, 1.2"
 .el
 .IP "1, 1.0, 1.1, 1.2 default"
-..
 Use the new version-1 format superblock.  This has fewer restrictions.
 It can easily be moved between hosts with different endian-ness, and a
 recovery operation can be checkpointed and restarted.  The different
@@ -887,30 +885,6 @@ This is meaningful with
 .B \-\-create
 or
 .BR \-\-build .
-
-.ig XX
-.\".TP
-.\".BR \-\-symlink = no
-.\"Normally when
-.\".B \-\-auto
-.\"causes
-.\".I mdadm
-.\"to create devices in
-.\".B /dev/md/
-.\"it will also create symlinks from
-.\".B /dev/
-.\"with names starting with
-.\".B md
-.\"or
-.\".BR md_ .
-.\"Use
-.\".B \-\-symlink=no
-.\"to suppress this, or
-.\".B \-\-symlink=yes
-.\"to enforce this even if it is suppressing
-.\".IR mdadm.conf .
-.\"
-.XX
 
 .TP
 .BR \-a ", " "\-\-add"

@@ -445,7 +445,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		       sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
 		       (MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1))*4);
 		if (verbose >= 0)
-			fprintf (stderr, Name ": adjusting superblock of %s for 2.2/sparc compatability.\n",
+			fprintf (stderr, Name ": adjusting superblock of %s for 2.2/sparc compatibility.\n",
 				 devname);
 	} else if (strcmp(update, "super-minor") ==0) {
 		sb->md_minor = info->array.md_minor;

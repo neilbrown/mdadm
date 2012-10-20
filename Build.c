@@ -174,7 +174,7 @@ int Build(char *mddev, int chunk, int level, int layout,
 			goto abort;
 		}
 		if ((stb.st_mode & S_IFMT)!= S_IFBLK) {
-			fprintf(stderr, Name ": Wierd: %s is no longer a block device.\n",
+			fprintf(stderr, Name ": Weird: %s is no longer a block device.\n",
 				dv->devname);
 			goto abort;
 		}

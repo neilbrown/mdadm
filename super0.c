@@ -662,7 +662,7 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 		if (rfd >= 0)
 			close(rfd);
 	}
-	if (homehost) {
+	if (homehost && !uuid) {
 		char buf[20];
 		char *hash = sha1_buffer(homehost,
 					 strlen(homehost),

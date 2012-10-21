@@ -251,7 +251,7 @@ do_help() {
   echo "    --disable-multipath         Disable any tests involving multipath"
   echo "    --logdir=<directory>        Directory to save logfiles in"
   echo "    --save-logs                 Save all logs in <logdir>"
-  echo "    --no-error                  Don't stop on error, ie. run all tests"
+  echo "    --keep-going                Don't stop on error, ie. run all tests"
   echo "    setup                       Setup test environment and exit"
   echo "    cleanup                     Cleanup test environment"
   echo "    <prefix>                    Run tests with <prefix>"
@@ -288,7 +288,7 @@ parse_args() {
 	fi
       fi
       ;;
-    --no-error)
+    --keep-going | --no-error)
       exitonerror=0
       ;;
     --disable-multipath)

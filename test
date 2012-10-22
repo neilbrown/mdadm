@@ -232,7 +232,12 @@ do_test() {
       echo "succeeded"
       _fail=0
     else
-      echo "FAILED - see $targetdir/log for details"
+      log=log
+      if [ $exitonerror == 0 ]; then
+	  log=log-`basename $_script`
+	  mv $targetdir/log $targetdir/$log
+      fi
+      echo "FAILED - see $targetdir/$log for details"
       _fail=1
     fi
     if [ "$savelogs" == "1" ]; then

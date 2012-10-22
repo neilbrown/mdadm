@@ -638,9 +638,9 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	sb->gvalid_words = 0; /* ignored */
 	sb->ctime = time(0);
 	sb->level = info->level;
-	if (size != (unsigned long long)info->size)
+	sb->size = size;
+	if (size != (unsigned long long)sb->size)
 		return 0;
-	sb->size = info->size;
 	sb->nr_disks = info->nr_disks;
 	sb->raid_disks = info->raid_disks;
 	sb->md_minor = info->md_minor;

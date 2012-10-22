@@ -1312,18 +1312,6 @@ int check_partitions(int fd, char *dname, unsigned long long freesize,
 	return 0;
 }
 
-void get_one_disk(int mdfd, mdu_array_info_t *ainf, mdu_disk_info_t *disk)
-{
-	int d;
-
-	ioctl(mdfd, GET_ARRAY_INFO, ainf);
-	for (d = 0 ; d < MAX_DISKS ; d++) {
-		if (ioctl(mdfd, GET_DISK_INFO, disk) == 0 &&
-		    (disk->major || disk->minor))
-			return;
-	}
-}
-
 int open_container(int fd)
 {
 	/* 'fd' is a block device.  Find out if it is in use

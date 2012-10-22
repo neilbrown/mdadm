@@ -956,8 +956,6 @@ extern struct supertype *dup_super(struct supertype *st);
 extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);
 extern int must_be_container(int fd);
 extern int dev_size_from_id(dev_t id, unsigned long long *size);
-extern void get_one_disk(int mdfd, mdu_array_info_t *ainf,
-			 mdu_disk_info_t *disk);
 void wait_for(char *dev, int fd);
 
 /*

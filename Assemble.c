@@ -265,7 +265,7 @@ static int select_devices(struct mddev_dev *devlist,
 				goto loop;
 
 			pr_err("%s has no superblock - assembly aborted\n",
-				devname);
+			       devname);
 			if (st)
 				st->ss->free_super(st);
 			dev_policy_free(pol);
@@ -294,7 +294,7 @@ static int select_devices(struct mddev_dev *devlist,
 				    !same_dev(ident->container, devname)) {
 					if (report_missmatch)
 						pr_err("%s is not the container required (%s)\n",
-							devname, ident->container);
+						       devname, ident->container);
 					goto loop;
 				}
 				if (ident->container[0] != '/') {
@@ -308,7 +308,7 @@ static int select_devices(struct mddev_dev *devlist,
 					    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
 						if (report_missmatch)
 							pr_err("%s has wrong UUID to be required container\n",
-								devname);
+							       devname);
 						goto loop;
 					}
 				}
@@ -317,7 +317,7 @@ static int select_devices(struct mddev_dev *devlist,
 			 */
 			if (c->verbose > 0)
 				pr_err("looking in container %s\n",
-					devname);
+				       devname);
 
 			for (content = tst->ss->container_content(tst, NULL);
 			     content;
@@ -330,13 +330,13 @@ static int select_devices(struct mddev_dev *devlist,
 				else if (is_member_busy(content->text_version)) {
 					if (report_missmatch)
 						pr_err("member %s in %s is already assembled\n",
-							content->text_version,
-							devname);
+						       content->text_version,
+						       devname);
 				} else if (content->array.state & (1<<MD_SB_BLOCK_VOLUME)) {
 					/* do not assemble arrays with unsupported configurations */
 					pr_err("Cannot activate member %s in %s.\n",
-						content->text_version,
-						devname);
+					       content->text_version,
+					       devname);
 				} else
 					break;
 			}
@@ -348,8 +348,8 @@ static int select_devices(struct mddev_dev *devlist,
 			st = tst; tst = NULL;
 			if (!auto_assem && inargv && tmpdev->next != NULL) {
 				pr_err("%s is a container, but is not "
-					"only device given: confused and aborting\n",
-					devname);
+				       "only device given: confused and aborting\n",
+				       devname);
 				st->ss->free_super(st);
 				dev_policy_free(pol);
 				domain_free(domains);
@@ -357,7 +357,7 @@ static int select_devices(struct mddev_dev *devlist,
 			}
 			if (c->verbose > 0)
 				pr_err("found match on member %s in %s\n",
-					content->text_version, devname);
+				       content->text_version, devname);
 
 			/* make sure we finished the loop */
 			tmpdev = NULL;
@@ -419,13 +419,13 @@ static int select_devices(struct mddev_dev *devlist,
 						if (first) {/* just ignore this one */
 							if (report_missmatch)
 								pr_err("%s misses out due to wrong homehost\n",
-									devname);
+								       devname);
 							goto loop;
 						} else { /* reject all those sofar */
 							struct mddev_dev *td;
 							if (report_missmatch)
 								pr_err("%s overrides previous devices due to good homehost\n",
-									devname);
+								       devname);
 							for (td=devlist; td != tmpdev; td=td->next)
 								if (td->used == 1)
 									td->used = 0;
@@ -435,7 +435,7 @@ static int select_devices(struct mddev_dev *devlist,
 					}
 				}
 				pr_err("superblock on %s doesn't match others - assembly aborted\n",
-					devname);
+				       devname);
 				tst->ss->free_super(tst);
 				st->ss->free_super(st);
 				dev_policy_free(pol);
@@ -486,7 +486,7 @@ static int select_devices(struct mddev_dev *devlist,
 			continue;
 		if (stat(tmpdev->devname, &stb)< 0) {
 			pr_err("fstat failed for %s: %s\n",
-				tmpdev->devname, strerror(errno));
+			       tmpdev->devname, strerror(errno));
 			tmpdev->used = 2;
 		} else {
 			struct dev_policy *pol = devnum_policy(stb.st_rdev);
@@ -783,16 +783,16 @@ static int force_array(struct mdinfo *content,
 	add_another:
 		if (c->verbose >= 0)
 			pr_err("forcing event count in %s(%d) from %d upto %d\n",
-				devices[chosen_drive].devname,
-				devices[chosen_drive].i.disk.raid_disk,
-				(int)(devices[chosen_drive].i.events),
-				(int)(devices[most_recent].i.events));
+			       devices[chosen_drive].devname,
+			       devices[chosen_drive].i.disk.raid_disk,
+			       (int)(devices[chosen_drive].i.events),
+			       (int)(devices[most_recent].i.events));
 		fd = dev_open(devices[chosen_drive].devname,
 			      devices[chosen_drive].included ? O_RDWR
 			      : (O_RDWR|O_EXCL));
 		if (fd < 0) {
 			pr_err("Couldn't open %s for write - not updating\n",
-				devices[chosen_drive].devname);
+			       devices[chosen_drive].devname);
 			devices[chosen_drive].i.events = 0;
 			continue;
 		}
@@ -800,19 +800,19 @@ static int force_array(struct mdinfo *content,
 		if (tst->ss->load_super(tst,fd, NULL)) {
 			close(fd);
 			pr_err("RAID superblock disappeared from %s - not updating.\n",
-				devices[chosen_drive].devname);
+			       devices[chosen_drive].devname);
 			devices[chosen_drive].i.events = 0;
 			continue;
 		}
 		content->events = devices[most_recent].i.events;
 		tst->ss->update_super(tst, content, "force-one",
-				     devices[chosen_drive].devname, c->verbose,
-				     0, NULL);
+				      devices[chosen_drive].devname, c->verbose,
+				      0, NULL);
 
 		if (tst->ss->store_super(tst, fd)) {
 			close(fd);
 			pr_err("Could not re-write superblock on %s\n",
-				devices[chosen_drive].devname);
+			       devices[chosen_drive].devname);
 			devices[chosen_drive].i.events = 0;
 			tst->ss->free_super(tst);
 			continue;
@@ -1200,7 +1200,7 @@ int Assemble(struct supertype *st, char *mddev,
 	else if (mddev)
 		inargv = 1;
 
- try_again:
+try_again:
 	/* We come back here when doing auto-assembly and attempting some
 	 * set of devices failed.  Those are now marked as ->used==2 and
 	 * we ignore them and try again
@@ -1322,8 +1322,8 @@ int Assemble(struct supertype *st, char *mddev,
 	if (get_linux_version() < 2004000 ||
 	    md_get_version(mdfd) < 9000) {
 		pr_err("Assemble requires Linux 2.4 or later, and\n"
-			"     md driver version 0.90.0 or later.\n"
-			"    Upgrade your kernel or try --build\n");
+		       "     md driver version 0.90.0 or later.\n"
+		       "    Upgrade your kernel or try --build\n");
 		close(mdfd);
 		return 1;
 	}
@@ -1370,7 +1370,7 @@ int Assemble(struct supertype *st, char *mddev,
 
 	if (devcnt == 0) {
 		pr_err("no devices found for %s\n",
-			mddev);
+		       mddev);
 		if (st)
 			st->ss->free_super(st);
 		close(mdfd);
@@ -1419,7 +1419,7 @@ int Assemble(struct supertype *st, char *mddev,
 		    devmap[j * content->array.raid_disks + devices[most_recent].i.disk.raid_disk] == 0) {
 			if (c->verbose > -1)
 				pr_err("ignoring %s as it reports %s as failed\n",
-					devices[j].devname, devices[most_recent].devname);
+				       devices[j].devname, devices[most_recent].devname);
 			best[i] = -1;
 			continue;
 		}
@@ -1468,7 +1468,7 @@ int Assemble(struct supertype *st, char *mddev,
 				 devices[j].included ? O_RDONLY
 				 : (O_RDONLY|O_EXCL)))< 0) {
 			pr_err("Cannot open %s: %s\n",
-				devices[j].devname, strerror(errno));
+			       devices[j].devname, strerror(errno));
 			close(mdfd);
 			free(devices);
 			return 1;
@@ -1476,7 +1476,7 @@ int Assemble(struct supertype *st, char *mddev,
 		if (st->ss->load_super(st,fd, NULL)) {
 			close(fd);
 			pr_err("RAID superblock has disappeared from %s\n",
-				devices[j].devname);
+			       devices[j].devname);
 			close(mdfd);
 			free(devices);
 			return 1;
@@ -1516,18 +1516,18 @@ int Assemble(struct supertype *st, char *mddev,
 			if (c->force) {
 				if (c->verbose >= 0)
 					pr_err("clearing FAULTY flag for device %d in %s for %s\n",
-						j, mddev, devices[j].devname);
+					       j, mddev, devices[j].devname);
 				change = 1;
 			} else {
 				if (c->verbose >= -1)
 					pr_err("device %d in %s has wrong state in superblock, but %s seems ok\n",
-						i, mddev, devices[j].devname);
+					       i, mddev, devices[j].devname);
 			}
 		}
 #if 0
 		if (!(super.disks[i].i.disk.state & (1 << MD_DISK_FAULTY))) {
 			pr_err("devices %d of %s is not marked FAULTY in superblock, but cannot be found\n",
-				i, mddev);
+			       i, mddev);
 		}
 #endif
 	}
@@ -1548,7 +1548,7 @@ int Assemble(struct supertype *st, char *mddev,
 			      O_RDWR : (O_RDWR|O_EXCL));
 		if (fd < 0) {
 			pr_err("Could not open %s for write - cannot Assemble array.\n",
-				devices[chosen_drive].devname);
+			       devices[chosen_drive].devname);
 			close(mdfd);
 			free(devices);
 			return 1;
@@ -1556,14 +1556,14 @@ int Assemble(struct supertype *st, char *mddev,
 		if (st->ss->store_super(st, fd)) {
 			close(fd);
 			pr_err("Could not re-write superblock on %s\n",
-				devices[chosen_drive].devname);
+			       devices[chosen_drive].devname);
 			close(mdfd);
 			free(devices);
 			return 1;
 		}
 		if (c->verbose >= 0)
 			pr_err("Marking array %s as 'clean'\n",
-				mddev);
+			       mddev);
 		close(fd);
 	}
 
@@ -1578,8 +1578,8 @@ int Assemble(struct supertype *st, char *mddev,
 		int *fdlist = xmalloc(sizeof(int)* bestcnt);
 		if (c->verbose > 0)
 			pr_err(":%s has an active reshape - checking "
-				"if critical section needs to be restored\n",
-				chosen_name);
+			       "if critical section needs to be restored\n",
+			       chosen_name);
 		for (i=0; i<bestcnt; i++) {
 			int j = best[i];
 			if (j >= 0) {
@@ -1588,7 +1588,7 @@ int Assemble(struct supertype *st, char *mddev,
 						     ? O_RDWR : (O_RDWR|O_EXCL));
 				if (fdlist[i] < 0) {
 					pr_err("Could not open %s for write - cannot Assemble array.\n",
-						devices[j].devname);
+					       devices[j].devname);
 					err = 1;
 					break;
 				}
@@ -1604,7 +1604,7 @@ int Assemble(struct supertype *st, char *mddev,
 			if (err && c->invalid_backup) {
 				if (c->verbose > 0)
 					pr_err("continuing"
-						" without restoring backup\n");
+					       " without restoring backup\n");
 				err = 0;
 			}
 		}
@@ -1707,8 +1707,8 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	 * Check if metadata requests blocking container wide reshapes
 	 */
 	start_reshape = (content->reshape_active &&
-		!((content->reshape_active == CONTAINER_RESHAPE) &&
-		(content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))));
+			 !((content->reshape_active == CONTAINER_RESHAPE) &&
+			   (content->array.state & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))));
 
 	/* Block subarray here if it is under reshape now
 	 * Do not allow for any changes in this array
@@ -1736,8 +1736,8 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		   content->uuid, chosen_name);
 
 	if (c->runstop > 0 ||
-		 (working + preexist + expansion) >=
-			content->array.working_disks) {
+	    (working + preexist + expansion) >=
+	    content->array.working_disks) {
 		int err;
 
 		if (start_reshape) {
@@ -1757,30 +1757,30 @@ int assemble_container_content(struct supertype *st, int mdfd,
 					start_mdmon(st->container_dev);
 				ping_monitor_by_id(st->container_dev);
 				if (mdmon_running(st->container_dev) &&
-						st->update_tail == NULL)
+				    st->update_tail == NULL)
 					st->update_tail = &st->updates;
 			}
 
 			err = Grow_continue(mdfd, st, content, c->backup_file,
 					    c->freeze_reshape);
 		} else switch(content->array.level) {
-		case LEVEL_LINEAR:
-		case LEVEL_MULTIPATH:
-		case 0:
-			err = sysfs_set_str(content, NULL, "array_state",
-					    c->readonly ? "readonly" : "active");
-			break;
-		default:
-			err = sysfs_set_str(content, NULL, "array_state",
-				      "readonly");
-			/* start mdmon if needed. */
-			if (!err) {
-				if (!mdmon_running(st->container_dev))
-					start_mdmon(st->container_dev);
-				ping_monitor_by_id(st->container_dev);
+			case LEVEL_LINEAR:
+			case LEVEL_MULTIPATH:
+			case 0:
+				err = sysfs_set_str(content, NULL, "array_state",
+						    c->readonly ? "readonly" : "active");
+				break;
+			default:
+				err = sysfs_set_str(content, NULL, "array_state",
+						    "readonly");
+				/* start mdmon if needed. */
+				if (!err) {
+					if (!mdmon_running(st->container_dev))
+						start_mdmon(st->container_dev);
+					ping_monitor_by_id(st->container_dev);
+				}
+				break;
 			}
-			break;
-		}
 		if (!err)
 			sysfs_set_safemode(content, content->safe_mode_delay);
 

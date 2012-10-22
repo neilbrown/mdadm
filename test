@@ -227,7 +227,7 @@ do_test() {
     # source script in a subshell, so it has access to our
     # namespace, but cannot change it.
     echo -ne "$_script... "
-    if ( set -ex ; . $_script )  2> $targetdir/log
+    if ( set -ex ; . $_script ) &> $targetdir/log
     then
       echo "succeeded"
       _fail=0

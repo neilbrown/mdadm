@@ -1146,13 +1146,12 @@ int Assemble(struct supertype *st, char *mddev,
 	 *    START_ARRAY
 	 *
 	 */
+	int rv;
 	int mdfd;
 	int clean;
 	int auto_assem = (mddev == NULL && !ident->uuid_set &&
 			  ident->super_minor == UnSet && ident->name[0] == 0
 			  && (ident->container == NULL || ident->member == NULL));
-	int old_linux = 0;
-	int vers = vers; /* Keep gcc quite - it really is initialised */
 	struct devs *devices;
 	char *devmap;
 	int *best = NULL; /* indexed by raid_disk */
@@ -1176,9 +1175,6 @@ int Assemble(struct supertype *st, char *mddev,
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
 	struct map_ent *mp;
-
-	if (get_linux_version() < 2004000)
-		old_linux = 1;
 
 	/*
 	 * If any subdevs are listed, then any that don't
@@ -1323,9 +1319,10 @@ int Assemble(struct supertype *st, char *mddev,
 		return 1;
 	}
 	mddev = chosen_name;
-	vers = md_get_version(mdfd);
-	if (vers < 9000) {
-		pr_err("Assemble requires driver version 0.90.0 or later.\n"
+	if (get_linux_version() < 2004000 ||
+	    md_get_version(mdfd) < 9000) {
+		pr_err("Assemble requires Linux 2.4 or later, and\n"
+			"     md driver version 0.90.0 or later.\n"
 			"    Upgrade your kernel or try --build\n");
 		close(mdfd);
 		return 1;
@@ -1539,7 +1536,7 @@ int Assemble(struct supertype *st, char *mddev,
 		    content->array.layout, clean,
 		    avail)) {
 		change += st->ss->update_super(st, content, "force-array",
-					devices[chosen_drive].devname, c->verbose,
+					       devices[chosen_drive].devname, c->verbose,
 					       0, NULL);
 		clean = 1;
 	}
@@ -1628,75 +1625,54 @@ int Assemble(struct supertype *st, char *mddev,
 #endif
 
 	/* Almost ready to actually *do* something */
-	if (!old_linux) {
-		int rv;
+	/* First, fill in the map, so that udev can find our name
+	 * as soon as we become active.
+	 */
+	map_update(&map, fd2devnum(mdfd), content->text_version,
+		   content->uuid, chosen_name);
 
-		/* First, fill in the map, so that udev can find our name
-		 * as soon as we become active.
-		 */
-		map_update(&map, fd2devnum(mdfd), content->text_version,
-			   content->uuid, chosen_name);
-
-		rv = start_array(mdfd, mddev, content,
-				 st, ident, best, bestcnt,
-				 chosen_drive, devices, okcnt, sparecnt,
-				 rebuilding_cnt,
-				 c,
-				 clean, avail, start_partial_ok);
-		if (rv == 1 && !pre_exist)
-			ioctl(mdfd, STOP_ARRAY, NULL);
-		close(mdfd);
-		free(devices);
-		map_unlock(&map);
-		if (rv == 0) {
-			wait_for(chosen_name, mdfd);
-			if (auto_assem) {
-				int usecs = 1;
-				/* There is a nasty race with 'mdadm --monitor'.
-				 * If it opens this device before we close it,
-				 * it gets an incomplete open on which IO
-				 * doesn't work and the capacity is
-				 * wrong.
-				 * If we reopen (to check for layered devices)
-				 * before --monitor closes, we loose.
-				 *
-				 * So: wait upto 1 second for there to be
-				 * a non-zero capacity.
-				 */
-				while (usecs < 1000) {
-					mdfd = open(mddev, O_RDONLY);
-					if (mdfd >= 0) {
-						unsigned long long size;
-						if (get_dev_size(mdfd, NULL, &size) &&
-						    size > 0)
-							break;
-						close(mdfd);
-					}
-					usleep(usecs);
-					usecs <<= 1;
-				}
-			}
-		}
-		/* '2' means 'OK, but not started yet' */
-		return rv == 2 ? 0 : rv;
-	} else {
-		/* The "chosen_drive" is a good choice, and if necessary, the superblock has
-		 * been updated to point to the current locations of devices.
-		 * so we can just start the array
-		 */
-		unsigned long dev;
-		dev = makedev(devices[chosen_drive].i.disk.major,
-			    devices[chosen_drive].i.disk.minor);
-		if (ioctl(mdfd, START_ARRAY, dev)) {
-		    pr_err("Cannot start array: %s\n",
-			    strerror(errno));
-		}
-
-	}
+	rv = start_array(mdfd, mddev, content,
+			 st, ident, best, bestcnt,
+			 chosen_drive, devices, okcnt, sparecnt,
+			 rebuilding_cnt,
+			 c,
+			 clean, avail, start_partial_ok);
+	if (rv == 1 && !pre_exist)
+		ioctl(mdfd, STOP_ARRAY, NULL);
 	close(mdfd);
 	free(devices);
 	map_unlock(&map);
-	return 0;
+	if (rv == 0) {
+		wait_for(chosen_name, mdfd);
+		if (auto_assem) {
+			int usecs = 1;
+			/* There is a nasty race with 'mdadm --monitor'.
+			 * If it opens this device before we close it,
+			 * it gets an incomplete open on which IO
+			 * doesn't work and the capacity is
+			 * wrong.
+			 * If we reopen (to check for layered devices)
+			 * before --monitor closes, we loose.
+			 *
+			 * So: wait upto 1 second for there to be
+			 * a non-zero capacity.
+			 */
+			while (usecs < 1000) {
+				mdfd = open(mddev, O_RDONLY);
+				if (mdfd >= 0) {
+					unsigned long long size;
+					if (get_dev_size(mdfd, NULL, &size) &&
+					    size > 0)
+						break;
+					close(mdfd);
+				}
+				usleep(usecs);
+				usecs <<= 1;
+			}
+		}
+	}
+	/* '2' means 'OK, but not started yet' */
+	return rv == 2 ? 0 : rv;
 }
 
 #ifndef MDASSEMBLE

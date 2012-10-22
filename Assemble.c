@@ -841,6 +841,252 @@ static int force_array(struct mdinfo *content,
 	return okcnt;
 }
 
+static int start_array(int mdfd,
+		       char *mddev,
+		       struct mdinfo *content,
+		       struct supertype *st,
+		       struct mddev_ident *ident,
+		       int *best, int bestcnt,
+		       int chosen_drive,
+		       struct devs *devices,
+		       unsigned int okcnt,
+		       unsigned int sparecnt,
+		       unsigned int rebuilding_cnt,
+		       struct context *c,
+		       int clean, char *avail,
+		       int start_partial_ok
+	)
+{
+	int rv;
+	int i;
+	unsigned int req_cnt;
+
+	rv = set_array_info(mdfd, st, content);
+	if (rv) {
+		pr_err("failed to set array info for %s: %s\n",
+		       mddev, strerror(errno));
+		return 1;
+	}
+	if (ident->bitmap_fd >= 0) {
+		if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
+			pr_err("SET_BITMAP_FILE failed.\n");
+			return 1;
+		}
+	} else if (ident->bitmap_file) {
+		/* From config file */
+		int bmfd = open(ident->bitmap_file, O_RDWR);
+		if (bmfd < 0) {
+			pr_err("Could not open bitmap file %s\n",
+			       ident->bitmap_file);
+			return 1;
+		}
+		if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
+			pr_err("Failed to set bitmapfile for %s\n", mddev);
+			close(bmfd);
+			return 1;
+		}
+		close(bmfd);
+	}
+
+	/* First, add the raid disks, but add the chosen one last */
+	for (i=0; i<= bestcnt; i++) {
+		int j;
+		if (i < bestcnt) {
+			j = best[i];
+			if (j == chosen_drive)
+				continue;
+		} else
+			j = chosen_drive;
+
+		if (j >= 0 && !devices[j].included) {
+			int dfd = dev_open(devices[j].devname,
+					   O_RDWR|O_EXCL);
+			if (dfd >= 0) {
+				remove_partitions(dfd);
+				close(dfd);
+			}
+			rv = add_disk(mdfd, st, content, &devices[j].i);
+
+			if (rv) {
+				pr_err("failed to add "
+				       "%s to %s: %s\n",
+				       devices[j].devname,
+				       mddev,
+				       strerror(errno));
+				if (i < content->array.raid_disks
+				    || i == bestcnt)
+					okcnt--;
+				else
+					sparecnt--;
+			} else if (c->verbose > 0)
+				pr_err("added %s to %s as %d%s\n",
+				       devices[j].devname, mddev,
+				       devices[j].i.disk.raid_disk,
+				       devices[j].uptodate?"":
+				       " (possibly out of date)");
+		} else if (j >= 0) {
+			if (c->verbose > 0)
+				pr_err("%s is already in %s as %d\n",
+				       devices[j].devname, mddev,
+				       devices[j].i.disk.raid_disk);
+		} else if (c->verbose > 0 && i < content->array.raid_disks)
+			pr_err("no uptodate device for slot %d of %s\n",
+			       i, mddev);
+	}
+
+	if (content->array.level == LEVEL_CONTAINER) {
+		if (c->verbose >= 0) {
+			pr_err("Container %s has been "
+			       "assembled with %d drive%s",
+			       mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
+			if (okcnt < (unsigned)content->array.raid_disks)
+				fprintf(stderr, " (out of %d)",
+					content->array.raid_disks);
+			fprintf(stderr, "\n");
+		}
+		st->ss->free_super(st);
+		sysfs_uevent(content, "change");
+		return 0;
+	}
+
+	/* Get number of in-sync devices according to the superblock.
+	 * We must have this number to start the array without -s or -R
+	 */
+	req_cnt = content->array.working_disks;
+
+	if (c->runstop == 1 ||
+	    (c->runstop <= 0 &&
+	     ( enough(content->array.level, content->array.raid_disks,
+		      content->array.layout, clean, avail) &&
+	       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)
+		     ))) {
+		/* This array is good-to-go.
+		 * If a reshape is in progress then we might need to
+		 * continue monitoring it.  In that case we start
+		 * it read-only and let the grow code make it writable.
+		 */
+		int rv;
+#ifndef MDASSEMBLE
+		if (content->reshape_active &&
+		    !(content->reshape_active & RESHAPE_NO_BACKUP) &&
+		    content->delta_disks <= 0) {
+			rv = sysfs_set_str(content, NULL,
+					   "array_state", "readonly");
+			if (rv == 0)
+				rv = Grow_continue(mdfd, st, content,
+						   c->backup_file,
+						   c->freeze_reshape);
+		} else if (c->readonly &&
+			   sysfs_attribute_available(
+				   content, NULL, "array_state")) {
+			rv = sysfs_set_str(content, NULL,
+					   "array_state", "readonly");
+		} else
+#endif
+			rv = ioctl(mdfd, RUN_ARRAY, NULL);
+		if (rv == 0) {
+			if (c->verbose >= 0) {
+				pr_err("%s has been started with %d drive%s",
+				       mddev, okcnt, okcnt==1?"":"s");
+				if (okcnt < (unsigned)content->array.raid_disks)
+					fprintf(stderr, " (out of %d)", content->array.raid_disks);
+				if (rebuilding_cnt)
+					fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
+				if (sparecnt)
+					fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
+				fprintf(stderr, ".\n");
+			}
+			if (content->reshape_active &&
+			    content->array.level >= 4 &&
+			    content->array.level <= 6) {
+				/* might need to increase the size
+				 * of the stripe cache - default is 256
+				 */
+				if (256 < 4 * (content->array.chunk_size/4096)) {
+					struct mdinfo *sra = sysfs_read(mdfd, 0, 0);
+					if (sra)
+						sysfs_set_num(sra, NULL,
+							      "stripe_cache_size",
+							      (4 * content->array.chunk_size / 4096) + 1);
+					sysfs_free(sra);
+				}
+			}
+			if (okcnt < (unsigned)content->array.raid_disks) {
+				/* If any devices did not get added
+				 * because the kernel rejected them based
+				 * on event count, try adding them
+				 * again providing the action policy is
+				 * 're-add' or greater.  The bitmap
+				 * might allow them to be included, or
+				 * they will become spares.
+				 */
+				for (i = 0; i < bestcnt; i++) {
+					int j = best[i];
+					if (j >= 0 && !devices[j].uptodate) {
+						if (!disk_action_allows(&devices[j].i, st->ss->name, act_re_add))
+							continue;
+						rv = add_disk(mdfd, st, content,
+							      &devices[j].i);
+						if (rv == 0 && c->verbose >= 0)
+							pr_err("%s has been re-added.\n",
+							       devices[j].devname);
+					}
+				}
+			}
+			return 0;
+		}
+		pr_err("failed to RUN_ARRAY %s: %s\n",
+		       mddev, strerror(errno));
+
+		if (!enough(content->array.level, content->array.raid_disks,
+			    content->array.layout, 1, avail))
+			pr_err("Not enough devices to "
+			       "start the array.\n");
+		else if (!enough(content->array.level,
+				 content->array.raid_disks,
+				 content->array.layout, clean,
+				 avail))
+			pr_err("Not enough devices to "
+			       "start the array while not clean "
+			       "- consider --force.\n");
+
+		return 1;
+	}
+	if (c->runstop == -1) {
+		pr_err("%s assembled from %d drive%s",
+		       mddev, okcnt, okcnt==1?"":"s");
+		if (okcnt != (unsigned)content->array.raid_disks)
+			fprintf(stderr, " (out of %d)", content->array.raid_disks);
+		fprintf(stderr, ", but not started.\n");
+		return 2;
+	}
+	if (c->verbose >= -1) {
+		pr_err("%s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
+		if (rebuilding_cnt)
+			fprintf(stderr, "%s %d rebuilding", sparecnt?", ":" and ", rebuilding_cnt);
+		if (sparecnt)
+			fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
+		if (!enough(content->array.level, content->array.raid_disks,
+			    content->array.layout, 1, avail))
+			fprintf(stderr, " - not enough to start the array.\n");
+		else if (!enough(content->array.level,
+				 content->array.raid_disks,
+				 content->array.layout, clean,
+				 avail))
+			fprintf(stderr, " - not enough to start the "
+				"array while not clean - consider "
+				"--force.\n");
+		else {
+			if (req_cnt == (unsigned)content->array.raid_disks)
+				fprintf(stderr, " - need all %d to start it", req_cnt);
+			else
+				fprintf(stderr, " - need %d of %d to start", req_cnt, content->array.raid_disks);
+			fprintf(stderr, " (use --run to insist).\n");
+		}
+	}
+	return 1;
+}
+
 int Assemble(struct supertype *st, char *mddev,
 	     struct mddev_ident *ident,
 	     struct mddev_dev *devlist,
@@ -913,7 +1159,6 @@ int Assemble(struct supertype *st, char *mddev,
 	int bestcnt = 0;
 	int devcnt;
 	unsigned int okcnt, sparecnt, rebuilding_cnt;
-	unsigned int req_cnt;
 	int i;
 	int most_recent = 0;
 	int chosen_drive;
@@ -1381,10 +1626,6 @@ int Assemble(struct supertype *st, char *mddev,
 		}
 	}
 #endif
-	/* count number of in-sync devices according to the superblock.
-	 * We must have this number to start the array without -s or -R
-	 */
-	req_cnt = content->array.working_disks;
 
 	/* Almost ready to actually *do* something */
 	if (!old_linux) {
@@ -1396,288 +1637,48 @@ int Assemble(struct supertype *st, char *mddev,
 		map_update(&map, fd2devnum(mdfd), content->text_version,
 			   content->uuid, chosen_name);
 
-		rv = set_array_info(mdfd, st, content);
-		if (rv && !pre_exist) {
-			pr_err("failed to set array info for %s: %s\n",
-				mddev, strerror(errno));
-			ioctl(mdfd, STOP_ARRAY, NULL);
-			close(mdfd);
-			free(devices);
-			map_unlock(&map);
-			return 1;
-		}
-		if (ident->bitmap_fd >= 0) {
-			if (ioctl(mdfd, SET_BITMAP_FILE, ident->bitmap_fd) != 0) {
-				pr_err("SET_BITMAP_FILE failed.\n");
-				ioctl(mdfd, STOP_ARRAY, NULL);
-				close(mdfd);
-				free(devices);
-				map_unlock(&map);
-				return 1;
-			}
-		} else if (ident->bitmap_file) {
-			/* From config file */
-			int bmfd = open(ident->bitmap_file, O_RDWR);
-			if (bmfd < 0) {
-				pr_err("Could not open bitmap file %s\n",
-					ident->bitmap_file);
-				ioctl(mdfd, STOP_ARRAY, NULL);
-				close(mdfd);
-				free(devices);
-				map_unlock(&map);
-				return 1;
-			}
-			if (ioctl(mdfd, SET_BITMAP_FILE, bmfd) != 0) {
-				pr_err("Failed to set bitmapfile for %s\n", mddev);
-				close(bmfd);
-				ioctl(mdfd, STOP_ARRAY, NULL);
-				close(mdfd);
-				free(devices);
-				map_unlock(&map);
-				return 1;
-			}
-			close(bmfd);
-		}
-
-		/* First, add the raid disks, but add the chosen one last */
-		for (i=0; i<= bestcnt; i++) {
-			int j;
-			if (i < bestcnt) {
-				j = best[i];
-				if (j == chosen_drive)
-					continue;
-			} else
-				j = chosen_drive;
-
-			if (j >= 0 && !devices[j].included) {
-				int dfd = dev_open(devices[j].devname,
-						   O_RDWR|O_EXCL);
-				if (dfd >= 0) {
-					remove_partitions(dfd);
-					close(dfd);
-				}
-				rv = add_disk(mdfd, st, content, &devices[j].i);
-
-				if (rv) {
-					pr_err("failed to add "
-					       "%s to %s: %s\n",
-					       devices[j].devname,
-					       mddev,
-					       strerror(errno));
-					if (i < content->array.raid_disks
-					    || i == bestcnt)
-						okcnt--;
-					else
-						sparecnt--;
-				} else if (c->verbose > 0)
-					pr_err("added %s to %s as %d%s\n",
-					       devices[j].devname, mddev,
-					       devices[j].i.disk.raid_disk,
-					       devices[j].uptodate?"":
-					       " (possibly out of date)");
-			} else if (j >= 0) {
-				if (c->verbose > 0)
-					pr_err("%s is already in %s as %d\n",
-					       devices[j].devname, mddev,
-					       devices[j].i.disk.raid_disk);
-			} else if (c->verbose > 0 && i < content->array.raid_disks)
-				pr_err("no uptodate device for slot %d of %s\n",
-					i, mddev);
-		}
-
-		if (content->array.level == LEVEL_CONTAINER) {
-			if (c->verbose >= 0) {
-				pr_err("Container %s has been "
-					"assembled with %d drive%s",
-					mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
-				if (okcnt < (unsigned)content->array.raid_disks)
-					fprintf(stderr, " (out of %d)",
-						content->array.raid_disks);
-				fprintf(stderr, "\n");
-			}
-			st->ss->free_super(st);
-			sysfs_uevent(content, "change");
-			map_unlock(&map);
-			wait_for(chosen_name, mdfd);
-			close(mdfd);
-			free(devices);
-			return 0;
-		}
-
-		if (c->runstop == 1 ||
-		    (c->runstop <= 0 &&
-		     ( enough(content->array.level, content->array.raid_disks,
-			      content->array.layout, clean, avail) &&
-		       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)
-			     ))) {
-			/* This array is good-to-go.
-			 * If a reshape is in progress then we might need to
-			 * continue monitoring it.  In that case we start
-			 * it read-only and let the grow code make it writable.
-			 */
-			int rv;
-#ifndef MDASSEMBLE
-			if (content->reshape_active &&
-			    !(content->reshape_active & RESHAPE_NO_BACKUP) &&
-			    content->delta_disks <= 0) {
-				rv = sysfs_set_str(content, NULL,
-						   "array_state", "readonly");
-				if (rv == 0)
-					rv = Grow_continue(mdfd, st, content,
-							   c->backup_file,
-							   c->freeze_reshape);
-			} else if (c->readonly &&
-				   sysfs_attribute_available(
-					   content, NULL, "array_state")) {
-				rv = sysfs_set_str(content, NULL,
-						   "array_state", "readonly");
-			} else
-#endif
-				rv = ioctl(mdfd, RUN_ARRAY, NULL);
-			if (rv == 0) {
-				if (c->verbose >= 0) {
-					pr_err("%s has been started with %d drive%s",
-						mddev, okcnt, okcnt==1?"":"s");
-					if (okcnt < (unsigned)content->array.raid_disks)
-						fprintf(stderr, " (out of %d)", content->array.raid_disks);
-					if (rebuilding_cnt)
-						fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
-					if (sparecnt)
-						fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
-					fprintf(stderr, ".\n");
-				}
-				if (content->reshape_active &&
-				    content->array.level >= 4 &&
-				    content->array.level <= 6) {
-					/* might need to increase the size
-					 * of the stripe cache - default is 256
-					 */
-					if (256 < 4 * (content->array.chunk_size/4096)) {
-						struct mdinfo *sra = sysfs_read(mdfd, 0, 0);
-						if (sra)
-							sysfs_set_num(sra, NULL,
-								      "stripe_cache_size",
-								      (4 * content->array.chunk_size / 4096) + 1);
-						sysfs_free(sra);
-					}
-				}
-				if (okcnt < (unsigned)content->array.raid_disks) {
-					/* If any devices did not get added
-					 * because the kernel rejected them based
-					 * on event count, try adding them
-					 * again providing the action policy is
-					 * 're-add' or greater.  The bitmap
-					 * might allow them to be included, or
-					 * they will become spares.
-					 */
-					for (i = 0; i < bestcnt; i++) {
-						int j = best[i];
-						if (j >= 0 && !devices[j].uptodate) {
-							if (!disk_action_allows(&devices[j].i, st->ss->name, act_re_add))
-								continue;
-							rv = add_disk(mdfd, st, content,
-								      &devices[j].i);
-							if (rv == 0 && c->verbose >= 0)
-								pr_err("%s has been re-added.\n",
-								       devices[j].devname);
-						}
-					}
-				}
-				map_unlock(&map);
-				wait_for(mddev, mdfd);
-				close(mdfd);
-				if (auto_assem) {
-					int usecs = 1;
-					/* There is a nasty race with 'mdadm --monitor'.
-					 * If it opens this device before we close it,
-					 * it gets an incomplete open on which IO
-					 * doesn't work and the capacity is
-					 * wrong.
-					 * If we reopen (to check for layered devices)
-					 * before --monitor closes, we loose.
-					 *
-					 * So: wait upto 1 second for there to be
-					 * a non-zero capacity.
-					 */
-					while (usecs < 1000) {
-						mdfd = open(mddev, O_RDONLY);
-						if (mdfd >= 0) {
-							unsigned long long size;
-							if (get_dev_size(mdfd, NULL, &size) &&
-							    size > 0)
-								break;
-							close(mdfd);
-						}
-						usleep(usecs);
-						usecs <<= 1;
-					}
-				}
-				free(devices);
-				return 0;
-			}
-			pr_err("failed to RUN_ARRAY %s: %s\n",
-				mddev, strerror(errno));
-
-			if (!enough(content->array.level, content->array.raid_disks,
-				    content->array.layout, 1, avail))
-				pr_err("Not enough devices to "
-					"start the array.\n");
-			else if (!enough(content->array.level,
-					 content->array.raid_disks,
-					 content->array.layout, clean,
-					 avail))
-				pr_err("Not enough devices to "
-					"start the array while not clean "
-					"- consider --force.\n");
-
-			if (auto_assem)
-				ioctl(mdfd, STOP_ARRAY, NULL);
-			close(mdfd);
-			free(devices);
-			map_unlock(&map);
-			return 1;
-		}
-		if (c->runstop == -1) {
-			pr_err("%s assembled from %d drive%s",
-			       mddev, okcnt, okcnt==1?"":"s");
-			if (okcnt != (unsigned)content->array.raid_disks)
-				fprintf(stderr, " (out of %d)", content->array.raid_disks);
-			fprintf(stderr, ", but not started.\n");
-			close(mdfd);
-			free(devices);
-			map_unlock(&map);
-			return 0;
-		}
-		if (c->verbose >= -1) {
-			pr_err("%s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
-			if (rebuilding_cnt)
-				fprintf(stderr, "%s %d rebuilding", sparecnt?", ":" and ", rebuilding_cnt);
-			if (sparecnt)
-				fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
-			if (!enough(content->array.level, content->array.raid_disks,
-				    content->array.layout, 1, avail))
-				fprintf(stderr, " - not enough to start the array.\n");
-			else if (!enough(content->array.level,
-					 content->array.raid_disks,
-					 content->array.layout, clean,
-					 avail))
-				fprintf(stderr, " - not enough to start the "
-					"array while not clean - consider "
-					"--force.\n");
-			else {
-				if (req_cnt == (unsigned)content->array.raid_disks)
-					fprintf(stderr, " - need all %d to start it", req_cnt);
-				else
-					fprintf(stderr, " - need %d of %d to start", req_cnt, content->array.raid_disks);
-				fprintf(stderr, " (use --run to insist).\n");
-			}
-		}
-		if (auto_assem)
+		rv = start_array(mdfd, mddev, content,
+				 st, ident, best, bestcnt,
+				 chosen_drive, devices, okcnt, sparecnt,
+				 rebuilding_cnt,
+				 c,
+				 clean, avail, start_partial_ok);
+		if (rv == 1 && !pre_exist)
 			ioctl(mdfd, STOP_ARRAY, NULL);
 		close(mdfd);
 		free(devices);
 		map_unlock(&map);
-		return 1;
+		if (rv == 0) {
+			wait_for(chosen_name, mdfd);
+			if (auto_assem) {
+				int usecs = 1;
+				/* There is a nasty race with 'mdadm --monitor'.
+				 * If it opens this device before we close it,
+				 * it gets an incomplete open on which IO
+				 * doesn't work and the capacity is
+				 * wrong.
+				 * If we reopen (to check for layered devices)
+				 * before --monitor closes, we loose.
+				 *
+				 * So: wait upto 1 second for there to be
+				 * a non-zero capacity.
+				 */
+				while (usecs < 1000) {
+					mdfd = open(mddev, O_RDONLY);
+					if (mdfd >= 0) {
+						unsigned long long size;
+						if (get_dev_size(mdfd, NULL, &size) &&
+						    size > 0)
+							break;
+						close(mdfd);
+					}
+					usleep(usecs);
+					usecs <<= 1;
+				}
+			}
+		}
+		/* '2' means 'OK, but not started yet' */
+		return rv == 2 ? 0 : rv;
 	} else {
 		/* The "chosen_drive" is a good choice, and if necessary, the superblock has
 		 * been updated to point to the current locations of devices.

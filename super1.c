@@ -461,6 +461,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 		role = 0xFFFF;
 	if (role >= 0xFFFE)
 		printf("spare\n");
+	else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_REPLACEMENT))
+		printf("Replacement device %d\n", role);
 	else
 		printf("Active device %d\n", role);
 
@@ -473,9 +475,14 @@ static void examine_super1(struct supertype *st, char *homehost)
 			if (role == d)
 				cnt++;
 		}
-		if (cnt > 1) printf("?");
-		else if (cnt == 1) printf("A");
-		else printf (".");
+		if (cnt == 2)
+			printf("R");
+		else if (cnt == 1)
+			printf("A");
+		else if (cnt == 0)
+			printf(".");
+		else
+			printf("?");
 	}
 #if 0
 	/* This is confusing too */
@@ -487,7 +494,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	}
 	if (faulty) printf(" %d failed", faulty);
 #endif
-	printf(" ('A' == active, '.' == missing)");
+	printf(" ('A' == active, '.' == missing, 'R' == replacing)");
 	printf("\n");
 }
 

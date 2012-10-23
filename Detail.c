@@ -239,7 +239,7 @@ int Detail(char *dev, struct context *c)
 		disks[d].number = disks[d].raid_disk = d;
 	}
 
-	next = array.raid_disks;
+	next = array.raid_disks*2;
 	for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		disk.number = d;
@@ -251,8 +251,12 @@ int Detail(char *dev, struct context *c)
 		}
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
-		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks)
-			disks[disk.raid_disk] = disk;
+		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
+		    && disks[disk.raid_disk*2].state == (1<<MD_DISK_REMOVED))
+			disks[disk.raid_disk*2] = disk;
+		else if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
+			 && disks[disk.raid_disk*2+1].state == (1<<MD_DISK_REMOVED))
+			disks[disk.raid_disk*2+1] = disk;
 		else if (next < max_disks)
 			disks[next++] = disk;
 	}
@@ -260,9 +264,9 @@ int Detail(char *dev, struct context *c)
 	avail = xcalloc(array.raid_disks, 1);
 
 	for (d= 0; d < array.raid_disks; d++) {
-		mdu_disk_info_t disk = disks[d];
 
-		if ((disk.state & (1<<MD_DISK_SYNC))) {
+		if ((disks[d*2].state & (1<<MD_DISK_SYNC)) ||
+		    (disks[d*2+1].state & (1<<MD_DISK_SYNC))) {
 			avail_disks ++;
 			avail[d] = 1;
 		}
@@ -525,12 +529,16 @@ This is pretty boring
 		char *dv;
 		mdu_disk_info_t disk = disks[d];
 
-		if (d >= array.raid_disks &&
+		if (d >= array.raid_disks*2 &&
+		    disk.major == 0 &&
+		    disk.minor == 0)
+			continue;
+		if ((d & 1) &&
 		    disk.major == 0 &&
 		    disk.minor == 0)
 			continue;
 		if (!c->brief) {
-			if (d == array.raid_disks) printf("\n");
+			if (d == array.raid_disks*2) printf("\n");
 			if (disk.raid_disk < 0)
 				printf("   %5d   %5d    %5d        -     ",
 				       disk.number, disk.major, disk.minor);

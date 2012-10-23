@@ -207,7 +207,10 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			char *ep;
 			if (cname[0] == 'd')
 				sp++;
-			num = strtoul(sp, &ep, 10);
+			if (isdigit(sp[0]))
+				num = strtoul(sp, &ep, 10);
+			else
+				ep = sp;
 			if (ep == sp || *ep || num < 0)
 				num = -1;
 			else if (cname[0] == 'd')

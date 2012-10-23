@@ -216,8 +216,9 @@ to detect and assemble arrays \(em possibly in an
 If a device is given before any options, or if the first option is
 .BR \-\-add ,
 .BR \-\-fail ,
-or
 .BR \-\-remove ,
+or
+.BR \-\-replace ,
 then the MANAGE mode is assumed.
 Anything other than these will cause the
 .B Misc
@@ -1283,7 +1284,7 @@ have already been marked as failed.
 
 .TP
 .BR \-f ", " \-\-fail
-mark listed devices as faulty.
+Mark listed devices as faulty.
 As well as the name of a device file, the word
 .B detached
 can be given.  This will cause any device that has been detached from
@@ -1293,6 +1294,25 @@ the system to be marked as failed.  It can then be removed.
 .BR \-\-set\-faulty
 same as
 .BR \-\-fail .
+
+.TP
+.B \-\-replace
+Mark listed devices as requiring replacement.  As soon as a spare is
+available, it will be rebuilt and will replace the marked device.
+This is similar to marking a device as faulty, but the device remains
+in service during the recovery process to increase resilience against
+multiple failures.  When the replacement process finishes, the
+replaced device will be marked as faulty.
+
+.TP
+.B \-\-with
+This can follow a list of
+.B \-\-replace
+devices.  The devices listed after
+.B \-\-with
+will be preferentially used to replace the devices listed after
+.BR \-\-replace .
+These device must already be spare devices in the array.
 
 .TP
 .BR \-\-write\-mostly

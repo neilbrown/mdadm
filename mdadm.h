@@ -312,6 +312,8 @@ enum special_options {
 	Add,
 	Remove,
 	Fail,
+	Replace,
+	With,
 	MiscOpt,
 	WaitOpt,
 	ConfigFile,
@@ -432,7 +434,7 @@ struct mddev_dev {
 				 * Not set for names read from .config
 				 */
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
-	char used;		/* set when used */
+	int used;		/* set when used */
 	long long data_offset;
 	struct mddev_dev *next;
 };

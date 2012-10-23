@@ -954,6 +954,111 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 	return 1;
 }
 
+int Manage_replace(struct supertype *tst, int fd, struct mddev_dev *dv,
+		   unsigned long rdev, int verbose, char *devname)
+{
+	struct mdinfo *mdi, *di;
+	if (tst->ss->external) {
+		pr_err("--replace only supported for native metadata (0.90 or 1.x)\n");
+		return -1;
+	}
+	/* Need to find the device in sysfs and add 'want_replacement' to the
+	 * status.
+	 */
+	mdi = sysfs_read(fd, -1, GET_DEVS);
+	if (!mdi || !mdi->devs) {
+		pr_err("Cannot find status of %s to enable replacement - strange\n",
+		       devname);
+		return -1;
+	}
+	for (di = mdi->devs; di; di = di->next)
+		if (di->disk.major == (int)major(rdev) &&
+		    di->disk.minor == (int)minor(rdev))
+			break;
+	if (di) {
+		int rv;
+		if (di->disk.raid_disk < 0) {
+			pr_err("%s is not active and so cannot be replaced.\n",
+			       dv->devname);
+			sysfs_free(mdi);
+			return -1;
+		}
+		rv = sysfs_set_str(mdi, di,
+				   "state", "want_replacement");
+		if (rv) {
+			sysfs_free(mdi);
+			pr_err("Failed to request replacement for %s\n",
+			       dv->devname);
+			return -1;
+		}
+		if (verbose >= 0)
+			pr_err("Marked %s (device %d in %s) for replacement\n",
+			       dv->devname, di->disk.raid_disk, devname);
+		/* If there is a matching 'with', we need to tell it which
+		 * raid disk
+		 */
+		while (dv && dv->disposition != 'W')
+			dv = dv->next;
+		if (dv) {
+			dv->disposition = 'w';
+			dv->used = di->disk.raid_disk;
+		}
+		return 1;
+	}
+	sysfs_free(mdi);
+	pr_err("%s not found in %s so cannot --replace it\n",
+	       dv->devname, devname);
+	return -1;
+}
+
+int Manage_with(struct supertype *tst, int fd, struct mddev_dev *dv,
+		unsigned long rdev, int verbose, char *devname)
+{
+	struct mdinfo *mdi, *di;
+	/* try to set 'slot' for 'rdev' in 'fd' to 'dv->used' */
+	mdi = sysfs_read(fd, -1, GET_DEVS|GET_STATE);
+	if (!mdi || !mdi->devs) {
+		pr_err("Cannot find status of %s to enable replacement - strange\n",
+		       devname);
+		return -1;
+	}
+	for (di = mdi->devs; di; di = di->next)
+		if (di->disk.major == (int)major(rdev) &&
+		    di->disk.minor == (int)minor(rdev))
+			break;
+	if (di) {
+		int rv;
+		if (di->disk.state & (1<<MD_DISK_FAULTY)) {
+			pr_err("%s is faulty and cannot be a replacement\n",
+			       dv->devname);
+			sysfs_free(mdi);
+			return -1;
+		}
+		if (di->disk.raid_disk >= 0) {
+			pr_err("%s is active and cannot be a replacement\n",
+			       dv->devname);
+			sysfs_free(mdi);
+			return -1;
+		}
+		rv = sysfs_set_num(mdi, di,
+				   "slot", dv->used);
+		if (rv) {
+			sysfs_free(mdi);
+			pr_err("Failed to %s as preferred replacement.\n",
+			       dv->devname);
+			return -1;
+		}
+		if (verbose >= 0)
+			pr_err("Marked %s in %s as replacement for device %d\n",
+			       dv->devname, devname, dv->used);
+		return 1;
+	}
+	sysfs_free(mdi);
+	pr_err("%s not found in %s so cannot make it preferred replacement\n",
+	       dv->devname, devname);
+	return -1;
+}
+
 int Manage_subdevs(char *devname, int fd,
 		   struct mddev_dev *devlist, int verbose, int test,
 		   char *update, int force)
@@ -970,6 +1075,16 @@ int Manage_subdevs(char *devname, int fd,
 	 *  'f' - set the device faulty SET_DISK_FAULTY
 	 *        device can be 'detached' in which case any device that
 	 *	  is inaccessible will be marked faulty.
+	 *  'R' - mark this device as wanting replacement.
+	 *  'W' - this device is added if necessary and activated as
+	 *        a replacement for a previous 'R' device.
+	 * -----
+	 *  'w' - 'W' will be changed to 'w' when it is paired with
+	 *        a 'R' device.  If a 'W' is found while walking the list
+	 *        it must be unpaired, and is an error.
+	 *  'M' - this is created by a 'missing' target.  It is a slight
+	 *        variant on 'A'
+	 *
 	 * For 'f' and 'r', the device can also be a kernel-internal
 	 * name such as 'sdb'.
 	 */
@@ -1208,6 +1323,38 @@ int Manage_subdevs(char *devname, int fd,
 			if (verbose >= 0)
 				pr_err("set %s faulty in %s\n",
 					dv->devname, devname);
+			break;
+		case 'R': /* Mark as replaceable */
+			if (subarray) {
+				pr_err("Cannot replace disks in a"
+					" \'member\' array, perform this"
+					" operation on the parent container\n");
+				rv = -1;
+			} else {
+				if (!frozen) {
+					if (sysfs_freeze_array(&info) == 1)
+						frozen = 1;
+					else
+						frozen = -1;
+				}
+				rv = Manage_replace(tst, fd, dv,
+						    stb.st_rdev, verbose,
+						    devname);
+			}
+			if (rv < 0)
+				goto abort;
+			if (rv > 0)
+				count++;
+			break;
+		case 'W': /* --with device that doesn't match */
+			pr_err("No matching --replace device for --with %s\n",
+			       dv->devname);
+			goto abort;
+		case 'w': /* --with device which was matched */
+			rv = Manage_with(tst, fd, dv,
+					 stb.st_rdev, verbose, devname);
+			if (rv < 0)
+				goto abort;
 			break;
 		}
 	}

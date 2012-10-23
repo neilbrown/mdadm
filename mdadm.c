@@ -195,6 +195,8 @@ int main(int argc, char *argv[])
 		case Add:
 		case 'r':
 		case Remove:
+		case Replace:
+		case With:
 		case 'f':
 		case Fail:
 		case ReAdd: /* re-add */
@@ -927,6 +929,18 @@ int main(int argc, char *argv[])
 					   * even though we will both fail and
 					   * remove the device */
 			devmode = 'f';
+			continue;
+		case O(MANAGE,Replace):
+			/* Mark these devices for replacement */
+			devmode = 'R';
+			continue;
+		case O(MANAGE,With):
+			/* These are the replacements to use */
+			if (devmode != 'R') {
+				pr_err("--with must follow --replace\n");
+				exit(2);
+			}
+			devmode = 'W';
 			continue;
 		case O(INCREMENTAL,'R'):
 		case O(MANAGE,'R'):

@@ -146,6 +146,8 @@ struct option long_options[] = {
     {"remove",    0, 0, Remove},
     {"fail",      0, 0, Fail},
     {"set-faulty",0, 0, Fail},
+    {"replace",   0, 0, Replace},
+    {"with",      0, 0, With},
     {"run",       0, 0, 'R'},
     {"stop",      0, 0, 'S'},
     {"readonly",  0, 0, 'o'},
@@ -309,6 +311,7 @@ char OptionHelp[] =
 "  --remove      -r   : remove subsequent devices\n"
 "  --fail        -f   : mark subsequent devices as faulty\n"
 "  --set-faulty       : same as --fail\n"
+"  --replace          : mark a device for replacement\n"
 "  --run         -R   : start a partially built array\n"
 "  --stop        -S   : deactivate array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"
@@ -462,6 +465,10 @@ char Help_manage[] =
 "  --remove      -r   : remove subsequent devices, which must not be active\n"
 "  --fail        -f   : mark subsequent devices a faulty\n"
 "  --set-faulty       : same as --fail\n"
+"  --replace          : mark device(s) to be replaced by spares.  Once\n"
+"                     : replacement completes, device will be marked faulty\n"
+"  --with             : Indicate which spare a previous '--replace' should\n"
+"                     : prefer to use\n"
 "  --run         -R   : start a partially built array\n"
 "  --stop        -S   : deactivate array, releasing all resources\n"
 "  --readonly    -o   : mark array as readonly\n"

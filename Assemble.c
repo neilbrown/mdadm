@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -135,7 +135,6 @@ static int select_devices(struct mddev_dev *devlist,
 			  struct mdinfo **contentp,
 			  struct context *c,
 			  int inargv, int auto_assem)
-
 {
 	struct mddev_dev *tmpdev;
 	int num_devs;
@@ -659,8 +658,9 @@ static int load_devices(struct devs *devices, char *devmap,
 		stat(devname, &stb);
 
 		if (c->verbose > 0)
-			pr_err("%s is identified as a member of %s, slot %d.\n",
-			       devname, mddev, content->disk.raid_disk);
+			pr_err("%s is identified as a member of %s, slot %d%s.\n",
+			       devname, mddev, content->disk.raid_disk,
+			       (content->disk.state & (1<<MD_DISK_REPLACEMENT)) ? " replacement":"");
 		devices[devcnt].devname = devname;
 		devices[devcnt].uptodate = 0;
 		devices[devcnt].included = (tmpdev->disposition == 'I');
@@ -678,11 +678,16 @@ static int load_devices(struct devs *devices, char *devmap,
 		else
 			i = devices[devcnt].i.disk.raid_disk;
 		if (i+1 == 0) {
-			if (nextspare < content->array.raid_disks)
-				nextspare = content->array.raid_disks;
+			if (nextspare < content->array.raid_disks*2)
+				nextspare = content->array.raid_disks*2;
 			i = nextspare++;
 		} else {
-			if (i >= content->array.raid_disks &&
+			/* i is raid_disk - double it so there is room for
+			 * replacements */
+			i *= 2;
+			if (devices[devcnt].i.disk.state & (1<<MD_DISK_REPLACEMENT))
+				i++;
+			if (i >= content->array.raid_disks*2 &&
 			    i >= nextspare)
 				nextspare = i+1;
 		}
@@ -913,23 +918,25 @@ static int start_array(int mdfd,
 				       devices[j].devname,
 				       mddev,
 				       strerror(errno));
-				if (i < content->array.raid_disks
+				if (i < content->array.raid_disks * 2
 				    || i == bestcnt)
 					okcnt--;
 				else
 					sparecnt--;
 			} else if (c->verbose > 0)
-				pr_err("added %s to %s as %d%s\n",
+				pr_err("added %s to %s as %d%s%s\n",
 				       devices[j].devname, mddev,
 				       devices[j].i.disk.raid_disk,
 				       devices[j].uptodate?"":
-				       " (possibly out of date)");
+				       " (possibly out of date)",
+				       (devices[j].i.disk.state & (1<<MD_DISK_REPLACEMENT))?" replacement":"");
 		} else if (j >= 0) {
 			if (c->verbose > 0)
 				pr_err("%s is already in %s as %d\n",
 				       devices[j].devname, mddev,
 				       devices[j].i.disk.raid_disk);
-		} else if (c->verbose > 0 && i < content->array.raid_disks)
+		} else if (c->verbose > 0 && i < content->array.raid_disks*2
+			   && (i&1) == 0)
 			pr_err("no uptodate device for slot %d of %s\n",
 			       i, mddev);
 	}
@@ -1063,7 +1070,7 @@ static int start_array(int mdfd,
 	if (c->verbose >= -1) {
 		pr_err("%s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
 		if (rebuilding_cnt)
-			fprintf(stderr, "%s %d rebuilding", sparecnt?", ":" and ", rebuilding_cnt);
+			fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
 		if (sparecnt)
 			fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
 		if (!enough(content->array.level, content->array.raid_disks,
@@ -1080,7 +1087,7 @@ static int start_array(int mdfd,
 			if (req_cnt == (unsigned)content->array.raid_disks)
 				fprintf(stderr, " - need all %d to start it", req_cnt);
 			else
-				fprintf(stderr, " - need %d of %d to start", req_cnt, content->array.raid_disks);
+				fprintf(stderr, " - need %d to start", req_cnt);
 			fprintf(stderr, " (use --run to insist).\n");
 		}
 	}
@@ -1157,7 +1164,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int *best = NULL; /* indexed by raid_disk */
 	int bestcnt = 0;
 	int devcnt;
-	unsigned int okcnt, sparecnt, rebuilding_cnt;
+	unsigned int okcnt, sparecnt, rebuilding_cnt, replcnt;
 	int i;
 	int most_recent = 0;
 	int chosen_drive;
@@ -1390,6 +1397,7 @@ try_again:
 	 */
 	avail = xcalloc(content->array.raid_disks, 1);
 	okcnt = 0;
+	replcnt = 0;
 	sparecnt=0;
 	rebuilding_cnt=0;
 	for (i=0; i< bestcnt; i++) {
@@ -1426,14 +1434,17 @@ try_again:
 		if (devices[j].i.events+event_margin >=
 		    devices[most_recent].i.events) {
 			devices[j].uptodate = 1;
-			if (i < content->array.raid_disks) {
+			if (i < content->array.raid_disks * 2) {
 				if (devices[j].i.recovery_start == MaxSector ||
 				    (content->reshape_active &&
 				     ((i >= content->array.raid_disks - content->delta_disks) ||
 				      (i >= content->array.raid_disks - content->delta_disks - 1
 				       && content->array.level == 4)))) {
-					okcnt++;
-					avail[i]=1;
+					if (!avail[i/2]) {
+						okcnt++;
+						avail[i/2]=1;
+					} else
+						replcnt++;
 				} else
 					rebuilding_cnt++;
 			} else
@@ -1497,10 +1508,12 @@ try_again:
 		int j = best[i];
 		unsigned int desired_state;
 
-		if (i < content->array.raid_disks)
-			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);
-		else
+		if (i >= content->array.raid_disks * 2)
 			desired_state = 0;
+		else if (i & 1)
+			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_REPLACEMENT);
+		else
+			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);
 
 		if (j<0)
 			continue;

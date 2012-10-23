@@ -766,6 +766,11 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	strncpy(info->name, sb->set_name, 32);
 	info->name[32] = 0;
 
+	if ((__le32_to_cpu(sb->feature_map)&MD_FEATURE_REPLACEMENT)) {
+		info->disk.state |=  1 << MD_DISK_REPLACEMENT;
+	}
+
+
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RECOVERY_OFFSET))
 		info->recovery_start = __le32_to_cpu(sb->recovery_offset);
 	else
@@ -847,7 +852,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	} else if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
 		int want;
-		if (info->disk.state == 6)
+		if (info->disk.state & (1<<MD_DISK_ACTIVE))
 			want = info->disk.raid_disk;
 		else
 			want = 0xFFFF;

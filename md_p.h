@@ -84,6 +84,8 @@
 				   * dire need
 				   */
 
+#define MD_DISK_REPLACEMENT	17
+
 typedef struct mdp_device_descriptor_s {
 	__u32 number;		/* 0 Device number in the entire set	      */
 	__u32 major;		/* 1 Device major number		      */

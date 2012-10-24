@@ -37,6 +37,7 @@ struct state {
 	int err;
 	char *spare_group;
 	int active, working, failed, spare, raid;
+	int from_config;
 	int expected_spares;
 	int devstate[MAX_DISKS];
 	dev_t devid[MAX_DISKS];
@@ -178,6 +179,7 @@ int Monitor(struct mddev_dev *devlist,
 			st->next = statelist;
 			st->devnum = INT_MAX;
 			st->percent = RESYNC_UNKNOWN;
+			st->from_config = 1;
 			st->expected_spares = mdlist->spare_disks;
 			if (mdlist->spare_group)
 				st->spare_group = xstrdup(mdlist->spare_group);
@@ -475,7 +477,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	 * have a device disappear than all of them that can
 	 */
 	if (array.level == 0 || array.level == -1) {
-		if (!st->err)
+		if (!st->err && !st->from_config)
 			alert("DeviceDisappeared", dev, "Wrong-Level", ainfo);
 		st->err = 1;
 		close(fd);

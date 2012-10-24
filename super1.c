@@ -767,6 +767,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->name[32] = 0;
 
 	if ((__le32_to_cpu(sb->feature_map)&MD_FEATURE_REPLACEMENT)) {
+		info->disk.state &= ~(1 << MD_DISK_SYNC);
 		info->disk.state |=  1 << MD_DISK_REPLACEMENT;
 	}
 

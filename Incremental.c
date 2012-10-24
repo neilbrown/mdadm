@@ -641,6 +641,7 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 	/* count how many devices in sra think they are active */
 	struct mdinfo *d;
 	int cnt = 0;
+	int replcnt = 0;
 	__u64 max_events = 0;
 	char *avail = NULL;
 	int *best = NULL;
@@ -716,7 +717,8 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 				best[info.disk.raid_disk] = devnum;
 				st->ss->getinfo_super(st, bestinfo, NULL);
 			}
-		}
+		} else if (info.disk.state & (1<<MD_DISK_REPLACEMENT))
+			replcnt++;
 		st->ss->free_super(st);
 	}
 	if (!avail)
@@ -743,7 +745,7 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 	}
 	free(best);
 	free(devmap);
-	return cnt;
+	return cnt + replcnt;
 }
 
 /* test if container has degraded member(s) */

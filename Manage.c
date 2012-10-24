@@ -1205,10 +1205,22 @@ int Manage_subdevs(char *devname, int fd,
 				}
 			}
 		} else {
+			if (stat(dv->devname, &stb) != 0) {
+				pr_err("Cannot find %s: %s\n",
+				       dv->devname, strerror(errno));
+				goto abort;
+			}
+			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
+				if (dv->disposition == 'M')
+					/* non-fatal. Also improbable */
+					continue;
+				pr_err("%s is not a block device.\n",
+					dv->devname);
+				goto abort;
+			}
 			tfd = dev_open(dv->devname, O_RDONLY);
-			if (tfd < 0 && dv->disposition == 'r' &&
-			    lstat(dv->devname, &stb) == 0)
-				/* Be happy, the lstat worked, that is
+			if (tfd < 0 && dv->disposition == 'r')
+				/* Be happy, the stat worked, that is
 				 * enough for --remove
 				 */
 				;
@@ -1219,21 +1231,12 @@ int Manage_subdevs(char *devname, int fd,
 					if (dv->disposition == 'M')
 						/* non-fatal */
 						continue;
-					pr_err("cannot find %s: %s\n",
+					pr_err("Cannot open %s: %s\n",
 						dv->devname, strerror(errno));
 					goto abort;
 				}
 				close(tfd);
 				tfd = -1;
-			}
-			if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-				if (dv->disposition == 'M')
-					/* non-fatal. Also improbable */
-					continue;
-				pr_err("%s is not a "
-					"block device.\n",
-					dv->devname);
-				goto abort;
 			}
 		}
 		switch(dv->disposition){

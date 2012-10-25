@@ -89,9 +89,13 @@ int Query(char *dev)
 	close(fd);
 	if (superror == 0) {
 		/* array might be active... */
+		int uuid[4];
+		struct map_ent *me, *map = NULL;
 		st->ss->getinfo_super(st, &info, NULL);
-		if (st->ss == &super0) {
-			mddev = get_md_name(info.array.md_minor);
+		st->ss->uuid_from_super(st, uuid);
+		me = map_by_uuid(&map, uuid);
+		if (me) {
+			mddev = me->path;
 			disc.number = info.disk.number;
 			activity = "undetected";
 			if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
@@ -106,7 +110,7 @@ int Query(char *dev)
 				close(fd);
 			}
 		} else {
-			activity = "unknown";
+			activity = "inactive";
 			mddev = "array";
 		}
 		printf("%s: device %d in %d device %s %s %s.  Use mdadm --examine for more detail.\n",

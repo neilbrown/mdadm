@@ -82,7 +82,7 @@ int Query(char *dev)
 		       array.spare_disks, array.spare_disks==1?"":"s");
 	}
 	st = guess_super(fd);
-	if (st)
+	if (st && st->ss->compare_super != NULL)
 		superror = st->ss->load_super(st, fd, dev);
 	else
 		superror = -1;

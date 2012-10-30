@@ -1281,7 +1281,9 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				return "Cannot set raid_disk when "
 					"converting RAID5->RAID1";
 			re->level = 1;
-			break;
+			re->backup_blocks = 0;
+			info->new_chunk = 0;
+			return NULL;
 		default:
 			return "Impossible level change requested";
 		}

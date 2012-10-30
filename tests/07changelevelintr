@@ -48,13 +48,13 @@ mdadm -G $md0 --layout rs --backup-file=$bu
 restart
 checkgeo md0 raid5 5 $[128*1024] 3
 
-mdadm -G $md0 --array-size 59136
+mdadm -G $md0 --array-size 58368
 mdadm -G $md0 --raid-disks 4 -c 64 --backup-file=$bu
 restart
 checkgeo md0 raid5 4 $[64*1024] 3
 
 devs="$dev0 $dev1 $dev2 $dev3"
-mdadm -G $md0 --array-size 19712
+mdadm -G $md0 --array-size 19456
 mdadm -G $md0 -n 2 -c 256 --backup-file=$bu
 restart
 checkgeo md0 raid5 2 $[256*1024] 3

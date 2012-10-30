@@ -127,6 +127,8 @@ int Incremental(char *devname, struct context *c,
 	if (must_be_container(dfd)) {
 		if (!st)
 			st = super_by_fd(dfd, NULL);
+		if (st)
+			st->ignore_hw_compat = 1;
 		if (st && st->ss->load_container)
 			rv = st->ss->load_container(st, dfd, NULL);
 
@@ -185,6 +187,7 @@ int Incremental(char *devname, struct context *c,
 			       st, c->verbose);
 		goto out;
 	}
+	st->ignore_hw_compat = 1;
 	if (st->ss->compare_super == NULL ||
 	    st->ss->load_super(st, dfd, NULL)) {
 		if (c->verbose >= 0)

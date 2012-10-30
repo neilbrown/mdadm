@@ -559,8 +559,8 @@ int check_raid(int fd, char *name)
 	char *level;
 	struct supertype *st = guess_super(fd);
 
-	if (!st) return 0;
-	st->ignore_hw_compat = 1;
+	if (!st)
+		return 0;
 	st->ss->load_super(st, fd, name);
 	/* Looks like a raid array .. */
 	pr_err("%s appears to be part of a raid array:\n",
@@ -1077,6 +1077,7 @@ struct supertype *dup_super(struct supertype *orig)
 	st->ss = orig->ss;
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
+	st->ignore_hw_compat = orig->ignore_hw_compat;
 	st->sb = NULL;
 	st->info = NULL;
 	return st;
@@ -1124,7 +1125,6 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 		rv = superlist[bestsuper]->load_super(st, fd, NULL);
 		if (rv == 0) {
 			superlist[bestsuper]->free_super(st);
-			st->ignore_hw_compat = 0;
 			return st;
 		}
 	}

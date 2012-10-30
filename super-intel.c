@@ -3069,10 +3069,11 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	}
 	/* in platform dependent environment test if the disks
 	 * use the same Intel hba
+	 * If not on Intel hba at all, allow anything.
 	 */
 	if (!check_env("IMSM_NO_PLATFORM")) {
-		if (!first->hba || !sec->hba ||
-		    (first->hba->type != sec->hba->type))  {
+		if (first->hba && sec->hba &&
+		    first->hba->type != sec->hba->type) {
 			fprintf(stderr,
 				"HBAs of devices does not match %s != %s\n",
 				first->hba ? get_sys_dev_type(first->hba->type) : NULL,
@@ -4326,7 +4327,6 @@ static int get_super_block(struct intel_super **super_list, int devnum, char *de
 	struct intel_super*s = NULL;
 	char nm[32];
 	int dfd = -1;
-	int rv;
 	int err = 0;
 	int retry;
 
@@ -4343,13 +4343,7 @@ static int get_super_block(struct intel_super **super_list, int devnum, char *de
 		goto error;
 	}
 
-	rv = find_intel_hba_capability(dfd, s, devname);
-	/* no orom/efi or non-intel hba of the disk */
-	if (rv != 0) {
-		err = 4;
-		goto error;
-	}
-
+	find_intel_hba_capability(dfd, s, devname);
 	err = load_and_parse_mpb(dfd, s, NULL, keep_fd);
 
 	/* retry the load if we might have raced against mdmon */

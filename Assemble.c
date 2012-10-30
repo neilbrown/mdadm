@@ -1219,6 +1219,8 @@ try_again:
 		       mddev ? mddev : "further assembly");
 
 	content = &info;
+	if (st)
+		st->ignore_hw_compat = 1;
 	num_devs = select_devices(devlist, ident, &st, &content, c,
 				  inargv, auto_assem);
 	if (num_devs < 0)

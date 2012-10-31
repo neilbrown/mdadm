@@ -1654,11 +1654,11 @@ try_again:
 			 clean, avail, start_partial_ok);
 	if (rv == 1 && !pre_exist)
 		ioctl(mdfd, STOP_ARRAY, NULL);
-	close(mdfd);
 	free(devices);
 	map_unlock(&map);
 	if (rv == 0) {
 		wait_for(chosen_name, mdfd);
+		close(mdfd);
 		if (auto_assem) {
 			int usecs = 1;
 			/* There is a nasty race with 'mdadm --monitor'.
@@ -1685,7 +1685,9 @@ try_again:
 				usecs <<= 1;
 			}
 		}
-	}
+	} else
+		close(mdfd);
+
 	/* '2' means 'OK, but not started yet' */
 	return rv == 2 ? 0 : rv;
 }

@@ -1595,8 +1595,8 @@ try_again:
 			pr_err(":%s has an active reshape - checking "
 			       "if critical section needs to be restored\n",
 			       chosen_name);
-		for (i=0; i<bestcnt; i++) {
-			int j = best[i];
+		for (i = 0; i < bestcnt/2; i++) {
+			int j = best[i*2];
 			if (j >= 0) {
 				fdlist[i] = dev_open(devices[j].devname,
 						     devices[j].included
@@ -1614,7 +1614,7 @@ try_again:
 			if (st->ss->external && st->ss->recover_backup)
 				err = st->ss->recover_backup(st, content);
 			else
-				err = Grow_restart(st, content, fdlist, bestcnt,
+				err = Grow_restart(st, content, fdlist, bestcnt/2,
 						   c->backup_file, c->verbose > 0);
 			if (err && c->invalid_backup) {
 				if (c->verbose > 0)

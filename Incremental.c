@@ -317,7 +317,7 @@ int Incremental(char *devname, struct context *c,
 		dinfo.disk.major = major(stb.st_rdev);
 		dinfo.disk.minor = minor(stb.st_rdev);
 		if (add_disk(mdfd, st, &info, &dinfo) != 0) {
-			pr_err("failed to add %s to %s: %s.\n",
+			pr_err("failed to add %s to new array %s: %s.\n",
 				devname, chosen_name, strerror(errno));
 			ioctl(mdfd, STOP_ARRAY, 0);
 			rv = 2;
@@ -433,8 +433,20 @@ int Incremental(char *devname, struct context *c,
 				    info.events, c->verbose, chosen_name);
 			err = add_disk(mdfd, st, sra, &info);
 		}
+		if (err < 0 && errno == EINVAL &&
+		    info.disk.state & (1<<MD_DISK_SYNC)) {
+			/* Maybe it needs to be added as a spare */
+			if (policy_action_allows(policy, st->ss->name,
+						 act_force_spare)) {
+				info.disk.state &= ~(1<<MD_DISK_SYNC);
+				err = add_disk(mdfd, st, sra, &info);
+			} else
+				if (c->verbose >= 0)
+					pr_err("can only add %s to %s as a spare, and force-spare is not set.\n",
+					       devname, chosen_name);
+		}
 		if (err < 0) {
-			pr_err("failed to add %s to %s: %s.\n",
+			pr_err("failed to add %s to existing array %s: %s.\n",
 				devname, chosen_name, strerror(errno));
 			rv = 2;
 			goto out_unlock;

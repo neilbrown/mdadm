@@ -3,6 +3,11 @@
 # Create a 4 disk raid5, create a filesystem and
 # sha1sum it with each device failed
 
+if [ "$INTEGRITY" != "yes" ]; then
+  echo -ne 'skipping... '
+  exit 0
+fi
+
 for layout in ls rs la ra
 do
   mdadm -CR $md0 -l5 --layout $layout -n4 $dev0 $dev1 $dev2 $dev3

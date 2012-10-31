@@ -3,6 +3,11 @@
 # Create a 5 disk raid6, dump some data to it, then
 # sha1sum it with different pairs of devices failed
 
+if [ "$INTEGRITY" != "yes" ]; then
+  echo -ne 'skipping... '
+  exit 0
+fi
+
 layouts='ls rs la ra'
 lv=`uname -r`
 if expr $lv '>=' 2.6.30 > /dev/null

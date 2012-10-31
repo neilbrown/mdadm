@@ -26,6 +26,7 @@ modprobe multipath 2> /dev/null
 if grep -s 'Personalities : .*multipath' > /dev/null /proc/mdstat ; then
     MULTIPATH="yes"
 fi
+INTEGRITY=yes
 
 # assume md0, md1, md2 exist in /dev
 md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
@@ -254,6 +255,7 @@ do_help() {
   echo " Options:"
   echo "    --tests=<test1,test2,..>    Comma separated list of tests to run"
   echo "    --disable-multipath         Disable any tests involving multipath"
+  echo "    --disable-integrity         Disable slow tests of RAID[56] consistency"
   echo "    --logdir=<directory>        Directory to save logfiles in"
   echo "    --save-logs                 Save all logs in <logdir>"
   echo "    --keep-going                Don't stop on error, ie. run all tests"
@@ -298,6 +300,9 @@ parse_args() {
       ;;
     --disable-multipath)
       unset MULTIPATH
+      ;;
+    --disable-integrity)
+      unset INTEGRITY
       ;;
     --help)
       do_help

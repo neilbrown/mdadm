@@ -448,7 +448,7 @@ typedef struct mapping {
 
 struct mdstat_ent {
 	char		*dev;
-	int		devnum;
+	char		devnm[32];
 	int		active;
 	char		*level;
 	char		*pattern; /* U or up, _ for down */
@@ -468,30 +468,30 @@ extern struct mdstat_ent *mdstat_read(int hold, int start);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
 extern void mdstat_wait_fd(int fd, const sigset_t *sigmask);
-extern int mddev_busy(int devnum);
+extern int mddev_busy(char *devnm);
 extern struct mdstat_ent *mdstat_by_component(char *name);
-extern struct mdstat_ent *mdstat_by_subdev(char *subdev, int container);
+extern struct mdstat_ent *mdstat_by_subdev(char *subdev, char *container);
 
 struct map_ent {
 	struct map_ent *next;
-	int	devnum;
+	char	devnm[32];
 	char	metadata[20];
 	int	uuid[4];
 	int	bad;
 	char	*path;
 };
-extern int map_update(struct map_ent **mpp, int devnum, char *metadata,
+extern int map_update(struct map_ent **mpp, char *devnm, char *metadata,
 		      int uuid[4], char *path);
-extern void map_remove(struct map_ent **map, int devnum);
+extern void map_remove(struct map_ent **map, char *devnm);
 extern struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4]);
-extern struct map_ent *map_by_devnum(struct map_ent **map, int devnum);
+extern struct map_ent *map_by_devnm(struct map_ent **map, char *devnm);
 extern struct map_ent *map_by_name(struct map_ent **map, char *name);
 extern void map_read(struct map_ent **melp);
 extern int map_write(struct map_ent *mel);
-extern void map_delete(struct map_ent **mapp, int devnum);
+extern void map_delete(struct map_ent **mapp, char *devnm);
 extern void map_free(struct map_ent *map);
 extern void map_add(struct map_ent **melp,
-		    int devnum, char *metadata, int uuid[4], char *path);
+		    char *devnm, char *metadata, int uuid[4], char *path);
 extern int map_lock(struct map_ent **melp);
 extern void map_unlock(struct map_ent **melp);
 extern void map_fork(void);
@@ -518,12 +518,12 @@ enum sysfs_read_flags {
 };
 
 /* If fd >= 0, get the array it is open on,
- * else use devnum. >=0 -> major9. <0.....
+ * else use devnm.
  */
-extern int sysfs_open(int devnum, char *devname, char *attr);
-extern void sysfs_init(struct mdinfo *mdi, int fd, int devnum);
+extern int sysfs_open(char *devnm, char *devname, char *attr);
+extern void sysfs_init(struct mdinfo *mdi, int fd, char *devnm);
 extern void sysfs_free(struct mdinfo *sra);
-extern struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options);
+extern struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options);
 extern int sysfs_attr_match(const char *attr, const char *str);
 extern int sysfs_match_word(const char *word, char **list);
 extern int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
@@ -547,7 +547,7 @@ extern int sysfs_set_safemode(struct mdinfo *sra, unsigned long ms);
 extern int sysfs_set_array(struct mdinfo *info, int vers);
 extern int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume);
 extern int sysfs_disk_to_scsi_id(int fd, __u32 *id);
-extern int sysfs_unique_holder(int devnum, long rdev);
+extern int sysfs_unique_holder(char *devnm, long rdev);
 extern int sysfs_freeze_array(struct mdinfo *sra);
 extern int load_sys(char *path, char *buf);
 extern int reshape_prepare_fdlist(char *devname,
@@ -925,7 +925,7 @@ struct supertype {
 	struct superswitch *ss;
 	int minor_version;
 	int max_devs;
-	int container_dev;    /* devnum of container */
+	char container_devnm[32];    /* devnm of container */
 	void *sb;
 	void *info;
 	int ignore_hw_compat; /* used to inform metadata handlers that it should ignore
@@ -939,10 +939,9 @@ struct supertype {
 	/* extra stuff used by mdmon */
 	struct active_array *arrays;
 	int sock; /* listen to external programs */
-	int devnum;
-	char *devname; /* e.g. md0.  This appears in metadata_verison:
-			*  external:/md0/12
-			*/
+	char devnm[32]; /* e.g. md0.  This appears in metadata_version:
+			 *  external:/md0/12
+			 */
 	int devcnt;
 	int retry_soon;
 
@@ -1017,7 +1016,7 @@ extern void policy_free(void);
 
 extern struct dev_policy *path_policy(char *path, char *type);
 extern struct dev_policy *disk_policy(struct mdinfo *disk);
-extern struct dev_policy *devnum_policy(int dev);
+extern struct dev_policy *devid_policy(int devid);
 extern void dev_policy_free(struct dev_policy *p);
 
 //extern void pol_new(struct dev_policy **pol, char *name, char *val, char *metadata);
@@ -1049,7 +1048,7 @@ extern int domain_test(struct domainlist *dom, struct dev_policy *pol,
 		       const char *metadata);
 extern struct domainlist *domain_from_array(struct mdinfo *mdi,
 					    const char *metadata);
-extern void domainlist_add_dev(struct domainlist **dom, int devnum,
+extern void domainlist_add_dev(struct domainlist **dom, int devid,
 			       const char *metadata);
 extern void domain_free(struct domainlist *dl);
 extern void domain_merge(struct domainlist **domp, struct dev_policy *pol,
@@ -1195,9 +1194,9 @@ extern int check_partitions(int fd, char *dname,
 
 extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
-extern int open_dev(int devnum);
-extern int open_dev_flags(int devnum, int flags);
-extern int open_dev_excl(int devnum);
+extern int open_dev(char *devnm);
+extern int open_dev_flags(char *devnm, int flags);
+extern int open_dev_excl(char *devnm);
 extern int is_standard(char *dev, int *nump);
 extern int same_dev(char *one, char *two);
 extern int compare_paths (char* path1,char* path2);
@@ -1271,11 +1270,12 @@ extern char *human_size(long long bytes);
 extern char *human_size_brief(long long bytes, int prefix);
 extern void print_r10_layout(int layout);
 
-#define NoMdDev (1<<23)
-extern int find_free_devnum(int use_partitions);
+extern char *find_free_devnm(int use_partitions);
 
 extern void put_md_name(char *name);
-extern char *get_md_name(int dev);
+extern char *devid2devnm(int devid);
+extern int devnm2devid(char *devnm);
+extern char *get_md_name(char *devnm);
 
 extern char DefaultConfFile[];
 
@@ -1288,16 +1288,18 @@ extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
 #define	METADATA 3
 extern int open_mddev(char *dev, int report_errors);
 extern int open_container(int fd);
+extern int metadata_container_matches(char *metadata, char *devnm);
+extern int metadata_subdev_matches(char *metadata, char *devnm);
 extern int is_container_member(struct mdstat_ent *ent, char *devname);
 extern int is_subarray_active(char *subarray, char *devname);
 extern int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet);
 extern struct superswitch *version_to_superswitch(char *vers);
 
-extern int mdmon_running(int devnum);
-extern int mdmon_pid(int devnum);
+extern int mdmon_running(char *devnm);
+extern int mdmon_pid(char *devnm);
 extern int check_env(char *name);
 extern __u32 random32(void);
-extern int start_mdmon(int devnum);
+extern int start_mdmon(char *devnm);
 
 extern int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			 struct supertype *st, unsigned long stripes,
@@ -1305,26 +1307,9 @@ extern int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			 int dests, int *destfd, unsigned long long *destoffsets);
 void abort_reshape(struct mdinfo *sra);
 
-extern char *devnum2devname(int num);
 extern void fmt_devname(char *name, int num);
-extern int devname2devnum(char *name);
-extern int stat2devnum(struct stat *st);
-extern int fd2devnum(int fd);
-
-static inline int dev2major(int d)
-{
-	if (d >= 0)
-		return MD_MAJOR;
-	else
-		return get_mdp_major();
-}
-
-static inline int dev2minor(int d)
-{
-	if (d >= 0)
-		return d;
-	return (-1-d) << MdpMinorShift;
-}
+extern char *stat2devnm(struct stat *st);
+extern char *fd2devnm(int fd);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))

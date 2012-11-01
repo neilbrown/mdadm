@@ -953,7 +953,7 @@ static struct supertype *match_metadata_desc0(char *arg)
 {
 	struct supertype *st = xcalloc(1, sizeof(*st));
 
-	st->container_dev = NoMdDev;
+	st->container_devnm[0] = 0;
 	st->ss = &super0;
 	st->info = NULL;
 	st->minor_version = 90;

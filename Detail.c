@@ -88,7 +88,7 @@ int Detail(char *dev, struct context *c)
 		close(fd);
 		return rv;
 	}
-	sra = sysfs_read(fd, 0, GET_VERSION);
+	sra = sysfs_read(fd, NULL, GET_VERSION);
 	st = super_by_fd(fd, &subarray);
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
@@ -102,10 +102,11 @@ int Detail(char *dev, struct context *c)
 		/* This is a subarray of some container.
 		 * We want the name of the container, and the member
 		 */
-		int dn = st->container_dev;
+		int devid = devnm2devid(st->container_devnm);
 
 		member = subarray;
-		container = map_dev_preferred(dev2major(dn), dev2minor(dn), 1, c->prefer);
+		container = map_dev_preferred(major(devid), minor(devid),
+					      1, c->prefer);
 	}
 
 	/* try to load a superblock */
@@ -217,7 +218,7 @@ int Detail(char *dev, struct context *c)
 		} else {
 			struct map_ent *mp, *map = NULL;
 			char nbuf[64];
-			mp = map_by_devnum(&map, fd2devnum(fd));
+			mp = map_by_devnm(&map, fd2devnm(fd));
 			if (mp) {
 				__fname_from_uuid(mp->uuid, 0, nbuf, ':');
 				printf("MD_UUID=%s\n", nbuf+5);
@@ -306,12 +307,11 @@ int Detail(char *dev, struct context *c)
 		unsigned long long larray_size;
 		struct mdstat_ent *ms = mdstat_read(0, 0);
 		struct mdstat_ent *e;
-		int devnum = array.md_minor;
-		if (major(stb.st_rdev) == (unsigned)get_mdp_major())
-			devnum = -1 - devnum;
+		char *devnm;
 
+		devnm = stat2devnm(&stb);
 		for (e=ms; e; e=e->next)
-			if (e->devnum == devnum)
+			if (strcmp(e->devnm, devnm) == 0)
 				break;
 		if (!get_dev_size(fd, NULL, &larray_size))
 			larray_size = 0;
@@ -498,7 +498,7 @@ This is pretty boring
 				char path[200];
 				char vbuf[1024];
 				int nlen = strlen(sra->sys_name);
-				int dn;
+				int devid;
 				if (de->d_name[0] == '.')
 					continue;
 				sprintf(path, "/sys/block/%s/md/metadata_version",
@@ -510,10 +510,10 @@ This is pretty boring
 				    strncmp(vbuf+10, sra->sys_name, nlen) != 0 ||
 				    vbuf[10+nlen] != '/')
 					continue;
-				dn = devname2devnum(de->d_name);
+				devid = devnm2devid(de->d_name);
 				printf(" %s", map_dev_preferred(
-					       dev2major(dn),
-					       dev2minor(dn), 1, c->prefer));
+					       major(devid),
+					       minor(devid), 1, c->prefer));
 			}
 			if (dir)
 				closedir(dir);

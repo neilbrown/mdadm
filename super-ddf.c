@@ -884,7 +884,6 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 		return NULL;
 
 	st = xcalloc(1, sizeof(*st));
-	st->container_dev = NoMdDev;
 	st->ss = &super_ddf;
 	st->max_devs = 512;
 	st->minor_version = 0;
@@ -1451,7 +1450,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
 	sprintf(info->text_version, "/%s/%d",
-		devnum2devname(st->container_dev),
+		st->container_devnm,
 		info->container_member);
 	info->safe_mode_delay = 200;
 
@@ -2676,7 +2675,7 @@ static int validate_geometry_ddf(struct supertype *st,
 	 */
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {
-		sra = sysfs_read(fd, 0, GET_VERSION);
+		sra = sysfs_read(fd, NULL, GET_VERSION);
 		close(fd);
 		if (sra && sra->array.major_version == -1 &&
 		    strcmp(sra->text_version, "ddf") == 0) {
@@ -2708,7 +2707,7 @@ static int validate_geometry_ddf(struct supertype *st,
 			       dev, strerror(EBUSY));
 		return 0;
 	}
-	sra = sysfs_read(cfd, 0, GET_VERSION);
+	sra = sysfs_read(cfd, NULL, GET_VERSION);
 	close(fd);
 	if (sra && sra->array.major_version == -1 &&
 	    strcmp(sra->text_version, "ddf") == 0) {
@@ -2718,7 +2717,7 @@ static int validate_geometry_ddf(struct supertype *st,
 		struct ddf_super *ddf;
 		if (load_super_ddf_all(st, cfd, (void **)&ddf, NULL) == 0) {
 			st->sb = ddf;
-			st->container_dev = fd2devnum(cfd);
+			strcpy(st->container_devnm, fd2devnm(cfd));
 			close(cfd);
 			return validate_geometry_ddf_bvd(st, level, layout,
 							 raiddisks, chunk, size,
@@ -2937,7 +2936,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 		st->minor_version = 0;
 		st->max_devs = 512;
 	}
-	st->container_dev = fd2devnum(fd);
+	strcpy(st->container_devnm, fd2devnm(fd));
 	return 0;
 }
 
@@ -3020,8 +3019,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		ddf->currentconf = NULL;
 
 		sprintf(this->text_version, "/%s/%d",
-			devnum2devname(st->container_dev),
-			this->container_member);
+			st->container_devnm, this->container_member);
 
 		for (i = 0 ; i < ddf->mppe ; i++) {
 			struct mdinfo *dev;

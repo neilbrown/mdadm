@@ -277,13 +277,12 @@ void usage(void)
 	exit(2);
 }
 
-static int mdmon(char *devname, int devnum, int must_fork, int takeover);
+static int mdmon(char *devnm, int must_fork, int takeover);
 
 int main(int argc, char *argv[])
 {
 	char *container_name = NULL;
-	int devnum;
-	char *devname;
+	char *devnm = NULL;
 	int status = 0;
 	int opt;
 	int all = 0;
@@ -349,47 +348,39 @@ int main(int argc, char *argv[])
 			if (e->metadata_version &&
 			    strncmp(e->metadata_version, "external:", 9) == 0 &&
 			    !is_subarray(&e->metadata_version[9])) {
-				devname = devnum2devname(e->devnum);
 				/* update cmdline so this mdmon instance can be
 				 * distinguished from others in a call to ps(1)
 				 */
-				if (strlen(devname) <= (unsigned)container_len) {
+				if (strlen(e->devnm) <= (unsigned)container_len) {
 					memset(container_name, 0, container_len);
-					sprintf(container_name, "%s", devname);
+					sprintf(container_name, "%s", e->devnm);
 				}
-				status |= mdmon(devname, e->devnum, 1,
-						takeover);
+				status |= mdmon(e->devnm, 1, takeover);
 			}
 		}
 		free_mdstat(mdstat);
 
 		return status;
 	} else if (strncmp(container_name, "md", 2) == 0) {
-		devnum = devname2devnum(container_name);
-		devname = devnum2devname(devnum);
-		if (strcmp(container_name, devname) != 0)
-			devname = NULL;
+		int id = devnm2devid(container_name);
+		if (id)
+			devnm = container_name;
 	} else {
 		struct stat st;
 
-		devnum = NoMdDev;
 		if (stat(container_name, &st) == 0)
-			devnum = stat2devnum(&st);
-		if (devnum == NoMdDev)
-			devname = NULL;
-		else
-			devname = devnum2devname(devnum);
+			devnm = xstrdup(stat2devnm(&st));
 	}
 
-	if (!devname) {
+	if (!devnm) {
 		fprintf(stderr, "mdmon: %s is not a valid md device name\n",
 			container_name);
 		exit(1);
 	}
-	return mdmon(devname, devnum, dofork && do_fork(), takeover);
+	return mdmon(devnm, dofork && do_fork(), takeover);
 }
 
-static int mdmon(char *devname, int devnum, int must_fork, int takeover)
+static int mdmon(char *devnm, int must_fork, int takeover)
 {
 	int mdfd;
 	struct mdinfo *mdi, *di;
@@ -402,17 +393,17 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	pid_t victim = -1;
 	int victim_sock = -1;
 
-	dprintf("starting mdmon for %s\n", devname);
+	dprintf("starting mdmon for %s\n", devnm);
 
-	mdfd = open_dev(devnum);
+	mdfd = open_dev(devnm);
 	if (mdfd < 0) {
-		fprintf(stderr, "mdmon: %s: %s\n", devname,
+		fprintf(stderr, "mdmon: %s: %s\n", devnm,
 			strerror(errno));
 		return 1;
 	}
 	if (md_get_version(mdfd) < 0) {
 		fprintf(stderr, "mdmon: %s: Not an md device\n",
-			devname);
+			devnm);
 		return 1;
 	}
 
@@ -442,39 +433,33 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 		pfd[0] = pfd[1] = -1;
 
 	container = xcalloc(1, sizeof(*container));
-	container->devnum = devnum;
-	container->devname = devname;
+	strcpy(container->devnm, devnm);
 	container->arrays = NULL;
 	container->sock = -1;
 
-	if (!container->devname) {
-		fprintf(stderr, "mdmon: failed to allocate container name string\n");
-		exit(3);
-	}
-
-	mdi = sysfs_read(mdfd, container->devnum, GET_VERSION|GET_LEVEL|GET_DEVS);
+	mdi = sysfs_read(mdfd, container->devnm, GET_VERSION|GET_LEVEL|GET_DEVS);
 
 	if (!mdi) {
 		fprintf(stderr, "mdmon: failed to load sysfs info for %s\n",
-			container->devname);
+			container->devnm);
 		exit(3);
 	}
 	if (mdi->array.level != UnSet) {
 		fprintf(stderr, "mdmon: %s is not a container - cannot monitor\n",
-			devname);
+			devnm);
 		exit(3);
 	}
 	if (mdi->array.major_version != -1 ||
 	    mdi->array.minor_version != -2) {
 		fprintf(stderr, "mdmon: %s does not use external metadata - cannot monitor\n",
-			devname);
+			devnm);
 		exit(3);
 	}
 
 	container->ss = version_to_superswitch(mdi->text_version);
 	if (container->ss == NULL) {
 		fprintf(stderr, "mdmon: %s uses unsupported metadata: %s\n",
-			devname, mdi->text_version);
+			devnm, mdi->text_version);
 		exit(3);
 	}
 
@@ -502,23 +487,23 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	act.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &act, NULL);
 
-	victim = mdmon_pid(container->devnum);
+	victim = mdmon_pid(container->devnm);
 	if (victim >= 0)
-		victim_sock = connect_monitor(container->devname);
+		victim_sock = connect_monitor(container->devnm);
 
 	ignore = chdir("/");
 	if (!takeover && victim > 0 && victim_sock >= 0) {
 		if (fping_monitor(victim_sock) == 0) {
 			fprintf(stderr, "mdmon: %s already managed\n",
-				container->devname);
+				container->devnm);
 			exit(3);
 		}
 		close(victim_sock);
 		victim_sock = -1;
 	}
-	if (container->ss->load_container(container, mdfd, devname)) {
+	if (container->ss->load_container(container, mdfd, devnm)) {
 		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",
-			devname);
+			devnm);
 		exit(3);
 	}
 	close(mdfd);
@@ -526,11 +511,11 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	/* Ok, this is close enough.  We can say goodbye to our parent now.
 	 */
 	if (victim > 0)
-		remove_pidfile(devname);
-	if (make_pidfile(devname) < 0) {
+		remove_pidfile(devnm);
+	if (make_pidfile(devnm) < 0) {
 		exit(3);
 	}
-	container->sock = make_control_sock(devname);
+	container->sock = make_control_sock(devnm);
 
 	status = 0;
 	if (write(pfd[1], &status, sizeof(status)) < 0)
@@ -547,7 +532,7 @@ static int mdmon(char *devname, int devnum, int must_fork, int takeover)
 	}
 
 	if (victim > 0) {
-		try_kill_monitor(victim, container->devname, victim_sock);
+		try_kill_monitor(victim, container->devnm, victim_sock);
 		if (victim_sock >= 0)
 			close(victim_sock);
 	}

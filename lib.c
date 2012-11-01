@@ -57,72 +57,59 @@ static int mdp_major = -1;
 	return mdp_major;
 }
 
-
-void fmt_devname(char *name, int num)
-{
-	if (num >= 0)
-		sprintf(name, "md%d", num);
-	else
-		sprintf(name, "md_d%d", -1-num);
-}
-
-char *devnum2devname(int num)
-{
-	char name[100];
-	fmt_devname(name,num);
-	return xstrdup(name);
-}
-
-int devname2devnum(char *name)
-{
-	char *ep;
-	int num;
-	if (strncmp(name, "md_d", 4)==0)
-		num = -1-strtoul(name+4, &ep, 10);
-	else
-		num = strtoul(name+2, &ep, 10);
-	return num;
-}
-
-int stat2devnum(struct stat *st)
+char *devid2devnm(int devid)
 {
 	char path[30];
 	char link[200];
-	char *cp;
+	static char devnm[32];
+	char *cp, *ep;
 	int n;
 
-	if ((S_IFMT & st->st_mode) == S_IFBLK) {
-		if (major(st->st_rdev) == MD_MAJOR)
-			return minor(st->st_rdev);
-		else if (major(st->st_rdev) == (unsigned)get_mdp_major())
-			return -1- (minor(st->st_rdev)>>MdpMinorShift);
-
-		/* must be an extended-minor partition. Look at the
-		 * /sys/dev/block/%d:%d link which must look like
-		 * ../../block/mdXXX/mdXXXpYY
-		 */
-		sprintf(path, "/sys/dev/block/%d:%d", major(st->st_rdev),
-			minor(st->st_rdev));
-		n = readlink(path, link, sizeof(link)-1);
-		if (n <= 0)
-			return NoMdDev;
+	/* Might be an extended-minor partition or a
+	 * named md device. Look at the
+	 * /sys/dev/block/%d:%d link which must look like
+	 *    ../../block/mdXXX/mdXXXpYY
+	 * or
+	 *    ...../block/md_FOO
+	 */
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
+		minor(devid));
+	n = readlink(path, link, sizeof(link)-1);
+	if (n > 0) {
 		link[n] = 0;
-		cp = strrchr(link, '/');
-		if (cp) *cp = 0;
-		cp = strrchr(link, '/');
-		if (cp && strncmp(cp, "/md", 3) == 0)
-			return devname2devnum(cp+1);
+		cp = strstr(link, "/block/");
+		if (cp) {
+			cp += 7;
+			ep = strchr(cp, '/');
+			if (ep)
+				*ep = 0;
+			strcpy(devnm, cp);
+			return devnm;
+		}
 	}
-	return NoMdDev;
-
+	if (major(devid) == MD_MAJOR)
+		sprintf(devnm,"md%d", minor(devid));
+	else if (major(devid) == (unsigned)get_mdp_major())
+		sprintf(devnm,"md_d%d",
+			(minor(devid)>>MdpMinorShift));
+	else
+		return NULL;
+	return devnm;
 }
 
-int fd2devnum(int fd)
+char *stat2devnm(struct stat *st)
+{
+	if ((S_IFMT & st->st_mode) != S_IFBLK)
+		return NULL;
+	return devid2devnm(st->st_rdev);
+}
+
+char *fd2devnm(int fd)
 {
 	struct stat stb;
 	if (fstat(fd, &stb) == 0)
-		return stat2devnum(&stb);
-	return NoMdDev;
+		return stat2devnm(&stb);
+	return NULL;
 }
 
 

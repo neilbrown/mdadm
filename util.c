@@ -778,42 +778,79 @@ int get_data_disks(int level, int layout, int raid_disks)
 }
 
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
-char *get_md_name(int dev)
+
+int devnm2devid(char *devnm)
+{
+	/* First look in /sys/block/$DEVNM/dev for %d:%d
+	 * If that fails, try parsing out a number
+	 */
+	char path[100];
+	char *ep;
+	int fd;
+	int mjr,mnr;
+
+	sprintf(path, "/sys/block/%s/dev", devnm);
+	fd = open(path, O_RDONLY);
+	if (fd >= 0) {
+		char buf[20];
+		int n = read(fd, buf, sizeof(buf));
+		close(fd);
+		if (n > 0)
+			buf[n] = 0;
+		if (n > 0 && sscanf(buf, "%d:%d\n", &mjr, &mnr) == 2)
+			return makedev(mjr, mnr);
+	}
+	if (strncmp(devnm, "md_d", 4) == 0 &&
+	    isdigit(devnm[4]) &&
+	    (mnr = strtoul(devnm+4, &ep, 10)) >= 0 &&
+	    ep > devnm && *ep == 0)
+		return makedev(get_mdp_major(), mnr << MdpMinorShift);
+
+	if (strncmp(devnm, "md", 2) == 0 &&
+	    isdigit(devnm[2]) &&
+	    (mnr = strtoul(devnm+2, &ep, 10)) >= 0 &&
+	    ep > devnm && *ep == 0)
+		return makedev(MD_MAJOR, mnr);
+
+	return 0;
+}
+
+char *get_md_name(char *devnm)
 {
 	/* find /dev/md%d or /dev/md/%d or make a device /dev/.tmp.md%d */
 	/* if dev < 0, want /dev/md/d%d or find mdp in /proc/devices ... */
+
 	static char devname[50];
 	struct stat stb;
-	dev_t rdev;
+	dev_t rdev = devnm2devid(devnm);
 	char *dn;
 
-	if (dev < 0) {
-		int mdp =  get_mdp_major();
-		if (mdp < 0) return NULL;
-		rdev = makedev(mdp, (-1-dev)<<6);
-		snprintf(devname, sizeof(devname), "/dev/md/d%d", -1-dev);
-		if (stat(devname, &stb) == 0
-		    && (S_IFMT&stb.st_mode) == S_IFBLK
-		    && (stb.st_rdev == rdev))
-			return devname;
-	} else {
-		rdev = makedev(MD_MAJOR, dev);
-		snprintf(devname, sizeof(devname), "/dev/md%d", dev);
-		if (stat(devname, &stb) == 0
-		    && (S_IFMT&stb.st_mode) == S_IFBLK
-		    && (stb.st_rdev == rdev))
-			return devname;
-
-		snprintf(devname, sizeof(devname), "/dev/md/%d", dev);
+	if (rdev == 0)
+		return 0;
+	if (strncmp(devnm, "md_", 3) == 0) {
+		snprintf(devname, sizeof(devname), "/dev/md/%s",
+			devnm + 3);
 		if (stat(devname, &stb) == 0
 		    && (S_IFMT&stb.st_mode) == S_IFBLK
 		    && (stb.st_rdev == rdev))
 			return devname;
 	}
+	snprintf(devname, sizeof(devname), "/dev/%s", devnm);
+	if (stat(devname, &stb) == 0
+	    && (S_IFMT&stb.st_mode) == S_IFBLK
+	    && (stb.st_rdev == rdev))
+		return devname;
+
+	snprintf(devname, sizeof(devname), "/dev/md/%s", devnm+2);
+	if (stat(devname, &stb) == 0
+	    && (S_IFMT&stb.st_mode) == S_IFBLK
+	    && (stb.st_rdev == rdev))
+		return devname;
+
 	dn = map_dev(major(rdev), minor(rdev), 0);
 	if (dn)
 		return dn;
-	snprintf(devname, sizeof(devname), "/dev/.tmp.md%d", dev);
+	snprintf(devname, sizeof(devname), "/dev/.tmp.%s", devnm);
 	if (mknod(devname, S_IFBLK | 0600, rdev) == -1)
 		if (errno != EEXIST)
 			return NULL;
@@ -832,33 +869,37 @@ void put_md_name(char *name)
 		unlink(name);
 }
 
-int find_free_devnum(int use_partitions)
+char *find_free_devnm(int use_partitions)
 {
+	static char devnm[32];
 	int devnum;
 	for (devnum = 127; devnum != 128;
 	     devnum = devnum ? devnum-1 : (1<<20)-1) {
-		int _devnum;
-		char nbuf[50];
 
-		_devnum = use_partitions ? (-1-devnum) : devnum;
-		if (mddev_busy(_devnum))
+		if (use_partitions)
+			sprintf(devnm, "md_d%d", devnum);
+		else
+			sprintf(devnm, "md%d", devnum);
+		if (mddev_busy(devnm))
 			continue;
-		sprintf(nbuf, "%s%d", use_partitions?"mdp":"md", devnum);
-		if (!conf_name_is_free(nbuf))
+		if (!conf_name_is_free(devnm))
 			continue;
 		if (!use_udev()) {
 			/* make sure it is new to /dev too, at least as a
 			 * non-standard */
-			char *dn = map_dev(dev2major(_devnum),
-					   dev2minor(_devnum), 0);
-			if (dn && ! is_standard(dn, NULL))
-				continue;
+			int devid = devnm2devid(devnm);
+			if (devid) {
+				char *dn = map_dev(major(devid),
+						   minor(devid), 0);
+				if (dn && ! is_standard(dn, NULL))
+					continue;
+			}
 		}
 		break;
 	}
 	if (devnum == 128)
-		return NoMdDev;
-	return use_partitions ? (-1-devnum) : devnum;
+		return NULL;
+	return devnm;
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
@@ -900,26 +941,29 @@ int dev_open(char *dev, int flags)
 	return fd;
 }
 
-int open_dev_flags(int devnum, int flags)
+int open_dev_flags(char *devnm, int flags)
 {
+	int devid;
 	char buf[20];
 
-	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
+	devid = devnm2devid(devnm);
+	sprintf(buf, "%d:%d", major(devid), minor(devid));
 	return dev_open(buf, flags);
 }
 
-int open_dev(int devnum)
+int open_dev(char *devnm)
 {
-	return open_dev_flags(devnum, O_RDONLY);
+	return open_dev_flags(devnm, O_RDONLY);
 }
 
-int open_dev_excl(int devnum)
+int open_dev_excl(char *devnm)
 {
 	char buf[20];
 	int i;
 	int flags = O_RDWR;
+	int devid = devnm2devid(devnm);
 
-	sprintf(buf, "%d:%d", dev2major(devnum), dev2minor(devnum));
+	sprintf(buf, "%d:%d", major(devid), minor(devid));
 	for (i = 0 ; i < 25 ; i++) {
 		int fd = dev_open(buf, flags|O_EXCL);
 		if (fd >= 0)
@@ -990,9 +1034,9 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 	char version[20];
 	int i;
 	char *subarray = NULL;
-	int container = NoMdDev;
+	char container[32] = "";
 
-	sra = sysfs_read(fd, 0, GET_VERSION);
+	sra = sysfs_read(fd, NULL, GET_VERSION);
 
 	if (sra) {
 		vers = sra->array.major_version;
@@ -1018,7 +1062,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 			*subarray++ = '\0';
 			subarray = xstrdup(subarray);
 		}
-		container = devname2devnum(dev);
+		strcpy(container, dev);
 		if (sra)
 			sysfs_free(sra);
 		sra = sysfs_read(-1, container, GET_VERSION);
@@ -1037,8 +1081,8 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		st->sb = NULL;
 		if (subarrayp)
 			*subarrayp = subarray;
-		st->container_dev = container;
-		st->devnum = fd2devnum(fd);
+		strcpy(st->container_devnm, container);
+		strcpy(st->devnm, fd2devnm(fd));
 	} else
 		free(subarray);
 
@@ -1091,7 +1135,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	int i;
 
 	st = xcalloc(1, sizeof(*st));
-	st->container_dev = NoMdDev;
+	st->container_devnm[0] = 0;
 
 	for (i = 0 ; superlist[i]; i++) {
 		int rv;
@@ -1386,13 +1430,47 @@ struct superswitch *version_to_superswitch(char *vers)
 	return NULL;
 }
 
+int metadata_container_matches(char *metadata, char *devnm)
+{
+	/* Check if 'devnm' is the container named in 'metadata'
+	 * which is
+	 *   /containername/componentname  or
+	 *   -containername/componentname
+	 */
+	int l;
+	if (*metadata != '/' && *metadata != '-')
+		return 0;
+	l = strlen(devnm);
+	if (strncmp(metadata+1, devnm, l) != 0)
+		return 0;
+	if (metadata[l+1] != '/')
+		return 0;
+	return 1;
+}
+
+int metadata_subdev_matches(char *metadata, char *devnm)
+{
+	/* Check if 'devnm' is the subdev named in 'metadata'
+	 * which is
+	 *   /containername/subdev  or
+	 *   -containername/subdev
+	 */
+	char *sl;
+	if (*metadata != '/' && *metadata != '-')
+		return 0;
+	sl = strchr(metadata+1, '/');
+	if (!sl)
+		return 0;
+	if (strcmp(sl+1, devnm) == 0)
+		return 1;
+	return 0;
+}
+
 int is_container_member(struct mdstat_ent *mdstat, char *container)
 {
 	if (mdstat->metadata_version == NULL ||
 	    strncmp(mdstat->metadata_version, "external:", 9) != 0 ||
-	    !is_subarray(mdstat->metadata_version+9) ||
-	    strncmp(mdstat->metadata_version+10, container, strlen(container)) != 0 ||
-	    mdstat->metadata_version[10+strlen(container)] != '/')
+	    !metadata_container_matches(mdstat->metadata_version+9, container))
 		return 0;
 
 	return 1;
@@ -1425,6 +1503,7 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 	struct mdinfo *mdi;
 	struct mdinfo *info;
 	int fd, err = 1;
+	char *_devnm;
 
 	fd = open(dev, O_RDWR|O_EXCL);
 	if (fd < 0) {
@@ -1434,15 +1513,16 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 		return -1;
 	}
 
-	st->devnum = fd2devnum(fd);
-	if (st->devnum == NoMdDev) {
+	_devnm = fd2devnm(fd);
+	if (_devnm == NULL) {
 		if (!quiet)
 			pr_err("Failed to determine device number for %s\n",
 			       dev);
 		goto close_fd;
 	}
+	strcpy(st->devnm, _devnm);
 
-	mdi = sysfs_read(fd, st->devnum, GET_VERSION|GET_LEVEL);
+	mdi = sysfs_read(fd, st->devnm, GET_VERSION|GET_LEVEL);
 	if (!mdi) {
 		if (!quiet)
 			pr_err("Failed to read sysfs for %s\n",
@@ -1464,8 +1544,7 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 		goto free_sysfs;
 	}
 
-	st->devname = devnum2devname(st->devnum);
-	if (!st->devname) {
+	if (st->devnm[0] == 0) {
 		if (!quiet)
 			pr_err("Failed to allocate device name\n");
 		goto free_sysfs;
@@ -1474,14 +1553,14 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
 	if (!st->ss->load_container) {
 		if (!quiet)
 			pr_err("%s is not a container\n", dev);
-		goto free_name;
+		goto free_sysfs;
 	}
 
 	if (st->ss->load_container(st, fd, NULL)) {
 		if (!quiet)
 			pr_err("Failed to load metadata for %s\n",
 				dev);
-		goto free_name;
+		goto free_sysfs;
 	}
 
 	info = st->ss->container_content(st, subarray);
@@ -1498,9 +1577,6 @@ int open_subarray(char *dev, char *subarray, struct supertype *st, int quiet)
  free_super:
 	if (err)
 		st->ss->free_super(st);
- free_name:
-	if (err)
-		free(st->devname);
  free_sysfs:
 	sysfs_free(mdi);
  close_fd:
@@ -1598,16 +1674,14 @@ unsigned long long min_recovery_start(struct mdinfo *array)
 	return recovery_start;
 }
 
-int mdmon_pid(int devnum)
+int mdmon_pid(char *devnm)
 {
 	char path[100];
 	char pid[10];
 	int fd;
 	int n;
-	char *devname = devnum2devname(devnum);
 
-	sprintf(path, "%s/%s.pid", MDMON_DIR, devname);
-	free(devname);
+	sprintf(path, "%s/%s.pid", MDMON_DIR, devnm);
 
 	fd = open(path, O_RDONLY | O_NOATIME, 0);
 
@@ -1620,9 +1694,9 @@ int mdmon_pid(int devnum)
 	return atoi(pid);
 }
 
-int mdmon_running(int devnum)
+int mdmon_running(char *devnm)
 {
-	int pid = mdmon_pid(devnum);
+	int pid = mdmon_pid(devnm);
 	if (pid <= 0)
 		return 0;
 	if (kill(pid, 0) == 0)
@@ -1630,7 +1704,7 @@ int mdmon_running(int devnum)
 	return 0;
 }
 
-int start_mdmon(int devnum)
+int start_mdmon(char *devnm)
 {
 	int i, skipped;
 	int len;
@@ -1672,7 +1746,7 @@ int start_mdmon(int devnum)
 				skipped = 0;
 
 		snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
-			 devnum2devname(devnum));
+			 devnm);
 		status = execl("/usr/bin/systemctl", "systemctl", "start",
 			       pathbuf, NULL);
 		status = execl("/bin/systemctl", "systemctl", "start",
@@ -1701,7 +1775,7 @@ int start_mdmon(int devnum)
 		for (i = 0; paths[i]; i++)
 			if (paths[i][0]) {
 				execl(paths[i], "mdmon",
-				      devnum2devname(devnum), NULL);
+				      devnm, NULL);
 			}
 		exit(1);
 	case -1: pr_err("cannot run mdmon. "
@@ -1748,7 +1822,7 @@ int flush_metadata_updates(struct supertype *st)
 		return -1;
 	}
 
-	sfd = connect_monitor(devnum2devname(st->container_dev));
+	sfd = connect_monitor(st->container_devnm);
 	if (sfd < 0)
 		return -1;
 
@@ -1835,7 +1909,7 @@ struct mdinfo *container_choose_spares(struct supertype *st,
 				found = 1;
 			/* check if domain matches */
 			if (found && domlist) {
-				struct dev_policy *pol = devnum_policy(dev);
+				struct dev_policy *pol = devid_policy(dev);
 				if (spare_group)
 					pol_add(&pol, pol_domain,
 						spare_group, NULL);

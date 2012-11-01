@@ -217,7 +217,7 @@ static int select_devices(struct mddev_dev *devlist,
 					       devname);
 				tmpdev->used = 2;
 			} else if (auto_assem &&
-				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
+				   !conf_test_metadata(tst->ss->name, (pol = devid_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_mismatch)
 					pr_err("%s has metadata type %s for which "
@@ -243,7 +243,7 @@ static int select_devices(struct mddev_dev *devlist,
 					       tst->ss->name, devname);
 				tmpdev->used = 2;
 			} else if (auto_assem && st == NULL &&
-				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
+				   !conf_test_metadata(tst->ss->name, (pol = devid_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_mismatch)
 					pr_err("%s has metadata type %s for which "
@@ -469,7 +469,7 @@ static int select_devices(struct mddev_dev *devlist,
 		/* Collect domain information from members only */
 		if (tmpdev && tmpdev->used == 1) {
 			if (!pol)
-				pol = devnum_policy(stb.st_rdev);
+				pol = devid_policy(stb.st_rdev);
 			domain_merge(&domains, pol, tst?tst->ss->name:NULL);
 		}
 		dev_policy_free(pol);
@@ -510,7 +510,7 @@ static int select_devices(struct mddev_dev *devlist,
 			       tmpdev->devname, strerror(errno));
 			tmpdev->used = 2;
 		} else {
-			struct dev_policy *pol = devnum_policy(stb.st_rdev);
+			struct dev_policy *pol = devid_policy(stb.st_rdev);
 			int dt = domain_test(domains, pol, NULL);
 			if (inargv && dt != 0)
 				/* take this spare as domains match
@@ -1032,7 +1032,7 @@ static int start_array(int mdfd,
 				 * of the stripe cache - default is 256
 				 */
 				if (256 < 4 * (content->array.chunk_size/4096)) {
-					struct mdinfo *sra = sysfs_read(mdfd, 0, 0);
+					struct mdinfo *sra = sysfs_read(mdfd, NULL, 0);
 					if (sra)
 						sysfs_set_num(sra, NULL,
 							      "stripe_cache_size",
@@ -1269,7 +1269,7 @@ try_again:
 	if (mp) {
 		struct mdinfo *dv;
 		/* array already exists. */
-		pre_exist = sysfs_read(-1, mp->devnum, GET_LEVEL|GET_DEVS);
+		pre_exist = sysfs_read(-1, mp->devnm, GET_LEVEL|GET_DEVS);
 		if (pre_exist->array.level != UnSet) {
 			pr_err("Found some drive for an array that is already active: %s\n",
 			       mp->path);
@@ -1302,7 +1302,7 @@ try_again:
 		    strcmp(mddev, chosen_name) != 0)
 			pr_err("Merging with already-assembled %s\n",
 			       chosen_name);
-		mdfd = open_dev_excl(mp->devnum);
+		mdfd = open_dev_excl(mp->devnm);
 	} else {
 		int trustworthy = FOREIGN;
 		name = content->name;
@@ -1359,7 +1359,7 @@ try_again:
 		return 1;
 	}
 	if (pre_exist == NULL) {
-		if (mddev_busy(fd2devnum(mdfd))) {
+		if (mddev_busy(fd2devnm(mdfd))) {
 			pr_err("%s already active, cannot restart it!\n",
 			       mddev);
 			for (tmpdev = devlist ;
@@ -1526,7 +1526,7 @@ try_again:
 	}
 	st->ss->getinfo_super(st, content, NULL);
 #ifndef MDASSEMBLE
-	sysfs_init(content, mdfd, 0);
+	sysfs_init(content, mdfd, NULL);
 #endif
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
@@ -1665,7 +1665,7 @@ try_again:
 	/* First, fill in the map, so that udev can find our name
 	 * as soon as we become active.
 	 */
-	map_update(&map, fd2devnum(mdfd), content->text_version,
+	map_update(&map, fd2devnm(mdfd), content->text_version,
 		   content->uuid, chosen_name);
 
 	rv = start_array(mdfd, mddev, content,
@@ -1726,9 +1726,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	int old_raid_disks;
 	int start_reshape;
 
-	sysfs_init(content, mdfd, 0);
+	sysfs_init(content, mdfd, NULL);
 
-	sra = sysfs_read(mdfd, 0, GET_VERSION);
+	sra = sysfs_read(mdfd, NULL, GET_VERSION);
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0) {
 		if (content->array.major_version == -1 &&
 		    content->array.minor_version == -2 &&
@@ -1770,7 +1770,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	if (working + expansion == 0)
 		return 1;/* Nothing new, don't try to start */
 
-	map_update(&map, fd2devnum(mdfd),
+	map_update(&map, fd2devnm(mdfd),
 		   content->text_version,
 		   content->uuid, chosen_name);
 
@@ -1792,10 +1792,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				return 1;
 
 			if (st->ss->external) {
-				if (!mdmon_running(st->container_dev))
-					start_mdmon(st->container_dev);
-				ping_monitor_by_id(st->container_dev);
-				if (mdmon_running(st->container_dev) &&
+				if (!mdmon_running(st->container_devnm))
+					start_mdmon(st->container_devnm);
+				ping_monitor(st->container_devnm);
+				if (mdmon_running(st->container_devnm) &&
 				    st->update_tail == NULL)
 					st->update_tail = &st->updates;
 			}
@@ -1814,9 +1814,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 						    "readonly");
 				/* start mdmon if needed. */
 				if (!err) {
-					if (!mdmon_running(st->container_dev))
-						start_mdmon(st->container_dev);
-					ping_monitor_by_id(st->container_dev);
+					if (!mdmon_running(st->container_devnm))
+						start_mdmon(st->container_devnm);
+					ping_monitor(st->container_devnm);
 				}
 				break;
 			}

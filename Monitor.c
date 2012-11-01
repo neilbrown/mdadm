@@ -32,7 +32,7 @@
 
 struct state {
 	char *devname;
-	int devnum;	/* to sync with mdstat info */
+	char devnm[32];	/* to sync with mdstat info */
 	long utime;
 	int err;
 	char *spare_group;
@@ -42,9 +42,9 @@ struct state {
 	int devstate[MAX_DISKS];
 	dev_t devid[MAX_DISKS];
 	int percent;
-	int parent_dev; /* For subarray, devnum of parent.
-			 * For others, NoMdDev
-			 */
+	char parent_devnm[32]; /* For subarray, devnm of parent.
+				* For others, ""
+				*/
 	struct supertype *metadata;
 	struct state *subarray;/* for a container it is a link to first subarray
 				* for a subarray it is a link to next subarray
@@ -177,7 +177,7 @@ int Monitor(struct mddev_dev *devlist,
 				       mdlist->devname);
 			}
 			st->next = statelist;
-			st->devnum = INT_MAX;
+			st->devnm[0] = 0;
 			st->percent = RESYNC_UNKNOWN;
 			st->from_config = 1;
 			st->expected_spares = mdlist->spare_disks;
@@ -192,7 +192,7 @@ int Monitor(struct mddev_dev *devlist,
 			struct state *st = xcalloc(1, sizeof *st);
 			st->devname = xstrdup(dv->devname);
 			st->next = statelist;
-			st->devnum = INT_MAX;
+			st->devnm[0] = 0;
 			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = -1;
 			if (mdlist) {
@@ -483,20 +483,12 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		close(fd);
 		return 0;
 	}
-	if (st->devnum == INT_MAX) {
-		struct stat stb;
-		if (fstat(fd, &stb) == 0 &&
-		    (S_IFMT&stb.st_mode)==S_IFBLK) {
-			if (major(stb.st_rdev) == MD_MAJOR)
-				st->devnum = minor(stb.st_rdev);
-			else
-				st->devnum = -1- (minor(stb.st_rdev)>>6);
-		}
-	}
+	if (st->devnm[0] == 0)
+		strcpy(st->devnm, fd2devnm(fd));
 
 	for (mse2 = mdstat ; mse2 ; mse2=mse2->next)
-		if (mse2->devnum == st->devnum) {
-			mse2->devnum = INT_MAX; /* flag it as "used" */
+		if (strcmp(mse2->devnm, st->devnm) == 0) {
+			mse2->devnm[0] = 0; /* flag it as "used" */
 			mse = mse2;
 		}
 
@@ -566,7 +558,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		 * we should report that.
 		 */
 		struct mdinfo *sra =
-			sysfs_read(-1, st->devnum, GET_MISMATCH);
+			sysfs_read(-1, st->devnm, GET_MISMATCH);
 		if (sra && sra->mismatch_cnt > 0) {
 			char cnt[80];
 			snprintf(cnt, sizeof(cnt),
@@ -598,13 +590,17 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 
 	if (mse->metadata_version &&
 	    strncmp(mse->metadata_version, "external:", 9) == 0 &&
-	    is_subarray(mse->metadata_version+9))
-		st->parent_dev =
-			devname2devnum(mse->metadata_version+10);
-	else
-		st->parent_dev = NoMdDev;
+	    is_subarray(mse->metadata_version+9)) {
+		char *sl;
+		strcpy(st->parent_devnm,
+		       mse->metadata_version+10);
+		sl = strchr(st->parent_devnm, '/');
+		if (sl)
+			*sl = 0;
+	} else
+		st->parent_devnm[0] = 0;
 	if (st->metadata == NULL &&
-	    st->parent_dev == NoMdDev)
+	    st->parent_devnm[0] == 0)
 		st->metadata = super_by_fd(fd, NULL);
 
 	close(fd);
@@ -664,7 +660,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 	int new_found = 0;
 
 	for (mse=mdstat; mse; mse=mse->next)
-		if (mse->devnum != INT_MAX &&
+		if (mse->devnm[0] &&
 		    (!mse->level  || /* retrieve containers */
 		     (strcmp(mse->level, "raid0") != 0 &&
 		      strcmp(mse->level, "linear") != 0))
@@ -672,7 +668,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			struct state *st = xcalloc(1, sizeof *st);
 			mdu_array_info_t array;
 			int fd;
-			st->devname = xstrdup(get_md_name(mse->devnum));
+			st->devname = xstrdup(get_md_name(mse->devnm));
 			if ((fd = open(st->devname, O_RDONLY)) < 0 ||
 			    ioctl(fd, GET_ARRAY_INFO, &array)< 0) {
 				/* no such array */
@@ -689,16 +685,19 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			close(fd);
 			st->next = *statelist;
 			st->err = 1;
-			st->devnum = mse->devnum;
+			strcpy(st->devnm, mse->devnm);
 			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = -1;
 			if (mse->metadata_version &&
 			    strncmp(mse->metadata_version, "external:", 9) == 0 &&
-			    is_subarray(mse->metadata_version+9))
-				st->parent_dev =
-					devname2devnum(mse->metadata_version+10);
-			else
-				st->parent_dev = NoMdDev;
+			    is_subarray(mse->metadata_version+9)) {
+				char *sl;
+				strcpy(st->parent_devnm,
+					mse->metadata_version+10);
+				sl = strchr(st->parent_devnm, '/');
+				*sl = 0;
+			} else
+				st->parent_devnm[0] = 0;
 			*statelist = st;
 			if (test)
 				alert("TestMessage", st->devname, NULL, info);
@@ -779,7 +778,7 @@ static dev_t choose_spare(struct state *from, struct state *to,
 			    dev_size < min_size)
 				continue;
 
-			pol = devnum_policy(from->devid[d]);
+			pol = devid_policy(from->devid[d]);
 			if (from->spare_group)
 				pol_add(&pol, pol_domain,
 					from->spare_group, NULL);
@@ -871,7 +870,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 			struct state *to = st;
 			unsigned long long min_size;
 
-			if (to->parent_dev != NoMdDev && !to->parent)
+			if (to->parent_devnm[0] && !to->parent)
 				/* subarray monitored without parent container
 				 * we can't move spares here */
 				continue;
@@ -939,11 +938,11 @@ static void link_containers_with_subarrays(struct state *list)
 		st->subarray = NULL;
 	}
 	for (st = list; st; st = st->next)
-		if (st->parent_dev != NoMdDev)
+		if (st->parent_devnm[0])
 			for (cont = list; cont; cont = cont->next)
 				if (!cont->err &&
-				    cont->parent_dev == NoMdDev &&
-				    cont->devnum == st->parent_dev) {
+				    cont->parent_devnm[0] == 0 &&
+				    strcmp(cont->devnm, st->parent_devnm) == 0) {
 					st->parent = cont;
 					st->subarray = cont->subarray;
 					cont->subarray = st;
@@ -955,7 +954,7 @@ static void link_containers_with_subarrays(struct state *list)
 int Wait(char *dev)
 {
 	struct stat stb;
-	int devnum;
+	char devnm[32];
 	int rv = 1;
 
 	if (stat(dev, &stb) != 0) {
@@ -963,14 +962,14 @@ int Wait(char *dev)
 			strerror(errno));
 		return 2;
 	}
-	devnum = stat2devnum(&stb);
+	strcpy(devnm, stat2devnm(&stb));
 
 	while(1) {
 		struct mdstat_ent *ms = mdstat_read(1, 0);
 		struct mdstat_ent *e;
 
 		for (e=ms ; e; e=e->next)
-			if (e->devnum == devnum)
+			if (strcmp(e->devnm, devnm) == 0)
 				break;
 
 		if (!e || e->percent == RESYNC_NONE) {
@@ -979,7 +978,7 @@ int Wait(char *dev)
 				if (is_subarray(&e->metadata_version[9]))
 					ping_monitor(&e->metadata_version[9]);
 				else
-					ping_monitor_by_id(devnum);
+					ping_monitor(devnm);
 			}
 			free_mdstat(ms);
 			return rv;
@@ -1000,7 +999,7 @@ int WaitClean(char *dev, int sock, int verbose)
 	int fd;
 	struct mdinfo *mdi;
 	int rv = 1;
-	int devnum;
+	char devnm[32];
 
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {
@@ -1009,8 +1008,8 @@ int WaitClean(char *dev, int sock, int verbose)
 		return 1;
 	}
 
-	devnum = fd2devnum(fd);
-	mdi = sysfs_read(fd, devnum, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
+	strcpy(devnm, fd2devnm(fd));
+	mdi = sysfs_read(fd, devnm, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
 	if (!mdi) {
 		if (verbose)
 			pr_err("Failed to read sysfs attributes for "
@@ -1038,7 +1037,7 @@ int WaitClean(char *dev, int sock, int verbose)
 		rv = 0;
 
 	if (rv) {
-		int state_fd = sysfs_open(fd2devnum(fd), NULL, "array_state");
+		int state_fd = sysfs_open(fd2devnm(fd), NULL, "array_state");
 		char buf[20];
 		fd_set fds;
 		struct timeval tm;

@@ -57,16 +57,12 @@ void sysfs_free(struct mdinfo *sra)
 	}
 }
 
-int sysfs_open(int devnum, char *devname, char *attr)
+int sysfs_open(char *devnm, char *devname, char *attr)
 {
 	char fname[50];
 	int fd;
-	char *mdname = devnum2devname(devnum);
 
-	if (!mdname)
-		return -1;
-
-	sprintf(fname, "/sys/block/%s/md/", mdname);
+	sprintf(fname, "/sys/block/%s/md/", devnm);
 	if (devname) {
 		strcat(fname, devname);
 		strcat(fname, "/");
@@ -75,26 +71,25 @@ int sysfs_open(int devnum, char *devname, char *attr)
 	fd = open(fname, O_RDWR);
 	if (fd < 0 && errno == EACCES)
 		fd = open(fname, O_RDONLY);
-	free(mdname);
 	return fd;
 }
 
-void sysfs_init(struct mdinfo *mdi, int fd, int devnum)
+void sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
 {
 	mdi->sys_name[0] = 0;
 	if (fd >= 0) {
 		mdu_version_t vers;
 		if (ioctl(fd, RAID_VERSION, &vers) != 0)
 			return;
-		devnum = fd2devnum(fd);
+		devnm = fd2devnm(fd);
 	}
-	if (devnum == NoMdDev)
+	if (devnm == NULL)
 		return;
-	fmt_devname(mdi->sys_name, devnum);
+	strcpy(mdi->sys_name, devnm);
 }
 
 
-struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
+struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 {
 	char fname[PATH_MAX];
 	char buf[PATH_MAX];
@@ -106,7 +101,7 @@ struct mdinfo *sysfs_read(int fd, int devnum, unsigned long options)
 	struct dirent *de;
 
 	sra = xcalloc(1, sizeof(*sra));
-	sysfs_init(sra, fd, devnum);
+	sysfs_init(sra, fd, devnm);
 	if (sra->sys_name[0] == 0) {
 		free(sra);
 		return NULL;
@@ -641,13 +636,7 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 		return rv;
 
 	memset(nm, 0, sizeof(nm));
-	sprintf(dv, "/sys/dev/block/%d:%d", sd->disk.major, sd->disk.minor);
-	rv = readlink(dv, nm, sizeof(nm)-1);
-	if (rv <= 0)
-		return -1;
-	nm[rv] = '\0';
-	dname = strrchr(nm, '/');
-	if (dname) dname++;
+	dname = devid2devnm(makedev(sd->disk.major, sd->disk.minor));
 	strcpy(sd->sys_name, "dev-");
 	strcpy(sd->sys_name+4, dname);
 
@@ -779,12 +768,12 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 }
 
 
-int sysfs_unique_holder(int devnum, long rdev)
+int sysfs_unique_holder(char *devnm, long rdev)
 {
-	/* Check that devnum is a holder of rdev,
+	/* Check that devnm is a holder of rdev,
 	 * and is the only holder.
 	 * we should be locked against races by
-	 * an O_EXCL on devnum
+	 * an O_EXCL on devnm
 	 * Return values:
 	 *  0 - not unique, not even a holder
 	 *  1 - unique, this is the only holder.
@@ -803,11 +792,9 @@ int sysfs_unique_holder(int devnum, long rdev)
 		return -1;
 	l = strlen(dirname);
 	while ((de = readdir(dir)) != NULL) {
-		char buf[10];
+		char buf[100];
+		char *sl;
 		int n;
-		int mj, mn;
-		char c;
-		int fd;
 
 		if (de->d_ino == 0)
 			continue;
@@ -815,24 +802,16 @@ int sysfs_unique_holder(int devnum, long rdev)
 			continue;
 		strcpy(dirname+l, "/");
 		strcat(dirname+l, de->d_name);
-		strcat(dirname+l, "/dev");
-		fd = open(dirname, O_RDONLY);
-		if (fd < 0) {
-			/* Probably a race, just ignore this */
-			continue;
-		}
-		n = read(fd, buf, sizeof(buf)-1);
-		close(fd);
-		if (n < 0)
+		n = readlink(dirname, buf, sizeof(buf)-1);
+		if (n <= 0)
 			continue;
 		buf[n] = 0;
-		if (sscanf(buf, "%d:%d%c", &mj, &mn, &c) != 3 ||
-		    c != '\n')
+		sl = strrchr(buf, '/');
+		if (!sl)
 			continue;
-		if (mj != MD_MAJOR)
-			mn = -1-(mn>>6);
+		sl++;
 
-		if (devnum == mn)
+		if (strcmp(devnm, sl) == 0)
 			ret |= 1;
 		else
 			ret |= 2;

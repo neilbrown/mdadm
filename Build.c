@@ -115,7 +115,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	}
 	mddev = chosen_name;
 
-	map_update(&map, fd2devnum(mdfd), "none", uuid, chosen_name);
+	map_update(&map, fd2devnm(mdfd), "none", uuid, chosen_name);
 	map_unlock(&map);
 
 	vers = md_get_version(mdfd);

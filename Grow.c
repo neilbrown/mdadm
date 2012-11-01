@@ -382,7 +382,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 				"with %s metadata\n", st->ss->name);
 			return 1;
 		}
-		mdi = sysfs_read(fd, -1, GET_BITMAP_LOCATION);
+		mdi = sysfs_read(fd, NULL, GET_BITMAP_LOCATION);
 		if (mdi)
 			offset_setable = 1;
 		for (d=0; d< st->max_devs; d++) {
@@ -421,7 +421,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		}
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);
-			sysfs_init(mdi, fd, -1);
+			sysfs_init(mdi, fd, NULL);
 			rv = sysfs_set_num_signed(mdi, NULL, "bitmap/location",
 						  mdi->bitmap_offset);
 		} else {
@@ -533,13 +533,11 @@ static int check_idle(struct supertype *st)
 	/* Check that all member arrays for this container, or the
 	 * container of this array, are idle
 	 */
-	int container_dev = (st->container_dev != NoMdDev
-			     ? st->container_dev : st->devnum);
-	char container[40];
+	char *container = (st->container_devnm[0]
+			   ? st->container_devnm : st->devnm);
 	struct mdstat_ent *ent, *e;
 	int is_idle = 1;
 
-	fmt_devname(container, container_dev);
 	ent = mdstat_read(0, 0);
 	for (e = ent ; e; e = e->next) {
 		if (!is_container_member(e, container))
@@ -555,14 +553,11 @@ static int check_idle(struct supertype *st)
 
 static int freeze_container(struct supertype *st)
 {
-	int container_dev = (st->container_dev != NoMdDev
-			     ? st->container_dev : st->devnum);
-	char container[40];
+	char *container = (st->container_devnm[0]
+			   ? st->container_devnm : st->devnm);
 
 	if (!check_idle(st))
 		return -1;
-
-	fmt_devname(container, container_dev);
 
 	if (block_monitor(container, 1)) {
 		pr_err("failed to freeze container\n");
@@ -574,11 +569,8 @@ static int freeze_container(struct supertype *st)
 
 static void unfreeze_container(struct supertype *st)
 {
-	int container_dev = (st->container_dev != NoMdDev
-			     ? st->container_dev : st->devnum);
-	char container[40];
-
-	fmt_devname(container, container_dev);
+	char *container = (st->container_devnm[0]
+			   ? st->container_devnm : st->devnm);
 
 	unblock_monitor(container, 1);
 }
@@ -594,7 +586,7 @@ static int freeze(struct supertype *st)
 	if (st->ss->external)
 		return freeze_container(st);
 	else {
-		struct mdinfo *sra = sysfs_read(-1, st->devnum, GET_VERSION);
+		struct mdinfo *sra = sysfs_read(-1, st->devnm, GET_VERSION);
 		int err;
 		char buf[20];
 
@@ -616,7 +608,7 @@ static void unfreeze(struct supertype *st)
 	if (st->ss->external)
 		return unfreeze_container(st);
 	else {
-		struct mdinfo *sra = sysfs_read(-1, st->devnum, GET_VERSION);
+		struct mdinfo *sra = sysfs_read(-1, st->devnm, GET_VERSION);
 
 		if (sra)
 			sysfs_set_str(sra, NULL, "sync_action", "idle");
@@ -1541,7 +1533,6 @@ int Grow_reshape(char *devname, int fd,
 	int frozen;
 	int changed = 0;
 	char *container = NULL;
-	char container_buf[20];
 	int cfd = -1;
 
 	struct mddev_dev *dv;
@@ -1594,16 +1585,15 @@ int Grow_reshape(char *devname, int fd,
 	 * pre-requisite spare devices (mdmon owns final validation)
 	 */
 	if (st->ss->external) {
-		int container_dev;
 		int rv;
 
 		if (subarray) {
-			container_dev = st->container_dev;
-			cfd = open_dev_excl(st->container_dev);
+			container = st->container_devnm;
+			cfd = open_dev_excl(st->container_devnm);
 		} else {
-			container_dev = st->devnum;
+			container = st->devnm;
 			close(fd);
-			cfd = open_dev_excl(st->devnum);
+			cfd = open_dev_excl(st->devnm);
 			fd = cfd;
 		}
 		if (cfd < 0) {
@@ -1612,9 +1602,6 @@ int Grow_reshape(char *devname, int fd,
 			free(subarray);
 			return 1;
 		}
-
-		fmt_devname(container_buf, container_dev);
-		container = container_buf;
 
 		rv = st->ss->load_container(st, cfd, NULL);
 
@@ -1646,7 +1633,7 @@ int Grow_reshape(char *devname, int fd,
 					pr_err("cannot reshape arrays in"
 					       " container with unsupported"
 					       " metadata: %s(%s)\n",
-					       devname, container_buf);
+					       devname, container);
 					sysfs_free(cc);
 					free(subarray);
 					return 1;
@@ -1654,7 +1641,7 @@ int Grow_reshape(char *devname, int fd,
 			}
 			sysfs_free(cc);
 		}
-		if (mdmon_running(container_dev))
+		if (mdmon_running(container))
 			st->update_tail = &st->updates;
 	}
 
@@ -1673,7 +1660,7 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
-	sra = sysfs_read(fd, 0, GET_LEVEL | GET_DISKS | GET_DEVS
+	sra = sysfs_read(fd, NULL, GET_LEVEL | GET_DISKS | GET_DEVS
 			 | GET_STATE | GET_VERSION);
 	if (sra) {
 		if (st->ss->external && subarray == NULL) {
@@ -1803,10 +1790,10 @@ int Grow_reshape(char *devname, int fd,
 			}
 			/* make sure mdmon is
 			 * aware of the new level */
-			if (!mdmon_running(st->container_dev))
-				start_mdmon(st->container_dev);
+			if (!mdmon_running(st->container_devnm))
+				start_mdmon(st->container_devnm);
 			ping_monitor(container);
-			if (mdmon_running(st->container_dev) &&
+			if (mdmon_running(st->container_devnm) &&
 					st->update_tail == NULL)
 				st->update_tail = &st->updates;
 		}
@@ -1930,7 +1917,7 @@ size_change_error:
 
 	memset(&info, 0, sizeof(info));
 	info.array = array;
-	sysfs_init(&info, fd, NoMdDev);
+	sysfs_init(&info, fd, NULL);
 	strcpy(info.text_version, sra->text_version);
 	info.component_size = s->size*2;
 	info.new_level = s->level;
@@ -2193,7 +2180,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 	int dir = 0;
 	int err = 0;
 
-	sra = sysfs_read(fd, 0,
+	sra = sysfs_read(fd, NULL,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK
 		);
 	if (!sra) {
@@ -2389,7 +2376,7 @@ static void get_space_after(int fd, struct supertype *st, struct mdinfo *info)
 	unsigned long long min_space_before = 0, min_space_after = 0;
 	int first = 1;
 
-	sra = sysfs_read(fd, 0, GET_DEVS);
+	sra = sysfs_read(fd, NULL, GET_DEVS);
 	if (!sra)
 		return;
 	for (sd = sra->devs; sd; sd = sd->next) {
@@ -2586,13 +2573,13 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		if (reshape.level > 0 && st->ss->external) {
 			/* make sure mdmon is aware of the new level */
-			if (mdmon_running(st->container_dev))
+			if (mdmon_running(container))
 				flush_mdmon(container);
 
-			if (!mdmon_running(st->container_dev))
-				start_mdmon(st->container_dev);
+			if (!mdmon_running(container))
+				start_mdmon(container);
 			ping_monitor(container);
-			if (mdmon_running(st->container_dev) &&
+			if (mdmon_running(container) &&
 			    st->update_tail == NULL)
 				st->update_tail = &st->updates;
 		}
@@ -2609,7 +2596,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		struct mdinfo *d;
 
 		if (info2) {
-			sysfs_init(info2, fd, st->devnum);
+			sysfs_init(info2, fd, st->devnm);
 			/* When increasing number of devices, we need to set
 			 * new raid_disks before adding these, or they might
 			 * be rejected.
@@ -2744,7 +2731,7 @@ started:
 				      &reshape, data_offset,
 				      force, verbose);
 	}
-	sra = sysfs_read(fd, 0,
+	sra = sysfs_read(fd, NULL,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
 			 GET_CACHE);
 	if (!sra) {
@@ -2958,7 +2945,7 @@ started:
 		delayed = 0;
 		mds = mdstat_read(0, 0);
 		for (m = mds; m; m = m->next)
-			if (m->devnum == devname2devnum(sra->sys_name)) {
+			if (strcmp(m->devnm, sra->sys_name) == 0) {
 				if (m->resync &&
 				    m->percent == RESYNC_DELAYED)
 					delayed = 1;
@@ -3025,7 +3012,7 @@ started:
 
 	if (st->ss->external) {
 		/* Re-load the metadata as much could have changed */
-		int cfd = open_dev(st->container_dev);
+		int cfd = open_dev(st->container_devnm);
 		if (cfd >= 0) {
 			flush_mdmon(container);
 			st->ss->free_super(st);
@@ -3087,7 +3074,7 @@ int reshape_container(char *container, char *devname,
 {
 	struct mdinfo *cc = NULL;
 	int rv = restart;
-	int last_devnum = -1;
+	char last_devnm[32] = "";
 
 	/* component_size is not meaningful for a container,
 	 * so pass '0' meaning 'no change'
@@ -3144,6 +3131,7 @@ int reshape_container(char *container, char *devname,
 		int fd;
 		struct mdstat_ent *mdstat;
 		char *adev;
+		int devid;
 
 		sysfs_free(cc);
 
@@ -3155,13 +3143,12 @@ int reshape_container(char *container, char *devname,
 				continue;
 
 			subarray = strchr(content->text_version+1, '/')+1;
-			mdstat = mdstat_by_subdev(subarray,
-						  devname2devnum(container));
+			mdstat = mdstat_by_subdev(subarray, container);
 			if (!mdstat)
 				continue;
 			if (mdstat->active == 0) {
-				pr_err("Skipping inactive "
-					"array md%i.\n", mdstat->devnum);
+				pr_err("Skipping inactive array %s.\n",
+				       mdstat->devnm);
 				free_mdstat(mdstat);
 				mdstat = NULL;
 				continue;
@@ -3171,20 +3158,19 @@ int reshape_container(char *container, char *devname,
 		if (!content)
 			break;
 
-		adev = map_dev(dev2major(mdstat->devnum),
-			       dev2minor(mdstat->devnum),
-			       0);
+		devid = devnm2devid(mdstat->devnm);
+		adev = map_dev(major(devid), minor(devid), 0);
 		if (!adev)
 			adev = content->text_version;
 
-		fd = open_dev(mdstat->devnum);
+		fd = open_dev(mdstat->devnm);
 		if (fd < 0) {
 			printf(Name ": Device %s cannot be opened for reshape.",
 			       adev);
 			break;
 		}
 
-		if (last_devnum == mdstat->devnum) {
+		if (strcmp(last_devnm, mdstat->devnm) == 0) {
 			/* Do not allow for multiple reshape_array() calls for
 			 * the same array.
 			 * It can happen when reshape_array() returns without
@@ -3200,11 +3186,11 @@ int reshape_container(char *container, char *devname,
 			close(fd);
 			break;
 		}
-		last_devnum = mdstat->devnum;
+		strcpy(last_devnm, mdstat->devnm);
 
-		sysfs_init(content, fd, mdstat->devnum);
+		sysfs_init(content, fd, mdstat->devnm);
 
-		if (mdmon_running(devname2devnum(container)))
+		if (mdmon_running(container))
 			flush_mdmon(container);
 
 		rv = reshape_array(container, fd, adev, st,
@@ -3222,7 +3208,7 @@ int reshape_container(char *container, char *devname,
 		if (rv)
 			break;
 
-		if (mdmon_running(devname2devnum(container)))
+		if (mdmon_running(container))
 			flush_mdmon(container);
 	}
 	if (!rv)
@@ -4368,7 +4354,6 @@ int Grow_continue_command(char *devname, int fd,
 	char *subarray = NULL;
 	struct mdinfo *cc = NULL;
 	struct mdstat_ent *mdstat = NULL;
-	char buf[40];
 	int cfd = -1;
 	int fd2 = -1;
 
@@ -4427,17 +4412,17 @@ int Grow_continue_command(char *devname, int fd,
 		}
 		st->ss->getinfo_super(st, content, NULL);
 	} else {
-		int container_dev;
+		char *container;
 
 		if (subarray) {
 			dprintf("subarray (%s)\n", subarray);
-			container_dev = st->container_dev;
-			cfd = open_dev_excl(st->container_dev);
+			container = st->container_devnm;
+			cfd = open_dev_excl(st->container_devnm);
 		} else {
-			container_dev = st->devnum;
+			container = st->devnm;
 			close(fd);
-			cfd = open_dev_excl(st->devnum);
-			dprintf("container (%i)\n", container_dev);
+			cfd = open_dev_excl(st->devnm);
+			dprintf("container (%s)\n", container);
 			fd = cfd;
 		}
 		if (cfd < 0) {
@@ -4446,7 +4431,6 @@ int Grow_continue_command(char *devname, int fd,
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
-		fmt_devname(buf, container_dev);
 
 		/* find in container array under reshape
 		 */
@@ -4482,18 +4466,18 @@ int Grow_continue_command(char *devname, int fd,
 				pr_err("cannot continue reshape of an array"
 				       " in container with unsupported"
 				       " metadata: %s(%s)\n",
-				       devname, buf);
+				       devname, container);
 				ret_val = 1;
 				goto Grow_continue_command_exit;
 			}
 
 			array = strchr(content->text_version+1, '/')+1;
-			mdstat = mdstat_by_subdev(array, container_dev);
+			mdstat = mdstat_by_subdev(array, container);
 			if (!mdstat)
 				continue;
 			if (mdstat->active == 0) {
-				pr_err("Skipping inactive "
-					"array md%i.\n", mdstat->devnum);
+				pr_err("Skipping inactive array %s.\n",
+				       mdstat->devnm);
 				free_mdstat(mdstat);
 				mdstat = NULL;
 				continue;
@@ -4506,23 +4490,22 @@ int Grow_continue_command(char *devname, int fd,
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
-		fd2 = open_dev(mdstat->devnum);
+		fd2 = open_dev(mdstat->devnm);
 		if (fd2 < 0) {
-			pr_err("cannot open (md%i)\n",
-				mdstat->devnum);
+			pr_err("cannot open (%s)\n", mdstat->devnm);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
 
-		sysfs_init(content, fd2, mdstat->devnum);
+		sysfs_init(content, fd2, mdstat->devnm);
 
 		/* start mdmon in case it is not running
 		 */
-		if (!mdmon_running(container_dev))
-			start_mdmon(container_dev);
-		ping_monitor(buf);
+		if (!mdmon_running(container))
+			start_mdmon(container);
+		ping_monitor(container);
 
-		if (mdmon_running(container_dev))
+		if (mdmon_running(container))
 			st->update_tail = &st->updates;
 		else {
 			pr_err("No mdmon found. "
@@ -4566,16 +4549,14 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		return ret_val;
 
 	if (st->ss->external) {
-		char container[40];
-		int cfd = open_dev(st->container_dev);
+		int cfd = open_dev(st->container_devnm);
 
 		if (cfd < 0)
 			return 1;
 
-		fmt_devname(container, st->container_dev);
-		st->ss->load_container(st, cfd, container);
+		st->ss->load_container(st, cfd, st->container_devnm);
 		close(cfd);
-		ret_val = reshape_container(container, NULL, mdfd,
+		ret_val = reshape_container(st->container_devnm, NULL, mdfd,
 					    st, info, 0, backup_file,
 					    0, 1, freeze_reshape);
 	} else

@@ -54,7 +54,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 	/* If this is an externally-managed array, we need to modify the
 	 * metadata_version so that mdmon doesn't undo our change.
 	 */
-	mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
+	mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
 	if (mdi &&
 	    mdi->array.major_version == -1 &&
 	    is_subarray(mdi->text_version)) {
@@ -127,12 +127,12 @@ out:
 
 #ifndef MDASSEMBLE
 
-static void remove_devices(int devnum, char *path)
+static void remove_devices(char *devnm, char *path)
 {
 	/*
 	 * Remove names at 'path' - possibly with
 	 * partition suffixes - which link to the 'standard'
-	 * name for devnum.  These were probably created
+	 * name for devnm.  These were probably created
 	 * by mdadm when the array was assembled.
 	 */
 	char base[40];
@@ -146,10 +146,7 @@ static void remove_devices(int devnum, char *path)
 	if (!path)
 		return;
 
-	if (devnum >= 0)
-		sprintf(base, "/dev/md%d", devnum);
-	else
-		sprintf(base, "/dev/md_d%d", -1-devnum);
+	sprintf(base, "/dev/%s", devnm);
 	be = base + strlen(base);
 
 	path2 = xmalloc(strlen(path)+20);
@@ -214,19 +211,19 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		struct map_ent *map = NULL;
 		struct stat stb;
 		struct mdinfo *mdi;
-		int devnum;
+		char devnm[32];
 		int err;
 		int count;
 		/* If this is an mdmon managed array, just write 'inactive'
 		 * to the array state and let mdmon clear up.
 		 */
-		devnum = fd2devnum(fd);
+		strcpy(devnm, fd2devnm(fd));
 		/* Get EXCL access first.  If this fails, then attempting
 		 * to stop is probably a bad idea.
 		 */
 		close(fd);
 		fd = open(devname, O_RDONLY|O_EXCL);
-		if (fd < 0 || fd2devnum(fd) != devnum) {
+		if (fd < 0 || strcmp(fd2devnm(fd), devnm) != 0) {
 			if (fd >= 0)
 				close(fd);
 			if (verbose >= 0)
@@ -237,7 +234,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 				       devname);
 			return 1;
 		}
-		mdi = sysfs_read(fd, -1, GET_LEVEL|GET_VERSION);
+		mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
 		if (mdi &&
 		    mdi->array.level > 0 &&
 		    is_subarray(mdi->text_version)) {
@@ -269,7 +266,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 			/* Give monitor a chance to act */
 			ping_monitor(mdi->text_version);
 
-			fd = open_dev_excl(devnum);
+			fd = open_dev_excl(devnm);
 			if (fd < 0) {
 				if (verbose >= 0)
 					pr_err("failed to completely stop %s"
@@ -296,8 +293,8 @@ int Manage_runstop(char *devname, int fd, int runstop,
 			for (m = mds; m; m = m->next)
 				if (m->metadata_version &&
 				    strncmp(m->metadata_version, "external:", 9)==0 &&
-				    is_subarray(m->metadata_version+9) &&
-				    devname2devnum(m->metadata_version+10) == devnum) {
+				    metadata_container_matches(m->metadata_version+9,
+							       devnm)) {
 					if (verbose >= 0)
 						pr_err("Cannot stop container %s: "
 						       "member %s still active\n",
@@ -340,17 +337,17 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		if (mdi)
 			sysfs_uevent(mdi, "change");
 
-		if (devnum != NoMdDev &&
+		if (devnm[0] &&
 		    (stat("/dev/.udev", &stb) != 0 ||
 		     check_env("MDADM_NO_UDEV"))) {
-			struct map_ent *mp = map_by_devnum(&map, devnum);
-			remove_devices(devnum, mp ? mp->path : NULL);
+			struct map_ent *mp = map_by_devnm(&map, devnm);
+			remove_devices(devnm, mp ? mp->path : NULL);
 		}
 
 		if (verbose >= 0)
 			pr_err("stopped %s\n", devname);
 		map_lock(&map);
-		map_remove(&map, devnum);
+		map_remove(&map, devnm);
 		map_unlock(&map);
 	out:
 		if (mdi)
@@ -774,10 +771,12 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		struct mdinfo new_mdi;
 		struct mdinfo *sra;
 		int container_fd;
-		int devnum = fd2devnum(fd);
+		char devnm[32];
 		int dfd;
 
-		container_fd = open_dev_excl(devnum);
+		strcpy(devnm, fd2devnm(fd));
+
+		container_fd = open_dev_excl(devnm);
 		if (container_fd < 0) {
 			pr_err("add failed for %s:"
 			       " could not get exclusive access to container\n",
@@ -788,7 +787,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 		Kill(dv->devname, NULL, 0, -1, 0);
 		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
-		if (mdmon_running(tst->container_dev))
+		if (mdmon_running(tst->container_devnm))
 			tst->update_tail = &tst->updates;
 		if (tst->ss->add_to_super(tst, &disc, dfd,
 					  dv->devname, INVALID_SECTORS)) {
@@ -801,7 +800,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		else
 			tst->ss->sync_metadata(tst);
 
-		sra = sysfs_read(container_fd, -1, 0);
+		sra = sysfs_read(container_fd, NULL, 0);
 		if (!sra) {
 			pr_err("add failed for %s: sysfs_read failed\n",
 			       dv->devname);
@@ -825,7 +824,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			sysfs_free(sra);
 			return -1;
 		}
-		ping_monitor_by_id(devnum);
+		ping_monitor(devnm);
 		sysfs_free(sra);
 		close(container_fd);
 	} else {
@@ -858,8 +857,9 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		 * get an O_EXCL open on the container
 		 */
 		int ret;
-		int dnum = fd2devnum(fd);
-		lfd = open_dev_excl(dnum);
+		char devnm[32];
+		strcpy(devnm, fd2devnm(fd));
+		lfd = open_dev_excl(devnm);
 		if (lfd < 0) {
 			pr_err("Cannot get exclusive access "
 			       " to container - odd\n");
@@ -875,7 +875,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		if (rdev == 0)
 			ret = -1;
 		else
-			ret = sysfs_unique_holder(dnum, rdev);
+			ret = sysfs_unique_holder(devnm, rdev);
 		if (ret == 0) {
 			pr_err("%s is not a member, cannot remove.\n",
 			       dv->devname);
@@ -904,7 +904,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		if (err && errno == ENODEV) {
 			/* Old kernels rejected this if no personality
 			 * is registered */
-			struct mdinfo *sra = sysfs_read(fd, 0, GET_DEVS);
+			struct mdinfo *sra = sysfs_read(fd, NULL, GET_DEVS);
 			struct mdinfo *dv = NULL;
 			if (sra)
 				dv = sra->devs;
@@ -936,15 +936,14 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		 * 'add' event before reconciling this 'remove'
 		 * event.
 		 */
-		char *name = devnum2devname(fd2devnum(fd));
+		char *devnm = fd2devnm(fd);
 
-		if (!name) {
+		if (!devnm) {
 			pr_err("unable to get container name\n");
 			return -1;
 		}
 
-		ping_manager(name);
-		free(name);
+		ping_manager(devnm);
 	}
 	if (lfd >= 0)
 		close(lfd);
@@ -965,7 +964,7 @@ int Manage_replace(struct supertype *tst, int fd, struct mddev_dev *dv,
 	/* Need to find the device in sysfs and add 'want_replacement' to the
 	 * status.
 	 */
-	mdi = sysfs_read(fd, -1, GET_DEVS);
+	mdi = sysfs_read(fd, NULL, GET_DEVS);
 	if (!mdi || !mdi->devs) {
 		pr_err("Cannot find status of %s to enable replacement - strange\n",
 		       devname);
@@ -1016,7 +1015,7 @@ int Manage_with(struct supertype *tst, int fd, struct mddev_dev *dv,
 {
 	struct mdinfo *mdi, *di;
 	/* try to set 'slot' for 'rdev' in 'fd' to 'dv->used' */
-	mdi = sysfs_read(fd, -1, GET_DEVS|GET_STATE);
+	mdi = sysfs_read(fd, NULL, GET_DEVS|GET_STATE);
 	if (!mdi || !mdi->devs) {
 		pr_err("Cannot find status of %s to enable replacement - strange\n",
 		       devname);
@@ -1107,7 +1106,7 @@ int Manage_subdevs(char *devname, int fd,
 			devname);
 		goto abort;
 	}
-	sysfs_init(&info, fd, 0);
+	sysfs_init(&info, fd, NULL);
 
 	/* array.size is only 32 bits and may be truncated.
 	 * So read from sysfs if possible, and record number of sectors
@@ -1187,7 +1186,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 
 			sprintf(dname, "dev-%s", dv->devname);
-			sysfd = sysfs_open(fd2devnum(fd), dname, "block/dev");
+			sysfd = sysfs_open(fd2devnm(fd), dname, "block/dev");
 			if (sysfd >= 0) {
 				char dn[20];
 				int mj,mn;
@@ -1200,7 +1199,7 @@ int Manage_subdevs(char *devname, int fd,
 				sysfd = -1;
 			}
 			if (!found) {
-				sysfd = sysfs_open(fd2devnum(fd), dname, "state");
+				sysfd = sysfs_open(fd2devnm(fd), dname, "state");
 				if (sysfd < 0) {
 					pr_err("%s does not appear "
 						"to be a component of %s\n",
@@ -1412,7 +1411,7 @@ int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident 
 		goto free_super;
 	}
 
-	if (mdmon_running(st->devnum))
+	if (mdmon_running(st->devnm))
 		st->update_tail = &st->updates;
 
 	rv = st->ss->update_subarray(st, subarray, update, ident);

@@ -421,7 +421,7 @@ struct dev_policy *disk_policy(struct mdinfo *disk)
 	return pol;
 }
 
-struct dev_policy *devnum_policy(int dev)
+struct dev_policy *devid_policy(int dev)
 {
 	struct mdinfo disk;
 	disk.disk.major = major(dev);
@@ -677,9 +677,9 @@ int domain_test(struct domainlist *dom, struct dev_policy *pol,
 	return found_any;
 }
 
-void domainlist_add_dev(struct domainlist **dom, int devnum, const char *metadata)
+void domainlist_add_dev(struct domainlist **dom, int devid, const char *metadata)
 {
-	struct dev_policy *pol = devnum_policy(devnum);
+	struct dev_policy *pol = devid_policy(devid);
 	domain_merge(dom, pol, metadata);
 	dev_policy_free(pol);
 }

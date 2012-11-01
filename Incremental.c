@@ -291,7 +291,7 @@ int Incremental(char *devname, struct context *c,
 
 	mp = map_by_uuid(&map, info.uuid);
 	if (mp)
-		mdfd = open_dev(mp->devnum);
+		mdfd = open_dev(mp->devnm);
 	else
 		mdfd = -1;
 
@@ -304,7 +304,7 @@ int Incremental(char *devname, struct context *c,
 		if (mdfd < 0)
 			goto out_unlock;
 
-		sysfs_init(&info, mdfd, 0);
+		sysfs_init(&info, mdfd, NULL);
 
 		if (set_array_info(mdfd, st, &info) != 0) {
 			pr_err("failed to set array info for %s: %s\n",
@@ -323,8 +323,8 @@ int Incremental(char *devname, struct context *c,
 			rv = 2;
 			goto out_unlock;
 		}
-		sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
-					    GET_OFFSET | GET_SIZE));
+		sra = sysfs_read(mdfd, NULL, (GET_DEVS | GET_STATE |
+					      GET_OFFSET | GET_SIZE));
 
 		if (!sra || !sra->devs || sra->devs->disk.raid_disk >= 0) {
 			/* It really should be 'none' - must be old buggy
@@ -339,7 +339,7 @@ int Incremental(char *devname, struct context *c,
 		}
 		info.array.working_disks = 1;
 		/* 6/ Make sure /var/run/mdadm.map contains this array. */
-		map_update(&map, fd2devnum(mdfd),
+		map_update(&map, fd2devnm(mdfd),
 			   info.text_version,
 			   info.uuid, chosen_name);
 	} else {
@@ -353,13 +353,13 @@ int Incremental(char *devname, struct context *c,
 		struct supertype *st2;
 		struct mdinfo info2, *d;
 
-		sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
+		sra = sysfs_read(mdfd, NULL, (GET_DEVS | GET_STATE |
 					    GET_OFFSET | GET_SIZE));
 
 		if (mp->path)
 			strcpy(chosen_name, mp->path);
 		else
-			strcpy(chosen_name, devnum2devname(mp->devnum));
+			strcpy(chosen_name, mp->devnm);
 
 		/* It is generally not OK to add non-spare drives to a
 		 * running array as they are probably missing because
@@ -460,7 +460,7 @@ int Incremental(char *devname, struct context *c,
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
 	if (info.array.level == LEVEL_CONTAINER) {
-		int devnum = devnum; /* defined and used iff ->external */
+		char devnm[32];
 		/* Try to assemble within the container */
 		sysfs_uevent(sra, "change");
 		if (c->verbose >= 0)
@@ -469,7 +469,7 @@ int Incremental(char *devname, struct context *c,
 			       info.array.working_disks == 1?"":"s");
 		wait_for(chosen_name, mdfd);
 		if (st->ss->external)
-			devnum = fd2devnum(mdfd);
+			strcpy(devnm, fd2devnm(mdfd));
 		if (st->ss->load_container)
 			rv = st->ss->load_container(st, mdfd, NULL);
 		close(mdfd);
@@ -485,7 +485,7 @@ int Incremental(char *devname, struct context *c,
 		/* after spare is added, ping monitor for external metadata
 		 * so that it can eg. try to rebuild degraded array */
 		if (st->ss->external)
-			ping_monitor_by_id(devnum);
+			ping_monitor(devnm);
 		return rv;
 	}
 
@@ -494,7 +494,7 @@ int Incremental(char *devname, struct context *c,
 	 * things change.
 	 */
 	sysfs_free(sra);
-	sra = sysfs_read(mdfd, -1, (GET_DEVS | GET_STATE |
+	sra = sysfs_read(mdfd, NULL, (GET_DEVS | GET_STATE |
 				    GET_OFFSET | GET_SIZE));
 	active_disks = count_active(st, sra, mdfd, &avail, &info);
 	if (enough(info.array.level, info.array.raid_disks,
@@ -771,10 +771,9 @@ static int container_members_max_degradation(struct map_ent *map, struct map_ent
 	int max_degraded = 0;
 
 	for(; map; map = map->next) {
-		if (!is_subarray(map->metadata) ||
-		    devname2devnum(map->metadata+1) != me->devnum)
+		if (!metadata_container_matches(map->metadata, me->devnm))
 			continue;
-		afd = open_dev(map->devnum);
+		afd = open_dev(map->devnm);
 		if (afd < 0)
 			continue;
 		/* most accurate information regarding array degradation */
@@ -848,12 +847,12 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			}
 			free(st2);
 		}
-		sra = sysfs_read(-1, mp->devnum,
+		sra = sysfs_read(-1, mp->devnm,
 				 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
 				 GET_DEGRADED|GET_COMPONENT|GET_VERSION);
 		if (!sra) {
 			/* Probably a container - no degraded info */
-			sra = sysfs_read(-1, mp->devnum,
+			sra = sysfs_read(-1, mp->devnm,
 					 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
 					 GET_COMPONENT|GET_VERSION);
 			if (sra)
@@ -894,7 +893,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			/* true for containers, here we must read superblock
 			 * to obtain minimum spare size */
 			struct supertype *st3 = dup_super(st2);
-			int mdfd = open_dev(mp->devnum);
+			int mdfd = open_dev(mp->devnm);
 			if (mdfd < 0) {
 				free(st3);
 				goto next;
@@ -977,7 +976,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	}
 	if (chosen) {
 		/* add current device to chosen array as a spare */
-		int mdfd = open_dev(devname2devnum(chosen->sys_name));
+		int mdfd = open_dev(chosen->sys_name);
 		if (mdfd >= 0) {
 			struct mddev_dev devlist;
 			char devname[20];
@@ -1289,7 +1288,7 @@ int IncrementalScan(int verbose)
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = open_dev(me->devnum);
+		int mdfd = open_dev(me->devnm);
 
 		if (mdfd < 0)
 			continue;
@@ -1329,16 +1328,16 @@ int IncrementalScan(int verbose)
 		/* FIXME check for reshape_active and consider not
 		 * starting array.
 		 */
-		sra = sysfs_read(mdfd, 0, 0);
+		sra = sysfs_read(mdfd, NULL, 0);
 		if (sra) {
 			if (sysfs_set_str(sra, NULL,
 					  "array_state", "read-auto") == 0) {
 				if (verbose >= 0)
 					pr_err("started array %s\n",
-					       me->path ?: devnum2devname(me->devnum));
+					       me->path ?: me->devnm);
 			} else {
 				pr_err("failed to start array %s: %s\n",
-				       me->path ?: devnum2devname(me->devnum),
+				       me->path ?: me->devnm,
 				       strerror(errno));
 				rv = 1;
 			}
@@ -1355,7 +1354,7 @@ static char *container2devname(char *devname)
 	if (devname[0] == '/') {
 		int fd = open(devname, O_RDONLY);
 		if (fd >= 0) {
-			mdname = devnum2devname(fd2devnum(fd));
+			mdname = xstrdup(fd2devnm(fd));
 			close(fd);
 		}
 	} else {
@@ -1366,7 +1365,7 @@ static char *container2devname(char *devname)
 			return mdname;
 		mp = map_by_uuid(&map, uuid);
 		if (mp)
-			mdname = devnum2devname(mp->devnum);
+			mdname = xstrdup(mp->devnm);
 		map_free(map);
 	}
 
@@ -1440,11 +1439,11 @@ static int Incremental_container(struct supertype *st, char *devname,
 		mp = map_by_uuid(&map, ra->uuid);
 
 		if (mp) {
-			mdfd = open_dev(mp->devnum);
+			mdfd = open_dev(mp->devnm);
 			if (mp->path)
 				strcpy(chosen_name, mp->path);
 			else
-				strcpy(chosen_name, devnum2devname(mp->devnum));
+				strcpy(chosen_name, mp->devnm);
 		} else {
 
 			/* Check in mdadm.conf for container == devname and
@@ -1599,7 +1598,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 			"of any array\n", devname);
 		return 1;
 	}
-	mdfd = open_dev(ent->devnum);
+	mdfd = open_dev(ent->devnm);
 	if (mdfd < 0) {
 		pr_err("Cannot open array %s!!\n", ent->dev);
 		free_mdstat(ent);
@@ -1608,7 +1607,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 
 	if (id_path) {
 		struct map_ent *map = NULL, *me;
-		me = map_by_devnum(&map, ent->devnum);
+		me = map_by_devnm(&map, ent->devnm);
 		if (me)
 			policy_save_path(id_path, me);
 		map_free(map);
@@ -1624,7 +1623,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		struct mdstat_ent *memb;
 		for (memb = mdstat ; memb ; memb = memb->next)
 			if (is_container_member(memb, ent->dev)) {
-				int subfd = open_dev(memb->devnum);
+				int subfd = open_dev(memb->devnm);
 				if (subfd >= 0) {
 					Manage_subdevs(memb->dev, subfd,
 						       &devlist, verbose, 0,

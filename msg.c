@@ -216,20 +216,6 @@ int ping_monitor(char *devname)
 	return err;
 }
 
-/* ping monitor using device number */
-int ping_monitor_by_id(int devnum)
-{
-	int err = -1;
-	char *container = devnum2devname(devnum);
-
-	if (container) {
-		err = ping_monitor(container);
-		free(container);
-	}
-
-	return err;
-}
-
 static char *ping_monitor_version(char *devname)
 {
 	int sfd = connect_monitor(devname);
@@ -291,9 +277,8 @@ int block_subarray(struct mdinfo *sra)
 int check_mdmon_version(char *container)
 {
 	char *version = NULL;
-	int devnum = devname2devnum(container);
 
-	if (!mdmon_running(devnum)) {
+	if (!mdmon_running(container)) {
 		/* if mdmon is not active we assume that any instance that is
 		 * later started will match the current mdadm version, if this
 		 * assumption is violated we may inadvertantly rebuild an array
@@ -357,7 +342,7 @@ int block_monitor(char *container, const int freeze)
 		if (!is_container_member(e, container))
 			continue;
 		sysfs_free(sra);
-		sra = sysfs_read(-1, e->devnum, GET_VERSION);
+		sra = sysfs_read(-1, e->devnm, GET_VERSION);
 		if (!sra) {
 			pr_err("failed to read sysfs for subarray%s\n",
 			       to_subarray(e, container));
@@ -393,7 +378,7 @@ int block_monitor(char *container, const int freeze)
 		 * or part-spares
 		 */
 		sysfs_free(sra);
-		sra = sysfs_read(-1, e->devnum, GET_DEVS | GET_STATE);
+		sra = sysfs_read(-1, e->devnm, GET_DEVS | GET_STATE);
 		if (sra && sra->array.spare_disks > 0) {
 			unblock_subarray(sra, freeze);
 			break;
@@ -409,7 +394,7 @@ int block_monitor(char *container, const int freeze)
 			if (!is_container_member(e2, container))
 				continue;
 			sysfs_free(sra);
-			sra = sysfs_read(-1, e2->devnum, GET_VERSION);
+			sra = sysfs_read(-1, e2->devnm, GET_VERSION);
 			if (unblock_subarray(sra, freeze))
 				pr_err("Failed to unfreeze %s\n", e2->dev);
 		}
@@ -441,7 +426,7 @@ void unblock_monitor(char *container, const int unfreeze)
 		if (!is_container_member(e, container))
 			continue;
 		sysfs_free(sra);
-		sra = sysfs_read(-1, e->devnum, GET_VERSION|GET_LEVEL);
+		sra = sysfs_read(-1, e->devnm, GET_VERSION|GET_LEVEL);
 		if (!sra)
 			continue;
 		if (sra->array.level > 0)
@@ -455,8 +440,6 @@ void unblock_monitor(char *container, const int unfreeze)
 	sysfs_free(sra);
 	free_mdstat(ent);
 }
-
-
 
 /* give the manager a chance to view the updated container state.  This
  * would naturally happen due to the manager noticing a change in

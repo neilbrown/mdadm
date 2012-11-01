@@ -145,6 +145,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	int parts;
 	char *cname;
 	char devname[20];
+	char devnm[32];
 	char cbuf[400];
 	if (chosen == NULL)
 		chosen = cbuf;
@@ -252,30 +253,31 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		num = strtoul(n2, &ep, 10);
 		if (ep == n2 || *ep)
 			num = -1;
-		else if (mddev_busy(use_mdp ? (-1-num) : num))
-			num = -1;
+		else {
+			sprintf(devnm, "md%s%d", use_mdp ? "_d":"", num);
+			if (mddev_busy(devnm))
+				num = -1;
+		}
 	}
 
 	if (num < 0) {
 		/* need to choose a free number. */
-		num = find_free_devnum(use_mdp);
-		if (num == NoMdDev) {
+		char *_devnm = find_free_devnm(use_mdp);
+		if (devnm == NULL) {
 			pr_err("No avail md devices - aborting\n");
 			return -1;
 		}
+		strcpy(devnm, _devnm);
 	} else {
-		num = use_mdp ? (-1-num) : num;
-		if (mddev_busy(num)) {
+		sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
+		if (mddev_busy(devnm)) {
 			pr_err("%s is already in use.\n",
 				dev);
 			return -1;
 		}
 	}
 
-	if (num < 0)
-		sprintf(devname, "/dev/md_d%d", -1-num);
-	else
-		sprintf(devname, "/dev/md%d", num);
+	sprintf(devname, "/dev/%s", devnm);
 
 	if (cname[0] == 0 && name) {
 		/* Need to find a name if we can
@@ -335,14 +337,14 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		if (lstat(devname, &stb) == 0) {
 			/* Must be the correct device, else error */
 			if ((stb.st_mode&S_IFMT) != S_IFBLK ||
-			    stb.st_rdev != makedev(dev2major(num),dev2minor(num))) {
+			    stb.st_rdev != (dev_t)devnm2devid(devnm)) {
 				pr_err("%s exists but looks wrong, please fix\n",
 					devname);
 				return -1;
 			}
 		} else {
 			if (mknod(devname, S_IFBLK|0600,
-				  makedev(dev2major(num),dev2minor(num))) != 0) {
+				  devnm2devid(devnm)) != 0) {
 				pr_err("failed to create %s\n",
 					devname);
 				return -1;
@@ -389,7 +391,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				make_parts(chosen, parts);
 		}
 	}
-	mdfd = open_dev_excl(num);
+	mdfd = open_dev_excl(devnm);
 	if (mdfd < 0)
 		pr_err("unexpected failure opening %s\n",
 			devname);

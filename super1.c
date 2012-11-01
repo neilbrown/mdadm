@@ -1716,7 +1716,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 {
 	struct supertype *st = xcalloc(1, sizeof(*st));
 
-	st->container_dev = NoMdDev;
+	st->container_devnm[0] = 0;
 	st->ss = &super1;
 	st->max_devs = MAX_DEVS;
 	st->sb = NULL;

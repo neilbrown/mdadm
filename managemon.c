@@ -134,7 +134,7 @@ static void free_aa(struct active_array *aa)
 	/* Note that this doesn't close fds if they are being used
 	 * by a clone.  ->container will be set for a clone
 	 */
-	dprintf("%s: devnum: %d\n", __func__, aa->devnum);
+	dprintf("%s: sys_name: %s\n", __func__, aa->info.sys_name);
 	if (!aa->container)
 		close_aa(aa);
 	while (aa->info.devs) {
@@ -359,7 +359,7 @@ static void manage_container(struct mdstat_ent *mdstat,
 		 * To see what is removed and what is added.
 		 * These need to be remove from, or added to, the array
 		 */
-		mdi = sysfs_read(-1, mdstat->devnum, GET_DEVS);
+		mdi = sysfs_read(-1, mdstat->devnm, GET_DEVS);
 		if (!mdi) {
 			/* invalidate the current count so we can try again */
 			container->devcnt = -1;
@@ -409,10 +409,10 @@ static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
 		return -1;
 
 	*disk = *clone;
-	disk->recovery_fd = sysfs_open(aa->devnum, disk->sys_name, "recovery_start");
+	disk->recovery_fd = sysfs_open(aa->info.sys_name, disk->sys_name, "recovery_start");
 	if (disk->recovery_fd < 0)
 		return -1;
-	disk->state_fd = sysfs_open(aa->devnum, disk->sys_name, "state");
+	disk->state_fd = sysfs_open(aa->info.sys_name, disk->sys_name, "state");
 	if (disk->state_fd < 0) {
 		close(disk->recovery_fd);
 		return -1;
@@ -552,7 +552,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		unsigned long long array_size;
 		struct active_array *newa = NULL;
 		a->check_reshape = 0;
-		info = sysfs_read(-1, mdstat->devnum,
+		info = sysfs_read(-1, mdstat->devnm,
 				  GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 		if (!info)
 			goto out2;
@@ -631,7 +631,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	    strcmp(mdstat->level, "linear") == 0)
 		return;
 
-	mdi = sysfs_read(-1, mdstat->devnum,
+	mdi = sysfs_read(-1, mdstat->devnm,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
 			 GET_DEGRADED|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 
@@ -640,15 +640,14 @@ static void manage_new(struct mdstat_ent *mdstat,
 		return;
 	new = xcalloc(1, sizeof(*new));
 
-	new->devnum = mdstat->devnum;
-	strcpy(new->info.sys_name, devnum2devname(new->devnum));
+	strcpy(new->info.sys_name, mdstat->devnm);
 
 	new->prev_state = new->curr_state = new->next_state = inactive;
 	new->prev_action= new->curr_action= new->next_action= idle;
 
 	new->container = container;
 
-	inst = to_subarray(mdstat, container->devname);
+	inst = to_subarray(mdstat, container->devnm);
 
 	new->info.array = mdi->array;
 	new->info.component_size = mdi->component_size;
@@ -673,11 +672,11 @@ static void manage_new(struct mdstat_ent *mdstat,
 		}
 	}
 
-	new->action_fd = sysfs_open(new->devnum, NULL, "sync_action");
-	new->info.state_fd = sysfs_open(new->devnum, NULL, "array_state");
-	new->resync_start_fd = sysfs_open(new->devnum, NULL, "resync_start");
-	new->metadata_fd = sysfs_open(new->devnum, NULL, "metadata_version");
-	new->sync_completed_fd = sysfs_open(new->devnum, NULL, "sync_completed");
+	new->action_fd = sysfs_open(new->info.sys_name, NULL, "sync_action");
+	new->info.state_fd = sysfs_open(new->info.sys_name, NULL, "array_state");
+	new->resync_start_fd = sysfs_open(new->info.sys_name, NULL, "resync_start");
+	new->metadata_fd = sysfs_open(new->info.sys_name, NULL, "metadata_version");
+	new->sync_completed_fd = sysfs_open(new->info.sys_name, NULL, "sync_completed");
 	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
 		new->action_fd, new->info.state_fd);
 
@@ -732,16 +731,16 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 
 	for ( ; mdstat ; mdstat = mdstat->next) {
 		struct active_array *a;
-		if (mdstat->devnum == container->devnum) {
+		if (strcmp(mdstat->devnm, container->devnm) == 0) {
 			manage_container(mdstat, container);
 			continue;
 		}
-		if (!is_container_member(mdstat, container->devname))
+		if (!is_container_member(mdstat, container->devnm))
 			/* Not for this array */
 			continue;
 		/* Looks like a member of this container */
 		for (a = container->arrays; a; a = a->next) {
-			if (mdstat->devnum == a->devnum) {
+			if (strcmp(mdstat->devnm, a->info.sys_name) == 0) {
 				if (a->container && a->to_remove == 0)
 					manage_member(mdstat, a);
 				break;

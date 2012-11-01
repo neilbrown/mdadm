@@ -1457,7 +1457,7 @@ int main(int argc, char *argv[])
 				rv = 1;
 				break;
 			}
-			sysfs_init(&sra, mdfd, 0);
+			sysfs_init(&sra, mdfd, NULL);
 			if (array_size == MAX_SIZE)
 				err = sysfs_set_str(&sra, NULL, "array_size", "default");
 			else
@@ -1658,12 +1658,12 @@ static int misc_scan(char devmode, struct context *c)
 					"external:/", 10) == 0;
 			if (members != member)
 				continue;
-			me = map_by_devnum(&map, e->devnum);
+			me = map_by_devnm(&map, e->devnm);
 			if (me && me->path
 			    && strcmp(me->path, "/unknown") != 0)
 				name = me->path;
 			else
-				name = get_md_name(e->devnum);
+				name = get_md_name(e->devnm);
 
 			if (!name) {
 				pr_err("cannot find device file for %s\n",
@@ -1697,7 +1697,7 @@ static int stop_scan(int verbose)
 		if (!progress) last = 1;
 		progress = 0; err = 0;
 		for (e=ms ; e ; e=e->next) {
-			char *name = get_md_name(e->devnum);
+			char *name = get_md_name(e->devnm);
 			int mdfd;
 
 			if (!name) {

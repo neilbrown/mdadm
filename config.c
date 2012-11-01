@@ -995,7 +995,7 @@ int devname_matches(char *name, char *match)
 
 int conf_name_is_free(char *name)
 {
-	/* Check if this name is already take by an ARRAY entry in
+	/* Check if this name is already taken by an ARRAY entry in
 	 * the config file.
 	 * It can be taken either by a match on devname, name, or
 	 * even super-minor.

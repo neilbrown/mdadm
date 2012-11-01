@@ -107,14 +107,14 @@ int Kill_subarray(char *dev, char *subarray, int verbose)
 		goto free_super;
 	}
 
-	if (is_subarray_active(subarray, st->devname)) {
+	if (is_subarray_active(subarray, st->devnm)) {
 		if (verbose >= 0)
 			pr_err("Subarray-%s still active, aborting\n",
 			       subarray);
 		goto free_super;
 	}
 
-	if (mdmon_running(st->devnum))
+	if (mdmon_running(st->devnm))
 		st->update_tail = &st->updates;
 
 	/* ok we've found our victim, drop the axe */

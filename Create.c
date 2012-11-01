@@ -703,31 +703,31 @@ int Create(struct supertype *st, char *mddev,
 
 	total_slots = info.array.nr_disks;
 	st->ss->getinfo_super(st, &info, NULL);
-	sysfs_init(&info, mdfd, 0);
+	sysfs_init(&info, mdfd, NULL);
 
 	if (did_default && c->verbose >= 0) {
 		if (is_subarray(info.text_version)) {
-			int dnum = devname2devnum(info.text_version+1);
-			char *path;
-			int mdp = get_mdp_major();
+			char devnm[32];
+			char *ep;
 			struct mdinfo *mdi;
-			if (dnum > 0)
-				path = map_dev(MD_MAJOR, dnum, 1);
-			else
-				path = map_dev(mdp, (-1-dnum)<< 6, 1);
 
-			mdi = sysfs_read(-1, dnum, GET_VERSION);
+			strncpy(devnm, info.text_version+1, 32);
+			devnm[31] = 0;
+			ep = strchr(devnm, '/');
+			if (ep)
+				*ep = 0;
 
-			pr_err("Creating array inside "
-				"%s container %s\n",
-				mdi?mdi->text_version:"managed", path);
+			mdi = sysfs_read(-1, devnm, GET_VERSION);
+
+			pr_err("Creating array inside %s container %s\n",
+				mdi?mdi->text_version:"managed", devnm);
 			sysfs_free(mdi);
 		} else
 			pr_err("Defaulting to version"
 				" %s metadata\n", info.text_version);
 	}
 
-	map_update(&map, fd2devnum(mdfd), info.text_version,
+	map_update(&map, fd2devnm(mdfd), info.text_version,
 		   info.uuid, chosen_name);
 	map_unlock(&map);
 
@@ -758,9 +758,9 @@ int Create(struct supertype *st, char *mddev,
 		s->bitmap_file = NULL;
 	}
 
-	sysfs_init(&info, mdfd, 0);
+	sysfs_init(&info, mdfd, NULL);
 
-	if (st->ss->external && st->container_dev != NoMdDev) {
+	if (st->ss->external && st->container_devnm[0]) {
 		/* member */
 
 		/* When creating a member, we need to be careful
@@ -775,17 +775,17 @@ int Create(struct supertype *st, char *mddev,
 		 *
 		 * For now, fail if it is already running.
 		 */
-		container_fd = open_dev_excl(st->container_dev);
+		container_fd = open_dev_excl(st->container_devnm);
 		if (container_fd < 0) {
 			pr_err("Cannot get exclusive "
 				"open on container - weird.\n");
 			goto abort;
 		}
-		if (mdmon_running(st->container_dev)) {
+		if (mdmon_running(st->container_devnm)) {
 			if (c->verbose)
 				pr_err("reusing mdmon "
 					"for %s.\n",
-					devnum2devname(st->container_dev));
+					st->container_devnm);
 			st->update_tail = &st->updates;
 		} else
 			need_mdmon = 1;
@@ -864,7 +864,7 @@ int Create(struct supertype *st, char *mddev,
 					fd = -1;
 				else {
 					if (st->ss->external &&
-					    st->container_dev != NoMdDev)
+					    st->container_devnm[0])
 						fd = open(dv->devname, O_RDWR);
 					else
 						fd = open(dv->devname, O_RDWR|O_EXCL);
@@ -932,10 +932,10 @@ int Create(struct supertype *st, char *mddev,
 			st->ss->getinfo_super(st, &info_new, NULL);
 			if (st->ss->external && s->level != LEVEL_CONTAINER &&
 			    !same_uuid(info_new.uuid, info.uuid, 0)) {
-				map_update(&map, fd2devnum(mdfd),
+				map_update(&map, fd2devnm(mdfd),
 					   info_new.text_version,
 					   info_new.uuid, chosen_name);
-				me = map_by_devnum(&map, st->container_dev);
+				me = map_by_devnm(&map, st->container_devnm);
 			}
 
 			if (st->ss->write_init_super(st)) {
@@ -948,7 +948,7 @@ int Create(struct supertype *st, char *mddev,
 				char *path = xstrdup(me->path);
 
 				st->ss->getinfo_super(st, &info_new, NULL);
-				map_update(&map, st->container_dev,
+				map_update(&map, st->container_devnm,
 					   info_new.text_version,
 					   info_new.uuid, path);
 				free(path);
@@ -1019,11 +1019,11 @@ int Create(struct supertype *st, char *mddev,
 		}
 		if (c->verbose >= 0)
 			pr_err("array %s started.\n", mddev);
-		if (st->ss->external && st->container_dev != NoMdDev) {
+		if (st->ss->external && st->container_devnm[0]) {
 			if (need_mdmon)
-				start_mdmon(st->container_dev);
+				start_mdmon(st->container_devnm);
 
-			ping_monitor_by_id(st->container_dev);
+			ping_monitor(st->container_devnm);
 			close(container_fd);
 		}
 		wait_for(chosen_name, mdfd);
@@ -1036,7 +1036,7 @@ int Create(struct supertype *st, char *mddev,
  abort:
 	map_lock(&map);
  abort_locked:
-	map_remove(&map, fd2devnum(mdfd));
+	map_remove(&map, fd2devnm(mdfd));
 	map_unlock(&map);
 
 	if (mdfd >= 0)

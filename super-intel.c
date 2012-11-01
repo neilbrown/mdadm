@@ -431,7 +431,7 @@ struct imsm_update_activate_spare {
 };
 
 struct geo_params {
-	int dev_id;
+	char devnm[32];
 	char *dev_name;
 	unsigned long long size;
 	int level;
@@ -605,7 +605,6 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 		return NULL;
 
 	st = xcalloc(1, sizeof(*st));
-	st->container_dev = NoMdDev;
 	st->ss = &super_imsm;
 	st->max_devs = IMSM_MAX_DEVICES;
 	st->minor_version = 0;
@@ -2532,7 +2531,6 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	struct imsm_map *prev_map = get_imsm_map(dev, MAP_1);
 	struct imsm_map *map_to_analyse = map;
 	struct dl *dl;
-	char *devname;
 	int map_disks = info->array.raid_disks;
 
 	memset(info, 0, sizeof(*info));
@@ -2694,11 +2692,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 
 	info->array.major_version = -1;
 	info->array.minor_version = -2;
-	devname = devnum2devname(st->container_dev);
-	*info->text_version = '\0';
-	if (devname)
-		sprintf(info->text_version, "/%s/%d", devname, info->container_member);
-	free(devname);
+	sprintf(info->text_version, "/%s/%d", st->container_devnm, info->container_member);
 	info->safe_mode_delay = 4000;  /* 4 secs like the Matrix driver */
 	uuid_from_super_imsm(st, info->uuid);
 
@@ -4158,7 +4152,7 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 
 static int
 get_sra_super_block(int fd, struct intel_super **super_list, char *devname, int *max, int keep_fd);
-static int get_super_block(struct intel_super **super_list, int devnum, char *devname,
+static int get_super_block(struct intel_super **super_list, char *devnm, char *devname,
 			   int major, int minor, int keep_fd);
 static int
 get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list,
@@ -4233,9 +4227,9 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 
 	*sbp = super;
 	if (fd >= 0)
-		st->container_dev = fd2devnum(fd);
+		strcpy(st->container_devnm, fd2devnm(fd));
 	else
-		st->container_dev = NoMdDev;
+		st->container_devnm[0] = 0;
 	if (err == 0 && st->ss == NULL) {
 		st->ss = &super_imsm;
 		st->minor_version = 0;
@@ -4278,7 +4272,7 @@ get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list
 			int major = major(tmpdev->st_rdev);
 			int minor = minor(tmpdev->st_rdev);
 			err = get_super_block(super_list,
-					      -1,
+					      NULL,
 					      tmpdev->devname,
 					      major, minor,
 					      keep_fd);
@@ -4294,7 +4288,7 @@ get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list
 	return err;
 }
 
-static int get_super_block(struct intel_super **super_list, int devnum, char *devname,
+static int get_super_block(struct intel_super **super_list, char *devnm, char *devname,
 			   int major, int minor, int keep_fd)
 {
 	struct intel_super*s = NULL;
@@ -4320,7 +4314,7 @@ static int get_super_block(struct intel_super **super_list, int devnum, char *de
 	err = load_and_parse_mpb(dfd, s, NULL, keep_fd);
 
 	/* retry the load if we might have raced against mdmon */
-	if (err == 3 && (devnum != -1) && mdmon_running(devnum))
+	if (err == 3 && devnm && mdmon_running(devnm))
 		for (retry = 0; retry < 3; retry++) {
 			usleep(3000);
 			err = load_and_parse_mpb(dfd, s, NULL, keep_fd);
@@ -4347,11 +4341,11 @@ static int
 get_sra_super_block(int fd, struct intel_super **super_list, char *devname, int *max, int keep_fd)
 {
 	struct mdinfo *sra;
-	int devnum;
+	char *devnm;
 	struct mdinfo *sd;
 	int err = 0;
 	int i = 0;
-	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
+	sra = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 
@@ -4362,9 +4356,9 @@ get_sra_super_block(int fd, struct intel_super **super_list, char *devname, int 
 		goto error;
 	}
 	/* load all mpbs */
-	devnum = fd2devnum(fd);
+	devnm = fd2devnm(fd);
 	for (sd = sra->devs, i = 0; sd; sd = sd->next, i++) {
-		if (get_super_block(super_list, devnum, devname,
+		if (get_super_block(super_list, devnm, devname,
 				    sd->disk.major, sd->disk.minor, keep_fd) != 0) {
 			err = 7;
 			goto error;
@@ -6230,7 +6224,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				dev);
 		return 0;
 	}
-	sra = sysfs_read(cfd, 0, GET_VERSION);
+	sra = sysfs_read(cfd, NULL, GET_VERSION);
 	if (sra && sra->array.major_version == -1 &&
 	    strcmp(sra->text_version, "imsm") == 0)
 		is_member = 1;
@@ -6243,7 +6237,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 
 		if (load_super_imsm_all(st, cfd, (void **) &super, NULL, NULL, 1) == 0) {
 			st->sb = super;
-			st->container_dev = fd2devnum(cfd);
+			strcpy(st->container_devnm, fd2devnm(cfd));
 			close(cfd);
 			return validate_geometry_imsm_volume(st, level, layout,
 							     raiddisks, chunk,
@@ -6301,7 +6295,7 @@ static int kill_subarray_imsm(struct supertype *st)
 		if (i < current_vol)
 			continue;
 		sprintf(subarray, "%u", i);
-		if (is_subarray_active(subarray, st->devname)) {
+		if (is_subarray_active(subarray, st->devnm)) {
 			pr_err("deleting subarray-%d would change the UUID of active subarray-%d, aborting\n",
 			       current_vol, i);
 
@@ -6357,7 +6351,7 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 		char *ep;
 		int vol;
 
-		if (is_subarray_active(subarray, st->devname)) {
+		if (is_subarray_active(subarray, st->devnm)) {
 			pr_err("Unable to update name of active subarray\n");
 			return 2;
 		}
@@ -9332,19 +9326,20 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 	return drv;
 }
 
-static int imsm_find_array_minor_by_subdev(int subdev, int container, int *minor)
+static char *imsm_find_array_devnm_by_subdev(int subdev, char *container)
 {
+	static char devnm[32];
 	char subdev_name[20];
 	struct mdstat_ent *mdstat;
 
 	sprintf(subdev_name, "%d", subdev);
 	mdstat = mdstat_by_subdev(subdev_name, container);
 	if (!mdstat)
-		return -1;
+		return NULL;
 
-	*minor = mdstat->devnum;
+	strcpy(devnm, mdstat->devnm);
 	free_mdstat(mdstat);
-	return 0;
+	return devnm;
 }
 
 static int imsm_reshape_is_allowed_on_container(struct supertype *st,
@@ -9361,8 +9356,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 	int devices_that_can_grow = 0;
 
 	dprintf("imsm: imsm_reshape_is_allowed_on_container(ENTER): "
-		"st->devnum = (%i)\n",
-		st->devnum);
+		"st->devnm = (%s)\n", st->devnm);
 
 	if (geo->size > 0 ||
 	    geo->level != UnSet ||
@@ -9382,8 +9376,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 
 	info = container_content_imsm(st, NULL);
 	for (member = info; member; member = member->next) {
-		int result;
-		int minor;
+		char *result;
 
 		dprintf("imsm: checking device_num: %i\n",
 			member->container_member);
@@ -9440,10 +9433,9 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 		 * so they need to be assembled.  We have already
 		 * checked that no recovery etc is happening.
 		 */
-		result = imsm_find_array_minor_by_subdev(member->container_member,
-							 st->container_dev,
-							 &minor);
-		if (result < 0) {
+		result = imsm_find_array_devnm_by_subdev(member->container_member,
+							 st->container_devnm);
+		if (result == NULL) {
 			dprintf("imsm: cannot find array\n");
 			break;
 		}
@@ -9819,8 +9811,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 		}
 		if ((super->current_vol + 1) != super->anchor->num_raid_devs) {
 			pr_err("Error. The last volume in container "
-			       "can be expanded only (%i/%i).\n",
-			       super->current_vol, st->devnum);
+			       "can be expanded only (%i/%s).\n",
+			       super->current_vol, st->devnm);
 			goto analyse_change_exit;
 		}
 		/* check the maximum available size
@@ -9959,7 +9951,7 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 	memset(&geo, 0, sizeof(struct geo_params));
 
 	geo.dev_name = dev;
-	geo.dev_id = st->devnum;
+	strcpy(geo.devnm, st->devnm);
 	geo.size = size;
 	geo.level = level;
 	geo.layout = layout;
@@ -9974,7 +9966,7 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 	if (experimental() == 0)
 		return ret_val;
 
-	if (st->container_dev == st->devnum) {
+	if (strcmp(st->container_devnm, st->devnm) == 0) {
 		/* On container level we can only increase number of devices. */
 		dprintf("imsm: info: Container operation\n");
 		int old_raid_disks = 0;
@@ -10013,19 +10005,20 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 		 */
 		struct intel_super *super = st->sb;
 		struct intel_dev *dev = super->devlist;
-		int change, devnum;
+		int change;
 		dprintf("imsm: info: Volume operation\n");
 		/* find requested device */
 		while (dev) {
-			if (imsm_find_array_minor_by_subdev(
-				    dev->index, st->container_dev, &devnum) == 0
-			    && devnum == geo.dev_id)
+			char *devnm = 
+				imsm_find_array_devnm_by_subdev(
+					dev->index, st->container_devnm);
+			if (devnm && strcmp(devnm, geo.devnm) == 0)
 				break;
 			dev = dev->next;
 		}
 		if (dev == NULL) {
-			pr_err("Cannot find %s (%i) subarray\n",
-				geo.dev_name, geo.dev_id);
+			pr_err("Cannot find %s (%s) subarray\n",
+				geo.dev_name, geo.devnm);
 			goto exit_imsm_reshape_super;
 		}
 		super->current_vol = dev->index;

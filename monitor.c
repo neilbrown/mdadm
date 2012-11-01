@@ -573,9 +573,9 @@ static int wait_and_act(struct supertype *container, int nowait)
 		 */
 		int fd;
 		if (sigterm)
-			fd = open_dev_excl(container->devnum);
+			fd = open_dev_excl(container->devnm);
 		else
-			fd = open_dev_flags(container->devnum, O_RDONLY|O_EXCL);
+			fd = open_dev_flags(container->devnm, O_RDONLY|O_EXCL);
 		if (fd >= 0 || errno != EBUSY) {
 			/* OK, we are safe to leave */
 			if (sigterm && !dirty_arrays)
@@ -586,7 +586,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 				/* On SIGTERM, someone (the take-over mdmon) will
 				 * clean up
 				 */
-				remove_pidfile(container->devname);
+				remove_pidfile(container->devnm);
 			exit_now = 1;
 			signal_manager();
 			close(fd);

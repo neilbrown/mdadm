@@ -558,20 +558,11 @@ static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device
 	if (super->hba == NULL) {
 		super->hba = alloc_intel_hba(device);
 		return 1;
-	}
-
-	hba = super->hba;
-	/* Intel metadata allows for all disks attached to the same type HBA.
-	 * Do not sypport odf HBA types mixing
-	 */
-	if (device->type != hba->type)
+	} else
+		/* IMSM metadata disallows to attach disks to multiple
+		 * controllers.
+		 */
 		return 2;
-
-	while (hba->next)
-		hba = hba->next;
-
-	hba->next = alloc_intel_hba(device);
-	return 1;
 }
 
 static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
@@ -3073,11 +3064,11 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	 */
 	if (!check_env("IMSM_NO_PLATFORM")) {
 		if (first->hba && sec->hba &&
-		    first->hba->type != sec->hba->type) {
+		    strcmp(first->hba->path, sec->hba->path) != 0)  {
 			fprintf(stderr,
 				"HBAs of devices does not match %s != %s\n",
-				first->hba ? get_sys_dev_type(first->hba->type) : NULL,
-				sec->hba ? get_sys_dev_type(sec->hba->type) : NULL);
+				first->hba ? first->hba->path : NULL,
+				sec->hba ? sec->hba->path : NULL);
 			return 3;
 		}
 	}
@@ -3819,7 +3810,7 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 			}
 
 			fprintf(stderr, ").\n"
-				"    Mixing devices attached to different controllers "
+				"    Mixing devices attached to multiple controllers "
 				"is not allowed.\n");
 		}
 		free_sys_dev(&hba_name);

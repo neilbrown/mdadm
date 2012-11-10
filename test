@@ -21,6 +21,8 @@ logdir="$testdir/logs"
 logsave=0
 exitonerror=1
 
+echo "Testing on linux-$(uname -r) kernel"
+
 # Check whether to run multipath tests
 modprobe multipath 2> /dev/null
 if grep -s 'Personalities : .*multipath' > /dev/null /proc/mdstat ; then

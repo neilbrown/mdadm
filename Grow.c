@@ -2375,7 +2375,8 @@ release:
 static void get_space_after(int fd, struct supertype *st, struct mdinfo *info)
 {
 	struct mdinfo *sra, *sd;
-	unsigned long long min_space_before, min_space_after;
+	/* Initialisation to silence compiler warning */
+	unsigned long long min_space_before = 0, min_space_after = 0;
 	int first = 1;
 
 	sra = sysfs_read(fd, 0, GET_DEVS);

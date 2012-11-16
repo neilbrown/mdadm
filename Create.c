@@ -408,6 +408,11 @@ int Create(struct supertype *st, char *mddev,
 				do_default_chunk = 0;
 			}
 		}
+		if (!freesize) {
+			pr_err("no free space left on %s\n", dname);
+			fail = 1;
+			continue;
+		}
 
 		if (s->size && freesize < s->size) {
 			pr_err("%s is smaller than given size."

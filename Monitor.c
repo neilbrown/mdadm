@@ -973,7 +973,7 @@ int Wait(char *dev)
 			if (e->devnum == devnum)
 				break;
 
-		if (!e || e->percent < 0) {
+		if (!e || e->percent == RESYNC_NONE) {
 			if (e && e->metadata_version &&
 			    strncmp(e->metadata_version, "external:", 9) == 0) {
 				if (is_subarray(&e->metadata_version[9]))

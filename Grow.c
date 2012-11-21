@@ -2947,7 +2947,7 @@ started:
 		struct mdstat_ent *mds, *m;
 		delayed = 0;
 		mds = mdstat_read(0, 0);
-		for (m = mds; m; m = mds->next)
+		for (m = mds; m; m = m->next)
 			if (m->devnum == devname2devnum(sra->sys_name)) {
 				if (m->resync &&
 				    m->percent == RESYNC_DELAYED)

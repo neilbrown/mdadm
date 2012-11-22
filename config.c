@@ -1095,6 +1095,8 @@ int conf_verify_devnames(struct mddev_ident *array_list)
 	for (a1 = array_list; a1; a1 = a1->next) {
 		if (!a1->devname)
 			continue;
+		if (strcmp(a1->devname, "<ignore>") == 0)
+			continue;
 		for (a2 = a1->next; a2; a2 = a2->next) {
 			if (!a2->devname)
 				continue;

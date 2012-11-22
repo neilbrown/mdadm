@@ -362,6 +362,8 @@ static int select_devices(struct mddev_dev *devlist,
 			tmpdev = NULL;
 			goto loop;
 		} else {
+			int rv = 0;
+			struct mddev_ident *match;
 
 			content = *contentp;
 			tst->ss->getinfo_super(tst, content, NULL);
@@ -370,7 +372,20 @@ static int select_devices(struct mddev_dev *devlist,
 					   c->homehost, c->update,
 					   report_missmatch ? devname : NULL))
 				goto loop;
-				
+
+			match = conf_match(tst, content, devname,
+					   report_missmatch ? c->verbose : -1,
+					   &rv);
+			if (!match && rv == 2)
+				goto loop;
+			if (match && match->devname &&
+			    strcasecmp(match->devname, "<ignore>") == 0) {
+				if (report_missmatch)
+					pr_err("%s is a member of an explicitly ignored array\n",
+					       devname);
+				goto loop;
+			}
+
 			/* should be safe to try an exclusive open now, we
 			 * have rejected anything that some other mdadm might
 			 * be looking at

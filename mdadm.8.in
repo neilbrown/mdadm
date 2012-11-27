@@ -1260,8 +1260,20 @@ explanation of their use.
 
 If the device name given is
 .B missing
-then mdadm will try to find any device that looks like it should be
+then
+.I mdadm
+will try to find any device that looks like it should be
 part of the array but isn't and will try to re\-add all such devices.
+
+If the device name given is
+.B faulty
+then
+.I mdadm
+will find all devices in the array that are marked
+.BR faulty ,
+remove them and attempt to immediately re\-add them.  This can be
+useful if you are certain that the reason for failure has been
+resolved.
 
 .TP
 .BR \-r ", " \-\-remove

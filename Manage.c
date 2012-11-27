@@ -1084,6 +1084,8 @@ int Manage_subdevs(char *devname, int fd,
 	 *        it must be unpaired, and is an error.
 	 *  'M' - this is created by a 'missing' target.  It is a slight
 	 *        variant on 'A'
+	 *  'F' - Another variant of 'A', where the device was faulty
+	 *        so must be removed from the array first.
 	 *
 	 * For 'f' and 'r', the device can also be a kernel-internal
 	 * name such as 'sdb'.
@@ -1128,13 +1130,15 @@ int Manage_subdevs(char *devname, int fd,
 
 		if (strcmp(dv->devname, "failed") == 0 ||
 		    strcmp(dv->devname, "faulty") == 0) {
-			if (dv->disposition != 'r') {
+			if (dv->disposition != 'A'
+			    && dv->disposition != 'r') {
 				pr_err("%s only meaningful "
-					"with -r, not -%c\n",
+					"with -r or --re-add, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
 			}
-			add_faulty(dv, fd, 'r');
+			add_faulty(dv, fd, (dv->disposition == 'A'
+					    ? 'F' : 'r'));
 			continue;
 		}
 		if (strcmp(dv->devname, "detached") == 0) {
@@ -1245,7 +1249,8 @@ int Manage_subdevs(char *devname, int fd,
 			goto abort;
 		case 'a':
 		case 'A':
-		case 'M':
+		case 'M': /* --re-add missing */
+		case 'F': /* --re-add faulty  */
 			/* add the device */
 			if (subarray) {
 				pr_err("Cannot add disks to a"
@@ -1253,6 +1258,10 @@ int Manage_subdevs(char *devname, int fd,
 					" operation on the parent container\n");
 				goto abort;
 			}
+			if (dv->disposition == 'F')
+				/* Need to remove first */
+				ioctl(fd, HOT_REMOVE_DISK,
+				      (unsigned long)stb.st_rdev);
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd >= 0) {

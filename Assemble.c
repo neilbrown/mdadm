@@ -385,6 +385,13 @@ static int select_devices(struct mddev_dev *devlist,
 					       devname);
 				goto loop;
 			}
+			if (match && !ident_matches(match, content, tst,
+						    c->homehost, c->update,
+						    report_missmatch ? devname : NULL))
+				/* Array exists  in mdadm.conf but some
+				 * details don't match, so reject it
+				 */
+				goto loop;
 
 			/* should be safe to try an exclusive open now, we
 			 * have rejected anything that some other mdadm might

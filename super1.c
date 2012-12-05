@@ -648,6 +648,59 @@ static void export_detail_super1(struct supertype *st)
 		printf("MD_NAME=%.*s\n", len, sb->set_name);
 }
 
+static int examine_badblocks_super1(struct supertype *st, int fd, char *devname)
+{
+	struct mdp_superblock_1 *sb = st->sb;
+	unsigned long long offset;
+	int size;
+	__u64 *bbl, *bbp;
+	int i;
+
+	if  (!sb->bblog_size || __le32_to_cpu(sb->bblog_size) > 100
+	     || !sb->bblog_offset){
+		printf("No bad-blocks list configured on %s\n", devname);
+		return 0;
+	}
+	if ((sb->feature_map & __cpu_to_le32(MD_FEATURE_BAD_BLOCKS))
+	    == 0) {
+		printf("Bad-blocks list is empty in %s\n", devname);
+		return 0;
+	}
+
+	size = __le32_to_cpu(sb->bblog_size)* 512;
+	posix_memalign((void**)&bbl, 4096, size);
+	offset = __le64_to_cpu(sb->super_offset) +
+		(int)__le32_to_cpu(sb->bblog_offset);
+	offset <<= 9;
+	if (lseek64(fd, offset, 0) < 0) {
+		pr_err("Cannot seek to bad-blocks list\n");
+		return 1;
+	}
+	if (read(fd, bbl, size) != size) {
+		pr_err("Cannot read bad-blocks list\n");
+		return 1;
+	}
+	/* 64bits per entry. 10 bits is block-count, 54 bits is block
+	 * offset.  Blocks are sectors unless bblog->shift makes them bigger
+	 */
+	bbp = (__u64*)bbl;
+	printf("Bad-blocks on %s:\n", devname);
+	for (i = 0; i < size/8; i++, bbp++) {
+		__u64 bb = __le64_to_cpu(*bbp);
+		int count = bb & 0x3ff;
+		unsigned long long sector = bb >> 10;
+
+		if (bb + 1 == 0)
+			break;
+
+		sector <<= sb->bblog_shift;
+		count <<= sb->bblog_shift;
+
+		printf("%20llu for %d sectors\n", sector, count);
+	}
+	return 0;
+}
+
 #endif
 
 static int match_home1(struct supertype *st, char *homehost)
@@ -2049,6 +2102,7 @@ struct superswitch super1 = {
 	.write_init_super = write_init_super1,
 	.validate_geometry = validate_geometry1,
 	.add_to_super = add_to_super1,
+	.examine_badblocks = examine_badblocks_super1,
 #endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,

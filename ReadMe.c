@@ -95,6 +95,7 @@ struct option long_options[] = {
     {"update-subarray", 1, 0, UpdateSubarray},
     {"udev-rules", 2, 0, UdevRules},
     {"offroot", 0, 0, OffRootOpt},
+    {"examine-badblocks", 0, 0, ExamineBB},
 
     /* synonyms */
     {"monitor",   0, 0, 'F'},
@@ -251,6 +252,7 @@ char OptionHelp[] =
 "  --detail      -D   : Display details of an array\n"
 "  --examine     -E   : Examine superblock on an array component\n"
 "  --examine-bitmap -X: Display the detail of a bitmap file\n"
+"  --examine-badblocks: Display list of known bad blocks on device\n"
 "  --monitor     -F   : monitor (follow) some arrays\n"
 "  --grow        -G   : resize/ reshape and array\n"
 "  --incremental -I   : add/remove a single device to/from an array as appropriate\n"
@@ -490,6 +492,7 @@ char Help_misc[] =
 "  --detail-platform  : Display hardware/firmware details\n"
 "  --examine     -E   : Examine superblock on an array component\n"
 "  --examine-bitmap -X: Display contents of a bitmap file\n"
+"  --examine-badblocks: Display list of known bad blocks on device\n"
 "  --zero-superblock  : erase the MD superblock from a device.\n"
 "  --run         -R   : start a partially built array\n"
 "  --stop        -S   : deactivate array, releasing all resources\n"

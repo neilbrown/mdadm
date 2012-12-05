@@ -232,6 +232,7 @@ int main(int argc, char *argv[])
 		case 'E':
 		case 'X':
 		case 'Q':
+		case ExamineBB:
 			newmode = MISC;
 			break;
 
@@ -971,6 +972,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'R'):
 		case O(MISC,'S'):
 		case O(MISC,'X'):
+		case O(MISC, ExamineBB):
 		case O(MISC,'o'):
 		case O(MISC,'w'):
 		case O(MISC,'W'):
@@ -1750,6 +1752,8 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= Query(dv->devname); continue;
 		case 'X':
 			rv |= ExamineBitmap(dv->devname, c->brief, ss); continue;
+		case ExamineBB:
+			rv |= ExamineBadblocks(dv->devname, c->brief, ss); continue;
 		case 'W':
 		case WaitOpt:
 			rv |= Wait(dv->devname); continue;

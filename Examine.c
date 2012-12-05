@@ -187,3 +187,39 @@ int Examine(struct mddev_dev *devlist,
 	}
 	return rv;
 }
+
+int ExamineBadblocks(char *devname, int brief, struct supertype *forcest)
+{
+	int fd = dev_open(devname, O_RDONLY);
+	struct supertype *st = forcest;
+	int err = 1;
+
+	if (fd < 0) {
+		pr_err("cannot open %s: %s\n", devname, strerror(errno));
+		return 1;
+	}
+	if (!st)
+		st = guess_super(fd);
+	if (!st) {
+		if (!brief)
+			pr_err("No md superblock detected on %s\n", devname);
+		goto out;
+	}
+	if (!st->ss->examine_badblocks) {
+		pr_err("%s metadata does not support badblocks\n", st->ss->name);
+		goto out;
+	}
+	err = st->ss->load_super(st, fd, brief ? NULL : devname);
+	if (err)
+		goto out;
+	err = st->ss->examine_badblocks(st, fd, devname);
+
+out:
+	if (fd >= 0)
+		close(fd);
+	if (st) {
+		st->ss->free_super(st);
+		free(st);
+	}
+	return err;
+}

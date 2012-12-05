@@ -1427,6 +1427,13 @@ device (e.g.
 does not report the bitmap for that array.
 
 .TP
+.B \-\-examine\-badblocks
+List the bad-blocks recorded for the device, if a bad-blocks list has
+been configured.  Currently only
+.B 1.x
+metadata supports bad-blocks lists.
+
+.TP
 .BR \-R ", " \-\-run
 start a partially assembled array.  If
 .B \-\-assemble

@@ -337,6 +337,7 @@ enum special_options {
 	Prefer,
 	KillOpt,
 	DataOffset,
+	ExamineBB,
 };
 
 enum prefix_standard {
@@ -662,6 +663,7 @@ extern struct superswitch {
 	void (*brief_examine_super)(struct supertype *st, int verbose);
 	void (*brief_examine_subarrays)(struct supertype *st, int verbose);
 	void (*export_examine_super)(struct supertype *st);
+	int (*examine_badblocks)(struct supertype *st, int fd, char *devname);
 
 	/* Used to report details of an active array.
 	 * ->load_super was possibly given a 'component' string.
@@ -1145,6 +1147,7 @@ extern int Create(struct supertype *st, char *mddev,
 extern int Detail(char *dev, struct context *c);
 extern int Detail_Platform(struct superswitch *ss, int scan, int verbose, int export, char *controller_path);
 extern int Query(char *dev);
+extern int ExamineBadblocks(char *devname, int brief, struct supertype *forcest);
 extern int Examine(struct mddev_dev *devlist, struct context *c,
 		   struct supertype *forcest);
 extern int Monitor(struct mddev_dev *devlist,

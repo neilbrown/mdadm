@@ -140,7 +140,7 @@ static int select_devices(struct mddev_dev *devlist,
 	int num_devs;
 	struct supertype *st = *stp;
 	struct mdinfo *content = NULL;
-	int report_missmatch = ((inargv && c->verbose >= 0) || c->verbose > 0);
+	int report_mismatch = ((inargv && c->verbose >= 0) || c->verbose > 0);
 	struct domainlist *domains = NULL;
 
 	tmpdev = devlist; num_devs = 0;
@@ -172,7 +172,7 @@ static int select_devices(struct mddev_dev *devlist,
 
 		if (ident->devices &&
 		    !match_oneof(ident->devices, devname)) {
-			if (report_missmatch)
+			if (report_mismatch)
 				pr_err("%s is not one of %s\n", devname, ident->devices);
 			continue;
 		}
@@ -181,7 +181,7 @@ static int select_devices(struct mddev_dev *devlist,
 
 		dfd = dev_open(devname, O_RDONLY);
 		if (dfd < 0) {
-			if (report_missmatch)
+			if (report_mismatch)
 				pr_err("cannot open device %s: %s\n",
 				       devname, strerror(errno));
 			tmpdev->used = 2;
@@ -199,27 +199,27 @@ static int select_devices(struct mddev_dev *devlist,
 				/* already found some components, this cannot
 				 * be another one.
 				 */
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("%s is a container, but we are looking for components\n",
 					       devname);
 				tmpdev->used = 2;
 #if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 			} if (!tst && (tst = super_by_fd(dfd, NULL)) == NULL) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("not a recognisable container: %s\n",
 					       devname);
 				tmpdev->used = 2;
 #endif
 			} else if (!tst->ss->load_container
 				   || tst->ss->load_container(tst, dfd, NULL)) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("no correct container type: %s\n",
 					       devname);
 				tmpdev->used = 2;
 			} else if (auto_assem &&
 				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("%s has metadata type %s for which "
 					       "auto-assembly is disabled\n",
 					       devname, tst->ss->name);
@@ -228,24 +228,24 @@ static int select_devices(struct mddev_dev *devlist,
 				found_container = 1;
 		} else {
 			if (!tst && (tst = guess_super(dfd)) == NULL) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("no recogniseable superblock on %s\n",
 					       devname);
 				tmpdev->used = 2;
 			} else if (tst->ss->load_super(tst,dfd, NULL)) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("no RAID superblock on %s\n",
 					       devname);
 				tmpdev->used = 2;
 			} else if (tst->ss->compare_super == NULL) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("Cannot assemble %s metadata on %s\n",
 					       tst->ss->name, devname);
 				tmpdev->used = 2;
 			} else if (auto_assem && st == NULL &&
 				   !conf_test_metadata(tst->ss->name, (pol = devnum_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("%s has metadata type %s for which "
 					       "auto-assembly is disabled\n",
 					       devname, tst->ss->name);
@@ -282,7 +282,7 @@ static int select_devices(struct mddev_dev *devlist,
 			 */
 			dfd = dev_open(devname, O_RDONLY | O_EXCL);
 			if (dfd < 0) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("%s is busy - skipping\n", devname);
 				goto loop;
 			}
@@ -291,7 +291,7 @@ static int select_devices(struct mddev_dev *devlist,
 			if (ident->container) {
 				if (ident->container[0] == '/' &&
 				    !same_dev(ident->container, devname)) {
-					if (report_missmatch)
+					if (report_mismatch)
 						pr_err("%s is not the container required (%s)\n",
 						       devname, ident->container);
 					goto loop;
@@ -305,7 +305,7 @@ static int select_devices(struct mddev_dev *devlist,
 
 					if (!parse_uuid(ident->container, uuid) ||
 					    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
-						if (report_missmatch)
+						if (report_mismatch)
 							pr_err("%s has wrong UUID to be required container\n",
 							       devname);
 						goto loop;
@@ -324,10 +324,10 @@ static int select_devices(struct mddev_dev *devlist,
 
 				if (!ident_matches(ident, content, tst,
 						   c->homehost, c->update,
-						   report_missmatch ? devname : NULL))
+						   report_mismatch ? devname : NULL))
 					/* message already printed */;
 				else if (is_member_busy(content->text_version)) {
-					if (report_missmatch)
+					if (report_mismatch)
 						pr_err("member %s in %s is already assembled\n",
 						       content->text_version,
 						       devname);
@@ -370,24 +370,24 @@ static int select_devices(struct mddev_dev *devlist,
 
 			if (!ident_matches(ident, content, tst,
 					   c->homehost, c->update,
-					   report_missmatch ? devname : NULL))
+					   report_mismatch ? devname : NULL))
 				goto loop;
 
 			match = conf_match(tst, content, devname,
-					   report_missmatch ? c->verbose : -1,
+					   report_mismatch ? c->verbose : -1,
 					   &rv);
 			if (!match && rv == 2)
 				goto loop;
 			if (match && match->devname &&
 			    strcasecmp(match->devname, "<ignore>") == 0) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("%s is a member of an explicitly ignored array\n",
 					       devname);
 				goto loop;
 			}
 			if (match && !ident_matches(match, content, tst,
 						    c->homehost, c->update,
-						    report_missmatch ? devname : NULL))
+						    report_mismatch ? devname : NULL))
 				/* Array exists  in mdadm.conf but some
 				 * details don't match, so reject it
 				 */
@@ -399,7 +399,7 @@ static int select_devices(struct mddev_dev *devlist,
 			 */
 			dfd = dev_open(devname, O_RDONLY | O_EXCL);
 			if (dfd < 0) {
-				if (report_missmatch)
+				if (report_mismatch)
 					pr_err("%s is busy - skipping\n", devname);
 				goto loop;
 			}
@@ -438,13 +438,13 @@ static int select_devices(struct mddev_dev *devlist,
 					    (first == 1 || last == 1)) {
 						/* We can do something */
 						if (first) {/* just ignore this one */
-							if (report_missmatch)
+							if (report_mismatch)
 								pr_err("%s misses out due to wrong homehost\n",
 								       devname);
 							goto loop;
 						} else { /* reject all those sofar */
 							struct mddev_dev *td;
-							if (report_missmatch)
+							if (report_mismatch)
 								pr_err("%s overrides previous devices due to good homehost\n",
 								       devname);
 							for (td=devlist; td != tmpdev; td=td->next)

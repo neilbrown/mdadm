@@ -839,7 +839,6 @@ int find_free_devnum(int use_partitions)
 	int devnum;
 	for (devnum = 127; devnum != 128;
 	     devnum = devnum ? devnum-1 : (1<<20)-1) {
-		char *dn;
 		int _devnum;
 		char nbuf[50];
 
@@ -849,11 +848,14 @@ int find_free_devnum(int use_partitions)
 		sprintf(nbuf, "%s%d", use_partitions?"mdp":"md", devnum);
 		if (!conf_name_is_free(nbuf))
 			continue;
-		/* make sure it is new to /dev too, at least as a
-		 * non-standard */
-		dn = map_dev(dev2major(_devnum), dev2minor(_devnum), 0);
-		if (dn && ! is_standard(dn, NULL))
-			continue;
+		if (!use_udev()) {
+			/* make sure it is new to /dev too, at least as a
+			 * non-standard */
+			char *dn = map_dev(dev2major(_devnum),
+					   dev2minor(_devnum), 0);
+			if (dn && ! is_standard(dn, NULL))
+				continue;
+		}
 		break;
 	}
 	if (devnum == 128)

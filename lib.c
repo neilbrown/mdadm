@@ -390,3 +390,16 @@ void print_escape(char *str)
 		}
 	}
 }
+
+int use_udev(void)
+{
+	static int use = -1;
+	struct stat stb;
+
+	if (use < 0) {
+		use = ((stat("/dev/.udev", &stb) == 0
+			|| stat("/run/udev", &stb) == 0)
+		       && check_env("MDADM_NO_UDEV") == 0);
+	}
+	return use;
+}

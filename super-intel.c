@@ -567,7 +567,7 @@ static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device
 
 static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
 {
-	struct sys_dev *list, *elem, *prev;
+	struct sys_dev *list, *elem;
 	char *disk_path;
 
 	if ((list = find_intel_devices()) == NULL)
@@ -578,27 +578,15 @@ static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
 	else
 		disk_path = diskfd_to_devpath(fd);
 
-	if (!disk_path) {
-		free_sys_dev(&list);
+	if (!disk_path)
 		return 0;
-	}
 
-	for (prev = NULL, elem = list; elem; prev = elem, elem = elem->next) {
-		if (path_attached_to_hba(disk_path, elem->path)) {
-			if (prev == NULL)
-				list = list->next;
-			else
-				prev->next = elem->next;
-			elem->next = NULL;
-			if (disk_path != devname)
-				free(disk_path);
-			free_sys_dev(&list);
+	for (elem = list; elem; elem = elem->next)
+		if (path_attached_to_hba(disk_path, elem->path))
 			return elem;
-		}
-	}
+
 	if (disk_path != devname)
 		free(disk_path);
-	free_sys_dev(&list);
 
 	return NULL;
 }
@@ -1858,7 +1846,6 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 			else
 				result = 0;
 		}
-		free_sys_dev(&list);
 		return result;
 	}
 
@@ -1867,7 +1854,6 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		if (verbose > 0)
 			pr_err("no active Intel(R) RAID "
 				"controller found.\n");
-		free_sys_dev(&list);
 		return 2;
 	} else if (verbose > 0)
 		print_found_intel_controllers(list);
@@ -1900,7 +1886,6 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		pr_err("no active Intel(R) RAID "
 				"controller found under %s\n",controller_path);
 
-	free_sys_dev(&list);
 	return result;
 }
 
@@ -1915,7 +1900,6 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 		if (verbose > 0)
 			pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_INTEL_DEVICES\n");
 		result = 2;
-		free_sys_dev(&list);
 		return result;
 	}
 
@@ -3813,11 +3797,9 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 				"    Mixing devices attached to multiple controllers "
 				"is not allowed.\n");
 		}
-		free_sys_dev(&hba_name);
 		return 2;
 	}
 	super->orom = find_imsm_capability(hba_name->type);
-	free_sys_dev(&hba_name);
 	if (!super->orom)
 		return 3;
 	return 0;
@@ -9346,8 +9328,6 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 		dprintf("path: %s hba: %s attached: %s\n",
 			path, (hba) ? hba->path : "NULL", drv);
 		free(path);
-		if (hba)
-			free_sys_dev(&hba);
 	}
 	return drv;
 }

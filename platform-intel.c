@@ -36,7 +36,7 @@ static int devpath_to_ll(const char *dev_path, const char *entry,
 
 static __u16 devpath_to_vendor(const char *dev_path);
 
-void free_sys_dev(struct sys_dev **list)
+static void free_sys_dev(struct sys_dev **list)
 {
 	while (*list) {
 		struct sys_dev *next = (*list)->next;
@@ -127,6 +127,7 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 
 
 static struct sys_dev *intel_devices=NULL;
+static time_t valid_time = 0;
 
 static enum sys_dev_type device_type_by_id(__u16 device_id)
 {
@@ -183,6 +184,12 @@ struct sys_dev *find_intel_devices(void)
 {
 	struct sys_dev *ahci, *isci;
 
+	if (valid_time > time(0) - 10)
+		return intel_devices;
+
+	if (intel_devices)
+		free_sys_dev(&intel_devices);
+
 	isci = find_driver_devices("pci", "isci");
 	ahci = find_driver_devices("pci", "ahci");
 
@@ -194,7 +201,9 @@ struct sys_dev *find_intel_devices(void)
 			elem = elem->next;
 		elem->next = isci;
 	}
-	return ahci;
+	intel_devices = ahci;
+	valid_time = time(0);
+	return intel_devices;
 }
 
 /*
@@ -305,11 +314,7 @@ static const struct imsm_orom *find_imsm_hba_orom(enum sys_dev_type hba_id)
 	    check_env("IMSM_TEST_SCU_EFI"))
 		return NULL;
 
-
-	if (intel_devices != NULL)
-		free_sys_dev(&intel_devices);
-
-	intel_devices = find_intel_devices();
+	find_intel_devices();
 
 	if (intel_devices == NULL)
 		return NULL;
@@ -325,10 +330,6 @@ static const struct imsm_orom *find_imsm_hba_orom(enum sys_dev_type hba_id)
 	/* ignore return value - True is returned if both adapater roms are found */
 	scan_adapter_roms(scan);
 	probe_roms_exit();
-
-	if (intel_devices != NULL)
-		free_sys_dev(&intel_devices);
-	intel_devices = NULL;
 
 	if (populated_orom[hba_id])
 		return &imsm_orom[hba_id];

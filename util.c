@@ -882,18 +882,14 @@ int dev_open(char *dev, int flags)
 	if (e > dev && *e == ':' && e[1] &&
 	    (minor = strtoul(e+1, &e, 0)) >= 0 &&
 	    *e == 0) {
-		char *path = map_dev(major, minor, 0);
-		if (path)
-			fd = open(path, flags);
-		if (fd < 0) {
-			snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
-				 (int)getpid(), major, minor);
-			if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
-				fd = open(devname, flags);
-				unlink(devname);
-			}
+		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
+			 (int)getpid(), major, minor);
+		if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
+			fd = open(devname, flags);
+			unlink(devname);
 		}
 		if (fd < 0) {
+			/* Try /tmp as /dev appear to be read-only */
 			snprintf(devname, sizeof(devname), "/tmp/.tmp.md.%d:%d:%d",
 				 (int)getpid(), major, minor);
 			if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {

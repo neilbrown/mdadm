@@ -490,9 +490,12 @@ is irrelevant to the end result.
 .B include
 allows adding a disk to an array if metadata on that disk matches that array
 .TP
-.B re-add
+.B re\-add
 will include the device in the array if it appears to be a current member
-or a member that was recently removed
+or a member that was recently removed and the array has a
+write-intent-bitmap to allow the
+.B re\-add
+functionality.
 .TP
 .B spare
 as above and additionally: if the device is bare it can
@@ -504,7 +507,7 @@ as above and additionally if given slot was used by an array that went
 degraded recently and the device plugged in has no metadata then it will
 be automatically added to that array (or it's container)
 .TP
-.B force-spare
+.B force\-spare
 as above and the disk will become a spare in remaining cases
 .RE
 

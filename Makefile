@@ -73,6 +73,7 @@ MAP_PATH = $(MAP_DIR)/$(MAP_FILE)
 MDMON_DIR = $(MAP_DIR)
 # place for autoreplace cookies
 FAILED_SLOTS_DIR = /run/mdadm/failed-slots
+SYSTEMD_DIR=/lib/systemd/system
 DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
 DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
 DIRFLAGS += -DFAILED_SLOTS_DIR=\"$(FAILED_SLOTS_DIR)\"
@@ -263,6 +264,9 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 
 install-udev: udev-md-raid.rules
 	$(INSTALL) -D -m 644 udev-md-raid.rules $(DESTDIR)$(UDEVDIR)/rules.d/64-md-raid.rules
+
+install-systemd: systemd/mdmon@.service
+	$(INSTALL) -D -m 644 systemd/mdmon@.service $(DESTDIR)$(SYSTEMD_DIR)/mdmon@.service
 
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 $(DESTDIR)$(MAN8DIR)/mdmon.8 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm

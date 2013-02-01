@@ -1660,6 +1660,34 @@ int start_mdmon(int devnum)
 	} else
 		pathbuf[0] = '\0';
 
+	/* First try to run systemctl */
+	switch(fork()) {
+	case 0:
+		/* FIXME yuk. CLOSE_EXEC?? */
+		skipped = 0;
+		for (i = 3; skipped < 20; i++)
+			if (close(i) < 0)
+				skipped++;
+			else
+				skipped = 0;
+
+		snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
+			 devnum2devname(devnum));
+		status = execl("/usr/bin/systemctl", "systemctl", "start",
+			       pathbuf, NULL);
+		status = execl("/bin/systemctl", "systemctl", "start",
+			       pathbuf, NULL);
+		exit(1);
+	case -1: pr_err("cannot run mdmon. "
+			 "Array remains readonly\n");
+		return -1;
+	default: /* parent - good */
+		pid = wait(&status);
+		if (pid >= 0 && status == 0)
+			return 0;
+	}
+
+	/* That failed, try running mdmon directly */
 	switch(fork()) {
 	case 0:
 		/* FIXME yuk. CLOSE_EXEC?? */

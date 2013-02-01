@@ -255,17 +255,6 @@ Avoid printing purely informative messages.  With this,
 .I mdadm
 will be silent unless there is something really important to report.
 
-.TP
-.BR \-\-offroot
-Set first character of argv[0] to @ to indicate mdadm was launched
-from initrd/initramfs and should not be shutdown by systemd as part of
-the regular shutdown process. This option is normally only used by
-the system's initscripts. Please see here for more details on how
-systemd handled argv[0]:
-.IP
-.B http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons
-.PP
-
 
 .TP
 .BR \-f ", " \-\-force

@@ -116,6 +116,13 @@ int main(int argc, char *argv[])
 	ident.container = NULL;
 	ident.member = NULL;
 
+	/*
+	 * set first char of argv[0] to @. This is used by
+	 * systemd to signal that the task was launched from
+	 * initrd/initramfs and should be preserved during shutdown
+	 */
+	argv[0][0] = '@';
+
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,
 				shortopt, long_options,
@@ -159,14 +166,8 @@ int main(int argc, char *argv[])
 				c.homehost = optarg;
 			continue;
 
-		/*
-		 * --offroot sets first char of argv[0] to @. This is used
-		 * by systemd to signal that the task was launched from
-		 * initrd/initramfs and should be preserved during shutdown
-		 */
 		case OffRootOpt:
-			argv[0][0] = '@';
-			__offroot = 1;
+			/* Silently ignore old option */
 			continue;
 
 		case Prefer:

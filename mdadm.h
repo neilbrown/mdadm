@@ -1487,5 +1487,3 @@ char *xstrdup(const char *str);
 #define INVALID_SECTORS 1
 /* And another special number needed for --data_offset=variable */
 #define VARIABLE_OFFSET 3
-
-extern int __offroot;

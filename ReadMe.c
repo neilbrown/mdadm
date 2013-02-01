@@ -259,10 +259,6 @@ char OptionHelp[] =
 "  --query       -Q   : Display general information about how a\n"
 "                       device relates to the md driver\n"
 "  --auto-detect      : Start arrays auto-detected by the kernel\n"
-"  --offroot          : Set first character of argv[0] to @ to indicate the\n"
-"                       application was launched from initrd/initramfs and\n"
-"                       should not be shutdown by systemd as part of the\n"
-"                       regular shutdown process.\n"
 ;
 /*
 "\n"

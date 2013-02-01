@@ -32,8 +32,6 @@
 #include	<dirent.h>
 #include	<signal.h>
 
-int __offroot;
-
 /*
  * following taken from linux/blkpg.h because they aren't
  * anywhere else and it isn't safe to #include linux/ * stuff.
@@ -1674,15 +1672,8 @@ int start_mdmon(int devnum)
 
 		for (i = 0; paths[i]; i++)
 			if (paths[i][0]) {
-				if (__offroot) {
-					execl(paths[i], "mdmon", "--offroot",
-					      devnum2devname(devnum),
-					      NULL);
-				} else {
-					execl(paths[i], "mdmon",
-					      devnum2devname(devnum),
-					      NULL);
-				}
+				execl(paths[i], "mdmon",
+				      devnum2devname(devnum), NULL);
 			}
 		exit(1);
 	case -1: pr_err("cannot run mdmon. "

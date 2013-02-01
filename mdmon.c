@@ -184,9 +184,6 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	buf[sizeof(buf)-1] = 0;
 	close(fd);
 
-	/* Note that if started with --offroot, the name
-	 * might be "@dmon"
-	 */
 	if (n < 0 || !(strstr(buf, "mdmon") ||
 		       strstr(buf, "@dmon")))
 		return;
@@ -276,10 +273,6 @@ void usage(void)
 "  --help        -h   : This message\n"
 "  --all              : All devices\n"
 "  --takeover    -t   : Takeover container\n"
-"  --offroot          : Set first character of argv[0] to @ to indicate the\n"
-"                       application was launched from initrd/initramfs and\n"
-"                       should not be shutdown by systemd as part of the\n"
-"                       regular shutdown process.\n"
 );
 	exit(2);
 }
@@ -303,6 +296,11 @@ int main(int argc, char *argv[])
 		{NULL, 0, NULL, 0}
 	};
 
+	/*
+	 * Always change process name to @dmon to avoid systemd killing it
+	 */
+	argv[0][0] = '@';
+
 	while ((opt = getopt_long(argc, argv, "tha", options, NULL)) != -1) {
 		switch (opt) {
 		case 'a':
@@ -313,7 +311,7 @@ int main(int argc, char *argv[])
 			takeover = 1;
 			break;
 		case OffRootOpt:
-			argv[0][0] = '@';
+			/* silently ignore old option */
 			break;
 		case 'h':
 		default:

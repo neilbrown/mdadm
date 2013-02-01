@@ -1709,8 +1709,11 @@ int start_mdmon(int devnum)
 		return -1;
 	default: /* parent - good */
 		pid = wait(&status);
-		if (pid < 0 || status != 0)
+		if (pid < 0 || status != 0) {
+			pr_err("failed to launch mdmon. "
+			       "Array remains readonly\n");
 			return -1;
+		}
 	}
 	return 0;
 }

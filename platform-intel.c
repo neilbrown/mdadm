@@ -116,7 +116,7 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 
 		list->dev_id = (__u16) dev_id;
 		list->type = type;
-		list->path = canonicalize_file_name(path);
+		list->path = realpath(path, NULL);
 		list->next = NULL;
 		if ((list->pci_id = strrchr(list->path, '/')) != NULL)
 			list->pci_id++;
@@ -460,7 +460,7 @@ char *devt_to_devpath(dev_t dev)
 	char device[46];
 
 	sprintf(device, "/sys/dev/block/%d:%d/device", major(dev), minor(dev));
-	return canonicalize_file_name(device);
+	return realpath(device, NULL);
 }
 
 char *diskfd_to_devpath(int fd)

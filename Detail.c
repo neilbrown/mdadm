@@ -338,6 +338,8 @@ int Detail(char *dev, struct context *c)
 			printf("     Array Size : %llu%s\n", (larray_size>>10),
 			       human_size(larray_size));
 		if (array.level >= 1) {
+			if (sra)
+				array.major_version = sra->array.major_version;
 			if (array.major_version != 0 &&
 			    (larray_size >= 0xFFFFFFFFULL|| array.size == 0)) {
 				unsigned long long dsize = get_component_size(fd);

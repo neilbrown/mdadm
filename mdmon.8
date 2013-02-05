@@ -5,7 +5,7 @@ mdmon \- monitor MD external metadata arrays
 
 .SH SYNOPSIS
 
-.BI mdmon " [--all] [--takeover] CONTAINER"
+.BI mdmon " [--all] [--takeover] [--foreground] CONTAINER"
 
 .SH OVERVIEW
 The 2.6.27 kernel brings the ability to support external metadata arrays.
@@ -130,6 +130,14 @@ The
 .B container
 device to monitor.  It can be a full path like /dev/md/container, or a
 simple md device name like md127.
+.TP
+.B \-\-foreground
+Normally,
+.I mdmon
+will fork and continue in the background.  Adding this option will
+skip that step and run
+.I mdmon
+in the foreground.
 .TP
 .B \-\-takeover
 This instructs

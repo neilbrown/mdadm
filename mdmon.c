@@ -288,11 +288,13 @@ int main(int argc, char *argv[])
 	int opt;
 	int all = 0;
 	int takeover = 0;
+	int dofork = 1;
 	static struct option options[] = {
 		{"all", 0, NULL, 'a'},
 		{"takeover", 0, NULL, 't'},
 		{"help", 0, NULL, 'h'},
 		{"offroot", 0, NULL, OffRootOpt},
+		{"foreground", 0, NULL, 'F'},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -301,7 +303,7 @@ int main(int argc, char *argv[])
 	 */
 	argv[0][0] = '@';
 
-	while ((opt = getopt_long(argc, argv, "tha", options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "thaF", options, NULL)) != -1) {
 		switch (opt) {
 		case 'a':
 			container_name = argv[optind-1];
@@ -309,6 +311,9 @@ int main(int argc, char *argv[])
 			break;
 		case 't':
 			takeover = 1;
+			break;
+		case 'F':
+			dofork = 0;
 			break;
 		case OffRootOpt:
 			/* silently ignore old option */
@@ -381,7 +386,7 @@ int main(int argc, char *argv[])
 			container_name);
 		exit(1);
 	}
-	return mdmon(devname, devnum, do_fork(), takeover);
+	return mdmon(devname, devnum, dofork && do_fork(), takeover);
 }
 
 static int mdmon(char *devname, int devnum, int must_fork, int takeover)

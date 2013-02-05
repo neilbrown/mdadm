@@ -11,7 +11,7 @@ DefaultDependencies=no
 Before=initrd-switch-root.target
 
 [Service]
-ExecStart=/sbin/mdmon %I
+ExecStart=/sbin/mdmon --foreground %I
 StandardInput=null
 StandardOutput=null
 StandardError=null

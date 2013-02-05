@@ -207,7 +207,7 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 		return NULL;
 	}
 	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
-		fd = open(filename, O_RDONLY);
+		fd = open(filename, O_RDONLY|O_DIRECT);
 		if (fd < 0) {
 			pr_err("failed to open bitmap file %s: %s\n",
 				filename, strerror(errno));
@@ -225,7 +225,6 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 		} else
 			st->ss->locate_bitmap(st, fd);
 
-		ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
 		*stp = st;
 	} else {
 		fd = open(filename, O_RDONLY|O_DIRECT);

@@ -82,8 +82,6 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
-
 	lseek(fd, 0, 0);
 	if (read(fd, super, sizeof(*super)) != sizeof(*super)) {
 	no_read:

@@ -86,8 +86,6 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
-	ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
-
 	lseek(fd, 0, 0);
 	if (read(fd, super, sizeof(*super)) != sizeof(*super)) {
 		if (devname)
@@ -125,8 +123,6 @@ static int store_mbr(struct supertype *st, int fd)
 			__func__);
 		return 1;
 	}
-
-	ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
 
 	lseek(fd, 0, 0);
 	if (read(fd, old, sizeof(*old)) != sizeof(*old)) {

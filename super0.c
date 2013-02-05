@@ -870,8 +870,6 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 
 	offset *= 512;
 
-	ioctl(fd, BLKFLSBUF, 0); /* make sure we read current data */
-
 	if (lseek64(fd, offset, 0)< 0LL) {
 		if (devname)
 			pr_err("Cannot seek to superblock on %s: %s\n",

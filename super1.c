@@ -885,6 +885,21 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	int rv = 0;
 	struct mdp_superblock_1 *sb = st->sb;
 
+	if (strcmp(update, "homehost") == 0 &&
+	    homehost) {
+		/* Note that 'homehost' is special as it is really
+		 * a "name" update.
+		 */
+		char *c;
+		update = "name";
+		c = strchr(sb->set_name, ':');
+		if (c)
+			strncpy(info->name, c+1, 31 - (c-sb->set_name));
+		else
+			strncpy(info->name, sb->set_name, 32);
+		info->name[32] = 0;
+	}
+
 	if (strcmp(update, "force-one")==0) {
 		/* Not enough devices for a working array,
 		 * so bring this one up-to-date
@@ -1037,16 +1052,6 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			sb->bblog_shift = 0;
 			sb->bblog_offset = 0;
 		}
-	} else if (strcmp(update, "homehost") == 0 &&
-		   homehost) {
-		char *c;
-		update = "name";
-		c = strchr(sb->set_name, ':');
-		if (c)
-			strncpy(info->name, c+1, 31 - (c-sb->set_name));
-		else
-			strncpy(info->name, sb->set_name, 32);
-		info->name[32] = 0;
 	} else if (strcmp(update, "name") == 0) {
 		if (info->name[0] == 0)
 			sprintf(info->name, "%d", info->array.md_minor);

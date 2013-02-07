@@ -435,6 +435,18 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 	int rv = 0;
 	int uuid[4];
 	mdp_super_t *sb = st->sb;
+
+	if (strcmp(update, "homehost") == 0 &&
+	    homehost) {
+		/* note that 'homehost' is special as it is really
+		 * a "uuid" update.
+		 */
+		uuid_set = 0;
+		update = "uuid";
+		info->uuid[0] = sb->set_uuid0;
+		info->uuid[1] = sb->set_uuid1;
+	}
+
 	if (strcmp(update, "sparc2.2")==0 ) {
 		/* 2.2 sparc put the events in the wrong place
 		 * So we copy the tail of the superblock
@@ -551,12 +563,6 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		/* make sure resync happens */
 		sb->state &= ~(1<<MD_SB_CLEAN);
 		sb->recovery_cp = 0;
-	} else if (strcmp(update, "homehost") == 0 &&
-		   homehost) {
-		uuid_set = 0;
-		update = "uuid";
-		info->uuid[0] = sb->set_uuid0;
-		info->uuid[1] = sb->set_uuid1;
 	} else if (strcmp(update, "uuid") == 0) {
 		if (!uuid_set && homehost) {
 			char buf[20];

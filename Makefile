@@ -262,8 +262,9 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 	$(INSTALL) -D -m 644 md.4 $(DESTDIR)$(MAN4DIR)/md.4
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
-install-udev: udev-md-raid.rules
-	$(INSTALL) -D -m 644 udev-md-raid.rules $(DESTDIR)$(UDEVDIR)/rules.d/64-md-raid.rules
+install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
+	$(INSTALL) -D -m 644 udev-md-raid-arrays.rules $(DESTDIR)$(UDEVDIR)/rules.d/63-md-raid-arrays.rules
+	$(INSTALL) -D -m 644 udev-md-raid-assembly.rules $(DESTDIR)$(UDEVDIR)/rules.d/64-md-raid-assembly.rules
 
 install-systemd: systemd/mdmon@.service
 	$(INSTALL) -D -m 644 systemd/mdmon@.service $(DESTDIR)$(SYSTEMD_DIR)/mdmon@.service

@@ -1703,6 +1703,12 @@ int Grow_reshape(char *devname, int fd,
 		if (orig_size == 0)
 			orig_size = (unsigned) array.size;
 
+		if (orig_size == 0) {
+			pr_err("Cannot set device size in this type of array.\n");
+			rv = 1;
+			goto release;
+		}
+
 		if (reshape_super(st, s->size, UnSet, UnSet, 0, 0, UnSet, NULL,
 				  devname, APPLY_METADATA_CHANGES, c->verbose > 0)) {
 			rv = 1;

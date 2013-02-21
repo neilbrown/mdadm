@@ -1321,6 +1321,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 		switch (re->level) {
 		case 4:
+			re->before.layout = 0;
 			re->after.layout = 0;
 			break;
 		case 5:
@@ -1336,6 +1337,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 		switch (re->level) {
 		case 4:
+			re->before.layout = 0;
 			re->after.layout = 0;
 			break;
 		case 5:
@@ -1428,12 +1430,14 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	if (re->after.data_disks == re->before.data_disks &&
 	    re->after.layout == re->before.layout &&
 	    info->new_chunk == info->array.chunk_size) {
-		/* Nothing to change */
+		/* Nothing to change, can change level immediately. */
+		re->level = info->new_level;
 		re->backup_blocks = 0;
 		return NULL;
 	}
 	if (re->after.data_disks == 1 && re->before.data_disks == 1) {
 		/* chunk and layout changes make no difference */
+		re->level = info->new_level;
 		re->backup_blocks = 0;
 		return NULL;
 	}

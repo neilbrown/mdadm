@@ -421,6 +421,9 @@ struct ddf_super {
 				char *devname;
 				int fd;
 				unsigned long long size; /* sectors */
+				unsigned long long primary_lba; /* sectors */
+				unsigned long long secondary_lba; /* sectors */
+				unsigned long long workspace_lba; /* sectors */
 				int pdnum;	/* index in ->phys */
 				struct spare_assign *spare;
 				void *mdupdate; /* hold metadata update */
@@ -668,6 +671,13 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	dl->size = 0;
 	if (get_dev_size(fd, devname, &dsize))
 		dl->size = dsize >> 9;
+	/* If the disks have different sizes, the LBAs will differ
+	 * between phys disks.
+	 * At this point here, the values in super->active must be valid
+	 * for this phys disk. */
+	dl->primary_lba = super->active->primary_lba;
+	dl->secondary_lba = super->active->secondary_lba;
+	dl->workspace_lba = super->active->workspace_lba;
 	dl->spare = NULL;
 	for (i = 0 ; i < super->max_part ; i++)
 		dl->vlist[i] = NULL;
@@ -2422,9 +2432,21 @@ static int __write_init_super_ddf(struct supertype *st)
 		 */
 		get_dev_size(fd, NULL, &size);
 		size /= 512;
-		ddf->anchor.workspace_lba = __cpu_to_be64(size - 32*1024*2);
-		ddf->anchor.primary_lba = __cpu_to_be64(size - 16*1024*2);
-		ddf->anchor.secondary_lba = __cpu_to_be64(size - 31*1024*2);
+		if (d->workspace_lba != 0)
+			ddf->anchor.workspace_lba = d->workspace_lba;
+		else
+			ddf->anchor.workspace_lba =
+				__cpu_to_be64(size - 32*1024*2);
+		if (d->primary_lba != 0)
+			ddf->anchor.primary_lba = d->primary_lba;
+		else
+			ddf->anchor.primary_lba =
+				__cpu_to_be64(size - 16*1024*2);
+		if (d->secondary_lba != 0)
+			ddf->anchor.secondary_lba = d->secondary_lba;
+		else
+			ddf->anchor.secondary_lba =
+				__cpu_to_be64(size - 32*1024*2);
 		ddf->anchor.seq = __cpu_to_be32(1);
 		memcpy(&ddf->primary, &ddf->anchor, 512);
 		memcpy(&ddf->secondary, &ddf->anchor, 512);

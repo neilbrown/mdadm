@@ -3050,6 +3050,17 @@ static int load_container_ddf(struct supertype *st, int fd,
 
 #endif /* MDASSEMBLE */
 
+#define NO_SUCH_REFNUM (0xFFFFFFFF)
+static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
+					     __u32 refnum, unsigned int nmax)
+{
+	unsigned int i;
+	for (i = 0 ; i < nmax ; i++)
+		if (vc->conf.phys_refnum[i] == refnum)
+			return i;
+	return NO_SUCH_REFNUM;
+}
+
 static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray)
 {
 	/* Given a container loaded by load_super_ddf_all,
@@ -3071,6 +3082,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		struct mdinfo *this;
 		char *ep;
 		__u32 *cptr;
+		unsigned int pd;
 
 		if (subarray &&
 		    (strtoul(subarray, &ep, 10) != vc->vcnum ||
@@ -3123,21 +3135,12 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		sprintf(this->text_version, "/%s/%d",
 			st->container_devnm, this->container_member);
 
-		for (i = 0 ; i < ddf->mppe ; i++) {
+		for (pd = 0; pd < __be16_to_cpu(ddf->phys->used_pdes); pd++) {
 			struct mdinfo *dev;
 			struct dl *d;
 			int stt;
-			int pd;
 
-			if (vc->conf.phys_refnum[i] == 0xFFFFFFFF)
-				continue;
-
-			for (pd = __be16_to_cpu(ddf->phys->used_pdes);
-			     pd--;)
-				if (ddf->phys->entries[pd].refnum
-				    == vc->conf.phys_refnum[i])
-					break;
-			if (pd < 0)
+			if (ddf->phys->entries[pd].refnum == 0xFFFFFFFF)
 				continue;
 
 			stt = __be16_to_cpu(ddf->phys->entries[pd].state);
@@ -3145,10 +3148,16 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			    != DDF_Online)
 				continue;
 
+			i = get_pd_index_from_refnum(
+				vc, ddf->phys->entries[pd].refnum, ddf->mppe);
+			if (i == NO_SUCH_REFNUM)
+				continue;
+
 			this->array.working_disks++;
 
 			for (d = ddf->dlist; d ; d=d->next)
-				if (d->disk.refnum == vc->conf.phys_refnum[i])
+				if (d->disk.refnum ==
+				    ddf->phys->entries[pd].refnum)
 					break;
 			if (d == NULL)
 				/* Haven't found that one yet, maybe there are others */

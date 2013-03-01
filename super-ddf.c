@@ -2376,6 +2376,7 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 			c = (struct vcl *)d->spare;
 
 		if (c) {
+			c->conf.seqnum = ddf->primary.seq;
 			c->conf.crc = calc_crc(&c->conf, conf_size);
 			if (write(fd, &c->conf, conf_size) < 0)
 				break;
@@ -2408,11 +2409,19 @@ static int __write_init_super_ddf(struct supertype *st)
 	int successes = 0;
 	unsigned long long size;
 	char *null_aligned;
+	__u32 seq;
 
 	if (posix_memalign((void**)&null_aligned, 4096, NULL_CONF_SZ) != 0) {
 		return -ENOMEM;
 	}
 	memset(null_aligned, 0xff, NULL_CONF_SZ);
+
+	if (ddf->primary.seq != 0xffffffff)
+		seq = __cpu_to_be32(__be32_to_cpu(ddf->primary.seq)+1);
+	else if (ddf->secondary.seq != 0xffffffff)
+		seq = __cpu_to_be32(__be32_to_cpu(ddf->secondary.seq)+1);
+	else
+		seq = __cpu_to_be32(1);
 
 	/* try to write updated metadata,
 	 * if we catch a failure move on to the next disk
@@ -2447,7 +2456,7 @@ static int __write_init_super_ddf(struct supertype *st)
 		else
 			ddf->anchor.secondary_lba =
 				__cpu_to_be64(size - 32*1024*2);
-		ddf->anchor.seq = __cpu_to_be32(1);
+		ddf->anchor.seq = seq;
 		memcpy(&ddf->primary, &ddf->anchor, 512);
 		memcpy(&ddf->secondary, &ddf->anchor, 512);
 

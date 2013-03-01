@@ -3369,8 +3369,8 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	 */
 	struct ddf_super *first = st->sb;
 	struct ddf_super *second = tst->sb;
-	struct dl *dl2;
-	struct vcl *vl2;
+	struct dl *dl1, *dl2;
+	struct vcl *vl1, *vl2;
 	unsigned int max_vds, max_pds, pd, vd;
 
 	if (!first) {
@@ -3421,6 +3421,104 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 		}
 	}
 	/* FIXME should I look at anything else? */
+
+	/*
+	   At this point we are fairly sure that the meta data matches.
+	   But the new disk may contain additional local data.
+	   Add it to the super block.
+	 */
+	for (vl2 = second->conflist; vl2; vl2 = vl2->next) {
+		for (vl1 = first->conflist; vl1; vl1 = vl1->next)
+			if (!memcmp(vl1->conf.guid, vl2->conf.guid,
+				    DDF_GUID_LEN))
+				break;
+		if (vl1) {
+			if (vl1->other_bvds != NULL &&
+			    vl1->conf.sec_elmnt_seq !=
+			    vl2->conf.sec_elmnt_seq) {
+				dprintf("%s: adding BVD %u\n", __func__,
+					vl2->conf.sec_elmnt_seq);
+				add_other_bvd(vl1, &vl2->conf,
+					      first->conf_rec_len*512);
+			}
+			continue;
+		}
+
+		if (posix_memalign((void **)&vl1, 512,
+				   (first->conf_rec_len*512 +
+				    offsetof(struct vcl, conf))) != 0) {
+			pr_err("%s could not allocate vcl buf\n",
+			       __func__);
+			return 3;
+		}
+
+		vl1->next = first->conflist;
+		vl1->block_sizes = NULL;
+		if (vl1->conf.sec_elmnt_count > 1) {
+			vl1->other_bvds = xcalloc(vl2->conf.sec_elmnt_count - 1,
+						  sizeof(struct vd_config *));
+		} else
+			vl1->other_bvds = NULL;
+		memcpy(&vl1->conf, &vl2->conf, first->conf_rec_len*512);
+		vl1->lba_offset = (__u64 *)
+			&vl1->conf.phys_refnum[first->mppe];
+		for (vd = 0; vd < max_vds; vd++)
+			if (!memcmp(first->virt->entries[vd].guid,
+				    vl1->conf.guid, DDF_GUID_LEN))
+				break;
+		vl1->vcnum = vd;
+		dprintf("%s: added config for VD %u\n", __func__, vl1->vcnum);
+		first->conflist = vl1;
+	}
+
+	for (dl2 = second->dlist; dl2; dl2 = dl2->next) {
+		for (dl1 = first->dlist; dl1; dl1 = dl1->next)
+			if (dl1->disk.refnum == dl2->disk.refnum)
+				break;
+		if (dl1)
+			continue;
+
+		if (posix_memalign((void **)&dl1, 512,
+		       sizeof(*dl1) + (first->max_part) * sizeof(dl1->vlist[0]))
+		    != 0) {
+			pr_err("%s could not allocate disk info buffer\n",
+			__func__);
+			return 3;
+		}
+		memcpy(dl1, dl2, sizeof(*dl1));
+		dl1->mdupdate = NULL;
+		dl1->next = first->dlist;
+		dl1->fd = -1;
+		for (pd = 0; pd < max_pds; pd++)
+			if (first->phys->entries[pd].refnum == dl1->disk.refnum)
+				break;
+		dl1->pdnum = pd;
+		if (dl2->spare) {
+			if (posix_memalign((void **)&dl1->spare, 512,
+				       first->conf_rec_len*512) != 0) {
+				pr_err("%s could not allocate spare info buf\n",
+				       __func__);
+				return 3;
+			}
+			memcpy(dl1->spare, dl2->spare, first->conf_rec_len*512);
+		}
+		for (vd = 0 ; vd < first->max_part ; vd++) {
+			if (!dl2->vlist[vd]) {
+				dl1->vlist[vd] = NULL;
+				continue;
+			}
+			for (vl1 = first->conflist; vl1; vl1 = vl1->next) {
+				if (!memcmp(vl1->conf.guid,
+					    dl2->vlist[vd]->conf.guid,
+					    DDF_GUID_LEN))
+					break;
+				dl1->vlist[vd] = vl1;
+			}
+		}
+		first->dlist = dl1;
+		dprintf("%s: added disk %d: %08x\n", __func__, dl1->pdnum,
+			dl1->disk.refnum);
+	}
 
 	return 0;
 }

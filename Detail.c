@@ -103,14 +103,22 @@ int Detail(char *dev, struct context *c)
 		 * We want the name of the container, and the member
 		 */
 		int devid = devnm2devid(st->container_devnm);
+		int cfd, err;
 
 		member = subarray;
 		container = map_dev_preferred(major(devid), minor(devid),
 					      1, c->prefer);
+		cfd = open_dev(st->container_devnm);
+		if (cfd >= 0) {
+			err = st->ss->load_container(st, cfd, NULL);
+			close(cfd);
+			if (err == 0)
+				info = st->ss->container_content(st, subarray);
+		}
 	}
 
 	/* try to load a superblock */
-	if (st) for (d = 0; d < max_disks; d++) {
+	if (st && !info) for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		char *dv;
 		int fd2;

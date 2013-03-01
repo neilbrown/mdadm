@@ -407,6 +407,7 @@ struct ddf_super {
 				__u64		*lba_offset; /* location in 'conf' of
 							      * the lba table */
 				unsigned int	vcnum; /* index into ->virt */
+				struct vd_config **other_bvds;
 				__u64		*block_sizes; /* NULL if all the same */
 			};
 		};
@@ -743,6 +744,12 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			}
 			vcl->next = super->conflist;
 			vcl->block_sizes = NULL; /* FIXME not for CONCAT */
+			if (vd->sec_elmnt_count > 1)
+				vcl->other_bvds =
+					xcalloc(vd->sec_elmnt_count - 1,
+						sizeof(struct vd_config *));
+			else
+				vcl->other_bvds = NULL;
 			super->conflist = vcl;
 			dl->vlist[vnum++] = vcl;
 		}
@@ -860,6 +867,8 @@ static void free_super_ddf(struct supertype *st)
 		ddf->conflist = v->next;
 		if (v->block_sizes)
 			free(v->block_sizes);
+		if (v->other_bvds)
+			free(v->other_bvds);
 		free(v);
 	}
 	while (ddf->dlist) {
@@ -2027,6 +2036,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	vcl->lba_offset = (__u64*) &vcl->conf.phys_refnum[ddf->mppe];
 	vcl->vcnum = venum;
 	vcl->block_sizes = NULL; /* FIXME not for CONCAT */
+	vcl->other_bvds = NULL;
 
 	vc = &vcl->conf;
 

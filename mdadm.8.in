@@ -686,6 +686,12 @@ slash ('/') if it is a real file (not 'internal' or 'none').
 Note: external bitmaps are only known to work on ext2 and ext3.
 Storing bitmap files on other filesystems may result in serious problems.
 
+When creating an array on devices which are 100G or larger,
+.I mdadm
+automatically adds an internal bitmap as it will usually be
+beneficial.  This can be suppressed with
+.B "\-\-bitmap=none".
+
 .TP
 .BR \-\-bitmap\-chunk=
 Set the chunksize of the bitmap.  Each bit corresponds to that many
@@ -1931,6 +1937,15 @@ setting.
 .\"If no
 .\".B \-\-size
 .\"is given, the apparent size of the smallest drive given is used.
+
+If the array type supports a write-intent bitmap, and if the devices
+in the array exceed 100G is size, an internal write-intent bitmap
+will automatically be added unless some other option is explicitly
+requested with the
+.B \-\-bitmap
+option.  In any case space for a bitmap will be reserved so that one
+can be added layer with
+.BR "\-\-grow \-\-bitmap=internal" .
 
 If the metadata type supports it (currently only 1.x metadata), space
 will be allocated to store a bad block list.  This allows a modest

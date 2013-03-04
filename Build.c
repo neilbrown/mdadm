@@ -154,6 +154,8 @@ int Build(char *mddev, struct mddev_dev *devlist,
 		goto abort;
 	}
 
+	if (s->bitmap_file && strcmp(s->bitmap_file, "none") == 0)
+		s->bitmap_file = NULL;
 	if (s->bitmap_file && s->level <= 0) {
 		pr_err("bitmaps not meaningful with level %s\n",
 			map_num(pers, s->level)?:"given");

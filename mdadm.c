@@ -1079,12 +1079,6 @@ int main(int argc, char *argv[])
 		case O(BUILD,Bitmap):
 		case O(CREATE,'b'):
 		case O(CREATE,Bitmap): /* here we create the bitmap */
-			if (strcmp(optarg, "none") == 0) {
-				pr_err("'--bitmap none' only"
-					" supported for --grow\n");
-				exit(2);
-			}
-			/* FALL THROUGH */
 		case O(GROW,'b'):
 		case O(GROW,Bitmap):
 			if (strcmp(optarg, "internal")== 0 ||

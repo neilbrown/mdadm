@@ -506,6 +506,17 @@ int Create(struct supertype *st, char *mddev,
 				pr_err("size set to %lluK\n", s->size);
 		}
 	}
+
+	if (!s->bitmap_file &&
+	    s->level >= 1 &&
+	    (s->write_behind || s->size > 100*1024*1024ULL)) {
+		if (c->verbose > 0)
+			pr_err("automatically enabling write-intent bitmap on large array\n");
+		s->bitmap_file = "internal";
+	}
+	if (s->bitmap_file && strcmp(s->bitmap_file, "none") == 0)
+		s->bitmap_file = NULL;
+
 	if (!have_container && s->level > 0 && ((maxsize-s->size)*100 > maxsize)) {
 		if (c->runstop != 1 || c->verbose >= 0)
 			pr_err("largest drive (%s) exceeds size (%lluK) by more than 1%%\n",

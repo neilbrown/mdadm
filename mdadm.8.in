@@ -2710,6 +2710,21 @@ to '1', the
 .I mdadm
 will create and devices that are needed.
 
+.TP
+.B IMSM_NO_PLATFORM
+A key value of IMSM metadata is that it allows interoperability with
+boot ROMs on Intel platforms, and with other major operating systems.
+Consequently,
+.I mdadm
+will only allow an IMSM array to be created or modified if detects
+that it is running on an Intel platform which supports IMSM, and
+supports the particular configuration of IMSM that is being requested
+(some functionality requires newer OROM support).
+
+These checks can be suppressed by setting IMSM_NO_PLATFORM=1 in the
+environment.  This can be useful for testing or for disaster
+recovery.  You should be aware that interoperability may be
+compromised by setting this value.
 .SH EXAMPLES
 
 .B "  mdadm \-\-query /dev/name-of-device"

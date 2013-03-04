@@ -1578,9 +1578,11 @@ static int Incremental_container(struct supertype *st, char *devname,
 int IncrementalRemove(char *devname, char *id_path, int verbose)
 {
 	int mdfd;
-	int rv;
+	int rv = 0;
 	struct mdstat_ent *ent;
 	struct mddev_dev devlist;
+	struct mdinfo mdi;
+	char buf[32];
 
 	if (!id_path)
 		dprintf(Name ": incremental removal without --path <id_path> "
@@ -1597,6 +1599,14 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		pr_err("%s does not appear to be a component "
 			"of any array\n", devname);
 		return 1;
+	}
+	sysfs_init(&mdi, -1, ent->devnm);
+	if (sysfs_get_str(&mdi, NULL, "array_state",
+			  buf, sizeof(buf)) > 0) {
+		if (strncmp(buf, "active", 6) == 0 ||
+		    strncmp(buf, "clean", 5) == 0)
+			sysfs_set_str(&mdi, NULL,
+				      "array_state", "read-auto");
 	}
 	mdfd = open_dev(ent->devnm);
 	if (mdfd < 0) {
@@ -1625,17 +1635,30 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 			if (is_container_member(memb, ent->dev)) {
 				int subfd = open_dev(memb->devnm);
 				if (subfd >= 0) {
-					Manage_subdevs(memb->dev, subfd,
-						       &devlist, verbose, 0,
-						       NULL, 0);
+					rv |= Manage_subdevs(
+						memb->dev, subfd,
+						&devlist, verbose, 0,
+						NULL, 0);
 					close(subfd);
 				}
 			}
 		free_mdstat(mdstat);
 	} else
-		Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0, NULL, 0);
-	devlist.disposition = 'r';
-	rv = Manage_subdevs(ent->dev, mdfd, &devlist, verbose, 0, NULL, 0);
+		rv |= Manage_subdevs(ent->dev, mdfd, &devlist,
+				    verbose, 0, NULL, 0);
+	if (rv & 2) {
+		/* Failed due to EBUSY, try to stop the array
+		 */
+		rv = Manage_runstop(ent->dev, mdfd, -1,
+				    verbose, 1);
+		if (rv)
+			/* At least we can try to trigger a 'remove' */
+			sysfs_uevent(&mdi, "remove");
+	} else {
+		devlist.disposition = 'r';
+		rv = Manage_subdevs(ent->dev, mdfd, &devlist,
+				    verbose, 0, NULL, 0);
+	}
 	close(mdfd);
 	free_mdstat(ent);
 	return rv;

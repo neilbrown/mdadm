@@ -222,7 +222,10 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		 * to stop is probably a bad idea.
 		 */
 		close(fd);
-		fd = open(devname, O_RDONLY|O_EXCL);
+		if (devnm[0] == '/')
+			fd = open(devname, O_RDONLY|O_EXCL);
+		else
+			fd = open_dev_flags(devnm, O_RDONLY|O_EXCL);
 		if (fd < 0 || strcmp(fd2devnm(fd), devnm) != 0) {
 			if (fd >= 0)
 				close(fd);
@@ -1100,6 +1103,7 @@ int Manage_subdevs(char *devname, int fd,
 	int count = 0; /* number of actions taken */
 	struct mdinfo info;
 	int frozen = 0;
+	int busy = 0;
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
 		pr_err("Cannot get array info for %s\n",
@@ -1320,6 +1324,8 @@ int Manage_subdevs(char *devname, int fd,
 			if ((sysfd >= 0 && write(sysfd, "faulty", 6) != 6) ||
 			    (sysfd < 0 && ioctl(fd, SET_DISK_FAULTY,
 						(unsigned long) stb.st_rdev))) {
+				if (errno == EBUSY)
+					busy = 1;
 				pr_err("set device faulty failed for %s:  %s\n",
 					dv->devname, strerror(errno));
 				if (sysfd >= 0)
@@ -1377,7 +1383,7 @@ int Manage_subdevs(char *devname, int fd,
 abort:
 	if (frozen > 0)
 		sysfs_set_str(&info, NULL, "sync_action","idle");
-	return 1;
+	return !test && busy ? 2 : 1;
 }
 
 int autodetect(void)

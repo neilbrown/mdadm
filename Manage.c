@@ -452,6 +452,40 @@ static void add_detached(struct mddev_dev *dv, int fd, char disp)
 	}
 }
 
+static void add_set(struct mddev_dev *dv, int fd, char set_char)
+{
+	mdu_array_info_t array;
+	mdu_disk_info_t disk;
+	int remaining_disks;
+	int copies, set;
+	int i;
+
+	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0)
+		return;
+	if (array.level != 10)
+		return;
+	copies = ((array.layout & 0xff) *
+		  ((array.layout >> 8) & 0xff));
+	if (array.raid_disks % copies)
+		return;
+
+	remaining_disks = array.nr_disks;
+	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
+		char buf[40];
+		disk.number = i;
+		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+			continue;
+		if (disk.major == 0 && disk.minor == 0)
+			continue;
+		remaining_disks--;
+		set = disk.raid_disk % copies;
+		if (set_char != set + 'A')
+			continue;
+		sprintf(buf, "%d:%d", disk.major, disk.minor);
+		dv = add_one(dv, buf, dv->disposition);
+	}
+}
+
 int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 		   struct supertype *dev_st, struct supertype *tst,
 		   unsigned long rdev,
@@ -1192,6 +1226,35 @@ int Manage_subdevs(char *devname, int fd,
 				(*dp)->disposition = 'M';
 			*dp = dv->next;
 			dv->next = add_devlist;
+			continue;
+		}
+
+		if (strncmp(dv->devname, "set-", 4) == 0 &&
+		    strlen(dv->devname) == 5) {
+			int copies;
+
+			if (dv->disposition != 'r' &&
+			    dv->disposition != 'f') {
+				pr_err("'%s' only meaningful with -r or -f\n",
+				       dv->devname);
+				goto abort;
+			}
+			if (array.level != 10) {
+				pr_err("'%s' only meaningful with RAID10 arrays\n",
+				       dv->devname);
+				goto abort;
+			}
+			copies = ((array.layout & 0xff) *
+				  ((array.layout >> 8) & 0xff));
+			if (array.raid_disks % copies != 0 ||
+			    dv->devname[4] < 'A' ||
+			    dv->devname[4] >= 'A' + copies ||
+			    copies > 26) {
+				pr_err("'%s' not meaningful with this array\n",
+				       dv->devname);
+				goto abort;
+			}
+			add_set(dv, fd, dv->devname[4]);
 			continue;
 		}
 

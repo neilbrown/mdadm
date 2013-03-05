@@ -1273,29 +1273,49 @@ resolved.
 .TP
 .BR \-r ", " \-\-remove
 remove listed devices.  They must not be active.  i.e. they should
-be failed or spare devices.  As well as the name of a device file
+be failed or spare devices.
+
+As well as the name of a device file
 (e.g.
 .BR /dev/sda1 )
 the words
-.B failed
-and
+.BR failed ,
 .B detached
+and names like
+.B set-A
 can be given to
 .BR \-\-remove .
 The first causes all failed device to be removed.  The second causes
 any device which is no longer connected to the system (i.e an 'open'
 returns
 .BR ENXIO )
-to be removed.  This will only succeed for devices that are spares or
-have already been marked as failed.
+to be removed.
+The third will remove a set as describe below under
+.BR \-\-fail .
 
 .TP
 .BR \-f ", " \-\-fail
 Mark listed devices as faulty.
 As well as the name of a device file, the word
 .B detached
-can be given.  This will cause any device that has been detached from
+or a set name like
+.B set\-A
+can be given.  The former will cause any device that has been detached from
 the system to be marked as failed.  It can then be removed.
+
+For RAID10 arrays where the number of copies evenly divides the number
+of devices, the devices can be conceptually divided into sets where
+each set contains a single complete copy of the data on the array.
+Sometimes a RAID10 array will be configured so that these sets are on
+separate controllers.  In this case all the devices in one set can be
+failed by giving a name like
+.B set\-A
+or
+.B set\-B
+to
+.BR \-\-fail .
+The appropriate set names are reported by
+.BR \-\-detail .
 
 .TP
 .BR \-\-set\-faulty

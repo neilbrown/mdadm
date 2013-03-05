@@ -359,6 +359,18 @@ int Manage_runstop(char *devname, int fd, int runstop,
 	return rv;
 }
 
+static struct mddev_dev *add_one(struct mddev_dev *dv, char *name, char disp)
+{
+	struct mddev_dev *new;
+	new = xmalloc(sizeof(*new));
+	memset(new, 0, sizeof(*new));
+	new->devname = xstrdup(name);
+	new->disposition = disp;
+	new->next = dv->next;
+	dv->next = new;
+	return new;
+}
+
 static void add_faulty(struct mddev_dev *dv, int fd, char disp)
 {
 	mdu_array_info_t array;
@@ -371,7 +383,6 @@ static void add_faulty(struct mddev_dev *dv, int fd, char disp)
 
 	remaining_disks = array.nr_disks;
 	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
-		struct mddev_dev *new;
 		char buf[40];
 		disk.number = i;
 		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
@@ -382,12 +393,7 @@ static void add_faulty(struct mddev_dev *dv, int fd, char disp)
 		if ((disk.state & 1) == 0) /* not faulty */
 			continue;
 		sprintf(buf, "%d:%d", disk.major, disk.minor);
-		new = xmalloc(sizeof(*new));
-		new->devname = xstrdup(buf);
-		new->disposition = disp;
-		new->next = dv->next;
-		dv->next = new;
-		dv = new;
+		dv = add_one(dv, buf, disp);
 	}
 }
 
@@ -403,7 +409,6 @@ static void add_detached(struct mddev_dev *dv, int fd, char disp)
 
 	remaining_disks = array.nr_disks;
 	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
-		struct mddev_dev *new;
 		char buf[40];
 		int sfd;
 		disk.number = i;
@@ -424,12 +429,7 @@ static void add_detached(struct mddev_dev *dv, int fd, char disp)
 		if (errno != ENXIO)
 			/* Probably not detached */
 			continue;
-		new = xmalloc(sizeof(*new));
-		new->devname = xstrdup(buf);
-		new->disposition = disp;
-		new->next = dv->next;
-		dv->next = new;
-		dv = new;
+		dv = add_one(dv, buf, disp);
 	}
 }
 

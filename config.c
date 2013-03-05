@@ -179,9 +179,9 @@ struct mddev_dev *load_partitions(void)
 		if (!name)
 			continue;
 		d = xmalloc(sizeof(*d));
+		memset(d, 0, sizeof(*d));
 		d->devname = xstrdup(name);
 		d->next = rv;
-		d->used = 0;
 		rv = d;
 	}
 	fclose(f);
@@ -203,12 +203,12 @@ struct mddev_dev *load_containers(void)
 		    strncmp(ent->metadata_version, "external:", 9) == 0 &&
 		    !is_subarray(&ent->metadata_version[9])) {
 			d = xmalloc(sizeof(*d));
+			memset(d, 0, sizeof(*d));
 			if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
 				free(d);
 				continue;
 			}
 			d->next = rv;
-			d->used = 0;
 			rv = d;
 		}
 	free_mdstat(mdstat);
@@ -884,9 +884,9 @@ struct mddev_dev *conf_get_devs()
 	if (flags & GLOB_APPEND) {
 		for (i=0; i<globbuf.gl_pathc; i++) {
 			struct mddev_dev *t = xmalloc(sizeof(*t));
+			memset(t, 0, sizeof(*t));
 			t->devname = xstrdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
-			t->used = 0;
 			dlist = t;
 /*	printf("one dev is %s\n", t->devname);*/
 		}

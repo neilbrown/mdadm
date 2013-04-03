@@ -444,6 +444,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 	char buf[64];
 	int frozen;
 	struct supertype *container = a->container;
+	unsigned long long int component_size = 0;
 
 	if (container == NULL)
 		/* Raced with something */
@@ -452,6 +453,9 @@ static void manage_member(struct mdstat_ent *mdstat,
 	// FIXME
 	a->info.array.raid_disks = mdstat->raid_disks;
 	// MORE
+
+	if (sysfs_get_ll(&a->info, NULL, "component_size", &component_size) >= 0)
+		a->info.component_size = component_size << 1;
 
 	/* honor 'frozen' */
 	if (sysfs_get_str(&a->info, NULL, "metadata_version", buf, sizeof(buf)) > 0)

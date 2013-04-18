@@ -6886,6 +6886,12 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 	if (!super->missing)
 		return;
 
+	/* When orom adds replacement for missing disk it does
+	 * not remove entry of missing disk, but just updates map with
+	 * new added disk. So it is not enough just to test if there is
+	 * any missing disk, we have to look if there are any failed disks
+	 * in map to stop migration */
+
 	dprintf("imsm: mark missing\n");
 	/* end process for initialization and rebuild only
 	 */
@@ -6896,7 +6902,8 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 		failed = imsm_count_failed(super, dev, MAP_0);
 		map_state = imsm_check_degraded(super, dev, failed, MAP_0);
 
-		end_migration(dev, super, map_state);
+		if (failed)
+			end_migration(dev, super, map_state);
 	}
 	for (dl = super->missing; dl; dl = dl->next)
 		mark_missing(dev, &dl->disk, dl->index);

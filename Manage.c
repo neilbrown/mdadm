@@ -212,6 +212,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		struct stat stb;
 		struct mdinfo *mdi;
 		char devnm[32];
+		char container[32];
 		int err;
 		int count;
 		/* If this is an mdmon managed array, just write 'inactive'
@@ -221,11 +222,30 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		/* Get EXCL access first.  If this fails, then attempting
 		 * to stop is probably a bad idea.
 		 */
+		mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
+		if (mdi && is_subarray(mdi->text_version)) {
+			char *sl;
+			strncpy(container, mdi->text_version+1, sizeof(container));
+			container[sizeof(container)-1] = 0;
+			sl = strchr(container, '/');
+			if (sl)
+				*sl = 0;
+		} else
+			container[0] = 0;
 		close(fd);
-		if (devnm[0] == '/')
-			fd = open(devname, O_RDONLY|O_EXCL);
-		else
-			fd = open_dev_flags(devnm, O_RDONLY|O_EXCL);
+		count = 5;
+		while (((fd = ((devnm[0] == '/')
+			       ?open(devname, O_RDONLY|O_EXCL)
+			       :open_dev_flags(devnm, O_RDONLY|O_EXCL))) < 0
+			|| strcmp(fd2devnm(fd), devnm) != 0)
+		       && container[0]
+		       && mdmon_running(container)
+		       && count) {
+			if (fd >= 0)
+				close(fd);
+			flush_mdmon(container);
+			count--;
+		}
 		if (fd < 0 || strcmp(fd2devnm(fd), devnm) != 0) {
 			if (fd >= 0)
 				close(fd);
@@ -237,7 +257,6 @@ int Manage_runstop(char *devname, int fd, int runstop,
 				       devname);
 			return 1;
 		}
-		mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
 		if (mdi &&
 		    mdi->array.level > 0 &&
 		    is_subarray(mdi->text_version)) {

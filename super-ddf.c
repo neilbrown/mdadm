@@ -3514,7 +3514,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 
 		vl1->next = first->conflist;
 		vl1->block_sizes = NULL;
-		if (vl1->conf.sec_elmnt_count > 1) {
+		if (vl2->conf.sec_elmnt_count > 1) {
 			vl1->other_bvds = xcalloc(vl2->conf.sec_elmnt_count - 1,
 						  sizeof(struct vd_config *));
 		} else

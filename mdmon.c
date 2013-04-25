@@ -271,7 +271,8 @@ void usage(void)
 "\n"
 "Options are:\n"
 "  --help        -h   : This message\n"
-"  --all              : All devices\n"
+"  --all         -a   : All devices\n"
+"  --foreground  -F   : Run in foreground (do not fork)\n"
 "  --takeover    -t   : Takeover container\n"
 );
 	exit(2);

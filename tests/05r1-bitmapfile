@@ -33,6 +33,7 @@ mdadm -S $md0
 
 mdadm --assemble -R $md0 --bitmap=$bmf $dev2
 dirty4=`mdadm -X $bmf | sed -n -e 's/.*Bitmap.* \([0-9]*\) dirty.*/\1/p'`
+mdadm --zero $dev1 # force --add, not --re-add
 mdadm $md0 --add $dev1
 #it is too fast# check recovery
 

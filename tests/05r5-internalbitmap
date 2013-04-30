@@ -30,6 +30,7 @@ fi
 mdadm -S $md0
 
 mdadm --assemble -R $md0  $dev2 $dev3
+mdadm --zero $dev1 # force --add, not --re-add
 mdadm $md0 --add $dev1
 check recovery
 

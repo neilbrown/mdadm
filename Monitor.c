@@ -972,6 +972,19 @@ int Wait(char *dev)
 			if (strcmp(e->devnm, devnm) == 0)
 				break;
 
+		if (e->percent == RESYNC_NONE) {
+			/* We could be in the brief pause before something
+			 * starts. /proc/mdstat doesn't show that, but
+			 * sync_action does.
+			 */
+			struct mdinfo mdi;
+			char buf[21];
+			sysfs_init(&mdi, -1, devnm);
+			if (sysfs_get_str(&mdi, NULL, "sync_action",
+					  buf, 20) > 0 &&
+			    strcmp(buf,"idle\n") != 0)
+				e->percent = RESYNC_UNKNOWN;
+		}
 		if (!e || e->percent == RESYNC_NONE) {
 			if (e && e->metadata_version &&
 			    strncmp(e->metadata_version, "external:", 9) == 0) {

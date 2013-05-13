@@ -209,7 +209,6 @@ int Manage_runstop(char *devname, int fd, int runstop,
 			pr_err("started %s\n", devname);
 	} else if (runstop < 0){
 		struct map_ent *map = NULL;
-		struct stat stb;
 		struct mdinfo *mdi;
 		char devnm[32];
 		char container[32];
@@ -359,9 +358,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		if (mdi)
 			sysfs_uevent(mdi, "change");
 
-		if (devnm[0] &&
-		    (stat("/dev/.udev", &stb) != 0 ||
-		     check_env("MDADM_NO_UDEV"))) {
+		if (devnm[0] && use_udev()) {
 			struct map_ent *mp = map_by_devnm(&map, devnm);
 			remove_devices(devnm, mp ? mp->path : NULL);
 		}

@@ -284,7 +284,7 @@ int Detail(char *dev, struct context *c)
 	if (c->brief) {
 		mdu_bitmap_file_t bmf;
 		printf("ARRAY %s", dev);
-		if (c->brief > 1) {
+		if (c->verbose > 0) {
 			if (array.raid_disks)
 				printf(" level=%s num-devices=%d",
 				       str?str:"-unknown-",
@@ -624,7 +624,7 @@ This is pretty boring
 	if (st)
 		st->ss->free_super(st);
 
-	if (c->brief > 1 && devices) printf("\n   devices=%s", devices);
+	if (c->brief && c->verbose > 0 && devices) printf("\n   devices=%s", devices);
 	if (c->brief)
 		printf("\n");
 	if (c->test &&

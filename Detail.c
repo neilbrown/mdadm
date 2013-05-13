@@ -53,12 +53,15 @@ int Detail(char *dev, struct context *c)
 	int max_disks = MD_SB_DISKS; /* just a default */
 	struct mdinfo *info = NULL;
 	struct mdinfo *sra;
+	struct mdinfo *subdev;
 	char *member = NULL;
 	char *container = NULL;
 
 	int rv = c->test ? 4 : 1;
 	int avail_disks = 0;
 	char *avail = NULL;
+	int external;
+	int inactive;
 
 	if (fd < 0) {
 		pr_err("cannot open %s: %s\n",
@@ -78,18 +81,21 @@ int Detail(char *dev, struct context *c)
 		close(fd);
 		return rv;
 	}
-	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
-		if (errno == ENODEV)
-			pr_err("md device %s does not appear to be active.\n",
-				dev);
-		else
-			pr_err("cannot get array detail for %s: %s\n",
-				dev, strerror(errno));
+	sra = sysfs_read(fd, NULL, GET_VERSION|GET_DEVS);
+	external = (sra != NULL && sra->array.major_version == -1
+		    && sra->array.minor_version == -2);
+	st = super_by_fd(fd, &subarray);
+	if (ioctl(fd, GET_ARRAY_INFO, &array) == 0) {
+		inactive = 0;
+	} else if (errno == ENODEV) {
+		array = sra->array;
+		inactive = 1;
+	} else {
+		pr_err("cannot get array detail for %s: %s\n",
+		       dev, strerror(errno));
 		close(fd);
 		return rv;
 	}
-	sra = sysfs_read(fd, NULL, GET_VERSION);
-	st = super_by_fd(fd, &subarray);
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))
 		stb.st_rdev = 0;
@@ -117,19 +123,25 @@ int Detail(char *dev, struct context *c)
 		}
 	}
 
-	/* try to load a superblock */
-	if (st && !info) for (d = 0; d < max_disks; d++) {
+	/* try to load a superblock. Try sra->devs first, then try ioctl */
+	if (st && !info) for (d = 0, subdev = sra ? sra->devs : NULL;
+			      d < max_disks || subdev;
+			      subdev ? (void)(subdev = subdev->next) : (void)(d++)){
 		mdu_disk_info_t disk;
 		char *dv;
 		int fd2;
 		int err;
-		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
-			continue;
-		if (d >= array.raid_disks &&
-		    disk.major == 0 &&
-		    disk.minor == 0)
-			continue;
+		if (subdev)
+			disk = subdev->disk;
+		else {
+			disk.number = d;
+			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+				continue;
+			if (d >= array.raid_disks &&
+			    disk.major == 0 &&
+			    disk.minor == 0)
+				continue;
+		}
 
 		if (array.raid_disks > 0 &&
 		    (disk.state & (1 << MD_DISK_ACTIVE)) == 0)
@@ -193,7 +205,8 @@ int Detail(char *dev, struct context *c)
 				printf("MD_LEVEL=%s\n", str);
 			printf("MD_DEVICES=%d\n", array.raid_disks);
 		} else {
-			printf("MD_LEVEL=container\n");
+			if (!inactive)
+				printf("MD_LEVEL=container\n");
 			printf("MD_DEVICES=%d\n", array.nr_disks);
 		}
 		if (container) {
@@ -249,7 +262,14 @@ int Detail(char *dev, struct context *c)
 	}
 
 	next = array.raid_disks*2;
-	for (d = 0; d < max_disks; d++) {
+	if (inactive) {
+		struct mdinfo *mdi;
+		if (sra != NULL)
+			for (mdi = sra->devs; mdi; mdi = mdi->next) {
+				disks[next++] = mdi->disk;
+				disks[next-1].number = -1;
+			}
+	} else for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		disk.number = d;
 		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
@@ -283,15 +303,17 @@ int Detail(char *dev, struct context *c)
 
 	if (c->brief) {
 		mdu_bitmap_file_t bmf;
-		printf("ARRAY %s", dev);
+		printf("%sARRAY %s", inactive ? "INACTIVE-":"", dev);
 		if (c->verbose > 0) {
 			if (array.raid_disks)
 				printf(" level=%s num-devices=%d",
 				       str?str:"-unknown-",
 				       array.raid_disks );
-			else
+			else if (!inactive)
 				printf(" level=container num-devices=%d",
 				       array.nr_disks);
+			else
+				printf(" num-devices=%d", array.nr_disks);
 		}
 		if (container) {
 			printf(" container=%s", container);
@@ -339,9 +361,10 @@ int Detail(char *dev, struct context *c)
 		atime = array.ctime;
 		if (atime)
 			printf("  Creation Time : %.24s\n", ctime(&atime));
-		if (array.raid_disks == 0)
+		if (array.raid_disks == 0 && external)
 			str = "container";
-		printf("     Raid Level : %s\n", str?str:"-unknown-");
+		if (str)
+			printf("     Raid Level : %s\n", str);
 		if (larray_size)
 			printf("     Array Size : %llu%s\n", (larray_size>>10),
 			       human_size(larray_size));
@@ -403,10 +426,13 @@ int Detail(char *dev, struct context *c)
 			       larray_size ? "": ", Not Started",
 			       e->percent == RESYNC_DELAYED ? " (DELAYED)": "",
 			       e->percent == RESYNC_PENDING ? " (PENDING)": "");
+		} else if (inactive) {
+			printf("          State : inactive\n");
 		}
 		if (array.raid_disks)
 			printf(" Active Devices : %d\n", array.active_disks);
-		printf("Working Devices : %d\n", array.working_disks);
+		if (array.working_disks > 0)
+			printf("Working Devices : %d\n", array.working_disks);
 		if (array.raid_disks) {
 			printf(" Failed Devices : %d\n", array.failed_disks);
 			printf("  Spare Devices : %d\n", array.spare_disks);
@@ -549,7 +575,10 @@ This is pretty boring
 			continue;
 		if (!c->brief) {
 			if (d == array.raid_disks*2) printf("\n");
-			if (disk.raid_disk < 0)
+			if (disk.number < 0)
+				printf("       -   %5d    %5d        -     ",
+				       disk.major, disk.minor);
+			else if (disk.raid_disk < 0)
 				printf("   %5d   %5d    %5d        -     ",
 				       disk.number, disk.major, disk.minor);
 			else

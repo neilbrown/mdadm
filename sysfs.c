@@ -280,6 +280,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			free(dev);
 			continue;
 		}
+		sra->array.nr_disks++;
 		sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
 
 		/* special case check for block devices that can go 'offline' */

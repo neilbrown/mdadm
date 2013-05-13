@@ -668,7 +668,10 @@ static int examine_badblocks_super1(struct supertype *st, int fd, char *devname)
 	}
 
 	size = __le32_to_cpu(sb->bblog_size)* 512;
-	posix_memalign((void**)&bbl, 4096, size);
+	if (posix_memalign((void**)&bbl, 4096, size) != 0) {
+		pr_err("%s could not allocate badblocks list\n", __func__);
+		return 0;
+	}
 	offset = __le64_to_cpu(sb->super_offset) +
 		(int)__le32_to_cpu(sb->bblog_offset);
 	offset <<= 9;

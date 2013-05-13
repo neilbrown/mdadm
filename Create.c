@@ -299,7 +299,7 @@ int Create(struct supertype *st, char *mddev,
 			missing_disks ++;
 			continue;
 		}
-		if (data_offset != VARIABLE_OFFSET) {
+		if (data_offset == VARIABLE_OFFSET) {
 			doff = strchr(dname, ':');
 			if (doff) {
 				*doff++ = 0;

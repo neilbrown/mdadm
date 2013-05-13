@@ -29,6 +29,7 @@
  */
 
 #include	"mdadm.h"
+#include	<sys/wait.h>
 #include	<dirent.h>
 #include	<ctype.h>
 
@@ -1565,6 +1566,19 @@ static int Incremental_container(struct supertype *st, char *devname,
 	return 0;
 }
 
+static void run_udisks(char *arg1, char *arg2)
+{
+	int pid = fork();
+	int status;
+	if (pid == 0) {
+		execl("/usr/bin/udisks", "udisks", arg1, arg2, NULL);
+		execl("/bin/udisks", "udisks", arg1, arg2, NULL);
+		exit(1);
+	}
+	while (pid > 0 && wait(&status) != pid)
+		;
+}
+
 /*
  * IncrementalRemove - Attempt to see if the passed in device belongs to any
  * raid arrays, and if so first fail (if needed) and then remove the device.
@@ -1647,13 +1661,20 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		rv |= Manage_subdevs(ent->dev, mdfd, &devlist,
 				    verbose, 0, NULL, 0);
 	if (rv & 2) {
-		/* Failed due to EBUSY, try to stop the array
+		/* Failed due to EBUSY, try to stop the array.
+		 * Give udisks a chance to unmount it first.
 		 */
+		int devid = devnm2devid(ent->devnm);
+		run_udisks("--unmount", map_dev(major(devid),minor(devid), 0));
 		rv = Manage_runstop(ent->dev, mdfd, -1,
 				    verbose, 1);
 		if (rv)
 			/* At least we can try to trigger a 'remove' */
 			sysfs_uevent(&mdi, "remove");
+		if (verbose) {
+			if (rv)
+				pr_err("Fail to stop %s too.\n", ent->devnm);
+		}
 	} else {
 		devlist.disposition = 'r';
 		rv = Manage_subdevs(ent->dev, mdfd, &devlist,

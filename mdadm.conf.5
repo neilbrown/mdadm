@@ -25,6 +25,16 @@ space (space, tab, or newline).
 Any word that beings with a hash sign (#) starts a comment and that
 word together with the remainder of the line is ignored.
 
+Spaces can be included in a word using quotation characters.  Either
+single quotes
+.RB ( ' )
+or double quotes (\fB"\fP)
+may be used.  All the characters from one quotation character to
+next identical character are protected and will not be used to
+separate words to start new quoted strings.  To include a single quote
+it must be between double quotes.  To include a double quote it must
+be between single quotes.
+
 Any line that starts with white space (space or tab) is treated as
 though it were a continuation of the previous line.
 
@@ -550,6 +560,10 @@ ARRAY /dev/md/home UUID=9187a482:5dde19d9:eea3cc4a:d646ab8b
 .br
            auto=part
 .br
+# The name of this array contains a space.
+.br
+ARRAY /dev/md9 name='Data Storage'
+.sp
 POLICY domain=domain1 metadata=imsm path=pci-0000:00:1f.2-scsi-*
 .br
            action=spare

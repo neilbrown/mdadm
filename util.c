@@ -777,7 +777,6 @@ int get_data_disks(int level, int layout, int raid_disks)
 	return data_disks;
 }
 
-#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 
 int devnm2devid(char *devnm)
 {
@@ -815,6 +814,7 @@ int devnm2devid(char *devnm)
 	return 0;
 }
 
+#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 char *get_md_name(char *devnm)
 {
 	/* find /dev/md%d or /dev/md/%d or make a device /dev/.tmp.md%d */

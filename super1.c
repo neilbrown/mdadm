@@ -1012,12 +1012,13 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		long bm_sectors = 0;
 		long space;
 
+#ifndef MDASSEMBLE
 		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 			struct bitmap_super_s *bsb;
 			bsb = (struct bitmap_super_s *)(((char*)sb)+MAX_SB_SIZE);
 			bm_sectors = bitmap_sectors(bsb);
 		}
-
+#endif
 		if (sb_offset < data_offset) {
 			/* 1.1 or 1.2.  Put bbl just before data
 			 */

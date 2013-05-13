@@ -1645,8 +1645,9 @@ static int misc_scan(char devmode, struct context *c)
 
 	for (members = 0; members <= 1; members++) {
 		for (e=ms ; e ; e=e->next) {
-			char *name;
+			char *name = NULL;
 			struct map_ent *me;
+			struct stat stb;
 			int member = e->metadata_version &&
 				strncmp(e->metadata_version,
 					"external:/", 10) == 0;
@@ -1656,7 +1657,8 @@ static int misc_scan(char devmode, struct context *c)
 			if (me && me->path
 			    && strcmp(me->path, "/unknown") != 0)
 				name = me->path;
-			else
+			if (name == NULL ||
+			    stat(name, &stb) != 0)
 				name = get_md_name(e->devnm);
 
 			if (!name) {

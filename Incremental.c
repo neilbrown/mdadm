@@ -286,7 +286,9 @@ int Incremental(char *devname, struct context *c,
 	}
 	/* Cannot hold it open while we add the device to the array,
 	 * so we must release the O_EXCL and depend on the map_lock()
+	 * So now is the best time to remove any partitions.
 	 */
+	remove_partitions(dfd);
 	close(dfd);
 	dfd = -1;
 

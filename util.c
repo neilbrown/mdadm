@@ -1745,6 +1745,11 @@ int start_mdmon(char *devnm)
 			else
 				skipped = 0;
 
+		/* Don't want to see error messages from systemctl.
+		 * If the service doesn't exist, we start mdmon ourselves.
+		 */
+		close(2);
+		open("/dev/null", O_WRONLY);
 		snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
 			 devnm);
 		status = execl("/usr/bin/systemctl", "systemctl", "start",

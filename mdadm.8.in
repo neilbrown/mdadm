@@ -2957,19 +2957,33 @@ exists or is listed in the config file.
 The standard names for non-partitioned arrays (the only sort of md
 array available in 2.4 and earlier) are of the form
 .IP
-/dev/mdNN
+.RB /dev/md NN
 .PP
 where NN is a number.
 The standard names for partitionable arrays (as available from 2.6
-onwards) are of the form
+onwards) are of the form:
 .IP
-/dev/md_dNN
+.RB /dev/md_d NN
 .PP
-Partition numbers should be indicated by added "pMM" to these, thus "/dev/md/d1p2".
+Partition numbers should be indicated by adding "pMM" to these, thus "/dev/md/d1p2".
 .PP
-From kernel version, 2.6.28 the "non-partitioned array" can actually
-be partitioned.  So the "md_dNN" names are no longer needed, and
-partitions such as "/dev/mdNNpXX" are possible.
+From kernel version 2.6.28 the "non-partitioned array" can actually
+be partitioned.  So the "md_d\fBNN\fP"
+names are no longer needed, and
+partitions such as "/dev/md\fBNN\fPp\fBXX\fp"
+are possible.
+.PP
+From kernel version 2.6.29 standard names can be non-numeric following
+the form:
+.IP
+.RB /dev/md_ XXX
+.PP
+where
+.B XXX
+is any string.  These names are supported by
+.I mdadm
+since version 3.3 provided they are enabled in
+.IR mdadm.conf .
 
 .SH NOTE
 .I mdadm

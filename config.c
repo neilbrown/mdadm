@@ -219,6 +219,7 @@ struct mddev_dev *load_containers(void)
 struct createinfo createinfo = {
 	.autof = 2, /* by default, create devices with standard names */
 	.symlinks = 1,
+	.names = 0, /* By default, stick with numbered md devices. */
 #ifdef DEBIAN
 	.gid = 6, /* disk */
 	.mode = 0660,
@@ -334,6 +335,10 @@ static void createline(char *line)
 			createinfo.symlinks = 1;
 		else if  (strncasecmp(w, "symlinks=no", 11) == 0)
 			createinfo.symlinks = 0;
+		else if (strncasecmp(w, "names=yes", 12) == 0)
+			createinfo.names = 1;
+		else if  (strncasecmp(w, "names=no", 11) == 0)
+			createinfo.names = 0;
 		else {
 			pr_err("unrecognised word on CREATE line: %s\n",
 				w);

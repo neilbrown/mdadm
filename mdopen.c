@@ -126,7 +126,7 @@ void make_parts(char *dev, int cnt)
  *
  * If udev is configured, we create a temporary device, open it, and
  * unlink it.
- * If not, we create the /dev/mdXX device, and is name is usable,
+ * If not, we create the /dev/mdXX device, and if name is usable,
  * /dev/md/name
  * In any case we return /dev/md/name or (if that isn't available)
  * /dev/mdXX in 'chosen'.
@@ -260,25 +260,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		}
 	}
 
-	if (num < 0) {
-		/* need to choose a free number. */
-		char *_devnm = find_free_devnm(use_mdp);
-		if (devnm == NULL) {
-			pr_err("No avail md devices - aborting\n");
-			return -1;
-		}
-		strcpy(devnm, _devnm);
-	} else {
-		sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
-		if (mddev_busy(devnm)) {
-			pr_err("%s is already in use.\n",
-				dev);
-			return -1;
-		}
-	}
-
-	sprintf(devname, "/dev/%s", devnm);
-
 	if (cname[0] == 0 && name) {
 		/* Need to find a name if we can
 		 * We don't completely trust 'name'.  Truncate to
@@ -322,6 +303,40 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				conflict = 0;
 		}
 	}
+
+	devnm[0] = 0;
+	if (num < 0 && cname && ci->names) {
+		int fd;
+		int n = -1;
+		sprintf(devnm, "md_%s", cname);
+		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
+		if (fd >= 0) {
+			n = write(fd, devnm, strlen(devnm));
+			close(fd);
+		}
+		if (n < 0)
+			devnm[0] = 0;
+	}
+	if (devnm[0])
+		;
+	else if (num < 0) {
+		/* need to choose a free number. */
+		char *_devnm = find_free_devnm(use_mdp);
+		if (devnm == NULL) {
+			pr_err("No avail md devices - aborting\n");
+			return -1;
+		}
+		strcpy(devnm, _devnm);
+	} else {
+		sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
+		if (mddev_busy(devnm)) {
+			pr_err("%s is already in use.\n",
+				dev);
+			return -1;
+		}
+	}
+
+	sprintf(devname, "/dev/%s", devnm);
 
 	if (dev && dev[0] == '/')
 		strcpy(chosen, dev);

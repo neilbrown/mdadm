@@ -148,7 +148,7 @@ created as /dev/mdX, then the minor number X is stored.
 The value is a comma separated list of device names or device name
 patterns.
 Only devices with names which match one entry in the list will be used
-to assemble the array.  Note that the devices 
+to assemble the array.  Note that the devices
 listed there must also be listed on a DEVICE line.
 .TP
 .B level=
@@ -339,6 +339,32 @@ or
 Give
 .B symlinks=no
 to suppress this symlink creation.
+
+.TP
+.B names=yes
+Since Linux 2.6.29 it has been possible to create
+.B md
+devices with a name like
+.B md_home
+rather than just a number, like
+.BR md3 .
+.I mdadm
+will use the numeric alternative by default as other tools that interact
+with md arrays may expect only numbers.
+If
+.B names=yes
+is given in
+.I mdadm.conf
+then
+.I mdadm
+will use a name when appropriate.
+If
+.B names=no
+is given, then non-numeric
+.I md
+device names will not be used even if the default changes in a future
+release of
+.IR mdadm .
 .RE
 
 .TP
@@ -437,7 +463,7 @@ The known metadata types are
 
 .TP
 .B POLICY
-This is used to specify what automatic behavior is allowed on devices 
+This is used to specify what automatic behavior is allowed on devices
 newly appearing in the system and provides a way of marking spares that can
 be moved to other arrays as well as the migration domains.
 .I Domain
@@ -475,7 +501,7 @@ file glob matching anything from
 .B /dev/disk/by-path
 .TP
 .B type=
-either 
+either
 .B disk
 or
 .BR part .

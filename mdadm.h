@@ -257,6 +257,7 @@ struct createinfo {
 	int	autof;
 	int	mode;
 	int	symlinks;
+	int	names;
 	struct supertype *supertype;
 };
 

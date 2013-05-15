@@ -1027,6 +1027,11 @@ int Create(struct supertype *st, char *mddev,
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;
 			}
+			/* if start_ro module parameter is set, array is
+			 * auto-read-only, which is bad as the resync won't
+			 * start.  So lets make it read-write now.
+			 */
+			ioctl(mdfd, RESTART_ARRAY_RW, NULL);
 		}
 		if (c->verbose >= 0)
 			pr_err("array %s started.\n", mddev);

@@ -12,11 +12,6 @@ Obsoletes:   mdctl
 %description 
 mdadm is a program that can be used to create, manage, and monitor
 Linux MD (Software RAID) devices.
-As such is provides similar functionality to the raidtools packages.
-The particular differences to raidtools is that mdadm is a single
-program, and it can perform (almost) all functions without a
-configuration file (that a config file can be used to help with
-some common tasks).
 
 %prep
 %setup -q

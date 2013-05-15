@@ -2989,13 +2989,6 @@ since version 3.3 provided they are enabled in
 .I mdadm
 was previously known as
 .IR mdctl .
-.P
-.I mdadm
-is completely separate from the
-.I raidtools
-package, and does not use the
-.I /etc/raidtab
-configuration file at all.
 
 .SH SEE ALSO
 For further information on mdadm usage, MD and the various levels of
@@ -3004,19 +2997,6 @@ RAID, see:
 .B http://raid.wiki.kernel.org/
 .PP
 (based upon Jakob \(/Ostergaard's Software\-RAID.HOWTO)
-.\".PP
-.\"for new releases of the RAID driver check out:
-.\"
-.\".IP
-.\".UR ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
-.\"ftp://ftp.kernel.org/pub/linux/kernel/people/mingo/raid-patches
-.\".UE
-.\".PP
-.\"or
-.\".IP
-.\".UR http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
-.\"http://www.cse.unsw.edu.au/~neilb/patches/linux-stable/
-.\".UE
 .PP
 The latest version of
 .I mdadm
@@ -3029,8 +3009,3 @@ Related man pages:
 .IR mdmon (8),
 .IR mdadm.conf (5),
 .IR md (4).
-.PP
-.IR raidtab (5),
-.IR raid0run (8),
-.IR raidstop (8),
-.IR mkraid (8).

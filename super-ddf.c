@@ -846,7 +846,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 	if (get_dev_size(fd, devname, &dsize) == 0)
 		return 1;
 
-	if (test_partition(fd))
+	if (!st->ignore_hw_compat && test_partition(fd))
 		/* DDF is not allowed on partitions */
 		return 1;
 

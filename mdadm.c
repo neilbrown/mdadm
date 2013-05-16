@@ -37,6 +37,7 @@ static int misc_scan(char devmode, struct context *c);
 static int stop_scan(int verbose);
 static int misc_list(struct mddev_dev *devlist,
 		     struct mddev_ident *ident,
+		     char *dump_directory,
 		     struct supertype *ss, struct context *c);
 
 
@@ -94,6 +95,7 @@ int main(int argc, char *argv[])
 	int rebuild_map = 0;
 	char *remove_path = NULL;
 	char *udev_filename = NULL;
+	char *dump_directory = NULL;
 
 	int print_help = 0;
 	FILE *outf;
@@ -234,6 +236,8 @@ int main(int argc, char *argv[])
 		case 'X':
 		case 'Q':
 		case ExamineBB:
+		case Dump:
+		case Restore:
 			newmode = MISC;
 			break;
 
@@ -982,6 +986,8 @@ int main(int argc, char *argv[])
 		case O(MISC, DetailPlatform):
 		case O(MISC, KillSubarray):
 		case O(MISC, UpdateSubarray):
+		case O(MISC, Dump):
+		case O(MISC, Restore):
 			if (opt == KillSubarray || opt == UpdateSubarray) {
 				if (c.subarray) {
 					pr_err("subarray can only"
@@ -1006,6 +1012,14 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			devmode = opt;
+			if (opt == Dump || opt == Restore) {
+				if (dump_directory != NULL) {
+					pr_err("dump/restore directory specified twice: %s and %s\n",
+					       dump_directory, optarg);
+					exit(2);
+				}
+				dump_directory = optarg;
+			}
 			continue;
 		case O(MISC, UdevRules):
 			if (devmode && devmode != opt) {
@@ -1407,7 +1421,7 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 		} else
-			rv = misc_list(devlist, &ident, ss, &c);
+			rv = misc_list(devlist, &ident, dump_directory, ss, &c);
 		break;
 	case MONITOR:
 		if (!devlist && !c.scan) {
@@ -1721,12 +1735,13 @@ static int stop_scan(int verbose)
 
 static int misc_list(struct mddev_dev *devlist,
 		     struct mddev_ident *ident,
+		     char *dump_directory,
 		     struct supertype *ss, struct context *c)
 {
 	struct mddev_dev *dv;
 	int rv = 0;
 
-	for (dv=devlist ; dv; dv=dv->next) {
+	for (dv=devlist ; dv; dv=(rv & 16) ? NULL : dv->next) {
 		int mdfd;
 
 		switch(dv->disposition) {
@@ -1767,6 +1782,13 @@ static int misc_list(struct mddev_dev *devlist,
 			}
 			rv |= Update_subarray(dv->devname, c->subarray,
 					      c->update, ident, c->verbose);
+			continue;
+		case Dump:
+			rv |= Dump_metadata(dv->devname, dump_directory, c, ss);
+			continue;
+		case Restore:
+			rv |= Restore_metadata(dv->devname, dump_directory, c, ss,
+					       (dv == devlist && dv->next == NULL));
 			continue;
 		}
 		mdfd = open_mddev(dv->devname, 1);

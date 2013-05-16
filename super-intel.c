@@ -1510,6 +1510,59 @@ static void export_examine_super_imsm(struct supertype *st)
 	printf("MD_DEVICES=%u\n", mpb->num_disks);
 }
 
+static int copy_metadata_imsm(struct supertype *st, int from, int to)
+{
+	/* The second last 512byte sector of the device contains
+	 * the "struct imsm_super" metadata.
+	 * This contains mpb_size which is the size in bytes of the
+	 * extended metadata.  This is located immediately before
+	 * the imsm_super.
+	 * We want to read all that, plus the last sector which
+	 * may contain a migration record, and write it all
+	 * to the target.
+	 */
+	void *buf;
+	unsigned long long dsize, offset;
+	int sectors;
+	struct imsm_super *sb;
+	int written = 0;
+
+	if (posix_memalign(&buf, 4096, 4096) != 0)
+		return 1;
+
+	if (!get_dev_size(from, NULL, &dsize))
+		goto err;
+
+	if (lseek64(from, dsize-1024, 0) < 0)
+		goto err;
+	if (read(from, buf, 512) != 512)
+		goto err;
+	sb = buf;
+	if (strncmp((char*)sb->sig, MPB_SIGNATURE, MPB_SIG_LEN) != 0)
+		goto err;
+
+	sectors = mpb_sectors(sb) + 2;
+	offset = dsize - sectors * 512;
+	if (lseek64(from, offset, 0) < 0 ||
+	    lseek64(to, offset, 0) < 0)
+		goto err;
+	while (written < sectors * 512) {
+		int n = sectors*512 - written;
+		if (n > 4096)
+			n = 4096;
+		if (read(from, buf, n) != n)
+			goto err;
+		if (write(to, buf, n) != n)
+			goto err;
+		written += n;
+	}
+	free(buf);
+	return 0;
+err:
+	free(buf);
+	return 1;
+}
+
 static void detail_super_imsm(struct supertype *st, char *homehost)
 {
 	struct mdinfo info;
@@ -10463,6 +10516,7 @@ struct superswitch super_imsm = {
 	.reshape_super  = imsm_reshape_super,
 	.manage_reshape = imsm_manage_reshape,
 	.recover_backup = recover_backup_imsm,
+	.copy_metadata = copy_metadata_imsm,
 #endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,

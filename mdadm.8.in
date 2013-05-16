@@ -1449,6 +1449,12 @@ been configured.  Currently only
 metadata supports bad-blocks lists.
 
 .TP
+.BI \-\-dump= directory
+.TP
+.BI \-\-restore= directory
+Save metadata from lists devices, or restore metadata to listed devices.
+
+.TP
 .BR \-R ", " \-\-run
 start a partially assembled array.  If
 .B \-\-assemble
@@ -2135,6 +2141,49 @@ Having
 without listing any devices will cause all devices listed in the
 config file to be examined.
 
+.TP
+.BI \-\-dump= directory
+If the device contains RAID metadata, a file will be created in the
+.I directory
+and the metadata will be written to it.  The file will be the same
+size as the device and have the metadata written in the file at the
+same locate that it exists in the device.  However the file will be "sparse" so
+that only those blocks containing metadata will be allocated. The
+total space used will be small.
+
+The file name used in the
+.I directory
+will be the base name of the device.   Further if any links appear in
+.I /dev/disk/by-id
+which point to the device, then hard links to the file will be created
+in
+.I directory
+based on these
+.I by-id
+names.
+
+Multiple devices can be listed and their metadata will all be stored
+in the one directory.
+
+.TP
+.BI \-\-restore= directory
+This is the reverse of
+.BR \-\-dump .
+.I mdadm
+will locate a file in the directory that has a name appropriate for
+the given device and will restore metadata from it.  Names that match
+.I /dev/disk/by-id
+names are preferred, however if two of those refer to different files,
+.I mdadm
+will not choose between them but will abort the operation.
+
+If a file name is given instead of a
+.I directory
+then
+.I mdadm
+will restore from that file to a single device, always provided the
+size of the file matches that of the device, and the file contains
+valid metadata.
 .TP
 .B \-\-stop
 The devices should be active md arrays which will be deactivated, as

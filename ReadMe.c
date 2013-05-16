@@ -97,6 +97,9 @@ struct option long_options[] = {
     {"offroot", 0, 0, OffRootOpt},
     {"examine-badblocks", 0, 0, ExamineBB},
 
+    {"dump", 1, 0, Dump},
+    {"restore", 1, 0, Restore},
+
     /* synonyms */
     {"monitor",   0, 0, 'F'},
 

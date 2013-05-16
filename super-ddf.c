@@ -1327,6 +1327,68 @@ static void export_examine_super_ddf(struct supertype *st)
 	printf("MD_UUID=%s\n", nbuf+5);
 }
 
+static int copy_metadata_ddf(struct supertype *st, int from, int to)
+{
+	void *buf;
+	unsigned long long dsize, offset;
+	int bytes;
+	struct ddf_header *ddf;
+	int written = 0;
+
+	/* The meta consists of an anchor, a primary, and a secondary.
+	 * This all lives at the end of the device.
+	 * So it is easiest to find the earliest of primary and
+	 * secondary, and copy everything from there.
+	 *
+	 * Anchor is 512 from end It contains primary_lba and secondary_lba
+	 * we choose one of those
+	 */
+
+	if (posix_memalign(&buf, 4096, 4096) != 0)
+		return 1;
+
+	if (!get_dev_size(from, NULL, &dsize))
+		goto err;
+
+	if (lseek64(from, dsize-512, 0) < 0)
+		goto err;
+	if (read(from, buf, 512) != 512)
+		goto err;
+	ddf = buf;
+	if (ddf->magic != DDF_HEADER_MAGIC ||
+	    calc_crc(ddf, 512) != ddf->crc ||
+	    (memcmp(ddf->revision, DDF_REVISION_0, 8) != 0 &&
+	     memcmp(ddf->revision, DDF_REVISION_2, 8) != 0))
+		goto err;
+
+	offset = dsize - 512;
+	if ((__be64_to_cpu(ddf->primary_lba) << 9) < offset)
+		offset = __be64_to_cpu(ddf->primary_lba) << 9;
+	if ((__be64_to_cpu(ddf->secondary_lba) << 9) < offset)
+		offset = __be64_to_cpu(ddf->secondary_lba) << 9;
+
+	bytes = dsize - offset;
+
+	if (lseek64(from, offset, 0) < 0 ||
+	    lseek64(to, offset, 0) < 0)
+		goto err;
+	while (written < bytes) {
+		int n = bytes - written;
+		if (n > 4096)
+			n = 4096;
+		if (read(from, buf, n) != n)
+			goto err;
+		if (write(to, buf, n) != n)
+			goto err;
+		written += n;
+	}
+	free(buf);
+	return 0;
+err:
+	free(buf);
+	return 1;
+}
+
 static void detail_super_ddf(struct supertype *st, char *homehost)
 {
 	/* FIXME later
@@ -4298,6 +4360,7 @@ struct superswitch super_ddf = {
 	.add_to_super	= add_to_super_ddf,
 	.remove_from_super = remove_from_super_ddf,
 	.load_container	= load_container_ddf,
+	.copy_metadata = copy_metadata_ddf,
 #endif
 	.match_home	= match_home_ddf,
 	.uuid_from_super= uuid_from_super_ddf,

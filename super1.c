@@ -597,6 +597,143 @@ static void export_examine_super1(struct supertype *st)
 	       (unsigned long long)__le64_to_cpu(sb->events));
 }
 
+static int copy_metadata1(struct supertype *st, int from, int to)
+{
+	/* Read superblock.  If it looks good, write it out.
+	 * Then if a bitmap is present, copy that.
+	 * And if a bad-block-list is present, copy that too.
+	 */
+	void *buf;
+	unsigned long long dsize, sb_offset;
+	const int bufsize = 4*1024;
+	struct mdp_superblock_1 super, *sb;
+
+	if (posix_memalign(&buf, 4096, bufsize) != 0)
+		return 1;
+
+	if (!get_dev_size(from, NULL, &dsize))
+		goto err;
+
+	dsize >>= 9;
+	if (dsize < 24)
+		goto err;
+	switch(st->minor_version) {
+	case 0:
+		sb_offset = dsize;
+		sb_offset -= 8*2;
+		sb_offset &= ~(4*2-1);
+		break;
+	case 1:
+		sb_offset = 0;
+		break;
+	case 2:
+		sb_offset = 4*2;
+		break;
+	default:
+		goto err;
+	}
+
+	if (lseek64(from, sb_offset << 9, 0) < 0LL)
+		goto err;
+	if (read(from, buf, bufsize) != bufsize)
+		goto err;
+
+	sb = buf;
+	super = *sb; // save most of sb for when we reuse buf
+
+	if (__le32_to_cpu(super.magic) != MD_SB_MAGIC ||
+	    __le32_to_cpu(super.major_version) != 1 ||
+	    __le64_to_cpu(super.super_offset) != sb_offset ||
+	    calc_sb_1_csum(sb) != super.sb_csum)
+		goto err;
+
+	if (lseek64(to, sb_offset << 9, 0) < 0LL)
+		goto err;
+	if (write(to, buf, bufsize) != bufsize)
+		goto err;
+
+	if (super.feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET)) {
+		unsigned long long bitmap_offset = sb_offset;
+		int bytes = 4096; // just an estimate.
+		int written = 0;
+		struct align_fd afrom, ato;
+
+		init_afd(&afrom, from);
+		init_afd(&ato, to);
+
+		bitmap_offset += (int32_t)__le32_to_cpu(super.bitmap_offset);
+
+		if (lseek64(from, bitmap_offset<<9, 0) < 0)
+			goto err;
+		if (lseek64(to, bitmap_offset<<9, 0) < 0)
+			goto err;
+
+		for (written = 0; written < bytes ; ) {
+			int n = bytes - written;
+			if (n > 4096)
+				n = 4096;
+			if (aread(&afrom, buf, n) != n)
+				goto err;
+			if (written == 0) {
+				/* have the header, can calculate
+				 * correct bitmap bytes */
+				bitmap_super_t *bms;
+				int bits;
+				bms = (void*)buf;
+				bits = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
+				bytes = (bits+7) >> 3;
+				bytes += sizeof(bitmap_super_t);
+				bytes = ROUND_UP(bytes, 512);
+				if (n > bytes)
+					n =  bytes;
+			}
+			if (awrite(&ato, buf, n) != n)
+				goto err;
+			written += n;
+		}
+	}
+
+	if (super.bblog_size != 0 &&
+	    __le32_to_cpu(super.bblog_size) <= 100 &&
+	    super.bblog_offset != 0 &&
+	    (super.feature_map & __le32_to_cpu(MD_FEATURE_BAD_BLOCKS))) {
+		/* There is a bad block log */
+		unsigned long long bb_offset = sb_offset;
+		int bytes = __le32_to_cpu(super.bblog_size) * 512;
+		int written = 0;
+		struct align_fd afrom, ato;
+
+		init_afd(&afrom, from);
+		init_afd(&ato, to);
+
+		bb_offset += (int32_t)__le32_to_cpu(super.bblog_offset);
+
+		if (lseek64(from, bb_offset<<9, 0) < 0)
+			goto err;
+		if (lseek64(to, bb_offset<<9, 0) < 0)
+			goto err;
+
+		for (written = 0; written < bytes ; ) {
+			int n = bytes - written;
+			if (n > 4096)
+				n = 4096;
+			if (aread(&afrom, buf, n) != n)
+				goto err;
+
+			if (awrite(&ato, buf, n) != n)
+				goto err;
+			written += n;
+		}
+	}
+
+	free(buf);
+	return 0;
+
+err:
+	free(buf);
+	return 1;
+}
+
 static void detail_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
@@ -2109,6 +2246,7 @@ struct superswitch super1 = {
 	.validate_geometry = validate_geometry1,
 	.add_to_super = add_to_super1,
 	.examine_badblocks = examine_badblocks_super1,
+	.copy_metadata = copy_metadata1,
 #endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,

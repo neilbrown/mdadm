@@ -47,7 +47,6 @@ static unsigned long calc_sb0_csum(mdp_super_t *super)
 	return newcsum;
 }
 
-
 static void super0_swap_endian(struct mdp_superblock_s *sb)
 {
 	/* as super0 superblocks are host-endian, it is sometimes
@@ -279,6 +278,51 @@ static void export_examine_super0(struct supertype *st)
 	printf("MD_EVENTS=%llu\n",
 	       ((unsigned long long)sb->events_hi << 32)
 	       + sb->events_lo);
+}
+
+static int copy_metadata0(struct supertype *st, int from, int to)
+{
+	/* Read 64K from the appropriate offset of 'from'
+	 * and if it looks a little like a 0.90 superblock,
+	 * write it to the same offset of 'to'
+	 */
+	void *buf;
+	unsigned long long dsize, offset;
+	const int bufsize = 64*1024;
+	mdp_super_t *super;
+
+	if (posix_memalign(&buf, 4096, bufsize) != 0)
+		return 1;
+
+	if (!get_dev_size(from, NULL, &dsize))
+		goto err;
+
+	if (dsize < MD_RESERVED_SECTORS*512)
+		goto err;
+
+	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
+
+	offset *= 512;
+
+	if (lseek64(from, offset, 0) < 0LL)
+		goto err;
+	if (read(from, buf, bufsize) != bufsize)
+		goto err;
+
+	if (lseek64(to, offset, 0) < 0LL)
+		goto err;
+	super = buf;
+	if (super->md_magic != MD_SB_MAGIC ||
+	    super->major_version != 0 ||
+	    calc_sb0_csum(super) != super->sb_csum)
+		goto err;
+	if (write(to, buf, bufsize) != bufsize)
+		goto err;
+	free(buf);
+	return 0;
+err:
+	free(buf);
+	return 1;
 }
 
 static void detail_super0(struct supertype *st, char *homehost)
@@ -1201,6 +1245,7 @@ struct superswitch super0 = {
 	.write_init_super = write_init_super0,
 	.validate_geometry = validate_geometry0,
 	.add_to_super = add_to_super0,
+	.copy_metadata = copy_metadata0,
 #endif
 	.match_home = match_home0,
 	.uuid_from_super = uuid_from_super0,

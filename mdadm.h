@@ -339,6 +339,8 @@ enum special_options {
 	KillOpt,
 	DataOffset,
 	ExamineBB,
+	Dump,
+	Restore,
 };
 
 enum prefix_standard {
@@ -630,7 +632,7 @@ struct reshape {
 
 /* A superswitch provides entry point the a metadata handler.
  *
- * The super_switch primarily operates on some "metadata" that
+ * The superswitch primarily operates on some "metadata" that
  * is accessed via the 'supertype'.
  * This metadata has one of three possible sources.
  * 1/ It is read from a single device.  In this case it may not completely
@@ -665,6 +667,7 @@ extern struct superswitch {
 	void (*brief_examine_subarrays)(struct supertype *st, int verbose);
 	void (*export_examine_super)(struct supertype *st);
 	int (*examine_badblocks)(struct supertype *st, int fd, char *devname);
+	int (*copy_metadata)(struct supertype *st, int from, int to);
 
 	/* Used to report details of an active array.
 	 * ->load_super was possibly given a 'component' string.
@@ -1177,6 +1180,10 @@ extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
 extern int Write_rules(char *rule_name);
 extern int bitmap_update_uuid(int fd, int *uuid, int swap);
 extern unsigned long bitmap_sectors(struct bitmap_super_s *bsb);
+extern int Dump_metadata(char *dev, char *dir, struct context *c,
+			 struct supertype *st);
+extern int Restore_metadata(char *dev, char *dir, struct context *c,
+			    struct supertype *st, int only);
 
 extern int md_get_version(int fd);
 extern int get_linux_version(void);

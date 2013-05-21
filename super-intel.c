@@ -3154,7 +3154,7 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 		if (i < sec->anchor->num_raid_devs) {
 			/* allocation failure */
 			free_devlist(first);
-			fprintf(stderr, "imsm: failed to associate spare\n"); 
+			pr_err("imsm: failed to associate spare\n");
 			return 3;
 		}
 		first->anchor->num_raid_devs = sec->anchor->num_raid_devs;
@@ -4043,7 +4043,7 @@ static void show_conflicts(__u32 family_num, struct intel_super *super_list)
 	for (s = super_list; s; s = s->next) {
 		if (family_num != s->anchor->family_num)
 			continue;
-		fprintf(stderr, "Conflict, offlining family %#x on '%s'\n",
+		pr_err("Conflict, offlining family %#x on '%s'\n",
 			__le32_to_cpu(family_num), s->disks->devname);
 	}
 }
@@ -4129,7 +4129,7 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 	champion = s;
 
 	if (conflict)
-		fprintf(stderr, "Chose family %#x on '%s', "
+		pr_err("Chose family %#x on '%s', "
 			"assemble conflicts to new container with '--update=uuid'\n",
 			__le32_to_cpu(s->anchor->family_num), s->disks->devname);
 
@@ -5091,7 +5091,7 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 		spare->check_sum = __cpu_to_le32(sum);
 
 		if (store_imsm_mpb(d->fd, spare)) {
-			fprintf(stderr, "%s: failed for device %d:%d %s\n",
+			pr_err("%s: failed for device %d:%d %s\n",
 				__func__, d->major, d->minor, strerror(errno));
 			return 1;
 		}
@@ -6841,7 +6841,7 @@ static int imsm_open_new(struct supertype *c, struct active_array *a,
 	struct imsm_super *mpb = super->anchor;
 
 	if (atoi(inst) >= mpb->num_raid_devs) {
-		fprintf(stderr, "%s: subarry index %d, out of range\n",
+		pr_err("%s: subarry index %d, out of range\n",
 			__func__, atoi(inst));
 		return -ENODEV;
 	}
@@ -7221,7 +7221,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	__u8 map_state;
 
 	if (n > map->num_members)
-		fprintf(stderr, "imsm: set_disk %d out of range 0..%d\n",
+		pr_err("imsm: set_disk %d out of range 0..%d\n",
 			n, map->num_members - 1);
 
 	if (n < 0)
@@ -8021,7 +8021,7 @@ static int apply_update_activate_spare(struct imsm_update_activate_spare *u,
 				break;
 
 		if (!dl) {
-			fprintf(stderr, "error: imsm_activate_spare passed "
+			pr_err("error: imsm_activate_spare passed "
 				"an unknown disk (index: %d)\n",
 				u->dl->index);
 			return 0;
@@ -8604,7 +8604,7 @@ static void imsm_process_update(struct supertype *st,
 		break;
 	}
 	default:
-		fprintf(stderr, "error: unsuported process update type:"
+		pr_err("error: unsuported process update type:"
 			"(type: %d)\n",	type);
 	}
 }
@@ -8996,7 +8996,7 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds,
 			     sd->disk.minor, 1);
 		raid_fds[sd->disk.raid_disk] = dev_open(dn, O_RDWR);
 		if (raid_fds[sd->disk.raid_disk] < 0) {
-			fprintf(stderr, "cannot open component\n");
+			pr_err("cannot open component\n");
 			continue;
 		}
 		opened++;
@@ -9007,7 +9007,7 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds,
 			imsm_get_allowed_degradation(info->new_level,
 						     raid_disks,
 						     super, dev)) {
-		fprintf(stderr, "Not enough disks can be opened.\n");
+		pr_err("Not enough disks can be opened.\n");
 		close_targets(raid_fds, raid_disks);
 		return -2;
 	}

@@ -2288,8 +2288,11 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		if (sysfs_set_num(sra, sd, "new_offset",
 				  info2.new_data_offset) < 0) {
 			err = errno;
-			if (sd == sra->devs && err == ENOENT)
-				/* Early kernel, no 'new_offset' file.
+			err = -1;
+			if (sd == sra->devs &&
+			    (errno == ENOENT || errno == E2BIG))
+				/* Early kernel, no 'new_offset' file,
+				 * or kernel doesn't like us.
 				 * For RAID5/6 this is not fatal
 				 */
 				return 1;

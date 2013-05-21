@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
 			if (mode == MISC && devs_found) {
 				pr_err("No action given for %s in --misc mode\n",
 					devlist->devname);
-				fprintf(stderr,"       Action options must come before device names\n");
+				cont_err("Action options must come before device names\n");
 				exit(2);
 			}
 		} else {

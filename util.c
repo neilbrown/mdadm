@@ -521,7 +521,7 @@ int check_ext2(int fd, char *name)
 	size = sb[4]|(sb[5]|(sb[6]|sb[7]<<8)<<8)<<8;
 	pr_err("%s appears to contain an ext2fs file system\n",
 		name);
-	fprintf(stderr,"    size=%dK  mtime=%s",
+	cont_err("size=%dK  mtime=%s",
 		size*(1<<bsize), ctime(&mtime));
 	return 1;
 }
@@ -545,7 +545,7 @@ int check_reiser(int fd, char *name)
 		return 0;
 	pr_err("%s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
-	fprintf(stderr, "    size = %luK\n", size*4);
+	cont_err("size = %luK\n", size*4);
 
 	return 1;
 }
@@ -568,8 +568,8 @@ int check_raid(int fd, char *name)
 	crtime = info.array.ctime;
 	level = map_num(pers, info.array.level);
 	if (!level) level = "-unknown-";
-	fprintf(stderr, "    level=%s devices=%d ctime=%s",
-		level, info.array.raid_disks, ctime(&crtime));
+	cont_err("level=%s devices=%d ctime=%s",
+		 level, info.array.raid_disks, ctime(&crtime));
 	return 1;
 }
 

@@ -3840,9 +3840,9 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 				hba = hba->next;
 			}
 
-			fprintf(stderr, ").\n"
-				"    Mixing devices attached to multiple controllers "
-				"is not allowed.\n");
+			fprintf(stderr, ").\n");
+			cont_err("Mixing devices attached to multiple controllers "
+				 "is not allowed.\n");
 		}
 		return 2;
 	}

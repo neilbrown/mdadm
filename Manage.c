@@ -342,7 +342,7 @@ int Manage_runstop(char *devname, int fd, int runstop,
 				pr_err("failed to stop array %s: %s\n",
 				       devname, strerror(errno));
 				if (errno == EBUSY)
-					fprintf(stderr, "Perhaps a running "
+					cont_err("Perhaps a running "
 						"process, mounted filesystem "
 						"or active volume group?\n");
 			}

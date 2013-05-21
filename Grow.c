@@ -2380,13 +2380,12 @@ static int raid10_reshape(char *container, int fd, char *devname,
 		err = errno;
 	if (err) {
 		pr_err("Cannot set array shape for %s\n",
-			devname);
-			if (err == EBUSY &&
-			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				fprintf(stderr,
-					"       Bitmap must be removed before"
-					" shape can be changed\n");
-			goto release;
+		       devname);
+		if (err == EBUSY &&
+		    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
+			cont_err("       Bitmap must be removed before"
+				 " shape can be changed\n");
+		goto release;
 	}
 	sysfs_free(sra);
 	return 0;

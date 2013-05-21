@@ -2439,6 +2439,29 @@ static void get_space_after(int fd, struct supertype *st, struct mdinfo *info)
 	sysfs_free(sra);
 }
 
+static void update_cache_size(char *container, struct mdinfo *sra,
+			      struct mdinfo *info,
+			      int disks, unsigned long long blocks)
+{
+	/* Check that the internal stripe cache is
+	 * large enough, or it won't work.
+	 * It must hold at least 4 stripes of the larger
+	 * chunk size
+	 */
+	unsigned long cache;
+	cache = max(info->array.chunk_size, info->new_chunk);
+	cache *= 4; /* 4 stripes minimum */
+	cache /= 512; /* convert to sectors */
+	/* make sure there is room for 'blocks' with a bit to spare */
+	if (cache < 16 + blocks / disks)
+		cache = 16 + blocks / disks;
+	cache /= (4096/512); /* Covert from sectors to pages */
+
+	if (sra->cache_size < cache)
+		subarray_set_num(container, sra, "stripe_cache_size",
+				 cache+1);
+}
+
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
@@ -2450,7 +2473,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	int spares_needed;
 	char *msg;
 	int orig_level = UnSet;
-	int disks, odisks;
+	int odisks;
 	int delayed;
 
 	struct mdu_array_info_s array;
@@ -2465,7 +2488,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	int nrdisks;
 	int err;
 	unsigned long blocks;
-	unsigned long cache;
 	unsigned long long array_size;
 	int done;
 	struct mdinfo *sra = NULL;
@@ -2827,23 +2849,9 @@ started:
 		}
 	}
 
-	/* lastly, check that the internal stripe cache is
-	 * large enough, or it won't work.
-	 * It must hold at least 4 stripes of the larger
-	 * chunk size
-	 */
-	cache = max(info->array.chunk_size, info->new_chunk);
-	cache *= 4; /* 4 stripes minimum */
-	cache /= 512; /* convert to sectors */
-	disks = min(reshape.before.data_disks, reshape.after.data_disks);
-	/* make sure there is room for 'blocks' with a bit to spare */
-	if (cache < 16 + blocks / disks)
-		cache = 16 + blocks / disks;
-	cache /= (4096/512); /* Covert from sectors to pages */
-
-	if (sra->cache_size < cache)
-		subarray_set_num(container, sra, "stripe_cache_size",
-				 cache+1);
+	update_cache_size(container, sra, info,
+			  min(reshape.before.data_disks, reshape.after.data_disks),
+			  blocks);
 
 	/* Right, everything seems fine. Let's kick things off.
 	 * If only changing raid_disks, use ioctl, else use

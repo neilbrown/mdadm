@@ -2173,7 +2173,6 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			fprintf(stderr,
 				Name ": %s: cannot open component %s\n",
 				devname, dn ? dn : "-unknown-");
-			rv = -1;
 			goto release;
 		}
 		st2 = dup_super(st);
@@ -2293,6 +2292,11 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		if (sysfs_set_num(sra, sd, "new_offset",
 				  info2.new_data_offset) < 0) {
 			err = errno;
+			if (sd == sra->devs && err == ENOENT)
+				/* Early kernel, no 'new_offset' file.
+				 * For RAID5/6 this is not fatal
+				 */
+				return 1;
 			fprintf(stderr, Name ": Cannot set new_offset for %s\n",
 				dn);
 			break;
@@ -2358,6 +2362,11 @@ static int raid10_reshape(char *container, int fd, char *devname,
 	}
 	err = set_new_data_offset(sra, st, devname, info->delta_disks, data_offset,
 				  min);
+	if (err == 1) {
+		pr_err("Cannot set new_data_offset: RAID10 reshape not\n");
+		cont_err("supported on this kernel\n");
+		err = -1;
+	}
 	if (err < 0)
 		goto release;
 

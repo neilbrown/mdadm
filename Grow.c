@@ -2150,7 +2150,7 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 }
 
 static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
-			       char *devname, struct mdinfo *info,
+			       char *devname, int delta_disks,
 			       unsigned long long data_offset,
 			       unsigned long long min)
 {
@@ -2188,7 +2188,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		st2->ss->getinfo_super(st2, &info2, NULL);
 		st2->ss->free_super(st2);
 		free(st2);
-		if (info->delta_disks < 0) {
+		if (delta_disks < 0) {
 			/* Don't need any space as array is shrinking
 			 * just move data_offset up by min
 			 */
@@ -2203,7 +2203,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				}
 				info2.new_data_offset = data_offset;
 			}
-		} else if (info->delta_disks > 0) {
+		} else if (delta_disks > 0) {
 			/* need space before */
 			if (info2.space_before < min) {
 				fprintf(stderr, Name ": Insufficient head-space for reshape on %s\n",
@@ -2356,7 +2356,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			goto release;
 		}
 	}
-	err = set_new_data_offset(sra, st, devname, info, data_offset,
+	err = set_new_data_offset(sra, st, devname, info->delta_disks, data_offset,
 				  min);
 	if (err < 0)
 		goto release;

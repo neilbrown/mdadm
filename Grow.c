@@ -2149,60 +2149,15 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 	return ret_val;
 }
 
-static int raid10_reshape(char *container, int fd, char *devname,
-			  struct supertype *st, struct mdinfo *info,
-			  struct reshape *reshape,
-			  unsigned long long data_offset,
-			  int force, int verbose)
+static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
+			       char *devname, struct mdinfo *info,
+			       unsigned long long data_offset,
+			       unsigned long long min)
 {
-	/* Changing raid_disks, layout, chunksize or possibly
-	 * just data_offset for a RAID10.
-	 * We must always change data_offset.  We change by at least
-	 * ->backup_blocks which is the largest of the old and new
-	 * chunk sizes.
-	 * If raid_disks is increasing, then data_offset must decrease
-	 * by at least this copy size.
-	 * If raid_disks is unchanged, data_offset must increase or
-	 * decrease by at least backup_blocks but preferably by much more.
-	 * We choose half of the available space.
-	 * If raid_disks is decreasing, data_offset must increase by
-	 * at least backup_blocks.  To allow of this, component_size
-	 * must be decreased by the same amount.
-	 *
-	 * So we calculate the required minimum and direction, possibly
-	 * reduce the component_size, then iterate through the devices
-	 * and set the new_data_offset.
-	 * If that all works, we set chunk_size, layout, raid_disks, and start
-	 * 'reshape'
-	 */
-	struct mdinfo *sra, *sd;
-	unsigned long long min;
+	struct mdinfo *sd;
 	int dir = 0;
 	int err = 0;
 
-	sra = sysfs_read(fd, NULL,
-			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK
-		);
-	if (!sra) {
-		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
-			devname);
-		goto release;
-	}
-	min = reshape->backup_blocks;
-
-	if (info->delta_disks)
-		sysfs_set_str(sra, NULL, "reshape_direction",
-			      info->delta_disks < 0 ? "backwards" : "forwards");
-	if (info->delta_disks < 0 &&
-	    info->space_after < reshape->backup_blocks) {
-		int rv = sysfs_set_num(sra, NULL, "component_size",
-				       (sra->component_size -
-					reshape->backup_blocks)/2);
-		if (rv) {
-			fprintf(stderr, Name ": cannot reduce component size\n");
-			goto release;
-		}
-	}
 	for (sd = sra->devs; sd; sd = sd->next) {
 		char *dn;
 		int dfd;
@@ -2343,6 +2298,69 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			break;
 		}
 	}
+	return err;
+release:
+	return -1;
+}
+
+static int raid10_reshape(char *container, int fd, char *devname,
+			  struct supertype *st, struct mdinfo *info,
+			  struct reshape *reshape,
+			  unsigned long long data_offset,
+			  int force, int verbose)
+{
+	/* Changing raid_disks, layout, chunksize or possibly
+	 * just data_offset for a RAID10.
+	 * We must always change data_offset.  We change by at least
+	 * ->backup_blocks which is the largest of the old and new
+	 * chunk sizes.
+	 * If raid_disks is increasing, then data_offset must decrease
+	 * by at least this copy size.
+	 * If raid_disks is unchanged, data_offset must increase or
+	 * decrease by at least backup_blocks but preferably by much more.
+	 * We choose half of the available space.
+	 * If raid_disks is decreasing, data_offset must increase by
+	 * at least backup_blocks.  To allow of this, component_size
+	 * must be decreased by the same amount.
+	 *
+	 * So we calculate the required minimum and direction, possibly
+	 * reduce the component_size, then iterate through the devices
+	 * and set the new_data_offset.
+	 * If that all works, we set chunk_size, layout, raid_disks, and start
+	 * 'reshape'
+	 */
+	struct mdinfo *sra;
+	unsigned long long min;
+	int err = 0;
+
+	sra = sysfs_read(fd, NULL,
+			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK
+		);
+	if (!sra) {
+		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
+			devname);
+		goto release;
+	}
+	min = reshape->backup_blocks;
+
+	if (info->delta_disks)
+		sysfs_set_str(sra, NULL, "reshape_direction",
+			      info->delta_disks < 0 ? "backwards" : "forwards");
+	if (info->delta_disks < 0 &&
+	    info->space_after < reshape->backup_blocks) {
+		int rv = sysfs_set_num(sra, NULL, "component_size",
+				       (sra->component_size -
+					reshape->backup_blocks)/2);
+		if (rv) {
+			fprintf(stderr, Name ": cannot reduce component size\n");
+			goto release;
+		}
+	}
+	err = set_new_data_offset(sra, st, devname, info, data_offset,
+				  min);
+	if (err < 0)
+		goto release;
+
 	if (!err && sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
 		err = errno;
 	if (!err && sysfs_set_num(sra, NULL, "layout", reshape->after.layout) < 0)

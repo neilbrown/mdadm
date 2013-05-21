@@ -1517,7 +1517,8 @@ int main(int argc, char *argv[])
 						   mdfd, c.backup_file,
 						   c.verbose);
 		else if (s.size > 0 || s.raiddisks || s.layout_str != NULL
-			 || s.chunk != 0 || s.level != UnSet) {
+			 || s.chunk != 0 || s.level != UnSet
+			 || data_offset != INVALID_SECTORS) {
 			rv = Grow_reshape(devlist->devname, mdfd,
 					  devlist->next,
 					  data_offset, &c, &s);

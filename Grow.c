@@ -1875,6 +1875,7 @@ size_change_error:
 	if ((s->level == UnSet || s->level == array.level) &&
 	    (s->layout_str == NULL) &&
 	    (s->chunk == 0 || s->chunk == array.chunk_size) &&
+	    data_offset == INVALID_SECTORS &&
 	    (s->raiddisks == 0 || s->raiddisks == array.raid_disks)) {
 		/* Nothing more to do */
 		if (!changed && c->verbose >= 0)
@@ -2757,6 +2758,9 @@ static int reshape_array(char *container, int fd, char *devname,
 		Manage_subdevs(devname, fd, devlist, verbose,
 			       0,NULL, 0);
 
+
+	if (reshape.backup_blocks == 0 && data_offset)
+		reshape.backup_blocks = reshape.before.data_disks * info->array.chunk_size/512;
 	if (reshape.backup_blocks == 0) {
 		/* No restriping needed, but we might need to impose
 		 * some more changes: layout, raid_disks, chunk_size

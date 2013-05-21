@@ -2737,7 +2737,7 @@ static int reshape_array(char *container, int fd, char *devname,
 started:
 
 	if (array.level == 10) {
-		/* Reshaping RAID10 does not require and data backup by
+		/* Reshaping RAID10 does not require any data backup by
 		 * user-space.  Instead it requires that the data_offset
 		 * is changed to avoid the need for backup.
 		 * So this is handled very separately

@@ -4752,7 +4752,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	char *version;
 
 	if (data_offset != INVALID_SECTORS) {
-		fprintf(stderr, Name ": data-offset not supported by imsm\n");
+		pr_err("data-offset not supported by imsm\n");
 		return 0;
 	}
 

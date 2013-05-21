@@ -657,7 +657,7 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	int spares;
 
 	if (data_offset != INVALID_SECTORS) {
-		fprintf(stderr, Name ": data-offset not support for 0.90\n");
+		pr_err("data-offset not support for 0.90\n");
 		return 0;
 	}
 

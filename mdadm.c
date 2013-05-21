@@ -469,7 +469,7 @@ int main(int argc, char *argv[])
 		case O(CREATE,DataOffset):
 		case O(GROW,DataOffset):
 			if (data_offset != INVALID_SECTORS) {
-				fprintf(stderr, Name ": data-offset may only be specified one. "
+				pr_err("data-offset may only be specified one. "
 					"Second value is %s.\n", optarg);
 				exit(2);
 			}
@@ -479,7 +479,7 @@ int main(int argc, char *argv[])
 			else
 				data_offset = parse_size(optarg);
 			if (data_offset == INVALID_SECTORS) {
-				fprintf(stderr, Name ": invalid data-offset: %s\n",
+				pr_err("invalid data-offset: %s\n",
 					optarg);
 				exit(2);
 			}

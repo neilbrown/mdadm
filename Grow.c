@@ -1543,7 +1543,7 @@ int Grow_reshape(char *devname, int fd,
 
 
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
-		fprintf(stderr, Name ": %s is not an active md array - aborting\n",
+		pr_err("%s is not an active md array - aborting\n",
 			devname);
 		return 1;
 	}
@@ -2170,8 +2170,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		dn = map_dev(sd->disk.major, sd->disk.minor, 0);
 		dfd = dev_open(dn, O_RDONLY);
 		if (dfd < 0) {
-			fprintf(stderr,
-				Name ": %s: cannot open component %s\n",
+			pr_err("%s: cannot open component %s\n",
 				devname, dn ? dn : "-unknown-");
 			goto release;
 		}
@@ -2180,7 +2179,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		close(dfd);
 		if (rv) {
 			free(st2);
-			fprintf(stderr, ": %s: cannot get superblock from %s\n",
+			pr_err("%s: cannot get superblock from %s\n",
 				devname, dn);
 			goto release;
 		}
@@ -2196,7 +2195,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			else {
 				if ((unsigned long long)data_offset
 				    < info2.data_offset + min) {
-					fprintf(stderr, Name ": --data-offset too small for %s\n",
+					pr_err("--data-offset too small for %s\n",
 						dn);
 					goto release;
 				}
@@ -2205,7 +2204,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		} else if (delta_disks > 0) {
 			/* need space before */
 			if (info2.space_before < min) {
-				fprintf(stderr, Name ": Insufficient head-space for reshape on %s\n",
+				pr_err("Insufficient head-space for reshape on %s\n",
 					dn);
 				goto release;
 			}
@@ -2214,7 +2213,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			else {
 				if ((unsigned long long)data_offset
 				    > info2.data_offset - min) {
-					fprintf(stderr, Name ": --data-offset too large for %s\n",
+					pr_err("--data-offset too large for %s\n",
 						dn);
 					goto release;
 				}
@@ -2241,13 +2240,13 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			switch (dir) {
 			case 1: /* Increase data offset */
 				if (info2.space_after < min) {
-					fprintf(stderr, Name ": Insufficient tail-space for reshape on %s\n",
+					pr_err("Insufficient tail-space for reshape on %s\n",
 						dn);
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS &&
 				    data_offset < info2.data_offset + min) {
-					fprintf(stderr, Name ": --data-offset too small on %s\n",
+					pr_err("--data-offset too small on %s\n",
 						dn);
 					goto release;
 				}
@@ -2265,13 +2264,13 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				break;
 			case -1: /* Decrease data offset */
 				if (info2.space_before < min) {
-					fprintf(stderr, Name ": insufficient head-room on %s\n",
+					pr_err("insufficient head-room on %s\n",
 						dn);
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS &&
 				    data_offset < info2.data_offset - min) {
-					fprintf(stderr, Name ": --data-offset too small on %s\n",
+					pr_err("--data-offset too small on %s\n",
 						dn);
 					goto release;
 				}
@@ -2297,7 +2296,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				 * For RAID5/6 this is not fatal
 				 */
 				return 1;
-			fprintf(stderr, Name ": Cannot set new_offset for %s\n",
+			pr_err("Cannot set new_offset for %s\n",
 				dn);
 			break;
 		}
@@ -2341,7 +2340,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK
 		);
 	if (!sra) {
-		fprintf(stderr, Name ": %s: Cannot get array details from sysfs\n",
+		pr_err("%s: Cannot get array details from sysfs\n",
 			devname);
 		goto release;
 	}
@@ -2356,7 +2355,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 				       (sra->component_size -
 					reshape->backup_blocks)/2);
 		if (rv) {
-			fprintf(stderr, Name ": cannot reduce component size\n");
+			pr_err("cannot reduce component size\n");
 			goto release;
 		}
 	}
@@ -2380,7 +2379,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 	if (!err && sysfs_set_str(sra, NULL, "sync_action", "reshape") < 0)
 		err = errno;
 	if (err) {
-		fprintf(stderr, Name ": Cannot set array shape for %s\n",
+		pr_err("Cannot set array shape for %s\n",
 			devname);
 			if (err == EBUSY &&
 			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))

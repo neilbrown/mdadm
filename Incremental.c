@@ -530,10 +530,9 @@ int Incremental(char *devname, struct context *c,
 		/* Let's try to start it */
 
 		if (info.reshape_active && !(info.reshape_active & RESHAPE_NO_BACKUP)) {
-			fprintf(stderr, Name
-				": %s: This array is being reshaped and cannot be started\n"
-				"      by --incremental.  Please use --assemble\n",
-				chosen_name);
+			pr_err("%s: This array is being reshaped and cannot be started\n",
+			       chosen_name);
+			cont_err("by --incremental.  Please use --assemble\n");
 			goto out;
 		}
 		if (match && match->bitmap_file) {

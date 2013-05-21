@@ -1794,7 +1794,7 @@ static int init_super_ddf(struct supertype *st,
 	struct virtual_disk *vd;
 
 	if (data_offset != INVALID_SECTORS) {
-		fprintf(stderr, Name ": data-offset not supported by DDF\n");
+		pr_err("data-offset not supported by DDF\n");
 		return 0;
 	}
 

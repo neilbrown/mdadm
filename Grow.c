@@ -1540,7 +1540,8 @@ int Grow_reshape(char *devname, int fd,
 			devname);
 		return 1;
 	}
-	if (data_offset != INVALID_SECTORS && array.level != 10) {
+	if (data_offset != INVALID_SECTORS && array.level != 10
+	    && (array.level < 4 || array.level > 6)) {
 		pr_err("--grow --data-offset not yet supported\n");
 		return 1;
 	}

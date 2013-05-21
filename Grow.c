@@ -2193,8 +2193,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			if (data_offset == INVALID_SECTORS)
 				info2.new_data_offset = info2.data_offset + min;
 			else {
-				if ((unsigned long long)data_offset
-				    < info2.data_offset + min) {
+				if (data_offset < info2.data_offset + min) {
 					pr_err("--data-offset too small for %s\n",
 						dn);
 					goto release;
@@ -2211,8 +2210,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			if (data_offset == INVALID_SECTORS)
 				info2.new_data_offset = info2.data_offset - min;
 			else {
-				if ((unsigned long long)data_offset
-				    > info2.data_offset - min) {
+				if (data_offset > info2.data_offset - min) {
 					pr_err("--data-offset too large for %s\n",
 						dn);
 					goto release;

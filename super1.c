@@ -953,6 +953,14 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 			info->space_before = 0;
 		info->space_after = misc->device_size - data_size - info->data_offset;
 	}
+	if (info->space_before == 0 && info->space_after == 0) {
+		/* It will look like we don't support data_offset changes,
+		 * be we do - it's just that there is no room.
+		 * A change that reduced the number of devices should
+		 * still be allowed, so set the otherwise useless value of '1'
+		 */
+		info->space_after = 1;
+	}
 
 	info->disk.raid_disk = -1;
 	switch(role) {

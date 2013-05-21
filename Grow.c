@@ -2179,6 +2179,11 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		st2->ss->getinfo_super(st2, &info2, NULL);
 		st2->ss->free_super(st2);
 		free(st2);
+		if (info2.space_before == 0 &&
+		    info2.space_after == 0) {
+			/* Metadata doesn't support data_offset changes */
+			return 1;
+		}
 		if (delta_disks < 0) {
 			/* Don't need any space as array is shrinking
 			 * just move data_offset up by min

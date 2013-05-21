@@ -2237,7 +2237,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			/* Don't need any space as array is shrinking
 			 * just move data_offset up by min
 			 */
-			if (data_offset == 1)
+			if (data_offset == INVALID_SECTORS)
 				info2.new_data_offset = info2.data_offset + min;
 			else {
 				if ((unsigned long long)data_offset
@@ -2255,7 +2255,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 					dn);
 				goto release;
 			}
-			if (data_offset == 1)
+			if (data_offset == INVALID_SECTORS)
 				info2.new_data_offset = info2.data_offset - min;
 			else {
 				if ((unsigned long long)data_offset
@@ -2272,7 +2272,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 				 * might guide us, otherwise choose
 				 * direction with most space
 				 */
-				if (data_offset == 1) {
+				if (data_offset == INVALID_SECTORS) {
 					if (info2.space_before > info2.space_after)
 						dir = -1;
 					else
@@ -2291,13 +2291,13 @@ static int raid10_reshape(char *container, int fd, char *devname,
 						dn);
 					goto release;
 				}
-				if (data_offset != 1 &&
+				if (data_offset != INVALID_SECTORS &&
 				    data_offset < info2.data_offset + min) {
 					fprintf(stderr, Name ": --data-offset too small on %s\n",
 						dn);
 					goto release;
 				}
-				if (data_offset != 1)
+				if (data_offset != INVALID_SECTORS)
 					info2.new_data_offset = data_offset;
 				else {
 					unsigned long long off =
@@ -2315,13 +2315,13 @@ static int raid10_reshape(char *container, int fd, char *devname,
 						dn);
 					goto release;
 				}
-				if (data_offset != 1 &&
+				if (data_offset != INVALID_SECTORS &&
 				    data_offset < info2.data_offset - min) {
 					fprintf(stderr, Name ": --data-offset too small on %s\n",
 						dn);
 					goto release;
 				}
-				if (data_offset != 1)
+				if (data_offset != INVALID_SECTORS)
 					info2.new_data_offset = data_offset;
 				else {
 					unsigned long long off =

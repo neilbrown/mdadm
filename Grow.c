@@ -2866,9 +2866,10 @@ started:
 		goto release;
 	}
 
-	switch(set_new_data_offset(sra, st, devname, info->delta_disks,
-				   data_offset,
-				   reshape.min_offset_change)) {
+	if (!backup_file)
+		switch(set_new_data_offset(sra, st, devname, info->delta_disks,
+					   data_offset,
+					   reshape.min_offset_change)) {
 	case -1:
 		goto release;
 	case 0:

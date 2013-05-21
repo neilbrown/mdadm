@@ -1266,6 +1266,11 @@ int main(int argc, char *argv[])
 		c.require_homehost = 0;
 	}
 
+	if (c.backup_file && data_offset != INVALID_SECTORS) {
+		pr_err("--backup-file and --data-offset are incompatible\n");
+		exit(2);
+	}
+
 	if ((mode == MISC && devmode == 'E')
 	    || (mode == MONITOR && spare_sharing == 0))
 		/* Anyone may try this */;

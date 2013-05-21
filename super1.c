@@ -327,7 +327,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 	if (sb->data_offset)
 		printf("    Data Offset : %llu sectors\n",
 		       (unsigned long long)__le64_to_cpu(sb->data_offset));
-	if (sb->new_offset) {
+	if (sb->new_offset &&
+	    (__le32_to_cpu(sb->feature_map) & MD_FEATURE_NEW_OFFSET)) {
 		unsigned long long offset = __le64_to_cpu(sb->data_offset);
 		offset += (signed)(int32_t)__le32_to_cpu(sb->new_offset);
 		printf("     New Offset : %llu sectors\n", offset);

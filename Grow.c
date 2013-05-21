@@ -2289,6 +2289,11 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				  info2.new_data_offset) < 0) {
 			err = errno;
 			err = -1;
+			if (errno == E2BIG && data_offset != INVALID_SECTORS) {
+				pr_err("data-offset is too big for %s\n",
+				       dn);
+				goto release;
+			}
 			if (sd == sra->devs &&
 			    (errno == ENOENT || errno == E2BIG))
 				/* Early kernel, no 'new_offset' file,

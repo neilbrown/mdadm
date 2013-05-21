@@ -2462,6 +2462,85 @@ static void update_cache_size(char *container, struct mdinfo *sra,
 				 cache+1);
 }
 
+static int impose_reshape(struct mdinfo *sra,
+			  struct mdinfo *info,
+			  struct supertype *st,
+			  int fd,
+			  int restart,
+			  char *devname, char *container,
+			  struct reshape *reshape)
+{
+	struct mdu_array_info_s array;
+
+	sra->new_chunk = info->new_chunk;
+
+	if (restart) {
+		/* for external metadata checkpoint saved by mdmon can be lost
+		 * or missed /due to e.g. crash/. Check if md is not during
+		 * restart farther than metadata points to.
+		 * If so, this means metadata information is obsolete.
+		 */
+		if (st->ss->external)
+			verify_reshape_position(info, reshape->level);
+		sra->reshape_progress = info->reshape_progress;
+	} else {
+		sra->reshape_progress = 0;
+		if (reshape->after.data_disks < reshape->before.data_disks)
+			/* start from the end of the new array */
+			sra->reshape_progress = (sra->component_size
+						 * reshape->after.data_disks);
+	}
+
+	ioctl(fd, GET_ARRAY_INFO, &array);
+	if (info->array.chunk_size == info->new_chunk &&
+	    reshape->before.layout == reshape->after.layout &&
+	    st->ss->external == 0) {
+		/* use SET_ARRAY_INFO but only if reshape hasn't started */
+		array.raid_disks = reshape->after.data_disks + reshape->parity;
+		if (!restart &&
+		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			int err = errno;
+
+			pr_err("Cannot set device shape for %s: %s\n",
+			       devname, strerror(errno));
+
+			if (err == EBUSY &&
+			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				cont_err("Bitmap must be removed before"
+					 " shape can be changed\n");
+
+			goto release;
+		}
+	} else if (!restart) {
+		/* set them all just in case some old 'new_*' value
+		 * persists from some earlier problem.
+		 */
+		int err = 0;
+		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
+			err = errno;
+		if (!err && sysfs_set_num(sra, NULL, "layout",
+					  reshape->after.layout) < 0)
+			err = errno;
+		if (!err && subarray_set_num(container, sra, "raid_disks",
+					     reshape->after.data_disks +
+					     reshape->parity) < 0)
+			err = errno;
+		if (err) {
+			pr_err("Cannot set device shape for %s\n",
+				devname);
+
+			if (err == EBUSY &&
+			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				cont_err("Bitmap must be removed before"
+					 " shape can be changed\n");
+			goto release;
+		}
+	}
+	return 0;
+release:
+	return -1;
+}
+
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
@@ -2859,70 +2938,9 @@ started:
 	 */
 	sync_metadata(st);
 
-	sra->new_chunk = info->new_chunk;
-
-	if (restart) {
-		/* for external metadata checkpoint saved by mdmon can be lost
-		 * or missed /due to e.g. crash/. Check if md is not during
-		 * restart farther than metadata points to.
-		 * If so, this means metadata information is obsolete.
-		 */
-		if (st->ss->external)
-			verify_reshape_position(info, reshape.level);
-		sra->reshape_progress = info->reshape_progress;
-	} else {
-		sra->reshape_progress = 0;
-		if (reshape.after.data_disks < reshape.before.data_disks)
-			/* start from the end of the new array */
-			sra->reshape_progress = (sra->component_size
-						 * reshape.after.data_disks);
-	}
-
-	if (info->array.chunk_size == info->new_chunk &&
-	    reshape.before.layout == reshape.after.layout &&
-	    st->ss->external == 0) {
-		/* use SET_ARRAY_INFO but only if reshape hasn't started */
-		ioctl(fd, GET_ARRAY_INFO, &array);
-		array.raid_disks = reshape.after.data_disks + reshape.parity;
-		if (!restart &&
-		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
-			int err = errno;
-
-			pr_err("Cannot set device shape for %s: %s\n",
-			       devname, strerror(errno));
-
-			if (err == EBUSY &&
-			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				cont_err("Bitmap must be removed before"
-					 " shape can be changed\n");
-
-			goto release;
-		}
-	} else if (!restart) {
-		/* set them all just in case some old 'new_*' value
-		 * persists from some earlier problem.
-		 */
-		int err = 0;
-		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
-			err = errno;
-		if (!err && sysfs_set_num(sra, NULL, "layout",
-					  reshape.after.layout) < 0)
-			err = errno;
-		if (!err && subarray_set_num(container, sra, "raid_disks",
-					     reshape.after.data_disks +
-					     reshape.parity) < 0)
-			err = errno;
-		if (err) {
-			pr_err("Cannot set device shape for %s\n",
-				devname);
-
-			if (err == EBUSY &&
-			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				cont_err("Bitmap must be removed before"
-					 " shape can be changed\n");
-			goto release;
-		}
-	}
+	if (impose_reshape(sra, info, st, fd, restart,
+			   devname, container, &reshape) < 0)
+		goto release;
 
 	err = start_reshape(sra, restart, reshape.before.data_disks,
 			    reshape.after.data_disks);

@@ -910,15 +910,24 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		unsigned long long end;
 		info->space_before = info->data_offset;
 		end = super_offset;
-		if (info->bitmap_offset < 0)
-			end += info->bitmap_offset;
+
+		if (sb->bblog_offset && sb->bblog_size) {
+			unsigned long long bboffset = super_offset;
+			bboffset += (int32_t)__le32_to_cpu(sb->bblog_offset);
+			if (bboffset < end)
+				end = bboffset;
+		}
+
+		if (super_offset + info->bitmap_offset < end)
+			end = super_offset + info->bitmap_offset;
+
 		if (info->data_offset + data_size < end)
 			info->space_after = end - data_size - info->data_offset;
 		else
 			info->space_after = 0;
 	} else {
-		info->space_before = (info->data_offset -
-				      super_offset);
+		unsigned long long earliest;
+		earliest = super_offset + (32+4)*2; /* match kernel */
 		if (info->bitmap_offset > 0) {
 			unsigned long long bmend = info->bitmap_offset;
 			unsigned long long size = __le64_to_cpu(bsb->sync_size);
@@ -927,13 +936,21 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 			size += sizeof(bitmap_super_t);
 			size = ROUND_UP(size, 4096);
 			size /= 512;
-			size += bmend;
-			if (size < info->space_before)
-				info->space_before -= size;
-			else
-				info->space_before = 0;
-		} else
-			info->space_before -= 8; /* superblock */
+			bmend += size;
+			if (bmend > earliest)
+				bmend = earliest;
+		}
+		if (sb->bblog_offset && sb->bblog_size) {
+			unsigned long long bbend = super_offset;
+			bbend += (int32_t)__le32_to_cpu(sb->bblog_offset);
+			bbend += __le32_to_cpu(sb->bblog_size);
+			if (bbend > earliest)
+				earliest = bbend;
+		}
+		if (earliest < info->data_offset)
+			info->space_before = info->data_offset - earliest;
+		else
+			info->space_before = 0;
 		info->space_after = misc->device_size - data_size - info->data_offset;
 	}
 

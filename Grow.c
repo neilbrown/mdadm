@@ -1438,6 +1438,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 		info->new_chunk, info->array.chunk_size,
 		re->after.data_disks,
 		re->before.data_disks);
+	re->min_offset_change = re->backup_blocks / re->before.data_disks;
 
 	re->new_size = info->component_size * re->after.data_disks;
 	return NULL;
@@ -2854,6 +2855,39 @@ started:
 		pr_err("%s: Cannot get array details from sysfs\n",
 			devname);
 		goto release;
+	}
+
+	switch(set_new_data_offset(sra, st, devname, info->delta_disks,
+				   data_offset,
+				   reshape.min_offset_change)) {
+	case -1:
+		goto release;
+	case 0:
+		/* Updated data_offset, so it's easy now */
+		update_cache_size(container, sra, info,
+				  min(reshape.before.data_disks,
+				      reshape.after.data_disks),
+				  reshape.backup_blocks);
+
+		/* Right, everything seems fine. Let's kick things off.
+		 */
+		sync_metadata(st);
+
+		if (impose_reshape(sra, info, st, fd, restart,
+				   devname, container, &reshape) < 0)
+			goto release;
+		if (sysfs_set_str(sra, NULL, "sync_action", "reshape") < 0) {
+			pr_err("Failed to initiate reshape!\n");
+			goto release;
+		}
+
+		return 0;
+	case 1: /* Couldn't set data_offset, try the old way */
+		if (data_offset != INVALID_SECTORS) {
+			pr_err("Cannot update data_offset on this array\n");
+			goto release;
+		}
+		break;
 	}
 
 	/* Decide how many blocks (sectors) for a reshape

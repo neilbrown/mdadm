@@ -713,7 +713,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	 * manage this instance
 	 */
 	if (!aa_ready(new) || container->ss->open_new(container, new, inst) < 0) {
-		fprintf(stderr, "mdmon: failed to monitor %s\n",
+		pr_err("failed to monitor %s\n",
 			mdstat->metadata_version);
 		new->container = NULL;
 		free_aa(new);

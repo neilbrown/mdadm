@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!devnm) {
-		fprintf(stderr, "mdmon: %s is not a valid md device name\n",
+		pr_err("%s is not a valid md device name\n",
 			container_name);
 		exit(1);
 	}
@@ -398,26 +398,23 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 
 	mdfd = open_dev(devnm);
 	if (mdfd < 0) {
-		fprintf(stderr, "mdmon: %s: %s\n", devnm,
-			strerror(errno));
+		pr_err("%s: %s\n", devnm, strerror(errno));
 		return 1;
 	}
 	if (md_get_version(mdfd) < 0) {
-		fprintf(stderr, "mdmon: %s: Not an md device\n",
-			devnm);
+		pr_err("%s: Not an md device\n", devnm);
 		return 1;
 	}
 
 	/* Fork, and have the child tell us when they are ready */
 	if (must_fork) {
 		if (pipe(pfd) != 0) {
-			fprintf(stderr, "mdmon: failed to create pipe\n");
+			pr_err("failed to create pipe\n");
 			return 1;
 		}
 		switch(fork()) {
 		case -1:
-			fprintf(stderr, "mdmon: failed to fork: %s\n",
-				strerror(errno));
+			pr_err("failed to fork: %s\n", strerror(errno));
 			return 1;
 		case 0: /* child */
 			close(pfd[0]);
@@ -441,25 +438,23 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 	mdi = sysfs_read(mdfd, container->devnm, GET_VERSION|GET_LEVEL|GET_DEVS);
 
 	if (!mdi) {
-		fprintf(stderr, "mdmon: failed to load sysfs info for %s\n",
-			container->devnm);
+		pr_err("failed to load sysfs info for %s\n", container->devnm);
 		exit(3);
 	}
 	if (mdi->array.level != UnSet) {
-		fprintf(stderr, "mdmon: %s is not a container - cannot monitor\n",
-			devnm);
+		pr_err("%s is not a container - cannot monitor\n", devnm);
 		exit(3);
 	}
 	if (mdi->array.major_version != -1 ||
 	    mdi->array.minor_version != -2) {
-		fprintf(stderr, "mdmon: %s does not use external metadata - cannot monitor\n",
+		pr_err("%s does not use external metadata - cannot monitor\n",
 			devnm);
 		exit(3);
 	}
 
 	container->ss = version_to_superswitch(mdi->text_version);
 	if (container->ss == NULL) {
-		fprintf(stderr, "mdmon: %s uses unsupported metadata: %s\n",
+		pr_err("%s uses unsupported metadata: %s\n",
 			devnm, mdi->text_version);
 		exit(3);
 	}
@@ -495,16 +490,14 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 	ignore = chdir("/");
 	if (!takeover && victim > 0 && victim_sock >= 0) {
 		if (fping_monitor(victim_sock) == 0) {
-			fprintf(stderr, "mdmon: %s already managed\n",
-				container->devnm);
+			pr_err("%s already managed\n", container->devnm);
 			exit(3);
 		}
 		close(victim_sock);
 		victim_sock = -1;
 	}
 	if (container->ss->load_container(container, mdfd, devnm)) {
-		fprintf(stderr, "mdmon: Cannot load metadata for %s\n",
-			devnm);
+		pr_err("Cannot load metadata for %s\n", devnm);
 		exit(3);
 	}
 	close(mdfd);
@@ -520,14 +513,14 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 
 	status = 0;
 	if (write(pfd[1], &status, sizeof(status)) < 0)
-		fprintf(stderr, "mdmon: failed to notify our parent: %d\n",
+		pr_err("failed to notify our parent: %d\n",
 			getppid());
 	close(pfd[1]);
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
 	if (clone_monitor(container) < 0) {
-		fprintf(stderr, "mdmon: failed to start monitor process: %s\n",
+		pr_err("failed to start monitor process: %s\n",
 			strerror(errno));
 		exit(2);
 	}

@@ -617,6 +617,10 @@ struct metadata_update;
  * This will be a multiple of the stripe size in each of the
  * 'before' and 'after' geometries.
  * If 'blocks' is 0, no restriping is necessary.
+ * 'min_offset_change' is the minimum change to data_offset to
+ * allow the reshape to happen.  It is at least the larger of
+ * the old  and new chunk sizes, and typically the same as 'blocks'
+ * divided by number of data disks.
  */
 struct reshape {
 	int level;
@@ -626,6 +630,7 @@ struct reshape {
 		int data_disks;
 	} before, after;
 	unsigned long long backup_blocks;
+	unsigned long long min_offset_change;
 	unsigned long long stripes; /* number of old stripes that comprise 'blocks'*/
 	unsigned long long new_size; /* New size of array in sectors */
 };

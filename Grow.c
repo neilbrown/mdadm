@@ -1128,19 +1128,21 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->before.data_disks = info->array.raid_disks;
 			re->after.layout = info->new_layout;
 			re->after.data_disks = new_disks;
-			/* For RAID10 we don't do backup, and there is
-			 * no need to synchronise stripes on both
+			/* For RAID10 we don't do backup but do allow reshape,
+			 * so set backup_blocks to INVALID_SECTORS rather than
+			 * zero.
+			 * And there is no need to synchronise stripes on both
 			 * 'old' and  'new'.  So the important
 			 * number is the minimum data_offset difference
 			 * which is the larger of (offset copies * chunk).
 			 */
-
-			re->backup_blocks = max(old_chunk, new_chunk) / 512;
+			re->backup_blocks = INVALID_SECTORS;
+			re->min_offset_change = max(old_chunk, new_chunk) / 512;
 			if (new_disks < re->before.data_disks &&
-			    info->space_after < re->backup_blocks)
+			    info->space_after < re->min_offset_change)
 				/* Reduce component size by one chunk */
 				re->new_size = (info->component_size -
-						re->backup_blocks);
+						re->min_offset_change);
 			else
 				re->new_size = info->component_size;
 			re->new_size = re->new_size * new_disks / copies;
@@ -2303,15 +2305,15 @@ static int raid10_reshape(char *container, int fd, char *devname,
 	/* Changing raid_disks, layout, chunksize or possibly
 	 * just data_offset for a RAID10.
 	 * We must always change data_offset.  We change by at least
-	 * ->backup_blocks which is the largest of the old and new
+	 * ->min_offset_change which is the largest of the old and new
 	 * chunk sizes.
 	 * If raid_disks is increasing, then data_offset must decrease
 	 * by at least this copy size.
 	 * If raid_disks is unchanged, data_offset must increase or
-	 * decrease by at least backup_blocks but preferably by much more.
+	 * decrease by at least min_offset_change but preferably by much more.
 	 * We choose half of the available space.
 	 * If raid_disks is decreasing, data_offset must increase by
-	 * at least backup_blocks.  To allow of this, component_size
+	 * at least min_offset_change.  To allow of this, component_size
 	 * must be decreased by the same amount.
 	 *
 	 * So we calculate the required minimum and direction, possibly
@@ -2332,16 +2334,16 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			devname);
 		goto release;
 	}
-	min = reshape->backup_blocks;
+	min = reshape->min_offset_change;
 
 	if (info->delta_disks)
 		sysfs_set_str(sra, NULL, "reshape_direction",
 			      info->delta_disks < 0 ? "backwards" : "forwards");
 	if (info->delta_disks < 0 &&
-	    info->space_after < reshape->backup_blocks) {
+	    info->space_after < min) {
 		int rv = sysfs_set_num(sra, NULL, "component_size",
 				       (sra->component_size -
-					reshape->backup_blocks)/2);
+					min)/2);
 		if (rv) {
 			pr_err("cannot reduce component size\n");
 			goto release;

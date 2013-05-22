@@ -985,6 +985,8 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	 */
 	int delta_parity = 0;
 
+	memset(re, 0, sizeof(*re));
+
 	/* If a new level not explicitly given, we assume no-change */
 	if (info->new_level == UnSet)
 		info->new_level = info->array.level;
@@ -1029,9 +1031,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			re->level = 0;
 			re->before.data_disks = 1;
 			re->after.data_disks = 1;
-			re->before.layout = 0;
-			re->backup_blocks = 0;
-			re->parity = 0;
 			return NULL;
 		}
 		if (info->new_level == 1) {
@@ -1039,8 +1038,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				/* Don't know what to do */
 				return "no change requested for Growing RAID1";
 			re->level = 1;
-			re->backup_blocks = 0;
-			re->parity = 0;
 			return NULL;
 		}
 		if (info->array.raid_disks == 2 &&
@@ -1093,11 +1090,8 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 
 			/* looks good */
 			re->level = 0;
-			re->parity = 0;
 			re->before.data_disks = new_disks;
 			re->after.data_disks = re->before.data_disks;
-			re->before.layout = 0;
-			re->backup_blocks = 0;
 			return NULL;
 
 		case 10:
@@ -1130,7 +1124,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			new_chunk = info->new_chunk * far;
 
 			re->level = 10;
-			re->parity = 0;
 			re->before.layout = info->array.layout;
 			re->before.data_disks = info->array.raid_disks;
 			re->after.layout = info->new_layout;
@@ -1186,12 +1179,10 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				return "Cannot change chunk-size with RAID0->RAID10";
 			/* looks good */
 			re->level = 10;
-			re->parity = 0;
 			re->before.data_disks = (info->array.raid_disks +
 						 info->delta_disks);
 			re->after.data_disks = re->before.data_disks;
 			re->before.layout = info->new_layout;
-			re->backup_blocks = 0;
 			return NULL;
 		}
 
@@ -1273,7 +1264,6 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 				return "Cannot set raid_disk when "
 					"converting RAID5->RAID1";
 			re->level = 1;
-			re->backup_blocks = 0;
 			info->new_chunk = 0;
 			return NULL;
 		default:

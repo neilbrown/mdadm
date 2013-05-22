@@ -1186,16 +1186,17 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		}
 #endif
 		if (sb_offset < data_offset) {
-			/* 1.1 or 1.2.  Put bbl just before data
+			/* 1.1 or 1.2.  Put bbl after bitmap leaving at least 32K
 			 */
 			long bb_offset;
-			space = data_offset - sb_offset;
-			bb_offset = space - 8;
+			bb_offset = sb_offset + 8;
 			if (bm_sectors && bitmap_offset > 0)
-				space -= (bitmap_offset + bm_sectors);
-			else
-				space -= 8; /* The superblock */
-			if (space >= 8) {
+				bb_offset = bitmap_offset + bm_sectors;
+			while (bb_offset < (long)sb_offset + 8 + 32*2
+			       && bb_offset + 8+8 <= (long)data_offset)
+				/* too close to bitmap, and room to grow */
+				bb_offset += 8;
+			if (bb_offset + 8 <= (long)data_offset) {
 				sb->bblog_size = __cpu_to_le16(8);
 				sb->bblog_offset = __cpu_to_le32(bb_offset);
 			}
@@ -1616,7 +1617,10 @@ static int write_init_super1(struct supertype *st)
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
-			if (reserved >= 16) {
+			if (reserved >= 8 + 32*2 + 8) {
+				sb->bblog_size = __cpu_to_le16(8);
+				sb->bblog_offset = __cpu_to_le32(8 + 32*2);
+			} else if (reserved >= 16) {
 				sb->bblog_size = __cpu_to_le16(8);
 				sb->bblog_offset = __cpu_to_le32(reserved-8);
 			}
@@ -1648,7 +1652,10 @@ static int write_init_super1(struct supertype *st)
 
 			sb->data_offset = __cpu_to_le64(reserved);
 			sb->data_size = __cpu_to_le64(dsize - reserved);
-			if (reserved >= 16+16) {
+			if (reserved >= 16 + 32*2 + 8) {
+				sb->bblog_size = __cpu_to_le16(8);
+				sb->bblog_offset = __cpu_to_le32(8 + 32*2);
+			} else if (reserved >= 16+16) {
 				sb->bblog_size = __cpu_to_le16(8);
 				/* '8' sectors for the bblog, and another '8'
 				 * because we want offset from superblock, not

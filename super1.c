@@ -269,6 +269,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	int l = homehost ? strlen(homehost) : 0;
 	int layout;
 	unsigned long long sb_offset;
+	struct mdinfo info;
 
 	printf("          Magic : %08x\n", __le32_to_cpu(sb->magic));
 	printf("        Version : 1");
@@ -337,6 +338,13 @@ static void examine_super1(struct supertype *st, char *homehost)
 	       (unsigned long long)__le64_to_cpu(sb->super_offset));
 	if (__le32_to_cpu(sb->feature_map) & MD_FEATURE_RECOVERY_OFFSET)
 		printf("Recovery Offset : %llu sectors\n", (unsigned long long)__le64_to_cpu(sb->recovery_offset));
+
+	st->ss->getinfo_super(st, &info, NULL);
+	if (info.space_after != 1 &&
+	    !(__le32_to_cpu(sb->feature_map) & MD_FEATURE_NEW_OFFSET))
+		printf("   Unused Space : before=%llu sectors, after=%llu sectors\n",
+		       info.space_before, info.space_after);
+
 	printf("          State : %s\n", (__le64_to_cpu(sb->resync_offset)+1)? "active":"clean");
 	printf("    Device UUID : ");
 	for (i=0; i<16; i++) {

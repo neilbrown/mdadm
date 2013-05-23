@@ -1071,6 +1071,7 @@ argument given to this flag can be one of
 .BR no\-bitmap ,
 .BR bbl ,
 .BR no-\bbl ,
+.BR metadata ,
 or
 .BR super\-minor .
 
@@ -1166,6 +1167,19 @@ This will cause
 .I mdadm
 to determine the maximum usable amount of space on each device and
 update the relevant field in the metadata.
+
+The
+.B metadata
+option only works on v0.90 metadata arrays and will convert them to
+v1.0 metadata.  The array must not be dirty (i.e. it must not need a
+sync) and it must not have a write-intent bitmap.
+
+The old metadata will remain on the devices, but will appear older
+than the new metadata and so will usually be ignored. The old metadata
+(or indeed the new metadata) can be removed by giving the appropriate
+.B \-\-metadata=
+option to
+.BR \-\-zero\-superblock .
 
 The
 .B no\-bitmap
@@ -1488,7 +1502,9 @@ doesn't appear to be valid.
 If the device is a container and the argument to \-\-kill\-subarray
 specifies an inactive subarray in the container, then the subarray is
 deleted.  Deleting all subarrays will leave an 'empty-container' or
-spare superblock on the drives.  See \-\-zero\-superblock for completely
+spare superblock on the drives.  See
+.B \-\-zero\-superblock
+for completely
 removing a superblock.  Note that some formats depend on the subarray
 index for generating a UUID, this command will fail if it would change
 the UUID of an active subarray.

@@ -937,6 +937,8 @@ struct supertype {
 	char container_devnm[32];    /* devnm of container */
 	void *sb;
 	void *info;
+	void *other; /* Hack used to convert v0.90 to v1.0 */
+	unsigned long long devsize;
 	int ignore_hw_compat; /* used to inform metadata handlers that it should ignore
 				 HW/firmware related incompatability to load metadata.
 				 Used when examining metadata to display content of disk
@@ -1319,6 +1321,8 @@ extern int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			 int *fds, unsigned long long *offsets,
 			 int dests, int *destfd, unsigned long long *destoffsets);
 void abort_reshape(struct mdinfo *sra);
+
+void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0);
 
 extern void fmt_devname(char *name, int num);
 extern char *stat2devnm(struct stat *st);

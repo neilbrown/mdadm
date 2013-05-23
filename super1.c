@@ -2275,6 +2275,60 @@ static int validate_geometry1(struct supertype *st, int level,
 }
 #endif /* MDASSEMBLE */
 
+void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0)
+{
+	/* Create a v1.0 superblock based on 'info'*/
+	void *ret;
+	struct mdp_superblock_1 *sb;
+	int i;
+	int rfd;
+	unsigned long long offset;
+
+	if (posix_memalign(&ret, 4096, 1024) != 0)
+		return NULL;
+	sb = ret;
+	memset(ret, 0, 1024);
+	sb->magic = __cpu_to_le32(MD_SB_MAGIC);
+	sb->major_version = __cpu_to_le32(1);
+
+	copy_uuid(sb->set_uuid, info->uuid, super1.swapuuid);
+	sprintf(sb->set_name, "%d", sb0->md_minor);
+	sb->ctime = __cpu_to_le32(info->array.ctime+1);
+	sb->level = __cpu_to_le32(info->array.level);
+	sb->layout = __cpu_to_le32(info->array.layout);
+	sb->size = __cpu_to_le64(info->component_size);
+	sb->chunksize = __cpu_to_le32(info->array.chunk_size/512);
+	sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
+	sb->data_size = sb->size;
+	sb->resync_offset = MaxSector;
+	sb->max_dev = __cpu_to_le32(MD_SB_DISKS);
+	sb->dev_number = __cpu_to_le32(info->disk.number);
+	sb->utime = __cpu_to_le64(info->array.utime);
+
+	offset = st->devsize/512 - 8*2;
+	offset &= ~(4*2-1);
+	sb->super_offset = __cpu_to_le64(offset);
+	//*(__u64*)(st->other + 128 + 8 + 8) = __cpu_to_le64(offset);
+
+	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
+	    read(rfd, sb->device_uuid, 16) != 16) {
+		__u32 r[4] = {random(), random(), random(), random()};
+		memcpy(sb->device_uuid, r, 16);
+	}
+	if (rfd >= 0)
+		close(rfd);
+
+	for (i = 0; i < MD_SB_DISKS; i++) {
+		int state = sb0->disks[i].state;
+		sb->dev_roles[i] = 0xFFFF;
+		if ((state & (1<<MD_DISK_SYNC)) &&
+		    !(state & (1<<MD_DISK_FAULTY)))
+			sb->dev_roles[i] = __cpu_to_le16(sb0->disks[i].raid_disk);
+	}
+	sb->sb_csum = calc_sb_1_csum(sb);
+	return ret;
+}
+
 struct superswitch super1 = {
 #ifndef MDASSEMBLE
 	.examine_super = examine_super1,

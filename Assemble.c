@@ -622,9 +622,10 @@ static int load_devices(struct devs *devices, char *devmap,
 							    ident->uuid_set,
 							    c->homehost);
 			if (err < 0) {
-				pr_err("--update=%s not understood"
-				       " for %s metadata\n",
-				       c->update, tst->ss->name);
+				if (err == -1)
+					pr_err("--update=%s not understood"
+					       " for %s metadata\n",
+					       c->update, tst->ss->name);
 				tst->ss->free_super(tst);
 				free(tst);
 				close(mdfd);
@@ -1665,6 +1666,12 @@ try_again:
 	/* First, fill in the map, so that udev can find our name
 	 * as soon as we become active.
 	 */
+	if (c->update && strcmp(c->update, "metadata")==0) {
+		content->array.major_version = 1;
+		content->array.minor_version = 0;
+		strcpy(content->text_version, "1.0");
+	}
+
 	map_update(&map, fd2devnm(mdfd), content->text_version,
 		   content->uuid, chosen_name);
 

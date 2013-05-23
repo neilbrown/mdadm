@@ -625,6 +625,26 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			uuid_from_super0(st, uuid);
 			memcpy(bm->uuid, uuid, 16);
 		}
+	} else if (strcmp(update, "metadata") == 0) {
+		/* Create some v1.0 metadata to match ours but make the
+		 * ctime bigger.  Also update info->array.*_version.
+		 * We need to arrange that store_super writes out
+		 * the v1.0 metadata.
+		 * Not permitted for unclean array, or array with
+		 * bitmap.
+		 */
+		if (info->bitmap_offset) {
+			pr_err("Cannot update metadata when bitmap is present\n");
+			rv = -2;
+		} else if (info->array.state != 1) {
+			pr_err("Cannot update metadata on unclean array\n");
+			rv = -2;
+		} else {
+			info->array.major_version = 1;
+			info->array.minor_version = 0;
+			uuid_from_super0(st, info->uuid);
+			st->other = super1_make_v0(st, info, st->sb);
+		}
 	} else if (strcmp(update, "no-bitmap") == 0) {
 		sb->state &= ~(1<<MD_SB_BITMAP_PRESENT);
 	} else if (strcmp(update, "_reshape_progress")==0)
@@ -788,6 +808,24 @@ static int store_super0(struct supertype *st, int fd)
 	if (dsize < MD_RESERVED_SECTORS*512)
 		return 2;
 
+	if (st->other) {
+		/* Writing out v1.0 metadata for --update=metadata */
+		int ret;
+
+		offset = dsize/512 - 8*2;
+		offset &= ~(4*2-1);
+		offset *= 512;
+		if (lseek64(fd, offset, 0)< 0LL)
+			ret = 3;
+		else if (write(fd, st->other, 1024) != 1024)
+			ret = 4;
+		else
+			fsync(fd);
+		free(st->other);
+		st->other = NULL;
+		return ret;
+	}
+
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
 	offset *= 512;
@@ -915,6 +953,7 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 			       devname, dsize);
 		return 1;
 	}
+	st->devsize = dsize;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 

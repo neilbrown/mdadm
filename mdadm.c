@@ -757,6 +757,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "metadata") == 0)
 				continue;
+			if (strcmp(c.update, "revert-reshape") == 0)
+				continue;
 			if (strcmp(c.update, "byteorder")==0) {
 				if (ss) {
 					pr_err("must not set metadata"
@@ -787,7 +789,7 @@ int main(int argc, char *argv[])
 			fprintf(outf, "Valid --update options are:\n"
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
 		"     'summaries', 'homehost', 'byteorder', 'devicesize',\n"
-		"     'no-bitmap', 'metadata'\n");
+		"     'no-bitmap', 'metadata', 'revert-reshape'\n");
 			exit(outf == stdout ? 0 : 2);
 
 		case O(MANAGE,'U'):

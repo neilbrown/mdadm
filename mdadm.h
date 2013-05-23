@@ -736,6 +736,11 @@ extern struct superswitch {
 	 *   linear-grow-update - now change the size of the array.
 	 *   writemostly - set the WriteMostly1 bit in the superblock devflags
 	 *   readwrite - clear the WriteMostly1 bit in the superblock devflags
+	 *   no-bitmap - clear any record that a bitmap is present.
+	 *   bbl       - add a bad-block-log if possible
+	 *   no-bbl    - remove and bad-block-log is it is empty.
+	 *   revert-reshape - If a reshape is in progress, modify metadata so
+	 *                    it will resume going in the opposite direction.
 	 */
 	int (*update_super)(struct supertype *st, struct mdinfo *info,
 			    char *update,

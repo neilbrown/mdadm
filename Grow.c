@@ -2876,7 +2876,8 @@ started:
 	}
 
 	if (!backup_file)
-		switch(set_new_data_offset(sra, st, devname, info->delta_disks,
+		switch(set_new_data_offset(sra, st, devname,
+					   reshape.after.data_disks - reshape.before.data_disks,
 					   data_offset,
 					   reshape.min_offset_change)) {
 	case -1:

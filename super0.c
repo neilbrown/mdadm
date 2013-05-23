@@ -645,6 +645,28 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			uuid_from_super0(st, info->uuid);
 			st->other = super1_make_v0(st, info, st->sb);
 		}
+	} else if (strcmp(update, "revert-reshape") == 0) {
+		rv = -2;
+		if (sb->minor_version <= 90)
+			pr_err("No active reshape to revert on %s\n",
+			       devname);
+		else if (sb->delta_disks == 0)
+			pr_err("%s: Can on revert reshape which changes number of devices\n",
+			       devname);
+		else {
+			int tmp;
+			rv = 0;
+			sb->raid_disks -= sb->delta_disks;
+			sb->delta_disks = -sb->delta_disks;
+
+			tmp = sb->new_layout;
+			sb->new_layout = sb->layout;
+			sb->layout = tmp;
+
+			tmp = sb->new_chunk;
+			sb->new_chunk = sb->chunk_size;
+			sb->chunk_size = tmp;
+		}
 	} else if (strcmp(update, "no-bitmap") == 0) {
 		sb->state &= ~(1<<MD_SB_BITMAP_PRESENT);
 	} else if (strcmp(update, "_reshape_progress")==0)

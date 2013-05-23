@@ -1252,6 +1252,35 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			misc->device_size - __le64_to_cpu(sb->data_offset));
 		printf("Size is %llu\n", (unsigned long long)
 		       __le64_to_cpu(sb->data_size));
+	} else if (strcmp(update, "revert-reshape") == 0) {
+		rv = -2;
+		if (!(sb->feature_map & __cpu_to_le32(MD_FEATURE_RESHAPE_ACTIVE)))
+			pr_err("No active reshape to revert on %s\n",
+			       devname);
+		else {
+			rv = 0;
+			__u32 temp;
+			sb->raid_disks = __cpu_to_le32(__le32_to_cpu(sb->raid_disks) +
+						       __le32_to_cpu(sb->delta_disks));
+			if (sb->delta_disks == 0)
+				sb->feature_map ^= __cpu_to_le32(MD_FEATURE_RESHAPE_BACKWARDS);
+			else
+				sb->delta_disks = __cpu_to_le32(-__le32_to_cpu(sb->delta_disks));
+
+			temp = sb->new_layout;
+			sb->new_layout = sb->layout;
+			sb->layout = temp;
+
+			temp = sb->new_chunk;
+			sb->new_chunk = sb->chunksize;
+			sb->chunksize = temp;
+
+			if (sb->feature_map & __cpu_to_le32(MD_FEATURE_NEW_OFFSET)) {
+				sb->data_offset = __cpu_to_le64(__le64_to_cpu(sb->data_offset) +
+								(long)(int32_t)__le32_to_cpu(sb->new_offset));
+				sb->new_offset = __cpu_to_le32(-(int32_t)__le32_to_cpu(sb->new_offset));
+			}
+		}
 	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);
 	else if (strcmp(update, "writemostly")==0)

@@ -1006,7 +1006,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RESHAPE_ACTIVE)) {
 		info->reshape_active = 1;
-		if (info->array.level == 10)
+		if ((sb->feature_map & __le32_to_cpu(MD_FEATURE_NEW_OFFSET)) &&
+		    sb->new_offset != 0)
 			info->reshape_active |= RESHAPE_NO_BACKUP;
 		info->reshape_progress = __le64_to_cpu(sb->reshape_position);
 		info->new_level = __le32_to_cpu(sb->new_level);

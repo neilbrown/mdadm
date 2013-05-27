@@ -24,6 +24,7 @@
 #include	"mdadm.h"
 #include	"dlink.h"
 #include	<sys/mman.h>
+#include	<stdint.h>
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
 #error no endian defined
@@ -2152,7 +2153,13 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 	struct mdinfo *sd;
 	int dir = 0;
 	int err = 0;
+	unsigned long long before, after;
 
+	/* Need to find min space before and after so same is used
+	 * on all devices
+	 */
+	before = UINT64_MAX;
+	after = UINT64_MAX;
 	for (sd = sra->devs; sd; sd = sd->next) {
 		char *dn;
 		int dfd;
@@ -2186,6 +2193,38 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			/* Metadata doesn't support data_offset changes */
 			return 1;
 		}
+		if (before > info2.space_before)
+			before = info2.space_before;
+		if (after > info2.space_after)
+			after = info2.space_after;
+
+		if (data_offset != INVALID_SECTORS) {
+			if (dir == 0) {
+				if (info2.data_offset == data_offset) {
+					pr_err("%s: already has that data_offset\n",
+					       dn);
+					goto release;
+				}
+				if (data_offset < info2.data_offset)
+					dir = -1;
+				else
+					dir = 1;
+			} else if ((data_offset <= info2.data_offset && dir == 1) ||
+				   (data_offset >= info2.data_offset && dir == -1)) {
+				pr_err("%s: differing data offsets on devices make this --data-offset setting impossible\n",
+					dn);
+				goto release;
+			}
+		}
+	}
+	if (before == UINT64_MAX)
+		/* impossible really, there must be no devices */
+		return 1;
+
+	for (sd = sra->devs; sd; sd = sd->next) {
+		char *dn = map_dev(sd->disk.major, sd->disk.minor, 0);
+
+		struct mdinfo info2;
 		if (delta_disks < 0) {
 			/* Don't need any space as array is shrinking
 			 * just move data_offset up by min
@@ -2202,7 +2241,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			}
 		} else if (delta_disks > 0) {
 			/* need space before */
-			if (info2.space_before < min) {
+			if (before < min) {
 				pr_err("Insufficient head-space for reshape on %s\n",
 					dn);
 				goto release;
@@ -2219,25 +2258,21 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			}
 		} else {
 			if (dir == 0) {
-				/* can move up or down. 'data_offset'
-				 * might guide us, otherwise choose
-				 * direction with most space
+				/* can move up or down.  If 'data_offset'
+				 * was set we would have already decided,
+				 * so just choose direction with most space.
 				 */
-				if (data_offset == INVALID_SECTORS) {
-					if (info2.space_before > info2.space_after)
-						dir = -1;
-					else
-						dir = 1;
-				} else if (data_offset < info2.data_offset)
+				if (info2.space_before > info2.space_after)
 					dir = -1;
 				else
 					dir = 1;
 				sysfs_set_str(sra, NULL, "reshape_direction",
 					      dir == 1 ? "backwards" : "forwards");
 			}
+
 			switch (dir) {
 			case 1: /* Increase data offset */
-				if (info2.space_after < min) {
+				if (after < min) {
 					pr_err("Insufficient tail-space for reshape on %s\n",
 						dn);
 					goto release;
@@ -2251,8 +2286,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				if (data_offset != INVALID_SECTORS)
 					info2.new_data_offset = data_offset;
 				else {
-					unsigned long long off =
-						info2.space_after / 2;
+					unsigned long long off = after / 2;
 					off &= ~7ULL;
 					if (off < min)
 						off = min;
@@ -2261,7 +2295,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				}
 				break;
 			case -1: /* Decrease data offset */
-				if (info2.space_before < min) {
+				if (before < min) {
 					pr_err("insufficient head-room on %s\n",
 						dn);
 					goto release;
@@ -2275,8 +2309,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				if (data_offset != INVALID_SECTORS)
 					info2.new_data_offset = data_offset;
 				else {
-					unsigned long long off =
-						info2.space_before / 2;
+					unsigned long long off = before / 2;
 					off &= ~7ULL;
 					if (off < min)
 						off = min;

@@ -2672,6 +2672,8 @@ static int reshape_array(char *container, int fd, char *devname,
 		/* reshape already started. just skip to monitoring the reshape */
 		if (reshape.backup_blocks == 0)
 			return 0;
+		if (restart & RESHAPE_NO_BACKUP)
+			return 0;
 		goto started;
 	}
 	/* The container is frozen but the array may not be.
@@ -2884,8 +2886,6 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 
-started:
-
 	if (array.level == 10) {
 		/* Reshaping RAID10 does not require any data backup by
 		 * user-space.  Instead it requires that the data_offset
@@ -2943,6 +2943,7 @@ started:
 		break;
 	}
 
+started:
 	/* Decide how many blocks (sectors) for a reshape
 	 * unit.  The number we have so far is just a minimum
 	 */
@@ -4686,10 +4687,13 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		close(cfd);
 		ret_val = reshape_container(st->container_devnm, NULL, mdfd,
 					    st, info, 0, backup_file,
-					    0, 1, freeze_reshape);
+					    0,
+					    1 | info->reshape_active,
+					    freeze_reshape);
 	} else
 		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
-					NULL, 0ULL, backup_file, 0, 0, 1,
+					NULL, 0ULL, backup_file, 0, 0,
+					1 | info->reshape_active,
 					freeze_reshape);
 
 	return ret_val;

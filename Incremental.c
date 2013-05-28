@@ -1611,8 +1611,9 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	}
 	ent = mdstat_by_component(devname);
 	if (!ent) {
-		pr_err("%s does not appear to be a component "
-			"of any array\n", devname);
+		if (verbose >= 0)
+			pr_err("%s does not appear to be a component "
+			       "of any array\n", devname);
 		return 1;
 	}
 	sysfs_init(&mdi, -1, ent->devnm);
@@ -1625,7 +1626,8 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	}
 	mdfd = open_dev(ent->devnm);
 	if (mdfd < 0) {
-		pr_err("Cannot open array %s!!\n", ent->dev);
+		if (verbose >= 0)
+			pr_err("Cannot open array %s!!\n", ent->dev);
 		free_mdstat(ent);
 		return 1;
 	}

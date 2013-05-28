@@ -404,7 +404,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	if (sb->bblog_size && sb->bblog_offset) {
 		printf("  Bad Block Log : %d entries available at offset %ld sectors",
 		       __le16_to_cpu(sb->bblog_size)*512/8,
-		       (long)__le32_to_cpu(sb->bblog_offset));
+		       (long)(int32_t)__le32_to_cpu(sb->bblog_offset));
 		if (sb->feature_map &
 		    __cpu_to_le32(MD_FEATURE_BAD_BLOCKS))
 			printf(" - bad blocks present.");
@@ -1182,7 +1182,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		 */
 		unsigned long long sb_offset = __le64_to_cpu(sb->super_offset);
 		unsigned long long data_offset = __le64_to_cpu(sb->data_offset);
-		long bitmap_offset = (long)__le64_to_cpu(sb->bitmap_offset);
+		long bitmap_offset = (long)(int32_t)__le32_to_cpu(sb->bitmap_offset);
 		long bm_sectors = 0;
 		long space;
 

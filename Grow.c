@@ -52,6 +52,7 @@ int restore_backup(struct supertype *st,
 	dprintf("Called restore_backup()\n");
 	fdlist = xmalloc(sizeof(int) * disk_count);
 
+	enable_fds(next_spare);
 	for (i = 0; i < next_spare; i++)
 		fdlist[i] = -1;
 	for (dev = content->devs; dev; dev = dev->next) {
@@ -838,6 +839,7 @@ int reshape_prepare_fdlist(char *devname,
 	int d = 0;
 	struct mdinfo *sd;
 
+	enable_fds(nrdisks);
 	for (d = 0; d <= nrdisks; d++)
 		fdlist[d] = -1;
 	d = raid_disks;

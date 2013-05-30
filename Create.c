@@ -832,7 +832,7 @@ int Create(struct supertype *st, char *mddev,
 	}
 
 	infos = xmalloc(sizeof(*infos) * total_slots);
-
+	enable_fds(total_slots);
 	for (pass=1; pass <=2 ; pass++) {
 		struct mddev_dev *moved_disk = NULL; /* the disk that was moved out of the insert point */
 

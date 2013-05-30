@@ -28,6 +28,7 @@
 #include	<sys/utsname.h>
 #include	<sys/wait.h>
 #include	<sys/un.h>
+#include	<sys/resource.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<signal.h>
@@ -1958,4 +1959,18 @@ int compare_paths (char* path1, char* path2)
 	if ((st1.st_ino == st2.st_ino) && (st1.st_dev == st2.st_dev))
 		return 0;
 	return 1;
+}
+
+/* Make sure we can open as many devices as needed */
+void enable_fds(int devices)
+{
+	unsigned int fds = 20 + devices;
+	struct rlimit lim;
+	if (getrlimit(RLIMIT_NOFILE, &lim) != 0
+	    || lim.rlim_cur >= fds)
+		return;
+	if (lim.rlim_max < fds)
+		lim.rlim_max = fds;
+	lim.rlim_cur = fds;
+	setrlimit(RLIMIT_NOFILE, &lim);
 }

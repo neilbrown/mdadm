@@ -1618,6 +1618,7 @@ try_again:
 			pr_err(":%s has an active reshape - checking "
 			       "if critical section needs to be restored\n",
 			       chosen_name);
+		enable_fds(bestcnt/2);
 		for (i = 0; i < bestcnt/2; i++) {
 			int j = best[i*2];
 			if (j >= 0) {

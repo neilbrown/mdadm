@@ -1220,6 +1220,7 @@ extern int open_dev_excl(char *devnm);
 extern int is_standard(char *dev, int *nump);
 extern int same_dev(char *one, char *two);
 extern int compare_paths (char* path1,char* path2);
+extern void enable_fds(int devices);
 
 extern int parse_auto(char *str, char *msg, int config);
 extern struct mddev_ident *conf_get_ident(char *dev);

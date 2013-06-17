@@ -776,23 +776,62 @@ extern struct superswitch {
 	/*  Write all metadata for this array.
 	 */
 	int (*write_init_super)(struct supertype *st);
+	/* Check if metadata read from one device is compatible with an array,
+	 * used when assembling an array, or pseudo-assembling was with
+	 * "--examine --brief"
+	 * If "st" has not yet been loaded the superblock from, "tst" is
+	 * moved in, otherwise the superblock in 'st' is compared with
+	 * 'tst'.
+	 */
 	int (*compare_super)(struct supertype *st, struct supertype *tst);
+	/* Load metadata from a single device.  If 'devname' is not NULL
+	 * print error messages as appropriate */
 	int (*load_super)(struct supertype *st, int fd, char *devname);
+	/* 'fd' is a 'container' md array - load array metadata from the
+	 * whole container.
+	 */
 	int (*load_container)(struct supertype *st, int fd, char *devname);
+	/* If 'arg' is a valid name of this metadata type, allocate and
+	 * return a 'supertype' for the particular minor version */
 	struct supertype * (*match_metadata_desc)(char *arg);
+	/* If a device has the given size, and the data_offset has been
+	 * requested - work out how much space is available for data.
+	 * This involves adjusting for reserved space (e.g. bitmaps)
+	 * and for any rounding.
+	 * 'mdadm' only calls this for existing arrays where a possible
+	 * spare is being added.  However some super-handlers call it
+	 * internally from validate_geometry when creating an array.
+	 */
 	__u64 (*avail_size)(struct supertype *st, __u64 size,
 			    unsigned long long data_offset);
+	/* This is similar to 'avail_size' in purpose, but is used for
+	 * containers for which there is no 'component size' to compare.
+	 * This reports that whole-device size which is a minimum
+	 */
 	unsigned long long (*min_acceptable_spare_size)(struct supertype *st);
+	/* Find somewhere to put a bitmap - possibly auto-size it - and
+	 * update the metadata to record this.  The array may be newly
+	 * created, in which case data_size may be updated, or it might
+	 * already exist.  Metadata handler can know if init_super
+	 * has been called, but not write_init_super.
+	 */
 	int (*add_internal_bitmap)(struct supertype *st, int *chunkp,
 				   int delay, int write_behind,
 				   unsigned long long size, int may_change, int major);
+	/* Seek 'fd' to start of write-intent-bitmap.  Must be an
+	 * md-native format bitmap
+	 */
 	void (*locate_bitmap)(struct supertype *st, int fd);
+	/* if add_internal_bitmap succeeded for existing array, this
+	 * writes it out.
+	 */
 	int (*write_bitmap)(struct supertype *st, int fd);
+	/* Free the superblock and any other allocated data */
 	void (*free_super)(struct supertype *st);
 
 	/* validate_geometry is called with an st returned by
 	 * match_metadata_desc.
-	 * It should check that the geometry described in compatible with
+	 * It should check that the geometry described is compatible with
 	 * the metadata type.  It will be called repeatedly as devices
 	 * added to validate changing size and new devices.  If there are
 	 * inter-device dependencies, it should record sufficient details
@@ -802,7 +841,7 @@ extern struct superswitch {
 	 *  1: everything is OK
 	 *  0: not OK for some reason - if 'verbose', then error was reported.
 	 * -1: st->sb was NULL, 'subdev' is a member of a container of this
-	 *     types, but array is not acceptable for some reason
+	 *     type, but array is not acceptable for some reason
 	 *     message was reported even if verbose is 0.
 	 */
 	int (*validate_geometry)(struct supertype *st, int level, int layout,
@@ -812,6 +851,9 @@ extern struct superswitch {
 				 char *subdev, unsigned long long *freesize,
 				 int verbose);
 
+	/* Return a linked list of 'mdinfo' structures for all arrays
+	 * in the container.  For non-containers, it is like
+	 * getinfo_super with an allocated mdinfo.*/
 	struct mdinfo *(*container_content)(struct supertype *st, char *subarray);
 	/* query the supertype for default geometry */
 	void (*default_geometry)(struct supertype *st, int *level, int *layout, int *chunk); /* optional */

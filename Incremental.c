@@ -760,6 +760,14 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 		if (avail[i])
 			cnt++;
 	}
+	/* Also need to reject any spare device with an event count that
+	 * is too high
+	 */
+	for (d = sra->devs; d; d = d->next) {
+		if (!(d->disk.state & (1<<MD_DISK_SYNC)) &&
+		    d->events > max_events)
+			d->disk.state |= (1 << MD_DISK_REMOVED);
+	}
 	free(best);
 	free(devmap);
 	return cnt + replcnt;

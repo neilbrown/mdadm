@@ -690,11 +690,12 @@ static int load_devices(struct devs *devices, char *devmap,
 		devices[devcnt].i = *content;
 		devices[devcnt].i.disk.major = major(stb.st_rdev);
 		devices[devcnt].i.disk.minor = minor(stb.st_rdev);
-		if (most_recent < devcnt) {
-			if (devices[devcnt].i.events
-			    > devices[most_recent].i.events)
+
+		if (devices[devcnt].i.events
+		    > devices[most_recent].i.events &&
+		    devices[devcnt].i.disk.state == 6)
 				most_recent = devcnt;
-		}
+
 		if (content->array.level == LEVEL_MULTIPATH)
 			/* with multipath, the raid_disk from the superblock is meaningless */
 			i = devcnt;
@@ -1456,8 +1457,15 @@ try_again:
 			best[i] = -1;
 			continue;
 		}
+		/* Require event counter to be same as, or just less than,
+		 * most recent.  If it is bigger, it must be a stray spare and
+		 * should be ignored.
+		 */
 		if (devices[j].i.events+event_margin >=
-		    devices[most_recent].i.events) {
+		    devices[most_recent].i.events &&
+		    devices[j].i.events <=
+		    devices[most_recent].i.events
+			) {
 			devices[j].uptodate = 1;
 			if (i < content->array.raid_disks * 2) {
 				if (devices[j].i.recovery_start == MaxSector ||

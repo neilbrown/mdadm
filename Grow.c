@@ -2225,21 +2225,21 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 
 	for (sd = sra->devs; sd; sd = sd->next) {
 		char *dn = map_dev(sd->disk.major, sd->disk.minor, 0);
+		unsigned long long new_data_offset;
 
-		struct mdinfo info2;
 		if (delta_disks < 0) {
 			/* Don't need any space as array is shrinking
 			 * just move data_offset up by min
 			 */
 			if (data_offset == INVALID_SECTORS)
-				info2.new_data_offset = info2.data_offset + min;
+				new_data_offset = sd->data_offset + min;
 			else {
-				if (data_offset < info2.data_offset + min) {
+				if (data_offset < sd->data_offset + min) {
 					pr_err("--data-offset too small for %s\n",
 						dn);
 					goto release;
 				}
-				info2.new_data_offset = data_offset;
+				new_data_offset = data_offset;
 			}
 		} else if (delta_disks > 0) {
 			/* need space before */
@@ -2249,14 +2249,14 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				goto release;
 			}
 			if (data_offset == INVALID_SECTORS)
-				info2.new_data_offset = info2.data_offset - min;
+				new_data_offset = sd->data_offset - min;
 			else {
-				if (data_offset > info2.data_offset - min) {
+				if (data_offset > sd->data_offset - min) {
 					pr_err("--data-offset too large for %s\n",
 						dn);
 					goto release;
 				}
-				info2.new_data_offset = data_offset;
+				new_data_offset = data_offset;
 			}
 		} else {
 			if (dir == 0) {
@@ -2264,65 +2264,63 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				 * was set we would have already decided,
 				 * so just choose direction with most space.
 				 */
-				if (info2.space_before > info2.space_after)
+				if (before > after)
 					dir = -1;
 				else
 					dir = 1;
 				sysfs_set_str(sra, NULL, "reshape_direction",
 					      dir == 1 ? "backwards" : "forwards");
 			}
-
-			switch (dir) {
-			case 1: /* Increase data offset */
+			if (dir > 0) {
+				/* Increase data offset */
 				if (after < min) {
 					pr_err("Insufficient tail-space for reshape on %s\n",
 						dn);
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS &&
-				    data_offset < info2.data_offset + min) {
+				    data_offset < sd->data_offset + min) {
 					pr_err("--data-offset too small on %s\n",
 						dn);
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS)
-					info2.new_data_offset = data_offset;
+					new_data_offset = data_offset;
 				else {
 					unsigned long long off = after / 2;
 					off &= ~7ULL;
 					if (off < min)
 						off = min;
-					info2.new_data_offset =
-						info2.data_offset + off;
+					new_data_offset =
+						sd->data_offset + off;
 				}
-				break;
-			case -1: /* Decrease data offset */
+			} else {
+				/* Decrease data offset */
 				if (before < min) {
 					pr_err("insufficient head-room on %s\n",
 						dn);
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS &&
-				    data_offset < info2.data_offset - min) {
+				    data_offset < sd->data_offset - min) {
 					pr_err("--data-offset too small on %s\n",
 						dn);
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS)
-					info2.new_data_offset = data_offset;
+					new_data_offset = data_offset;
 				else {
 					unsigned long long off = before / 2;
 					off &= ~7ULL;
 					if (off < min)
 						off = min;
-					info2.new_data_offset =
-						info2.data_offset - off;
+					new_data_offset =
+						sd->data_offset - off;
 				}
-				break;
 			}
 		}
 		if (sysfs_set_num(sra, sd, "new_offset",
-				  info2.new_data_offset) < 0) {
+				  new_data_offset) < 0) {
 			err = errno;
 			err = -1;
 			if (errno == E2BIG && data_offset != INVALID_SECTORS) {

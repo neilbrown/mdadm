@@ -832,7 +832,7 @@ static int store_super0(struct supertype *st, int fd)
 
 	if (st->other) {
 		/* Writing out v1.0 metadata for --update=metadata */
-		int ret;
+		int ret = 0;
 
 		offset = dsize/512 - 8*2;
 		offset &= ~(4*2-1);

@@ -325,9 +325,11 @@ exitCheck:
 	free(stripe_buf);
 	free(stripes);
 	free(blocks);
+	free(block_index_for_slot);
 	free(p);
 	free(q);
 	free(results);
+	free(sig);
 
 	return err;
 }

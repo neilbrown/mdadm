@@ -185,11 +185,19 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			goto exitCheck;
 		}
 		for (i = 0 ; i < raid_disks ; i++) {
-			lseek64(source[i], offsets[i] + start * chunk_size, 0);
+			off64_t seek_res = lseek64(source[i], offsets[i] + start * chunk_size,
+						   SEEK_SET);
+			if (seek_res < 0) {
+				fprintf(stderr, "lseek to source %d failed\n", i);
+				unlock_all_stripes(info, sig);
+				err = -1;
+				goto exitCheck;
+			}
 			int read_res = read(source[i], stripes[i], chunk_size);
 			if (read_res < chunk_size) {
 				fprintf(stderr, "Failed to read complete chunk disk %d, aborting\n", i);
 				unlock_all_stripes(info, sig);
+				err = -1;
 				goto exitCheck;
 			}
 		}
@@ -288,16 +296,32 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			}
 
 			int write_res1, write_res2;
+			off64_t seek_res;
 
-			lseek64(source[failed_disk1], offsets[failed_disk1] + start * chunk_size, 0);
+			seek_res = lseek64(source[failed_disk1],
+					   offsets[failed_disk1] + start * chunk_size, SEEK_SET);
+			if (seek_res < 0) {
+				fprintf(stderr, "lseek failed for failed_disk1\n");
+				unlock_all_stripes(info, sig);
+				err = -1;
+				goto exitCheck;
+			}
 			write_res1 = write(source[failed_disk1], stripes[failed_disk1], chunk_size);
-			lseek64(source[failed_disk2], offsets[failed_disk2] + start * chunk_size, 0);
+
+
+			seek_res = lseek64(source[failed_disk2],
+					   offsets[failed_disk2] + start * chunk_size, SEEK_SET);
+			if (seek_res < 0) {
+				fprintf(stderr, "lseek failed for failed_disk1\n");
+				unlock_all_stripes(info, sig);
+				err = -1;
+				goto exitCheck;
+			}
 			write_res2 = write(source[failed_disk2], stripes[failed_disk2], chunk_size);
 
 			err = unlock_all_stripes(info, sig);
 			if(err != 0)
 				goto exitCheck;
-
 
 			if (write_res1 != chunk_size || write_res2 != chunk_size) {
 				fprintf(stderr, "Failed to write a complete chunk.\n");

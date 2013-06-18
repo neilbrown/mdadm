@@ -386,7 +386,7 @@ int main(int argc, char *argv[])
 		goto exitHere;
 	}
 
-	info = sysfs_read(mdfd, -1,
+	info = sysfs_read(mdfd, NULL,
 			  GET_LEVEL|
 			  GET_LAYOUT|
 			  GET_DISKS|

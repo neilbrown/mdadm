@@ -378,6 +378,16 @@ void print_escape(char *str)
 	}
 }
 
+int check_env(char *name)
+{
+	char *val = getenv(name);
+
+	if (val && atoi(val) == 1)
+		return 1;
+
+	return 0;
+}
+
 int use_udev(void)
 {
 	static int use = -1;

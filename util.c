@@ -1798,16 +1798,6 @@ int start_mdmon(char *devnm)
 	return 0;
 }
 
-int check_env(char *name)
-{
-	char *val = getenv(name);
-
-	if (val && atoi(val) == 1)
-		return 1;
-
-	return 0;
-}
-
 __u32 random32(void)
 {
 	__u32 rv;

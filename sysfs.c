@@ -96,7 +96,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	char *base;
 	char *dbase;
 	struct mdinfo *sra;
-	struct mdinfo *dev;
+	struct mdinfo *dev, **devp;
 	DIR *dir = NULL;
 	struct dirent *de;
 
@@ -235,6 +235,8 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		goto abort;
 	sra->array.spare_disks = 0;
 
+	devp = &sra->devs;
+	sra->devs = NULL;
 	while ((de = readdir(dir)) != NULL) {
 		char *ep;
 		if (de->d_ino == 0 ||
@@ -266,7 +268,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 				free(dev);
 				goto abort;
 			}
-			
+
 		}
 		strcpy(dev->sys_name, de->d_name);
 		dev->disk.raid_disk = strtoul(buf, &ep, 10);
@@ -292,8 +294,9 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		}
 
 		/* finally add this disk to the array */
-		dev->next = sra->devs;
-		sra->devs = dev;
+		*devp = dev;
+		devp = & dev->next;
+		dev->next = NULL;
 
 		if (options & GET_OFFSET) {
 			strcpy(dbase, "offset");

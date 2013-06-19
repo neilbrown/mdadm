@@ -883,7 +883,8 @@ static int start_array(int mdfd,
 		       unsigned int rebuilding_cnt,
 		       struct context *c,
 		       int clean, char *avail,
-		       int start_partial_ok
+		       int start_partial_ok,
+		       int was_forced
 	)
 {
 	int rv;
@@ -1064,6 +1065,17 @@ static int start_array(int mdfd,
 					}
 				}
 			}
+			printf("l=%d o=%d r=%d w=%d\n",content->array.level,
+			       okcnt, content->array.raid_disks, was_forced);
+			if (content->array.level == 6 &&
+			    okcnt + 1 == (unsigned)content->array.raid_disks &&
+			    was_forced) {
+				struct mdinfo *sra = sysfs_read(mdfd, NULL, 0);
+				if (sra)
+					sysfs_set_str(sra, NULL,
+						      "sync_action", "repair");
+				sysfs_free(sra);
+			}
 			return 0;
 		}
 		pr_err("failed to RUN_ARRAY %s: %s\n",
@@ -1190,6 +1202,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int devcnt;
 	unsigned int okcnt, sparecnt, rebuilding_cnt, replcnt;
 	int i;
+	int was_forced = 0;
 	int most_recent = 0;
 	int chosen_drive;
 	int change = 0;
@@ -1485,10 +1498,13 @@ try_again:
 		}
 	}
 	free(devmap);
-	if (c->force)
-		okcnt += force_array(content, devices, best, bestcnt,
-				     avail, most_recent, st, c);
-
+	if (c->force) {
+		int force_ok = force_array(content, devices, best, bestcnt,
+					   avail, most_recent, st, c);
+		okcnt += force_ok;
+		if (force_ok)
+			was_forced = 1;
+	}
 	/* Now we want to look at the superblock which the kernel will base things on
 	 * and compare the devices that we think are working with the devices that the
 	 * superblock thinks are working.
@@ -1584,6 +1600,7 @@ try_again:
 		change += st->ss->update_super(st, content, "force-array",
 					       devices[chosen_drive].devname, c->verbose,
 					       0, NULL);
+		was_forced = 1;
 		clean = 1;
 	}
 
@@ -1689,7 +1706,7 @@ try_again:
 			 chosen_drive, devices, okcnt, sparecnt,
 			 rebuilding_cnt,
 			 c,
-			 clean, avail, start_partial_ok);
+			 clean, avail, start_partial_ok, was_forced);
 	if (rv == 1 && !pre_exist)
 		ioctl(mdfd, STOP_ARRAY, NULL);
 	free(devices);

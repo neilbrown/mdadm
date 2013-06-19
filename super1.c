@@ -2320,7 +2320,10 @@ void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0
 	sb->size = __cpu_to_le64(info->component_size);
 	sb->chunksize = __cpu_to_le32(info->array.chunk_size/512);
 	sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
-	sb->data_size = sb->size;
+	if (info->array.level > 0)
+		sb->data_size = sb->size;
+	else
+		sb->data_size = st->ss->avail_size(st, st->devsize/512, 0);
 	sb->resync_offset = MaxSector;
 	sb->max_dev = __cpu_to_le32(MD_SB_DISKS);
 	sb->dev_number = __cpu_to_le32(info->disk.number);

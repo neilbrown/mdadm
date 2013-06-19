@@ -2792,7 +2792,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		Manage_subdevs(devname, fd, devlist, verbose,
 			       0,NULL, 0);
 
-	if (reshape.backup_blocks == 0 && data_offset)
+	if (reshape.backup_blocks == 0 && data_offset != INVALID_SECTORS)
 		reshape.backup_blocks = reshape.before.data_disks * info->array.chunk_size/512;
 	if (reshape.backup_blocks == 0) {
 		/* No restriping needed, but we might need to impose

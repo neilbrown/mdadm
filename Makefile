@@ -2,6 +2,7 @@
 # mdadm - manage Linux "md" devices aka RAID arrays.
 #
 # Copyright (C) 2001-2002 Neil Brown <neilb@cse.unsw.edu.au>
+# Copyright (C) 2013 Neil Brown <neilb@suse.de>
 #
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -32,7 +33,7 @@
 TCC = tcc
 UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
 #DIET_GCC = diet gcc
-# sorry, but diet-libc doesn't know about posix_memalign, 
+# sorry, but diet-libc doesn't know about posix_memalign,
 # so we cannot use it any more.
 DIET_GCC = gcc -DHAVE_STDINT_H
 
@@ -44,7 +45,7 @@ CC = $(CROSS_COMPILE)gcc
 CXFLAGS = -ggdb
 CWFLAGS = -Wall -Werror -Wstrict-prototypes -Wextra -Wno-unused-parameter
 ifdef WARN_UNUSED
-CWFLAGS += -Wp,-D_FORTIFY_SOURCE=2 -O
+CWFLAGS += -Wp,-D_FORTIFY_SOURCE=2 -O3
 endif
 
 ifdef DEBIAN
@@ -92,7 +93,7 @@ endif
 # STRIP = -s
 
 INSTALL = /usr/bin/install
-DESTDIR = 
+DESTDIR =
 BINDIR  = /sbin
 MANDIR  = /usr/share/man
 MAN4DIR = $(MANDIR)/man4
@@ -164,7 +165,7 @@ mdadm.tcc : $(SRCS) $(INCL)
 	$(TCC) -o mdadm.tcc $(SRCS)
 
 mdadm.klibc : $(SRCS) $(INCL)
-	rm -f $(OBJS) 
+	rm -f $(OBJS)
 	$(CC) -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
 mdadm.Os : $(SRCS) $(INCL)
@@ -275,7 +276,7 @@ uninstall:
 test: mdadm mdmon test_stripe swap_super
 	@echo "Please run './test' as root"
 
-clean : 
+clean :
 	rm -f mdadm mdmon $(OBJS) $(MON_OBJS) $(STATICOBJS) core *.man \
 	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt .merge_file_* \
 	mdadm.Os mdadm.O2 mdmon.O2 \

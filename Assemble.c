@@ -884,6 +884,7 @@ static int start_array(int mdfd,
 		       struct context *c,
 		       int clean, char *avail,
 		       int start_partial_ok,
+		       int err_ok,
 		       int was_forced
 	)
 {
@@ -892,7 +893,7 @@ static int start_array(int mdfd,
 	unsigned int req_cnt;
 
 	rv = set_array_info(mdfd, st, content);
-	if (rv) {
+	if (rv && !err_ok) {
 		pr_err("failed to set array info for %s: %s\n",
 		       mddev, strerror(errno));
 		return 1;
@@ -1706,7 +1707,9 @@ try_again:
 			 chosen_drive, devices, okcnt, sparecnt,
 			 rebuilding_cnt,
 			 c,
-			 clean, avail, start_partial_ok, was_forced);
+			 clean, avail, start_partial_ok,
+			 pre_exist != NULL,
+			 was_forced);
 	if (rv == 1 && !pre_exist)
 		ioctl(mdfd, STOP_ARRAY, NULL);
 	free(devices);

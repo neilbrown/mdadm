@@ -251,6 +251,25 @@ int Detail(char *dev, struct context *c)
 				putchar('\n');
 			}
 		}
+		if (sra) {
+			struct mdinfo *mdi;
+			for (mdi  = sra->devs; mdi; mdi = mdi->next) {
+				char *path =
+					map_dev(mdi->disk.major,
+						mdi->disk.minor, 0);
+
+				if (mdi->disk.raid_disk >= 0)
+					printf("MD_DEVICE_%s_ROLE=%d\n",
+					       mdi->sys_name+4,
+					       mdi->disk.raid_disk);
+				else
+					printf("MD_DEVICE_%s_ROLE=spare\n",
+					       mdi->sys_name+4);
+				if (path)
+					printf("MD_DEVICE_%s_DEV=%s\n",
+					       mdi->sys_name+4, path);
+			}
+		}
 		goto out;
 	}
 

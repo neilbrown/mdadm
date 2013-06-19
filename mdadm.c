@@ -1803,7 +1803,13 @@ static int misc_list(struct mddev_dev *devlist,
 					       (dv == devlist && dv->next == NULL));
 			continue;
 		}
-		mdfd = open_mddev(dv->devname, 1);
+		if (dv->devname[0] == '/')
+			mdfd = open_mddev(dv->devname, 1);
+		else {
+			mdfd = open_dev(dv->devname);
+			if (mdfd < 0)
+				pr_err("Cannot open %s\n", dv->devname);
+		}
 		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':

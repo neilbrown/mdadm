@@ -170,21 +170,47 @@ static void remove_devices(char *devnm, char *path)
 	free(path2);
 }
 
-int Manage_runstop(char *devname, int fd, int runstop,
-		   int verbose,	int will_retry)
+int Manage_run(char *devname, int fd, int verbose)
 {
-	/* Run or stop the array.  Array must already be configured
-	 * 'Run' requires >= 0.90.0
-	 * 'will_retry' is only relevant for 'stop', and means
-	 * that error messages are not wanted.
+	/* Run the array.  Array must already be configured
+	 *  Requires >= 0.90.0
 	 */
 	mdu_param_t param; /* unused */
 	int rv = 0;
 
+	if (md_get_version(fd) < 9000) {
+		pr_err("need md driver version 0.90.0 or later\n");
+		return 1;
+	}
+
+	if (ioctl(fd, RUN_ARRAY, &param)) {
+		if (verbose >= 0)
+			pr_err("failed to run array %s: %s\n",
+			       devname, strerror(errno));
+		return 1;
+	}
+	if (verbose >= 0)
+		pr_err("started %s\n", devname);
+	return rv;
+}
+
+int Manage_stop(char *devname, int fd, int verbose, int will_retry)
+{
+	/* Stop the array.  Array must already be configured
+	 * 'will_retry' means that error messages are not wanted.
+	 */
+	int rv = 0;
+	struct map_ent *map = NULL;
+	struct mdinfo *mdi;
+	char devnm[32];
+	char container[32];
+	int err;
+	int count;
+
 	if (will_retry && verbose == 0)
 		verbose = -1;
 
-	if (runstop == -1 && md_get_version(fd) < 9000) {
+	if (md_get_version(fd) < 9000) {
 		if (ioctl(fd, STOP_MD, 0) == 0)
 			return 0;
 		pr_err("stopping device %s "
@@ -193,185 +219,164 @@ int Manage_runstop(char *devname, int fd, int runstop,
 		return 1;
 	}
 
-	if (md_get_version(fd) < 9000) {
-		pr_err("need md driver version 0.90.0 or later\n");
+	/* If this is an mdmon managed array, just write 'inactive'
+	 * to the array state and let mdmon clear up.
+	 */
+	strcpy(devnm, fd2devnm(fd));
+	/* Get EXCL access first.  If this fails, then attempting
+	 * to stop is probably a bad idea.
+	 */
+	mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
+	if (mdi && is_subarray(mdi->text_version)) {
+		char *sl;
+		strncpy(container, mdi->text_version+1, sizeof(container));
+		container[sizeof(container)-1] = 0;
+		sl = strchr(container, '/');
+		if (sl)
+			*sl = 0;
+	} else
+		container[0] = 0;
+	close(fd);
+	count = 5;
+	while (((fd = ((devnm[0] == '/')
+		       ?open(devname, O_RDONLY|O_EXCL)
+		       :open_dev_flags(devnm, O_RDONLY|O_EXCL))) < 0
+		|| strcmp(fd2devnm(fd), devnm) != 0)
+	       && container[0]
+	       && mdmon_running(container)
+	       && count) {
+		if (fd >= 0)
+			close(fd);
+		flush_mdmon(container);
+		count--;
+	}
+	if (fd < 0 || strcmp(fd2devnm(fd), devnm) != 0) {
+		if (fd >= 0)
+			close(fd);
+		if (verbose >= 0)
+			pr_err("Cannot get exclusive access to %s:"
+			       "Perhaps a running "
+			       "process, mounted filesystem "
+			       "or active volume group?\n",
+			       devname);
 		return 1;
 	}
-
-	if (runstop > 0) {
-		if (ioctl(fd, RUN_ARRAY, &param)) {
-			if (verbose >= 0)
-				pr_err("failed to run array %s: %s\n",
-				       devname, strerror(errno));
-			return 1;
-		}
-		if (verbose >= 0)
-			pr_err("started %s\n", devname);
-	} else if (runstop < 0){
-		struct map_ent *map = NULL;
-		struct mdinfo *mdi;
-		char devnm[32];
-		char container[32];
+	if (mdi &&
+	    mdi->array.level > 0 &&
+	    is_subarray(mdi->text_version)) {
 		int err;
-		int count;
-		/* If this is an mdmon managed array, just write 'inactive'
-		 * to the array state and let mdmon clear up.
-		 */
-		strcpy(devnm, fd2devnm(fd));
-		/* Get EXCL access first.  If this fails, then attempting
-		 * to stop is probably a bad idea.
-		 */
-		mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
-		if (mdi && is_subarray(mdi->text_version)) {
-			char *sl;
-			strncpy(container, mdi->text_version+1, sizeof(container));
-			container[sizeof(container)-1] = 0;
-			sl = strchr(container, '/');
-			if (sl)
-				*sl = 0;
-		} else
-			container[0] = 0;
+		/* This is mdmon managed. */
 		close(fd);
-		count = 5;
-		while (((fd = ((devnm[0] == '/')
-			       ?open(devname, O_RDONLY|O_EXCL)
-			       :open_dev_flags(devnm, O_RDONLY|O_EXCL))) < 0
-			|| strcmp(fd2devnm(fd), devnm) != 0)
-		       && container[0]
-		       && mdmon_running(container)
-		       && count) {
-			if (fd >= 0)
-				close(fd);
-			flush_mdmon(container);
-			count--;
-		}
-		if (fd < 0 || strcmp(fd2devnm(fd), devnm) != 0) {
-			if (fd >= 0)
-				close(fd);
-			if (verbose >= 0)
-				pr_err("Cannot get exclusive access to %s:"
-				       "Perhaps a running "
-				       "process, mounted filesystem "
-				       "or active volume group?\n",
-				       devname);
-			return 1;
-		}
-		if (mdi &&
-		    mdi->array.level > 0 &&
-		    is_subarray(mdi->text_version)) {
-			int err;
-			/* This is mdmon managed. */
-			close(fd);
-
-			/* As we have an O_EXCL open, any use of the device
-			 * which blocks STOP_ARRAY is probably a transient use,
-			 * so it is reasonable to retry for a while - 5 seconds.
-			 */
-			count = 25;
-			while (count &&
-			       (err = sysfs_set_str(mdi, NULL,
-						    "array_state",
-						    "inactive")) < 0
-			       && errno == EBUSY) {
-				usleep(200000);
-				count--;
-			}
-			if (err) {
-				if (verbose >= 0)
-					pr_err("failed to stop array %s: %s\n",
-					       devname, strerror(errno));
-				rv = 1;
-				goto out;
-			}
-
-			/* Give monitor a chance to act */
-			ping_monitor(mdi->text_version);
-
-			fd = open_dev_excl(devnm);
-			if (fd < 0) {
-				if (verbose >= 0)
-					pr_err("failed to completely stop %s"
-					       ": Device is busy\n",
-					       devname);
-				rv = 1;
-				goto out;
-			}
-		} else if (mdi &&
-			   mdi->array.major_version == -1 &&
-			   mdi->array.minor_version == -2 &&
-			   !is_subarray(mdi->text_version)) {
-			struct mdstat_ent *mds, *m;
-			/* container, possibly mdmon-managed.
-			 * Make sure mdmon isn't opening it, which
-			 * would interfere with the 'stop'
-			 */
-			ping_monitor(mdi->sys_name);
-
-			/* now check that there are no existing arrays
-			 * which are members of this array
-			 */
-			mds = mdstat_read(0, 0);
-			for (m = mds; m; m = m->next)
-				if (m->metadata_version &&
-				    strncmp(m->metadata_version, "external:", 9)==0 &&
-				    metadata_container_matches(m->metadata_version+9,
-							       devnm)) {
-					if (verbose >= 0)
-						pr_err("Cannot stop container %s: "
-						       "member %s still active\n",
-						       devname, m->dev);
-					free_mdstat(mds);
-					rv = 1;
-					goto out;
-				}
-		}
 
 		/* As we have an O_EXCL open, any use of the device
 		 * which blocks STOP_ARRAY is probably a transient use,
 		 * so it is reasonable to retry for a while - 5 seconds.
 		 */
-		count = 25; err = 0;
-		while (count && fd >= 0
-		       && (err = ioctl(fd, STOP_ARRAY, NULL)) < 0
+		count = 25;
+		while (count &&
+		       (err = sysfs_set_str(mdi, NULL,
+					    "array_state",
+					    "inactive")) < 0
 		       && errno == EBUSY) {
 			usleep(200000);
-			count --;
+			count--;
 		}
-		if (fd >= 0 && err) {
-			if (verbose >= 0) {
+		if (err) {
+			if (verbose >= 0)
 				pr_err("failed to stop array %s: %s\n",
 				       devname, strerror(errno));
-				if (errno == EBUSY)
-					cont_err("Perhaps a running "
-						"process, mounted filesystem "
-						"or active volume group?\n");
-			}
 			rv = 1;
 			goto out;
 		}
-		/* prior to 2.6.28, KOBJ_CHANGE was not sent when an md array
-		 * was stopped, so We'll do it here just to be sure.  Drop any
-		 * partitions as well...
-		 */
-		if (fd >= 0)
-			ioctl(fd, BLKRRPART, 0);
-		if (mdi)
-			sysfs_uevent(mdi, "change");
 
-		if (devnm[0] && use_udev()) {
-			struct map_ent *mp = map_by_devnm(&map, devnm);
-			remove_devices(devnm, mp ? mp->path : NULL);
+		/* Give monitor a chance to act */
+		ping_monitor(mdi->text_version);
+
+		fd = open_dev_excl(devnm);
+		if (fd < 0) {
+			if (verbose >= 0)
+				pr_err("failed to completely stop %s"
+				       ": Device is busy\n",
+				       devname);
+			rv = 1;
+			goto out;
 		}
+	} else if (mdi &&
+		   mdi->array.major_version == -1 &&
+		   mdi->array.minor_version == -2 &&
+		   !is_subarray(mdi->text_version)) {
+		struct mdstat_ent *mds, *m;
+		/* container, possibly mdmon-managed.
+		 * Make sure mdmon isn't opening it, which
+		 * would interfere with the 'stop'
+		 */
+		ping_monitor(mdi->sys_name);
 
-		if (verbose >= 0)
-			pr_err("stopped %s\n", devname);
-		map_lock(&map);
-		map_remove(&map, devnm);
-		map_unlock(&map);
-	out:
-		if (mdi)
-			sysfs_free(mdi);
+		/* now check that there are no existing arrays
+		 * which are members of this array
+		 */
+		mds = mdstat_read(0, 0);
+		for (m = mds; m; m = m->next)
+			if (m->metadata_version &&
+			    strncmp(m->metadata_version, "external:", 9)==0 &&
+			    metadata_container_matches(m->metadata_version+9,
+						       devnm)) {
+				if (verbose >= 0)
+					pr_err("Cannot stop container %s: "
+					       "member %s still active\n",
+					       devname, m->dev);
+				free_mdstat(mds);
+				rv = 1;
+				goto out;
+			}
 	}
+
+	/* As we have an O_EXCL open, any use of the device
+	 * which blocks STOP_ARRAY is probably a transient use,
+	 * so it is reasonable to retry for a while - 5 seconds.
+	 */
+	count = 25; err = 0;
+	while (count && fd >= 0
+	       && (err = ioctl(fd, STOP_ARRAY, NULL)) < 0
+	       && errno == EBUSY) {
+		usleep(200000);
+		count --;
+	}
+	if (fd >= 0 && err) {
+		if (verbose >= 0) {
+			pr_err("failed to stop array %s: %s\n",
+			       devname, strerror(errno));
+			if (errno == EBUSY)
+				cont_err("Perhaps a running "
+					 "process, mounted filesystem "
+					 "or active volume group?\n");
+		}
+		rv = 1;
+		goto out;
+	}
+	/* prior to 2.6.28, KOBJ_CHANGE was not sent when an md array
+	 * was stopped, so We'll do it here just to be sure.  Drop any
+	 * partitions as well...
+	 */
+	if (fd >= 0)
+		ioctl(fd, BLKRRPART, 0);
+	if (mdi)
+		sysfs_uevent(mdi, "change");
+
+	if (devnm[0] && use_udev()) {
+		struct map_ent *mp = map_by_devnm(&map, devnm);
+		remove_devices(devnm, mp ? mp->path : NULL);
+	}
+
+	if (verbose >= 0)
+		pr_err("stopped %s\n", devname);
+	map_lock(&map);
+	map_remove(&map, devnm);
+	map_unlock(&map);
+out:
+	if (mdi)
+		sysfs_free(mdi);
+
 	return rv;
 }
 

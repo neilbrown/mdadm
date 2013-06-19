@@ -1301,8 +1301,10 @@ int main(int argc, char *argv[])
 					    c.update, c.force);
 		if (!rv && c.readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, c.readonly);
-		if (!rv && c.runstop)
-			rv = Manage_runstop(devlist->devname, mdfd, c.runstop, c.verbose, 0);
+		if (!rv && c.runstop > 0)
+			rv = Manage_run(devlist->devname, mdfd, c.verbose);
+		if (!rv && c.runstop < 0)
+			rv = Manage_stop(devlist->devname, mdfd, c.verbose, 0);
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
@@ -1727,7 +1729,7 @@ static int stop_scan(int verbose)
 			}
 			mdfd = open_mddev(name, 1);
 			if (mdfd >= 0) {
-				if (Manage_runstop(name, mdfd, -1, verbose, !last))
+				if (Manage_stop(name, mdfd, verbose, !last))
 					err = 1;
 				else
 					progress = 1;
@@ -1805,9 +1807,9 @@ static int misc_list(struct mddev_dev *devlist,
 		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':
-				rv |= Manage_runstop(dv->devname, mdfd, 1, c->verbose, 0); break;
+				rv |= Manage_run(dv->devname, mdfd, c->verbose); break;
 			case 'S':
-				rv |= Manage_runstop(dv->devname, mdfd, -1, c->verbose, 0); break;
+				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0); break;
 			case 'o':
 				rv |= Manage_ro(dv->devname, mdfd, 1); break;
 			case 'w':

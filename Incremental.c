@@ -1677,8 +1677,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		 */
 		int devid = devnm2devid(ent->devnm);
 		run_udisks("--unmount", map_dev(major(devid),minor(devid), 0));
-		rv = Manage_runstop(ent->dev, mdfd, -1,
-				    verbose, 1);
+		rv = Manage_stop(ent->dev, mdfd, verbose, 1);
 		if (rv)
 			/* At least we can try to trigger a 'remove' */
 			sysfs_uevent(&mdi, "remove");

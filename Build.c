@@ -24,9 +24,9 @@
 
 #include "mdadm.h"
 
-#define REGISTER_DEV 		_IO (MD_MAJOR, 1)
-#define START_MD     		_IO (MD_MAJOR, 2)
-#define STOP_MD      		_IO (MD_MAJOR, 3)
+#define REGISTER_DEV		_IO (MD_MAJOR, 1)
+#define START_MD		_IO (MD_MAJOR, 2)
+#define STOP_MD			_IO (MD_MAJOR, 3)
 
 int Build(char *mddev, struct mddev_dev *devlist,
 	  struct shape *s, struct context *c)

@@ -200,7 +200,7 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	fcntl(sock, F_SETFL, fl);
 	n = read(sock, buf, 100);
 	/* Ignore result, it is just the wait that
-	 * matters 
+	 * matters
 	 */
 }
 

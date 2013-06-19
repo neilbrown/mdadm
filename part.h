@@ -26,7 +26,6 @@
 /* Structure definitions ext  for MBR and GPT partition tables
  */
 
-
 #define	MBR_SIGNATURE_MAGIC	__cpu_to_le16(0xAA55)
 #define MBR_PARTITIONS               4
 
@@ -48,8 +47,6 @@ struct MBR {
 	struct MBR_part_record parts[MBR_PARTITIONS];
 	__u16 magic;
 } __attribute__((packed));
-
-
 
 #define	GPT_SIGNATURE_MAGIC	__cpu_to_le64(0x5452415020494645ULL)
 #define MBR_GPT_PARTITION_TYPE       0xEE

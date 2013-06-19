@@ -124,4 +124,3 @@ int Query(char *dev)
 	}
 	return 0;
 }
-

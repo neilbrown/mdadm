@@ -36,7 +36,6 @@
  * .. other stuff
  */
 
-
 static unsigned long calc_sb0_csum(mdp_super_t *super)
 {
 	unsigned long csum = super->sb_csum;
@@ -690,7 +689,6 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
  * host name
  */
 
-
 static int init_super0(struct supertype *st, mdu_array_info_t *info,
 		       unsigned long long size, char *ignored_name, char *homehost,
 		       int *uuid, unsigned long long data_offset)
@@ -861,7 +859,7 @@ static int store_super0(struct supertype *st, int fd)
 	if (super->state & (1<<MD_SB_BITMAP_PRESENT)) {
 		struct bitmap_super_s * bm = (struct bitmap_super_s*)(super+1);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC)
-			if (write(fd, bm, ROUND_UP(sizeof(*bm),4096)) != 
+			if (write(fd, bm, ROUND_UP(sizeof(*bm),4096)) !=
 			    ROUND_UP(sizeof(*bm),4096))
 			    return 5;
 	}
@@ -920,7 +918,7 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 		return 1;
 	if (!first) {
 		if (posix_memalign((void**)&first, 4096,
-			     MD_SB_BYTES + 
+			     MD_SB_BYTES +
 			     ROUND_UP(sizeof(struct bitmap_super_s), 4096)) != 0) {
 			pr_err("%s could not allocate superblock\n", __func__);
 			return 1;
@@ -946,7 +944,6 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 
 	return 0;
 }
-
 
 static void free_super0(struct supertype *st);
 
@@ -1118,7 +1115,6 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MD_SB_BYTES);
 	int uuid[4];
 
-
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */
 	bits = (size * 512) / min_chunk + 1;
 	while (bits > max_bits) {
@@ -1149,7 +1145,6 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	*chunkp = chunk;
 	return 1;
 }
-
 
 static void locate_bitmap0(struct supertype *st, int fd)
 {

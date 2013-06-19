@@ -94,7 +94,7 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
 		free(super);
 		return 1;
 	}
- 
+
 	if (super->magic != MBR_SIGNATURE_MAGIC) {
 		if (devname)
 			pr_err("No partition table found on %s\n",
@@ -154,7 +154,7 @@ static void getinfo_mbr(struct supertype *st, struct mdinfo *info, char *map)
 
 	for (i = 0; i < MBR_PARTITIONS ; i++)
 		if (sb->parts[i].blocks_num) {
-			unsigned long last = 
+			unsigned long last =
 				(unsigned long)__le32_to_cpu(sb->parts[i].blocks_num)
 				+ (unsigned long)__le32_to_cpu(sb->parts[i].first_sect_lba);
 			if (last > info->component_size)

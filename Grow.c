@@ -1537,7 +1537,6 @@ int Grow_reshape(char *devname, int fd,
 	struct mdinfo info;
 	struct mdinfo *sra;
 
-
 	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
 		pr_err("%s is not an active md array - aborting\n",
 			devname);
@@ -2792,7 +2791,6 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (devlist)
 		Manage_subdevs(devname, fd, devlist, verbose,
 			       0,NULL, 0);
-
 
 	if (reshape.backup_blocks == 0 && data_offset)
 		reshape.backup_blocks = reshape.before.data_disks * info->array.chunk_size/512;

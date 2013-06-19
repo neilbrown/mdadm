@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007-2008 Intel Corporation
  *
- * 	Retrieve drive serial numbers for scsi disks
+ *	Retrieve drive serial numbers for scsi disks
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,

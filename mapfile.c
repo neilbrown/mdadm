@@ -46,7 +46,6 @@
 #include	<sys/file.h>
 #include	<ctype.h>
 
-
 #define MAP_READ 0
 #define MAP_NEW 1
 #define MAP_LOCK 2
@@ -104,7 +103,6 @@ int map_write(struct map_ent *mel)
 	return rename(mapname[1],
 		      mapname[0]) == 0;
 }
-
 
 static FILE *lf = NULL;
 int map_lock(struct map_ent **melp)
@@ -416,11 +414,11 @@ void RebuildMap(void)
 				 * It needs to match what -I or -As would come
 				 * up with.
 				 * That means:
-				 *   Check if array is in mdadm.conf 
+				 *   Check if array is in mdadm.conf
 				 *        - if so use that.
 				 *   determine trustworthy from homehost etc
 				 *   find a unique name based on metadata name.
-				 *   
+				 *
 				 */
 				struct mddev_ident *match = conf_match(st, info,
 								       NULL, 0,

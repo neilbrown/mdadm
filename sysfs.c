@@ -88,7 +88,6 @@ void sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
 	strcpy(mdi->sys_name, devnm);
 }
 
-
 struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 {
 	char fname[PATH_MAX];
@@ -456,7 +455,7 @@ int sysfs_uevent(struct mdinfo *sra, char *event)
 		return -1;
 	}
 	return 0;
-}	
+}
 
 int sysfs_attribute_available(struct mdinfo *sra, struct mdinfo *dev, char *name)
 {
@@ -770,7 +769,6 @@ int sysfs_disk_to_scsi_id(int fd, __u32 *id)
 	*id = (host << 24) | (bus << 16) | (target << 8) | (lun << 0);
 	return 0;
 }
-
 
 int sysfs_unique_holder(char *devnm, long rdev)
 {

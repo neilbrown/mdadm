@@ -1262,7 +1262,7 @@ try_again:
 				  inargv, auto_assem);
 	if (num_devs < 0)
 		return 1;
-	
+
 	if (!st || !st->sb || !content)
 		return 2;
 
@@ -1897,4 +1897,3 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	}
 }
 #endif
-

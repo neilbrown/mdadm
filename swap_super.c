@@ -47,7 +47,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-
 	for (i=0; i < 4096 ; i+=4) {
 		char t = super[i];
 		super[i] = super[i+3];
@@ -69,7 +68,6 @@ int main(int argc, char *argv[])
 		super[32*4+10*4 +i] = t;
 	}
 
-
 	if (lseek64(fd, offset, 0) < 0LL) {
 		perror("lseek64");
 		exit(1);
@@ -81,5 +79,3 @@ int main(int argc, char *argv[])
 	exit(0);
 
 }
-
-

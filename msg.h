@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Intel Corporation
  *
- * 	mdmon socket / message handling
+ *	mdmon socket / message handling
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,7 +16,6 @@
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
 
 struct mdinfo;
 struct metadata_update;

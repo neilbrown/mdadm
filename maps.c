@@ -24,7 +24,6 @@
 
 #include "mdadm.h"
 
-
 /* name/number mappings */
 
 mapping_t r5layout[] = {
@@ -97,7 +96,6 @@ mapping_t pers[] = {
 	{ NULL, 0}
 };
 
-
 mapping_t modes[] = {
 	{ "assemble", ASSEMBLE},
 	{ "build", BUILD},
@@ -150,4 +148,3 @@ int map_name(mapping_t *map, char *name)
 	}
 	return UnSet;
 }
-

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Intel Corporation
  *
- * 	mdmon socket / message handling
+ *	mdmon socket / message handling
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,7 +77,6 @@ static int recv_buf(int fd, void* buf, int len, int tmo)
 	}
 	return 0;
 }
-
 
 int send_message(int fd, struct metadata_update *msg, int tmo)
 {

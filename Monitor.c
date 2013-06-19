@@ -156,7 +156,7 @@ int Monitor(struct mddev_dev *devlist,
 			return rv;
 	}
 
-	if (share) 
+	if (share)
 		if (check_one_sharer(c->scan))
 			return 1;
 
@@ -204,7 +204,6 @@ int Monitor(struct mddev_dev *devlist,
 		}
 	}
 
-
 	while (! finished) {
 		int new_found = 0;
 		struct state *st;
@@ -218,7 +217,7 @@ int Monitor(struct mddev_dev *devlist,
 			if (check_array(st, mdstat, c->test, &info,
 					increments, c->prefer))
 				anydegraded = 1;
-		
+
 		/* now check if there are any new devices found in mdstat */
 		if (c->scan)
 			new_found = add_new_arrays(mdstat, &statelist, c->test,
@@ -809,12 +808,12 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 		close(fd);
 		return 0;
 	}
-	
+
 	err = st->ss->load_container(st, fd, NULL);
 	close(fd);
 	if (err)
 		return 0;
-	
+
 	if (from == to) {
 		/* We must check if number of active disks has not increased
 		 * since ioctl in main loop. mdmon may have added spare
@@ -855,7 +854,6 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 	return dev;
 }
 
-
 static void try_spare_migration(struct state *statelist, struct alert_info *info)
 {
 	struct state *from;
@@ -874,7 +872,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				/* subarray monitored without parent container
 				 * we can't move spares here */
 				continue;
-			
+
 			if (to->parent)
 				/* member of a container */
 				to = to->parent;

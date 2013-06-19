@@ -31,4 +31,3 @@ do
   done
   mdadm -S $md0
 done
-

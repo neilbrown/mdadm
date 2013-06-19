@@ -147,7 +147,6 @@ void free_line(char *line)
 	dl_free(line);
 }
 
-
 struct conf_dev {
 	struct conf_dev *next;
 	char *name;
@@ -417,7 +416,7 @@ void arrayline(char *line)
 			if (strcasecmp(w, "<ignore>") == 0 ||
 			    strncmp(w, "/dev/md/", 8) == 0 ||
 			    (w[0] != '/' && w[0] != '<') ||
-			    (strncmp(w, "/dev/md", 7) == 0 && 
+			    (strncmp(w, "/dev/md", 7) == 0 &&
 			     is_number(w+7)) ||
 			    (strncmp(w, "/dev/md_d", 9) == 0 &&
 			     is_number(w+9))
@@ -567,7 +566,6 @@ void mailfromline(char *line)
 		}
 	}
 }
-
 
 static char *alert_program = NULL;
 void programline(char *line)
@@ -986,7 +984,6 @@ int devname_matches(char *name, char *match)
 		match += 8;
 	else if (strncmp(match, "/dev/", 5) == 0)
 		match += 5;
-
 
 	if (strncmp(name, "md", 2) == 0 &&
 	    isdigit(name[2]))

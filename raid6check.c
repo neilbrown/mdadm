@@ -43,7 +43,6 @@ void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
 		       uint8_t **ptrs);
 void xor_blocks(char *target, char **sources, int disks, int size);
 
-
 /* Collect per stripe consistency information */
 void raid6_collect(int chunk_size, uint8_t *p, uint8_t *q,
 		   char *chunkP, char *chunkQ, int *results)
@@ -143,7 +142,6 @@ int unlock_all_stripes(struct mdinfo *info, sighandler_t *sig) {
 		return 3;
 	return rv * 256;
 }
-
 
 int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  int raid_disks, int chunk_size, int level, int layout,
@@ -308,7 +306,6 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			}
 			write_res1 = write(source[failed_disk1], stripes[failed_disk1], chunk_size);
 
-
 			seek_res = lseek64(source[failed_disk2],
 					   offsets[failed_disk2] + start * chunk_size, SEEK_SET);
 			if (seek_res < 0) {
@@ -363,7 +360,6 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 				goto exitCheck;
 			}
 		}
-
 
 		length--;
 		start++;

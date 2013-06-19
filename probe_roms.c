@@ -109,7 +109,7 @@ int probe_roms_init(unsigned long align)
 	if (rc == 0)
 		rom_fd = fd;
 	else {
-		if (fd >= 0) 
+		if (fd >= 0)
 			close(fd);
 		probe_roms_exit();
 	}
@@ -150,39 +150,39 @@ static struct resource extension_rom_resource = {
 };
 
 static struct resource adapter_rom_resources[] = { {
-	.name 	= "Adapter ROM",
+	.name	= "Adapter ROM",
 	.start	= 0xc8000,
 	.data   = 0,
 	.end	= 0,
 }, {
-	.name 	= "Adapter ROM",
+	.name	= "Adapter ROM",
 	.start	= 0,
 	.data   = 0,
 	.end	= 0,
 }, {
-	.name 	= "Adapter ROM",
+	.name	= "Adapter ROM",
 	.start	= 0,
 	.data   = 0,
 	.end	= 0,
 }, {
-	.name 	= "Adapter ROM",
+	.name	= "Adapter ROM",
 	.start	= 0,
 	.data   = 0,
 	.end	= 0,
 }, {
-	.name 	= "Adapter ROM",
+	.name	= "Adapter ROM",
 	.start	= 0,
 	.data   = 0,
 	.end	= 0,
 }, {
-	.name 	= "Adapter ROM",
+	.name	= "Adapter ROM",
 	.start	= 0,
 	.data   = 0,
 	.end	= 0,
 } };
 
 static struct resource video_rom_resource = {
-	.name 	= "Video ROM",
+	.name	= "Video ROM",
 	.start	= 0xc0000,
 	.data   = 0,
 	.end	= 0xc7fff,

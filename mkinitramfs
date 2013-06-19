@@ -53,5 +53,3 @@ chmod +x initramfs/init
 ) > init.cpio.gz
 rm -rf initramfs
 ls -l init.cpio.gz
-
-

@@ -10,4 +10,3 @@ mdadm -S $md0
 mdadm -A $md0 --name="Fred" $devlist
 #mdadm -Db $md0
 mdadm -S $md0
-

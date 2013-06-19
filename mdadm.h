@@ -51,7 +51,6 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define srandom srand
 #endif
 
-
 #include	<linux/kdev_t.h>
 /*#include	<linux/fs.h> */
 #include	<sys/mount.h>
@@ -162,7 +161,6 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #endif
 #endif /* __KLIBC__ */
 
-
 /*
  * min()/max()/clamp() macros that also do
  * strict type-checking.. See the
@@ -233,7 +231,7 @@ struct mdinfo {
 	int container_enough; /* flag external handlers can set to
 			       * indicate that subarrays have not enough (-1),
 			       * enough to start (0), or all expected disks (1) */
-	char 		sys_name[20];
+	char		sys_name[20];
 	struct mdinfo *devs;
 	struct mdinfo *next;
 
@@ -448,7 +446,6 @@ typedef struct mapping {
 	int num;
 } mapping_t;
 
-
 struct mdstat_ent {
 	char		*dev;
 	char		devnm[32];
@@ -463,7 +460,7 @@ struct mdstat_ent {
 	struct dev_member {
 		char			*name;
 		struct dev_member	*next;
-	} 		*members;
+	}		*members;
 	struct mdstat_ent *next;
 };
 
@@ -604,7 +601,6 @@ static inline char *map_dev(int major, int minor, int create)
 
 struct active_array;
 struct metadata_update;
-
 
 /* 'struct reshape' records the intermediate states of
  * a general reshape.
@@ -892,7 +888,7 @@ extern struct superswitch {
 	 * (in a->resync_start).
 	 * resync status is really irrelevant if the array is not consistent,
 	 * but some metadata (DDF!) have a place to record the distinction.
-	 * If 'consistent' is '2', then the array can mark it dirty if a 
+	 * If 'consistent' is '2', then the array can mark it dirty if a
 	 * resync/recovery/whatever is required, or leave it clean if not.
 	 * Return value is 0 dirty (not consistent) and 1 if clean.
 	 * it is only really important if consistent is passed in as '2'.
@@ -1156,7 +1152,6 @@ struct stat64;
 
 extern int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s);
 
-
 extern int Manage_ro(char *devname, int fd, int readonly);
 extern int Manage_run(char *devname, int fd, int quiet);
 extern int Manage_stop(char *devname, int fd, int quiet,
@@ -1385,7 +1380,7 @@ extern char *fd2devnm(int fd);
 static inline int is_subarray(char *vers)
 {
 	/* The version string for a 'subarray' (an array in a container)
-	 * is 
+	 * is
 	 *    /containername/componentname    for normal read-write arrays
 	 *    -containername/componentname    for arrays which mdmon must not
 	 *				      reconfigure.  They might be read-only
@@ -1436,7 +1431,6 @@ char *xstrdup(const char *str);
 #define LEVEL_CONTAINER		(-100)
 #define	LEVEL_UNSUPPORTED	(-200)
 
-
 /* faulty stuff */
 
 #define	WriteTransient	0
@@ -1455,7 +1449,6 @@ char *xstrdup(const char *str);
 
 #define	ModeMask	0x1f
 #define	ModeShift	5
-
 
 #ifdef __TINYC__
 #undef minor
@@ -1493,7 +1486,6 @@ char *xstrdup(const char *str);
 #define ALGORITHM_ROTATING_ZERO_RESTART	8 /* DDF PRL=6 RLQ=1 */
 #define ALGORITHM_ROTATING_N_RESTART	9 /* DDF PRL=6 RLQ=2 */
 #define ALGORITHM_ROTATING_N_CONTINUE	10 /*DDF PRL=6 RLQ=3 */
-
 
 /* For every RAID5 algorithm we define a RAID6 algorithm
  * with exactly the same layout for data and parity, and

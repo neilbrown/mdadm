@@ -29,7 +29,6 @@
 #include "md_p.h"
 #include <ctype.h>
 
-
 static int scan_assemble(struct supertype *ss,
 			 struct context *c,
 			 struct mddev_ident *ident);
@@ -39,7 +38,6 @@ static int misc_list(struct mddev_dev *devlist,
 		     struct mddev_ident *ident,
 		     char *dump_directory,
 		     struct supertype *ss, struct context *c);
-
 
 int main(int argc, char *argv[])
 {
@@ -422,7 +420,6 @@ int main(int argc, char *argv[])
 			/* clear write-mostly for following devices */
 			writemostly = 2;
 			continue;
-
 
 		case O(GROW,'z'):
 		case O(CREATE,'z'):
@@ -1611,7 +1608,7 @@ static int scan_assemble(struct supertype *ss,
 			if (a->devname &&
 			    strcasecmp(a->devname, "<ignore>") == 0)
 				continue;
-				
+
 			r = Assemble(ss, a->devname,
 				     a, NULL, c);
 			if (r == 0) {

@@ -778,7 +778,6 @@ int get_data_disks(int level, int layout, int raid_disks)
 	return data_disks;
 }
 
-
 int devnm2devid(char *devnm)
 {
 	/* First look in /sys/block/$DEVNM/dev for %d:%d

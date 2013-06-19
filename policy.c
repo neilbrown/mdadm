@@ -401,7 +401,6 @@ void pol_add(struct dev_policy **pol,
 	pol_dedup(*pol);
 }
 
-
 /*
  * disk_policy() gathers policy information for the
  * disk described in the given mdinfo (disk.{major,minor}).
@@ -592,7 +591,6 @@ int disk_action_allows(struct mdinfo *disk, const char *metadata, enum policy_ac
 	return rv;
 }
 
-
 /* Domain policy:
  * Any device can have a list of domains asserted by different policy
  * statements.
@@ -702,7 +700,6 @@ void domain_add(struct domainlist **domp, char *domain)
 {
 	domain_merge_one(domp, domain);
 }
-
 
 void domain_free(struct domainlist *dl)
 {

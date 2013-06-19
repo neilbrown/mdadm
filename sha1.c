@@ -50,7 +50,6 @@
    64-byte boundary.  (RFC 1321, 3.1: Step 1)  */
 static const unsigned char fillbuf[64] = { 0x80, 0 /* , 0, 0, ...  */ };
 
-
 /* Take a pointer to a 160 bit block of data (five 32 bit ints) and
    initialize it to the start constants of the SHA1 algorithm.  This
    must be called before using hash in the call to sha1_hash.  */

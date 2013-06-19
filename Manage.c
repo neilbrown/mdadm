@@ -27,9 +27,9 @@
 #include "md_p.h"
 #include <ctype.h>
 
-#define REGISTER_DEV 		_IO (MD_MAJOR, 1)
-#define START_MD     		_IO (MD_MAJOR, 2)
-#define STOP_MD      		_IO (MD_MAJOR, 3)
+#define REGISTER_DEV		_IO (MD_MAJOR, 1)
+#define START_MD		_IO (MD_MAJOR, 2)
+#define STOP_MD			_IO (MD_MAJOR, 3)
 
 int Manage_ro(char *devname, int fd, int readonly)
 {
@@ -1358,7 +1358,7 @@ int Manage_subdevs(char *devname, int fd,
 				 */
 				close(tfd);
 				tfd = dev_open(dv->devname, O_RDONLY);
-			}				
+			}
 			if (tfd < 0) {
 				if (dv->disposition == 'M')
 					continue;

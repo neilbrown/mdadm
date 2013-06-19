@@ -30,7 +30,6 @@
 #include <sys/stat.h>
 #include <limits.h>
 
-
 static int devpath_to_ll(const char *dev_path, const char *entry,
 			 unsigned long long *val);
 
@@ -125,7 +124,6 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 	return head;
 }
 
-
 static struct sys_dev *intel_devices=NULL;
 static time_t valid_time = 0;
 
@@ -154,7 +152,6 @@ static int devpath_to_ll(const char *dev_path, const char *entry, unsigned long 
 	close(fd);
 	return n;
 }
-
 
 static __u16 devpath_to_vendor(const char *dev_path)
 {
@@ -254,7 +251,6 @@ static int scan(const void *start, const void *end, const void *data)
 	return 0;
 }
 
-
 const struct imsm_orom *imsm_platform_test(enum sys_dev_type hba_id, int *populated,
 					   struct imsm_orom *imsm_orom)
 {
@@ -288,8 +284,6 @@ const struct imsm_orom *imsm_platform_test(enum sys_dev_type hba_id, int *popula
 
 	return imsm_orom;
 }
-
-
 
 static const struct imsm_orom *find_imsm_hba_orom(enum sys_dev_type hba_id)
 {
@@ -345,7 +339,6 @@ static const struct imsm_orom *find_imsm_hba_orom(enum sys_dev_type hba_id)
   (b) & 0xff, ((b) >> 8) & 0xff, \
   (c) & 0xff, ((c) >> 8) & 0xff, \
   (d0), (d1), (d2), (d3), (d4), (d5), (d6), (d7) }})
-
 
 #define SYS_EFI_VAR_PATH "/sys/firmware/efi/vars"
 #define SCU_PROP "RstScuV"
@@ -446,7 +439,6 @@ const struct imsm_orom *find_imsm_orom(void)
 const struct imsm_orom *find_imsm_capability(enum sys_dev_type hba_id)
 {
 	const struct imsm_orom *cap=NULL;
-
 
 	if ((cap = find_imsm_efi(hba_id)) != NULL)
 		return cap;

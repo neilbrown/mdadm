@@ -83,7 +83,6 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 	case 500 + ALGORITHM_PARITY_0:
 		return block + 1;
 
-
 	case 600 + ALGORITHM_PARITY_N_6:
 		if (block == -2)
 			return raid_disks - 1;
@@ -131,7 +130,6 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 			return raid_disks - 1;
 		return block + 1;
 
-
 	case 600 + ALGORITHM_PARITY_0:
 		if (block == -1)
 			return 0;
@@ -173,7 +171,6 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 		if (block == -2) return (pd+1) % raid_disks;
 		return (pd + 2 + block) % raid_disks;
 
-
 	case 600 + ALGORITHM_ROTATING_N_RESTART:
 		/* Same a left_asymmetric, by first stripe is
 		 * D D D P Q  rather than
@@ -210,7 +207,6 @@ static int is_ddf(int layout)
 	}
 }
 
-
 void xor_blocks(char *target, char **sources, int disks, int size)
 {
 	int i, j;
@@ -242,7 +238,6 @@ void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size)
 		q[d] = wq0;
 	}
 }
-
 
 /*
  * The following was taken from linux/drivers/md/mktables.c, and modified
@@ -436,10 +431,8 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 		if((Px != 0) && (Qx == 0))
 			curr_broken_disk = diskP;
 
-
 		if((Px == 0) && (Qx != 0))
 			curr_broken_disk = diskQ;
-
 
 		if((Px != 0) && (Qx != 0)) {
 			data_id = (raid6_gflog[Qx] - raid6_gflog[Px]);
@@ -780,7 +773,7 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 				syndrome_disks = data_disks;
 			}
 			qsyndrome((uint8_t*)stripes[disk],
-				  (uint8_t*)stripes[qdisk], 
+				  (uint8_t*)stripes[qdisk],
 				  (uint8_t**)blocks,
 				  syndrome_disks, chunk_size);
 			break;
@@ -953,7 +946,7 @@ main(int argc, char *argv[])
 			*p++ = '\0';
 			offsets[i] = atoll(p) * 512;
 		}
-			
+
 		fds[i] = open(argv[9+i], O_RDWR);
 		if (fds[i] < 0) {
 			perror(argv[9+i]);

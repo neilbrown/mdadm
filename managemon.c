@@ -343,7 +343,7 @@ static void manage_container(struct mdstat_ent *mdstat,
 			     struct supertype *container)
 {
 	/* Of interest here are:
-	 * - if a new device has been added to the container, we 
+	 * - if a new device has been added to the container, we
 	 *   add it to the array ignoring any metadata on it.
 	 * - if a device has been removed from the container, we
 	 *   remove it from the device list and update the metadata.
@@ -639,7 +639,6 @@ static void manage_new(struct mdstat_ent *mdstat,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
 			 GET_DEGRADED|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 
-
 	if (!mdi)
 		return;
 	new = xcalloc(1, sizeof(*new));
@@ -769,7 +768,7 @@ static void handle_message(struct supertype *container, struct metadata_update *
 
 	if (msg->len == 0) { /* ping_monitor */
 		int cnt;
-		
+
 		cnt = monitor_loop_cnt;
 		if (cnt & 1)
 			cnt += 2; /* wait until next pselect */

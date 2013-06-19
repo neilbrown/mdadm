@@ -91,7 +91,7 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 		free(super);
 		return 1;
 	}
- 
+
 	if (super->magic != MBR_SIGNATURE_MAGIC ||
 	    super->parts[0].part_type != MBR_GPT_PARTITION_TYPE) {
 	not_found:

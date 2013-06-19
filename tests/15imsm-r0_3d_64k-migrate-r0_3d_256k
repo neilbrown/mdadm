@@ -18,7 +18,4 @@ vol0_new_level=0
 vol0_new_num_comps=$vol0_num_comps
 vol0_new_chunk=256
 
-
 . tests/imsm-grow-template 0 1
-
-

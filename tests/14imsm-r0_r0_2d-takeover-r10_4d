@@ -28,4 +28,3 @@ vol0_new_num_comps=$((num_disks - 1))
 vol0_new_chunk=64
 
 . tests/imsm-grow-template 1 1
-

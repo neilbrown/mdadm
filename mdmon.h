@@ -26,7 +26,6 @@ enum array_state { clear, inactive, suspended, readonly, read_auto,
 
 enum sync_action { idle, reshape, resync, recover, check, repair, bad_action };
 
-
 struct active_array {
 	struct mdinfo info;
 	struct supertype *container;
@@ -73,7 +72,6 @@ extern struct active_array *discard_this;
 extern struct active_array *pending_discard;
 extern struct md_generic_cmd *active_cmd;
 
-
 void remove_pidfile(char *devname);
 void do_monitor(struct supertype *container);
 void do_manager(struct supertype *container);
@@ -97,4 +95,3 @@ static inline int is_resync_complete(struct mdinfo *array)
 		return 1;
 	return 0;
 }
-

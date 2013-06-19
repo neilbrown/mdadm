@@ -76,4 +76,3 @@ imsm_check_removal $container $dev0
 mdadm --add $container $dev4
 check wait
 imsm_check_hold $container $dev4
-

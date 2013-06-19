@@ -11,4 +11,3 @@ then
   echo "ERROR: size is wrong for $dev: $cnt * $size (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize $dev`"
   exit 1;
 fi
-

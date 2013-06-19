@@ -101,7 +101,7 @@ struct imsm_disk {
 #define CONFIGURED_DISK __cpu_to_le32(0x02)  /* Member of some RaidDev */
 #define FAILED_DISK     __cpu_to_le32(0x04)  /* Permanent failure */
 	__u32 status;			 /* 0xF0 - 0xF3 */
-	__u32 owner_cfg_num; /* which config 0,1,2... owns this disk */ 
+	__u32 owner_cfg_num; /* which config 0,1,2... owns this disk */
 	__u32 total_blocks_hi;		 /* 0xF4 - 0xF5 total blocks hi */
 #define	IMSM_DISK_FILLERS	3
 	__u32 filler[IMSM_DISK_FILLERS]; /* 0xF5 - 0x107 MPB_DISK_FILLERS for future expansion */
@@ -235,7 +235,6 @@ struct bbm_log {
 	struct bbm_log_entry mapped_block_entries[BBM_LOG_MAX_ENTRIES];
 } __attribute__ ((__packed__));
 
-
 #ifndef MDASSEMBLE
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
 #endif
@@ -248,7 +247,6 @@ static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed"
 #define MIGR_REC_POSITION 512 /* migr_record position offset on disk,
 			       * MIGR_REC_BUF_SIZE <= MIGR_REC_POSITION
 			       */
-
 
 #define UNIT_SRC_NORMAL     0   /* Source data for curr_migr_unit must
 				 *  be recovered using srcMap */
@@ -508,7 +506,6 @@ struct imsm_update_add_remove_disk {
 	enum imsm_update_type type;
 };
 
-
 static const char *_sys_dev_type[] = {
 	[SYS_DEV_UNKNOWN] = "Unknown",
 	[SYS_DEV_SAS] = "SAS",
@@ -590,7 +587,6 @@ static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
 
 	return NULL;
 }
-
 
 static int find_intel_hba_capability(int fd, struct intel_super *super,
 				     char *devname);
@@ -954,7 +950,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	}
 	qsort(rv, memberships, sizeof(*rv), cmp_extent);
 
-	/* determine the start of the metadata 
+	/* determine the start of the metadata
 	 * when no raid devices are defined use the default
 	 * ...otherwise allow the metadata to truncate the value
 	 * as is the case with older versions of imsm
@@ -1298,12 +1294,12 @@ void examine_migr_rec_imsm(struct intel_super *super)
 /*******************************************************************************
  * function: imsm_check_attributes
  * Description: Function checks if features represented by attributes flags
- * 		are supported by mdadm.
+ *		are supported by mdadm.
  * Parameters:
  *		attributes - Attributes read from metadata
  * Returns:
- * 		0 - passed attributes contains unsupported features flags
- * 		1 - all features are supported
+ *		0 - passed attributes contains unsupported features flags
+ *		1 - all features are supported
  ******************************************************************************/
 static int imsm_check_attributes(__u32 attributes)
 {
@@ -1998,7 +1994,7 @@ static void uuid_from_super_imsm(struct supertype *st, int uuid[4])
 	 *    not the device-set.
 	 *  uuid to recognise same set when adding a missing device back
 	 *    to an array.   This is a uuid for the device-set.
-	 *  
+	 *
 	 * For each of these we can make do with a truncated
 	 * or hashed uuid rather than the original, as long as
 	 * everyone agrees.
@@ -2427,7 +2423,6 @@ static int imsm_create_metadata_checkpoint_update(
 	return update_memory_size;
 }
 
-
 static void imsm_update_metadata_locally(struct supertype *st,
 					 void *buf, int len);
 
@@ -2770,7 +2765,6 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev,
 			     int look_in_map);
 
-
 #ifndef MDASSEMBLE
 static void manage_second_map(struct intel_super *super, struct imsm_dev *dev)
 {
@@ -2821,7 +2815,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 	info->array.level         = LEVEL_CONTAINER;
 	info->array.layout        = 0;
 	info->array.md_minor      = -1;
-	info->array.ctime         = 0; /* N/A for imsm */ 
+	info->array.ctime         = 0; /* N/A for imsm */
 	info->array.utime         = 0;
 	info->array.chunk_size    = 0;
 
@@ -3129,7 +3123,6 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 			return 3;
 
 	}
-
 
 	/* if 'first' is a spare promote it to a populated mpb with sec's
 	 * family number
@@ -3502,7 +3495,7 @@ struct bbm_log *__get_imsm_bbm_log(struct imsm_super *mpb)
 	if (__le32_to_cpu(mpb->bbm_log_size)) {
 		ptr = mpb;
 		ptr += mpb->mpb_size - __le32_to_cpu(mpb->bbm_log_size);
-	} 
+	}
 
 	return ptr;
 }
@@ -4202,7 +4195,6 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 	return champion;
 }
 
-
 static int
 get_sra_super_block(int fd, struct intel_super **super_list, char *devname, int *max, int keep_fd);
 static int get_super_block(struct intel_super **super_list, char *devnm, char *devname,
@@ -4210,7 +4202,6 @@ static int get_super_block(struct intel_super **super_list, char *devnm, char *d
 static int
 get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list,
 			int *max, int keep_fd);
-
 
 static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 			       char *devname, struct md_list *devlist,
@@ -4274,7 +4265,6 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 		free_imsm(s);
 	}
 
-
 	if (err)
 		return err;
 
@@ -4290,7 +4280,6 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 	return 0;
 }
-
 
 static int
 get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list,
@@ -5019,7 +5008,6 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	return 0;
 }
 
-
 static int remove_from_super_imsm(struct supertype *st, mdu_disk_info_t *dk)
 {
 	struct intel_super *super = st->sb;
@@ -5043,7 +5031,6 @@ static int remove_from_super_imsm(struct supertype *st, mdu_disk_info_t *dk)
 
 	dd->next = super->disk_mgmt_list;
 	super->disk_mgmt_list = dd;
-
 
 	return 0;
 }
@@ -5200,7 +5187,6 @@ static int write_super_imsm(struct supertype *st, int doclose)
 
 	return 0;
 }
-
 
 static int create_array(struct supertype *st, int dev_idx)
 {
@@ -5500,7 +5486,6 @@ static int is_raid_level_supported(const struct imsm_orom *orom, int level, int 
 	return 0;
 }
 
-
 static int
 active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 			int dpa, int verbose)
@@ -5623,7 +5608,6 @@ get_devices(const char *hba_path)
 				ent->d_name);
 			continue;
 		}
-
 
 		dv = xcalloc(1, sizeof(*dv));
 		dv->devname = xstrdup(buf);
@@ -5806,7 +5790,6 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 	return count;
 }
 
-
 static int
 count_volumes(char *hba, int dpa, int verbose)
 {
@@ -5899,7 +5882,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 	return 1;
 }
 
-/* validate_geometry_imsm_volume - lifted from validate_geometry_ddf_bvd 
+/* validate_geometry_imsm_volume - lifted from validate_geometry_ddf_bvd
  * FIX ME add ahci details
  */
 static int validate_geometry_imsm_volume(struct supertype *st, int level,
@@ -6563,7 +6546,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		sb_errors = 1;
 	}
 
-
 	/* count spare devices, not used in maps
 	 */
 	for (d = super->disks; d; d = d->next)
@@ -6655,7 +6637,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			if (ord & IMSM_ORD_REBUILD)
 				recovery_start = 0;
 
-			/* 
+			/*
 			 * if we skip some disks the array will be assmebled degraded;
 			 * reset resync start to avoid a dirty-degraded
 			 * situation when performing the intial sync
@@ -6709,7 +6691,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	return rest;
 }
 
-
 static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 				int failed, int look_in_map)
 {
@@ -6718,7 +6699,7 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 	map = get_imsm_map(dev, look_in_map);
 
 	if (!failed)
-		return map->map_state == IMSM_T_STATE_UNINITIALIZED ? 
+		return map->map_state == IMSM_T_STATE_UNINITIALIZED ?
 			IMSM_T_STATE_UNINITIALIZED : IMSM_T_STATE_NORMAL;
 
 	switch (get_imsm_raid_level(map)) {
@@ -6748,7 +6729,7 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 			struct imsm_disk *disk;
 
 			/* reset the potential in-sync count on even-numbered
-			 * slots.  num_copies is always 2 for imsm raid10 
+			 * slots.  num_copies is always 2 for imsm raid10
 			 */
 			if ((i & 1) == 0)
 				insync = 2;
@@ -7525,7 +7506,6 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 	return dl;
 }
 
-
 static int imsm_rebuild_allowed(struct supertype *cont, int dev_idx, int failed)
 {
 	struct imsm_dev *dev2;
@@ -7669,7 +7649,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			dl = imsm_add_spare(super, i, a, 1, rv);
 		if (!dl)
 			continue;
- 
+
 		/* found a usable disk with enough space */
 		di = xcalloc(1, sizeof(*di));
 
@@ -7710,7 +7690,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	 * disk_ord_tbl for the array
 	 */
 	mu = xmalloc(sizeof(*mu));
-	mu->buf = xcalloc(num_spares, 
+	mu->buf = xcalloc(num_spares,
 			  sizeof(struct imsm_update_activate_spare));
 	mu->space = NULL;
 	mu->space_list = NULL;
@@ -7752,7 +7732,6 @@ static int disks_overlap(struct intel_super *super, int idx, struct imsm_update_
 
 	return 0;
 }
-
 
 static struct dl *get_disk_super(struct intel_super *super, int major, int minor)
 {
@@ -7830,7 +7809,6 @@ static int add_remove_disk_update(struct intel_super *super)
 	}
 	return check_degraded;
 }
-
 
 static int apply_reshape_migration_update(struct imsm_update_reshape_migration *u,
 						struct intel_super *super,
@@ -7990,7 +7968,6 @@ static int apply_size_change_update(struct imsm_update_size_change *u,
 
 	return ret_val;
 }
-
 
 static int apply_update_activate_spare(struct imsm_update_activate_spare *u,
 				       struct intel_super *super,
@@ -8327,9 +8304,9 @@ static void imsm_process_update(struct supertype *st,
 	 *      the arrays for general migration and convert selected spares
 	 *      into active devices.
 	 *    update_activate_spare - a spare device has replaced a failed
-	 * 	device in an array, update the disk_ord_tbl.  If this disk is
-	 * 	present in all member arrays then also clear the SPARE_DISK
-	 * 	flag
+	 *      device in an array, update the disk_ord_tbl.  If this disk is
+	 *      present in all member arrays then also clear the SPARE_DISK
+	 *      flag
 	 *    update_create_array
 	 *    update_kill_array
 	 *    update_rename_array
@@ -8406,7 +8383,7 @@ static void imsm_process_update(struct supertype *st,
 		break;
 	}
 	case update_activate_spare: {
-		struct imsm_update_activate_spare *u = (void *) update->buf; 
+		struct imsm_update_activate_spare *u = (void *) update->buf;
 		if (apply_update_activate_spare(u, super, st->arrays))
 			super->updates_pending++;
 		break;
@@ -8955,7 +8932,6 @@ static int imsm_get_allowed_degradation(int level, int raid_disks,
 	}
 }
 
-
 /*******************************************************************************
  * Function:	open_backup_targets
  * Description:	Function opens file descriptors for all devices given in
@@ -9066,7 +9042,6 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 
 	migr_rec->post_migr_vol_cap =  dev->size_low;
 	migr_rec->post_migr_vol_cap_hi = dev->size_high;
-
 
 	/* Find the smallest dev */
 	for (sd = info->devs ; sd ; sd = sd->next) {
@@ -9377,7 +9352,7 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 			drv = "isci";
 		else if (hba && hba->type == SYS_DEV_SATA)
 			drv = "ahci";
-		else 
+		else
 			drv = "unknown";
 		dprintf("path: %s hba: %s attached: %s\n",
 			path, (hba) ? hba->path : "NULL", drv);
@@ -9515,10 +9490,10 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 
 /* Function: get_spares_for_grow
  * Description: Allocates memory and creates list of spare devices
- * 		avaliable in container. Checks if spare drive size is acceptable.
+ *		avaliable in container. Checks if spare drive size is acceptable.
  * Parameters: Pointer to the supertype structure
  * Returns: Pointer to the list of spare devices (mdinfo structure) on success,
- * 		NULL if fail
+ *		NULL if fail
  */
 static struct mdinfo *get_spares_for_grow(struct supertype *st)
 {
@@ -9610,7 +9585,6 @@ abort:
 
 	return 0;
 }
-
 
 /******************************************************************************
  * function: imsm_create_metadata_update_for_size_change()
@@ -9736,7 +9710,7 @@ static void imsm_update_metadata_locally(struct supertype *st,
 /***************************************************************************
 * Function:	imsm_analyze_change
 * Description:	Function analyze change for single volume
-* 		and validate if transition is supported
+*		and validate if transition is supported
 * Parameters:	Geometry parameters, supertype structure,
 *		metadata change direction (apply/rollback)
 * Returns:	Operation type code on success, -1 if fail
@@ -10069,7 +10043,7 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 		dprintf("imsm: info: Volume operation\n");
 		/* find requested device */
 		while (dev) {
-			char *devnm = 
+			char *devnm =
 				imsm_find_array_devnm_by_subdev(
 					dev->index, st->container_devnm);
 			if (devnm && strcmp(devnm, geo.devnm) == 0)
@@ -10535,7 +10509,6 @@ struct superswitch super_imsm = {
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
-
 
 	.external	= 1,
 	.name = "imsm",

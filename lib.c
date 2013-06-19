@@ -112,8 +112,6 @@ char *fd2devnm(int fd)
 	return NULL;
 }
 
-
-
 /*
  * convert a major/minor pair for a block device into a name in /dev, if possible.
  * On the first call, walk /dev collecting name.
@@ -232,8 +230,6 @@ char *map_dev_preferred(int major, int minor, int create,
 
 	return preferred ? preferred : regular;
 }
-
-
 
 /* conf_word gets one word from the conf file.
  * if "allow_key", then accept words at the start of a line,

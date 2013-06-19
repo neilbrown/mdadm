@@ -411,7 +411,6 @@ static void examine_super1(struct supertype *st, char *homehost)
 		printf("\n");
 	}
 
-
 	if (calc_sb_1_csum(sb) == sb->sb_csum)
 		printf("       Checksum : %x - correct\n", __le32_to_cpu(sb->sb_csum));
 	else
@@ -506,7 +505,6 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf(" ('A' == active, '.' == missing, 'R' == replacing)");
 	printf("\n");
 }
-
 
 static void brief_examine_super1(struct supertype *st, int verbose)
 {
@@ -998,7 +996,6 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		info->disk.state |=  1 << MD_DISK_REPLACEMENT;
 	}
 
-
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_RECOVERY_OFFSET))
 		info->recovery_start = __le32_to_cpu(sb->recovery_offset);
 	else
@@ -1470,8 +1467,6 @@ static int store_super1(struct supertype *st, int fd)
 		return -EINVAL;
 	}
 
-
-
 	if (sb_offset != __le64_to_cpu(sb->super_offset) &&
 	    0 != __le64_to_cpu(sb->super_offset)
 		) {
@@ -1559,7 +1554,7 @@ static int write_init_super1(struct supertype *st)
 		sb->events = 0;
 
 		refst = dup_super(st);
- 		if (load_super1(refst, di->fd, NULL)==0) {
+		if (load_super1(refst, di->fd, NULL)==0) {
 			struct mdp_superblock_1 *refsb = refst->sb;
 
 			memcpy(sb->device_uuid, refsb->device_uuid, 16);
@@ -1588,7 +1583,6 @@ static int write_init_super1(struct supertype *st)
 			rv = 2;
 			goto error_out;
 		}
-
 
 		/*
 		 * Calculate the position of the superblock.
@@ -1923,7 +1917,6 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 	return 0;
 }
 
-
 static struct supertype *match_metadata_desc1(char *arg)
 {
 	struct supertype *st = xcalloc(1, sizeof(*st));
@@ -1992,7 +1985,6 @@ static __u64 _avail_size1(struct supertype *st, __u64 devsize,
 		devsize -= __le16_to_cpu(super->bblog_size);
 	else
 		devsize -= 8;
-
 
 	if (st->minor_version < 0)
 		/* not specified, so time to set default */
@@ -2068,7 +2060,6 @@ add_internal_bitmap1(struct supertype *st,
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int uuid[4];
-
 
 	if (__le64_to_cpu(sb->data_size) == 0)
 		/* Must be creating the array, else data_size would be non-zero */

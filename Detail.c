@@ -27,6 +27,11 @@
 #include	"md_u.h"
 #include	<dirent.h>
 
+static int cmpstringp(const void *p1, const void *p2)
+{
+	return strcmp(* (char * const *) p1, * (char * const *) p2);
+}
+
 int Detail(char *dev, struct context *c)
 {
 	/*
@@ -42,7 +47,8 @@ int Detail(char *dev, struct context *c)
 	int d;
 	time_t atime;
 	char *str;
-	char *devices = NULL;
+	char **devices = NULL;
+	int max_devices = 0, n_devices = 0;
 	int spares = 0;
 	struct stat stb;
 	int is_26 = get_linux_version() >= 2006000;
@@ -655,12 +661,15 @@ This is pretty boring
 		dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer);
 		if (dv != NULL) {
 			if (c->brief) {
-				if (devices) {
-					devices = xrealloc(devices,
-							  strlen(devices)+1+strlen(dv)+1);
-					strcat(strcat(devices,","),dv);
-				} else
-					devices = xstrdup(dv);
+				if (n_devices + 1 >= max_devices) {
+					max_devices += 16;
+					devices = xrealloc(devices, max_devices
+							   *sizeof(*devices));
+					if (!devices)
+						goto out;
+				};
+				devices[n_devices] = xstrdup(dv);
+				n_devices++;
 			} else
 				printf("   %s", dv);
 		}
@@ -672,7 +681,12 @@ This is pretty boring
 	if (st)
 		st->ss->free_super(st);
 
-	if (c->brief && c->verbose > 0 && devices) printf("\n   devices=%s", devices);
+	if (c->brief && c->verbose > 0 && devices) {
+		qsort(devices, n_devices, sizeof(*devices), cmpstringp);
+		printf("\n   devices=%s", devices[0]);
+		for (d = 1; d < n_devices; d++)
+			printf(",%s", devices[d]);
+	}
 	if (c->brief)
 		printf("\n");
 	if (c->test &&
@@ -685,6 +699,9 @@ out:
 	close(fd);
 	free(subarray);
 	free(avail);
+	for (d = 0; d < n_devices; d++)
+		free(devices[d]);
+	free(devices);
 	sysfs_free(sra);
 	return rv;
 }

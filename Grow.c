@@ -1205,11 +1205,15 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			delta_parity = 1;
 			re->level = 5;
 			re->before.layout = ALGORITHM_PARITY_N;
+			if (info->new_layout == UnSet)
+				info->new_layout = map_name(r5layout, "default");
 			break;
 		case 6:
 			delta_parity = 2;
 			re->level = 6;
 			re->before.layout = ALGORITHM_PARITY_N;
+			if (info->new_layout == UnSet)
+				info->new_layout = map_name(r6layout, "default");
 			break;
 		default:
 			return "Impossible level change requested";

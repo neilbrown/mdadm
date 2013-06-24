@@ -2353,10 +2353,21 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 									sd->data_offset - min);
 			}
 		}
-		if (sysfs_set_num(sra, sd, "new_offset",
-				  new_data_offset) < 0) {
-			err = errno;
-			err = -1;
+		err = sysfs_set_num(sra, sd, "new_offset", new_data_offset);
+		if (err < 0 && errno == E2BIG) {
+			/* try again after increasing data size to max */
+			err = sysfs_set_num(sra, sd, "size", 0);
+			if (err < 0 && errno == EINVAL &&
+			    !(sd->disk.state & (1<<MD_DISK_SYNC))) {
+				/* some kernels have a bug where you cannot
+				 * use '0' on spare devices. */
+				sysfs_set_num(sra, sd, "size",
+					      (sra->component_size + after)/2);
+			}
+			err = sysfs_set_num(sra, sd, "new_offset",
+					    new_data_offset);
+		}
+		if (err < 0) {
 			if (errno == E2BIG && data_offset != INVALID_SECTORS) {
 				pr_err("data-offset is too big for %s\n",
 				       dn);

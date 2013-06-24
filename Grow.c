@@ -2146,6 +2146,47 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 	return ret_val;
 }
 
+static unsigned long long choose_offset(unsigned long long lo,
+					unsigned long long hi,
+					unsigned long long min,
+					unsigned long long max)
+{
+	/* Choose a new offset between hi and lo.
+	 * It must be between min and max, but
+	 * we would prefer something near the middle of hi/lo, and also
+	 * prefer to be aligned to a big power of 2.
+	 *
+	 * So we start with the middle, then for each bit,
+	 * starting at '1' and increasing, if it is set, we either
+	 * add it or subtract it if possible, preferring the option
+	 * which is furthest from the boundary.
+	 *
+	 * We stop once we get a 1MB alignment. As units are in sectors,
+	 * 1MB = 2*1024 sectors.
+	 */
+	unsigned long long choice = (lo + hi) / 2;
+	unsigned long long bit = 1;
+
+	for (bit = 1; bit < 2*1024; bit = bit << 1) {
+		unsigned long long bigger, smaller;
+		if (! (bit & choice))
+			continue;
+		bigger = choice + bit;
+		smaller = choice - bit;
+		if (bigger > max && smaller < min)
+			break;
+		if (bigger > max)
+			choice = smaller;
+		else if (smaller < min)
+			choice = bigger;
+		else if (hi - bigger > smaller - lo)
+			choice = bigger;
+		else
+			choice = smaller;
+	}
+	return choice;
+}
+
 static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			       char *devname, int delta_disks,
 			       unsigned long long data_offset,
@@ -2285,14 +2326,11 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				}
 				if (data_offset != INVALID_SECTORS)
 					new_data_offset = data_offset;
-				else {
-					unsigned long long off = after / 2;
-					off &= ~7ULL;
-					if (off < min)
-						off = min;
-					new_data_offset =
-						sd->data_offset + off;
-				}
+				else
+					new_data_offset = choose_offset(sd->data_offset,
+									sd->data_offset + after,
+									sd->data_offset + min,
+									sd->data_offset + after);
 			} else {
 				/* Decrease data offset */
 				if (before < min) {
@@ -2308,14 +2346,11 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				}
 				if (data_offset != INVALID_SECTORS)
 					new_data_offset = data_offset;
-				else {
-					unsigned long long off = before / 2;
-					off &= ~7ULL;
-					if (off < min)
-						off = min;
-					new_data_offset =
-						sd->data_offset - off;
-				}
+				else
+					new_data_offset = choose_offset(sd->data_offset - before,
+									sd->data_offset,
+									sd->data_offset - before,
+									sd->data_offset - min);
 			}
 		}
 		if (sysfs_set_num(sra, sd, "new_offset",

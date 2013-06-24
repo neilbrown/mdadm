@@ -827,6 +827,7 @@ int main(int argc, char *argv[])
 		case O(MISC, ConfigFile):
 		case O(MONITOR,'c'):
 		case O(MONITOR,ConfigFile):
+		case O(CREATE,ConfigFile):
 			if (configfile) {
 				pr_err("configfile cannot be set twice.  "
 					"Second value is %s.\n", optarg);

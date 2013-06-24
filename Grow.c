@@ -1412,6 +1412,7 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 	/* So we have a restripe operation, we need to calculate the number
 	 * of blocks per reshape operation.
 	 */
+	re->new_size = info->component_size * re->before.data_disks;
 	if (info->new_chunk == 0)
 		info->new_chunk = info->array.chunk_size;
 	if (re->after.data_disks == re->before.data_disks &&

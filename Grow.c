@@ -2783,6 +2783,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		if (verbose >= 0)
 			pr_err("level of %s changed to %s\n",
 				devname, c);
+		info->new_layout = UnSet; // after level change, layout is meaningless
 		orig_level = array.level;
 		sysfs_freeze_array(info);
 

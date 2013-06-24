@@ -138,6 +138,10 @@ check() {
       grep -s "active $1 " /proc/mdstat > /dev/null || {
 		echo >&2 "ERROR active $1 not found" ; cat /proc/mdstat ; exit 1;}
      ;;
+    algorithm )
+      grep -s " algorithm $2 " /proc/mdstat > /dev/null || {
+	  echo >&2 "ERROR algorithm $2 not found"; cat /proc/mdstat; exit 1;}
+     ;;
     resync | recovery | reshape)
       sleep 0.5
       grep -s $1 /proc/mdstat > /dev/null || {

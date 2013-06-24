@@ -911,7 +911,10 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		role = __le16_to_cpu(sb->dev_roles[__le32_to_cpu(sb->dev_number)]);
 
 	super_offset = __le64_to_cpu(sb->super_offset);
-	data_size = __le64_to_cpu(sb->size);
+	if (info->array.level <= 0)
+		data_size = __le64_to_cpu(sb->data_size);
+	else
+		data_size = __le64_to_cpu(sb->size);
 	if (info->data_offset < super_offset) {
 		unsigned long long end;
 		info->space_before = info->data_offset;

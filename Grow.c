@@ -2769,6 +2769,45 @@ static int reshape_array(char *container, int fd, char *devname,
 		if (c == NULL)
 			goto release;
 
+		if (reshape.level == 0 &&
+		    (array.level >= 4 && array.level <= 6)) {
+			/* To convert to RAID0 we need to fail and
+			 * remove any non-data devices. */
+			int found = 0;
+			if (array.level == 5 &&
+			    array.layout != ALGORITHM_PARITY_N)
+				goto release;
+			if (array.level == 6 &&
+			    array.layout != ALGORITHM_PARITY_N_6)
+				goto release;
+			sysfs_set_str(info, NULL,"sync_action", "idle");
+			for (d = 0;
+			     d < MAX_DISKS && found < array.nr_disks;
+			     d++) {
+				int cnt;
+				mdu_disk_info_t disk;
+				disk.number = d;
+				if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+					continue;
+				if (disk.major == 0 && disk.minor == 0)
+					continue;
+				found++;
+				if ((disk.state & (1 << MD_DISK_ACTIVE))
+				    && disk.raid_disk < reshape.after.data_disks)
+					/* keep this */
+					continue;
+				ioctl(fd, SET_DISK_FAULTY,
+				      makedev(disk.major, disk.minor));
+				cnt = 5;
+				while (ioctl(fd, HOT_REMOVE_DISK,
+					  makedev(disk.major, disk.minor)) < 0
+				       && errno == EBUSY
+				       && cnt--) {
+					usleep(10000);
+				}
+			}
+		}
+
 		err = sysfs_set_str(info, NULL, "level", c);
 		if (err) {
 			err = errno;

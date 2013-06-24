@@ -2630,6 +2630,96 @@ release:
 	return -1;
 }
 
+static int impose_level(int fd, int level, char *devname, int verbose)
+{
+	char *c;
+	struct mdu_array_info_s array;
+	struct mdinfo info;
+	sysfs_init(&info, fd, NULL);
+
+	ioctl(fd, GET_ARRAY_INFO, &array);
+	if (level == 0 &&
+	    (array.level >= 4 && array.level <= 6)) {
+		/* To convert to RAID0 we need to fail and
+		 * remove any non-data devices. */
+		int found = 0;
+		int d;
+		int data_disks = array.raid_disks - 1;
+		if (array.level == 6)
+			data_disks -= 1;
+		if (array.level == 5 &&
+		    array.layout != ALGORITHM_PARITY_N)
+			return -1;
+		if (array.level == 6 &&
+		    array.layout != ALGORITHM_PARITY_N_6)
+			return -1;
+		sysfs_set_str(&info, NULL,"sync_action", "idle");
+		/* First remove any spares so no recovery starts */
+		for (d = 0, found = 0;
+		     d < MAX_DISKS && found < array.nr_disks;
+		     d++) {
+				mdu_disk_info_t disk;
+			disk.number = d;
+			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+				continue;
+			if (disk.major == 0 && disk.minor == 0)
+				continue;
+			found++;
+			if ((disk.state & (1 << MD_DISK_ACTIVE))
+			    && disk.raid_disk < data_disks)
+				/* keep this */
+				continue;
+			ioctl(fd, HOT_REMOVE_DISK,
+			      makedev(disk.major, disk.minor));
+		}
+		/* Now fail anything left */
+		ioctl(fd, GET_ARRAY_INFO, &array);
+		for (d = 0, found = 0;
+		     d < MAX_DISKS && found < array.nr_disks;
+		     d++) {
+			int cnt;
+			mdu_disk_info_t disk;
+			disk.number = d;
+			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+				continue;
+			if (disk.major == 0 && disk.minor == 0)
+				continue;
+			found++;
+			if ((disk.state & (1 << MD_DISK_ACTIVE))
+			    && disk.raid_disk < data_disks)
+				/* keep this */
+				continue;
+			ioctl(fd, SET_DISK_FAULTY,
+			      makedev(disk.major, disk.minor));
+			cnt = 5;
+			while (ioctl(fd, HOT_REMOVE_DISK,
+				     makedev(disk.major, disk.minor)) < 0
+			       && errno == EBUSY
+			       && cnt--) {
+				usleep(10000);
+			}
+		}
+	}
+	c = map_num(pers, level);
+	if (c) {
+		int err = sysfs_set_str(&info, NULL, "level", c);
+		if (err) {
+			err = errno;
+			pr_err("%s: could not set level to %s\n",
+				devname, c);
+			if (err == EBUSY &&
+			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
+				cont_err("Bitmap must be removed"
+					 " before level can be changed\n");
+			return err;
+		}
+		if (verbose >= 0)
+			pr_err("level of %s changed to %s\n",
+				devname, c);
+	}
+	return 0;
+}
+
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
@@ -2764,65 +2854,11 @@ static int reshape_array(char *container, int fd, char *devname,
 	}
 
 	if (reshape.level != array.level) {
-		char *c = map_num(pers, reshape.level);
-		int err;
-		if (c == NULL)
+		int err = impose_level(fd, reshape.level, devname, verbose);
+		if (err)
 			goto release;
-
-		if (reshape.level == 0 &&
-		    (array.level >= 4 && array.level <= 6)) {
-			/* To convert to RAID0 we need to fail and
-			 * remove any non-data devices. */
-			int found = 0;
-			if (array.level == 5 &&
-			    array.layout != ALGORITHM_PARITY_N)
-				goto release;
-			if (array.level == 6 &&
-			    array.layout != ALGORITHM_PARITY_N_6)
-				goto release;
-			sysfs_set_str(info, NULL,"sync_action", "idle");
-			for (d = 0;
-			     d < MAX_DISKS && found < array.nr_disks;
-			     d++) {
-				int cnt;
-				mdu_disk_info_t disk;
-				disk.number = d;
-				if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
-					continue;
-				if (disk.major == 0 && disk.minor == 0)
-					continue;
-				found++;
-				if ((disk.state & (1 << MD_DISK_ACTIVE))
-				    && disk.raid_disk < reshape.after.data_disks)
-					/* keep this */
-					continue;
-				ioctl(fd, SET_DISK_FAULTY,
-				      makedev(disk.major, disk.minor));
-				cnt = 5;
-				while (ioctl(fd, HOT_REMOVE_DISK,
-					  makedev(disk.major, disk.minor)) < 0
-				       && errno == EBUSY
-				       && cnt--) {
-					usleep(10000);
-				}
-			}
-		}
-
-		err = sysfs_set_str(info, NULL, "level", c);
-		if (err) {
-			err = errno;
-			pr_err("%s: could not set level to %s\n",
-				devname, c);
-			if (err == EBUSY &&
-			    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				cont_err("Bitmap must be removed"
-					 " before level can be changed\n");
-			goto release;
-		}
-		if (verbose >= 0)
-			pr_err("level of %s changed to %s\n",
-				devname, c);
-		info->new_layout = UnSet; // after level change, layout is meaningless
+		info->new_layout = UnSet; /* after level change,
+					   * layout is meaningless */
 		orig_level = array.level;
 		sysfs_freeze_array(info);
 
@@ -3020,6 +3056,20 @@ static int reshape_array(char *container, int fd, char *devname,
 			pr_err("Failed to initiate reshape!\n");
 			goto release;
 		}
+		if (info->new_level == reshape.level)
+			return 0;
+		/* need to adjust level when reshape completes */
+		switch(fork()) {
+		case -1: /* ignore error, but don't wait */
+			return 0;
+		default: /* parent */
+			return 0;
+		case 0:
+			map_fork();
+			break;
+		}
+		wait_reshape(sra);
+		impose_level(fd, info->new_level, devname, verbose);
 
 		return 0;
 	case 1: /* Couldn't set data_offset, try the old way */
@@ -3246,14 +3296,10 @@ started:
 		set_array_size(st, info, info->text_version);
 
 	if (info->new_level != reshape.level) {
-
-		c = map_num(pers, info->new_level);
-		if (c) {
-			err = sysfs_set_str(sra, NULL, "level", c);
-			if (err)
-				pr_err("%s: could not set level "
-				       "to %s\n", devname, c);
-		}
+		if (fd < 0)
+			fd = open(devname, O_RDONLY);
+		impose_level(fd, info->new_level, devname, verbose);
+		close(fd);
 		if (info->new_level == 0)
 			st->update_tail = NULL;
 	}

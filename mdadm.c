@@ -1490,7 +1490,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		if (devs_found > 1 && s.raiddisks == 0) {
+		if (devs_found > 1 && s.raiddisks == 0 && s.level == UnSet) {
 			/* must be '-a'. */
 			if (s.size > 0 || s.chunk || s.layout_str != NULL || s.bitmap_file) {
 				pr_err("--add cannot be used with "

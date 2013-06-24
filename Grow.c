@@ -2267,6 +2267,8 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		char *dn = map_dev(sd->disk.major, sd->disk.minor, 0);
 		unsigned long long new_data_offset;
 
+		if (sd->disk.state & (1<<MD_DISK_FAULTY))
+			continue;
 		if (delta_disks < 0) {
 			/* Don't need any space as array is shrinking
 			 * just move data_offset up by min
@@ -2308,9 +2310,9 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 					dir = -1;
 				else
 					dir = 1;
-				sysfs_set_str(sra, NULL, "reshape_direction",
-					      dir == 1 ? "backwards" : "forwards");
 			}
+			sysfs_set_str(sra, NULL, "reshape_direction",
+				      dir == 1 ? "backwards" : "forwards");
 			if (dir > 0) {
 				/* Increase data offset */
 				if (after < min) {

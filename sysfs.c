@@ -838,7 +838,7 @@ int sysfs_freeze_array(struct mdinfo *sra)
 	if (strcmp(buf, "frozen\n") == 0)
 		/* Already frozen */
 		return 0;
-	if (strcmp(buf, "idle\n") != 0)
+	if (strcmp(buf, "idle\n") != 0 && strcmp(buf, "recover\n") != 0)
 		return -1;
 	if (sysfs_set_str(sra, NULL, "sync_action", "frozen") < 0)
 		return 0;

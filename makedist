@@ -14,8 +14,8 @@ then :
 else echo $target is not a directory
      exit 2
 fi
-set `grep '^char Version' ReadMe.c `
-version=`echo $7 | sed 's/v//'`
+set `grep '^#define VERSION' ReadMe.c `
+version=`echo $7 | sed -e 's/"//g'`
 grep "^.TH MDADM 8 .. v$version" mdadm.8.in > /dev/null 2>&1 ||
  {
    echo mdadm.8.in does not mention version $version.

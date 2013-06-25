@@ -962,6 +962,7 @@ int open_dev_excl(char *devnm)
 	int i;
 	int flags = O_RDWR;
 	int devid = devnm2devid(devnm);
+	long delay = 1000;
 
 	sprintf(buf, "%d:%d", major(devid), minor(devid));
 	for (i = 0 ; i < 25 ; i++) {
@@ -974,7 +975,9 @@ int open_dev_excl(char *devnm)
 		}
 		if (errno != EBUSY)
 			return fd;
-		usleep(200000);
+		usleep(delay);
+		if (delay < 200000)
+			delay *= 2;
 	}
 	return -1;
 }
@@ -997,6 +1000,7 @@ void wait_for(char *dev, int fd)
 {
 	int i;
 	struct stat stb_want;
+	long delay = 1000;
 
 	if (fstat(fd, &stb_want) != 0 ||
 	    (stb_want.st_mode & S_IFMT) != S_IFBLK)
@@ -1008,7 +1012,9 @@ void wait_for(char *dev, int fd)
 		    (stb.st_mode & S_IFMT) == S_IFBLK &&
 		    (stb.st_rdev == stb_want.st_rdev))
 			return;
-		usleep(200000);
+		usleep(delay);
+		if (delay < 200000)
+			delay *= 2;
 	}
 	if (i == 25)
 		dprintf("%s: timeout waiting for %s\n", __func__, dev);

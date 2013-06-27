@@ -654,7 +654,16 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			       devname);
 		else {
 			int tmp;
+			int parity = sb->level == 6 ? 2 : 1;
 			rv = 0;
+
+			if (sb->reshape_position % (
+				    sb->new_chunk/512 *
+				    (sb->raid_disks - sb->delta_disks - parity))) {
+				pr_err("Reshape position is not suitably aligned.\n");
+				pr_err("Try normal assembly as stop again\n");
+				return -2;
+			}
 			sb->raid_disks -= sb->delta_disks;
 			sb->delta_disks = -sb->delta_disks;
 

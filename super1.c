@@ -57,7 +57,7 @@ struct mdp_superblock_1 {
 	__u64	reshape_position;	/* next address in array-space for reshape */
 	__u32	delta_disks;	/* change in number of raid_disks		*/
 	__u32	new_layout;	/* new layout					*/
-	__u32	new_chunk;	/* new chunk size (bytes)			*/
+	__u32	new_chunk;	/* new chunk size (sectors)			*/
 	__u32	new_offset;	/* signed number to add to data_offset in new
 				 * layout.  0 == no-change.  This can be
 				 * different on each device in the array.
@@ -1259,9 +1259,33 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			pr_err("No active reshape to revert on %s\n",
 			       devname);
 		else {
-			rv = 0;
 			__u32 temp;
-			sb->raid_disks = __cpu_to_le32(__le32_to_cpu(sb->raid_disks) +
+			unsigned long long reshape_sectors;
+			long reshape_chunk;
+			rv = 0;
+			/* reshape_position is a little messy.
+			 * Its value must be a multiple of the larger
+			 * chunk size, and of the "after" data disks.
+			 * So when reverting we need to change it to
+			 * be a multiple of the new "after" data disks,
+			 * which is the old "before".
+			 * If it isn't already a multiple of 'before',
+			 * the only thing we could do would be
+			 * copy some block around on the disks, which
+			 * is easy to get wrong.
+			 * So we reject a revert-reshape unless the
+			 * alignment is good.
+			 */
+			reshape_sectors = __le64_to_cpu(sb->reshape_position);
+			reshape_chunk = __le32_to_cpu(sb->new_chunk);
+			reshape_chunk *= __le32_to_cpu(sb->raid_disks) - __le32_to_cpu(sb->delta_disks) -
+				(__le32_to_cpu(sb->level)==6 ? 2 : 1);
+			if (reshape_sectors % reshape_chunk) {
+				pr_err("Reshape position is not suitably aligned.\n");
+				pr_err("Try normal assembly as stop again\n");
+				return -2;
+			}
+			sb->raid_disks = __cpu_to_le32(__le32_to_cpu(sb->raid_disks) -
 						       __le32_to_cpu(sb->delta_disks));
 			if (sb->delta_disks == 0)
 				sb->feature_map ^= __cpu_to_le32(MD_FEATURE_RESHAPE_BACKWARDS);

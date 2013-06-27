@@ -32,6 +32,22 @@ static int cmpstringp(const void *p1, const void *p2)
 	return strcmp(* (char * const *) p1, * (char * const *) p2);
 }
 
+static int add_device(const char *dev, char ***p_devices,
+		      int *p_max_devices, int n_devices)
+{
+	if (n_devices + 1 >= *p_max_devices) {
+		*p_max_devices += 16;
+		*p_devices = xrealloc(*p_devices, *p_max_devices *
+				      sizeof(**p_devices));
+		if (!*p_devices) {
+			*p_max_devices = 0;
+			return 0;
+		}
+	};
+	(*p_devices)[n_devices] = xstrdup(dev);
+	return n_devices + 1;
+}
+
 int Detail(char *dev, struct context *c)
 {
 	/*
@@ -660,17 +676,11 @@ This is pretty boring
 			rv |= 1;
 		dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer);
 		if (dv != NULL) {
-			if (c->brief) {
-				if (n_devices + 1 >= max_devices) {
-					max_devices += 16;
-					devices = xrealloc(devices, max_devices
-							   *sizeof(*devices));
-					if (!devices)
-						goto out;
-				};
-				devices[n_devices] = xstrdup(dv);
-				n_devices++;
-			} else
+			if (c->brief)
+				n_devices = add_device(dv, &devices,
+						       &max_devices,
+						       n_devices);
+			else
 				printf("   %s", dv);
 		}
 		if (!c->brief) printf("\n");

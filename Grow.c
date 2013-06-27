@@ -963,7 +963,7 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	return blocks;
 }
 
-char *analyse_change(struct mdinfo *info, struct reshape *re)
+char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 {
 	/* Based on the current array state in info->array and
 	 * the changes in info->new_* etc, determine:
@@ -1004,9 +1004,16 @@ char *analyse_change(struct mdinfo *info, struct reshape *re)
 			/* chunk size is meaningful, must divide component_size
 			 * evenly
 			 */
-			if (info->component_size % (info->new_chunk/512))
-				return "New chunk size does not"
-					" divide component size";
+			if (info->component_size % (info->new_chunk/512)) {
+				unsigned long long shrink = info->component_size;
+				shrink &= ~(unsigned long long)(info->new_chunk/512-1);
+				pr_err("New chunk size (%dK) does not evenly divide device size (%lluk)\n",
+				       info->new_chunk/1024, info->component_size/2);
+				pr_err("After shrinking any filesystem, \"mdadm --grow %s --size %llu\"\n",
+				       devname, shrink/2);
+				pr_err("will shrink the array so the given chunk size would work.\n");
+				return "";
+			}
 			break;
 		default:
 			return "chunk size not meaningful for this level";
@@ -2775,7 +2782,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		info->new_level = UnSet;
 		if (info->delta_disks > 0)
 			info->array.raid_disks -= info->delta_disks;
-		msg = analyse_change(info, &reshape);
+		msg = analyse_change(devname, info, &reshape);
 		info->new_level = new_level;
 		if (info->delta_disks > 0)
 			info->array.raid_disks += info->delta_disks;
@@ -2783,9 +2790,11 @@ static int reshape_array(char *container, int fd, char *devname,
 			/* Make sure the array isn't read-only */
 			ioctl(fd, RESTART_ARRAY_RW, 0);
 	} else
-		msg = analyse_change(info, &reshape);
+		msg = analyse_change(devname, info, &reshape);
 	if (msg) {
-		pr_err("%s\n", msg);
+		/* if msg == "", error has already been printed */
+		if (msg[0])
+			pr_err("%s\n", msg);
 		goto release;
 	}
 	if (restart &&

@@ -2835,6 +2835,16 @@ static int reshape_array(char *container, int fd, char *devname,
 			return 0;
 		if (restart & RESHAPE_NO_BACKUP)
 			return 0;
+
+		/* Need 'sra' down at 'started:' */
+		sra = sysfs_read(fd, NULL,
+				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
+				 GET_CACHE);
+		if (!sra) {
+			pr_err("%s: Cannot get array details from sysfs\n",
+			       devname);
+			goto release;
+		}
 		goto started;
 	}
 	/* The container is frozen but the array may not be.

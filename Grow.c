@@ -2202,7 +2202,8 @@ static unsigned long long choose_offset(unsigned long long lo,
 static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			       char *devname, int delta_disks,
 			       unsigned long long data_offset,
-			       unsigned long long min)
+			       unsigned long long min,
+			       int can_fallback)
 {
 	struct mdinfo *sd;
 	int dir = 0;
@@ -2298,6 +2299,8 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		} else if (delta_disks > 0) {
 			/* need space before */
 			if (before < min) {
+				if (can_fallback)
+					goto fallback;
 				pr_err("Insufficient head-space for reshape on %s\n",
 					dn);
 				goto release;
@@ -2328,6 +2331,8 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			if (dir > 0) {
 				/* Increase data offset */
 				if (after < min) {
+					if (can_fallback)
+						goto fallback;
 					pr_err("Insufficient tail-space for reshape on %s\n",
 						dn);
 					goto release;
@@ -2348,6 +2353,8 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 			} else {
 				/* Decrease data offset */
 				if (before < min) {
+					if (can_fallback)
+						goto fallback;
 					pr_err("insufficient head-room on %s\n",
 						dn);
 					goto release;
@@ -2402,6 +2409,9 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 	return err;
 release:
 	return -1;
+fallback:
+	/* Just use a backup file */
+	return 1;
 }
 
 static int raid10_reshape(char *container, int fd, char *devname,
@@ -2458,7 +2468,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 		}
 	}
 	err = set_new_data_offset(sra, st, devname, info->delta_disks, data_offset,
-				  min);
+				  min, 0);
 	if (err == 1) {
 		pr_err("Cannot set new_data_offset: RAID10 reshape not\n");
 		cont_err("supported on this kernel\n");
@@ -3048,7 +3058,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		switch(set_new_data_offset(sra, st, devname,
 					   reshape.after.data_disks - reshape.before.data_disks,
 					   data_offset,
-					   reshape.min_offset_change)) {
+					   reshape.min_offset_change, 1)) {
 	case -1:
 		goto release;
 	case 0:

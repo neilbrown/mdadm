@@ -5,8 +5,8 @@ array_data_size_in_kib=$[chunksize_in_kib*(number_of_disks-2)*number_of_disks]
 array_data_size_in_b=$[array_data_size_in_kib*1024]
 devs="$dev1 $dev2 $dev3 $dev4"
 
-# default 32 sectors
-data_offset_in_kib=$[32/2]
+# default 2048 sectors
+data_offset_in_kib=$[2048/2]
 
 for failure in "$dev3 3 3 2" "$dev3 3 2 3" "$dev3 3 2 1" "$dev3 3 2 0" "$dev4 3 3 0" "$dev4 3 3 1" "$dev4 3 3 2" \
 		"$dev1 3 0 1" "$dev1 3 0 2" "$dev1 3 0 3" "$dev2 3 1 0" "$dev2 3 1 2" "$dev2 3 1 3" ; do

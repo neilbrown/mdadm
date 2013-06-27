@@ -5,8 +5,8 @@ array_data_size_in_kib=$[chunksize_in_kib*(number_of_disks-2)*number_of_disks]
 array_data_size_in_b=$[array_data_size_in_kib*1024]
 devs="$dev0 $dev1 $dev2 $dev3 $dev4"
 
-# default 32 sectors
-data_offset_in_kib=$[32/2]
+# default 2048 sectors
+data_offset_in_kib=$[2048/2]
 
 # make a raid5 from a file
 dd if=/dev/urandom of=/tmp/RandFile bs=1024 count=$array_data_size_in_kib

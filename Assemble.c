@@ -1066,8 +1066,6 @@ static int start_array(int mdfd,
 					}
 				}
 			}
-			printf("l=%d o=%d r=%d w=%d\n",content->array.level,
-			       okcnt, content->array.raid_disks, was_forced);
 			if (content->array.level == 6 &&
 			    okcnt + 1 == (unsigned)content->array.raid_disks &&
 			    was_forced) {

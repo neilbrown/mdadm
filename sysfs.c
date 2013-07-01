@@ -513,6 +513,49 @@ int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 	return n;
 }
 
+int sysfs_fd_get_two(int fd, unsigned long long *v1, unsigned long long *v2)
+{
+	/* two numbers in this sysfs file, either
+	 *  NNN (NNN)
+	 * or
+	 *  NNN / NNN
+	 */
+	char buf[80];
+	int n;
+	char *ep, *ep2;
+
+	lseek(fd, 0, 0);
+	n = read(fd, buf, sizeof(buf));
+	if (n <= 0)
+		return -2;
+	buf[n] = 0;
+	*v1 = strtoull(buf, &ep, 0);
+	if (ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' '))
+		return -1;
+	while (*ep == ' ' || *ep == '/' || *ep == '(')
+		ep++;
+	*v2 = strtoull(ep, &ep2, 0);
+	if (ep2 == ep || (*ep2 != 0 && *ep2 != '\n' && *ep2 != ' ' && *ep2 != ')')) {
+		*v2 = *v1;
+		return 1;
+	}
+	return 2;
+}
+
+int sysfs_get_two(struct mdinfo *sra, struct mdinfo *dev,
+		  char *name, unsigned long long *v1, unsigned long long *v2)
+{
+	int n;
+	int fd;
+
+	fd = sysfs_get_fd(sra, dev, name);
+	if (fd < 0)
+		return -1;
+	n = sysfs_fd_get_two(fd, v1, v2);
+	close(fd);
+	return n;
+}
+
 int sysfs_fd_get_str(int fd, char *val, int size)
 {
 	int n;

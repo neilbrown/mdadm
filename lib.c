@@ -396,3 +396,14 @@ int use_udev(void)
 	}
 	return use;
 }
+
+unsigned long GCD(unsigned long a, unsigned long b)
+{
+	while (a != b) {
+		if (a < b)
+			b -= a;
+		if (b < a)
+			a -= b;
+	}
+	return a;
+}

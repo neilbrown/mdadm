@@ -538,6 +538,9 @@ extern int sysfs_get_fd(struct mdinfo *sra, struct mdinfo *dev,
 extern int sysfs_fd_get_ll(int fd, unsigned long long *val);
 extern int sysfs_get_ll(struct mdinfo *sra, struct mdinfo *dev,
 			char *name, unsigned long long *val);
+extern int sysfs_fd_get_two(int fd, unsigned long long *v1, unsigned long long *v2);
+extern int sysfs_get_two(struct mdinfo *sra, struct mdinfo *dev,
+			 char *name, unsigned long long *v1, unsigned long long *v2);
 extern int sysfs_fd_get_str(int fd, char *val, int size);
 extern int sysfs_attribute_available(struct mdinfo *sra, struct mdinfo *dev,
 				     char *name);
@@ -1277,6 +1280,7 @@ extern char *conf_word(FILE *file, int allow_key);
 extern void print_quoted(char *str);
 extern void print_escape(char *str);
 extern int use_udev(void);
+extern unsigned long GCD(unsigned long a, unsigned long b);
 extern int conf_name_is_free(char *name);
 extern int conf_verify_devnames(struct mddev_ident *array_list);
 extern int devname_matches(char *name, char *match);

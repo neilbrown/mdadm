@@ -206,6 +206,8 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 	char container[32];
 	int err;
 	int count;
+	char buf[32];
+	unsigned long long rd1, rd2;
 
 	if (will_retry && verbose == 0)
 		verbose = -1;
@@ -226,7 +228,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 	/* Get EXCL access first.  If this fails, then attempting
 	 * to stop is probably a bad idea.
 	 */
-	mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION);
+	mdi = sysfs_read(fd, NULL, GET_LEVEL|GET_COMPONENT|GET_VERSION);
 	if (mdi && is_subarray(mdi->text_version)) {
 		char *sl;
 		strncpy(container, mdi->text_version+1, sizeof(container));
@@ -329,6 +331,89 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 				rv = 1;
 				goto out;
 			}
+	}
+
+	/* If the array is undergoing a reshape which changes the number
+	 * of devices, then it would be nice to stop it at a point where
+	 * it has completed a full number of stripes in both old and
+	 * new layouts as this will allow the reshape to be reverted.
+	 * So if 'sync_action' is "reshape" and 'raid_disks' shows two
+	 * different numbers, then
+	 *  - freeze reshape
+	 *  - set sync_max to next multiple of both data_disks and
+	 *    chunk sizes (or next but one)
+	 *  - unfreeze reshape
+	 *  - wait on 'sync_completed' for that point to be reached.
+	 */
+	if (mdi && (mdi->array.level >= 4 && mdi->array.level <= 6) &&
+	    sysfs_attribute_available(mdi, NULL, "sync_action") &&
+	    sysfs_attribute_available(mdi, NULL, "reshape_direction") &&
+	    sysfs_get_str(mdi, NULL, "sync_action", buf, 20) > 0 &&
+	    strcmp(buf, "reshape\n") == 0 &&
+	    sysfs_get_two(mdi, NULL, "raid_disks", &rd1, &rd2) == 2 &&
+	    sysfs_set_str(mdi, NULL, "sync_action", "frozen") == 0) {
+		/* Array is frozen */
+		unsigned long long position, curr;
+		unsigned long long chunk1, chunk2;
+		unsigned long long rddiv, chunkdiv;
+		unsigned long long sectors;
+		int backwards = 0;
+		int delay;
+		int scfd;
+
+		rd1 -= mdi->array.level == 6 ? 2 : 1;
+		rd2 -= mdi->array.level == 6 ? 2 : 1;
+		sysfs_get_str(mdi, NULL, "reshape_direction", buf, sizeof(buf));
+		if (strncmp(buf, "back", 4) == 0)
+			backwards = 1;
+		sysfs_get_ll(mdi, NULL, "reshape_position", &position);
+		sysfs_get_two(mdi, NULL, "chunk_size", &chunk1, &chunk2);
+		chunk1 /= 512;
+		chunk2 /= 512;
+		rddiv = GCD(rd1, rd2);
+		chunkdiv = GCD(chunk1, chunk2);
+		sectors = (chunk1/chunkdiv) * chunk2 * (rd1/rddiv) * rd2;
+
+		if (backwards) {
+			/* Need to subtract 'reshape_position' from
+			 * array size to get equivalent of sync_max.
+			 * Size calculation based on raid5_size in kernel.
+			 */
+			unsigned long long size = mdi->component_size;
+			size &= ~(chunk1-1);
+			size &= ~(chunk2-1);
+			/* rd1 must be smaller */
+			size *= rd1;
+			position = size - position;
+			position = (position/sectors + 2) * sectors;
+			sysfs_set_num(mdi, NULL, "sync_max", position/rd1);
+			position = size - position;
+		} else {
+			position = (position/sectors + 2) * sectors;
+			sysfs_set_num(mdi, NULL, "sync_max", position/rd1);
+		}
+		sysfs_set_str(mdi, NULL, "sync_action", "idle");
+
+		/* That should have set things going again.  Now we
+		 * wait a little while (5 seconds) for sync_completed
+		 * to reach the target.
+		 */
+		delay = 500;
+		scfd = sysfs_open(mdi->sys_name, NULL, "sync_completed");
+		while (scfd >= 0 && delay > 0) {
+			sysfs_fd_get_str(scfd, buf, sizeof(buf));
+			if (strncmp(buf, "none", 4) == 0)
+				break;
+			sysfs_get_ll(mdi, NULL, "reshape_position", &curr);
+			if (!backwards && curr >= position)
+				break;
+			if (backwards && curr <= position)
+				break;
+			sysfs_wait(scfd, &delay);
+		}
+		if (scfd >= 0)
+			close(scfd);
+
 	}
 
 	/* As we have an O_EXCL open, any use of the device

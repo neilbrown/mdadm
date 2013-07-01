@@ -626,13 +626,9 @@ static void wait_reshape(struct mdinfo *sra)
 	if (fd < 0)
 		return;
 
-	while  (sysfs_fd_get_str(fd, action, 20) > 0 &&
-		strncmp(action, "reshape", 7) == 0) {
-		fd_set rfds;
-		FD_ZERO(&rfds);
-		FD_SET(fd, &rfds);
-		select(fd+1, NULL, NULL, &rfds, NULL);
-	}
+	while (sysfs_fd_get_str(fd, action, 20) > 0 &&
+	       strncmp(action, "reshape", 7) == 0)
+		sysfs_wait(fd, NULL);
 	close(fd);
 }
 
@@ -3777,7 +3773,6 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		 * waiting forever on a dead array
 		 */
 		char action[20];
-		fd_set rfds;
 		if (sysfs_get_str(info, NULL, "sync_action",
 				  action, 20) <= 0 ||
 		    strncmp(action, "reshape", 7) != 0)
@@ -3793,9 +3788,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		    && info->reshape_progress < (info->component_size
 						 * reshape->after.data_disks))
 			break;
-		FD_ZERO(&rfds);
-		FD_SET(fd, &rfds);
-		select(fd+1, NULL, NULL, &rfds, NULL);
+		sysfs_wait(fd, NULL);
 		if (sysfs_fd_get_ll(fd, &completed) < 0)
 			goto check_progress;
 	}
@@ -3840,15 +3833,10 @@ check_progress:
 		/* The abort might only be temporary.  Wait up to 10
 		 * seconds for fd to contain a valid number again.
 		 */
-		struct timeval tv;
+		int wait = 10000;
 		int rv = -2;
-		tv.tv_sec = 10;
-		tv.tv_usec = 0;
-		while (fd >= 0 && rv < 0 && tv.tv_sec > 0) {
-			fd_set rfds;
-			FD_ZERO(&rfds);
-			FD_SET(fd, &rfds);
-			if (select(fd+1, NULL, NULL, &rfds, &tv) != 1)
+		while (fd >= 0 && rv < 0 && wait > 0) {
+			if (sysfs_wait(fd, &wait) != 1)
 				break;
 			switch (sysfs_fd_get_ll(fd, &completed)) {
 			case 0:
@@ -3856,7 +3844,7 @@ check_progress:
 				rv = 1;
 				break;
 			case -2: /* read error - abort */
-				tv.tv_sec = 0;
+				wait = 0;
 				break;
 			}
 		}

@@ -844,3 +844,32 @@ int sysfs_freeze_array(struct mdinfo *sra)
 		return 0;
 	return 1;
 }
+
+int sysfs_wait(int fd, int *msec)
+{
+	/* Wait up to '*msec' for fd to have an exception condition.
+	 * if msec == NULL, wait indefinitely.
+	 */
+	fd_set fds;
+	int n;
+	FD_ZERO(&fds);
+	FD_SET(fd, &fds);
+	if (msec == NULL)
+		n = select(fd+1, NULL, NULL, &fds, NULL);
+	else if (*msec < 0)
+		n = 0;
+	else {
+		struct timeval start, end, tv;
+		gettimeofday(&start, NULL);
+		if (*msec < 1000)
+			tv.tv_usec = (*msec)*1000;
+		else
+			tv.tv_sec = (*msec)/1000;
+		n = select(fd+1, NULL, NULL, &fds, &tv);
+		gettimeofday(&end, NULL);
+		end.tv_sec -= start.tv_sec;
+		*msec -= (end.tv_sec * 1000 + end.tv_usec/1000
+			  - start.tv_usec/100) + 1;
+	}
+	return n;
+}

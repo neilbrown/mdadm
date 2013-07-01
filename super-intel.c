@@ -10163,10 +10163,7 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 
 	do {
 		char action[20];
-		fd_set rfds;
-		FD_ZERO(&rfds);
-		FD_SET(fd, &rfds);
-		select(fd+1, &rfds, NULL, NULL, NULL);
+		sysfs_wait(fd, NULL);
 		if (sysfs_get_str(sra, NULL, "sync_action",
 				  action, 20) > 0 &&
 				strncmp(action, "reshape", 7) != 0)

@@ -1050,17 +1050,12 @@ int WaitClean(char *dev, int sock, int verbose)
 	if (rv) {
 		int state_fd = sysfs_open(fd2devnm(fd), NULL, "array_state");
 		char buf[20];
-		fd_set fds;
-		struct timeval tm;
+		int delay = 5000;
 
 		/* minimize the safe_mode_delay and prepare to wait up to 5s
 		 * for writes to quiesce
 		 */
 		sysfs_set_safemode(mdi, 1);
-		tm.tv_sec = 5;
-		tm.tv_usec = 0;
-
-		FD_ZERO(&fds);
 
 		/* wait for array_state to be clean */
 		while (1) {
@@ -1069,8 +1064,7 @@ int WaitClean(char *dev, int sock, int verbose)
 				break;
 			if (sysfs_match_word(buf, clean_states) <= 4)
 				break;
-			FD_SET(state_fd, &fds);
-			rv = select(state_fd + 1, NULL, NULL, &fds, &tm);
+			rv = sysfs_wait(state_fd, &delay);
 			if (rv < 0 && errno != EINTR)
 				break;
 			lseek(state_fd, 0, SEEK_SET);

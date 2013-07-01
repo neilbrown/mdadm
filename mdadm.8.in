@@ -1244,7 +1244,7 @@ with redundancy.  They don't apply to RAID0 or Linear.
 
 .TP
 .BR \-\-re\-add
-re\-add a device that was previous removed from an array.
+re\-add a device that was previously removed from an array.
 If the metadata on the device reports that it is a member of the
 array, and the slot that it used is still vacant, then the device will
 be added back to the array in the same position.  This will normally

@@ -357,6 +357,8 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		unsigned long long chunk1, chunk2;
 		unsigned long long rddiv, chunkdiv;
 		unsigned long long sectors;
+		unsigned long long sync_max, old_sync_max;
+		unsigned long long completed;
 		int backwards = 0;
 		int delay;
 		int scfd;
@@ -383,28 +385,46 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 			size &= ~(chunk1-1);
 			size &= ~(chunk2-1);
 			/* rd1 must be smaller */
-			size *= rd1;
-			position = size - position;
-			position = (position/sectors + 2) * sectors;
-			sysfs_set_num(mdi, NULL, "sync_max", position/rd1);
-			position = size - position;
+			position = (position / sectors - 1) * sectors;
+			sync_max = size - position/rd1;
 		} else {
-			position = (position/sectors + 2) * sectors;
-			sysfs_set_num(mdi, NULL, "sync_max", position/rd1);
+			position = (position / sectors + 2) * sectors;
+			sync_max = position/rd1;
 		}
+		if (sysfs_get_ll(mdi, NULL, "sync_max", &old_sync_max) < 0)
+			old_sync_max = mdi->component_size;
+		/* Must not advance sync_max as that could confuse
+		 * the reshape monitor */
+		if (sync_max < old_sync_max)
+			sysfs_set_num(mdi, NULL, "sync_max", sync_max);
 		sysfs_set_str(mdi, NULL, "sync_action", "idle");
 
 		/* That should have set things going again.  Now we
-		 * wait a little while (5 seconds) for sync_completed
+		 * wait a little while (1 second max) for sync_completed
 		 * to reach the target.
 		 */
-		delay = 500;
+		delay = 1000;
 		scfd = sysfs_open(mdi->sys_name, NULL, "sync_completed");
 		while (scfd >= 0 && delay > 0) {
+			sysfs_get_ll(mdi, NULL, "reshape_position", &curr);
 			sysfs_fd_get_str(scfd, buf, sizeof(buf));
 			if (strncmp(buf, "none", 4) == 0)
 				break;
-			sysfs_get_ll(mdi, NULL, "reshape_position", &curr);
+
+			if (sysfs_fd_get_ll(scfd, &completed) == 0 &&
+			    (completed > sync_max ||
+			     (completed == sync_max && curr != position))) {
+				while (completed > sync_max) {
+					sync_max += sectors / rd1;
+					if (backwards)
+						position -= sectors;
+					else
+						position += sectors;
+				}
+				if (sync_max < old_sync_max)
+					sysfs_set_num(mdi, NULL, "sync_max", sync_max);
+			}
+
 			if (!backwards && curr >= position)
 				break;
 			if (backwards && curr <= position)

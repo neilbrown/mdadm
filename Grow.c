@@ -3143,8 +3143,9 @@ started:
 		if (backup_file == NULL) {
 			if (reshape.after.data_disks <=
 			    reshape.before.data_disks) {
-				pr_err("%s: Cannot grow - "
-					"need backup-file\n", devname);
+				pr_err("%s: Cannot grow - need backup-file\n",
+				       devname);
+				pr_err(" Please provide one with \"--backup=...\"\n");
 				goto release;
 			} else if (sra->array.spare_disks == 0) {
 				pr_err("%s: Cannot grow - "

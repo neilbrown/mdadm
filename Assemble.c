@@ -1007,6 +1007,15 @@ static int start_array(int mdfd,
 		if (content->reshape_active &&
 		    !(content->reshape_active & RESHAPE_NO_BACKUP) &&
 		    content->delta_disks <= 0) {
+			if (!c->backup_file) {
+				pr_err("%s: Need a backup file to complete reshape of this array.\n",
+				       mddev);
+				pr_err("Please provided one with \"--backup-file=...\"\n");
+				if (c->update &&
+				    strcmp(c->update, "revert-reshape") == 0)
+					pr_err("(Don't specify --update=revert-reshape again, that part succeeded.)\n");
+				return 1;
+			}
 			rv = sysfs_set_str(content, NULL,
 					   "array_state", "readonly");
 			if (rv == 0)

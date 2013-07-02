@@ -95,6 +95,7 @@ do_setup() {
     eval dev$d=/dev/loop$d
     eval file$d=$targetdir/mdtest$d
     eval devlist=\"\$devlist \$dev$d\"
+    eval devlist$d=\"\$devlist\"
    #" <-- add this quote to un-confuse vim syntax highlighting
   done
   path0=$dev6

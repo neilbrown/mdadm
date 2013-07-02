@@ -240,6 +240,7 @@ do_test() {
       _fail=0
     else
       log=log
+      cat $targetdir/stderr >> $targetdir/log
       if [ $exitonerror == 0 ]; then
 	  log=log-`basename $_script`
 	  mv $targetdir/log $targetdir/$log

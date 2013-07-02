@@ -154,6 +154,7 @@ struct mddev_dev *load_containers(void)
 	struct mdstat_ent *ent;
 	struct mddev_dev *d;
 	struct mddev_dev *rv = NULL;
+	struct map_ent *map = NULL, *me;
 
 	if (!mdstat)
 		return NULL;
@@ -164,7 +165,10 @@ struct mddev_dev *load_containers(void)
 		    !is_subarray(&ent->metadata_version[9])) {
 			d = xmalloc(sizeof(*d));
 			memset(d, 0, sizeof(*d));
-			if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
+			me = map_by_devnm(&map, ent->dev);
+			if (me)
+				d->devname = xstrdup(me->path);
+			else if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
 				free(d);
 				continue;
 			}
@@ -172,6 +176,7 @@ struct mddev_dev *load_containers(void)
 			rv = d;
 		}
 	free_mdstat(mdstat);
+	map_free(map);
 
 	return rv;
 }

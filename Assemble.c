@@ -105,6 +105,7 @@ static int ident_matches(struct mddev_ident *ident,
 		return 0;
 	}
 	if (ident->raid_disks != UnSet &&
+	    content->array.raid_disks != 0 && /* metadata doesn't know how many to expect */
 	    ident->raid_disks!= content->array.raid_disks) {
 		if (devname)
 			pr_err("%s requires wrong number of drives.\n",

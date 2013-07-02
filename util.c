@@ -868,39 +868,6 @@ void put_md_name(char *name)
 	if (strncmp(name, "/dev/.tmp.md", 12) == 0)
 		unlink(name);
 }
-
-char *find_free_devnm(int use_partitions)
-{
-	static char devnm[32];
-	int devnum;
-	for (devnum = 127; devnum != 128;
-	     devnum = devnum ? devnum-1 : (1<<20)-1) {
-
-		if (use_partitions)
-			sprintf(devnm, "md_d%d", devnum);
-		else
-			sprintf(devnm, "md%d", devnum);
-		if (mddev_busy(devnm))
-			continue;
-		if (!conf_name_is_free(devnm))
-			continue;
-		if (!use_udev()) {
-			/* make sure it is new to /dev too, at least as a
-			 * non-standard */
-			int devid = devnm2devid(devnm);
-			if (devid) {
-				char *dn = map_dev(major(devid),
-						   minor(devid), 0);
-				if (dn && ! is_standard(dn, NULL))
-					continue;
-			}
-		}
-		break;
-	}
-	if (devnum == 128)
-		return NULL;
-	return devnm;
-}
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
 int dev_open(char *dev, int flags)

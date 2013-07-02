@@ -438,3 +438,36 @@ int open_mddev(char *dev, int report_errors)
 	}
 	return mdfd;
 }
+
+char *find_free_devnm(int use_partitions)
+{
+	static char devnm[32];
+	int devnum;
+	for (devnum = 127; devnum != 128;
+	     devnum = devnum ? devnum-1 : (1<<20)-1) {
+
+		if (use_partitions)
+			sprintf(devnm, "md_d%d", devnum);
+		else
+			sprintf(devnm, "md%d", devnum);
+		if (mddev_busy(devnm))
+			continue;
+		if (!conf_name_is_free(devnm))
+			continue;
+		if (!use_udev()) {
+			/* make sure it is new to /dev too, at least as a
+			 * non-standard */
+			int devid = devnm2devid(devnm);
+			if (devid) {
+				char *dn = map_dev(major(devid),
+						   minor(devid), 0);
+				if (dn && ! is_standard(dn, NULL))
+					continue;
+			}
+		}
+		break;
+	}
+	if (devnum == 128)
+		return NULL;
+	return devnm;
+}

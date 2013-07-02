@@ -23,6 +23,7 @@
  */
 
 #include	"mdadm.h"
+#include	"dlink.h"
 #include	<ctype.h>
 
 /* This fill contains various 'library' style function.  They
@@ -406,4 +407,43 @@ unsigned long GCD(unsigned long a, unsigned long b)
 			a -= b;
 	}
 	return a;
+}
+
+/*
+ * conf_line reads one logical line from the conffile or mdstat.
+ * It skips comments and continues until it finds a line that starts
+ * with a non blank/comment.  This character is pushed back for the next call
+ * A doubly linked list of words is returned.
+ * the first word will be a keyword.  Other words will have had quotes removed.
+ */
+
+char *conf_line(FILE *file)
+{
+	char *w;
+	char *list;
+
+	w = conf_word(file, 1);
+	if (w == NULL) return NULL;
+
+	list = dl_strdup(w);
+	free(w);
+	dl_init(list);
+
+	while ((w = conf_word(file,0))){
+		char *w2 = dl_strdup(w);
+		free(w);
+		dl_add(list, w2);
+	}
+/*    printf("got a line\n");*/
+	return list;
+}
+
+void free_line(char *line)
+{
+	char *w;
+	for (w=dl_next(line); w != line; w=dl_next(line)) {
+		dl_del(w);
+		dl_free(w);
+	}
+	dl_free(line);
 }

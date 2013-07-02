@@ -171,8 +171,20 @@ static int select_devices(struct mddev_dev *devlist,
 		if (tmpdev->used > 1)
 			continue;
 
-		if (ident->devices &&
-		    !match_oneof(ident->devices, devname)) {
+		if (ident->container) {
+			if (ident->container[0] == '/' &&
+			    !same_dev(ident->container, devname)) {
+				if (report_mismatch)
+					pr_err("%s is not the container required (%s)\n",
+					       devname, ident->container);
+				continue;
+			}
+		} else if (ident->devices &&
+			   !match_oneof(ident->devices, devname)) {
+			/* Note that we ignore the "device=" identifier if a
+			 * "container=" is given.  Checking both is unnecessarily
+			 * complicated.
+			 */
 			if (report_mismatch)
 				pr_err("%s is not one of %s\n", devname, ident->devices);
 			continue;
@@ -289,28 +301,19 @@ static int select_devices(struct mddev_dev *devlist,
 			}
 			close(dfd);
 
-			if (ident->container) {
-				if (ident->container[0] == '/' &&
-				    !same_dev(ident->container, devname)) {
+			if (ident->container && ident->container[0] != '/') {
+				/* we have a uuid */
+				int uuid[4];
+
+				content = *contentp;
+				tst->ss->getinfo_super(tst, content, NULL);
+
+				if (!parse_uuid(ident->container, uuid) ||
+				    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
 					if (report_mismatch)
-						pr_err("%s is not the container required (%s)\n",
-						       devname, ident->container);
+						pr_err("%s has wrong UUID to be required container\n",
+						       devname);
 					goto loop;
-				}
-				if (ident->container[0] != '/') {
-					/* we have a uuid */
-					int uuid[4];
-
-					content = *contentp;
-					tst->ss->getinfo_super(tst, content, NULL);
-
-					if (!parse_uuid(ident->container, uuid) ||
-					    !same_uuid(content->uuid, uuid, tst->ss->swapuuid)) {
-						if (report_mismatch)
-							pr_err("%s has wrong UUID to be required container\n",
-							       devname);
-						goto loop;
-					}
 				}
 			}
 			/* It is worth looking inside this container.

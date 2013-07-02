@@ -904,15 +904,18 @@ int sysfs_wait(int fd, int *msec)
 	else {
 		struct timeval start, end, tv;
 		gettimeofday(&start, NULL);
-		if (*msec < 1000)
+		if (*msec < 1000) {
+			tv.tv_sec = 0;
 			tv.tv_usec = (*msec)*1000;
-		else
+		} else {
 			tv.tv_sec = (*msec)/1000;
+			tv.tv_usec = 0;
+		}
 		n = select(fd+1, NULL, NULL, &fds, &tv);
 		gettimeofday(&end, NULL);
 		end.tv_sec -= start.tv_sec;
 		*msec -= (end.tv_sec * 1000 + end.tv_usec/1000
-			  - start.tv_usec/100) + 1;
+			  - start.tv_usec/1000) + 1;
 	}
 	return n;
 }

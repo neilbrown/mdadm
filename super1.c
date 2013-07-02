@@ -1276,14 +1276,17 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			 * So we reject a revert-reshape unless the
 			 * alignment is good.
 			 */
-			reshape_sectors = __le64_to_cpu(sb->reshape_position);
-			reshape_chunk = __le32_to_cpu(sb->new_chunk);
-			reshape_chunk *= __le32_to_cpu(sb->raid_disks) - __le32_to_cpu(sb->delta_disks) -
-				(__le32_to_cpu(sb->level)==6 ? 2 : 1);
-			if (reshape_sectors % reshape_chunk) {
-				pr_err("Reshape position is not suitably aligned.\n");
-				pr_err("Try normal assembly as stop again\n");
-				return -2;
+			if (__le32_to_cpu(sb->level) >= 4 &&
+			    __le32_to_cpu(sb->level) <= 6) {
+				reshape_sectors = __le64_to_cpu(sb->reshape_position);
+				reshape_chunk = __le32_to_cpu(sb->new_chunk);
+				reshape_chunk *= __le32_to_cpu(sb->raid_disks) - __le32_to_cpu(sb->delta_disks) -
+					(__le32_to_cpu(sb->level)==6 ? 2 : 1);
+				if (reshape_sectors % reshape_chunk) {
+					pr_err("Reshape position is not suitably aligned.\n");
+					pr_err("Try normal assembly as stop again\n");
+					return -2;
+				}
 			}
 			sb->raid_disks = __cpu_to_le32(__le32_to_cpu(sb->raid_disks) -
 						       __le32_to_cpu(sb->delta_disks));

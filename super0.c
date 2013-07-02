@@ -650,14 +650,15 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			pr_err("No active reshape to revert on %s\n",
 			       devname);
 		else if (sb->delta_disks == 0)
-			pr_err("%s: Can on revert reshape which changes number of devices\n",
+			pr_err("%s: Can only revert reshape which changes number of devices\n",
 			       devname);
 		else {
 			int tmp;
 			int parity = sb->level == 6 ? 2 : 1;
 			rv = 0;
 
-			if (sb->reshape_position % (
+			if (sb->level >= 4 && sb->level <= 6 &&
+			    sb->reshape_position % (
 				    sb->new_chunk/512 *
 				    (sb->raid_disks - sb->delta_disks - parity))) {
 				pr_err("Reshape position is not suitably aligned.\n");

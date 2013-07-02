@@ -120,7 +120,7 @@ OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o maps.o lib.o \
 	restripe.o sysfs.o sha1.o mapfile.o crc32.o sg_io.o msg.o xmalloc.o \
 	platform-intel.o probe_roms.o
 
-CHECK_OBJS = restripe.o sysfs.o maps.o lib.o xmalloc.o
+CHECK_OBJS = restripe.o sysfs.o maps.o lib.o xmalloc.o dlink.o
 
 SRCS =  $(patsubst %.o,%.c,$(OBJS))
 
@@ -152,7 +152,7 @@ endif
 all : mdadm mdmon
 man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
 
-everything: all mdadm.static swap_super test_stripe \
+everything: all mdadm.static swap_super test_stripe raid6check \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
 	mdadm.Os mdadm.O2 man
 everything-test: all mdadm.static swap_super test_stripe \

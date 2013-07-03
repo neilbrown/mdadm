@@ -1296,6 +1296,17 @@ static void print_guid(char *guid, int tstamp)
 	printf(")");
 }
 
+static const char *guid_str(const char *guid)
+{
+	static char buf[DDF_GUID_LEN*2+1];
+	int i;
+	char *p = buf;
+	for (i = 0; i < DDF_GUID_LEN; i++)
+		p += sprintf(p, "%02x", (unsigned char)guid[i]);
+	*p = '\0';
+	return (const char *) buf;
+}
+
 static void examine_vd(int n, struct ddf_super *sb, char *guid)
 {
 	int crl = sb->conf_rec_len;
@@ -2792,6 +2803,9 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 					&dummy);
 		}
 		if (c) {
+			dprintf("writing conf record %i on disk %08x for %s/%u\n",
+				i, d->disk.refnum, guid_str(vdc->guid),
+				vdc->sec_elmnt_seq);
 			vdc->seqnum = header->seq;
 			vdc->crc = calc_crc(vdc, conf_size);
 			if (write(fd, vdc, conf_size) < 0)

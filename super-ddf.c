@@ -3471,14 +3471,43 @@ static int store_super_ddf(struct supertype *st, int fd)
 	if (!ddf)
 		return 1;
 
-	/* ->dlist and ->conflist will be set for updates, currently not
-	 * supported
-	 */
-	if (ddf->dlist || ddf->conflist)
-		return 1;
-
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
+
+	if (ddf->dlist || ddf->conflist) {
+		struct stat sta;
+		struct dl *dl;
+		int ofd, ret;
+
+		if (fstat(fd, &sta) == -1 || !S_ISBLK(sta.st_mode)) {
+			pr_err("%s: file descriptor for invalid device\n",
+			       __func__);
+			return 1;
+		}
+		for (dl = ddf->dlist; dl; dl = dl->next)
+			if (dl->major == (int)major(sta.st_rdev) &&
+			    dl->minor == (int)minor(sta.st_rdev))
+				break;
+		if (!dl) {
+			pr_err("%s: couldn't find disk %d/%d\n", __func__,
+			       (int)major(sta.st_rdev),
+			       (int)minor(sta.st_rdev));
+			return 1;
+		}
+		/*
+		   For DDF, writing to just one disk makes no sense.
+		   We would run the risk of writing inconsistent meta data
+		   to the devices. So just call __write_init_super_ddf and
+		   write to all devices, including this one.
+		   Use the fd passed to this function, just in case dl->fd
+		   is invalid.
+		 */
+		ofd = dl->fd;
+		dl->fd = fd;
+		ret =  __write_init_super_ddf(st);
+		dl->fd = ofd;
+		return ret;
+	}
 
 	if (posix_memalign(&buf, 512, 512) != 0)
 		return 1;

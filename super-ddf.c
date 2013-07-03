@@ -4326,30 +4326,34 @@ static void ddf_process_update(struct supertype *st,
 					|= __be16_to_cpu(DDF_Transition);
 		/* Now make sure vlist is correct for each dl. */
 		for (dl = ddf->dlist; dl; dl = dl->next) {
-			unsigned int dn;
 			unsigned int vn = 0;
 			int in_degraded = 0;
-			for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
-				for (dn=0; dn < ddf->mppe ; dn++)
-					if (vcl->conf.phys_refnum[dn] ==
-					    dl->disk.refnum) {
-						int vstate;
-						dprintf("dev %d has %p at %d\n",
-							dl->pdnum, vcl, vn);
-						/* Clear the Transition flag */
-						if (ddf->phys->entries[dl->pdnum].state
-						    & __be16_to_cpu(DDF_Failed))
-							ddf->phys->entries[dl->pdnum].state &=
-								~__be16_to_cpu(DDF_Transition);
-
-						dl->vlist[vn++] = vcl;
-						vstate = ddf->virt->entries[vcl->vcnum].state
-							& DDF_state_mask;
-						if (vstate == DDF_state_degraded ||
-						    vstate == DDF_state_part_optimal)
-							in_degraded = 1;
-						break;
-					}
+			for (vcl = ddf->conflist; vcl ; vcl = vcl->next) {
+				unsigned int dn, ibvd;
+				const struct vd_config *conf;
+				int vstate;
+				dn = get_pd_index_from_refnum(vcl,
+							      dl->disk.refnum,
+							      ddf->mppe,
+							      &conf, &ibvd);
+				if (dn == DDF_NOTFOUND)
+					continue;
+				dprintf("dev %d/%08x has %s (sec=%u) at %d\n",
+					dl->pdnum, dl->disk.refnum,
+					guid_str(conf->guid),
+					conf->sec_elmnt_seq, vn);
+				/* Clear the Transition flag */
+				if (ddf->phys->entries[dl->pdnum].state
+				    & __be16_to_cpu(DDF_Failed))
+					ddf->phys->entries[dl->pdnum].state &=
+						~__be16_to_cpu(DDF_Transition);
+				dl->vlist[vn++] = vcl;
+				vstate = ddf->virt->entries[vcl->vcnum].state
+					& DDF_state_mask;
+				if (vstate == DDF_state_degraded ||
+					vstate == DDF_state_part_optimal)
+					in_degraded = 1;
+			}
 			while (vn < ddf->max_part)
 				dl->vlist[vn++] = NULL;
 			if (dl->vlist[0]) {

@@ -2331,7 +2331,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	 * We need to create a new vd_config and a new virtual_entry
 	 */
 	struct ddf_super *ddf = st->sb;
-	unsigned int venum;
+	unsigned int venum, i;
 	struct virtual_entry *ve;
 	struct vcl *vcl;
 	struct vd_config *vc;
@@ -2425,6 +2425,11 @@ static int init_super_ddf_bvd(struct supertype *st,
 
 	memset(vc->phys_refnum, 0xff, 4*ddf->mppe);
 	memset(vc->phys_refnum+ddf->mppe, 0x00, 8*ddf->mppe);
+
+	for (i = 1; i < vc->sec_elmnt_count; i++) {
+		memcpy(vcl->other_bvds[i-1], vc, ddf->conf_rec_len * 512);
+		vcl->other_bvds[i-1]->sec_elmnt_seq = i;
+	}
 
 	vcl->next = ddf->conflist;
 	ddf->conflist = vcl;

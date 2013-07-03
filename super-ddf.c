@@ -601,15 +601,15 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 				DDF_REVISION_2, super->anchor.revision,devname);
 		return 2;
 	}
+	super->active = NULL;
 	if (load_ddf_header(fd, __be64_to_cpu(super->anchor.primary_lba),
 			    dsize >> 9,  1,
 			    &super->primary, &super->anchor) == 0) {
 		if (devname)
 			pr_err("Failed to load primary DDF header "
 			       "on %s\n", devname);
-		return 2;
-	}
-	super->active = &super->primary;
+	} else
+		super->active = &super->primary;
 	if (load_ddf_header(fd, __be64_to_cpu(super->anchor.secondary_lba),
 			    dsize >> 9,  2,
 			    &super->secondary, &super->anchor)) {
@@ -619,9 +619,14 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 		    || (__be32_to_cpu(super->primary.seq)
 			== __be32_to_cpu(super->secondary.seq) &&
 			super->primary.openflag && !super->secondary.openflag)
+		    || super->active == NULL
 			)
 			super->active = &super->secondary;
-	}
+	} else if (devname)
+		pr_err("Failed to load secondary DDF header on %s\n",
+		       devname);
+	if (super->active == NULL)
+		return 2;
 	return 0;
 }
 

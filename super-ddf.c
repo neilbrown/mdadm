@@ -2440,6 +2440,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 	return 1;
 }
 
+static int get_svd_state(const struct ddf_super *, const struct vcl *);
+
 #ifndef MDASSEMBLE
 static void add_to_super_ddf_bvd(struct supertype *st,
 				 mdu_disk_info_t *dk, int fd, char *devname)
@@ -2457,7 +2459,6 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	struct dl *dl;
 	struct ddf_super *ddf = st->sb;
 	struct vd_config *vc;
-	unsigned int working;
 	unsigned int i;
 	unsigned long long blocks, pos, esize;
 	struct extent *ex;
@@ -2521,28 +2522,11 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	if (devname)
 		dl->devname = devname;
 
-	/* Check how many working raid_disks, and if we can mark
-	 * array as optimal yet
-	 */
-	working = 0;
-
-	for (i = 0; i < __be16_to_cpu(vc->prim_elmnt_count); i++)
-		if (vc->phys_refnum[i] != 0xffffffff)
-			working++;
-
-	/* Find which virtual_entry */
+	/* Check if we can mark array as optimal yet */
 	i = ddf->currentconf->vcnum;
-	if (working == __be16_to_cpu(vc->prim_elmnt_count))
-		ddf->virt->entries[i].state =
-			(ddf->virt->entries[i].state & ~DDF_state_mask)
-			| DDF_state_optimal;
-
-	if (vc->prl == DDF_RAID6 &&
-	    working+1 == __be16_to_cpu(vc->prim_elmnt_count))
-		ddf->virt->entries[i].state =
-			(ddf->virt->entries[i].state & ~DDF_state_mask)
-			| DDF_state_part_optimal;
-
+	ddf->virt->entries[i].state =
+		(ddf->virt->entries[i].state & ~DDF_state_mask)
+		| get_svd_state(ddf, ddf->currentconf);
 	ddf->phys->entries[dl->pdnum].type &= ~__cpu_to_be16(DDF_Global_Spare);
 	ddf->phys->entries[dl->pdnum].type |= __cpu_to_be16(DDF_Active_in_VD);
 	ddf_set_updates_pending(ddf);

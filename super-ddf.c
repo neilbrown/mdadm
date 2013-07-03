@@ -3695,8 +3695,14 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
  */
 static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 {
-	dprintf("ddf: open_new %s\n", inst);
-	a->info.container_member = atoi(inst);
+	struct ddf_super *ddf = c->sb;
+	int n = atoi(inst);
+	if (n >= (int)__be16_to_cpu(ddf->virt->populated_vdes)) {
+		pr_err("%s: subarray index %d out of range\n", __func__, n);
+		return -ENODEV;
+	}
+	dprintf("ddf: open_new %d\n", n);
+	a->info.container_member = n;
 	return 0;
 }
 

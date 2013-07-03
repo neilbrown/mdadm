@@ -4285,7 +4285,22 @@ static void ddf_process_update(struct supertype *st,
 			/* An update, just copy the phys_refnum and lba_offset
 			 * fields
 			 */
-			memcpy(vcl->conf.phys_refnum, vc->phys_refnum,
+			struct vd_config *conf = &vcl->conf;
+			if (vcl->other_bvds != NULL &&
+			    conf->sec_elmnt_seq != vc->sec_elmnt_seq) {
+				unsigned int i;
+				for (i = 1; i < conf->sec_elmnt_count; i++)
+					if (vcl->other_bvds[i-1]->sec_elmnt_seq
+					    == vc->sec_elmnt_seq)
+						break;
+				if (i == conf->sec_elmnt_count) {
+					pr_err("%s/DDF_VD_CONF_MAGIC: BVD %u not found\n",
+					       __func__, vc->sec_elmnt_seq);
+					return;
+				}
+				conf = vcl->other_bvds[i-1];
+			}
+			memcpy(conf->phys_refnum, vc->phys_refnum,
 			       mppe * (sizeof(__u32) + sizeof(__u64)));
 		} else {
 			/* A new VD_CONF */

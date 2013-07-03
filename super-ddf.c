@@ -3257,7 +3257,6 @@ static int check_secondary(const struct vcl *vc)
 	return 0;
 }
 
-#define NO_SUCH_REFNUM (0xFFFFFFFF)
 static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
 					     __u32 refnum, unsigned int nmax,
 					     const struct vd_config **bvd,
@@ -3298,7 +3297,7 @@ static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
 	}
 bad:
 	*bvd = NULL;
-	return NO_SUCH_REFNUM;
+	return DDF_NOTFOUND;
 }
 
 static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray)
@@ -3414,7 +3413,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			i = get_pd_index_from_refnum(
 				vc, ddf->phys->entries[pd].refnum,
 				ddf->mppe, &bvd, &iphys);
-			if (i == NO_SUCH_REFNUM)
+			if (i == DDF_NOTFOUND)
 				continue;
 
 			this->array.working_disks++;

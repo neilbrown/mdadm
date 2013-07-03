@@ -3222,10 +3222,8 @@ static int check_secondary(const struct vcl *vc)
 	__set_sec_seen(conf->sec_elmnt_seq);
 	for (i = 0; i < conf->sec_elmnt_count-1; i++) {
 		const struct vd_config *bvd = vc->other_bvds[i];
-		if (bvd == NULL) {
-			pr_err("BVD %d is missing\n", i+1);
-			return -1;
-		}
+		if (bvd == NULL)
+			continue;
 		if (bvd->srl != conf->srl) {
 			pr_err("Inconsistent secondary RAID level across BVDs\n");
 			return -1;

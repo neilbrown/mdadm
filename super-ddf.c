@@ -3074,8 +3074,8 @@ static int validate_geometry_ddf(struct supertype *st,
 		struct vd_config conf;
 		if (layout_md2ddf(&array, &conf) == -1) {
 			if (verbose)
-				pr_err("DDF does not support level %d arrays\n",
-				       level);
+				pr_err("DDF does not support level %d /layout %d arrays with %d disks\n",
+				       level, layout, raiddisks);
 			return 0;
 		}
 		/* Should check layout? etc */

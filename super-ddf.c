@@ -467,6 +467,11 @@ static void pr_state(const struct ddf_super *ddf, const char *msg) {}
 #define ddf_set_updates_pending(x) \
 	do { (x)->updates_pending = 1; pr_state(x, __func__); } while (0)
 
+static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
+					     __u32 refnum, unsigned int nmax,
+					     const struct vd_config **bvd,
+					     unsigned int *idx);
+
 static unsigned int calc_crc(void *buf, int len)
 {
 	/* crcs are always at the same place as in the ddf_header */
@@ -2292,23 +2297,21 @@ static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 	 */
 	struct extent *rv;
 	int n = 0;
-	unsigned int i, j;
+	unsigned int i;
 
 	rv = xmalloc(sizeof(struct extent) * (ddf->max_part + 2));
 
 	for (i = 0; i < ddf->max_part; i++) {
+		const struct vd_config *bvd;
+		unsigned int ibvd;
 		struct vcl *v = dl->vlist[i];
-		if (v == NULL)
+		if (v == NULL ||
+		    get_pd_index_from_refnum(v, dl->disk.refnum, ddf->mppe,
+					     &bvd, &ibvd) == DDF_NOTFOUND)
 			continue;
-		for (j = 0; j < v->conf.prim_elmnt_count; j++)
-			if (v->conf.phys_refnum[j] == dl->disk.refnum) {
-				/* This device plays role 'j' in  'v'. */
-				rv[n].start = __be64_to_cpu(
-					LBA_OFFSET(ddf, &v->conf)[j]);
-				rv[n].size = __be64_to_cpu(v->conf.blocks);
-				n++;
-				break;
-			}
+		rv[n].start = __be64_to_cpu(LBA_OFFSET(ddf, bvd)[ibvd]);
+		rv[n].size = __be64_to_cpu(bvd->blocks);
+		n++;
 	}
 	qsort(rv, n, sizeof(*rv), cmp_extent);
 
@@ -2684,11 +2687,6 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
  * container.
  */
 #define NULL_CONF_SZ	4096
-
-static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
-					     __u32 refnum, unsigned int nmax,
-					     const struct vd_config **bvd,
-					     unsigned int *idx);
 
 static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 				 char *null_aligned)

@@ -4203,6 +4203,7 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 				wait_point = __le64_to_cpu(bsb.arraystart2);
 		}
 
+		reshape_completed = sra->reshape_progress;
 		rv = progress_reshape(sra, reshape,
 				      backup_point, wait_point,
 				      &suspend_point, &reshape_completed);

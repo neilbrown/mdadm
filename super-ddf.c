@@ -1832,10 +1832,12 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	struct ddf_super *ddf = st->sb;
 	struct vcl *vc = ddf->currentconf;
 	int cd = ddf->currentdev;
+	int n_prim;
 	int j;
 	struct dl *dl;
 	int map_disks = info->array.raid_disks;
 	__u32 *cptr;
+	struct vd_config *conf;
 
 	memset(info, 0, sizeof(*info));
 	if (layout_ddf2md(&vc->conf, &info->array) == -1)
@@ -1846,6 +1848,14 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->array.utime	  = DECADE + __be32_to_cpu(vc->conf.timestamp);
 	info->array.chunk_size	  = 512 << vc->conf.chunk_shift;
 	info->custom_array_size	  = 0;
+
+	conf = &vc->conf;
+	n_prim = __be16_to_cpu(conf->prim_elmnt_count);
+	if (conf->sec_elmnt_count > 1 && cd >= n_prim) {
+		int ibvd = cd / n_prim - 1;
+		cd %= n_prim;
+		conf = vc->other_bvds[ibvd];
+	}
 
 	if (cd >= 0 && (unsigned)cd < ddf->mppe) {
 		info->data_offset =

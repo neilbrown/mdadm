@@ -2457,11 +2457,11 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	struct dl *dl;
 	struct ddf_super *ddf = st->sb;
 	struct vd_config *vc;
-	__u64 *lba_offset;
 	unsigned int working;
 	unsigned int i;
 	unsigned long long blocks, pos, esize;
 	struct extent *ex;
+	unsigned int raid_disk = dk->raid_disk;
 
 	if (fd == -1) {
 		for (dl = ddf->dlist; dl ; dl = dl->next)
@@ -2477,7 +2477,12 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		return;
 
 	vc = &ddf->currentconf->conf;
-	lba_offset = LBA_OFFSET(ddf, &ddf->currentconf->conf);
+	if (vc->sec_elmnt_count > 1) {
+		unsigned int n = __be16_to_cpu(vc->prim_elmnt_count);
+		if (raid_disk >= n)
+			vc = ddf->currentconf->other_bvds[raid_disk / n - 1];
+		raid_disk %= n;
+	}
 
 	ex = get_extents(ddf, dl);
 	if (!ex)
@@ -2501,8 +2506,8 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		return;
 
 	ddf->currentdev = dk->raid_disk;
-	vc->phys_refnum[dk->raid_disk] = dl->disk.refnum;
-	lba_offset[dk->raid_disk] = __cpu_to_be64(pos);
+	vc->phys_refnum[raid_disk] = dl->disk.refnum;
+	LBA_OFFSET(ddf, vc)[raid_disk] = __cpu_to_be64(pos);
 
 	for (i = 0; i < ddf->max_part ; i++)
 		if (dl->vlist[i] == NULL)

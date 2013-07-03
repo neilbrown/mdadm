@@ -3955,7 +3955,9 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	if (old != ddf->virt->entries[inst].init_state)
 		ddf_set_updates_pending(ddf);
 
-	dprintf("ddf mark %d %s %llu\n", inst, consistent?"clean":"dirty",
+	dprintf("ddf mark %d/%s (%d) %s %llu\n", inst,
+		guid_str(ddf->virt->entries[inst].guid), a->curr_state,
+		consistent?"clean":"dirty",
 		a->info.resync_start);
 	return consistent;
 }

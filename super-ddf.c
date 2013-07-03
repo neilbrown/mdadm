@@ -3861,6 +3861,38 @@ static int get_bvd_state(const struct ddf_super *ddf,
 	return state;
 }
 
+static int secondary_state(int state, int other, int seclevel)
+{
+	if (state == DDF_state_optimal && other == DDF_state_optimal)
+		return DDF_state_optimal;
+	if (seclevel == DDF_2MIRRORED) {
+		if (state == DDF_state_optimal || other == DDF_state_optimal)
+			return DDF_state_part_optimal;
+		if (state == DDF_state_failed && other == DDF_state_failed)
+			return DDF_state_failed;
+		return DDF_state_degraded;
+	} else {
+		if (state == DDF_state_failed || other == DDF_state_failed)
+			return DDF_state_failed;
+		if (state == DDF_state_degraded || other == DDF_state_degraded)
+			return DDF_state_degraded;
+		return DDF_state_part_optimal;
+	}
+}
+
+static int get_svd_state(const struct ddf_super *ddf, const struct vcl *vcl)
+{
+	int state = get_bvd_state(ddf, &vcl->conf);
+	unsigned int i;
+	for (i = 1; i < vcl->conf.sec_elmnt_count; i++) {
+		state = secondary_state(
+			state,
+			get_bvd_state(ddf, vcl->other_bvds[i-1]),
+			vcl->conf.srl);
+	}
+	return state;
+}
+
 /*
  * The state of each disk is stored in the global phys_disk structure
  * in phys_disk.entries[n].state.
@@ -3946,10 +3978,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	 * It needs to be one of "optimal", "degraded", "failed".
 	 * I don't understand 'deleted' or 'missing'.
 	 */
-	state = get_bvd_state(ddf, vc);
-	if (vc->sec_elmnt_count > 1) {
-		/* treat secondary level */
-	}
+	state = get_svd_state(ddf, vcl);
 
 	if (ddf->virt->entries[inst].state !=
 	    ((ddf->virt->entries[inst].state & ~DDF_state_mask)

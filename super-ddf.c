@@ -2518,6 +2518,7 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 	unsigned long long sector;
 	struct ddf_header *header;
 	int fd, i, n_config, conf_size;
+	int ret = 0;
 
 	fd = d->fd;
 
@@ -2535,23 +2536,23 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 	}
 
 	header->type = type;
-	header->openflag = 0;
+	header->openflag = 1;
 	header->crc = calc_crc(header, 512);
 
 	lseek64(fd, sector<<9, 0);
 	if (write(fd, header, 512) < 0)
-		return 0;
+		goto out;
 
 	ddf->controller.crc = calc_crc(&ddf->controller, 512);
 	if (write(fd, &ddf->controller, 512) < 0)
-		return 0;
+		goto out;
 
 	ddf->phys->crc = calc_crc(ddf->phys, ddf->pdsize);
 	if (write(fd, ddf->phys, ddf->pdsize) < 0)
-		return 0;
+		goto out;
 	ddf->virt->crc = calc_crc(ddf->virt, ddf->vdsize);
 	if (write(fd, ddf->virt, ddf->vdsize) < 0)
-		return 0;
+		goto out;
 
 	/* Now write lots of config records. */
 	n_config = ddf->max_part;
@@ -2590,13 +2591,22 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 		}
 	}
 	if (i <= n_config)
-		return 0;
+		goto out;
 
 	d->disk.crc = calc_crc(&d->disk, 512);
 	if (write(fd, &d->disk, 512) < 0)
-		return 0;
+		goto out;
 
-	return 1;
+	ret = 1;
+out:
+	header->openflag = 0;
+	header->crc = calc_crc(header, 512);
+
+	lseek64(fd, sector<<9, 0);
+	if (write(fd, header, 512) < 0)
+		ret = 0;
+
+	return ret;
 }
 
 static int __write_init_super_ddf(struct supertype *st)

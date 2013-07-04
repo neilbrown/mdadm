@@ -3526,7 +3526,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		     unsigned long long backup_point,
 		     unsigned long long wait_point,
 		     unsigned long long *suspend_point,
-		     unsigned long long *reshape_completed)
+		     unsigned long long *reshape_completed, int *frozen)
 {
 	/* This function is called repeatedly by the reshape manager.
 	 * It determines how much progress can safely be made and allows
@@ -3743,7 +3743,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		wait_point = info->component_size - wait_point;
 	}
 
-	sysfs_set_num(info, NULL, "sync_max", max_progress);
+	if (!*frozen)
+		sysfs_set_num(info, NULL, "sync_max", max_progress);
 
 	/* Now wait.  If we have already reached the point that we were
 	 * asked to wait to, don't wait at all, else wait for any change.
@@ -3825,6 +3826,7 @@ check_progress:
 		 */
 		int wait = 10000;
 		int rv = -2;
+		unsigned long long new_sync_max;
 		while (fd >= 0 && rv < 0 && wait > 0) {
 			if (sysfs_wait(fd, &wait) != 1)
 				break;
@@ -3832,6 +3834,11 @@ check_progress:
 			case 0:
 				/* all good again */
 				rv = 1;
+				/* If "sync_max" is no longer max_progress
+				 * we need to freeze things
+				 */
+				sysfs_get_ll(info, NULL, "sync_max", &new_sync_max);
+				*frozen = (new_sync_max != max_progress);
 				break;
 			case -2: /* read error - abort */
 				wait = 0;
@@ -4126,6 +4133,7 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	struct mdinfo *sd;
 	unsigned long stripes;
 	int uuid[4];
+	int frozen = 0;
 
 	/* set up the backup-super-block.  This requires the
 	 * uuid from the array.
@@ -4206,7 +4214,8 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 		reshape_completed = sra->reshape_progress;
 		rv = progress_reshape(sra, reshape,
 				      backup_point, wait_point,
-				      &suspend_point, &reshape_completed);
+				      &suspend_point, &reshape_completed,
+				      &frozen);
 		/* external metadata would need to ping_monitor here */
 		sra->reshape_progress = reshape_completed;
 

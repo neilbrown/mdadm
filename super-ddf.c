@@ -2551,6 +2551,10 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		| get_svd_state(ddf, ddf->currentconf);
 	ddf->phys->entries[dl->pdnum].type &= ~__cpu_to_be16(DDF_Global_Spare);
 	ddf->phys->entries[dl->pdnum].type |= __cpu_to_be16(DDF_Active_in_VD);
+	dprintf("%s: added disk %d/%08x to VD %d/%s as disk %d\n",
+		__func__, dl->pdnum, __be32_to_cpu(dl->disk.refnum),
+		ddf->currentconf->vcnum, guid_str(vc->guid),
+		dk->raid_disk);
 	ddf_set_updates_pending(ddf);
 }
 

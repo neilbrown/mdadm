@@ -1878,7 +1878,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	}
 
 	for (dl = ddf->dlist; dl ; dl = dl->next)
-		if (dl->raiddisk == ddf->currentdev)
+		if (dl->disk.refnum == conf->phys_refnum[cd])
 			break;
 
 	info->disk.major = 0;

@@ -4356,6 +4356,13 @@ static void ddf_process_update(struct supertype *st,
 				return;
 		} else {
 
+			ent = find_vde_by_guid(ddf, vd->entries[0].guid);
+			if (ent != DDF_NOTFOUND) {
+				dprintf("%s: VD %s exists already in slot %d\n",
+					__func__, guid_str(vd->entries[0].guid),
+					ent);
+				return;
+			}
 			ent = find_unused_vde(ddf);
 			if (ent == DDF_NOTFOUND)
 				return;
@@ -4364,6 +4371,8 @@ static void ddf_process_update(struct supertype *st,
 				__cpu_to_be16(
 					1 + __be16_to_cpu(
 						ddf->virt->populated_vdes));
+			dprintf("%s: added VD %s in slot %d\n",
+				__func__, guid_str(vd->entries[0].guid), ent);
 		}
 		ddf_set_updates_pending(ddf);
 		break;

@@ -1472,7 +1472,7 @@ try_again:
 		/* If this device thinks that 'most_recent' has failed, then
 		 * we must reject this device.
 		 */
-		if (j != most_recent &&
+		if (j != most_recent && !c->force &&
 		    content->array.raid_disks > 0 &&
 		    devices[most_recent].i.disk.raid_disk >= 0 &&
 		    devmap[j * content->array.raid_disks + devices[most_recent].i.disk.raid_disk] == 0) {

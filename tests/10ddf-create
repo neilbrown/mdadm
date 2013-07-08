@@ -2,7 +2,8 @@
 # Test basic DDF functionality.
 #
 # Create a container with 5 drives
-# create a small raid0 across them all, then a 2disk raid1
+# create a small raid0 across them all,
+# then a small raid10 using 4 drives, then a 2disk raid1
 # and a 3disk raid5 using the remaining space
 #
 # add some data, tear down the array, reassemble

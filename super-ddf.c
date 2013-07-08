@@ -1301,8 +1301,13 @@ static const char *guid_str(const char *guid)
 	static char buf[DDF_GUID_LEN*2+1];
 	int i;
 	char *p = buf;
-	for (i = 0; i < DDF_GUID_LEN; i++)
-		p += sprintf(p, "%02x", (unsigned char)guid[i]);
+	for (i = 0; i < DDF_GUID_LEN; i++) {
+		unsigned char c = guid[i];
+		if (c >= 32 && c < 127)
+			p += sprintf(p, "%c", c);
+		else
+			p += sprintf(p, "%02x", c);
+	}
 	*p = '\0';
 	return (const char *) buf;
 }

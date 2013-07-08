@@ -1887,7 +1887,8 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	if (dl) {
 		info->disk.major = dl->major;
 		info->disk.minor = dl->minor;
-		info->disk.raid_disk = dl->raiddisk;
+		info->disk.raid_disk = cd + conf->sec_elmnt_seq
+			* __be16_to_cpu(conf->prim_elmnt_count);
 		info->disk.number = dl->pdnum;
 		info->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
 	}

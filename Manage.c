@@ -400,16 +400,28 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		sysfs_set_str(mdi, NULL, "sync_action", "idle");
 
 		/* That should have set things going again.  Now we
-		 * wait a little while (1 second max) for sync_completed
+		 * wait a little while (3 second max) for sync_completed
 		 * to reach the target.
+		 * The reshape process can block for 500msec if
+		 * the sync speed limit is hit, so we need to wait
+		 * a lot longer than that. 1 second is usually
+		 * enough.  3 is safe.
 		 */
-		delay = 1000;
+		delay = 3000;
 		scfd = sysfs_open(mdi->sys_name, NULL, "sync_completed");
-		while (scfd >= 0 && delay > 0) {
+		while (scfd >= 0 && delay > 0 && old_sync_max > 0) {
 			sysfs_get_ll(mdi, NULL, "reshape_position", &curr);
 			sysfs_fd_get_str(scfd, buf, sizeof(buf));
-			if (strncmp(buf, "none", 4) == 0)
-				break;
+			if (strncmp(buf, "none", 4) == 0) {
+				/* Either reshape has aborted, or hasn't
+				 * quite started yet.  Wait a bit and
+				 * check  'sync_action' to see.
+				 */
+				usleep(10000);
+				sysfs_get_str(mdi, NULL, "sync_action", buf, sizeof(buf));
+				if (strncmp(buf, "reshape", 7) != 0)
+					break;
+			}
 
 			if (sysfs_fd_get_ll(scfd, &completed) == 0 &&
 			    (completed > sync_max ||

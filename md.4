@@ -266,32 +266,323 @@ as RAID1+0.  Every datablock is duplicated some number of times, and
 the resulting collection of datablocks are distributed over multiple
 drives.
 
-When configuring a RAID10 array, it is necessary to specify the number
-of replicas of each data block that are required (this will normally
-be 2) and whether the replicas should be 'near', 'offset' or 'far'.
-(Note that the 'offset' layout is only available from 2.6.18).
+When configuring a RAID10 array, it is necessary to specify the number of
+replicas of each data block that are required (this will usually be\ 2) and
+whether their layout should be 'near', 'far' or 'offset' (only available since
+Linux\ 2.6.18).
 
-When 'near' replicas are chosen, the multiple copies of a given chunk
-are laid out consecutively across the stripes of the array, so the two
-copies of a datablock will likely be at the same offset on two
-adjacent devices.
 
+.TP
+.B About the RAID10 Layout Examples
+The examples below visualise the chunk distribution on the underlying devices
+for the respective layout.
+
+For simplicity it is assumed that the size of the chunks equals the size of the
+blocks of the underlying devices as well as those of the RAID10 device exported
+by the kernel (for example \fB/dev/md/\fPname).
+.br
+Therefore the chunks\ /\ chunk numbers map directly to the blocks\ /\ block
+addresses of the exported RAID10 device.
+
+Decimal numbers (0,\ 1, 2,\ …) are the chunks of the RAID10 and due to the above
+assumption also the blocks and block addresses of the exported RAID10 device.
+.br
+Same numbers mean copies of a chunk\ /\ block (obviously on different underlying
+devices).
+.br
+Hexadecimal numbers (0x00,\ 0x01, 0x02,\ …) are the block addresses of the
+underlying devices.
+.PP
+
+
+.TP
+.B 'near' Layout
+When 'near' replicas are chosen, the multiple copies of a given chunk are laid
+out consecutively (“as close to each other as possible”) across the stripes of
+the array.
+
+With an even number of devices, they will likely (unless some misalignment is
+present) lay at the very same offset on the different devices.
+.br
+This is as the “classic” RAID1+0; that is two groups of mirrored devices (in the
+example below the groups Device\ #1\ /\ #2 and Device\ #3\ /\ #4 are each a
+RAID1) both in turn forming a striped RAID0.
+
+.B Example with 2\ copies per chunk and an even number\ (4) of devices:
+.TS
+tab(;);
+  C   -   -   -   -
+  C | C | C | C | C |
+| - | - | - | - | - |
+| C | C | C | C | C |
+| C | C | C | C | C |
+| C | C | C | C | C |
+| C | C | C | C | C |
+| C | C | C | C | C |
+| C | C | C | C | C |
+| - | - | - | - | - |
+  C   C   S   C   S
+  C   C   S   C   S
+  C   C   S   S   S
+  C   C   S   S   S.
+;
+;Device #1;Device #2;Device #3;Device #4
+0x00;0;0;1;1
+0x01;2;2;3;3
+⋯;⋯;⋯;⋯;⋯
+⋮;⋮;⋮;⋮;⋮
+⋯;⋯;⋯;⋯;⋯
+0x80;254;254;255;255
+;╰─────────┬─────────╯;╰─────────┬─────────╯
+;RAID1;RAID1
+;╰─────────────────────┬─────────────────────╯
+;RAID0
+.TE
+
+.B Example with 2\ copies per chunk and an odd number\ (5) of devices:
+.TS
+tab(;);
+  C   -   -   -   -   -
+  C | C | C | C | C | C |
+| - | - | - | - | - | - |
+| C | C | C | C | C | C |
+| C | C | C | C | C | C |
+| C | C | C | C | C | C |
+| C | C | C | C | C | C |
+| C | C | C | C | C | C |
+| C | C | C | C | C | C |
+| - | - | - | - | - | - |
+C.
+;
+;Device #1;Device #2;Device #3;Device #4;Device #5
+0x00;0;0;1;1;2
+0x01;2;3;3;4;4
+⋯;⋯;⋯;⋯;⋯;⋯
+⋮;⋮;⋮;⋮;⋮;⋮
+⋯;⋯;⋯;⋯;⋯;⋯
+0x80;317;318;318;319;319
+;
+.TE
+.PP
+
+
+.TP
+.B 'far' Layout
 When 'far' replicas are chosen, the multiple copies of a given chunk
-are laid out quite distant from each other.  The first copy of all
-data blocks will be striped across the early part of all drives in
-RAID0 fashion, and then the next copy of all blocks will be striped
-across a later section of all drives, always ensuring that all copies
-of any given block are on different drives.
+are laid out quite distant (“as far as reasonably possible”) from each other.
 
-The 'far' arrangement can give sequential read performance equal to
-that of a RAID0 array, but at the cost of reduced write performance.
+First a complete sequence of all data blocks (that is all the data one sees on
+the exported RAID10 block device) is striped over the devices. Then a another
+(though “shifted”) complete sequence of all data blocks; and so on (in the case
+of more than 2\ copies per chunk).
 
-When 'offset' replicas are chosen, the multiple copies of a given
-chunk are laid out on consecutive drives and at consecutive offsets.
-Effectively each stripe is duplicated and the copies are offset by one
-device.   This should give similar read characteristics to 'far' if a
-suitably large chunk size is used, but without as much seeking for
-writes.
+The “shift” needed to prevent placing copies of the same chunks on the same
+devices is actually a cyclic permutation with offset\ 1 of each of the stripes
+within a complete sequence of chunks.
+.br
+The offset\ 1 is relative to the previous complete sequence of chunks, so in
+case of more than 2\ copies per chunk one gets the following offsets:
+.br
+1.\ complete sequence of chunks: offset\ ≔\ \ 0
+.br
+2.\ complete sequence of chunks: offset\ ≔\ \ 1
+.br
+3.\ complete sequence of chunks: offset\ ≔\ \ 2
+.br
+                       ⋮
+.br
+n.\ complete sequence of chunks: offset\ ≔\ n−1
+
+.B Example with 2\ copies per chunk and an even number\ (4) of devices:
+.TS
+tab(;);
+  C   -   -   -   -
+  C | C | C | C | C |
+| - | - | - | - | - |
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| - | - | - | - | - |
+C.
+;
+;Device #1;Device #2;Device #3;Device #4
+;
+0x00;0;1;2;3;╮
+0x01;4;5;6;7;├ ▒
+⋯;⋯;⋯;⋯;⋯;┆
+⋮;⋮;⋮;⋮;⋮;┆
+⋯;⋯;⋯;⋯;⋯;┆
+0x40;252;253;254;255;╯
+0x41;3;0;1;2;╮
+0x42;7;4;5;6;├ ▒↻
+⋯;⋯;⋯;⋯;⋯;┆
+⋮;⋮;⋮;⋮;⋮;┆
+⋯;⋯;⋯;⋯;⋯;┆
+0x80;255;252;253;254;╯
+;
+.TE
+
+.B Example with 2\ copies per chunk and an odd number\ (5) of devices:
+.TS
+tab(;);
+  C   -   -   -   -   -
+  C | C | C | C | C | C |
+| - | - | - | - | - | - |
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| - | - | - | - | - | - |
+C.
+;
+;Device #1;Device #2;Device #3;Device #4;Device #5
+;
+0x00;0;1;2;3;4;╮
+0x01;5;6;7;8;9;├ ▒
+⋯;⋯;⋯;⋯;⋯;⋯;┆
+⋮;⋮;⋮;⋮;⋮;⋮;┆
+⋯;⋯;⋯;⋯;⋯;⋯;┆
+0x40;315;316;317;318;319;╯
+0x41;4;0;1;2;3;╮
+0x42;9;5;6;7;8;├ ▒↻
+⋯;⋯;⋯;⋯;⋯;⋯;┆
+⋮;⋮;⋮;⋮;⋮;⋮;┆
+⋯;⋯;⋯;⋯;⋯;⋯;┆
+0x80;319;315;316;317;318;╯
+;
+.TE
+
+With ▒\ being the complete sequence of chunks and ▒↻\ the cyclic permutation
+with offset\ 1 thereof (in the case of more than 2 copies per chunk there would
+be (▒↻)↻,\ ((▒↻)↻)↻,\ …).
+
+The advantage of this layout is that MD can easily spread sequential reads over
+the devices, making them similar to RAID0 in terms of speed.
+.br
+The cost is more seeking for writes, making them substantially slower.
+.PP
+
+
+.TP
+.B 'offset' Layout
+When 'offset' replicas are chosen, all the copies of a given chunk are striped
+conscutively (“offset by the stripe length after each other”) over the devices.
+
+Explained in detail, <number of devices> consecutive chunks are striped over the
+devices, immediately followed by a “shifted” copy of these chunks (and by
+further such “shifted” copies in the case of more than 2\ copies per chunk).
+.br
+This pattern repeates for all further consecutive chunks of the exported RAID10
+device (in other words: all further data blocks).
+
+The “shift” needed to prevent placing copies of the same chunks on the same
+devices is actually a cyclic permutation with offset\ 1 of each of the striped
+copies of <number of devices> consecutive chunks.
+.br
+The offset\ 1 is relative to the previous striped copy of <number of devices>
+consecutive chunks, so in case of more than 2\ copies per chunk one gets the
+following offsets:
+.br
+1.\ <number of devices> consecutive chunks: offset\ ≔\ \ 0
+.br
+2.\ <number of devices> consecutive chunks: offset\ ≔\ \ 1
+.br
+3.\ <number of devices> consecutive chunks: offset\ ≔\ \ 2
+.br
+                             ⋮
+.br
+n.\ <number of devices> consecutive chunks: offset\ ≔\ n−1
+
+.B Example with 2\ copies per chunk and an even number\ (4) of devices:
+.TS
+tab(;);
+  C   -   -   -   -
+  C | C | C | C | C |
+| - | - | - | - | - |
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| C | C | C | C | C | L
+| - | - | - | - | - |
+C.
+;
+;Device #1;Device #2;Device #3;Device #4
+;
+0x00;0;1;2;3;) AA
+0x01;3;0;1;2;) AA↻
+0x02;4;5;6;7;) AB
+0x03;7;4;5;6;) AB↻
+⋯;⋯;⋯;⋯;⋯;) ⋯
+⋮;⋮;⋮;⋮;⋮;  ⋮
+⋯;⋯;⋯;⋯;⋯;) ⋯
+0x79;251;252;253;254;) EX
+0x80;254;251;252;253;) EX↻
+;
+.TE
+
+.B Example with 2\ copies per chunk and an odd number\ (5) of devices:
+.TS
+tab(;);
+  C   -   -   -   -   -
+  C | C | C | C | C | C |
+| - | - | - | - | - | - |
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| C | C | C | C | C | C | L
+| - | - | - | - | - | - |
+C.
+;
+;Device #1;Device #2;Device #3;Device #4;Device #5
+;
+0x00;0;1;2;3;4;) AA
+0x01;4;0;1;2;3;) AA↻
+0x02;5;6;7;8;9;) AB
+0x03;9;5;6;7;8;) AB↻
+⋯;⋯;⋯;⋯;⋯;⋯;) ⋯
+⋮;⋮;⋮;⋮;⋮;⋮;  ⋮
+⋯;⋯;⋯;⋯;⋯;⋯;) ⋯
+0x79;314;315;316;317;318;) EX
+0x80;318;314;315;316;317;) EX↻
+;
+.TE
+
+With AA,\ AB,\ …, AZ,\ BA,\ … being the sets of <number of devices> consecutive
+chunks and AA↻,\ AB↻,\ …, AZ↻,\ BA↻,\ … the cyclic permutations with offset\ 1
+thereof (in the case of more than 2 copies per chunk there would be (AA↻)↻,\ …
+as well as ((AA↻)↻)↻,\ … and so on).
+
+This should give similar read characteristics to 'far' if a suitably large chunk
+size is used, but without as much seeking for writes.
+.PP
+
 
 It should be noted that the number of devices in a RAID10 array need
 not be a multiple of the number of replica of each data block; however,

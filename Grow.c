@@ -3228,7 +3228,7 @@ started:
 	do {
 		struct mdstat_ent *mds, *m;
 		delayed = 0;
-		mds = mdstat_read(0, 0);
+		mds = mdstat_read(1, 0);
 		for (m = mds; m; m = m->next)
 			if (strcmp(m->devnm, sra->sys_name) == 0) {
 				if (m->resync &&
@@ -3248,9 +3248,9 @@ started:
 			delayed = 0;
 		}
 		if (delayed)
-			sleep(30 - (delayed-1) * 25);
+			mdstat_wait(30 - (delayed-1) * 25);
 	} while (delayed);
-
+	mdstat_close();
 	close(fd);
 	if (check_env("MDADM_GROW_VERIFY"))
 		fd = open(devname, O_RDONLY | O_DIRECT);

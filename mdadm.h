@@ -465,6 +465,7 @@ struct mdstat_ent {
 };
 
 extern struct mdstat_ent *mdstat_read(int hold, int start);
+extern void mdstat_close(void);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
 extern void mdstat_wait_fd(int fd, const sigset_t *sigmask);

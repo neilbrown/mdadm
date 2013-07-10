@@ -10125,7 +10125,7 @@ exit_imsm_reshape_super:
  ******************************************************************************/
 int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 {
-	int fd = sysfs_get_fd(sra, NULL, "reshape_position");
+	int fd = sysfs_get_fd(sra, NULL, "sync_completed");
 	unsigned long long completed;
 	/* to_complete : new sync_max position */
 	unsigned long long to_complete = sra->reshape_progress;
@@ -10144,10 +10144,10 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 		return 0;
 	}
 
-	if (completed > to_complete) {
+	if (completed > position_to_set) {
 		dprintf("imsm: wait_for_reshape_imsm() "
 			"wrong next position to set %llu (%llu)\n",
-			to_complete, completed);
+			to_complete, position_to_set);
 		close(fd);
 		return -1;
 	}
@@ -10174,7 +10174,7 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 			close(fd);
 			return 1;
 		}
-	} while (completed < to_complete);
+	} while (completed < position_to_set);
 	close(fd);
 	return 0;
 

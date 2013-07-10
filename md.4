@@ -352,6 +352,158 @@ transient.
 The list of faulty sectors can be flushed, and the active list of
 failure modes can be cleared.
 
+.SS HOW MD READS/WRITES DEPENDING ON THE LEVEL AND CHUNK SIZE
+
+The following explains how MD reads\ /\ writes data depending on the MD\ level;
+\fIespecially how many bytes are consecutively read\ /\ written fully at once
+from\ /\ to the underlying device(s)\fP.
+.br
+Further block layers below MD may influence and change this of course.
+
+Generally, the number of bytes read\ /\ written is \fIindependent of the chunk
+size\fP.
+
+.TP
+.B LINEAR
+Reads\ /\ writes as many bytes as requested by the block layer (for example MD,
+dm-crypt, LVM or a filesystem) above MD.
+
+As data is neither striped nor mirrored in chunks over the devices, no IO
+distribution takes place on reads\ /\ writes.
+
+There is no resynchronisation nor can the MD be degraded.
+.PP
+
+.TP
+.B RAID0
+Reads\ /\ writes as many bytes as requested by the block layer (for example MD,
+dm-crypt, LVM or a filesystem) above MD \fIup to the chunk size\fP (obviously,
+if any of the block layers above is not aligned with MD, even less will at most
+be read\ /\ written).
+
+As data is striped in chunks over the devices, IO distribution takes place on
+reads\ /\ writes.
+
+There is no resynchronisation nor can the MD be degraded.
+.PP
+
+.TP
+.B RAID1
+Reads\ /\ writes as many bytes as requested by the block layer (for example MD,
+dm-crypt, LVM or a filesystem) above MD.
+
+As data is mirroed in chunks over the devices, IO distribution takes place on
+reads, with MD automatically selecting the optimal device (for example that
+with the minimum seek time).
+.br
+On writes, data must be written to all the deivces, though.
+
+On resynchronisation data will be IO distributedly read from the devices that
+are synchronised and written to all those needed to be synchonised.
+
+When degraded, failed devices won’t be used for reads\ /\ writes.
+.PP
+
+.TP
+.B RAID10
+Reads\ /\ writes as many bytes as requested by the block layer (for example MD,
+dm-crypt, LVM or a filesystem) above MD \fIup to the chunk size\fP (obviously,
+if any of the block layers above is not aligned with MD, even less will at most
+be read\ /\ written).
+
+As data is mirroed and striped in chunks over some of the devices, IO
+distribution takes place on reads, with MD automatically selecting the optimal
+device (for example that with the minimum seek time).
+.br
+On writes, data must be written to all of the respectively mirrored deivces,
+though.
+
+On resynchronisation data will be IO distributedly read from the devices that
+are synchronised and written to those needed to be synchonised.
+
+When degraded, failed devices won’t be used for reads\ /\ writes.
+.PP
+
+.TP
+.B RAID4, RAID5, and RAID6
+\fIWhen not degraded on reads\fP:
+.br
+Reads as many bytes as requested by the block
+layer (for example MD, dm-crypt, LVM or a filesystem) above MD \fIup to the
+chunk size\fP (obviously, if any of the block layers above is not aligned with
+MD, even less will at most be read).
+.br
+\fIWhen degraded on reads\fP \fBor\fP \fIalways on writes\fP:
+.br
+Reads\ /\ writes \fIgenerally\fP in blocks of 4\ KiB (hoping that block layers
+below MD will optimise this).
+
+\fIWhen not degraded\fP:
+As data is striped in chunks over the devices, IO distribution takes place on
+reads (using the different data chunks but not the parity chunk(s)).
+.br
+On writes, data and parity must be written to the respective devices (that is
+1\ device with the respective data chunk and 1\ (in case of RAID4 or RAID5) or
+2\ (in case of RAID6) device(s) with the respective parity chunk(s). These
+writes but also any necessary reads are done blocks of 4\ KiB.
+.br
+\fIWhen degraded or on resynchronisation\fP:
+Failed devices won’t be used for reads\ /\ writes.
+.br
+In order to read from within a failed data chunk, the respective blocks of
+4\ KiB are read from all the other corresponding data and parity chunks and the
+failed data is calculated from these.
+.br
+Resynchronising works analogously with the addition of writing the missing data
+or parity, which happens again in blocks of 4\ KiB.
+.PP
+
+
+.TP
+.B Chunk Size
+The chunk size has no effect for the non-striped levels LINEAR and RAID1.
+.br
+Fruther, MD’s reads\ /\ writes are in general \fInot\fP in blocks of the chunk
+size (see above).
+
+For the levels RAID0, RAID10, RAID4, RAID5 and RAID6 it controls the number of
+consecutive data bytes placed on one device before the following data bytes
+continue at a “next” device.
+.br
+Obviously it also controls the size of any parity chunks, but \fIthe actual
+parity data itself is split into blocks of 4\ KiB\fP (within a parity chunk).
+
+With striped levels, IO distribution on reads\ /\ writes takes place over the
+devices where possible.
+.br
+The main effect of the chunk size is basically how much data is consecutively
+read\ /\ written from\ /\ to a single deivce, (typically) before it has to seek
+to an arbitrary other (on random reads\ /\ writes) or the “next” (on sequential
+reads\ /\ writes) chunk (on the same device). Due to the striping, “next chunk”
+doesn’t necessarily mean directly consecutive data (as this may be on the “next”
+device), but rather the “next” of consecutive data found \fIon the respective
+device\fP.
+
+The ideal chunk size depends greatly on the IO scenario, some general guidelines
+include:
+.br
+• On sequential reads\ /\ writes, having to read\ /\ write from\ /\ to less
+chunks is faster (for example since less seeks may be necessary) and thus a
+larger chunk size may be better.
+.br
+This applies analogously for “pseudo-random” reads\ /\ writes, that is not
+strictly sequential ones but such that take place in a very close consecutive
+area.
+
+• For very large sequential reads\ /\ writes, this may apply less, since larger
+chunk sizes tend to result in larger IO requests to the underlying devices.
+
+• For reads\ /\ writes, the stripe size (that is <chunk size> ∙ <number of data
+chunks>) should ideally match the typical size for reads\ /\ writes in the
+respective scenario.
+.PP
+
+
 .SS UNCLEAN SHUTDOWN
 
 When changes are made to a RAID1, RAID4, RAID5, RAID6, or RAID10 array

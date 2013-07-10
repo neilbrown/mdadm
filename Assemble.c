@@ -48,7 +48,7 @@ static int name_matches(char *found, char *required, char *homehost)
 static int is_member_busy(char *metadata_version)
 {
 	/* check if the given member array is active */
-	struct mdstat_ent *mdstat = mdstat_read(1, 0);
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
 	struct mdstat_ent *ent;
 	int busy = 0;
 

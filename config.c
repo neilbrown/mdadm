@@ -150,7 +150,7 @@ struct mddev_dev *load_partitions(void)
 
 struct mddev_dev *load_containers(void)
 {
-	struct mdstat_ent *mdstat = mdstat_read(1, 0);
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
 	struct mdstat_ent *ent;
 	struct mddev_dev *d;
 	struct mddev_dev *rv = NULL;

@@ -3475,7 +3475,7 @@ int reshape_container(char *container, char *devname,
 			flush_mdmon(container);
 
 		rv = reshape_array(container, fd, adev, st,
-				   content, force, NULL, 0ULL,
+				   content, force, NULL, INVALID_SECTORS,
 				   backup_file, verbose, 1, restart,
 				   freeze_reshape);
 		close(fd);
@@ -4846,7 +4846,8 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 					    freeze_reshape);
 	} else
 		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
-					NULL, 0ULL, backup_file, 0, 0,
+					NULL, INVALID_SECTORS,
+					backup_file, 0, 0,
 					1 | info->reshape_active,
 					freeze_reshape);
 

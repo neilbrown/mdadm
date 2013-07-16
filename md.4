@@ -392,14 +392,14 @@ There is no resynchronisation nor can the MD be degraded.
 Reads\ /\ writes as many bytes as requested by the block layer (for example MD,
 dm-crypt, LVM or a filesystem) above MD.
 
-As data is mirroed in chunks over the devices, IO distribution takes place on
+As data is mirrored in chunks over the devices, IO distribution takes place on
 reads, with MD automatically selecting the optimal device (for example that
 with the minimum seek time).
 .br
-On writes, data must be written to all the deivces, though.
+On writes, data must be written to all the devices, though.
 
 On resynchronisation data will be IO distributedly read from the devices that
-are synchronised and written to all those needed to be synchonised.
+are synchronised and written to all those needed to be synchronised.
 
 When degraded, failed devices won’t be used for reads\ /\ writes.
 .PP
@@ -463,7 +463,7 @@ or parity, which happens again in blocks of 4\ KiB.
 .B Chunk Size
 The chunk size has no effect for the non-striped levels LINEAR and RAID1.
 .br
-Fruther, MD’s reads\ /\ writes are in general \fInot\fP in blocks of the chunk
+Further, MD’s reads\ /\ writes are in general \fInot\fP in blocks of the chunk
 size (see above).
 
 For the levels RAID0, RAID10, RAID4, RAID5 and RAID6 it controls the number of
@@ -477,7 +477,7 @@ With striped levels, IO distribution on reads\ /\ writes takes place over the
 devices where possible.
 .br
 The main effect of the chunk size is basically how much data is consecutively
-read\ /\ written from\ /\ to a single deivce, (typically) before it has to seek
+read\ /\ written from\ /\ to a single device, (typically) before it has to seek
 to an arbitrary other (on random reads\ /\ writes) or the “next” (on sequential
 reads\ /\ writes) chunk (on the same device). Due to the striping, “next chunk”
 doesn’t necessarily mean directly consecutive data (as this may be on the “next”

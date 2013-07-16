@@ -435,8 +435,8 @@ MD, even less will at most be read).
 .br
 \fIWhen degraded on reads\fP \fBor\fP \fIalways on writes\fP:
 .br
-Reads/writes \fIgenerally\fP in blocks of 4\ KiB (hoping that block layers below
-MD will optimise this).
+Reads/writes \fIgenerally\fP in blocks of \fBPAGE_SIZE\fP (hoping that block
+layers below MD will optimise this).
 
 \fIWhen not degraded\fP:
 As data is striped in chunks over the devices, IO distribution takes place on
@@ -445,17 +445,17 @@ reads (using the different data chunks but not the parity chunk(s)).
 On writes, data and parity must be written to the respective devices (that is
 1\ device with the respective data chunk and 1\ (in case of RAID4 or RAID5) or
 2\ (in case of RAID6) device(s) with the respective parity chunk(s). These
-writes but also any necessary reads are done blocks of 4\ KiB.
+writes but also any necessary reads are done in blocks of \fBPAGE_SIZE\fP.
 .br
 \fIWhen degraded or on resynchronisation\fP:
 Failed devices won’t be used for reads/writes.
 .br
 In order to read from within a failed data chunk, the respective blocks of
-4\ KiB are read from all the other corresponding data and parity chunks and the
-failed data is calculated from these.
+\fBPAGE_SIZE\fP are read from all the other corresponding data and parity chunks
+and the failed data is calculated from these.
 .br
 Resynchronising works analogously with the addition of writing the missing data
-or parity, which happens again in blocks of 4\ KiB.
+or parity, which happens again in blocks of \fBPAGE_SIZE\fP.
 .PP
 
 
@@ -471,7 +471,9 @@ consecutive data bytes placed on one device before the following data bytes
 continue at a “next” device.
 .br
 Obviously it also controls the size of any parity chunks, but \fIthe actual
-parity data itself is split into blocks of 4\ KiB\fP (within a parity chunk).
+parity data itself is split into blocks of\fP
+.BI PAGE_SIZE
+(within a parity chunk).
 
 With striped levels, IO distribution on reads/writes takes place over the
 devices where possible.

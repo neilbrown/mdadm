@@ -393,8 +393,8 @@ Reads/writes as many bytes as requested by the block layer (for example MD,
 dm-crypt, LVM or a filesystem) above MD.
 
 As data is mirrored over the devices, IO distribution takes place on reads, with
-MD automatically selecting the optimal device (for example that with the minimum
-seek time).
+MD trying to heuristically select the optimal device (for example that with the
+minimum seek time).
 .br
 On writes, data must be written to all the devices, though.
 
@@ -412,8 +412,9 @@ if any of the block layers above is not aligned with MD, even less will at most
 be read/written).
 
 As data is mirroed over some of the devices and also striped in chunks over some
-of the devices, IO distribution takes place on reads, with MD automatically
-selecting the optimal device (for example that with the minimum seek time).
+of the devices, IO distribution takes place on reads, with MD trying to
+heuristically select the optimal device (for example that with the minimum seek
+time).
 .br
 On writes, data must be written to all of the respectively mirrored deivces,
 though.

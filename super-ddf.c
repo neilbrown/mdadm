@@ -464,8 +464,14 @@ static void pr_state(struct ddf_super *ddf, const char *msg)
 static void pr_state(const struct ddf_super *ddf, const char *msg) {}
 #endif
 
-#define ddf_set_updates_pending(x) \
-	do { (x)->updates_pending = 1; pr_state(x, __func__); } while (0)
+static void _ddf_set_updates_pending(struct ddf_super *ddf, const char *func)
+{
+	ddf->updates_pending = 1;
+	ddf->active->seq = __cpu_to_be32((__be32_to_cpu(ddf->active->seq)+1));
+	pr_state(ddf, func);
+}
+
+#define ddf_set_updates_pending(x) _ddf_set_updates_pending((x), __func__)
 
 static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
 					     __u32 refnum, unsigned int nmax,
@@ -2867,7 +2873,7 @@ static int __write_init_super_ddf(struct supertype *st)
 	}
 	memset(null_aligned, 0xff, NULL_CONF_SZ);
 
-	seq = ddf->active->seq + 1;
+	seq = ddf->active->seq;
 
 	/* try to write updated metadata,
 	 * if we catch a failure move on to the next disk

@@ -492,20 +492,22 @@ device\fP.
 
 The ideal chunk size depends greatly on the IO scenario, some general guidelines
 include:
-.br
-• On sequential reads/writes, having to read/write from/to less chunks is faster
+.RS
+.IP \(bu 2
+On sequential reads/writes, having to read/write from/to less chunks is faster
 (for example since less seeks may be necessary) and thus a larger chunk size may
 be better.
 .br
 This applies analogously for “pseudo-random” reads/writes, that is not strictly
 sequential ones but such that take place in a very close consecutive area.
-
-• For very large sequential reads/writes, this may apply less, since larger
+.IP \(bu 2
+For very large sequential reads/writes, this may apply less, since larger
 chunk sizes tend to result in larger IO requests to the underlying devices.
-
-• For reads/writes, the stripe size (that is <chunk size> ∙ <number of data
+.IP \(bu 2
+For reads/writes, the stripe size (that is <chunk size> ∙ <number of data
 chunks>) should ideally match the typical size for reads/writes in the
 respective scenario.
+.RE
 .PP
 
 

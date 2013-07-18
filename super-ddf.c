@@ -2756,13 +2756,20 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
  */
 #define NULL_CONF_SZ	4096
 
-static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
-				 char *null_aligned)
+static char *null_aligned;
+static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
 {
 	unsigned long long sector;
 	struct ddf_header *header;
 	int fd, i, n_config, conf_size;
 	int ret = 0;
+
+	if (null_aligned == NULL) {
+		if (posix_memalign((void **)&null_aligned, 4096, NULL_CONF_SZ)
+		    != 0)
+			return 0;
+		memset(null_aligned, 0xff, NULL_CONF_SZ);
+	}
 
 	fd = d->fd;
 
@@ -2864,14 +2871,9 @@ static int __write_init_super_ddf(struct supertype *st)
 	int attempts = 0;
 	int successes = 0;
 	unsigned long long size;
-	char *null_aligned;
 	__u32 seq;
 
 	pr_state(ddf, __func__);
-	if (posix_memalign((void**)&null_aligned, 4096, NULL_CONF_SZ) != 0) {
-		return -ENOMEM;
-	}
-	memset(null_aligned, 0xff, NULL_CONF_SZ);
 
 	seq = ddf->active->seq;
 
@@ -2916,12 +2918,10 @@ static int __write_init_super_ddf(struct supertype *st)
 		ddf->anchor.seq = 0xFFFFFFFF; /* no sequencing in anchor */
 		ddf->anchor.crc = calc_crc(&ddf->anchor, 512);
 
-		if (!__write_ddf_structure(d, ddf, DDF_HEADER_PRIMARY,
-					   null_aligned))
+		if (!__write_ddf_structure(d, ddf, DDF_HEADER_PRIMARY))
 			continue;
 
-		if (!__write_ddf_structure(d, ddf, DDF_HEADER_SECONDARY,
-					   null_aligned))
+		if (!__write_ddf_structure(d, ddf, DDF_HEADER_SECONDARY))
 			continue;
 
 		lseek64(fd, (size-1)*512, SEEK_SET);
@@ -2929,7 +2929,6 @@ static int __write_init_super_ddf(struct supertype *st)
 			continue;
 		successes++;
 	}
-	free(null_aligned);
 
 	return attempts != successes;
 }

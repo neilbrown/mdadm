@@ -398,8 +398,9 @@ minimum seek time).
 .br
 On writes, data must be written to all the devices, though.
 
-On resynchronisation data will be read in an IO distributed way from the devices
-that are synchronised and written to all those needed to be synchronised.
+On resynchronisation data will be read from the “first” usable device (that is
+the device with the lowest role number that has not failed) and written to all
+those needed to be synchronised (there is no IO distribution).
 
 When degraded, failed devices won’t be used for reads/writes.
 .PP
@@ -419,8 +420,10 @@ time).
 On writes, data must be written to all of the respectively mirrored deivces,
 though.
 
-On resynchronisation data will be IO distributedly read from the devices that
-are synchronised and written to those needed to be synchonised.
+On resynchronisation data will be read from the “first” usable device (that is
+the device with the lowest role number that holds the data and that has not
+failed) and written to all those needed to be synchronised (there is no IO
+distribution).
 
 When degraded, failed devices won’t be used for reads/writes.
 .PP

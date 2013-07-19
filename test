@@ -64,7 +64,7 @@ config=/tmp/mdadm.conf
 cleanup() {
 	udevadm settle
 	$mdadm -Ssq 2> /dev/null
-	for d in 0 1 2 3 4 5 6 7  8 9 10 11 12
+	for d in 0 1 2 3 4 5 6 7  8 9 10 11 12 13
 	do
 	    losetup -d /dev/loop$d ; # rm -f $targetdir/mdtest$d
 	    rm -f /dev/disk/by-path/loop*
@@ -80,7 +80,7 @@ do_setup() {
   trap ctrl_c 2
 
   devlist=
-  for d in 0 1 2 3 4 5 6 7 8 9 10 11 12
+  for d in 0 1 2 3 4 5 6 7 8 9 10 11 12 13
   do
     sz=$size
     if [ $d -gt 7 ]; then sz=$ddfsize ; fi

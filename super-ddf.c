@@ -4253,8 +4253,11 @@ static int kill_subarray_ddf(struct supertype *st)
 		/* we use DDF_state_deleted as marker */
 		vd->entries[0].state = DDF_state_deleted;
 		append_metadata_update(st, vd, len);
-	} else
+	} else {
 		_kill_subarray_ddf(ddf, conf->guid);
+		ddf_set_updates_pending(ddf);
+		ddf_sync_metadata(st);
+	}
 	return 0;
 }
 

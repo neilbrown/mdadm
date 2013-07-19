@@ -500,7 +500,7 @@ static int err_bad_md_layout(const mdu_array_info_t *array)
 {
 	pr_err("RAID%d layout %x with %d disks is unsupported for DDF\n",
 	       array->level, array->layout, array->raid_disks);
-	return DDF_INVALID_LEVEL;
+	return -1;
 }
 
 static int layout_md2ddf(const mdu_array_info_t *array,

@@ -1881,11 +1881,11 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 
 	if (cd >= 0 && (unsigned)cd < ddf->mppe) {
 		info->data_offset =
-			__be64_to_cpu(LBA_OFFSET(ddf, &vc->conf)[cd]);
+			__be64_to_cpu(LBA_OFFSET(ddf, conf)[cd]);
 		if (vc->block_sizes)
 			info->component_size = vc->block_sizes[cd];
 		else
-			info->component_size = __be64_to_cpu(vc->conf.blocks);
+			info->component_size = __be64_to_cpu(conf->blocks);
 	}
 
 	for (dl = ddf->dlist; dl ; dl = dl->next)

@@ -1308,6 +1308,22 @@ static int all_ff(const char *guid)
 	return 1;
 }
 
+static const char *guid_str(const char *guid)
+{
+	static char buf[DDF_GUID_LEN*2+1];
+	int i;
+	char *p = buf;
+	for (i = 0; i < DDF_GUID_LEN; i++) {
+		unsigned char c = guid[i];
+		if (c >= 32 && c < 127)
+			p += sprintf(p, "%c", c);
+		else
+			p += sprintf(p, "%02x", c);
+	}
+	*p = '\0';
+	return (const char *) buf;
+}
+
 #ifndef MDASSEMBLE
 static void print_guid(char *guid, int tstamp)
 {
@@ -1343,22 +1359,6 @@ static void print_guid(char *guid, int tstamp)
 		fputs(tbuf, stdout);
 	}
 	printf(")");
-}
-
-static const char *guid_str(const char *guid)
-{
-	static char buf[DDF_GUID_LEN*2+1];
-	int i;
-	char *p = buf;
-	for (i = 0; i < DDF_GUID_LEN; i++) {
-		unsigned char c = guid[i];
-		if (c >= 32 && c < 127)
-			p += sprintf(p, "%c", c);
-		else
-			p += sprintf(p, "%02x", c);
-	}
-	*p = '\0';
-	return (const char *) buf;
 }
 
 static void examine_vd(int n, struct ddf_super *sb, char *guid)
@@ -2110,6 +2110,7 @@ static unsigned int find_vde_by_name(const struct ddf_super *ddf,
 	return DDF_NOTFOUND;
 }
 
+#ifndef MDASSEMBLE
 static unsigned int find_vde_by_guid(const struct ddf_super *ddf,
 				     const char *guid)
 {
@@ -2121,6 +2122,7 @@ static unsigned int find_vde_by_guid(const struct ddf_super *ddf,
 			return i;
 	return DDF_NOTFOUND;
 }
+#endif
 
 static int init_super_ddf_bvd(struct supertype *st,
 			      mdu_array_info_t *info,
@@ -2523,9 +2525,10 @@ static int init_super_ddf_bvd(struct supertype *st,
 	return 1;
 }
 
-static int get_svd_state(const struct ddf_super *, const struct vcl *);
 
 #ifndef MDASSEMBLE
+static int get_svd_state(const struct ddf_super *, const struct vcl *);
+
 static void add_to_super_ddf_bvd(struct supertype *st,
 				 mdu_disk_info_t *dk, int fd, char *devname)
 {
@@ -2801,6 +2804,7 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
 	}
 	return 0;
 }
+#endif
 
 /*
  * This is the write_init_super method for a ddf container.  It is
@@ -2968,6 +2972,7 @@ static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
 	return 1;
 }
 
+#ifndef MDASSEMBLE
 static int __write_init_super_ddf(struct supertype *st)
 {
 	struct ddf_super *ddf = st->sb;
@@ -4903,6 +4908,7 @@ struct superswitch super_ddf = {
 	.remove_from_super = remove_from_super_ddf,
 	.load_container	= load_container_ddf,
 	.copy_metadata = copy_metadata_ddf,
+	.kill_subarray  = kill_subarray_ddf,
 #endif
 	.match_home	= match_home_ddf,
 	.uuid_from_super= uuid_from_super_ddf,
@@ -4920,7 +4926,6 @@ struct superswitch super_ddf = {
 	.match_metadata_desc = match_metadata_desc_ddf,
 	.container_content = container_content_ddf,
 	.default_geometry = default_geometry_ddf,
-	.kill_subarray  = kill_subarray_ddf,
 
 	.external	= 1,
 

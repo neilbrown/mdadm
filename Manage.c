@@ -1218,7 +1218,7 @@ int Manage_with(struct supertype *tst, int fd, struct mddev_dev *dv,
 				   "slot", dv->used);
 		if (rv) {
 			sysfs_free(mdi);
-			pr_err("Failed to %s as preferred replacement.\n",
+			pr_err("Failed to set %s as preferred replacement.\n",
 			       dv->devname);
 			return -1;
 		}

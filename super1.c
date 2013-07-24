@@ -1284,7 +1284,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 					(__le32_to_cpu(sb->level)==6 ? 2 : 1);
 				if (reshape_sectors % reshape_chunk) {
 					pr_err("Reshape position is not suitably aligned.\n");
-					pr_err("Try normal assembly as stop again\n");
+					pr_err("Try normal assembly and stop again\n");
 					return -2;
 				}
 			}

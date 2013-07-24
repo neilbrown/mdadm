@@ -1304,9 +1304,10 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			sb->chunksize = temp;
 
 			if (sb->feature_map & __cpu_to_le32(MD_FEATURE_NEW_OFFSET)) {
-				sb->data_offset = __cpu_to_le64(__le64_to_cpu(sb->data_offset) +
-								(long)(int32_t)__le32_to_cpu(sb->new_offset));
-				sb->new_offset = __cpu_to_le32(-(int32_t)__le32_to_cpu(sb->new_offset));
+				long offset_delta = (int32_t)__le32_to_cpu(sb->new_offset);
+				sb->data_offset = __cpu_to_le64(__le64_to_cpu(sb->data_offset) + offset_delta);
+				sb->new_offset = __cpu_to_le32(-offset_delta);
+				sb->data_size = __cpu_to_le64(__le64_to_cpu(sb->data_size) - offset_delta);
 			}
 		}
 	} else if (strcmp(update, "_reshape_progress")==0)

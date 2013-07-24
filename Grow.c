@@ -3086,9 +3086,11 @@ static int reshape_array(char *container, int fd, char *devname,
 			map_fork();
 			break;
 		}
+		close(fd);
 		wait_reshape(sra);
-		impose_level(fd, info->new_level, devname, verbose);
-
+		fd = open_dev(sra->sys_name);
+		if (fd >= 0)
+			impose_level(fd, info->new_level, devname, verbose);
 		return 0;
 	case 1: /* Couldn't set data_offset, try the old way */
 		if (data_offset != INVALID_SECTORS) {

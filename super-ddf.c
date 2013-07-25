@@ -1731,7 +1731,7 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 	struct vcl *v;
 
 	for (v = ddf->conflist; v; v = v->next) {
-		unsigned int nsec, ibvd;
+		unsigned int nsec, ibvd = 0;
 		struct vd_config *conf;
 		if (inst != v->vcnum)
 			continue;
@@ -1763,7 +1763,7 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 				       n - nsec*conf->sec_elmnt_count, n_bvd))
 			goto bad;
 		dprintf("%s: found disk %u as member %u in bvd %d of array %u\n"
-			, __func__, n, *n_bvd, ibvd-1, inst);
+			, __func__, n, *n_bvd, ibvd, inst);
 		*vcl = v;
 		return conf;
 	}

@@ -4655,6 +4655,55 @@ static void ddf_prepare_update(struct supertype *st,
 }
 
 /*
+ * Check degraded state of a RAID10.
+ * returns 2 for good, 1 for degraded, 0 for failed, and -1 for error
+ */
+static int raid10_degraded(struct mdinfo *info)
+{
+	int n_prim, n_bvds;
+	int i;
+	struct mdinfo *d, *sra;
+	char *found;
+	int ret = -1;
+
+	if (info->array.layout == 0) {
+		sra = sysfs_read(-1, info->sys_name, GET_LAYOUT);
+		info->array.layout = sra->array.layout;
+		free(sra);
+	}
+
+	n_prim = info->array.layout & ~0x100;
+	n_bvds = info->array.raid_disks / n_prim;
+	found = xmalloc(n_bvds);
+	if (found == NULL)
+		return ret;
+	memset(found, 0, n_bvds);
+	for (d = info->devs; d; d = d->next) {
+		i = d->disk.raid_disk / n_prim;
+		if (i >= n_bvds) {
+			pr_err("%s: BUG: invalid raid disk\n", __func__);
+			goto out;
+		}
+		if (d->state_fd > 0)
+			found[i]++;
+	}
+	ret = 2;
+	for (i = 0; i < n_bvds; i++)
+		if (!found[i]) {
+			dprintf("%s: BVD %d/%d failed\n", __func__, i, n_bvds);
+			ret = 0;
+			goto out;
+		} else if (found[i] < n_prim) {
+			dprintf("%s: BVD %d/%d degraded\n", __func__, i,
+				n_bvds);
+			ret = 1;
+		}
+out:
+	free(found);
+	return ret;
+}
+
+/*
  * Check if the array 'a' is degraded but not failed.
  * If it is, find as many spares as are available and needed and
  * arrange for their inclusion.
@@ -4694,7 +4743,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			working ++;
 	}
 
-	dprintf("ddf_activate: working=%d (%d) level=%d\n", working,
+	dprintf("%s: working=%d (%d) level=%d\n", __func__, working,
 		a->info.array.raid_disks,
 		a->info.array.level);
 	if (working == a->info.array.raid_disks)
@@ -4712,6 +4761,10 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	case 6:
 		if (working < a->info.array.raid_disks - 2)
 			return NULL; /* failed */
+		break;
+	case 10:
+		if (raid10_degraded(&a->info) < 1)
+			return NULL;
 		break;
 	default: /* concat or stripe */
 		return NULL; /* failed */

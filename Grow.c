@@ -4685,6 +4685,8 @@ int Grow_continue_command(char *devname, int fd,
 				continue;
 			err = st->ss->load_super(st, fd2, NULL);
 			close(fd2);
+			/* invalidate fd2 to avoid possible double close() */
+			fd2 = -1;
 			if (err)
 				continue;
 			break;

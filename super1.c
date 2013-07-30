@@ -1992,19 +1992,16 @@ static struct supertype *match_metadata_desc1(char *arg)
  * superblock type st, and reserving 'reserve' sectors for
  * a possible bitmap
  */
-static __u64 _avail_size1(struct supertype *st, __u64 devsize,
-			  unsigned long long data_offset, int chunksize)
+static __u64 avail_size1(struct supertype *st, __u64 devsize,
+			 unsigned long long data_offset)
 {
 	struct mdp_superblock_1 *super = st->sb;
 	int bmspace = 0;
 	if (devsize < 24)
 		return 0;
 
-	if (super == NULL)
-		/* creating:  allow suitable space for bitmap */
-		bmspace = choose_bm_space(devsize);
 #ifndef MDASSEMBLE
-	else if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
+	if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
 		/* hot-add. allow for actual size of bitmap */
 		struct bitmap_super_s *bsb;
 		bsb = (struct bitmap_super_s *)(((char*)super)+MAX_SB_SIZE);
@@ -2012,10 +2009,8 @@ static __u64 _avail_size1(struct supertype *st, __u64 devsize,
 	}
 #endif
 	/* Allow space for bad block log */
-	if (super && super->bblog_size)
+	if (super->bblog_size)
 		devsize -= __le16_to_cpu(super->bblog_size);
-	else
-		devsize -= 8;
 
 	if (st->minor_version < 0)
 		/* not specified, so time to set default */
@@ -2034,18 +2029,6 @@ static __u64 _avail_size1(struct supertype *st, __u64 devsize,
 
 	devsize -= bmspace;
 
-	if (super == NULL && st->minor_version > 0) {
-		/* haven't committed to a size yet, so allow some
-		 * slack for space for reshape.
-		 * Limit slack to 128M, but aim for about 0.1%
-		 */
-		unsigned long long headroom = 128*1024*2;
-		while ((headroom << 10) > devsize &&
-		       (chunksize == 0 ||
-			headroom / 2 >= ((unsigned)chunksize*2)*2))
-			headroom >>= 1;
-		devsize -= headroom;
-	}
 	switch(st->minor_version) {
 	case 0:
 		/* at end */
@@ -2058,11 +2041,6 @@ static __u64 _avail_size1(struct supertype *st, __u64 devsize,
 		return devsize - (4+4)*2;
 	}
 	return 0;
-}
-static __u64 avail_size1(struct supertype *st, __u64 devsize,
-			 unsigned long long data_offset)
-{
-	return _avail_size1(st, devsize, data_offset, 0);
 }
 
 static int
@@ -2294,7 +2272,8 @@ static int validate_geometry1(struct supertype *st, int level,
 			      char *subdev, unsigned long long *freesize,
 			      int verbose)
 {
-	unsigned long long ldsize;
+	unsigned long long ldsize, devsize;
+	int bmspace;
 	int fd;
 
 	if (level == LEVEL_CONTAINER) {
@@ -2322,7 +2301,63 @@ static int validate_geometry1(struct supertype *st, int level,
 	}
 	close(fd);
 
-	*freesize = _avail_size1(st, ldsize >> 9, data_offset, *chunk);
+	devsize = ldsize >> 9;
+	if (devsize < 24) {
+		*freesize = 0;
+		return 0;
+	}
+
+	/* creating:  allow suitable space for bitmap */
+	bmspace = choose_bm_space(devsize);
+	/* Allow space for bad block log */
+	devsize -= 8;
+
+	if (st->minor_version < 0)
+		/* not specified, so time to set default */
+		st->minor_version = 2;
+
+	if (data_offset != INVALID_SECTORS)
+		switch(st->minor_version) {
+		case 0:
+			*freesize = devsize - data_offset - 8*2;
+			return 1;
+		case 1:
+		case 2:
+			*freesize = devsize - data_offset;
+			return 1;
+		default:
+			return 0;
+		}
+	else {
+		devsize -= bmspace;
+
+		if (st->minor_version > 0) {
+			/* haven't committed to a size yet, so allow some
+			 * slack for space for reshape.
+			 * Limit slack to 128M, but aim for about 0.1%
+			 */
+			unsigned long long headroom = 128*1024*2;
+			while ((headroom << 10) > devsize &&
+			       (*chunk == 0 ||
+				headroom / 2 >= ((unsigned)(*chunk)*2)*2))
+				headroom >>= 1;
+			devsize -= headroom;
+		}
+		switch(st->minor_version) {
+		case 0:
+			/* at end */
+			*freesize = ((devsize - 8*2 ) & ~(4*2-1));
+			break;
+		case 1:
+			/* at start, 4K for superblock and possible bitmap */
+			*freesize = devsize - 4*2;
+			break;
+		case 2:
+			/* 4k from start, 4K for superblock and possible bitmap */
+			*freesize = devsize - (4+4)*2;
+			break;
+		}
+	}
 	return 1;
 }
 #endif /* MDASSEMBLE */

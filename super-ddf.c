@@ -3185,14 +3185,14 @@ static int validate_geometry_ddf(struct supertype *st,
 	 * If given BVDs, we make an SVD, changing all the GUIDs in the process.
 	 */
 
-	if (chunk && *chunk == UnSet)
+	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
 	if (level == -1000000) level = LEVEL_CONTAINER;
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
-						       raiddisks, chunk?*chunk:0,
+						       raiddisks, *chunk,
 						       size, data_offset, dev,
 						       freesize,
 						       verbose);
@@ -3220,7 +3220,7 @@ static int validate_geometry_ddf(struct supertype *st,
 			 * chosen so that add_to_super/getinfo_super
 			 * can return them.
 			 */
-			return reserve_space(st, raiddisks, size, chunk?*chunk:0, freesize);
+			return reserve_space(st, raiddisks, size, *chunk, freesize);
 		}
 		return 1;
 	}

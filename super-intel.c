@@ -5854,10 +5854,10 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		return 0;
 	}
 
-	if (chunk && (*chunk == 0 || *chunk == UnSet))
+	if (*chunk == 0 || *chunk == UnSet)
 		*chunk = imsm_default_chunk(super->orom);
 
-	if (super->orom && chunk && !imsm_orom_has_chunk(super->orom, *chunk)) {
+	if (super->orom && !imsm_orom_has_chunk(super->orom, *chunk)) {
 		pr_vrb(": platform does not support a chunk size of: "
 		       "%d\n", *chunk);
 		return 0;
@@ -5874,7 +5874,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		return 0;
 	}
 
-	if (super->orom && (super->orom->attr & IMSM_OROM_ATTR_2TB) == 0 && chunk &&
+	if (super->orom && (super->orom->attr & IMSM_OROM_ATTR_2TB) == 0 &&
 			(calc_array_size(level, raiddisks, layout, *chunk, size) >> 32) > 0) {
 		pr_vrb(": platform does not support a volume size over 2TB\n");
 		return 0;
@@ -6188,7 +6188,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_imsm_container(st, level, layout,
 							raiddisks,
-							chunk?*chunk:0,
+							*chunk,
 							size, data_offset,
 							dev, freesize,
 							verbose);
@@ -6224,7 +6224,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			}
 			if (freesize)
 				return reserve_space(st, raiddisks, size,
-						     chunk?*chunk:0, freesize);
+						     *chunk, freesize);
 		}
 		return 1;
 	}

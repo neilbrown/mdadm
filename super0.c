@@ -1274,7 +1274,7 @@ static int validate_geometry0(struct supertype *st, int level,
 			       "%d terabytes per device\n", tbmax);
 		return 0;
 	}
-	if (chunk && *chunk == UnSet)
+	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
 	if (!subdev)

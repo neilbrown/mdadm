@@ -2302,7 +2302,7 @@ static int validate_geometry1(struct supertype *st, int level,
 			pr_err("1.x metadata does not support containers\n");
 		return 0;
 	}
-	if (chunk && *chunk == UnSet)
+	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
 	if (!subdev)

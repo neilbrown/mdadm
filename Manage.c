@@ -718,10 +718,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			return -1;
 	}
 
-	if (tst->ss->validate_geometry(
-		    tst, array->level, array->layout,
-		    array->raid_disks, NULL,
-		    ldsize >> 9, INVALID_SECTORS, NULL, NULL, 0) == 0) {
+	if (tst->ss == &super0 && ldsize > 4ULL*1024*1024*2) {
+		/* More than 4TB is wasted on v0.90 */
 		if (!force) {
 			pr_err("%s is larger than %s can "
 			       "effectively use.\n"

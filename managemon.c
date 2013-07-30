@@ -518,6 +518,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		/* prevent the kernel from activating the disk(s) before we
 		 * finish adding them
 		 */
+		dprintf("%s: freezing %s\n", __func__,  a->info.sys_name);
 		sysfs_set_str(&a->info, NULL, "sync_action", "frozen");
 
 		/* Add device to array and set offset/size/slot.
@@ -536,6 +537,8 @@ static void manage_member(struct mdstat_ent *mdstat,
 		updates = NULL;
 		replace_array(container, a, newa);
 		sysfs_set_str(&a->info, NULL, "sync_action", "recover");
+		dprintf("%s: recovery started on %s\n", __func__,
+			a->info.sys_name);
  out:
 		while (newdev) {
 			d = newdev->next;

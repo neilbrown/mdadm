@@ -1091,6 +1091,7 @@ struct supertype *dup_super(struct supertype *orig)
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
 	st->ignore_hw_compat = orig->ignore_hw_compat;
+	st->data_offset = orig->data_offset;
 	st->sb = NULL;
 	st->info = NULL;
 	return st;

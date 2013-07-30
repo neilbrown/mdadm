@@ -1553,10 +1553,9 @@ static int write_init_super1(struct supertype *st)
 	int rfd;
 	int rv = 0;
 	unsigned long long bm_space;
-	unsigned long long reserved;
 	struct devinfo *di;
 	unsigned long long dsize, array_size;
-	unsigned long long sb_offset, headroom;
+	unsigned long long sb_offset;
 	unsigned long long data_offset;
 
 	for (di = st->info; di; di = di->next) {
@@ -1622,35 +1621,24 @@ static int write_init_super1(struct supertype *st)
 		 * 0: At least 8K, but less than 12K, from end of device
 		 * 1: At start of device
 		 * 2: 4K from start of device.
-		 * Depending on the array size, we might leave extra space
-		 * for a bitmap.
-		 * Also leave 4K for bad-block log.
+		 * data_offset has already been set.
 		 */
 		array_size = __le64_to_cpu(sb->size);
 		/* work out how much space we left for a bitmap,
 		 * Add 8 sectors for bad block log */
 		bm_space = choose_bm_space(array_size) + 8;
 
-		/* We try to leave 0.1% at the start for reshape
-		 * operations, but limit this to 128Meg (0.1% of 10Gig)
-		 * which is plenty for efficient reshapes
-		 * However we make it at least 2 chunks as one chunk
-		 * is minimum needed for reshape.
-		 */
-		headroom = 128 * 1024 * 2;
-		while  (headroom << 10 > array_size &&
-			headroom/2 >= __le32_to_cpu(sb->chunksize) * 2)
-			headroom >>= 1;
-
 		data_offset = di->data_offset;
+		if (data_offset == INVALID_SECTORS)
+			data_offset = st->data_offset;
 		switch(st->minor_version) {
 		case 0:
+			if (data_offset == INVALID_SECTORS)
+				data_offset = 0;
 			sb_offset = dsize;
 			sb_offset -= 8*2;
 			sb_offset &= ~(4*2-1);
 			sb->super_offset = __cpu_to_le64(sb_offset);
-			if (data_offset == INVALID_SECTORS)
-				sb->data_offset = 0;
 			if (sb_offset < array_size + bm_space)
 				bm_space = sb_offset - array_size;
 			sb->data_size = __cpu_to_le64(sb_offset - bm_space);
@@ -1661,70 +1649,37 @@ static int write_init_super1(struct supertype *st)
 			break;
 		case 1:
 			sb->super_offset = __cpu_to_le64(0);
-			if (data_offset == INVALID_SECTORS) {
-				reserved = bm_space + 4*2;
-				if (reserved < headroom)
-					reserved = headroom;
-				if (reserved + array_size > dsize)
-					reserved = dsize - array_size;
-				/* Try for multiple of 1Meg so it is nicely aligned */
-				#define ONE_MEG (2*1024)
-				if (reserved > ONE_MEG)
-					reserved = (reserved/ONE_MEG) * ONE_MEG;
+			if (data_offset == INVALID_SECTORS)
+				data_offset = 16;
 
-				/* force 4K alignment */
-				reserved &= ~7ULL;
-
-			} else
-				reserved = data_offset;
-
-			sb->data_offset = __cpu_to_le64(reserved);
-			sb->data_size = __cpu_to_le64(dsize - reserved);
-			if (reserved >= 8 + 32*2 + 8) {
+			sb->data_offset = __cpu_to_le64(data_offset);
+			sb->data_size = __cpu_to_le64(dsize - data_offset);
+			if (data_offset >= 8 + 32*2 + 8) {
 				sb->bblog_size = __cpu_to_le16(8);
 				sb->bblog_offset = __cpu_to_le32(8 + 32*2);
-			} else if (reserved >= 16) {
+			} else if (data_offset >= 16) {
 				sb->bblog_size = __cpu_to_le16(8);
-				sb->bblog_offset = __cpu_to_le32(reserved-8);
+				sb->bblog_offset = __cpu_to_le32(data_offset-8);
 			}
 			break;
 		case 2:
 			sb_offset = 4*2;
-			sb->super_offset = __cpu_to_le64(4*2);
-			if (data_offset == INVALID_SECTORS) {
-				if (4*2 + 4*2 + bm_space + array_size
-				    > dsize)
-					bm_space = dsize - array_size
-						- 4*2 - 4*2;
+			sb->super_offset = __cpu_to_le64(sb_offset);
+			if (data_offset == INVALID_SECTORS)
+				data_offset = 24;
 
-				reserved = bm_space + 4*2 + 4*2;
-				if (reserved < headroom)
-					reserved = headroom;
-				if (reserved + array_size > dsize)
-					reserved = dsize - array_size;
-				/* Try for multiple of 1Meg so it is nicely aligned */
-				#define ONE_MEG (2*1024)
-				if (reserved > ONE_MEG)
-					reserved = (reserved/ONE_MEG) * ONE_MEG;
-
-				/* force 4K alignment */
-				reserved &= ~7ULL;
-
-			} else
-				reserved = data_offset;
-
-			sb->data_offset = __cpu_to_le64(reserved);
-			sb->data_size = __cpu_to_le64(dsize - reserved);
-			if (reserved >= 16 + 32*2 + 8) {
+			sb->data_offset = __cpu_to_le64(data_offset);
+			sb->data_size = __cpu_to_le64(dsize - data_offset);
+			if (data_offset >= 16 + 32*2 + 8) {
 				sb->bblog_size = __cpu_to_le16(8);
 				sb->bblog_offset = __cpu_to_le32(8 + 32*2);
-			} else if (reserved >= 16+16) {
+			} else if (data_offset >= 16+16) {
 				sb->bblog_size = __cpu_to_le16(8);
 				/* '8' sectors for the bblog, and another '8'
 				 * because we want offset from superblock, not
 				 * start of device.
 				 */
-				sb->bblog_offset = __cpu_to_le32(reserved-8-8);
+				sb->bblog_offset = __cpu_to_le32(data_offset-8-8);
 			}
 			break;
 		default:
@@ -1924,6 +1879,8 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 
 	misc = (struct misc_dev_info*) (((char*)super)+MAX_SB_SIZE+BM_SUPER_SIZE);
 	misc->device_size = dsize;
+	if (st->data_offset == INVALID_SECTORS)
+		st->data_offset = __le64_to_cpu(super->data_offset);
 
 	/* Now check on the bitmap superblock */
 	if ((__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) == 0)
@@ -1956,6 +1913,7 @@ static struct supertype *match_metadata_desc1(char *arg)
 	st->ss = &super1;
 	st->max_devs = MAX_DEVS;
 	st->sb = NULL;
+	st->data_offset = INVALID_SECTORS;
 	/* leading zeros can be safely ignored.  --detail generates them. */
 	while (*arg == '0')
 		arg++;
@@ -1997,6 +1955,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 {
 	struct mdp_superblock_1 *super = st->sb;
 	int bmspace = 0;
+	int bbspace = 0;
 	if (devsize < 24)
 		return 0;
 
@@ -2010,16 +1969,19 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 #endif
 	/* Allow space for bad block log */
 	if (super->bblog_size)
-		devsize -= __le16_to_cpu(super->bblog_size);
+		bbspace = __le16_to_cpu(super->bblog_size);
 
 	if (st->minor_version < 0)
 		/* not specified, so time to set default */
 		st->minor_version = 2;
 
+	if (data_offset == INVALID_SECTORS)
+		data_offset = st->data_offset;
+
 	if (data_offset != INVALID_SECTORS)
 		switch(st->minor_version) {
 		case 0:
-			return devsize - data_offset - 8*2;
+			return devsize - data_offset - 8*2 - bbspace;
 		case 1:
 		case 2:
 			return devsize - data_offset;
@@ -2032,13 +1994,13 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 	switch(st->minor_version) {
 	case 0:
 		/* at end */
-		return ((devsize - 8*2 ) & ~(4*2-1));
+		return ((devsize - 8*2 - bbspace ) & ~(4*2-1));
 	case 1:
 		/* at start, 4K for superblock and possible bitmap */
-		return devsize - 4*2;
+		return devsize - 4*2 - bbspace;
 	case 2:
 		/* 4k from start, 4K for superblock and possible bitmap */
-		return devsize - (4+4)*2;
+		return devsize - (4+4)*2 - bbspace;
 	}
 	return 0;
 }
@@ -2274,6 +2236,7 @@ static int validate_geometry1(struct supertype *st, int level,
 {
 	unsigned long long ldsize, devsize;
 	int bmspace;
+	unsigned long long headroom;
 	int fd;
 
 	if (level == LEVEL_CONTAINER) {
@@ -2286,6 +2249,10 @@ static int validate_geometry1(struct supertype *st, int level,
 
 	if (!subdev)
 		return 1;
+
+	if (st->minor_version < 0)
+		/* not specified, so time to set default */
+		st->minor_version = 2;
 
 	fd = open(subdev, O_RDONLY|O_EXCL, 0);
 	if (fd < 0) {
@@ -2309,55 +2276,49 @@ static int validate_geometry1(struct supertype *st, int level,
 
 	/* creating:  allow suitable space for bitmap */
 	bmspace = choose_bm_space(devsize);
-	/* Allow space for bad block log */
-	devsize -= 8;
 
-	if (st->minor_version < 0)
-		/* not specified, so time to set default */
-		st->minor_version = 2;
-
-	if (data_offset != INVALID_SECTORS)
-		switch(st->minor_version) {
+	if (data_offset == INVALID_SECTORS)
+		data_offset = st->data_offset;
+	if (data_offset == INVALID_SECTORS)
+		switch (st->minor_version) {
 		case 0:
-			*freesize = devsize - data_offset - 8*2;
-			return 1;
+			data_offset = 0;
+			break;
 		case 1:
 		case 2:
-			*freesize = devsize - data_offset;
-			return 1;
-		default:
-			return 0;
-		}
-	else {
-		devsize -= bmspace;
-
-		if (st->minor_version > 0) {
-			/* haven't committed to a size yet, so allow some
-			 * slack for space for reshape.
-			 * Limit slack to 128M, but aim for about 0.1%
+			/* Choose data offset appropriate for this device
+			 * and use as default for whole array.
+			 * The data_offset must allow for bitmap space
+			 * and base metadata, should allow for some headroom
+			 * for reshape, and should be rounded to multiple
+			 * of 1M.
+			 * Headroom is limited to 128M, but aim for about 0.1%
 			 */
-			unsigned long long headroom = 128*1024*2;
+			headroom = 128*1024*2;
 			while ((headroom << 10) > devsize &&
 			       (*chunk == 0 ||
 				headroom / 2 >= ((unsigned)(*chunk)*2)*2))
 				headroom >>= 1;
-			devsize -= headroom;
-		}
-		switch(st->minor_version) {
-		case 0:
-			/* at end */
-			*freesize = ((devsize - 8*2 ) & ~(4*2-1));
-			break;
-		case 1:
-			/* at start, 4K for superblock and possible bitmap */
-			*freesize = devsize - 4*2;
-			break;
-		case 2:
-			/* 4k from start, 4K for superblock and possible bitmap */
-			*freesize = devsize - (4+4)*2;
+			data_offset = 12*2 + bmspace + headroom;
+			#define ONE_MEG (2*1024)
+			if (data_offset > ONE_MEG)
+				data_offset = (data_offset / ONE_MEG) * ONE_MEG;
 			break;
 		}
+	if (st->data_offset == INVALID_SECTORS)
+		st->data_offset = data_offset;
+	switch(st->minor_version) {
+	case 0: /* metadata at end.  Round down and subtract space to reserve */
+		devsize = (devsize & ~(4ULL*2-1));
+		/* space for metadata, bblog, bitmap */
+		devsize -= 8*2 - 8 - bmspace;
+		break;
+	case 1:
+	case 2:
+		devsize -= data_offset;
+		break;
 	}
+	*freesize = devsize;
 	return 1;
 }
 #endif /* MDASSEMBLE */

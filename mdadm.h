@@ -997,6 +997,7 @@ struct supertype {
 	void *info;
 	void *other; /* Hack used to convert v0.90 to v1.0 */
 	unsigned long long devsize;
+	unsigned long long data_offset; /* used by v1.x only */
 	int ignore_hw_compat; /* used to inform metadata handlers that it should ignore
 				 HW/firmware related incompatability to load metadata.
 				 Used when examining metadata to display content of disk

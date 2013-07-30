@@ -640,10 +640,17 @@ static int wait_and_act(struct supertype *container, int nowait)
 		monitor_loop_cnt |= 1;
 		rv = pselect(maxfd+1, NULL, NULL, &rfds, &ts, &set);
 		monitor_loop_cnt += 1;
-		if (rv == -1 && errno == EINTR)
-			rv = 0;
+		if (rv == -1) {
+			if (errno == EINTR) {
+				rv = 0;
+				dprintf("monitor: caught signal\n");
+			} else
+				dprintf("monitor: error %d in pselect\n",
+					errno);
+		}
 		#ifdef DEBUG
-		dprint_wake_reasons(&rfds);
+		else
+			dprint_wake_reasons(&rfds);
 		#endif
 		container->retry_soon = 0;
 	}

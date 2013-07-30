@@ -4774,13 +4774,6 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	/* For each slot, if it is not working, find a spare */
 	dl = ddf->dlist;
 	for (i = 0; i < a->info.array.raid_disks; i++) {
-		be16 state = ddf->phys->entries[dl->pdnum].state;
-		if (be16_and(state,
-			     cpu_to_be16(DDF_Failed|DDF_Missing)) ||
-		    !be16_and(state,
-			      cpu_to_be16(DDF_Online)))
-			continue;
-
 		for (d = a->info.devs ; d ; d = d->next)
 			if (d->disk.raid_disk == i)
 				break;
@@ -4798,6 +4791,13 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			int is_dedicated = 0;
 			struct extent *ex;
 			unsigned int j;
+			be16 state = ddf->phys->entries[dl->pdnum].state;
+			if (be16_and(state,
+				     cpu_to_be16(DDF_Failed|DDF_Missing)) ||
+			    !be16_and(state,
+				      cpu_to_be16(DDF_Online)))
+				continue;
+
 			/* If in this array, skip */
 			for (d2 = a->info.devs ; d2 ; d2 = d2->next)
 				if (d2->state_fd >= 0 &&

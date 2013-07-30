@@ -754,18 +754,24 @@ static int load_ddf_header(int fd, unsigned long long lba,
 	if (read(fd, hdr, 512) != 512)
 		return 0;
 
-	if (!be32_eq(hdr->magic, DDF_HEADER_MAGIC))
+	if (!be32_eq(hdr->magic, DDF_HEADER_MAGIC)) {
+		pr_err("%s: bad header magic\n", __func__);
 		return 0;
-	if (!be32_eq(calc_crc(hdr, 512), hdr->crc))
+	}
+	if (!be32_eq(calc_crc(hdr, 512), hdr->crc)) {
+		pr_err("%s: bad CRC\n", __func__);
 		return 0;
+	}
 	if (memcmp(anchor->guid, hdr->guid, DDF_GUID_LEN) != 0 ||
 	    memcmp(anchor->revision, hdr->revision, 8) != 0 ||
 	    !be64_eq(anchor->primary_lba, hdr->primary_lba) ||
 	    !be64_eq(anchor->secondary_lba, hdr->secondary_lba) ||
 	    hdr->type != type ||
 	    memcmp(anchor->pad2, hdr->pad2, 512 -
-		   offsetof(struct ddf_header, pad2)) != 0)
+		   offsetof(struct ddf_header, pad2)) != 0) {
+		pr_err("%s: header mismatch\n", __func__);
 		return 0;
+	}
 
 	/* Looks good enough to me... */
 	return 1;

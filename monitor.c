@@ -234,6 +234,7 @@ static int read_and_act(struct active_array *a)
 	struct mdinfo *mdi;
 	int ret = 0;
 	int count = 0;
+	struct timeval tv;
 
 	a->next_state = bad_word;
 	a->next_action = bad_action;
@@ -257,6 +258,17 @@ static int read_and_act(struct active_array *a)
 			mdi->curr_state = read_dev_state(mdi->state_fd);
 		}
 	}
+
+	gettimeofday(&tv, NULL);
+	dprintf("%s(%d): %ld.%06ld state:%s prev:%s action:%s prev: %s start:%llu\n",
+		__func__, a->info.container_member,
+		tv.tv_sec, tv.tv_usec,
+		array_states[a->curr_state],
+		array_states[a->prev_state],
+		sync_actions[a->curr_action],
+		sync_actions[a->prev_action],
+		a->info.resync_start
+		);
 
 	if (a->curr_state > inactive &&
 	    a->prev_state == inactive) {

@@ -535,8 +535,14 @@ static void manage_member(struct mdstat_ent *mdstat,
 		}
 		queue_metadata_update(updates);
 		updates = NULL;
+		while (update_queue_pending || update_queue) {
+			check_update_queue(container);
+			usleep(15*1000);
+		}
 		replace_array(container, a, newa);
-		sysfs_set_str(&a->info, NULL, "sync_action", "recover");
+		if (sysfs_set_str(&a->info, NULL, "sync_action", "recover")
+		    == 0)
+			newa->prev_action = recover;
 		dprintf("%s: recovery started on %s\n", __func__,
 			a->info.sys_name);
  out:

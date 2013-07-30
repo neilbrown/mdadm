@@ -4495,10 +4495,27 @@ static void ddf_process_update(struct supertype *st,
 			 * fields
 			 */
 			unsigned int i;
+			unsigned int k;
 			copy_matching_bvd(ddf, &vcl->conf, update);
-			for (i = 1; i < vc->sec_elmnt_count; i++)
+			for (k = 0; k < be16_to_cpu(vc->prim_elmnt_count); k++)
+				dprintf("BVD %u has %08x at %llu\n", 0,
+					be32_to_cpu(vcl->conf.phys_refnum[k]),
+					be64_to_cpu(LBA_OFFSET(ddf,
+							       &vcl->conf)[k]));
+			for (i = 1; i < vc->sec_elmnt_count; i++) {
 				copy_matching_bvd(ddf, vcl->other_bvds[i-1],
 						  update);
+				for (k = 0; k < be16_to_cpu(
+					     vc->prim_elmnt_count); k++)
+					dprintf("BVD %u has %08x at %llu\n", i,
+						be32_to_cpu
+						(vcl->other_bvds[i-1]->
+						 phys_refnum[k]),
+						be64_to_cpu
+						(LBA_OFFSET
+						 (ddf,
+						  vcl->other_bvds[i-1])[k]));
+			}
 		} else {
 			/* A new VD_CONF */
 			unsigned int i;

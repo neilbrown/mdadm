@@ -4697,15 +4697,9 @@ static int raid10_degraded(struct mdinfo *info)
 {
 	int n_prim, n_bvds;
 	int i;
-	struct mdinfo *d, *sra;
+	struct mdinfo *d;
 	char *found;
 	int ret = -1;
-
-	if (info->array.layout == 0) {
-		sra = sysfs_read(-1, info->sys_name, GET_LAYOUT);
-		info->array.layout = sra->array.layout;
-		free(sra);
-	}
 
 	n_prim = info->array.layout & ~0x100;
 	n_bvds = info->array.raid_disks / n_prim;

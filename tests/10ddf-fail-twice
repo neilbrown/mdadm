@@ -1,0 +1,56 @@
+# sanity check array creation
+
+ddf_check_hold() {
+   if mdadm --remove $1 $2; then
+       echo "$2 removal from $1 should have been blocked" >&2
+       cat /proc/mdstat >&2
+       mdadm -E $2
+       exit 1
+   fi
+}
+
+ddf_check_removal() {
+   if ! mdadm --remove $1 $2 ; then
+       echo "$2 removal from $1 should have succeeded" >&2
+       cat /proc/mdstat >&2
+       mdadm -E $2
+       exit 1
+   fi
+}
+
+. tests/env-ddf-template
+
+num_disks=5
+mdadm -CR $container -e ddf -n $num_disks $dev8 $dev9 $dev10 $dev11 $dev12
+ddf_check container $num_disks
+
+mdadm -CR $member0 -n 2 -l 1 $container
+mdadm -CR $member1 -n 3 -l 5 $container
+
+mdadm --wait $member1 $member0 || mdadm --wait $member1 $member0
+
+mdadm $member0 --fail $dev11
+mdadm $member1 --fail $dev9
+
+mdadm $container --add $dev13
+
+mdadm --wait $member1 $member0 || mdadm --wait $member1 $member0
+
+{ grep -q 'external:/md127/1.*\[3/3\]' /proc/mdstat &&
+  grep -q 'external:/md127/0.*\[2/1\]' /proc/mdstat; } || {
+     echo unexpected states in /proc/mdstat
+     cat /proc/mdstat
+     mdadm -Ss
+     exit 1
+}
+
+{ mdadm -E $dev10 | grep -q 'state\[0\] : Degraded, Consistent' &&
+  mdadm -E $dev10 | grep -q 'state\[1\] : Optimal, Consistent'; } || {
+     echo unexpected meta data state
+     mdadm -E $dev10
+     mdadm -Ss
+     exit 1
+}
+
+mdadm -Ss
+exit 0

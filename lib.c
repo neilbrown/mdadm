@@ -58,6 +58,32 @@ static int mdp_major = -1;
 	return mdp_major;
 }
 
+char *devid2kname(int devid)
+{
+	char path[30];
+	char link[200];
+	static char devnm[32];
+	char *cp;
+	int n;
+
+	/* Look at the
+	 * /sys/dev/block/%d:%d link which must look like
+	 * and take the last component.
+	 */
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
+		minor(devid));
+	n = readlink(path, link, sizeof(link)-1);
+	if (n > 0) {
+		link[n] = 0;
+		cp = strrchr(link, '/');
+		if (cp) {
+			strcpy(devnm, cp+1);
+			return devnm;
+		}
+	}
+	return NULL;
+}
+
 char *devid2devnm(int devid)
 {
 	char path[30];

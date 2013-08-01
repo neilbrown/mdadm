@@ -116,13 +116,6 @@ int main(int argc, char *argv[])
 	ident.container = NULL;
 	ident.member = NULL;
 
-	/*
-	 * set first char of argv[0] to @. This is used by
-	 * systemd to signal that the task was launched from
-	 * initrd/initramfs and should be preserved during shutdown
-	 */
-	argv[0][0] = '@';
-
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,
 				shortopt, long_options,

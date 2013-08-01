@@ -2820,7 +2820,8 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
 #define NULL_CONF_SZ	4096
 
 static char *null_aligned;
-static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
+static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
+				 int update)
 {
 	unsigned long long sector;
 	struct ddf_header *header;
@@ -2897,7 +2898,7 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
 			vdc->crc = calc_crc(vdc, conf_size);
 			if (write(fd, vdc, conf_size) < 0)
 				break;
-		} else {
+		} else if (!update) {
 			unsigned int togo = conf_size;
 			while (togo > NULL_CONF_SZ) {
 				if (write(fd, null_aligned, NULL_CONF_SZ) < 0)
@@ -2927,7 +2928,8 @@ out:
 	return ret;
 }
 
-static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
+static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d,
+				int update)
 {
 	unsigned long long size;
 	int fd = d->fd;
@@ -2965,10 +2967,10 @@ static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
 	ddf->anchor.seq = cpu_to_be32(0xFFFFFFFF); /* no sequencing in anchor */
 	ddf->anchor.crc = calc_crc(&ddf->anchor, 512);
 
-	if (!__write_ddf_structure(d, ddf, DDF_HEADER_PRIMARY))
+	if (!__write_ddf_structure(d, ddf, DDF_HEADER_PRIMARY, update))
 		return 0;
 
-	if (!__write_ddf_structure(d, ddf, DDF_HEADER_SECONDARY))
+	if (!__write_ddf_structure(d, ddf, DDF_HEADER_SECONDARY, update))
 		return 0;
 
 	lseek64(fd, (size-1)*512, SEEK_SET);
@@ -2979,7 +2981,7 @@ static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
 }
 
 #ifndef MDASSEMBLE
-static int __write_init_super_ddf(struct supertype *st)
+static int __write_init_super_ddf(struct supertype *st, int update)
 {
 	struct ddf_super *ddf = st->sb;
 	struct dl *d;
@@ -2993,7 +2995,7 @@ static int __write_init_super_ddf(struct supertype *st)
 	 */
 	for (d = ddf->dlist; d; d=d->next) {
 		attempts++;
-		successes += _write_super_to_disk(ddf, d);
+		successes += _write_super_to_disk(ddf, d, update);
 	}
 
 	return attempts != successes;
@@ -3054,7 +3056,7 @@ static int write_init_super_ddf(struct supertype *st)
 		if (!currentconf)
 			for (d = ddf->dlist; d; d=d->next)
 				while (Kill(d->devname, NULL, 0, -1, 1) == 0);
-		return __write_init_super_ddf(st);
+		return __write_init_super_ddf(st, 0);
 	}
 }
 
@@ -3798,7 +3800,7 @@ static int store_super_ddf(struct supertype *st, int fd)
 		}
 		ofd = dl->fd;
 		dl->fd = fd;
-		ret = (_write_super_to_disk(ddf, dl) != 1);
+		ret = (_write_super_to_disk(ddf, dl, 0) != 1);
 		dl->fd = ofd;
 		return ret;
 	}
@@ -4254,7 +4256,7 @@ static void ddf_sync_metadata(struct supertype *st)
 	if (!ddf->updates_pending)
 		return;
 	ddf->updates_pending = 0;
-	__write_init_super_ddf(st);
+	__write_init_super_ddf(st, 1);
 	dprintf("ddf: sync_metadata\n");
 }
 

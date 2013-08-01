@@ -25,6 +25,7 @@
 #include	"dlink.h"
 #include	<sys/mman.h>
 #include	<stdint.h>
+#include	<signal.h>
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
 #error no endian defined
@@ -729,7 +730,8 @@ void abort_reshape(struct mdinfo *sra)
 	sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	sysfs_set_num(sra, NULL, "suspend_lo", 0);
 	sysfs_set_num(sra, NULL, "sync_min", 0);
-	sysfs_set_str(sra, NULL, "sync_max", "max");
+	// It isn't safe to reset sync_max as we aren't monitoring.
+	// Array really should be stopped at this point.
 }
 
 int remove_disks_for_takeover(struct supertype *st,
@@ -2726,6 +2728,12 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 	return 0;
 }
 
+int sigterm = 0;
+static void catch_term(int sig)
+{
+	sigterm = 1;
+}
+
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
@@ -3259,6 +3267,8 @@ started:
 	else
 		fd = -1;
 	mlockall(MCL_FUTURE);
+
+	signal(SIGTERM, catch_term);
 
 	if (st->ss->external) {
 		/* metadata handler takes it from here */
@@ -4243,7 +4253,8 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 				forget_backup(dests, destfd,
 					      destoffsets, 1);
 		}
-
+		if (sigterm)
+			rv = -2;
 		if (rv < 0) {
 			if (rv == -1)
 				done = 1;

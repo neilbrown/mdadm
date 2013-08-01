@@ -29,6 +29,8 @@
 #include	<sys/wait.h>
 #include	<sys/un.h>
 #include	<sys/resource.h>
+#include	<sys/vfs.h>
+#include	<linux/magic.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<signal.h>
@@ -1936,4 +1938,13 @@ void enable_fds(int devices)
 		lim.rlim_max = fds;
 	lim.rlim_cur = fds;
 	setrlimit(RLIMIT_NOFILE, &lim);
+}
+
+int in_initrd(void)
+{
+	/* This is based on similar function in systemd. */
+	struct statfs s;
+	return  statfs("/", &s) >= 0 &&
+		(s.f_type == TMPFS_MAGIC ||
+		 s.f_type == RAMFS_MAGIC);
 }

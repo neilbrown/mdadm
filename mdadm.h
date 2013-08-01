@@ -1390,6 +1390,8 @@ extern void fmt_devname(char *name, int num);
 extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
 
+extern int in_initrd(void);
+
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))
 #define ROUND_UP_PTR(ptr, base)	((typeof(ptr)) \

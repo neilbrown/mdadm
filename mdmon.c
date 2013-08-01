@@ -298,10 +298,14 @@ int main(int argc, char *argv[])
 		{NULL, 0, NULL, 0}
 	};
 
-	/*
-	 * Always change process name to @dmon to avoid systemd killing it
-	 */
-	argv[0][0] = '@';
+	if (in_initrd()) {
+		/*
+		 * set first char of argv[0] to @. This is used by
+		 * systemd to signal that the task was launched from
+		 * initrd/initramfs and should be preserved during shutdown
+		 */
+		argv[0][0] = '@';
+	}
 
 	while ((opt = getopt_long(argc, argv, "thaF", options, NULL)) != -1) {
 		switch (opt) {

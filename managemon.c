@@ -492,6 +492,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 	if (a->container == NULL)
 		return;
 
+	if (sigterm && a->info.safe_mode_delay > 1) {
+		sysfs_set_safemode(&a->info, 1);
+		a->info.safe_mode_delay = 1;
+	}
+
 	/* We don't check the array while any update is pending, as it
 	 * might container a change (such as a spare assignment) which
 	 * could affect our decisions.
@@ -646,7 +651,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	mdi = sysfs_read(-1, mdstat->devnm,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
-			 GET_DEGRADED|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
+			 GET_DEGRADED|GET_SAFEMODE|
+			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
 
 	if (!mdi)
 		return;
@@ -691,6 +697,16 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->sync_completed_fd = sysfs_open(new->info.sys_name, NULL, "sync_completed");
 	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
 		new->action_fd, new->info.state_fd);
+
+	if (sigterm)
+		new->info.safe_mode_delay = 1;
+	else if (mdi->safe_mode_delay >= 50)
+		/* Normal start, mdadm set this. */
+		new->info.safe_mode_delay = mdi->safe_mode_delay;
+	else
+		/* Restart, just pick a number */
+		new->info.safe_mode_delay = 5000;
+	sysfs_set_safemode(&new->info, new->info.safe_mode_delay);
 
 	/* reshape_position is set by mdadm in sysfs
 	 * read this information for new arrays only (empty victim)

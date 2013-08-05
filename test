@@ -30,6 +30,9 @@ if grep -s 'Personalities : .*multipath' > /dev/null /proc/mdstat ; then
 fi
 INTEGRITY=yes
 
+# make sure to test local mdmon, not system one
+export MDADM_NO_SYSTEMCTL=1
+
 # assume md0, md1, md2 exist in /dev
 md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
 mdp0=/dev/md_d0

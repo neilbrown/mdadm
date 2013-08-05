@@ -1711,36 +1711,39 @@ int start_mdmon(char *devnm)
 		pathbuf[0] = '\0';
 
 	/* First try to run systemctl */
-	switch(fork()) {
-	case 0:
-		/* FIXME yuk. CLOSE_EXEC?? */
-		skipped = 0;
-		for (i = 3; skipped < 20; i++)
-			if (close(i) < 0)
-				skipped++;
-			else
-				skipped = 0;
+	if (!check_env("MDADM_NO_SYSTEMCTL"))
+		switch(fork()) {
+		case 0:
+			/* FIXME yuk. CLOSE_EXEC?? */
+			skipped = 0;
+			for (i = 3; skipped < 20; i++)
+				if (close(i) < 0)
+					skipped++;
+				else
+					skipped = 0;
 
-		/* Don't want to see error messages from systemctl.
-		 * If the service doesn't exist, we start mdmon ourselves.
-		 */
-		close(2);
-		open("/dev/null", O_WRONLY);
-		snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
-			 devnm);
-		status = execl("/usr/bin/systemctl", "systemctl", "start",
-			       pathbuf, NULL);
-		status = execl("/bin/systemctl", "systemctl", "start",
-			       pathbuf, NULL);
-		exit(1);
-	case -1: pr_err("cannot run mdmon. "
-			 "Array remains readonly\n");
-		return -1;
-	default: /* parent - good */
-		pid = wait(&status);
-		if (pid >= 0 && status == 0)
-			return 0;
-	}
+			/* Don't want to see error messages from
+			 * systemctl.  If the service doesn't exist,
+			 * we start mdmon ourselves.
+			 */
+			close(2);
+			open("/dev/null", O_WRONLY);
+			snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
+				 devnm);
+			status = execl("/usr/bin/systemctl", "systemctl",
+				       "start",
+				       pathbuf, NULL);
+			status = execl("/bin/systemctl", "systemctl", "start",
+				       pathbuf, NULL);
+			exit(1);
+		case -1: pr_err("cannot run mdmon. "
+				"Array remains readonly\n");
+			return -1;
+		default: /* parent - good */
+			pid = wait(&status);
+			if (pid >= 0 && status == 0)
+				return 0;
+		}
 
 	/* That failed, try running mdmon directly */
 	switch(fork()) {

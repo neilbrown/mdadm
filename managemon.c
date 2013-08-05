@@ -450,9 +450,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 		/* Raced with something */
 		return;
 
-	// FIXME
-	a->info.array.raid_disks = mdstat->raid_disks;
-	// MORE
+	if (mdstat->active) {
+		// FIXME
+		a->info.array.raid_disks = mdstat->raid_disks;
+		// MORE
+	}
 
 	if (sysfs_get_ll(&a->info, NULL, "component_size", &component_size) >= 0)
 		a->info.component_size = component_size << 1;

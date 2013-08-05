@@ -1,3 +1,24 @@
+get_sysdir() {
+    local mddev=$1
+    [ -L $mddev ] && mddev=$(readlink -f $mddev)
+    echo "/sys/class/block/$(basename $mddev)/md"
+}
+
+get_raiddisks() {
+    sysdir=$(get_sysdir "$1")
+    for i in $(seq 0 $(($(cat $sysdir/raid_disks)-1))); do
+	if [ -d $sysdir/rd$i ]; then
+	    readlink -f /dev/block/$(cat $sysdir/rd$i/block/dev)
+	else
+	    echo MISSING
+        fi
+    done
+}
+
+get_present() {
+    get_raiddisks $1 | grep -vc MISSING
+}
+
 ddf_check() {
     udevadm settle
     case $1 in

@@ -4635,13 +4635,19 @@ static void ddf_process_update(struct supertype *st,
 		 */
 		pd2 = 0;
 		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->used_pdes);
-		     pdnum++)
+		     pdnum++) {
 			if (be16_and(ddf->phys->entries[pdnum].state,
 				     cpu_to_be16(DDF_Failed))
 			    && be16_and(ddf->phys->entries[pdnum].state,
-					cpu_to_be16(DDF_Transition)))
-				/* skip this one */;
-			else if (pdnum == pd2)
+					cpu_to_be16(DDF_Transition))) {
+				/* skip this one unless in dlist*/
+				for (dl = ddf->dlist; dl; dl = dl->next)
+					if (dl->pdnum == (int)pdnum)
+						break;
+				if (!dl)
+					continue;
+			}
+			if (pdnum == pd2)
 				pd2++;
 			else {
 				ddf->phys->entries[pd2] =
@@ -4651,6 +4657,7 @@ static void ddf_process_update(struct supertype *st,
 						dl->pdnum = pd2;
 				pd2++;
 			}
+		}
 		ddf->phys->used_pdes = cpu_to_be16(pd2);
 		while (pd2 < pdnum) {
 			memset(ddf->phys->entries[pd2].guid, 0xff,

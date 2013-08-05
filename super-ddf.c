@@ -2390,6 +2390,10 @@ static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 	struct extent *rv;
 	int n = 0;
 	unsigned int i;
+	__u16 state = be16_to_cpu(ddf->phys->entries[dl->pdnum].state);
+
+	if ((state & (DDF_Online|DDF_Failed|DDF_Missing)) != DDF_Online)
+		return NULL;
 
 	rv = xmalloc(sizeof(struct extent) * (ddf->max_part + 2));
 

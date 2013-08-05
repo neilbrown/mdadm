@@ -67,13 +67,16 @@ MAILCMD =/usr/sbin/sendmail -t
 CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 # Both MAP_DIR and MDMON_DIR should be somewhere that persists across the
 # pivotroot from early boot to late boot.
-# /run is best, but for distros that don't support that, /dev can work.
-MAP_DIR=/run/mdadm
+# /run is best, but for distros that don't support that.
+# /dev can work, in which case you probably want /dev/.mdadm
+RUN_DIR=/run/mdadm
+CHECK_RUN_DIR=1
+MAP_DIR=$(RUN_DIR)
 MAP_FILE = map
 MAP_PATH = $(MAP_DIR)/$(MAP_FILE)
-MDMON_DIR = $(MAP_DIR)
+MDMON_DIR = $(RUN_DIR)
 # place for autoreplace cookies
-FAILED_SLOTS_DIR = /run/mdadm/failed-slots
+FAILED_SLOTS_DIR = $(RUN_DIR)/failed-slots
 SYSTEMD_DIR=/lib/systemd/system
 DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
 DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
@@ -149,8 +152,15 @@ ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
-all : mdadm mdmon
+all : check_rundir mdadm mdmon
 man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
+
+check_rundir:
+	@if [ ! -d "$(dir $(RUN_DIR))" -a  "$(CHECK_RUN_DIR)" == 1 ]; then \
+		echo "***** Parent of $(RUN_DIR) does not exist.  Maybe set different RUN_DIR="; \
+		echo "*****  e.g. make RUN_DIR=/dev/.mdadm" ; \
+		echo "***** or set CHECK_RUN_DIR=0"; exit 1; \
+	fi
 
 everything: all mdadm.static swap_super test_stripe raid6check \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
@@ -161,7 +171,7 @@ everything-test: all mdadm.static swap_super test_stripe \
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
 
-mdadm : $(OBJS)
+mdadm : check_rundir $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
 mdadm.static : $(OBJS) $(STATICOBJS)
@@ -184,7 +194,7 @@ mdmon.O2 : $(MON_SRCS) $(INCL) mdmon.h
 	$(CC) -o mdmon.O2 $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
-mdmon : $(MON_OBJS)
+mdmon : check_rundir $(MON_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -Wl,-z,now -o mdmon $(MON_OBJS) $(LDLIBS)
 msg.o: msg.c msg.h
 

@@ -2907,7 +2907,8 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 			}
 			if (write(fd, null_aligned, togo) < 0)
 				break;
-		}
+		} else
+			lseek(fd, conf_size, SEEK_CUR);
 	}
 	if (i <= n_config)
 		goto out;

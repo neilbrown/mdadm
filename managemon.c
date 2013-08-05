@@ -289,7 +289,7 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	 */
 	st2 = dup_super(st);
 	if (st2->ss->load_super(st2, dfd, NULL) == 0) {
-		st2->ss->getinfo_super(st, &info, NULL);
+		st2->ss->getinfo_super(st2, &info, NULL);
 		if (st->ss->compare_super(st, st2) == 0 &&
 		    info.disk.raid_disk >= 0) {
 			/* Looks like a good member of array.

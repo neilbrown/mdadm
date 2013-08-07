@@ -511,7 +511,8 @@ int check_ext2(int fd, char *name)
 	 */
 	unsigned char sb[1024];
 	time_t mtime;
-	int size, bsize;
+	unsigned long long size;
+	int bsize;
 	if (lseek(fd, 1024,0)!= 1024)
 		return 0;
 	if (read(fd, sb, 1024)!= 1024)
@@ -522,10 +523,10 @@ int check_ext2(int fd, char *name)
 	mtime = sb[44]|(sb[45]|(sb[46]|sb[47]<<8)<<8)<<8;
 	bsize = sb[24]|(sb[25]|(sb[26]|sb[27]<<8)<<8)<<8;
 	size = sb[4]|(sb[5]|(sb[6]|sb[7]<<8)<<8)<<8;
+	size <<= bsize;
 	pr_err("%s appears to contain an ext2fs file system\n",
 		name);
-	cont_err("size=%dK  mtime=%s",
-		size*(1<<bsize), ctime(&mtime));
+	cont_err("size=%lluK  mtime=%s", size, ctime(&mtime));
 	return 1;
 }
 
@@ -538,7 +539,7 @@ int check_reiser(int fd, char *name)
 	 *
 	 */
 	unsigned char sb[1024];
-	unsigned long size;
+	unsigned long long size;
 	if (lseek(fd, 64*1024, 0) != 64*1024)
 		return 0;
 	if (read(fd, sb, 1024) != 1024)
@@ -548,7 +549,7 @@ int check_reiser(int fd, char *name)
 		return 0;
 	pr_err("%s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
-	cont_err("size = %luK\n", size*4);
+	cont_err("size = %lluK\n", size*4);
 
 	return 1;
 }

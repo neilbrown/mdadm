@@ -1638,6 +1638,7 @@ static int write_init_super1(struct supertype *st)
 			sb_offset = dsize;
 			sb_offset -= 8*2;
 			sb_offset &= ~(4*2-1);
+			sb->data_offset = __cpu_to_le64(data_offset);
 			sb->super_offset = __cpu_to_le64(sb_offset);
 			if (sb_offset < array_size + bm_space)
 				bm_space = sb_offset - array_size;
@@ -2311,7 +2312,7 @@ static int validate_geometry1(struct supertype *st, int level,
 	case 0: /* metadata at end.  Round down and subtract space to reserve */
 		devsize = (devsize & ~(4ULL*2-1));
 		/* space for metadata, bblog, bitmap */
-		devsize -= 8*2 - 8 - bmspace;
+		devsize -= 8*2 + 8 + bmspace;
 		break;
 	case 1:
 	case 2:

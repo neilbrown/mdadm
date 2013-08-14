@@ -718,7 +718,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			return -1;
 	}
 
-	if (tst->ss == &super0 && ldsize > 4ULL*1024*1024*2) {
+	if (tst->ss == &super0 && ldsize > 4ULL*1024*1024*1024*1024) {
 		/* More than 4TB is wasted on v0.90 */
 		if (!force) {
 			pr_err("%s is larger than %s can "

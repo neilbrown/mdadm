@@ -3668,6 +3668,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		this->array.md_minor      = -1;
 		this->array.major_version = -1;
 		this->array.minor_version = -2;
+		this->safe_mode_delay = 200;
 		cptr = (__u32 *)(vc->conf.guid + 16);
 		this->array.ctime         = DECADE + __be32_to_cpu(*cptr);
 		this->array.utime	  = DECADE +

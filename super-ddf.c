@@ -4959,7 +4959,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	 * Create a metadata_update record to update the
 	 * phys_refnum and lba_offset values
 	 */
-	vc = find_vdcr(ddf, a->info.container_member, di->disk.raid_disk,
+	vc = find_vdcr(ddf, a->info.container_member, rv->disk.raid_disk,
 		       &n_bvd, &vcl);
 	if (vc == NULL)
 		return NULL;

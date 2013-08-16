@@ -1593,6 +1593,8 @@ static void export_examine_super_ddf(struct supertype *st)
 	printf("MD_METADATA=ddf\n");
 	printf("MD_LEVEL=container\n");
 	printf("MD_UUID=%s\n", nbuf+5);
+	printf("MD_DEVICES=%u\n",
+		be16_to_cpu(((struct ddf_super *)st->sb)->phys->used_pdes));
 }
 
 static int copy_metadata_ddf(struct supertype *st, int from, int to)

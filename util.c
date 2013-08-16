@@ -1949,6 +1949,6 @@ int in_initrd(void)
 	/* This is based on similar function in systemd. */
 	struct statfs s;
 	return  statfs("/", &s) >= 0 &&
-		(s.f_type == TMPFS_MAGIC ||
-		 s.f_type == RAMFS_MAGIC);
+		((unsigned long)s.f_type == TMPFS_MAGIC ||
+		 (unsigned long)s.f_type == RAMFS_MAGIC);
 }

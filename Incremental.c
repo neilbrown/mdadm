@@ -1278,7 +1278,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	return rv;
 }
 
-int IncrementalScan(int verbose)
+int IncrementalScan(int verbose, char *devnm)
 {
 	/* look at every device listed in the 'map' file.
 	 * If one is found that is not running then:
@@ -1298,7 +1298,11 @@ int IncrementalScan(int verbose)
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = open_dev(me->devnm);
+		int mdfd;
+
+		if (devnm && strcmp(devnm, me->devnm) != 0)
+			continue;
+		mdfd = open_dev(me->devnm);
 
 		if (mdfd < 0)
 			continue;

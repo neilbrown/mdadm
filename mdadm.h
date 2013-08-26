@@ -1235,7 +1235,7 @@ extern int WaitClean(char *dev, int sock, int verbose);
 extern int Incremental(char *devname, struct context *c,
 		       struct supertype *st);
 extern void RebuildMap(void);
-extern int IncrementalScan(int verbose);
+extern int IncrementalScan(int verbose, char *devnm);
 extern int IncrementalRemove(char *devname, char *path, int verbose);
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,

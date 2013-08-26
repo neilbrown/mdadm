@@ -1535,7 +1535,7 @@ int main(int argc, char *argv[])
 				pr_err("--incremental --scan --fail not supported.\n");
 				break;
 			}
-			rv = IncrementalScan(c.verbose);
+			rv = IncrementalScan(c.verbose, NULL);
 		}
 		if (!devlist) {
 			if (!rebuild_map && !c.scan) {

@@ -175,23 +175,19 @@ int Manage_run(char *devname, int fd, int verbose)
 	/* Run the array.  Array must already be configured
 	 *  Requires >= 0.90.0
 	 */
-	mdu_param_t param; /* unused */
-	int rv = 0;
+	char nm[32], *nmp;
 
 	if (md_get_version(fd) < 9000) {
 		pr_err("need md driver version 0.90.0 or later\n");
 		return 1;
 	}
-
-	if (ioctl(fd, RUN_ARRAY, &param)) {
-		if (verbose >= 0)
-			pr_err("failed to run array %s: %s\n",
-			       devname, strerror(errno));
+	nmp = fd2devnm(fd);
+	if (!nmp) {
+		pr_err("Cannot find %s in sysfs!!\n", devname);
 		return 1;
 	}
-	if (verbose >= 0)
-		pr_err("started %s\n", devname);
-	return rv;
+	strcpy(nm, nmp);
+	return IncrementalScan(verbose, nm);
 }
 
 int Manage_stop(char *devname, int fd, int verbose, int will_retry)

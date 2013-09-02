@@ -686,44 +686,9 @@ void set_conffile(char *file)
 	conffile = file;
 }
 
-void load_conffile(void)
+void conf_file(FILE *f)
 {
-	FILE *f;
 	char *line;
-
-	if (loaded) return;
-	if (conffile == NULL)
-		conffile = DefaultConfFile;
-
-	if (strcmp(conffile, "none") == 0) {
-		loaded = 1;
-		return;
-	}
-	if (strcmp(conffile, "partitions")==0) {
-		char *list = dl_strdup("DEV");
-		dl_init(list);
-		dl_add(list, dl_strdup("partitions"));
-		devline(list);
-		free_line(list);
-		loaded = 1;
-		return;
-	}
-	f = fopen(conffile, "r");
-	/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
-	 * To allow Debian users to compile from clean source and still
-	 * have a working mdadm, we read /etc/mdadm/mdadm.conf
-	 * if /etc/mdadm.conf doesn't exist
-	 */
-	if (f == NULL &&
-	    conffile == DefaultConfFile) {
-		f = fopen(DefaultAltConfFile, "r");
-		if (f)
-			conffile = DefaultAltConfFile;
-	}
-	if (f == NULL)
-		return;
-
-	loaded = 1;
 	while ((line=conf_line(f))) {
 		switch(match_keyword(line)) {
 		case Devices:
@@ -761,6 +726,46 @@ void load_conffile(void)
 		}
 		free_line(line);
 	}
+}
+
+void load_conffile(void)
+{
+	FILE *f;
+
+	if (loaded) return;
+	if (conffile == NULL)
+		conffile = DefaultConfFile;
+
+	if (strcmp(conffile, "none") == 0) {
+		loaded = 1;
+		return;
+	}
+	if (strcmp(conffile, "partitions")==0) {
+		char *list = dl_strdup("DEV");
+		dl_init(list);
+		dl_add(list, dl_strdup("partitions"));
+		devline(list);
+		free_line(list);
+		loaded = 1;
+		return;
+	}
+	f = fopen(conffile, "r");
+	/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
+	 * To allow Debian users to compile from clean source and still
+	 * have a working mdadm, we read /etc/mdadm/mdadm.conf
+	 * if /etc/mdadm.conf doesn't exist
+	 */
+	if (f == NULL &&
+	    conffile == DefaultConfFile) {
+		f = fopen(DefaultAltConfFile, "r");
+		if (f)
+			conffile = DefaultAltConfFile;
+	}
+	if (f == NULL)
+		return;
+
+	loaded = 1;
+	conf_file(f);
 
 	fclose(f);
 

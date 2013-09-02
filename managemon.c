@@ -494,7 +494,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 	if (a->container == NULL)
 		return;
 
-	if (sigterm && a->info.safe_mode_delay > 1) {
+	if (sigterm && a->info.safe_mode_delay != 1) {
 		sysfs_set_safemode(&a->info, 1);
 		a->info.safe_mode_delay = 1;
 	}

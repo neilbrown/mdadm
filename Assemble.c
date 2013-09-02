@@ -564,7 +564,7 @@ static int load_devices(struct devs *devices, char *devmap,
 #ifndef MDASSEMBLE
 	int bitmap_done = 0;
 #endif
-	int most_recent = 0;
+	int most_recent = -1;
 	int bestcnt = 0;
 	int *best = *bestp;
 
@@ -695,10 +695,12 @@ static int load_devices(struct devs *devices, char *devmap,
 		devices[devcnt].i.disk.major = major(stb.st_rdev);
 		devices[devcnt].i.disk.minor = minor(stb.st_rdev);
 
-		if (devices[devcnt].i.events
-		    > devices[most_recent].i.events &&
-		    devices[devcnt].i.disk.state == 6)
+		if (devices[devcnt].i.disk.state == 6) {
+			if (most_recent < 0 ||
+			    devices[devcnt].i.events
+			    > devices[most_recent].i.events)
 				most_recent = devcnt;
+		}
 
 		if (content->array.level == LEVEL_MULTIPATH)
 			/* with multipath, the raid_disk from the superblock is meaningless */
@@ -766,7 +768,8 @@ static int load_devices(struct devs *devices, char *devmap,
 		}
 		devcnt++;
 	}
-	*most_recentp = most_recent;
+	if (most_recent >= 0)
+		*most_recentp = most_recent;
 	*bestcntp = bestcnt;
 	*bestp = best;
 	return devcnt;

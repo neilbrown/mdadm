@@ -1691,7 +1691,7 @@ int start_mdmon(char *devnm)
 	char *paths[4] = {
 		pathbuf,
 		"/sbin/mdmon",
-		"mdmon",
+		"./mdmon",
 		NULL
 	};
 
@@ -1759,7 +1759,7 @@ int start_mdmon(char *devnm)
 
 		for (i = 0; paths[i]; i++)
 			if (paths[i][0]) {
-				execl(paths[i], "mdmon",
+				execl(paths[i], paths[i],
 				      devnm, NULL);
 			}
 		exit(1);

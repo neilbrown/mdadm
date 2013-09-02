@@ -728,6 +728,67 @@ void conf_file(FILE *f)
 	}
 }
 
+struct fname {
+	struct fname *next;
+	char name[];
+};
+
+void conf_file_or_dir(FILE *f)
+{
+	struct stat st;
+	DIR *dir;
+	struct dirent *dp;
+	struct fname *list = NULL;
+
+	fstat(fileno(f), &st);
+	if (S_ISREG(st.st_mode))
+		conf_file(f);
+	else if (!S_ISDIR(st.st_mode))
+		return;
+#if _XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L
+	dir = fdopendir(fileno(f));
+	if (!dir)
+		return;
+	while ((dp = readdir(dir)) != NULL) {
+		int l;
+		struct fname *fn, **p;
+		if (dp->d_ino == 0)
+			continue;
+		if (dp->d_name[0] == '.')
+			continue;
+		l = strlen(dp->d_name);
+		if (l < 6 || strcmp(dp->d_name+l-5, ".conf") != 0)
+			continue;
+		fn = xmalloc(sizeof(*fn)+l+1);
+		strcpy(fn->name, dp->d_name);
+		for (p = &list;
+		     *p && strcmp((*p)->name, fn->name) < 0;
+		     p = & (*p)->next)
+			;
+		fn->next = *p;
+		*p = fn;
+	}
+	while (list) {
+		int fd;
+		FILE *f2;
+		struct fname *fn = list;
+		list = list->next;
+		fd = openat(fileno(f), fn->name, O_RDONLY);
+		free(fn);
+		if (fd < 0)
+			continue;
+		f2 = fdopen(fd, "r");
+		if (!f2) {
+			close(fd);
+			continue;
+		}
+		conf_file(f2);
+		fclose(f2);
+	}
+	closedir(dir);
+#endif
+}
+
 void load_conffile(void)
 {
 	FILE *f;
@@ -765,7 +826,7 @@ void load_conffile(void)
 		return;
 
 	loaded = 1;
-	conf_file(f);
+	conf_file_or_dir(f);
 
 	fclose(f);
 

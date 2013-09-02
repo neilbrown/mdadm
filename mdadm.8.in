@@ -263,16 +263,22 @@ the exact meaning of this option in different contexts.
 
 .TP
 .BR \-c ", " \-\-config=
-Specify the config file.  Default is to use
-.BR /etc/mdadm.conf ,
-or if that is missing then
-.BR /etc/mdadm/mdadm.conf .
+Specify the config file or directory.  Default is to use
+.B /etc/mdadm.conf
+and
+.BR /etc/mdadm.conf.d ,
+or if those are missing then
+.B /etc/mdadm/mdadm.conf
+and
+.BR /etc/mdadm/mdadm.conf.d .
 If the config file given is
 .B "partitions"
 then nothing will be read, but
 .I mdadm
 will act as though the config file contained exactly
-.B "DEVICE partitions containers"
+.br
+.B "    DEVICE partitions containers"
+.br
 and will read
 .B /proc/partitions
 to find a list of devices to scan, and
@@ -283,6 +289,13 @@ If the word
 is given for the config file, then
 .I mdadm
 will act as though the config file were empty.
+
+If the name given is of a directory, then
+.I mdadm
+will collect all the files contained in the directory with a name ending
+in
+.BR .conf ,
+sort them lexically, and process all of those files as config files.
 
 .TP
 .BR \-s ", " \-\-scan
@@ -2975,6 +2988,11 @@ they contain MD super block, and gives identifying information
 (e.g. UUID) about known MD arrays.  See
 .BR mdadm.conf (5)
 for more details.
+
+.SS /etc/mdadm.conf.d
+
+A directory containing configuration files which are read in lexical
+order.
 
 .SS {MAP_PATH}
 When

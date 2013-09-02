@@ -72,7 +72,9 @@
 #define CONFFILE2 "/etc/mdadm/mdadm.conf"
 #endif
 char DefaultConfFile[] = CONFFILE;
+char DefaultConfDir[] = CONFFILE ".d";
 char DefaultAltConfFile[] = CONFFILE2;
+char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
 		Homehost, AutoMode, Policy, PartPolicy, LTEnd };
@@ -792,10 +794,13 @@ void conf_file_or_dir(FILE *f)
 void load_conffile(void)
 {
 	FILE *f;
+	char *confdir = NULL;
 
 	if (loaded) return;
-	if (conffile == NULL)
+	if (conffile == NULL) {
 		conffile = DefaultConfFile;
+		confdir = DefaultConfDir;
+	}
 
 	if (strcmp(conffile, "none") == 0) {
 		loaded = 1;
@@ -819,18 +824,24 @@ void load_conffile(void)
 	if (f == NULL &&
 	    conffile == DefaultConfFile) {
 		f = fopen(DefaultAltConfFile, "r");
-		if (f)
+		if (f) {
 			conffile = DefaultAltConfFile;
+			confdir = DefaultAltConfDir;
+		}
 	}
-	if (f == NULL)
-		return;
-
-	loaded = 1;
-	conf_file_or_dir(f);
-
-	fclose(f);
-
-/*    printf("got file\n"); */
+	if (f) {
+		loaded = 1;
+		conf_file_or_dir(f);
+		fclose(f);
+	}
+	if (confdir) {
+		f = fopen(confdir, "r");
+		if (f) {
+			loaded = 1;
+			conf_file_or_dir(f);
+			fclose(f);
+		}
+	}
 }
 
 char *conf_get_mailaddr(void)

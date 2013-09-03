@@ -507,13 +507,9 @@ void mailline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+	for (w=dl_next(line); w != line ; w=dl_next(w))
 		if (alert_email == NULL)
 			alert_email = xstrdup(w);
-		else
-			pr_err("excess address on MAIL line: %s - ignored\n",
-				w);
-	}
 }
 
 static char *alert_mail_from = NULL;
@@ -540,13 +536,9 @@ void programline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+	for (w=dl_next(line); w != line ; w=dl_next(w))
 		if (alert_program == NULL)
 			alert_program = xstrdup(w);
-		else
-			pr_err("excess program on PROGRAM line: %s - ignored\n",
-				w);
-	}
 }
 
 static char *home_host = NULL;
@@ -563,9 +555,7 @@ void homehostline(char *line)
 				home_host = xstrdup("");
 			else
 				home_host = xstrdup(w);
-		}else
-			pr_err("excess host name on HOMEHOST line: %s - ignored\n",
-				w);
+		}
 	}
 }
 
@@ -583,11 +573,9 @@ void autoline(char *line)
 	int homehost = 0;
 	int i;
 
-	if (auto_seen) {
-		pr_err("AUTO line may only be give once."
-			"  Subsequent lines ignored\n");
+	if (auto_seen)
 		return;
-	}
+
 	/* Parse the 'auto' line creating policy statements for the 'auto' policy.
 	 *
 	 * The default is 'yes' but the 'auto' line might over-ride that.

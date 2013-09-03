@@ -256,8 +256,8 @@ mode (and was given the
 .B \-\-scan
 option).  There should only be one
 .B MAILADDR
-line and it should have only one address.
-
+line and it should have only one address.  Any subsequent addresses
+are silently ignored.
 
 .TP
 .B MAILFROM
@@ -397,7 +397,9 @@ is given it is also possible to give an explicit name which will be
 used when creating arrays.  This is the only case when there can be
 more that one other word on the
 .B HOMEHOST
-line.
+line.  If there are other words, or other
+.B HOMEHOST
+lines, they are silently ignored.
 
 If
 .B <none>
@@ -460,6 +462,11 @@ The known metadata types are
 .BR 1.x ,
 .BR ddf ,
 .BR imsm .
+
+.B AUTO
+should be given at most once.  Subsequent lines are silently ignored.
+Thus an earlier config file in a config directory will over-ride
+the setting in a later config file.
 
 .TP
 .B POLICY

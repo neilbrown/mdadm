@@ -2838,6 +2838,28 @@ These checks can be suppressed by setting IMSM_NO_PLATFORM=1 in the
 environment.  This can be useful for testing or for disaster
 recovery.  You should be aware that interoperability may be
 compromised by setting this value.
+
+.TP
+.B MDADM_CONF_AUTO
+Any string given in this variable is added to the start of the
+.B AUTO
+line in the config file, or treated as the whole
+.B AUTO
+line if none is given.  It can be used to disable certain metadata
+types when
+.I mdadm
+is called from a boot script.  For example
+.br
+.B "    export MDADM_CONF_AUTO='-ddf -imsm'
+.br
+will make sure that
+.I mdadm
+does not automatically assemble any DDF or
+IMSM arrays that are found.  This can be useful on systems configured
+to manage such arrays with
+.BR dmraid .
+
+
 .SH EXAMPLES
 
 .B "  mdadm \-\-query /dev/name-of-device"

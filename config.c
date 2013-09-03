@@ -602,6 +602,24 @@ void autoline(char *line)
 	 * been seen gets an appropriate auto= entry.
 	 */
 
+	/* If environment variable MDADM_CONF_AUTO is defined, then
+	 * it is prepended to the auto line.  This allow a script
+	 * to easily disable some metadata types.
+	 */
+	w = getenv("MDADM_CONF_AUTO");
+	if (w && *w) {
+		char *l = xstrdup(w);
+		char *head = line;
+		w = strtok(l, " \t");
+		while (w) {
+			char *nw = dl_strdup(w);
+			dl_insert(head, nw);
+			head = nw;
+			w = strtok(NULL, " \t");
+		}
+		free(l);
+	}
+
 	for (super_cnt = 0; superlist[super_cnt]; super_cnt++)
 		;
 	seen = xcalloc(super_cnt, 1);
@@ -783,6 +801,7 @@ void load_conffile(void)
 {
 	FILE *f;
 	char *confdir = NULL;
+	char *head;
 
 	if (loaded)
 		return;
@@ -824,6 +843,14 @@ void load_conffile(void)
 			}
 		}
 	}
+	/* If there was no AUTO line, process an empty line
+	 * now so that the MDADM_CONF_AUTO env var gets processed.
+	 */
+	head = dl_strdup("AUTO");
+	dl_init(head);
+	autoline(head);
+	free_line(head);
+
 	loaded = 1;
 }
 

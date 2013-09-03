@@ -784,52 +784,47 @@ void load_conffile(void)
 	FILE *f;
 	char *confdir = NULL;
 
-	if (loaded) return;
+	if (loaded)
+		return;
 	if (conffile == NULL) {
 		conffile = DefaultConfFile;
 		confdir = DefaultConfDir;
 	}
 
-	if (strcmp(conffile, "none") == 0) {
-		loaded = 1;
-		return;
-	}
 	if (strcmp(conffile, "partitions")==0) {
 		char *list = dl_strdup("DEV");
 		dl_init(list);
 		dl_add(list, dl_strdup("partitions"));
 		devline(list);
 		free_line(list);
-		loaded = 1;
-		return;
-	}
-	f = fopen(conffile, "r");
-	/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
-	 * To allow Debian users to compile from clean source and still
-	 * have a working mdadm, we read /etc/mdadm/mdadm.conf
-	 * if /etc/mdadm.conf doesn't exist
-	 */
-	if (f == NULL &&
-	    conffile == DefaultConfFile) {
-		f = fopen(DefaultAltConfFile, "r");
-		if (f) {
-			conffile = DefaultAltConfFile;
-			confdir = DefaultAltConfDir;
+	} else if (strcmp(conffile, "none") != 0) {
+		f = fopen(conffile, "r");
+		/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
+		 * To allow Debian users to compile from clean source and still
+		 * have a working mdadm, we read /etc/mdadm/mdadm.conf
+		 * if /etc/mdadm.conf doesn't exist
+		 */
+		if (f == NULL &&
+		    conffile == DefaultConfFile) {
+			f = fopen(DefaultAltConfFile, "r");
+			if (f) {
+				conffile = DefaultAltConfFile;
+				confdir = DefaultAltConfDir;
+			}
 		}
-	}
-	if (f) {
-		loaded = 1;
-		conf_file_or_dir(f);
-		fclose(f);
-	}
-	if (confdir) {
-		f = fopen(confdir, "r");
 		if (f) {
-			loaded = 1;
 			conf_file_or_dir(f);
 			fclose(f);
 		}
+		if (confdir) {
+			f = fopen(confdir, "r");
+			if (f) {
+				conf_file_or_dir(f);
+				fclose(f);
+			}
+		}
 	}
+	loaded = 1;
 }
 
 char *conf_get_mailaddr(void)

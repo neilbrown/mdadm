@@ -853,6 +853,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			}
 			array_failed = !enough(array->level, array->raid_disks,
 					       array->layout, 1, avail);
+			free(avail);
 		} else
 			array_failed = 0;
 		if (array_failed) {

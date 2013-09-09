@@ -35,8 +35,6 @@ static const int rom_len = 0xf0000 - 0xc0000; /* option-rom memory region */
 static int _sigbus;
 static unsigned long rom_align;
 
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
-
 static void sigbus(int sig)
 {
 	_sigbus = 1;

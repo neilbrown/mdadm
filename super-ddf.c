@@ -1680,8 +1680,7 @@ static const char *vendors_with_variable_volume_UUID[] = {
 
 static int volume_id_is_reliable(const struct ddf_super *ddf)
 {
-	int n = sizeof(vendors_with_variable_volume_UUID) /
-		sizeof(vendors_with_variable_volume_UUID[0]);
+	int n = ARRAY_SIZE(vendors_with_variable_volume_UUID);
 	int i;
 	for (i = 0; i < n; i++)
 		if (!memcmp(ddf->controller.guid,

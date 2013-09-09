@@ -178,6 +178,8 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 	(void) (&_max1 == &_max2);              \
 	_max1 > _max2 ? _max1 : _max2; })
 
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
+
 /* general information that might be extracted from a superblock */
 struct mdinfo {
 	mdu_array_info_t	array;

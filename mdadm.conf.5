@@ -482,7 +482,7 @@ A device may belong to several domains. The domain of an array is a union
 of domains of all devices in that array.  A spare can be automatically
 moved from one array to another if the set of the destination array's
 .I domains
-ppcontains all the
+contains all the
 .I domains
 of the new disk or if both arrays have the same
 .IR spare-group .
@@ -515,6 +515,7 @@ or
 .TP
 .B action=
 include, re-add, spare, spare-same-slot, or force-spare
+.TP
 .B auto=
 yes, no, or homehost.
 

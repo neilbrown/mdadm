@@ -697,7 +697,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->resync_start_fd = sysfs_open(new->info.sys_name, NULL, "resync_start");
 	new->metadata_fd = sysfs_open(new->info.sys_name, NULL, "metadata_version");
 	new->sync_completed_fd = sysfs_open(new->info.sys_name, NULL, "sync_completed");
-	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
+	dprintf("%s: inst: %s action: %d state: %d\n", __func__, inst,
 		new->action_fd, new->info.state_fd);
 
 	if (sigterm)

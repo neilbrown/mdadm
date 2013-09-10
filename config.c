@@ -575,6 +575,7 @@ void autoline(char *line)
 
 	if (auto_seen)
 		return;
+	auto_seen = 1;
 
 	/* Parse the 'auto' line creating policy statements for the 'auto' policy.
 	 *

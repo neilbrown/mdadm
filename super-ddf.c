@@ -1519,6 +1519,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 
 static void uuid_from_ddf_guid(const char *guid, int uuid[4]);
 static void uuid_from_super_ddf(struct supertype *st, int uuid[4]);
+static void _ddf_array_name(char *name, const struct ddf_super *ddf, int i);
 
 static unsigned int get_vd_num_of_subarray(struct supertype *st)
 {
@@ -1578,6 +1579,7 @@ static void brief_examine_subarrays_ddf(struct supertype *st, int verbose)
 		struct virtual_entry *ve = &ddf->virt->entries[i];
 		struct vcl vcl;
 		char nbuf1[64];
+		char namebuf[17];
 		if (all_ff(ve->guid))
 			continue;
 		memcpy(vcl.conf.guid, ve->guid, DDF_GUID_LEN);
@@ -1585,7 +1587,9 @@ static void brief_examine_subarrays_ddf(struct supertype *st, int verbose)
 		vcl.vcnum = i;
 		uuid_from_super_ddf(st, info.uuid);
 		fname_from_uuid(st, &info, nbuf1, ':');
-		printf("ARRAY container=%s member=%d UUID=%s\n",
+		_ddf_array_name(namebuf, ddf, i);
+		printf("ARRAY%s%s container=%s member=%d UUID=%s\n",
+		       namebuf[0] == '\0' ? "" : " /dev/md/", namebuf,
 		       nbuf+5, i, nbuf1+5);
 	}
 }

@@ -1950,6 +1950,17 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	}
 }
 
+/* size of name must be at least 17 bytes! */
+static void _ddf_array_name(char *name, const struct ddf_super *ddf, int i)
+{
+	int j;
+	memcpy(name, ddf->virt->entries[i].name, 16);
+	name[16] = 0;
+	for(j = 0; j < 16; j++)
+		if (name[j] == ' ')
+			name[j] = 0;
+}
+
 static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct ddf_super *ddf = st->sb;
@@ -2027,11 +2038,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 		info->container_member);
 	info->safe_mode_delay = DDF_SAFE_MODE_DELAY;
 
-	memcpy(info->name, ddf->virt->entries[info->container_member].name, 16);
-	info->name[16]=0;
-	for(j=0; j<16; j++)
-		if (info->name[j] == ' ')
-			info->name[j] = 0;
+	_ddf_array_name(info->name, ddf, info->container_member);
 
 	if (map)
 		for (j = 0; j < map_disks; j++) {
@@ -3696,7 +3703,6 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 	for (vc = ddf->conflist ; vc ; vc=vc->next)
 	{
 		unsigned int i;
-		unsigned int j;
 		struct mdinfo *this;
 		char *ep;
 		__u32 *cptr;
@@ -3738,12 +3744,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			this->array.state = 1;
 			this->resync_start = MaxSector;
 		}
-		memcpy(this->name, ddf->virt->entries[i].name, 16);
-		this->name[16]=0;
-		for(j=0; j<16; j++)
-			if (this->name[j] == ' ')
-				this->name[j] = 0;
-
+		_ddf_array_name(this->name, ddf, i);
 		memset(this->uuid, 0, sizeof(this->uuid));
 		this->component_size = be64_to_cpu(vc->conf.blocks);
 		this->array.size = this->component_size / 2;

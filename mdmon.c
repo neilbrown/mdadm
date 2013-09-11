@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 			dofork = 0;
 			break;
 		case OffRootOpt:
-			/* silently ignore old option */
+			argv[0][0] = '@';
 			break;
 		case 'h':
 		default:

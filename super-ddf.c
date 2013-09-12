@@ -880,7 +880,8 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 			super->primary.openflag && !super->secondary.openflag)
 			)
 			super->active = &super->secondary;
-	} else if (devname)
+	} else if (devname &&
+		   be64_to_cpu(super->anchor.secondary_lba) != ~(__u64)0)
 		pr_err("Failed to load secondary DDF header on %s\n",
 		       devname);
 	if (super->active == NULL)
@@ -2810,7 +2811,9 @@ static int add_to_super_ddf(struct supertype *st,
 	} while (0)
 	__calc_lba(dd, ddf->dlist, workspace_lba, 32);
 	__calc_lba(dd, ddf->dlist, primary_lba, 16);
-	__calc_lba(dd, ddf->dlist, secondary_lba, 32);
+	if (ddf->dlist == NULL ||
+	    be64_to_cpu(ddf->dlist->secondary_lba) != ~(__u64)0)
+		__calc_lba(dd, ddf->dlist, secondary_lba, 32);
 	pde->config_size = dd->workspace_lba;
 
 	sprintf(pde->path, "%17.17s","Information: nil") ;
@@ -2892,6 +2895,8 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
 	default:
 		return 0;
 	}
+	if (sector == ~(__u64)0)
+		return 0;
 
 	header->type = type;
 	header->openflag = 1;

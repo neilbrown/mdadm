@@ -1293,7 +1293,7 @@ int main(int argc, char *argv[])
 		if (!rv && c.readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, c.readonly);
 		if (!rv && c.runstop > 0)
-			rv = Manage_run(devlist->devname, mdfd, c.verbose);
+			rv = Manage_run(devlist->devname, mdfd, &c);
 		if (!rv && c.runstop < 0)
 			rv = Manage_stop(devlist->devname, mdfd, c.verbose, 0);
 		break;
@@ -1535,7 +1535,7 @@ int main(int argc, char *argv[])
 				pr_err("--incremental --scan --fail not supported.\n");
 				break;
 			}
-			rv = IncrementalScan(c.verbose, NULL);
+			rv = IncrementalScan(&c, NULL);
 		}
 		if (!devlist) {
 			if (!rebuild_map && !c.scan) {
@@ -1804,7 +1804,8 @@ static int misc_list(struct mddev_dev *devlist,
 		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':
-				rv |= Manage_run(dv->devname, mdfd, c->verbose); break;
+				c->runstop = 1;
+				rv |= Manage_run(dv->devname, mdfd, c); break;
 			case 'S':
 				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0); break;
 			case 'o':

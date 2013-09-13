@@ -1817,7 +1817,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				working++;
 		} else if (errno == EEXIST)
 			preexist++;
-	if (working + expansion == 0)
+	if (working + expansion == 0 && c->runstop <= 0)
 		return 1;/* Nothing new, don't try to start */
 
 	map_update(&map, fd2devnm(mdfd),

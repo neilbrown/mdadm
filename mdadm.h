@@ -1171,7 +1171,7 @@ struct stat64;
 extern int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s);
 
 extern int Manage_ro(char *devname, int fd, int readonly);
-extern int Manage_run(char *devname, int fd, int quiet);
+extern int Manage_run(char *devname, int fd, struct context *c);
 extern int Manage_stop(char *devname, int fd, int quiet,
 		       int will_retry);
 extern int Manage_subdevs(char *devname, int fd,
@@ -1237,7 +1237,7 @@ extern int WaitClean(char *dev, int sock, int verbose);
 extern int Incremental(char *devname, struct context *c,
 		       struct supertype *st);
 extern void RebuildMap(void);
-extern int IncrementalScan(int verbose, char *devnm);
+extern int IncrementalScan(struct context *c, char *devnm);
 extern int IncrementalRemove(char *devname, char *path, int verbose);
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,

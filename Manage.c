@@ -170,7 +170,7 @@ static void remove_devices(char *devnm, char *path)
 	free(path2);
 }
 
-int Manage_run(char *devname, int fd, int verbose)
+int Manage_run(char *devname, int fd, struct context *c)
 {
 	/* Run the array.  Array must already be configured
 	 *  Requires >= 0.90.0
@@ -187,7 +187,7 @@ int Manage_run(char *devname, int fd, int verbose)
 		return 1;
 	}
 	strcpy(nm, nmp);
-	return IncrementalScan(verbose, nm);
+	return IncrementalScan(c, nm);
 }
 
 int Manage_stop(char *devname, int fd, int verbose, int will_retry)

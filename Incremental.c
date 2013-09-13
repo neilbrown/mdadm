@@ -44,7 +44,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		     struct supertype *st, int verbose);
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 struct context *c);
+				 struct context *c, char *only);
 
 int Incremental(char *devname, struct context *c,
 		struct supertype *st)
@@ -138,7 +138,7 @@ int Incremental(char *devname, struct context *c,
 			if (map_lock(&map))
 				pr_err("failed to get "
 				       "exclusive lock on mapfile\n");
-			rv = Incremental_container(st, devname, c);
+			rv = Incremental_container(st, devname, c, NULL);
 			map_unlock(&map);
 			return rv;
 		}
@@ -478,7 +478,7 @@ int Incremental(char *devname, struct context *c,
 		close(mdfd);
 		sysfs_free(sra);
 		if (!rv)
-			rv = Incremental_container(st, chosen_name, c);
+			rv = Incremental_container(st, chosen_name, c, NULL);
 		map_unlock(&map);
 		if (rv == 1)
 			/* Don't fail the whole -I if a subarray didn't
@@ -1278,7 +1278,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	return rv;
 }
 
-int IncrementalScan(int verbose, char *devnm)
+int IncrementalScan(struct context *c, char *devnm)
 {
 	/* look at every device listed in the 'map' file.
 	 * If one is found that is not running then:
@@ -1290,10 +1290,13 @@ int IncrementalScan(int verbose, char *devnm)
 	struct map_ent *me;
 	struct mddev_ident *devs, *mddev;
 	int rv = 0;
+	char container[32];
+	char *only = NULL;
 
 	map_read(&mapl);
 	devs = conf_get_ident(NULL);
 
+restart:
 	for (me = mapl ; me ; me = me->next) {
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
@@ -1302,10 +1305,42 @@ int IncrementalScan(int verbose, char *devnm)
 
 		if (devnm && strcmp(devnm, me->devnm) != 0)
 			continue;
+		if (devnm && me->metadata[0] == '/') {
+			char *sl;
+			/* member array, need to work on container */
+			strncpy(container, me->metadata+1, 32);
+			container[31] = 0;
+			sl = strchr(container, '/');
+			if (sl)
+				*sl = 0;
+			only = devnm;
+			devnm = container;
+			goto restart;
+		}
 		mdfd = open_dev(me->devnm);
 
 		if (mdfd < 0)
 			continue;
+		if (!isdigit(me->metadata[0])) {
+			/* must be a container */
+			struct supertype *st = super_by_fd(mdfd, NULL);
+			int ret = 0;
+			struct map_ent *map = NULL;
+			if (st)
+				st->ignore_hw_compat = 1;
+			if (st && st->ss->load_container)
+				ret = st->ss->load_container(st, mdfd, NULL);
+			close(mdfd);
+			if (!ret && st->ss->container_content) {
+				if (map_lock(&map))
+					pr_err("failed to get exclusive lock on mapfile\n");
+				ret = Incremental_container(st, me->path, c, only);
+				map_unlock(&map);
+			}
+			if (ret)
+				rv = 1;
+			continue;
+		}
 		if (ioctl(mdfd, GET_ARRAY_INFO, &array) == 0 ||
 		    errno != ENODEV) {
 			close(mdfd);
@@ -1330,7 +1365,7 @@ int IncrementalScan(int verbose, char *devnm)
 					close(bmfd);
 				}
 			}
-			if (verbose >= 0) {
+			if (c->verbose >= 0) {
 				if (added == 0)
 					pr_err("Added bitmap %s to %s\n",
 					       mddev->bitmap_file, me->path);
@@ -1346,7 +1381,7 @@ int IncrementalScan(int verbose, char *devnm)
 		if (sra) {
 			if (sysfs_set_str(sra, NULL,
 					  "array_state", "read-auto") == 0) {
-				if (verbose >= 0)
+				if (c->verbose >= 0)
 					pr_err("started array %s\n",
 					       me->path ?: me->devnm);
 			} else {
@@ -1387,7 +1422,7 @@ static char *container2devname(char *devname)
 }
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 struct context *c)
+				 struct context *c, char *only)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
@@ -1458,7 +1493,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 				strcpy(chosen_name, mp->path);
 			else
 				strcpy(chosen_name, mp->devnm);
-		} else {
+		} else if (!only) {
 
 			/* Check in mdadm.conf for container == devname and
 			 * member == ra->text_version after second slash.
@@ -1515,6 +1550,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 					    trustworthy,
 					    chosen_name);
 		}
+		if (only && (!mp || strcmp(mp->devnm, only) != 0))
+			continue;
 
 		if (mdfd < 0) {
 			pr_err("failed to open %s: %s.\n",

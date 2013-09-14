@@ -3892,10 +3892,10 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	if (memcmp(first->anchor.guid, second->anchor.guid, DDF_GUID_LEN) != 0)
 		return 2;
 
-	if (!be32_eq(first->anchor.seq, second->anchor.seq)) {
-		dprintf("%s: sequence number mismatch %u/%u\n", __func__,
-			be32_to_cpu(first->anchor.seq),
-			be32_to_cpu(second->anchor.seq));
+	if (!be32_eq(first->active->seq, second->active->seq)) {
+		dprintf("%s: sequence number mismatch %u<->%u\n", __func__,
+			be32_to_cpu(first->active->seq),
+			be32_to_cpu(second->active->seq));
 		return 3;
 	}
 	if (first->max_part != second->max_part ||

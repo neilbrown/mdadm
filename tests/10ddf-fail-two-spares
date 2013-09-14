@@ -1,5 +1,6 @@
 # Simulate two disks failing shorty after each other
 . tests/env-ddf-template
+sda=$(get_rootdev) || exit 1
 tmp=$(mktemp /tmp/mdtest-XXXXXX)
 
 mdadm --zero-superblock $dev8 $dev9 $dev10 $dev11 $dev12 $dev13
@@ -13,8 +14,8 @@ mdadm -CR $member0 -l raid6 -n 4 $dev10 $dev11 $dev12 $dev13 -z 16384
 #	    >/tmp/mdmon.txt 2>&1
 mdadm -CR $member1 -l raid10 -n 4 $dev10 $dev11 $dev12 $dev13 -z 16384
 
-dd if=/dev/sda of=$member0 bs=1M
-dd if=/dev/sda of=$member1 bs=1M skip=16
+dd if=$sda of=$member0 bs=1M
+dd if=$sda of=$member1 bs=1M skip=16
 
 check wait
 

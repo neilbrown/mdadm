@@ -9,6 +9,8 @@
 # add some data, tear down the array, reassemble
 # and make sure it is still there.
 set -e
+. tests/env-ddf-template
+sda=$(get_rootdev) || exit 1
 
 mdadm -CR /dev/md/ddf0 -e ddf -n 5 $dev8 $dev9 $dev10 $dev11 $dev12
 mdadm -CR r5 -l5 -n5 /dev/md/ddf0 -z 5000
@@ -23,10 +25,10 @@ testdev /dev/md/r10 2 5000 512
 # r0/r10 will use 4608 due to chunk size, so that leaves 23552 for the rest
 testdev /dev/md/r1 1 23552 64
 testdev /dev/md/r0 3 23552 512
-dd if=/dev/sda of=/dev/md/r0 || true
-dd if=/dev/sda of=/dev/md/r10 || true
-dd if=/dev/sda of=/dev/md/r1 || true
-dd if=/dev/sda of=/dev/md/r5 || true
+dd if=$sda of=/dev/md/r0 || true
+dd if=$sda of=/dev/md/r10 || true
+dd if=$sda of=/dev/md/r1 || true
+dd if=$sda of=/dev/md/r5 || true
 
 s0=`sha1sum /dev/md/r0`
 s10=`sha1sum /dev/md/r10`

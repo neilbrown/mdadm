@@ -270,13 +270,6 @@ static int read_and_act(struct active_array *a)
 		a->info.resync_start
 		);
 
-	if (a->curr_state > inactive &&
-	    a->prev_state == inactive) {
-		/* array has been started
-		 * possible that container operation has to be completed
-		 */
-		a->container->ss->set_array_state(a, 0);
-	}
 	if ((a->curr_state == bad_word || a->curr_state <= inactive) &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */

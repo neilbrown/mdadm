@@ -104,3 +104,6 @@ member1=/dev/md/vol1
 member2=/dev/md/vol2
 member3=/dev/md/vol3
 member4=/dev/md/vol4
+
+# We don't want systemd to start system mdmon; start our own
+export MDADM_NO_SYSTEMCTL=1

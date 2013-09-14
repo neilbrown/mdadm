@@ -1527,6 +1527,11 @@ int main(int argc, char *argv[])
 			RebuildMap();
 		}
 		if (c.scan) {
+			rv = 1;
+			if (devlist) {
+				pr_err("In --incremental mode, a device cannot be given with --scan.\n");
+				break;
+			}
 			if (c.runstop <= 0) {
 				pr_err("--incremental --scan meaningless without --run.\n");
 				break;

@@ -156,7 +156,7 @@ all : check_rundir mdadm mdmon
 man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
 
 check_rundir:
-	@if [ ! -d "$(dir $(RUN_DIR))" -a  "$(CHECK_RUN_DIR)" == 1 ]; then \
+	@if [ ! -d "$(dir $(RUN_DIR))" -a  "$(CHECK_RUN_DIR)" = 1 ]; then \
 		echo "***** Parent of $(RUN_DIR) does not exist.  Maybe set different RUN_DIR="; \
 		echo "*****  e.g. make RUN_DIR=/dev/.mdadm" ; \
 		echo "***** or set CHECK_RUN_DIR=0"; exit 1; \

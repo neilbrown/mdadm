@@ -98,7 +98,7 @@ ddf_check() {
     esac
 }
 
-container=/dev/md/ddf
+container=/dev/md/ddf0
 member0=/dev/md/vol0
 member1=/dev/md/vol1
 member2=/dev/md/vol2

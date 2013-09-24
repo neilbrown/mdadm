@@ -421,8 +421,7 @@ static int read_and_act(struct active_array *a)
 	if (sync_completed > a->last_checkpoint)
 		a->last_checkpoint = sync_completed;
 
-	if (deactivate || a->curr_state >= clean)
-		a->container->ss->sync_metadata(a->container);
+	a->container->ss->sync_metadata(a->container);
 	dprintf("%s(%d): state:%s action:%s next(", __func__, a->info.container_member,
 		array_states[a->curr_state], sync_actions[a->curr_action]);
 

@@ -2703,6 +2703,31 @@ static unsigned int find_unused_pde(const struct ddf_super *ddf)
 	return DDF_NOTFOUND;
 }
 
+static void _set_config_size(struct phys_disk_entry *pde, const struct dl *dl)
+{
+	__u64 cfs, t;
+	cfs = min(dl->size - 32*1024*2ULL, be64_to_cpu(dl->primary_lba));
+	t = be64_to_cpu(dl->secondary_lba);
+	if (t != ~(__u64)0)
+		cfs = min(cfs, t);
+	/*
+	 * Some vendor DDF structures interpret workspace_lba
+	 * very differently then us. Make a sanity check on the value.
+	 */
+	t = be64_to_cpu(dl->workspace_lba);
+	if (t < cfs) {
+		__u64 wsp = cfs - t;
+		if (wsp > 1024*1024*2ULL && wsp > dl->size / 16) {
+			pr_err("%s: %x:%x: workspace size 0x%llx too big, ignoring\n",
+			       __func__, dl->major, dl->minor, wsp);
+		} else
+			cfs = t;
+	}
+	pde->config_size = cpu_to_be64(cfs);
+	dprintf("%s: %x:%x config_size %llx, DDF structure is %llx blocks\n",
+		__func__, dl->major, dl->minor, cfs, dl->size-cfs);
+}
+
 /* add a device to a container, either while creating it or while
  * expanding a pre-existing container
  */
@@ -2825,7 +2850,7 @@ static int add_to_super_ddf(struct supertype *st,
 	if (ddf->dlist == NULL ||
 	    be64_to_cpu(ddf->dlist->secondary_lba) != ~(__u64)0)
 		__calc_lba(dd, ddf->dlist, secondary_lba, 32);
-	pde->config_size = dd->workspace_lba;
+	_set_config_size(pde, dd);
 
 	sprintf(pde->path, "%17.17s","Information: nil") ;
 	memset(pde->pad, 0xff, 6);

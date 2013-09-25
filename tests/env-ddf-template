@@ -1,3 +1,7 @@
+sha1_sum() {
+    sha1sum "$1" | cut -c 1-40
+}
+
 get_rootdev() {
     local dev=$(stat -c %D /)
     local maj=$(expr $dev : '\(..\)')

@@ -803,7 +803,9 @@ static int force_array(struct mdinfo *content,
 		int chosen_drive = -1;
 		int i;
 
-		for (i = 0; i < content->array.raid_disks && i < bestcnt; i++) {
+		for (i = 0;
+		     i < content->array.raid_disks * 2 && i < bestcnt;
+		     i += 2) {
 			int j = best[i];
 			if (j>=0 &&
 			    !devices[j].uptodate &&
@@ -863,7 +865,9 @@ static int force_array(struct mdinfo *content,
 		/* If there are any other drives of the same vintage,
 		 * add them in as well.  We can't lose and we might gain
 		 */
-		for (i = 0; i < content->array.raid_disks && i < bestcnt ; i++) {
+		for (i = 0;
+		     i < content->array.raid_disks * 2 && i < bestcnt ;
+		     i += 2) {
 			int j = best[i];
 			if (j >= 0 &&
 			    !devices[j].uptodate &&
@@ -1528,7 +1532,7 @@ try_again:
 	 */
 	chosen_drive = -1;
 	st->ss->free_super(st);
-	for (i=0; chosen_drive < 0 && i<bestcnt; i++) {
+	for (i=0; chosen_drive < 0 && i<bestcnt; i+=2) {
 		int j = best[i];
 		int fd;
 

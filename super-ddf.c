@@ -2443,7 +2443,7 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type,
 					&dummy);
 		}
 		if (c) {
-			vdc->seqnum = ddf->primary.seq;
+			vdc->seqnum = header->seq;
 			vdc->crc = calc_crc(vdc, conf_size);
 			if (write(fd, vdc, conf_size) < 0)
 				break;

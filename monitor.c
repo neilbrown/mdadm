@@ -38,8 +38,17 @@ static int write_attr(char *attr, int fd)
 
 static void add_fd(fd_set *fds, int *maxfd, int fd)
 {
+	struct stat st;
 	if (fd < 0)
 		return;
+	if (fstat(fd, &st) == -1) {
+		dprintf("%s: Invalid fd %d\n", __func__, fd);
+		return;
+	}
+	if (st.st_nlink == 0) {
+		dprintf("%s: fd %d was deleted\n", __func__, fd);
+		return;
+	}
 	if (fd > *maxfd)
 		*maxfd = fd;
 	FD_SET(fd, fds);

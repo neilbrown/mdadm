@@ -75,18 +75,21 @@ static int read_attr(char *buf, int len, int fd)
 	return n;
 }
 
-static unsigned long long read_resync_start(int fd)
+static void read_resync_start(int fd, unsigned long long *v)
 {
 	char buf[30];
 	int n;
 
 	n = read_attr(buf, 30, fd);
-	if (n <= 0)
-		return 0;
+	if (n <= 0) {
+		dprintf("%s: Failed to read resync_start (%d)\n",
+			__func__, fd);
+		return;
+	}
 	if (strncmp(buf, "none", 4) == 0)
-		return MaxSector;
+		*v = MaxSector;
 	else
-		return strtoull(buf, NULL, 10);
+		*v = strtoull(buf, NULL, 10);
 }
 
 static unsigned long long read_sync_completed(int fd)
@@ -237,13 +240,20 @@ static int read_and_act(struct active_array *a)
 
 	a->curr_state = read_state(a->info.state_fd);
 	a->curr_action = read_action(a->action_fd);
-	a->info.resync_start = read_resync_start(a->resync_start_fd);
+	if (a->curr_state != clear)
+		/*
+		 * In "clear" state, resync_start may wrongly be set to "0"
+		 * when the kernel called md_clean but didn't remove the
+		 * sysfs attributes yet
+		 */
+		read_resync_start(a->resync_start_fd, &a->info.resync_start);
 	sync_completed = read_sync_completed(a->sync_completed_fd);
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		mdi->next_state = 0;
 		mdi->curr_state = 0;
 		if (mdi->state_fd >= 0) {
-			mdi->recovery_start = read_resync_start(mdi->recovery_fd);
+			read_resync_start(mdi->recovery_fd,
+					  &mdi->recovery_start);
 			mdi->curr_state = read_dev_state(mdi->state_fd);
 		}
 	}

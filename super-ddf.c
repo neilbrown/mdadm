@@ -2483,12 +2483,7 @@ static int __write_init_super_ddf(struct supertype *st)
 	}
 	memset(null_aligned, 0xff, NULL_CONF_SZ);
 
-	if (ddf->primary.seq != 0xffffffff)
-		seq = __cpu_to_be32(__be32_to_cpu(ddf->primary.seq)+1);
-	else if (ddf->secondary.seq != 0xffffffff)
-		seq = __cpu_to_be32(__be32_to_cpu(ddf->secondary.seq)+1);
-	else
-		seq = __cpu_to_be32(1);
+	seq = ddf->active->seq + 1;
 
 	/* try to write updated metadata,
 	 * if we catch a failure move on to the next disk

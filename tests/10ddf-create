@@ -67,11 +67,7 @@ mdadm -Ss
 # and now assemble fully incrementally.
 for i in  $dev8 $dev9 $dev10 $dev11 $dev12
 do 
-  #./mdadm -I $i -vv 2>&1 | wc -l > /tmp/cnt
-  ./mdadm -I $i 2> /tmp/thing
-  wc -l < /tmp/thing > /tmp/cnt
-  # should find container and 2 devices, so 3 lines.
-  [ `cat /tmp/cnt` -eq 3 ]
+   mdadm -I $i -c /var/tmp/mdadm.conf
 done
 check nosync
 udevadm settle

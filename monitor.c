@@ -265,7 +265,7 @@ static int read_and_act(struct active_array *a)
 		 */
 		a->container->ss->set_array_state(a, 0);
 	}
-	if (a->curr_state <= inactive &&
+	if ((a->curr_state == bad_word || a->curr_state <= inactive) &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */
 		a->container->ss->set_array_state(a, 1);
@@ -288,8 +288,7 @@ static int read_and_act(struct active_array *a)
 		a->container->ss->set_array_state(a, 1);
 	}
 	if (a->curr_state == active ||
-	    a->curr_state == suspended ||
-	    a->curr_state == bad_word)
+	    a->curr_state == suspended)
 		ret |= ARRAY_DIRTY;
 	if (a->curr_state == readonly) {
 		/* Well, I'm ready to handle things.  If readonly

@@ -529,7 +529,7 @@ amount of available space is.
 .BR \-c ", " \-\-chunk=
 Specify chunk size of kibibytes.  The default when creating an
 array is 512KB.  To ensure compatibility with earlier versions, the
-default when Building and array with no persistent metadata is 64KB.
+default when building an array with no persistent metadata is 64KB.
 This is only meaningful for RAID0, RAID4, RAID5, RAID6, and RAID10.
 
 RAID4, RAID5, RAID6, and RAID10 require the chunk size to be a power

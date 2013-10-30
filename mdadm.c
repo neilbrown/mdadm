@@ -187,6 +187,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'a':
 		case Add:
+		case AddSpare:
 		case 'r':
 		case Remove:
 		case Replace:
@@ -914,6 +915,9 @@ int main(int argc, char *argv[])
 		case O(MANAGE,'a'):
 		case O(MANAGE,Add): /* add a drive */
 			devmode = 'a';
+			continue;
+		case O(MANAGE,AddSpare): /* add drive - never re-add */
+			devmode = 'S';
 			continue;
 		case O(MANAGE,ReAdd):
 			devmode = 'A';

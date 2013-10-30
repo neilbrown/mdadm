@@ -311,6 +311,7 @@ enum special_options {
 	Brief,
 	ManageOpt,
 	Add,
+	AddSpare,
 	Remove,
 	Fail,
 	Replace,

@@ -214,7 +214,10 @@ to detect and assemble arrays \(em possibly in an
 
 .P
 If a device is given before any options, or if the first option is
+and of
 .BR \-\-add ,
+.BR \-\-re\-add ,
+.BR \-\-add\-spare ,
 .BR \-\-fail ,
 .BR \-\-remove ,
 or
@@ -1296,6 +1299,15 @@ will find all devices in the array that are marked
 remove them and attempt to immediately re\-add them.  This can be
 useful if you are certain that the reason for failure has been
 resolved.
+
+.TP
+.B \-\-add\-spare
+Add a device as a spare.  This is similar to
+.B \-\-add
+except that it does not attempt
+.B \-\-re\-add
+first.  The device will be added as a spare even if it looks like it
+could be an recent member of the array.
 
 .TP
 .BR \-r ", " \-\-remove

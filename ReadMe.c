@@ -153,6 +153,7 @@ struct option long_options[] = {
 
     /* Management */
     {"add",       0, 0, Add},
+    {"add-spare", 0, 0, AddSpare},
     {"remove",    0, 0, Remove},
     {"fail",      0, 0, Fail},
     {"set-faulty",0, 0, Fail},

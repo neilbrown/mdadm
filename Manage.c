@@ -783,7 +783,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 				break;
 			}
 		/* FIXME this is a bad test to be using */
-		if (!tst->sb && dv->disposition != 'a') {
+		if (!tst->sb && (dv->disposition != 'a'
+				 && dv->disposition != 'S')) {
 			/* we are re-adding a device to a
 			 * completely dead array - have to depend
 			 * on kernel to check
@@ -813,7 +814,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			dev_st = dup_super(tst);
 			dev_st->ss->load_super(dev_st, tfd, NULL);
 		}
-		if (dev_st && dev_st->sb) {
+		if (dev_st && dev_st->sb && dv->disposition != 'S') {
 			int rv = attempt_re_add(fd, tfd, dv,
 						dev_st, tst,
 						rdev,
@@ -1237,6 +1238,7 @@ int Manage_subdevs(char *devname, int fd,
 	 *  'a' - add the device
 	 *	   try HOT_ADD_DISK
 	 *         If that fails EINVAL, try ADD_NEW_DISK
+	 *  'S' - add the device as a spare - don't try re-add
 	 *  'A' - re-add the device
 	 *  'r' - remove the device: HOT_REMOVE_DISK
 	 *        device can be 'faulty' or 'detached' in which case all
@@ -1447,6 +1449,7 @@ int Manage_subdevs(char *devname, int fd,
 				dv->devname, dv->disposition);
 			goto abort;
 		case 'a':
+		case 'S': /* --add-spare */
 		case 'A':
 		case 'M': /* --re-add missing */
 		case 'F': /* --re-add faulty  */

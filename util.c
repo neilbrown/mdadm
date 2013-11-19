@@ -307,7 +307,7 @@ int test_partition(int fd)
 	if (ioctl(fd, BLKPG, &a) == 0)
 		/* Very unlikely, but not a partition */
 		return 0;
-	if (errno == ENXIO)
+	if (errno == ENXIO || errno == ENOTTY)
 		/* not a partition */
 		return 0;
 

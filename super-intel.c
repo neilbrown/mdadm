@@ -4423,7 +4423,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	struct intel_super *super;
 	int rv;
 
-	if (!st->ignore_hw_compat && test_partition(fd))
+	if (test_partition(fd))
 		/* IMSM not allowed on partitions */
 		return 1;
 

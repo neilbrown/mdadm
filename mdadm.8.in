@@ -1440,12 +1440,29 @@ absolute filepath or a link, e.g.
 .TP
 .BR \-Y ", " \-\-export
 When used with
-.B \-\-detail , \-\-detail-platform
-or
+.BR \-\-detail ,
+.BR \-\-detail-platform ,
 .BR \-\-examine ,
+or
+.B \-\-incremental
 output will be formatted as
 .B key=value
 pairs for easy import into the environment.
+
+With
+.B \-\-incremental
+The value
+.B MD_STARTED
+indicates whether an array was started
+.RB ( yes )
+or not, which may include a reason
+.RB ( unsafe ", " nothing ", " no ).
+Also the value
+.B MD_FOREIGN
+indicates if the array is expected on this host
+.RB ( no ),
+or seems to be from elsewhere
+.RB ( yes ).
 
 .TP
 .BR \-E ", " \-\-examine

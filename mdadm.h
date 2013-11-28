@@ -1331,7 +1331,11 @@ extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
 				      struct mdinfo *content,
 				      struct context *c,
-				      char *chosen_name);
+				      char *chosen_name, int *result);
+#define	INCR_NO		1
+#define	INCR_UNSAFE	2
+#define	INCR_ALREADY	4
+#define	INCR_YES	8
 extern struct mdinfo *container_choose_spares(struct supertype *st,
 					      unsigned long long min_size,
 					      struct domainlist *domlist,

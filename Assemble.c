@@ -1419,7 +1419,7 @@ try_again:
 		/* This is a member of a container.  Try starting the array. */
 		int err;
 		err = assemble_container_content(st, mdfd, content, c,
-						 chosen_name);
+						 chosen_name, NULL);
 		close(mdfd);
 		return err;
 	}
@@ -1771,7 +1771,7 @@ try_again:
 #ifndef MDASSEMBLE
 int assemble_container_content(struct supertype *st, int mdfd,
 			       struct mdinfo *content, struct context *c,
-			       char *chosen_name)
+			       char *chosen_name, int *result)
 {
 	struct mdinfo *dev, *sra;
 	int working = 0, preexist = 0;
@@ -1838,7 +1838,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 	if (enough(content->array.level, content->array.raid_disks,
 		   content->array.layout, content->array.state & 1, avail) == 0) {
-		if (c->verbose >= 0) {
+		if (c->export && result)
+			*result |= INCR_NO;
+		else if (c->verbose >= 0) {
 			pr_err("%s assembled with %d device%s",
 			       chosen_name, preexist + working,
 			       preexist + working == 1 ? "":"s");
@@ -1854,7 +1856,9 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	if (c->runstop <= 0 &&
 	    (working + preexist + expansion) <
 	    content->array.working_disks) {
-		if (c->verbose >= 0) {
+		if (c->export && result)
+			*result |= INCR_UNSAFE;
+		else if (c->verbose >= 0) {
 			pr_err("%s assembled with %d device%s",
 			       chosen_name, preexist + working,
 			       preexist + working == 1 ? "":"s");
@@ -1918,7 +1922,12 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	    !start_reshape)
 		block_subarray(content);
 
-	if (c->verbose >= 0) {
+	if (c->export && result) {
+		if (err)
+			*result |= INCR_NO;
+		else
+			*result |= INCR_YES;
+	} else if (c->verbose >= 0) {
 		if (err)
 			pr_err("array %s now has %d device%s",
 			       chosen_name, working + preexist,

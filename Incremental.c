@@ -1534,7 +1534,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 					pr_err("array %s/%s is "
 					       "explicitly ignored by mdadm.conf\n",
 					       match->container, match->member);
-				return 2;
+				continue;
 			}
 			if (match)
 				trustworthy = LOCAL;

@@ -480,11 +480,6 @@ int Incremental(char *devname, struct context *c,
 		if (!rv)
 			rv = Incremental_container(st, chosen_name, c, NULL);
 		map_unlock(&map);
-		if (rv == 1)
-			/* Don't fail the whole -I if a subarray didn't
-			 * have enough devices to start yet
-			 */
-			rv = 0;
 		/* after spare is added, ping monitor for external metadata
 		 * so that it can eg. try to rebuild degraded array */
 		if (st->ss->external)

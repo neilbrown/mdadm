@@ -1779,6 +1779,8 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	struct map_ent *map = NULL;
 	int old_raid_disks;
 	int start_reshape;
+	char *avail = NULL;
+	int err;
 
 	sysfs_init(content, mdfd, NULL);
 
@@ -1812,7 +1814,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	if (sra)
 		sysfs_free(sra);
 	old_raid_disks = content->array.raid_disks - content->delta_disks;
-	for (dev = content->devs; dev; dev = dev->next)
+	avail = xcalloc(content->array.raid_disks, 1);
+	for (dev = content->devs; dev; dev = dev->next) {
+		if (dev->disk.raid_disk >= 0)
+			avail[dev->disk.raid_disk] = 1;
 		if (sysfs_add_disk(content, dev, 1) == 0) {
 			if (dev->disk.raid_disk >= old_raid_disks &&
 			    content->reshape_active)
@@ -1821,91 +1826,18 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				working++;
 		} else if (errno == EEXIST)
 			preexist++;
-	if (working + expansion == 0 && c->runstop <= 0)
+	}
+	if (working + expansion == 0 && c->runstop <= 0) {
+		free(avail);
 		return 1;/* Nothing new, don't try to start */
-
+	}
 	map_update(&map, fd2devnm(mdfd),
 		   content->text_version,
 		   content->uuid, chosen_name);
 
-	if (c->runstop > 0 ||
-	    (working + preexist + expansion) >=
-	    content->array.working_disks) {
-		int err;
 
-		if (start_reshape) {
-			int spare = content->array.raid_disks + expansion;
-			if (restore_backup(st, content,
-					   working,
-					   spare, c->backup_file, c->verbose) == 1)
-				return 1;
-
-			err = sysfs_set_str(content, NULL,
-					    "array_state", "readonly");
-			if (err)
-				return 1;
-
-			if (st->ss->external) {
-				if (!mdmon_running(st->container_devnm))
-					start_mdmon(st->container_devnm);
-				ping_monitor(st->container_devnm);
-				if (mdmon_running(st->container_devnm) &&
-				    st->update_tail == NULL)
-					st->update_tail = &st->updates;
-			}
-
-			err = Grow_continue(mdfd, st, content, c->backup_file,
-					    c->freeze_reshape);
-		} else switch(content->array.level) {
-			case LEVEL_LINEAR:
-			case LEVEL_MULTIPATH:
-			case 0:
-				err = sysfs_set_str(content, NULL, "array_state",
-						    c->readonly ? "readonly" : "active");
-				break;
-			default:
-				err = sysfs_set_str(content, NULL, "array_state",
-						    "readonly");
-				/* start mdmon if needed. */
-				if (!err) {
-					if (!mdmon_running(st->container_devnm))
-						start_mdmon(st->container_devnm);
-					ping_monitor(st->container_devnm);
-				}
-				break;
-			}
-		if (!err)
-			sysfs_set_safemode(content, content->safe_mode_delay);
-
-		/* Block subarray here if it is not reshaped now
-		 * It has be blocked a little later to allow mdmon to switch in
-		 * in to R/W state
-		 */
-		if (st->ss->external && content->recovery_blocked &&
-		    !start_reshape)
-			block_subarray(content);
-
-		if (c->verbose >= 0) {
-			if (err)
-				pr_err("array %s now has %d device%s",
-				       chosen_name, working + preexist,
-				       working + preexist == 1 ? "":"s");
-			else
-				pr_err("Started %s with %d device%s",
-				       chosen_name, working + preexist,
-				       working + preexist == 1 ? "":"s");
-			if (preexist)
-				fprintf(stderr, " (%d new)", working);
-			if (expansion)
-				fprintf(stderr, " ( + %d for expansion)",
-					expansion);
-			fprintf(stderr, "\n");
-		}
-		if (!err)
-			wait_for(chosen_name, mdfd);
-		return err;
-		/* FIXME should have an O_EXCL and wait for read-auto */
-	} else {
+	if (enough(content->array.level, content->array.raid_disks,
+		   content->array.layout, content->array.state & 1, avail) == 0) {
 		if (c->verbose >= 0) {
 			pr_err("%s assembled with %d device%s",
 			       chosen_name, preexist + working,
@@ -1914,7 +1846,97 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				fprintf(stderr, " (%d new)", working);
 			fprintf(stderr, " but not started\n");
 		}
+		free(avail);
 		return 1;
 	}
+	free(avail);
+
+	if (c->runstop <= 0 &&
+	    (working + preexist + expansion) <
+	    content->array.working_disks) {
+		if (c->verbose >= 0) {
+			pr_err("%s assembled with %d device%s",
+			       chosen_name, preexist + working,
+			       preexist + working == 1 ? "":"s");
+			if (preexist)
+				fprintf(stderr, " (%d new)", working);
+			fprintf(stderr, " but not safe to start\n");
+		}
+		return 1;
+	}
+
+
+	if (start_reshape) {
+		int spare = content->array.raid_disks + expansion;
+		if (restore_backup(st, content,
+				   working,
+				   spare, c->backup_file, c->verbose) == 1)
+			return 1;
+
+		err = sysfs_set_str(content, NULL,
+				    "array_state", "readonly");
+		if (err)
+			return 1;
+
+		if (st->ss->external) {
+			if (!mdmon_running(st->container_devnm))
+				start_mdmon(st->container_devnm);
+			ping_monitor(st->container_devnm);
+			if (mdmon_running(st->container_devnm) &&
+			    st->update_tail == NULL)
+				st->update_tail = &st->updates;
+		}
+
+		err = Grow_continue(mdfd, st, content, c->backup_file,
+				    c->freeze_reshape);
+	} else switch(content->array.level) {
+		case LEVEL_LINEAR:
+		case LEVEL_MULTIPATH:
+		case 0:
+			err = sysfs_set_str(content, NULL, "array_state",
+					    c->readonly ? "readonly" : "active");
+			break;
+		default:
+			err = sysfs_set_str(content, NULL, "array_state",
+					    "readonly");
+			/* start mdmon if needed. */
+			if (!err) {
+				if (!mdmon_running(st->container_devnm))
+					start_mdmon(st->container_devnm);
+				ping_monitor(st->container_devnm);
+			}
+			break;
+		}
+	if (!err)
+		sysfs_set_safemode(content, content->safe_mode_delay);
+
+	/* Block subarray here if it is not reshaped now
+	 * It has be blocked a little later to allow mdmon to switch in
+	 * in to R/W state
+	 */
+	if (st->ss->external && content->recovery_blocked &&
+	    !start_reshape)
+		block_subarray(content);
+
+	if (c->verbose >= 0) {
+		if (err)
+			pr_err("array %s now has %d device%s",
+			       chosen_name, working + preexist,
+			       working + preexist == 1 ? "":"s");
+		else
+			pr_err("Started %s with %d device%s",
+			       chosen_name, working + preexist,
+			       working + preexist == 1 ? "":"s");
+		if (preexist)
+			fprintf(stderr, " (%d new)", working);
+		if (expansion)
+			fprintf(stderr, " ( + %d for expansion)",
+				expansion);
+		fprintf(stderr, "\n");
+	}
+	if (!err)
+		wait_for(chosen_name, mdfd);
+	return err;
+	/* FIXME should have an O_EXCL and wait for read-auto */
 }
 #endif

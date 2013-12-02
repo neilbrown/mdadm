@@ -285,6 +285,8 @@ install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
 
 install-systemd: systemd/mdmon@.service
 	$(INSTALL) -D -m 644 systemd/mdmon@.service $(DESTDIR)$(SYSTEMD_DIR)/mdmon@.service
+	$(INSTALL) -D -m 644 systemd/mdadm-last-resort@.timer $(DESTDIR)$(SYSTEMD_DIR)/mdadm-last-resort@.timer
+	$(INSTALL) -D -m 644 systemd/mdadm-last-resort@.service $(DESTDIR)$(SYSTEMD_DIR)/mdadm-last-resort@.service
 
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 $(DESTDIR)$(MAN8DIR)/mdmon.8 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm

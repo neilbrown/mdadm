@@ -1,0 +1,6 @@
+[Unit]
+Description=Timer to wait for more drives before activating degraded array.
+DefaultDependencies=no
+
+[Timer]
+OnActiveSec=30

@@ -1,0 +1,7 @@
+[Unit]
+Description=Activate md array even though degraded
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/mdadm --run /dev/%i

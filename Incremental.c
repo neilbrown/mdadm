@@ -46,7 +46,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 static int Incremental_container(struct supertype *st, char *devname,
 				 struct context *c, char *only);
 
-int Incremental(char *devname, struct context *c,
+int Incremental(struct mddev_dev *devlist, struct context *c,
 		struct supertype *st)
 {
 	/* Add this device to an array, creating the array if necessary
@@ -103,6 +103,7 @@ int Incremental(char *devname, struct context *c,
 	struct dev_policy *policy = NULL;
 	struct map_ent target_array;
 	int have_target;
+	char *devname = devlist->devname;
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -153,7 +154,20 @@ int Incremental(char *devname, struct context *c,
 
 	/* 1/ Check if device is permitted by mdadm.conf */
 
-	if (!conf_test_dev(devname)) {
+	for (;devlist; devlist = devlist->next)
+		if (conf_test_dev(devlist->devname))
+			break;
+	if (!devlist) {
+		devlist = conf_get_devs();
+		for (;devlist; devlist = devlist->next) {
+			struct stat st2;
+			if (stat(devlist->devname, &st2) == 0 &&
+			    (st2.st_mode & S_IFMT) == S_IFBLK &&
+			    st2.st_rdev == stb.st_rdev)
+				break;
+		}
+	}
+	if (!devlist) {
 		if (c->verbose >= 0)
 			pr_err("%s not permitted by mdadm.conf.\n",
 			       devname);

@@ -2676,6 +2676,7 @@ Usage:
 .RB [ \-\-run ]
 .RB [ \-\-quiet ]
 .I component-device
+.RI [ optional-aliases-for-device ]
 .HP 12
 Usage:
 .B mdadm \-\-incremental \-\-fail
@@ -2730,15 +2731,22 @@ That is, is it listed in a
 .B DEVICES
 line in that file.  If
 .B DEVICES
-is absent then the default it to allow any device.  Similar if
+is absent then the default it to allow any device.  Similarly if
 .B DEVICES
 contains the special word
 .B partitions
 then any device is allowed.  Otherwise the device name given to
-.I mdadm
+.IR mdadm ,
+or one of the aliases given, or an alias found in the filesystem,
 must match one of the names or patterns in a
 .B DEVICES
 line.
+
+This is the only context where the aliases are used.  They are
+usually provided by a
+.I udev
+rules mentioning
+.BR ${DEVLINKS} .
 
 .IP +
 Does the device have a valid md superblock?  If a specific metadata

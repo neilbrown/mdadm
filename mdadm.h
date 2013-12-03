@@ -1235,7 +1235,7 @@ extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
 
-extern int Incremental(char *devname, struct context *c,
+extern int Incremental(struct mddev_dev *devlist, struct context *c,
 		       struct supertype *st);
 extern void RebuildMap(void);
 extern int IncrementalScan(struct context *c, char *devnm);

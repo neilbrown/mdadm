@@ -1553,16 +1553,16 @@ int main(int argc, char *argv[])
 			}
 			break;
 		}
-		if (devlist->next) {
-			pr_err("--incremental can only handle one device.\n");
-			rv = 1;
-			break;
-		}
-		if (devmode == 'f')
+		if (devmode == 'f') {
+			if (devlist->next) {
+				pr_err("'--incremental --fail' can only handle one device.\n");
+				rv = 1;
+				break;
+			}
 			rv = IncrementalRemove(devlist->devname, remove_path,
 					       c.verbose);
-		else
-			rv = Incremental(devlist->devname, &c, ss);
+		} else
+			rv = Incremental(devlist, &c, ss);
 		break;
 	case AUTODETECT:
 		autodetect();

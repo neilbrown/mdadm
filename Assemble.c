@@ -1037,6 +1037,7 @@ static int start_array(int mdfd,
 		} else
 #endif
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
+		reopen_mddev(mdfd); /* drop O_EXCL */
 		if (rv == 0) {
 			if (c->verbose >= 0) {
 				pr_err("%s has been started with %d drive%s",

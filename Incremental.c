@@ -588,10 +588,14 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		else
 			rv = sysfs_set_str(sra, NULL,
 					   "array_state", "read-auto");
+		/* Array might be O_EXCL which  will interfere with
+		 * fsck and mount.  So re-open without O_EXCL.
+		 */
+		reopen_mddev(mdfd);
 		if (rv == 0) {
-		if (c->export) {
-			printf("MD_STARTED=yes\n");
-		} else if (c->verbose >= 0)
+			if (c->export) {
+				printf("MD_STARTED=yes\n");
+			} else if (c->verbose >= 0)
 				pr_err("%s attached to %s, which has been started.\n",
 				       devname, chosen_name);
 			rv = 0;

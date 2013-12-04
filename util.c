@@ -1950,3 +1950,17 @@ int in_initrd(void)
 		((unsigned long)s.f_type == TMPFS_MAGIC ||
 		 (unsigned long)s.f_type == RAMFS_MAGIC);
 }
+
+void reopen_mddev(int mdfd)
+{
+	/* Re-open without any O_EXCL, but keep
+	 * the same fd
+	 */
+	char *devnm;
+	int fd;
+	devnm = fd2devnm(mdfd);
+	close(mdfd);
+	fd = open_dev(devnm);
+	if (fd >= 0 && fd != mdfd)
+		dup2(fd, mdfd);
+}

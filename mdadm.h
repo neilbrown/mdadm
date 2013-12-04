@@ -1272,6 +1272,7 @@ extern int check_partitions(int fd, char *dname,
 extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
 extern int open_dev(char *devnm);
+extern void reopen_mddev(int mdfd);
 extern int open_dev_flags(char *devnm, int flags);
 extern int open_dev_excl(char *devnm);
 extern int is_standard(char *dev, int *nump);

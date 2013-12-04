@@ -847,10 +847,10 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 					continue;
 				if (disc.major == 0 && disc.minor == 0)
 					continue;
+				found++;
 				if (!(disc.state & (1<<MD_DISK_SYNC)))
 					continue;
 				avail[disc.raid_disk] = 1;
-				found++;
 			}
 			array_failed = !enough(array->level, array->raid_disks,
 					       array->layout, 1, avail);

@@ -387,7 +387,6 @@ int enough_fd(int fd)
 {
 	struct mdu_array_info_s array;
 	struct mdu_disk_info_s disk;
-	int avail_disks = 0;
 	int i, rv;
 	char *avail;
 
@@ -407,7 +406,6 @@ int enough_fd(int fd)
 			continue;
 		if (disk.raid_disk < 0 || disk.raid_disk >= array.raid_disks)
 			continue;
-		avail_disks++;
 		avail[disk.raid_disk] = 1;
 	}
 	/* This is used on an active array, so assume it is clean */

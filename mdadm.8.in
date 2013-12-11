@@ -2363,7 +2363,8 @@ hot-spare and resync operations which are monitored.
 
 .TP
 .B RebuildStarted
-An md array started reconstruction. (syslog priority: Warning)
+An md array started reconstruction (e.g. recovery, resync, reshape,
+check, repair). (syslog priority: Warning)
 
 .TP
 .BI Rebuild NN

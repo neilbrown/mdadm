@@ -200,26 +200,25 @@ static char *disk_path(struct mdinfo *disk)
 	int rv;
 
 	by_path = opendir(symlink);
-	if (!by_path)
-		return NULL;
-	prefix_len = strlen(symlink);
-
-	while ((ent = readdir(by_path)) != NULL) {
-		if (ent->d_type != DT_LNK)
-			continue;
-		strncpy(symlink + prefix_len,
-			ent->d_name,
-			sizeof(symlink) - prefix_len);
-		if (stat(symlink, &stb) < 0)
-			continue;
-		if ((stb.st_mode & S_IFMT) != S_IFBLK)
-			continue;
-		if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
-			continue;
+	if (by_path) {
+		prefix_len = strlen(symlink);
+		while ((ent = readdir(by_path)) != NULL) {
+			if (ent->d_type != DT_LNK)
+				continue;
+			strncpy(symlink + prefix_len,
+					ent->d_name,
+					sizeof(symlink) - prefix_len);
+			if (stat(symlink, &stb) < 0)
+				continue;
+			if ((stb.st_mode & S_IFMT) != S_IFBLK)
+				continue;
+			if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
+				continue;
+			closedir(by_path);
+			return xstrdup(ent->d_name);
+		}
 		closedir(by_path);
-		return xstrdup(ent->d_name);
 	}
-	closedir(by_path);
 	/* A NULL path isn't really acceptable - use the devname.. */
 	sprintf(symlink, "/sys/dev/block/%d:%d", disk->disk.major, disk->disk.minor);
 	rv = readlink(symlink, nm, sizeof(nm)-1);

@@ -429,6 +429,7 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 				wait(&status);
 				status = WEXITSTATUS(status);
 			}
+			close(pfd[0]);
 			return status;
 		}
 	} else
@@ -516,10 +517,12 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 	container->sock = make_control_sock(devnm);
 
 	status = 0;
-	if (write(pfd[1], &status, sizeof(status)) < 0)
-		pr_err("failed to notify our parent: %d\n",
-			getppid());
-	close(pfd[1]);
+	if (pfd[1] >= 0) {
+		if (write(pfd[1], &status, sizeof(status)) < 0)
+			pr_err("failed to notify our parent: %d\n",
+			       getppid());
+		close(pfd[1]);
+	}
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 

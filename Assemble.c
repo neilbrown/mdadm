@@ -990,6 +990,10 @@ static int start_array(int mdfd,
 		}
 		st->ss->free_super(st);
 		sysfs_uevent(content, "change");
+		if (err_ok && okcnt < (unsigned)content->array.raid_disks)
+			/* Was partial, is still partial, so signal an error
+			 * to ensure we don't retry */
+			return 1;
 		return 0;
 	}
 

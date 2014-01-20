@@ -11,6 +11,9 @@ DefaultDependencies=no
 Before=initrd-switch-root.target
 
 [Service]
+# mdmon should never complain due to lack of a platform,
+# that is mdadm's job if at all.
+Environment=IMSM_NO_PLATFORM=1
 ExecStart=/sbin/mdmon --foreground %I
 StandardInput=null
 StandardOutput=null

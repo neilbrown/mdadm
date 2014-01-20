@@ -1913,6 +1913,7 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	info->disk.major = 0;
 	info->disk.minor = 0;
 	if (ddf->dlist) {
+		struct phys_disk_entry *pde = NULL;
 		info->disk.number = be32_to_cpu(ddf->dlist->disk.refnum);
 		info->disk.raid_disk = find_phys(ddf, ddf->dlist->disk.refnum);
 
@@ -1920,12 +1921,19 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 						  entries[info->disk.raid_disk].
 						  config_size);
 		info->component_size = ddf->dlist->size - info->data_offset;
+		if (info->disk.raid_disk >= 0)
+			pde = ddf->phys->entries + info->disk.raid_disk;
+		if (pde &&
+		    !(be16_to_cpu(pde->state) & DDF_Failed))
+			info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
+		else
+			info->disk.state = 1 << MD_DISK_FAULTY;
 	} else {
 		info->disk.number = -1;
 		info->disk.raid_disk = -1;
 //		info->disk.raid_disk = find refnum in the table and use index;
+		info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	}
-	info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 
 	info->recovery_start = MaxSector;
 	info->reshape_active = 0;
@@ -1943,8 +1951,6 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 		int i;
 		for (i = 0 ; i < map_disks; i++) {
 			if (i < info->array.raid_disks &&
-			    (be16_to_cpu(ddf->phys->entries[i].state)
-			     & DDF_Online) &&
 			    !(be16_to_cpu(ddf->phys->entries[i].state)
 			      & DDF_Failed))
 				map[i] = 1;
@@ -2017,7 +2023,11 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 		info->disk.raid_disk = cd + conf->sec_elmnt_seq
 			* be16_to_cpu(conf->prim_elmnt_count);
 		info->disk.number = dl->pdnum;
-		info->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
+		info->disk.state = 0;
+		if (info->disk.number >= 0 &&
+		    (be16_to_cpu(ddf->phys->entries[info->disk.number].state) & DDF_Online) &&
+		    !(be16_to_cpu(ddf->phys->entries[info->disk.number].state) & DDF_Failed))
+			info->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
 	}
 
 	info->container_member = ddf->currentconf->vcnum;

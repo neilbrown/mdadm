@@ -612,9 +612,14 @@ static void unfreeze(struct supertype *st)
 		return unfreeze_container(st);
 	else {
 		struct mdinfo *sra = sysfs_read(-1, st->devnm, GET_VERSION);
+		char buf[20];
 
-		if (sra)
+		if (sra &&
+		    sysfs_get_str(sra, NULL, "sync_action", buf, 20) > 0
+		    && strcmp(buf, "frozen\n") == 0) {
+			printf("unfreeze\n");
 			sysfs_set_str(sra, NULL, "sync_action", "idle");
+		}
 		sysfs_free(sra);
 	}
 }
@@ -2666,7 +2671,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 		for (d = 0, found = 0;
 		     d < MAX_DISKS && found < array.nr_disks;
 		     d++) {
-				mdu_disk_info_t disk;
+			mdu_disk_info_t disk;
 			disk.number = d;
 			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
 				continue;
@@ -4316,7 +4321,12 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	}
 
 	/* FIXME maybe call progress_reshape one more time instead */
-	abort_reshape(sra); /* remove any remaining suspension */
+	/* remove any remaining suspension */
+	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
+	sysfs_set_num(sra, NULL, "suspend_hi", 0);
+	sysfs_set_num(sra, NULL, "suspend_lo", 0);
+	sysfs_set_num(sra, NULL, "sync_min", 0);
+
 	if (reshape->before.data_disks == reshape->after.data_disks)
 		sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);

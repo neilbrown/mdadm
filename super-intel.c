@@ -5210,6 +5210,8 @@ static int create_array(struct supertype *st, int dev_idx)
 		int idx = get_imsm_disk_idx(dev, i, MAP_X);
 
 		disk = get_imsm_disk(super, idx);
+		if (!disk)
+			disk = get_imsm_missing(super, idx);
 		serialcpy(inf[i].serial, disk->serial);
 	}
 	append_metadata_update(st, u, len);

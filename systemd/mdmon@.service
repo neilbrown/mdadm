@@ -15,7 +15,4 @@ Before=initrd-switch-root.target
 # that is mdadm's job if at all.
 Environment=IMSM_NO_PLATFORM=1
 ExecStart=/sbin/mdmon --foreground %I
-StandardInput=null
-StandardOutput=null
-StandardError=null
 KillMode=none

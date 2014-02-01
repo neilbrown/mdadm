@@ -245,11 +245,11 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 				disk[j] = geo_map(disk[j], start, raid_disks, level, layout);
 			}
 			if(disk[j] >= 0) {
-				printf("Error detected at %llu, page %d: possible failed disk slot: %d --> %s\n",
+				printf("Error detected at stripe %llu, page %d: possible failed disk slot: %d --> %s\n",
 					start, j, disk[j], name[disk[j]]);
 			}
 			if(disk[j] == -65535) {
-				printf("Error detected at %llu, page %d: disk slot unknown\n", start, j);
+				printf("Error detected at stripe %llu, page %d: disk slot unknown\n", start, j);
 			}
 		}
 

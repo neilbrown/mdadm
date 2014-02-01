@@ -354,7 +354,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 					blocks_page[i] = blocks[i] + j * CHECK_PAGE_SIZE;
 				}
 				if (disk[j] == diskQ) {
-					qsyndrome(p, (uint8_t*)stripes[diskQ], (uint8_t**)blocks_page, data_disks, CHECK_PAGE_SIZE);
+					qsyndrome(p, (uint8_t*)stripes[diskQ] + j * CHECK_PAGE_SIZE, (uint8_t**)blocks_page, data_disks, CHECK_PAGE_SIZE);
 				} else {
 					char *all_but_failed_blocks[data_disks];
 					int failed_block_index = block_index_for_slot[disk[j]];

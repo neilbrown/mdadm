@@ -188,8 +188,6 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	while (length > 0) {
 		int disk[chunk_size >> CHECK_PAGE_BITS];
 
-		printf("pos --> %llu\n", start);
-
 		err = lock_stripe(info, start, chunk_size, data_disks, sig);
 		if(err != 0) {
 			if (err != 2)
@@ -221,7 +219,6 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			int disk = geo_map(i, start, raid_disks, level, layout);
 			blocks[i] = stripes[disk];
 			block_index_for_slot[disk] = i;
-			printf("%d->%d\n", i, disk);
 		}
 
 		qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);

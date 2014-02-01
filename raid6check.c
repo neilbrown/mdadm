@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 		if(disk_slot >= 0) {
 			disk_name[disk_slot] = map_dev(comp->disk.major, comp->disk.minor, 0);
 			offsets[disk_slot] = comp->data_offset * 512;
-			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR);
+			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR | O_SYNC);
 			if (fds[disk_slot] < 0) {
 				perror(disk_name[disk_slot]);
 				fprintf(stderr,"%s: cannot open %s\n", prg, disk_name[disk_slot]);

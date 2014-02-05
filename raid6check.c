@@ -228,15 +228,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		block_index_for_slot[diskP] = data_disks;
 		blocks[data_disks+1] = stripes[diskQ];
 		block_index_for_slot[diskQ] = data_disks+1;
-/* Do we really need the code below? */
-#if 0
-		if (memcmp(p, stripes[diskP], chunk_size) != 0) {
-			printf("P(%d) wrong at %llu\n", diskP, start);
-		}
-		if (memcmp(q, stripes[diskQ], chunk_size) != 0) {
-			printf("Q(%d) wrong at %llu\n", diskQ, start);
-		}
-#endif
+
 		raid6_collect(chunk_size, p, q, stripes[diskP], stripes[diskQ], results);
 		raid6_stats(disk, results, raid_disks, chunk_size);
 

@@ -703,8 +703,12 @@ static int load_devices(struct devs *devices, char *devmap,
 		if (devices[devcnt].i.disk.state == 6) {
 			if (most_recent < 0 ||
 			    devices[devcnt].i.events
-			    > devices[most_recent].i.events)
+			    > devices[most_recent].i.events) {
+				struct supertype *tmp = tst;
+				tst = st;
+				st = tmp;
 				most_recent = devcnt;
+			}
 		}
 		tst->ss->free_super(tst);
 		free(tst);

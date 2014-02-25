@@ -572,6 +572,7 @@ static int load_devices(struct devs *devices, char *devmap,
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) {
 		char *devname = tmpdev->devname;
 		struct stat stb;
+		struct supertype *tst;
 		int i;
 
 		if (tmpdev->used != 1)
@@ -582,7 +583,6 @@ static int load_devices(struct devs *devices, char *devmap,
 			int dfd;
 			/* prepare useful information in info structures */
 			struct stat stb2;
-			struct supertype *tst;
 			int err;
 			fstat(mdfd, &stb2);
 
@@ -611,6 +611,8 @@ static int load_devices(struct devs *devices, char *devmap,
 				close(mdfd);
 				free(devices);
 				free(devmap);
+				tst->ss->free_super(tst);
+				free(tst);
 				*stp = st;
 				return -1;
 			}
@@ -660,15 +662,13 @@ static int load_devices(struct devs *devices, char *devmap,
 				else
 					bitmap_done = 1;
 			}
-			tst->ss->free_super(tst);
 		} else
 #endif
 		{
-			struct supertype *tst = dup_super(st);
-			int dfd;
-			dfd = dev_open(devname,
-				       tmpdev->disposition == 'I'
-				       ? O_RDWR : (O_RDWR|O_EXCL));
+			int dfd = dev_open(devname,
+					   tmpdev->disposition == 'I'
+					   ? O_RDWR : (O_RDWR|O_EXCL));
+			tst = dup_super(st);
 
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
 				pr_err("cannot re-read metadata from %s - aborting\n",
@@ -678,11 +678,12 @@ static int load_devices(struct devs *devices, char *devmap,
 				close(mdfd);
 				free(devices);
 				free(devmap);
+				tst->ss->free_super(tst);
+				free(tst);
 				*stp = st;
 				return -1;
 			}
 			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
-			tst->ss->free_super(tst);
 			close(dfd);
 		}
 
@@ -705,6 +706,8 @@ static int load_devices(struct devs *devices, char *devmap,
 			    > devices[most_recent].i.events)
 				most_recent = devcnt;
 		}
+		tst->ss->free_super(tst);
+		free(tst);
 
 		if (content->array.level == LEVEL_MULTIPATH)
 			/* with multipath, the raid_disk from the superblock is meaningless */

@@ -551,7 +551,7 @@ struct devs {
 };
 
 static int load_devices(struct devs *devices, char *devmap,
-			struct mddev_ident *ident, struct supertype *st,
+			struct mddev_ident *ident, struct supertype **stp,
 			struct mddev_dev *devlist, struct context *c,
 			struct mdinfo *content,
 			int mdfd, char *mddev,
@@ -567,6 +567,7 @@ static int load_devices(struct devs *devices, char *devmap,
 	int most_recent = -1;
 	int bestcnt = 0;
 	int *best = *bestp;
+	struct supertype *st = *stp;
 
 	for (tmpdev = devlist; tmpdev; tmpdev=tmpdev->next) {
 		char *devname = tmpdev->devname;
@@ -610,6 +611,7 @@ static int load_devices(struct devs *devices, char *devmap,
 				close(mdfd);
 				free(devices);
 				free(devmap);
+				*stp = st;
 				return -1;
 			}
 			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
@@ -636,6 +638,7 @@ static int load_devices(struct devs *devices, char *devmap,
 				close(dfd);
 				free(devices);
 				free(devmap);
+				*stp = st;
 				return -1;
 			}
 			if (strcmp(c->update, "uuid")==0 &&
@@ -675,6 +678,7 @@ static int load_devices(struct devs *devices, char *devmap,
 				close(mdfd);
 				free(devices);
 				free(devmap);
+				*stp = st;
 				return -1;
 			}
 			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
@@ -759,6 +763,7 @@ static int load_devices(struct devs *devices, char *devmap,
 				close(mdfd);
 				free(devices);
 				free(devmap);
+				*stp = st;
 				return -1;
 			}
 			if (best[i] == -1
@@ -772,6 +777,7 @@ static int load_devices(struct devs *devices, char *devmap,
 		*most_recentp = most_recent;
 	*bestcntp = bestcnt;
 	*bestp = best;
+	*stp = st;
 	return devcnt;
 }
 
@@ -1432,7 +1438,7 @@ try_again:
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	devices = xcalloc(num_devs, sizeof(*devices));
 	devmap = xcalloc(num_devs, content->array.raid_disks);
-	devcnt = load_devices(devices, devmap, ident, st, devlist,
+	devcnt = load_devices(devices, devmap, ident, &st, devlist,
 			      c, content, mdfd, mddev,
 			      &most_recent, &bestcnt, &best, inargv);
 	if (devcnt < 0)

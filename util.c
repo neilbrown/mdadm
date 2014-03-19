@@ -1946,9 +1946,13 @@ int in_initrd(void)
 {
 	/* This is based on similar function in systemd. */
 	struct statfs s;
+	/* statfs.f_type is signed long on s390x and MIPS, causing all
+	   sorts of sign extension problems with RAMFS_MAGIC being
+	   defined as 0x858458f6 */
 	return  statfs("/", &s) >= 0 &&
 		((unsigned long)s.f_type == TMPFS_MAGIC ||
-		 (unsigned long)s.f_type == RAMFS_MAGIC);
+		 ((unsigned long)s.f_type & 0xFFFFFFFFUL) ==
+		 ((unsigned long)RAMFS_MAGIC & 0xFFFFFFFFUL));
 }
 
 void reopen_mddev(int mdfd)

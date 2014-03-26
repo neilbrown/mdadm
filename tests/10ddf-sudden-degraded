@@ -14,4 +14,5 @@ mdadm -Ss
 mdadm -I $dev8
 mdadm -R $container
 mkfs $member1
-mdadm --examine $dev8 | grep 'Failed' || exit 1
+# There must be a missing device recorded
+mdadm --examine $dev8 | grep 'Raid Devices.*--' || exit 1

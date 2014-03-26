@@ -511,6 +511,8 @@ static void pr_state(const struct ddf_super *ddf, const char *msg) {}
 
 static void _ddf_set_updates_pending(struct ddf_super *ddf, const char *func)
 {
+	if (ddf->updates_pending)
+		return;
 	ddf->updates_pending = 1;
 	ddf->active->seq = cpu_to_be32((be32_to_cpu(ddf->active->seq)+1));
 	pr_state(ddf, func);
@@ -4114,6 +4116,31 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 	return 0;
 }
 
+static void handle_missing(struct ddf_super *ddf, int inst)
+{
+	/* This member array is being activated.  If any devices
+	 * are missing they must now be marked as failed.
+	 */
+	struct vd_config *vc;
+	unsigned int n_bvd;
+	struct vcl *vcl;
+	struct dl *dl;
+	int n;
+
+	for (n = 0; ; n++) {
+		vc = find_vdcr(ddf, inst, n, &n_bvd, &vcl);
+		if (!vc)
+			break;
+		for (dl = ddf->dlist; dl; dl = dl->next)
+			if (be32_eq(dl->disk.refnum, vc->phys_refnum[n_bvd]))
+				break;
+		if (dl)
+			/* Found this disk, so not missing */
+			continue;
+		vc->phys_refnum[n_bvd] = cpu_to_be32(0);
+	}
+}
+
 /*
  * The array 'a' is to be marked clean in the metadata.
  * If '->resync_start' is not ~(unsigned long long)0, then the array is only
@@ -4129,6 +4156,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	int inst = a->info.container_member;
 	int old = ddf->virt->entries[inst].state;
 	if (consistent == 2) {
+		handle_missing(ddf, inst);
 		/* Should check if a recovery should be started FIXME */
 		consistent = 1;
 		if (!is_resync_complete(&a->info))

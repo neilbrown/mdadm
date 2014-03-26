@@ -1928,6 +1928,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 			info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 		else
 			info->disk.state = 1 << MD_DISK_FAULTY;
+
+		info->events = be32_to_cpu(ddf->active->seq);
 	} else {
 		info->disk.number = -1;
 		info->disk.raid_disk = -1;
@@ -2028,6 +2030,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 		    (be16_to_cpu(ddf->phys->entries[info->disk.number].state) & DDF_Online) &&
 		    !(be16_to_cpu(ddf->phys->entries[info->disk.number].state) & DDF_Failed))
 			info->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
+		info->events = be32_to_cpu(ddf->active->seq);
 	}
 
 	info->container_member = ddf->currentconf->vcnum;
@@ -3840,7 +3843,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			dev->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
 			dev->recovery_start = MaxSector;
 
-			dev->events = be32_to_cpu(ddf->primary.seq);
+			dev->events = be32_to_cpu(ddf->active->seq);
 			dev->data_offset =
 				be64_to_cpu(LBA_OFFSET(ddf, bvd)[iphys]);
 			dev->component_size = be64_to_cpu(bvd->blocks);
@@ -3927,12 +3930,6 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	if (memcmp(first->anchor.guid, second->anchor.guid, DDF_GUID_LEN) != 0)
 		return 2;
 
-	if (!be32_eq(first->active->seq, second->active->seq)) {
-		dprintf("%s: sequence number mismatch %u<->%u\n", __func__,
-			be32_to_cpu(first->active->seq),
-			be32_to_cpu(second->active->seq));
-		return 3;
-	}
 	if (first->max_part != second->max_part ||
 	    !be16_eq(first->phys->used_pdes, second->phys->used_pdes) ||
 	    !be16_eq(first->virt->populated_vdes,

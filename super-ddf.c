@@ -4126,7 +4126,7 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 	return 0;
 }
 
-static void handle_missing(struct ddf_super *ddf, int inst)
+static void handle_missing(struct ddf_super *ddf, struct active_array *a, int inst)
 {
 	/* This member array is being activated.  If any devices
 	 * are missing they must now be marked as failed.
@@ -4135,7 +4135,9 @@ static void handle_missing(struct ddf_super *ddf, int inst)
 	unsigned int n_bvd;
 	struct vcl *vcl;
 	struct dl *dl;
+	int pd;
 	int n;
+	int state;
 
 	for (n = 0; ; n++) {
 		vc = find_vdcr(ddf, inst, n, &n_bvd, &vcl);
@@ -4147,7 +4149,30 @@ static void handle_missing(struct ddf_super *ddf, int inst)
 		if (dl)
 			/* Found this disk, so not missing */
 			continue;
-		vc->phys_refnum[n_bvd] = cpu_to_be32(0);
+
+		/* Mark the device as failed/missing. */
+		pd = find_phys(ddf, vc->phys_refnum[n_bvd]);
+		if (pd >= 0 && be16_and(ddf->phys->entries[pd].state,
+					cpu_to_be16(DDF_Online))) {
+			be16_clear(ddf->phys->entries[pd].state,
+				   cpu_to_be16(DDF_Online));
+			be16_set(ddf->phys->entries[pd].state,
+				 cpu_to_be16(DDF_Failed|DDF_Missing));
+			vc->phys_refnum[n_bvd] = cpu_to_be32(0);
+			ddf_set_updates_pending(ddf);
+		}
+
+		/* Mark the array as Degraded */
+		state = get_svd_state(ddf, vcl);
+		if (ddf->virt->entries[inst].state !=
+		    ((ddf->virt->entries[inst].state & ~DDF_state_mask)
+		     | state)) {
+			ddf->virt->entries[inst].state =
+				(ddf->virt->entries[inst].state & ~DDF_state_mask)
+				| state;
+			a->check_degraded = 1;
+			ddf_set_updates_pending(ddf);
+		}
 	}
 }
 
@@ -4166,7 +4191,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	int inst = a->info.container_member;
 	int old = ddf->virt->entries[inst].state;
 	if (consistent == 2) {
-		handle_missing(ddf, inst);
+		handle_missing(ddf, a, inst);
 		/* Should check if a recovery should be started FIXME */
 		consistent = 1;
 		if (!is_resync_complete(&a->info))

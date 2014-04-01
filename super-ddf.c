@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2006-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2006-2014 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  *    Author: Neil Brown
  *    Email: <neil@brown.name>
  *
- * Specifications for DDF takes from Common RAID DDF Specification Revision 1.2
+ * Specifications for DDF taken from Common RAID DDF Specification Revision 1.2
  * (July 28 2006).  Reused by permission of SNIA.
  */
 
@@ -237,8 +237,10 @@ struct phys_disk {
 		be32	refnum;
 		be16	type;
 		be16	state;
-		be64	config_size; /* DDF structures must be after here */
-		char	path[18];	/* another horrible structure really */
+		be64	config_size;	/* DDF structures must be after here */
+		char	path[18];	/* Another horrible structure really
+					 * but is "used for information
+					 * purposes only" */
 		__u8	pad[6];
 	} entries[0];
 };
@@ -432,28 +434,34 @@ struct bad_block_log {
  * and reconstructed for writing.  This means that we only need
  * to make config changes once and they are automatically
  * propagated to all devices.
- * Note that the ddf_super has space of the conf and disk data
- * for this disk and also for a list of all such data.
- * The list is only used for the superblock that is being
- * built in Create or Assemble to describe the whole array.
+ * The global (config and disk data) records are each in a list
+ * of separate data structures.  When writing we find the entry
+ * or entries applicable to the particular device.
  */
 struct ddf_super {
-	struct ddf_header anchor, primary, secondary;
+	struct ddf_header	anchor, primary, secondary;
 	struct ddf_controller_data controller;
-	struct ddf_header *active;
+	struct ddf_header	*active;
 	struct phys_disk	*phys;
 	struct virtual_disk	*virt;
 	char			*conf;
-	int pdsize, vdsize;
-	unsigned int max_part, mppe, conf_rec_len;
-	int currentdev;
-	int updates_pending;
+	int			pdsize, vdsize;
+	unsigned int		max_part, mppe, conf_rec_len;
+	int			currentdev;
+	int			updates_pending;
 	struct vcl {
 		union {
 			char space[512];
 			struct {
 				struct vcl	*next;
 				unsigned int	vcnum; /* index into ->virt */
+				/* For an array with a secondary level there are
+				 * multiple vd_config structures, all with the same
+				 * guid but with different sec_elmnt_seq.
+				 * One of these structures is in 'conf' below.
+				 * The others are in other_bvds, not in any
+				 * particular order.
+				 */
 				struct vd_config **other_bvds;
 				__u64		*block_sizes; /* NULL if all the same */
 			};
@@ -486,12 +494,48 @@ struct ddf_super {
 	} *dlist, *add_list;
 };
 
+#ifndef MDASSEMBLE
+static int load_super_ddf_all(struct supertype *st, int fd,
+			      void **sbp, char *devname);
+static int get_svd_state(const struct ddf_super *, const struct vcl *);
+static int
+validate_geometry_ddf_container(struct supertype *st,
+				int level, int layout, int raiddisks,
+				int chunk, unsigned long long size,
+				unsigned long long data_offset,
+				char *dev, unsigned long long *freesize,
+				int verbose);
+
+static int validate_geometry_ddf_bvd(struct supertype *st,
+				     int level, int layout, int raiddisks,
+				     int *chunk, unsigned long long size,
+				     unsigned long long data_offset,
+				     char *dev, unsigned long long *freesize,
+				     int verbose);
+#endif
+
+static void free_super_ddf(struct supertype *st);
+static int all_ff(const char *guid);
+static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
+					     be32 refnum, unsigned int nmax,
+					     const struct vd_config **bvd,
+					     unsigned int *idx);
+static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *map);
+static void uuid_from_ddf_guid(const char *guid, int uuid[4]);
+static void uuid_from_super_ddf(struct supertype *st, int uuid[4]);
+static void _ddf_array_name(char *name, const struct ddf_super *ddf, int i);
+static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, char *map);
+static int init_super_ddf_bvd(struct supertype *st,
+			      mdu_array_info_t *info,
+			      unsigned long long size,
+			      char *name, char *homehost,
+			      int *uuid, unsigned long long data_offset);
+
 #ifndef offsetof
 #define offsetof(t,f) ((size_t)&(((t*)0)->f))
 #endif
 
 #if DEBUG
-static int all_ff(const char *guid);
 static void pr_state(struct ddf_super *ddf, const char *msg)
 {
 	unsigned int i;
@@ -520,11 +564,6 @@ static void _ddf_set_updates_pending(struct ddf_super *ddf, const char *func)
 
 #define ddf_set_updates_pending(x) _ddf_set_updates_pending((x), __func__)
 
-static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
-					     be32 refnum, unsigned int nmax,
-					     const struct vd_config **bvd,
-					     unsigned int *idx);
-
 static be32 calc_crc(void *buf, int len)
 {
 	/* crcs are always at the same place as in the ddf_header */
@@ -535,7 +574,7 @@ static be32 calc_crc(void *buf, int len)
 
 	newcrc = crc32(0, buf, len);
 	ddf->crc = oldcrc;
-	/* The crc is store (like everything) bigendian, so convert
+	/* The crc is stored (like everything) bigendian, so convert
 	 * here for simplicity
 	 */
 	return cpu_to_be32(newcrc);
@@ -984,16 +1023,16 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	unsigned int i;
 	unsigned int confsec;
 	int vnum;
-	unsigned int max_virt_disks = be16_to_cpu
-		(super->active->max_vd_entries);
+	unsigned int max_virt_disks =
+		be16_to_cpu(super->active->max_vd_entries);
 	unsigned long long dsize;
 
 	/* First the local disk info */
 	if (posix_memalign((void**)&dl, 512,
-		       sizeof(*dl) +
-		       (super->max_part) * sizeof(dl->vlist[0])) != 0) {
+			   sizeof(*dl) +
+			   (super->max_part) * sizeof(dl->vlist[0])) != 0) {
 		pr_err("%s could not allocate disk info buffer\n",
-			__func__);
+		       __func__);
 		return 1;
 	}
 
@@ -1052,7 +1091,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			if (dl->spare)
 				continue;
 			if (posix_memalign((void**)&dl->spare, 512,
-				       super->conf_rec_len*512) != 0) {
+					   super->conf_rec_len*512) != 0) {
 				pr_err("%s could not allocate spare info buf\n",
 				       __func__);
 				return 1;
@@ -1062,7 +1101,9 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			continue;
 		}
 		if (!be32_eq(vd->magic, DDF_VD_CONF_MAGIC))
+			/* Must be vendor-unique - I cannot handle those */
 			continue;
+
 		for (vcl = super->conflist; vcl; vcl = vcl->next) {
 			if (memcmp(vcl->conf.guid,
 				   vd->guid, DDF_GUID_LEN) == 0)
@@ -1081,8 +1122,8 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 				continue;
 		} else {
 			if (posix_memalign((void**)&vcl, 512,
-				       (super->conf_rec_len*512 +
-					offsetof(struct vcl, conf))) != 0) {
+					   (super->conf_rec_len*512 +
+					    offsetof(struct vcl, conf))) != 0) {
 				pr_err("%s could not allocate vcl buf\n",
 				       __func__);
 				return 1;
@@ -1110,13 +1151,6 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 
 	return 0;
 }
-
-#ifndef MDASSEMBLE
-static int load_super_ddf_all(struct supertype *st, int fd,
-			      void **sbp, char *devname);
-#endif
-
-static void free_super_ddf(struct supertype *st);
 
 static int load_super_ddf(struct supertype *st, int fd,
 			  char *devname)
@@ -1242,7 +1276,7 @@ static void free_super_ddf(struct supertype *st)
 
 static struct supertype *match_metadata_desc_ddf(char *arg)
 {
-	/* 'ddf' only support containers */
+	/* 'ddf' only supports containers */
 	struct supertype *st;
 	if (strcmp(arg, "ddf") != 0 &&
 	    strcmp(arg, "default") != 0
@@ -1510,18 +1544,12 @@ static void examine_super_ddf(struct supertype *st, char *homehost)
 	printf(" Container GUID : "); print_guid(sb->anchor.guid, 1);
 	printf("\n");
 	printf("            Seq : %08x\n", be32_to_cpu(sb->active->seq));
-	printf("  Redundant hdr : %s\n", be32_eq(sb->secondary.magic,
+	printf("  Redundant hdr : %s\n", (be32_eq(sb->secondary.magic,
 						 DDF_HEADER_MAGIC)
-	       ?"yes" : "no");
+					  ?"yes" : "no"));
 	examine_vds(sb);
 	examine_pds(sb);
 }
-
-static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *map);
-
-static void uuid_from_ddf_guid(const char *guid, int uuid[4]);
-static void uuid_from_super_ddf(struct supertype *st, int uuid[4]);
-static void _ddf_array_name(char *name, const struct ddf_super *ddf, int i);
 
 static unsigned int get_vd_num_of_subarray(struct supertype *st)
 {
@@ -1568,7 +1596,8 @@ static void brief_examine_super_ddf(struct supertype *st, int verbose)
 
 static void brief_examine_subarrays_ddf(struct supertype *st, int verbose)
 {
-	/* We just write a generic DDF ARRAY entry
+	/* We write a DDF ARRAY member entry for each vd, identifying container
+	 * by uuid and member by unit number and uuid.
 	 */
 	struct ddf_super *ddf = st->sb;
 	struct mdinfo info;
@@ -1622,7 +1651,7 @@ static int copy_metadata_ddf(struct supertype *st, int from, int to)
 	 * So it is easiest to find the earliest of primary and
 	 * secondary, and copy everything from there.
 	 *
-	 * Anchor is 512 from end It contains primary_lba and secondary_lba
+	 * Anchor is 512 from end.  It contains primary_lba and secondary_lba
 	 * we choose one of those
 	 */
 
@@ -1747,7 +1776,8 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 {
 	/* It matches 'this' host if the controller is a
 	 * Linux-MD controller with vendor_data matching
-	 * the hostname
+	 * the hostname.  It would be nice if we could
+	 * test against controller found in /sys or somewhere...
 	 */
 	struct ddf_super *ddf = st->sb;
 	unsigned int len;
@@ -1768,11 +1798,14 @@ static int find_index_in_bvd(const struct ddf_super *ddf,
 			     unsigned int *n_bvd)
 {
 	/*
-	 * Find the index of the n-th valid physical disk in this BVD
+	 * Find the index of the n-th valid physical disk in this BVD.
+	 * Unused entries can be sprinkled in with the used entries,
+	 * but don't count.
 	 */
 	unsigned int i, j;
-	for (i = 0, j = 0; i < ddf->mppe &&
-		     j < be16_to_cpu(conf->prim_elmnt_count); i++) {
+	for (i = 0, j = 0;
+	     i < ddf->mppe && j < be16_to_cpu(conf->prim_elmnt_count);
+	     i++) {
 		if (be32_to_cpu(conf->phys_refnum[i]) != 0xffffffff) {
 			if (n == j) {
 				*n_bvd = i;
@@ -1786,6 +1819,13 @@ static int find_index_in_bvd(const struct ddf_super *ddf,
 	return 0;
 }
 
+/* Given a member array instance number, and a raid disk within that instance,
+ * find the vd_config structure.  The offset of the given disk in the phys_refnum
+ * table is returned in n_bvd.
+ * For two-level members with a secondary raid level the vd_config for
+ * the appropriate BVD is returned.
+ * The return value is always &vlc->conf, where vlc is returned in last pointer.
+ */
 static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 				   unsigned int n,
 				   unsigned int *n_bvd, struct vcl **vcl)
@@ -1887,8 +1927,6 @@ static void uuid_from_super_ddf(struct supertype *st, int uuid[4])
 		uuid_from_ddf_guid(ddf->anchor.guid, uuid);
 }
 
-static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, char *map);
-
 static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *map)
 {
 	struct ddf_super *ddf = st->sb;
@@ -1912,8 +1950,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	info->array.chunk_size	  = 0;
 	info->container_enough	  = 1;
 
-	info->disk.major = 0;
-	info->disk.minor = 0;
+	info->disk.major	  = 0;
+	info->disk.minor	  = 0;
 	if (ddf->dlist) {
 		struct phys_disk_entry *pde = NULL;
 		info->disk.number = be32_to_cpu(ddf->dlist->disk.refnum);
@@ -2109,7 +2147,7 @@ static int update_super_ddf(struct supertype *st, struct mdinfo *info,
 //	struct virtual_entry *ve = find_ve(ddf);
 
 	/* we don't need to handle "force-*" or "assemble" as
-	 * there is no need to 'trick' the kernel.  We the metadata is
+	 * there is no need to 'trick' the kernel.  When the metadata is
 	 * first updated to activate the array, all the implied modifications
 	 * will just happen.
 	 */
@@ -2204,12 +2242,6 @@ static unsigned int find_vde_by_guid(const struct ddf_super *ddf,
 }
 #endif
 
-static int init_super_ddf_bvd(struct supertype *st,
-			      mdu_array_info_t *info,
-			      unsigned long long size,
-			      char *name, char *homehost,
-			      int *uuid, unsigned long long data_offset);
-
 static int init_super_ddf(struct supertype *st,
 			  mdu_array_info_t *info,
 			  unsigned long long size, char *name, char *homehost,
@@ -2226,12 +2258,12 @@ static int init_super_ddf(struct supertype *st,
 	 * We need to create the entire 'ddf' structure which includes:
 	 *  DDF headers - these are easy.
 	 *  Controller data - a Sector describing this controller .. not that
-	 *                  this is a controller exactly.
+	 *		      this is a controller exactly.
 	 *  Physical Disk Record - one entry per device, so
-	 *			leave plenty of space.
+	 *			   leave plenty of space.
 	 *  Virtual Disk Records - again, just leave plenty of space.
-	 *                   This just lists VDs, doesn't give details
-	 *  Config records - describes the VDs that use this disk
+	 *			   This just lists VDs, doesn't give details.
+	 *  Config records - describe the VDs that use this disk
 	 *  DiskData  - describes 'this' device.
 	 *  BadBlockManagement - empty
 	 *  Diag Space - empty
@@ -2263,8 +2295,6 @@ static int init_super_ddf(struct supertype *st,
 		return 0;
 	}
 	memset(ddf, 0, sizeof(*ddf));
-	ddf->dlist = NULL; /* no physical disks yet */
-	ddf->conflist = NULL; /* No virtual disks yet */
 	st->sb = ddf;
 
 	if (info == NULL) {
@@ -2276,8 +2306,7 @@ static int init_super_ddf(struct supertype *st,
 	 * start 32MB from the end, and put the primary header there.
 	 * Don't do secondary for now.
 	 * We don't know exactly where that will be yet as it could be
-	 * different on each device.  To just set up the lengths.
-	 *
+	 * different on each device.  So just set up the lengths.
 	 */
 
 	ddf->anchor.magic = DDF_HEADER_MAGIC;
@@ -2299,18 +2328,18 @@ static int init_super_ddf(struct supertype *st,
 	ddf->anchor.workspace_len = cpu_to_be32(32768); /* Must be reserved */
 	/* Put this at bottom of 32M reserved.. */
 	ddf->anchor.workspace_lba = cpu_to_be64(~(__u64)0);
-	max_phys_disks = 1023;   /* Should be enough */
+	max_phys_disks = 1023;   /* Should be enough, 4095 is also allowed */
 	ddf->anchor.max_pd_entries = cpu_to_be16(max_phys_disks);
-	max_virt_disks = 255;
-	ddf->anchor.max_vd_entries = cpu_to_be16(max_virt_disks); /* ?? */
-	ddf->anchor.max_partitions = cpu_to_be16(64); /* ?? */
+	max_virt_disks = 255; /* 15, 63, 255, 1024, 4095 are all allowed */
+	ddf->anchor.max_vd_entries = cpu_to_be16(max_virt_disks);
 	ddf->max_part = 64;
-	ddf->mppe = 256;
+	ddf->anchor.max_partitions = cpu_to_be16(ddf->max_part);
+	ddf->mppe = 256; /* 16, 64, 256, 1024, 4096 are all allowed */
 	ddf->conf_rec_len = 1 + ROUND_UP(ddf->mppe * (4+8), 512)/512;
 	ddf->anchor.config_record_len = cpu_to_be16(ddf->conf_rec_len);
 	ddf->anchor.max_primary_element_entries = cpu_to_be16(ddf->mppe);
 	memset(ddf->anchor.pad3, 0xff, 54);
-	/* controller sections is one sector long immediately
+	/* Controller section is one sector long immediately
 	 * after the ddf header */
 	sector = 1;
 	ddf->anchor.controller_section_offset = cpu_to_be32(sector);
@@ -2454,12 +2483,9 @@ static int cmp_extent(const void *av, const void *bv)
 
 static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 {
-	/* find a list of used extents on the give physical device
+	/* Find a list of used extents on the give physical device
 	 * (dnum) of the given ddf.
 	 * Return a malloced array of 'struct extent'
-
-	 * FIXME ignore DDF_Legacy devices?
-
 	 */
 	struct extent *rv;
 	int n = 0;
@@ -2609,14 +2635,11 @@ static int init_super_ddf_bvd(struct supertype *st,
 	return 1;
 }
 
-
 #ifndef MDASSEMBLE
-static int get_svd_state(const struct ddf_super *, const struct vcl *);
-
 static void add_to_super_ddf_bvd(struct supertype *st,
 				 mdu_disk_info_t *dk, int fd, char *devname)
 {
-	/* fd and devname identify a device with-in the ddf container (st).
+	/* fd and devname identify a device within the ddf container (st).
 	 * dk identifies a location in the new BVD.
 	 * We need to find suitable free space in that device and update
 	 * the phys_refnum and lba_offset for the newly created vd_config.
@@ -2664,6 +2687,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	if (ddf->currentconf->block_sizes)
 		blocks = ddf->currentconf->block_sizes[dk->raid_disk];
 
+	/* First-fit */
 	do {
 		esize = ex[i].start - pos;
 		if (esize >= blocks)
@@ -2727,7 +2751,7 @@ static void _set_config_size(struct phys_disk_entry *pde, const struct dl *dl)
 		cfs = min(cfs, t);
 	/*
 	 * Some vendor DDF structures interpret workspace_lba
-	 * very differently then us. Make a sanity check on the value.
+	 * very differently than we do: Make a sanity check on the value.
 	 */
 	t = be64_to_cpu(dl->workspace_lba);
 	if (t < cfs) {
@@ -2743,7 +2767,7 @@ static void _set_config_size(struct phys_disk_entry *pde, const struct dl *dl)
 		__func__, dl->major, dl->minor, cfs, dl->size-cfs);
 }
 
-/* add a device to a container, either while creating it or while
+/* Add a device to a container, either while creating it or while
  * expanding a pre-existing container
  */
 static int add_to_super_ddf(struct supertype *st,
@@ -2922,7 +2946,6 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
  * called when creating a container or adding another device to a
  * container.
  */
-#define NULL_CONF_SZ	4096
 
 static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
 {
@@ -3102,7 +3125,7 @@ static int write_init_super_ddf(struct supertype *st)
 	struct ddf_super *ddf = st->sb;
 	struct vcl *currentconf = ddf->currentconf;
 
-	/* we are done with currentconf reset it to point st at the container */
+	/* We are done with currentconf - reset it so st refers to the container */
 	ddf->currentconf = NULL;
 
 	if (st->update_tail) {
@@ -3113,6 +3136,7 @@ static int write_init_super_ddf(struct supertype *st)
 		unsigned int i;
 
 		if (!currentconf) {
+			/* Must be adding a physical disk to the container */
 			int len = (sizeof(struct phys_disk) +
 				   sizeof(struct phys_disk_entry));
 
@@ -3175,8 +3199,9 @@ static int reserve_space(struct supertype *st, int raiddisks,
 {
 	/* Find 'raiddisks' spare extents at least 'size' big (but
 	 * only caring about multiples of 'chunk') and remember
-	 * them.
-	 * If the cannot be found, fail.
+	 * them.   If size==0, find the largest size possible.
+	 * Report available size in *freesize
+	 * If space cannot be found, fail.
 	 */
 	struct dl *dl;
 	struct ddf_super *ddf = st->sb;
@@ -3256,21 +3281,6 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	return 1;
 }
 
-static int
-validate_geometry_ddf_container(struct supertype *st,
-				int level, int layout, int raiddisks,
-				int chunk, unsigned long long size,
-				unsigned long long data_offset,
-				char *dev, unsigned long long *freesize,
-				int verbose);
-
-static int validate_geometry_ddf_bvd(struct supertype *st,
-				     int level, int layout, int raiddisks,
-				     int *chunk, unsigned long long size,
-				     unsigned long long data_offset,
-				     char *dev, unsigned long long *freesize,
-				     int verbose);
-
 static int validate_geometry_ddf(struct supertype *st,
 				 int level, int layout, int raiddisks,
 				 int *chunk, unsigned long long size,
@@ -3292,7 +3302,8 @@ static int validate_geometry_ddf(struct supertype *st,
 	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
-	if (level == -1000000) level = LEVEL_CONTAINER;
+	if (level == LEVEL_NONE)
+		level = LEVEL_CONTAINER;
 	if (level == LEVEL_CONTAINER) {
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_ddf_container(st, level, layout,
@@ -3304,7 +3315,8 @@ static int validate_geometry_ddf(struct supertype *st,
 
 	if (!dev) {
 		mdu_array_info_t array = {
-			.level = level, .layout = layout,
+			.level = level,
+			.layout = layout,
 			.raid_disks = raiddisks
 		};
 		struct vd_config conf;
@@ -3352,7 +3364,6 @@ static int validate_geometry_ddf(struct supertype *st,
 		close(fd);
 		if (sra && sra->array.major_version == -1 &&
 		    strcmp(sra->text_version, "ddf") == 0) {
-
 			/* load super */
 			/* find space for 'n' devices. */
 			/* remember the devices */
@@ -3473,8 +3484,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		int dcnt = 0;
 		if (minsize == 0)
 			minsize = 8;
-		for (dl = ddf->dlist; dl ; dl = dl->next)
-		{
+		for (dl = ddf->dlist; dl ; dl = dl->next) {
 			int found = 0;
 			pos = 0;
 
@@ -3522,7 +3532,8 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	e = get_extents(ddf, dl);
 	maxsize = 0;
 	i = 0;
-	if (e) do {
+	if (e)
+		do {
 			unsigned long long esize;
 			esize = e[i].start - pos;
 			if (esize >= maxsize)
@@ -3699,13 +3710,13 @@ static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
 
 	for (i = 0, j = 0 ; i < nmax ; i++) {
 		/* j counts valid entries for this BVD */
-		if (be32_to_cpu(vc->conf.phys_refnum[i]) != 0xffffffff)
-			j++;
 		if (be32_eq(vc->conf.phys_refnum[i], refnum)) {
 			*bvd = &vc->conf;
 			*idx = i;
-			return sec * cnt + j - 1;
+			return sec * cnt + j;
 		}
+		if (be32_to_cpu(vc->conf.phys_refnum[i]) != 0xffffffff)
+			j++;
 	}
 	if (vc->other_bvds == NULL)
 		goto bad;
@@ -3716,13 +3727,13 @@ static unsigned int get_pd_index_from_refnum(const struct vcl *vc,
 		if (sec == DDF_UNUSED_BVD)
 			continue;
 		for (i = 0, j = 0 ; i < nmax ; i++) {
-			if (be32_to_cpu(vd->phys_refnum[i]) != 0xffffffff)
-				j++;
 			if (be32_eq(vd->phys_refnum[i], refnum)) {
 				*bvd = vd;
 				*idx = i;
-				return sec * cnt + j - 1;
+				return sec * cnt + j;
 			}
+			if (be32_to_cpu(vd->phys_refnum[i]) != 0xffffffff)
+				j++;
 		}
 	}
 bad:
@@ -3744,8 +3755,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 	struct mdinfo *rest = NULL;
 	struct vcl *vc;
 
-	for (vc = ddf->conflist ; vc ; vc=vc->next)
-	{
+	for (vc = ddf->conflist ; vc ; vc=vc->next) {
 		unsigned int i;
 		struct mdinfo *this;
 		char *ep;
@@ -3771,7 +3781,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		this->array.md_minor      = -1;
 		this->array.major_version = -1;
 		this->array.minor_version = -2;
-		this->safe_mode_delay = DDF_SAFE_MODE_DELAY;
+		this->safe_mode_delay	  = DDF_SAFE_MODE_DELAY;
 		cptr = (__u32 *)(vc->conf.guid + 16);
 		this->array.ctime         = DECADE + __be32_to_cpu(*cptr);
 		this->array.utime	  = DECADE +
@@ -3790,9 +3800,9 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		}
 		_ddf_array_name(this->name, ddf, i);
 		memset(this->uuid, 0, sizeof(this->uuid));
-		this->component_size = be64_to_cpu(vc->conf.blocks);
-		this->array.size = this->component_size / 2;
-		this->container_member = i;
+		this->component_size	  = be64_to_cpu(vc->conf.blocks);
+		this->array.size	  = this->component_size / 2;
+		this->container_member	  = i;
 
 		ddf->currentconf = vc;
 		uuid_from_super_ddf(st, this->uuid);
@@ -3835,17 +3845,17 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 				continue;
 
 			dev = xcalloc(1, sizeof(*dev));
-			dev->next = this->devs;
-			this->devs = dev;
+			dev->next	 = this->devs;
+			this->devs	 = dev;
 
 			dev->disk.number = be32_to_cpu(d->disk.refnum);
-			dev->disk.major = d->major;
-			dev->disk.minor = d->minor;
+			dev->disk.major	 = d->major;
+			dev->disk.minor	 = d->minor;
 			dev->disk.raid_disk = i;
-			dev->disk.state = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
+			dev->disk.state	 = (1<<MD_DISK_SYNC)|(1<<MD_DISK_ACTIVE);
 			dev->recovery_start = MaxSector;
 
-			dev->events = be32_to_cpu(ddf->active->seq);
+			dev->events	 = be32_to_cpu(ddf->active->seq);
 			dev->data_offset =
 				be64_to_cpu(LBA_OFFSET(ddf, bvd)[iphys]);
 			dev->component_size = be64_to_cpu(bvd->blocks);
@@ -3913,7 +3923,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	/*
 	 * return:
 	 *  0 same, or first was empty, and second was copied
-	 *  1 second had wrong number
+	 *  1 second had wrong magic number - but that isn't possible
 	 *  2 wrong uuid
 	 *  3 wrong other info
 	 */
@@ -3940,7 +3950,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 		return 3;
 	}
 
-	max_pds =  be16_to_cpu(first->phys->used_pdes);
+	max_pds = be16_to_cpu(first->phys->used_pdes);
 	for (dl2 = second->dlist; dl2; dl2 = dl2->next) {
 		for (pd = 0; pd < max_pds; pd++)
 			if (be32_eq(first->phys->entries[pd].refnum,
@@ -3969,9 +3979,9 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	/* FIXME should I look at anything else? */
 
 	/*
-	   At this point we are fairly sure that the meta data matches.
-	   But the new disk may contain additional local data.
-	   Add it to the super block.
+	 * At this point we are fairly sure that the meta data matches.
+	 * But the new disk may contain additional local data.
+	 * Add it to the super block.
 	 */
 	for (vl2 = second->conflist; vl2; vl2 = vl2->next) {
 		for (vl1 = first->conflist; vl1; vl1 = vl1->next)
@@ -4371,7 +4381,6 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	if (ddf->virt->entries[inst].state !=
 	    ((ddf->virt->entries[inst].state & ~DDF_state_mask)
 	     | state)) {
-
 		ddf->virt->entries[inst].state =
 			(ddf->virt->entries[inst].state & ~DDF_state_mask)
 			| state;
@@ -4382,7 +4391,6 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 
 static void ddf_sync_metadata(struct supertype *st)
 {
-
 	/*
 	 * Write all data to all devices.
 	 * Later, we might be able to track whether only local changes
@@ -4445,8 +4453,9 @@ static int kill_subarray_ddf(struct supertype *st)
 	 */
 	struct vcl *victim = ddf->currentconf;
 	struct vd_config *conf;
-	ddf->currentconf = NULL;
 	unsigned int vdnum;
+
+	ddf->currentconf = NULL;
 	if (!victim) {
 		pr_err("%s: nothing to kill\n", __func__);
 		return -1;
@@ -4547,7 +4556,6 @@ static void ddf_process_update(struct supertype *st,
 	dprintf("Process update %x\n", be32_to_cpu(*magic));
 
 	if (be32_eq(*magic, DDF_PHYS_RECORDS_MAGIC)) {
-
 		if (update->len != (sizeof(struct phys_disk) +
 				    sizeof(struct phys_disk_entry)))
 			return;
@@ -4597,7 +4605,6 @@ static void ddf_process_update(struct supertype *st,
 				a->check_degraded = 1;
 		}
 	} else if (be32_eq(*magic, DDF_VIRT_RECORDS_MAGIC)) {
-
 		if (update->len != (sizeof(struct virtual_disk) +
 				    sizeof(struct virtual_entry)))
 			return;
@@ -4607,7 +4614,6 @@ static void ddf_process_update(struct supertype *st,
 			if (_kill_subarray_ddf(ddf, vd->entries[0].guid))
 				return;
 		} else {
-
 			ent = find_vde_by_guid(ddf, vd->entries[0].guid);
 			if (ent != DDF_NOTFOUND) {
 				dprintf("%s: VD %s exists already in slot %d\n",
@@ -4728,7 +4734,7 @@ static void ddf_process_update(struct supertype *st,
 				vstate = ddf->virt->entries[vcl->vcnum].state
 					& DDF_state_mask;
 				if (vstate == DDF_state_degraded ||
-					vstate == DDF_state_part_optimal)
+				    vstate == DDF_state_part_optimal)
 					in_degraded = 1;
 			}
 			while (vn < ddf->max_part)
@@ -4883,7 +4889,7 @@ out:
  * arrange for their inclusion.
  * We only choose devices which are not already in the array,
  * and prefer those with a spare-assignment to this array.
- * otherwise we choose global spares - assuming always that
+ * Otherwise we choose global spares - assuming always that
  * there is enough room.
  * For each spare that we assign, we return an 'mdinfo' which
  * describes the position for the device in the array.

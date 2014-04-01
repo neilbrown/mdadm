@@ -1459,6 +1459,9 @@ char *xstrdup(const char *str);
 #define LEVEL_CONTAINER		(-100)
 #define	LEVEL_UNSUPPORTED	(-200)
 
+/* the kernel does know about this one ... */
+#define	LEVEL_NONE		(-1000000)
+
 /* faulty stuff */
 
 #define	WriteTransient	0

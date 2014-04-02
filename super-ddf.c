@@ -3022,7 +3022,7 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
 					(const struct vd_config **)&vdc,
 					&dummy);
 		}
-		if (c) {
+		if (vdc) {
 			dprintf("writing conf record %i on disk %08x for %s/%u\n",
 				i, be32_to_cpu(d->disk.refnum),
 				guid_str(vdc->guid),

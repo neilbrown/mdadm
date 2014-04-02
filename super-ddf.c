@@ -2490,7 +2490,11 @@ static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 	struct extent *rv;
 	int n = 0;
 	unsigned int i;
-	__u16 state = be16_to_cpu(ddf->phys->entries[dl->pdnum].state);
+	__u16 state;
+
+	if (dl->pdnum < 0)
+		return NULL;
+	state = be16_to_cpu(ddf->phys->entries[dl->pdnum].state);
 
 	if ((state & (DDF_Online|DDF_Failed|DDF_Missing)) != DDF_Online)
 		return NULL;
@@ -2923,7 +2927,7 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
 		if (dl->major == dk->major &&
 		    dl->minor == dk->minor)
 			break;
-	if (!dl)
+	if (!dl || dl->pdnum < 0)
 		return -1;
 
 	if (st->update_tail) {
@@ -4105,7 +4109,7 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 			if (dl->major == dev->disk.major &&
 			    dl->minor == dev->disk.minor)
 				break;
-		if (!dl) {
+		if (!dl || dl->pdnum < 0) {
 			pr_err("%s: device %d/%d of subarray %d not found in meta data\n",
 				__func__, dev->disk.major, dev->disk.minor, n);
 			return -1;
@@ -4733,6 +4737,9 @@ static void ddf_process_update(struct supertype *st,
 		for (dl = ddf->dlist; dl; dl = dl->next) {
 			unsigned int vn = 0;
 			int in_degraded = 0;
+
+			if (dl->pdnum < 0)
+				continue;
 			for (vcl = ddf->conflist; vcl ; vcl = vcl->next) {
 				unsigned int dn, ibvd;
 				const struct vd_config *conf;
@@ -4996,7 +5003,11 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			int is_dedicated = 0;
 			struct extent *ex;
 			unsigned int j;
-			be16 state = ddf->phys->entries[dl->pdnum].state;
+			be16 state;
+
+			if (dl->pdnum < 0)
+				continue;
+			state = ddf->phys->entries[dl->pdnum].state;
 			if (be16_and(state,
 				     cpu_to_be16(DDF_Failed|DDF_Missing)) ||
 			    !be16_and(state,
@@ -5087,7 +5098,6 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			di->recovery_start = 0;
 			di->data_offset = pos;
 			di->component_size = a->info.component_size;
-			di->container_member = dl->pdnum;
 			di->next = rv;
 			rv = di;
 			dprintf("%x:%x (%08x) to be %d at %llu\n",
@@ -5145,7 +5155,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			if (dl->major == di->disk.major
 			    && dl->minor == di->disk.minor)
 				break;
-		if (!dl) {
+		if (!dl || dl->pdnum < 0) {
 			pr_err("%s: BUG: can't find disk %d (%d/%d)\n",
 			       __func__, di->disk.raid_disk,
 			       di->disk.major, di->disk.minor);

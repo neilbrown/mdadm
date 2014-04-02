@@ -3946,47 +3946,25 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	if (memcmp(first->anchor.guid, second->anchor.guid, DDF_GUID_LEN) != 0)
 		return 2;
 
-	if (first->max_part != second->max_part ||
-	    !be16_eq(first->phys->used_pdes, second->phys->used_pdes) ||
-	    !be16_eq(first->virt->populated_vdes,
-		     second->virt->populated_vdes)) {
-		dprintf("%s: PD/VD number mismatch\n", __func__);
-		return 3;
-	}
+	/* It is only OK to compare info in the anchor.  Anything else
+	 * could be changing due to a reconfig so must be ignored.
+	 * guid really should be enough anyway.
+	 */
 
-	max_pds = be16_to_cpu(first->phys->used_pdes);
-	for (dl2 = second->dlist; dl2; dl2 = dl2->next) {
-		for (pd = 0; pd < max_pds; pd++)
-			if (be32_eq(first->phys->entries[pd].refnum,
-				    dl2->disk.refnum))
-				break;
-		if (pd == max_pds) {
-			dprintf("%s: no match for disk %08x\n", __func__,
-				be32_to_cpu(dl2->disk.refnum));
-			return 3;
-		}
+	if (!be32_eq(first->active->seq, second->active->seq)) {
+		dprintf("%s: sequence number mismatch %u<->%u\n", __func__,
+			be32_to_cpu(first->active->seq),
+			be32_to_cpu(second->active->seq));
+		return 0;
 	}
-
-	max_vds = be16_to_cpu(first->active->max_vd_entries);
-	for (vl2 = second->conflist; vl2; vl2 = vl2->next) {
-		if (!be32_eq(vl2->conf.magic, DDF_VD_CONF_MAGIC))
-			continue;
-		for (vd = 0; vd < max_vds; vd++)
-			if (!memcmp(first->virt->entries[vd].guid,
-				    vl2->conf.guid, DDF_GUID_LEN))
-				break;
-		if (vd == max_vds) {
-			dprintf("%s: no match for VD config\n", __func__);
-			return 3;
-		}
-	}
-	/* FIXME should I look at anything else? */
 
 	/*
 	 * At this point we are fairly sure that the meta data matches.
 	 * But the new disk may contain additional local data.
 	 * Add it to the super block.
 	 */
+	max_vds = be16_to_cpu(first->active->max_vd_entries);
+	max_pds = be16_to_cpu(first->phys->used_pdes);
 	for (vl2 = second->conflist; vl2; vl2 = vl2->next) {
 		for (vl1 = first->conflist; vl1; vl1 = vl1->next)
 			if (!memcmp(vl1->conf.guid, vl2->conf.guid,

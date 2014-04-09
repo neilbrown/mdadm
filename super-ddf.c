@@ -2059,7 +2059,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->disk.major = 0;
 	info->disk.minor = 0;
 	info->disk.state = 0;
-	if (dl) {
+	if (dl && dl->pdnum >= 0) {
 		info->disk.major = dl->major;
 		info->disk.minor = dl->minor;
 		info->disk.raid_disk = cd + conf->sec_elmnt_seq
@@ -2671,7 +2671,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 			    dl->minor == dk->minor)
 				break;
 	}
-	if (!dl || ! (dk->state & (1<<MD_DISK_SYNC)))
+	if (!dl || dl->pdnum < 0 || ! (dk->state & (1<<MD_DISK_SYNC)))
 		return;
 
 	vc = &ddf->currentconf->conf;
@@ -4030,7 +4030,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 			if (be32_eq(first->phys->entries[pd].refnum,
 				    dl1->disk.refnum))
 				break;
-		dl1->pdnum = pd;
+		dl1->pdnum = pd < max_pds ? (int)pd : -1;
 		if (dl2->spare) {
 			if (posix_memalign((void **)&dl1->spare, 512,
 				       first->conf_rec_len*512) != 0) {

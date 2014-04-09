@@ -740,7 +740,9 @@ int Create(struct supertype *st, char *mddev,
 
 	map_update(&map, fd2devnm(mdfd), info.text_version,
 		   info.uuid, chosen_name);
-	map_unlock(&map);
+	/* Keep map locked until devices have been added to array
+	 * to stop another mdadm from finding and using those devices.
+	 */
 
 	if (s->bitmap_file && vers < 9003) {
 		major_num = BITMAP_MAJOR_HOSTENDIAN;
@@ -753,18 +755,18 @@ int Create(struct supertype *st, char *mddev,
 	if (s->bitmap_file && strcmp(s->bitmap_file, "internal")==0) {
 		if ((vers%100) < 2) {
 			pr_err("internal bitmaps not supported by this kernel.\n");
-			goto abort;
+			goto abort_locked;
 		}
 		if (!st->ss->add_internal_bitmap) {
 			pr_err("internal bitmaps not supported with %s metadata\n",
 				st->ss->name);
-			goto abort;
+			goto abort_locked;
 		}
 		if (!st->ss->add_internal_bitmap(st, &s->bitmap_chunk,
 						 c->delay, s->write_behind,
 						 bitmapsize, 1, major_num)) {
 			pr_err("Given bitmap chunk size not supported.\n");
-			goto abort;
+			goto abort_locked;
 		}
 		s->bitmap_file = NULL;
 	}
@@ -790,7 +792,7 @@ int Create(struct supertype *st, char *mddev,
 		if (container_fd < 0) {
 			pr_err("Cannot get exclusive "
 				"open on container - weird.\n");
-			goto abort;
+			goto abort_locked;
 		}
 		if (mdmon_running(st->container_devnm)) {
 			if (c->verbose)
@@ -805,7 +807,7 @@ int Create(struct supertype *st, char *mddev,
 	if (rv) {
 		pr_err("failed to set array info for %s: %s\n",
 			mddev, strerror(errno));
-		goto abort;
+		goto abort_locked;
 	}
 
 	if (s->bitmap_file) {
@@ -816,18 +818,18 @@ int Create(struct supertype *st, char *mddev,
 				 c->delay, s->write_behind,
 				 bitmapsize,
 				 major_num)) {
-			goto abort;
+			goto abort_locked;
 		}
 		bitmap_fd = open(s->bitmap_file, O_RDWR);
 		if (bitmap_fd < 0) {
 			pr_err("weird: %s cannot be openned\n",
 				s->bitmap_file);
-			goto abort;
+			goto abort_locked;
 		}
 		if (ioctl(mdfd, SET_BITMAP_FILE, bitmap_fd) < 0) {
 			pr_err("Cannot set bitmap file for %s: %s\n",
 				mddev, strerror(errno));
-			goto abort;
+			goto abort_locked;
 		}
 	}
 
@@ -884,7 +886,7 @@ int Create(struct supertype *st, char *mddev,
 						pr_err("failed to open %s "
 							"after earlier success - aborting\n",
 							dv->devname);
-						goto abort;
+						goto abort_locked;
 					}
 					fstat(fd, &stb);
 					inf->disk.major = major(stb.st_rdev);
@@ -896,7 +898,7 @@ int Create(struct supertype *st, char *mddev,
 							 fd, dv->devname,
 							 dv->data_offset)) {
 					ioctl(mdfd, STOP_ARRAY, NULL);
-					goto abort;
+					goto abort_locked;
 				}
 				st->ss->getinfo_super(st, inf, NULL);
 				safe_mode_delay = inf->safe_mode_delay;
@@ -922,7 +924,7 @@ int Create(struct supertype *st, char *mddev,
 					pr_err("ADD_NEW_DISK for %s "
 					       "failed: %s\n",
 					       dv->devname, strerror(errno));
-					goto abort;
+					goto abort_locked;
 				}
 				break;
 			}
@@ -939,7 +941,6 @@ int Create(struct supertype *st, char *mddev,
 			 * the subarray cursor such that ->getinfo_super once
 			 * again returns container info.
 			 */
-			map_lock(&map);
 			st->ss->getinfo_super(st, &info_new, NULL);
 			if (st->ss->external && s->level != LEVEL_CONTAINER &&
 			    !same_uuid(info_new.uuid, info.uuid, 0)) {
@@ -964,12 +965,12 @@ int Create(struct supertype *st, char *mddev,
 					   info_new.uuid, path);
 				free(path);
 			}
-			map_unlock(&map);
 
 			flush_metadata_updates(st);
 			st->ss->free_super(st);
 		}
 	}
+	map_unlock(&map);
 	free(infos);
 
 	if (s->level == LEVEL_CONTAINER) {

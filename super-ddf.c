@@ -488,6 +488,7 @@ struct ddf_super {
 				/* These fields used by auto-layout */
 				int raiddisk; /* slot to fill in autolayout */
 				__u64 esize;
+				int displayed;
 			};
 		};
 		struct disk_data disk;
@@ -1488,8 +1489,12 @@ static void examine_pds(struct ddf_super *sb)
 	int cnt = be16_to_cpu(sb->phys->max_pdes);
 	int i;
 	struct dl *dl;
+	int unlisted = 0;
 	printf(" Physical Disks : %d\n", cnt);
 	printf("      Number    RefNo      Size       Device      Type/State\n");
+
+	for (dl = sb->dlist; dl; dl = dl->next)
+		dl->displayed = 0;
 
 	for (i=0 ; i<cnt ; i++) {
 		struct phys_disk_entry *pd = &sb->phys->entries[i];
@@ -1516,6 +1521,8 @@ static void examine_pds(struct ddf_super *sb)
 		}
 		if (!dl)
 			printf("%15s","");
+		else
+			dl->displayed = 1;
 		printf(" %s%s%s%s%s",
 		       (type&2) ? "active":"",
 		       (type&4) ? "Global-Spare":"",
@@ -1535,6 +1542,19 @@ static void examine_pds(struct ddf_super *sb)
 		       (state&64)? ", Missing" : "");
 		printf("\n");
 	}
+	for (dl = sb->dlist; dl; dl = dl->next) {
+		char *dv;
+		if (dl->displayed)
+			continue;
+		if (!unlisted)
+			printf(" Physical disks not in metadata!:\n");
+		unlisted = 1;
+		dv = map_dev(dl->major, dl->minor, 0);
+		printf("   %08x %s\n", be32_to_cpu(dl->disk.refnum),
+		       dv ? dv : "-unknown-");
+	}
+	if (unlisted)
+		printf("\n");
 }
 
 static void examine_super_ddf(struct supertype *st, char *homehost)

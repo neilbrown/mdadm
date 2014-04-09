@@ -229,7 +229,8 @@ struct ddf_controller_data {
 struct phys_disk {
 	be32	magic;		/* DDF_PHYS_RECORDS_MAGIC */
 	be32	crc;
-	be16	used_pdes;
+	be16	used_pdes;	/* This is a counter, not a max - the list
+				 * of used entries may not be dense */
 	be16	max_pdes;
 	__u8	pad[52];
 	struct phys_disk_entry {
@@ -1424,7 +1425,7 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 		       be16_to_cpu(vc->prim_elmnt_count));
 		for (i = 0; i < be16_to_cpu(vc->prim_elmnt_count); i++) {
 			int j;
-			int cnt = be16_to_cpu(sb->phys->used_pdes);
+			int cnt = be16_to_cpu(sb->phys->max_pdes);
 			for (j=0; j<cnt; j++)
 				if (be32_eq(vc->phys_refnum[i],
 					    sb->phys->entries[j].refnum))
@@ -1484,7 +1485,7 @@ static void examine_vds(struct ddf_super *sb)
 
 static void examine_pds(struct ddf_super *sb)
 {
-	int cnt = be16_to_cpu(sb->phys->used_pdes);
+	int cnt = be16_to_cpu(sb->phys->max_pdes);
 	int i;
 	struct dl *dl;
 	printf(" Physical Disks : %d\n", cnt);
@@ -1495,6 +1496,9 @@ static void examine_pds(struct ddf_super *sb)
 		int type = be16_to_cpu(pd->type);
 		int state = be16_to_cpu(pd->state);
 
+		if (be32_to_cpu(pd->refnum) == 0xffffffff)
+			/* Not in use */
+			continue;
 		//printf("      PD GUID[%d] : ", i); print_guid(pd->guid, 0);
 		//printf("\n");
 		printf("       %3d    %08x  ", i,
@@ -3816,7 +3820,7 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 		sprintf(this->text_version, "/%s/%d",
 			st->container_devnm, this->container_member);
 
-		for (pd = 0; pd < be16_to_cpu(ddf->phys->used_pdes); pd++) {
+		for (pd = 0; pd < be16_to_cpu(ddf->phys->max_pdes); pd++) {
 			struct mdinfo *dev;
 			struct dl *d;
 			const struct vd_config *bvd;
@@ -3964,7 +3968,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	 * Add it to the super block.
 	 */
 	max_vds = be16_to_cpu(first->active->max_vd_entries);
-	max_pds = be16_to_cpu(first->phys->used_pdes);
+	max_pds = be16_to_cpu(first->phys->max_pdes);
 	for (vl2 = second->conflist; vl2; vl2 = vl2->next) {
 		for (vl1 = first->conflist; vl1; vl1 = vl1->next)
 			if (!memcmp(vl1->conf.guid, vl2->conf.guid,
@@ -4705,7 +4709,7 @@ static void ddf_process_update(struct supertype *st,
 		/* Set DDF_Transition on all Failed devices - to help
 		 * us detect those that are no longer in use
 		 */
-		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->used_pdes);
+		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->max_pdes);
 		     pdnum++)
 			if (be16_and(ddf->phys->entries[pdnum].state,
 				     cpu_to_be16(DDF_Failed)))
@@ -4787,8 +4791,11 @@ static void ddf_process_update(struct supertype *st,
 		 * Once done, we need to update all dl->pdnum numbers.
 		 */
 		pd2 = 0;
-		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->used_pdes);
+		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->max_pdes);
 		     pdnum++) {
+			if (be32_to_cpu(ddf->phys->entries[pdnum].refnum) ==
+			    0xFFFFFFFF)
+				continue;
 			if (be16_and(ddf->phys->entries[pdnum].state,
 				     cpu_to_be16(DDF_Failed))
 			    && be16_and(ddf->phys->entries[pdnum].state,

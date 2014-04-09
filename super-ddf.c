@@ -2074,11 +2074,11 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 			info->component_size = vc->block_sizes[cd];
 		else
 			info->component_size = be64_to_cpu(conf->blocks);
-	}
 
-	for (dl = ddf->dlist; dl ; dl = dl->next)
-		if (be32_eq(dl->disk.refnum, conf->phys_refnum[cd]))
-			break;
+		for (dl = ddf->dlist; dl ; dl = dl->next)
+			if (be32_eq(dl->disk.refnum, conf->phys_refnum[cd]))
+				break;
+	}
 
 	info->disk.major = 0;
 	info->disk.minor = 0;

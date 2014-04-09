@@ -3107,6 +3107,7 @@ static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
 		ddf->anchor.secondary_lba =
 			cpu_to_be64(size - 32*1024*2);
 	ddf->anchor.seq = ddf->active->seq;
+	ddf->anchor.timestamp = cpu_to_be32(time(0) - DECADE);
 	memcpy(&ddf->primary, &ddf->anchor, 512);
 	memcpy(&ddf->secondary, &ddf->anchor, 512);
 

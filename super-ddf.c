@@ -343,7 +343,10 @@ struct vd_config {
 				 * for concat I hope) */
 	be64	array_blocks;	/* blocks in array */
 	__u8	pad1[8];
-	be32	spare_refs[8];
+	be32	spare_refs[8];	/* This is used to detect missing spares.
+				 * As we don't have an interface for that
+				 * the values are ignored.
+				 */
 	__u8	cache_pol[8];
 	__u8	bg_rate;
 	__u8	pad2[3];

@@ -1975,7 +1975,6 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	cptr = (__u32 *)(ddf->anchor.guid + 16);
 	info->array.ctime	  = DECADE + __be32_to_cpu(*cptr);
 
-	info->array.utime	  = 0;
 	info->array.chunk_size	  = 0;
 	info->container_enough	  = 1;
 
@@ -1998,13 +1997,14 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 		else
 			info->disk.state = 1 << MD_DISK_FAULTY;
 
-		info->events = be32_to_cpu(ddf->active->seq);
 	} else {
 		info->disk.number = -1;
 		info->disk.raid_disk = -1;
 //		info->disk.raid_disk = find refnum in the table and use index;
 		info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	}
+	info->events = be32_to_cpu(ddf->active->seq);
+	info->array.utime = DECADE + be32_to_cpu(ddf->active->timestamp);
 
 	info->recovery_start = MaxSector;
 	info->reshape_active = 0;

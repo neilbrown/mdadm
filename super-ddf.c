@@ -2062,7 +2062,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->array.ctime	  = DECADE + __be32_to_cpu(*cptr);
 	info->array.utime	  = DECADE + be32_to_cpu(vc->conf.timestamp);
 	info->array.chunk_size	  = 512 << vc->conf.chunk_shift;
-	info->custom_array_size	  = 0;
+	info->custom_array_size	  = be64_to_cpu(vc->conf.array_blocks);
 
 	conf = &vc->conf;
 	n_prim = be16_to_cpu(conf->prim_elmnt_count);

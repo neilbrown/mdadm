@@ -555,8 +555,13 @@ static void pr_state(struct ddf_super *ddf, const char *msg)
 static void pr_state(const struct ddf_super *ddf, const char *msg) {}
 #endif
 
-static void _ddf_set_updates_pending(struct ddf_super *ddf, const char *func)
+static void _ddf_set_updates_pending(struct ddf_super *ddf, struct vd_config *vc,
+				     const char *func)
 {
+	if (vc) {
+		vc->timestamp = cpu_to_be32(time(0)-DECADE);
+		vc->seqnum = cpu_to_be32(be32_to_cpu(vc->seqnum) + 1);
+	}
 	if (ddf->updates_pending)
 		return;
 	ddf->updates_pending = 1;
@@ -564,7 +569,7 @@ static void _ddf_set_updates_pending(struct ddf_super *ddf, const char *func)
 	pr_state(ddf, func);
 }
 
-#define ddf_set_updates_pending(x) _ddf_set_updates_pending((x), __func__)
+#define ddf_set_updates_pending(x,v) _ddf_set_updates_pending((x), (v), __func__)
 
 static be32 calc_crc(void *buf, int len)
 {
@@ -2481,7 +2486,7 @@ static int init_super_ddf(struct supertype *st,
 		memset(&vd->entries[i], 0xff, sizeof(struct virtual_entry));
 
 	st->sb = ddf;
-	ddf_set_updates_pending(ddf);
+	ddf_set_updates_pending(ddf, NULL);
 	return 1;
 }
 
@@ -2659,7 +2664,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	vcl->next = ddf->conflist;
 	ddf->conflist = vcl;
 	ddf->currentconf = vcl;
-	ddf_set_updates_pending(ddf);
+	ddf_set_updates_pending(ddf, NULL);
 	return 1;
 }
 
@@ -2757,7 +2762,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		__func__, dl->pdnum, be32_to_cpu(dl->disk.refnum),
 		ddf->currentconf->vcnum, guid_str(vc->guid),
 		dk->raid_disk);
-	ddf_set_updates_pending(ddf);
+	ddf_set_updates_pending(ddf, vc);
 }
 
 static unsigned int find_unused_pde(const struct ddf_super *ddf)
@@ -2928,7 +2933,7 @@ static int add_to_super_ddf(struct supertype *st,
 	} else {
 		dd->next = ddf->dlist;
 		ddf->dlist = dd;
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, NULL);
 	}
 
 	return 0;
@@ -3051,7 +3056,6 @@ static int __write_ddf_structure(struct dl *d, struct ddf_super *ddf, __u8 type)
 				i, be32_to_cpu(d->disk.refnum),
 				guid_str(vdc->guid),
 				vdc->sec_elmnt_seq);
-			vdc->seqnum = header->seq;
 			vdc->crc = calc_crc(vdc, conf_size);
 			memcpy(conf + i*conf_size, vdc, conf_size);
 		} else
@@ -4166,7 +4170,7 @@ static void handle_missing(struct ddf_super *ddf, struct active_array *a, int in
 			be16_set(ddf->phys->entries[pd].state,
 				 cpu_to_be16(DDF_Failed|DDF_Missing));
 			vc->phys_refnum[n_bvd] = cpu_to_be32(0);
-			ddf_set_updates_pending(ddf);
+			ddf_set_updates_pending(ddf, vc);
 		}
 
 		/* Mark the array as Degraded */
@@ -4178,7 +4182,7 @@ static void handle_missing(struct ddf_super *ddf, struct active_array *a, int in
 				(ddf->virt->entries[inst].state & ~DDF_state_mask)
 				| state;
 			a->check_degraded = 1;
-			ddf_set_updates_pending(ddf);
+			ddf_set_updates_pending(ddf, vc);
 		}
 	}
 }
@@ -4209,7 +4213,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	else
 		ddf->virt->entries[inst].state |= DDF_state_inconsistent;
 	if (old != ddf->virt->entries[inst].state)
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, NULL);
 
 	old = ddf->virt->entries[inst].init_state;
 	ddf->virt->entries[inst].init_state &= ~DDF_initstate_mask;
@@ -4220,7 +4224,7 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	else
 		ddf->virt->entries[inst].init_state |= DDF_init_quick;
 	if (old != ddf->virt->entries[inst].init_state)
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, NULL);
 
 	dprintf("ddf mark %d/%s (%d) %s %llu\n", inst,
 		guid_str(ddf->virt->entries[inst].guid), a->curr_state,
@@ -4334,6 +4338,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	int pd;
 	struct mdinfo *mdi;
 	struct dl *dl;
+	int update = 0;
 
 	dprintf("%s: %d to %x\n", __func__, n, state);
 	if (vc == NULL) {
@@ -4382,7 +4387,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 				   cpu_to_be16(DDF_Global_Spare));
 			be16_set(ddf->phys->entries[pd].type,
 				 cpu_to_be16(DDF_Active_in_VD));
-			ddf_set_updates_pending(ddf);
+			update = 1;
 		}
 	} else {
 		be16 old = ddf->phys->entries[pd].state;
@@ -4396,7 +4401,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 				   cpu_to_be16(DDF_Rebuilding));
 		}
 		if (!be16_eq(old, ddf->phys->entries[pd].state))
-			ddf_set_updates_pending(ddf);
+			update = 1;
 	}
 
 	dprintf("ddf: set_disk %d (%08x) to %x->%02x\n", n,
@@ -4416,9 +4421,10 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		ddf->virt->entries[inst].state =
 			(ddf->virt->entries[inst].state & ~DDF_state_mask)
 			| state;
-		ddf_set_updates_pending(ddf);
+		update = 1;
 	}
-
+	if (update)
+		ddf_set_updates_pending(ddf, vc);
 }
 
 static void ddf_sync_metadata(struct supertype *st)
@@ -4518,7 +4524,7 @@ static int kill_subarray_ddf(struct supertype *st)
 		append_metadata_update(st, vd, len);
 	} else {
 		_kill_subarray_ddf(ddf, conf->guid);
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, NULL);
 		ddf_sync_metadata(st);
 	}
 	return 0;
@@ -4613,7 +4619,7 @@ static void ddf_process_update(struct supertype *st,
 					break;
 				}
 			}
-			ddf_set_updates_pending(ddf);
+			ddf_set_updates_pending(ddf, NULL);
 			return;
 		}
 		if (!all_ff(ddf->phys->entries[ent].guid))
@@ -4621,7 +4627,7 @@ static void ddf_process_update(struct supertype *st,
 		ddf->phys->entries[ent] = pd->entries[0];
 		ddf->phys->used_pdes = cpu_to_be16
 			(1 + be16_to_cpu(ddf->phys->used_pdes));
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, NULL);
 		if (ddf->add_list) {
 			struct active_array *a;
 			struct dl *al = ddf->add_list;
@@ -4666,7 +4672,7 @@ static void ddf_process_update(struct supertype *st,
 				ddf->virt->entries[ent].state,
 				ddf->virt->entries[ent].init_state);
 		}
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, NULL);
 	}
 
 	else if (be32_eq(*magic, DDF_VD_CONF_MAGIC)) {
@@ -4846,7 +4852,7 @@ static void ddf_process_update(struct supertype *st,
 			pd2++;
 		}
 
-		ddf_set_updates_pending(ddf);
+		ddf_set_updates_pending(ddf, vc);
 	}
 	/* case DDF_SPARE_ASSIGN_MAGIC */
 }

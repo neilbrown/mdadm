@@ -1751,12 +1751,14 @@ err:
 
 static void detail_super_ddf(struct supertype *st, char *homehost)
 {
-	/* FIXME later
-	 * Could print DDF GUID
-	 * Need to find which array
-	 *  If whole, briefly list all arrays
-	 *  If one, give name
-	 */
+	struct ddf_super *sb = st->sb;
+	int cnt = be16_to_cpu(sb->virt->populated_vdes);
+
+	printf(" Container GUID : "); print_guid(sb->anchor.guid, 1);
+	printf("\n");
+	printf("            Seq : %08x\n", be32_to_cpu(sb->active->seq));
+	printf("  Virtual Disks : %d\n", cnt);
+	printf("\n");
 }
 
 static const char *vendors_with_variable_volume_UUID[] = {

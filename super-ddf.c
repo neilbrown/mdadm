@@ -2020,9 +2020,9 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 			info->disk.state = 1 << MD_DISK_FAULTY;
 
 	} else {
+		/* There should always be a dlist, but just in case...*/
 		info->disk.number = -1;
 		info->disk.raid_disk = -1;
-//		info->disk.raid_disk = find refnum in the table and use index;
 		info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	}
 	info->events = be32_to_cpu(ddf->active->seq);

@@ -673,15 +673,23 @@ static int layout_md2ddf(const mdu_array_info_t *array,
 			rlq = DDF_RAID1_SIMPLE;
 			prim_elmnt_count =  cpu_to_be16(2);
 			sec_elmnt_count = array->raid_disks / 2;
+			srl = DDF_2SPANNED;
+			prl = DDF_RAID1;
 		} else if (array->raid_disks % 3 == 0
 			   && array->layout == 0x103) {
 			rlq = DDF_RAID1_MULTI;
 			prim_elmnt_count =  cpu_to_be16(3);
 			sec_elmnt_count = array->raid_disks / 3;
+			srl = DDF_2SPANNED;
+			prl = DDF_RAID1;
+		} else if (array->layout == 0x201) {
+			prl = DDF_RAID1E;
+			rlq = DDF_RAID1E_OFFSET;
+		} else if (array->layout == 0x102) {
+			prl = DDF_RAID1E;
+			rlq = DDF_RAID1E_ADJACENT;
 		} else
 			return err_bad_md_layout(array);
-		srl = DDF_2SPANNED;
-		prl = DDF_RAID1;
 		break;
 	default:
 		return err_bad_md_layout(array);
@@ -741,6 +749,15 @@ static int layout_ddf2md(const struct vd_config *conf,
 		      (conf->rlq == DDF_RAID1_MULTI && raiddisks == 3)))
 			return err_bad_ddf_layout(conf);
 		level = 1;
+		break;
+	case DDF_RAID1E:
+		if (conf->rlq == DDF_RAID1E_ADJACENT)
+			layout = 0x102;
+		else if (conf->rlq == DDF_RAID1E_OFFSET)
+			layout = 0x201;
+		else
+			return err_bad_ddf_layout(conf);
+		level = 10;
 		break;
 	case DDF_RAID4:
 		if (conf->rlq != DDF_RAID4_N)
@@ -4242,6 +4259,11 @@ static int get_bvd_state(const struct ddf_super *ddf,
 	unsigned int i, n_bvd, working = 0;
 	unsigned int n_prim = be16_to_cpu(vc->prim_elmnt_count);
 	int pd, st, state;
+	char *avail = xcalloc(1, n_prim);
+	mdu_array_info_t array;
+
+	layout_ddf2md(vc, &array);
+
 	for (i = 0; i < n_prim; i++) {
 		if (!find_index_in_bvd(ddf, vc, i, &n_bvd))
 			continue;
@@ -4250,8 +4272,10 @@ static int get_bvd_state(const struct ddf_super *ddf,
 			continue;
 		st = be16_to_cpu(ddf->phys->entries[pd].state);
 		if ((st & (DDF_Online|DDF_Failed|DDF_Rebuilding))
-		    == DDF_Online)
+		    == DDF_Online) {
 			working++;
+			avail[i] = 1;
+		}
 	}
 
 	state = DDF_state_degraded;
@@ -4269,6 +4293,10 @@ static int get_bvd_state(const struct ddf_super *ddf,
 				state = DDF_state_failed;
 			else if (working >= 2)
 				state = DDF_state_part_optimal;
+			break;
+		case DDF_RAID1E:
+			if (!enough(10, n_prim, array.layout, 1, avail))
+				state = DDF_state_failed;
 			break;
 		case DDF_RAID4:
 		case DDF_RAID5:

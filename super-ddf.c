@@ -2539,7 +2539,7 @@ static int cmp_extent(const void *av, const void *bv)
 
 static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 {
-	/* Find a list of used extents on the give physical device
+	/* Find a list of used extents on the given physical device
 	 * (dnum) of the given ddf.
 	 * Return a malloced array of 'struct extent'
 	 */
@@ -2574,6 +2574,54 @@ static struct extent *get_extents(struct ddf_super *ddf, struct dl *dl)
 	rv[n].start = be64_to_cpu(ddf->phys->entries[dl->pdnum].config_size);
 	rv[n].size = 0;
 	return rv;
+}
+
+static unsigned long long find_space(
+	struct ddf_super *ddf, struct dl *dl,
+	unsigned long long data_offset,
+	unsigned long long *size)
+{
+	/* Find if the requested amount of space is available.
+	 * If it is, return start.
+	 * If not, set *size to largest space.
+	 * If data_offset != INVALID_SECTORS, then the space must start
+	 * at this location.
+	 */
+	struct extent *e = get_extents(ddf, dl);
+	int i = 0;
+	unsigned long long pos = 0;
+	unsigned long long max_size = 0;
+
+	if (!e) {
+		*size = 0;
+		return INVALID_SECTORS;
+	}
+	do {
+		unsigned long long esize = e[i].start - pos;
+		if (data_offset != INVALID_SECTORS &&
+		    pos <= data_offset &&
+		    e[i].start > data_offset) {
+			pos = data_offset;
+			esize = e[i].start - pos;
+		}
+		if (data_offset != INVALID_SECTORS &&
+		    pos != data_offset) {
+			i++;
+			continue;
+		}
+		if (esize >= *size) {
+			/* Found! */
+			free(e);
+			return pos;
+		}
+		if (esize > max_size)
+			max_size = esize;
+		pos = e[i].start + e[i].size;
+		i++;
+	} while (e[i-1].size);
+	*size = max_size;
+	free(e);
+	return INVALID_SECTORS;
 }
 #endif
 
@@ -2713,8 +2761,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	struct ddf_super *ddf = st->sb;
 	struct vd_config *vc;
 	unsigned int i;
-	unsigned long long blocks, pos, esize;
-	struct extent *ex;
+	unsigned long long blocks, pos;
 	unsigned int raid_disk = dk->raid_disk;
 
 	if (fd == -1) {
@@ -2738,26 +2785,12 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		raid_disk %= n;
 	}
 
-	ex = get_extents(ddf, dl);
-	if (!ex)
-		return;
-
-	i = 0; pos = 0;
 	blocks = be64_to_cpu(vc->blocks);
 	if (ddf->currentconf->block_sizes)
 		blocks = ddf->currentconf->block_sizes[dk->raid_disk];
 
-	/* First-fit */
-	do {
-		esize = ex[i].start - pos;
-		if (esize >= blocks)
-			break;
-		pos = ex[i].start + ex[i].size;
-		i++;
-	} while (ex[i-1].size);
-
-	free(ex);
-	if (esize < blocks)
+	pos = find_space(ddf, dl, INVALID_SECTORS, &blocks);
+	if (pos == INVALID_SECTORS)
 		return;
 
 	ddf->currentdev = dk->raid_disk;
@@ -3273,32 +3306,13 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	}
 	/* Now find largest extent on each device */
 	for (dl = ddf->dlist ; dl ; dl=dl->next) {
-		struct extent *e = get_extents(ddf, dl);
-		unsigned long long pos = 0;
-		int i = 0;
-		int found = 0;
-		unsigned long long minsize = size;
+		unsigned long long minsize = ULLONG_MAX;
 
-		if (size == 0)
-			minsize = chunk;
-
-		if (!e)
-			continue;
-		do {
-			unsigned long long esize;
-			esize = e[i].start - pos;
-			if (esize >= minsize) {
-				found = 1;
-				minsize = esize;
-			}
-			pos = e[i].start + e[i].size;
-			i++;
-		} while (e[i-1].size);
-		if (found) {
+		find_space(ddf, dl, INVALID_SECTORS, &minsize);
+		if (minsize >= size && minsize >= (unsigned)chunk) {
 			cnt++;
 			dl->esize = minsize;
 		}
-		free(e);
 	}
 	if (cnt < raiddisks) {
 		pr_err("not enough devices with space to create array.\n");
@@ -3522,10 +3536,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	struct stat stb;
 	struct ddf_super *ddf = st->sb;
 	struct dl *dl;
-	unsigned long long pos = 0;
 	unsigned long long maxsize;
-	struct extent *e;
-	int i;
 	/* ddf/bvd supports lots of things, but not containers */
 	if (level == LEVEL_CONTAINER) {
 		if (verbose)
@@ -3545,23 +3556,9 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		if (minsize == 0)
 			minsize = 8;
 		for (dl = ddf->dlist; dl ; dl = dl->next) {
-			int found = 0;
-			pos = 0;
-
-			i = 0;
-			e = get_extents(ddf, dl);
-			if (!e) continue;
-			do {
-				unsigned long long esize;
-				esize = e[i].start - pos;
-				if (esize >= minsize)
-					found = 1;
-				pos = e[i].start + e[i].size;
-				i++;
-			} while (e[i-1].size);
-			if (found)
+			if (find_space(ddf, dl, INVALID_SECTORS, &minsize)
+			    != INVALID_SECTORS)
 				dcnt++;
-			free(e);
 		}
 		if (dcnt < raiddisks) {
 			if (verbose)
@@ -3589,18 +3586,8 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 			       dev);
 		return 0;
 	}
-	e = get_extents(ddf, dl);
-	maxsize = 0;
-	i = 0;
-	if (e)
-		do {
-			unsigned long long esize;
-			esize = e[i].start - pos;
-			if (esize >= maxsize)
-				maxsize = esize;
-			pos = e[i].start + e[i].size;
-			i++;
-		} while (e[i-1].size);
+	maxsize = ULLONG_MAX;
+	find_space(ddf, dl, INVALID_SECTORS, &maxsize);
 	*freesize = maxsize;
 	// FIXME here I am
 
@@ -5051,8 +5038,6 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			struct mdinfo *d2;
 			int is_global = 0;
 			int is_dedicated = 0;
-			struct extent *ex;
-			unsigned int j;
 			be16 state;
 
 			if (dl->pdnum < 0)
@@ -5082,6 +5067,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 				if (dl->spare) {
 					if (dl->spare->type & DDF_spare_dedicated) {
 						/* check spare_ents for guid */
+						unsigned int j;
 						for (j = 0 ;
 						     j < be16_to_cpu
 							     (dl->spare
@@ -5113,23 +5099,9 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 
 			/* We are allowed to use this device - is there space?
 			 * We need a->info.component_size sectors */
-			ex = get_extents(ddf, dl);
-			if (!ex) {
-				dprintf("cannot get extents\n");
-				continue;
-			}
-			j = 0; pos = 0;
-			esize = 0;
+			esize = a->info.component_size;
+			pos = find_space(ddf, dl, INVALID_SECTORS, &esize);
 
-			do {
-				esize = ex[j].start - pos;
-				if (esize >= a->info.component_size)
-					break;
-				pos = ex[j].start + ex[j].size;
-				j++;
-			} while (ex[j-1].size);
-
-			free(ex);
 			if (esize < a->info.component_size) {
 				dprintf("%x:%x has no room: %llu %llu\n",
 					dl->major, dl->minor,

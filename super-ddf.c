@@ -2014,7 +2014,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 		if (info->disk.raid_disk >= 0)
 			pde = ddf->phys->entries + info->disk.raid_disk;
 		if (pde &&
-		    !(be16_to_cpu(pde->state) & DDF_Failed))
+		    !(be16_to_cpu(pde->state) & DDF_Failed) &&
+		    !(be16_to_cpu(pde->state) & DDF_Missing))
 			info->disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 		else
 			info->disk.state = 1 << MD_DISK_FAULTY;

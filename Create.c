@@ -285,6 +285,12 @@ int Create(struct supertype *st, char *mddev,
 	info.array.active_disks = 0;
 	info.array.working_disks = 0;
 	dnum = 0;
+	for (dv = devlist; dv ; dv = dv->next)
+		if (data_offset == VARIABLE_OFFSET)
+			dv->data_offset = INVALID_SECTORS;
+		else
+			dv->data_offset = data_offset;
+
 	for (dv=devlist; dv && !have_container; dv=dv->next, dnum++) {
 		char *dname = dv->devname;
 		unsigned long long freesize;

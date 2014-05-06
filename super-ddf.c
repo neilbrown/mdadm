@@ -2337,11 +2337,6 @@ static int init_super_ddf(struct supertype *st,
 	struct phys_disk *pd;
 	struct virtual_disk *vd;
 
-	if (data_offset != INVALID_SECTORS) {
-		pr_err("data-offset not supported by DDF\n");
-		return 0;
-	}
-
 	if (st->sb)
 		return init_super_ddf_bvd(st, info, size, name, homehost, uuid,
 					  data_offset);
@@ -2745,7 +2740,8 @@ static int init_super_ddf_bvd(struct supertype *st,
 
 #ifndef MDASSEMBLE
 static void add_to_super_ddf_bvd(struct supertype *st,
-				 mdu_disk_info_t *dk, int fd, char *devname)
+				 mdu_disk_info_t *dk, int fd, char *devname,
+				 unsigned long long data_offset)
 {
 	/* fd and devname identify a device within the ddf container (st).
 	 * dk identifies a location in the new BVD.
@@ -2789,7 +2785,7 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 	if (ddf->currentconf->block_sizes)
 		blocks = ddf->currentconf->block_sizes[dk->raid_disk];
 
-	pos = find_space(ddf, dl, INVALID_SECTORS, &blocks);
+	pos = find_space(ddf, dl, data_offset, &blocks);
 	if (pos == INVALID_SECTORS)
 		return;
 
@@ -2878,7 +2874,7 @@ static int add_to_super_ddf(struct supertype *st,
 	__u32 *tptr;
 
 	if (ddf->currentconf) {
-		add_to_super_ddf_bvd(st, dk, fd, devname);
+		add_to_super_ddf_bvd(st, dk, fd, devname, data_offset);
 		return 0;
 	}
 
@@ -3288,6 +3284,7 @@ static __u64 avail_size_ddf(struct supertype *st, __u64 devsize,
 
 static int reserve_space(struct supertype *st, int raiddisks,
 			 unsigned long long size, int chunk,
+			 unsigned long long data_offset,
 			 unsigned long long *freesize)
 {
 	/* Find 'raiddisks' spare extents at least 'size' big (but
@@ -3308,7 +3305,7 @@ static int reserve_space(struct supertype *st, int raiddisks,
 	for (dl = ddf->dlist ; dl ; dl=dl->next) {
 		unsigned long long minsize = ULLONG_MAX;
 
-		find_space(ddf, dl, INVALID_SECTORS, &minsize);
+		find_space(ddf, dl, data_offset, &minsize);
 		if (minsize >= size && minsize >= (unsigned)chunk) {
 			cnt++;
 			dl->esize = minsize;
@@ -3410,7 +3407,8 @@ static int validate_geometry_ddf(struct supertype *st,
 			 * chosen so that add_to_super/getinfo_super
 			 * can return them.
 			 */
-			return reserve_space(st, raiddisks, size, *chunk, freesize);
+			return reserve_space(st, raiddisks, size, *chunk,
+					     data_offset, freesize);
 		}
 		return 1;
 	}
@@ -3556,7 +3554,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		if (minsize == 0)
 			minsize = 8;
 		for (dl = ddf->dlist; dl ; dl = dl->next) {
-			if (find_space(ddf, dl, INVALID_SECTORS, &minsize)
+			if (find_space(ddf, dl, data_offset, &minsize)
 			    != INVALID_SECTORS)
 				dcnt++;
 		}
@@ -3587,7 +3585,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		return 0;
 	}
 	maxsize = ULLONG_MAX;
-	find_space(ddf, dl, INVALID_SECTORS, &maxsize);
+	find_space(ddf, dl, data_offset, &maxsize);
 	*freesize = maxsize;
 	// FIXME here I am
 

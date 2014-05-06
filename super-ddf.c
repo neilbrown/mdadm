@@ -2042,10 +2042,14 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 	uuid_from_super_ddf(st, info->uuid);
 
 	if (map) {
-		int i;
-		for (i = 0 ; i < map_disks; i++) {
-			if (i < info->array.raid_disks &&
-			    !(be16_to_cpu(ddf->phys->entries[i].state)
+		int i, e = 0;
+		int max = be16_to_cpu(ddf->phys->max_pdes);
+		for (i = e = 0 ; i < map_disks ; i++, e++) {
+			while (e < max &&
+			       be32_to_cpu(ddf->phys->entries[e].refnum) == 0xffffffff)
+				e++;
+			if (i < info->array.raid_disks && e < max &&
+			    !(be16_to_cpu(ddf->phys->entries[e].state)
 			      & DDF_Failed))
 				map[i] = 1;
 			else

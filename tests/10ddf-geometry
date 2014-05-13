@@ -32,14 +32,14 @@ mdadm -CR l1m -l1 -n3 $dev8 $dev9 $dev10 -z 10000
 assert_fail -CR badl1 -l1 -n4 /dev/md/ddf0
 
 # RAID10 geometries
-assert_fail -CR badl10 -l10 -n3 /dev/md/ddf0
-assert_fail -CR badl10 -l10 -n5 /dev/md/ddf0
-assert_fail -CR badl10 -l10 -n4 -pn3 /dev/md/ddf0
-mdadm -CR l10_2 -l10 -n6 -pn2 /dev/md/ddf0 -z 5000
-mdadm -CR l10_3 -l10 -n6 -pn3 /dev/md/ddf0 -z 5000
+mdadm -CR l10_0 -l10 -n3 /dev/md/ddf0 -z 1000
+mdadm -CR l10_1 -l10 -n5 /dev/md/ddf0 -z 1000
+assert_fail mdadm -CR badl10 -l10 -n4 -pn3 /dev/md/ddf0
+mdadm -CR l10_2 -l10 -n6 -pn2 /dev/md/ddf0 -z 4000
+mdadm -CR l10_3 -l10 -n6 -pn3 /dev/md/ddf0 -z 4000
 
 assert_fail -CR l10_2 -l10 -n6 -pn2 /dev/md/ddf0 -z 5000
-assert_kill /dev/md/l10_2 2
+assert_kill /dev/md/l10_2 4
 # gone now, must be able to create it again
 mdadm -CR l10_2 -l10 -n6 -pn2 /dev/md/ddf0 -z 5000
 
@@ -50,12 +50,12 @@ mdadm -A /dev/md/ddf0 $dev8 $dev9 $dev10 $dev11 $dev12 $dev13
 # Same as above, on inactive container
 assert_fail -CR l10_3 -l10 -n6 -pn2 /dev/md/ddf0 -z 5000
 # Kill subarray without having started anything (no mdmon)
-mdadm --kill-subarray=3 /dev/md/ddf0
+mdadm --kill-subarray=5 /dev/md/ddf0
 mdadm -I /dev/md/ddf0
 mdadm -CR l10_3 -l10 -n6 -pn3 /dev/md/ddf0 -z 5000
 
-assert_kill /dev/md/l10_2 2
-assert_kill /dev/md/l10_3 3
+assert_kill /dev/md/l10_2 4
+assert_kill /dev/md/l10_3 5
 
 # RAID5 geometries
 mdadm -CR l5la -l5 -n3 --layout=ddf-N-restart /dev/md/ddf0 -z 5000
@@ -68,9 +68,9 @@ mdadm -Ss
 mdadm -A /dev/md/ddf0 $dev8 $dev9 $dev10 $dev11 $dev12 $dev13
 mdadm -I /dev/md/ddf0
 
-assert_kill /dev/md/l5la 2
-assert_kill /dev/md/l5ls 4
-assert_kill /dev/md/l5ra 3
+assert_kill /dev/md/l5la 4
+assert_kill /dev/md/l5ls 6
+assert_kill /dev/md/l5ra 5
 
 # RAID6 geometries
 assert_fail -CR l6la -l6 -n3 -pla /dev/md/ddf0 -z 5000

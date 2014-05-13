@@ -1,6 +1,6 @@
 # An array is assembled incompletely.
-# The previously missing disks are then added again.
-# Nothing is written, so this should work cleanly.
+# Re missing disks get marked as missing and are not allowed back in
+
 . tests/env-ddf-template
 tmp=$(mktemp /tmp/mdtest-XXXXXX)
 rm -f $tmp /var/tmp/mdmon.log
@@ -36,15 +36,18 @@ done
 mdadm -Ss
 
 # Expect consistent state
-for d in $dev10 $dev8; do
+for d in $dev10 $dev11; do
     mdadm -E $d>$tmp
-    for x in 0 1; do
-	egrep 'state\['$x'\] : Optimal, Consistent' $tmp || {
-	    ret=1
-	    echo ERROR: $member0 has unexpected state on $d
-	}
-    done
-    if [ x$(egrep -c 'active/Online$' $tmp) != x4 ]; then
+    egrep 'state\[0\] : Degraded, Consistent' $tmp || {
+        ret=1
+        echo ERROR: $member0 has unexpected state on $d
+    }
+    egrep 'state\[1\] : Optimal, Consistent' $tmp || {
+        ret=1
+        echo ERROR: $member1 has unexpected state on $d
+    }
+
+    if [ x$(egrep -c 'active/Online$' $tmp) != x2 ]; then
 	ret=1
 	echo ERROR: unexpected number of online disks on $d
     fi

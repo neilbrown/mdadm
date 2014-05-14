@@ -26,6 +26,7 @@
 #include	<sys/mman.h>
 #include	<stdint.h>
 #include	<signal.h>
+#include	<sys/wait.h>
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
 #error no endian defined
@@ -3231,6 +3232,55 @@ started:
 		return 1;
 	}
 
+	if (!forked && !check_env("MDADM_NO_SYSTEMCTL")) {
+		int skipped, i, pid, status;
+		char pathbuf[1024];
+		char *devnm;
+		/* In a systemd/udev world, it is best to get systemd to
+		 * run "mdadm --grow --continue" rather than running in the
+		 * background.
+		 */
+		if (container)
+			devnm = container;
+		else
+			devnm = sra->sys_name;
+		switch(fork()) {
+		case  0:
+			/* FIXME yuk. CLOSE_EXEC?? */
+			skipped = 0;
+			for (i = 3; skipped < 20; i++)
+				if (close(i) < 0)
+					skipped++;
+				else
+					skipped = 0;
+
+			/* Don't want to see error messages from
+			 * systemctl.  If the service doesn't exist,
+			 * we fork ourselves.
+			 */
+			close(2);
+			open("/dev/null", O_WRONLY);
+			snprintf(pathbuf, sizeof(pathbuf), "mdadm-grow-continue@%s.service",
+				 devnm);
+			status = execl("/usr/bin/systemctl", "systemctl",
+				       "start",
+				       pathbuf, NULL);
+			status = execl("/bin/systemctl", "systemctl", "start",
+				       pathbuf, NULL);
+			exit(1);
+		case -1: /* Just do it ourselves. */
+			break;
+		default: /* parent - good */
+			pid = wait(&status);
+			if (pid >= 0 && status == 0) {
+				free(fdlist);
+				free(offsets);
+				sysfs_free(sra);
+				return 0;
+			}
+		}
+	}
+
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
 	 * This is all done by a forked background process.
@@ -3312,12 +3362,18 @@ started:
 
 	if (backup_file && done) {
 		char *bul;
-		unlink(backup_file);
 		bul = make_backup(sra->sys_name);
 		if (bul) {
+			char buf[1024];
+			int l = readlink(bul, buf, sizeof(buf));
+			if (l > 0) {
+				buf[l]=0;
+				unlink(buf);
+			}
 			unlink(bul);
 			free(bul);
 		}
+		unlink(backup_file);
 	}
 	if (!done) {
 		abort_reshape(sra);
@@ -4898,7 +4954,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	} else
 		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
 					NULL, INVALID_SECTORS,
-					backup_file, 0, 0,
+					backup_file, 0, 1,
 					1 | info->reshape_active,
 					freeze_reshape);
 

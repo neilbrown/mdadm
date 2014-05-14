@@ -288,6 +288,7 @@ install-systemd: systemd/mdmon@.service
 	$(INSTALL) -D -m 644 systemd/mdmonitor.service $(DESTDIR)$(SYSTEMD_DIR)/mdmonitor.service
 	$(INSTALL) -D -m 644 systemd/mdadm-last-resort@.timer $(DESTDIR)$(SYSTEMD_DIR)/mdadm-last-resort@.timer
 	$(INSTALL) -D -m 644 systemd/mdadm-last-resort@.service $(DESTDIR)$(SYSTEMD_DIR)/mdadm-last-resort@.service
+	$(INSTALL) -D -m 644 systemd/mdadm-grow-continue@.service $(DESTDIR)$(SYSTEMD_DIR)/mdadm-grow-continue@.service
 	$(INSTALL) -D -m 755 systemd/mdadm.shutdown $(DESTDIR)$(SYSTEMD_DIR)-shutdown/mdadm.shutdown
 	if [ -f /etc/SuSE-release -o -n "$(SUSE)" ] ;then $(INSTALL) -D -m 755 systemd/SUSE-mdadm_env.sh $(DESTDIR)$(SYSTEMD_DIR)/../scripts/mdadm_env.sh ;fi
 

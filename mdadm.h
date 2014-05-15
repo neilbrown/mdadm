@@ -585,9 +585,12 @@ extern int reshape_open_backup_file(char *backup,
 				    long blocks,
 				    int *fdlist,
 				    unsigned long long *offsets,
+				    char *sysfs_name,
 				    int restart);
 extern unsigned long compute_backup_blocks(int nchunk, int ochunk,
 					   unsigned int ndata, unsigned int odata);
+extern char *locate_backup(char *name);
+extern char *make_backup(char *name);
 
 extern int save_stripes(int *source, unsigned long long *offsets,
 			int raid_disks, int chunk_size, int level, int layout,
@@ -1196,7 +1199,7 @@ extern int restore_backup(struct supertype *st,
 			  struct mdinfo *content,
 			  int working_disks,
 			  int spares,
-			  char *backup_file,
+			  char **backup_filep,
 			  int verbose);
 extern int Grow_continue_command(char *devname, int fd,
 				 char *backup_file, int verbose);

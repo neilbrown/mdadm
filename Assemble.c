@@ -1680,6 +1680,8 @@ try_again:
 			pr_err(":%s has an active reshape - checking "
 			       "if critical section needs to be restored\n",
 			       chosen_name);
+		if (!c->backup_file)
+			c->backup_file = locate_backup(content->sys_name);
 		enable_fds(bestcnt/2);
 		for (i = 0; i < bestcnt/2; i++) {
 			int j = best[i*2];
@@ -1892,7 +1894,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		int spare = content->array.raid_disks + expansion;
 		if (restore_backup(st, content,
 				   working,
-				   spare, c->backup_file, c->verbose) == 1)
+				   spare, &c->backup_file, c->verbose) == 1)
 			return 1;
 
 		err = sysfs_set_str(content, NULL,

@@ -41,7 +41,7 @@ int restore_backup(struct supertype *st,
 		   struct mdinfo *content,
 		   int working_disks,
 		   int next_spare,
-		   char *backup_file,
+		   char **backup_filep,
 		   int verbose)
 {
 	int i;
@@ -49,6 +49,7 @@ int restore_backup(struct supertype *st,
 	struct mdinfo *dev;
 	int err;
 	int disk_count = next_spare + working_disks;
+	char *backup_file = *backup_filep;
 
 	dprintf("Called restore_backup()\n");
 	fdlist = xmalloc(sizeof(int) * disk_count);
@@ -68,6 +69,11 @@ int restore_backup(struct supertype *st,
 			fdlist[dev->disk.raid_disk] = fd;
 		else
 			fdlist[next_spare++] = fd;
+	}
+
+	if (!backup_file) {
+		backup_file = locate_backup(content->sys_name);
+		*backup_filep = backup_file;
 	}
 
 	if (st->ss->external && st->ss->recover_backup)
@@ -886,6 +892,7 @@ int reshape_open_backup_file(char *backup_file,
 			     long blocks,
 			     int *fdlist,
 			     unsigned long long *offsets,
+			     char *sys_name,
 			     int restart)
 {
 	/* Return 1 on success, 0 on any form of failure */
@@ -931,6 +938,12 @@ int reshape_open_backup_file(char *backup_file,
 		pr_err("%s: cannot create backup file %s: %s\n",
 			devname, backup_file, strerror(errno));
 		return 0;
+	}
+
+	if (!restart && strncmp(backup_file, MAP_DIR, strlen(MAP_DIR)) != 0) {
+		char *bu = make_backup(sys_name);
+		symlink(backup_file, bu);
+		free(bu);
 	}
 
 	return 1;
@@ -2843,6 +2856,10 @@ static int reshape_array(char *container, int fd, char *devname,
 			       devname);
 			goto release;
 		}
+
+		if (!backup_file)
+			backup_file = locate_backup(sra->sys_name);
+
 		goto started;
 	}
 	/* The container is frozen but the array may not be.
@@ -3172,6 +3189,7 @@ started:
 			if (!reshape_open_backup_file(backup_file, fd, devname,
 						      (signed)blocks,
 						      fdlist+d, offsets+d,
+						      sra->sys_name,
 						      restart)) {
 				goto release;
 			}
@@ -3292,8 +3310,15 @@ started:
 	free(fdlist);
 	free(offsets);
 
-	if (backup_file && done)
+	if (backup_file && done) {
+		char *bul;
 		unlink(backup_file);
+		bul = make_backup(sra->sys_name);
+		if (bul) {
+			unlink(bul);
+			free(bul);
+		}
+	}
 	if (!done) {
 		abort_reshape(sra);
 		goto out;
@@ -4878,4 +4903,29 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 					freeze_reshape);
 
 	return ret_val;
+}
+
+char *make_backup(char *name)
+{
+	char *base = "backup_file-";
+	int len;
+	char *fname;
+
+	len = strlen(MAP_DIR) + 1 + strlen(base) + strlen(name)+1;
+	fname = xmalloc(len);
+	sprintf(fname, "%s/%s%s", MAP_DIR, base, name);
+	return fname;
+}
+
+char *locate_backup(char *name)
+{
+	char *fl = make_backup(name);
+	struct stat stb;
+
+	if (stat(fl, &stb) == 0 &&
+	    S_ISREG(stb.st_mode))
+		return fl;
+
+	free(fl);
+	return NULL;
 }

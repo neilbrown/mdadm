@@ -3475,6 +3475,10 @@ int reshape_container(char *container, char *devname,
 	 */
 	ping_monitor(container);
 
+	if (!forked && !check_env("MDADM_NO_SYSTEMCTL"))
+		if (continue_via_systemd(container))
+			return 0;
+
 	switch (forked ? 0 : fork()) {
 	case -1: /* error */
 		perror("Cannot fork to complete reshape\n");

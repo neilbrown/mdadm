@@ -1514,8 +1514,8 @@ static int reshape_container(char *container, char *devname,
 			     struct supertype *st,
 			     struct mdinfo *info,
 			     int force,
-			     char *backup_file,
-			     int verbose, int restart, int freeze_reshape);
+			     char *backup_file, int verbose,
+			     int forked, int restart, int freeze_reshape);
 
 int Grow_reshape(char *devname, int fd,
 		 struct mddev_dev *devlist,
@@ -2067,7 +2067,7 @@ size_change_error:
 		 * performed at the level of the container
 		 */
 		rv = reshape_container(container, devname, -1, st, &info,
-				       c->force, c->backup_file, c->verbose, 0, 0);
+				       c->force, c->backup_file, c->verbose, 0, 0, 0);
 		frozen = 0;
 	} else {
 		/* get spare devices from external metadata
@@ -3448,8 +3448,8 @@ int reshape_container(char *container, char *devname,
 		      struct supertype *st,
 		      struct mdinfo *info,
 		      int force,
-		      char *backup_file,
-		      int verbose, int restart, int freeze_reshape)
+		      char *backup_file, int verbose,
+		      int forked, int restart, int freeze_reshape)
 {
 	struct mdinfo *cc = NULL;
 	int rv = restart;
@@ -3474,7 +3474,7 @@ int reshape_container(char *container, char *devname,
 	 */
 	ping_monitor(container);
 
-	switch (fork()) {
+	switch (forked ? 0 : fork()) {
 	case -1: /* error */
 		perror("Cannot fork to complete reshape\n");
 		unfreeze(st);
@@ -4948,7 +4948,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		close(cfd);
 		ret_val = reshape_container(st->container_devnm, NULL, mdfd,
 					    st, info, 0, backup_file,
-					    0,
+					    0, 1,
 					    1 | info->reshape_active,
 					    freeze_reshape);
 	} else

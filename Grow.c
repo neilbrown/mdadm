@@ -2753,6 +2753,48 @@ static void catch_term(int sig)
 	sigterm = 1;
 }
 
+static int continue_via_systemd(char *devnm)
+{
+	int skipped, i, pid, status;
+	char pathbuf[1024];
+	/* In a systemd/udev world, it is best to get systemd to
+	 * run "mdadm --grow --continue" rather than running in the
+	 * background.
+	 */
+	switch(fork()) {
+	case  0:
+		/* FIXME yuk. CLOSE_EXEC?? */
+		skipped = 0;
+		for (i = 3; skipped < 20; i++)
+			if (close(i) < 0)
+				skipped++;
+			else
+				skipped = 0;
+
+		/* Don't want to see error messages from
+		 * systemctl.  If the service doesn't exist,
+		 * we fork ourselves.
+		 */
+		close(2);
+		open("/dev/null", O_WRONLY);
+		snprintf(pathbuf, sizeof(pathbuf), "mdadm-grow-continue@%s.service",
+			 devnm);
+		status = execl("/usr/bin/systemctl", "systemctl",
+			       "start",
+			       pathbuf, NULL);
+		status = execl("/bin/systemctl", "systemctl", "start",
+			       pathbuf, NULL);
+		exit(1);
+	case -1: /* Just do it ourselves. */
+		break;
+	default: /* parent - good */
+		pid = wait(&status);
+		if (pid >= 0 && status == 0)
+			return 1;
+	}
+	return 0;
+}
+
 static int reshape_array(char *container, int fd, char *devname,
 			 struct supertype *st, struct mdinfo *info,
 			 int force, struct mddev_dev *devlist,
@@ -3232,54 +3274,13 @@ started:
 		return 1;
 	}
 
-	if (!forked && !check_env("MDADM_NO_SYSTEMCTL")) {
-		int skipped, i, pid, status;
-		char pathbuf[1024];
-		char *devnm;
-		/* In a systemd/udev world, it is best to get systemd to
-		 * run "mdadm --grow --continue" rather than running in the
-		 * background.
-		 */
-		if (container)
-			devnm = container;
-		else
-			devnm = sra->sys_name;
-		switch(fork()) {
-		case  0:
-			/* FIXME yuk. CLOSE_EXEC?? */
-			skipped = 0;
-			for (i = 3; skipped < 20; i++)
-				if (close(i) < 0)
-					skipped++;
-				else
-					skipped = 0;
-
-			/* Don't want to see error messages from
-			 * systemctl.  If the service doesn't exist,
-			 * we fork ourselves.
-			 */
-			close(2);
-			open("/dev/null", O_WRONLY);
-			snprintf(pathbuf, sizeof(pathbuf), "mdadm-grow-continue@%s.service",
-				 devnm);
-			status = execl("/usr/bin/systemctl", "systemctl",
-				       "start",
-				       pathbuf, NULL);
-			status = execl("/bin/systemctl", "systemctl", "start",
-				       pathbuf, NULL);
-			exit(1);
-		case -1: /* Just do it ourselves. */
-			break;
-		default: /* parent - good */
-			pid = wait(&status);
-			if (pid >= 0 && status == 0) {
-				free(fdlist);
-				free(offsets);
-				sysfs_free(sra);
-				return 0;
-			}
+	if (!forked && !check_env("MDADM_NO_SYSTEMCTL"))
+		if (continue_via_systemd(container ?: sra->sys_name)) {
+			free(fdlist);
+			free(offsets);
+			sysfs_free(sra);
+			return 0;
 		}
-	}
 
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...

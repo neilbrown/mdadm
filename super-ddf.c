@@ -4403,8 +4403,9 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		dprintf("%s: array %u disk %u ref %08x pd %d\n",
 			__func__, inst, n_bvd,
 			be32_to_cpu(vc->phys_refnum[n_bvd]), pd);
-		if ((state & DS_INSYNC) && ! (state & DS_FAULTY)) {
-			pd = dl->pdnum; /* FIXME: is this really correct ? */
+		if ((state & DS_INSYNC) && ! (state & DS_FAULTY) &&
+		    dl->pdnum >= 0) {
+			pd = dl->pdnum;
 			vc->phys_refnum[n_bvd] = dl->disk.refnum;
 			LBA_OFFSET(ddf, vc)[n_bvd] =
 				cpu_to_be64(mdi->data_offset);

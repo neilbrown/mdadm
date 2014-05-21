@@ -3435,16 +3435,8 @@ static int validate_geometry_ddf(struct supertype *st,
 	 */
 	fd = open(dev, O_RDONLY|O_EXCL, 0);
 	if (fd >= 0) {
-		sra = sysfs_read(fd, NULL, GET_VERSION);
 		close(fd);
-		if (sra && sra->array.major_version == -1 &&
-		    strcmp(sra->text_version, "ddf") == 0) {
-			/* load super */
-			/* find space for 'n' devices. */
-			/* remember the devices */
-			/* Somehow return the fact that we have enough */
-		}
-
+		/* Just a bare device, no good to us */
 		if (verbose)
 			pr_err("ddf: Cannot create this array "
 			       "on device %s - a container is required.\n",

@@ -4218,7 +4218,6 @@ static int ddf_set_array_state(struct active_array *a, int consistent)
 	int old = ddf->virt->entries[inst].state;
 	if (consistent == 2) {
 		handle_missing(ddf, a, inst);
-		/* Should check if a recovery should be started FIXME */
 		consistent = 1;
 		if (!is_resync_complete(&a->info))
 			consistent = 0;

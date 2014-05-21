@@ -3259,13 +3259,15 @@ static int write_init_super_ddf(struct supertype *st)
 			       len);
 		append_metadata_update(st, vc, tlen);
 
-		/* FIXME I need to close the fds! */
 		return 0;
 	} else {
 		struct dl *d;
 		if (!currentconf)
 			for (d = ddf->dlist; d; d=d->next)
 				while (Kill(d->devname, NULL, 0, -1, 1) == 0);
+		/* Note: we don't close the fd's now, but a subsequent
+		 * ->free_super() will
+		 */
 		return __write_init_super_ddf(st);
 	}
 }

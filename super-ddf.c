@@ -30,6 +30,7 @@
 #include "mdmon.h"
 #include "sha1.h"
 #include <values.h>
+#include <stddef.h>
 
 /* a non-official T10 name for creation GUIDs */
 static char T10[] = "Linux-MD";
@@ -535,10 +536,6 @@ static int init_super_ddf_bvd(struct supertype *st,
 			      unsigned long long size,
 			      char *name, char *homehost,
 			      int *uuid, unsigned long long data_offset);
-
-#ifndef offsetof
-#define offsetof(t,f) ((size_t)&(((t*)0)->f))
-#endif
 
 #if DEBUG
 static void pr_state(struct ddf_super *ddf, const char *msg)

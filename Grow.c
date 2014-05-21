@@ -24,6 +24,7 @@
 #include	"mdadm.h"
 #include	"dlink.h"
 #include	<sys/mman.h>
+#include	<stddef.h>
 #include	<stdint.h>
 #include	<signal.h>
 #include	<sys/wait.h>
@@ -33,10 +34,6 @@
 #endif
 #include	"md_u.h"
 #include	"md_p.h"
-
-#ifndef offsetof
-#define offsetof(t,f) ((size_t)&(((t*)0)->f))
-#endif
 
 int restore_backup(struct supertype *st,
 		   struct mdinfo *content,

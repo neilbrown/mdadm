@@ -22,6 +22,7 @@
  *    Email: <neilb@suse.de>
  */
 
+#include <stddef.h>
 #include "mdadm.h"
 /*
  * The version-1 superblock :
@@ -133,9 +134,6 @@ struct misc_dev_info {
 					|MD_FEATURE_NEW_OFFSET		\
 					)
 
-#ifndef offsetof
-#define offsetof(t,f) ((size_t)&(((t*)0)->f))
-#endif
 static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 {
 	unsigned int disk_csum, csum;

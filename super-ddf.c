@@ -4574,6 +4574,297 @@ static void copy_matching_bvd(struct ddf_super *ddf,
 	       conf->sec_elmnt_seq, guid_str(conf->guid));
 }
 
+static void ddf_process_phys_update(struct supertype *st,
+				    struct metadata_update *update)
+{
+	struct ddf_super *ddf = st->sb;
+	struct phys_disk *pd;
+	unsigned int ent;
+
+	pd = (struct phys_disk*)update->buf;
+	ent = be16_to_cpu(pd->used_pdes);
+	if (ent >= be16_to_cpu(ddf->phys->max_pdes))
+		return;
+	if (be16_and(pd->entries[0].state, cpu_to_be16(DDF_Missing))) {
+		struct dl **dlp;
+		/* removing this disk. */
+		be16_set(ddf->phys->entries[ent].state,
+			 cpu_to_be16(DDF_Missing));
+		for (dlp = &ddf->dlist; *dlp; dlp = &(*dlp)->next) {
+			struct dl *dl = *dlp;
+			if (dl->pdnum == (signed)ent) {
+				close(dl->fd);
+				dl->fd = -1;
+				/* FIXME this doesn't free
+				 * dl->devname */
+				update->space = dl;
+				*dlp = dl->next;
+				break;
+			}
+		}
+		ddf_set_updates_pending(ddf, NULL);
+		return;
+	}
+	if (!all_ff(ddf->phys->entries[ent].guid))
+		return;
+	ddf->phys->entries[ent] = pd->entries[0];
+	ddf->phys->used_pdes = cpu_to_be16
+		(1 + be16_to_cpu(ddf->phys->used_pdes));
+	ddf_set_updates_pending(ddf, NULL);
+	if (ddf->add_list) {
+		struct active_array *a;
+		struct dl *al = ddf->add_list;
+		ddf->add_list = al->next;
+
+		al->next = ddf->dlist;
+		ddf->dlist = al;
+
+		/* As a device has been added, we should check
+		 * for any degraded devices that might make
+		 * use of this spare */
+		for (a = st->arrays ; a; a=a->next)
+			a->check_degraded = 1;
+	}
+}
+
+static void ddf_process_virt_update(struct supertype *st,
+				    struct metadata_update *update)
+{
+	struct ddf_super *ddf = st->sb;
+	struct virtual_disk *vd;
+	unsigned int ent;
+
+	vd = (struct virtual_disk*)update->buf;
+
+	if (vd->entries[0].state == DDF_state_deleted) {
+		if (_kill_subarray_ddf(ddf, vd->entries[0].guid))
+			return;
+	} else {
+		ent = find_vde_by_guid(ddf, vd->entries[0].guid);
+		if (ent != DDF_NOTFOUND) {
+			dprintf("%s: VD %s exists already in slot %d\n",
+				__func__, guid_str(vd->entries[0].guid),
+				ent);
+			return;
+		}
+		ent = find_unused_vde(ddf);
+		if (ent == DDF_NOTFOUND)
+			return;
+		ddf->virt->entries[ent] = vd->entries[0];
+		ddf->virt->populated_vdes =
+			cpu_to_be16(
+				1 + be16_to_cpu(
+					ddf->virt->populated_vdes));
+		dprintf("%s: added VD %s in slot %d(s=%02x i=%02x)\n",
+			__func__, guid_str(vd->entries[0].guid), ent,
+			ddf->virt->entries[ent].state,
+			ddf->virt->entries[ent].init_state);
+	}
+	ddf_set_updates_pending(ddf, NULL);
+}
+
+static void ddf_remove_failed(struct ddf_super *ddf)
+{
+	/* Now remove any 'Failed' devices that are not part
+	 * of any VD.  They will have the Transition flag set.
+	 * Once done, we need to update all dl->pdnum numbers.
+	 */
+	unsigned int pdnum;
+	unsigned int pd2 = 0;
+	struct dl *dl;
+
+	for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->max_pdes);
+	     pdnum++) {
+		if (be32_to_cpu(ddf->phys->entries[pdnum].refnum) ==
+		    0xFFFFFFFF)
+			continue;
+		if (be16_and(ddf->phys->entries[pdnum].state,
+			     cpu_to_be16(DDF_Failed))
+		    && be16_and(ddf->phys->entries[pdnum].state,
+				cpu_to_be16(DDF_Transition))) {
+			/* skip this one unless in dlist*/
+			for (dl = ddf->dlist; dl; dl = dl->next)
+				if (dl->pdnum == (int)pdnum)
+					break;
+			if (!dl)
+				continue;
+		}
+		if (pdnum == pd2)
+			pd2++;
+		else {
+			ddf->phys->entries[pd2] =
+				ddf->phys->entries[pdnum];
+			for (dl = ddf->dlist; dl; dl = dl->next)
+				if (dl->pdnum == (int)pdnum)
+					dl->pdnum = pd2;
+			pd2++;
+		}
+	}
+	ddf->phys->used_pdes = cpu_to_be16(pd2);
+	while (pd2 < pdnum) {
+		memset(ddf->phys->entries[pd2].guid, 0xff,
+		       DDF_GUID_LEN);
+		pd2++;
+	}
+}
+
+static void ddf_update_vlist(struct ddf_super *ddf, struct dl *dl)
+{
+	struct vcl *vcl;
+	unsigned int vn = 0;
+	int in_degraded = 0;
+
+	if (dl->pdnum < 0)
+		return;
+	for (vcl = ddf->conflist; vcl ; vcl = vcl->next) {
+		unsigned int dn, ibvd;
+		const struct vd_config *conf;
+		int vstate;
+		dn = get_pd_index_from_refnum(vcl,
+					      dl->disk.refnum,
+					      ddf->mppe,
+					      &conf, &ibvd);
+		if (dn == DDF_NOTFOUND)
+			continue;
+		dprintf("dev %d/%08x has %s (sec=%u) at %d\n",
+			dl->pdnum,
+			be32_to_cpu(dl->disk.refnum),
+			guid_str(conf->guid),
+			conf->sec_elmnt_seq, vn);
+		/* Clear the Transition flag */
+		if (be16_and
+		    (ddf->phys->entries[dl->pdnum].state,
+		     cpu_to_be16(DDF_Failed)))
+			be16_clear(ddf->phys
+				   ->entries[dl->pdnum].state,
+				   cpu_to_be16(DDF_Transition));
+		dl->vlist[vn++] = vcl;
+		vstate = ddf->virt->entries[vcl->vcnum].state
+			& DDF_state_mask;
+		if (vstate == DDF_state_degraded ||
+		    vstate == DDF_state_part_optimal)
+			in_degraded = 1;
+	}
+	while (vn < ddf->max_part)
+		dl->vlist[vn++] = NULL;
+	if (dl->vlist[0]) {
+		be16_clear(ddf->phys->entries[dl->pdnum].type,
+			   cpu_to_be16(DDF_Global_Spare));
+		if (!be16_and(ddf->phys
+			      ->entries[dl->pdnum].type,
+			      cpu_to_be16(DDF_Active_in_VD))) {
+			be16_set(ddf->phys
+				 ->entries[dl->pdnum].type,
+				 cpu_to_be16(DDF_Active_in_VD));
+			if (in_degraded)
+				be16_set(ddf->phys
+					 ->entries[dl->pdnum]
+					 .state,
+					 cpu_to_be16
+					 (DDF_Rebuilding));
+		}
+	}
+	if (dl->spare) {
+		be16_clear(ddf->phys->entries[dl->pdnum].type,
+			   cpu_to_be16(DDF_Global_Spare));
+		be16_set(ddf->phys->entries[dl->pdnum].type,
+			 cpu_to_be16(DDF_Spare));
+	}
+	if (!dl->vlist[0] && !dl->spare) {
+		be16_set(ddf->phys->entries[dl->pdnum].type,
+			 cpu_to_be16(DDF_Global_Spare));
+		be16_clear(ddf->phys->entries[dl->pdnum].type,
+			   cpu_to_be16(DDF_Spare));
+		be16_clear(ddf->phys->entries[dl->pdnum].type,
+			   cpu_to_be16(DDF_Active_in_VD));
+	}
+}
+
+static void ddf_process_conf_update(struct supertype *st,
+				    struct metadata_update *update)
+{
+	struct ddf_super *ddf = st->sb;
+	struct vd_config *vc;
+	struct vcl *vcl;
+	struct dl *dl;
+	unsigned int ent;
+	unsigned int pdnum, len;
+
+	vc = (struct vd_config*)update->buf;
+	len = ddf->conf_rec_len * 512;
+	if ((unsigned int)update->len != len * vc->sec_elmnt_count) {
+		pr_err("%s: %s: insufficient data (%d) for %u BVDs\n",
+		       __func__, guid_str(vc->guid), update->len,
+		       vc->sec_elmnt_count);
+		return;
+	}
+	for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
+		if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
+			break;
+	dprintf("%s: conf update for %s (%s)\n", __func__,
+		guid_str(vc->guid), (vcl ? "old" : "new"));
+	if (vcl) {
+		/* An update, just copy the phys_refnum and lba_offset
+		 * fields
+		 */
+		unsigned int i;
+		unsigned int k;
+		copy_matching_bvd(ddf, &vcl->conf, update);
+		for (k = 0; k < be16_to_cpu(vc->prim_elmnt_count); k++)
+			dprintf("BVD %u has %08x at %llu\n", 0,
+				be32_to_cpu(vcl->conf.phys_refnum[k]),
+				be64_to_cpu(LBA_OFFSET(ddf,
+						       &vcl->conf)[k]));
+		for (i = 1; i < vc->sec_elmnt_count; i++) {
+			copy_matching_bvd(ddf, vcl->other_bvds[i-1],
+					  update);
+			for (k = 0; k < be16_to_cpu(
+				     vc->prim_elmnt_count); k++)
+				dprintf("BVD %u has %08x at %llu\n", i,
+					be32_to_cpu
+					(vcl->other_bvds[i-1]->
+					 phys_refnum[k]),
+					be64_to_cpu
+					(LBA_OFFSET
+					 (ddf,
+					  vcl->other_bvds[i-1])[k]));
+		}
+	} else {
+		/* A new VD_CONF */
+		unsigned int i;
+		if (!update->space)
+			return;
+		vcl = update->space;
+		update->space = NULL;
+		vcl->next = ddf->conflist;
+		memcpy(&vcl->conf, vc, len);
+		ent = find_vde_by_guid(ddf, vc->guid);
+		if (ent == DDF_NOTFOUND)
+			return;
+		vcl->vcnum = ent;
+		ddf->conflist = vcl;
+		for (i = 1; i < vc->sec_elmnt_count; i++)
+			memcpy(vcl->other_bvds[i-1],
+			       update->buf + len * i, len);
+	}
+	/* Set DDF_Transition on all Failed devices - to help
+	 * us detect those that are no longer in use
+	 */
+	for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->max_pdes);
+	     pdnum++)
+		if (be16_and(ddf->phys->entries[pdnum].state,
+			     cpu_to_be16(DDF_Failed)))
+			be16_set(ddf->phys->entries[pdnum].state,
+				 cpu_to_be16(DDF_Transition));
+
+	/* Now make sure vlist is correct for each dl. */
+	for (dl = ddf->dlist; dl; dl = dl->next)
+		ddf_update_vlist(ddf, dl);
+	ddf_remove_failed(ddf);
+
+	ddf_set_updates_pending(ddf, vc);
+}
+
 static void ddf_process_update(struct supertype *st,
 			       struct metadata_update *update)
 {
@@ -4604,278 +4895,20 @@ static void ddf_process_update(struct supertype *st,
 	 *    and offset.  This will also mark the spare as active with
 	 *    a spare-assignment record.
 	 */
-	struct ddf_super *ddf = st->sb;
 	be32 *magic = (be32 *)update->buf;
-	struct phys_disk *pd;
-	struct virtual_disk *vd;
-	struct vd_config *vc;
-	struct vcl *vcl;
-	struct dl *dl;
-	unsigned int ent;
-	unsigned int pdnum, pd2, len;
 
 	dprintf("Process update %x\n", be32_to_cpu(*magic));
 
 	if (be32_eq(*magic, DDF_PHYS_RECORDS_MAGIC)) {
-		if (update->len != (sizeof(struct phys_disk) +
+		if (update->len == (sizeof(struct phys_disk) +
 				    sizeof(struct phys_disk_entry)))
-			return;
-		pd = (struct phys_disk*)update->buf;
-
-		ent = be16_to_cpu(pd->used_pdes);
-		if (ent >= be16_to_cpu(ddf->phys->max_pdes))
-			return;
-		if (be16_and(pd->entries[0].state, cpu_to_be16(DDF_Missing))) {
-			struct dl **dlp;
-			/* removing this disk. */
-			be16_set(ddf->phys->entries[ent].state,
-				 cpu_to_be16(DDF_Missing));
-			for (dlp = &ddf->dlist; *dlp; dlp = &(*dlp)->next) {
-				struct dl *dl = *dlp;
-				if (dl->pdnum == (signed)ent) {
-					close(dl->fd);
-					dl->fd = -1;
-					/* FIXME this doesn't free
-					 * dl->devname */
-					update->space = dl;
-					*dlp = dl->next;
-					break;
-				}
-			}
-			ddf_set_updates_pending(ddf, NULL);
-			return;
-		}
-		if (!all_ff(ddf->phys->entries[ent].guid))
-			return;
-		ddf->phys->entries[ent] = pd->entries[0];
-		ddf->phys->used_pdes = cpu_to_be16
-			(1 + be16_to_cpu(ddf->phys->used_pdes));
-		ddf_set_updates_pending(ddf, NULL);
-		if (ddf->add_list) {
-			struct active_array *a;
-			struct dl *al = ddf->add_list;
-			ddf->add_list = al->next;
-
-			al->next = ddf->dlist;
-			ddf->dlist = al;
-
-			/* As a device has been added, we should check
-			 * for any degraded devices that might make
-			 * use of this spare */
-			for (a = st->arrays ; a; a=a->next)
-				a->check_degraded = 1;
-		}
+			ddf_process_phys_update(st, update);
 	} else if (be32_eq(*magic, DDF_VIRT_RECORDS_MAGIC)) {
-		if (update->len != (sizeof(struct virtual_disk) +
+		if (update->len == (sizeof(struct virtual_disk) +
 				    sizeof(struct virtual_entry)))
-			return;
-		vd = (struct virtual_disk*)update->buf;
-
-		if (vd->entries[0].state == DDF_state_deleted) {
-			if (_kill_subarray_ddf(ddf, vd->entries[0].guid))
-				return;
-		} else {
-			ent = find_vde_by_guid(ddf, vd->entries[0].guid);
-			if (ent != DDF_NOTFOUND) {
-				dprintf("%s: VD %s exists already in slot %d\n",
-					__func__, guid_str(vd->entries[0].guid),
-					ent);
-				return;
-			}
-			ent = find_unused_vde(ddf);
-			if (ent == DDF_NOTFOUND)
-				return;
-			ddf->virt->entries[ent] = vd->entries[0];
-			ddf->virt->populated_vdes =
-				cpu_to_be16(
-					1 + be16_to_cpu(
-						ddf->virt->populated_vdes));
-			dprintf("%s: added VD %s in slot %d(s=%02x i=%02x)\n",
-				__func__, guid_str(vd->entries[0].guid), ent,
-				ddf->virt->entries[ent].state,
-				ddf->virt->entries[ent].init_state);
-		}
-		ddf_set_updates_pending(ddf, NULL);
-	}
-
-	else if (be32_eq(*magic, DDF_VD_CONF_MAGIC)) {
-		vc = (struct vd_config*)update->buf;
-		len = ddf->conf_rec_len * 512;
-		if ((unsigned int)update->len != len * vc->sec_elmnt_count) {
-			pr_err("%s: %s: insufficient data (%d) for %u BVDs\n",
-			       __func__, guid_str(vc->guid), update->len,
-			       vc->sec_elmnt_count);
-			return;
-		}
-		for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
-			if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
-				break;
-		dprintf("%s: conf update for %s (%s)\n", __func__,
-			guid_str(vc->guid), (vcl ? "old" : "new"));
-		if (vcl) {
-			/* An update, just copy the phys_refnum and lba_offset
-			 * fields
-			 */
-			unsigned int i;
-			unsigned int k;
-			copy_matching_bvd(ddf, &vcl->conf, update);
-			for (k = 0; k < be16_to_cpu(vc->prim_elmnt_count); k++)
-				dprintf("BVD %u has %08x at %llu\n", 0,
-					be32_to_cpu(vcl->conf.phys_refnum[k]),
-					be64_to_cpu(LBA_OFFSET(ddf,
-							       &vcl->conf)[k]));
-			for (i = 1; i < vc->sec_elmnt_count; i++) {
-				copy_matching_bvd(ddf, vcl->other_bvds[i-1],
-						  update);
-				for (k = 0; k < be16_to_cpu(
-					     vc->prim_elmnt_count); k++)
-					dprintf("BVD %u has %08x at %llu\n", i,
-						be32_to_cpu
-						(vcl->other_bvds[i-1]->
-						 phys_refnum[k]),
-						be64_to_cpu
-						(LBA_OFFSET
-						 (ddf,
-						  vcl->other_bvds[i-1])[k]));
-			}
-		} else {
-			/* A new VD_CONF */
-			unsigned int i;
-			if (!update->space)
-				return;
-			vcl = update->space;
-			update->space = NULL;
-			vcl->next = ddf->conflist;
-			memcpy(&vcl->conf, vc, len);
-			ent = find_vde_by_guid(ddf, vc->guid);
-			if (ent == DDF_NOTFOUND)
-				return;
-			vcl->vcnum = ent;
-			ddf->conflist = vcl;
-			for (i = 1; i < vc->sec_elmnt_count; i++)
-				memcpy(vcl->other_bvds[i-1],
-				       update->buf + len * i, len);
-		}
-		/* Set DDF_Transition on all Failed devices - to help
-		 * us detect those that are no longer in use
-		 */
-		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->max_pdes);
-		     pdnum++)
-			if (be16_and(ddf->phys->entries[pdnum].state,
-				     cpu_to_be16(DDF_Failed)))
-				be16_set(ddf->phys->entries[pdnum].state,
-					 cpu_to_be16(DDF_Transition));
-		/* Now make sure vlist is correct for each dl. */
-		for (dl = ddf->dlist; dl; dl = dl->next) {
-			unsigned int vn = 0;
-			int in_degraded = 0;
-
-			if (dl->pdnum < 0)
-				continue;
-			for (vcl = ddf->conflist; vcl ; vcl = vcl->next) {
-				unsigned int dn, ibvd;
-				const struct vd_config *conf;
-				int vstate;
-				dn = get_pd_index_from_refnum(vcl,
-							      dl->disk.refnum,
-							      ddf->mppe,
-							      &conf, &ibvd);
-				if (dn == DDF_NOTFOUND)
-					continue;
-				dprintf("dev %d/%08x has %s (sec=%u) at %d\n",
-					dl->pdnum,
-					be32_to_cpu(dl->disk.refnum),
-					guid_str(conf->guid),
-					conf->sec_elmnt_seq, vn);
-				/* Clear the Transition flag */
-				if (be16_and
-				    (ddf->phys->entries[dl->pdnum].state,
-				     cpu_to_be16(DDF_Failed)))
-					be16_clear(ddf->phys
-						   ->entries[dl->pdnum].state,
-						   cpu_to_be16(DDF_Transition));
-				dl->vlist[vn++] = vcl;
-				vstate = ddf->virt->entries[vcl->vcnum].state
-					& DDF_state_mask;
-				if (vstate == DDF_state_degraded ||
-				    vstate == DDF_state_part_optimal)
-					in_degraded = 1;
-			}
-			while (vn < ddf->max_part)
-				dl->vlist[vn++] = NULL;
-			if (dl->vlist[0]) {
-				be16_clear(ddf->phys->entries[dl->pdnum].type,
-					   cpu_to_be16(DDF_Global_Spare));
-				if (!be16_and(ddf->phys
-					      ->entries[dl->pdnum].type,
-					      cpu_to_be16(DDF_Active_in_VD))) {
-					be16_set(ddf->phys
-						 ->entries[dl->pdnum].type,
-						 cpu_to_be16(DDF_Active_in_VD));
-					if (in_degraded)
-						be16_set(ddf->phys
-							 ->entries[dl->pdnum]
-							 .state,
-							 cpu_to_be16
-							 (DDF_Rebuilding));
-				}
-			}
-			if (dl->spare) {
-				be16_clear(ddf->phys->entries[dl->pdnum].type,
-					   cpu_to_be16(DDF_Global_Spare));
-				be16_set(ddf->phys->entries[dl->pdnum].type,
-					 cpu_to_be16(DDF_Spare));
-			}
-			if (!dl->vlist[0] && !dl->spare) {
-				be16_set(ddf->phys->entries[dl->pdnum].type,
-					 cpu_to_be16(DDF_Global_Spare));
-				be16_clear(ddf->phys->entries[dl->pdnum].type,
-					   cpu_to_be16(DDF_Spare));
-				be16_clear(ddf->phys->entries[dl->pdnum].type,
-					   cpu_to_be16(DDF_Active_in_VD));
-			}
-		}
-
-		/* Now remove any 'Failed' devices that are not part
-		 * of any VD.  They will have the Transition flag set.
-		 * Once done, we need to update all dl->pdnum numbers.
-		 */
-		pd2 = 0;
-		for (pdnum = 0; pdnum < be16_to_cpu(ddf->phys->max_pdes);
-		     pdnum++) {
-			if (be32_to_cpu(ddf->phys->entries[pdnum].refnum) ==
-			    0xFFFFFFFF)
-				continue;
-			if (be16_and(ddf->phys->entries[pdnum].state,
-				     cpu_to_be16(DDF_Failed))
-			    && be16_and(ddf->phys->entries[pdnum].state,
-					cpu_to_be16(DDF_Transition))) {
-				/* skip this one unless in dlist*/
-				for (dl = ddf->dlist; dl; dl = dl->next)
-					if (dl->pdnum == (int)pdnum)
-						break;
-				if (!dl)
-					continue;
-			}
-			if (pdnum == pd2)
-				pd2++;
-			else {
-				ddf->phys->entries[pd2] =
-					ddf->phys->entries[pdnum];
-				for (dl = ddf->dlist; dl; dl = dl->next)
-					if (dl->pdnum == (int)pdnum)
-						dl->pdnum = pd2;
-				pd2++;
-			}
-		}
-		ddf->phys->used_pdes = cpu_to_be16(pd2);
-		while (pd2 < pdnum) {
-			memset(ddf->phys->entries[pd2].guid, 0xff,
-			       DDF_GUID_LEN);
-			pd2++;
-		}
-
-		ddf_set_updates_pending(ddf, vc);
+			ddf_process_virt_update(st, update);
+	} else if (be32_eq(*magic, DDF_VD_CONF_MAGIC)) {
+		ddf_process_conf_update(st, update);
 	}
 	/* case DDF_SPARE_ASSIGN_MAGIC */
 }

@@ -4597,10 +4597,10 @@ static void ddf_process_phys_update(struct supertype *st,
 			if (dl->pdnum == (signed)ent) {
 				close(dl->fd);
 				dl->fd = -1;
-				/* FIXME this doesn't free
-				 * dl->devname */
-				update->space = dl;
 				*dlp = dl->next;
+				update->space = dl->devname;
+				*(void**)dl = update->space_list;
+				update->space_list = (void**)dl;
 				break;
 			}
 		}

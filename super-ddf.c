@@ -3590,7 +3590,6 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	maxsize = ULLONG_MAX;
 	find_space(ddf, dl, data_offset, &maxsize);
 	*freesize = maxsize;
-	// FIXME here I am
 
 	return 1;
 }

@@ -1461,6 +1461,7 @@ static void examine_vd(int n, struct ddf_super *sb, char *guid)
 				printf("%d", j);
 			else
 				printf("--");
+			printf("@%lluK", (unsigned long long) be64_to_cpu(LBA_OFFSET(sb, vc)[i])/2);
 		}
 		printf(")\n");
 		if (vc->chunk_shift != 255)

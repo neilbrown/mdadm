@@ -3727,7 +3727,7 @@ static int check_secondary(const struct vcl *vc)
 	}
 	for (i = 0; i < conf->sec_elmnt_count; i++) {
 		if (!__was_sec_seen(i)) {
-			pr_err("BVD %d is missing\n", i);
+			/* pr_err("BVD %d is missing\n", i); */
 			return -1;
 		}
 	}

@@ -194,24 +194,23 @@ out:
 	return info;
 }
 
-bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **stp)
+int bitmap_file_open(char *filename, struct supertype **stp)
 {
 	int fd;
-	bitmap_info_t *info;
 	struct stat stb;
 	struct supertype *st = *stp;
 
 	if (stat(filename, &stb) < 0) {
 		pr_err("failed to find file %s: %s\n",
 			filename, strerror(errno));
-		return NULL;
+		return -1;
 	}
 	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
 		fd = open(filename, O_RDONLY|O_DIRECT);
 		if (fd < 0) {
 			pr_err("failed to open bitmap file %s: %s\n",
 				filename, strerror(errno));
-			return NULL;
+			return -1;
 		}
 		/* block device, so we are probably after an internal bitmap */
 		if (!st) st = guess_super(fd);
@@ -221,7 +220,7 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 		} else if (!st->ss->locate_bitmap) {
 			pr_err("No bitmap possible with %s metadata\n",
 				st->ss->name);
-			return NULL;
+			return -1;
 		} else
 			st->ss->locate_bitmap(st, fd);
 
@@ -231,13 +230,11 @@ bitmap_info_t *bitmap_file_read(char *filename, int brief, struct supertype **st
 		if (fd < 0) {
 			pr_err("failed to open bitmap file %s: %s\n",
 				filename, strerror(errno));
-			return NULL;
+			return -1;
 		}
 	}
 
-	info = bitmap_fd_read(fd, brief);
-	close(fd);
-	return info;
+	return fd;
 }
 
 __u32 swapl(__u32 l)
@@ -263,22 +260,37 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	int rv = 1;
 	char buf[64];
 	int swap;
+	int fd;
 	__u32 uuid32[4];
 
-	info = bitmap_file_read(filename, brief, &st);
-	if (!info)
+	fd = bitmap_file_open(filename, &st);
+	if (fd < 0)
 		return rv;
 
+	info = bitmap_fd_read(fd, brief);
+	if (!info)
+		return rv;
 	sb = &info->sb;
+	if (sb->magic != BITMAP_MAGIC && md_get_version(fd) > 0) {
+		pr_err("This is an md array.  To view a bitmap you need to examine\n");
+		pr_err("a member device, not the array.\n");
+		pr_err("Reporting bitmap that would be used if this array were used\n");
+		pr_err("as a member of some other array\n");
+	}
+	close(fd);
 	printf("        Filename : %s\n", filename);
 	printf("           Magic : %08x\n", sb->magic);
 	if (sb->magic != BITMAP_MAGIC) {
-		pr_err("invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);
+		pr_err("invalid bitmap magic 0x%x, the bitmap file appears\n",
+		       sb->magic);
+		pr_err("to be corrupted or missing.\n");
 	}
 	printf("         Version : %d\n", sb->version);
 	if (sb->version < BITMAP_MAJOR_LO ||
 	    sb->version > BITMAP_MAJOR_HI) {
-		pr_err("unknown bitmap version %d, either the bitmap file is corrupted or you need to upgrade your tools\n", sb->version);
+		pr_err("unknown bitmap version %d, either the bitmap file\n",
+		       sb->version);
+		pr_err("is corrupted or you need to upgrade your tools\n");
 		goto free_info;
 	}
 

@@ -57,6 +57,7 @@ ifdef DEFAULT_OLD_METADATA
 else
  DEFAULT_METADATA=1.2
 endif
+CPPFLAGS += -DBINDIR=\"$(BINDIR)\"
 
 PKG_CONFIG ?= pkg-config
 
@@ -280,16 +281,27 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
-	$(INSTALL) -D -m 644 udev-md-raid-arrays.rules $(DESTDIR)$(UDEVDIR)/rules.d/63-md-raid-arrays.rules
-	$(INSTALL) -D -m 644 udev-md-raid-assembly.rules $(DESTDIR)$(UDEVDIR)/rules.d/64-md-raid-assembly.rules
+	@for file in 63-md-raid-arrays.rules 64-md-raid-assembly.rules ; \
+	do sed -e 's,BINDIR,$(BINDIR),g' udev-$${file#??-} > .install.tmp && \
+	   echo $(INSTALL) -D -m 644 udev-$${file#??-} $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
+	   $(INSTALL) -D -m 644 .install.tmp $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
+	   rm -f .install.tmp; \
+	done
 
 install-systemd: systemd/mdmon@.service
-	$(INSTALL) -D -m 644 systemd/mdmon@.service $(DESTDIR)$(SYSTEMD_DIR)/mdmon@.service
-	$(INSTALL) -D -m 644 systemd/mdmonitor.service $(DESTDIR)$(SYSTEMD_DIR)/mdmonitor.service
-	$(INSTALL) -D -m 644 systemd/mdadm-last-resort@.timer $(DESTDIR)$(SYSTEMD_DIR)/mdadm-last-resort@.timer
-	$(INSTALL) -D -m 644 systemd/mdadm-last-resort@.service $(DESTDIR)$(SYSTEMD_DIR)/mdadm-last-resort@.service
-	$(INSTALL) -D -m 644 systemd/mdadm-grow-continue@.service $(DESTDIR)$(SYSTEMD_DIR)/mdadm-grow-continue@.service
-	$(INSTALL) -D -m 755 systemd/mdadm.shutdown $(DESTDIR)$(SYSTEMD_DIR)-shutdown/mdadm.shutdown
+	@for file in mdmon@.service mdmonitor.service mdadm-last-resort@.timer \
+		mdadm-last-resort@.service ; \
+	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp && \
+	   echo $(INSTALL) -D -m 644 systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
+	   $(INSTALL) -D -m 644 .install.tmp $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
+	   rm -f .install.tmp; \
+	done
+	@for file in mdadm.shutdown ; \
+	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp && \
+	   echo $(INSTALL) -D -m 755  systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
+	   $(INSTALL) -D -m 755  .install.tmp $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
+	   rm -f .install.tmp; \
+	done
 	if [ -f /etc/SuSE-release -o -n "$(SUSE)" ] ;then $(INSTALL) -D -m 755 systemd/SUSE-mdadm_env.sh $(DESTDIR)$(SYSTEMD_DIR)/../scripts/mdadm_env.sh ;fi
 
 uninstall:

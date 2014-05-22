@@ -4,4 +4,4 @@ DefaultDependencies=no
 
 [Service]
 Type=oneshot
-ExecStart=/sbin/mdadm --run /dev/%i
+ExecStart=BINDIR/mdadm --run /dev/%i

@@ -19,7 +19,7 @@ Environment=IMSM_NO_PLATFORM=1
 # 'takeover'.  As the '--offroot --takeover' don't hurt when
 # not necessary, are are useful with root-on-md in dracut,
 # have them always present.
-ExecStart=/sbin/mdmon --offroot --takeover %I
+ExecStart=BINDIR/mdmon --offroot --takeover %I
 Type=forking
 # Don't set the PIDFile.  It isn't necessary (systemd can work
 # it out) and systemd will remove it when transitioning from

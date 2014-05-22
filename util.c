@@ -1688,7 +1688,7 @@ int start_mdmon(char *devnm)
 	char pathbuf[1024];
 	char *paths[4] = {
 		pathbuf,
-		"/sbin/mdmon",
+		BINDIR "/mdmon",
 		"./mdmon",
 		NULL
 	};

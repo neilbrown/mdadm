@@ -4920,7 +4920,7 @@ int Grow_continue_command(char *devname, int fd,
 
 	/* continue reshape
 	 */
-	ret_val = Grow_continue(fd, st, content, backup_file, 0);
+	ret_val = Grow_continue(fd, st, content, backup_file, 1, 0);
 
 Grow_continue_command_exit:
 	if (fd2 > -1)
@@ -4936,7 +4936,7 @@ Grow_continue_command_exit:
 }
 
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
-		  char *backup_file, int freeze_reshape)
+		  char *backup_file, int forked, int freeze_reshape)
 {
 	int ret_val = 2;
 
@@ -4959,7 +4959,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 	} else
 		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
 					NULL, INVALID_SECTORS,
-					backup_file, 0, 1,
+					backup_file, 0, forked,
 					1 | info->reshape_active,
 					freeze_reshape);
 

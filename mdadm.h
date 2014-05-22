@@ -1193,7 +1193,7 @@ extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file, int verbose);
 extern int Grow_continue(int mdfd, struct supertype *st,
 			 struct mdinfo *info, char *backup_file,
-			 int freeze_reshape);
+			 int forked, int freeze_reshape);
 
 extern int restore_backup(struct supertype *st,
 			  struct mdinfo *content,

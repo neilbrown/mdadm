@@ -1044,7 +1044,7 @@ static int start_array(int mdfd,
 					   "array_state", "readonly");
 			if (rv == 0)
 				rv = Grow_continue(mdfd, st, content,
-						   c->backup_file,
+						   c->backup_file, 0,
 						   c->freeze_reshape);
 		} else if (c->readonly &&
 			   sysfs_attribute_available(
@@ -1912,7 +1912,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		}
 
 		err = Grow_continue(mdfd, st, content, c->backup_file,
-				    c->freeze_reshape);
+				    0, c->freeze_reshape);
 	} else switch(content->array.level) {
 		case LEVEL_LINEAR:
 		case LEVEL_MULTIPATH:

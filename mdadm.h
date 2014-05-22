@@ -342,6 +342,7 @@ enum special_options {
 	ExamineBB,
 	Dump,
 	Restore,
+	Action,
 };
 
 enum prefix_standard {
@@ -415,6 +416,7 @@ struct context {
 	int	freeze_reshape;
 	char	*backup_file;
 	int	invalid_backup;
+	char	*action;
 };
 
 struct shape {
@@ -1237,6 +1239,7 @@ extern int Kill_subarray(char *dev, char *subarray, int verbose);
 extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
+extern int SetAction(char *dev, char *action);
 
 extern int Incremental(struct mddev_dev *devlist, struct context *c,
 		       struct supertype *st);

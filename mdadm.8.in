@@ -1588,6 +1588,31 @@ successfully waited.  For native arrays this returns immediately as the
 kernel handles dirty-clean transitions at shutdown.  No action is taken
 if safe-mode handling is disabled.
 
+.TP
+.B \-\-action=
+Set the "sync_action" for all md devices given to one of
+.BR idle ,
+.BR frozen ,
+.BR check ,
+.BR repair .
+Setting to
+.B idle
+will abort any currently running action though some actions will
+automatically restart.
+Setting to
+.B frozen
+will abort any current action and ensure no other action starts
+automatically.
+
+Details of
+.B check
+and
+.B repair
+can be found it
+.IR md (4)
+under
+.BR "SCRUBBING AND MISMATCHES" .
+
 .SH For Incremental Assembly mode:
 .TP
 .BR \-\-rebuild\-map ", " \-r

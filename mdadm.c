@@ -230,6 +230,7 @@ int main(int argc, char *argv[])
 		case ExamineBB:
 		case Dump:
 		case Restore:
+		case Action:
 			newmode = MISC;
 			break;
 
@@ -987,6 +988,7 @@ int main(int argc, char *argv[])
 		case O(MISC, UpdateSubarray):
 		case O(MISC, Dump):
 		case O(MISC, Restore):
+		case O(MISC ,Action):
 			if (opt == KillSubarray || opt == UpdateSubarray) {
 				if (c.subarray) {
 					pr_err("subarray can only"
@@ -994,6 +996,21 @@ int main(int argc, char *argv[])
 					exit(2);
 				}
 				c.subarray = optarg;
+			}
+			if (opt == Action) {
+				if (c.action) {
+					pr_err("Only one --action can be specified\n");
+					exit(2);
+				}
+				if (strcmp(optarg, "idle") == 0 ||
+				    strcmp(optarg, "frozen") == 0 ||
+				    strcmp(optarg, "check") == 0 ||
+				    strcmp(optarg, "repair") == 0)
+					c.action = optarg;
+				else {
+					pr_err("action must be one of idle, frozen, check, repair\n");
+					exit(2);
+				}
 			}
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
@@ -1802,6 +1819,9 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= Restore_metadata(dv->devname, dump_directory, c, ss,
 					       (dv == devlist && dv->next == NULL));
 			continue;
+		case Action:
+			rv |= SetAction(dv->devname, c->action);
+			continue;
 		}
 		if (dv->devname[0] == '/')
 			mdfd = open_mddev(dv->devname, 1);
@@ -1827,4 +1847,27 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= 1;
 	}
 	return rv;
+}
+
+int SetAction(char *dev, char *action)
+{
+	int fd = open(dev, O_RDONLY);
+	struct mdinfo mdi;
+	if (fd < 0) {
+		pr_err("Couldn't open %s: %s\n", dev, strerror(errno));
+		return 1;
+	}
+	sysfs_init(&mdi, fd, NULL);
+	close(fd);
+	if (!mdi.sys_name[0]) {
+		pr_err("%s is no an md array\n", dev);
+		return 1;
+	}
+
+	if (sysfs_set_str(&mdi, NULL, "sync_action", action) < 0) {
+		pr_err("Count not set action for %s to %s: %s\n",
+		       dev, action, strerror(errno));
+		return 1;
+	}
+	return 0;
 }

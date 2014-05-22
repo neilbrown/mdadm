@@ -166,6 +166,7 @@ struct option long_options[] = {
     {"no-degraded",0,0,  NoDegraded },
     {"wait",	  0, 0,  WaitOpt},
     {"wait-clean", 0, 0, Waitclean },
+    {"action",    1, 0, Action },
 
     /* For Detail/Examine */
     {"brief",	  0, 0, Brief},
@@ -506,6 +507,7 @@ char Help_misc[] =
 "  --readwrite   -w   : mark array as readwrite\n"
 "  --test        -t   : exit status 0 if ok, 1 if degrade, 2 if dead, 4 if missing\n"
 "  --wait        -W   : wait for resync/rebuild/recovery to finish\n"
+"  --action=          : initiate or abort ('idle' or 'frozen') a 'check' or 'repair'.\n"
 ;
 
 char Help_monitor[] =

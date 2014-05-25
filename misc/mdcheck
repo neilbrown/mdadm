@@ -25,7 +25,7 @@
 #
 # Options are:
 #   --continue    Don't start new checks, only continue old ones.
-#   --duration    This is passed to "date --date=+$duration" to find out
+#   --duration    This is passed to "date --date=$duration" to find out
 #		  when to finish
 #
 # To support '--continue', arrays are identified by UUID and the 'sync_completed'
@@ -57,7 +57,7 @@ do
 		;;
 	--continue ) cont=yes ;;
 	--duration ) shift; dur=$1
-		endtime=$(date --date "+$dur" "+%s")
+		endtime=$(date --date "$dur" "+%s")
 		;;
     esac
     shift

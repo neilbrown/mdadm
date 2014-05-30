@@ -3471,7 +3471,7 @@ int reshape_container(char *container, char *devname,
 	 */
 	ping_monitor(container);
 
-	if (!forked && !check_env("MDADM_NO_SYSTEMCTL"))
+	if (!forked && !freeze_reshape && !check_env("MDADM_NO_SYSTEMCTL"))
 		if (continue_via_systemd(container))
 			return 0;
 

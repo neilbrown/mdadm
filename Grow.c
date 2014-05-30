@@ -4949,7 +4949,7 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		close(cfd);
 		ret_val = reshape_container(st->container_devnm, NULL, mdfd,
 					    st, info, 0, backup_file,
-					    0, 1,
+					    0, forked,
 					    1 | info->reshape_active,
 					    freeze_reshape);
 	} else

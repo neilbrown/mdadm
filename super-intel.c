@@ -4422,6 +4422,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 {
 	struct intel_super *super;
 	int rv;
+	int retry;
 
 	if (test_partition(fd))
 		/* IMSM not allowed on partitions */
@@ -4443,6 +4444,22 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 		return 2;
 	}
 	rv = load_and_parse_mpb(fd, super, devname, 0);
+
+	/* retry the load if we might have raced against mdmon */
+	if (rv == 3) {
+		struct mdstat_ent *mdstat = mdstat_by_component(fd2devnm(fd));
+
+		if (mdstat && mdmon_running(mdstat->devnm) && getpid() != mdmon_pid(mdstat->devnm)) {
+			for (retry = 0; retry < 3; retry++) {
+				usleep(3000);
+				rv = load_and_parse_mpb(fd, super, devname, 0);
+				if (rv != 3)
+					break;
+			}
+		}
+
+		free_mdstat(mdstat);
+	}
 
 	if (rv) {
 		if (devname)

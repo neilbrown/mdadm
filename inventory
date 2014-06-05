@@ -18,6 +18,7 @@ ANNOUNCE-3.2.4
 ANNOUNCE-3.2.5
 ANNOUNCE-3.2.6
 ANNOUNCE-3.3
+ANNOUNCE-3.3.1
 Assemble.c
 Build.c
 COPYING
@@ -75,6 +76,7 @@ mdmon.h
 mdopen.c
 mdstat.c
 misc/
+misc/mdcheck
 misc/syslog-events
 mkinitramfs
 monitor.c
@@ -103,7 +105,13 @@ super1.c
 swap_super.c
 sysfs.c
 systemd/
+systemd/SUSE-mdadm_env.sh
+systemd/mdadm-grow-continue@.service
+systemd/mdadm-last-resort@.service
+systemd/mdadm-last-resort@.timer
+systemd/mdadm.shutdown
 systemd/mdmon@.service
+systemd/mdmonitor.service
 test
 tests/
 tests/00linear
@@ -128,6 +136,7 @@ tests/02r6grow
 tests/03assem-incr
 tests/03r0assem
 tests/03r5assem
+tests/03r5assem-failed
 tests/03r5assemV1
 tests/04r0update
 tests/04r1update
@@ -173,13 +182,19 @@ tests/07testreshape5
 tests/09imsm-assemble
 tests/09imsm-create-fail-rebuild
 tests/09imsm-overlap
+tests/10ddf-assemble-missing
 tests/10ddf-create
 tests/10ddf-create-fail-rebuild
 tests/10ddf-fail-create-race
+tests/10ddf-fail-readd
+tests/10ddf-fail-readd-readonly
 tests/10ddf-fail-spare
+tests/10ddf-fail-stop-readd
 tests/10ddf-fail-twice
 tests/10ddf-fail-two-spares
 tests/10ddf-geometry
+tests/10ddf-incremental-wrong-order
+tests/10ddf-sudden-degraded
 tests/11spare-migration
 tests/12imsm-r0_2d-grow-r0_3d
 tests/12imsm-r0_2d-grow-r0_4d

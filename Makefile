@@ -186,13 +186,13 @@ mdadm.klibc : $(SRCS) $(INCL)
 	$(CC) -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
 mdadm.Os : $(SRCS) $(INCL)
-	$(CC) -o mdadm.Os $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -Os $(SRCS)
+	$(CC) -o mdadm.Os $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -Os $(SRCS)
 
 mdadm.O2 : $(SRCS) $(INCL) mdmon.O2
-	$(CC) -o mdadm.O2 $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
+	$(CC) -o mdadm.O2 $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
 
 mdmon.O2 : $(MON_SRCS) $(INCL) mdmon.h
-	$(CC) -o mdmon.O2 $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
+	$(CC) -o mdmon.O2 $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
 mdmon : check_rundir $(MON_OBJS)
@@ -214,7 +214,7 @@ mdassemble.diet : $(ASSEMBLE_SRCS) $(INCL)
 
 mdassemble.static : $(ASSEMBLE_SRCS) $(INCL)
 	rm -f $(OBJS)
-	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
+	$(CC) $(LDFLAGS) $(CPPFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
 
 mdassemble.auto : $(ASSEMBLE_SRCS) $(INCL) $(ASSEMBLE_AUTO_SRCS)
 	rm -f mdassemble.static

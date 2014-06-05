@@ -1758,6 +1758,7 @@ static void detail_super_ddf(struct supertype *st, char *homehost)
 	printf("  Virtual Disks : %d\n", cnt);
 	printf("\n");
 }
+#endif
 
 static const char *vendors_with_variable_volume_UUID[] = {
 	"LSI      ",
@@ -1804,6 +1805,7 @@ static void uuid_of_ddf_subarray(const struct ddf_super *ddf,
 	memcpy(uuid, sha, 4*4);
 }
 
+#ifndef MDASSEMBLE
 static void brief_detail_super_ddf(struct supertype *st)
 {
 	struct mdinfo info;
@@ -2074,7 +2076,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	int cd = ddf->currentdev;
 	int n_prim;
 	int j;
-	struct dl *dl;
+	struct dl *dl = NULL;
 	int map_disks = info->array.raid_disks;
 	__u32 *cptr;
 	struct vd_config *conf;

@@ -1793,7 +1793,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			       struct mdinfo *content, struct context *c,
 			       char *chosen_name, int *result)
 {
-	struct mdinfo *dev, *sra;
+	struct mdinfo *dev, *sra, *dev2;
 	int working = 0, preexist = 0;
 	int expansion = 0;
 	struct map_ent *map = NULL;
@@ -1804,7 +1804,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 
 	sysfs_init(content, mdfd, NULL);
 
-	sra = sysfs_read(mdfd, NULL, GET_VERSION);
+	sra = sysfs_read(mdfd, NULL, GET_VERSION|GET_DEVS);
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0) {
 		if (content->array.major_version == -1 &&
 		    content->array.minor_version == -2 &&
@@ -1831,8 +1831,22 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	if (st->ss->external && content->recovery_blocked && start_reshape)
 		block_subarray(content);
 
-	if (sra)
-		sysfs_free(sra);
+	for (dev2 = sra->devs; dev2; dev2 = dev2->next) {
+		for (dev = content->devs; dev; dev = dev->next)
+			if (dev2->disk.major == dev->disk.major &&
+			    dev2->disk.minor == dev->disk.minor)
+				break;
+		if (dev)
+			continue;
+		/* Don't want this one any more */
+		if (sysfs_set_str(sra, dev2, "slot", "none") < 0 &&
+		    errno == EBUSY) {
+			pr_err("Cannot remove old device %s: not updating %s\n", dev2->sys_name, sra->sys_name);
+			sysfs_free(sra);
+			return 1;
+		}
+		sysfs_set_str(sra, dev2, "state", "remove");
+	}
 	old_raid_disks = content->array.raid_disks - content->delta_disks;
 	avail = xcalloc(content->array.raid_disks, 1);
 	for (dev = content->devs; dev; dev = dev->next) {
@@ -1847,6 +1861,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		} else if (errno == EEXIST)
 			preexist++;
 	}
+	sysfs_free(sra);
 	if (working + expansion == 0 && c->runstop <= 0) {
 		free(avail);
 		return 1;/* Nothing new, don't try to start */

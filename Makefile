@@ -290,7 +290,7 @@ install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
 
 install-systemd: systemd/mdmon@.service
 	@for file in mdmon@.service mdmonitor.service mdadm-last-resort@.timer \
-		mdadm-last-resort@.service ; \
+		mdadm-last-resort@.service mdadm-grow-continue@.service; \
 	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp && \
 	   echo $(INSTALL) -D -m 644 systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
 	   $(INSTALL) -D -m 644 .install.tmp $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \

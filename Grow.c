@@ -1324,6 +1324,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 
 		switch (re->level) {
 		case 4:
+			re->before.layout = 0;
 			re->after.layout = 0;
 			break;
 		case 5:
@@ -1339,7 +1340,6 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 
 		switch (re->level) {
 		case 4:
-			re->before.layout = 0;
 			re->after.layout = 0;
 			break;
 		case 5:

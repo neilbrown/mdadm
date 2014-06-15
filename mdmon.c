@@ -298,10 +298,14 @@ int main(int argc, char *argv[])
 		{NULL, 0, NULL, 0}
 	};
 
-	/*
-	 * Always change process name to @dmon to avoid systemd killing it
-	 */
-	argv[0][0] = '@';
+	if (in_initrd()) {
+		/*
+		 * set first char of argv[0] to @. This is used by
+		 * systemd to signal that the task was launched from
+		 * initrd/initramfs and should be preserved during shutdown
+		 */
+		argv[0][0] = '@';
+	}
 
 	while ((opt = getopt_long(argc, argv, "thaF", options, NULL)) != -1) {
 		switch (opt) {
@@ -316,7 +320,7 @@ int main(int argc, char *argv[])
 			dofork = 0;
 			break;
 		case OffRootOpt:
-			/* silently ignore old option */
+			argv[0][0] = '@';
 			break;
 		case 'h':
 		default:
@@ -425,6 +429,7 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 				wait(&status);
 				status = WEXITSTATUS(status);
 			}
+			close(pfd[0]);
 			return status;
 		}
 	} else
@@ -512,10 +517,12 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 	container->sock = make_control_sock(devnm);
 
 	status = 0;
-	if (write(pfd[1], &status, sizeof(status)) < 0)
-		pr_err("failed to notify our parent: %d\n",
-			getppid());
-	close(pfd[1]);
+	if (pfd[1] >= 0) {
+		if (write(pfd[1], &status, sizeof(status)) < 0)
+			pr_err("failed to notify our parent: %d\n",
+			       getppid());
+		close(pfd[1]);
+	}
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 

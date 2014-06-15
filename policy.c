@@ -200,26 +200,25 @@ static char *disk_path(struct mdinfo *disk)
 	int rv;
 
 	by_path = opendir(symlink);
-	if (!by_path)
-		return NULL;
-	prefix_len = strlen(symlink);
-
-	while ((ent = readdir(by_path)) != NULL) {
-		if (ent->d_type != DT_LNK)
-			continue;
-		strncpy(symlink + prefix_len,
-			ent->d_name,
-			sizeof(symlink) - prefix_len);
-		if (stat(symlink, &stb) < 0)
-			continue;
-		if ((stb.st_mode & S_IFMT) != S_IFBLK)
-			continue;
-		if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
-			continue;
+	if (by_path) {
+		prefix_len = strlen(symlink);
+		while ((ent = readdir(by_path)) != NULL) {
+			if (ent->d_type != DT_LNK)
+				continue;
+			strncpy(symlink + prefix_len,
+					ent->d_name,
+					sizeof(symlink) - prefix_len);
+			if (stat(symlink, &stb) < 0)
+				continue;
+			if ((stb.st_mode & S_IFMT) != S_IFBLK)
+				continue;
+			if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
+				continue;
+			closedir(by_path);
+			return xstrdup(ent->d_name);
+		}
 		closedir(by_path);
-		return xstrdup(ent->d_name);
 	}
-	closedir(by_path);
 	/* A NULL path isn't really acceptable - use the devname.. */
 	sprintf(symlink, "/sys/dev/block/%d:%d", disk->disk.major, disk->disk.minor);
 	rv = readlink(symlink, nm, sizeof(nm)-1);
@@ -800,12 +799,12 @@ char *find_rule(struct rule *rule, char *rule_type)
 #define UDEV_RULE_FORMAT \
 "ACTION==\"add\", SUBSYSTEM==\"block\", " \
 "ENV{DEVTYPE}==\"%s\", ENV{ID_PATH}==\"%s\", " \
-"RUN+=\"/sbin/mdadm --incremental $env{DEVNAME}\"\n"
+"RUN+=\"" BINDIR "/mdadm --incremental $env{DEVNAME}\"\n"
 
 #define UDEV_RULE_FORMAT_NOTYPE \
 "ACTION==\"add\", SUBSYSTEM==\"block\", " \
 "ENV{ID_PATH}==\"%s\", " \
-"RUN+=\"/sbin/mdadm --incremental $env{DEVNAME}\"\n"
+"RUN+=\"" BINDIR "/mdadm --incremental $env{DEVNAME}\"\n"
 
 /* Write rule in the rule file. Use format from UDEV_RULE_FORMAT */
 int write_rule(struct rule *rule, int fd, int force_part)

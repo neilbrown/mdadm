@@ -2,7 +2,7 @@
  * Incremental.c - support --incremental.  Part of:
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2006-2012 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2006-2013 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -44,9 +44,9 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		     struct supertype *st, int verbose);
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 struct context *c);
+				 struct context *c, char *only);
 
-int Incremental(char *devname, struct context *c,
+int Incremental(struct mddev_dev *devlist, struct context *c,
 		struct supertype *st)
 {
 	/* Add this device to an array, creating the array if necessary
@@ -91,6 +91,7 @@ int Incremental(char *devname, struct context *c,
 	struct mdinfo *sra = NULL, *d;
 	struct mddev_ident *match;
 	char chosen_name[1024];
+	char *md_devname;
 	int rv = 1;
 	struct map_ent *mp, *map = NULL;
 	int dfd = -1, mdfd = -1;
@@ -102,6 +103,7 @@ int Incremental(char *devname, struct context *c,
 	struct dev_policy *policy = NULL;
 	struct map_ent target_array;
 	int have_target;
+	char *devname = devlist->devname;
 
 	struct createinfo *ci = conf_get_create_info();
 
@@ -138,7 +140,9 @@ int Incremental(char *devname, struct context *c,
 			if (map_lock(&map))
 				pr_err("failed to get "
 				       "exclusive lock on mapfile\n");
-			rv = Incremental_container(st, devname, c);
+			if (c->export)
+				printf("MD_DEVNAME=%s\n", devname);
+			rv = Incremental_container(st, devname, c, NULL);
 			map_unlock(&map);
 			return rv;
 		}
@@ -150,7 +154,20 @@ int Incremental(char *devname, struct context *c,
 
 	/* 1/ Check if device is permitted by mdadm.conf */
 
-	if (!conf_test_dev(devname)) {
+	for (;devlist; devlist = devlist->next)
+		if (conf_test_dev(devlist->devname))
+			break;
+	if (!devlist) {
+		devlist = conf_get_devs();
+		for (;devlist; devlist = devlist->next) {
+			struct stat st2;
+			if (stat(devlist->devname, &st2) == 0 &&
+			    (st2.st_mode & S_IFMT) == S_IFBLK &&
+			    st2.st_rdev == stb.st_rdev)
+				break;
+		}
+	}
+	if (!devlist) {
 		if (c->verbose >= 0)
 			pr_err("%s not permitted by mdadm.conf.\n",
 			       devname);
@@ -459,6 +476,15 @@ int Incremental(char *devname, struct context *c,
 			info.array.working_disks ++;
 
 	}
+	if (strncmp(chosen_name, "/dev/md/", 8) == 0)
+		md_devname = chosen_name+8;
+	else
+		md_devname = chosen_name;
+	if (c->export) {
+		printf("MD_DEVICE=%s\n", fd2devnm(mdfd));
+		printf("MD_DEVNAME=%s\n", md_devname);
+		printf("MD_FOREIGN=%s\n", trustworthy == FOREIGN ? "yes" : "no");
+	}
 
 	/* 7/ Is there enough devices to possibly start the array? */
 	/* 7a/ if not, finish with success. */
@@ -466,7 +492,7 @@ int Incremental(char *devname, struct context *c,
 		char devnm[32];
 		/* Try to assemble within the container */
 		sysfs_uevent(sra, "change");
-		if (c->verbose >= 0)
+		if (!c->export && c->verbose >= 0)
 			pr_err("container %s now has %d device%s\n",
 			       chosen_name, info.array.working_disks,
 			       info.array.working_disks == 1?"":"s");
@@ -478,13 +504,8 @@ int Incremental(char *devname, struct context *c,
 		close(mdfd);
 		sysfs_free(sra);
 		if (!rv)
-			rv = Incremental_container(st, chosen_name, c);
+			rv = Incremental_container(st, chosen_name, c, NULL);
 		map_unlock(&map);
-		if (rv == 1)
-			/* Don't fail the whole -I if a subarray didn't
-			 * have enough devices to start yet
-			 */
-			rv = 0;
 		/* after spare is added, ping monitor for external metadata
 		 * so that it can eg. try to rebuild degraded array */
 		if (st->ss->external)
@@ -503,7 +524,9 @@ int Incremental(char *devname, struct context *c,
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
 		   avail) == 0) {
-		if (c->verbose >= 0)
+		if (c->export) {
+			printf("MD_STARTED=no\n");
+		} else if (c->verbose >= 0)
 			pr_err("%s attached to %s, not enough to start (%d).\n",
 			       devname, chosen_name, active_disks);
 		rv = 0;
@@ -517,7 +540,9 @@ int Incremental(char *devname, struct context *c,
 	/*   + start the array (auto-readonly). */
 
 	if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
-		if (c->verbose >= 0)
+		if (c->export) {
+			printf("MD_STARTED=already\n");
+		} else if (c->verbose >= 0)
 			pr_err("%s attached to %s which is already active.\n",
 			       devname, chosen_name);
 		rv = 0;
@@ -563,8 +588,14 @@ int Incremental(char *devname, struct context *c,
 		else
 			rv = sysfs_set_str(sra, NULL,
 					   "array_state", "read-auto");
+		/* Array might be O_EXCL which  will interfere with
+		 * fsck and mount.  So re-open without O_EXCL.
+		 */
+		reopen_mddev(mdfd);
 		if (rv == 0) {
-			if (c->verbose >= 0)
+			if (c->export) {
+				printf("MD_STARTED=yes\n");
+			} else if (c->verbose >= 0)
 				pr_err("%s attached to %s, which has been started.\n",
 				       devname, chosen_name);
 			rv = 0;
@@ -587,7 +618,9 @@ int Incremental(char *devname, struct context *c,
 			rv = 1;
 		}
 	} else {
-		if (c->verbose >= 0)
+		if (c->export) {
+			printf("MD_STARTED=unsafe\n");
+		} else if (c->verbose >= 0)
 			pr_err("%s attached to %s, not enough to start safely.\n",
 			       devname, chosen_name);
 		rv = 0;
@@ -1278,7 +1311,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	return rv;
 }
 
-int IncrementalScan(int verbose)
+int IncrementalScan(struct context *c, char *devnm)
 {
 	/* look at every device listed in the 'map' file.
 	 * If one is found that is not running then:
@@ -1290,18 +1323,57 @@ int IncrementalScan(int verbose)
 	struct map_ent *me;
 	struct mddev_ident *devs, *mddev;
 	int rv = 0;
+	char container[32];
+	char *only = NULL;
 
 	map_read(&mapl);
 	devs = conf_get_ident(NULL);
 
+restart:
 	for (me = mapl ; me ; me = me->next) {
 		mdu_array_info_t array;
 		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
-		int mdfd = open_dev(me->devnm);
+		int mdfd;
+
+		if (devnm && strcmp(devnm, me->devnm) != 0)
+			continue;
+		if (devnm && me->metadata[0] == '/') {
+			char *sl;
+			/* member array, need to work on container */
+			strncpy(container, me->metadata+1, 32);
+			container[31] = 0;
+			sl = strchr(container, '/');
+			if (sl)
+				*sl = 0;
+			only = devnm;
+			devnm = container;
+			goto restart;
+		}
+		mdfd = open_dev(me->devnm);
 
 		if (mdfd < 0)
 			continue;
+		if (!isdigit(me->metadata[0])) {
+			/* must be a container */
+			struct supertype *st = super_by_fd(mdfd, NULL);
+			int ret = 0;
+			struct map_ent *map = NULL;
+			if (st)
+				st->ignore_hw_compat = 1;
+			if (st && st->ss->load_container)
+				ret = st->ss->load_container(st, mdfd, NULL);
+			close(mdfd);
+			if (!ret && st->ss->container_content) {
+				if (map_lock(&map))
+					pr_err("failed to get exclusive lock on mapfile\n");
+				ret = Incremental_container(st, me->path, c, only);
+				map_unlock(&map);
+			}
+			if (ret)
+				rv = 1;
+			continue;
+		}
 		if (ioctl(mdfd, GET_ARRAY_INFO, &array) == 0 ||
 		    errno != ENODEV) {
 			close(mdfd);
@@ -1326,7 +1398,7 @@ int IncrementalScan(int verbose)
 					close(bmfd);
 				}
 			}
-			if (verbose >= 0) {
+			if (c->verbose >= 0) {
 				if (added == 0)
 					pr_err("Added bitmap %s to %s\n",
 					       mddev->bitmap_file, me->path);
@@ -1342,7 +1414,7 @@ int IncrementalScan(int verbose)
 		if (sra) {
 			if (sysfs_set_str(sra, NULL,
 					  "array_state", "read-auto") == 0) {
-				if (verbose >= 0)
+				if (c->verbose >= 0)
 					pr_err("started array %s\n",
 					       me->path ?: me->devnm);
 			} else {
@@ -1383,7 +1455,7 @@ static char *container2devname(char *devname)
 }
 
 static int Incremental_container(struct supertype *st, char *devname,
-				 struct context *c)
+				 struct context *c, char *only)
 {
 	/* Collect the contents of this container and for each
 	 * array, choose a device name and assemble the array.
@@ -1402,6 +1474,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 	int sfd;
 	int ra_blocked = 0;
 	int ra_all = 0;
+	int result = 0;
 
 	st->ss->getinfo_super(st, &info, NULL);
 
@@ -1409,7 +1482,9 @@ static int Incremental_container(struct supertype *st, char *devname,
 	    info.container_enough > 0)
 		/* pass */;
 	else {
-		if (c->verbose)
+		if (c->export) {
+			printf("MD_STARTED=no\n");
+		} else if (c->verbose)
 			pr_err("not enough devices to start the container\n");
 		return 0;
 	}
@@ -1430,8 +1505,12 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 	list = st->ss->container_content(st, NULL);
 	/* when nothing to activate - quit */
-	if (list == NULL)
+	if (list == NULL) {
+		if (c->export) {
+			printf("MD_STARTED=nothing\n");
+		}
 		return 0;
+	}
 	for (ra = list ; ra ; ra = ra->next) {
 		int mdfd;
 		char chosen_name[1024];
@@ -1454,7 +1533,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 				strcpy(chosen_name, mp->path);
 			else
 				strcpy(chosen_name, mp->devnm);
-		} else {
+		} else if (!only) {
 
 			/* Check in mdadm.conf for container == devname and
 			 * member == ra->text_version after second slash.
@@ -1500,7 +1579,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 					pr_err("array %s/%s is "
 					       "explicitly ignored by mdadm.conf\n",
 					       match->container, match->member);
-				return 2;
+				continue;
 			}
 			if (match)
 				trustworthy = LOCAL;
@@ -1511,6 +1590,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 					    trustworthy,
 					    chosen_name);
 		}
+		if (only && (!mp || strcmp(mp->devnm, only) != 0))
+			continue;
 
 		if (mdfd < 0) {
 			pr_err("failed to open %s: %s.\n",
@@ -1519,8 +1600,29 @@ static int Incremental_container(struct supertype *st, char *devname,
 		}
 
 		assemble_container_content(st, mdfd, ra, c,
-					   chosen_name);
+					   chosen_name, &result);
 		close(mdfd);
+	}
+	if (c->export && result) {
+		char sep = '=';
+		printf("MD_STARTED");
+		if (result & INCR_NO) {
+			printf("%cno", sep);
+			sep = ',';
+		}
+		if (result & INCR_UNSAFE) {
+			printf("%cunsafe", sep);
+			sep = ',';
+		}
+		if (result & INCR_ALREADY) {
+			printf("%calready", sep);
+			sep = ',';
+		}
+		if (result & INCR_YES) {
+			printf("%cyes", sep);
+			sep = ',';
+		}
+		printf("\n");
 	}
 
 	/* don't move spares to container with volume being activated

@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2013 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -170,28 +170,24 @@ static void remove_devices(char *devnm, char *path)
 	free(path2);
 }
 
-int Manage_run(char *devname, int fd, int verbose)
+int Manage_run(char *devname, int fd, struct context *c)
 {
 	/* Run the array.  Array must already be configured
 	 *  Requires >= 0.90.0
 	 */
-	mdu_param_t param; /* unused */
-	int rv = 0;
+	char nm[32], *nmp;
 
 	if (md_get_version(fd) < 9000) {
 		pr_err("need md driver version 0.90.0 or later\n");
 		return 1;
 	}
-
-	if (ioctl(fd, RUN_ARRAY, &param)) {
-		if (verbose >= 0)
-			pr_err("failed to run array %s: %s\n",
-			       devname, strerror(errno));
+	nmp = fd2devnm(fd);
+	if (!nmp) {
+		pr_err("Cannot find %s in sysfs!!\n", devname);
 		return 1;
 	}
-	if (verbose >= 0)
-		pr_err("started %s\n", devname);
-	return rv;
+	strcpy(nm, nmp);
+	return IncrementalScan(c, nm);
 }
 
 int Manage_stop(char *devname, int fd, int verbose, int will_retry)
@@ -400,16 +396,28 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		sysfs_set_str(mdi, NULL, "sync_action", "idle");
 
 		/* That should have set things going again.  Now we
-		 * wait a little while (1 second max) for sync_completed
+		 * wait a little while (3 second max) for sync_completed
 		 * to reach the target.
+		 * The reshape process can block for 500msec if
+		 * the sync speed limit is hit, so we need to wait
+		 * a lot longer than that. 1 second is usually
+		 * enough.  3 is safe.
 		 */
-		delay = 1000;
+		delay = 3000;
 		scfd = sysfs_open(mdi->sys_name, NULL, "sync_completed");
-		while (scfd >= 0 && delay > 0) {
+		while (scfd >= 0 && delay > 0 && old_sync_max > 0) {
 			sysfs_get_ll(mdi, NULL, "reshape_position", &curr);
 			sysfs_fd_get_str(scfd, buf, sizeof(buf));
-			if (strncmp(buf, "none", 4) == 0)
-				break;
+			if (strncmp(buf, "none", 4) == 0) {
+				/* Either reshape has aborted, or hasn't
+				 * quite started yet.  Wait a bit and
+				 * check  'sync_action' to see.
+				 */
+				usleep(10000);
+				sysfs_get_str(mdi, NULL, "sync_action", buf, sizeof(buf));
+				if (strncmp(buf, "reshape", 7) != 0)
+					break;
+			}
 
 			if (sysfs_fd_get_ll(scfd, &completed) == 0 &&
 			    (completed > sync_max ||
@@ -706,10 +714,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			return -1;
 	}
 
-	if (tst->ss->validate_geometry(
-		    tst, array->level, array->layout,
-		    array->raid_disks, NULL,
-		    ldsize >> 9, INVALID_SECTORS, NULL, NULL, 0) == 0) {
+	if (tst->ss == &super0 && ldsize > 4ULL*1024*1024*1024*1024) {
+		/* More than 4TB is wasted on v0.90 */
 		if (!force) {
 			pr_err("%s is larger than %s can "
 			       "effectively use.\n"
@@ -777,7 +783,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 				break;
 			}
 		/* FIXME this is a bad test to be using */
-		if (!tst->sb && dv->disposition != 'a') {
+		if (!tst->sb && (dv->disposition != 'a'
+				 && dv->disposition != 'S')) {
 			/* we are re-adding a device to a
 			 * completely dead array - have to depend
 			 * on kernel to check
@@ -807,7 +814,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			dev_st = dup_super(tst);
 			dev_st->ss->load_super(dev_st, tfd, NULL);
 		}
-		if (dev_st && dev_st->sb) {
+		if (dev_st && dev_st->sb && dv->disposition != 'S') {
 			int rv = attempt_re_add(fd, tfd, dv,
 						dev_st, tst,
 						rdev,
@@ -840,13 +847,14 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 					continue;
 				if (disc.major == 0 && disc.minor == 0)
 					continue;
+				found++;
 				if (!(disc.state & (1<<MD_DISK_SYNC)))
 					continue;
 				avail[disc.raid_disk] = 1;
-				found++;
 			}
 			array_failed = !enough(array->level, array->raid_disks,
 					       array->layout, 1, avail);
+			free(avail);
 		} else
 			array_failed = 0;
 		if (array_failed) {
@@ -1206,7 +1214,7 @@ int Manage_with(struct supertype *tst, int fd, struct mddev_dev *dv,
 				   "slot", dv->used);
 		if (rv) {
 			sysfs_free(mdi);
-			pr_err("Failed to %s as preferred replacement.\n",
+			pr_err("Failed to set %s as preferred replacement.\n",
 			       dv->devname);
 			return -1;
 		}
@@ -1230,6 +1238,7 @@ int Manage_subdevs(char *devname, int fd,
 	 *  'a' - add the device
 	 *	   try HOT_ADD_DISK
 	 *         If that fails EINVAL, try ADD_NEW_DISK
+	 *  'S' - add the device as a spare - don't try re-add
 	 *  'A' - re-add the device
 	 *  'r' - remove the device: HOT_REMOVE_DISK
 	 *        device can be 'faulty' or 'detached' in which case all
@@ -1440,6 +1449,7 @@ int Manage_subdevs(char *devname, int fd,
 				dv->devname, dv->disposition);
 			goto abort;
 		case 'a':
+		case 'S': /* --add-spare */
 		case 'A':
 		case 'M': /* --re-add missing */
 		case 'F': /* --re-add faulty  */

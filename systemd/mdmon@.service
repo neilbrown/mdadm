@@ -11,8 +11,18 @@ DefaultDependencies=no
 Before=initrd-switch-root.target
 
 [Service]
-ExecStart=/sbin/mdmon --foreground %I
-StandardInput=null
-StandardOutput=null
-StandardError=null
+# mdmon should never complain due to lack of a platform,
+# that is mdadm's job if at all.
+Environment=IMSM_NO_PLATFORM=1
+# The mdmon starting in the initramfs (with dracut at least)
+# cannot see sysfs after root is mounted, so we will have to
+# 'takeover'.  As the '--offroot --takeover' don't hurt when
+# not necessary, are are useful with root-on-md in dracut,
+# have them always present.
+ExecStart=BINDIR/mdmon --offroot --takeover %I
+Type=forking
+# Don't set the PIDFile.  It isn't necessary (systemd can work
+# it out) and systemd will remove it when transitioning from
+# initramfs to rootfs.
+#PIDFile=/run/mdadm/%I.pid
 KillMode=none

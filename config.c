@@ -72,7 +72,9 @@
 #define CONFFILE2 "/etc/mdadm/mdadm.conf"
 #endif
 char DefaultConfFile[] = CONFFILE;
+char DefaultConfDir[] = CONFFILE ".d";
 char DefaultAltConfFile[] = CONFFILE2;
+char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
 		Homehost, AutoMode, Policy, PartPolicy, LTEnd };
@@ -150,7 +152,7 @@ struct mddev_dev *load_partitions(void)
 
 struct mddev_dev *load_containers(void)
 {
-	struct mdstat_ent *mdstat = mdstat_read(1, 0);
+	struct mdstat_ent *mdstat = mdstat_read(0, 0);
 	struct mdstat_ent *ent;
 	struct mddev_dev *d;
 	struct mddev_dev *rv = NULL;
@@ -505,13 +507,9 @@ void mailline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+	for (w=dl_next(line); w != line ; w=dl_next(w))
 		if (alert_email == NULL)
 			alert_email = xstrdup(w);
-		else
-			pr_err("excess address on MAIL line: %s - ignored\n",
-				w);
-	}
 }
 
 static char *alert_mail_from = NULL;
@@ -538,13 +536,9 @@ void programline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+	for (w=dl_next(line); w != line ; w=dl_next(w))
 		if (alert_program == NULL)
 			alert_program = xstrdup(w);
-		else
-			pr_err("excess program on PROGRAM line: %s - ignored\n",
-				w);
-	}
 }
 
 static char *home_host = NULL;
@@ -561,9 +555,7 @@ void homehostline(char *line)
 				home_host = xstrdup("");
 			else
 				home_host = xstrdup(w);
-		}else
-			pr_err("excess host name on HOMEHOST line: %s - ignored\n",
-				w);
+		}
 	}
 }
 
@@ -581,11 +573,10 @@ void autoline(char *line)
 	int homehost = 0;
 	int i;
 
-	if (auto_seen) {
-		pr_err("AUTO line may only be give once."
-			"  Subsequent lines ignored\n");
+	if (auto_seen)
 		return;
-	}
+	auto_seen = 1;
+
 	/* Parse the 'auto' line creating policy statements for the 'auto' policy.
 	 *
 	 * The default is 'yes' but the 'auto' line might over-ride that.
@@ -611,6 +602,24 @@ void autoline(char *line)
 	 * When we see yes, no, +all or -all we stop and any version that hasn't
 	 * been seen gets an appropriate auto= entry.
 	 */
+
+	/* If environment variable MDADM_CONF_AUTO is defined, then
+	 * it is prepended to the auto line.  This allow a script
+	 * to easily disable some metadata types.
+	 */
+	w = getenv("MDADM_CONF_AUTO");
+	if (w && *w) {
+		char *l = xstrdup(w);
+		char *head = line;
+		w = strtok(l, " \t");
+		while (w) {
+			char *nw = dl_strdup(w);
+			dl_insert(head, nw);
+			head = nw;
+			w = strtok(NULL, " \t");
+		}
+		free(l);
+	}
 
 	for (super_cnt = 0; superlist[super_cnt]; super_cnt++)
 		;
@@ -686,44 +695,9 @@ void set_conffile(char *file)
 	conffile = file;
 }
 
-void load_conffile(void)
+void conf_file(FILE *f)
 {
-	FILE *f;
 	char *line;
-
-	if (loaded) return;
-	if (conffile == NULL)
-		conffile = DefaultConfFile;
-
-	if (strcmp(conffile, "none") == 0) {
-		loaded = 1;
-		return;
-	}
-	if (strcmp(conffile, "partitions")==0) {
-		char *list = dl_strdup("DEV");
-		dl_init(list);
-		dl_add(list, dl_strdup("partitions"));
-		devline(list);
-		free_line(list);
-		loaded = 1;
-		return;
-	}
-	f = fopen(conffile, "r");
-	/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
-	 * To allow Debian users to compile from clean source and still
-	 * have a working mdadm, we read /etc/mdadm/mdadm.conf
-	 * if /etc/mdadm.conf doesn't exist
-	 */
-	if (f == NULL &&
-	    conffile == DefaultConfFile) {
-		f = fopen(DefaultAltConfFile, "r");
-		if (f)
-			conffile = DefaultAltConfFile;
-	}
-	if (f == NULL)
-		return;
-
-	loaded = 1;
 	while ((line=conf_line(f))) {
 		switch(match_keyword(line)) {
 		case Devices:
@@ -761,10 +735,124 @@ void load_conffile(void)
 		}
 		free_line(line);
 	}
+}
 
-	fclose(f);
+struct fname {
+	struct fname *next;
+	char name[];
+};
 
-/*    printf("got file\n"); */
+void conf_file_or_dir(FILE *f)
+{
+	struct stat st;
+	DIR *dir;
+	struct dirent *dp;
+	struct fname *list = NULL;
+
+	fstat(fileno(f), &st);
+	if (S_ISREG(st.st_mode))
+		conf_file(f);
+	else if (!S_ISDIR(st.st_mode))
+		return;
+#if _XOPEN_SOURCE >= 700 || _POSIX_C_SOURCE >= 200809L
+	dir = fdopendir(fileno(f));
+	if (!dir)
+		return;
+	while ((dp = readdir(dir)) != NULL) {
+		int l;
+		struct fname *fn, **p;
+		if (dp->d_ino == 0)
+			continue;
+		if (dp->d_name[0] == '.')
+			continue;
+		l = strlen(dp->d_name);
+		if (l < 6 || strcmp(dp->d_name+l-5, ".conf") != 0)
+			continue;
+		fn = xmalloc(sizeof(*fn)+l+1);
+		strcpy(fn->name, dp->d_name);
+		for (p = &list;
+		     *p && strcmp((*p)->name, fn->name) < 0;
+		     p = & (*p)->next)
+			;
+		fn->next = *p;
+		*p = fn;
+	}
+	while (list) {
+		int fd;
+		FILE *f2;
+		struct fname *fn = list;
+		list = list->next;
+		fd = openat(fileno(f), fn->name, O_RDONLY);
+		free(fn);
+		if (fd < 0)
+			continue;
+		f2 = fdopen(fd, "r");
+		if (!f2) {
+			close(fd);
+			continue;
+		}
+		conf_file(f2);
+		fclose(f2);
+	}
+	closedir(dir);
+#endif
+}
+
+void load_conffile(void)
+{
+	FILE *f;
+	char *confdir = NULL;
+	char *head;
+
+	if (loaded)
+		return;
+	if (conffile == NULL) {
+		conffile = DefaultConfFile;
+		confdir = DefaultConfDir;
+	}
+
+	if (strcmp(conffile, "partitions")==0) {
+		char *list = dl_strdup("DEV");
+		dl_init(list);
+		dl_add(list, dl_strdup("partitions"));
+		devline(list);
+		free_line(list);
+	} else if (strcmp(conffile, "none") != 0) {
+		f = fopen(conffile, "r");
+		/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
+		 * To allow Debian users to compile from clean source and still
+		 * have a working mdadm, we read /etc/mdadm/mdadm.conf
+		 * if /etc/mdadm.conf doesn't exist
+		 */
+		if (f == NULL &&
+		    conffile == DefaultConfFile) {
+			f = fopen(DefaultAltConfFile, "r");
+			if (f) {
+				conffile = DefaultAltConfFile;
+				confdir = DefaultAltConfDir;
+			}
+		}
+		if (f) {
+			conf_file_or_dir(f);
+			fclose(f);
+		}
+		if (confdir) {
+			f = fopen(confdir, "r");
+			if (f) {
+				conf_file_or_dir(f);
+				fclose(f);
+			}
+		}
+	}
+	/* If there was no AUTO line, process an empty line
+	 * now so that the MDADM_CONF_AUTO env var gets processed.
+	 */
+	head = dl_strdup("AUTO");
+	dl_init(head);
+	autoline(head);
+	free_line(head);
+
+	loaded = 1;
 }
 
 char *conf_get_mailaddr(void)

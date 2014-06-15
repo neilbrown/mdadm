@@ -129,12 +129,12 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 #if !defined(__KLIBC__)
 #if BYTE_ORDER == LITTLE_ENDIAN
-#define	__cpu_to_le16(_x) (_x)
-#define __cpu_to_le32(_x) (_x)
-#define __cpu_to_le64(_x) (_x)
-#define	__le16_to_cpu(_x) (_x)
-#define __le32_to_cpu(_x) (_x)
-#define __le64_to_cpu(_x) (_x)
+#define	__cpu_to_le16(_x) (unsigned int)(_x)
+#define __cpu_to_le32(_x) (unsigned int)(_x)
+#define __cpu_to_le64(_x) (unsigned long long)(_x)
+#define	__le16_to_cpu(_x) (unsigned int)(_x)
+#define __le32_to_cpu(_x) (unsigned int)(_x)
+#define __le64_to_cpu(_x) (unsigned long long)(_x)
 
 #define	__cpu_to_be16(_x) bswap_16(_x)
 #define __cpu_to_be32(_x) bswap_32(_x)
@@ -150,12 +150,12 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define __le32_to_cpu(_x) bswap_32(_x)
 #define __le64_to_cpu(_x) bswap_64(_x)
 
-#define	__cpu_to_be16(_x) (_x)
-#define __cpu_to_be32(_x) (_x)
-#define __cpu_to_be64(_x) (_x)
-#define	__be16_to_cpu(_x) (_x)
-#define __be32_to_cpu(_x) (_x)
-#define __be64_to_cpu(_x) (_x)
+#define	__cpu_to_be16(_x) (unsigned int)(_x)
+#define __cpu_to_be32(_x) (unsigned int)(_x)
+#define __cpu_to_be64(_x) (unsigned long long)(_x)
+#define	__be16_to_cpu(_x) (unsigned int)(_x)
+#define __be32_to_cpu(_x) (unsigned int)(_x)
+#define __be64_to_cpu(_x) (unsigned long long)(_x)
 #else
 #  error "unknown endianness."
 #endif
@@ -177,6 +177,8 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 	typeof(y) _max2 = (y);                  \
 	(void) (&_max1 == &_max2);              \
 	_max1 > _max2 ? _max1 : _max2; })
+
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
 /* general information that might be extracted from a superblock */
 struct mdinfo {
@@ -309,6 +311,7 @@ enum special_options {
 	Brief,
 	ManageOpt,
 	Add,
+	AddSpare,
 	Remove,
 	Fail,
 	Replace,
@@ -339,6 +342,7 @@ enum special_options {
 	ExamineBB,
 	Dump,
 	Restore,
+	Action,
 };
 
 enum prefix_standard {
@@ -412,6 +416,7 @@ struct context {
 	int	freeze_reshape;
 	char	*backup_file;
 	int	invalid_backup;
+	char	*action;
 };
 
 struct shape {
@@ -465,6 +470,7 @@ struct mdstat_ent {
 };
 
 extern struct mdstat_ent *mdstat_read(int hold, int start);
+extern void mdstat_close(void);
 extern void free_mdstat(struct mdstat_ent *ms);
 extern void mdstat_wait(int seconds);
 extern void mdstat_wait_fd(int fd, const sigset_t *sigmask);
@@ -581,9 +587,12 @@ extern int reshape_open_backup_file(char *backup,
 				    long blocks,
 				    int *fdlist,
 				    unsigned long long *offsets,
+				    char *sysfs_name,
 				    int restart);
 extern unsigned long compute_backup_blocks(int nchunk, int ochunk,
 					   unsigned int ndata, unsigned int odata);
+extern char *locate_backup(char *name);
+extern char *make_backup(char *name);
 
 extern int save_stripes(int *source, unsigned long long *offsets,
 			int raid_disks, int chunk_size, int level, int layout,
@@ -996,6 +1005,7 @@ struct supertype {
 	void *info;
 	void *other; /* Hack used to convert v0.90 to v1.0 */
 	unsigned long long devsize;
+	unsigned long long data_offset; /* used by v1.x only */
 	int ignore_hw_compat; /* used to inform metadata handlers that it should ignore
 				 HW/firmware related incompatability to load metadata.
 				 Used when examining metadata to display content of disk
@@ -1167,7 +1177,7 @@ struct stat64;
 extern int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s);
 
 extern int Manage_ro(char *devname, int fd, int readonly);
-extern int Manage_run(char *devname, int fd, int quiet);
+extern int Manage_run(char *devname, int fd, struct context *c);
 extern int Manage_stop(char *devname, int fd, int quiet,
 		       int will_retry);
 extern int Manage_subdevs(char *devname, int fd,
@@ -1185,13 +1195,13 @@ extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 			int *fdlist, int cnt, char *backup_file, int verbose);
 extern int Grow_continue(int mdfd, struct supertype *st,
 			 struct mdinfo *info, char *backup_file,
-			 int freeze_reshape);
+			 int forked, int freeze_reshape);
 
 extern int restore_backup(struct supertype *st,
 			  struct mdinfo *content,
 			  int working_disks,
 			  int spares,
-			  char *backup_file,
+			  char **backup_filep,
 			  int verbose);
 extern int Grow_continue_command(char *devname, int fd,
 				 char *backup_file, int verbose);
@@ -1229,11 +1239,12 @@ extern int Kill_subarray(char *dev, char *subarray, int verbose);
 extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet);
 extern int Wait(char *dev);
 extern int WaitClean(char *dev, int sock, int verbose);
+extern int SetAction(char *dev, char *action);
 
-extern int Incremental(char *devname, struct context *c,
+extern int Incremental(struct mddev_dev *devlist, struct context *c,
 		       struct supertype *st);
 extern void RebuildMap(void);
-extern int IncrementalScan(int verbose);
+extern int IncrementalScan(struct context *c, char *devnm);
 extern int IncrementalRemove(char *devname, char *path, int verbose);
 extern int CreateBitmap(char *filename, int force, char uuid[16],
 			unsigned long chunksize, unsigned long daemon_sleep,
@@ -1267,6 +1278,7 @@ extern int check_partitions(int fd, char *dname,
 extern int get_mdp_major(void);
 extern int dev_open(char *dev, int flags);
 extern int open_dev(char *devnm);
+extern void reopen_mddev(int mdfd);
 extern int open_dev_flags(char *devnm, int flags);
 extern int open_dev_excl(char *devnm);
 extern int is_standard(char *dev, int *nump);
@@ -1326,7 +1338,11 @@ extern void append_metadata_update(struct supertype *st, void *buf, int len);
 extern int assemble_container_content(struct supertype *st, int mdfd,
 				      struct mdinfo *content,
 				      struct context *c,
-				      char *chosen_name);
+				      char *chosen_name, int *result);
+#define	INCR_NO		1
+#define	INCR_UNSAFE	2
+#define	INCR_ALREADY	4
+#define	INCR_YES	8
 extern struct mdinfo *container_choose_spares(struct supertype *st,
 					      unsigned long long min_size,
 					      struct domainlist *domlist,
@@ -1347,6 +1363,7 @@ extern void print_r10_layout(int layout);
 extern char *find_free_devnm(int use_partitions);
 
 extern void put_md_name(char *name);
+extern char *devid2kname(int devid);
 extern char *devid2devnm(int devid);
 extern int devnm2devid(char *devnm);
 extern char *get_md_name(char *devnm);
@@ -1386,6 +1403,8 @@ void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0
 extern void fmt_devname(char *name, int num);
 extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
+
+extern int in_initrd(void);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))
@@ -1445,6 +1464,9 @@ char *xstrdup(const char *str);
 /* kernel module doesn't know about these */
 #define LEVEL_CONTAINER		(-100)
 #define	LEVEL_UNSUPPORTED	(-200)
+
+/* the kernel does know about this one ... */
+#define	LEVEL_NONE		(-1000000)
 
 /* faulty stuff */
 

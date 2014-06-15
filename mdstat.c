@@ -289,6 +289,13 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 	return rv;
 }
 
+void mdstat_close(void)
+{
+	if (mdstat_fd >= 0)
+		close(mdstat_fd);
+	mdstat_fd = -1;
+}
+
 void mdstat_wait(int seconds)
 {
 	fd_set fds;

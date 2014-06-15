@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2013 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,8 @@
 #include	<sys/wait.h>
 #include	<sys/un.h>
 #include	<sys/resource.h>
+#include	<sys/vfs.h>
+#include	<linux/magic.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<signal.h>
@@ -305,7 +307,7 @@ int test_partition(int fd)
 	if (ioctl(fd, BLKPG, &a) == 0)
 		/* Very unlikely, but not a partition */
 		return 0;
-	if (errno == ENXIO)
+	if (errno == ENXIO || errno == ENOTTY)
 		/* not a partition */
 		return 0;
 
@@ -385,7 +387,6 @@ int enough_fd(int fd)
 {
 	struct mdu_array_info_s array;
 	struct mdu_disk_info_s disk;
-	int avail_disks = 0;
 	int i, rv;
 	char *avail;
 
@@ -405,7 +406,6 @@ int enough_fd(int fd)
 			continue;
 		if (disk.raid_disk < 0 || disk.raid_disk >= array.raid_disks)
 			continue;
-		avail_disks++;
 		avail[disk.raid_disk] = 1;
 	}
 	/* This is used on an active array, so assume it is clean */
@@ -509,7 +509,8 @@ int check_ext2(int fd, char *name)
 	 */
 	unsigned char sb[1024];
 	time_t mtime;
-	int size, bsize;
+	unsigned long long size;
+	int bsize;
 	if (lseek(fd, 1024,0)!= 1024)
 		return 0;
 	if (read(fd, sb, 1024)!= 1024)
@@ -520,10 +521,10 @@ int check_ext2(int fd, char *name)
 	mtime = sb[44]|(sb[45]|(sb[46]|sb[47]<<8)<<8)<<8;
 	bsize = sb[24]|(sb[25]|(sb[26]|sb[27]<<8)<<8)<<8;
 	size = sb[4]|(sb[5]|(sb[6]|sb[7]<<8)<<8)<<8;
+	size <<= bsize;
 	pr_err("%s appears to contain an ext2fs file system\n",
 		name);
-	cont_err("size=%dK  mtime=%s",
-		size*(1<<bsize), ctime(&mtime));
+	cont_err("size=%lluK  mtime=%s", size, ctime(&mtime));
 	return 1;
 }
 
@@ -536,7 +537,7 @@ int check_reiser(int fd, char *name)
 	 *
 	 */
 	unsigned char sb[1024];
-	unsigned long size;
+	unsigned long long size;
 	if (lseek(fd, 64*1024, 0) != 64*1024)
 		return 0;
 	if (read(fd, sb, 1024) != 1024)
@@ -546,7 +547,7 @@ int check_reiser(int fd, char *name)
 		return 0;
 	pr_err("%s appears to contain a reiserfs file system\n",name);
 	size = sb[0]|(sb[1]|(sb[2]|sb[3]<<8)<<8)<<8;
-	cont_err("size = %luK\n", size*4);
+	cont_err("size = %lluK\n", size*4);
 
 	return 1;
 }
@@ -1091,6 +1092,7 @@ struct supertype *dup_super(struct supertype *orig)
 	st->max_devs = orig->max_devs;
 	st->minor_version = orig->minor_version;
 	st->ignore_hw_compat = orig->ignore_hw_compat;
+	st->data_offset = orig->data_offset;
 	st->sb = NULL;
 	st->info = NULL;
 	return st;
@@ -1686,8 +1688,8 @@ int start_mdmon(char *devnm)
 	char pathbuf[1024];
 	char *paths[4] = {
 		pathbuf,
-		"/sbin/mdmon",
-		"mdmon",
+		BINDIR "/mdmon",
+		"./mdmon",
 		NULL
 	};
 
@@ -1708,36 +1710,39 @@ int start_mdmon(char *devnm)
 		pathbuf[0] = '\0';
 
 	/* First try to run systemctl */
-	switch(fork()) {
-	case 0:
-		/* FIXME yuk. CLOSE_EXEC?? */
-		skipped = 0;
-		for (i = 3; skipped < 20; i++)
-			if (close(i) < 0)
-				skipped++;
-			else
-				skipped = 0;
+	if (!check_env("MDADM_NO_SYSTEMCTL"))
+		switch(fork()) {
+		case 0:
+			/* FIXME yuk. CLOSE_EXEC?? */
+			skipped = 0;
+			for (i = 3; skipped < 20; i++)
+				if (close(i) < 0)
+					skipped++;
+				else
+					skipped = 0;
 
-		/* Don't want to see error messages from systemctl.
-		 * If the service doesn't exist, we start mdmon ourselves.
-		 */
-		close(2);
-		open("/dev/null", O_WRONLY);
-		snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
-			 devnm);
-		status = execl("/usr/bin/systemctl", "systemctl", "start",
-			       pathbuf, NULL);
-		status = execl("/bin/systemctl", "systemctl", "start",
-			       pathbuf, NULL);
-		exit(1);
-	case -1: pr_err("cannot run mdmon. "
-			 "Array remains readonly\n");
-		return -1;
-	default: /* parent - good */
-		pid = wait(&status);
-		if (pid >= 0 && status == 0)
-			return 0;
-	}
+			/* Don't want to see error messages from
+			 * systemctl.  If the service doesn't exist,
+			 * we start mdmon ourselves.
+			 */
+			close(2);
+			open("/dev/null", O_WRONLY);
+			snprintf(pathbuf, sizeof(pathbuf), "mdmon@%s.service",
+				 devnm);
+			status = execl("/usr/bin/systemctl", "systemctl",
+				       "start",
+				       pathbuf, NULL);
+			status = execl("/bin/systemctl", "systemctl", "start",
+				       pathbuf, NULL);
+			exit(1);
+		case -1: pr_err("cannot run mdmon. "
+				"Array remains readonly\n");
+			return -1;
+		default: /* parent - good */
+			pid = wait(&status);
+			if (pid >= 0 && status == 0)
+				return 0;
+		}
 
 	/* That failed, try running mdmon directly */
 	switch(fork()) {
@@ -1752,7 +1757,7 @@ int start_mdmon(char *devnm)
 
 		for (i = 0; paths[i]; i++)
 			if (paths[i][0]) {
-				execl(paths[i], "mdmon",
+				execl(paths[i], paths[i],
 				      devnm, NULL);
 			}
 		exit(1);
@@ -1935,4 +1940,31 @@ void enable_fds(int devices)
 		lim.rlim_max = fds;
 	lim.rlim_cur = fds;
 	setrlimit(RLIMIT_NOFILE, &lim);
+}
+
+int in_initrd(void)
+{
+	/* This is based on similar function in systemd. */
+	struct statfs s;
+	/* statfs.f_type is signed long on s390x and MIPS, causing all
+	   sorts of sign extension problems with RAMFS_MAGIC being
+	   defined as 0x858458f6 */
+	return  statfs("/", &s) >= 0 &&
+		((unsigned long)s.f_type == TMPFS_MAGIC ||
+		 ((unsigned long)s.f_type & 0xFFFFFFFFUL) ==
+		 ((unsigned long)RAMFS_MAGIC & 0xFFFFFFFFUL));
+}
+
+void reopen_mddev(int mdfd)
+{
+	/* Re-open without any O_EXCL, but keep
+	 * the same fd
+	 */
+	char *devnm;
+	int fd;
+	devnm = fd2devnm(mdfd);
+	close(mdfd);
+	fd = open_dev(devnm);
+	if (fd >= 0 && fd != mdfd)
+		dup2(fd, mdfd);
 }

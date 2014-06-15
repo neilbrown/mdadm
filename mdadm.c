@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2013 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -116,13 +116,6 @@ int main(int argc, char *argv[])
 	ident.container = NULL;
 	ident.member = NULL;
 
-	/*
-	 * set first char of argv[0] to @. This is used by
-	 * systemd to signal that the task was launched from
-	 * initrd/initramfs and should be preserved during shutdown
-	 */
-	argv[0][0] = '@';
-
 	while ((option_index = -1) ,
 	       (opt=getopt_long(argc, argv,
 				shortopt, long_options,
@@ -194,6 +187,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'a':
 		case Add:
+		case AddSpare:
 		case 'r':
 		case Remove:
 		case Replace:
@@ -236,6 +230,7 @@ int main(int argc, char *argv[])
 		case ExamineBB:
 		case Dump:
 		case Restore:
+		case Action:
 			newmode = MISC;
 			break;
 
@@ -922,6 +917,9 @@ int main(int argc, char *argv[])
 		case O(MANAGE,Add): /* add a drive */
 			devmode = 'a';
 			continue;
+		case O(MANAGE,AddSpare): /* add drive - never re-add */
+			devmode = 'S';
+			continue;
 		case O(MANAGE,ReAdd):
 			devmode = 'A';
 			continue;
@@ -990,6 +988,7 @@ int main(int argc, char *argv[])
 		case O(MISC, UpdateSubarray):
 		case O(MISC, Dump):
 		case O(MISC, Restore):
+		case O(MISC ,Action):
 			if (opt == KillSubarray || opt == UpdateSubarray) {
 				if (c.subarray) {
 					pr_err("subarray can only"
@@ -997,6 +996,21 @@ int main(int argc, char *argv[])
 					exit(2);
 				}
 				c.subarray = optarg;
+			}
+			if (opt == Action) {
+				if (c.action) {
+					pr_err("Only one --action can be specified\n");
+					exit(2);
+				}
+				if (strcmp(optarg, "idle") == 0 ||
+				    strcmp(optarg, "frozen") == 0 ||
+				    strcmp(optarg, "check") == 0 ||
+				    strcmp(optarg, "repair") == 0)
+					c.action = optarg;
+				else {
+					pr_err("action must be one of idle, frozen, check, repair\n");
+					exit(2);
+				}
 			}
 			if (devmode && devmode != opt &&
 			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
@@ -1300,7 +1314,7 @@ int main(int argc, char *argv[])
 		if (!rv && c.readonly < 0)
 			rv = Manage_ro(devlist->devname, mdfd, c.readonly);
 		if (!rv && c.runstop > 0)
-			rv = Manage_run(devlist->devname, mdfd, c.verbose);
+			rv = Manage_run(devlist->devname, mdfd, &c);
 		if (!rv && c.runstop < 0)
 			rv = Manage_stop(devlist->devname, mdfd, c.verbose, 0);
 		break;
@@ -1534,6 +1548,11 @@ int main(int argc, char *argv[])
 			RebuildMap();
 		}
 		if (c.scan) {
+			rv = 1;
+			if (devlist) {
+				pr_err("In --incremental mode, a device cannot be given with --scan.\n");
+				break;
+			}
 			if (c.runstop <= 0) {
 				pr_err("--incremental --scan meaningless without --run.\n");
 				break;
@@ -1542,7 +1561,7 @@ int main(int argc, char *argv[])
 				pr_err("--incremental --scan --fail not supported.\n");
 				break;
 			}
-			rv = IncrementalScan(c.verbose);
+			rv = IncrementalScan(&c, NULL);
 		}
 		if (!devlist) {
 			if (!rebuild_map && !c.scan) {
@@ -1551,16 +1570,16 @@ int main(int argc, char *argv[])
 			}
 			break;
 		}
-		if (devlist->next) {
-			pr_err("--incremental can only handle one device.\n");
-			rv = 1;
-			break;
-		}
-		if (devmode == 'f')
+		if (devmode == 'f') {
+			if (devlist->next) {
+				pr_err("'--incremental --fail' can only handle one device.\n");
+				rv = 1;
+				break;
+			}
 			rv = IncrementalRemove(devlist->devname, remove_path,
 					       c.verbose);
-		else
-			rv = Incremental(devlist->devname, &c, ss);
+		} else
+			rv = Incremental(devlist, &c, ss);
 		break;
 	case AUTODETECT:
 		autodetect();
@@ -1800,6 +1819,9 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= Restore_metadata(dv->devname, dump_directory, c, ss,
 					       (dv == devlist && dv->next == NULL));
 			continue;
+		case Action:
+			rv |= SetAction(dv->devname, c->action);
+			continue;
 		}
 		if (dv->devname[0] == '/')
 			mdfd = open_mddev(dv->devname, 1);
@@ -1811,7 +1833,8 @@ static int misc_list(struct mddev_dev *devlist,
 		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':
-				rv |= Manage_run(dv->devname, mdfd, c->verbose); break;
+				c->runstop = 1;
+				rv |= Manage_run(dv->devname, mdfd, c); break;
 			case 'S':
 				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0); break;
 			case 'o':
@@ -1824,4 +1847,27 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= 1;
 	}
 	return rv;
+}
+
+int SetAction(char *dev, char *action)
+{
+	int fd = open(dev, O_RDONLY);
+	struct mdinfo mdi;
+	if (fd < 0) {
+		pr_err("Couldn't open %s: %s\n", dev, strerror(errno));
+		return 1;
+	}
+	sysfs_init(&mdi, fd, NULL);
+	close(fd);
+	if (!mdi.sys_name[0]) {
+		pr_err("%s is no an md array\n", dev);
+		return 1;
+	}
+
+	if (sysfs_set_str(&mdi, NULL, "sync_action", action) < 0) {
+		pr_err("Count not set action for %s to %s: %s\n",
+		       dev, action, strerror(errno));
+		return 1;
+	}
+	return 0;
 }

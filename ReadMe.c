@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2012 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2014 Neil Brown <neilb@suse.de>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -25,10 +25,10 @@
 #include "mdadm.h"
 
 #ifndef VERSION
-#define VERSION "3.2.5"
+#define VERSION "3.3.1"
 #endif
 #ifndef VERS_DATE
-#define VERS_DATE "18th May 2012"
+#define VERS_DATE "5th June 2014"
 #endif
 char Version[] = Name " - v" VERSION " - " VERS_DATE "\n";
 
@@ -153,6 +153,7 @@ struct option long_options[] = {
 
     /* Management */
     {"add",       0, 0, Add},
+    {"add-spare", 0, 0, AddSpare},
     {"remove",    0, 0, Remove},
     {"fail",      0, 0, Fail},
     {"set-faulty",0, 0, Fail},
@@ -165,6 +166,7 @@ struct option long_options[] = {
     {"no-degraded",0,0,  NoDegraded },
     {"wait",	  0, 0,  WaitOpt},
     {"wait-clean", 0, 0, Waitclean },
+    {"action",    1, 0, Action },
 
     /* For Detail/Examine */
     {"brief",	  0, 0, Brief},
@@ -505,6 +507,7 @@ char Help_misc[] =
 "  --readwrite   -w   : mark array as readwrite\n"
 "  --test        -t   : exit status 0 if ok, 1 if degrade, 2 if dead, 4 if missing\n"
 "  --wait        -W   : wait for resync/rebuild/recovery to finish\n"
+"  --action=          : initiate or abort ('idle' or 'frozen') a 'check' or 'repair'.\n"
 ;
 
 char Help_monitor[] =

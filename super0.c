@@ -662,7 +662,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 				    sb->new_chunk/512 *
 				    (sb->raid_disks - sb->delta_disks - parity))) {
 				pr_err("Reshape position is not suitably aligned.\n");
-				pr_err("Try normal assembly as stop again\n");
+				pr_err("Try normal assembly and stop again\n");
 				return -2;
 			}
 			sb->raid_disks -= sb->delta_disks;
@@ -1274,7 +1274,7 @@ static int validate_geometry0(struct supertype *st, int level,
 			       "%d terabytes per device\n", tbmax);
 		return 0;
 	}
-	if (chunk && *chunk == UnSet)
+	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
 	if (!subdev)

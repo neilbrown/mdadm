@@ -682,7 +682,7 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 		return rv;
 
 	memset(nm, 0, sizeof(nm));
-	dname = devid2devnm(makedev(sd->disk.major, sd->disk.minor));
+	dname = devid2kname(makedev(sd->disk.major, sd->disk.minor));
 	strcpy(sd->sys_name, "dev-");
 	strcpy(sd->sys_name+4, dname);
 

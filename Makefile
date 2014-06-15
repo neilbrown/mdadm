@@ -57,6 +57,7 @@ ifdef DEFAULT_OLD_METADATA
 else
  DEFAULT_METADATA=1.2
 endif
+CPPFLAGS += -DBINDIR=\"$(BINDIR)\"
 
 PKG_CONFIG ?= pkg-config
 
@@ -67,13 +68,16 @@ MAILCMD =/usr/sbin/sendmail -t
 CONFFILEFLAGS = -DCONFFILE=\"$(CONFFILE)\" -DCONFFILE2=\"$(CONFFILE2)\"
 # Both MAP_DIR and MDMON_DIR should be somewhere that persists across the
 # pivotroot from early boot to late boot.
-# /run is best, but for distros that don't support that, /dev can work.
-MAP_DIR=/run/mdadm
+# /run is best, but for distros that don't support that.
+# /dev can work, in which case you probably want /dev/.mdadm
+RUN_DIR=/run/mdadm
+CHECK_RUN_DIR=1
+MAP_DIR=$(RUN_DIR)
 MAP_FILE = map
 MAP_PATH = $(MAP_DIR)/$(MAP_FILE)
-MDMON_DIR = $(MAP_DIR)
+MDMON_DIR = $(RUN_DIR)
 # place for autoreplace cookies
-FAILED_SLOTS_DIR = /run/mdadm/failed-slots
+FAILED_SLOTS_DIR = $(RUN_DIR)/failed-slots
 SYSTEMD_DIR=/lib/systemd/system
 DIRFLAGS = -DMAP_DIR=\"$(MAP_DIR)\" -DMAP_FILE=\"$(MAP_FILE)\"
 DIRFLAGS += -DMDMON_DIR=\"$(MDMON_DIR)\"
@@ -149,8 +153,15 @@ ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
-all : mdadm mdmon
+all : check_rundir mdadm mdmon
 man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
+
+check_rundir:
+	@if [ ! -d "$(dir $(RUN_DIR))" -a  "$(CHECK_RUN_DIR)" = 1 ]; then \
+		echo "***** Parent of $(RUN_DIR) does not exist.  Maybe set different RUN_DIR="; \
+		echo "*****  e.g. make RUN_DIR=/dev/.mdadm" ; \
+		echo "***** or set CHECK_RUN_DIR=0"; exit 1; \
+	fi
 
 everything: all mdadm.static swap_super test_stripe raid6check \
 	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
@@ -161,7 +172,7 @@ everything-test: all mdadm.static swap_super test_stripe \
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
 
-mdadm : $(OBJS)
+mdadm : check_rundir $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
 mdadm.static : $(OBJS) $(STATICOBJS)
@@ -175,16 +186,16 @@ mdadm.klibc : $(SRCS) $(INCL)
 	$(CC) -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32 $(CFLAGS) $(SRCS)
 
 mdadm.Os : $(SRCS) $(INCL)
-	$(CC) -o mdadm.Os $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -Os $(SRCS)
+	$(CC) -o mdadm.Os $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -Os $(SRCS)
 
 mdadm.O2 : $(SRCS) $(INCL) mdmon.O2
-	$(CC) -o mdadm.O2 $(CFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
+	$(CC) -o mdadm.O2 $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(SRCS)
 
 mdmon.O2 : $(MON_SRCS) $(INCL) mdmon.h
-	$(CC) -o mdmon.O2 $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
+	$(CC) -o mdmon.O2 $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
-mdmon : $(MON_OBJS)
+mdmon : check_rundir $(MON_OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -Wl,-z,now -o mdmon $(MON_OBJS) $(LDLIBS)
 msg.o: msg.c msg.h
 
@@ -203,7 +214,7 @@ mdassemble.diet : $(ASSEMBLE_SRCS) $(INCL)
 
 mdassemble.static : $(ASSEMBLE_SRCS) $(INCL)
 	rm -f $(OBJS)
-	$(CC) $(LDFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
+	$(CC) $(LDFLAGS) $(CPPFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
 
 mdassemble.auto : $(ASSEMBLE_SRCS) $(INCL) $(ASSEMBLE_AUTO_SRCS)
 	rm -f mdassemble.static
@@ -270,11 +281,28 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 	$(INSTALL) -D -m 644 mdadm.conf.5 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5
 
 install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
-	$(INSTALL) -D -m 644 udev-md-raid-arrays.rules $(DESTDIR)$(UDEVDIR)/rules.d/63-md-raid-arrays.rules
-	$(INSTALL) -D -m 644 udev-md-raid-assembly.rules $(DESTDIR)$(UDEVDIR)/rules.d/64-md-raid-assembly.rules
+	@for file in 63-md-raid-arrays.rules 64-md-raid-assembly.rules ; \
+	do sed -e 's,BINDIR,$(BINDIR),g' udev-$${file#??-} > .install.tmp && \
+	   echo $(INSTALL) -D -m 644 udev-$${file#??-} $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
+	   $(INSTALL) -D -m 644 .install.tmp $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
+	   rm -f .install.tmp; \
+	done
 
 install-systemd: systemd/mdmon@.service
-	$(INSTALL) -D -m 644 systemd/mdmon@.service $(DESTDIR)$(SYSTEMD_DIR)/mdmon@.service
+	@for file in mdmon@.service mdmonitor.service mdadm-last-resort@.timer \
+		mdadm-last-resort@.service mdadm-grow-continue@.service; \
+	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp && \
+	   echo $(INSTALL) -D -m 644 systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
+	   $(INSTALL) -D -m 644 .install.tmp $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
+	   rm -f .install.tmp; \
+	done
+	@for file in mdadm.shutdown ; \
+	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp && \
+	   echo $(INSTALL) -D -m 755  systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
+	   $(INSTALL) -D -m 755  .install.tmp $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
+	   rm -f .install.tmp; \
+	done
+	if [ -f /etc/SuSE-release -o -n "$(SUSE)" ] ;then $(INSTALL) -D -m 755 systemd/SUSE-mdadm_env.sh $(DESTDIR)$(SYSTEMD_DIR)/../scripts/mdadm_env.sh ;fi
 
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 $(DESTDIR)$(MAN8DIR)/mdmon.8 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm

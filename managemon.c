@@ -289,7 +289,7 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	 */
 	st2 = dup_super(st);
 	if (st2->ss->load_super(st2, dfd, NULL) == 0) {
-		st2->ss->getinfo_super(st, &info, NULL);
+		st2->ss->getinfo_super(st2, &info, NULL);
 		if (st->ss->compare_super(st, st2) == 0 &&
 		    info.disk.raid_disk >= 0) {
 			/* Looks like a good member of array.
@@ -450,9 +450,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 		/* Raced with something */
 		return;
 
-	// FIXME
-	a->info.array.raid_disks = mdstat->raid_disks;
-	// MORE
+	if (mdstat->active) {
+		// FIXME
+		a->info.array.raid_disks = mdstat->raid_disks;
+		// MORE
+	}
 
 	if (sysfs_get_ll(&a->info, NULL, "component_size", &component_size) >= 0)
 		a->info.component_size = component_size << 1;
@@ -492,6 +494,11 @@ static void manage_member(struct mdstat_ent *mdstat,
 	if (a->container == NULL)
 		return;
 
+	if (sigterm && a->info.safe_mode_delay != 1) {
+		sysfs_set_safemode(&a->info, 1);
+		a->info.safe_mode_delay = 1;
+	}
+
 	/* We don't check the array while any update is pending, as it
 	 * might container a change (such as a spare assignment) which
 	 * could affect our decisions.
@@ -518,6 +525,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		/* prevent the kernel from activating the disk(s) before we
 		 * finish adding them
 		 */
+		dprintf("%s: freezing %s\n", __func__,  a->info.sys_name);
 		sysfs_set_str(&a->info, NULL, "sync_action", "frozen");
 
 		/* Add device to array and set offset/size/slot.
@@ -534,8 +542,16 @@ static void manage_member(struct mdstat_ent *mdstat,
 		}
 		queue_metadata_update(updates);
 		updates = NULL;
+		while (update_queue_pending || update_queue) {
+			check_update_queue(container);
+			usleep(15*1000);
+		}
 		replace_array(container, a, newa);
-		sysfs_set_str(&a->info, NULL, "sync_action", "recover");
+		if (sysfs_set_str(&a->info, NULL, "sync_action", "recover")
+		    == 0)
+			newa->prev_action = recover;
+		dprintf("%s: recovery started on %s\n", __func__,
+			a->info.sys_name);
  out:
 		while (newdev) {
 			d = newdev->next;
@@ -637,7 +653,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	mdi = sysfs_read(-1, mdstat->devnm,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
-			 GET_DEGRADED|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE);
+			 GET_DEGRADED|GET_SAFEMODE|
+			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|GET_LAYOUT);
 
 	if (!mdi)
 		return;
@@ -680,8 +697,18 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->resync_start_fd = sysfs_open(new->info.sys_name, NULL, "resync_start");
 	new->metadata_fd = sysfs_open(new->info.sys_name, NULL, "metadata_version");
 	new->sync_completed_fd = sysfs_open(new->info.sys_name, NULL, "sync_completed");
-	dprintf("%s: inst: %d action: %d state: %d\n", __func__, atoi(inst),
+	dprintf("%s: inst: %s action: %d state: %d\n", __func__, inst,
 		new->action_fd, new->info.state_fd);
+
+	if (sigterm)
+		new->info.safe_mode_delay = 1;
+	else if (mdi->safe_mode_delay >= 50)
+		/* Normal start, mdadm set this. */
+		new->info.safe_mode_delay = mdi->safe_mode_delay;
+	else
+		/* Restart, just pick a number */
+		new->info.safe_mode_delay = 5000;
+	sysfs_set_safemode(&new->info, new->info.safe_mode_delay);
 
 	/* reshape_position is set by mdadm in sysfs
 	 * read this information for new arrays only (empty victim)

@@ -5,7 +5,7 @@
 .\"   the Free Software Foundation; either version 2 of the License, or
 .\"   (at your option) any later version.
 .\" See file COPYING in distribution for details.
-.TH MDADM 8 "" v3.2.5
+.TH MDADM 8 "" v3.3.1
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -214,7 +214,10 @@ to detect and assemble arrays \(em possibly in an
 
 .P
 If a device is given before any options, or if the first option is
+and of
 .BR \-\-add ,
+.BR \-\-re\-add ,
+.BR \-\-add\-spare ,
 .BR \-\-fail ,
 .BR \-\-remove ,
 or
@@ -263,16 +266,22 @@ the exact meaning of this option in different contexts.
 
 .TP
 .BR \-c ", " \-\-config=
-Specify the config file.  Default is to use
-.BR /etc/mdadm.conf ,
-or if that is missing then
-.BR /etc/mdadm/mdadm.conf .
+Specify the config file or directory.  Default is to use
+.B /etc/mdadm.conf
+and
+.BR /etc/mdadm.conf.d ,
+or if those are missing then
+.B /etc/mdadm/mdadm.conf
+and
+.BR /etc/mdadm/mdadm.conf.d .
 If the config file given is
 .B "partitions"
 then nothing will be read, but
 .I mdadm
 will act as though the config file contained exactly
-.B "DEVICE partitions containers"
+.br
+.B "    DEVICE partitions containers"
+.br
 and will read
 .B /proc/partitions
 to find a list of devices to scan, and
@@ -283,6 +292,13 @@ If the word
 is given for the config file, then
 .I mdadm
 will act as though the config file were empty.
+
+If the name given is of a directory, then
+.I mdadm
+will collect all the files contained in the directory with a name ending
+in
+.BR .conf ,
+sort them lexically, and process all of those files as config files.
 
 .TP
 .BR \-s ", " \-\-scan
@@ -516,7 +532,7 @@ amount of available space is.
 .BR \-c ", " \-\-chunk=
 Specify chunk size of kibibytes.  The default when creating an
 array is 512KB.  To ensure compatibility with earlier versions, the
-default when Building and array with no persistent metadata is 64KB.
+default when building an array with no persistent metadata is 64KB.
 This is only meaningful for RAID0, RAID4, RAID5, RAID6, and RAID10.
 
 RAID4, RAID5, RAID6, and RAID10 require the chunk size to be a power
@@ -1285,6 +1301,15 @@ useful if you are certain that the reason for failure has been
 resolved.
 
 .TP
+.B \-\-add\-spare
+Add a device as a spare.  This is similar to
+.B \-\-add
+except that it does not attempt
+.B \-\-re\-add
+first.  The device will be added as a spare even if it looks like it
+could be an recent member of the array.
+
+.TP
 .BR \-r ", " \-\-remove
 remove listed devices.  They must not be active.  i.e. they should
 be failed or spare devices.
@@ -1415,12 +1440,29 @@ absolute filepath or a link, e.g.
 .TP
 .BR \-Y ", " \-\-export
 When used with
-.B \-\-detail , \-\-detail-platform
-or
+.BR \-\-detail ,
+.BR \-\-detail-platform ,
 .BR \-\-examine ,
+or
+.B \-\-incremental
 output will be formatted as
 .B key=value
 pairs for easy import into the environment.
+
+With
+.B \-\-incremental
+The value
+.B MD_STARTED
+indicates whether an array was started
+.RB ( yes )
+or not, which may include a reason
+.RB ( unsafe ", " nothing ", " no ).
+Also the value
+.B MD_FOREIGN
+indicates if the array is expected on this host
+.RB ( no ),
+or seems to be from elsewhere
+.RB ( yes ).
 
 .TP
 .BR \-E ", " \-\-examine
@@ -1545,6 +1587,31 @@ will return with success if the array uses external metadata and we
 successfully waited.  For native arrays this returns immediately as the
 kernel handles dirty-clean transitions at shutdown.  No action is taken
 if safe-mode handling is disabled.
+
+.TP
+.B \-\-action=
+Set the "sync_action" for all md devices given to one of
+.BR idle ,
+.BR frozen ,
+.BR check ,
+.BR repair .
+Setting to
+.B idle
+will abort any currently running action though some actions will
+automatically restart.
+Setting to
+.B frozen
+will abort any current action and ensure no other action starts
+automatically.
+
+Details of
+.B check
+and
+.B repair
+can be found it
+.IR md (4)
+under
+.BR "SCRUBBING AND MISMATCHES" .
 
 .SH For Incremental Assembly mode:
 .TP
@@ -2321,7 +2388,8 @@ hot-spare and resync operations which are monitored.
 
 .TP
 .B RebuildStarted
-An md array started reconstruction. (syslog priority: Warning)
+An md array started reconstruction (e.g. recovery, resync, reshape,
+check, repair). (syslog priority: Warning)
 
 .TP
 .BI Rebuild NN
@@ -2634,6 +2702,7 @@ Usage:
 .RB [ \-\-run ]
 .RB [ \-\-quiet ]
 .I component-device
+.RI [ optional-aliases-for-device ]
 .HP 12
 Usage:
 .B mdadm \-\-incremental \-\-fail
@@ -2688,15 +2757,22 @@ That is, is it listed in a
 .B DEVICES
 line in that file.  If
 .B DEVICES
-is absent then the default it to allow any device.  Similar if
+is absent then the default it to allow any device.  Similarly if
 .B DEVICES
 contains the special word
 .B partitions
 then any device is allowed.  Otherwise the device name given to
-.I mdadm
+.IR mdadm ,
+or one of the aliases given, or an alias found in the filesystem,
 must match one of the names or patterns in a
 .B DEVICES
 line.
+
+This is the only context where the aliases are used.  They are
+usually provided by a
+.I udev
+rules mentioning
+.BR ${DEVLINKS} .
 
 .IP +
 Does the device have a valid md superblock?  If a specific metadata
@@ -2825,6 +2901,28 @@ These checks can be suppressed by setting IMSM_NO_PLATFORM=1 in the
 environment.  This can be useful for testing or for disaster
 recovery.  You should be aware that interoperability may be
 compromised by setting this value.
+
+.TP
+.B MDADM_CONF_AUTO
+Any string given in this variable is added to the start of the
+.B AUTO
+line in the config file, or treated as the whole
+.B AUTO
+line if none is given.  It can be used to disable certain metadata
+types when
+.I mdadm
+is called from a boot script.  For example
+.br
+.B "    export MDADM_CONF_AUTO='-ddf -imsm'
+.br
+will make sure that
+.I mdadm
+does not automatically assemble any DDF or
+IMSM arrays that are found.  This can be useful on systems configured
+to manage such arrays with
+.BR dmraid .
+
+
 .SH EXAMPLES
 
 .B "  mdadm \-\-query /dev/name-of-device"
@@ -2975,6 +3073,11 @@ they contain MD super block, and gives identifying information
 (e.g. UUID) about known MD arrays.  See
 .BR mdadm.conf (5)
 for more details.
+
+.SS /etc/mdadm.conf.d
+
+A directory containing configuration files which are read in lexical
+order.
 
 .SS {MAP_PATH}
 When

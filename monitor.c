@@ -234,6 +234,7 @@ static int read_and_act(struct active_array *a)
 	struct mdinfo *mdi;
 	int ret = 0;
 	int count = 0;
+	struct timeval tv;
 
 	a->next_state = bad_word;
 	a->next_action = bad_action;
@@ -258,13 +259,17 @@ static int read_and_act(struct active_array *a)
 		}
 	}
 
-	if (a->curr_state > inactive &&
-	    a->prev_state == inactive) {
-		/* array has been started
-		 * possible that container operation has to be completed
-		 */
-		a->container->ss->set_array_state(a, 0);
-	}
+	gettimeofday(&tv, NULL);
+	dprintf("%s(%d): %ld.%06ld state:%s prev:%s action:%s prev: %s start:%llu\n",
+		__func__, a->info.container_member,
+		tv.tv_sec, tv.tv_usec,
+		array_states[a->curr_state],
+		array_states[a->prev_state],
+		sync_actions[a->curr_action],
+		sync_actions[a->prev_action],
+		a->info.resync_start
+		);
+
 	if ((a->curr_state == bad_word || a->curr_state <= inactive) &&
 	    a->prev_state > inactive) {
 		/* array has been stopped */
@@ -416,8 +421,7 @@ static int read_and_act(struct active_array *a)
 	if (sync_completed > a->last_checkpoint)
 		a->last_checkpoint = sync_completed;
 
-	if (deactivate || a->curr_state >= clean)
-		a->container->ss->sync_metadata(a->container);
+	a->container->ss->sync_metadata(a->container);
 	dprintf("%s(%d): state:%s action:%s next(", __func__, a->info.container_member,
 		array_states[a->curr_state], sync_actions[a->curr_action]);
 
@@ -628,10 +632,17 @@ static int wait_and_act(struct supertype *container, int nowait)
 		monitor_loop_cnt |= 1;
 		rv = pselect(maxfd+1, NULL, NULL, &rfds, &ts, &set);
 		monitor_loop_cnt += 1;
-		if (rv == -1 && errno == EINTR)
-			rv = 0;
+		if (rv == -1) {
+			if (errno == EINTR) {
+				rv = 0;
+				dprintf("monitor: caught signal\n");
+			} else
+				dprintf("monitor: error %d in pselect\n",
+					errno);
+		}
 		#ifdef DEBUG
-		dprint_wake_reasons(&rfds);
+		else
+			dprint_wake_reasons(&rfds);
 		#endif
 		container->retry_soon = 0;
 	}

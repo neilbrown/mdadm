@@ -1,6 +1,6 @@
 Summary:     mdadm is used for controlling Linux md devices (aka RAID arrays)
 Name:        mdadm
-Version:     3.2.5
+Version:     3.3.1
 Release:     1
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.gz
 URL:         http://neil.brown.name/blog/mdadm
@@ -9,7 +9,7 @@ Group:       Utilities/System
 BuildRoot:   %{_tmppath}/%{name}-root
 Obsoletes:   mdctl
 
-%description 
+%description
 mdadm is a program that can be used to create, manage, and monitor
 Linux MD (Software RAID) devices.
 
@@ -37,37 +37,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc TODO ChangeLog mdadm.conf-example COPYING
 %{_sbindir}/mdadm
 %{_sbindir}/mdmon
-/lib/udev/rules.d/64-md-raid.rules
+/usr/lib/udev/rules.d/63-md-raid-arrays.rules
+/usr/lib/udev/rules.d/64-md-raid-assembly.rules
 %config(noreplace,missingok)/%{_sysconfdir}/mdadm.conf
 %{_mandir}/man*/md*
 
 %changelog
-* Fri May 10 2002  <neilb@cse.unsw.edu.au>
-- update to 1.0.0
-- Set CXFLAGS instead of CFLAGS
-
-* Sat Apr  6 2002  <neilb@cse.unsw.edu.au>
-- change install to use "make install"
-
-* Fri Mar 15 2002  <gleblanc@localhost.localdomain>
-- beautification
-- made mdadm.conf non-replaceable config
-- renamed Copyright to License in the header
-- added missing license file
-- used macros for file paths
-
-* Fri Mar 15 2002 Luca Berra <bluca@comedia.it>
-- Added Obsoletes: mdctl
-- missingok for configfile
-
-* Wed Mar 12 2002 NeilBrown <neilb@cse.unsw.edu.au>
-- Add md.4 and mdadm.conf.5 man pages
-
-* Fri Mar 08 2002		Chris Siebenmann <cks@cquest.utoronto.ca>
-- builds properly as non-root.
-
-* Fri Mar 08 2002 Derek Vadala <derek@cynicism.com>
-- updated for 0.7, fixed /usr/share/doc and added manpage
-
-* Tue Aug 07 2001 Danilo Godec <danci@agenda.si>
-- initial RPM build

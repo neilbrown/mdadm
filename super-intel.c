@@ -4422,8 +4422,9 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 {
 	struct intel_super *super;
 	int rv;
+	int retry;
 
-	if (!st->ignore_hw_compat && test_partition(fd))
+	if (test_partition(fd))
 		/* IMSM not allowed on partitions */
 		return 1;
 
@@ -4443,6 +4444,22 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 		return 2;
 	}
 	rv = load_and_parse_mpb(fd, super, devname, 0);
+
+	/* retry the load if we might have raced against mdmon */
+	if (rv == 3) {
+		struct mdstat_ent *mdstat = mdstat_by_component(fd2devnm(fd));
+
+		if (mdstat && mdmon_running(mdstat->devnm) && getpid() != mdmon_pid(mdstat->devnm)) {
+			for (retry = 0; retry < 3; retry++) {
+				usleep(3000);
+				rv = load_and_parse_mpb(fd, super, devname, 0);
+				if (rv != 3)
+					break;
+			}
+		}
+
+		free_mdstat(mdstat);
+	}
 
 	if (rv) {
 		if (devname)
@@ -5210,6 +5227,8 @@ static int create_array(struct supertype *st, int dev_idx)
 		int idx = get_imsm_disk_idx(dev, i, MAP_X);
 
 		disk = get_imsm_disk(super, idx);
+		if (!disk)
+			disk = get_imsm_missing(super, idx);
 		serialcpy(inf[i].serial, disk->serial);
 	}
 	append_metadata_update(st, u, len);
@@ -5854,10 +5873,10 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		return 0;
 	}
 
-	if (chunk && (*chunk == 0 || *chunk == UnSet))
+	if (*chunk == 0 || *chunk == UnSet)
 		*chunk = imsm_default_chunk(super->orom);
 
-	if (super->orom && chunk && !imsm_orom_has_chunk(super->orom, *chunk)) {
+	if (super->orom && !imsm_orom_has_chunk(super->orom, *chunk)) {
 		pr_vrb(": platform does not support a chunk size of: "
 		       "%d\n", *chunk);
 		return 0;
@@ -5874,7 +5893,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		return 0;
 	}
 
-	if (super->orom && (super->orom->attr & IMSM_OROM_ATTR_2TB) == 0 && chunk &&
+	if (super->orom && (super->orom->attr & IMSM_OROM_ATTR_2TB) == 0 &&
 			(calc_array_size(level, raiddisks, layout, *chunk, size) >> 32) > 0) {
 		pr_vrb(": platform does not support a volume size over 2TB\n");
 		return 0;
@@ -6188,7 +6207,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 		/* Must be a fresh device to add to a container */
 		return validate_geometry_imsm_container(st, level, layout,
 							raiddisks,
-							chunk?*chunk:0,
+							*chunk,
 							size, data_offset,
 							dev, freesize,
 							verbose);
@@ -6224,7 +6243,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			}
 			if (freesize)
 				return reserve_space(st, raiddisks, size,
-						     chunk?*chunk:0, freesize);
+						     *chunk, freesize);
 		}
 		return 1;
 	}
@@ -10125,7 +10144,7 @@ exit_imsm_reshape_super:
  ******************************************************************************/
 int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 {
-	int fd = sysfs_get_fd(sra, NULL, "reshape_position");
+	int fd = sysfs_get_fd(sra, NULL, "sync_completed");
 	unsigned long long completed;
 	/* to_complete : new sync_max position */
 	unsigned long long to_complete = sra->reshape_progress;
@@ -10144,10 +10163,10 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 		return 0;
 	}
 
-	if (completed > to_complete) {
+	if (completed > position_to_set) {
 		dprintf("imsm: wait_for_reshape_imsm() "
 			"wrong next position to set %llu (%llu)\n",
-			to_complete, completed);
+			to_complete, position_to_set);
 		close(fd);
 		return -1;
 	}
@@ -10174,7 +10193,7 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 			close(fd);
 			return 1;
 		}
-	} while (completed < to_complete);
+	} while (completed < position_to_set);
 	close(fd);
 	return 0;
 
@@ -10444,6 +10463,8 @@ static int imsm_manage_reshape(
 			dprintf("wait_for_reshape_imsm returned error!\n");
 			goto abort;
 		}
+		if (sigterm)
+			goto abort;
 
 		if (save_checkpoint_imsm(st, sra, UNIT_SRC_NORMAL) == 1) {
 			/* ignore error == 2, this can mean end of reshape here

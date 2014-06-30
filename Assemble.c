@@ -1001,6 +1001,22 @@ static int start_array(int mdfd,
 					content->array.raid_disks);
 			fprintf(stderr, "\n");
 		}
+
+		if (st->ss->validate_container) {
+			struct mdinfo *devices_list;
+			struct mdinfo *info_devices = xmalloc(sizeof(struct mdinfo)*(okcnt+sparecnt));
+			unsigned int count;
+			devices_list = NULL;
+			for (count = 0; count < okcnt+sparecnt; count++) {
+				info_devices[count] = devices[count].i;
+				info_devices[count].next = devices_list;
+				devices_list = &info_devices[count];
+			}
+			if (st->ss->validate_container(devices_list))
+				pr_err("Mismatch detected!\n");
+			free(info_devices);
+		}
+
 		st->ss->free_super(st);
 		sysfs_uevent(content, "change");
 		if (err_ok && okcnt < (unsigned)content->array.raid_disks)

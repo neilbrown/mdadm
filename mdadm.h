@@ -960,6 +960,9 @@ extern struct superswitch {
 	/* for external backup area */
 	int (*recover_backup)(struct supertype *st, struct mdinfo *info);
 
+	/* validate container after assemble */
+	int (*validate_container)(struct mdinfo *info);
+
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 	const char *name; /* canonical metadata name */

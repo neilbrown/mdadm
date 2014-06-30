@@ -10484,6 +10484,48 @@ abort:
 
 	return ret_val;
 }
+
+/*******************************************************************************
+ * Function:	validate_container_imsm
+ * Description: This routine validates container after assemble,
+ *		eg. if devices in container are under the same controller.
+ *
+ * Parameters:
+ *	info	: linked list with info about devices used in array
+ * Returns:
+ *	1 : HBA mismatch
+ *	0 : Success
+ ******************************************************************************/
+int validate_container_imsm(struct mdinfo *info)
+{
+	if (!check_env("IMSM_NO_PLATFORM")) {
+		struct sys_dev *idev;
+		struct mdinfo *dev;
+		char *hba_path = NULL;
+		char *dev_path = devt_to_devpath(makedev(info->disk.major,
+										info->disk.minor));
+
+		for (idev = find_intel_devices(); idev; idev = idev->next) {
+			if (strstr(dev_path, idev->path)) {
+				hba_path = idev->path;
+				break;
+			}
+		}
+		free(dev_path);
+
+		if (hba_path) {
+			for (dev = info->next; dev; dev = dev->next) {
+				if (!devt_attached_to_hba(makedev(dev->disk.major,
+						dev->disk.minor), hba_path)) {
+					pr_err("WARNING - IMSM container assembled with disks under different HBAs!\n"
+						"       This operation is not supported and can lead to data loss.\n");
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
 #endif /* MDASSEMBLE */
 
 struct superswitch super_imsm = {
@@ -10527,6 +10569,7 @@ struct superswitch super_imsm = {
 	.free_super	= free_super_imsm,
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
+	.validate_container = validate_container_imsm,
 
 	.external	= 1,
 	.name = "imsm",

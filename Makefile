@@ -235,22 +235,22 @@ mdadm.8 : mdadm.8.in
 	-e 's,{MAP_PATH},$(MAP_PATH),g'  mdadm.8.in > mdadm.8
 
 mdadm.man : mdadm.8
-	nroff -man mdadm.8 > mdadm.man
+	man -l mdadm.8 > mdadm.man
 
 mdmon.man : mdmon.8
-	nroff -man mdmon.8 > mdmon.man
+	man -l mdmon.8 > mdmon.man
 
 md.man : md.4
-	nroff -man md.4 > md.man
+	man -l md.4 > md.man
 
 mdadm.conf.man : mdadm.conf.5
-	nroff -man mdadm.conf.5 > mdadm.conf.man
+	man -l mdadm.conf.5 > mdadm.conf.man
 
 mdassemble.man : mdassemble.8
-	nroff -man mdassemble.8 > mdassemble.man
+	man -l mdassemble.8 > mdassemble.man
 
 raid6check.man : raid6check.8
-	nroff -man raid6check.8 > raid6check.man
+	man -l raid6check.8 > raid6check.man
 
 $(OBJS) : $(INCL) mdmon.h
 $(MON_OBJS) : $(INCL) mdmon.h

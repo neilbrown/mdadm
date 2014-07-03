@@ -3138,7 +3138,7 @@ Partition numbers should be indicated by adding "pMM" to these, thus "/dev/md/d1
 From kernel version 2.6.28 the "non-partitioned array" can actually
 be partitioned.  So the "md_d\fBNN\fP"
 names are no longer needed, and
-partitions such as "/dev/md\fBNN\fPp\fBXX\fp"
+partitions such as "/dev/md\fBNN\fPp\fBXX\fP"
 are possible.
 .PP
 From kernel version 2.6.29 standard names can be non-numeric following

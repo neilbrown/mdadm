@@ -1086,7 +1086,7 @@ argument given to this flag can be one of
 .BR devicesize ,
 .BR no\-bitmap ,
 .BR bbl ,
-.BR no-\bbl ,
+.BR no\-bbl ,
 .BR metadata ,
 or
 .BR super\-minor .

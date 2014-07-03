@@ -9357,7 +9357,7 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 	char *drv=NULL;
 	struct stat st;
 
-	strncpy(disk_path, disk_by_path, PATH_MAX - 1);
+	strcpy(disk_path, disk_by_path);
 	strncat(disk_path, path, PATH_MAX - strlen(disk_path) - 1);
 	if (stat(disk_path, &st) == 0) {
 		struct sys_dev* hba;

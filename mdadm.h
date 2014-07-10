@@ -929,7 +929,10 @@ extern struct superswitch {
 	void (*sync_metadata)(struct supertype *st);
 	void (*process_update)(struct supertype *st,
 			       struct metadata_update *update);
-	void (*prepare_update)(struct supertype *st,
+	/* Prepare updates allocates extra memory that might be
+	 * needed.  If the update cannot be understood,  return 0.
+	 */
+	int (*prepare_update)(struct supertype *st,
 			       struct metadata_update *update);
 
 	/* activate_spare will check if the array is degraded and, if it

@@ -4906,8 +4906,8 @@ static void ddf_process_update(struct supertype *st,
 	/* case DDF_SPARE_ASSIGN_MAGIC */
 }
 
-static void ddf_prepare_update(struct supertype *st,
-			       struct metadata_update *update)
+static int ddf_prepare_update(struct supertype *st,
+			      struct metadata_update *update)
 {
 	/* This update arrived at managemon.
 	 * We are about to pass it to monitor.
@@ -4922,15 +4922,17 @@ static void ddf_prepare_update(struct supertype *st,
 				   offsetof(struct vcl, conf)
 				   + ddf->conf_rec_len * 512) != 0) {
 			update->space = NULL;
-			return;
+			return 0;
 		}
 		vcl = update->space;
 		vcl->conf.sec_elmnt_count = conf->sec_elmnt_count;
 		if (alloc_other_bvds(ddf, vcl) != 0) {
 			free(update->space);
 			update->space = NULL;
+			return 0;
 		}
 	}
+	return 1;
 }
 
 /*

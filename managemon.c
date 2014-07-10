@@ -819,7 +819,8 @@ static void handle_message(struct supertype *container, struct metadata_update *
 		mu->space_list = NULL;
 		mu->next = NULL;
 		if (container->ss->prepare_update)
-			container->ss->prepare_update(container, mu);
+			if (!container->ss->prepare_update(container, mu))
+				free_updates(&mu);
 		queue_metadata_update(mu);
 	}
 }

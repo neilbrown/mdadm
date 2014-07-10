@@ -8607,8 +8607,8 @@ static void imsm_process_update(struct supertype *st,
 
 static struct mdinfo *get_spares_for_grow(struct supertype *st);
 
-static void imsm_prepare_update(struct supertype *st,
-				struct metadata_update *update)
+static int imsm_prepare_update(struct supertype *st,
+			       struct metadata_update *update)
 {
 	/**
 	 * Allocate space to hold new disk entries, raid-device entries or a new
@@ -8828,6 +8828,7 @@ static void imsm_prepare_update(struct supertype *st,
 		else
 			super->next_buf = NULL;
 	}
+	return 1;
 }
 
 /* must be called while manager is quiesced */
@@ -9716,8 +9717,8 @@ static void imsm_update_metadata_locally(struct supertype *st,
 	mu.space = NULL;
 	mu.space_list = NULL;
 	mu.next = NULL;
-	imsm_prepare_update(st, &mu);
-	imsm_process_update(st, &mu);
+	if (imsm_prepare_update(st, &mu))
+		imsm_process_update(st, &mu);
 
 	while (mu.space_list) {
 		void **space = mu.space_list;

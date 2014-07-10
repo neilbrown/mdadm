@@ -8587,7 +8587,7 @@ static void imsm_process_update(struct supertype *st,
 	}
 	case update_add_remove_disk: {
 		/* we may be able to repair some arrays if disks are
-		 * being added, check teh status of add_remove_disk
+		 * being added, check the status of add_remove_disk
 		 * if discs has been added.
 		 */
 		if (add_remove_disk_update(super)) {
@@ -8617,19 +8617,28 @@ static int imsm_prepare_update(struct supertype *st,
 	 * integrated by the monitor thread without worrying about live pointers
 	 * in the manager thread.
 	 */
-	enum imsm_update_type type = *(enum imsm_update_type *) update->buf;
+	enum imsm_update_type type;
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->anchor;
 	size_t buf_len;
 	size_t len = 0;
 
+	if (update->len < (int)sizeof(type))
+		return 0;
+
+	type = *(enum imsm_update_type *) update->buf;
+
 	switch (type) {
 	case update_general_migration_checkpoint:
+		if (update->len < (int)sizeof(struct imsm_update_general_migration_checkpoint))
+			return 0;
 		dprintf("imsm: prepare_update() "
 			"for update_general_migration_checkpoint called\n");
 		break;
 	case update_takeover: {
 		struct imsm_update_takeover *u = (void *)update->buf;
+		if (update->len < (int)sizeof(*u))
+			return 0;
 		if (u->direction == R0_TO_R10) {
 			void **tail = (void **)&update->space_list;
 			struct imsm_dev *dev = get_imsm_dev(super, u->subarray);
@@ -8670,6 +8679,9 @@ static int imsm_prepare_update(struct supertype *st,
 		struct intel_dev *dl;
 		void **space_tail = (void**)&update->space_list;
 
+		if (update->len < (int)sizeof(*u))
+			return 0;
+
 		dprintf("imsm: imsm_prepare_update() for update_reshape\n");
 
 		for (dl = super->devlist; dl; dl = dl->next) {
@@ -8701,6 +8713,9 @@ static int imsm_prepare_update(struct supertype *st,
 		int size;
 		void *s;
 		int current_level = -1;
+
+		if (update->len < (int)sizeof(*u))
+			return 0;
 
 		dprintf("imsm: imsm_prepare_update() for update_reshape\n");
 
@@ -8769,6 +8784,13 @@ static int imsm_prepare_update(struct supertype *st,
 		break;
 	}
 	case update_size_change: {
+		if (update->len < (int)sizeof(struct imsm_update_size_change))
+			return 0;
+		break;
+	}
+	case update_activate_spare: {
+		if (update->len < (int)sizeof(struct imsm_update_activate_spare))
+			return 0;
 		break;
 	}
 	case update_create_array: {
@@ -8780,6 +8802,9 @@ static int imsm_prepare_update(struct supertype *st,
 		struct disk_info *inf;
 		int i;
 		int activate = 0;
+
+		if (update->len < (int)sizeof(*u))
+			return 0;
 
 		inf = get_disk_info(u);
 		len = sizeof_imsm_dev(dev, 1);
@@ -8802,9 +8827,22 @@ static int imsm_prepare_update(struct supertype *st,
 		}
 		len += activate * sizeof(struct imsm_disk);
 		break;
-	default:
+	}
+	case update_kill_array: {
+		if (update->len < (int)sizeof(struct imsm_update_kill_array))
+			return 0;
 		break;
 	}
+	case update_rename_array: {
+		if (update->len < (int)sizeof(struct imsm_update_rename_array))
+			return 0;
+		break;
+	}
+	case update_add_remove_disk:
+		/* no update->len needed */
+		break;
+	default:
+		return 0;
 	}
 
 	/* check if we need a larger metadata buffer */

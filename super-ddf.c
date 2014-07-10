@@ -4914,10 +4914,16 @@ static int ddf_prepare_update(struct supertype *st,
 	 * If a malloc is needed, do it here.
 	 */
 	struct ddf_super *ddf = st->sb;
-	be32 *magic = (be32 *)update->buf;
+	be32 *magic;
+	if (update->len < 4)
+		return 0;
+	magic = (be32 *)update->buf;
 	if (be32_eq(*magic, DDF_VD_CONF_MAGIC)) {
 		struct vcl *vcl;
-		struct vd_config *conf = (struct vd_config *) update->buf;
+		struct vd_config *conf;
+		if (update->len < (int)sizeof(*conf))
+			return 0;
+		conf = (struct vd_config *) update->buf;
 		if (posix_memalign(&update->space, 512,
 				   offsetof(struct vcl, conf)
 				   + ddf->conf_rec_len * 512) != 0) {

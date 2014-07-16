@@ -2822,6 +2822,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	unsigned long long array_size;
 	int done;
 	struct mdinfo *sra = NULL;
+	char buf[20];
 
 	/* when reshaping a RAID0, the component_size might be zero.
 	 * So try to fix that up.
@@ -2869,7 +2870,9 @@ static int reshape_array(char *container, int fd, char *devname,
 		goto release;
 	}
 
-	if (st->ss->external && restart && (info->reshape_progress == 0)) {
+	if (st->ss->external && restart && (info->reshape_progress == 0) &&
+	    !((sysfs_get_str(info, NULL, "sync_action", buf, sizeof(buf)) > 0) &&
+	      (strncmp(buf, "reshape", 7) == 0))) {
 		/* When reshape is restarted from '0', very begin of array
 		 * it is possible that for external metadata reshape and array
 		 * configuration doesn't happen.

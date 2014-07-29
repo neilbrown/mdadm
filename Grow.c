@@ -1028,7 +1028,12 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 
 	switch (info->array.level) {
 	default:
-		return "Cannot understand this RAID level";
+		return "No reshape is possibly for this RAID level";
+	case LEVEL_LINEAR:
+		if (info->delta_disks != UnSet)
+			return "Only --add is supported for LINEAR, setting --raid-disks is not needed";
+		else
+			return "Only --add is supported for LINEAR, other --grow options are not meaningful";
 	case 1:
 		/* RAID1 can convert to RAID1 with different disks, or
 		 * raid5 with 2 disks, or

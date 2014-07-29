@@ -366,9 +366,6 @@ static int select_devices(struct mddev_dev *devlist,
 			tmpdev = NULL;
 			goto loop;
 		} else {
-			int rv = 0;
-			struct mddev_ident *match;
-
 			content = *contentp;
 			tst->ss->getinfo_super(tst, content, NULL);
 
@@ -377,25 +374,33 @@ static int select_devices(struct mddev_dev *devlist,
 					   report_mismatch ? devname : NULL))
 				goto loop;
 
-			match = conf_match(tst, content, devname,
-					   report_mismatch ? c->verbose : -1,
-					   &rv);
-			if (!match && rv == 2)
-				goto loop;
-			if (match && match->devname &&
-			    strcasecmp(match->devname, "<ignore>") == 0) {
-				if (report_mismatch)
-					pr_err("%s is a member of an explicitly ignored array\n",
-					       devname);
-				goto loop;
-			}
-			if (match && !ident_matches(match, content, tst,
-						    c->homehost, c->update,
-						    report_mismatch ? devname : NULL))
-				/* Array exists  in mdadm.conf but some
-				 * details don't match, so reject it
+			if (auto_assem) {
+				/* Never auto-assemble things that conflict
+				 * with mdadm.conf in some way
 				 */
-				goto loop;
+				struct mddev_ident *match;
+				int rv = 0;
+
+				match = conf_match(tst, content, devname,
+						   report_mismatch ? c->verbose : -1,
+						   &rv);
+				if (!match && rv == 2)
+					goto loop;
+				if (match && match->devname &&
+				    strcasecmp(match->devname, "<ignore>") == 0) {
+					if (report_mismatch)
+						pr_err("%s is a member of an explicitly ignored array\n",
+						       devname);
+					goto loop;
+				}
+				if (match && !ident_matches(match, content, tst,
+							    c->homehost, c->update,
+							    report_mismatch ? devname : NULL))
+					/* Array exists  in mdadm.conf but some
+					 * details don't match, so reject it
+					 */
+					goto loop;
+			}
 
 			/* should be safe to try an exclusive open now, we
 			 * have rejected anything that some other mdadm might

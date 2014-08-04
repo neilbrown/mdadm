@@ -2847,13 +2847,15 @@ static void _set_config_size(struct phys_disk_entry *pde, const struct dl *dl)
 		__u64 wsp = cfs - t;
 		if (wsp > 1024*1024*2ULL && wsp > dl->size / 16) {
 			pr_err("%s: %x:%x: workspace size 0x%llx too big, ignoring\n",
-			       __func__, dl->major, dl->minor, wsp);
+			       __func__, dl->major, dl->minor,
+			       (unsigned long long)wsp);
 		} else
 			cfs = t;
 	}
 	pde->config_size = cpu_to_be64(cfs);
 	dprintf("%s: %x:%x config_size %llx, DDF structure is %llx blocks\n",
-		__func__, dl->major, dl->minor, cfs, dl->size-cfs);
+		__func__, dl->major, dl->minor,
+		(unsigned long long)cfs, (unsigned long long)(dl->size-cfs));
 }
 
 /* Add a device to a container, either while creating it or while

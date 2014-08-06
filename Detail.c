@@ -109,7 +109,7 @@ int Detail(char *dev, struct context *c)
 	st = super_by_fd(fd, &subarray);
 	if (ioctl(fd, GET_ARRAY_INFO, &array) == 0) {
 		inactive = 0;
-	} else if (errno == ENODEV) {
+	} else if (errno == ENODEV && sra) {
 		array = sra->array;
 		inactive = 1;
 	} else {
@@ -465,8 +465,8 @@ int Detail(char *dev, struct context *c)
 			       (!e || (e->percent < 0 && e->percent != RESYNC_PENDING &&
 			       e->percent != RESYNC_DELAYED)) ? "" : sync_action[e->resync],
 			       larray_size ? "": ", Not Started",
-			       e->percent == RESYNC_DELAYED ? " (DELAYED)": "",
-			       e->percent == RESYNC_PENDING ? " (PENDING)": "");
+			       (e && e->percent == RESYNC_DELAYED) ? " (DELAYED)": "",
+			       (e && e->percent == RESYNC_PENDING) ? " (PENDING)": "");
 		} else if (inactive) {
 			printf("          State : inactive\n");
 		}

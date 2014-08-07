@@ -293,8 +293,8 @@ line and it should be give only one program.
 .B CREATE
 The
 .B create
-line gives default values to be used when creating arrays and device entries for
-arrays.
+line gives default values to be used when creating arrays, new members
+of arrays, and device entries for arrays.
 These include:
 
 .RS 4
@@ -365,6 +365,16 @@ is given, then non-numeric
 device names will not be used even if the default changes in a future
 release of
 .IR mdadm .
+
+.TP
+.B bbl=no
+By default,
+.I mdadm
+will reserve space for a bad block list (bbl) on all devices
+included in or added to any array that supports them.  Setting
+.B bbl=no
+will prevent this, so newly added devices will not have a bad
+block log.
 .RE
 
 .TP

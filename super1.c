@@ -1688,6 +1688,10 @@ static int write_init_super1(struct supertype *st)
 			rv = -EINVAL;
 			goto out;
 		}
+		if (conf_get_create_info()->bblist == 0) {
+			sb->bblog_size = 0;
+			sb->bblog_offset = 0;
+		}
 
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);

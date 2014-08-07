@@ -187,6 +187,7 @@ struct createinfo createinfo = {
 	.autof = 2, /* by default, create devices with standard names */
 	.symlinks = 1,
 	.names = 0, /* By default, stick with numbered md devices. */
+	.bblist = 1, /* Use a bad block list by default */
 #ifdef DEBIAN
 	.gid = 6, /* disk */
 	.mode = 0660,
@@ -306,6 +307,10 @@ static void createline(char *line)
 			createinfo.names = 1;
 		else if  (strncasecmp(w, "names=no", 11) == 0)
 			createinfo.names = 0;
+		else if  (strncasecmp(w, "bbl=no", 11) == 0)
+			createinfo.bblist = 0;
+		else if  (strncasecmp(w, "bbl=yes", 11) == 0)
+			createinfo.bblist = 1;
 		else {
 			pr_err("unrecognised word on CREATE line: %s\n",
 				w);

@@ -805,9 +805,8 @@ static int add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 	dk->major = dinfo->major;
 	dk->minor = dinfo->minor;
 	dk->raid_disk = dinfo->raid_disk;
-	dk->state = dinfo->state;
-	/* In case our source disk was writemostly, don't copy that bit */
-	dk->state &= ~(1<<MD_DISK_WRITEMOSTLY);
+	dk->state = dinfo->state & ((1<<MD_DISK_ACTIVE) |
+				    (1<<MD_DISK_SYNC));
 
 	sb->this_disk = sb->disks[dinfo->number];
 	sb->sb_csum = calc_sb0_csum(sb);
@@ -887,7 +886,7 @@ static int write_init_super0(struct supertype *st)
 
 	for (di = st->info ; di && ! rv ; di = di->next) {
 
-		if (di->disk.state == 1)
+		if (di->disk.state & (1 << MD_DISK_FAULTY))
 			continue;
 		if (di->fd == -1)
 			continue;

@@ -1557,7 +1557,7 @@ static int write_init_super1(struct supertype *st)
 	unsigned long long data_offset;
 
 	for (di = st->info; di; di = di->next) {
-		if (di->disk.state == 1)
+		if (di->disk.state & (1 << MD_DISK_FAULTY))
 			continue;
 		if (di->fd < 0)
 			continue;

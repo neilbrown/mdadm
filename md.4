@@ -846,7 +846,7 @@ intent log if one is present.
 In 2.6.13, intent bitmaps are only supported with RAID1.  Other levels
 with redundancy are supported from 2.6.15.
 
-.SS BAD BLOCK LOG
+.SS BAD BLOCK LIST
 
 From Linux 3.5 each device in an
 .I md
@@ -856,7 +856,7 @@ and the data.
 
 When a block cannot be read and cannot be repaired by writing data
 recovered from other devices, the address of the block is stored in
-the bad block log.  Similarly if an attempt to write a block fails,
+the bad block list.  Similarly if an attempt to write a block fails,
 the address will be recorded as a bad block.  If attempting to record
 the bad block fails, the whole device will be marked faulty.
 
@@ -870,9 +870,9 @@ This allows an array to fail more gracefully - a few blocks on
 different devices can be faulty without taking the whole array out of
 action.
 
-The log is particularly useful when recovering to a spare.  If a few blocks
+The list is particularly useful when recovering to a spare.  If a few blocks
 cannot be read from the other devices, the bulk of the recovery can
-complete and those few bad blocks will be recorded in the bad block log.
+complete and those few bad blocks will be recorded in the bad block list.
 
 .SS WRITE-BEHIND
 

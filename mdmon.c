@@ -591,3 +591,10 @@ int save_stripes(int *source, unsigned long long *offsets,
 {
 	return 0;
 }
+
+struct superswitch super0 = {
+	.name = "0.90",
+};
+struct superswitch super1 = {
+	.name = "1.x",
+};

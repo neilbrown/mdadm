@@ -871,12 +871,20 @@ void put_md_name(char *name)
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
+int get_maj_min(char *dev, int *major, int *minor)
+{
+	char *e;
+	*major = strtoul(dev, &e, 0);
+	return (e > dev && *e == ':' && e[1] &&
+		(*minor = strtoul(e+1, &e, 0)) >= 0 &&
+		*e == 0);
+}
+
 int dev_open(char *dev, int flags)
 {
 	/* like 'open', but if 'dev' matches %d:%d, create a temp
 	 * block device and open that
 	 */
-	char *e;
 	int fd = -1;
 	char devname[32];
 	int major;
@@ -885,10 +893,7 @@ int dev_open(char *dev, int flags)
 	if (!dev) return -1;
 	flags |= O_DIRECT;
 
-	major = strtoul(dev, &e, 0);
-	if (e > dev && *e == ':' && e[1] &&
-	    (minor = strtoul(e+1, &e, 0)) >= 0 &&
-	    *e == 0) {
+	if (get_maj_min(dev, &major, &minor)) {
 		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
 			 (int)getpid(), major, minor);
 		if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {

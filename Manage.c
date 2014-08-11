@@ -1264,7 +1264,6 @@ int Manage_subdevs(char *devname, int fd,
 	mdu_array_info_t array;
 	unsigned long long array_size;
 	struct mddev_dev *dv;
-	struct stat stb;
 	int tfd = -1;
 	struct supertype *tst;
 	char *subarray = NULL;
@@ -1296,8 +1295,8 @@ int Manage_subdevs(char *devname, int fd,
 		goto abort;
 	}
 
-	stb.st_rdev = 0;
 	for (dv = devlist; dv; dv = dv->next) {
+		unsigned long rdev = 0; /* device to add/remove etc */
 		int rv;
 
 		if (strcmp(dv->devname, "failed") == 0 ||
@@ -1394,7 +1393,7 @@ int Manage_subdevs(char *devname, int fd,
 				int mj,mn;
 				if (sysfs_fd_get_str(sysfd, dn, 20) > 0 &&
 				    sscanf(dn, "%d:%d", &mj,&mn) == 2) {
-					stb.st_rdev = makedev(mj,mn);
+					rdev = makedev(mj,mn);
 					found = 1;
 				}
 				close(sysfd);
@@ -1410,6 +1409,7 @@ int Manage_subdevs(char *devname, int fd,
 				}
 			}
 		} else {
+			struct stat stb;
 			tfd = dev_open(dv->devname, O_RDONLY);
 			if (tfd >= 0)
 				fstat(tfd, &stb);
@@ -1442,6 +1442,7 @@ int Manage_subdevs(char *devname, int fd,
 					goto abort;
 				}
 			}
+			rdev = stb.st_rdev;
 		}
 		switch(dv->disposition){
 		default:
@@ -1462,8 +1463,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			if (dv->disposition == 'F')
 				/* Need to remove first */
-				ioctl(fd, HOT_REMOVE_DISK,
-				      (unsigned long)stb.st_rdev);
+				ioctl(fd, HOT_REMOVE_DISK, rdev);
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd >= 0) {
@@ -1489,7 +1489,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			rv = Manage_add(fd, tfd, dv, tst, &array,
 					force, verbose, devname, update,
-					stb.st_rdev, array_size);
+					rdev, array_size);
 			close(tfd);
 			tfd = -1;
 			if (rv < 0)
@@ -1507,7 +1507,7 @@ int Manage_subdevs(char *devname, int fd,
 				rv = -1;
 			} else
 				rv = Manage_remove(tst, fd, dv, sysfd,
-						   stb.st_rdev, verbose,
+						   rdev, verbose,
 						   devname);
 			if (sysfd >= 0)
 				close(sysfd);
@@ -1522,7 +1522,7 @@ int Manage_subdevs(char *devname, int fd,
 			/* FIXME check current member */
 			if ((sysfd >= 0 && write(sysfd, "faulty", 6) != 6) ||
 			    (sysfd < 0 && ioctl(fd, SET_DISK_FAULTY,
-						(unsigned long) stb.st_rdev))) {
+						rdev))) {
 				if (errno == EBUSY)
 					busy = 1;
 				pr_err("set device faulty failed for %s:  %s\n",
@@ -1553,7 +1553,7 @@ int Manage_subdevs(char *devname, int fd,
 						frozen = -1;
 				}
 				rv = Manage_replace(tst, fd, dv,
-						    stb.st_rdev, verbose,
+						    rdev, verbose,
 						    devname);
 			}
 			if (rv < 0)
@@ -1567,7 +1567,7 @@ int Manage_subdevs(char *devname, int fd,
 			goto abort;
 		case 'w': /* --with device which was matched */
 			rv = Manage_with(tst, fd, dv,
-					 stb.st_rdev, verbose, devname);
+					 rdev, verbose, devname);
 			if (rv < 0)
 				goto abort;
 			break;

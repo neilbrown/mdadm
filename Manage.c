@@ -1298,6 +1298,7 @@ int Manage_subdevs(char *devname, int fd,
 	for (dv = devlist; dv; dv = dv->next) {
 		unsigned long rdev = 0; /* device to add/remove etc */
 		int rv;
+		int mj,mn;
 
 		if (strcmp(dv->devname, "failed") == 0 ||
 		    strcmp(dv->devname, "faulty") == 0) {
@@ -1390,7 +1391,6 @@ int Manage_subdevs(char *devname, int fd,
 			sysfd = sysfs_open(fd2devnm(fd), dname, "block/dev");
 			if (sysfd >= 0) {
 				char dn[20];
-				int mj,mn;
 				if (sysfs_fd_get_str(sysfd, dn, 20) > 0 &&
 				    sscanf(dn, "%d:%d", &mj,&mn) == 2) {
 					rdev = makedev(mj,mn);
@@ -1408,6 +1408,12 @@ int Manage_subdevs(char *devname, int fd,
 					goto abort;
 				}
 			}
+		} else if ((dv->disposition == 'r' || dv->disposition == 'f')
+			   && get_maj_min(dv->devname, &mj, &mn)) {
+			/* for 'fail' and 'remove', the device might
+			 * not exist.
+			 */
+			rdev = makedev(mj, mn);
 		} else {
 			struct stat stb;
 			tfd = dev_open(dv->devname, O_RDONLY);

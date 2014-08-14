@@ -2887,6 +2887,20 @@ to '1', the
 will create and devices that are needed.
 
 .TP
+.B MDADM_NO_SYSTEMCTL
+If
+.I mdadm
+detects that
+.I systemd
+is in use it will normally request
+.I systemd
+to start various background tasks (particularly
+.IR mdmon )
+rather than forking and running them in the background.  This can be
+suppressed by setting
+.BR MDADM_NO_SYSTEMCTL=1 .
+
+.TP
 .B IMSM_NO_PLATFORM
 A key value of IMSM metadata is that it allows interoperability with
 boot ROMs on Intel platforms, and with other major operating systems.
@@ -2901,6 +2915,18 @@ These checks can be suppressed by setting IMSM_NO_PLATFORM=1 in the
 environment.  This can be useful for testing or for disaster
 recovery.  You should be aware that interoperability may be
 compromised by setting this value.
+
+.TP
+.B MDADM_GROW_ALLOW_OLD
+If an array is stopped while it is performing a reshape and that
+reshape was making use of a backup file, then when the array is
+re-assembled
+.I mdadm
+will sometimes complain that the backup file is too old.  If this
+happens and you are certain it is the right backup file, you can
+over-ride this check by setting
+.B MDADM_GROW_ALLOW_OLD=1
+in the environment.
 
 .TP
 .B MDADM_CONF_AUTO

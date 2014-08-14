@@ -38,6 +38,7 @@ struct state {
 	char *spare_group;
 	int active, working, failed, spare, raid;
 	int from_config;
+	int from_auto;
 	int expected_spares;
 	int devstate[MAX_DISKS];
 	dev_t devid[MAX_DISKS];
@@ -206,7 +207,7 @@ int Monitor(struct mddev_dev *devlist,
 
 	while (! finished) {
 		int new_found = 0;
-		struct state *st;
+		struct state *st, **stp;
 		int anydegraded = 0;
 
 		if (mdstat)
@@ -236,6 +237,16 @@ int Monitor(struct mddev_dev *devlist,
 				mdstat_wait(c->delay);
 		}
 		c->test = 0;
+
+		for (stp = &statelist; (st = *stp) != NULL; ) {
+			if (st->from_auto && st->err > 5) {
+				*stp = st->next;
+				free(st->devname);
+				free(st->spare_group);
+				free(st);
+			} else
+				stp = &st->next;
+		}
 	}
 	for (st2 = statelist; st2; st2 = statelist) {
 		statelist = st2->next;
@@ -461,14 +472,14 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (fd < 0) {
 		if (!st->err)
 			alert("DeviceDisappeared", dev, NULL, ainfo);
-		st->err=1;
+		st->err++;
 		return 0;
 	}
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
 		if (!st->err)
 			alert("DeviceDisappeared", dev, NULL, ainfo);
-		st->err=1;
+		st->err++;
 		close(fd);
 		return 0;
 	}
@@ -478,7 +489,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (array.level == 0 || array.level == -1) {
 		if (!st->err && !st->from_config)
 			alert("DeviceDisappeared", dev, "Wrong-Level", ainfo);
-		st->err = 1;
+		st->err++;
 		close(fd);
 		return 0;
 	}
@@ -494,7 +505,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (!mse) {
 		/* duplicated array in statelist
 		 * or re-created after reading mdstat*/
-		st->err = 1;
+		st->err++;
 		close(fd);
 		return 0;
 	}
@@ -505,7 +516,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		array.utime = st->utime + 1;;
 
 	if (st->err) {
-		/* New array appeared where previously had and error */
+		/* New array appeared where previously had an error */
 		st->err = 0;
 		st->percent = RESYNC_NONE;
 		new_array = 1;
@@ -684,6 +695,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			close(fd);
 			st->next = *statelist;
 			st->err = 1;
+			st->from_auto = 1;
 			strcpy(st->devnm, mse->devnm);
 			st->percent = RESYNC_UNKNOWN;
 			st->expected_spares = -1;

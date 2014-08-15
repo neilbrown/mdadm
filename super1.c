@@ -2105,6 +2105,10 @@ add_internal_bitmap1(struct supertype *st,
 		/* Limit to 128K of bitmap when chunk size not requested */
 		room = 128*2;
 
+	if (room <= 1)
+		/* No room for a bitmap */
+		return 0;
+
 	max_bits = (room * 512 - sizeof(bitmap_super_t)) * 8;
 
 	min_chunk = 4096; /* sub-page chunks don't work yet.. */

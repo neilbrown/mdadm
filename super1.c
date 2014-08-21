@@ -2048,8 +2048,8 @@ add_internal_bitmap1(struct supertype *st,
 			 * been left.
 			 */
 			offset = 0;
-			room = choose_bm_space(__le64_to_cpu(sb->size));
 			bbl_size = 8;
+			room = choose_bm_space(__le64_to_cpu(sb->size)) + bbl_size;
 		} else {
 			room = __le64_to_cpu(sb->super_offset)
 				- __le64_to_cpu(sb->data_offset)
@@ -2075,8 +2075,8 @@ add_internal_bitmap1(struct supertype *st,
 	case 2: /* between superblock and data */
 		if (creating) {
 			offset = 4*2;
-			room = choose_bm_space(__le64_to_cpu(sb->size));
 			bbl_size = 8;
+			room = choose_bm_space(__le64_to_cpu(sb->size)) + bbl_size;
 		} else {
 			room = __le64_to_cpu(sb->data_offset)
 				- __le64_to_cpu(sb->super_offset);

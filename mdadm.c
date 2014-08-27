@@ -781,7 +781,9 @@ int main(int argc, char *argv[])
 			fprintf(outf, "Valid --update options are:\n"
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
 		"     'summaries', 'homehost', 'byteorder', 'devicesize',\n"
-		"     'no-bitmap', 'metadata', 'revert-reshape'\n");
+		"     'no-bitmap', 'metadata', 'revert-reshape'\n"
+		"     'bbl', 'no-bbl'\n"
+				);
 			exit(outf == stdout ? 0 : 2);
 
 		case O(MANAGE,'U'):

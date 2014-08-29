@@ -2255,7 +2255,9 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		if (info2.space_before == 0 &&
 		    info2.space_after == 0) {
 			/* Metadata doesn't support data_offset changes */
-			return 1;
+			pr_err("%s: Metadata version doesn't support"
+			       " data_offset changes\n", devname);
+			goto release;
 		}
 		if (before > info2.space_before)
 			before = info2.space_before;

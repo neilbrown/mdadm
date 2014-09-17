@@ -402,6 +402,20 @@ static void manage_container(struct mdstat_ent *mdstat,
 	}
 }
 
+static int sysfs_open2(char *devnum, char *name, char *attr)
+{
+	int fd = sysfs_open(devnum, name, attr);
+	if (fd >= 0) {
+		/* seq_file in the kernel allocates buffer space
+		 * on the first read.  Do that now so 'monitor'
+		 * never needs too.
+		 */
+		char buf[200];
+		read(fd, buf, sizeof(buf));
+	}
+	return fd;
+}
+
 static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
 			     struct active_array *aa)
 {
@@ -409,10 +423,11 @@ static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
 		return -1;
 
 	*disk = *clone;
-	disk->recovery_fd = sysfs_open(aa->info.sys_name, disk->sys_name, "recovery_start");
+	disk->recovery_fd = sysfs_open2(aa->info.sys_name, disk->sys_name,
+					"recovery_start");
 	if (disk->recovery_fd < 0)
 		return -1;
-	disk->state_fd = sysfs_open(aa->info.sys_name, disk->sys_name, "state");
+	disk->state_fd = sysfs_open2(aa->info.sys_name, disk->sys_name, "state");
 	if (disk->state_fd < 0) {
 		close(disk->recovery_fd);
 		return -1;
@@ -692,11 +707,12 @@ static void manage_new(struct mdstat_ent *mdstat,
 		}
 	}
 
-	new->action_fd = sysfs_open(new->info.sys_name, NULL, "sync_action");
-	new->info.state_fd = sysfs_open(new->info.sys_name, NULL, "array_state");
-	new->resync_start_fd = sysfs_open(new->info.sys_name, NULL, "resync_start");
-	new->metadata_fd = sysfs_open(new->info.sys_name, NULL, "metadata_version");
-	new->sync_completed_fd = sysfs_open(new->info.sys_name, NULL, "sync_completed");
+	new->action_fd = sysfs_open2(new->info.sys_name, NULL, "sync_action");
+	new->info.state_fd = sysfs_open2(new->info.sys_name, NULL, "array_state");
+	new->resync_start_fd = sysfs_open2(new->info.sys_name, NULL, "resync_start");
+	new->metadata_fd = sysfs_open2(new->info.sys_name, NULL, "metadata_version");
+	new->sync_completed_fd = sysfs_open2(new->info.sys_name, NULL, "sync_completed");
+
 	dprintf("%s: inst: %s action: %d state: %d\n", __func__, inst,
 		new->action_fd, new->info.state_fd);
 

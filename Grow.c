@@ -1818,7 +1818,7 @@ int Grow_reshape(char *devname, int fd,
 		if (s->size == MAX_SIZE)
 			s->size = 0;
 		array.size = s->size;
-		if (array.size != (signed)s->size) {
+		if (s->size & ~INT32_MAX) {
 			/* got truncated to 32bit, write to
 			 * component_size instead
 			 */

@@ -460,7 +460,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	mdu_array_info_t array;
 	struct mdstat_ent *mse = NULL, *mse2;
 	char *dev = st->devname;
-	int fd;
+	int fd = -1;
 	int i;
 	int remaining_disks;
 	int last_disk;
@@ -468,6 +468,27 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 
 	if (test)
 		alert("TestMessage", dev, NULL, ainfo);
+	if (st->devnm[0])
+		fd = open("/sys/block", O_RDONLY|O_DIRECTORY);
+	if (fd >= 0) {
+		/* Don't open the device unless it is present and
+		 * active in sysfs.
+		 */
+		char buf[10];
+		close(fd);
+		fd = sysfs_open(st->devnm, NULL, "array_state");
+		if (fd < 0 ||
+		    read(fd, buf, 10) < 5 ||
+		    strncmp(buf,"clear",5) == 0 ||
+		    strncmp(buf,"inact",5) == 0) {
+			if (fd >= 0)
+				close(fd);
+			if (!st->err)
+				alert("DeviceDisappeared", dev, NULL, ainfo);
+			st->err++;
+			return 0;
+		}
+	}
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {
 		if (!st->err)

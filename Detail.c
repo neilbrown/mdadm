@@ -295,8 +295,8 @@ int Detail(char *dev, struct context *c)
 		goto out;
 	}
 
-	disks = xmalloc(max_disks * sizeof(mdu_disk_info_t));
-	for (d = 0; d < max_disks; d++) {
+	disks = xmalloc(max_disks * 2 * sizeof(mdu_disk_info_t));
+	for (d = 0; d < max_disks * 2; d++) {
 		disks[d].state = (1<<MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
 		disks[d].number = disks[d].raid_disk = d;
@@ -327,7 +327,7 @@ int Detail(char *dev, struct context *c)
 		else if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
 			 && disks[disk.raid_disk*2+1].state == (1<<MD_DISK_REMOVED))
 			disks[disk.raid_disk*2+1] = disk;
-		else if (next < max_disks)
+		else if (next < max_disks*2)
 			disks[next++] = disk;
 	}
 
@@ -602,7 +602,7 @@ This is pretty boring
 	}
 	free(info);
 
-	for (d= 0; d < max_disks; d++) {
+	for (d= 0; d < max_disks * 2; d++) {
 		char *dv;
 		mdu_disk_info_t disk = disks[d];
 

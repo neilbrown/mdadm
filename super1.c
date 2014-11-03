@@ -1245,12 +1245,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		/* set data_size to device size less data_offset */
 		struct misc_dev_info *misc = (struct misc_dev_info*)
 			(st->sb + MAX_SB_SIZE + BM_SUPER_SIZE);
-		printf("Size was %llu\n", (unsigned long long)
-		       __le64_to_cpu(sb->data_size));
 		sb->data_size = __cpu_to_le64(
 			misc->device_size - __le64_to_cpu(sb->data_offset));
-		printf("Size is %llu\n", (unsigned long long)
-		       __le64_to_cpu(sb->data_size));
 	} else if (strcmp(update, "revert-reshape") == 0) {
 		rv = -2;
 		if (!(sb->feature_map & __cpu_to_le32(MD_FEATURE_RESHAPE_ACTIVE)))

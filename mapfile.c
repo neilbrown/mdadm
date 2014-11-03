@@ -455,12 +455,19 @@ void RebuildMap(void)
 							sep = "";
 						}
 					}
-					if (strchr(name, ':'))
-						/* probably a uniquifying
+					if (strchr(name, ':')) {
+						/* Probably a uniquifying
 						 * hostname prefix.  Allow
-						 * without a suffix
+						 * without a suffix, and strip
+						 * hostname if it is us.
 						 */
+						if (homehost && unum == -1 &&
+						    strncmp(name, homehost,
+							    strlen(homehost)) == 0 &&
+						    name[strlen(homehost)] == ':')
+							name += strlen(homehost)+1;
 						unum = -1;
+					}
 
 					while (conflict) {
 						if (unum >= 0)

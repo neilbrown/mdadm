@@ -196,13 +196,13 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	policy = disk_policy(&dinfo);
 	have_target = policy_check_path(&dinfo, &target_array);
 
-	if (st == NULL && (st = guess_super(dfd)) == NULL) {
+	if (st == NULL && (st = guess_super_type(dfd, guess_array)) == NULL) {
 		if (c->verbose >= 0)
 			pr_err("no recognisable superblock on %s.\n",
 			       devname);
 		rv = try_spare(devname, &dfd, policy,
 			       have_target ? &target_array : NULL,
-			       st, c->verbose);
+			       NULL, c->verbose);
 		goto out;
 	}
 	st->ignore_hw_compat = 1;

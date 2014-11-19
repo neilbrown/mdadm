@@ -401,6 +401,8 @@ static const struct imsm_orom *find_imsm_hba_orom(struct sys_dev *hba)
 #define SYS_EFI_VAR_PATH "/sys/firmware/efi/vars"
 #define SCU_PROP "RstScuV"
 #define AHCI_PROP "RstSataV"
+#define AHCI_SSATA_PROP "RstsSatV"
+#define AHCI_CSATA_PROP "RstCSatV"
 
 #define VENDOR_GUID \
 	EFI_GUID(0x193dfefa, 0xa445, 0x4302, 0x99, 0xd8, 0xef, 0x3a, 0xad, 0x1a, 0x04, 0xc6)
@@ -455,6 +457,7 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 {
 	struct imsm_orom orom;
 	const struct imsm_orom *ret;
+	int err;
 
 	if (check_env("IMSM_TEST_AHCI_EFI") || check_env("IMSM_TEST_SCU_EFI"))
 		return imsm_platform_test(hba);
@@ -466,7 +469,26 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 	if (hba->type == SYS_DEV_SATA && hba->class != PCI_CLASS_RAID_CNTRL)
 		return NULL;
 
-	if (read_efi_variable(&orom, sizeof(orom), hba->type == SYS_DEV_SAS ? SCU_PROP : AHCI_PROP, VENDOR_GUID))
+	err = read_efi_variable(&orom, sizeof(orom), hba->type == SYS_DEV_SAS ? SCU_PROP : AHCI_PROP, VENDOR_GUID);
+
+	/* try to read variable for second AHCI controller */
+	if (err && hba->type == SYS_DEV_SATA)
+		err = read_efi_variable(&orom, sizeof(orom), AHCI_SSATA_PROP, VENDOR_GUID);
+
+	/* try to read variable for combined AHCI controllers */
+	if (err && hba->type == SYS_DEV_SATA) {
+		static const struct imsm_orom *csata;
+
+		err = read_efi_variable(&orom, sizeof(orom), AHCI_CSATA_PROP, VENDOR_GUID);
+		if (!err) {
+			if (!csata)
+				csata = add_orom(&orom);
+			add_orom_device_id(csata, hba->dev_id);
+			return csata;
+		}
+	}
+
+	if (err)
 		return NULL;
 
 	ret = add_orom(&orom);

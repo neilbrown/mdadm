@@ -173,6 +173,17 @@ static inline int fls(int x)
 	return r;
 }
 
+static inline int imsm_orom_is_enterprise(const struct imsm_orom *orom)
+{
+	return !!(orom->driver_features & IMSM_OROM_CAPABILITIES_EnterpriseSystem);
+}
+
+static inline int imsm_orom_is_nvme(const struct imsm_orom *orom)
+{
+	return memcmp(orom->signature, IMSM_NVME_OROM_COMPAT_SIGNATURE,
+			sizeof(orom->signature)) == 0;
+}
+
 enum sys_dev_type {
 	SYS_DEV_UNKNOWN = 0,
 	SYS_DEV_SAS,
@@ -192,6 +203,16 @@ struct sys_dev {
 
 struct efi_guid {
 	__u8 b[16];
+};
+
+struct devid_list {
+	__u16 devid;
+	struct devid_list *next;
+};
+
+struct orom_entry {
+	struct imsm_orom orom;
+	struct devid_list *devid_list;
 };
 
 static inline char *guid_str(char *buf, struct efi_guid guid)
@@ -215,4 +236,6 @@ int devt_attached_to_hba(dev_t dev, const char *hba_path);
 char *devt_to_devpath(dev_t dev);
 int path_attached_to_hba(const char *disk_path, const char *hba_path);
 const char *get_sys_dev_type(enum sys_dev_type);
+const struct orom_entry * get_oroms(void);
 const struct imsm_orom *get_orom_by_device_id(__u16 device_id);
+struct sys_dev *device_by_id(__u16 device_id);

@@ -1709,7 +1709,8 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 			break;
 		}
 		*c = '\0';
-		if (sscanf(&path[hba_len], "host%d", &port) == 1)
+		if ((sscanf(&path[hba_len], "ata%d", &port) == 1) ||
+		   ((sscanf(&path[hba_len], "host%d", &port) == 1)))
 			port -= host_base;
 		else {
 			if (verbose > 0) {
@@ -1768,6 +1769,8 @@ static void print_found_intel_controllers(struct sys_dev *elem)
 			fprintf(stderr, "SATA ");
 		else if (elem->type == SYS_DEV_SAS)
 			fprintf(stderr, "SAS ");
+		else if (elem->type == SYS_DEV_NVME)
+			fprintf(stderr, "NVMe ");
 		fprintf(stderr, "RAID controller");
 		if (elem->pci_id)
 			fprintf(stderr, " at %s", elem->pci_id);
@@ -1789,7 +1792,8 @@ static int ahci_get_port_count(const char *hba_path, int *port_count)
 	for (ent = readdir(dir); ent; ent = readdir(dir)) {
 		int host;
 
-		if (sscanf(ent->d_name, "host%d", &host) != 1)
+		if ((sscanf(ent->d_name, "ata%d", &host) != 1) &&
+		   ((sscanf(ent->d_name, "host%d", &host) != 1)))
 			continue;
 		if (*port_count == 0)
 			host_base = host;
@@ -1805,9 +1809,15 @@ static int ahci_get_port_count(const char *hba_path, int *port_count)
 
 static void print_imsm_capability(const struct imsm_orom *orom)
 {
-	printf("       Platform : Intel(R) Matrix Storage Manager\n");
-	printf("        Version : %d.%d.%d.%d\n", orom->major_ver, orom->minor_ver,
-	       orom->hotfix_ver, orom->build);
+	printf("       Platform : Intel(R) ");
+	if (orom->capabilities == 0 && orom->driver_features == 0)
+		printf("Matrix Storage Manager\n");
+	else
+		printf("Rapid Storage Technology%s\n",
+			imsm_orom_is_enterprise(orom) ? " enterprise" : "");
+	if (orom->major_ver || orom->minor_ver || orom->hotfix_ver || orom->build)
+		printf("        Version : %d.%d.%d.%d\n", orom->major_ver,
+				orom->minor_ver, orom->hotfix_ver, orom->build);
 	printf("    RAID Levels :%s%s%s%s%s\n",
 	       imsm_orom_has_raid0(orom) ? " raid0" : "",
 	       imsm_orom_has_raid1(orom) ? " raid1" : "",
@@ -1836,16 +1846,18 @@ static void print_imsm_capability(const struct imsm_orom *orom)
 	printf("      2TB disks :%s supported\n",
 	       (orom->attr & IMSM_OROM_ATTR_2TB_DISK)?"":" not");
 	printf("      Max Disks : %d\n", orom->tds);
-	printf("    Max Volumes : %d per array, %d per controller\n",
-	       orom->vpa, orom->vphba);
+	printf("    Max Volumes : %d per array, %d per %s\n",
+	       orom->vpa, orom->vphba,
+	       imsm_orom_is_nvme(orom) ? "platform" : "controller");
 	return;
 }
 
 static void print_imsm_capability_export(const struct imsm_orom *orom)
 {
 	printf("MD_FIRMWARE_TYPE=imsm\n");
-	printf("IMSM_VERSION=%d.%d.%d.%d\n",orom->major_ver, orom->minor_ver,
-			orom->hotfix_ver, orom->build);
+	if (orom->major_ver || orom->minor_ver || orom->hotfix_ver || orom->build)
+		printf("IMSM_VERSION=%d.%d.%d.%d\n", orom->major_ver, orom->minor_ver,
+				orom->hotfix_ver, orom->build);
 	printf("IMSM_SUPPORTED_RAID_LEVELS=%s%s%s%s%s\n",
 			imsm_orom_has_raid0(orom) ? "raid0 " : "",
 			imsm_orom_has_raid1(orom) ? "raid1 " : "",
@@ -1889,7 +1901,6 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 	 * platform capabilities.  If raid support is disabled in the BIOS the
 	 * option-rom capability structure will not be available.
 	 */
-	const struct imsm_orom *orom;
 	struct sys_dev *list, *hba;
 	int host_base = 0;
 	int port_count = 0;
@@ -1922,15 +1933,42 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		print_found_intel_controllers(list);
 
 	for (hba = list; hba; hba = hba->next) {
-		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
+		if (controller_path && (compare_paths(hba->path, controller_path) != 0))
 			continue;
-		orom = find_imsm_capability(hba);
-		if (!orom)
+		if (!find_imsm_capability(hba)) {
 			pr_err("imsm capabilities not found for controller: %s (type %s)\n",
 				hba->path, get_sys_dev_type(hba->type));
-		else {
-			result = 0;
-			print_imsm_capability(orom);
+			continue;
+		}
+		result = 0;
+	}
+
+	if (controller_path && result == 1) {
+		pr_err("no active Intel(R) RAID controller found under %s\n",
+				controller_path);
+		return result;
+	}
+
+	const struct orom_entry *oroms = get_oroms();
+	int i;
+
+	for (i = 0; i < SYS_DEV_MAX && oroms[i].devid_list; i++) {
+		print_imsm_capability(&oroms[i].orom);
+
+		if (imsm_orom_is_nvme(&oroms[i].orom)) {
+			for (hba = list; hba; hba = hba->next) {
+				if (hba->type == SYS_DEV_NVME)
+					printf("    NVMe Device : %s\n", hba->path);
+			}
+			continue;
+		}
+
+		struct devid_list *devid;
+		for (devid = oroms[i].devid_list; devid; devid = devid->next) {
+			hba = device_by_id(devid->devid);
+			if (!hba)
+				continue;
+
 			printf(" I/O Controller : %s (%s)\n",
 				hba->path, get_sys_dev_type(hba->type));
 			if (hba->type == SYS_DEV_SATA) {
@@ -1943,18 +1981,14 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 				}
 			}
 		}
+		printf("\n");
 	}
-
-	if (controller_path && result == 1)
-		pr_err("no active Intel(R) RAID "
-				"controller found under %s\n",controller_path);
 
 	return result;
 }
 
 static int export_detail_platform_imsm(int verbose, char *controller_path)
 {
-	const struct imsm_orom *orom;
 	struct sys_dev *list, *hba;
 	int result=1;
 
@@ -1969,16 +2003,17 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 	for (hba = list; hba; hba = hba->next) {
 		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
 			continue;
-		orom = find_imsm_capability(hba);
-		if (!orom) {
-			if (verbose > 0)
-				pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICE_UNDER_%s\n",hba->path);
-		}
-		else {
-			print_imsm_capability_export(orom);
+		if (!find_imsm_capability(hba) && verbose > 0)
+			pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICE_UNDER_%s\n", hba->path);
+		else
 			result = 0;
-		}
 	}
+
+	const struct orom_entry *oroms = get_oroms();
+	int i;
+
+	for (i = 0; i < SYS_DEV_MAX && oroms[i].devid_list; i++)
+		print_imsm_capability_export(&oroms[i].orom);
 
 	return result;
 }

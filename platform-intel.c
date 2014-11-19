@@ -134,6 +134,16 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 static struct sys_dev *intel_devices=NULL;
 static time_t valid_time = 0;
 
+struct sys_dev *device_by_id(__u16 device_id)
+{
+	struct sys_dev *iter;
+
+	for (iter = intel_devices; iter != NULL; iter = iter->next)
+		if (iter->dev_id == device_id)
+			return iter;
+	return NULL;
+}
+
 static int devpath_to_ll(const char *dev_path, const char *entry, unsigned long long *val)
 {
 	char path[strlen(dev_path) + strlen(entry) + 2];
@@ -219,17 +229,12 @@ struct pciExpDataStructFormat {
 	__u16 devListOffset;
 } __attribute__ ((packed));
 
-struct devid_list {
-	__u16 devid;
-	struct devid_list *next;
-};
-
-struct orom_entry {
-	struct imsm_orom orom;
-	struct devid_list *devid_list;
-};
-
 static struct orom_entry oroms[SYS_DEV_MAX];
+
+const struct orom_entry *get_oroms(void)
+{
+	return (const struct orom_entry *)&oroms;
+}
 
 const struct imsm_orom *get_orom_by_device_id(__u16 dev_id)
 {
@@ -529,6 +534,7 @@ const struct imsm_orom *find_imsm_nvme(struct sys_dev *hba)
 			.vpa = IMSM_OROM_VOLUMES_PER_ARRAY,
 			.vphba = IMSM_OROM_TOTAL_DISKS_NVME / 2 * IMSM_OROM_VOLUMES_PER_ARRAY,
 			.attr = IMSM_OROM_ATTR_2TB | IMSM_OROM_ATTR_2TB_DISK,
+			.driver_features = IMSM_OROM_CAPABILITIES_EnterpriseSystem
 		};
 		nvme_orom = add_orom(&nvme_orom_compat);
 	}

@@ -22,6 +22,7 @@
 /* The IMSM Capability (IMSM AHCI and ISCU OROM/EFI variable) Version Table definition */
 struct imsm_orom {
 	__u8 signature[4];
+	#define IMSM_OROM_SIGNATURE "$VER"
 	__u8 table_ver_major; /* Currently 2 (can change with future revs) */
 	__u8 table_ver_minor; /* Currently 2 (can change with future revs) */
 	__u16 major_ver; /* Example: 8 as in 8.6.0.1020 */
@@ -180,6 +181,7 @@ struct sys_dev {
 	char *path;
 	char *pci_id;
 	__u16  dev_id;
+	__u32  class;
 	struct sys_dev *next;
 };
 
@@ -201,10 +203,11 @@ static inline char *guid_str(char *buf, struct efi_guid guid)
 char *diskfd_to_devpath(int fd);
 struct sys_dev *find_driver_devices(const char *bus, const char *driver);
 struct sys_dev *find_intel_devices(void);
-const struct imsm_orom *find_imsm_capability(enum sys_dev_type hba_id);
+const struct imsm_orom *find_imsm_capability(struct sys_dev *hba);
 const struct imsm_orom *find_imsm_orom(void);
 int disk_attached_to_hba(int fd, const char *hba_path);
 int devt_attached_to_hba(dev_t dev, const char *hba_path);
 char *devt_to_devpath(dev_t dev);
 int path_attached_to_hba(const char *disk_path, const char *hba_path);
 const char *get_sys_dev_type(enum sys_dev_type);
+const struct imsm_orom *get_orom_by_device_id(__u16 device_id);

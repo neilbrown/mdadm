@@ -555,11 +555,26 @@ static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device
 	if (super->hba == NULL) {
 		super->hba = alloc_intel_hba(device);
 		return 1;
-	} else
-		/* IMSM metadata disallows to attach disks to multiple
-		 * controllers.
-		 */
+	}
+
+	hba = super->hba;
+	/* Intel metadata allows for all disks attached to the same type HBA.
+	 * Do not sypport odf HBA types mixing
+	 */
+	if (device->type != hba->type)
 		return 2;
+
+	/* Multiple same type HBAs can be used if they share the same OROM */
+	const struct imsm_orom *device_orom = get_orom_by_device_id(device->dev_id);
+
+	if (device_orom != super->orom)
+		return 2;
+
+	while (hba->next)
+		hba = hba->next;
+
+	hba->next = alloc_intel_hba(device);
+	return 1;
 }
 
 static struct sys_dev* find_disk_attached_hba(int fd, const char *devname)
@@ -1886,13 +1901,12 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		if (!list)
 			return 2;
 		for (hba = list; hba; hba = hba->next) {
-			orom = find_imsm_capability(hba->type);
-			if (!orom) {
-				result = 2;
+			if (find_imsm_capability(hba)) {
+				result = 0;
 				break;
 			}
 			else
-				result = 0;
+				result = 2;
 		}
 		return result;
 	}
@@ -1909,7 +1923,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 	for (hba = list; hba; hba = hba->next) {
 		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
 			continue;
-		orom = find_imsm_capability(hba->type);
+		orom = find_imsm_capability(hba);
 		if (!orom)
 			pr_err("imsm capabilities not found for controller: %s (type %s)\n",
 				hba->path, get_sys_dev_type(hba->type));
@@ -1954,7 +1968,7 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 	for (hba = list; hba; hba = hba->next) {
 		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
 			continue;
-		orom = find_imsm_capability(hba->type);
+		orom = find_imsm_capability(hba);
 		if (!orom) {
 			if (verbose > 0)
 				pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICE_UNDER_%s\n",hba->path);
@@ -3087,13 +3101,18 @@ static int compare_super_imsm(struct supertype *st, struct supertype *tst)
 	 * use the same Intel hba
 	 * If not on Intel hba at all, allow anything.
 	 */
-	if (!check_env("IMSM_NO_PLATFORM")) {
-		if (first->hba && sec->hba &&
-		    strcmp(first->hba->path, sec->hba->path) != 0)  {
+	if (!check_env("IMSM_NO_PLATFORM") && first->hba && sec->hba) {
+		if (first->hba->type != sec->hba->type) {
 			fprintf(stderr,
-				"HBAs of devices does not match %s != %s\n",
-				first->hba ? first->hba->path : NULL,
-				sec->hba ? sec->hba->path : NULL);
+				"HBAs of devices do not match %s != %s\n",
+				get_sys_dev_type(first->hba->type),
+				get_sys_dev_type(sec->hba->type));
+			return 3;
+		}
+		if (first->orom != sec->orom) {
+			fprintf(stderr,
+				"HBAs of devices do not match %s != %s\n",
+				first->hba->pci_id, sec->hba->pci_id);
 			return 3;
 		}
 	}
@@ -3832,14 +3851,13 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 					fprintf(stderr, ", ");
 				hba = hba->next;
 			}
-
-			fprintf(stderr, ").\n");
-			cont_err("Mixing devices attached to multiple controllers "
-				 "is not allowed.\n");
+			fprintf(stderr, ").\n"
+				"    Mixing devices attached to different controllers "
+				"is not allowed.\n");
 		}
 		return 2;
 	}
-	super->orom = find_imsm_capability(hba_name->type);
+	super->orom = find_imsm_capability(hba_name);
 	if (!super->orom)
 		return 3;
 	return 0;
@@ -9061,32 +9079,68 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds,
  ******************************************************************************/
 int validate_container_imsm(struct mdinfo *info)
 {
-	if (!check_env("IMSM_NO_PLATFORM")) {
-		struct sys_dev *idev;
-		struct mdinfo *dev;
-		char *hba_path = NULL;
-		char *dev_path = devt_to_devpath(makedev(info->disk.major,
-										info->disk.minor));
+	if (check_env("IMSM_NO_PLATFORM"))
+		return 0;
 
-		for (idev = find_intel_devices(); idev; idev = idev->next) {
-			if (strstr(dev_path, idev->path)) {
-				hba_path = idev->path;
+	struct sys_dev *idev;
+	struct sys_dev *hba = NULL;
+	struct sys_dev *intel_devices = find_intel_devices();
+	char *dev_path = devt_to_devpath(makedev(info->disk.major,
+									info->disk.minor));
+
+	for (idev = intel_devices; idev; idev = idev->next) {
+		if (dev_path && strstr(dev_path, idev->path)) {
+			hba = idev;
+			break;
+		}
+	}
+	if (dev_path)
+		free(dev_path);
+
+	if (!hba) {
+		pr_err("WARNING - Cannot detect HBA for device %s!\n",
+				devid2kname(makedev(info->disk.major, info->disk.minor)));
+		return 1;
+	}
+
+	const struct imsm_orom *orom = get_orom_by_device_id(hba->dev_id);
+	struct mdinfo *dev;
+
+	for (dev = info->next; dev; dev = dev->next) {
+		dev_path = devt_to_devpath(makedev(dev->disk.major, dev->disk.minor));
+
+		struct sys_dev *hba2 = NULL;
+		for (idev = intel_devices; idev; idev = idev->next) {
+			if (dev_path && strstr(dev_path, idev->path)) {
+				hba2 = idev;
 				break;
 			}
 		}
-		free(dev_path);
+		if (dev_path)
+			free(dev_path);
 
-		if (hba_path) {
-			for (dev = info->next; dev; dev = dev->next) {
-				if (!devt_attached_to_hba(makedev(dev->disk.major,
-						dev->disk.minor), hba_path)) {
-					pr_err("WARNING - IMSM container assembled with disks under different HBAs!\n"
-						"       This operation is not supported and can lead to data loss.\n");
-					return 1;
-				}
-			}
+		const struct imsm_orom *orom2 = hba2 == NULL ? NULL :
+				get_orom_by_device_id(hba2->dev_id);
+
+		if (hba2 && hba->type != hba2->type) {
+			pr_err("WARNING - HBAs of devices do not match %s != %s\n",
+				get_sys_dev_type(hba->type), get_sys_dev_type(hba2->type));
+			return 1;
+		}
+
+		if (orom != orom2) {
+			pr_err("WARNING - IMSM container assembled with disks under different HBAs!\n"
+				"       This operation is not supported and can lead to data loss.\n");
+			return 1;
+		}
+
+		if (!orom) {
+			pr_err("WARNING - IMSM container assembled with disks under HBAs without IMSM platform support!\n"
+				"       This operation is not supported and can lead to data loss.\n");
+			return 1;
 		}
 	}
+
 	return 0;
 }
 #ifndef MDASSEMBLE

@@ -65,6 +65,8 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		type = SYS_DEV_SAS;
 	else if (strcmp(driver, "ahci") == 0)
 		type = SYS_DEV_SATA;
+	else if (strcmp(driver, "nvme") == 0)
+		type = SYS_DEV_NVME;
 	else
 		type = SYS_DEV_UNKNOWN;
 
@@ -174,7 +176,7 @@ static __u16 devpath_to_vendor(const char *dev_path)
 
 struct sys_dev *find_intel_devices(void)
 {
-	struct sys_dev *ahci, *isci;
+	struct sys_dev *ahci, *isci, *nvme;
 
 	if (valid_time > time(0) - 10)
 		return intel_devices;
@@ -184,14 +186,24 @@ struct sys_dev *find_intel_devices(void)
 
 	isci = find_driver_devices("pci", "isci");
 	ahci = find_driver_devices("pci", "ahci");
+	nvme = find_driver_devices("pci", "nvme");
 
-	if (!ahci) {
+	if (!isci && !ahci) {
+		ahci = nvme;
+	} else if (!ahci) {
 		ahci = isci;
+		struct sys_dev *elem = ahci;
+		while (elem->next)
+			elem = elem->next;
+		elem->next = nvme;
 	} else {
 		struct sys_dev *elem = ahci;
 		while (elem->next)
 			elem = elem->next;
 		elem->next = isci;
+		while (elem->next)
+			elem = elem->next;
+		elem->next = nvme;
 	}
 	intel_devices = ahci;
 	valid_time = time(0);
@@ -497,6 +509,33 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 	return ret;
 }
 
+const struct imsm_orom *find_imsm_nvme(struct sys_dev *hba)
+{
+	static const struct imsm_orom *nvme_orom;
+
+	if (hba->type != SYS_DEV_NVME)
+		return NULL;
+
+	if (!nvme_orom) {
+		struct imsm_orom nvme_orom_compat = {
+			.signature = IMSM_NVME_OROM_COMPAT_SIGNATURE,
+			.rlc = IMSM_OROM_RLC_RAID0 | IMSM_OROM_RLC_RAID1 |
+						IMSM_OROM_RLC_RAID10 | IMSM_OROM_RLC_RAID5,
+			.sss = IMSM_OROM_SSS_4kB | IMSM_OROM_SSS_8kB |
+						IMSM_OROM_SSS_16kB | IMSM_OROM_SSS_32kB |
+						IMSM_OROM_SSS_64kB | IMSM_OROM_SSS_128kB,
+			.dpa = IMSM_OROM_DISKS_PER_ARRAY_NVME,
+			.tds = IMSM_OROM_TOTAL_DISKS_NVME,
+			.vpa = IMSM_OROM_VOLUMES_PER_ARRAY,
+			.vphba = IMSM_OROM_TOTAL_DISKS_NVME / 2 * IMSM_OROM_VOLUMES_PER_ARRAY,
+			.attr = IMSM_OROM_ATTR_2TB | IMSM_OROM_ATTR_2TB_DISK,
+		};
+		nvme_orom = add_orom(&nvme_orom_compat);
+	}
+	add_orom_device_id(nvme_orom, hba->dev_id);
+	return nvme_orom;
+}
+
 const struct imsm_orom *find_imsm_capability(struct sys_dev *hba)
 {
 	const struct imsm_orom *cap = get_orom_by_device_id(hba->dev_id);
@@ -504,10 +543,13 @@ const struct imsm_orom *find_imsm_capability(struct sys_dev *hba)
 	if (cap)
 		return cap;
 
+	if (hba->type == SYS_DEV_NVME)
+		return find_imsm_nvme(hba);
 	if ((cap = find_imsm_efi(hba)) != NULL)
 		return cap;
 	if ((cap = find_imsm_hba_orom(hba)) != NULL)
 		return cap;
+
 	return NULL;
 }
 

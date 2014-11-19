@@ -509,7 +509,8 @@ struct imsm_update_add_remove_disk {
 static const char *_sys_dev_type[] = {
 	[SYS_DEV_UNKNOWN] = "Unknown",
 	[SYS_DEV_SAS] = "SAS",
-	[SYS_DEV_SATA] = "SATA"
+	[SYS_DEV_SATA] = "SATA",
+	[SYS_DEV_NVME] = "NVMe"
 };
 
 const char *get_sys_dev_type(enum sys_dev_type type)
@@ -559,7 +560,7 @@ static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device
 
 	hba = super->hba;
 	/* Intel metadata allows for all disks attached to the same type HBA.
-	 * Do not sypport odf HBA types mixing
+	 * Do not support HBA types mixing
 	 */
 	if (device->type != hba->type)
 		return 2;
@@ -3841,9 +3842,9 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 				"    but the container is assigned to Intel(R) "
 				"%s RAID controller (",
 				devname,
-				hba_name->path,
+				get_sys_dev_type(hba_name->type),
 				hba_name->pci_id ? : "Err!",
-				get_sys_dev_type(hba_name->type));
+				get_sys_dev_type(super->hba->type));
 
 			while (hba) {
 				fprintf(stderr, "%s", hba->pci_id ? : "Err!");
@@ -3860,6 +3861,7 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 	super->orom = find_imsm_capability(hba_name);
 	if (!super->orom)
 		return 3;
+
 	return 0;
 }
 
@@ -5916,6 +5918,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		pr_vrb(": platform does not support a volume size over 2TB\n");
 		return 0;
 	}
+
 	return 1;
 }
 

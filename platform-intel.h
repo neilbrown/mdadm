@@ -23,6 +23,7 @@
 struct imsm_orom {
 	__u8 signature[4];
 	#define IMSM_OROM_SIGNATURE "$VER"
+	#define IMSM_NVME_OROM_COMPAT_SIGNATURE "$NVM"
 	__u8 table_ver_major; /* Currently 2 (can change with future revs) */
 	__u8 table_ver_minor; /* Currently 2 (can change with future revs) */
 	__u16 major_ver; /* Example: 8 as in 8.6.0.1020 */
@@ -60,12 +61,15 @@ struct imsm_orom {
 	#define IMSM_OROM_SSS_64MB (1 << 15)
 	__u16 dpa; /* Disks Per Array supported */
 	#define IMSM_OROM_DISKS_PER_ARRAY 6
+	#define IMSM_OROM_DISKS_PER_ARRAY_NVME 12
 	__u16 tds; /* Total Disks Supported */
 	#define IMSM_OROM_TOTAL_DISKS 6
+	#define IMSM_OROM_TOTAL_DISKS_NVME 12
 	__u8 vpa; /* # Volumes Per Array supported */
 	#define IMSM_OROM_VOLUMES_PER_ARRAY 2
 	__u8 vphba; /* # Volumes Per Host Bus Adapter supported */
 	#define IMSM_OROM_VOLUMES_PER_HBA 4
+	#define IMSM_OROM_VOLUMES_PER_HBA_NVME 4
 	/* Attributes supported. This should map to the
 	 * attributes in the MPB. Also, lower 16 bits
 	 * should match/duplicate RLC bits above.
@@ -173,6 +177,7 @@ enum sys_dev_type {
 	SYS_DEV_UNKNOWN = 0,
 	SYS_DEV_SAS,
 	SYS_DEV_SATA,
+	SYS_DEV_NVME,
 	SYS_DEV_MAX
 };
 

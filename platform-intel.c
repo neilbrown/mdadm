@@ -416,6 +416,7 @@ static const struct imsm_orom *find_imsm_hba_orom(struct sys_dev *hba)
   (d0), (d1), (d2), (d3), (d4), (d5), (d6), (d7) }})
 
 #define SYS_EFI_VAR_PATH "/sys/firmware/efi/vars"
+#define SYS_EFIVARS_PATH "/sys/firmware/efi/efivars"
 #define SCU_PROP "RstScuV"
 #define AHCI_PROP "RstSataV"
 #define AHCI_SSATA_PROP "RstsSatV"
@@ -426,12 +427,46 @@ static const struct imsm_orom *find_imsm_hba_orom(struct sys_dev *hba)
 
 #define PCI_CLASS_RAID_CNTRL 0x010400
 
-int read_efi_variable(void *buffer, ssize_t buf_size, char *variable_name, struct efi_guid guid)
+static int read_efi_var(void *buffer, ssize_t buf_size, char *variable_name, struct efi_guid guid)
+{
+	char path[PATH_MAX];
+	char buf[GUID_STR_MAX];
+	int fd;
+	ssize_t n;
+
+	snprintf(path, PATH_MAX, "%s/%s-%s", SYS_EFIVARS_PATH, variable_name, guid_str(buf, guid));
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return 1;
+
+	/* read the variable attributes and ignore it */
+	n = read(fd, buf, sizeof(__u32));
+	if (n < 0) {
+		close(fd);
+		return 1;
+	}
+
+	/* read the variable data */
+	n = read(fd, buffer, buf_size);
+	close(fd);
+	if (n < buf_size)
+		return 1;
+
+	return 0;
+}
+
+static int read_efi_variable(void *buffer, ssize_t buf_size, char *variable_name, struct efi_guid guid)
 {
 	char path[PATH_MAX];
 	char buf[GUID_STR_MAX];
 	int dfd;
 	ssize_t n, var_data_len;
+
+	/* Try to read the variable using the new efivarfs interface first.
+	 * If that fails, fall back to the old sysfs-efivars interface. */
+	if (!read_efi_var(buffer, buf_size, variable_name, guid))
+		return 0;
 
 	snprintf(path, PATH_MAX, "%s/%s-%s/size", SYS_EFI_VAR_PATH, variable_name, guid_str(buf, guid));
 

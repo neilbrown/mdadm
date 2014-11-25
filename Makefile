@@ -153,7 +153,7 @@ ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
 ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
 endif
 
-all : check_rundir mdadm mdmon
+all : mdadm mdmon
 man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
 
 check_rundir:
@@ -172,7 +172,7 @@ everything-test: all mdadm.static swap_super test_stripe \
 # mdadm.uclibc and mdassemble.uclibc don't work on x86-64
 # mdadm.tcc doesn't work..
 
-mdadm : check_rundir $(OBJS)
+mdadm : $(OBJS) | check_rundir
 	$(CC) $(CFLAGS) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
 mdadm.static : $(OBJS) $(STATICOBJS)
@@ -195,7 +195,7 @@ mdmon.O2 : $(MON_SRCS) $(INCL) mdmon.h
 	$(CC) -o mdmon.O2 $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -DHAVE_STDINT_H -O2 -D_FORTIFY_SOURCE=2 $(MON_SRCS)
 
 # use '-z now' to guarantee no dynamic linker interactions with the monitor thread
-mdmon : check_rundir $(MON_OBJS)
+mdmon : $(MON_OBJS) | check_rundir
 	$(CC) $(CFLAGS) $(LDFLAGS) $(MON_LDFLAGS) -Wl,-z,now -o mdmon $(MON_OBJS) $(LDLIBS)
 msg.o: msg.c msg.h
 

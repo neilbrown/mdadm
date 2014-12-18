@@ -671,13 +671,13 @@ char *human_size(long long bytes)
 	if (bytes < 5000*1024)
 		buf[0] = 0;
 	else if (bytes < 2*1024LL*1024LL*1024LL) {
-		long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
+		long cMiB = (bytes * 200LL / (1LL<<20) + 1) / 2;
 		long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
 		snprintf(buf, sizeof(buf), " (%ld.%02ld MiB %ld.%02ld MB)",
 			cMiB/100 , cMiB % 100,
 			cMB/100, cMB % 100);
 	} else {
-		long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
+		long cGiB = (bytes * 200LL / (1LL<<30) +1) / 2;
 		long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
 		snprintf(buf, sizeof(buf), " (%ld.%02ld GiB %ld.%02ld GB)",
 			cGiB/100 , cGiB % 100,
@@ -706,11 +706,11 @@ char *human_size_brief(long long bytes, int prefix)
 		buf[0] = 0;
 	else if (prefix == IEC) {
 		if (bytes < 2*1024LL*1024LL*1024LL) {
-			long cMiB = (bytes / ( (1LL<<20) / 200LL ) +1) /2;
+			long cMiB = (bytes * 200LL / (1LL<<20) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldMiB",
 				cMiB/100 , cMiB % 100);
 		} else {
-			long cGiB = (bytes / ( (1LL<<30) / 200LL ) +1) /2;
+			long cGiB = (bytes * 200LL / (1LL<<30) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldGiB",
 					cGiB/100 , cGiB % 100);
 		}

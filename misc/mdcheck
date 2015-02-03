@@ -88,7 +88,7 @@ do
 		continue
 	fi
 
-	mdadm --detail --export "$dev" > $tmp || continue
+	mdadm --detail --export "$dev" | grep '^MD_UUID=' > $tmp || continue
 	source $tmp
 	fl="/var/lib/mdcheck/MD_UUID_$MD_UUID"
 	if [ -z "$cont" ]

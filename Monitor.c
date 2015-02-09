@@ -483,11 +483,17 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		    strncmp(buf,"inact",5) == 0) {
 			if (fd >= 0)
 				close(fd);
-			if (!st->err)
-				alert("DeviceDisappeared", dev, NULL, ainfo);
-			st->err++;
-			return 0;
+			fd = sysfs_open(st->devnm, NULL, "level");
+			if (fd < 0 || read(fd, buf, 10) != 0) {
+				if (fd >= 0)
+					close(fd);
+				if (!st->err)
+					alert("DeviceDisappeared", dev, NULL, ainfo);
+				st->err++;
+				return 0;
+			}
 		}
+		close(fd);
 	}
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {

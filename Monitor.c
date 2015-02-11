@@ -381,14 +381,14 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 			if (info->mailfrom)
 				fprintf(mp, "From: %s\n", info->mailfrom);
 			else
-				fprintf(mp, "From: " Name " monitoring <root>\n");
+				fprintf(mp, "From: %s monitoring <root>\n", Name);
 			fprintf(mp, "To: %s\n", info->mailaddr);
 			fprintf(mp, "Subject: %s event on %s:%s\n\n",
 				event, dev, hname);
 
 			fprintf(mp,
 				"This is an automatically generated"
-				" mail message from " Name "\n");
+				" mail message from %s\n", Name);
 			fprintf(mp, "running on %s\n\n", hname);
 
 			fprintf(mp,

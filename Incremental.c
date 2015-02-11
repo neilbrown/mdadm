@@ -1710,9 +1710,9 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	char buf[32];
 
 	if (!id_path)
-		dprintf(Name ": incremental removal without --path <id_path> "
+		dprintf("%s: incremental removal without --path <id_path> "
 			"lacks the possibility to re-add new device in this "
-			"port\n");
+			"port\n", Name);
 
 	if (strchr(devname, '/')) {
 		pr_err("incremental removal requires a "

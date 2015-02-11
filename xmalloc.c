@@ -37,7 +37,8 @@ void *xmalloc(size_t len)
 	char *msg;
 	if (rv)
 		return rv;
-	msg = Name ": memory allocation failure - aborting\n";
+	msg = ": memory allocation failure - aborting\n";
+	write(2, Name, strlen(Name));
 	exit(4+!!write(2, msg, strlen(msg)));
 }
 
@@ -47,7 +48,8 @@ void *xrealloc(void *ptr, size_t len)
 	char *msg;
 	if (rv)
 		return rv;
-	msg = Name ": memory allocation failure - aborting\n";
+	msg =  ": memory allocation failure - aborting\n";
+	write(2, Name, strlen(Name));
 	exit(4+!!write(2, msg, strlen(msg)));
 }
 
@@ -57,7 +59,8 @@ void *xcalloc(size_t num, size_t size)
 	char *msg;
 	if (rv)
 		return rv;
-	msg = Name ": memory allocation failure - aborting\n";
+	msg =  ": memory allocation failure - aborting\n";
+	write(2, Name, strlen(Name));
 	exit(4+!!write(2, msg, strlen(msg)));
 }
 
@@ -67,6 +70,7 @@ char *xstrdup(const char *str)
 	char *msg;
 	if (rv)
 		return rv;
-	msg = Name ": memory allocation failure - aborting\n";
+	msg =  ": memory allocation failure - aborting\n";
+	write(2, Name, strlen(Name));
 	exit(4+!!write(2, msg, strlen(msg)));
 }

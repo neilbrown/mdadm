@@ -18,8 +18,7 @@
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#undef pr_err
-#define pr_err(fmt ...) fprintf(stderr, "mdmon: " fmt)
+extern const char Name[];
 
 enum array_state { clear, inactive, suspended, readonly, read_auto,
 		   clean, active, write_pending, active_idle, bad_word};

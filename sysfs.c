@@ -413,8 +413,8 @@ int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 	n = write(fd, val, strlen(val));
 	close(fd);
 	if (n != strlen(val)) {
-		dprintf(Name ": failed to write '%s' to '%s' (%s)\n",
-			val, fname, strerror(errno));
+		dprintf("%s: failed to write '%s' to '%s' (%s)\n",
+			Name, val, fname, strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -450,8 +450,8 @@ int sysfs_uevent(struct mdinfo *sra, char *event)
 	n = write(fd, event, strlen(event));
 	close(fd);
 	if (n != (int)strlen(event)) {
-		dprintf(Name ": failed to write '%s' to '%s' (%s)\n",
-			event, fname, strerror(errno));
+		dprintf("%s: failed to write '%s' to '%s' (%s)\n",
+			Name, event, fname, strerror(errno));
 		return -1;
 	}
 	return 0;

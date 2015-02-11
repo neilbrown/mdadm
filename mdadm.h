@@ -180,6 +180,8 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
+extern const char Name[];
+
 /* general information that might be extracted from a superblock */
 struct mdinfo {
 	mdu_array_info_t	array;
@@ -261,8 +263,6 @@ struct createinfo {
 	int	bblist;
 	struct supertype *supertype;
 };
-
-#define Name "mdadm"
 
 enum mode {
 	ASSEMBLE=1,
@@ -1457,7 +1457,7 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 	return ret;
 }
 
-#define pr_err(fmt ...) fprintf(stderr, Name ": " fmt)
+#define pr_err(fmt, args...) fprintf(stderr, "%s: "fmt, Name, ##args)
 #define cont_err(fmt ...) fprintf(stderr, "       " fmt)
 
 void *xmalloc(size_t len);

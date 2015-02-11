@@ -67,6 +67,8 @@
 #include	"mdadm.h"
 #include	"mdmon.h"
 
+char const Name[] = "mdmon";
+
 struct active_array *discard_this;
 struct active_array *pending_discard;
 

@@ -1919,7 +1919,7 @@ size_change_error:
 		int err;
 		err = remove_disks_for_takeover(st, sra, array.layout);
 		if (err) {
-			dprintf(Name": Array cannot be reshaped\n");
+			dprintf("%s: Array cannot be reshaped\n", Name);
 			if (cfd > -1)
 				close(cfd);
 			rv = 1;
@@ -2133,7 +2133,7 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 		char *ep;
 		unsigned long long position = strtoull(buf, &ep, 0);
 
-		dprintf(Name": Read sync_max sysfs entry is: %s\n", buf);
+		dprintf("%s: Read sync_max sysfs entry is: %s\n", Name, buf);
 		if (!(ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' '))) {
 			position *= get_data_disks(level,
 						   info->new_layout,
@@ -3494,8 +3494,8 @@ int reshape_container(char *container, char *devname,
 		return 1;
 	default: /* parent */
 		if (!freeze_reshape)
-			printf(Name ": multi-array reshape continues"
-			       " in background\n");
+			printf("%s: multi-array reshape continues"
+			       " in background\n", Name);
 		return 0;
 	case 0: /* child */
 		map_fork();
@@ -3557,8 +3557,8 @@ int reshape_container(char *container, char *devname,
 
 		fd = open_dev(mdstat->devnm);
 		if (fd < 0) {
-			printf(Name ": Device %s cannot be opened for reshape.",
-			       adev);
+			printf("%s: Device %s cannot be opened for reshape.",
+			       Name, adev);
 			break;
 		}
 
@@ -3573,8 +3573,8 @@ int reshape_container(char *container, char *devname,
 			 * This is possibly interim until the behaviour of
 			 * reshape_array is resolved().
 			 */
-			printf(Name ": Multiple reshape execution detected for "
-			       "device  %s.", adev);
+			printf("%s: Multiple reshape execution detected for "
+			       "device  %s.", Name, adev);
 			close(fd);
 			break;
 		}
@@ -4611,7 +4611,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			st->ss->free_super(st);
 			offsets[j] = dinfo.data_offset * 512;
 		}
-		printf(Name ": restoring critical section\n");
+		printf("%s: restoring critical section\n", Name);
 
 		if (restore_stripes(fdlist, offsets,
 				    info->array.raid_disks,

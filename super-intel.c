@@ -1386,7 +1386,7 @@ static int imsm_check_attributes(__u32 attributes)
 		}
 
 		if (not_supported)
-			dprintf(Name "(IMSM): Unknown attributes : %x\n", not_supported);
+			dprintf("%s (IMSM): Unknown attributes : %x\n", Name, not_supported);
 
 		ret_val = 0;
 	}

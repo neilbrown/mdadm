@@ -30,7 +30,7 @@
 #ifndef VERS_DATE
 #define VERS_DATE "21st August 2014"
 #endif
-char Version[] = Name " - v" VERSION " - " VERS_DATE "\n";
+char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
 
 /*
  * File: ReadMe.c

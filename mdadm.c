@@ -38,6 +38,7 @@ static int misc_list(struct mddev_dev *devlist,
 		     struct mddev_ident *ident,
 		     char *dump_directory,
 		     struct supertype *ss, struct context *c);
+const char Name[] = "mdadm";
 
 int main(int argc, char *argv[])
 {
@@ -771,12 +772,12 @@ int main(int argc, char *argv[])
 			if (strcmp(c.update,"?") == 0 ||
 			    strcmp(c.update, "help") == 0) {
 				outf = stdout;
-				fprintf(outf, Name ": ");
+				fprintf(outf, "%s: ", Name);
 			} else {
 				outf = stderr;
 				fprintf(outf,
-					Name ": '--update=%s' is invalid.  ",
-					c.update);
+					"%s: '--update=%s' is invalid.  ",
+					Name, c.update);
 			}
 			fprintf(outf, "Valid --update options are:\n"
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"

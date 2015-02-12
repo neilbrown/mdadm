@@ -173,8 +173,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			/* name *must* be mdXX or md_dXX in this context */
 			if (num < 0 ||
 			    (strcmp(cname, "md") != 0 && strcmp(cname, "md_d") != 0)) {
-				pr_err("%s is an invalid name "
-					"for an md device.  Try /dev/md/%s\n",
+				pr_err("%s is an invalid name for an md device.  Try /dev/md/%s\n",
 					dev, dev+5);
 				return -1;
 			}
@@ -191,13 +190,11 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		 * empty.
 		 */
 		if (strchr(cname, '/') != NULL) {
-			pr_err("%s is an invalid name "
-				"for an md device.\n", dev);
+			pr_err("%s is an invalid name for an md device.\n", dev);
 			return -1;
 		}
 		if (cname[0] == 0) {
-			pr_err("%s is an invalid name "
-				"for an md device (empty!).", dev);
+			pr_err("%s is an invalid name for an md device (empty!).", dev);
 			return -1;
 		}
 		if (num < 0) {
@@ -226,8 +223,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	if (name && name[0] == 0)
 		name = NULL;
 	if (name && trustworthy == METADATA && use_mdp == 1) {
-		pr_err("%s is not allowed for a %s container. "
-			"Consider /dev/md%d.\n", dev, name, num);
+		pr_err("%s is not allowed for a %s container. Consider /dev/md%d.\n", dev, name, num);
 		return -1;
 	}
 	if (name && trustworthy == METADATA)
@@ -432,8 +428,7 @@ int open_mddev(char *dev, int report_errors)
 	if (md_get_version(mdfd) <= 0) {
 		close(mdfd);
 		if (report_errors)
-			pr_err("%s does not appear to be "
-				"an md device\n", dev);
+			pr_err("%s does not appear to be an md device\n", dev);
 		return -2;
 	}
 	return mdfd;

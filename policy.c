@@ -727,16 +727,14 @@ void policy_save_path(char *id_path, struct map_ent *array)
 	FILE *f = NULL;
 
 	if (mkdir(FAILED_SLOTS_DIR, S_IRWXU) < 0 && errno != EEXIST) {
-		pr_err("can't create file to save path "
-			"to old disk: %s\n", strerror(errno));
+		pr_err("can't create file to save path to old disk: %s\n", strerror(errno));
 		return;
 	}
 
 	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
 	f = fopen(path, "w");
 	if (!f) {
-		pr_err("can't create file to"
-			" save path to old disk: %s\n",
+		pr_err("can't create file to save path to old disk: %s\n",
 			strerror(errno));
 		return;
 	}
@@ -745,8 +743,7 @@ void policy_save_path(char *id_path, struct map_ent *array)
 		    array->metadata,
 		    array->uuid[0], array->uuid[1],
 		    array->uuid[2], array->uuid[3]) <= 0)
-		pr_err("Failed to write to "
-		       "<id_path> cookie\n");
+		pr_err("Failed to write to <id_path> cookie\n");
 
 	fclose(f);
 }

@@ -87,11 +87,9 @@ int restore_backup(struct supertype *st,
 	}
 	free(fdlist);
 	if (err) {
-		pr_err("Failed to restore critical"
-		       " section for reshape - sorry.\n");
+		pr_err("Failed to restore critical section for reshape - sorry.\n");
 		if (!backup_file)
-			pr_err("Possibly you need"
-				" to specify a --backup-file\n");
+			pr_err("Possibly you need to specify a --backup-file\n");
 		return 1;
 	}
 
@@ -295,10 +293,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 
 	if (vers < 9003) {
 		major = BITMAP_MAJOR_HOSTENDIAN;
-		pr_err("Warning - bitmaps created on this kernel"
-			" are not portable\n"
-			"  between different architectures.  Consider upgrading"
-			" the Linux kernel.\n");
+		pr_err("Warning - bitmaps created on this kernel are not portable\n"
+			"  between different architectures.  Consider upgrading the Linux kernel.\n");
 	}
 
 	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {
@@ -385,8 +381,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		int offset_setable = 0;
 		struct mdinfo *mdi;
 		if (st->ss->add_internal_bitmap == NULL) {
-			pr_err("Internal bitmaps not supported "
-				"with %s metadata\n", st->ss->name);
+			pr_err("Internal bitmaps not supported with %s metadata\n", st->ss->name);
 			return 1;
 		}
 		mdi = sysfs_read(fd, NULL, GET_BITMAP_LOCATION);
@@ -417,8 +412,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 						)
 						st->ss->write_bitmap(st, fd2);
 					else {
-						pr_err("failed to create internal bitmap"
-						       " - chunksize problem.\n");
+						pr_err("failed to create internal bitmap - chunksize problem.\n");
 						close(fd2);
 						return 1;
 					}
@@ -437,8 +431,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		}
 		if (rv < 0) {
 			if (errno == EBUSY)
-				pr_err("Cannot add bitmap while array is"
-				       " resyncing or reshaping etc.\n");
+				pr_err("Cannot add bitmap while array is resyncing or reshaping etc.\n");
 			pr_err("failed to set internal bitmap.\n");
 			return 1;
 		}
@@ -489,8 +482,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		if (ioctl(fd, SET_BITMAP_FILE, bitmap_fd) < 0) {
 			int err = errno;
 			if (errno == EBUSY)
-				pr_err("Cannot add bitmap while array is"
-				       " resyncing or reshaping etc.\n");
+				pr_err("Cannot add bitmap while array is resyncing or reshaping etc.\n");
 			pr_err("Cannot set bitmap file for %s: %s\n",
 				devname, strerror(err));
 			return 1;
@@ -917,8 +909,7 @@ int reshape_open_backup_file(char *backup_file,
 	dev = stb.st_dev;
 	fstat(fd, &stb);
 	if (stb.st_rdev == dev) {
-		pr_err("backup file must NOT be"
-			" on the array being reshaped.\n");
+		pr_err("backup file must NOT be on the array being reshaped.\n");
 		close(*fdlist);
 		return 0;
 	}
@@ -926,8 +917,7 @@ int reshape_open_backup_file(char *backup_file,
 	memset(buf, 0, 512);
 	for (i=0; i < blocks + 8 ; i++) {
 		if (write(*fdlist, buf, 512) != 512) {
-			pr_err("%s: cannot create"
-				" backup file %s: %s\n",
+			pr_err("%s: cannot create backup file %s: %s\n",
 				devname, backup_file, strerror(errno));
 			return 0;
 		}
@@ -1041,13 +1031,11 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 		 */
 		if (info->new_level > 1 &&
 		    (info->component_size & 7))
-			return "Cannot convert RAID1 of this size - "
-				"reduce size to multiple of 4K first.";
+			return "Cannot convert RAID1 of this size - reduce size to multiple of 4K first.";
 		if (info->new_level == 0) {
 			if (info->delta_disks != UnSet &&
 			    info->delta_disks != 0)
-				return "Cannot change number of disks "
-					"with RAID1->RAID0 conversion";
+				return "Cannot change number of disks with RAID1->RAID0 conversion";
 			re->level = 0;
 			re->before.data_disks = 1;
 			re->after.data_disks = 1;
@@ -1133,8 +1121,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 				if (far > 1 && !offset)
 					return "Cannot reshape RAID10 to far-mode";
 				if (near * far != copies)
-					return "Cannot change number of copies"
-						" when reshaping RAID10";
+					return "Cannot change number of copies when reshaping RAID10";
 			}
 			if (info->delta_disks == UnSet)
 				info->delta_disks = 0;
@@ -1184,15 +1171,13 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 						  / info->array.raid_disks);
 				if (info->array.raid_disks * (copies-1)
 				    != info->delta_disks)
-					return "Impossible number of devices"
-						" for RAID0->RAID10";
+					return "Impossible number of devices for RAID0->RAID10";
 				info->new_layout = 0x100 + copies;
 			}
 			if (info->delta_disks == UnSet) {
 				int copies = info->new_layout & 0xff;
 				if (info->new_layout != 0x100 + copies)
-					return "New layout impossible"
-						" for RAID0->RAID10";;
+					return "New layout impossible for RAID0->RAID10";;
 				info->delta_disks = (copies - 1) *
 					info->array.raid_disks;
 			}
@@ -1287,8 +1272,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 				return "Can only convert a 2-device array to RAID1";
 			if (info->delta_disks != UnSet &&
 			    info->delta_disks != 0)
-				return "Cannot set raid_disk when "
-					"converting RAID5->RAID1";
+				return "Cannot set raid_disk when converting RAID5->RAID1";
 			re->level = 1;
 			info->new_chunk = 0;
 			return NULL;
@@ -1383,8 +1367,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 					strcat(strcpy(layout, ls), "-6");
 					l = map_name(r6layout, layout);
 					if (l == UnSet)
-						return "Cannot find RAID6 layout"
-							" to convert to";
+						return "Cannot find RAID6 layout to convert to";
 				} else {
 					/* Current RAID6 has no equivalent.
 					 * If it is already a '-6' layout we
@@ -1571,10 +1554,8 @@ int Grow_reshape(char *devname, int fd,
 
 	if (s->size > 0 &&
 	    (s->chunk || s->level!= UnSet || s->layout_str || s->raiddisks)) {
-		pr_err("cannot change component size at the same time "
-			"as other changes.\n"
-			"   Change size first, then check data is intact before "
-			"making other changes.\n");
+		pr_err("cannot change component size at the same time as other changes.\n"
+			"   Change size first, then check data is intact before making other changes.\n");
 		return 1;
 	}
 
@@ -1592,8 +1573,7 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 	if (s->raiddisks > st->max_devs) {
-		pr_err("Cannot increase raid-disks on this array"
-			" beyond %d\n", st->max_devs);
+		pr_err("Cannot increase raid-disks on this array beyond %d\n", st->max_devs);
 		return 1;
 	}
 
@@ -1647,9 +1627,7 @@ int Grow_reshape(char *devname, int fd,
 				    & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))
 					allow_reshape = 0;
 				if (!allow_reshape) {
-					pr_err("cannot reshape arrays in"
-					       " container with unsupported"
-					       " metadata: %s(%s)\n",
+					pr_err("cannot reshape arrays in container with unsupported metadata: %s(%s)\n",
 					       devname, container);
 					sysfs_free(cc);
 					free(subarray);
@@ -1668,8 +1646,7 @@ int Grow_reshape(char *devname, int fd,
 	if (s->raiddisks > array.raid_disks &&
 	    array.spare_disks +added_disks < (s->raiddisks - array.raid_disks) &&
 	    !c->force) {
-		pr_err("Need %d spare%s to avoid degraded array,"
-		       " and only have %d.\n"
+		pr_err("Need %d spare%s to avoid degraded array, and only have %d.\n"
 		       "       Use --force to over-ride this check.\n",
 		       s->raiddisks - array.raid_disks,
 		       s->raiddisks - array.raid_disks == 1 ? "" : "s",
@@ -1695,8 +1672,7 @@ int Grow_reshape(char *devname, int fd,
 		sysfs_free(sra);
 		return 1;
 	} else if (frozen < 0) {
-		pr_err("%s is performing resync/recovery and cannot"
-			" be reshaped\n", devname);
+		pr_err("%s is performing resync/recovery and cannot be reshaped\n", devname);
 		sysfs_free(sra);
 		return 1;
 	}
@@ -1737,8 +1713,7 @@ int Grow_reshape(char *devname, int fd,
 						sizeinfo->array.layout,
 						sizeinfo->array.raid_disks);
 				new_size /= data_disks;
-				dprintf("Metadata size correction from %llu to "
-					"%llu (%llu)\n", orig_size, new_size,
+				dprintf("Metadata size correction from %llu to %llu (%llu)\n", orig_size, new_size,
 					new_size * data_disks);
 				s->size = new_size;
 				sysfs_free(sizeinfo);
@@ -1775,13 +1750,11 @@ int Grow_reshape(char *devname, int fd,
 			}
 		}
 		if (rv) {
-			pr_err("Cannot set size on "
-				"array members.\n");
+			pr_err("Cannot set size on array members.\n");
 			goto size_change_error;
 		}
 		if (min_csize && s->size > min_csize) {
-			pr_err("Cannot safely make this array "
-				"use more than 2TB per device on this kernel.\n");
+			pr_err("Cannot safely make this array use more than 2TB per device on this kernel.\n");
 			rv = 1;
 			goto size_change_error;
 		}
@@ -1789,8 +1762,7 @@ int Grow_reshape(char *devname, int fd,
 			/* Don't let the kernel choose a size - it will get
 			 * it wrong
 			 */
-			pr_err("Limited v0.90 array to "
-			       "2TB per device\n");
+			pr_err("Limited v0.90 array to 2TB per device\n");
 			s->size = min_csize;
 		}
 		if (st->ss->external) {
@@ -1879,12 +1851,10 @@ size_change_error:
 			s->size = array.size;
 		if (c->verbose >= 0) {
 			if (s->size == orig_size)
-				pr_err("component size of %s "
-					"unchanged at %lluK\n",
+				pr_err("component size of %s unchanged at %lluK\n",
 					devname, s->size);
 			else
-				pr_err("component size of %s "
-					"has been set to %lluK\n",
+				pr_err("component size of %s has been set to %lluK\n",
 					devname, s->size);
 		}
 		changed = 1;
@@ -1952,12 +1922,9 @@ size_change_error:
 		if (info.array.level == 6 &&
 		    (info.new_level == 6 || info.new_level == UnSet) &&
 		    info.array.layout >= 16) {
-			pr_err("%s has a non-standard layout.  If you"
-			       " wish to preserve this\n", devname);
-			cont_err("during the reshape, please specify"
-				 " --layout=preserve\n");
-			cont_err("If you want to change it, specify a"
-				 " layout or use --layout=normalise\n");
+			pr_err("%s has a non-standard layout.  If you wish to preserve this\n", devname);
+			cont_err("during the reshape, please specify --layout=preserve\n");
+			cont_err("If you want to change it, specify a layout or use --layout=normalise\n");
 			rv = 1;
 			goto release;
 		}
@@ -1974,8 +1941,7 @@ size_change_error:
 				info.new_layout = map_name(r6layout, l);
 			}
 		} else {
-			pr_err("%s is only meaningful when reshaping"
-			       " a RAID6 array.\n", s->layout_str);
+			pr_err("%s is only meaningful when reshaping a RAID6 array.\n", s->layout_str);
 			rv = 1;
 			goto release;
 		}
@@ -1997,8 +1963,7 @@ size_change_error:
 			strcat(l, "-6");
 			info.new_layout = map_name(r6layout, l);
 		} else {
-			pr_err("%s in only meaningful when reshaping"
-			       " to RAID6\n", s->layout_str);
+			pr_err("%s in only meaningful when reshaping to RAID6\n", s->layout_str);
 			rv = 1;
 			goto release;
 		}
@@ -2020,14 +1985,12 @@ size_change_error:
 			info.new_layout = parse_layout_faulty(s->layout_str);
 			break;
 		default:
-			pr_err("layout not meaningful"
-				" with this level\n");
+			pr_err("layout not meaningful with this level\n");
 			rv = 1;
 			goto release;
 		}
 		if (info.new_layout == UnSet) {
-			pr_err("layout %s not understood"
-				" for this level\n",
+			pr_err("layout %s not understood for this level\n",
 				s->layout_str);
 			rv = 1;
 			goto release;
@@ -2139,21 +2102,16 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 						   info->new_layout,
 						   info->array.raid_disks);
 			if (info->reshape_progress < position) {
-				dprintf("Corrected reshape progress (%llu) to "
-					"md position (%llu)\n",
+				dprintf("Corrected reshape progress (%llu) to md position (%llu)\n",
 					info->reshape_progress, position);
 				info->reshape_progress = position;
 				ret_val = 1;
 			} else if (info->reshape_progress > position) {
-				pr_err("Fatal error: array "
-				       "reshape was not properly frozen "
-				       "(expected reshape position is %llu, "
-				       "but reshape progress is %llu.\n",
+				pr_err("Fatal error: array reshape was not properly frozen (expected reshape position is %llu, but reshape progress is %llu.\n",
 				       position, info->reshape_progress);
 				ret_val = -1;
 			} else {
-				dprintf("Reshape position in md and metadata "
-					"are the same;");
+				dprintf("Reshape position in md and metadata are the same;");
 				ret_val = 1;
 			}
 		}
@@ -2255,8 +2213,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		if (info2.space_before == 0 &&
 		    info2.space_after == 0) {
 			/* Metadata doesn't support data_offset changes */
-			pr_err("%s: Metadata version doesn't support"
-			       " data_offset changes\n", devname);
+			pr_err("%s: Metadata version doesn't support data_offset changes\n", devname);
 			goto fallback;
 		}
 		if (before > info2.space_before)
@@ -2502,8 +2459,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 		       devname);
 		if (err == EBUSY &&
 		    (info->array.state & (1<<MD_SB_BITMAP_PRESENT)))
-			cont_err("       Bitmap must be removed before"
-				 " shape can be changed\n");
+			cont_err("       Bitmap must be removed before shape can be changed\n");
 		goto release;
 	}
 	sysfs_free(sra);
@@ -2627,8 +2583,7 @@ static int impose_reshape(struct mdinfo *sra,
 
 			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				cont_err("Bitmap must be removed before"
-					 " shape can be changed\n");
+				cont_err("Bitmap must be removed before shape can be changed\n");
 
 			goto release;
 		}
@@ -2652,8 +2607,7 @@ static int impose_reshape(struct mdinfo *sra,
 
 			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				cont_err("Bitmap must be removed before"
-					 " shape can be changed\n");
+				cont_err("Bitmap must be removed before shape can be changed\n");
 			goto release;
 		}
 	}
@@ -2741,8 +2695,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 				devname, c);
 			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
-				cont_err("Bitmap must be removed"
-					 " before level can be changed\n");
+				cont_err("Bitmap must be removed before level can be changed\n");
 			return err;
 		}
 		if (verbose >= 0)
@@ -2872,8 +2825,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	     reshape.before.layout != info->array.layout ||
 	     reshape.before.data_disks + reshape.parity
 	     != info->array.raid_disks - max(0, info->delta_disks))) {
-		pr_err("reshape info is not in native format -"
-			" cannot continue.\n");
+		pr_err("reshape info is not in native format - cannot continue.\n");
 		goto release;
 	}
 
@@ -2930,8 +2882,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (!force &&
 	    info->new_level > 1 && info->array.level > 1 &&
 	    spares_needed > info->array.spare_disks + added_disks) {
-		pr_err("Need %d spare%s to avoid degraded array,"
-		       " and only have %d.\n"
+		pr_err("Need %d spare%s to avoid degraded array, and only have %d.\n"
 		       "       Use --force to over-ride this check.\n",
 		       spares_needed,
 		       spares_needed == 1 ? "" : "s",
@@ -2944,8 +2895,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		- array.raid_disks;
 	if ((info->new_level > 1 || info->new_level == 0) &&
 	    spares_needed > info->array.spare_disks +added_disks) {
-		pr_err("Need %d spare%s to create working array,"
-		       " and only have %d.\n",
+		pr_err("Need %d spare%s to create working array, and only have %d.\n",
 		       spares_needed,
 		       spares_needed == 1 ? "" : "s",
 		       info->array.spare_disks + added_disks);
@@ -3196,12 +3146,10 @@ started:
 		       blocks < 16*1024*2)
 			blocks *= 2;
 	} else
-		pr_err("Need to backup %luK of critical "
-			"section..\n", blocks/2);
+		pr_err("Need to backup %luK of critical section..\n", blocks/2);
 
 	if (blocks >= sra->component_size/2) {
-		pr_err("%s: Something wrong"
-			" - reshape aborted\n",
+		pr_err("%s: Something wrong - reshape aborted\n",
 			devname);
 		goto release;
 	}
@@ -3231,9 +3179,7 @@ started:
 				pr_err(" Please provide one with \"--backup=...\"\n");
 				goto release;
 			} else if (sra->array.spare_disks == 0) {
-				pr_err("%s: Cannot grow - "
-					"need a spare or backup-file to backup "
-					"critical section\n", devname);
+				pr_err("%s: Cannot grow - need a spare or backup-file to backup critical section\n", devname);
 				goto release;
 			}
 		} else {
@@ -3276,8 +3222,7 @@ started:
 		free(fdlist);
 		free(offsets);
 		sysfs_free(sra);
-		pr_err("Reshape has to be continued from"
-			" location %llu when root filesystem has been mounted.\n",
+		pr_err("Reshape has to be continued from location %llu when root filesystem has been mounted.\n",
 			sra->reshape_progress);
 		return 1;
 	}
@@ -3494,8 +3439,7 @@ int reshape_container(char *container, char *devname,
 		return 1;
 	default: /* parent */
 		if (!freeze_reshape)
-			printf("%s: multi-array reshape continues"
-			       " in background\n", Name);
+			printf("%s: multi-array reshape continues in background\n", Name);
 		return 0;
 	case 0: /* child */
 		map_fork();
@@ -3572,8 +3516,7 @@ int reshape_container(char *container, char *devname,
 			 * This is possibly interim until the behaviour of
 			 * reshape_array is resolved().
 			 */
-			printf("%s: Multiple reshape execution detected for "
-			       "device  %s.\n", Name, adev);
+			printf("%s: Multiple reshape execution detected for device  %s.\n", Name, adev);
 			close(fd);
 			break;
 		}
@@ -4528,8 +4471,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		if (info->array.utime > (int)__le64_to_cpu(bsb.mtime) + 2*60*60 ||
 		    info->array.utime < (int)__le64_to_cpu(bsb.mtime) - 10*60) {
 			if (check_env("MDADM_GROW_ALLOW_OLD")) {
-				pr_err("accepting backup with timestamp %lu "
-					"for array with timestamp %lu\n",
+				pr_err("accepting backup with timestamp %lu for array with timestamp %lu\n",
 					(unsigned long)__le64_to_cpu(bsb.mtime),
 					(unsigned long)info->array.utime);
 			} else {
@@ -4771,8 +4713,7 @@ int Grow_continue_command(char *devname, int fd,
 		int d;
 		dprintf_cont("native array (%s)\n", devname);
 		if (ioctl(fd, GET_ARRAY_INFO, &array.array) < 0) {
-			pr_err("%s is not an active md array -"
-				" aborting\n", devname);
+			pr_err("%s is not an active md array - aborting\n", devname);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
@@ -4828,8 +4769,7 @@ int Grow_continue_command(char *devname, int fd,
 			fd = cfd;
 		}
 		if (cfd < 0) {
-			pr_err("Unable to open container "
-				"for %s\n", devname);
+			pr_err("Unable to open container for %s\n", devname);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
@@ -4865,9 +4805,7 @@ int Grow_continue_command(char *devname, int fd,
 				allow_reshape = 0;
 
 			if (!allow_reshape) {
-				pr_err("cannot continue reshape of an array"
-				       " in container with unsupported"
-				       " metadata: %s(%s)\n",
+				pr_err("cannot continue reshape of an array in container with unsupported metadata: %s(%s)\n",
 				       devname, container);
 				ret_val = 1;
 				goto Grow_continue_command_exit;
@@ -4887,8 +4825,7 @@ int Grow_continue_command(char *devname, int fd,
 			break;
 		}
 		if (!content) {
-			pr_err("Unable to determine reshaped "
-			       "array for %s\n", devname);
+			pr_err("Unable to determine reshaped array for %s\n", devname);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
@@ -4910,8 +4847,7 @@ int Grow_continue_command(char *devname, int fd,
 		if (mdmon_running(container))
 			st->update_tail = &st->updates;
 		else {
-			pr_err("No mdmon found. "
-				"Grow cannot continue.\n");
+			pr_err("No mdmon found. Grow cannot continue.\n");
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}

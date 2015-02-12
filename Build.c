@@ -254,8 +254,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			pr_err("RUN_ARRAY failed: %s\n",
 				strerror(errno));
 			if (s->chunk & (s->chunk-1)) {
-				cont_err("Problem may be that chunk size"
-					 " is not a power of 2\n");
+				cont_err("Problem may be that chunk size is not a power of 2\n");
 			}
 			goto abort;
 		}

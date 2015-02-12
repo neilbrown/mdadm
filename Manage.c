@@ -211,8 +211,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 	if (md_get_version(fd) < 9000) {
 		if (ioctl(fd, STOP_MD, 0) == 0)
 			return 0;
-		pr_err("stopping device %s "
-		       "failed: %s\n",
+		pr_err("stopping device %s failed: %s\n",
 		       devname, strerror(errno));
 		return 1;
 	}
@@ -252,10 +251,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		if (fd >= 0)
 			close(fd);
 		if (verbose >= 0)
-			pr_err("Cannot get exclusive access to %s:"
-			       "Perhaps a running "
-			       "process, mounted filesystem "
-			       "or active volume group?\n",
+			pr_err("Cannot get exclusive access to %s:Perhaps a running process, mounted filesystem or active volume group?\n",
 			       devname);
 		return 1;
 	}
@@ -293,8 +289,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		fd = open_dev_excl(devnm);
 		if (fd < 0) {
 			if (verbose >= 0)
-				pr_err("failed to completely stop %s"
-				       ": Device is busy\n",
+				pr_err("failed to completely stop %s: Device is busy\n",
 				       devname);
 			rv = 1;
 			goto out;
@@ -320,8 +315,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 			    metadata_container_matches(m->metadata_version+9,
 						       devnm)) {
 				if (verbose >= 0)
-					pr_err("Cannot stop container %s: "
-					       "member %s still active\n",
+					pr_err("Cannot stop container %s: member %s still active\n",
 					       devname, m->dev);
 				free_mdstat(mds);
 				rv = 1;
@@ -460,9 +454,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 			pr_err("failed to stop array %s: %s\n",
 			       devname, strerror(errno));
 			if (errno == EBUSY)
-				cont_err("Perhaps a running "
-					 "process, mounted filesystem "
-					 "or active volume group?\n");
+				cont_err("Perhaps a running process, mounted filesystem or active volume group?\n");
 		}
 		rv = 1;
 		goto out;
@@ -652,8 +644,7 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 			int rv = -1;
 			tfd = dev_open(dv->devname, O_RDWR);
 			if (tfd < 0) {
-				pr_err("failed to open %s for"
-				       " superblock update during re-add\n", dv->devname);
+				pr_err("failed to open %s for superblock update during re-add\n", dv->devname);
 				return -1;
 			}
 
@@ -673,8 +664,7 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 				rv = dev_st->ss->store_super(dev_st, tfd);
 			close(tfd);
 			if (rv != 0) {
-				pr_err("failed to update"
-				       " superblock during re-add\n");
+				pr_err("failed to update superblock during re-add\n");
 				return -1;
 			}
 		}
@@ -717,17 +707,13 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	if (tst->ss == &super0 && ldsize > 4ULL*1024*1024*1024*1024) {
 		/* More than 4TB is wasted on v0.90 */
 		if (!force) {
-			pr_err("%s is larger than %s can "
-			       "effectively use.\n"
-			       "       Add --force is you "
-			       "really want to add this device.\n",
+			pr_err("%s is larger than %s can effectively use.\n"
+			       "       Add --force is you really want to add this device.\n",
 			       dv->devname, devname);
 			return -1;
 		}
-		pr_err("%s is larger than %s can "
-		       "effectively use.\n"
-		       "       Adding anyway as --force "
-		       "was given.\n",
+		pr_err("%s is larger than %s can effectively use.\n"
+		       "       Adding anyway as --force was given.\n",
 		       dv->devname, devname);
 	}
 	if (!tst->ss->external &&
@@ -949,8 +935,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 		container_fd = open_dev_excl(devnm);
 		if (container_fd < 0) {
-			pr_err("add failed for %s:"
-			       " could not get exclusive access to container\n",
+			pr_err("add failed for %s: could not get exclusive access to container\n",
 			       dv->devname);
 			tst->ss->free_super(tst);
 			return -1;
@@ -989,8 +974,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		 * would block add_disk */
 		tst->ss->free_super(tst);
 		if (sysfs_add_disk(sra, &new_mdi, 0) != 0) {
-			pr_err("add new device to external metadata"
-			       " failed for %s\n", dv->devname);
+			pr_err("add new device to external metadata failed for %s\n", dv->devname);
 			close(container_fd);
 			sysfs_free(sra);
 			return -1;
@@ -1032,8 +1016,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		strcpy(devnm, fd2devnm(fd));
 		lfd = open_dev_excl(devnm);
 		if (lfd < 0) {
-			pr_err("Cannot get exclusive access "
-			       " to container - odd\n");
+			pr_err("Cannot get exclusive access  to container - odd\n");
 			return -1;
 		}
 		/* We may not be able to check on holders in
@@ -1093,8 +1076,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		}
 	}
 	if (err) {
-		pr_err("hot remove failed "
-		       "for %s: %s\n",	dv->devname,
+		pr_err("hot remove failed for %s: %s\n",	dv->devname,
 		       strerror(errno));
 		if (lfd >= 0)
 			close(lfd);
@@ -1304,8 +1286,7 @@ int Manage_subdevs(char *devname, int fd,
 		    strcmp(dv->devname, "faulty") == 0) {
 			if (dv->disposition != 'A'
 			    && dv->disposition != 'r') {
-				pr_err("%s only meaningful "
-					"with -r or --re-add, not -%c\n",
+				pr_err("%s only meaningful with -r or --re-add, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
 			}
@@ -1315,8 +1296,7 @@ int Manage_subdevs(char *devname, int fd,
 		}
 		if (strcmp(dv->devname, "detached") == 0) {
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
-				pr_err("%s only meaningful "
-					"with -r of -f, not -%c\n",
+				pr_err("%s only meaningful with -r of -f, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
 			}
@@ -1328,8 +1308,7 @@ int Manage_subdevs(char *devname, int fd,
 			struct mddev_dev *add_devlist = NULL;
 			struct mddev_dev **dp;
 			if (dv->disposition != 'A') {
-				pr_err("'missing' only meaningful "
-				       "with --re-add\n");
+				pr_err("'missing' only meaningful with --re-add\n");
 				goto abort;
 			}
 			add_devlist = conf_get_devs();
@@ -1381,8 +1360,7 @@ int Manage_subdevs(char *devname, int fd,
 			int found = 0;
 			char dname[55];
 			if (dv->disposition != 'r' && dv->disposition != 'f') {
-				pr_err("%s only meaningful "
-					"with -r or -f, not -%c\n",
+				pr_err("%s only meaningful with -r or -f, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
 			}
@@ -1402,8 +1380,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (!found) {
 				sysfd = sysfs_open(fd2devnm(fd), dname, "state");
 				if (sysfd < 0) {
-					pr_err("%s does not appear "
-						"to be a component of %s\n",
+					pr_err("%s does not appear to be a component of %s\n",
 						dv->devname, devname);
 					goto abort;
 				}
@@ -1462,9 +1439,7 @@ int Manage_subdevs(char *devname, int fd,
 		case 'F': /* --re-add faulty  */
 			/* add the device */
 			if (subarray) {
-				pr_err("Cannot add disks to a"
-					" \'member\' array, perform this"
-					" operation on the parent container\n");
+				pr_err("Cannot add disks to a \'member\' array, perform this operation on the parent container\n");
 				goto abort;
 			}
 			if (dv->disposition == 'F')
@@ -1507,9 +1482,7 @@ int Manage_subdevs(char *devname, int fd,
 		case 'r':
 			/* hot remove */
 			if (subarray) {
-				pr_err("Cannot remove disks from a"
-					" \'member\' array, perform this"
-					" operation on the parent container\n");
+				pr_err("Cannot remove disks from a \'member\' array, perform this operation on the parent container\n");
 				rv = -1;
 			} else
 				rv = Manage_remove(tst, fd, dv, sysfd,
@@ -1547,9 +1520,7 @@ int Manage_subdevs(char *devname, int fd,
 			break;
 		case 'R': /* Mark as replaceable */
 			if (subarray) {
-				pr_err("Cannot replace disks in a"
-					" \'member\' array, perform this"
-					" operation on the parent container\n");
+				pr_err("Cannot replace disks in a \'member\' array, perform this operation on the parent container\n");
 				rv = -1;
 			} else {
 				if (!frozen) {

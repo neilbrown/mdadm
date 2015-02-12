@@ -197,8 +197,7 @@ static int aread(struct align_fd *afd, void *buf, int len)
 
 	if (!bsize || bsize > 4096 || len > 4096) {
 		if (!bsize)
-			fprintf(stderr, "WARNING - aread() called with "
-				"invalid block size\n");
+			fprintf(stderr, "WARNING - aread() called with invalid block size\n");
 		return -1;
 	}
 	b = ROUND_UP_PTR((char *)abuf, 4096);
@@ -230,8 +229,7 @@ static int awrite(struct align_fd *afd, void *buf, int len)
 	bsize = afd->blk_sz;
 	if (!bsize || bsize > 4096 || len > 4096) {
 		if (!bsize)
-			fprintf(stderr, "WARNING - awrite() called with "
-				"invalid block size\n");
+			fprintf(stderr, "WARNING - awrite() called with invalid block size\n");
 		return -1;
 	}
 	b = ROUND_UP_PTR((char *)abuf, 4096);
@@ -1678,8 +1676,7 @@ static int write_init_super1(struct supertype *st)
 			}
 			break;
 		default:
-			pr_err("Failed to write invalid "
-			       "metadata format 1.%i to %s\n",
+			pr_err("Failed to write invalid metadata format 1.%i to %s\n",
 			       st->minor_version, di->devname);
 			rv = -EINVAL;
 			goto out;

@@ -1926,8 +1926,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 	list = find_intel_devices();
 	if (!list) {
 		if (verbose > 0)
-			pr_err("no active Intel(R) RAID "
-				"controller found.\n");
+			pr_err("no active Intel(R) RAID controller found.\n");
 		return 2;
 	} else if (verbose > 0)
 		print_found_intel_controllers(list);
@@ -1975,8 +1974,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 				host_base = ahci_get_port_count(hba->path, &port_count);
 				if (ahci_enumerate_ports(hba->path, port_count, host_base, verbose)) {
 					if (verbose > 0)
-						pr_err("failed to enumerate "
-							"ports on SATA controller at %s.\n", hba->pci_id);
+						pr_err("failed to enumerate ports on SATA controller at %s.\n", hba->pci_id);
 					result |= 2;
 				}
 			}
@@ -2749,8 +2747,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 
 			info->reshape_progress = blocks_per_unit * units;
 
-			dprintf("IMSM: General Migration checkpoint : %llu "
-			       "(%llu) -> read reshape progress : %llu\n",
+			dprintf("IMSM: General Migration checkpoint : %llu (%llu) -> read reshape progress : %llu\n",
 				(unsigned long long)units,
 				(unsigned long long)blocks_per_unit,
 				info->reshape_progress);
@@ -3619,8 +3616,7 @@ static int load_imsm_mpb(int fd, struct intel_super *super, char *devname)
 
 	if (posix_memalign((void**)&anchor, 512, 512) != 0) {
 		if (devname)
-			pr_err("Failed to allocate imsm anchor buffer"
-			       " on %s\n", devname);
+			pr_err("Failed to allocate imsm anchor buffer on %s\n", devname);
 		return 1;
 	}
 	if (read(fd, anchor, 512) != 512) {
@@ -3868,10 +3864,8 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 		if (devname) {
 			struct intel_hba *hba = super->hba;
 
-			pr_err("%s is attached to Intel(R) %s RAID "
-				"controller (%s),\n"
-				"    but the container is assigned to Intel(R) "
-				"%s RAID controller (",
+			pr_err("%s is attached to Intel(R) %s RAID controller (%s),\n"
+				"    but the container is assigned to Intel(R) %s RAID controller (",
 				devname,
 				get_sys_dev_type(hba_name->type),
 				hba_name->pci_id ? : "Err!",
@@ -3884,8 +3878,7 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 				hba = hba->next;
 			}
 			fprintf(stderr, ").\n"
-				"    Mixing devices attached to different controllers "
-				"is not allowed.\n");
+				"    Mixing devices attached to different controllers is not allowed.\n");
 		}
 		return 2;
 	}
@@ -4173,8 +4166,7 @@ imsm_thunderdome(struct intel_super **super_list, int len)
 	champion = s;
 
 	if (conflict)
-		pr_err("Chose family %#x on '%s', "
-			"assemble conflicts to new container with '--update=uuid'\n",
+		pr_err("Chose family %#x on '%s', assemble conflicts to new container with '--update=uuid'\n",
 			__le32_to_cpu(s->anchor->family_num), s->disks->devname);
 
 	/* collect all dl's onto 'champion', and update them to
@@ -4514,8 +4506,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 
 	if (rv) {
 		if (devname)
-			pr_err("Failed to load all information "
-			       "sections on %s\n", devname);
+			pr_err("Failed to load all information sections on %s\n", devname);
 		free_imsm(super);
 		return rv;
 	}
@@ -4651,8 +4642,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	unsigned long long num_data_stripes;
 
 	if (super->orom && mpb->num_raid_devs >= super->orom->vpa) {
-		pr_err("This imsm-container already has the "
-			"maximum of %d volumes\n", super->orom->vpa);
+		pr_err("This imsm-container already has the maximum of %d volumes\n", super->orom->vpa);
 		return 0;
 	}
 
@@ -4753,8 +4743,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	if (info->level == 1 && info->raid_disks > 2) {
 		free(dev);
 		free(dv);
-		pr_err("imsm does not support more than 2 disks"
-				"in a raid1 volume\n");
+		pr_err("imsm does not support more than 2 disksin a raid1 volume\n");
 		return 0;
 	}
 
@@ -5414,8 +5403,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 	if (super->orom) {
 		if (raiddisks > super->orom->tds) {
 			if (verbose)
-				pr_err("%d exceeds maximum number of"
-					" platform supported disks: %d\n",
+				pr_err("%d exceeds maximum number of platform supported disks: %d\n",
 					raiddisks, super->orom->tds);
 			free_imsm(super);
 			return 0;
@@ -5934,8 +5922,7 @@ validate_geometry_imsm_orom(struct intel_super *super, int level, int layout,
 		*chunk = imsm_default_chunk(super->orom);
 
 	if (super->orom && !imsm_orom_has_chunk(super->orom, *chunk)) {
-		pr_vrb(": platform does not support a chunk size of: "
-		       "%d\n", *chunk);
+		pr_vrb(": platform does not support a chunk size of: %d\n", *chunk);
 		return 0;
 	}
 
@@ -5986,8 +5973,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	mpb = super->anchor;
 
 	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, size, verbose)) {
-		pr_err("RAID gemetry validation failed. "
-			"Cannot proceed with the action(s).\n");
+		pr_err("RAID gemetry validation failed. Cannot proceed with the action(s).\n");
 		return 0;
 	}
 	if (!dev) {
@@ -6028,9 +6014,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		}
 		if (dcnt < raiddisks) {
 			if (verbose)
-				pr_err("imsm: Not enough "
-					"devices with space for this array "
-					"(%d < %d)\n",
+				pr_err("imsm: Not enough devices with space for this array (%d < %d)\n",
 					dcnt, raiddisks);
 			return 0;
 		}
@@ -6049,8 +6033,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	}
 	if (!dl) {
 		if (verbose)
-			pr_err("%s is not in the "
-				"same imsm set\n", dev);
+			pr_err("%s is not in the same imsm set\n", dev);
 		return 0;
 	} else if (super->orom && dl->index < 0 && mpb->num_raid_devs) {
 		/* If a volume is present then the current creation attempt
@@ -6058,15 +6041,12 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 		 * understand this configuration (all member disks must be
 		 * members of each array in the container).
 		 */
-		pr_err("%s is a spare and a volume"
-			" is already defined for this container\n", dev);
-		pr_err("The option-rom requires all member"
-			" disks to be a member of all volumes\n");
+		pr_err("%s is a spare and a volume is already defined for this container\n", dev);
+		pr_err("The option-rom requires all member disks to be a member of all volumes\n");
 		return 0;
 	} else if (super->orom && mpb->num_raid_devs > 0 &&
 		   mpb->num_disks != raiddisks) {
-		pr_err("The option-rom requires all member"
-			" disks to be a member of all volumes\n");
+		pr_err("The option-rom requires all member disks to be a member of all volumes\n");
 		return 0;
 	}
 
@@ -6109,21 +6089,16 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 
 	if (!check_env("IMSM_NO_PLATFORM") &&
 	    mpb->num_raid_devs > 0 && size && size != maxsize) {
-		pr_err("attempting to create a second "
-			"volume with size less then remaining space. "
-			"Aborting...\n");
+		pr_err("attempting to create a second volume with size less then remaining space. Aborting...\n");
 		return 0;
 	}
 
 	if (maxsize < size || maxsize == 0) {
 		if (verbose) {
 			if (maxsize == 0)
-				pr_err("no free space"
-						" left on device. Aborting...\n");
+				pr_err("no free space left on device. Aborting...\n");
 			else
-				pr_err("not enough space"
-						" to create volume of given size"
-						" (%llu < %llu). Aborting...\n",
+				pr_err("not enough space to create volume of given size (%llu < %llu). Aborting...\n",
 						maxsize, size);
 		}
 		return 0;
@@ -6209,9 +6184,7 @@ static int imsm_get_free_size(struct supertype *st, int raiddisks,
 	}
 	if (!check_env("IMSM_NO_PLATFORM") &&
 	    mpb->num_raid_devs > 0 && size && size != maxsize) {
-		pr_err("attempting to create a second "
-			"volume with size less then remaining space. "
-			"Aborting...\n");
+		pr_err("attempting to create a second volume with size less then remaining space. Aborting...\n");
 		return 0;
 	}
 	cnt = 0;
@@ -6293,8 +6266,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				count = count_volumes(super->hba->path,
 						      super->orom->dpa, verbose);
 				if (super->orom->vphba <= count) {
-					pr_vrb(": platform does not support more"
-					       " than %d raid volumes.\n",
+					pr_vrb(": platform does not support more than %d raid volumes.\n",
 					       super->orom->vphba);
 					return 0;
 				}
@@ -6612,14 +6584,12 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 	/* do not assemble arrays when not all attributes are supported */
 	if (imsm_check_attributes(mpb->attributes) == 0) {
 		sb_errors = 1;
-		pr_err("Unsupported attributes in IMSM metadata."
-			"Arrays activation is blocked.\n");
+		pr_err("Unsupported attributes in IMSM metadata.Arrays activation is blocked.\n");
 	}
 
 	/* check for bad blocks */
 	if (imsm_bbm_log_size(super->anchor)) {
-		pr_err("BBM log found in IMSM metadata."
-		       "Arrays activation is blocked.\n");
+		pr_err("BBM log found in IMSM metadata.Arrays activation is blocked.\n");
 		sb_errors = 1;
 	}
 
@@ -6653,8 +6623,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		 */
 		if (dev->vol.migr_state &&
 		    (migr_type(dev) == MIGR_STATE_CHANGE)) {
-			pr_err("cannot assemble volume '%.16s':"
-				" unsupported migration in progress\n",
+			pr_err("cannot assemble volume '%.16s': unsupported migration in progress\n",
 				dev->volume);
 			continue;
 		}
@@ -6676,8 +6645,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 						 map->num_members, /* raid disks */
 						 &chunk, join_u32(dev->size_low, dev->size_high),
 						 1 /* verbose */)) {
-			pr_err("IMSM RAID geometry validation"
-				" failed.  Array %s activation is blocked.\n",
+			pr_err("IMSM RAID geometry validation failed.  Array %s activation is blocked.\n",
 				dev->volume);
 			this->array.state |=
 			  (1<<MD_SB_BLOCK_CONTAINER_RESHAPE) |
@@ -7666,8 +7634,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	/* Cannot activate another spare if rebuild is in progress already
 	 */
 	if (is_rebuilding(dev)) {
-		dprintf("imsm: No spare activation allowed. "
-			"Rebuild in progress already.\n");
+		dprintf("imsm: No spare activation allowed. Rebuild in progress already.\n");
 		return NULL;
 	}
 
@@ -7687,8 +7654,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 	 * are removed from container.
 	 */
 	if (failed) {
-		dprintf("found failed disks in %.*s, check if there another"
-			"failed sub-array.\n",
+		dprintf("found failed disks in %.*s, check if there anotherfailed sub-array.\n",
 			MAX_RAID_SERIAL_LEN, dev->volume);
 		/* check if states of the other volumes allow for rebuild */
 		for (i = 0; i <  super->anchor->num_raid_devs; i++) {
@@ -7969,8 +7935,7 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 				new_disk = get_disk_super(super,
 							major(u->new_disks[0]),
 							minor(u->new_disks[0]));
-				dprintf("imsm: new disk for reshape is: %i:%i "
-					"(%p, index = %i)\n",
+				dprintf("imsm: new disk for reshape is: %i:%i (%p, index = %i)\n",
 					major(u->new_disks[0]),
 					minor(u->new_disks[0]),
 					new_disk, new_disk->index);
@@ -8070,8 +8035,7 @@ static int apply_update_activate_spare(struct imsm_update_activate_spare *u,
 				break;
 
 		if (!dl) {
-			pr_err("error: imsm_activate_spare passed "
-				"an unknown disk (index: %d)\n",
+			pr_err("error: imsm_activate_spare passed an unknown disk (index: %d)\n",
 				u->dl->index);
 			return 0;
 		}
@@ -8178,8 +8142,7 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		new_disk = get_disk_super(super,
 					  major(u->new_disks[i]),
 					  minor(u->new_disks[i]));
-		dprintf("imsm: new disk for reshape is: %i:%i "
-			"(%p, index = %i)\n",
+		dprintf("imsm: new disk for reshape is: %i:%i (%p, index = %i)\n",
 			major(u->new_disks[i]), minor(u->new_disks[i]),
 			new_disk, new_disk->index);
 		if ((new_disk == NULL) ||
@@ -8651,8 +8614,7 @@ static void imsm_process_update(struct supertype *st,
 		break;
 	}
 	default:
-		pr_err("error: unsuported process update type:"
-			"(type: %d)\n",	type);
+		pr_err("error: unsuported process update type:(type: %d)\n",	type);
 	}
 }
 
@@ -9353,8 +9315,7 @@ int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 	unsigned long long curr_migr_unit;
 
 	if (load_imsm_migr_rec(super, info) != 0) {
-		dprintf("imsm: ERROR: Cannot read migration record "
-			"for checkpoint save.\n");
+		dprintf("imsm: ERROR: Cannot read migration record for checkpoint save.\n");
 		return 1;
 	}
 
@@ -9378,8 +9339,7 @@ int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 		__cpu_to_le32(curr_migr_unit *
 			      __le32_to_cpu(super->migr_rec->dest_depth_per_unit));
 	if (write_imsm_migr_rec(st) < 0) {
-		dprintf("imsm: Cannot write migration record "
-			"outside backup area\n");
+		dprintf("imsm: Cannot write migration record outside backup area\n");
 		return 1;
 	}
 
@@ -9490,16 +9450,14 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 							 new_disks,
 							 super,
 							 id->dev)) {
-		pr_err("Cannot restore data from backup."
-		       " Too many failed disks\n");
+		pr_err("Cannot restore data from backup. Too many failed disks\n");
 		goto abort;
 	}
 
 	if (save_checkpoint_imsm(st, info, UNIT_SRC_NORMAL)) {
 		/* ignore error == 2, this can mean end of reshape here
 		 */
-		dprintf("imsm: Cannot write checkpoint to "
-			"migration record (UNIT_SRC_NORMAL) during restart\n");
+		dprintf("imsm: Cannot write checkpoint to migration record (UNIT_SRC_NORMAL) during restart\n");
 	} else
 		retval = 0;
 
@@ -9574,22 +9532,19 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 	struct mdinfo *info, *member;
 	int devices_that_can_grow = 0;
 
-	dprintf("imsm: imsm_reshape_is_allowed_on_container(ENTER): "
-		"st->devnm = (%s)\n", st->devnm);
+	dprintf("imsm: imsm_reshape_is_allowed_on_container(ENTER): st->devnm = (%s)\n", st->devnm);
 
 	if (geo->size > 0 ||
 	    geo->level != UnSet ||
 	    geo->layout != UnSet ||
 	    geo->chunksize != 0 ||
 	    geo->raid_disks == UnSet) {
-		dprintf("imsm: Container operation is allowed for "
-			"raid disks number change only.\n");
+		dprintf("imsm: Container operation is allowed for raid disks number change only.\n");
 		return ret_val;
 	}
 
 	if (direction == ROLLBACK_METADATA_CHANGES) {
-		dprintf("imsm: Metadata changes rollback is not supported for "
-			"container operation.\n");
+		dprintf("imsm: Metadata changes rollback is not supported for container operation.\n");
 		return ret_val;
 	}
 
@@ -9604,8 +9559,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 			/* we work on container for Online Capacity Expansion
 			 * only so raid_disks has to grow
 			 */
-			dprintf("imsm: for container operation raid disks "
-				"increase is required\n");
+			dprintf("imsm: for container operation raid disks increase is required\n");
 			break;
 		}
 
@@ -9613,8 +9567,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 		    (info->array.level != 5)) {
 			/* we cannot use this container with other raid level
 			 */
-			dprintf("imsm: for container operation wrong"
-				" raid level (%i) detected\n",
+			dprintf("imsm: for container operation wrong raid level (%i) detected\n",
 				info->array.level);
 			break;
 		} else {
@@ -9625,8 +9578,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 			if (!is_raid_level_supported(super->orom,
 						     member->array.level,
 						     geo->raid_disks)) {
-				dprintf("platform does not support raid%d with"
-					" %d disk%s\n",
+				dprintf("platform does not support raid%d with %d disk%s\n",
 					 info->array.level,
 					 geo->raid_disks,
 					 geo->raid_disks > 1 ? "s" : "");
@@ -9636,8 +9588,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 			 */
 			if (info->component_size %
 			    (info->array.chunk_size/512)) {
-				dprintf("Component size is not aligned to "
-					"chunk size\n");
+				dprintf("Component size is not aligned to chunk size\n");
 				break;
 			}
 		}
@@ -9726,8 +9677,7 @@ static int imsm_create_metadata_update_for_reshape(
 
 	if (spares == NULL
 	    || delta_disks > spares->array.spare_disks) {
-		pr_err("imsm: ERROR: Cannot get spare devices "
-			"for %s.\n", geo->dev_name);
+		pr_err("imsm: ERROR: Cannot get spare devices for %s.\n", geo->dev_name);
 		i = -1;
 		goto abort;
 	}
@@ -9840,8 +9790,7 @@ static int imsm_create_metadata_update_for_migration(
 
 			if (geo->chunksize != current_chunk_size) {
 				u->new_chunksize = geo->chunksize / 1024;
-				dprintf("imsm: "
-					"chunk size change from %i to %i\n",
+				dprintf("imsm: chunk size change from %i to %i\n",
 					current_chunk_size, u->new_chunksize);
 			}
 			previous_level = map->raid_level;
@@ -9856,8 +9805,7 @@ static int imsm_create_metadata_update_for_migration(
 			free(u);
 			sysfs_free(spares);
 			update_memory_size = 0;
-			dprintf("error: cannot get spare device "
-				"for requested migration");
+			dprintf("error: cannot get spare device for requested migration");
 			return 0;
 		}
 		sysfs_free(spares);
@@ -9925,9 +9873,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			if (geo->level == 5) {
 				change = CH_MIGRATION;
 				if (geo->layout != ALGORITHM_LEFT_ASYMMETRIC) {
-					pr_err("Error. Requested Layout "
-					       "not supported (left-asymmetric layout "
-					       "is supported only)!\n");
+					pr_err("Error. Requested Layout not supported (left-asymmetric layout is supported only)!\n");
 					change = -1;
 					goto analyse_change_exit;
 				}
@@ -9952,8 +9898,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			break;
 		}
 		if (change == -1) {
-			pr_err("Error. Level Migration from %d to %d "
-			       "not supported!\n",
+			pr_err("Error. Level Migration from %d to %d not supported!\n",
 			       info.array.level, geo->level);
 			goto analyse_change_exit;
 		}
@@ -9974,8 +9919,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			geo->layout = 0;
 			geo->level = 5;
 		} else {
-			pr_err("Error. Layout Migration from %d to %d "
-			       "not supported!\n",
+			pr_err("Error. Layout Migration from %d to %d not supported!\n",
 			       info.array.layout, geo->layout);
 			change = -1;
 			goto analyse_change_exit;
@@ -10009,9 +9953,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				    chunk * 1024,
 				    geo->size * 2);
 		if (geo->size == 0) {
-			pr_err("Error. Size expansion is " \
-				   "supported only (current size is %llu, " \
-				   "requested size /rounded/ is 0).\n",
+			pr_err("Error. Size expansion is supported only (current size is %llu, requested size /rounded/ is 0).\n",
 				   current_size);
 			goto analyse_change_exit;
 		}
@@ -10019,14 +9961,12 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 
 	if ((current_size != geo->size) && (geo->size > 0)) {
 		if (change != -1) {
-			pr_err("Error. Size change should be the only "
-				"one at a time.\n");
+			pr_err("Error. Size change should be the only one at a time.\n");
 			change = -1;
 			goto analyse_change_exit;
 		}
 		if ((super->current_vol + 1) != super->anchor->num_raid_devs) {
-			pr_err("Error. The last volume in container "
-			       "can be expanded only (%i/%s).\n",
+			pr_err("Error. The last volume in container can be expanded only (%i/%s).\n",
 			       super->current_vol, st->devnm);
 			goto analyse_change_exit;
 		}
@@ -10051,8 +9991,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			/* requested size change to the maximum available size
 			 */
 			if (max_size == 0) {
-				pr_err("Error. Cannot find "
-					"maximum available space.\n");
+				pr_err("Error. Cannot find maximum available space.\n");
 				change = -1;
 				goto analyse_change_exit;
 			} else
@@ -10070,17 +10009,12 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			dprintf("Prepare update for size change to %llu\n",
 				geo->size );
 			if (current_size >= geo->size) {
-				pr_err("Error. Size expansion is "
-				       "supported only (current size is %llu, "
-				       "requested size /rounded/ is %llu).\n",
+				pr_err("Error. Size expansion is supported only (current size is %llu, requested size /rounded/ is %llu).\n",
 				       current_size, geo->size);
 				goto analyse_change_exit;
 			}
 			if (max_size && geo->size > max_size) {
-				pr_err("Error. Requested size is larger "
-				       "than maximum available size (maximum "
-				       "available size is %llu, "
-				       "requested size /rounded/ is %llu).\n",
+				pr_err("Error. Requested size is larger than maximum available size (maximum available size is %llu, requested size /rounded/ is %llu).\n",
 				       max_size, geo->size);
 				goto analyse_change_exit;
 			}
@@ -10103,9 +10037,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 		struct imsm_super *mpb = super->anchor;
 
 		if (mpb->num_raid_devs > 1) {
-			pr_err("Error. Cannot perform operation on %s"
-			       "- for this operation it MUST be single "
-			       "array in container\n",
+			pr_err("Error. Cannot perform operation on %s- for this operation it MUST be single array in container\n",
 			       geo->dev_name);
 			change = -1;
 		}
@@ -10114,8 +10046,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 analyse_change_exit:
 	if ((direction == ROLLBACK_METADATA_CHANGES) &&
 	     ((change == CH_MIGRATION) || (change == CH_TAKEOVER))) {
-		dprintf("imsm: Metadata changes rollback is not supported for "
-			"migration and takeover operations.\n");
+		dprintf("imsm: Metadata changes rollback is not supported for migration and takeover operations.\n");
 		change = -1;
 	}
 	return change;
@@ -10209,8 +10140,7 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 				free(u);
 
 		} else {
-			pr_err("(imsm) Operation "
-				"is not allowed on this container\n");
+			pr_err("(imsm) Operation is not allowed on this container\n");
 		}
 	} else {
 		/* On volume level we support following operations
@@ -10248,8 +10178,7 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 				imsm_create_metadata_update_for_migration(
 					st, &geo, &u);
 			if (len < 1) {
-				dprintf("imsm: "
-					"Cannot prepare update\n");
+				dprintf("imsm: Cannot prepare update\n");
 				break;
 			}
 			ret_val = 0;
@@ -10268,8 +10197,7 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 				imsm_create_metadata_update_for_size_change(
 					st, &geo, &u);
 			if (len < 1) {
-				dprintf("imsm: "
-					"Cannot prepare update\n");
+				dprintf("imsm: Cannot prepare update\n");
 				break;
 			}
 			ret_val = 0;
@@ -10487,8 +10415,7 @@ static int imsm_manage_reshape(
 		init_migr_record_imsm(st, dev, sra);
 	else {
 		if (__le32_to_cpu(migr_rec->rec_status) != UNIT_SRC_NORMAL) {
-			dprintf("imsm: cannot restart migration when data "
-				"are present in copy area.\n");
+			dprintf("imsm: cannot restart migration when data are present in copy area.\n");
 			goto abort;
 		}
 		/* Save checkpoint to update migration record for current
@@ -10498,9 +10425,7 @@ static int imsm_manage_reshape(
 		if (save_checkpoint_imsm(st, sra, UNIT_SRC_NORMAL) == 1) {
 			/* ignore error == 2, this can mean end of reshape here
 			 */
-			dprintf("imsm: Cannot write checkpoint to "
-				"migration record (UNIT_SRC_NORMAL, "
-				"initial save)\n");
+			dprintf("imsm: Cannot write checkpoint to migration record (UNIT_SRC_NORMAL, initial save)\n");
 			goto abort;
 		}
 	}
@@ -10531,8 +10456,7 @@ static int imsm_manage_reshape(
 		 */
 		degraded = check_degradation_change(sra, fds, degraded);
 		if (degraded > 1) {
-			dprintf("imsm: Abort reshape due to degradation"
-				" level (%i)\n", degraded);
+			dprintf("imsm: Abort reshape due to degradation level (%i)\n", degraded);
 			goto abort;
 		}
 
@@ -10566,10 +10490,7 @@ static int imsm_manage_reshape(
 			if (next_step_filler)
 				next_step_filler = (old_data_stripe_length
 						    - next_step_filler);
-			dprintf("save_stripes() parameters: start = %llu,"
-				"\tstart_src = %llu,\tnext_step*512 = %llu,"
-				"\tstart_in_buf_shift = %llu,"
-				"\tnext_step_filler = %llu\n",
+			dprintf("save_stripes() parameters: start = %llu,\tstart_src = %llu,\tnext_step*512 = %llu,\tstart_in_buf_shift = %llu,\tnext_step_filler = %llu\n",
 				start, start_src, copy_length,
 				start_buf_shift, next_step_filler);
 
@@ -10579,8 +10500,7 @@ static int imsm_manage_reshape(
 					 copy_length +
 					 next_step_filler + start_buf_shift,
 					 buf)) {
-				dprintf("imsm: Cannot save stripes"
-					" to buffer\n");
+				dprintf("imsm: Cannot save stripes to buffer\n");
 				goto abort;
 			}
 			/* Convert data to destination format and store it
@@ -10588,14 +10508,12 @@ static int imsm_manage_reshape(
 			 */
 			if (save_backup_imsm(st, dev, sra,
 				buf + start_buf_shift, copy_length)) {
-				dprintf("imsm: Cannot save stripes to "
-					"target devices\n");
+				dprintf("imsm: Cannot save stripes to target devices\n");
 				goto abort;
 			}
 			if (save_checkpoint_imsm(st, sra,
 						 UNIT_SRC_IN_CP_AREA)) {
-				dprintf("imsm: Cannot write checkpoint to "
-					"migration record (UNIT_SRC_IN_CP_AREA)\n");
+				dprintf("imsm: Cannot write checkpoint to migration record (UNIT_SRC_IN_CP_AREA)\n");
 				goto abort;
 			}
 		} else {
@@ -10626,8 +10544,7 @@ static int imsm_manage_reshape(
 		if (save_checkpoint_imsm(st, sra, UNIT_SRC_NORMAL) == 1) {
 			/* ignore error == 2, this can mean end of reshape here
 			 */
-			dprintf("imsm: Cannot write checkpoint to "
-				"migration record (UNIT_SRC_NORMAL)\n");
+			dprintf("imsm: Cannot write checkpoint to migration record (UNIT_SRC_NORMAL)\n");
 			goto abort;
 		}
 

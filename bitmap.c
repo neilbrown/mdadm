@@ -140,8 +140,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	info = xmalloc(sizeof(*info));
 
 	if (n < sizeof(info->sb)) {
-		pr_err("failed to read superblock of bitmap "
-		       "file: %s\n", strerror(errno));
+		pr_err("failed to read superblock of bitmap file: %s\n", strerror(errno));
 		free(info);
 		free(buf);
 		return NULL;
@@ -182,8 +181,7 @@ bitmap_info_t *bitmap_fd_read(int fd, int brief)
 	}
 
 	if (read_bits < total_bits) { /* file truncated... */
-		pr_err("WARNING: bitmap file is not large "
-			"enough for array size %llu!\n\n",
+		pr_err("WARNING: bitmap file is not large enough for array size %llu!\n\n",
 			(unsigned long long)info->sb.sync_size);
 		total_bits = read_bits;
 	}

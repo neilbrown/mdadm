@@ -1740,8 +1740,7 @@ int start_mdmon(char *devnm)
 			status = execl("/bin/systemctl", "systemctl", "start",
 				       pathbuf, NULL);
 			exit(1);
-		case -1: pr_err("cannot run mdmon. "
-				"Array remains readonly\n");
+		case -1: pr_err("cannot run mdmon. Array remains readonly\n");
 			return -1;
 		default: /* parent - good */
 			pid = wait(&status);
@@ -1766,14 +1765,12 @@ int start_mdmon(char *devnm)
 				      devnm, NULL);
 			}
 		exit(1);
-	case -1: pr_err("cannot run mdmon. "
-			 "Array remains readonly\n");
+	case -1: pr_err("cannot run mdmon. Array remains readonly\n");
 		return -1;
 	default: /* parent - good */
 		pid = wait(&status);
 		if (pid < 0 || status != 0) {
-			pr_err("failed to launch mdmon. "
-			       "Array remains readonly\n");
+			pr_err("failed to launch mdmon. Array remains readonly\n");
 			return -1;
 		}
 	}
@@ -1845,8 +1842,7 @@ int experimental(void)
 	if (check_env("MDADM_EXPERIMENTAL"))
 		return 1;
 	else {
-		pr_err("To use this feature MDADM_EXPERIMENTAL"
-				" environment variable has to be defined.\n");
+		pr_err("To use this feature MDADM_EXPERIMENTAL environment variable has to be defined.\n");
 		return 0;
 	}
 }

@@ -138,8 +138,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		close(dfd);
 		if (!rv && st->ss->container_content) {
 			if (map_lock(&map))
-				pr_err("failed to get "
-				       "exclusive lock on mapfile\n");
+				pr_err("failed to get exclusive lock on mapfile\n");
 			if (c->export)
 				printf("MD_DEVNAME=%s\n", devname);
 			rv = Incremental_container(st, devname, c, NULL);
@@ -229,8 +228,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	if (match && match->devname
 	    && strcasecmp(match->devname, "<ignore>") == 0) {
 		if (c->verbose >= 0)
-			pr_err("array containing %s is explicitly"
-				" ignored by mdadm.conf\n",
+			pr_err("array containing %s is explicitly ignored by mdadm.conf\n",
 				devname);
 		goto out;
 	}
@@ -251,8 +249,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	if (!match && !conf_test_metadata(st->ss->name, policy,
 					  (trustworthy == LOCAL))) {
 		if (c->verbose >= 1)
-			pr_err("%s has metadata type %s for which "
-			       "auto-assembly is disabled\n",
+			pr_err("%s has metadata type %s for which auto-assembly is disabled\n",
 			       devname, st->ss->name);
 		goto out;
 	}
@@ -289,8 +286,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	/* 4/ Check if array exists.
 	 */
 	if (map_lock(&map))
-		pr_err("failed to get exclusive lock on "
-			"mapfile\n");
+		pr_err("failed to get exclusive lock on mapfile\n");
 	/* Now check we can get O_EXCL.  If not, probably "mdadm -A" has
 	 * taken over
 	 */
@@ -352,8 +348,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 			 * So reject it.
 			 */
 			ioctl(mdfd, STOP_ARRAY, NULL);
-			pr_err("You have an old buggy kernel which cannot support\n"
-			       "      --incremental reliably.  Aborting.\n");
+			pr_err("You have an old buggy kernel which cannot support\n      --incremental reliably.  Aborting.\n");
 			rv = 2;
 			goto out_unlock;
 		}
@@ -420,8 +415,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 			st2 = dup_super(st);
 			if (st2->ss->load_super(st2, dfd2, NULL) ||
 			    st->ss->compare_super(st, st2) != 0) {
-				pr_err("metadata mismatch between %s and "
-				       "chosen array %s\n",
+				pr_err("metadata mismatch between %s and chosen array %s\n",
 				       devname, chosen_name);
 				close(dfd2);
 				rv = 2;
@@ -864,8 +858,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	 */
 
 	if (map_lock(&map)) {
-		pr_err("failed to get exclusive lock on "
-			"mapfile\n");
+		pr_err("failed to get exclusive lock on mapfile\n");
 		return 1;
 	}
 	for (mp = map ; mp ; mp = mp->next) {
@@ -911,8 +904,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 					sra->text_version);
 			if (!st2) {
 				if (verbose > 1)
-					pr_err("not adding %s to %s"
-						" as metadata not recognised.\n",
+					pr_err("not adding %s to %s as metadata not recognised.\n",
 						devname, mp->path);
 				goto next;
 			}
@@ -994,8 +986,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		if (domain_test(dl, pol, st2->ss->name) != 1) {
 			/* domain test fails */
 			if (verbose > 1)
-				pr_err("not adding %s to %s as"
-					" it is not in a compatible domain\n",
+				pr_err("not adding %s to %s as it is not in a compatible domain\n",
 					devname, mp->path);
 
 			goto next;
@@ -1267,8 +1258,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		    !policy_action_allows(pol, st?st->ss->name:NULL,
 					  act_spare_same_slot)) {
 			if (verbose > 1)
-				pr_err("%s is not bare, so not "
-					"considering as a spare\n",
+				pr_err("%s is not bare, so not considering as a spare\n",
 					devname);
 			return 1;
 		}
@@ -1576,8 +1566,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 			if (match && match->devname &&
 			    strcasecmp(match->devname, "<ignore>") == 0) {
 				if (c->verbose > 0)
-					pr_err("array %s/%s is "
-					       "explicitly ignored by mdadm.conf\n",
+					pr_err("array %s/%s is explicitly ignored by mdadm.conf\n",
 					       match->container, match->member);
 				continue;
 			}
@@ -1710,20 +1699,16 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	char buf[32];
 
 	if (!id_path)
-		dprintf("incremental removal without --path <id_path> "
-			"lacks the possibility to re-add new device in this "
-			"port\n");
+		dprintf("incremental removal without --path <id_path> lacks the possibility to re-add new device in this port\n");
 
 	if (strchr(devname, '/')) {
-		pr_err("incremental removal requires a "
-			"kernel device name, not a file: %s\n", devname);
+		pr_err("incremental removal requires a kernel device name, not a file: %s\n", devname);
 		return 1;
 	}
 	ent = mdstat_by_component(devname);
 	if (!ent) {
 		if (verbose >= 0)
-			pr_err("%s does not appear to be a component "
-			       "of any array\n", devname);
+			pr_err("%s does not appear to be a component of any array\n", devname);
 		return 1;
 	}
 	sysfs_init(&mdi, -1, ent->devnm);

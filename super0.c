@@ -1269,8 +1269,7 @@ static int validate_geometry0(struct supertype *st, int level,
 	}
 	if (size >= tbmax * 2ULL*1024*1024*1024) {
 		if (verbose)
-			pr_err("0.90 metadata supports at most "
-			       "%d terabytes per device\n", tbmax);
+			pr_err("0.90 metadata supports at most %d terabytes per device\n", tbmax);
 		return 0;
 	}
 	if (*chunk == UnSet)

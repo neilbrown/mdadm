@@ -396,14 +396,12 @@ void arrayline(char *line)
 				) {
 				/* This is acceptable */;
 				if (mis.devname)
-					pr_err("only give one "
-						"device per ARRAY line: %s and %s\n",
+					pr_err("only give one device per ARRAY line: %s and %s\n",
 						mis.devname, w);
 				else
 					mis.devname = w;
 			}else {
-				pr_err("%s is an invalid name for "
-					"an md device - ignored.\n", w);
+				pr_err("%s is an invalid name for an md device - ignored.\n", w);
 			}
 		} else if (strncasecmp(w, "uuid=", 5)==0 ) {
 			if (mis.uuid_set)
@@ -1121,8 +1119,7 @@ struct mddev_ident *conf_match(struct supertype *st,
 		    !array_list->devices &&
 		    array_list->super_minor == UnSet) {
 			if (verbose >= 2 && array_list->devname)
-				pr_err("%s doesn't have any identifying"
-				       " information.\n",
+				pr_err("%s doesn't have any identifying information.\n",
 				       array_list->devname);
 			continue;
 		}
@@ -1131,13 +1128,11 @@ struct mddev_ident *conf_match(struct supertype *st,
 		if (match) {
 			if (verbose >= 0) {
 				if (match->devname && array_list->devname)
-					pr_err("we match both %s and %s - "
-					       "cannot decide which to use.\n",
+					pr_err("we match both %s and %s - cannot decide which to use.\n",
 					       match->devname,
 					       array_list->devname);
 				else
-					pr_err("multiple lines in mdadm.conf"
-					       " match\n");
+					pr_err("multiple lines in mdadm.conf match\n");
 			}
 			if (rvp)
 				*rvp = 2;
@@ -1174,8 +1169,7 @@ int conf_verify_devnames(struct mddev_ident *array_list)
 					"%s have the same name: %s\n",
 					nbuf, a1->devname);
 			} else
-				pr_err("Device %s given twice"
-					" in config file\n", a1->devname);
+				pr_err("Device %s given twice in config file\n", a1->devname);
 			return 1;
 		}
 	}

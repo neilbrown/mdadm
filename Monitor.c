@@ -310,15 +310,11 @@ static int check_one_sharer(int scan)
 		rv = stat(dir, &buf);
 		if (rv != -1) {
 			if (scan) {
-				pr_err("Only one "
-					"autorebuild process allowed"
-					" in scan mode, aborting\n");
+				pr_err("Only one autorebuild process allowed in scan mode, aborting\n");
 				fclose(fp);
 				return 1;
 			} else {
-				pr_err("Warning: One"
-					" autorebuild process already"
-					" running.\n");
+				pr_err("Warning: One autorebuild process already running.\n");
 			}
 		}
 		fclose(fp);
@@ -326,14 +322,11 @@ static int check_one_sharer(int scan)
 	if (scan) {
 		if (mkdir(MDMON_DIR, S_IRWXU) < 0 &&
 		    errno != EEXIST) {
-			pr_err("Can't create "
-				"autorebuild.pid file\n");
+			pr_err("Can't create autorebuild.pid file\n");
 		} else {
 			fp = fopen(path, "w");
 			if (!fp)
-				pr_err("Cannot create"
-					" autorebuild.pid"
-					"file\n");
+				pr_err("Cannot create autorebuild.pidfile\n");
 			else {
 				pid = getpid();
 				fprintf(fp, "%d\n", pid);
@@ -387,18 +380,15 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 				event, dev, hname);
 
 			fprintf(mp,
-				"This is an automatically generated"
-				" mail message from %s\n", Name);
+				"This is an automatically generated mail message from %s\n", Name);
 			fprintf(mp, "running on %s\n\n", hname);
 
 			fprintf(mp,
-				"A %s event had been detected on"
-				" md device %s.\n\n", event, dev);
+				"A %s event had been detected on md device %s.\n\n", event, dev);
 
 			if (disc && disc[0] != ' ')
 				fprintf(mp,
-					"It could be related to"
-					" component device %s.\n\n", disc);
+					"It could be related to component device %s.\n\n", disc);
 			if (disc && disc[0] == ' ')
 				fprintf(mp, "Extra information:%s.\n\n", disc);
 
@@ -409,8 +399,7 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 				char buf[8192];
 				int n;
 				fprintf(mp,
-					"\nP.S. The /proc/mdstat file"
-					" currently contains the following:\n\n");
+					"\nP.S. The /proc/mdstat file currently contains the following:\n\n");
 				while ( (n=fread(buf, 1, sizeof(buf), mdstat)) > 0)
 					n=fwrite(buf, 1, n, mp);
 				fclose(mdstat);
@@ -439,8 +428,7 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 
 		if (disc)
 			syslog(priority,
-			       "%s event detected on md device %s,"
-			       " component device %s", event, dev, disc);
+			       "%s event detected on md device %s, component device %s", event, dev, disc);
 		else
 			syslog(priority,
 			       "%s event detected on md device %s",
@@ -1062,8 +1050,7 @@ int WaitClean(char *dev, int sock, int verbose)
 	mdi = sysfs_read(fd, devnm, GET_VERSION|GET_LEVEL|GET_SAFEMODE);
 	if (!mdi) {
 		if (verbose)
-			pr_err("Failed to read sysfs attributes for "
-			       "%s\n", dev);
+			pr_err("Failed to read sysfs attributes for %s\n", dev);
 		close(fd);
 		return 0;
 	}

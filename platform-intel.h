@@ -217,8 +217,7 @@ struct orom_entry {
 
 static inline char *guid_str(char *buf, struct efi_guid guid)
 {
-	sprintf(buf, "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
-		     "%02x%02x-%02x%02x%02x%02x%02x%02x",
+	sprintf(buf, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 		 guid.b[3], guid.b[2], guid.b[1], guid.b[0],
 		 guid.b[5], guid.b[4], guid.b[7], guid.b[6],
 		 guid.b[8], guid.b[9], guid.b[10], guid.b[11],

@@ -918,8 +918,7 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 	if (memcmp(super->anchor.revision, DDF_REVISION_0, 8) != 0 &&
 	    memcmp(super->anchor.revision, DDF_REVISION_2, 8) != 0) {
 		if (devname)
-			pr_err("can only support super revision"
-				" %.8s and earlier, not %.8s on %s\n",
+			pr_err("can only support super revision %.8s and earlier, not %.8s on %s\n",
 				DDF_REVISION_2, super->anchor.revision,devname);
 		return 2;
 	}
@@ -928,8 +927,7 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 			    dsize >> 9,  1,
 			    &super->primary, &super->anchor) == 0) {
 		if (devname)
-			pr_err("Failed to load primary DDF header "
-			       "on %s\n", devname);
+			pr_err("Failed to load primary DDF header on %s\n", devname);
 	} else
 		super->active = &super->primary;
 
@@ -1189,15 +1187,13 @@ static int load_super_ddf(struct supertype *st, int fd,
 	/* 32M is a lower bound */
 	if (dsize <= 32*1024*1024) {
 		if (devname)
-			pr_err("%s is too small for ddf: "
-			       "size is %llu sectors.\n",
+			pr_err("%s is too small for ddf: size is %llu sectors.\n",
 			       devname, dsize>>9);
 		return 1;
 	}
 	if (dsize & 511) {
 		if (devname)
-			pr_err("%s is an odd size for ddf: "
-			       "size is %llu bytes.\n",
+			pr_err("%s is an odd size for ddf: size is %llu bytes.\n",
 			       devname, dsize);
 		return 1;
 	}
@@ -1223,8 +1219,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 
 	if (rv) {
 		if (devname)
-			pr_err("Failed to load all information "
-			       "sections on %s\n", devname);
+			pr_err("Failed to load all information sections on %s\n", devname);
 		free(super);
 		return rv;
 	}
@@ -1233,8 +1228,7 @@ static int load_super_ddf(struct supertype *st, int fd,
 
 	if (rv) {
 		if (devname)
-			pr_err("Failed to load all information "
-			       "sections on %s\n", devname);
+			pr_err("Failed to load all information sections on %s\n", devname);
 		free(super);
 		return rv;
 	}
@@ -3430,8 +3424,7 @@ static int validate_geometry_ddf(struct supertype *st,
 		close(fd);
 		/* Just a bare device, no good to us */
 		if (verbose)
-			pr_err("ddf: Cannot create this array "
-			       "on device %s - a container is required.\n",
+			pr_err("ddf: Cannot create this array on device %s - a container is required.\n",
 			       dev);
 		return 0;
 	}
@@ -3547,8 +3540,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		}
 		if (dcnt < raiddisks) {
 			if (verbose)
-				pr_err("ddf: Not enough devices with "
-				       "space for this array (%d < %d)\n",
+				pr_err("ddf: Not enough devices with space for this array (%d < %d)\n",
 				       dcnt, raiddisks);
 			return 0;
 		}
@@ -3566,8 +3558,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 	}
 	if (!dl) {
 		if (verbose)
-			pr_err("ddf: %s is not in the "
-			       "same DDF set\n",
+			pr_err("ddf: %s is not in the same DDF set\n",
 			       dev);
 		return 0;
 	}

@@ -898,8 +898,7 @@ main(int argc, char *argv[])
 
 	char *err = NULL;
 	if (argc < 10) {
-		fprintf(stderr, "Usage: test_stripe save/restore file raid_disks"
-			" chunk_size level layout start length devices...\n");
+		fprintf(stderr, "Usage: test_stripe save/restore file raid_disks chunk_size level layout start length devices...\n");
 		exit(1);
 	}
 	if (strcmp(argv[1], "save")==0)

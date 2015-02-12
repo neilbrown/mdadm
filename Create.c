@@ -177,8 +177,7 @@ int Create(struct supertype *st, char *mddev,
 			close(fd);
 	}
 	if (st && st->ss->external && s->sparedisks) {
-		pr_err("This metadata type does not support "
-		       "spare disks at create time\n");
+		pr_err("This metadata type does not support spare disks at create time\n");
 		return 1;
 	}
 	if (subdevs > s->raiddisks+s->sparedisks) {
@@ -261,8 +260,7 @@ int Create(struct supertype *st, char *mddev,
 		if (do_default_chunk) {
 			/* default chunk was just set */
 			if (c->verbose > 0)
-				pr_err("chunk size "
-					"defaults to %dK\n", s->chunk);
+				pr_err("chunk size defaults to %dK\n", s->chunk);
 			s->size &= ~(unsigned long long)(s->chunk - 1);
 			do_default_chunk = 0;
 		}
@@ -375,8 +373,7 @@ int Create(struct supertype *st, char *mddev,
 						dname, strerror(errno));
 					exit(2);
 				}
-				pr_err("device %s not suitable "
-					"for any style of array\n",
+				pr_err("device %s not suitable for any style of array\n",
 					dname);
 				exit(2);
 			}
@@ -393,8 +390,7 @@ int Create(struct supertype *st, char *mddev,
 						       dname, &freesize,
 						       c->verbose >= 0)) {
 
-				pr_err("%s is not suitable for "
-				       "this array.\n",
+				pr_err("%s is not suitable for this array.\n",
 				       dname);
 				fail = 1;
 				continue;
@@ -408,8 +404,7 @@ int Create(struct supertype *st, char *mddev,
 			if (do_default_chunk) {
 				/* default chunk was just set */
 				if (c->verbose > 0)
-					pr_err("chunk size "
-						"defaults to %dK\n", s->chunk);
+					pr_err("chunk size defaults to %dK\n", s->chunk);
 				s->size &= ~(unsigned long long)(s->chunk - 1);
 				do_default_chunk = 0;
 			}
@@ -421,8 +416,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 
 		if (s->size && freesize < s->size) {
-			pr_err("%s is smaller than given size."
-				" %lluK < %lluK + metadata\n",
+			pr_err("%s is smaller than given size. %lluK < %lluK + metadata\n",
 				dname, freesize, s->size);
 			fail = 1;
 			continue;
@@ -473,8 +467,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 	}
 	if (s->raiddisks + s->sparedisks > st->max_devs) {
-		pr_err("Too many devices:"
-			" %s metadata only supports %d\n",
+		pr_err("Too many devices: %s metadata only supports %d\n",
 			st->ss->name, st->max_devs);
 		return 1;
 	}
@@ -618,8 +611,7 @@ int Create(struct supertype *st, char *mddev,
 		memset(&inf, 0, sizeof(inf));
 		ioctl(mdfd, GET_ARRAY_INFO, &inf);
 		if (inf.working_disks != 0) {
-			pr_err("another array by this name"
-				" is already running.\n");
+			pr_err("another array by this name is already running.\n");
 			goto abort_locked;
 		}
 	}
@@ -741,8 +733,7 @@ int Create(struct supertype *st, char *mddev,
 				mdi?mdi->text_version:"managed", devnm);
 			sysfs_free(mdi);
 		} else
-			pr_err("Defaulting to version"
-				" %s metadata\n", info.text_version);
+			pr_err("Defaulting to version %s metadata\n", info.text_version);
 	}
 
 	map_update(&map, fd2devnm(mdfd), info.text_version,
@@ -797,14 +788,12 @@ int Create(struct supertype *st, char *mddev,
 		 */
 		container_fd = open_dev_excl(st->container_devnm);
 		if (container_fd < 0) {
-			pr_err("Cannot get exclusive "
-				"open on container - weird.\n");
+			pr_err("Cannot get exclusive open on container - weird.\n");
 			goto abort_locked;
 		}
 		if (mdmon_running(st->container_devnm)) {
 			if (c->verbose)
-				pr_err("reusing mdmon "
-					"for %s.\n",
+				pr_err("reusing mdmon for %s.\n",
 					st->container_devnm);
 			st->update_tail = &st->updates;
 		} else
@@ -890,8 +879,7 @@ int Create(struct supertype *st, char *mddev,
 						fd = open(dv->devname, O_RDWR|O_EXCL);
 
 					if (fd < 0) {
-						pr_err("failed to open %s "
-							"after earlier success - aborting\n",
+						pr_err("failed to open %s after earlier success - aborting\n",
 							dv->devname);
 						goto abort_locked;
 					}
@@ -928,8 +916,7 @@ int Create(struct supertype *st, char *mddev,
 				rv = add_disk(mdfd, st, &info, inf);
 
 				if (rv) {
-					pr_err("ADD_NEW_DISK for %s "
-					       "failed: %s\n",
+					pr_err("ADD_NEW_DISK for %s failed: %s\n",
 					       dv->devname, strerror(errno));
 					goto abort_locked;
 				}
@@ -1007,8 +994,7 @@ int Create(struct supertype *st, char *mddev,
 			}
 			sysfs_set_safemode(&info, safe_mode_delay);
 			if (err) {
-				pr_err("failed to"
-				       " activate array.\n");
+				pr_err("failed to activate array.\n");
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;
 			}
@@ -1029,8 +1015,7 @@ int Create(struct supertype *st, char *mddev,
 				pr_err("RUN_ARRAY failed: %s\n",
 				       strerror(errno));
 				if (info.array.chunk_size & (info.array.chunk_size-1)) {
-					cont_err("Problem may be that "
-						 "chunk size is not a power of 2\n");
+					cont_err("Problem may be that chunk size is not a power of 2\n");
 				}
 				ioctl(mdfd, STOP_ARRAY, NULL);
 				goto abort;

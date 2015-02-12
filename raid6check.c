@@ -642,8 +642,7 @@ int main(int argc, char *argv[])
 			       raid_disks, chunk_size, level, layout,
 			       start, length, disk_name, repair, failed_disk1, failed_disk2);
 	if (rv != 0) {
-		fprintf(stderr,
-			"%s: check_stripes returned %d\n", prg, rv);
+		fprintf(stderr,	"%s: check_stripes returned %d\n", prg, rv);
 		exit_err = 7;
 		goto exitHere;
 	}

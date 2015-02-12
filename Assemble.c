@@ -233,8 +233,7 @@ static int select_devices(struct mddev_dev *devlist,
 				   !conf_test_metadata(tst->ss->name, (pol = devid_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_mismatch)
-					pr_err("%s has metadata type %s for which "
-					       "auto-assembly is disabled\n",
+					pr_err("%s has metadata type %s for which auto-assembly is disabled\n",
 					       devname, tst->ss->name);
 				tmpdev->used = 2;
 			} else
@@ -259,8 +258,7 @@ static int select_devices(struct mddev_dev *devlist,
 				   !conf_test_metadata(tst->ss->name, (pol = devid_policy(stb.st_rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_mismatch)
-					pr_err("%s has metadata type %s for which "
-					       "auto-assembly is disabled\n",
+					pr_err("%s has metadata type %s for which auto-assembly is disabled\n",
 					       devname, tst->ss->name);
 				tmpdev->used = 2;
 			}
@@ -350,8 +348,7 @@ static int select_devices(struct mddev_dev *devlist,
 
 			st = tst; tst = NULL;
 			if (!auto_assem && inargv && tmpdev->next != NULL) {
-				pr_err("%s is a container, but is not "
-				       "only device given: confused and aborting\n",
+				pr_err("%s is a container, but is not only device given: confused and aborting\n",
 				       devname);
 				st->ss->free_super(st);
 				dev_policy_free(pol);
@@ -636,8 +633,7 @@ static int load_devices(struct devs *devices, char *devmap,
 							    c->homehost);
 			if (err < 0) {
 				if (err == -1)
-					pr_err("--update=%s not understood"
-					       " for %s metadata\n",
+					pr_err("--update=%s not understood for %s metadata\n",
 					       c->update, tst->ss->name);
 				tst->ss->free_super(tst);
 				free(tst);
@@ -762,12 +758,9 @@ static int load_devices(struct devs *devices, char *devmap,
 				 * Could be a mis-detection caused by overlapping
 				 * partitions.  fail-safe.
 				 */
-				pr_err("WARNING %s and %s appear"
-				       " to have very similar superblocks.\n"
-				       "      If they are really different, "
-				       "please --zero the superblock on one\n"
-				       "      If they are the same or overlap,"
-				       " please remove one from %s.\n",
+				pr_err("WARNING %s and %s appear to have very similar superblocks.\n"
+				       "      If they are really different, please --zero the superblock on one\n"
+				       "      If they are the same or overlap, please remove one from %s.\n",
 				       devices[best[i]].devname, devname,
 				       inargv ? "the list" :
 				       "the\n      DEVICE list in mdadm.conf"
@@ -968,8 +961,7 @@ static int start_array(int mdfd,
 			rv = add_disk(mdfd, st, content, &devices[j].i);
 
 			if (rv) {
-				pr_err("failed to add "
-				       "%s to %s: %s\n",
+				pr_err("failed to add %s to %s: %s\n",
 				       devices[j].devname,
 				       mddev,
 				       strerror(errno));
@@ -998,8 +990,7 @@ static int start_array(int mdfd,
 
 	if (content->array.level == LEVEL_CONTAINER) {
 		if (c->verbose >= 0) {
-			pr_err("Container %s has been "
-			       "assembled with %d drive%s",
+			pr_err("Container %s has been assembled with %d drive%s",
 			       mddev, okcnt+sparecnt, okcnt+sparecnt==1?"":"s");
 			if (okcnt < (unsigned)content->array.raid_disks)
 				fprintf(stderr, " (out of %d)",
@@ -1141,15 +1132,12 @@ static int start_array(int mdfd,
 
 		if (!enough(content->array.level, content->array.raid_disks,
 			    content->array.layout, 1, avail))
-			pr_err("Not enough devices to "
-			       "start the array.\n");
+			pr_err("Not enough devices to start the array.\n");
 		else if (!enough(content->array.level,
 				 content->array.raid_disks,
 				 content->array.layout, clean,
 				 avail))
-			pr_err("Not enough devices to "
-			       "start the array while not clean "
-			       "- consider --force.\n");
+			pr_err("Not enough devices to start the array while not clean - consider --force.\n");
 
 		return 1;
 	}
@@ -1174,9 +1162,7 @@ static int start_array(int mdfd,
 				 content->array.raid_disks,
 				 content->array.layout, clean,
 				 avail))
-			fprintf(stderr, " - not enough to start the "
-				"array while not clean - consider "
-				"--force.\n");
+			fprintf(stderr, " - not enough to start the array while not clean - consider --force.\n");
 		else {
 			if (req_cnt == (unsigned)content->array.raid_disks)
 				fprintf(stderr, " - need all %d to start it", req_cnt);
@@ -1698,8 +1684,7 @@ try_again:
 		int err = 0;
 		int *fdlist = xmalloc(sizeof(int)* bestcnt);
 		if (c->verbose > 0)
-			pr_err(":%s has an active reshape - checking "
-			       "if critical section needs to be restored\n",
+			pr_err(":%s has an active reshape - checking if critical section needs to be restored\n",
 			       chosen_name);
 		if (!c->backup_file)
 			c->backup_file = locate_backup(content->sys_name);
@@ -1727,8 +1712,7 @@ try_again:
 						   c->backup_file, c->verbose > 0);
 			if (err && c->invalid_backup) {
 				if (c->verbose > 0)
-					pr_err("continuing"
-					       " without restoring backup\n");
+					pr_err("continuing without restoring backup\n");
 				err = 0;
 			}
 		}

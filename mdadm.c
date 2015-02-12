@@ -1617,9 +1617,7 @@ static int scan_assemble(struct supertype *ss,
 			a->autof = c->autof;
 	}
 	if (map_lock(&map))
-		pr_err("%s: failed to get "
-		       "exclusive lock on mapfile\n",
-		       __func__);
+		pr_err("failed to get exclusive lock on mapfile\n");
 	do {
 		failures = 0;
 		successes = 0;

@@ -1440,9 +1440,13 @@ static inline char *to_subarray(struct mdstat_ent *ent, char *container)
 
 #ifdef DEBUG
 #define dprintf(fmt, arg...) \
+	fprintf(stderr, "%s: %s: "fmt, Name, __func__, ##arg)
+#define dprintf_cont(fmt, arg...) \
 	fprintf(stderr, fmt, ##arg)
 #else
 #define dprintf(fmt, arg...) \
+        ({ if (0) fprintf(stderr, "%s: %s: " fmt, Name, __func__, ##arg); 0; })
+#define dprintf_cont(fmt, arg...) \
         ({ if (0) fprintf(stderr, fmt, ##arg); 0; })
 #endif
 #include <assert.h>
@@ -1457,7 +1461,11 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 	return ret;
 }
 
+#ifdef DEBUG
+#define pr_err(fmt, args...) fprintf(stderr, "%s: %s: "fmt, Name, __func__, ##args)
+#else
 #define pr_err(fmt, args...) fprintf(stderr, "%s: "fmt, Name, ##args)
+#endif
 #define cont_err(fmt ...) fprintf(stderr, "       " fmt)
 
 void *xmalloc(size_t len);

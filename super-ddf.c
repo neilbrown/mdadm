@@ -541,15 +541,15 @@ static int init_super_ddf_bvd(struct supertype *st,
 static void pr_state(struct ddf_super *ddf, const char *msg)
 {
 	unsigned int i;
-	dprintf("%s/%s: ", __func__, msg);
+	dprintf("%s: ", msg);
 	for (i = 0; i < be16_to_cpu(ddf->active->max_vd_entries); i++) {
 		if (all_ff(ddf->virt->entries[i].guid))
 			continue;
-		dprintf("%u(s=%02x i=%02x) ", i,
+		dprintf_cont("%u(s=%02x i=%02x) ", i,
 			ddf->virt->entries[i].state,
 			ddf->virt->entries[i].init_state);
 	}
-	dprintf("\n");
+	dprintf_cont("\n");
 }
 #else
 static void pr_state(const struct ddf_super *ddf, const char *msg) {}
@@ -825,11 +825,11 @@ static int load_ddf_header(int fd, unsigned long long lba,
 		return 0;
 
 	if (!be32_eq(hdr->magic, DDF_HEADER_MAGIC)) {
-		pr_err("%s: bad header magic\n", __func__);
+		pr_err("bad header magic\n");
 		return 0;
 	}
 	if (!be32_eq(calc_crc(hdr, 512), hdr->crc)) {
-		pr_err("%s: bad CRC\n", __func__);
+		pr_err("bad CRC\n");
 		return 0;
 	}
 	if (memcmp(anchor->guid, hdr->guid, DDF_GUID_LEN) != 0 ||
@@ -839,7 +839,7 @@ static int load_ddf_header(int fd, unsigned long long lba,
 	    hdr->type != type ||
 	    memcmp(anchor->pad2, hdr->pad2, 512 -
 		   offsetof(struct ddf_header, pad2)) != 0) {
-		pr_err("%s: header mismatch\n", __func__);
+		pr_err("header mismatch\n");
 		return 0;
 	}
 
@@ -1055,8 +1055,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 	if (posix_memalign((void**)&dl, 512,
 			   sizeof(*dl) +
 			   (super->max_part) * sizeof(dl->vlist[0])) != 0) {
-		pr_err("%s could not allocate disk info buffer\n",
-		       __func__);
+		pr_err("could not allocate disk info buffer\n");
 		return 1;
 	}
 
@@ -1116,8 +1115,7 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 				continue;
 			if (posix_memalign((void**)&dl->spare, 512,
 					   super->conf_rec_len*512) != 0) {
-				pr_err("%s could not allocate spare info buf\n",
-				       __func__);
+				pr_err("could not allocate spare info buf\n");
 				return 1;
 			}
 
@@ -1148,16 +1146,14 @@ static int load_ddf_local(int fd, struct ddf_super *super,
 			if (posix_memalign((void**)&vcl, 512,
 					   (super->conf_rec_len*512 +
 					    offsetof(struct vcl, conf))) != 0) {
-				pr_err("%s could not allocate vcl buf\n",
-				       __func__);
+				pr_err("could not allocate vcl buf\n");
 				return 1;
 			}
 			vcl->next = super->conflist;
 			vcl->block_sizes = NULL; /* FIXME not for CONCAT */
 			vcl->conf.sec_elmnt_count = vd->sec_elmnt_count;
 			if (alloc_other_bvds(super, vcl) != 0) {
-				pr_err("%s could not allocate other bvds\n",
-				       __func__);
+				pr_err("could not allocate other bvds\n");
 				free(vcl);
 				return 1;
 			};
@@ -1865,8 +1861,8 @@ static int find_index_in_bvd(const struct ddf_super *ddf,
 			j++;
 		}
 	}
-	dprintf("%s: couldn't find BVD member %u (total %u)\n",
-		__func__, n, be16_to_cpu(conf->prim_elmnt_count));
+	dprintf("couldn't find BVD member %u (total %u)\n",
+		n, be16_to_cpu(conf->prim_elmnt_count));
 	return 0;
 }
 
@@ -1897,8 +1893,8 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 				goto bad;
 		}
 		if (v->other_bvds == NULL) {
-			pr_err("%s: BUG: other_bvds is NULL, nsec=%u\n",
-			       __func__, conf->sec_elmnt_count);
+			pr_err("BUG: other_bvds is NULL, nsec=%u\n",
+			       conf->sec_elmnt_count);
 			goto bad;
 		}
 		nsec = n / be16_to_cpu(conf->prim_elmnt_count);
@@ -1915,13 +1911,13 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 		if (!find_index_in_bvd(ddf, conf,
 				       n - nsec*conf->sec_elmnt_count, n_bvd))
 			goto bad;
-		dprintf("%s: found disk %u as member %u in bvd %d of array %u\n"
-			, __func__, n, *n_bvd, ibvd, inst);
+		dprintf("found disk %u as member %u in bvd %d of array %u\n",
+			n, *n_bvd, ibvd, inst);
 		*vcl = v;
 		return conf;
 	}
 bad:
-	pr_err("%s: Could't find disk %d in array %u\n", __func__, n, inst);
+	pr_err("Could't find disk %d in array %u\n", n, inst);
 	return NULL;
 }
 #endif
@@ -2342,7 +2338,7 @@ static int init_super_ddf(struct supertype *st,
 					  data_offset);
 
 	if (posix_memalign((void**)&ddf, 512, sizeof(*ddf)) != 0) {
-		pr_err("%s could not allocate superblock\n", __func__);
+		pr_err("could not allocate superblock\n");
 		return 0;
 	}
 	memset(ddf, 0, sizeof(*ddf));
@@ -2477,7 +2473,7 @@ static int init_super_ddf(struct supertype *st,
 		strcpy((char*)ddf->controller.vendor_data, homehost);
 
 	if (posix_memalign((void**)&pd, 512, pdsize) != 0) {
-		pr_err("%s could not allocate pd\n", __func__);
+		pr_err("could not allocate pd\n");
 		return 0;
 	}
 	ddf->phys = pd;
@@ -2493,7 +2489,7 @@ static int init_super_ddf(struct supertype *st,
 		memset(pd->entries[i].guid, 0xff, DDF_GUID_LEN);
 
 	if (posix_memalign((void**)&vd, 512, vdsize) != 0) {
-		pr_err("%s could not allocate vd\n", __func__);
+		pr_err("could not allocate vd\n");
 		return 0;
 	}
 	ddf->virt = vd;
@@ -2672,7 +2668,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	/* Now create a new vd_config */
 	if (posix_memalign((void**)&vcl, 512,
 		           (offsetof(struct vcl, conf) + ddf->conf_rec_len * 512)) != 0) {
-		pr_err("%s could not allocate vd_config\n", __func__);
+		pr_err("could not allocate vd_config\n");
 		return 0;
 	}
 	vcl->vcnum = venum;
@@ -2687,15 +2683,14 @@ static int init_super_ddf_bvd(struct supertype *st,
 	vc->chunk_shift = chunk_to_shift(info->chunk_size);
 	if (layout_md2ddf(info, vc) == -1 ||
 		be16_to_cpu(vc->prim_elmnt_count) > ddf->mppe) {
-		pr_err("%s: unsupported RAID level/layout %d/%d with %d disks\n",
-		       __func__, info->level, info->layout, info->raid_disks);
+		pr_err("unsupported RAID level/layout %d/%d with %d disks\n",
+		       info->level, info->layout, info->raid_disks);
 		free(vcl);
 		return 0;
 	}
 	vc->sec_elmnt_seq = 0;
 	if (alloc_other_bvds(ddf, vcl) != 0) {
-		pr_err("%s could not allocate other bvds\n",
-		       __func__);
+		pr_err("could not allocate other bvds\n");
 		free(vcl);
 		return 0;
 	}
@@ -2814,8 +2809,8 @@ static void add_to_super_ddf_bvd(struct supertype *st,
 		   cpu_to_be16(DDF_Global_Spare));
 	be16_set(ddf->phys->entries[dl->pdnum].type,
 		 cpu_to_be16(DDF_Active_in_VD));
-	dprintf("%s: added disk %d/%08x to VD %d/%s as disk %d\n",
-		__func__, dl->pdnum, be32_to_cpu(dl->disk.refnum),
+	dprintf("added disk %d/%08x to VD %d/%s as disk %d\n",
+		dl->pdnum, be32_to_cpu(dl->disk.refnum),
 		ddf->currentconf->vcnum, guid_str(vc->guid),
 		dk->raid_disk);
 	ddf_set_updates_pending(ddf, vc);
@@ -2846,15 +2841,14 @@ static void _set_config_size(struct phys_disk_entry *pde, const struct dl *dl)
 	if (t < cfs) {
 		__u64 wsp = cfs - t;
 		if (wsp > 1024*1024*2ULL && wsp > dl->size / 16) {
-			pr_err("%s: %x:%x: workspace size 0x%llx too big, ignoring\n",
-			       __func__, dl->major, dl->minor,
-			       (unsigned long long)wsp);
+			pr_err("%x:%x: workspace size 0x%llx too big, ignoring\n",
+			       dl->major, dl->minor, (unsigned long long)wsp);
 		} else
 			cfs = t;
 	}
 	pde->config_size = cpu_to_be64(cfs);
-	dprintf("%s: %x:%x config_size %llx, DDF structure is %llx blocks\n",
-		__func__, dl->major, dl->minor,
+	dprintf("%x:%x config_size %llx, DDF structure is %llx blocks\n",
+		dl->major, dl->minor,
 		(unsigned long long)cfs, (unsigned long long)(dl->size-cfs));
 }
 
@@ -2886,23 +2880,20 @@ static int add_to_super_ddf(struct supertype *st,
 	fstat(fd, &stb);
 	n = find_unused_pde(ddf);
 	if (n == DDF_NOTFOUND) {
-		pr_err("%s: No free slot in array, cannot add disk\n",
-		       __func__);
+		pr_err("No free slot in array, cannot add disk\n");
 		return 1;
 	}
 	pde = &ddf->phys->entries[n];
 	get_dev_size(fd, NULL, &size);
 	if (size <= 32*1024*1024) {
-		pr_err("%s: device size must be at least 32MB\n",
-		       __func__);
+		pr_err("device size must be at least 32MB\n");
 		return 1;
 	}
 	size >>= 9;
 
 	if (posix_memalign((void**)&dd, 512,
 		           sizeof(*dd) + sizeof(dd->vlist[0]) * ddf->max_part) != 0) {
-		pr_err("%s could allocate buffer for new disk, aborting\n",
-		       __func__);
+		pr_err("could allocate buffer for new disk, aborting\n");
 		return 1;
 	}
 	dd->major = major(stb.st_rdev);
@@ -3925,8 +3916,7 @@ static int store_super_ddf(struct supertype *st, int fd)
 		int ofd, ret;
 
 		if (fstat(fd, &sta) == -1 || !S_ISBLK(sta.st_mode)) {
-			pr_err("%s: file descriptor for invalid device\n",
-			       __func__);
+			pr_err("file descriptor for invalid device\n");
 			return 1;
 		}
 		for (dl = ddf->dlist; dl; dl = dl->next)
@@ -3934,7 +3924,7 @@ static int store_super_ddf(struct supertype *st, int fd)
 			    dl->minor == (int)minor(sta.st_rdev))
 				break;
 		if (!dl) {
-			pr_err("%s: couldn't find disk %d/%d\n", __func__,
+			pr_err("couldn't find disk %d/%d\n",
 			       (int)major(sta.st_rdev),
 			       (int)minor(sta.st_rdev));
 			return 1;
@@ -3988,7 +3978,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	 */
 
 	if (!be32_eq(first->active->seq, second->active->seq)) {
-		dprintf("%s: sequence number mismatch %u<->%u\n", __func__,
+		dprintf("sequence number mismatch %u<->%u\n",
 			be32_to_cpu(first->active->seq),
 			be32_to_cpu(second->active->seq));
 		return 0;
@@ -4010,7 +4000,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 			if (vl1->other_bvds != NULL &&
 			    vl1->conf.sec_elmnt_seq !=
 			    vl2->conf.sec_elmnt_seq) {
-				dprintf("%s: adding BVD %u\n", __func__,
+				dprintf("adding BVD %u\n",
 					vl2->conf.sec_elmnt_seq);
 				add_other_bvd(vl1, &vl2->conf,
 					      first->conf_rec_len*512);
@@ -4021,8 +4011,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 		if (posix_memalign((void **)&vl1, 512,
 				   (first->conf_rec_len*512 +
 				    offsetof(struct vcl, conf))) != 0) {
-			pr_err("%s could not allocate vcl buf\n",
-			       __func__);
+			pr_err("could not allocate vcl buf\n");
 			return 3;
 		}
 
@@ -4030,8 +4019,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 		vl1->block_sizes = NULL;
 		memcpy(&vl1->conf, &vl2->conf, first->conf_rec_len*512);
 		if (alloc_other_bvds(first, vl1) != 0) {
-			pr_err("%s could not allocate other bvds\n",
-			       __func__);
+			pr_err("could not allocate other bvds\n");
 			free(vl1);
 			return 3;
 		}
@@ -4040,7 +4028,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 				    vl1->conf.guid, DDF_GUID_LEN))
 				break;
 		vl1->vcnum = vd;
-		dprintf("%s: added config for VD %u\n", __func__, vl1->vcnum);
+		dprintf("added config for VD %u\n", vl1->vcnum);
 		first->conflist = vl1;
 	}
 
@@ -4054,8 +4042,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 		if (posix_memalign((void **)&dl1, 512,
 		       sizeof(*dl1) + (first->max_part) * sizeof(dl1->vlist[0]))
 		    != 0) {
-			pr_err("%s could not allocate disk info buffer\n",
-			__func__);
+			pr_err("could not allocate disk info buffer\n");
 			return 3;
 		}
 		memcpy(dl1, dl2, sizeof(*dl1));
@@ -4070,8 +4057,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 		if (dl2->spare) {
 			if (posix_memalign((void **)&dl1->spare, 512,
 				       first->conf_rec_len*512) != 0) {
-				pr_err("%s could not allocate spare info buf\n",
-				       __func__);
+				pr_err("could not allocate spare info buf\n");
 				return 3;
 			}
 			memcpy(dl1->spare, dl2->spare, first->conf_rec_len*512);
@@ -4090,7 +4076,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 			}
 		}
 		first->dlist = dl1;
-		dprintf("%s: added disk %d: %08x\n", __func__, dl1->pdnum,
+		dprintf("added disk %d: %08x\n", dl1->pdnum,
 			be32_to_cpu(dl1->disk.refnum));
 	}
 
@@ -4113,10 +4099,10 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 	static const char faulty[] = "faulty";
 
 	if (all_ff(ddf->virt->entries[n].guid)) {
-		pr_err("%s: subarray %d doesn't exist\n", __func__, n);
+		pr_err("subarray %d doesn't exist\n", n);
 		return -ENODEV;
 	}
-	dprintf("%s: new subarray %d, GUID: %s\n", __func__, n,
+	dprintf("new subarray %d, GUID: %s\n", n,
 		guid_str(ddf->virt->entries[n].guid));
 	for (dev = a->info.devs; dev; dev = dev->next) {
 		for (dl = ddf->dlist; dl; dl = dl->next)
@@ -4124,16 +4110,15 @@ static int ddf_open_new(struct supertype *c, struct active_array *a, char *inst)
 			    dl->minor == dev->disk.minor)
 				break;
 		if (!dl || dl->pdnum < 0) {
-			pr_err("%s: device %d/%d of subarray %d not found in meta data\n",
-				__func__, dev->disk.major, dev->disk.minor, n);
+			pr_err("device %d/%d of subarray %d not found in meta data\n",
+				dev->disk.major, dev->disk.minor, n);
 			return -1;
 		}
 		if ((be16_to_cpu(ddf->phys->entries[dl->pdnum].state) &
 			(DDF_Online|DDF_Missing|DDF_Failed)) != DDF_Online) {
-			pr_err("%s: new subarray %d contains broken device %d/%d (%02x)\n",
-				__func__, n, dl->major, dl->minor,
-				be16_to_cpu(
-					ddf->phys->entries[dl->pdnum].state));
+			pr_err("new subarray %d contains broken device %d/%d (%02x)\n",
+			       n, dl->major, dl->minor,
+			       be16_to_cpu(ddf->phys->entries[dl->pdnum].state));
 			if (write(dev->state_fd, faulty, sizeof(faulty)-1) !=
 			    sizeof(faulty) - 1)
 				pr_err("Write to state_fd failed\n");
@@ -4357,7 +4342,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	struct dl *dl;
 	int update = 0;
 
-	dprintf("%s: %d to %x\n", __func__, n, state);
+	dprintf("%d to %x\n", n, state);
 	if (vc == NULL) {
 		dprintf("ddf: cannot find instance %d!!\n", inst);
 		return;
@@ -4367,8 +4352,7 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		if (mdi->disk.raid_disk == n)
 			break;
 	if (!mdi) {
-		pr_err("%s: cannot find raid disk %d\n",
-		       __func__, n);
+		pr_err("cannot find raid disk %d\n", n);
 		return;
 	}
 
@@ -4379,9 +4363,8 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 		    mdi->disk.minor == dl->minor)
 			break;
 	if (!dl) {
-		pr_err("%s: cannot find raid disk %d (%d/%d)\n",
-		       __func__, n,
-		       mdi->disk.major, mdi->disk.minor);
+		pr_err("cannot find raid disk %d (%d/%d)\n",
+		       n, mdi->disk.major, mdi->disk.minor);
 		return;
 	}
 
@@ -4389,11 +4372,11 @@ static void ddf_set_disk(struct active_array *a, int n, int state)
 	if (pd < 0 || pd != dl->pdnum) {
 		/* disk doesn't currently exist or has changed.
 		 * If it is now in_sync, insert it. */
-		dprintf("%s: phys disk not found for %d: %d/%d ref %08x\n",
-			__func__, dl->pdnum, dl->major, dl->minor,
+		dprintf("phys disk not found for %d: %d/%d ref %08x\n",
+			dl->pdnum, dl->major, dl->minor,
 			be32_to_cpu(dl->disk.refnum));
-		dprintf("%s: array %u disk %u ref %08x pd %d\n",
-			__func__, inst, n_bvd,
+		dprintf("array %u disk %u ref %08x pd %d\n",
+			inst, n_bvd,
 			be32_to_cpu(vc->phys_refnum[n_bvd]), pd);
 		if ((state & DS_INSYNC) && ! (state & DS_FAULTY) &&
 		    dl->pdnum >= 0) {
@@ -4480,13 +4463,11 @@ static int _kill_subarray_ddf(struct ddf_super *ddf, const char *guid)
 	unsigned int vdnum, i;
 	vdnum = find_vde_by_guid(ddf, guid);
 	if (vdnum == DDF_NOTFOUND) {
-		pr_err("%s: could not find VD %s\n", __func__,
-		       guid_str(guid));
+		pr_err("could not find VD %s\n", guid_str(guid));
 		return -1;
 	}
 	if (del_from_conflist(&ddf->conflist, guid) == 0) {
-		pr_err("%s: could not find conf %s\n", __func__,
-		       guid_str(guid));
+		pr_err("could not find conf %s\n", guid_str(guid));
 		return -1;
 	}
 	for (dl = ddf->dlist; dl; dl = dl->next)
@@ -4496,7 +4477,7 @@ static int _kill_subarray_ddf(struct ddf_super *ddf, const char *guid)
 				    DDF_GUID_LEN))
 				dl->vlist[i] = NULL;
 	memset(ddf->virt->entries[vdnum].guid, 0xff, DDF_GUID_LEN);
-	dprintf("%s: deleted %s\n", __func__, guid_str(guid));
+	dprintf("deleted %s\n", guid_str(guid));
 	return 0;
 }
 
@@ -4513,14 +4494,13 @@ static int kill_subarray_ddf(struct supertype *st)
 
 	ddf->currentconf = NULL;
 	if (!victim) {
-		pr_err("%s: nothing to kill\n", __func__);
+		pr_err("nothing to kill\n");
 		return -1;
 	}
 	conf = &victim->conf;
 	vdnum = find_vde_by_guid(ddf, conf->guid);
 	if (vdnum == DDF_NOTFOUND) {
-		pr_err("%s: could not find VD %s\n", __func__,
-		       guid_str(conf->guid));
+		pr_err("could not find VD %s\n", guid_str(conf->guid));
 		return -1;
 	}
 	if (st->update_tail) {
@@ -4529,8 +4509,7 @@ static int kill_subarray_ddf(struct supertype *st)
 			+ sizeof(struct virtual_entry);
 		vd = xmalloc(len);
 		if (vd == NULL) {
-			pr_err("%s: failed to allocate %d bytes\n", __func__,
-			       len);
+			pr_err("failed to allocate %d bytes\n", len);
 			return -1;
 		}
 		memset(vd, 0 , len);
@@ -4565,7 +4544,7 @@ static void copy_matching_bvd(struct ddf_super *ddf,
 			return;
 		}
 	}
-	pr_err("%s: no match for BVD %d of %s in update\n", __func__,
+	pr_err("no match for BVD %d of %s in update\n",
 	       conf->sec_elmnt_seq, guid_str(conf->guid));
 }
 
@@ -4637,8 +4616,8 @@ static void ddf_process_virt_update(struct supertype *st,
 	} else {
 		ent = find_vde_by_guid(ddf, vd->entries[0].guid);
 		if (ent != DDF_NOTFOUND) {
-			dprintf("%s: VD %s exists already in slot %d\n",
-				__func__, guid_str(vd->entries[0].guid),
+			dprintf("VD %s exists already in slot %d\n",
+				guid_str(vd->entries[0].guid),
 				ent);
 			return;
 		}
@@ -4650,8 +4629,8 @@ static void ddf_process_virt_update(struct supertype *st,
 			cpu_to_be16(
 				1 + be16_to_cpu(
 					ddf->virt->populated_vdes));
-		dprintf("%s: added VD %s in slot %d(s=%02x i=%02x)\n",
-			__func__, guid_str(vd->entries[0].guid), ent,
+		dprintf("added VD %s in slot %d(s=%02x i=%02x)\n",
+			guid_str(vd->entries[0].guid), ent,
 			ddf->virt->entries[ent].state,
 			ddf->virt->entries[ent].init_state);
 	}
@@ -4788,15 +4767,15 @@ static void ddf_process_conf_update(struct supertype *st,
 	vc = (struct vd_config*)update->buf;
 	len = ddf->conf_rec_len * 512;
 	if ((unsigned int)update->len != len * vc->sec_elmnt_count) {
-		pr_err("%s: %s: insufficient data (%d) for %u BVDs\n",
-		       __func__, guid_str(vc->guid), update->len,
+		pr_err("%s: insufficient data (%d) for %u BVDs\n",
+		       guid_str(vc->guid), update->len,
 		       vc->sec_elmnt_count);
 		return;
 	}
 	for (vcl = ddf->conflist; vcl ; vcl = vcl->next)
 		if (memcmp(vcl->conf.guid, vc->guid, DDF_GUID_LEN) == 0)
 			break;
-	dprintf("%s: conf update for %s (%s)\n", __func__,
+	dprintf("conf update for %s (%s)\n",
 		guid_str(vc->guid), (vcl ? "old" : "new"));
 	if (vcl) {
 		/* An update, just copy the phys_refnum and lba_offset
@@ -4964,7 +4943,7 @@ static int raid10_degraded(struct mdinfo *info)
 	for (d = info->devs; d; d = d->next) {
 		i = d->disk.raid_disk / n_prim;
 		if (i >= n_bvds) {
-			pr_err("%s: BUG: invalid raid disk\n", __func__);
+			pr_err("BUG: invalid raid disk\n");
 			goto out;
 		}
 		if (d->state_fd > 0)
@@ -4973,12 +4952,11 @@ static int raid10_degraded(struct mdinfo *info)
 	ret = 2;
 	for (i = 0; i < n_bvds; i++)
 		if (!found[i]) {
-			dprintf("%s: BVD %d/%d failed\n", __func__, i, n_bvds);
+			dprintf("BVD %d/%d failed\n", i, n_bvds);
 			ret = 0;
 			goto out;
 		} else if (found[i] < n_prim) {
-			dprintf("%s: BVD %d/%d degraded\n", __func__, i,
-				n_bvds);
+			dprintf("BVD %d/%d degraded\n", i, n_bvds);
 			ret = 1;
 		}
 out:
@@ -5027,7 +5005,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			working ++;
 	}
 
-	dprintf("%s: working=%d (%d) level=%d\n", __func__, working,
+	dprintf("working=%d (%d) level=%d\n", working,
 		a->info.array.raid_disks,
 		a->info.array.level);
 	if (working == a->info.array.raid_disks)
@@ -5212,8 +5190,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 			    && dl->minor == di->disk.minor)
 				break;
 		if (!dl || dl->pdnum < 0) {
-			pr_err("%s: BUG: can't find disk %d (%d/%d)\n",
-			       __func__, di->disk.raid_disk,
+			pr_err("BUG: can't find disk %d (%d/%d)\n",
+			       di->disk.raid_disk,
 			       di->disk.major, di->disk.minor);
 			return NULL;
 		}

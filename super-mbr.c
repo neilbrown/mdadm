@@ -81,8 +81,7 @@ static int load_super_mbr(struct supertype *st, int fd, char *devname)
 	free_mbr(st);
 
 	if (posix_memalign((void**)&super, 512, 512) != 0) {
-		pr_err("%s could not allocate superblock\n",
-			__func__);
+		pr_err("could not allocate superblock\n");
 		return 1;
 	}
 
@@ -119,8 +118,7 @@ static int store_mbr(struct supertype *st, int fd)
 	struct MBR *old, *super;
 
 	if (posix_memalign((void**)&old, 512, 512) != 0) {
-		pr_err("%s could not allocate superblock\n",
-			__func__);
+		pr_err("could not allocate superblock\n");
 		return 1;
 	}
 

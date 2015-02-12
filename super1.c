@@ -811,7 +811,7 @@ static int examine_badblocks_super1(struct supertype *st, int fd, char *devname)
 
 	size = __le32_to_cpu(sb->bblog_size)* 512;
 	if (posix_memalign((void**)&bbl, 4096, size) != 0) {
-		pr_err("%s could not allocate badblocks list\n", __func__);
+		pr_err("could not allocate badblocks list\n");
 		return 0;
 	}
 	offset = __le64_to_cpu(sb->super_offset) +
@@ -1328,7 +1328,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	int sbsize;
 
 	if (posix_memalign((void**)&sb, 4096, SUPER1_SIZE) != 0) {
-		pr_err("%s could not allocate superblock\n", __func__);
+		pr_err("could not allocate superblock\n");
 		return 0;
 	}
 	memset(sb, 0, SUPER1_SIZE);
@@ -1726,7 +1726,7 @@ static int compare_super1(struct supertype *st, struct supertype *tst)
 
 	if (!first) {
 		if (posix_memalign((void**)&first, 4096, SUPER1_SIZE) != 0) {
-			pr_err("%s could not allocate superblock\n", __func__);
+			pr_err("could not allocate superblock\n");
 			return 1;
 		}
 		memcpy(first, second, SUPER1_SIZE);
@@ -1837,8 +1837,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 	}
 
 	if (posix_memalign((void**)&super, 4096, SUPER1_SIZE) != 0) {
-		pr_err("%s could not allocate superblock\n",
-			__func__);
+		pr_err("could not allocate superblock\n");
 		return 1;
 	}
 

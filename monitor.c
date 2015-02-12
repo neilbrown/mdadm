@@ -42,11 +42,11 @@ static void add_fd(fd_set *fds, int *maxfd, int fd)
 	if (fd < 0)
 		return;
 	if (fstat(fd, &st) == -1) {
-		dprintf("%s: Invalid fd %d\n", __func__, fd);
+		dprintf("Invalid fd %d\n", fd);
 		return;
 	}
 	if (st.st_nlink == 0) {
-		dprintf("%s: fd %d was deleted\n", __func__, fd);
+		dprintf("fd %d was deleted\n", fd);
 		return;
 	}
 	if (fd > *maxfd)
@@ -82,8 +82,7 @@ static void read_resync_start(int fd, unsigned long long *v)
 
 	n = read_attr(buf, 30, fd);
 	if (n <= 0) {
-		dprintf("%s: Failed to read resync_start (%d)\n",
-			__func__, fd);
+		dprintf("Failed to read resync_start (%d)\n", fd);
 		return;
 	}
 	if (strncmp(buf, "none", 4) == 0)
@@ -260,8 +259,8 @@ static int read_and_act(struct active_array *a)
 	}
 
 	gettimeofday(&tv, NULL);
-	dprintf("%s(%d): %ld.%06ld state:%s prev:%s action:%s prev: %s start:%llu\n",
-		__func__, a->info.container_member,
+	dprintf("(%d): %ld.%06ld state:%s prev:%s action:%s prev: %s start:%llu\n",
+		a->info.container_member,
 		tv.tv_sec, tv.tv_usec,
 		array_states[a->curr_state],
 		array_states[a->prev_state],
@@ -422,21 +421,21 @@ static int read_and_act(struct active_array *a)
 		a->last_checkpoint = sync_completed;
 
 	a->container->ss->sync_metadata(a->container);
-	dprintf("%s(%d): state:%s action:%s next(", __func__, a->info.container_member,
+	dprintf("(%d): state:%s action:%s next(", a->info.container_member,
 		array_states[a->curr_state], sync_actions[a->curr_action]);
 
 	/* Effect state changes in the array */
 	if (a->next_state != bad_word) {
-		dprintf(" state:%s", array_states[a->next_state]);
+		dprintf_cont(" state:%s", array_states[a->next_state]);
 		write_attr(array_states[a->next_state], a->info.state_fd);
 	}
 	if (a->next_action != bad_action) {
 		write_attr(sync_actions[a->next_action], a->action_fd);
-		dprintf(" action:%s", sync_actions[a->next_action]);
+		dprintf_cont(" action:%s", sync_actions[a->next_action]);
 	}
 	for (mdi = a->info.devs; mdi ; mdi = mdi->next) {
 		if (mdi->next_state & DS_UNBLOCK) {
-			dprintf(" %d:-blocked", mdi->disk.raid_disk);
+			dprintf_cont(" %d:-blocked", mdi->disk.raid_disk);
 			write_attr("-blocked", mdi->state_fd);
 		}
 
@@ -449,7 +448,7 @@ static int read_and_act(struct active_array *a)
 			 */
 			remove_result = write_attr("remove", mdi->state_fd);
 			if (remove_result > 0) {
-				dprintf(" %d:removed", mdi->disk.raid_disk);
+				dprintf_cont(" %d:removed", mdi->disk.raid_disk);
 				close(mdi->state_fd);
 				close(mdi->recovery_fd);
 				mdi->state_fd = -1;
@@ -458,10 +457,10 @@ static int read_and_act(struct active_array *a)
 		}
 		if (mdi->next_state & DS_INSYNC) {
 			write_attr("+in_sync", mdi->state_fd);
-			dprintf(" %d:+in_sync", mdi->disk.raid_disk);
+			dprintf_cont(" %d:+in_sync", mdi->disk.raid_disk);
 		}
 	}
-	dprintf(" )\n");
+	dprintf_cont(" )\n");
 
 	/* move curr_ to prev_ */
 	a->prev_state = a->curr_state;

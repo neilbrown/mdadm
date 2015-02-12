@@ -713,7 +713,7 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 
 	if (posix_memalign((void**)&sb, 4096,
 			   MD_SB_BYTES + ROUND_UP(sizeof(bitmap_super_t), 4096)) != 0) {
-		pr_err("%s could not allocate superblock\n", __func__);
+		pr_err("could not allocate superblock\n");
 		return 0;
 	}
 	memset(sb, 0, MD_SB_BYTES + sizeof(bitmap_super_t));
@@ -929,7 +929,7 @@ static int compare_super0(struct supertype *st, struct supertype *tst)
 		if (posix_memalign((void**)&first, 4096,
 			     MD_SB_BYTES +
 			     ROUND_UP(sizeof(struct bitmap_super_s), 4096)) != 0) {
-			pr_err("%s could not allocate superblock\n", __func__);
+			pr_err("could not allocate superblock\n");
 			return 1;
 		}
 		memcpy(first, second, MD_SB_BYTES + sizeof(struct bitmap_super_s));
@@ -997,7 +997,7 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 	if (posix_memalign((void**)&super, 4096,
 			   MD_SB_BYTES +
 			   ROUND_UP(sizeof(bitmap_super_t), 4096)) != 0) {
-		pr_err("%s could not allocate superblock\n", __func__);
+		pr_err("could not allocate superblock\n");
 		return 1;
 	}
 

@@ -77,8 +77,7 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 	free_gpt(st);
 
 	if (posix_memalign((void**)&super, 4096, 32*512) != 0) {
-		pr_err("%s could not allocate superblock\n",
-			__func__);
+		pr_err("could not allocate superblock\n");
 		return 1;
 	}
 

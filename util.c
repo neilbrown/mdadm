@@ -990,7 +990,7 @@ void wait_for(char *dev, int fd)
 			delay *= 2;
 	}
 	if (i == 25)
-		dprintf("%s: timeout waiting for %s\n", __func__, dev);
+		dprintf("timeout waiting for %s\n", dev);
 }
 
 struct superswitch *superlist[] =

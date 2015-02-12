@@ -134,7 +134,7 @@ static void free_aa(struct active_array *aa)
 	/* Note that this doesn't close fds if they are being used
 	 * by a clone.  ->container will be set for a clone
 	 */
-	dprintf("%s: sys_name: %s\n", __func__, aa->info.sys_name);
+	dprintf("sys_name: %s\n", aa->info.sys_name);
 	if (!aa->container)
 		close_aa(aa);
 	while (aa->info.devs) {
@@ -273,8 +273,7 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 		.state = 0,
 	};
 
-	dprintf("%s: add %d:%d to container\n",
-		__func__, sd->disk.major, sd->disk.minor);
+	dprintf("add %d:%d to container\n", sd->disk.major, sd->disk.minor);
 
 	sd->next = st->devs;
 	st->devs = sd;
@@ -325,8 +324,8 @@ static void remove_disk_from_container(struct supertype *st, struct mdinfo *sd)
 		.raid_disk = -1,
 		.state = 0,
 	};
-	dprintf("%s: remove %d:%d from container\n",
-		__func__, sd->disk.major, sd->disk.minor);
+	dprintf("remove %d:%d from container\n",
+		sd->disk.major, sd->disk.minor);
 
 	st->update_tail = &update;
 	st->ss->remove_from_super(st, &dk);
@@ -540,7 +539,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		/* prevent the kernel from activating the disk(s) before we
 		 * finish adding them
 		 */
-		dprintf("%s: freezing %s\n", __func__,  a->info.sys_name);
+		dprintf("freezing %s\n", a->info.sys_name);
 		sysfs_set_str(&a->info, NULL, "sync_action", "frozen");
 
 		/* Add device to array and set offset/size/slot.
@@ -565,8 +564,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 		if (sysfs_set_str(&a->info, NULL, "sync_action", "recover")
 		    == 0)
 			newa->prev_action = recover;
-		dprintf("%s: recovery started on %s\n", __func__,
-			a->info.sys_name);
+		dprintf("recovery started on %s\n", a->info.sys_name);
  out:
 		while (newdev) {
 			d = newdev->next;
@@ -713,7 +711,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->metadata_fd = sysfs_open2(new->info.sys_name, NULL, "metadata_version");
 	new->sync_completed_fd = sysfs_open2(new->info.sys_name, NULL, "sync_completed");
 
-	dprintf("%s: inst: %s action: %d state: %d\n", __func__, inst,
+	dprintf("inst: %s action: %d state: %d\n", inst,
 		new->action_fd, new->info.state_fd);
 
 	if (sigterm)

@@ -1496,8 +1496,8 @@ static int set_array_size(struct supertype *st, struct mdinfo *sra,
 				ret_val = 0;
 				dprintf("Array size changed");
 			}
-			dprintf(" from %llu to %llu.\n",
-				current_size, new_size);
+			dprintf_cont(" from %llu to %llu.\n",
+				     current_size, new_size);
 		}
 		sysfs_free(info);
 	} else
@@ -1919,7 +1919,7 @@ size_change_error:
 		int err;
 		err = remove_disks_for_takeover(st, sra, array.layout);
 		if (err) {
-			dprintf("%s: Array cannot be reshaped\n", Name);
+			dprintf("Array cannot be reshaped\n");
 			if (cfd > -1)
 				close(cfd);
 			rv = 1;
@@ -2133,7 +2133,7 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 		char *ep;
 		unsigned long long position = strtoull(buf, &ep, 0);
 
-		dprintf("%s: Read sync_max sysfs entry is: %s\n", Name, buf);
+		dprintf("Read sync_max sysfs entry is: %s\n", buf);
 		if (!(ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' '))) {
 			position *= get_data_disks(level,
 						   info->new_layout,
@@ -3557,8 +3557,7 @@ int reshape_container(char *container, char *devname,
 
 		fd = open_dev(mdstat->devnm);
 		if (fd < 0) {
-			printf("%s: Device %s cannot be opened for reshape.",
-			       Name, adev);
+			pr_err("Device %s cannot be opened for reshape.\n", adev);
 			break;
 		}
 
@@ -3574,7 +3573,7 @@ int reshape_container(char *container, char *devname,
 			 * reshape_array is resolved().
 			 */
 			printf("%s: Multiple reshape execution detected for "
-			       "device  %s.", Name, adev);
+			       "device  %s.\n", Name, adev);
 			close(fd);
 			break;
 		}
@@ -4770,7 +4769,7 @@ int Grow_continue_command(char *devname, int fd,
 	dprintf("Grow continue is run for ");
 	if (st->ss->external == 0) {
 		int d;
-		dprintf("native array (%s)\n", devname);
+		dprintf_cont("native array (%s)\n", devname);
 		if (ioctl(fd, GET_ARRAY_INFO, &array.array) < 0) {
 			pr_err("%s is not an active md array -"
 				" aborting\n", devname);
@@ -4818,14 +4817,14 @@ int Grow_continue_command(char *devname, int fd,
 		char *container;
 
 		if (subarray) {
-			dprintf("subarray (%s)\n", subarray);
+			dprintf_cont("subarray (%s)\n", subarray);
 			container = st->container_devnm;
 			cfd = open_dev_excl(st->container_devnm);
 		} else {
 			container = st->devnm;
 			close(fd);
 			cfd = open_dev_excl(st->devnm);
-			dprintf("container (%s)\n", container);
+			dprintf_cont("container (%s)\n", container);
 			fd = cfd;
 		}
 		if (cfd < 0) {

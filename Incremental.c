@@ -1354,7 +1354,7 @@ restart:
 			if (st && st->ss->load_container)
 				ret = st->ss->load_container(st, mdfd, NULL);
 			close(mdfd);
-			if (!ret && st->ss->container_content) {
+			if (!ret && st && st->ss->container_content) {
 				if (map_lock(&map))
 					pr_err("failed to get exclusive lock on mapfile\n");
 				ret = Incremental_container(st, me->path, c, only);

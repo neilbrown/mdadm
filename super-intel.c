@@ -5115,13 +5115,13 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 	__u32 sum;
 	struct dl *d;
 
-	spare->mpb_size = __cpu_to_le32(sizeof(struct imsm_super)),
-	spare->generation_num = __cpu_to_le32(1UL),
+	spare->mpb_size = __cpu_to_le32(sizeof(struct imsm_super));
+	spare->generation_num = __cpu_to_le32(1UL);
 	spare->attributes = MPB_ATTRIB_CHECKSUM_VERIFY;
-	spare->num_disks = 1,
-	spare->num_raid_devs = 0,
-	spare->cache_size = mpb->cache_size,
-	spare->pwr_cycle_count = __cpu_to_le32(1),
+	spare->num_disks = 1;
+	spare->num_raid_devs = 0;
+	spare->cache_size = mpb->cache_size;
+	spare->pwr_cycle_count = __cpu_to_le32(1);
 
 	snprintf((char *) spare->sig, MAX_SIGNATURE_LENGTH,
 		 MPB_SIGNATURE MPB_VERSION_RAID0);

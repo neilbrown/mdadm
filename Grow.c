@@ -3319,7 +3319,7 @@ started:
 		bul = make_backup(sra->sys_name);
 		if (bul) {
 			char buf[1024];
-			int l = readlink(bul, buf, sizeof(buf));
+			int l = readlink(bul, buf, sizeof(buf) - 1);
 			if (l > 0) {
 				buf[l]=0;
 				unlink(buf);

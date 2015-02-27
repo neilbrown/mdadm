@@ -229,65 +229,61 @@ struct pciExpDataStructFormat {
 	__u16 devListOffset;
 } __attribute__ ((packed));
 
-static struct orom_entry oroms[SYS_DEV_MAX];
-
-const struct orom_entry *get_oroms(void)
-{
-	return (const struct orom_entry *)&oroms;
-}
+struct orom_entry *orom_entries;
 
 const struct imsm_orom *get_orom_by_device_id(__u16 dev_id)
 {
-	int i;
-	struct devid_list *list;
+	struct orom_entry *entry;
+	struct devid_list *devid;
 
-	for (i = 0; i < SYS_DEV_MAX; i++) {
-		for (list = oroms[i].devid_list; list; list = list->next) {
-			if (list->devid == dev_id)
-				return &oroms[i].orom;
+	for (entry = orom_entries; entry; entry = entry->next) {
+		for (devid = entry->devid_list; devid; devid = devid->next) {
+			if (devid->devid == dev_id)
+				return &entry->orom;
 		}
 	}
+
 	return NULL;
 }
 
-static const struct imsm_orom *add_orom(const struct imsm_orom *orom)
+static struct orom_entry *add_orom(const struct imsm_orom *orom)
 {
-	int i;
+	struct orom_entry *list;
+	struct orom_entry *prev = NULL;
 
-	for (i = 0; i < SYS_DEV_MAX; i++) {
-		if (&oroms[i].orom == orom)
-			return orom;
-		if (oroms[i].orom.signature[0] == 0) {
-			oroms[i].orom = *orom;
-			return &oroms[i].orom;
-		}
-	}
-	return NULL;
+	for (list = orom_entries; list; prev = list, list = list->next)
+		;
+
+	list = xmalloc(sizeof(struct orom_entry));
+	list->orom = *orom;
+	list->devid_list = NULL;
+	list->next = NULL;
+
+	if (prev == NULL)
+		orom_entries = list;
+	else
+		prev->next = list;
+
+	return list;
 }
 
-static void add_orom_device_id(const struct imsm_orom *orom, __u16 dev_id)
+static void add_orom_device_id(struct orom_entry *entry, __u16 dev_id)
 {
-	int i;
 	struct devid_list *list;
 	struct devid_list *prev = NULL;
 
-	for (i = 0; i < SYS_DEV_MAX; i++) {
-		if (&oroms[i].orom == orom) {
-			for (list = oroms[i].devid_list; list; prev = list, list = list->next) {
-				if (list->devid == dev_id)
-					return;
-			}
-			list = xmalloc(sizeof(struct devid_list));
-			list->devid = dev_id;
-			list->next = NULL;
-
-			if (prev == NULL)
-				oroms[i].devid_list = list;
-			else
-				prev->next = list;
+	for (list = entry->devid_list; list; prev = list, list = list->next) {
+		if (list->devid == dev_id)
 			return;
-		}
 	}
+	list = xmalloc(sizeof(struct devid_list));
+	list->devid = dev_id;
+	list->next = NULL;
+
+	if (prev == NULL)
+		entry->devid_list = list;
+	else
+		prev->next = list;
 }
 
 static int scan(const void *start, const void *end, const void *data)
@@ -321,7 +317,7 @@ static int scan(const void *start, const void *end, const void *data)
 	if (!imsm_mem)
 		return 0;
 
-	const struct imsm_orom *orom = add_orom(imsm_mem);
+	struct orom_entry *orom = add_orom(imsm_mem);
 
 	if (ptr->devListOffset) {
 		const __u16 *dev_list = (void *)ptr + ptr->devListOffset;
@@ -367,11 +363,11 @@ const struct imsm_orom *imsm_platform_test(struct sys_dev *hba)
 				IMSM_OROM_RLC_RAID10;
 	}
 
-	const struct imsm_orom *ret = add_orom(&orom);
+	struct orom_entry *ret = add_orom(&orom);
 
 	add_orom_device_id(ret, hba->dev_id);
 
-	return ret;
+	return &ret->orom;
 }
 
 static const struct imsm_orom *find_imsm_hba_orom(struct sys_dev *hba)
@@ -508,7 +504,7 @@ static int read_efi_variable(void *buffer, ssize_t buf_size, char *variable_name
 const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 {
 	struct imsm_orom orom;
-	const struct imsm_orom *ret;
+	struct orom_entry *ret;
 	int err;
 
 	if (check_env("IMSM_TEST_AHCI_EFI") || check_env("IMSM_TEST_SCU_EFI"))
@@ -529,14 +525,14 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 
 	/* try to read variable for combined AHCI controllers */
 	if (err && hba->type == SYS_DEV_SATA) {
-		static const struct imsm_orom *csata;
+		static struct orom_entry *csata;
 
 		err = read_efi_variable(&orom, sizeof(orom), AHCI_CSATA_PROP, VENDOR_GUID);
 		if (!err) {
 			if (!csata)
 				csata = add_orom(&orom);
 			add_orom_device_id(csata, hba->dev_id);
-			return csata;
+			return &csata->orom;
 		}
 	}
 
@@ -546,12 +542,12 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 	ret = add_orom(&orom);
 	add_orom_device_id(ret, hba->dev_id);
 
-	return ret;
+	return &ret->orom;
 }
 
 const struct imsm_orom *find_imsm_nvme(struct sys_dev *hba)
 {
-	static const struct imsm_orom *nvme_orom;
+	static struct orom_entry *nvme_orom;
 
 	if (hba->type != SYS_DEV_NVME)
 		return NULL;
@@ -574,7 +570,7 @@ const struct imsm_orom *find_imsm_nvme(struct sys_dev *hba)
 		nvme_orom = add_orom(&nvme_orom_compat);
 	}
 	add_orom_device_id(nvme_orom, hba->dev_id);
-	return nvme_orom;
+	return &nvme_orom->orom;
 }
 
 const struct imsm_orom *find_imsm_capability(struct sys_dev *hba)

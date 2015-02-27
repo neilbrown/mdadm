@@ -1948,13 +1948,12 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		return result;
 	}
 
-	const struct orom_entry *oroms = get_oroms();
-	int i;
+	const struct orom_entry *entry;
 
-	for (i = 0; i < SYS_DEV_MAX && oroms[i].devid_list; i++) {
-		print_imsm_capability(&oroms[i].orom);
+	for (entry = orom_entries; entry; entry = entry->next) {
+		print_imsm_capability(&entry->orom);
 
-		if (imsm_orom_is_nvme(&oroms[i].orom)) {
+		if (imsm_orom_is_nvme(&entry->orom)) {
 			for (hba = list; hba; hba = hba->next) {
 				if (hba->type == SYS_DEV_NVME)
 					printf("    NVMe Device : %s\n", hba->path);
@@ -1963,7 +1962,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		}
 
 		struct devid_list *devid;
-		for (devid = oroms[i].devid_list; devid; devid = devid->next) {
+		for (devid = entry->devid_list; devid; devid = devid->next) {
 			hba = device_by_id(devid->devid);
 			if (!hba)
 				continue;
@@ -2007,11 +2006,10 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 			result = 0;
 	}
 
-	const struct orom_entry *oroms = get_oroms();
-	int i;
+	const struct orom_entry *entry;
 
-	for (i = 0; i < SYS_DEV_MAX && oroms[i].devid_list; i++)
-		print_imsm_capability_export(&oroms[i].orom);
+	for (entry = orom_entries; entry; entry = entry->next)
+		print_imsm_capability_export(&entry->orom);
 
 	return result;
 }

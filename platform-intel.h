@@ -213,7 +213,10 @@ struct devid_list {
 struct orom_entry {
 	struct imsm_orom orom;
 	struct devid_list *devid_list;
+	struct orom_entry *next;
 };
+
+extern struct orom_entry *orom_entries;
 
 static inline char *guid_str(char *buf, struct efi_guid guid)
 {
@@ -235,6 +238,5 @@ int devt_attached_to_hba(dev_t dev, const char *hba_path);
 char *devt_to_devpath(dev_t dev);
 int path_attached_to_hba(const char *disk_path, const char *hba_path);
 const char *get_sys_dev_type(enum sys_dev_type);
-const struct orom_entry * get_oroms(void);
 const struct imsm_orom *get_orom_by_device_id(__u16 device_id);
 struct sys_dev *device_by_id(__u16 device_id);

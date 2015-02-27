@@ -1712,12 +1712,16 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		return 1;
 	}
 	sysfs_init(&mdi, -1, ent->devnm);
-	if (sysfs_get_str(&mdi, NULL, "array_state",
-			  buf, sizeof(buf)) > 0) {
-		if (strncmp(buf, "active", 6) == 0 ||
-		    strncmp(buf, "clean", 5) == 0)
-			sysfs_set_str(&mdi, NULL,
-				      "array_state", "read-auto");
+	mdfd = open_dev_excl(ent->devnm);
+	if (mdfd > 0) {
+		close(mdfd);
+		if (sysfs_get_str(&mdi, NULL, "array_state",
+				  buf, sizeof(buf)) > 0) {
+			if (strncmp(buf, "active", 6) == 0 ||
+			    strncmp(buf, "clean", 5) == 0)
+				sysfs_set_str(&mdi, NULL,
+					      "array_state", "read-auto");
+		}
 	}
 	mdfd = open_dev(ent->devnm);
 	if (mdfd < 0) {

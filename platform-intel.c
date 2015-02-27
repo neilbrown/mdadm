@@ -227,6 +227,8 @@ struct pciExpDataStructFormat {
 	__u16 vendorID;
 	__u16 deviceID;
 	__u16 devListOffset;
+	__u16 pciDataStructLen;
+	__u8 pciDataStructRev;
 } __attribute__ ((packed));
 
 struct orom_entry *orom_entries;
@@ -319,7 +321,8 @@ static int scan(const void *start, const void *end, const void *data)
 
 	struct orom_entry *orom = add_orom(imsm_mem);
 
-	if (ptr->devListOffset) {
+	/* only PciDataStructure with revision 3 and above supports devices list. */
+	if (ptr->pciDataStructRev >= 3 && ptr->devListOffset) {
 		const __u16 *dev_list = (void *)ptr + ptr->devListOffset;
 		int i;
 

@@ -576,13 +576,13 @@ static int load_devices(struct devs *devices, char *devmap,
 		struct stat stb;
 		struct supertype *tst;
 		int i;
+		int dfd;
 
 		if (tmpdev->used != 1)
 			continue;
 		/* looks like a good enough match to update the super block if needed */
 #ifndef MDASSEMBLE
 		if (c->update) {
-			int dfd;
 			/* prepare useful information in info structures */
 			struct stat stb2;
 			int err;
@@ -652,7 +652,6 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (tst->ss->store_super(tst, dfd))
 				pr_err("Could not re-write superblock on %s.\n",
 				       devname);
-			close(dfd);
 
 			if (strcmp(c->update, "uuid")==0 &&
 			    ident->bitmap_fd >= 0 && !bitmap_done) {
@@ -666,9 +665,9 @@ static int load_devices(struct devs *devices, char *devmap,
 		} else
 #endif
 		{
-			int dfd = dev_open(devname,
-					   tmpdev->disposition == 'I'
-					   ? O_RDWR : (O_RDWR|O_EXCL));
+			dfd = dev_open(devname,
+				       tmpdev->disposition == 'I'
+				       ? O_RDWR : (O_RDWR|O_EXCL));
 			tst = dup_super(st);
 
 			if (dfd < 0 || tst->ss->load_super(tst, dfd, NULL) != 0) {
@@ -685,10 +684,10 @@ static int load_devices(struct devs *devices, char *devmap,
 				return -1;
 			}
 			tst->ss->getinfo_super(tst, content, devmap + devcnt * content->array.raid_disks);
-			close(dfd);
 		}
 
-		stat(devname, &stb);
+		fstat(dfd, &stb);
+		close(dfd);
 
 		if (c->verbose > 0)
 			pr_err("%s is identified as a member of %s, slot %d%s.\n",

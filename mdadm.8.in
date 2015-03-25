@@ -214,7 +214,7 @@ to detect and assemble arrays \(em possibly in an
 
 .P
 If a device is given before any options, or if the first option is
-and of
+one of
 .BR \-\-add ,
 .BR \-\-re\-add ,
 .BR \-\-add\-spare ,

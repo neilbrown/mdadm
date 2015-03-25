@@ -3102,8 +3102,19 @@ static int reshape_array(char *container, int fd, char *devname,
 				   devname, container, &reshape) < 0)
 			goto release;
 		if (sysfs_set_str(sra, NULL, "sync_action", "reshape") < 0) {
-			pr_err("Failed to initiate reshape!\n");
-			goto release;
+			struct mdinfo *sd;
+			if (errno != EINVAL) {
+				pr_err("Failed to initiate reshape!\n");
+				goto release;
+			}
+			/* revert data_offset and try the old way */
+			for (sd = sra->devs; sd; sd = sd->next) {
+				sysfs_set_num(sra, sd, "new_offset",
+					      sd->data_offset);
+				sysfs_set_str(sra, NULL, "reshape_direction",
+					      "forwards");
+			}
+			break;
 		}
 		if (info->new_level == reshape.level)
 			return 0;

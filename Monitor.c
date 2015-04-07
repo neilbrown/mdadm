@@ -426,9 +426,13 @@ static void alert(char *event, char *dev, char *disc, struct alert_info *info)
 		else
 			priority = LOG_INFO;
 
-		if (disc)
+		if (disc && disc[0] != ' ')
 			syslog(priority,
 			       "%s event detected on md device %s, component device %s", event, dev, disc);
+		else if (disc)
+			syslog(priority,
+			       "%s event detected on md device %s: %s",
+			       event, dev, disc);
 		else
 			syslog(priority,
 			       "%s event detected on md device %s",

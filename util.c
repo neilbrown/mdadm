@@ -368,6 +368,13 @@ int enough(int level, int raid_disks, int layout, int clean, char *avail)
 	case 1:
 		return avail_disks >= 1;
 	case 4:
+		if (avail_disks == raid_disks - 1 &&
+		    !avail[raid_disks - 1])
+			/* If just the parity device is missing, then we
+			 * have enough, even if not clean
+			 */
+			return 1;
+		/* FALL THROUGH */
 	case 5:
 		if (clean)
 			return avail_disks >= raid_disks-1;

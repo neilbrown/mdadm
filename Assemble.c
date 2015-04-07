@@ -1526,9 +1526,7 @@ try_again:
 			if (i < content->array.raid_disks * 2) {
 				if (devices[j].i.recovery_start == MaxSector ||
 				    (content->reshape_active &&
-				     ((i >= content->array.raid_disks - content->delta_disks) ||
-				      (i >= content->array.raid_disks - content->delta_disks - 1
-				       && content->array.level == 4)))) {
+				     i >= content->array.raid_disks - content->delta_disks)) {
 					if (!avail[i/2]) {
 						okcnt++;
 						avail[i/2]=1;

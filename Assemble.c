@@ -984,7 +984,7 @@ static int start_array(int mdfd,
 		} else if (c->verbose > 0 && i < content->array.raid_disks*2
 			   && (i&1) == 0)
 			pr_err("no uptodate device for slot %d of %s\n",
-			       i, mddev);
+			       i/2, mddev);
 	}
 
 	if (content->array.level == LEVEL_CONTAINER) {

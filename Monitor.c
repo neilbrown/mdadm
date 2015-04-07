@@ -507,7 +507,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	 */
 	if (array.level == 0 || array.level == -1) {
 		if (!st->err && !st->from_config)
-			alert("DeviceDisappeared", dev, "Wrong-Level", ainfo);
+			alert("DeviceDisappeared", dev, " Wrong-Level", ainfo);
 		st->err++;
 		close(fd);
 		return 0;

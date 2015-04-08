@@ -1681,7 +1681,7 @@ try_again:
 		int err = 0;
 		int *fdlist = xmalloc(sizeof(int)* bestcnt);
 		if (c->verbose > 0)
-			pr_err(":%s has an active reshape - checking if critical section needs to be restored\n",
+			pr_err("%s has an active reshape - checking if critical section needs to be restored\n",
 			       chosen_name);
 		if (!c->backup_file)
 			c->backup_file = locate_backup(content->sys_name);

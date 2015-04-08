@@ -817,12 +817,37 @@ static int force_array(struct mdinfo *content,
 		     i < content->array.raid_disks * 2 && i < bestcnt;
 		     i += 2) {
 			int j = best[i];
-			if (j>=0 &&
-			    !devices[j].uptodate &&
-			    devices[j].i.recovery_start == MaxSector &&
-			    (chosen_drive < 0 ||
+			if (j < 0)
+				continue;
+			if (devices[j].uptodate)
+				continue;
+			if (devices[j].i.recovery_start != MaxSector) {
+				int delta;
+				if (!devices[j].i.reshape_active ||
+				    devices[j].i.delta_disks <= 0)
+					continue;
+				/* When increasing number of devices, an
+				 * added device also appears to be
+				 * recovering.  It is safe to include it
+				 * as long as it won't be a source of
+				 * data.
+				 * For now, just allow for last data
+				 * devices in RAID4 or last devices in RAID4/5/6.
+				 */
+				delta = devices[j].i.delta_disks;
+				if (devices[j].i.array.level >= 4 &&
+				    devices[j].i.array.level <= 6 &&
+				    i/2 >= content->array.raid_disks - delta)
+					/* OK */;
+				else if (devices[j].i.array.level == 4 &&
+					 i/2 >= content->array.raid_disks - delta - 1)
+					/* OK */;
+				else
+					continue;
+			}
+			if (chosen_drive < 0 ||
 			     devices[j].i.events
-			     > devices[chosen_drive].i.events))
+			    > devices[chosen_drive].i.events)
 				chosen_drive = j;
 		}
 		if (chosen_drive < 0)

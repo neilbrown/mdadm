@@ -233,7 +233,7 @@ struct pciExpDataStructFormat {
 
 struct orom_entry *orom_entries;
 
-const struct imsm_orom *get_orom_by_device_id(__u16 dev_id)
+const struct orom_entry *get_orom_entry_by_device_id(__u16 dev_id)
 {
 	struct orom_entry *entry;
 	struct devid_list *devid;
@@ -241,9 +241,19 @@ const struct imsm_orom *get_orom_by_device_id(__u16 dev_id)
 	for (entry = orom_entries; entry; entry = entry->next) {
 		for (devid = entry->devid_list; devid; devid = devid->next) {
 			if (devid->devid == dev_id)
-				return &entry->orom;
+				return entry;
 		}
 	}
+
+	return NULL;
+}
+
+const struct imsm_orom *get_orom_by_device_id(__u16 dev_id)
+{
+	const struct orom_entry *entry = get_orom_entry_by_device_id(dev_id);
+
+	if (entry)
+		return &entry->orom;
 
 	return NULL;
 }

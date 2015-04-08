@@ -5853,37 +5853,68 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 }
 
 static int
-count_volumes(char *hba, int dpa, int verbose)
+count_volumes(struct intel_hba *hba, int dpa, int verbose)
 {
-	struct md_list *devlist = NULL;
+	struct sys_dev *idev, *intel_devices = find_intel_devices();
 	int count = 0;
-	int found = 0;;
+	const struct orom_entry *entry;
+	struct devid_list *dv, *devid_list;
 
-	devlist = get_devices(hba);
-	/* if no intel devices return zero volumes */
-	if (devlist == NULL)
+	if (!hba || !hba->path)
 		return 0;
 
-	count = active_arrays_by_format("imsm", hba, &devlist, dpa, verbose);
-	dprintf("path: %s active arrays: %d\n", hba, count);
-	if (devlist == NULL)
+	for (idev = intel_devices; idev; idev = idev->next) {
+		if (strstr(idev->path, hba->path))
+				break;
+	}
+
+	if (!idev || !idev->dev_id)
 		return 0;
-	do  {
-		found = 0;
-		count += count_volumes_list(devlist,
-					    NULL,
-					    verbose,
-					    &found);
-		dprintf("found %d count: %d\n", found, count);
-	} while (found);
 
-	dprintf("path: %s total number of volumes: %d\n", hba, count);
+	entry = get_orom_entry_by_device_id(idev->dev_id);
 
-	while(devlist) {
-		struct md_list *dv = devlist;
-		devlist = devlist->next;
-		free(dv->devname);
-		free(dv);
+	if (!entry || !entry->devid_list)
+		return 0;
+
+	devid_list = entry->devid_list;
+	for (dv = devid_list; dv; dv = dv->next) {
+
+		struct md_list *devlist = NULL;
+		struct sys_dev *device = device_by_id(dv->devid);
+		char *hba_path;
+		int found = 0;
+
+		if (device)
+			hba_path = device->path;
+		else
+			return 0;
+
+		devlist = get_devices(hba_path);
+		/* if no intel devices return zero volumes */
+		if (devlist == NULL)
+			return 0;
+
+		count += active_arrays_by_format("imsm", hba_path, &devlist, dpa, verbose);
+		dprintf("path: %s active arrays: %d\n", hba_path, count);
+		if (devlist == NULL)
+			return 0;
+		do  {
+			found = 0;
+			count += count_volumes_list(devlist,
+							NULL,
+							verbose,
+							&found);
+			dprintf("found %d count: %d\n", found, count);
+		} while (found);
+
+		dprintf("path: %s total number of volumes: %d\n", hba_path, count);
+
+		while (devlist) {
+			struct md_list *dv = devlist;
+			devlist = devlist->next;
+			free(dv->devname);
+			free(dv);
+		}
 	}
 	return count;
 }
@@ -6105,7 +6136,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	*freesize = maxsize;
 
 	if (super->orom) {
-		int count = count_volumes(super->hba->path,
+		int count = count_volumes(super->hba,
 				      super->orom->dpa, verbose);
 		if (super->orom->vphba <= count) {
 			pr_vrb(": platform does not support more than %d raid volumes.\n",
@@ -6261,7 +6292,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 			   created */
 			if (super->orom && freesize) {
 				int count;
-				count = count_volumes(super->hba->path,
+				count = count_volumes(super->hba,
 						      super->orom->dpa, verbose);
 				if (super->orom->vphba <= count) {
 					pr_vrb(": platform does not support more than %d raid volumes.\n",

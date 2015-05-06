@@ -827,7 +827,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			int d;
 			int found = 0;
 
-			for (d = 0; d < MAX_DISKS && found < array->active_disks; d++) {
+			for (d = 0; d < MAX_DISKS && found < array->nr_disks; d++) {
 				disc.number = d;
 				if (ioctl(fd, GET_DISK_INFO, &disc))
 					continue;

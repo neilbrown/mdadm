@@ -70,7 +70,7 @@ check wait
 # FAIL / REBUILD
 ddf_check_hold $container $dev8
 mdadm --fail $member0 $dev8
-mdadm --wait-clean --scan
+mdadm --wait-clean --scan || true
 ddf_check_removal $container $dev8
 mdadm --add $container $dev12
 check wait

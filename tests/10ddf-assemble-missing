@@ -12,8 +12,8 @@ ddf_check container 4
 mdadm -CR $member1 -n 4 -l 10 $dev8 $dev10 $dev9 $dev11 -z 10000
 mdadm -CR $member0 -n 2 -l 1 $dev8 $dev9 -z 10000
 
-mdadm --wait $member0
-mdadm --wait $member1
+mdadm --wait $member0 || true
+mdadm --wait $member1 || true
 
 mdadm -Ss
 sleep 1

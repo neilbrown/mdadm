@@ -28,7 +28,7 @@ good0=$1
 mdadm $container --add $fail0
 
 sleep 1
-mdadm --wait $member0
+mdadm --wait $member0 || true
 
 ret=0
 set -- $(get_raiddisks $member0)

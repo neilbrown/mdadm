@@ -7,7 +7,7 @@ ddf_check container $num_disks
 mdadm -CR $member0 -n 2 -l 1 $container
 mdadm -CR $member1 -n 3 -l 5 $container
 
-mdadm --wait $member1 $member0 || mdadm --wait $member1 $member0
+mdadm --wait $member1 $member0 || mdadm --wait $member1 $member0 || true
 
 set -- $(get_raiddisks $member0)
 fail0=$1
@@ -18,7 +18,7 @@ mdadm $member1 --fail $fail1
 
 mdadm $container --add $dev13
 
-mdadm --wait $member1 $member0 || mdadm --wait $member1 $member0
+mdadm --wait $member1 $member0 || mdadm --wait $member1 $member0 || true
 
 
 devs0="$(get_raiddisks $member0)"

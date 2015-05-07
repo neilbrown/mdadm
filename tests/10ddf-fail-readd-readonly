@@ -45,7 +45,7 @@ mdadm $container --remove $fail0
 mdadm $container --add $fail0
 
 sleep 1
-mdadm --wait $member0
+mdadm --wait $member0 || true
 
 set -- $(get_raiddisks $member0)
 case $1:$2 in

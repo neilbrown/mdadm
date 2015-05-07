@@ -71,7 +71,7 @@ check wait
 # FAIL / REBUILD
 imsm_check_hold $container $dev0
 mdadm --fail $member0 $dev0
-mdadm --wait-clean --scan
+mdadm --wait-clean --scan || true
 imsm_check_removal $container $dev0
 mdadm --add $container $dev4
 check wait

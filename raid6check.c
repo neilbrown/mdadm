@@ -30,6 +30,8 @@
 #define CHECK_PAGE_BITS (12)
 #define CHECK_PAGE_SIZE (1 << CHECK_PAGE_BITS)
 
+char const Name[] = "raid6check";
+
 enum repair {
 	NO_REPAIR = 0,
 	MANUAL_REPAIR,

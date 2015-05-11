@@ -3158,6 +3158,7 @@ static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
 	memcpy(&ddf->primary, &ddf->anchor, 512);
 	memcpy(&ddf->secondary, &ddf->anchor, 512);
 
+	ddf->anchor.type = DDF_HEADER_ANCHOR;
 	ddf->anchor.openflag = 0xFF; /* 'open' means nothing */
 	ddf->anchor.seq = cpu_to_be32(0xFFFFFFFF); /* no sequencing in anchor */
 	ddf->anchor.crc = calc_crc(&ddf->anchor, 512);

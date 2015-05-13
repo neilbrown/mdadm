@@ -30,7 +30,7 @@ mdadm -Ss
 sleep 1
 # Now simulate incremental assembly
 mdadm -I $good0
-mdadm -IRs
+mdadm -IRs || true
 
 # Write to the array
 mke2fs $member0

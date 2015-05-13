@@ -30,7 +30,7 @@ mdadm -I $dev10
 mdadm -I $dev11
 
 # Start runnable members ($member1) and write
-mdadm -IRs
+mdadm -IRs || true
 e2fsck -fy $member1
 sha_1b=$(sha1_sum $member1)
 
@@ -59,7 +59,7 @@ for d in $dev8 $dev9 $dev10 $dev11; do
     mdadm -I $d  
 done
 
-mdadm -IRs
+mdadm -IRs || true
 sha_0c=$(sha1_sum $member0)
 sha_1c=$(sha1_sum $member1)
 

@@ -23,7 +23,7 @@ mdadm -I $dev10
 mdadm -I $dev11
 
 # Start runnable members
-mdadm -IRs
+mdadm -IRs || true
 mdadm -Ss
 
 #[ -f /var/tmp/mdmon.log ] && cat /var/tmp/mdmon.log

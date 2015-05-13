@@ -1348,7 +1348,10 @@ try_again:
 	 */
 	if (map_lock(&map))
 		pr_err("failed to get exclusive lock on mapfile - continue anyway...\n");
-	mp = map_by_uuid(&map, content->uuid);
+	if (c->update && strcmp(c->update,"uuid") == 0)
+		mp = NULL;
+	else
+		mp = map_by_uuid(&map, content->uuid);
 	if (mp) {
 		struct mdinfo *dv;
 		/* array already exists. */

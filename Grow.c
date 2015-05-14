@@ -931,7 +931,7 @@ int reshape_open_backup_file(char *backup_file,
 	if (!restart && strncmp(backup_file, MAP_DIR, strlen(MAP_DIR)) != 0) {
 		char *bu = make_backup(sys_name);
 		if (symlink(backup_file, bu))
-			pr_err("Recording backup file in " MAP_DIR "failed: %s\n",
+			pr_err("Recording backup file in " MAP_DIR " failed: %s\n",
 			       strerror(errno));
 		free(bu);
 	}

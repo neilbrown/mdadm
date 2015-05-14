@@ -47,10 +47,10 @@ do
          exit 1
        fi
        mdadm $md0 -a $first
-       check wait
+       while ! (check state 'U*_U*'); do check wait; sleep 0.2; done
     done
     mdadm $md0 -a $second
-    check wait
+    while ! (check state 'U*'); do check wait; sleep 0.2; done
     totest="$totest $second"
   done
   mdadm -S $md0

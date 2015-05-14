@@ -3850,10 +3850,17 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			goto check_progress;
 	}
 	/* Some kernels reset 'sync_completed' to zero,
-	 * we need to have real point we are in md
+	 * we need to have real point we are in md.
+	 * But only if array is actually still reshaping,
+	 * not stopped.
 	 */
-	if (completed == 0)
-		completed = max_progress;
+	if (completed == 0) {
+		char action[20];
+		if (sysfs_get_str(info, NULL, "sync_action",
+				  action, 20) > 0 &&
+		    strncmp(action, "reshape", 7) == 0)
+			completed = max_progress;
+	}
 
 	/* some kernels can give an incorrectly high 'completed' number */
 	completed /= (info->new_chunk/512);

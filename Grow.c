@@ -718,9 +718,14 @@ int start_reshape(struct mdinfo *sra, int already_running,
 	if (!already_running)
 		sysfs_set_num(sra, NULL, "sync_min", sync_max_to_set);
 	err = err ?: sysfs_set_num(sra, NULL, "sync_max", sync_max_to_set);
-	if (!already_running)
-		err = err ?: sysfs_set_str(sra, NULL, "sync_action", "reshape");
-
+	if (!already_running && err == 0) {
+		int cnt = 5;
+		do {
+			err = sysfs_set_str(sra, NULL, "sync_action", "reshape");
+			if (err)
+				sleep(1);
+		} while (err && errno == EBUSY && cnt-- > 0);
+	}
 	return err;
 }
 

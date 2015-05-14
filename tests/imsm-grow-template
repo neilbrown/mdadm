@@ -90,8 +90,10 @@ else
 			exit 1
 		fi
 	else
+		sleep 5
 		check wait
 		sleep 5
+		check wait
 		imsm_check member $member0 $num_disks $vol0_level $vol0_comp_size $((vol0_comp_size * vol0_new_num_comps)) $vol0_offset $vol0_chunk
 		testdev $member0 $vol0_new_num_comps $vol0_comp_size $vol0_chunk
 		if [ $vol1_new_num_comps -ne 0 ]; then

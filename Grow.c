@@ -3844,9 +3844,11 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		 * So we need these extra tests.
 		 */
 		if (completed == 0 && advancing
+		    && strncmp(action, "idle", 4) == 0
 		    && info->reshape_progress > 0)
 			break;
 		if (completed == 0 && !advancing
+		    && strncmp(action, "idle", 4) == 0
 		    && info->reshape_progress < (info->component_size
 						 * reshape->after.data_disks))
 			break;
@@ -3863,7 +3865,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		char action[20];
 		if (sysfs_get_str(info, NULL, "sync_action",
 				  action, 20) > 0 &&
-		    strncmp(action, "reshape", 7) == 0)
+		    strncmp(action, "idle", 4) == 0)
 			completed = max_progress;
 	}
 

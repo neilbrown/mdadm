@@ -31,7 +31,7 @@ do
   echo 1000 > /proc/sys/dev/raid/speed_limit_min
   echo 2000 > /proc/sys/dev/raid/speed_limit_max
   check wait
-  echo check > /sys/block/md0/md/sync_action
+  while ! echo check > /sys/block/md0/md/sync_action; do sleep 0.1; done
   check wait
   mm=`cat /sys/block/md0/md/mismatch_cnt`
   if [ $mm -gt 0 ]

@@ -687,6 +687,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 {
 	struct mdstat_ent *mse;
 	int new_found = 0;
+	char *name;
 
 	for (mse=mdstat; mse; mse=mse->next)
 		if (mse->devnm[0] &&
@@ -697,7 +698,14 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 			struct state *st = xcalloc(1, sizeof *st);
 			mdu_array_info_t array;
 			int fd;
-			st->devname = xstrdup(get_md_name(mse->devnm));
+
+			name = get_md_name(mse->devnm);
+			if (!name) {
+				free(st);
+				continue;
+			}
+
+			st->devname = xstrdup(name);
 			if ((fd = open(st->devname, O_RDONLY)) < 0 ||
 			    ioctl(fd, GET_ARRAY_INFO, &array)< 0) {
 				/* no such array */

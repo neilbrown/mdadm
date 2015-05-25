@@ -26,6 +26,7 @@ checkgeo() {
  shift
  sleep 0.5
  check wait
+ sleep 1
  for attr in level raid_disks chunk_size layout 
  do
    if [ $# -gt 0 ] ; then
@@ -38,7 +39,7 @@ checkgeo() {
    fi
  done
 }
-   
+
 
 bu=/tmp/md-test-backup
 rm -f $bu

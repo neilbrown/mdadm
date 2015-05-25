@@ -3858,27 +3858,30 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	}
 	/* Some kernels reset 'sync_completed' to zero,
 	 * we need to have real point we are in md.
-	 * But only if array is actually still reshaping,
-	 * not stopped.
+	 * So in that case, read 'reshape_position' from sysfs.
 	 */
 	if (completed == 0) {
+		unsigned long long reshapep;
 		char action[20];
 		if (sysfs_get_str(info, NULL, "sync_action",
 				  action, 20) > 0 &&
-		    strncmp(action, "idle", 4) == 0)
-			completed = max_progress;
+		    strncmp(action, "idle", 4) == 0 &&
+		    sysfs_get_ll(info, NULL,
+				 "reshape_position", &reshapep) == 0)
+			*reshape_completed = reshapep;
+	} else {
+		/* some kernels can give an incorrectly high
+		 * 'completed' number, so round down */
+		completed /= (info->new_chunk/512);
+		completed *= (info->new_chunk/512);
+		/* Convert 'completed' back in to a 'progress' number */
+		completed *= reshape->after.data_disks;
+		if (!advancing)
+			completed = (info->component_size
+				     * reshape->after.data_disks
+				     - completed);
+		*reshape_completed = completed;
 	}
-
-	/* some kernels can give an incorrectly high 'completed' number */
-	completed /= (info->new_chunk/512);
-	completed *= (info->new_chunk/512);
-	/* Convert 'completed' back in to a 'progress' number */
-	completed *= reshape->after.data_disks;
-	if (!advancing) {
-		completed = info->component_size * reshape->after.data_disks
-			- completed;
-	}
-	*reshape_completed = completed;
 
 	close(fd);
 
@@ -3898,7 +3901,6 @@ check_progress:
 	 * it was just a device failure that leaves us degraded but
 	 * functioning.
 	 */
-	strcpy(buf, "hi");
 	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0
 	    || strncmp(buf, "none", 4) != 0) {
 		/* The abort might only be temporary.  Wait up to 10

@@ -1777,8 +1777,8 @@ int Grow_reshape(char *devname, int fd,
 						   "raid5");
 				if (!rv) {
 					raid0_takeover = 1;
-					/* get array parametes after takeover
-					 * to chane one parameter at time only
+					/* get array parameters after takeover
+					 * to change one parameter at time only
 					 */
 					rv = ioctl(fd, GET_ARRAY_INFO, &array);
 				}

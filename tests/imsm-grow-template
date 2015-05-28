@@ -33,17 +33,17 @@ function grow_member() {
 
 # Create container
 mdadm --create --run $container --auto=md --metadata=imsm --raid-disks=$num_disks $device_list
-wait
+check wait
 imsm_check container $num_disks
 
 # Create first volume inside the container
 mdadm --create --run $member0 --auto=md --level=$vol0_level --size=$vol0_comp_size --chunk=$vol0_chunk --raid-disks=$num_disks $device_list
-wait
+check wait
 
 # Create second volume inside the container (if defined)
 if [ ! -z $vol1_chunk ]; then
     mdadm --create --run $member1 --auto=md --level=$vol1_level --size=$vol1_comp_size --chunk=$vol1_chunk --raid-disks=$num_disks $device_list
-    wait
+    check wait
 fi
 
 # Wait for any RESYNC to complete
@@ -63,7 +63,7 @@ fi
 for i in $spare_list
 do
     mdadm --add $container $i
-    wait
+    check wait
     num_disks=$((num_disks + 1))
 done
 

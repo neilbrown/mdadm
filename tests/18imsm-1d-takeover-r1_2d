@@ -8,12 +8,11 @@ vol0_comp_size=$((10 * 1024))
 
 # Create container
 mdadm --create --run $container --auto=md --metadata=imsm --force --raid-disks=$vol0_num_comps $dev0
-wait
+check wait
 imsm_check container $vol0_num_comps
 
 # Create RAID 1 volume
 mdadm --create --run $member0 --auto=md --level=1 --size=$vol0_comp_size --chunk=64 --raid-disks=$((vol0_num_comps + 1)) $dev0 missing
-wait
 check wait
 
 # Test the member0

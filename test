@@ -200,7 +200,7 @@ check() {
       p=`cat /proc/sys/dev/raid/speed_limit_max`
       echo 2000000 > /proc/sys/dev/raid/speed_limit_max
       sleep 0.1
-      while grep -E '(resync|recovery|reshape|check|repair) *=' > /dev/null /proc/mdstat
+      while grep -E '(resync|recovery|reshape|check|repair) *=' > /dev/null /proc/mdstat /sys/block/md*/md/sync_action
       do sleep 0.5;
       done
       echo $p > /proc/sys/dev/raid/speed_limit_max

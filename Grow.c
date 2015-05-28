@@ -850,7 +850,8 @@ int reshape_prepare_fdlist(char *devname,
 	for (sd = sra->devs; sd; sd = sd->next) {
 		if (sd->disk.state & (1<<MD_DISK_FAULTY))
 			continue;
-		if (sd->disk.state & (1<<MD_DISK_SYNC)) {
+		if (sd->disk.state & (1<<MD_DISK_SYNC) &&
+		    sd->disk.raid_disk < raid_disks) {
 			char *dn = map_dev(sd->disk.major,
 					   sd->disk.minor, 1);
 			fdlist[sd->disk.raid_disk]
@@ -3184,7 +3185,7 @@ started:
 	d = reshape_prepare_fdlist(devname, sra, odisks,
 				   nrdisks, blocks, backup_file,
 				   fdlist, offsets);
-	if (d < 0) {
+	if (d < odisks) {
 		goto release;
 	}
 	if ((st->ss->manage_reshape == NULL) ||
@@ -3196,7 +3197,7 @@ started:
 				       devname);
 				pr_err(" Please provide one with \"--backup=...\"\n");
 				goto release;
-			} else if (sra->array.spare_disks == 0) {
+			} else if (d == odisks) {
 				pr_err("%s: Cannot grow - need a spare or backup-file to backup critical section\n", devname);
 				goto release;
 			}

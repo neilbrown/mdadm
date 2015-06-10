@@ -354,6 +354,11 @@ enum prefix_standard {
 	IEC
 };
 
+enum bitmap_update {
+    NoUpdate,
+    NameUpdate,
+};
+
 /* structures read from config file */
 /* List of mddevice names and identifiers
  * Identifiers can be:
@@ -850,7 +855,7 @@ extern struct superswitch {
 	/* if add_internal_bitmap succeeded for existing array, this
 	 * writes it out.
 	 */
-	int (*write_bitmap)(struct supertype *st, int fd);
+	int (*write_bitmap)(struct supertype *st, int fd, enum bitmap_update update);
 	/* Free the superblock and any other allocated data */
 	void (*free_super)(struct supertype *st);
 

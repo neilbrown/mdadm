@@ -900,7 +900,7 @@ static int write_init_super0(struct supertype *st)
 		rv = store_super0(st, di->fd);
 
 		if (rv == 0 && (sb->state & (1<<MD_SB_BITMAP_PRESENT)))
-			rv = st->ss->write_bitmap(st, di->fd);
+			rv = st->ss->write_bitmap(st, di->fd, NoUpdate);
 
 		if (rv)
 			pr_err("failed to write superblock to %s\n",
@@ -1175,7 +1175,7 @@ static void locate_bitmap0(struct supertype *st, int fd)
 	lseek64(fd, offset, 0);
 }
 
-static int write_bitmap0(struct supertype *st, int fd)
+static int write_bitmap0(struct supertype *st, int fd, enum bitmap_update update)
 {
 	unsigned long long dsize;
 	unsigned long long offset;

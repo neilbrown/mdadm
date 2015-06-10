@@ -1098,6 +1098,7 @@ argument given to this flag can be one of
 .BR uuid ,
 .BR name ,
 .BR homehost ,
+.BR home-cluster ,
 .BR resync ,
 .BR byteorder ,
 .BR devicesize ,
@@ -1158,6 +1159,11 @@ option will change the
 as recorded in the superblock.  For version-0 superblocks, this is the
 same as updating the UUID.
 For version-1 superblocks, this involves updating the name.
+
+The
+.B home\-cluster
+option will change the cluster name as recorded in the superblock and
+bitmap. This option only works for clustered environment.
 
 The
 .B resync

@@ -256,6 +256,7 @@ static int awrite(struct align_fd *afd, void *buf, int len)
 static void examine_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+MAX_SB_SIZE);
 	time_t atime;
 	unsigned int d;
 	int role;
@@ -289,6 +290,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 	    strncmp(sb->set_name, homehost, l) == 0)
 		printf("  (local to host %s)", homehost);
 	printf("\n");
+	if (bms->nodes > 0)
+		printf("Cluster Name : %s", bms->cluster_name);
 	atime = __le64_to_cpu(sb->ctime) & 0xFFFFFFFFFFULL;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, __le32_to_cpu(sb->level));
@@ -740,6 +743,7 @@ err:
 static void detail_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int i;
 	int l = homehost ? strlen(homehost) : 0;
 
@@ -748,6 +752,8 @@ static void detail_super1(struct supertype *st, char *homehost)
 	    sb->set_name[l] == ':' &&
 	    strncmp(sb->set_name, homehost, l) == 0)
 		printf("  (local to host %s)", homehost);
+	if (bms->nodes > 0)
+	    printf("Cluster Name : %64s", bms->cluster_name);
 	printf("\n           UUID : ");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
@@ -1691,7 +1697,7 @@ static int write_init_super1(struct supertype *st)
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);
 		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
-			rv = st->ss->write_bitmap(st, di->fd);
+			rv = st->ss->write_bitmap(st, di->fd, NoUpdate);
 		close(di->fd);
 		di->fd = -1;
 		if (rv)
@@ -2175,7 +2181,7 @@ static void locate_bitmap1(struct supertype *st, int fd)
 	lseek64(fd, offset<<9, 0);
 }
 
-static int write_bitmap1(struct supertype *st, int fd)
+static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+MAX_SB_SIZE);
@@ -2184,6 +2190,19 @@ static int write_bitmap1(struct supertype *st, int fd)
 	int towrite, n;
 	struct align_fd afd;
 	unsigned int i = 0;
+
+	switch (update) {
+	case NameUpdate:
+		/* update cluster name */
+		if (st->cluster_name) {
+			memset((char *)bms->cluster_name, 0, sizeof(bms->cluster_name));
+			strncpy((char *)bms->cluster_name, st->cluster_name, 64);
+		}
+		break;
+	case NoUpdate:
+	default:
+		break;
+	}
 
 	init_afd(&afd, fd);
 

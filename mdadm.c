@@ -598,6 +598,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 		case O(CREATE, ClusterName):
+		case O(ASSEMBLE, ClusterName):
 			c.homecluster = optarg;
 			if (strlen(c.homecluster) > 64) {
 				pr_err("Cluster name too big.\n");
@@ -741,6 +742,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "homehost")==0)
 				continue;
+			if (strcmp(c.update, "home-cluster")==0)
+				continue;
 			if (strcmp(c.update, "devicesize")==0)
 				continue;
 			if (strcmp(c.update, "no-bitmap")==0)
@@ -780,7 +783,7 @@ int main(int argc, char *argv[])
 			}
 			fprintf(outf, "Valid --update options are:\n"
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
-		"     'summaries', 'homehost', 'byteorder', 'devicesize',\n"
+		"     'summaries', 'homehost', 'home-cluster', 'byteorder', 'devicesize',\n"
 		"     'no-bitmap', 'metadata', 'revert-reshape'\n"
 		"     'bbl', 'no-bbl'\n"
 				);

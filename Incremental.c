@@ -232,6 +232,11 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 				devname);
 		goto out;
 	}
+	/* Skip the clustered ones. This should be started by
+	 * clustering resource agents
+	 */
+	if (info.array.state & (1 << MD_SB_CLUSTERED))
+		goto out;
 
 	/* 3a/ if not, check for homehost match.  If no match, continue
 	 * but don't trust the 'name' in the array. Thus a 'random' minor

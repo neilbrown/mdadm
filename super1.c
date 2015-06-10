@@ -891,6 +891,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->array.state =
 		(__le64_to_cpu(sb->resync_offset) == MaxSector)
 		? 1 : 0;
+	if (__le32_to_cpu(bsb->nodes) > 1)
+		info->array.state |= (1 << MD_SB_CLUSTERED);
 
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);

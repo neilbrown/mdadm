@@ -698,12 +698,8 @@ static int copy_metadata1(struct supertype *st, int from, int to)
 				/* have the header, can calculate
 				 * correct bitmap bytes */
 				bitmap_super_t *bms;
-				int bits;
 				bms = (void*)buf;
-				bits = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
-				bytes = (bits+7) >> 3;
-				bytes += sizeof(bitmap_super_t);
-				bytes = ROUND_UP(bytes, 512);
+				bytes = calc_bitmap_size(bms, 512);
 				if (n > bytes)
 					n =  bytes;
 			}
@@ -2258,11 +2254,7 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 			memset(buf, 0xff, 4096);
 		memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
 
-		towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
-		towrite = (towrite+7) >> 3; /* bits to bytes */
-		towrite += sizeof(bitmap_super_t);
-		/* we need the bitmaps to be at 4k boundary */
-		towrite = ROUND_UP(towrite, 4096);
+		towrite = calc_bitmap_size(bms, 4096);
 		while (towrite > 0) {
 			n = towrite;
 			if (n > 4096)

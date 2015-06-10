@@ -196,6 +196,7 @@ int main(int argc, char *argv[])
 		case 'f':
 		case Fail:
 		case ReAdd: /* re-add */
+		case ClusterConfirm:
 			if (!mode) {
 				newmode = MANAGE;
 				shortopt = short_bitmap_options;
@@ -932,6 +933,9 @@ int main(int argc, char *argv[])
 					   * even though we will both fail and
 					   * remove the device */
 			devmode = 'f';
+			continue;
+		case O(MANAGE, ClusterConfirm):
+			devmode = 'c';
 			continue;
 		case O(MANAGE,Replace):
 			/* Mark these devices for replacement */

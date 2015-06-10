@@ -169,6 +169,7 @@ struct option long_options[] = {
     {"wait",	  0, 0,  WaitOpt},
     {"wait-clean", 0, 0, Waitclean },
     {"action",    1, 0, Action },
+    {"cluster-confirm", 0, 0, ClusterConfirm},
 
     /* For Detail/Examine */
     {"brief",	  0, 0, Brief},

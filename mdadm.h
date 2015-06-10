@@ -346,6 +346,7 @@ enum special_options {
 	Action,
 	Nodes,
 	ClusterName,
+	ClusterConfirm,
 };
 
 enum prefix_standard {
@@ -1281,6 +1282,7 @@ extern int parse_uuid(char *str, int uuid[4]);
 extern int parse_layout_10(char *layout);
 extern int parse_layout_faulty(char *layout);
 extern long parse_num(char *num);
+extern int parse_cluster_confirm_arg(char *inp, char **devname, int *slot);
 extern int check_ext2(int fd, char *name);
 extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);

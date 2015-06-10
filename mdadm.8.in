@@ -1406,6 +1406,15 @@ will avoid reading from these devices if possible.
 .BR \-\-readwrite
 Subsequent devices that are added or re\-added will have the 'write-mostly'
 flag cleared.
+.TP
+.BR \-\-cluster\-confirm
+Confirm the existence of the device. This is issued in response to an \-\-add
+request by a node in a cluster. When a node adds a device it sends a message
+to all nodes in the cluster to look for a device with a UUID. This translates
+to a udev notification with the UUID of the device to be added and the slot
+number. The receiving node must acknowledge this message
+with \-\-cluster\-confirm. Valid arguments are <slot>:<devicename> in case
+the device is found or <slot>:missing in case the device is not found.
 
 .P
 Each of these options requires that the first device listed is the array

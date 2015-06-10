@@ -694,7 +694,12 @@ and so is replicated on all devices.  If the word
 .B "none"
 is given with
 .B \-\-grow
-mode, then any bitmap that is present is removed.
+mode, then any bitmap that is present is removed. If the word
+.B "clustered"
+is given, the array is created for a clustered environment. One bitmap
+is created for each node as defined by the
+.B \-\-nodes
+parameter and are stored internally.
 
 To help catch typing errors, the filename must contain at least one
 slash ('/') if it is a real file (not 'internal' or 'none').

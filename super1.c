@@ -2177,6 +2177,7 @@ static int write_bitmap1(struct supertype *st, int fd)
 	void *buf;
 	int towrite, n;
 	struct align_fd afd;
+	unsigned int i = 0;
 
 	init_afd(&afd, fd);
 
@@ -2185,27 +2186,41 @@ static int write_bitmap1(struct supertype *st, int fd)
 	if (posix_memalign(&buf, 4096, 4096))
 		return -ENOMEM;
 
-	memset(buf, 0xff, 4096);
-	memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
-
-	towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
-	towrite = (towrite+7) >> 3; /* bits to bytes */
-	towrite += sizeof(bitmap_super_t);
-	towrite = ROUND_UP(towrite, 512);
-	while (towrite > 0) {
-		n = towrite;
-		if (n > 4096)
-			n = 4096;
-		n = awrite(&afd, buf, n);
-		if (n > 0)
-			towrite -= n;
+	do {
+		/* Only the bitmap[0] should resync
+		 * whole device on initial assembly
+		 */
+		if (i)
+			memset(buf, 0x00, 4096);
 		else
+			memset(buf, 0xff, 4096);
+		memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
+
+		towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
+		towrite = (towrite+7) >> 3; /* bits to bytes */
+		towrite += sizeof(bitmap_super_t);
+		/* we need the bitmaps to be at 4k boundary */
+		towrite = ROUND_UP(towrite, 4096);
+		while (towrite > 0) {
+			n = towrite;
+			if (n > 4096)
+				n = 4096;
+			n = awrite(&afd, buf, n);
+			if (n > 0)
+				towrite -= n;
+			else
+				break;
+			if (i)
+				memset(buf, 0x00, 4096);
+			else
+				memset(buf, 0xff, 4096);
+		}
+		fsync(fd);
+		if (towrite) {
+			rv = -2;
 			break;
-		memset(buf, 0xff, 4096);
-	}
-	fsync(fd);
-	if (towrite)
-		rv = -2;
+		}
+	} while (++i < __le32_to_cpu(bms->nodes));
 
 	free(buf);
 	return rv;

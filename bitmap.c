@@ -32,6 +32,8 @@ inline void sb_le_to_cpu(bitmap_super_t *sb)
 	sb->daemon_sleep = __le32_to_cpu(sb->daemon_sleep);
 	sb->sync_size = __le64_to_cpu(sb->sync_size);
 	sb->write_behind = __le32_to_cpu(sb->write_behind);
+	sb->nodes = __le32_to_cpu(sb->nodes);
+	sb->sectors_reserved = __le32_to_cpu(sb->sectors_reserved);
 }
 
 inline void sb_cpu_to_le(bitmap_super_t *sb)

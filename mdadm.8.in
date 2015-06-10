@@ -971,6 +971,12 @@ However for RAID0, it is not possible to add spares.  So to increase
 the number of devices in a RAID0, it is necessary to set the new
 number of devices, and to add the new devices, in the same command.
 
+.TP
+.BR \-\-nodes
+Only works when the array is for clustered environment. It specifies
+the maximum number of nodes in the cluster that will use this device
+simultaneously. If not specified, this defaults to 4.
+
 .SH For assemble:
 
 .TP

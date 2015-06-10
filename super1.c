@@ -2144,6 +2144,7 @@ add_internal_bitmap1(struct supertype *st,
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
+	bms->nodes = __cpu_to_le32(st->nodes);
 
 	*chunkp = chunk;
 	return 1;

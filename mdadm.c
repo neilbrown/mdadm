@@ -588,7 +588,14 @@ int main(int argc, char *argv[])
 			}
 			ident.raid_disks = s.raiddisks;
 			continue;
-
+		case O(CREATE, Nodes):
+			c.nodes = parse_num(optarg);
+			if (c.nodes <= 0) {
+				pr_err("invalid number for the number of cluster nodes: %s\n",
+					optarg);
+				exit(2);
+			}
+			continue;
 		case O(CREATE,'x'): /* number of spare (eXtra) disks */
 			if (s.sparedisks) {
 				pr_err("spare-devices set twice: %d and %s\n",
@@ -1097,6 +1104,15 @@ int main(int argc, char *argv[])
 				s.bitmap_file = optarg;
 				continue;
 			}
+			if (strcmp(optarg, "clustered")== 0) {
+				s.bitmap_file = optarg;
+				/* Set the default number of cluster nodes
+				 * to 4 if not already set by user
+				 */
+				if (c.nodes < 1)
+					c.nodes = 4;
+				continue;
+			}
 			/* probable typo */
 			pr_err("bitmap file must contain a '/', or be 'internal', or 'none'\n"
 				"       not '%s'\n", optarg);
@@ -1377,6 +1393,21 @@ int main(int argc, char *argv[])
 	case CREATE:
 		if (c.delay == 0)
 			c.delay = DEFAULT_BITMAP_DELAY;
+
+		if (c.nodes) {
+			if (!s.bitmap_file || strcmp(s.bitmap_file, "clustered") != 0) {
+				pr_err("--nodes argument only compatible with --bitmap=clustered\n");
+				rv = 1;
+				break;
+			}
+
+			if (s.level != 1) {
+				pr_err("--bitmap=clustered is currently supported with RAID mirror only\n");
+				rv = 1;
+				break;
+			}
+		}
+
 		if (s.write_behind && !s.bitmap_file) {
 			pr_err("write-behind mode requires a bitmap.\n");
 			rv = 1;

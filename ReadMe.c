@@ -140,6 +140,7 @@ struct option long_options[] = {
     {"homehost",  1, 0,  HomeHost},
     {"symlinks",  1, 0,  Symlinks},
     {"data-offset",1, 0, DataOffset},
+    {"nodes",1, 0, Nodes},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},

@@ -531,6 +531,7 @@ int Create(struct supertype *st, char *mddev,
 				st->ss->name);
 		warn = 1;
 	}
+	st->nodes = c->nodes;
 
 	if (warn) {
 		if (c->runstop!= 1) {

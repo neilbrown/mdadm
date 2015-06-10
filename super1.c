@@ -2054,7 +2054,7 @@ add_internal_bitmap1(struct supertype *st,
 				bbl_size = -bbl_offset;
 
 			if (!may_change || (room < 3*2 &&
-				  __le32_to_cpu(sb->max_dev) <= 384)) {
+					    __le32_to_cpu(sb->max_dev) <= 384)) {
 				room = 3*2;
 				offset = 1*2;
 				bbl_size = 0;
@@ -2145,6 +2145,9 @@ add_internal_bitmap1(struct supertype *st,
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 	bms->nodes = __cpu_to_le32(st->nodes);
+	if (st->cluster_name)
+		strncpy((char *)bms->cluster_name,
+			st->cluster_name, strlen(st->cluster_name));
 
 	*chunkp = chunk;
 	return 1;

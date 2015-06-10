@@ -345,6 +345,7 @@ enum special_options {
 	Restore,
 	Action,
 	Nodes,
+	ClusterName,
 };
 
 enum prefix_standard {
@@ -420,6 +421,7 @@ struct context {
 	int	invalid_backup;
 	char	*action;
 	int	nodes;
+	char	*homecluster;
 };
 
 struct shape {
@@ -1032,6 +1034,7 @@ struct supertype {
 	int devcnt;
 	int retry_soon;
 	int nodes;
+	char *cluster_name;
 
 	struct mdinfo *devs;
 
@@ -1308,6 +1311,7 @@ extern char *conf_get_mailaddr(void);
 extern char *conf_get_mailfrom(void);
 extern char *conf_get_program(void);
 extern char *conf_get_homehost(int *require_homehostp);
+extern char *conf_get_homecluster(void);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern void print_quoted(char *str);
@@ -1416,6 +1420,7 @@ extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
 
 extern int in_initrd(void);
+extern int get_cluster_name(char **name);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))

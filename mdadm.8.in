@@ -415,6 +415,12 @@ This functionality is currently only provided by
 and
 .BR \-\-monitor .
 
+.TP
+.B \-\-home\-cluster=
+specifies the cluster name for the md device. The md device can be assembled
+only on the cluster which matches the name specified. If this option is not
+provided, mdadm tries to detect the cluster name automatically.
+
 .SH For create, build, or grow:
 
 .TP

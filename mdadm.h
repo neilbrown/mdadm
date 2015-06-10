@@ -357,6 +357,7 @@ enum prefix_standard {
 enum bitmap_update {
     NoUpdate,
     NameUpdate,
+    NodeNumUpdate,
 };
 
 /* structures read from config file */

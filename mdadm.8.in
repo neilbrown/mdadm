@@ -1097,6 +1097,7 @@ argument given to this flag can be one of
 .BR summaries ,
 .BR uuid ,
 .BR name ,
+.BR nodes ,
 .BR homehost ,
 .BR home-cluster ,
 .BR resync ,
@@ -1149,6 +1150,13 @@ The
 .B name
 option will change the
 .I name
+of the array as stored in the superblock and bitmap. This option only
+works for clustered environment.
+
+The
+.B nodes
+option will change the
+.I nodes
 of the array as stored in the superblock.  This is only supported for
 version-1 superblocks.
 

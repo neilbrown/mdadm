@@ -134,6 +134,20 @@ struct misc_dev_info {
 					|MD_FEATURE_NEW_OFFSET		\
 					)
 
+/* return how many bytes are needed for bitmap, for cluster-md each node
+ * should have it's own bitmap */
+static unsigned int calc_bitmap_size(bitmap_super_t *bms, unsigned int boundary)
+{
+	unsigned long long bits, bytes;
+
+	bits = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
+	bytes = (bits+7) >> 3;
+	bytes += sizeof(bitmap_super_t);
+	bytes = ROUND_UP(bytes, boundary);
+
+	return bytes;
+}
+
 static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 {
 	unsigned int disk_csum, csum;
@@ -2190,6 +2204,7 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 	int towrite, n;
 	struct align_fd afd;
 	unsigned int i = 0;
+	unsigned long long total_bm_space, bm_space_per_node;
 
 	switch (update) {
 	case NameUpdate:
@@ -2198,6 +2213,28 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 			memset((char *)bms->cluster_name, 0, sizeof(bms->cluster_name));
 			strncpy((char *)bms->cluster_name, st->cluster_name, 64);
 		}
+		break;
+	case NodeNumUpdate:
+		/* cluster md only supports superblock 1.2 now */
+		if (st->minor_version != 2) {
+			pr_err("Warning: cluster md only works with superblock 1.2\n");
+			return -EINVAL;
+		}
+
+		/* Each node has an independent bitmap, it is necessary to calculate the
+		 * space is enough or not, first get how many bytes for the total bitmap */
+		bm_space_per_node = calc_bitmap_size(bms, 4096);
+
+		total_bm_space = 512 * (__le64_to_cpu(sb->data_offset) - __le64_to_cpu(sb->super_offset));
+		total_bm_space = total_bm_space - 4096; /* leave another 4k for superblock */
+
+		if (bm_space_per_node * st->nodes > total_bm_space) {
+			pr_err("Warning: The max num of nodes can't exceed %llu\n",
+				total_bm_space / bm_space_per_node);
+			return -ENOMEM;
+		}
+
+		bms->nodes = __cpu_to_le32(st->nodes);
 		break;
 	case NoUpdate:
 	default:

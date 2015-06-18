@@ -1109,7 +1109,11 @@ static int start_array(int mdfd,
 				/* might need to increase the size
 				 * of the stripe cache - default is 256
 				 */
-				if (256 < 4 * (content->array.chunk_size/4096)) {
+				int chunk_size = content->array.chunk_size;
+				if (content->reshape_active &&
+				    content->new_chunk > chunk_size)
+					chunk_size = content->new_chunk;
+				if (256 < 4 * ((content->array.chunk_size+4065)/4096)) {
 					struct mdinfo *sra = sysfs_read(mdfd, NULL, 0);
 					if (sra)
 						sysfs_set_num(sra, NULL,

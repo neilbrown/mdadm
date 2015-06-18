@@ -2540,7 +2540,7 @@ static void update_cache_size(char *container, struct mdinfo *sra,
 	/* make sure there is room for 'blocks' with a bit to spare */
 	if (cache < 16 + blocks / disks)
 		cache = 16 + blocks / disks;
-	cache /= (4096/512); /* Covert from sectors to pages */
+	cache /= (4096/512); /* Convert from sectors to pages */
 
 	if (sra->cache_size < cache)
 		subarray_set_num(container, sra, "stripe_cache_size",

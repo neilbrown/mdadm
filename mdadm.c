@@ -1675,7 +1675,7 @@ static int misc_scan(char devmode, struct context *c)
 
 			if (!name) {
 				pr_err("cannot find device file for %s\n",
-					e->dev);
+					e->devnm);
 				continue;
 			}
 			if (devmode == 'D')
@@ -1710,7 +1710,7 @@ static int stop_scan(int verbose)
 
 			if (!name) {
 				pr_err("cannot find device file for %s\n",
-					e->dev);
+					e->devnm);
 				continue;
 			}
 			mdfd = open_mddev(name, 1);

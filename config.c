@@ -167,10 +167,10 @@ struct mddev_dev *load_containers(void)
 		    !is_subarray(&ent->metadata_version[9])) {
 			d = xmalloc(sizeof(*d));
 			memset(d, 0, sizeof(*d));
-			me = map_by_devnm(&map, ent->dev);
+			me = map_by_devnm(&map, ent->devnm);
 			if (me)
 				d->devname = xstrdup(me->path);
-			else if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
+			else if (asprintf(&d->devname, "/dev/%s", ent->devnm) < 0) {
 				free(d);
 				continue;
 			}

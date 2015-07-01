@@ -5585,15 +5585,15 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 				for (vol = mdstat ; vol ; vol = vol->next) {
 					if ((vol->active > 0) &&
 					    vol->metadata_version &&
-					    is_container_member(vol, memb->dev)) {
+					    is_container_member(vol, memb->devnm)) {
 						found++;
 						count++;
 					}
 				}
 				if (*devlist && (found < dpa)) {
 					dv = xcalloc(1, sizeof(*dv));
-					dv->devname = xmalloc(strlen(memb->dev) + strlen("/dev/") + 1);
-					sprintf(dv->devname, "%s%s", "/dev/", memb->dev);
+					dv->devname = xmalloc(strlen(memb->devnm) + strlen("/dev/") + 1);
+					sprintf(dv->devname, "%s%s", "/dev/", memb->devnm);
 					dv->found = found;
 					dv->used = 0;
 					dv->next = *devlist;

@@ -395,7 +395,7 @@ int block_monitor(char *container, const int freeze)
 			sysfs_free(sra);
 			sra = sysfs_read(-1, e2->devnm, GET_VERSION);
 			if (unblock_subarray(sra, freeze))
-				pr_err("Failed to unfreeze %s\n", e2->dev);
+				pr_err("Failed to unfreeze %s\n", e2->devnm);
 		}
 
 		ping_monitor(container); /* cleared frozen */
@@ -431,7 +431,7 @@ void unblock_monitor(char *container, const int unfreeze)
 		if (sra->array.level > 0)
 			to_ping++;
 		if (unblock_subarray(sra, unfreeze))
-			pr_err("Failed to unfreeze %s\n", e->dev);
+			pr_err("Failed to unfreeze %s\n", e->devnm);
 	}
 	if (to_ping)
 		ping_monitor(container);

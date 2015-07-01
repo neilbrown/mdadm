@@ -316,7 +316,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 						       devnm)) {
 				if (verbose >= 0)
 					pr_err("Cannot stop container %s: member %s still active\n",
-					       devname, m->dev);
+					       devname, m->devnm);
 				free_mdstat(mds);
 				rv = 1;
 				goto out;

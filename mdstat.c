@@ -114,7 +114,6 @@ void free_mdstat(struct mdstat_ent *ms)
 {
 	while (ms) {
 		struct mdstat_ent *t;
-		free(ms->dev);
 		free(ms->level);
 		free(ms->pattern);
 		free(ms->metadata_version);
@@ -169,7 +168,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		strcpy(devnm, line);
 
 		ent = xmalloc(sizeof(*ent));
-		ent->dev = ent->level = ent->pattern= NULL;
+		ent->level = ent->pattern= NULL;
 		ent->next = NULL;
 		ent->percent = RESYNC_NONE;
 		ent->active = -1;
@@ -179,7 +178,6 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		ent->devcnt = 0;
 		ent->members = NULL;
 
-		ent->dev = xstrdup(line);
 		strcpy(ent->devnm, devnm);
 
 		for (w=dl_next(line); w!= line ; w=dl_next(w)) {

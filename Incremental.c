@@ -1726,7 +1726,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	mdfd = open_dev(ent->devnm);
 	if (mdfd < 0) {
 		if (verbose >= 0)
-			pr_err("Cannot open array %s!!\n", ent->dev);
+			pr_err("Cannot open array %s!!\n", ent->devnm);
 		free_mdstat(ent);
 		return 1;
 	}
@@ -1748,11 +1748,11 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		struct mdstat_ent *mdstat = mdstat_read(0, 0);
 		struct mdstat_ent *memb;
 		for (memb = mdstat ; memb ; memb = memb->next)
-			if (is_container_member(memb, ent->dev)) {
+			if (is_container_member(memb, ent->devnm)) {
 				int subfd = open_dev(memb->devnm);
 				if (subfd >= 0) {
 					rv |= Manage_subdevs(
-						memb->dev, subfd,
+						memb->devnm, subfd,
 						&devlist, verbose, 0,
 						NULL, 0);
 					close(subfd);
@@ -1760,7 +1760,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 			}
 		free_mdstat(mdstat);
 	} else
-		rv |= Manage_subdevs(ent->dev, mdfd, &devlist,
+		rv |= Manage_subdevs(ent->devnm, mdfd, &devlist,
 				    verbose, 0, NULL, 0);
 	if (rv & 2) {
 		/* Failed due to EBUSY, try to stop the array.
@@ -1768,7 +1768,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		 */
 		int devid = devnm2devid(ent->devnm);
 		run_udisks("--unmount", map_dev(major(devid),minor(devid), 0));
-		rv = Manage_stop(ent->dev, mdfd, verbose, 1);
+		rv = Manage_stop(ent->devnm, mdfd, verbose, 1);
 		if (rv)
 			/* At least we can try to trigger a 'remove' */
 			sysfs_uevent(&mdi, "remove");
@@ -1778,7 +1778,7 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 		}
 	} else {
 		devlist.disposition = 'r';
-		rv = Manage_subdevs(ent->dev, mdfd, &devlist,
+		rv = Manage_subdevs(ent->devnm, mdfd, &devlist,
 				    verbose, 0, NULL, 0);
 	}
 	close(mdfd);

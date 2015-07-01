@@ -453,7 +453,6 @@ typedef struct mapping {
 } mapping_t;
 
 struct mdstat_ent {
-	char		*dev;
 	char		devnm[32];
 	int		active;
 	char		*level;

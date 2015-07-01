@@ -2196,11 +2196,11 @@ option.  Currently only
 .B name
 is supported.
 
-The 
+The
 .B name
 option updates the subarray name in the metadata, it may not affect the
 device node name or the device node symlink until the subarray is
-re\-assembled.  If updating 
+re\-assembled.  If updating
 .B name
 would change the UUID of an active subarray this operation is blocked,
 and the command will end in an error.

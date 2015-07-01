@@ -166,7 +166,7 @@ sync_action
        monitor.
     8/ mdadm::Grow_reshape() calls ->manage_reshape to oversee the
        rest of the reshape.
-       
+
     9/ mdadm::<format>->manage_reshape(): saves data that will be overwritten by
        the kernel to either the backup file or the metadata specific location,
        advances sync_max, waits for reshape, ping mdmon, repeat.
@@ -194,7 +194,7 @@ sync_action
 	   kernel-managed-metadata this protection is provided by
 	   ->reshape_safe, but that does not protect us in the case
 	   of user-space-managed-metadata.
-	   
+
    10/ mdadm::<format>->manage_reshape(): Once reshape completes changes the raid
        level back to the nominal raid level (if necessary)
 
@@ -272,9 +272,9 @@ sync_action
        ->set_array_state to record the the reshape is complete.
        For container-wide reshape, this happens once for each
        member array.
-     
-     
-   
+
+
+
 ...
 
 [1]: Linux kernel design patterns - part 3, Neil Brown http://lwn.net/Articles/336262/

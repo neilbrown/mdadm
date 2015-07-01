@@ -40,7 +40,7 @@ MULTIPATH (a set of different interfaces to the same device),
 and FAULTY (a layer over a single device into which errors can be injected).
 
 .SS MD METADATA
-Each device in an array may have some 
+Each device in an array may have some
 .I metadata
 stored in the device.  This metadata is sometimes called a
 .BR superblock .
@@ -176,7 +176,7 @@ device is rounded down to a multiple of this chunksize.
 A RAID0 array (which has zero redundancy) is also known as a
 striped array.
 A RAID0 array is configured at creation with a
-.B "Chunk Size" 
+.B "Chunk Size"
 which must be a power of two (prior to Linux 2.6.31), and at least 4
 kibibytes.
 
@@ -1024,7 +1024,7 @@ number of times MD will service a full-stripe-write before servicing a
 stripe that requires some "prereading".  For fairness this defaults to
 1.  Valid values are 0 to stripe_cache_size.  Setting this to 0
 maximizes sequential-write throughput at the cost of fairness to threads
-doing small or random writes.  
+doing small or random writes.
 
 .SS KERNEL PARAMETERS
 

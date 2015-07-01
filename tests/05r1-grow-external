@@ -21,7 +21,7 @@ dirty4=`mdadm -X $bmf | sed -n -e 's/.*Bitmap.* \([0-9]*\) dirty.*/\1/p'`
 
 #echo $dirty1 $dirty2 $dirty3 $dirty4
 if [ $dirty2 -ne 0 -o $dirty4 -ne 0 -o $dirty3 -lt 400 ]
-then 
+then
    echo bad dirty counts
    exit 1
 fi

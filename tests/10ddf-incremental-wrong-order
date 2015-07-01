@@ -52,11 +52,11 @@ fi
 
 #[ -f /var/tmp/mdmon.log ] && cat /var/tmp/mdmon.log
 
-# Now reassemble 
+# Now reassemble
 # Note that we add the previously missing disks first.
 # $dev10 should have a higher seq number than $dev8
 for d in $dev8 $dev9 $dev10 $dev11; do
-    mdadm -I $d  
+    mdadm -I $d
 done
 
 mdadm -IRs || true

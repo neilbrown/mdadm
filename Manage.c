@@ -235,7 +235,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		container[0] = 0;
 	close(fd);
 	count = 5;
-	while (((fd = ((devnm[0] == '/')
+	while (((fd = ((devname[0] == '/')
 		       ?open(devname, O_RDONLY|O_EXCL)
 		       :open_dev_flags(devnm, O_RDONLY|O_EXCL))) < 0
 		|| strcmp(fd2devnm(fd), devnm) != 0)

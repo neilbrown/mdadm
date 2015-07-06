@@ -490,7 +490,7 @@ int sysfs_fd_get_ll(int fd, unsigned long long *val)
 
 	lseek(fd, 0, 0);
 	n = read(fd, buf, sizeof(buf));
-	if (n <= 0)
+	if (n <= 0 || n == sizeof(buf))
 		return -2;
 	buf[n] = 0;
 	*val = strtoull(buf, &ep, 0);
@@ -526,7 +526,7 @@ int sysfs_fd_get_two(int fd, unsigned long long *v1, unsigned long long *v2)
 
 	lseek(fd, 0, 0);
 	n = read(fd, buf, sizeof(buf));
-	if (n <= 0)
+	if (n <= 0 || n == sizeof(buf))
 		return -2;
 	buf[n] = 0;
 	*v1 = strtoull(buf, &ep, 0);
@@ -562,7 +562,7 @@ int sysfs_fd_get_str(int fd, char *val, int size)
 
 	lseek(fd, 0, 0);
 	n = read(fd, val, size);
-	if (n <= 0)
+	if (n <= 0 || n == size)
 		return -1;
 	val[n] = 0;
 	return n;
@@ -715,7 +715,7 @@ int sysfs_disk_to_sg(int fd)
 	struct stat st;
 	char path[256];
 	char sg_path[256];
-	char sg_major_minor[8];
+	char sg_major_minor[10];
 	char *c;
 	DIR *dir;
 	struct dirent *de;
@@ -750,7 +750,7 @@ int sysfs_disk_to_sg(int fd)
 
 	rv = read(fd, sg_major_minor, sizeof(sg_major_minor));
 	close(fd);
-	if (rv < 0)
+	if (rv < 0 || rv == sizeof(sg_major_minor))
 		return -1;
 	else
 		sg_major_minor[rv - 1] = '\0';

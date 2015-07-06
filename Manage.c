@@ -400,6 +400,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		delay = 3000;
 		scfd = sysfs_open(mdi->sys_name, NULL, "sync_completed");
 		while (scfd >= 0 && delay > 0 && old_sync_max > 0) {
+			unsigned long long max_completed;
 			sysfs_get_ll(mdi, NULL, "reshape_position", &curr);
 			sysfs_fd_get_str(scfd, buf, sizeof(buf));
 			if (strncmp(buf, "none", 4) == 0) {
@@ -413,7 +414,10 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 					break;
 			}
 
-			if (sysfs_fd_get_ll(scfd, &completed) == 0 &&
+			if (sysfs_fd_get_two(scfd, &completed,
+					     &max_completed) == 2 &&
+			    /* 'completed' sometimes reads as max-uulong */
+			    completed < max_completed &&
 			    (completed > sync_max ||
 			     (completed == sync_max && curr != position))) {
 				while (completed > sync_max) {

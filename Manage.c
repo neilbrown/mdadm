@@ -216,9 +216,6 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		return 1;
 	}
 
-	/* If this is an mdmon managed array, just write 'inactive'
-	 * to the array state and let mdmon clear up.
-	 */
 	strcpy(devnm, fd2devnm(fd));
 	/* Get EXCL access first.  If this fails, then attempting
 	 * to stop is probably a bad idea.
@@ -242,6 +239,10 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 	       && container[0]
 	       && mdmon_running(container)
 	       && count) {
+		/* Can't open, so something might be wrong.  However it
+		 * is a container, so we might be racing with mdmon, so
+		 * retry for a bit.
+		 */
 		if (fd >= 0)
 			close(fd);
 		flush_mdmon(container);
@@ -255,6 +256,9 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 			       devname);
 		return 1;
 	}
+	/* If this is an mdmon managed array, just write 'inactive'
+	 * to the array state and let mdmon clear up.
+	 */
 	if (mdi &&
 	    mdi->array.level > 0 &&
 	    is_subarray(mdi->text_version)) {
@@ -262,7 +266,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		/* This is mdmon managed. */
 		close(fd);
 
-		/* As we have an O_EXCL open, any use of the device
+		/* As we had an O_EXCL open, any use of the device
 		 * which blocks STOP_ARRAY is probably a transient use,
 		 * so it is reasonable to retry for a while - 5 seconds.
 		 */
@@ -375,9 +379,20 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 			size &= ~(chunk1-1);
 			size &= ~(chunk2-1);
 			/* rd1 must be smaller */
+			/* Reshape may have progressed further backwards than
+			 * recorded, so target even further back (hence "-1")
+			 */
 			position = (position / sectors - 1) * sectors;
+			/* rd1 is always the conversion factor between 'sync'
+			 * position and 'reshape' position.
+			 * We read 1 "new" stripe worth of data from where-ever,
+			 * and when write out that full stripe.
+			 */
 			sync_max = size - position/rd1;
 		} else {
+			/* Reshape will very likely be beyond position, and it may
+			 * be too late to stop at '+1', so aim for '+2'
+			 */
 			position = (position / sectors + 2) * sectors;
 			sync_max = position/rd1;
 		}

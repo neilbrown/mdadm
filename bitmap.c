@@ -342,7 +342,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 		       100.0 * info->dirty_bits / (info->total_bits?:1));
 	} else {
 		printf("   Cluster nodes : %d\n", sb->nodes);
-		printf("    Cluster name : %64s\n", sb->cluster_name);
+		printf("    Cluster name : %-64s\n", sb->cluster_name);
 		for (i = 0; i < (int)sb->nodes; i++) {
 			if (i) {
 				free(info);

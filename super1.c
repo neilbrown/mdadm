@@ -305,7 +305,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 		printf("  (local to host %s)", homehost);
 	printf("\n");
 	if (bms->nodes > 0)
-		printf("Cluster Name : %s", bms->cluster_name);
+		printf("   Cluster Name : %-64s\n", bms->cluster_name);
 	atime = __le64_to_cpu(sb->ctime) & 0xFFFFFFFFFFULL;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, __le32_to_cpu(sb->level));
@@ -763,7 +763,7 @@ static void detail_super1(struct supertype *st, char *homehost)
 	    strncmp(sb->set_name, homehost, l) == 0)
 		printf("  (local to host %s)", homehost);
 	if (bms->nodes > 0)
-	    printf("Cluster Name : %64s", bms->cluster_name);
+	    printf("\n   Cluster Name : %-64s", bms->cluster_name);
 	printf("\n           UUID : ");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");

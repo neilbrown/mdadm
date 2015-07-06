@@ -1336,7 +1336,7 @@ int Manage_subdevs(char *devname, int fd,
 			rv = parse_cluster_confirm_arg(dv->devname,
 						       &dv->devname,
 						       &raid_slot);
-			if (!rv) {
+			if (rv) {
 				pr_err("Could not get the devname of cluster\n");
 				goto abort;
 			}

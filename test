@@ -304,6 +304,8 @@ do_test() {
     else
       log=log
       cat $targetdir/stderr >> $targetdir/log
+      echo "=======================dmesg=================" >> $targetdir/log
+      dmesg | tail -n 200 >> $targetdir/log
       if [ $exitonerror == 0 ]; then
 	  log=log-`basename $_script`
 	  mv $targetdir/log $targetdir/$log

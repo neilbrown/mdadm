@@ -99,6 +99,7 @@ do_setup() {
   # immediately
   while grep loop /proc/partitions > /dev/null 2>&1
   do
+    mdadm -Ss
     losetup -d /dev/loop[0-9]* 2> /dev/null
     sleep 1
   done

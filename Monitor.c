@@ -993,6 +993,7 @@ int Wait(char *dev)
 	struct stat stb;
 	char devnm[32];
 	int rv = 1;
+	int frozen_remaining = 3;
 
 	if (stat(dev, &stb) != 0) {
 		pr_err("Cannot find %s: %s\n", dev,
@@ -1009,7 +1010,7 @@ int Wait(char *dev)
 			if (strcmp(e->devnm, devnm) == 0)
 				break;
 
-		if (e->percent == RESYNC_NONE) {
+		if (e && e->percent == RESYNC_NONE) {
 			/* We could be in the brief pause before something
 			 * starts. /proc/mdstat doesn't show that, but
 			 * sync_action does.
@@ -1019,8 +1020,15 @@ int Wait(char *dev)
 			sysfs_init(&mdi, -1, devnm);
 			if (sysfs_get_str(&mdi, NULL, "sync_action",
 					  buf, 20) > 0 &&
-			    strcmp(buf,"idle\n") != 0)
+			    strcmp(buf,"idle\n") != 0) {
 				e->percent = RESYNC_UNKNOWN;
+				if (strcmp(buf, "frozen\n") == 0) {
+					if (frozen_remaining == 0)
+						e->percent = RESYNC_NONE;
+					else
+						frozen_remaining -= 1;
+				}
+			}
 		}
 		if (!e || e->percent == RESYNC_NONE) {
 			if (e && e->metadata_version &&

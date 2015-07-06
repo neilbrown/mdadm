@@ -344,9 +344,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 	    sysfs_attribute_available(mdi, NULL, "reshape_direction") &&
 	    sysfs_get_str(mdi, NULL, "sync_action", buf, 20) > 0 &&
 	    strcmp(buf, "reshape\n") == 0 &&
-	    sysfs_get_two(mdi, NULL, "raid_disks", &rd1, &rd2) == 2 &&
-	    sysfs_set_str(mdi, NULL, "sync_action", "frozen") == 0) {
-		/* Array is frozen */
+	    sysfs_get_two(mdi, NULL, "raid_disks", &rd1, &rd2) == 2) {
 		unsigned long long position, curr;
 		unsigned long long chunk1, chunk2;
 		unsigned long long rddiv, chunkdiv;
@@ -357,12 +355,28 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		int delay;
 		int scfd;
 
+		delay = 40;
+		while (rd1 > rd2 && delay > 0 &&
+		       sysfs_get_ll(mdi, NULL, "sync_max", &old_sync_max) == 0) {
+			/* must be in the critical section - wait a bit */
+			delay -= 1;
+			usleep(100000);
+		}
+
+		if (sysfs_set_str(mdi, NULL, "sync_action", "frozen") != 0)
+			goto done;
+		/* Array is frozen */
+
 		rd1 -= mdi->array.level == 6 ? 2 : 1;
 		rd2 -= mdi->array.level == 6 ? 2 : 1;
 		sysfs_get_str(mdi, NULL, "reshape_direction", buf, sizeof(buf));
 		if (strncmp(buf, "back", 4) == 0)
 			backwards = 1;
-		sysfs_get_ll(mdi, NULL, "reshape_position", &position);
+		if (sysfs_get_ll(mdi, NULL, "reshape_position", &position) != 0) {
+			/* reshape must have finished now */
+			sysfs_set_str(mdi, NULL, "sync_action", "idle");
+			goto done;
+		}
 		sysfs_get_two(mdi, NULL, "chunk_size", &chunk1, &chunk2);
 		chunk1 /= 512;
 		chunk2 /= 512;
@@ -456,6 +470,7 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 			close(scfd);
 
 	}
+done:
 
 	/* As we have an O_EXCL open, any use of the device
 	 * which blocks STOP_ARRAY is probably a transient use,

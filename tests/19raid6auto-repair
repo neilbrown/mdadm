@@ -39,5 +39,3 @@ cmp -s -n $array_data_size_in_b $md0 /tmp/RandFile || { echo cmp failed ; exit 2
 
 mdadm -S $md0
 udevadm settle
-blockdev --flushbufs $md0 $devs; sync
-echo 3 > /proc/sys/vm/drop_caches

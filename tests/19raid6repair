@@ -42,6 +42,6 @@ for failure in "$dev3 3 3 2" "$dev3 3 2 3" "$dev3 3 2 1" "$dev3 3 2 0" "$dev4 3 
 
 	mdadm -S $md0
 	udevadm settle
-	blockdev --flushbufs $devs; sync
+	sync
 	echo 3 > /proc/sys/vm/drop_caches
 done

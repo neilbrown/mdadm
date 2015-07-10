@@ -308,9 +308,9 @@ do_test() {
       dmesg | tail -n 200 >> $targetdir/log
       if [ $exitonerror == 0 ]; then
 	  log=log-`basename $_script`
-	  mv $targetdir/log $targetdir/$log
+	  mv $targetdir/log $logdir/$log
       fi
-      echo "FAILED - see $targetdir/$log for details"
+      echo "FAILED - see $logdir/$log for details"
       _fail=1
     fi
     if [ "$savelogs" == "1" ]; then
@@ -362,12 +362,6 @@ parse_args() {
       ;;
     --save-logs)
       savelogs=1
-      if [ ! -d $logdir ] ; then
-        mkdir $logdir
-        if [ $? -ne 0 ] ; then
-	  exit 1;
-	fi
-      fi
       ;;
     --keep-going | --no-error)
       exitonerror=0
@@ -403,9 +397,11 @@ parse_args() {
 done
 }
 
+logdir=$targetdir
 parse_args $@
 
 do_setup
+mkdir -p $logdir
 
 if [ "$savelogs" == "1" ]; then
   echo "Saving logs to $logdir"

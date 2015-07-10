@@ -395,12 +395,13 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		raid6_stats(disk, results, raid_disks, chunk_size);
 
 		for(j = 0; j < (chunk_size >> CHECK_PAGE_BITS); j++) {
+			int role = disk[j];
 			if(disk[j] >= -2) {
 				disk[j] = geo_map(disk[j], start, raid_disks, level, layout);
 			}
 			if(disk[j] >= 0) {
-				printf("Error detected at stripe %llu, page %d: possible failed disk slot: %d --> %s\n",
-					start, j, disk[j], name[disk[j]]);
+				printf("Error detected at stripe %llu, page %d: possible failed disk slot %d: %d --> %s\n",
+				       start, j, role, disk[j], name[disk[j]]);
 			}
 			if(disk[j] == -65535) {
 				printf("Error detected at stripe %llu, page %d: disk slot unknown\n", start, j);

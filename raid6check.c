@@ -338,7 +338,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	sighandler_t *sig = xmalloc(3 * sizeof(sighandler_t));
 
 	int i, j;
-	int diskP, diskQ;
+	int diskP, diskQ, diskD;
 	int data_disks = raid_disks - 2;
 	int err = 0;
 
@@ -377,15 +377,24 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			}
 		}
 
+		diskP = geo_map(-1, start, raid_disks, level, layout);
+		diskQ = geo_map(-2, start, raid_disks, level, layout);
+		/* The syndrome-order if disks starts immediately after 'Q',
+		 * but skips P */
+		diskD = diskQ;
 		for (i = 0 ; i < data_disks ; i++) {
-			int disk = geo_map(i, start, raid_disks, level, layout);
-			blocks[i] = stripes[disk];
-			block_index_for_slot[disk] = i;
+			diskD = diskD + 1;
+			if (diskD > raid_disks)
+				diskD = 0;
+			if (diskD == diskP)
+				diskD += 1;
+			if (diskD > raid_disks)
+				diskD = 0;
+			blocks[i] = stripes[diskD];
+			block_index_for_slot[diskD] = i;
 		}
 
 		qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);
-		diskP = geo_map(-1, start, raid_disks, level, layout);
-		diskQ = geo_map(-2, start, raid_disks, level, layout);
 		blocks[data_disks] = stripes[diskP];
 		block_index_for_slot[diskP] = data_disks;
 		blocks[data_disks+1] = stripes[diskQ];

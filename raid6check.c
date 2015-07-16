@@ -40,6 +40,7 @@ enum repair {
 
 int geo_map(int block, unsigned long long stripe, int raid_disks,
 	    int level, int layout);
+int is_ddf(int layout);
 void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size);
 void make_tables(void);
 void ensure_zero_has_size(int chunk_size);
@@ -327,19 +328,21 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  enum repair repair, int failed_disk1, int failed_disk2)
 {
 	/* read the data and p and q blocks, and check we got them right */
+	int data_disks = raid_disks - 2;
+	int syndrome_disks = data_disks + is_ddf(layout) * 2;
 	char *stripe_buf = xmalloc(raid_disks * chunk_size);
 	char **stripes = xmalloc(raid_disks * sizeof(char*));
-	char **blocks = xmalloc(raid_disks * sizeof(char*));
+	char **blocks = xmalloc((syndrome_disks + 2) * sizeof(char*));
 	char **blocks_page = xmalloc(raid_disks * sizeof(char*));
-	int *block_index_for_slot = xmalloc(raid_disks * sizeof(int));
+	int *block_index_for_slot = xmalloc((syndrome_disks+2) * sizeof(int));
 	uint8_t *p = xmalloc(chunk_size);
 	uint8_t *q = xmalloc(chunk_size);
+	char *zero = xmalloc(chunk_size);
 	int *results = xmalloc(chunk_size * sizeof(int));
 	sighandler_t *sig = xmalloc(3 * sizeof(sighandler_t));
 
 	int i, j;
 	int diskP, diskQ, diskD;
-	int data_disks = raid_disks - 2;
 	int err = 0;
 
 	extern int tables_ready;
@@ -347,6 +350,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	if (!tables_ready)
 		make_tables();
 
+	memset(zero, 0, chunk_size);
 	for ( i = 0 ; i < raid_disks ; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 
@@ -379,25 +383,36 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 
 		diskP = geo_map(-1, start, raid_disks, level, layout);
 		diskQ = geo_map(-2, start, raid_disks, level, layout);
-		/* The syndrome-order if disks starts immediately after 'Q',
-		 * but skips P */
-		diskD = diskQ;
-		for (i = 0 ; i < data_disks ; i++) {
-			diskD = diskD + 1;
-			if (diskD > raid_disks)
-				diskD = 0;
-			if (diskD == diskP)
-				diskD += 1;
-			if (diskD > raid_disks)
-				diskD = 0;
-			blocks[i] = stripes[diskD];
-			block_index_for_slot[diskD] = i;
+		if (!is_ddf(layout)) {
+			/* The syndrome-order of disks starts immediately after 'Q',
+			 * but skips P */
+			diskD = diskQ;
+			for (i = 0 ; i < data_disks ; i++) {
+				diskD = diskD + 1;
+				if (diskD >= raid_disks)
+					diskD = 0;
+				if (diskD == diskP)
+					diskD += 1;
+				if (diskD >= raid_disks)
+					diskD = 0;
+				blocks[i] = stripes[diskD];
+				block_index_for_slot[diskD] = i;
+			}
+		} else {
+			/* The syndrome-order exactly follows raid-disk
+			 * numbers, with ZERO in place of P and Q
+			 */
+			for (i = 0 ; i < raid_disks; i++)
+				if (i == diskP || i == diskQ)
+					blocks[i] = zero;
+				else
+					blocks[i] = stripes[i];
 		}
 
-		qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);
-		blocks[data_disks] = stripes[diskP];
+		qsyndrome(p, q, (uint8_t**)blocks, syndrome_disks, chunk_size);
+		blocks[syndrome_disks] = stripes[diskP];
 		block_index_for_slot[diskP] = data_disks;
-		blocks[data_disks+1] = stripes[diskQ];
+		blocks[syndrome_disks+1] = stripes[diskQ];
 		block_index_for_slot[diskQ] = data_disks+1;
 
 		raid6_collect(chunk_size, p, q, stripes[diskP], stripes[diskQ], results);

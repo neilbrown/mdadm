@@ -194,7 +194,8 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 	}
 	return -1;
 }
-static int is_ddf(int layout)
+
+int is_ddf(int layout)
 {
 	switch (layout)
 	{
@@ -883,7 +884,7 @@ unsigned long long getnum(char *str, char **err)
 }
 
 char const Name[] = "test_restripe";
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	/* save/restore file raid_disks chunk_size level layout start length devices...
 	 */

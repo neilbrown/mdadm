@@ -1113,12 +1113,12 @@ static int start_array(int mdfd,
 				if (content->reshape_active &&
 				    content->new_chunk > chunk_size)
 					chunk_size = content->new_chunk;
-				if (256 < 4 * ((content->array.chunk_size+4065)/4096)) {
+				if (256 < 4 * ((chunk_size+4065)/4096)) {
 					struct mdinfo *sra = sysfs_read(mdfd, NULL, 0);
 					if (sra)
 						sysfs_set_num(sra, NULL,
 							      "stripe_cache_size",
-							      (4 * content->array.chunk_size / 4096) + 1);
+							      (4 * chunk_size / 4096) + 1);
 					sysfs_free(sra);
 				}
 			}

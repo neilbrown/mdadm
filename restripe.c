@@ -345,16 +345,22 @@ void ensure_zero_has_size(int chunk_size)
 /* Following was taken from linux/drivers/md/raid6recov.c */
 
 /* Recover two failed data blocks. */
+
 void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
-		       uint8_t **ptrs)
+		       uint8_t **ptrs, int neg_offset)
 {
 	uint8_t *p, *q, *dp, *dq;
 	uint8_t px, qx, db;
 	const uint8_t *pbmul;	/* P multiplier table for B data */
 	const uint8_t *qmul;		/* Q multiplier table (for both) */
 
-	p = ptrs[disks-2];
-	q = ptrs[disks-1];
+	if (neg_offset) {
+		p = ptrs[-1];
+		q = ptrs[-2];
+	} else {
+		p = ptrs[disks-2];
+		q = ptrs[disks-1];
+	}
 
 	/* Compute syndrome with zero for the missing data pages
 	   Use the dead data pages as temporary storage for
@@ -385,13 +391,19 @@ void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
 }
 
 /* Recover failure of one data block plus the P block */
-void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs)
+void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs,
+		       int neg_offset)
 {
 	uint8_t *p, *q, *dq;
 	const uint8_t *qmul;		/* Q multiplier table */
 
-	p = ptrs[disks-2];
-	q = ptrs[disks-1];
+	if (neg_offset) {
+		p = ptrs[-1];
+		q = ptrs[-2];
+	} else {
+		p = ptrs[disks-2];
+		q = ptrs[disks-1];
+	}
 
 	/* Compute syndrome with zero for the missing data page
 	   Use the dead data page as temporary storage for delta q */
@@ -637,7 +649,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 			if (fblock[1] == data_disks)
 				/* One data failed, and parity failed */
 				raid6_datap_recov(syndrome_disks+2, chunk_size,
-						  fdisk[0], bufs);
+						  fdisk[0], bufs, 0);
 			else {
 				if (fdisk[0] > fdisk[1]) {
 					int t = fdisk[0];
@@ -646,7 +658,7 @@ int save_stripes(int *source, unsigned long long *offsets,
 				}
 				/* Two data blocks failed, P,Q OK */
 				raid6_2data_recov(syndrome_disks+2, chunk_size,
-						  fdisk[0], fdisk[1], bufs);
+						  fdisk[0], fdisk[1], bufs, 0);
 			}
 		}
 		if (dest) {

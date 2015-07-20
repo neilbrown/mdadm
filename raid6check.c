@@ -312,7 +312,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	/* read the data and p and q blocks, and check we got them right */
 	int data_disks = raid_disks - 2;
 	int syndrome_disks = data_disks + is_ddf(layout) * 2;
-	char *stripe_buf = xmalloc(raid_disks * chunk_size);
+	char *stripe_buf;
 
 	/* stripes[] is indexed by raid_disk and holds chunks from each device */
 	char **stripes = xmalloc(raid_disks * sizeof(char*));
@@ -349,6 +349,7 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	if (!tables_ready)
 		make_tables();
 
+	posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size);
 	block_index_for_slot += 2;
 	blocks += 2;
 	blocks_page += 2;
@@ -675,7 +676,7 @@ int main(int argc, char *argv[])
 		if(disk_slot >= 0) {
 			disk_name[disk_slot] = map_dev(comp->disk.major, comp->disk.minor, 0);
 			offsets[disk_slot] = comp->data_offset * 512;
-			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR | O_SYNC);
+			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR | O_DIRECT);
 			if (fds[disk_slot] < 0) {
 				perror(disk_name[disk_slot]);
 				fprintf(stderr,"%s: cannot open %s\n", prg, disk_name[disk_slot]);

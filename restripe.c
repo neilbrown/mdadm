@@ -354,6 +354,12 @@ void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
 	const uint8_t *pbmul;	/* P multiplier table for B data */
 	const uint8_t *qmul;		/* Q multiplier table (for both) */
 
+	if (faila > failb) {
+		int t = faila;
+		faila = failb;
+		failb = t;
+	}
+
 	if (neg_offset) {
 		p = ptrs[-1];
 		q = ptrs[-2];
@@ -651,11 +657,6 @@ int save_stripes(int *source, unsigned long long *offsets,
 				raid6_datap_recov(syndrome_disks+2, chunk_size,
 						  fdisk[0], bufs, 0);
 			else {
-				if (fdisk[0] > fdisk[1]) {
-					int t = fdisk[0];
-					fdisk[0] = fdisk[1];
-					fdisk[1] = t;
-				}
 				/* Two data blocks failed, P,Q OK */
 				raid6_2data_recov(syndrome_disks+2, chunk_size,
 						  fdisk[0], fdisk[1], bufs, 0);

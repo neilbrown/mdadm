@@ -271,11 +271,6 @@ int manual_repair(int chunk_size, int syndrome_disks,
 					  failed_data, (uint8_t**)blocks, 1);
 		} else {
 			printf("Repairing D and D\n");
-			if (failed_slot1 > failed_slot2) {
-				int t = failed_slot1;
-				failed_slot1 = failed_slot2;
-				failed_slot2 = t;
-			}
 			raid6_2data_recov(syndrome_disks+2, chunk_size,
 					  failed_slot1, failed_slot2,
 					  (uint8_t**)blocks, 1);

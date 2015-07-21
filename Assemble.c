@@ -30,16 +30,21 @@ static int name_matches(char *found, char *required, char *homehost)
 	/* See if the name found matches the required name, possibly
 	 * prefixed with 'homehost'
 	 */
-	char fnd[33];
+	char *sep;
+	unsigned int l;
 
-	strncpy(fnd, found, 32);
-	fnd[32] = 0;
 	if (strcmp(found, required)==0)
 		return 1;
-	if (homehost) {
-		int l = strlen(homehost);
-		if (l < 32 && fnd[l] == ':' &&
-		    strcmp(fnd+l+1, required)==0)
+	sep = strchr(found, ':');
+	if (!sep)
+		return 0;
+	l = sep - found;
+	if (strncmp(found, "any:", 4) == 0 ||
+	    (homehost && strcmp(homehost, "any") == 0) ||
+	    (homehost && strlen(homehost) == l &&
+	     strncmp(found, homehost, l) == 0)) {
+		/* matching homehost */
+		if (strcmp(sep+1, required) == 0)
 			return 1;
 	}
 	return 0;

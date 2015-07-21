@@ -393,6 +393,13 @@ will be allowed to use 'local' names (i.e. not ending in '_' followed
 by a digit string).  See below under
 .BR "Auto Assembly" .
 
+The special name "\fBany\fP" can be used as a wild card.  If an array
+is created with
+.B --homehost=any
+then the name "\fBany\fP" will be stored in the array and it can be
+assembled in the same way on any host.  If an array is assembled with
+this option, then the homehost recorded on the array will be ignored.
+
 .TP
 .B \-\-prefer=
 When

@@ -256,7 +256,7 @@ testdev() {
    dvsize=$3
    chunk=$4
    if [ -z "$5" ]; then
-      mkfs -j $dev > /dev/null 2>&1 && fsck -fn $dev >&2
+      mkfs.ext3 -F -j $dev > /dev/null 2>&1 && fsck -fn $dev >&2
    fi
    dsize=$[dvsize/chunk]
    dsize=$[dsize*chunk]

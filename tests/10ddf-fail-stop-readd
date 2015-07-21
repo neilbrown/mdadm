@@ -11,7 +11,7 @@ mdadm -CR $member0 -l raid1 -n 2 $container
 #$dir/mdadm -CR $member0 -l raid1 -n 2 $container >/tmp/mdmon.txt 2>&1
 
 # Write to the array
-mke2fs $member0
+mke2fs -F $member0
 check wait
 
 set -- $(get_raiddisks $member0)
@@ -33,7 +33,7 @@ mdadm -I $good0
 mdadm -IRs || true
 
 # Write to the array
-mke2fs $member0
+mke2fs -F $member0
 
 # We re-add the disk now
 mdadm $container --add $fail0

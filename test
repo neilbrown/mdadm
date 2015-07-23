@@ -205,8 +205,16 @@ check() {
 
      nosync )
        sleep 0.5
+       # Since 4.2 we delay the close of recovery until there has been a chance for
+       # spares to be activated.  That means that a recovery that finds nothing
+       # to do can still take a little longer than expected.
+       # add an extra check: is sync_completed shows the end is reached, assume
+       # there is no recovery.
        if grep -s -E '(resync|recovery|reshape) *=' > /dev/null /proc/mdstat ; then
+	   incomplete=`grep / /sys/block/md*/md/sync_completed 2> /dev/null | sed '/^ *\([0-9]*\) \/ \1/d'`
+	   if [ -n "$incomplete" ]; then
 		echo >&2 "ERROR resync or recovery is happening!"; cat /proc/mdstat ; exit 1;
+	   fi
        fi
      ;;
 

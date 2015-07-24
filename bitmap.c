@@ -20,7 +20,7 @@
 
 #include "mdadm.h"
 
-inline void sb_le_to_cpu(bitmap_super_t *sb)
+static inline void sb_le_to_cpu(bitmap_super_t *sb)
 {
 	sb->magic = __le32_to_cpu(sb->magic);
 	sb->version = __le32_to_cpu(sb->version);
@@ -34,7 +34,7 @@ inline void sb_le_to_cpu(bitmap_super_t *sb)
 	sb->write_behind = __le32_to_cpu(sb->write_behind);
 }
 
-inline void sb_cpu_to_le(bitmap_super_t *sb)
+static inline void sb_cpu_to_le(bitmap_super_t *sb)
 {
 	sb_le_to_cpu(sb); /* these are really the same thing */
 }
@@ -74,7 +74,7 @@ typedef struct bitmap_info_s {
 } bitmap_info_t;
 
 /* count the dirty bits in the first num_bits of byte */
-inline int count_dirty_bits_byte(char byte, int num_bits)
+static inline int count_dirty_bits_byte(char byte, int num_bits)
 {
 	int num = 0;
 

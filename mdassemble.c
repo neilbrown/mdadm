@@ -26,6 +26,8 @@
 #include "mdadm.h"
 #include "md_p.h"
 
+char const Name[] = "mdassemble";
+
 #ifndef MDASSEMBLE_AUTO
 /* from mdopen.c */
 int open_mddev(char *dev, int report_errors/*unused*/)

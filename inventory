@@ -20,6 +20,7 @@ ANNOUNCE-3.2.6
 ANNOUNCE-3.3
 ANNOUNCE-3.3.1
 ANNOUNCE-3.3.2
+ANNOUNCE-3.3.3
 Assemble.c
 Build.c
 COPYING
@@ -234,6 +235,7 @@ tests/18imsm-r0_2d-takeover-r10_4d
 tests/18imsm-r10_4d-takeover-r0_2d
 tests/18imsm-r1_2d-takeover-r0_1d
 tests/19raid6auto-repair
+tests/19raid6check
 tests/19raid6repair
 tests/19repair-does-not-destroy
 tests/ToTest

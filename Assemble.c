@@ -25,7 +25,7 @@
 #include	"mdadm.h"
 #include	<ctype.h>
 
-static int name_matches(char *found, char *required, char *homehost)
+static int name_matches(char *found, char *required, char *homehost, int require_homehost)
 {
 	/* See if the name found matches the required name, possibly
 	 * prefixed with 'homehost'
@@ -41,6 +41,7 @@ static int name_matches(char *found, char *required, char *homehost)
 	l = sep - found;
 	if (strncmp(found, "any:", 4) == 0 ||
 	    (homehost && strcmp(homehost, "any") == 0) ||
+	    !require_homehost ||
 	    (homehost && strlen(homehost) == l &&
 	     strncmp(found, homehost, l) == 0)) {
 		/* matching homehost */
@@ -78,7 +79,7 @@ static int is_member_busy(char *metadata_version)
 static int ident_matches(struct mddev_ident *ident,
 			 struct mdinfo *content,
 			 struct supertype *tst,
-			 char *homehost,
+			 char *homehost, int require_homehost,
 			 char *update, char *devname)
 {
 
@@ -90,7 +91,7 @@ static int ident_matches(struct mddev_ident *ident,
 		return 0;
 	}
 	if (ident->name[0] && (!update || strcmp(update, "name")!= 0) &&
-	    name_matches(content->name, ident->name, homehost)==0) {
+	    name_matches(content->name, ident->name, homehost, require_homehost)==0) {
 		if (devname)
 			pr_err("%s has wrong name.\n", devname);
 		return 0;
@@ -330,7 +331,8 @@ static int select_devices(struct mddev_dev *devlist,
 			     content = content->next) {
 
 				if (!ident_matches(ident, content, tst,
-						   c->homehost, c->update,
+						   c->homehost, c->require_homehost,
+						   c->update,
 						   report_mismatch ? devname : NULL))
 					/* message already printed */;
 				else if (is_member_busy(content->text_version)) {
@@ -372,7 +374,8 @@ static int select_devices(struct mddev_dev *devlist,
 			tst->ss->getinfo_super(tst, content, NULL);
 
 			if (!ident_matches(ident, content, tst,
-					   c->homehost, c->update,
+					   c->homehost, c->require_homehost,
+					   c->update,
 					   report_mismatch ? devname : NULL))
 				goto loop;
 
@@ -396,7 +399,8 @@ static int select_devices(struct mddev_dev *devlist,
 					goto loop;
 				}
 				if (match && !ident_matches(match, content, tst,
-							    c->homehost, c->update,
+							    c->homehost, c->require_homehost,
+							    c->update,
 							    report_mismatch ? devname : NULL))
 					/* Array exists  in mdadm.conf but some
 					 * details don't match, so reject it

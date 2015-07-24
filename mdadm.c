@@ -1247,7 +1247,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (c.homehost == NULL)
+	if (c.homehost == NULL && c.require_homehost)
 		c.homehost = conf_get_homehost(&c.require_homehost);
 	if (c.homehost == NULL || strcasecmp(c.homehost, "<system>")==0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {

@@ -410,7 +410,9 @@ static int sysfs_open2(char *devnum, char *name, char *attr)
 		 * never needs too.
 		 */
 		char buf[200];
-		read(fd, buf, sizeof(buf));
+		if (read(fd, buf, sizeof(buf)) < 0)
+			/* pretend not to ignore return value */
+			return fd;
 	}
 	return fd;
 }

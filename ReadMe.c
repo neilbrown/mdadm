@@ -140,6 +140,8 @@ struct option long_options[] = {
     {"homehost",  1, 0,  HomeHost},
     {"symlinks",  1, 0,  Symlinks},
     {"data-offset",1, 0, DataOffset},
+    {"nodes",1, 0, Nodes}, /* also for --assemble */
+    {"home-cluster",1, 0, ClusterName},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -167,6 +169,7 @@ struct option long_options[] = {
     {"wait",	  0, 0,  WaitOpt},
     {"wait-clean", 0, 0, Waitclean },
     {"action",    1, 0, Action },
+    {"cluster-confirm", 0, 0, ClusterConfirm},
 
     /* For Detail/Examine */
     {"brief",	  0, 0, Brief},

@@ -34,6 +34,15 @@
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<signal.h>
+#include	<dlfcn.h>
+#include	<stdint.h>
+#ifdef NO_COROSYNC
+ typedef uint64_t cmap_handle_t;
+ #define CS_OK 1
+#else
+ #include	<corosync/cmap.h>
+#endif
+
 
 /*
  * following taken from linux/blkpg.h because they aren't
@@ -270,6 +279,16 @@ long parse_num(char *num)
 		return rv;
 }
 #endif
+
+int parse_cluster_confirm_arg(char *input, char **devname, int *slot)
+{
+	char *dev;
+	*slot = strtoul(input, &dev, 10);
+	if (dev == input || dev[0] != ':')
+		return -1;
+	*devname = dev+1;
+	return 0;
+}
 
 void remove_partitions(int fd)
 {
@@ -1975,4 +1994,52 @@ void reopen_mddev(int mdfd)
 	fd = open_dev(devnm);
 	if (fd >= 0 && fd != mdfd)
 		dup2(fd, mdfd);
+}
+
+int get_cluster_name(char **cluster_name)
+{
+        void *lib_handle = NULL;
+        int rv = -1;
+
+        cmap_handle_t handle;
+        static int (*initialize)(cmap_handle_t *handle);
+        static int (*get_string)(cmap_handle_t handle,
+				 const char *string,
+				 char **name);
+        static int (*finalize)(cmap_handle_t handle);
+
+
+        lib_handle = dlopen("libcmap.so.4", RTLD_NOW | RTLD_LOCAL);
+        if (!lib_handle)
+                return rv;
+
+        initialize = dlsym(lib_handle, "cmap_initialize");
+        if (!initialize)
+                goto out;
+
+        get_string = dlsym(lib_handle, "cmap_get_string");
+        if (!get_string)
+                goto out;
+
+        finalize = dlsym(lib_handle, "cmap_finalize");
+        if (!finalize)
+                goto out;
+
+        rv = initialize(&handle);
+        if (rv != CS_OK)
+                goto out;
+
+        rv = get_string(handle, "totem.cluster_name", cluster_name);
+        if (rv != CS_OK) {
+                free(*cluster_name);
+                rv = -1;
+                goto name_err;
+        }
+
+        rv = 0;
+name_err:
+        finalize(handle);
+out:
+        dlclose(lib_handle);
+        return rv;
 }

@@ -531,6 +531,8 @@ int Create(struct supertype *st, char *mddev,
 				st->ss->name);
 		warn = 1;
 	}
+	st->nodes = c->nodes;
+	st->cluster_name = c->homecluster;
 
 	if (warn) {
 		if (c->runstop!= 1) {
@@ -750,7 +752,8 @@ int Create(struct supertype *st, char *mddev,
 #endif
 	}
 
-	if (s->bitmap_file && strcmp(s->bitmap_file, "internal")==0) {
+	if (s->bitmap_file && (strcmp(s->bitmap_file, "internal")==0 ||
+			       strcmp(s->bitmap_file, "clustered")==0)) {
 		if ((vers%100) < 2) {
 			pr_err("internal bitmaps not supported by this kernel.\n");
 			goto abort_locked;

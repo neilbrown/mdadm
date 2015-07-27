@@ -344,11 +344,20 @@ enum special_options {
 	Dump,
 	Restore,
 	Action,
+	Nodes,
+	ClusterName,
+	ClusterConfirm,
 };
 
 enum prefix_standard {
 	JEDEC,
 	IEC
+};
+
+enum bitmap_update {
+    NoUpdate,
+    NameUpdate,
+    NodeNumUpdate,
 };
 
 /* structures read from config file */
@@ -418,6 +427,8 @@ struct context {
 	char	*backup_file;
 	int	invalid_backup;
 	char	*action;
+	int	nodes;
+	char	*homecluster;
 };
 
 struct shape {
@@ -844,7 +855,7 @@ extern struct superswitch {
 	/* if add_internal_bitmap succeeded for existing array, this
 	 * writes it out.
 	 */
-	int (*write_bitmap)(struct supertype *st, int fd);
+	int (*write_bitmap)(struct supertype *st, int fd, enum bitmap_update update);
 	/* Free the superblock and any other allocated data */
 	void (*free_super)(struct supertype *st);
 
@@ -1028,6 +1039,8 @@ struct supertype {
 			 */
 	int devcnt;
 	int retry_soon;
+	int nodes;
+	char *cluster_name;
 
 	struct mdinfo *devs;
 
@@ -1274,6 +1287,7 @@ extern int parse_uuid(char *str, int uuid[4]);
 extern int parse_layout_10(char *layout);
 extern int parse_layout_faulty(char *layout);
 extern long parse_num(char *num);
+extern int parse_cluster_confirm_arg(char *inp, char **devname, int *slot);
 extern int check_ext2(int fd, char *name);
 extern int check_reiser(int fd, char *name);
 extern int check_raid(int fd, char *name);
@@ -1304,6 +1318,7 @@ extern char *conf_get_mailaddr(void);
 extern char *conf_get_mailfrom(void);
 extern char *conf_get_program(void);
 extern char *conf_get_homehost(int *require_homehostp);
+extern char *conf_get_homecluster(void);
 extern char *conf_line(FILE *file);
 extern char *conf_word(FILE *file, int allow_key);
 extern void print_quoted(char *str);
@@ -1412,6 +1427,7 @@ extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
 
 extern int in_initrd(void);
+extern int get_cluster_name(char **name);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))

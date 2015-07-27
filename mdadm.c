@@ -196,6 +196,7 @@ int main(int argc, char *argv[])
 		case 'f':
 		case Fail:
 		case ReAdd: /* re-add */
+		case ClusterConfirm:
 			if (!mode) {
 				newmode = MANAGE;
 				shortopt = short_bitmap_options;
@@ -588,7 +589,23 @@ int main(int argc, char *argv[])
 			}
 			ident.raid_disks = s.raiddisks;
 			continue;
-
+		case O(ASSEMBLE, Nodes):
+		case O(CREATE, Nodes):
+			c.nodes = parse_num(optarg);
+			if (c.nodes <= 0) {
+				pr_err("invalid number for the number of cluster nodes: %s\n",
+					optarg);
+				exit(2);
+			}
+			continue;
+		case O(CREATE, ClusterName):
+		case O(ASSEMBLE, ClusterName):
+			c.homecluster = optarg;
+			if (strlen(c.homecluster) > 64) {
+				pr_err("Cluster name too big.\n");
+				exit(ERANGE);
+			}
+			continue;
 		case O(CREATE,'x'): /* number of spare (eXtra) disks */
 			if (s.sparedisks) {
 				pr_err("spare-devices set twice: %d and %s\n",
@@ -726,6 +743,10 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "homehost")==0)
 				continue;
+			if (strcmp(c.update, "home-cluster")==0)
+				continue;
+			if (strcmp(c.update, "nodes")==0)
+				continue;
 			if (strcmp(c.update, "devicesize")==0)
 				continue;
 			if (strcmp(c.update, "no-bitmap")==0)
@@ -764,8 +785,8 @@ int main(int argc, char *argv[])
 					Name, c.update);
 			}
 			fprintf(outf, "Valid --update options are:\n"
-		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'resync',\n"
-		"     'summaries', 'homehost', 'byteorder', 'devicesize',\n"
+		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'nodes', 'resync',\n"
+		"     'summaries', 'homehost', 'home-cluster', 'byteorder', 'devicesize',\n"
 		"     'no-bitmap', 'metadata', 'revert-reshape'\n"
 		"     'bbl', 'no-bbl'\n"
 				);
@@ -918,6 +939,9 @@ int main(int argc, char *argv[])
 					   * even though we will both fail and
 					   * remove the device */
 			devmode = 'f';
+			continue;
+		case O(MANAGE, ClusterConfirm):
+			devmode = 'c';
 			continue;
 		case O(MANAGE,Replace):
 			/* Mark these devices for replacement */
@@ -1097,6 +1121,15 @@ int main(int argc, char *argv[])
 				s.bitmap_file = optarg;
 				continue;
 			}
+			if (strcmp(optarg, "clustered")== 0) {
+				s.bitmap_file = optarg;
+				/* Set the default number of cluster nodes
+				 * to 4 if not already set by user
+				 */
+				if (c.nodes < 1)
+					c.nodes = 4;
+				continue;
+			}
 			/* probable typo */
 			pr_err("bitmap file must contain a '/', or be 'internal', or 'none'\n"
 				"       not '%s'\n", optarg);
@@ -1260,6 +1293,16 @@ int main(int argc, char *argv[])
 		c.require_homehost = 0;
 	}
 
+	if (c.homecluster == NULL && (c.nodes > 0)) {
+		c.homecluster = conf_get_homecluster();
+		if (c.homecluster == NULL)
+			rv = get_cluster_name(&c.homecluster);
+		if (rv != 0) {
+			pr_err("The md can't get cluster name\n");
+			exit(1);
+		}
+	}
+
 	if (c.backup_file && data_offset != INVALID_SECTORS) {
 		pr_err("--backup-file and --data-offset are incompatible\n");
 		exit(2);
@@ -1377,6 +1420,21 @@ int main(int argc, char *argv[])
 	case CREATE:
 		if (c.delay == 0)
 			c.delay = DEFAULT_BITMAP_DELAY;
+
+		if (c.nodes) {
+			if (!s.bitmap_file || strcmp(s.bitmap_file, "clustered") != 0) {
+				pr_err("--nodes argument only compatible with --bitmap=clustered\n");
+				rv = 1;
+				break;
+			}
+
+			if (s.level != 1) {
+				pr_err("--bitmap=clustered is currently supported with RAID mirror only\n");
+				rv = 1;
+				break;
+			}
+		}
+
 		if (s.write_behind && !s.bitmap_file) {
 			pr_err("write-behind mode requires a bitmap.\n");
 			rv = 1;

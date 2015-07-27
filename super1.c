@@ -134,6 +134,20 @@ struct misc_dev_info {
 					|MD_FEATURE_NEW_OFFSET		\
 					)
 
+/* return how many bytes are needed for bitmap, for cluster-md each node
+ * should have it's own bitmap */
+static unsigned int calc_bitmap_size(bitmap_super_t *bms, unsigned int boundary)
+{
+	unsigned long long bits, bytes;
+
+	bits = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
+	bytes = (bits+7) >> 3;
+	bytes += sizeof(bitmap_super_t);
+	bytes = ROUND_UP(bytes, boundary);
+
+	return bytes;
+}
+
 static unsigned int calc_sb_1_csum(struct mdp_superblock_1 * sb)
 {
 	unsigned int disk_csum, csum;
@@ -256,6 +270,7 @@ static int awrite(struct align_fd *afd, void *buf, int len)
 static void examine_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+MAX_SB_SIZE);
 	time_t atime;
 	unsigned int d;
 	int role;
@@ -289,6 +304,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 	    strncmp(sb->set_name, homehost, l) == 0)
 		printf("  (local to host %s)", homehost);
 	printf("\n");
+	if (bms->nodes > 0)
+		printf("Cluster Name : %s", bms->cluster_name);
 	atime = __le64_to_cpu(sb->ctime) & 0xFFFFFFFFFFULL;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
 	c=map_num(pers, __le32_to_cpu(sb->level));
@@ -681,12 +698,8 @@ static int copy_metadata1(struct supertype *st, int from, int to)
 				/* have the header, can calculate
 				 * correct bitmap bytes */
 				bitmap_super_t *bms;
-				int bits;
 				bms = (void*)buf;
-				bits = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
-				bytes = (bits+7) >> 3;
-				bytes += sizeof(bitmap_super_t);
-				bytes = ROUND_UP(bytes, 512);
+				bytes = calc_bitmap_size(bms, 512);
 				if (n > bytes)
 					n =  bytes;
 			}
@@ -740,6 +753,7 @@ err:
 static void detail_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int i;
 	int l = homehost ? strlen(homehost) : 0;
 
@@ -748,6 +762,8 @@ static void detail_super1(struct supertype *st, char *homehost)
 	    sb->set_name[l] == ':' &&
 	    strncmp(sb->set_name, homehost, l) == 0)
 		printf("  (local to host %s)", homehost);
+	if (bms->nodes > 0)
+	    printf("Cluster Name : %64s", bms->cluster_name);
 	printf("\n           UUID : ");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
@@ -891,6 +907,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->array.state =
 		(__le64_to_cpu(sb->resync_offset) == MaxSector)
 		? 1 : 0;
+	if (__le32_to_cpu(bsb->nodes) > 1)
+		info->array.state |= (1 << MD_SB_CLUSTERED);
 
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);
@@ -1689,7 +1707,7 @@ static int write_init_super1(struct supertype *st)
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);
 		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
-			rv = st->ss->write_bitmap(st, di->fd);
+			rv = st->ss->write_bitmap(st, di->fd, NoUpdate);
 		close(di->fd);
 		di->fd = -1;
 		if (rv)
@@ -2054,7 +2072,7 @@ add_internal_bitmap1(struct supertype *st,
 				bbl_size = -bbl_offset;
 
 			if (!may_change || (room < 3*2 &&
-				  __le32_to_cpu(sb->max_dev) <= 384)) {
+					    __le32_to_cpu(sb->max_dev) <= 384)) {
 				room = 3*2;
 				offset = 1*2;
 				bbl_size = 0;
@@ -2144,6 +2162,10 @@ add_internal_bitmap1(struct supertype *st,
 	bms->daemon_sleep = __cpu_to_le32(delay);
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
+	bms->nodes = __cpu_to_le32(st->nodes);
+	if (st->cluster_name)
+		strncpy((char *)bms->cluster_name,
+			st->cluster_name, strlen(st->cluster_name));
 
 	*chunkp = chunk;
 	return 1;
@@ -2169,7 +2191,7 @@ static void locate_bitmap1(struct supertype *st, int fd)
 	lseek64(fd, offset<<9, 0);
 }
 
-static int write_bitmap1(struct supertype *st, int fd)
+static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+MAX_SB_SIZE);
@@ -2177,6 +2199,43 @@ static int write_bitmap1(struct supertype *st, int fd)
 	void *buf;
 	int towrite, n;
 	struct align_fd afd;
+	unsigned int i = 0;
+	unsigned long long total_bm_space, bm_space_per_node;
+
+	switch (update) {
+	case NameUpdate:
+		/* update cluster name */
+		if (st->cluster_name) {
+			memset((char *)bms->cluster_name, 0, sizeof(bms->cluster_name));
+			strncpy((char *)bms->cluster_name, st->cluster_name, 64);
+		}
+		break;
+	case NodeNumUpdate:
+		/* cluster md only supports superblock 1.2 now */
+		if (st->minor_version != 2) {
+			pr_err("Warning: cluster md only works with superblock 1.2\n");
+			return -EINVAL;
+		}
+
+		/* Each node has an independent bitmap, it is necessary to calculate the
+		 * space is enough or not, first get how many bytes for the total bitmap */
+		bm_space_per_node = calc_bitmap_size(bms, 4096);
+
+		total_bm_space = 512 * (__le64_to_cpu(sb->data_offset) - __le64_to_cpu(sb->super_offset));
+		total_bm_space = total_bm_space - 4096; /* leave another 4k for superblock */
+
+		if (bm_space_per_node * st->nodes > total_bm_space) {
+			pr_err("Warning: The max num of nodes can't exceed %llu\n",
+				total_bm_space / bm_space_per_node);
+			return -ENOMEM;
+		}
+
+		bms->nodes = __cpu_to_le32(st->nodes);
+		break;
+	case NoUpdate:
+	default:
+		break;
+	}
 
 	init_afd(&afd, fd);
 
@@ -2185,27 +2244,37 @@ static int write_bitmap1(struct supertype *st, int fd)
 	if (posix_memalign(&buf, 4096, 4096))
 		return -ENOMEM;
 
-	memset(buf, 0xff, 4096);
-	memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
-
-	towrite = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
-	towrite = (towrite+7) >> 3; /* bits to bytes */
-	towrite += sizeof(bitmap_super_t);
-	towrite = ROUND_UP(towrite, 512);
-	while (towrite > 0) {
-		n = towrite;
-		if (n > 4096)
-			n = 4096;
-		n = awrite(&afd, buf, n);
-		if (n > 0)
-			towrite -= n;
+	do {
+		/* Only the bitmap[0] should resync
+		 * whole device on initial assembly
+		 */
+		if (i)
+			memset(buf, 0x00, 4096);
 		else
+			memset(buf, 0xff, 4096);
+		memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
+
+		towrite = calc_bitmap_size(bms, 4096);
+		while (towrite > 0) {
+			n = towrite;
+			if (n > 4096)
+				n = 4096;
+			n = awrite(&afd, buf, n);
+			if (n > 0)
+				towrite -= n;
+			else
+				break;
+			if (i)
+				memset(buf, 0x00, 4096);
+			else
+				memset(buf, 0xff, 4096);
+		}
+		fsync(fd);
+		if (towrite) {
+			rv = -2;
 			break;
-		memset(buf, 0xff, 4096);
-	}
-	fsync(fd);
-	if (towrite)
-		rv = -2;
+		}
+	} while (++i < __le32_to_cpu(bms->nodes));
 
 	free(buf);
 	return rv;

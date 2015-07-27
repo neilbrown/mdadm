@@ -78,6 +78,12 @@
 #define MD_DISK_ACTIVE		1 /* disk is running but may not be in sync */
 #define MD_DISK_SYNC		2 /* disk is in sync with the raid set */
 #define MD_DISK_REMOVED		3 /* disk is in sync with the raid set */
+#define MD_DISK_CLUSTER_ADD	4 /* Initiate a disk add across the cluster
+				   * For clustered enviroments only.
+				   */
+#define MD_DISK_CANDIDATE	5 /* disk is added as spare (local) until confirmed
+				   * For clustered enviroments only.
+				   */
 
 #define	MD_DISK_WRITEMOSTLY	9 /* disk is "write-mostly" is RAID1 config.
 				   * read requests will only be sent here in
@@ -106,6 +112,7 @@ typedef struct mdp_device_descriptor_s {
 #define MD_SB_BLOCK_CONTAINER_RESHAPE 3 /* block container wide reshapes */
 #define MD_SB_BLOCK_VOLUME	4 /* block activation of array, other arrays
 				   * in container can be activated */
+#define MD_SB_CLUSTERED		5 /* MD is clustered  */
 #define	MD_SB_BITMAP_PRESENT	8 /* bitmap may be present nearby */
 
 typedef struct mdp_superblock_s {

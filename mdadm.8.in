@@ -422,6 +422,12 @@ This functionality is currently only provided by
 and
 .BR \-\-monitor .
 
+.TP
+.B \-\-home\-cluster=
+specifies the cluster name for the md device. The md device can be assembled
+only on the cluster which matches the name specified. If this option is not
+provided, mdadm tries to detect the cluster name automatically.
+
 .SH For create, build, or grow:
 
 .TP
@@ -701,7 +707,12 @@ and so is replicated on all devices.  If the word
 .B "none"
 is given with
 .B \-\-grow
-mode, then any bitmap that is present is removed.
+mode, then any bitmap that is present is removed. If the word
+.B "clustered"
+is given, the array is created for a clustered environment. One bitmap
+is created for each node as defined by the
+.B \-\-nodes
+parameter and are stored internally.
 
 To help catch typing errors, the filename must contain at least one
 slash ('/') if it is a real file (not 'internal' or 'none').
@@ -973,6 +984,12 @@ However for RAID0, it is not possible to add spares.  So to increase
 the number of devices in a RAID0, it is necessary to set the new
 number of devices, and to add the new devices, in the same command.
 
+.TP
+.BR \-\-nodes
+Only works when the array is for clustered environment. It specifies
+the maximum number of nodes in the cluster that will use this device
+simultaneously. If not specified, this defaults to 4.
+
 .SH For assemble:
 
 .TP
@@ -1087,7 +1104,9 @@ argument given to this flag can be one of
 .BR summaries ,
 .BR uuid ,
 .BR name ,
+.BR nodes ,
 .BR homehost ,
+.BR home-cluster ,
 .BR resync ,
 .BR byteorder ,
 .BR devicesize ,
@@ -1138,6 +1157,13 @@ The
 .B name
 option will change the
 .I name
+of the array as stored in the superblock and bitmap. This option only
+works for clustered environment.
+
+The
+.B nodes
+option will change the
+.I nodes
 of the array as stored in the superblock.  This is only supported for
 version-1 superblocks.
 
@@ -1148,6 +1174,11 @@ option will change the
 as recorded in the superblock.  For version-0 superblocks, this is the
 same as updating the UUID.
 For version-1 superblocks, this involves updating the name.
+
+The
+.B home\-cluster
+option will change the cluster name as recorded in the superblock and
+bitmap. This option only works for clustered environment.
 
 The
 .B resync
@@ -1396,6 +1427,15 @@ will avoid reading from these devices if possible.
 .BR \-\-readwrite
 Subsequent devices that are added or re\-added will have the 'write-mostly'
 flag cleared.
+.TP
+.BR \-\-cluster\-confirm
+Confirm the existence of the device. This is issued in response to an \-\-add
+request by a node in a cluster. When a node adds a device it sends a message
+to all nodes in the cluster to look for a device with a UUID. This translates
+to a udev notification with the UUID of the device to be added and the slot
+number. The receiving node must acknowledge this message
+with \-\-cluster\-confirm. Valid arguments are <slot>:<devicename> in case
+the device is found or <slot>:missing in case the device is not found.
 
 .P
 Each of these options requires that the first device listed is the array

@@ -77,7 +77,7 @@ char DefaultAltConfFile[] = CONFFILE2;
 char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
-		Homehost, AutoMode, Policy, PartPolicy, LTEnd };
+		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -86,6 +86,7 @@ char *keywords[] = {
 	[Program]  = "program",
 	[CreateDev]= "create",
 	[Homehost] = "homehost",
+	[HomeCluster] = "homecluster",
 	[AutoMode] = "auto",
 	[Policy]   = "policy",
 	[PartPolicy]="part-policy",
@@ -562,6 +563,21 @@ void homehostline(char *line)
 	}
 }
 
+static char *home_cluster = NULL;
+void homeclusterline(char *line)
+{
+	char *w;
+
+	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+		if (home_cluster == NULL) {
+			if (strcasecmp(w, "<none>")==0)
+				home_cluster = xstrdup("");
+			else
+				home_cluster = xstrdup(w);
+		}
+	}
+}
+
 char auto_yes[] = "yes";
 char auto_no[] = "no";
 char auto_homehost[] = "homehost";
@@ -724,6 +740,9 @@ void conf_file(FILE *f)
 		case Homehost:
 			homehostline(line);
 			break;
+		case HomeCluster:
+			homeclusterline(line);
+			break;
 		case AutoMode:
 			autoline(line);
 			break;
@@ -882,6 +901,12 @@ char *conf_get_homehost(int *require_homehostp)
 	if (require_homehostp)
 		*require_homehostp = require_homehost;
 	return home_host;
+}
+
+char *conf_get_homecluster(void)
+{
+	load_conffile();
+	return home_cluster;
 }
 
 struct createinfo *conf_get_create_info(void)

@@ -635,7 +635,13 @@ static int load_devices(struct devs *devices, char *devmap,
 
 			if (strcmp(c->update, "byteorder") == 0)
 				err = 0;
-			else
+			else if (strcmp(c->update, "home-cluster") == 0) {
+				tst->cluster_name = c->homecluster;
+				tst->ss->write_bitmap(tst, dfd, NameUpdate);
+			} else if (strcmp(c->update, "nodes") == 0) {
+				tst->nodes = c->nodes;
+				err = tst->ss->write_bitmap(tst, dfd, NodeNumUpdate);
+			} else
 				err = tst->ss->update_super(tst, content, c->update,
 							    devname, c->verbose,
 							    ident->uuid_set,

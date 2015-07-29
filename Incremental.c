@@ -130,8 +130,6 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	if (must_be_container(dfd)) {
 		if (!st)
 			st = super_by_fd(dfd, NULL);
-		if (st)
-			st->ignore_hw_compat = 1;
 		if (st && st->ss->load_container)
 			rv = st->ss->load_container(st, dfd, NULL);
 
@@ -204,7 +202,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 			       NULL, c->verbose);
 		goto out;
 	}
-	st->ignore_hw_compat = 1;
+	st->ignore_hw_compat = 0;
+
 	if (st->ss->compare_super == NULL ||
 	    st->ss->load_super(st, dfd, NULL)) {
 		if (c->verbose >= 0)
@@ -1123,6 +1122,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		if (st2 == NULL ||
 		    st2->ss->load_super(st2, fd, NULL) < 0)
 			goto next;
+		st2->ignore_hw_compat = 0;
 
 		if (!st) {
 			/* Check domain policy again, this time referring to metadata */
@@ -1349,8 +1349,7 @@ restart:
 			struct supertype *st = super_by_fd(mdfd, NULL);
 			int ret = 0;
 			struct map_ent *map = NULL;
-			if (st)
-				st->ignore_hw_compat = 1;
+
 			if (st && st->ss->load_container)
 				ret = st->ss->load_container(st, mdfd, NULL);
 			close(mdfd);

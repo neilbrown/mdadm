@@ -1343,7 +1343,7 @@ try_again:
 		       mddev ? mddev : "further assembly");
 
 	content = &info;
-	if (st)
+	if (st && c->force)
 		st->ignore_hw_compat = 1;
 	num_devs = select_devices(devlist, ident, &st, &content, c,
 				  inargv, auto_assem);

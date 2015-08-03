@@ -1995,7 +1995,7 @@ void reopen_mddev(int mdfd)
 	if (fd >= 0 && fd != mdfd)
 		dup2(fd, mdfd);
 }
-
+#ifndef MDASSEMBLE
 int get_cluster_name(char **cluster_name)
 {
         void *lib_handle = NULL;
@@ -2043,3 +2043,4 @@ out:
         dlclose(lib_handle);
         return rv;
 }
+#endif

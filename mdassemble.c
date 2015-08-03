@@ -50,18 +50,6 @@ int create_mddev(char *dev, char *name, int autof/*unused*/, int trustworthy,
 	return open_mddev(dev, 0);
 }
 #endif
-int map_update(struct map_ent **mpp, char *devnm, char *metadata,
-	       int *uuid, char *path)
-{
-	return 0;
-}
-struct map_ent *map_by_name(struct map_ent **mpp, char *name)
-{
-	return NULL;
-}
-int map_lock(struct map_ent **melp){return 0;}
-void map_unlock(struct map_ent **melp){}
-struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4]){return NULL;}
 
 int rv;
 int mdfd = -1;

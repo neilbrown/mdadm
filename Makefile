@@ -149,7 +149,7 @@ STATICOBJS = pwgr.o
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c policy.c dlink.c util.c \
 	maps.c lib.c xmalloc.c \
 	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
-	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c
+	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c mapfile.c
 ASSEMBLE_AUTO_SRCS := mdopen.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO

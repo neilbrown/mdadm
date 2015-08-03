@@ -250,7 +250,9 @@ static int select_devices(struct mddev_dev *devlist,
 					pr_err("no recogniseable superblock on %s\n",
 					       devname);
 				tmpdev->used = 2;
-			} else if (tst->ss->load_super(tst,dfd, NULL)) {
+			} else if ((tst->ignore_hw_compat = 0),
+				   tst->ss->load_super(tst, dfd,
+						       report_mismatch ? devname : NULL)) {
 				if (report_mismatch)
 					pr_err("no RAID superblock on %s\n",
 					       devname);

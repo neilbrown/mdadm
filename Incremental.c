@@ -205,7 +205,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	st->ignore_hw_compat = 0;
 
 	if (st->ss->compare_super == NULL ||
-	    st->ss->load_super(st, dfd, NULL)) {
+	    st->ss->load_super(st, dfd, c->verbose >= 0 ? devname : NULL)) {
 		if (c->verbose >= 0)
 			pr_err("no RAID superblock on %s.\n",
 				devname);

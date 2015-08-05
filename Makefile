@@ -119,6 +119,12 @@ ifndef UDEVDIR
  UDEVDIR = /lib/udev
 endif
 
+ifeq (,$(findstring s,$(MAKEFLAGS)))
+	ECHO=echo
+else
+	ECHO=:
+endif
+
 OBJS =  mdadm.o config.o policy.o mdstat.o  ReadMe.o util.o maps.o lib.o \
 	Manage.o Assemble.o Build.o \
 	Create.o Detail.o Examine.o Grow.o Monitor.o dlink.o Kill.o Query.o \
@@ -287,7 +293,7 @@ install-man: mdadm.8 md.4 mdadm.conf.5 mdmon.8
 install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules
 	@for file in 63-md-raid-arrays.rules 64-md-raid-assembly.rules ; \
 	do sed -e 's,BINDIR,$(BINDIR),g' udev-$${file#??-} > .install.tmp.1 && \
-	   echo $(INSTALL) -D -m 644 udev-$${file#??-} $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
+	   $(ECHO) $(INSTALL) -D -m 644 udev-$${file#??-} $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
 	   $(INSTALL) -D -m 644 .install.tmp.1 $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
 	   rm -f .install.tmp.1; \
 	done
@@ -296,13 +302,13 @@ install-systemd: systemd/mdmon@.service
 	@for file in mdmon@.service mdmonitor.service mdadm-last-resort@.timer \
 		mdadm-last-resort@.service mdadm-grow-continue@.service; \
 	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp.2 && \
-	   echo $(INSTALL) -D -m 644 systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
+	   $(ECHO) $(INSTALL) -D -m 644 systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
 	   $(INSTALL) -D -m 644 .install.tmp.2 $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \
 	   rm -f .install.tmp.2; \
 	done
 	@for file in mdadm.shutdown ; \
 	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp.3 && \
-	   echo $(INSTALL) -D -m 755  systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
+	   $(ECHO) $(INSTALL) -D -m 755  systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
 	   $(INSTALL) -D -m 755  .install.tmp.3 $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
 	   rm -f .install.tmp.3; \
 	done

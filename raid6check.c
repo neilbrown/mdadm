@@ -349,7 +349,8 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	if (!tables_ready)
 		make_tables();
 
-	posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size);
+	if (posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size) != 0)
+		exit(4);
 	block_index_for_slot += 2;
 	blocks += 2;
 	blocks_page += 2;

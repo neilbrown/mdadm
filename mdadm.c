@@ -1293,11 +1293,12 @@ int main(int argc, char *argv[])
 		c.require_homehost = 0;
 	}
 
+	rv = 0;
 	if (c.homecluster == NULL && (c.nodes > 0)) {
 		c.homecluster = conf_get_homecluster();
 		if (c.homecluster == NULL)
 			rv = get_cluster_name(&c.homecluster);
-		if (rv != 0) {
+		if (rv) {
 			pr_err("The md can't get cluster name\n");
 			exit(1);
 		}
@@ -1322,7 +1323,6 @@ int main(int argc, char *argv[])
 		/* --scan implied --brief unless -vv */
 		c.brief = 1;
 
-	rv = 0;
 	switch(mode) {
 	case MANAGE:
 		/* readonly, add/remove, readwrite, runstop */

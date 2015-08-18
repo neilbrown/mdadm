@@ -297,6 +297,9 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			"  between different architectures.  Consider upgrading the Linux kernel.\n");
 	}
 
+	if (s->bitmap_file && strcmp(s->bitmap_file, "clustered") == 0)
+		major = BITMAP_MAJOR_CLUSTERED;
+
 	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {
 		if (errno == ENOMEM)
 			pr_err("Memory allocation failure.\n");

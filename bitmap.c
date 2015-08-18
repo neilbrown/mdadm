@@ -287,7 +287,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	}
 	printf("         Version : %d\n", sb->version);
 	if (sb->version < BITMAP_MAJOR_LO ||
-	    sb->version > BITMAP_MAJOR_HI) {
+	    sb->version > BITMAP_MAJOR_CLUSTERED) {
 		pr_err("unknown bitmap version %d, either the bitmap file\n",
 		       sb->version);
 		pr_err("is corrupted or you need to upgrade your tools\n");

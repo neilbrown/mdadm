@@ -1409,8 +1409,9 @@ int main(int argc, char *argv[])
 		}
 
 		if (s.bitmap_file) {
-			if (strcmp(s.bitmap_file, "internal")==0) {
-				pr_err("'internal' bitmaps not supported with --build\n");
+			if (strcmp(s.bitmap_file, "internal")==0 ||
+			    strcmp(s.bitmap_file, "clustered") == 0) {
+				pr_err("'internal' and 'clustered' bitmaps not supported with --build\n");
 				rv |= 1;
 				break;
 			}

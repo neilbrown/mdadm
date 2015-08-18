@@ -125,6 +125,7 @@ struct misc_dev_info {
 					    * backwards anyway.
 					    */
 #define	MD_FEATURE_NEW_OFFSET		64 /* new_offset must be honoured */
+#define	MD_FEATURE_BITMAP_VERSIONED	256 /* bitmap version number checked properly */
 #define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
 					|MD_FEATURE_RECOVERY_OFFSET	\
 					|MD_FEATURE_RESHAPE_ACTIVE	\
@@ -132,6 +133,7 @@ struct misc_dev_info {
 					|MD_FEATURE_REPLACEMENT		\
 					|MD_FEATURE_RESHAPE_BACKWARDS	\
 					|MD_FEATURE_NEW_OFFSET		\
+					|MD_FEATURE_BITMAP_VERSIONED	\
 					)
 
 /* return how many bytes are needed for bitmap, for cluster-md each node
@@ -2163,6 +2165,9 @@ add_internal_bitmap1(struct supertype *st,
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 	bms->nodes = __cpu_to_le32(st->nodes);
+	if (st->nodes)
+		sb->feature_map = __cpu_to_le32(__le32_to_cpu(sb->feature_map)
+						| MD_FEATURE_BITMAP_VERSIONED);
 	if (st->cluster_name)
 		strncpy((char *)bms->cluster_name,
 			st->cluster_name, strlen(st->cluster_name));

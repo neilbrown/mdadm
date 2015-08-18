@@ -114,6 +114,8 @@ int Create(struct supertype *st, char *mddev,
 	unsigned long long newsize;
 
 	int major_num = BITMAP_MAJOR_HI;
+	if (s->bitmap_file && strcmp(s->bitmap_file, "clustered") == 0)
+		major_num = BITMAP_MAJOR_CLUSTERED;
 
 	memset(&info, 0, sizeof(info));
 	if (s->level == UnSet && st && st->ss->default_geometry)

@@ -669,6 +669,15 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 		disc.number = mdi.disk.number;
 		disc.raid_disk = mdi.disk.raid_disk;
 		disc.state = mdi.disk.state;
+		if (array->state & (1 << MD_SB_CLUSTERED)) {
+			/* extra flags are needed when adding to a cluster as
+			 * there are two cases to distinguish
+			 */
+			if (dv->disposition == 'c')
+				disc.state |= (1 << MD_DISK_CANDIDATE);
+			else
+				disc.state |= (1 << MD_DISK_CLUSTER_ADD);
+		}
 		if (dv->writemostly == 1)
 			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 		if (dv->writemostly == 2)

@@ -1500,8 +1500,6 @@ int main(int argc, char *argv[])
 			else
 				c.delay = 60;
 		}
-		if (c.delay == 0)
-			c.delay = 60;
 		rv= Monitor(devlist, mailaddr, program,
 			    &c, daemonise, oneshot,
 			    dosyslog, pidfile, increments,

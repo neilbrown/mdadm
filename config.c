@@ -941,13 +941,6 @@ struct mddev_dev *conf_get_devs()
 	static struct mddev_dev *dlist = NULL;
 	unsigned int i;
 
-	while (dlist) {
-		struct mddev_dev *t = dlist;
-		dlist = dlist->next;
-		free(t->devname);
-		free(t);
-	}
-
 	load_conffile();
 
 	if (cdevlist == NULL) {

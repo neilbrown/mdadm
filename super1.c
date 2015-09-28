@@ -1701,7 +1701,8 @@ static int write_init_super1(struct supertype *st)
 			rv = -EINVAL;
 			goto out;
 		}
-		if (conf_get_create_info()->bblist == 0) {
+		/* Disable badblock log on clusters, or when explicitly requested */
+		if (st->nodes > 0 || conf_get_create_info()->bblist == 0) {
 			sb->bblog_size = 0;
 			sb->bblog_offset = 0;
 		}

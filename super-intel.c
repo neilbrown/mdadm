@@ -10601,7 +10601,6 @@ static int imsm_manage_reshape(
 	ret_val = 1;
 abort:
 	free(buf);
-	abort_reshape(sra);
 
 	return ret_val;
 }

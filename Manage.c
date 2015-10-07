@@ -1309,6 +1309,7 @@ int Manage_subdevs(char *devname, int fd,
 	int sysfd = -1;
 	int count = 0; /* number of actions taken */
 	struct mdinfo info;
+	struct mdinfo devinfo;
 	int frozen = 0;
 	int busy = 0;
 	int raid_slot = -1;
@@ -1517,6 +1518,18 @@ int Manage_subdevs(char *devname, int fd,
 				pr_err("Cannot add disks to a \'member\' array, perform this operation on the parent container\n");
 				goto abort;
 			}
+
+			/* Let's first try to write re-add to sysfs */
+			if (rdev != 0 &&
+			    (dv->disposition == 'A' || dv->disposition == 'F')) {
+				sysfs_init_dev(&devinfo, rdev);
+				if (sysfs_set_str(&info, &devinfo, "state", "re-add") == 0) {
+					pr_err("re-add %s to %s succeed\n",
+						dv->devname, info.sys_name);
+					break;
+				}
+			}
+
 			if (dv->disposition == 'F')
 				/* Need to remove first */
 				ioctl(fd, HOT_REMOVE_DISK, rdev);

@@ -74,6 +74,12 @@ int sysfs_open(char *devnm, char *devname, char *attr)
 	return fd;
 }
 
+void sysfs_init_dev(struct mdinfo *mdi, unsigned long devid)
+{
+	snprintf(mdi->sys_name,
+		 sizeof(mdi->sys_name), "dev-%s", devid2kname(devid));
+}
+
 void sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
 {
 	mdi->sys_name[0] = 0;

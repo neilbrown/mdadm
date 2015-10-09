@@ -92,6 +92,10 @@
 
 #define MD_DISK_REPLACEMENT	17
 
+#define MD_DISK_ROLE_SPARE	0xffff
+#define MD_DISK_ROLE_FAULTY	0xfffe
+#define MD_DISK_ROLE_MAX	0xff00 /* max value of regular disk role */
+
 typedef struct mdp_device_descriptor_s {
 	__u32 number;		/* 0 Device number in the entire set	      */
 	__u32 major;		/* 1 Device major number		      */

@@ -68,7 +68,10 @@ struct mdp_superblock_1 {
 	__u64	data_offset;	/* sector start of data, often 0 */
 	__u64	data_size;	/* sectors in this device that can be used for data */
 	__u64	super_offset;	/* sector start of this superblock */
-	__u64	recovery_offset;/* sectors before this offset (from data_offset) have been recovered */
+	union {
+		__u64	recovery_offset;/* sectors before this offset (from data_offset) have been recovered */
+		__u64	journal_tail;/* journal tail of journal device (from data_offset) */
+	};
 	__u32	dev_number;	/* permanent identifier of this  device - not role in raid */
 	__u32	cnt_corrected_read; /* number of read errors that were corrected by re-writing */
 	__u8	device_uuid[16]; /* user-space setable, ignored by kernel */
@@ -1447,6 +1450,8 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 
 	if ((dk->state & 6) == 6) /* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
+	else if (dk->state & (1<<MD_DISK_JOURNAL))
+                *rp = MD_DISK_ROLE_JOURNAL;
 	else if ((dk->state & ~2) == 0) /* active or idle -> spare */
 		*rp = MD_DISK_ROLE_SPARE;
 	else
@@ -1566,6 +1571,57 @@ static unsigned long choose_bm_space(unsigned long devsize)
 
 static void free_super1(struct supertype *st);
 
+#define META_BLOCK_SIZE 4096
+unsigned long crc32(
+	unsigned long crc,
+	const unsigned char *buf,
+	unsigned len);
+
+static int write_empty_r5l_meta_block(struct supertype *st, int fd)
+{
+	struct r5l_meta_block *mb;
+	struct mdp_superblock_1 *sb = st->sb;
+	struct align_fd afd;
+	__u32 crc;
+
+	init_afd(&afd, fd);
+
+	if (posix_memalign((void**)&mb, 4096, META_BLOCK_SIZE) != 0) {
+		pr_err("Could not allocate memory for the meta block.\n");
+		return 1;
+	}
+
+	memset(mb, 0, META_BLOCK_SIZE);
+
+	mb->magic = __cpu_to_le32(R5LOG_MAGIC);
+	mb->version = R5LOG_VERSION;
+	mb->meta_size = __cpu_to_le32(sizeof(struct r5l_meta_block));
+	mb->seq = __cpu_to_le64(random32());
+	mb->position = __cpu_to_le64(0);
+
+	crc = crc32(0xffffffff, sb->set_uuid, sizeof(sb->set_uuid));
+	crc = crc32(crc, (void *)mb, META_BLOCK_SIZE);
+	mb->checksum = __cpu_to_le32(crc);
+
+	if (lseek64(fd, (sb->data_offset) * 512, 0) < 0LL) {
+		pr_err("cannot seek to offset of the meta block\n");
+		goto fail_to_write;
+	}
+
+	if (awrite(&afd, mb, META_BLOCK_SIZE) != META_BLOCK_SIZE) {
+		pr_err("failed to store write the meta block \n");
+		goto fail_to_write;
+	}
+	fsync(fd);
+
+	free(mb);
+	return 0;
+
+fail_to_write:
+	free(mb);
+	return 1;
+}
+
 #ifndef MDASSEMBLE
 static int write_init_super1(struct supertype *st)
 {
@@ -1578,6 +1634,11 @@ static int write_init_super1(struct supertype *st)
 	unsigned long long dsize, array_size;
 	unsigned long long sb_offset;
 	unsigned long long data_offset;
+
+	for (di = st->info; di; di = di->next) {
+		if (di->disk.state & (1 << MD_DISK_JOURNAL))
+			sb->feature_map |= MD_FEATURE_JOURNAL;
+	}
 
 	for (di = st->info; di; di = di->next) {
 		if (di->disk.state & (1 << MD_DISK_FAULTY))
@@ -1718,6 +1779,13 @@ static int write_init_super1(struct supertype *st)
 
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);
+
+		if (rv == 0 && (di->disk.state & (1 << MD_DISK_JOURNAL))) {
+			rv = write_empty_r5l_meta_block(st, di->fd);
+			if (rv)
+				goto error_out;
+		}
+
 		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
 			rv = st->ss->write_bitmap(st, di->fd, NoUpdate);
 		close(di->fd);

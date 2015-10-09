@@ -142,6 +142,7 @@ struct option long_options[] = {
     {"data-offset",1, 0, DataOffset},
     {"nodes",1, 0, Nodes}, /* also for --assemble */
     {"home-cluster",1, 0, ClusterName},
+    {"write-journal",1, 0, WriteJournal},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},

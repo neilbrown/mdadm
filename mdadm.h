@@ -347,6 +347,7 @@ enum special_options {
 	Nodes,
 	ClusterName,
 	ClusterConfirm,
+	WriteJournal,
 };
 
 enum prefix_standard {
@@ -434,6 +435,7 @@ struct context {
 struct shape {
 	int	raiddisks;
 	int	sparedisks;
+	int	journaldisks;
 	int	level;
 	int	layout;
 	char	*layout_str;

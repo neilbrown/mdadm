@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 		.require_homehost = 1,
 	};
 	struct shape s = {
+		.journaldisks	= 0,
 		.level		= UnSet,
 		.layout		= UnSet,
 		.bitmap_chunk	= UnSet,
@@ -1170,6 +1171,23 @@ int main(int argc, char *argv[])
 		case O(INCREMENTAL, IncrementalPath):
 			remove_path = optarg;
 			continue;
+		case O(CREATE, WriteJournal):
+			if (s.journaldisks) {
+				pr_err("Please specify only one journal device for the array.\n");
+				pr_err("Ignoring --write-journal %s...\n", optarg);
+				continue;
+			}
+			dv = xmalloc(sizeof(*dv));
+			dv->devname = optarg;
+			dv->disposition = 'j';  /* WriteJournal */
+			dv->used = 0;
+			dv->next = NULL;
+			*devlistend = dv;
+			devlistend = &dv->next;
+			devs_found++;
+
+			s.journaldisks = 1;
+			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -1195,6 +1213,11 @@ int main(int argc, char *argv[])
 			help_text = Help;
 		fputs(help_text,stdout);
 		exit(0);
+	}
+
+	if (s.journaldisks && (s.level < 4 || s.level > 6)) {
+		pr_err("--write-journal is only supported for RAID level 4/5/6.\n");
+		exit(2);
 	}
 
 	if (!mode && devs_found) {

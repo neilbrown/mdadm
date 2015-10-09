@@ -87,7 +87,7 @@ int Create(struct supertype *st, char *mddev,
 	unsigned long long minsize=0, maxsize=0;
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
-	int dnum;
+	int dnum, raid_disk_num;
 	struct mddev_dev *dv;
 	int fail=0, warn=0;
 	struct stat stb;
@@ -182,11 +182,11 @@ int Create(struct supertype *st, char *mddev,
 		pr_err("This metadata type does not support spare disks at create time\n");
 		return 1;
 	}
-	if (subdevs > s->raiddisks+s->sparedisks) {
+	if (subdevs > s->raiddisks+s->sparedisks+s->journaldisks) {
 		pr_err("You have listed more devices (%d) than are in the array(%d)!\n", subdevs, s->raiddisks+s->sparedisks);
 		return 1;
 	}
-	if (!have_container && subdevs < s->raiddisks+s->sparedisks) {
+	if (!have_container && subdevs < s->raiddisks+s->sparedisks+s->journaldisks) {
 		pr_err("You haven't given enough devices (real or missing) to create this array\n");
 		return 1;
 	}
@@ -398,6 +398,9 @@ int Create(struct supertype *st, char *mddev,
 				continue;
 			}
 		}
+
+		if (dv->disposition == 'j')
+			continue;  /* skip write journal for size check */
 
 		freesize /= 2; /* convert to K */
 		if (s->chunk && s->chunk != UnSet) {
@@ -839,7 +842,7 @@ int Create(struct supertype *st, char *mddev,
 	for (pass=1; pass <=2 ; pass++) {
 		struct mddev_dev *moved_disk = NULL; /* the disk that was moved out of the insert point */
 
-		for (dnum=0, dv = devlist ; dv ;
+		for (dnum=0, raid_disk_num=0, dv = devlist ; dv ;
 		     dv=(dv->next)?(dv->next):moved_disk, dnum++) {
 			int fd;
 			struct stat stb;
@@ -864,8 +867,13 @@ int Create(struct supertype *st, char *mddev,
 				*inf = info;
 
 				inf->disk.number = dnum;
-				inf->disk.raid_disk = dnum;
-				if (inf->disk.raid_disk < s->raiddisks)
+				inf->disk.raid_disk = raid_disk_num++;
+
+				if (dv->disposition == 'j') {
+					inf->disk.raid_disk = MD_DISK_ROLE_JOURNAL;
+					inf->disk.state = (1<<MD_DISK_JOURNAL);
+					raid_disk_num--;
+				} else if (inf->disk.raid_disk < s->raiddisks)
 					inf->disk.state = (1<<MD_DISK_ACTIVE) |
 						(1<<MD_DISK_SYNC);
 				else

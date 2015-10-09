@@ -126,6 +126,7 @@ struct misc_dev_info {
 					    */
 #define	MD_FEATURE_NEW_OFFSET		64 /* new_offset must be honoured */
 #define	MD_FEATURE_BITMAP_VERSIONED	256 /* bitmap version number checked properly */
+#define	MD_FEATURE_JOURNAL		512 /* support write journal */
 #define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
 					|MD_FEATURE_RECOVERY_OFFSET	\
 					|MD_FEATURE_RESHAPE_ACTIVE	\
@@ -134,6 +135,7 @@ struct misc_dev_info {
 					|MD_FEATURE_RESHAPE_BACKWARDS	\
 					|MD_FEATURE_NEW_OFFSET		\
 					|MD_FEATURE_BITMAP_VERSIONED	\
+					|MD_FEATURE_JOURNAL		\
 					)
 
 /* return how many bytes are needed for bitmap, for cluster-md each node
@@ -484,6 +486,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 		role = MD_DISK_ROLE_SPARE;
 	if (role >= MD_DISK_ROLE_FAULTY)
 		printf("spare\n");
+	else if (role == MD_DISK_ROLE_JOURNAL)
+		printf("Journal\n");
 	else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_REPLACEMENT))
 		printf("Replacement device %d\n", role);
 	else
@@ -994,6 +998,11 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		break;
 	case MD_DISK_ROLE_FAULTY:
 		info->disk.state = 1; /* faulty */
+		break;
+	case MD_DISK_ROLE_JOURNAL:
+		info->disk.state = (1 << MD_DISK_JOURNAL);
+		info->disk.raid_disk = role;
+		info->space_after = (misc->device_size - info->data_offset) % 8; /* journal uses all 4kB blocks*/
 		break;
 	default:
 		info->disk.state = 6; /* active and in sync */

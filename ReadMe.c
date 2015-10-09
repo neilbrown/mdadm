@@ -376,6 +376,7 @@ char Help_create[] =
 "  --name=       -N   : Textual name for array - max 32 characters\n"
 "  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
 "  --delay=      -d   : bitmap update delay in seconds.\n"
+"  --write-journal=   : Specify journal device for RAID-4/5/6 array\n"
 "\n"
 ;
 

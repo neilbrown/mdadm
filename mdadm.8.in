@@ -990,6 +990,12 @@ Only works when the array is for clustered environment. It specifies
 the maximum number of nodes in the cluster that will use this device
 simultaneously. If not specified, this defaults to 4.
 
+.TP
+.BR \-\-write-journal
+Specify journal device for the RAID-4/5/6 array. The journal device
+should be a SSD with reasonable lifetime.
+
+
 .SH For assemble:
 
 .TP

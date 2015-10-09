@@ -140,6 +140,34 @@ struct misc_dev_info {
 					|MD_FEATURE_BITMAP_VERSIONED	\
 					|MD_FEATURE_JOURNAL		\
 					)
+/* return value:
+ *    0, jouranl not required
+ *    1, journal required
+ *    2, no superblock loated (st->sb == NULL)
+ */
+static int require_journal1(struct supertype *st)
+{
+	struct mdp_superblock_1 *sb = st->sb;
+
+	if (sb->feature_map & MD_FEATURE_JOURNAL)
+		return 1;
+	else if (!sb)
+		return 2;  /* no sb loaded */
+	return 0;
+}
+
+static int role_from_sb(struct mdp_superblock_1 *sb)
+{
+	unsigned int d;
+	int role;
+
+	d = __le32_to_cpu(sb->dev_number);
+	if (d < __le32_to_cpu(sb->max_dev))
+		role = __le16_to_cpu(sb->dev_roles[d]);
+	else
+		role = MD_DISK_ROLE_SPARE;
+	return role;
+}
 
 /* return how many bytes are needed for bitmap, for cluster-md each node
  * should have it's own bitmap */
@@ -482,11 +510,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf(")\n");
 #endif
 	printf("   Device Role : ");
-	d = __le32_to_cpu(sb->dev_number);
-	if (d < __le32_to_cpu(sb->max_dev))
-		role = __le16_to_cpu(sb->dev_roles[d]);
-	else
-		role = MD_DISK_ROLE_SPARE;
+	role = role_from_sb(sb);
 	if (role >= MD_DISK_ROLE_FAULTY)
 		printf("spare\n");
 	else if (role == MD_DISK_ROLE_JOURNAL)
@@ -1126,6 +1150,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		int want;
 		if (info->disk.state & (1<<MD_DISK_ACTIVE))
 			want = info->disk.raid_disk;
+		else if (info->disk.state & (1<<MD_DISK_JOURNAL))
+			want = MD_DISK_ROLE_JOURNAL;
 		else
 			want = MD_DISK_ROLE_SPARE;
 		if (sb->dev_roles[d] != __cpu_to_le16(want)) {
@@ -2560,6 +2586,7 @@ struct superswitch super1 = {
 	.locate_bitmap = locate_bitmap1,
 	.write_bitmap = write_bitmap1,
 	.free_super = free_super1,
+	.require_journal = require_journal1,
 #if __BYTE_ORDER == BIG_ENDIAN
 	.swapuuid = 0,
 #else

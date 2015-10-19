@@ -1317,6 +1317,9 @@ int main(int argc, char *argv[])
 	}
 
 	rv = 0;
+
+	set_hooks(); /* set hooks from libs */
+
 	if (c.homecluster == NULL && (c.nodes > 0)) {
 		c.homecluster = conf_get_homecluster();
 		if (c.homecluster == NULL)
@@ -1345,8 +1348,6 @@ int main(int argc, char *argv[])
 	if (c.scan && c.verbose < 2)
 		/* --scan implied --brief unless -vv */
 		c.brief = 1;
-
-	set_dlm_hooks(); /* get dlm funcs from libdlm_lt.so.3 */
 
 	switch(mode) {
 	case MANAGE:

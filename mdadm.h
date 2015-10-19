@@ -52,6 +52,13 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #define srandom srand
 #endif
 
+#ifdef NO_COROSYNC
+#define CS_OK 1
+typedef uint64_t cmap_handle_t;
+#else
+#include	<corosync/cmap.h>
+#endif
+
 #ifndef NO_DLM
 #include	<libdlm.h>
 #include	<errno.h>
@@ -1443,6 +1450,19 @@ extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
 
 extern int in_initrd(void);
+
+struct cmap_hooks {
+	void *cmap_handle;      /* corosync lib related */
+
+	int (*initialize)(cmap_handle_t *handle);
+	int (*get_string)(cmap_handle_t handle,
+			  const char *string,
+			  char **name);
+	int (*finalize)(cmap_handle_t handle);
+};
+
+extern void set_cmap_hooks(void);
+extern void set_hooks(void);
 
 struct dlm_hooks {
 	void *dlm_handle;	/* dlm lib related */

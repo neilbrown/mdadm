@@ -36,13 +36,6 @@
 #include	<dirent.h>
 #include	<signal.h>
 #include	<dlfcn.h>
-#include	<stdint.h>
-#ifdef NO_COROSYNC
- typedef uint64_t cmap_handle_t;
- #define CS_OK 1
-#else
- #include	<corosync/cmap.h>
-#endif
 
 
 /*
@@ -2121,41 +2114,42 @@ void reopen_mddev(int mdfd)
 	if (fd >= 0 && fd != mdfd)
 		dup2(fd, mdfd);
 }
+
+static struct cmap_hooks *cmap_hooks = NULL;
+static int is_cmap_hooks_ready = 0;
+
 #ifndef MDASSEMBLE
+void set_cmap_hooks(void)
+{
+	cmap_hooks = xmalloc(sizeof(struct cmap_hooks));
+	cmap_hooks->cmap_handle = dlopen("libcmap.so.4", RTLD_NOW | RTLD_LOCAL);
+	if (!cmap_hooks->cmap_handle)
+		return;
+
+	cmap_hooks->initialize = dlsym(cmap_hooks->cmap_handle, "cmap_initialize");
+	cmap_hooks->get_string = dlsym(cmap_hooks->cmap_handle, "cmap_get_string");
+	cmap_hooks->finalize = dlsym(cmap_hooks->cmap_handle, "cmap_finalize");
+
+	if (!cmap_hooks->initialize || !cmap_hooks->get_string ||
+	    !cmap_hooks->finalize)
+		dlclose(cmap_hooks->cmap_handle);
+	else
+		is_cmap_hooks_ready = 1;
+}
+
 int get_cluster_name(char **cluster_name)
 {
-        void *lib_handle = NULL;
         int rv = -1;
+	cmap_handle_t handle;
 
-        cmap_handle_t handle;
-        static int (*initialize)(cmap_handle_t *handle);
-        static int (*get_string)(cmap_handle_t handle,
-				 const char *string,
-				 char **name);
-        static int (*finalize)(cmap_handle_t handle);
+	if (!is_cmap_hooks_ready)
+		return rv;
 
-
-        lib_handle = dlopen("libcmap.so.4", RTLD_NOW | RTLD_LOCAL);
-        if (!lib_handle)
-                return rv;
-
-        initialize = dlsym(lib_handle, "cmap_initialize");
-        if (!initialize)
-                goto out;
-
-        get_string = dlsym(lib_handle, "cmap_get_string");
-        if (!get_string)
-                goto out;
-
-        finalize = dlsym(lib_handle, "cmap_finalize");
-        if (!finalize)
-                goto out;
-
-        rv = initialize(&handle);
+        rv = cmap_hooks->initialize(&handle);
         if (rv != CS_OK)
                 goto out;
 
-        rv = get_string(handle, "totem.cluster_name", cluster_name);
+        rv = cmap_hooks->get_string(handle, "totem.cluster_name", cluster_name);
         if (rv != CS_OK) {
                 free(*cluster_name);
                 rv = -1;
@@ -2164,9 +2158,8 @@ int get_cluster_name(char **cluster_name)
 
         rv = 0;
 name_err:
-        finalize(handle);
+        cmap_hooks->finalize(handle);
 out:
-        dlclose(lib_handle);
         return rv;
 }
 
@@ -2190,5 +2183,11 @@ void set_dlm_hooks(void)
 		dlclose(dlm_hooks->dlm_handle);
 	else
 		is_dlm_hooks_ready = 1;
+}
+
+void set_hooks(void)
+{
+	set_dlm_hooks();
+	set_cmap_hooks();
 }
 #endif

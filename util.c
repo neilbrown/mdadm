@@ -24,6 +24,7 @@
 
 #include	"mdadm.h"
 #include	"md_p.h"
+#include	<sys/poll.h>
 #include	<sys/socket.h>
 #include	<sys/utsname.h>
 #include	<sys/wait.h>
@@ -87,6 +88,131 @@ struct blkpg_partition {
    e.g. in a structure initializer (or where-ever else comma expressions
    aren't permitted). */
 #define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+
+static struct dlm_hooks *dlm_hooks = NULL;
+static int is_dlm_hooks_ready = 0;
+struct dlm_lock_resource *dlm_lock_res = NULL;
+static int ast_called = 0;
+
+struct dlm_lock_resource {
+	dlm_lshandle_t *ls;
+	struct dlm_lksb lksb;
+};
+
+int is_clustered(struct supertype *st)
+{
+	/* is it a cluster md or not */
+	if (is_dlm_hooks_ready && st->cluster_name)
+		return 1;
+	else
+		return 0;
+}
+
+/* Using poll(2) to wait for and dispatch ASTs */
+static int poll_for_ast(dlm_lshandle_t ls)
+{
+	struct pollfd pfd;
+
+	pfd.fd = dlm_hooks->ls_get_fd(ls);
+	pfd.events = POLLIN;
+
+	while (!ast_called)
+	{
+		if (poll(&pfd, 1, 0) < 0)
+		{
+			perror("poll");
+			return -1;
+		}
+		dlm_hooks->dispatch(dlm_hooks->ls_get_fd(ls));
+	}
+	ast_called = 0;
+
+	return 0;
+}
+
+static void dlm_ast(void *arg)
+{
+	ast_called = 1;
+}
+
+/* Create the lockspace, take bitmapXXX locks on all the bitmaps. */
+int cluster_get_dlmlock(struct supertype *st, int *lockid)
+{
+	int ret = -1;
+	char str[64];
+	int flags = LKF_NOQUEUE;
+
+	dlm_lock_res = xmalloc(sizeof(struct dlm_lock_resource));
+	dlm_lock_res->ls = dlm_hooks->create_lockspace(st->cluster_name, O_RDWR);
+	if (!dlm_lock_res->ls) {
+		pr_err("%s failed to create lockspace\n", st->cluster_name);
+                goto out;
+	}
+
+	/* Conversions need the lockid in the LKSB */
+	if (flags & LKF_CONVERT)
+		dlm_lock_res->lksb.sb_lkid = *lockid;
+
+	snprintf(str, 64, "bitmap%04d", st->nodes);
+	/* if flags with LKF_CONVERT causes below return ENOENT which means
+	 * "No such file or directory" */
+	ret = dlm_hooks->ls_lock(dlm_lock_res->ls, LKM_PWMODE, &dlm_lock_res->lksb,
+			  flags, str, strlen(str), 0, dlm_ast,
+			  dlm_lock_res, NULL, NULL);
+	if (ret) {
+		pr_err("error %d when get PW mode on lock %s\n", errno, str);
+                goto out;
+	}
+
+	/* Wait for it to complete */
+	poll_for_ast(dlm_lock_res->ls);
+	*lockid = dlm_lock_res->lksb.sb_lkid;
+
+	errno =	dlm_lock_res->lksb.sb_status;
+	if (errno) {
+		pr_err("error %d happened in ast with lock %s\n", errno, str);
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+int cluster_release_dlmlock(struct supertype *st, int lockid)
+{
+	int ret = -1;
+
+	/* if flags with LKF_CONVERT causes below return EINVAL which means
+	 * "Invalid argument" */
+	ret = dlm_hooks->ls_unlock(dlm_lock_res->ls, lockid, 0,
+				     &dlm_lock_res->lksb, dlm_lock_res);
+	if (ret) {
+		pr_err("error %d happened when unlock\n", errno);
+		/* XXX make sure the lock is unlocked eventually */
+                goto out;
+	}
+
+	/* Wait for it to complete */
+	poll_for_ast(dlm_lock_res->ls);
+
+	errno =	dlm_lock_res->lksb.sb_status;
+	if (errno != EUNLOCK) {
+		pr_err("error %d happened in ast when unlock lockspace\n", errno);
+		/* XXX make sure the lockspace is unlocked eventually */
+                goto out;
+	}
+
+	ret = dlm_hooks->release_lockspace(st->cluster_name, dlm_lock_res->ls, 1);
+	if (ret) {
+		pr_err("error %d happened when release lockspace\n", errno);
+		/* XXX make sure the lockspace is released eventually */
+                goto out;
+	}
+	free(dlm_lock_res);
+
+out:
+	return ret;
+}
 
 /*
  * Parse a 128 bit uuid in 4 integers
@@ -2042,5 +2168,27 @@ name_err:
 out:
         dlclose(lib_handle);
         return rv;
+}
+
+void set_dlm_hooks(void)
+{
+	dlm_hooks = xmalloc(sizeof(struct dlm_hooks));
+	dlm_hooks->dlm_handle = dlopen("libdlm_lt.so.3", RTLD_NOW | RTLD_LOCAL);
+	if (!dlm_hooks->dlm_handle)
+		return;
+
+	dlm_hooks->create_lockspace = dlsym(dlm_hooks->dlm_handle, "dlm_create_lockspace");
+	dlm_hooks->release_lockspace = dlsym(dlm_hooks->dlm_handle, "dlm_release_lockspace");
+	dlm_hooks->ls_lock = dlsym(dlm_hooks->dlm_handle, "dlm_ls_lock");
+	dlm_hooks->ls_unlock = dlsym(dlm_hooks->dlm_handle, "dlm_ls_unlock");
+	dlm_hooks->ls_get_fd = dlsym(dlm_hooks->dlm_handle, "dlm_ls_get_fd");
+	dlm_hooks->dispatch = dlsym(dlm_hooks->dlm_handle, "dlm_dispatch");
+
+	if (!dlm_hooks->create_lockspace || !dlm_hooks->ls_lock ||
+	    !dlm_hooks->ls_unlock || !dlm_hooks->release_lockspace ||
+	    !dlm_hooks->ls_get_fd || !dlm_hooks->dispatch)
+		dlclose(dlm_hooks->dlm_handle);
+	else
+		is_dlm_hooks_ready = 1;
 }
 #endif

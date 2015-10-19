@@ -1346,6 +1346,8 @@ int main(int argc, char *argv[])
 		/* --scan implied --brief unless -vv */
 		c.brief = 1;
 
+	set_dlm_hooks(); /* get dlm funcs from libdlm_lt.so.3 */
+
 	switch(mode) {
 	case MANAGE:
 		/* readonly, add/remove, readwrite, runstop */

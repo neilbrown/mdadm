@@ -35,6 +35,7 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 
 #include	<sys/types.h>
 #include	<sys/stat.h>
+#include	<stdint.h>
 #include	<stdlib.h>
 #include	<time.h>
 #include	<sys/time.h>
@@ -49,6 +50,25 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 /* dietlibc has deprecated random and srandom!! */
 #define random rand
 #define srandom srand
+#endif
+
+#ifndef NO_DLM
+#include	<libdlm.h>
+#include	<errno.h>
+#else
+#define LKF_NOQUEUE	0x00000001
+#define LKF_CONVERT	0x00000004
+#define LKM_PWMODE	4
+#define EUNLOCK		0x10002
+
+typedef void *dlm_lshandle_t;
+
+struct dlm_lksb {
+	int sb_status;
+	uint32_t sb_lkid;
+	char sb_flags;
+	char *sb_lvbptr;
+};
 #endif
 
 #include	<linux/kdev_t.h>
@@ -1423,7 +1443,32 @@ extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
 
 extern int in_initrd(void);
+
+struct dlm_hooks {
+	void *dlm_handle;	/* dlm lib related */
+
+	dlm_lshandle_t (*create_lockspace)(const char *name,
+					   unsigned int mode);
+	int (*release_lockspace)(const char *name, dlm_lshandle_t ls,
+				 int force);
+	int (*ls_lock)(dlm_lshandle_t lockspace, uint32_t mode,
+		       struct dlm_lksb *lksb, uint32_t flags,
+		       const void *name, unsigned int namelen,
+		       uint32_t parent, void (*astaddr) (void *astarg),
+		       void *astarg, void (*bastaddr) (void *astarg),
+		       void *range);
+	int (*ls_unlock)(dlm_lshandle_t lockspace, uint32_t lkid,
+			 uint32_t flags, struct dlm_lksb *lksb,
+			 void *astarg);
+	int (*ls_get_fd)(dlm_lshandle_t ls);
+	int (*dispatch)(int fd);
+};
+
 extern int get_cluster_name(char **name);
+extern int is_clustered(struct supertype *st);
+extern int cluster_get_dlmlock(struct supertype *st, int *lockid);
+extern int cluster_release_dlmlock(struct supertype *st, int lockid);
+extern void set_dlm_hooks(void);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))
 #define ROUND_UP(val, base)	_ROUND_UP(val, (typeof(val))(base))

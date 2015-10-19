@@ -1110,7 +1110,17 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	 * ignored.
 	 */
 	int rv = 0;
+	int lockid;
 	struct mdp_superblock_1 *sb = st->sb;
+
+	if (is_clustered(st)) {
+		rv = cluster_get_dlmlock(st, &lockid);
+		if (rv) {
+			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
+			cluster_release_dlmlock(st, lockid);
+			return rv;
+		}
+	}
 
 	if (strcmp(update, "homehost") == 0 &&
 	    homehost) {
@@ -1370,6 +1380,9 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		rv = -1;
 
 	sb->sb_csum = calc_sb_1_csum(sb);
+	if (is_clustered(st))
+		cluster_release_dlmlock(st, lockid);
+
 	return rv;
 }
 
@@ -1473,6 +1486,16 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	struct mdp_superblock_1 *sb = st->sb;
 	__u16 *rp = sb->dev_roles + dk->number;
 	struct devinfo *di, **dip;
+	int rv, lockid;
+
+	if (is_clustered(st)) {
+		rv = cluster_get_dlmlock(st, &lockid);
+		if (rv) {
+			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
+			cluster_release_dlmlock(st, lockid);
+			return rv;
+		}
+	}
 
 	if ((dk->state & 6) == 6) /* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
@@ -1502,6 +1525,9 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	di->next = NULL;
 	*dip = di;
 
+	if (is_clustered(st))
+		cluster_release_dlmlock(st, lockid);
+
 	return 0;
 }
 #endif
@@ -1515,6 +1541,16 @@ static int store_super1(struct supertype *st, int fd)
 	struct align_fd afd;
 	int sbsize;
 	unsigned long long dsize;
+	int rv, lockid;
+
+	if (is_clustered(st)) {
+		rv = cluster_get_dlmlock(st, &lockid);
+		if (rv) {
+			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
+			cluster_release_dlmlock(st, lockid);
+			return rv;
+		}
+	}
 
 	if (!get_dev_size(fd, NULL, &dsize))
 		return 1;
@@ -1575,6 +1611,9 @@ static int store_super1(struct supertype *st, int fd)
 		}
 	}
 	fsync(fd);
+	if (is_clustered(st))
+		cluster_release_dlmlock(st, lockid);
+
 	return 0;
 }
 
@@ -2391,6 +2430,16 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 
 static void free_super1(struct supertype *st)
 {
+	int rv, lockid;
+	if (is_clustered(st)) {
+		rv = cluster_get_dlmlock(st, &lockid);
+		if (rv) {
+			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
+			cluster_release_dlmlock(st, lockid);
+			return;
+		}
+	}
+
 	if (st->sb)
 		free(st->sb);
 	while (st->info) {
@@ -2401,6 +2450,8 @@ static void free_super1(struct supertype *st)
 		free(di);
 	}
 	st->sb = NULL;
+	if (is_clustered(st))
+		cluster_release_dlmlock(st, lockid);
 }
 
 #ifndef MDASSEMBLE

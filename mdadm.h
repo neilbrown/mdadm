@@ -237,6 +237,9 @@ struct mdinfo {
 						   * for native metadata it is
 						   * reshape_active field mirror
 						   */
+	int journal_device_required;
+	int journal_clean;
+
 	/* During reshape we can sometimes change the data_offset to avoid
 	 * over-writing still-valid data.  We need to know if there is space.
 	 * So getinfo_super will fill in space_before and space_after in sectors.
@@ -277,7 +280,6 @@ struct mdinfo {
 	#define	DS_REMOVE	1024
 	#define	DS_UNBLOCK	2048
 	int prev_state, curr_state, next_state;
-
 };
 
 struct createinfo {
@@ -996,9 +998,6 @@ extern struct superswitch {
 
 	/* validate container after assemble */
 	int (*validate_container)(struct mdinfo *info);
-
-	/* whether the array require a journal device */
-	int (*require_journal)(struct supertype *st);
 
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;

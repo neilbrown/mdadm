@@ -35,7 +35,7 @@
 
 static int count_active(struct supertype *st, struct mdinfo *sra,
 			int mdfd, char **availp,
-			struct mdinfo *info, int *journal_device_missing);
+			struct mdinfo *info);
 static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			int number, __u64 events, int verbose,
 			char *array_name);
@@ -520,7 +520,10 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	sysfs_free(sra);
 	sra = sysfs_read(mdfd, NULL, (GET_DEVS | GET_STATE |
 				    GET_OFFSET | GET_SIZE));
-	active_disks = count_active(st, sra, mdfd, &avail, &info, &journal_device_missing);
+	active_disks = count_active(st, sra, mdfd, &avail, &info);
+
+	journal_device_missing = (info.journal_device_required) && (info.journal_clean == 0);
+
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
 		   avail) == 0) {
@@ -690,8 +693,7 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 
 static int count_active(struct supertype *st, struct mdinfo *sra,
 			int mdfd, char **availp,
-			struct mdinfo *bestinfo,
-			int *journal_device_missing)
+			struct mdinfo *bestinfo)
 {
 	/* count how many devices in sra think they are active */
 	struct mdinfo *d;
@@ -705,8 +707,6 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 	int devnum;
 	int b, i;
 	int raid_disks = 0;
-	int require_journal_dev = 0;
-	int has_journal_dev = 0;
 
 	if (!sra)
 		return 0;
@@ -728,18 +728,10 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 		if (ok != 0)
 			continue;
 
-		if (st->ss->require_journal) {
-			require_journal_dev = st->ss->require_journal(st);
-			if (require_journal_dev == 2) {
-				pr_err("BUG: Superblock not loaded in Incremental.c:count_active\n");
-				return 0;
-			}
-		}
-
 		info.array.raid_disks = raid_disks;
 		st->ss->getinfo_super(st, &info, devmap + raid_disks * devnum);
 		if (info.disk.raid_disk == MD_DISK_ROLE_JOURNAL)
-			has_journal_dev = 1;
+			bestinfo->journal_clean = 1;
 		if (!avail) {
 			raid_disks = info.array.raid_disks;
 			avail = xcalloc(raid_disks, 1);
@@ -789,9 +781,6 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 			replcnt++;
 		st->ss->free_super(st);
 	}
-
-	if (require_journal_dev && !has_journal_dev)
-		*journal_device_missing = 1;
 
 	if (!avail)
 		return 0;

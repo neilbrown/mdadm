@@ -948,16 +948,14 @@ static int start_array(int mdfd,
 		       int clean, char *avail,
 		       int start_partial_ok,
 		       int err_ok,
-		       int was_forced,
-		       int expect_journal,
-		       int journal_clean
+		       int was_forced
 	)
 {
 	int rv;
 	int i;
 	unsigned int req_cnt;
 
-	if (expect_journal && (journal_clean == 0)) {
+	if (content->journal_device_required && (content->journal_clean == 0)) {
 		if (!c->force) {
 			pr_err("Not safe to assemble with missing or stale journal device, consider --force.\n");
 			return 1;
@@ -1130,7 +1128,7 @@ static int start_array(int mdfd,
 					fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
 				if (sparecnt)
 					fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
-				if (journal_clean)
+				if (content->journal_clean)
 					fprintf(stderr, " and %d journal", journalcnt);
 				fprintf(stderr, ".\n");
 			}
@@ -1307,8 +1305,6 @@ int Assemble(struct supertype *st, char *mddev,
 	int i;
 	int was_forced = 0;
 	int most_recent = 0;
-	int expect_journal = 0;
-	int journal_clean = 0;
 	int chosen_drive;
 	int change = 0;
 	int inargv = 0;
@@ -1370,14 +1366,6 @@ try_again:
 
 	if (!st || !st->sb || !content)
 		return 2;
-
-	if (st->ss->require_journal) {
-		expect_journal = st->ss->require_journal(st);
-		if (expect_journal == 2) {
-			pr_err("BUG: Superblock not loaded in Assemble.c:Assemble\n");
-			return 1;
-		}
-	}
 
 	/* We have a full set of devices - we now need to find the
 	 * array device.
@@ -1567,7 +1555,7 @@ try_again:
 		 */
 		if (content->array.level != LEVEL_MULTIPATH) {
 			if (devices[j].i.disk.state & (1<<MD_DISK_JOURNAL)) {
-				if (expect_journal)
+				if (content->journal_device_required)
 					journalcnt++;
 				else	/* unexpected journal, mark as faulty */
 					devices[j].i.disk.state |= (1<<MD_DISK_FAULTY);
@@ -1604,7 +1592,7 @@ try_again:
 			) {
 			devices[j].uptodate = 1;
 			if (devices[j].i.disk.state & (1<<MD_DISK_JOURNAL))
-				journal_clean = 1;
+				content->journal_clean = 1;
 			if (i < content->array.raid_disks * 2) {
 				if (devices[j].i.recovery_start == MaxSector ||
 				    (content->reshape_active &&
@@ -1833,7 +1821,7 @@ try_again:
 			 c,
 			 clean, avail, start_partial_ok,
 			 pre_exist != NULL,
-			 was_forced, expect_journal, journal_clean);
+			 was_forced);
 	if (rv == 1 && !pre_exist)
 		ioctl(mdfd, STOP_ARRAY, NULL);
 	free(devices);

@@ -140,21 +140,6 @@ struct misc_dev_info {
 					|MD_FEATURE_BITMAP_VERSIONED	\
 					|MD_FEATURE_JOURNAL		\
 					)
-/* return value:
- *    0, jouranl not required
- *    1, journal required
- *    2, no superblock loated (st->sb == NULL)
- */
-static int require_journal1(struct supertype *st)
-{
-	struct mdp_superblock_1 *sb = st->sb;
-
-	if (sb->feature_map & MD_FEATURE_JOURNAL)
-		return 1;
-	else if (!sb)
-		return 2;  /* no sb loaded */
-	return 0;
-}
 
 static int role_from_sb(struct mdp_superblock_1 *sb)
 {
@@ -1086,6 +1071,9 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	}
 
 	info->array.working_disks = working;
+	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_JOURNAL))
+		info->journal_device_required = 1;
+	info->journal_clean = 0;
 }
 
 static struct mdinfo *container_content1(struct supertype *st, char *subarray)
@@ -2637,7 +2625,6 @@ struct superswitch super1 = {
 	.locate_bitmap = locate_bitmap1,
 	.write_bitmap = write_bitmap1,
 	.free_super = free_super1,
-	.require_journal = require_journal1,
 #if __BYTE_ORDER == BIG_ENDIAN
 	.swapuuid = 0,
 #else

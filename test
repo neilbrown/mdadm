@@ -246,6 +246,15 @@ check() {
        fi
       ;;
 
+    readonly )
+       grep -s "read-only" > /dev/null /proc/mdstat || {
+                echo >&2 "ERROR array is not read-only!"; cat /proc/mdstat ; exit 1; }
+      ;;
+
+    inactive )
+       grep -s "inactive" > /dev/null /proc/mdstat || {
+                echo >&2 "ERROR array is not inactive!"; cat /proc/mdstat ; exit 1; }
+      ;;
     * ) echo >&2 ERROR unknown check $1 ; exit 1;
    esac
 }

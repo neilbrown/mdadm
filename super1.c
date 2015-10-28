@@ -1625,10 +1625,7 @@ static unsigned long choose_bm_space(unsigned long devsize)
 static void free_super1(struct supertype *st);
 
 #define META_BLOCK_SIZE 4096
-unsigned long crc32(
-	unsigned long crc,
-	const unsigned char *buf,
-	unsigned len);
+__u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
 
 static int write_empty_r5l_meta_block(struct supertype *st, int fd)
 {
@@ -1652,9 +1649,9 @@ static int write_empty_r5l_meta_block(struct supertype *st, int fd)
 	mb->seq = __cpu_to_le64(random32());
 	mb->position = __cpu_to_le64(0);
 
-	crc = crc32(0xffffffff, sb->set_uuid, sizeof(sb->set_uuid));
-	crc = crc32(crc, (void *)mb, META_BLOCK_SIZE);
-	mb->checksum = __cpu_to_le32(crc);
+	crc = crc32c_le(0xffffffff, sb->set_uuid, sizeof(sb->set_uuid));
+	crc = crc32c_le(crc, (void *)mb, META_BLOCK_SIZE);
+	mb->checksum = crc;
 
 	if (lseek64(fd, (sb->data_offset) * 512, 0) < 0LL) {
 		pr_err("cannot seek to offset of the meta block\n");

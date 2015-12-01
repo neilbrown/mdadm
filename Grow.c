@@ -328,12 +328,15 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		if (strcmp(s->bitmap_file, "none")==0) {
 			array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
 			if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
-				pr_err("failed to remove internal bitmap.\n");
+				if (array.state & (1<<MD_SB_CLUSTERED))
+					pr_err("failed to remove clustered bitmap.\n");
+				else
+					pr_err("failed to remove internal bitmap.\n");
 				return 1;
 			}
 			return 0;
 		}
-		pr_err("%s bitmap already present on %s\n", s->bitmap_file, devname);
+		pr_err("bitmap already present on %s\n", devname);
 		return 1;
 	}
 

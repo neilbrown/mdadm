@@ -444,6 +444,10 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		/* add disk needs to know about containers */
 		if (st->ss->external)
 			sra->array.level = LEVEL_CONTAINER;
+
+		if (info.array.state & (1 << MD_SB_CLUSTERED))
+			info.disk.state |= (1 << MD_DISK_CLUSTER_ADD);
+
 		err = add_disk(mdfd, st, sra, &info);
 		if (err < 0 && errno == EBUSY) {
 			/* could be another device present with the same

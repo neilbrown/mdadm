@@ -1520,7 +1520,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 }
 #endif
 
-static void locate_bitmap1(struct supertype *st, int fd);
+static int locate_bitmap1(struct supertype *st, int fd);
 
 static int store_super1(struct supertype *st, int fd)
 {
@@ -2305,24 +2305,30 @@ add_internal_bitmap1(struct supertype *st,
 	return 1;
 }
 
-static void locate_bitmap1(struct supertype *st, int fd)
+static int locate_bitmap1(struct supertype *st, int fd)
 {
 	unsigned long long offset;
 	struct mdp_superblock_1 *sb;
 	int mustfree = 0;
+	int ret;
 
 	if (!st->sb) {
 		if (st->ss->load_super(st, fd, NULL))
-			return; /* no error I hope... */
+			return -1; /* no error I hope... */
 		mustfree = 1;
 	}
 	sb = st->sb;
 
+	if ((__le32_to_cpu(sb->feature_map) & MD_FEATURE_BITMAP_OFFSET))
+		ret = 0;
+	else
+		ret = -1;
 	offset = __le64_to_cpu(sb->super_offset);
 	offset += (int32_t) __le32_to_cpu(sb->bitmap_offset);
 	if (mustfree)
 		free(sb);
 	lseek64(fd, offset<<9, 0);
+	return ret;
 }
 
 static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update)

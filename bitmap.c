@@ -221,8 +221,12 @@ int bitmap_file_open(char *filename, struct supertype **stp)
 			pr_err("No bitmap possible with %s metadata\n",
 				st->ss->name);
 			return -1;
-		} else
-			st->ss->locate_bitmap(st, fd);
+		} else {
+			if (st->ss->locate_bitmap(st, fd)) {
+				pr_err("%s doesn't have bitmap\n", filename);
+				fd = -1;
+			}
+		}
 
 		*stp = st;
 	} else {

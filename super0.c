@@ -1155,16 +1155,16 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	return 1;
 }
 
-static void locate_bitmap0(struct supertype *st, int fd)
+static int locate_bitmap0(struct supertype *st, int fd)
 {
 	unsigned long long dsize;
 	unsigned long long offset;
 
 	if (!get_dev_size(fd, NULL, &dsize))
-		return;
+		return -1;
 
 	if (dsize < MD_RESERVED_SECTORS*512)
-		return;
+		return -1;
 
 	offset = MD_NEW_SIZE_SECTORS(dsize>>9);
 
@@ -1173,6 +1173,7 @@ static void locate_bitmap0(struct supertype *st, int fd)
 	offset += MD_SB_BYTES;
 
 	lseek64(fd, offset, 0);
+	return 0;
 }
 
 static int write_bitmap0(struct supertype *st, int fd, enum bitmap_update update)

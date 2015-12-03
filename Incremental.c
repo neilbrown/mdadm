@@ -1030,12 +1030,12 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		int mdfd = open_dev(chosen->sys_name);
 		if (mdfd >= 0) {
 			struct mddev_dev devlist;
-			char devname[20];
+			char chosen_devname[24]; // 2*11 for int (including signs) + colon + null
 			devlist.next = NULL;
 			devlist.used = 0;
 			devlist.writemostly = 0;
-			devlist.devname = devname;
-			sprintf(devname, "%d:%d", major(stb.st_rdev),
+			devlist.devname = chosen_devname;
+			sprintf(chosen_devname, "%d:%d", major(stb.st_rdev),
 				minor(stb.st_rdev));
 			devlist.disposition = 'a';
 			close(dfd);

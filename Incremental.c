@@ -663,7 +663,7 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 			 * without thinking more */
 
 	for (d = sra->devs; d ; d = d->next) {
-		char dn[10];
+		char dn[24]; // 2*11 bytes for ints (including sign) + colon + null byte
 		int dfd;
 		struct mdinfo info;
 		sprintf(dn, "%d:%d", d->disk.major, d->disk.minor);

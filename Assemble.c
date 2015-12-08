@@ -1302,6 +1302,7 @@ int Assemble(struct supertype *st, char *mddev,
 	int bestcnt = 0;
 	int devcnt;
 	unsigned int okcnt, sparecnt, rebuilding_cnt, replcnt, journalcnt;
+	int journal_clean = 0;
 	int i;
 	int was_forced = 0;
 	int most_recent = 0;
@@ -1592,7 +1593,7 @@ try_again:
 			) {
 			devices[j].uptodate = 1;
 			if (devices[j].i.disk.state & (1<<MD_DISK_JOURNAL))
-				content->journal_clean = 1;
+				journal_clean = 1;
 			if (i < content->array.raid_disks * 2) {
 				if (devices[j].i.recovery_start == MaxSector ||
 				    (content->reshape_active &&
@@ -1664,6 +1665,8 @@ try_again:
 #ifndef MDASSEMBLE
 	sysfs_init(content, mdfd, NULL);
 #endif
+	/* after reload context, store journal_clean in context */
+	content->journal_clean = journal_clean;
 	for (i=0; i<bestcnt; i++) {
 		int j = best[i];
 		unsigned int desired_state;

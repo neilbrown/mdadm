@@ -4503,8 +4503,8 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		 * sometimes they aren't... So allow considerable flexability in matching, and allow
 		 * this test to be overridden by an environment variable.
 		 */
-		if (info->array.utime > (int)__le64_to_cpu(bsb.mtime) + 2*60*60 ||
-		    info->array.utime < (int)__le64_to_cpu(bsb.mtime) - 10*60) {
+		if(time_after(info->array.utime, (unsigned int)__le64_to_cpu(bsb.mtime) + 2*60*60) ||
+		   time_before(info->array.utime, (unsigned int)__le64_to_cpu(bsb.mtime) - 10*60)) {
 			if (check_env("MDADM_GROW_ALLOW_OLD")) {
 				pr_err("accepting backup with timestamp %lu for array with timestamp %lu\n",
 					(unsigned long)__le64_to_cpu(bsb.mtime),

@@ -339,7 +339,8 @@ int Detail(char *dev, struct context *c)
 		    (disks[d*2+1].state & (1<<MD_DISK_SYNC))) {
 			avail_disks ++;
 			avail[d] = 1;
-		}
+		} else
+			rv |= !! c->test;
 	}
 
 	if (c->brief) {
@@ -672,9 +673,6 @@ This is pretty boring
 			}
 		}
 		if (disk.state == 0) spares++;
-		if (c->test && d < array.raid_disks
-		    && !(disk.state & (1<<MD_DISK_SYNC)))
-			rv |= 1;
 		dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer);
 		if (dv != NULL) {
 			if (c->brief)

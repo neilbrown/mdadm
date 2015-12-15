@@ -1713,7 +1713,8 @@ static int write_init_super1(struct supertype *st)
 		if (rfd >= 0)
 			close(rfd);
 
-		sb->events = 0;
+		if (!(di->disk.state & (1<<MD_DISK_JOURNAL)))
+			sb->events = 0;
 
 		refst = dup_super(st);
 		if (load_super1(refst, di->fd, NULL)==0) {

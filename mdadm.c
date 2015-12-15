@@ -190,6 +190,7 @@ int main(int argc, char *argv[])
 		case 'a':
 		case Add:
 		case AddSpare:
+		case AddJournal:
 		case 'r':
 		case Remove:
 		case Replace:
@@ -924,6 +925,13 @@ int main(int argc, char *argv[])
 			continue;
 		case O(MANAGE,AddSpare): /* add drive - never re-add */
 			devmode = 'S';
+			continue;
+		case O(MANAGE,AddJournal): /* add journal */
+			if (s.journaldisks && (s.level < 4 || s.level > 6)) {
+				pr_err("--add-journal is only supported for RAID level 4/5/6.\n");
+				exit(2);
+			}
+			devmode = 'j';
 			continue;
 		case O(MANAGE,ReAdd):
 			devmode = 'A';

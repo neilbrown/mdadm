@@ -825,7 +825,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		}
 
 		/* Make sure device is large enough */
-		if (tst->sb &&
+		if (dv->disposition != 'j' &&  /* skip size check for Journal */
+		    tst->sb &&
 		    tst->ss->avail_size(tst, ldsize/512, INVALID_SECTORS) <
 		    array_size) {
 			if (dv->disposition == 'M')
@@ -929,8 +930,31 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	else
 		disc.number = raid_slot;
 	disc.state = 0;
+
+	/* only add journal to array that supports journaling */
+	if (dv->disposition == 'j') {
+		struct mdinfo mdi;
+		struct mdinfo *mdp;
+
+		mdp = sysfs_read(fd, NULL, GET_ARRAY_STATE);
+
+		if (strncmp(mdp->sysfs_array_state, "readonly", 8) != 0) {
+			pr_err("%s is not readonly, cannot add journal.\n", devname);
+			return -1;
+		}
+
+		tst->ss->getinfo_super(tst, &mdi, NULL);
+		if (mdi.journal_device_required == 0) {
+			pr_err("%s does not support journal device.\n", devname);
+			return -1;
+		}
+		disc.raid_disk = array->raid_disks;
+	}
+
 	if (array->not_persistent==0) {
 		int dfd;
+		if (dv->disposition == 'j')
+			disc.state |= (1 << MD_DISK_JOURNAL) | (1 << MD_DISK_SYNC);
 		if (dv->writemostly == 1)
 			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
@@ -1041,10 +1065,20 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	} else {
 		tst->ss->free_super(tst);
 		if (ioctl(fd, ADD_NEW_DISK, &disc)) {
-			pr_err("add new device failed for %s as %d: %s\n",
-			       dv->devname, j, strerror(errno));
+			if (dv->disposition == 'j')
+				pr_err("Failed to hot add %s as journal, "
+				       "please try restart %s.\n", dv->devname, devname);
+			else
+				pr_err("add new device failed for %s as %d: %s\n",
+				       dv->devname, j, strerror(errno));
 			return -1;
 		}
+		if (dv->disposition == 'j') {
+			pr_err("Journal added successfully, making %s read-write\n", devname);
+			if (Manage_ro(devname, fd, -1))
+				pr_err("Failed to make %s read-write\n", devname);
+		}
+
 	}
 	if (verbose >= 0)
 		pr_err("added %s\n", dv->devname);
@@ -1277,6 +1311,7 @@ int Manage_subdevs(char *devname, int fd,
 	 *	   try HOT_ADD_DISK
 	 *         If that fails EINVAL, try ADD_NEW_DISK
 	 *  'S' - add the device as a spare - don't try re-add
+	 *  'j' - add the device as a journal device
 	 *  'A' - re-add the device
 	 *  'r' - remove the device: HOT_REMOVE_DISK
 	 *        device can be 'faulty' or 'detached' in which case all
@@ -1509,6 +1544,7 @@ int Manage_subdevs(char *devname, int fd,
 			goto abort;
 		case 'a':
 		case 'S': /* --add-spare */
+		case 'j': /* --add-journal */
 		case 'A':
 		case 'M': /* --re-add missing */
 		case 'F': /* --re-add faulty  */

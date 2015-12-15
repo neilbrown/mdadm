@@ -230,6 +230,13 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			goto abort;
 	}
 
+	if (options & GET_ARRAY_STATE) {
+		strcpy(base, "array_state");
+		if (load_sys(fname, sra->sysfs_array_state))
+			goto abort;
+	} else
+		sra->sysfs_array_state[0] = 0;
+
 	if (! (options & GET_DEVS))
 		return sra;
 

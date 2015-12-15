@@ -305,6 +305,9 @@ struct mdinfo {
 	#define	DS_REMOVE	1024
 	#define	DS_UNBLOCK	2048
 	int prev_state, curr_state, next_state;
+
+	/* info read from sysfs */
+	char		sysfs_array_state[20];
 };
 
 struct createinfo {
@@ -588,6 +591,7 @@ enum sysfs_read_flags {
 	GET_SIZE	= (1 << 22),
 	GET_STATE	= (1 << 23),
 	GET_ERROR	= (1 << 24),
+	GET_ARRAY_STATE = (1 << 25),
 };
 
 /* If fd >= 0, get the array it is open on,

@@ -1100,12 +1100,13 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	int rv = 0;
 	int lockid;
 	struct mdp_superblock_1 *sb = st->sb;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 
-	if (is_clustered(st)) {
-		rv = cluster_get_dlmlock(st, &lockid);
+	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready()) {
+		rv = cluster_get_dlmlock(&lockid);
 		if (rv) {
 			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
-			cluster_release_dlmlock(st, lockid);
+			cluster_release_dlmlock(lockid);
 			return rv;
 		}
 	}
@@ -1368,8 +1369,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		rv = -1;
 
 	sb->sb_csum = calc_sb_1_csum(sb);
-	if (is_clustered(st))
-		cluster_release_dlmlock(st, lockid);
+	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready())
+		cluster_release_dlmlock(lockid);
 
 	return rv;
 }
@@ -1474,13 +1475,14 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	struct mdp_superblock_1 *sb = st->sb;
 	__u16 *rp = sb->dev_roles + dk->number;
 	struct devinfo *di, **dip;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int rv, lockid;
 
-	if (is_clustered(st)) {
-		rv = cluster_get_dlmlock(st, &lockid);
+	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready()) {
+		rv = cluster_get_dlmlock(&lockid);
 		if (rv) {
 			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
-			cluster_release_dlmlock(st, lockid);
+			cluster_release_dlmlock(lockid);
 			return rv;
 		}
 	}
@@ -1513,8 +1515,8 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	di->next = NULL;
 	*dip = di;
 
-	if (is_clustered(st))
-		cluster_release_dlmlock(st, lockid);
+	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready())
+		cluster_release_dlmlock(lockid);
 
 	return 0;
 }
@@ -1529,13 +1531,14 @@ static int store_super1(struct supertype *st, int fd)
 	struct align_fd afd;
 	int sbsize;
 	unsigned long long dsize;
+	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int rv, lockid;
 
-	if (is_clustered(st)) {
-		rv = cluster_get_dlmlock(st, &lockid);
+	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready()) {
+		rv = cluster_get_dlmlock(&lockid);
 		if (rv) {
 			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
-			cluster_release_dlmlock(st, lockid);
+			cluster_release_dlmlock(lockid);
 			return rv;
 		}
 	}
@@ -1599,8 +1602,8 @@ static int store_super1(struct supertype *st, int fd)
 		}
 	}
 	fsync(fd);
-	if (is_clustered(st))
-		cluster_release_dlmlock(st, lockid);
+	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready())
+		cluster_release_dlmlock(lockid);
 
 	return 0;
 }

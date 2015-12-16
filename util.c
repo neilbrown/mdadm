@@ -92,13 +92,9 @@ struct dlm_lock_resource {
 	struct dlm_lksb lksb;
 };
 
-int is_clustered(struct supertype *st)
+int dlm_funs_ready(void)
 {
-	/* is it a cluster md or not */
-	if (is_dlm_hooks_ready && st->cluster_name)
-		return 1;
-	else
-		return 0;
+	return is_dlm_hooks_ready ? 1 : 0;
 }
 
 /* Using poll(2) to wait for and dispatch ASTs */
@@ -128,17 +124,24 @@ static void dlm_ast(void *arg)
 	ast_called = 1;
 }
 
+static char *cluster_name = NULL;
 /* Create the lockspace, take bitmapXXX locks on all the bitmaps. */
-int cluster_get_dlmlock(struct supertype *st, int *lockid)
+int cluster_get_dlmlock(int *lockid)
 {
 	int ret = -1;
 	char str[64];
 	int flags = LKF_NOQUEUE;
 
+	ret = get_cluster_name(&cluster_name);
+	if (ret) {
+		pr_err("The md can't get cluster name\n");
+		return -1;
+	}
+
 	dlm_lock_res = xmalloc(sizeof(struct dlm_lock_resource));
-	dlm_lock_res->ls = dlm_hooks->create_lockspace(st->cluster_name, O_RDWR);
+	dlm_lock_res->ls = dlm_hooks->create_lockspace(cluster_name, O_RDWR);
 	if (!dlm_lock_res->ls) {
-		pr_err("%s failed to create lockspace\n", st->cluster_name);
+		pr_err("%s failed to create lockspace\n", cluster_name);
                 goto out;
 	}
 
@@ -146,7 +149,7 @@ int cluster_get_dlmlock(struct supertype *st, int *lockid)
 	if (flags & LKF_CONVERT)
 		dlm_lock_res->lksb.sb_lkid = *lockid;
 
-	snprintf(str, 64, "bitmap%04d", st->nodes);
+	snprintf(str, 64, "bitmap%s", cluster_name);
 	/* if flags with LKF_CONVERT causes below return ENOENT which means
 	 * "No such file or directory" */
 	ret = dlm_hooks->ls_lock(dlm_lock_res->ls, LKM_PWMODE, &dlm_lock_res->lksb,
@@ -171,9 +174,12 @@ out:
 	return ret;
 }
 
-int cluster_release_dlmlock(struct supertype *st, int lockid)
+int cluster_release_dlmlock(int lockid)
 {
 	int ret = -1;
+
+	if (!cluster_name)
+		return -1;
 
 	/* if flags with LKF_CONVERT causes below return EINVAL which means
 	 * "Invalid argument" */
@@ -195,7 +201,7 @@ int cluster_release_dlmlock(struct supertype *st, int lockid)
                 goto out;
 	}
 
-	ret = dlm_hooks->release_lockspace(st->cluster_name, dlm_lock_res->ls, 1);
+	ret = dlm_hooks->release_lockspace(cluster_name, dlm_lock_res->ls, 1);
 	if (ret) {
 		pr_err("error %d happened when release lockspace\n", errno);
 		/* XXX make sure the lockspace is released eventually */

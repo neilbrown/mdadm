@@ -1514,9 +1514,9 @@ struct dlm_hooks {
 };
 
 extern int get_cluster_name(char **name);
-extern int is_clustered(struct supertype *st);
-extern int cluster_get_dlmlock(struct supertype *st, int *lockid);
-extern int cluster_release_dlmlock(struct supertype *st, int lockid);
+extern int dlm_funs_ready(void);
+extern int cluster_get_dlmlock(int *lockid);
+extern int cluster_release_dlmlock(int lockid);
 extern void set_dlm_hooks(void);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))

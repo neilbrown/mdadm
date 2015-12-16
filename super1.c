@@ -2422,15 +2422,6 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 
 static void free_super1(struct supertype *st)
 {
-	int rv, lockid;
-	if (is_clustered(st)) {
-		rv = cluster_get_dlmlock(st, &lockid);
-		if (rv) {
-			pr_err("Cannot get dlmlock in %s return %d\n", __func__, rv);
-			cluster_release_dlmlock(st, lockid);
-			return;
-		}
-	}
 
 	if (st->sb)
 		free(st->sb);
@@ -2442,8 +2433,6 @@ static void free_super1(struct supertype *st)
 		free(di);
 	}
 	st->sb = NULL;
-	if (is_clustered(st))
-		cluster_release_dlmlock(st, lockid);
 }
 
 #ifndef MDASSEMBLE

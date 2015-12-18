@@ -299,7 +299,7 @@ int Detail(char *dev, struct context *c)
 	for (d = 0; d < max_disks * 2; d++) {
 		disks[d].state = (1<<MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
-		disks[d].number = disks[d].raid_disk = d;
+		disks[d].number = disks[d].raid_disk = d/2;
 	}
 
 	next = array.raid_disks*2;

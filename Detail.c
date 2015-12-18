@@ -299,7 +299,8 @@ int Detail(char *dev, struct context *c)
 	for (d = 0; d < max_disks * 2; d++) {
 		disks[d].state = (1<<MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
-		disks[d].number = disks[d].raid_disk = d/2;
+		disks[d].number = -1;
+		disks[d].raid_disk = d/2;
 	}
 
 	next = array.raid_disks*2;
@@ -622,6 +623,9 @@ This is pretty boring
 			else if (disk.raid_disk < 0)
 				printf("   %5d   %5d    %5d        -     ",
 				       disk.number, disk.major, disk.minor);
+			else if (disk.number < 0)
+				printf("       -   %5d    %5d    %5d     ",
+				       disk.major, disk.minor, disk.raid_disk);
 			else
 				printf("   %5d   %5d    %5d    %5d     ",
 				       disk.number, disk.major, disk.minor, disk.raid_disk);

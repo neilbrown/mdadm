@@ -326,7 +326,8 @@ int Detail(char *dev, struct context *c)
 		    && disks[disk.raid_disk*2].state == (1<<MD_DISK_REMOVED))
 			disks[disk.raid_disk*2] = disk;
 		else if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
-			 && disks[disk.raid_disk*2+1].state == (1<<MD_DISK_REMOVED))
+			 && disks[disk.raid_disk*2+1].state == (1<<MD_DISK_REMOVED)
+			 && !(disk.state & (1<<MD_DISK_JOURNAL)))
 			disks[disk.raid_disk*2+1] = disk;
 		else if (next < max_disks*2)
 			disks[next++] = disk;
@@ -621,7 +622,7 @@ This is pretty boring
 			if (disk.number < 0)
 				printf("       -   %5d    %5d        -     ",
 				       disk.major, disk.minor);
-			else if (disk.raid_disk < 0)
+			else if (disk.raid_disk < 0 || disk.state & (1<<MD_DISK_JOURNAL))
 				printf("   %5d   %5d    %5d        -     ",
 				       disk.number, disk.major, disk.minor);
 			else if (disk.number < 0)

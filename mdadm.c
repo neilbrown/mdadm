@@ -757,6 +757,8 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "no-bbl") == 0)
 				continue;
+			if (strcmp(c.update, "force-no-bbl") == 0)
+				continue;
 			if (strcmp(c.update, "metadata") == 0)
 				continue;
 			if (strcmp(c.update, "revert-reshape") == 0)
@@ -790,7 +792,7 @@ int main(int argc, char *argv[])
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'nodes', 'resync',\n"
 		"     'summaries', 'homehost', 'home-cluster', 'byteorder', 'devicesize',\n"
 		"     'no-bitmap', 'metadata', 'revert-reshape'\n"
-		"     'bbl', 'no-bbl'\n"
+		"     'bbl', 'no-bbl', 'force-no-bbl'\n"
 				);
 			exit(outf == stdout ? 0 : 2);
 
@@ -808,8 +810,9 @@ int main(int argc, char *argv[])
 			c.update = optarg;
 			if (strcmp(c.update, "devicesize") != 0 &&
 			    strcmp(c.update, "bbl") != 0 &&
+			    strcmp(c.update, "force-no-bbl") != 0 &&
 			    strcmp(c.update, "no-bbl") != 0) {
-				pr_err("only 'devicesize', 'bbl' and 'no-bbl' can be updated with --re-add\n");
+				pr_err("only 'devicesize', 'bbl', 'no-bbl', and 'force-no-bbl' can be updated with --re-add\n");
 				exit(2);
 			}
 			continue;

@@ -820,7 +820,8 @@ extern struct superswitch {
 	 *   readwrite - clear the WriteMostly1 bit in the superblock devflags
 	 *   no-bitmap - clear any record that a bitmap is present.
 	 *   bbl       - add a bad-block-log if possible
-	 *   no-bbl    - remove and bad-block-log is it is empty.
+	 *   no-bbl    - remove any bad-block-log is it is empty.
+	 *   force-no-bbl - remove any bad-block-log even if empty.
 	 *   revert-reshape - If a reshape is in progress, modify metadata so
 	 *                    it will resume going in the opposite direction.
 	 */

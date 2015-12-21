@@ -1282,6 +1282,11 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			sb->bblog_shift = 0;
 			sb->bblog_offset = 0;
 		}
+	} else if (strcmp(update, "force-no-bbl") == 0) {
+		sb->feature_map &= ~ __cpu_to_le32(MD_FEATURE_BAD_BLOCKS);
+		sb->bblog_size = 0;
+		sb->bblog_shift = 0;
+		sb->bblog_offset = 0;
 	} else if (strcmp(update, "name") == 0) {
 		if (info->name[0] == 0)
 			sprintf(info->name, "%d", info->array.md_minor);

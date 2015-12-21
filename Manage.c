@@ -948,7 +948,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			pr_err("%s does not support journal device.\n", devname);
 			return -1;
 		}
-		disc.raid_disk = array->raid_disks;
+		disc.raid_disk = 0;
 	}
 
 	if (array->not_persistent==0) {

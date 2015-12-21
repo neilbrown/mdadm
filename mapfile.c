@@ -176,7 +176,7 @@ void map_read(struct map_ent **melp)
 {
 	FILE *f;
 	char buf[8192];
-	char path[200];
+	char path[201];
 	int uuid[4];
 	char devnm[32];
 	char metadata[30];

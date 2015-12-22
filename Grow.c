@@ -1590,6 +1590,15 @@ int Grow_reshape(char *devname, int fd,
 		pr_err("Cannot increase raid-disks on this array beyond %d\n", st->max_devs);
 		return 1;
 	}
+	if (s->level == 0 &&
+	    (array.state & (1<<MD_SB_BITMAP_PRESENT)) &&
+	    !(array.state & (1<<MD_SB_CLUSTERED))) {
+                array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
+                if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
+                        pr_err("failed to remove internal bitmap.\n");
+                        return 1;
+                }
+        }
 
 	/* in the external case we need to check that the requested reshape is
 	 * supported, and perform an initial check that the container holds the

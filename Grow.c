@@ -4885,6 +4885,9 @@ int Grow_continue_command(char *devname, int fd,
 
 		sysfs_init(content, fd2, mdstat->devnm);
 
+		close(fd2);
+		fd2 = -1;
+
 		/* start mdmon in case it is not running
 		 */
 		if (!mdmon_running(container))

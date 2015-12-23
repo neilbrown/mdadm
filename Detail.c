@@ -619,7 +619,7 @@ This is pretty boring
 			continue;
 		if (!c->brief) {
 			if (d == array.raid_disks*2) printf("\n");
-			if (disk.number < 0)
+			if (disk.number < 0 && disk.raid_disk < 0)
 				printf("       -   %5d    %5d        -     ",
 				       disk.major, disk.minor);
 			else if (disk.raid_disk < 0 || disk.state & (1<<MD_DISK_JOURNAL))

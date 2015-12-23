@@ -10300,8 +10300,10 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 		sysfs_wait(fd, NULL);
 		if (sysfs_get_str(sra, NULL, "sync_action",
 				  action, 20) > 0 &&
-				strncmp(action, "reshape", 7) != 0)
-			break;
+				strncmp(action, "reshape", 7) != 0) {
+			close(fd);
+			return -1;
+		}
 		if (sysfs_fd_get_ll(fd, &completed) < 0) {
 			dprintf("cannot read reshape_position (in loop)\n");
 			close(fd);

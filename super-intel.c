@@ -510,7 +510,8 @@ static const char *_sys_dev_type[] = {
 	[SYS_DEV_UNKNOWN] = "Unknown",
 	[SYS_DEV_SAS] = "SAS",
 	[SYS_DEV_SATA] = "SATA",
-	[SYS_DEV_NVME] = "NVMe"
+	[SYS_DEV_NVME] = "NVMe",
+	[SYS_DEV_VMD] = "VMD"
 };
 
 const char *get_sys_dev_type(enum sys_dev_type type)
@@ -563,6 +564,10 @@ static int attach_hba_to_super(struct intel_super *super, struct sys_dev *device
 	 * Do not support HBA types mixing
 	 */
 	if (device->type != hba->type)
+		return 2;
+
+	/* Always forbid spanning between VMD domains (seen as different controllers by mdadm) */
+	if (device->type == SYS_DEV_VMD && !path_attached_to_hba(device->path, hba->path))
 		return 2;
 
 	/* Multiple same type HBAs can be used if they share the same OROM */
@@ -1761,6 +1766,57 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 	return err;
 }
 
+static int print_vmd_attached_devs(struct sys_dev *hba)
+{
+	struct dirent *ent;
+	DIR *dir;
+	char path[292];
+	char link[256];
+	char *c, *rp;
+
+	if (hba->type != SYS_DEV_VMD)
+		return 1;
+
+	/* scroll through /sys/dev/block looking for devices attached to
+	 * this hba
+	 */
+	dir = opendir("/sys/bus/pci/drivers/nvme");
+	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+		int n;
+
+		/* is 'ent' a device? check that the 'subsystem' link exists and
+		 * that its target matches 'bus'
+		 */
+		sprintf(path, "/sys/bus/pci/drivers/nvme/%s/subsystem",
+			ent->d_name);
+		n = readlink(path, link, sizeof(link));
+		if (n < 0 || n >= (int)sizeof(link))
+			continue;
+		link[n] = '\0';
+		c = strrchr(link, '/');
+		if (!c)
+			continue;
+		if (strncmp("pci", c+1, strlen("pci")) != 0)
+			continue;
+
+		sprintf(path, "/sys/bus/pci/drivers/nvme/%s", ent->d_name);
+		/* if not a intel NVMe - skip it*/
+		if (devpath_to_vendor(path) != 0x8086)
+			continue;
+
+		rp = realpath(path, NULL);
+		if (!rp)
+			continue;
+
+		if (path_attached_to_hba(rp, hba->path)) {
+			printf(" NVMe under VMD : %s\n", rp);
+		}
+		free(rp);
+	}
+
+	return 0;
+}
+
 static void print_found_intel_controllers(struct sys_dev *elem)
 {
 	for (; elem; elem = elem->next) {
@@ -1771,7 +1827,12 @@ static void print_found_intel_controllers(struct sys_dev *elem)
 			fprintf(stderr, "SAS ");
 		else if (elem->type == SYS_DEV_NVME)
 			fprintf(stderr, "NVMe ");
-		fprintf(stderr, "RAID controller");
+
+		if (elem->type == SYS_DEV_VMD)
+			fprintf(stderr, "VMD domain");
+		else
+			fprintf(stderr, "RAID controller");
+
 		if (elem->pci_id)
 			fprintf(stderr, " at %s", elem->pci_id);
 		fprintf(stderr, ".\n");
@@ -1935,8 +1996,10 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		if (controller_path && (compare_paths(hba->path, controller_path) != 0))
 			continue;
 		if (!find_imsm_capability(hba)) {
+			char buf[PATH_MAX];
 			pr_err("imsm capabilities not found for controller: %s (type %s)\n",
-				hba->path, get_sys_dev_type(hba->type));
+				  hba->type == SYS_DEV_VMD ? vmd_domain_to_controller(hba, buf) : hba->path,
+				  get_sys_dev_type(hba->type));
 			continue;
 		}
 		result = 0;
@@ -1951,13 +2014,27 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 	const struct orom_entry *entry;
 
 	for (entry = orom_entries; entry; entry = entry->next) {
-		print_imsm_capability(&entry->orom);
+		if (entry->type == SYS_DEV_VMD) {
+			for (hba = list; hba; hba = hba->next) {
+				if (hba->type == SYS_DEV_VMD) {
+					char buf[PATH_MAX];
+					print_imsm_capability(&entry->orom);
+					printf(" I/O Controller : %s (%s)\n",
+						vmd_domain_to_controller(hba, buf), get_sys_dev_type(hba->type));
+					print_vmd_attached_devs(hba);
+					printf("\n");
+				}
+			}
+			continue;
+		}
 
-		if (imsm_orom_is_nvme(&entry->orom)) {
+		print_imsm_capability(&entry->orom);
+		if (entry->type == SYS_DEV_NVME) {
 			for (hba = list; hba; hba = hba->next) {
 				if (hba->type == SYS_DEV_NVME)
 					printf("    NVMe Device : %s\n", hba->path);
 			}
+			printf("\n");
 			continue;
 		}
 
@@ -2000,16 +2077,25 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 	for (hba = list; hba; hba = hba->next) {
 		if (controller_path && (compare_paths(hba->path,controller_path) != 0))
 			continue;
-		if (!find_imsm_capability(hba) && verbose > 0)
-			pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICE_UNDER_%s\n", hba->path);
+		if (!find_imsm_capability(hba) && verbose > 0) {
+			char buf[PATH_MAX];
+			pr_err("IMSM_DETAIL_PLATFORM_ERROR=NO_IMSM_CAPABLE_DEVICE_UNDER_%s\n",
+			hba->type == SYS_DEV_VMD ? vmd_domain_to_controller(hba, buf) : hba->path);
+		}
 		else
 			result = 0;
 	}
 
 	const struct orom_entry *entry;
 
-	for (entry = orom_entries; entry; entry = entry->next)
+	for (entry = orom_entries; entry; entry = entry->next) {
+		if (entry->type == SYS_DEV_VMD) {
+			for (hba = list; hba; hba = hba->next)
+				print_imsm_capability_export(&entry->orom);
+			continue;
+		}
 		print_imsm_capability_export(&entry->orom);
+	}
 
 	return result;
 }
@@ -3862,12 +3948,14 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 		if (devname) {
 			struct intel_hba *hba = super->hba;
 
-			pr_err("%s is attached to Intel(R) %s RAID controller (%s),\n"
-				"    but the container is assigned to Intel(R) %s RAID controller (",
+			pr_err("%s is attached to Intel(R) %s %s (%s),\n"
+				"    but the container is assigned to Intel(R) %s %s (",
 				devname,
 				get_sys_dev_type(hba_name->type),
+				hba_name->type == SYS_DEV_VMD ? "domain" : "RAID controller",
 				hba_name->pci_id ? : "Err!",
-				get_sys_dev_type(super->hba->type));
+				get_sys_dev_type(super->hba->type),
+				hba->type == SYS_DEV_VMD ? "domain" : "RAID controller");
 
 			while (hba) {
 				fprintf(stderr, "%s", hba->pci_id ? : "Err!");
@@ -3876,7 +3964,8 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 				hba = hba->next;
 			}
 			fprintf(stderr, ").\n"
-				"    Mixing devices attached to different controllers is not allowed.\n");
+				"    Mixing devices attached to different %s is not allowed.\n",
+				hba_name->type == SYS_DEV_VMD ? "VMD domains" : "controllers");
 		}
 		return 2;
 	}
@@ -5878,7 +5967,6 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 
 	devid_list = entry->devid_list;
 	for (dv = devid_list; dv; dv = dv->next) {
-
 		struct md_list *devlist = NULL;
 		struct sys_dev *device = device_by_id(dv->devid);
 		char *hba_path;
@@ -5888,6 +5976,14 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 			hba_path = device->path;
 		else
 			return 0;
+
+		/* VMD has one orom entry for all domain, but spanning is not allowed.
+		 * VMD arrays should be counted per domain (controller), so skip
+		 * domains that are not the given one.
+		 */
+		if ((hba->type == SYS_DEV_VMD) &&
+		   (strncmp(device->path, hba->path, strlen(device->path)) != 0))
+			continue;
 
 		devlist = get_devices(hba_path);
 		/* if no intel devices return zero volumes */
@@ -9150,7 +9246,7 @@ int validate_container_imsm(struct mdinfo *info)
 			return 1;
 		}
 
-		if (orom != orom2) {
+		if ((orom != orom2) || ((hba->type == SYS_DEV_VMD) && (hba != hba2))) {
 			pr_err("WARNING - IMSM container assembled with disks under different HBAs!\n"
 				"       This operation is not supported and can lead to data loss.\n");
 			return 1;

@@ -33,8 +33,6 @@
 static int devpath_to_ll(const char *dev_path, const char *entry,
 			 unsigned long long *val);
 
-static __u16 devpath_to_vendor(const char *dev_path);
-
 static void free_sys_dev(struct sys_dev **list)
 {
 	while (*list) {
@@ -57,6 +55,7 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 	struct dirent *de;
 	struct sys_dev *head = NULL;
 	struct sys_dev *list = NULL;
+	struct sys_dev *vmd = NULL;
 	enum sys_dev_type type;
 	unsigned long long dev_id;
 	unsigned long long class;
@@ -65,17 +64,25 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		type = SYS_DEV_SAS;
 	else if (strcmp(driver, "ahci") == 0)
 		type = SYS_DEV_SATA;
-	else if (strcmp(driver, "nvme") == 0)
+	else if (strcmp(driver, "nvme") == 0) {
+		/* if looking for nvme devs, first look for vmd */
+		vmd = find_driver_devices("pci", "vmd");
 		type = SYS_DEV_NVME;
+	} else if (strcmp(driver, "vmd") == 0)
+		type = SYS_DEV_VMD;
 	else
 		type = SYS_DEV_UNKNOWN;
 
 	sprintf(path, "/sys/bus/%s/drivers/%s", bus, driver);
 	driver_dir = opendir(path);
-	if (!driver_dir)
+	if (!driver_dir) {
+		if (vmd)
+			free_sys_dev(&vmd);
 		return NULL;
+	}
 	for (de = readdir(driver_dir); de; de = readdir(driver_dir)) {
 		int n;
+		int skip = 0;
 
 		/* is 'de' a device? check that the 'subsystem' link exists and
 		 * that its target matches 'bus'
@@ -95,8 +102,19 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		sprintf(path, "/sys/bus/%s/drivers/%s/%s",
 			bus, driver, de->d_name);
 
-		/* if it's not Intel device skip it. */
-		if (devpath_to_vendor(path) != 0x8086)
+		/* if searching for nvme - skip vmd connected one */
+		if (type == SYS_DEV_NVME) {
+			struct sys_dev *dev;
+			char *rp = realpath(path, NULL);
+			for (dev = vmd; dev; dev = dev->next) {
+				if ((strncmp(dev->path, rp, strlen(dev->path)) == 0))
+					skip = 1;
+			}
+			free(rp);
+		}
+
+		/* if it's not Intel device or mark as VMD connected - skip it. */
+		if (devpath_to_vendor(path) != 0x8086 || skip == 1)
 			continue;
 
 		if (devpath_to_ll(path, "device", &dev_id) != 0)
@@ -122,12 +140,28 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		list->dev_id = (__u16) dev_id;
 		list->class = (__u32) class;
 		list->type = type;
+		/* Each VMD device (domain) adds separate PCI bus, it is better to
+		 * store path as a path to that bus (easier further determination which
+		 * NVMe dev is connected to this particular VMD domain).
+		 */
+		if (type == SYS_DEV_VMD) {
+			sprintf(path, "/sys/bus/%s/drivers/%s/%s/domain/device",
+			bus, driver, de->d_name);
+		}
 		list->path = realpath(path, NULL);
 		list->next = NULL;
 		if ((list->pci_id = strrchr(list->path, '/')) != NULL)
 			list->pci_id++;
 	}
 	closedir(driver_dir);
+
+	if (vmd) {
+		if (list)
+			list->next = vmd;
+		else
+			head = vmd;
+	}
+
 	return head;
 }
 
@@ -160,7 +194,7 @@ static int devpath_to_ll(const char *dev_path, const char *entry, unsigned long 
 	return n;
 }
 
-static __u16 devpath_to_vendor(const char *dev_path)
+__u16 devpath_to_vendor(const char *dev_path)
 {
 	char path[strlen(dev_path) + strlen("/vendor") + 1];
 	char vendor[7];
@@ -196,6 +230,7 @@ struct sys_dev *find_intel_devices(void)
 
 	isci = find_driver_devices("pci", "isci");
 	ahci = find_driver_devices("pci", "ahci");
+	/* Searching for NVMe will return list of NVMe and VMD controllers */
 	nvme = find_driver_devices("pci", "nvme");
 
 	if (!isci && !ahci) {
@@ -430,6 +465,7 @@ static const struct imsm_orom *find_imsm_hba_orom(struct sys_dev *hba)
 #define AHCI_PROP "RstSataV"
 #define AHCI_SSATA_PROP "RstsSatV"
 #define AHCI_CSATA_PROP "RstCSatV"
+#define VMD_PROP "RstUefiV"
 
 #define VENDOR_GUID \
 	EFI_GUID(0x193dfefa, 0xa445, 0x4302, 0x99, 0xd8, 0xef, 0x3a, 0xad, 0x1a, 0x04, 0xc6)
@@ -545,8 +581,13 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 			if (!csata)
 				csata = add_orom(&orom);
 			add_orom_device_id(csata, hba->dev_id);
+			csata->type = hba->type;
 			return &csata->orom;
 		}
+	}
+
+	if (hba->type == SYS_DEV_VMD) {
+		err = read_efi_variable(&orom, sizeof(orom), VMD_PROP, VENDOR_GUID);
 	}
 
 	if (err)
@@ -554,6 +595,7 @@ const struct imsm_orom *find_imsm_efi(struct sys_dev *hba)
 
 	ret = add_orom(&orom);
 	add_orom_device_id(ret, hba->dev_id);
+	ret->type = hba->type;
 
 	return &ret->orom;
 }
@@ -583,6 +625,7 @@ const struct imsm_orom *find_imsm_nvme(struct sys_dev *hba)
 		nvme_orom = add_orom(&nvme_orom_compat);
 	}
 	add_orom_device_id(nvme_orom, hba->dev_id);
+	nvme_orom->type = SYS_DEV_NVME;
 	return &nvme_orom->orom;
 }
 
@@ -666,4 +709,34 @@ int disk_attached_to_hba(int fd, const char *hba_path)
 		free(disk_path);
 
 	return rc;
+}
+
+char *vmd_domain_to_controller(struct sys_dev *hba, char *buf)
+{
+	struct dirent *ent;
+	DIR *dir;
+	char path[PATH_MAX];
+
+	if (!hba)
+		return NULL;
+
+	if (hba->type != SYS_DEV_VMD)
+		return NULL;
+
+	dir = opendir("/sys/bus/pci/drivers/vmd");
+
+	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+		sprintf(path, "/sys/bus/pci/drivers/vmd/%s/domain/device",
+			ent->d_name);
+
+		if (!realpath(path, buf))
+			continue;
+
+		if (strncmp(buf, hba->path, strlen(buf)) == 0) {
+			sprintf(path, "/sys/bus/pci/drivers/vmd/%s", ent->d_name);
+			realpath(path, buf);
+			return buf;
+		}
+	}
+	return NULL;
 }

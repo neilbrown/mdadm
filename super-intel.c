@@ -10373,7 +10373,7 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 	if (sysfs_fd_get_ll(fd, &completed) < 0) {
 		dprintf("cannot read reshape_position (no reshape in progres)\n");
 		close(fd);
-		return 0;
+		return 1;
 	}
 
 	if (completed > position_to_set) {
@@ -10662,7 +10662,7 @@ static int imsm_manage_reshape(
 		sra->reshape_progress = next_step;
 
 		/* wait until reshape finish */
-		if (wait_for_reshape_imsm(sra, ndata) < 0) {
+		if (wait_for_reshape_imsm(sra, ndata)) {
 			dprintf("wait_for_reshape_imsm returned error!\n");
 			goto abort;
 		}

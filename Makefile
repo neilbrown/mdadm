@@ -211,7 +211,7 @@ mdmon : $(MON_OBJS) | check_rundir
 msg.o: msg.c msg.h
 
 test_stripe : restripe.c xmalloc.o mdadm.h
-	$(CC) $(CXFLAGS) $(LDFLAGS) -o test_stripe xmalloc.o  -DMAIN restripe.c
+	$(CC) $(CFLAGS) $(CXFLAGS) $(LDFLAGS) -o test_stripe xmalloc.o  -DMAIN restripe.c
 
 raid6check : raid6check.o mdadm.h $(CHECK_OBJS)
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o raid6check raid6check.o $(CHECK_OBJS)

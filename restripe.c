@@ -434,7 +434,7 @@ void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs,
 /* Try to find out if a specific disk has a problem */
 int raid6_check_disks(int data_disks, int start, int chunk_size,
 		      int level, int layout, int diskP, int diskQ,
-		      char *p, char *q, char **stripes)
+		      uint8_t *p, uint8_t *q, char **stripes)
 {
 	int i;
 	int data_id, diskD;
@@ -827,8 +827,8 @@ int test_stripes(int *source, unsigned long long *offsets,
 	char *stripe_buf = xmalloc(raid_disks * chunk_size);
 	char **stripes = xmalloc(raid_disks * sizeof(char*));
 	char **blocks = xmalloc(raid_disks * sizeof(char*));
-	char *p = xmalloc(chunk_size);
-	char *q = xmalloc(chunk_size);
+	uint8_t *p = xmalloc(chunk_size);
+	uint8_t *q = xmalloc(chunk_size);
 
 	int i;
 	int diskP, diskQ;

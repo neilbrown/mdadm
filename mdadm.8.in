@@ -1163,15 +1163,15 @@ The
 .B name
 option will change the
 .I name
-of the array as stored in the superblock and bitmap. This option only
-works for clustered environment.
+of the array as stored in the superblock.  This is only supported for
+version-1 superblocks.
 
 The
 .B nodes
 option will change the
 .I nodes
-of the array as stored in the superblock.  This is only supported for
-version-1 superblocks.
+of the array as stored in the bitmap superblock. This option only
+works for a clustered environment.
 
 The
 .B homehost

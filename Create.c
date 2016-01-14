@@ -330,7 +330,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 		close(dfd);
 		info.array.working_disks++;
-		if (dnum < s->raiddisks)
+		if (dnum < s->raiddisks && dv->disposition != 'j')
 			info.array.active_disks++;
 		if (st == NULL) {
 			struct createinfo *ci = conf_get_create_info();
@@ -400,7 +400,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 
 		if (dv->disposition == 'j')
-			continue;  /* skip write journal for size check */
+			goto skip_size_check;  /* skip write journal for size check */
 
 		freesize /= 2; /* convert to K */
 		if (s->chunk && s->chunk != UnSet) {
@@ -434,6 +434,7 @@ int Create(struct supertype *st, char *mddev,
 			mindisc = dname;
 			minsize = freesize;
 		}
+	skip_size_check:
 		if (c->runstop != 1 || c->verbose >= 0) {
 			int fd = open(dname, O_RDONLY);
 			if (fd <0 ) {

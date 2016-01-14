@@ -63,6 +63,9 @@
  * but may not wrap over lines
  *
  */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
 
 #ifndef CONFFILE
 #define CONFFILE "/etc/mdadm.conf"

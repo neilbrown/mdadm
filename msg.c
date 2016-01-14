@@ -170,7 +170,7 @@ int connect_monitor(char *devname)
 
 	addr.sun_family = PF_LOCAL;
 	strcpy(addr.sun_path, path);
-	if (connect(sfd, &addr, sizeof(addr)) < 0) {
+	if (connect(sfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		close(sfd);
 		return -1;
 	}

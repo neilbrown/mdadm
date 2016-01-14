@@ -235,7 +235,7 @@ static int make_control_sock(char *devname)
 	addr.sun_family = PF_LOCAL;
 	strcpy(addr.sun_path, path);
 	umask(077); /* ensure no world write access */
-	if (bind(sfd, &addr, sizeof(addr)) < 0) {
+	if (bind(sfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		close(sfd);
 		return -1;
 	}

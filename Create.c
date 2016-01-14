@@ -851,11 +851,14 @@ int Create(struct supertype *st, char *mddev,
 			if (dnum >= total_slots)
 				abort();
 			if (dnum == insert_point) {
+				raid_disk_num += 1;
 				moved_disk = dv;
 				continue;
 			}
-			if (strcasecmp(dv->devname, "missing")==0)
+			if (strcasecmp(dv->devname, "missing")==0) {
+				raid_disk_num += 1;
 				continue;
+			}
 			if (have_container)
 				moved_disk = NULL;
 			if (have_container && dnum < info.array.raid_disks - 1)

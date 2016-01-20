@@ -142,7 +142,7 @@ int cluster_get_dlmlock(int *lockid)
 	dlm_lock_res->ls = dlm_hooks->create_lockspace(cluster_name, O_RDWR);
 	if (!dlm_lock_res->ls) {
 		pr_err("%s failed to create lockspace\n", cluster_name);
-                goto out;
+		return -ENOMEM;
 	}
 
 	/* Conversions need the lockid in the LKSB */
@@ -157,21 +157,15 @@ int cluster_get_dlmlock(int *lockid)
 			  dlm_lock_res, NULL, NULL);
 	if (ret) {
 		pr_err("error %d when get PW mode on lock %s\n", errno, str);
-                goto out;
+		dlm_hooks->release_lockspace(cluster_name, dlm_lock_res->ls, 1);
+		return ret;
 	}
 
 	/* Wait for it to complete */
 	poll_for_ast(dlm_lock_res->ls);
 	*lockid = dlm_lock_res->lksb.sb_lkid;
 
-	errno =	dlm_lock_res->lksb.sb_status;
-	if (errno) {
-		pr_err("error %d happened in ast with lock %s\n", errno, str);
-		goto out;
-	}
-
-out:
-	return ret;
+	return dlm_lock_res->lksb.sb_status;
 }
 
 int cluster_release_dlmlock(int lockid)

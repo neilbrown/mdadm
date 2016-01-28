@@ -425,8 +425,9 @@ int Detail(char *dev, struct context *c)
 				else
 					printf("  Used Dev Size : unknown\n");
 			} else
-				printf("  Used Dev Size : %d%s\n", array.size,
-				       human_size((long long)array.size<<10));
+				printf("  Used Dev Size : %lu%s\n",
+				       (unsigned long)array.size,
+				       human_size((unsigned long long)array.size<<10));
 		}
 		if (array.raid_disks)
 			printf("   Raid Devices : %d\n", array.raid_disks);

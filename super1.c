@@ -979,7 +979,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 			size /= 512;
 			bmend += size;
 			if (bmend > earliest)
-				bmend = earliest;
+				earliest = bmend;
 		}
 		if (sb->bblog_offset && sb->bblog_size) {
 			unsigned long long bbend = super_offset;

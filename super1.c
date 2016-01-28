@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2009 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2016 Neil Brown <neilb@suse.com>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -141,6 +141,7 @@ struct misc_dev_info {
 					|MD_FEATURE_JOURNAL		\
 					)
 
+#ifndef MDASSEMBLE
 static int role_from_sb(struct mdp_superblock_1 *sb)
 {
 	unsigned int d;
@@ -153,6 +154,7 @@ static int role_from_sb(struct mdp_superblock_1 *sb)
 		role = MD_DISK_ROLE_SPARE;
 	return role;
 }
+#endif
 
 /* return how many bytes are needed for bitmap, for cluster-md each node
  * should have it's own bitmap */
@@ -1654,6 +1656,7 @@ static void free_super1(struct supertype *st);
 #define META_BLOCK_SIZE 4096
 __u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
 
+#ifndef MDASSEMBLE
 static int write_empty_r5l_meta_block(struct supertype *st, int fd)
 {
 	struct r5l_meta_block *mb;
@@ -1699,7 +1702,6 @@ fail_to_write:
 	return 1;
 }
 
-#ifndef MDASSEMBLE
 static int write_init_super1(struct supertype *st)
 {
 	struct mdp_superblock_1 *sb = st->sb;

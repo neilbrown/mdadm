@@ -82,8 +82,15 @@ struct blkpg_partition {
    aren't permitted). */
 #define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
 
-static struct dlm_hooks *dlm_hooks = NULL;
 static int is_dlm_hooks_ready = 0;
+
+int dlm_funs_ready(void)
+{
+	return is_dlm_hooks_ready ? 1 : 0;
+}
+
+#ifndef MDASSEMBLE
+static struct dlm_hooks *dlm_hooks = NULL;
 struct dlm_lock_resource *dlm_lock_res = NULL;
 static int ast_called = 0;
 
@@ -91,11 +98,6 @@ struct dlm_lock_resource {
 	dlm_lshandle_t *ls;
 	struct dlm_lksb lksb;
 };
-
-int dlm_funs_ready(void)
-{
-	return is_dlm_hooks_ready ? 1 : 0;
-}
 
 /* Using poll(2) to wait for and dispatch ASTs */
 static int poll_for_ast(dlm_lshandle_t ls)
@@ -206,6 +208,16 @@ int cluster_release_dlmlock(int lockid)
 out:
 	return ret;
 }
+#else
+int cluster_get_dlmlock(int *lockid)
+{
+	return -1;
+}
+int cluster_release_dlmlock(int lockid)
+{
+	return -1;
+}
+#endif
 
 /*
  * Parse a 128 bit uuid in 4 integers
@@ -2115,10 +2127,10 @@ void reopen_mddev(int mdfd)
 		dup2(fd, mdfd);
 }
 
+#ifndef MDASSEMBLE
 static struct cmap_hooks *cmap_hooks = NULL;
 static int is_cmap_hooks_ready = 0;
 
-#ifndef MDASSEMBLE
 void set_cmap_hooks(void)
 {
 	cmap_hooks = xmalloc(sizeof(struct cmap_hooks));

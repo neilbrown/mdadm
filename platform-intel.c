@@ -734,8 +734,7 @@ char *vmd_domain_to_controller(struct sys_dev *hba, char *buf)
 
 		if (strncmp(buf, hba->path, strlen(buf)) == 0) {
 			sprintf(path, "/sys/bus/pci/drivers/vmd/%s", ent->d_name);
-			realpath(path, buf);
-			return buf;
+			return realpath(path, buf);
 		}
 	}
 	return NULL;

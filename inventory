@@ -22,6 +22,7 @@ ANNOUNCE-3.3.1
 ANNOUNCE-3.3.2
 ANNOUNCE-3.3.3
 ANNOUNCE-3.3.4
+ANNOUNCE-3.4
 Assemble.c
 Build.c
 COPYING
@@ -46,6 +47,7 @@ bitmap.h
 config.c
 crc32.c
 crc32.h
+crc32c.c
 dlink.c
 dlink.h
 external-reshape-design.txt
@@ -239,6 +241,7 @@ tests/19raid6auto-repair
 tests/19raid6check
 tests/19raid6repair
 tests/19repair-does-not-destroy
+tests/20raid5journal
 tests/ToTest
 tests/check
 tests/env-ddf-template

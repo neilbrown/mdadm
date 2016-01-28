@@ -1,7 +1,7 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2015 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2016 Neil Brown <neilb@suse.com>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -25,10 +25,10 @@
 #include "mdadm.h"
 
 #ifndef VERSION
-#define VERSION "3.3.4"
+#define VERSION "3.4"
 #endif
 #ifndef VERS_DATE
-#define VERS_DATE "3rd August 2015"
+#define VERS_DATE "28th January 2016"
 #endif
 char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
 

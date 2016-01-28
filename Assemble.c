@@ -643,7 +643,14 @@ static int load_devices(struct devs *devices, char *devmap,
 			} else if (strcmp(c->update, "nodes") == 0) {
 				tst->nodes = c->nodes;
 				err = tst->ss->write_bitmap(tst, dfd, NodeNumUpdate);
-			} else
+			} else if (strcmp(c->update, "revert-reshape") == 0 &&
+				   c->invalid_backup)
+				err = tst->ss->update_super(tst, content,
+							    "revert-reshape-nobackup",
+							    devname, c->verbose,
+							    ident->uuid_set,
+							    c->homehost);
+			else
 				err = tst->ss->update_super(tst, content, c->update,
 							    devname, c->verbose,
 							    ident->uuid_set,

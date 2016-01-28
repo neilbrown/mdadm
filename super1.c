@@ -1307,7 +1307,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			(st->sb + MAX_SB_SIZE + BM_SUPER_SIZE);
 		sb->data_size = __cpu_to_le64(
 			misc->device_size - __le64_to_cpu(sb->data_offset));
-	} else if (strcmp(update, "revert-reshape") == 0) {
+	} else if (strncmp(update, "revert-reshape", 14) == 0) {
 		rv = -2;
 		if (!(sb->feature_map & __cpu_to_le32(MD_FEATURE_RESHAPE_ACTIVE)))
 			pr_err("No active reshape to revert on %s\n",
@@ -1317,6 +1317,24 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			unsigned long long reshape_sectors;
 			long reshape_chunk;
 			rv = 0;
+			/* If the reshape hasn't started, just stop it.
+			 * It is conceivable that a stripe was modified but
+			 * the metadata not updated.  In that case the backup
+			 * should have been used to get passed the critical stage.
+			 * If that couldn't happen, the "-nobackup" version
+			 * will be used.
+			 */
+			if (strcmp(update, "revert-reshape-nobackup") == 0 &&
+			    sb->reshape_position == 0 &&
+			    (__le32_to_cpu(sb->delta_disks) > 0 ||
+			     (__le32_to_cpu(sb->delta_disks) == 0 &&
+			      !(sb->feature_map & __cpu_to_le32(MD_FEATURE_RESHAPE_BACKWARDS))))) {
+				sb->feature_map &= ~__cpu_to_le32(MD_FEATURE_RESHAPE_ACTIVE);
+				sb->raid_disks = __cpu_to_le32(__le32_to_cpu(sb->raid_disks) -
+							       __le32_to_cpu(sb->delta_disks));
+				sb->delta_disks = 0;
+				goto done;
+			}
 			/* reshape_position is a little messy.
 			 * Its value must be a multiple of the larger
 			 * chunk size, and of the "after" data disks.
@@ -1363,6 +1381,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 				sb->new_offset = __cpu_to_le32(-offset_delta);
 				sb->data_size = __cpu_to_le64(__le64_to_cpu(sb->data_size) - offset_delta);
 			}
+		done:;
 		}
 	} else if (strcmp(update, "_reshape_progress")==0)
 		sb->reshape_position = __cpu_to_le64(info->reshape_progress);

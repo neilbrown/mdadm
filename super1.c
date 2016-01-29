@@ -730,12 +730,12 @@ static int copy_metadata1(struct supertype *st, int from, int to)
 	}
 
 	if (super.bblog_size != 0 &&
-	    __le32_to_cpu(super.bblog_size) <= 100 &&
+	    __le16_to_cpu(super.bblog_size) <= 100 &&
 	    super.bblog_offset != 0 &&
 	    (super.feature_map & __le32_to_cpu(MD_FEATURE_BAD_BLOCKS))) {
 		/* There is a bad block log */
 		unsigned long long bb_offset = sb_offset;
-		int bytes = __le32_to_cpu(super.bblog_size) * 512;
+		int bytes = __le16_to_cpu(super.bblog_size) * 512;
 		int written = 0;
 		struct align_fd afrom, ato;
 
@@ -832,7 +832,7 @@ static int examine_badblocks_super1(struct supertype *st, int fd, char *devname)
 	__u64 *bbl, *bbp;
 	int i;
 
-	if  (!sb->bblog_size || __le32_to_cpu(sb->bblog_size) > 100
+	if  (!sb->bblog_size || __le16_to_cpu(sb->bblog_size) > 100
 	     || !sb->bblog_offset){
 		printf("No bad-blocks list configured on %s\n", devname);
 		return 0;
@@ -843,7 +843,7 @@ static int examine_badblocks_super1(struct supertype *st, int fd, char *devname)
 		return 0;
 	}
 
-	size = __le32_to_cpu(sb->bblog_size)* 512;
+	size = __le16_to_cpu(sb->bblog_size)* 512;
 	if (posix_memalign((void**)&bbl, 4096, size) != 0) {
 		pr_err("could not allocate badblocks list\n");
 		return 0;
@@ -986,7 +986,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		if (sb->bblog_offset && sb->bblog_size) {
 			unsigned long long bbend = super_offset;
 			bbend += (int32_t)__le32_to_cpu(sb->bblog_offset);
-			bbend += __le32_to_cpu(sb->bblog_size);
+			bbend += __le16_to_cpu(sb->bblog_size);
 			if (bbend > earliest)
 				earliest = bbend;
 		}

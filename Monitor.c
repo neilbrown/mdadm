@@ -542,7 +542,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		alert("NewArray", st->devname, NULL, ainfo);
 	}
 
-	if (st->utime == array.utime &&
+	if ((unsigned long)st->utime == array.utime &&
 	    st->failed == array.failed_disks &&
 	    st->working == array.working_disks &&
 	    st->spare == array.spare_disks &&

@@ -1267,7 +1267,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	 */
 	struct superswitch  *ss;
 	struct supertype *st;
-	time_t besttime = 0;
+	unsigned int besttime = 0;
 	int bestsuper = -1;
 	int i;
 

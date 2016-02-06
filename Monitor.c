@@ -33,7 +33,7 @@
 struct state {
 	char *devname;
 	char devnm[32];	/* to sync with mdstat info */
-	long utime;
+	unsigned int utime;
 	int err;
 	char *spare_group;
 	int active, working, failed, spare, raid;

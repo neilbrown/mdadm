@@ -139,12 +139,20 @@ struct dlm_lksb {
  * and there is no standard conversion function so... */
 /* And dietlibc doesn't think byteswap is ok, so.. */
 /*  #include <byteswap.h> */
+
+#ifndef bswap_16
 #define bswap_16(x) (((x) & 0x00ffU) << 8 | \
 		     ((x) & 0xff00U) >> 8)
+#endif
+
+#ifndef bswap_32
 #define bswap_32(x) (((x) & 0x000000ffU) << 24 | \
 		     ((x) & 0xff000000U) >> 24 | \
 		     ((x) & 0x0000ff00U) << 8  | \
 		     ((x) & 0x00ff0000U) >> 8)
+#endif
+
+#ifndef bswap_64
 #define bswap_64(x) (((x) & 0x00000000000000ffULL) << 56 | \
 		     ((x) & 0xff00000000000000ULL) >> 56 | \
 		     ((x) & 0x000000000000ff00ULL) << 40 | \
@@ -153,6 +161,7 @@ struct dlm_lksb {
 		     ((x) & 0x0000ff0000000000ULL) >> 24 | \
 		     ((x) & 0x00000000ff000000ULL) << 8 | \
 		     ((x) & 0x000000ff00000000ULL) >> 8)
+#endif
 
 #if !defined(__KLIBC__)
 #if BYTE_ORDER == LITTLE_ENDIAN

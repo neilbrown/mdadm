@@ -24,7 +24,6 @@
 
 #include	"mdadm.h"
 #include	"md_p.h"
-#include	<sys/poll.h>
 #include	<sys/socket.h>
 #include	<sys/utsname.h>
 #include	<sys/wait.h>
@@ -32,6 +31,7 @@
 #include	<sys/resource.h>
 #include	<sys/vfs.h>
 #include	<linux/magic.h>
+#include	<poll.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<signal.h>

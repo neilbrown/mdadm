@@ -493,14 +493,17 @@ done:
 		rv = 1;
 		goto out;
 	}
-	/* prior to 2.6.28, KOBJ_CHANGE was not sent when an md array
-	 * was stopped, so We'll do it here just to be sure.  Drop any
-	 * partitions as well...
-	 */
-	if (fd >= 0)
-		ioctl(fd, BLKRRPART, 0);
-	if (mdi)
-		sysfs_uevent(mdi, "change");
+
+	if (get_linux_version() < 2006028) {
+		/* prior to 2.6.28, KOBJ_CHANGE was not sent when an md array
+		 * was stopped, so We'll do it here just to be sure.  Drop any
+		 * partitions as well...
+		 */
+		if (fd >= 0)
+			ioctl(fd, BLKRRPART, 0);
+		if (mdi)
+			sysfs_uevent(mdi, "change");
+	}
 
 	if (devnm[0] && use_udev()) {
 		struct map_ent *mp = map_by_devnm(&map, devnm);

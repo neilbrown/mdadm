@@ -10465,7 +10465,7 @@ int check_degradation_change(struct mdinfo *info,
  * Function:	imsm_manage_reshape
  * Description:	Function finds array under reshape and it manages reshape
  *		process. It creates stripes backups (if required) and sets
- *		checheckpoits.
+ *		checkpoints.
  * Parameters:
  *	afd		: Backup handle (nattive) - not used
  *	sra		: general array info
@@ -10595,7 +10595,7 @@ static int imsm_manage_reshape(
 
 		start = current_position * 512;
 
-		/* allign reading start to old geometry */
+		/* align reading start to old geometry */
 		start_buf_shift = start % old_data_stripe_length;
 		start_src = start - start_buf_shift;
 
@@ -10700,6 +10700,10 @@ static int imsm_manage_reshape(
 	ret_val = 1;
 abort:
 	free(buf);
+	/* See Grow.c: abort_reshape() for further explanation */
+	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
+	sysfs_set_num(sra, NULL, "suspend_hi", 0);
+	sysfs_set_num(sra, NULL, "suspend_lo", 0);
 
 	return ret_val;
 }

@@ -740,6 +740,14 @@ int start_reshape(struct mdinfo *sra, int already_running,
 void abort_reshape(struct mdinfo *sra)
 {
 	sysfs_set_str(sra, NULL, "sync_action", "idle");
+	/*
+	 * Prior to kernel commit: 23ddff3792f6 ("md: allow suspend_lo and
+	 * suspend_hi to decrease as well as increase.")
+	 * you could only increase suspend_{lo,hi} unless the region they
+	 * covered was empty.  So to reset to 0, you need to push suspend_lo
+	 * up past suspend_hi first.  So to maximize the chance of mdadm
+	 * working on all kernels, we want to keep doing that.
+	 */
 	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
 	sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	sysfs_set_num(sra, NULL, "suspend_lo", 0);

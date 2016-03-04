@@ -297,7 +297,14 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			"  between different architectures.  Consider upgrading the Linux kernel.\n");
 	}
 
-	if (s->bitmap_file && strcmp(s->bitmap_file, "clustered") == 0)
+	/*
+	 * We only ever get called if s->bitmap_file is != NULL, so this check
+	 * is just here to quiet down static code checkers.
+	 */
+	if (!s->bitmap_file)
+		return 1;
+
+	if (strcmp(s->bitmap_file, "clustered") == 0)
 		major = BITMAP_MAJOR_CLUSTERED;
 
 	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {

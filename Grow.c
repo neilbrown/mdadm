@@ -4752,7 +4752,7 @@ int Grow_continue_command(char *devname, int fd,
 	struct mdinfo *cc = NULL;
 	struct mdstat_ent *mdstat = NULL;
 	int cfd = -1;
-	int fd2 = -1;
+	int fd2;
 
 	dprintf("Grow continue from command line called for %s\n",
 		devname);
@@ -4796,8 +4796,6 @@ int Grow_continue_command(char *devname, int fd,
 				continue;
 			err = st->ss->load_super(st, fd2, NULL);
 			close(fd2);
-			/* invalidate fd2 to avoid possible double close() */
-			fd2 = -1;
 			if (err)
 				continue;
 			break;
@@ -4894,7 +4892,6 @@ int Grow_continue_command(char *devname, int fd,
 		sysfs_init(content, fd2, mdstat->devnm);
 
 		close(fd2);
-		fd2 = -1;
 
 		/* start mdmon in case it is not running
 		 */
@@ -4924,8 +4921,6 @@ int Grow_continue_command(char *devname, int fd,
 	ret_val = Grow_continue(fd, st, content, backup_file, 1, 0);
 
 Grow_continue_command_exit:
-	if (fd2 > -1)
-		close(fd2);
 	if (cfd > -1)
 		close(cfd);
 	st->ss->free_super(st);

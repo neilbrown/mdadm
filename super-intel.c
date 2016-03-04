@@ -1654,7 +1654,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 			break;
 		}
 		sprintf(device, "/sys/dev/block/%d:%d/device/type", major, minor);
-		if (load_sys(device, buf) != 0) {
+		if (load_sys(device, buf, sizeof(buf)) != 0) {
 			if (verbose > 0)
 				pr_err("failed to read device type for %s\n",
 					path);
@@ -1669,7 +1669,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 			vendor[0] = '\0';
 			model[0] = '\0';
 			sprintf(device, "/sys/dev/block/%d:%d/device/vendor", major, minor);
-			if (load_sys(device, buf) == 0) {
+			if (load_sys(device, buf, sizeof(buf)) == 0) {
 				strncpy(vendor, buf, sizeof(vendor));
 				vendor[sizeof(vendor) - 1] = '\0';
 				c = (char *) &vendor[sizeof(vendor) - 1];
@@ -1678,7 +1678,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 
 			}
 			sprintf(device, "/sys/dev/block/%d:%d/device/model", major, minor);
-			if (load_sys(device, buf) == 0) {
+			if (load_sys(device, buf, sizeof(buf)) == 0) {
 				strncpy(model, buf, sizeof(model));
 				model[sizeof(model) - 1] = '\0';
 				c = (char *) &model[sizeof(model) - 1];

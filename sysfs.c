@@ -27,15 +27,15 @@
 #include	<dirent.h>
 #include	<ctype.h>
 
-int load_sys(char *path, char *buf)
+int load_sys(char *path, char *buf, int len)
 {
 	int fd = open(path, O_RDONLY);
 	int n;
 	if (fd < 0)
 		return -1;
-	n = read(fd, buf, 1024);
+	n = read(fd, buf, len);
 	close(fd);
-	if (n <0 || n >= 1024)
+	if (n <0 || n >= len)
 		return -1;
 	buf[n] = 0;
 	if (n && buf[n-1] == '\n')
@@ -118,7 +118,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	sra->devs = NULL;
 	if (options & GET_VERSION) {
 		strcpy(base, "metadata_version");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		if (strncmp(buf, "none", 4) == 0) {
 			sra->array.major_version =
@@ -137,31 +137,31 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_LEVEL) {
 		strcpy(base, "level");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->array.level = map_name(pers, buf);
 	}
 	if (options & GET_LAYOUT) {
 		strcpy(base, "layout");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->array.layout = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_DISKS) {
 		strcpy(base, "raid_disks");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->array.raid_disks = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_DEGRADED) {
 		strcpy(base, "degraded");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->array.failed_disks = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_COMPONENT) {
 		strcpy(base, "component_size");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->component_size = strtoull(buf, NULL, 0);
 		/* sysfs reports "K", but we want sectors */
@@ -169,13 +169,13 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_CHUNK) {
 		strcpy(base, "chunk_size");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->array.chunk_size = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_CACHE) {
 		strcpy(base, "stripe_cache_size");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			/* Probably level doesn't support it */
 			sra->cache_size = 0;
 		else
@@ -183,7 +183,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_MISMATCH) {
 		strcpy(base, "mismatch_cnt");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->mismatch_cnt = strtoul(buf, NULL, 0);
 	}
@@ -195,7 +195,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		size_t len;
 
 		strcpy(base, "safe_mode_delay");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 
 		/* remove a period, and count digits after it */
@@ -218,7 +218,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_BITMAP_LOCATION) {
 		strcpy(base, "bitmap/location");
-		if (load_sys(fname, buf))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		if (strncmp(buf, "file", 4) == 0)
 			sra->bitmap_offset = 1;
@@ -232,7 +232,8 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 	if (options & GET_ARRAY_STATE) {
 		strcpy(base, "array_state");
-		if (load_sys(fname, sra->sysfs_array_state))
+		if (load_sys(fname, sra->sysfs_array_state,
+			     sizeof(sra->sysfs_array_state)))
 			goto abort;
 	} else
 		sra->sysfs_array_state[0] = 0;
@@ -262,7 +263,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 		/* Always get slot, major, minor */
 		strcpy(dbase, "slot");
-		if (load_sys(fname, buf)) {
+		if (load_sys(fname, buf, sizeof(buf))) {
 			/* hmm... unable to read 'slot' maybe the device
 			 * is going away?
 			 */
@@ -287,7 +288,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		if (*ep) dev->disk.raid_disk = -1;
 
 		strcpy(dbase, "block/dev");
-		if (load_sys(fname, buf)) {
+		if (load_sys(fname, buf, sizeof(buf))) {
 			/* assume this is a stale reference to a hot
 			 * removed device
 			 */
@@ -299,7 +300,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 		/* special case check for block devices that can go 'offline' */
 		strcpy(dbase, "block/device/state");
-		if (load_sys(fname, buf) == 0 &&
+		if (load_sys(fname, buf, sizeof(buf)) == 0 &&
 		    strncmp(buf, "offline", 7) == 0) {
 			free(dev);
 			continue;
@@ -312,25 +313,25 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 		if (options & GET_OFFSET) {
 			strcpy(dbase, "offset");
-			if (load_sys(fname, buf))
+			if (load_sys(fname, buf, sizeof(buf)))
 				goto abort;
 			dev->data_offset = strtoull(buf, NULL, 0);
 			strcpy(dbase, "new_offset");
-			if (load_sys(fname, buf) == 0)
+			if (load_sys(fname, buf, sizeof(buf)) == 0)
 				dev->new_data_offset = strtoull(buf, NULL, 0);
 			else
 				dev->new_data_offset = dev->data_offset;
 		}
 		if (options & GET_SIZE) {
 			strcpy(dbase, "size");
-			if (load_sys(fname, buf))
+			if (load_sys(fname, buf, sizeof(buf)))
 				goto abort;
 			dev->component_size = strtoull(buf, NULL, 0) * 2;
 		}
 		if (options & GET_STATE) {
 			dev->disk.state = 0;
 			strcpy(dbase, "state");
-			if (load_sys(fname, buf))
+			if (load_sys(fname, buf, sizeof(buf)))
 				goto abort;
 			if (strstr(buf, "in_sync"))
 				dev->disk.state |= (1<<MD_DISK_SYNC);
@@ -341,7 +342,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		}
 		if (options & GET_ERROR) {
 			strcpy(buf, "errors");
-			if (load_sys(fname, buf))
+			if (load_sys(fname, buf, sizeof(buf)))
 				goto abort;
 			dev->errors = strtoul(buf, NULL, 0);
 		}

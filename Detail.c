@@ -582,7 +582,7 @@ This is pretty boring
 					continue;
 				sprintf(path, "/sys/block/%s/md/metadata_version",
 					de->d_name);
-				if (load_sys(path, vbuf) < 0)
+				if (load_sys(path, vbuf, sizeof(vbuf)) < 0)
 					continue;
 				if (strncmp(vbuf, "external:", 9) != 0 ||
 				    !is_subarray(vbuf+9) ||

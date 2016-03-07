@@ -220,10 +220,12 @@ int bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 		} else if (!st->ss->locate_bitmap) {
 			pr_err("No bitmap possible with %s metadata\n",
 				st->ss->name);
+			close(fd);
 			return -1;
 		} else {
 			if (st->ss->locate_bitmap(st, fd, node_num)) {
 				pr_err("%s doesn't have bitmap\n", filename);
+				close(fd);
 				fd = -1;
 			}
 		}

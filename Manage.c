@@ -938,6 +938,10 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		struct mdinfo *mdp;
 
 		mdp = sysfs_read(fd, NULL, GET_ARRAY_STATE);
+		if (!mdp) {
+			pr_err("%s unable to read array state.\n", devname);
+			return -1;
+		}
 
 		if (strncmp(mdp->sysfs_array_state, "readonly", 8) != 0) {
 			pr_err("%s is not readonly, cannot add journal.\n", devname);

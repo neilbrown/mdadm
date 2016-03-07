@@ -1508,9 +1508,10 @@ int Manage_subdevs(char *devname, int fd,
 		} else {
 			struct stat stb;
 			tfd = dev_open(dv->devname, O_RDONLY);
-			if (tfd >= 0)
+			if (tfd >= 0) {
 				fstat(tfd, &stb);
-			else {
+				close(tfd);
+			} else {
 				int open_err = errno;
 				if (stat(dv->devname, &stb) != 0) {
 					pr_err("Cannot find %s: %s\n",

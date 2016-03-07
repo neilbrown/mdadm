@@ -2201,6 +2201,7 @@ add_internal_bitmap1(struct supertype *st,
 	unsigned long long chunk = *chunkp;
 	int room = 0;
 	int creating = 0;
+	int len;
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int uuid[4];
@@ -2326,9 +2327,11 @@ add_internal_bitmap1(struct supertype *st,
 	if (st->nodes)
 		sb->feature_map = __cpu_to_le32(__le32_to_cpu(sb->feature_map)
 						| MD_FEATURE_BITMAP_VERSIONED);
-	if (st->cluster_name)
-		strncpy((char *)bms->cluster_name,
-			st->cluster_name, strlen(st->cluster_name));
+	if (st->cluster_name) {
+		len = sizeof(bms->cluster_name);
+		strncpy((char *)bms->cluster_name, st->cluster_name, len);
+		bms->cluster_name[len - 1] = '\0';
+	}
 
 	*chunkp = chunk;
 	return 1;
@@ -2366,7 +2369,7 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb)+MAX_SB_SIZE);
 	int rv = 0;
 	void *buf;
-	int towrite, n;
+	int towrite, n, len;
 	struct align_fd afd;
 	unsigned int i = 0;
 	unsigned long long total_bm_space, bm_space_per_node;
@@ -2375,8 +2378,11 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 	case NameUpdate:
 		/* update cluster name */
 		if (st->cluster_name) {
-			memset((char *)bms->cluster_name, 0, sizeof(bms->cluster_name));
-			strncpy((char *)bms->cluster_name, st->cluster_name, 64);
+			len = sizeof(bms->cluster_name);
+			memset((char *)bms->cluster_name, 0, len);
+			strncpy((char *)bms->cluster_name,
+				st->cluster_name, len);
+			bms->cluster_name[len - 1] = '\0';
 		}
 		break;
 	case NodeNumUpdate:

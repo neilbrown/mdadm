@@ -644,8 +644,7 @@ out:
 		close(mdfd);
 	if (policy)
 		dev_policy_free(policy);
-	if (sra)
-		sysfs_free(sra);
+	sysfs_free(sra);
 	return rv;
 out_unlock:
 	map_unlock(&map);
@@ -989,8 +988,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 				   sizeof(target->uuid)) == 0 &&
 			    sra->array.failed_disks > 0) {
 				/* This is our target!! */
-				if (chosen)
-					sysfs_free(chosen);
+				sysfs_free(chosen);
 				chosen = sra;
 				sra = NULL;
 				/* skip to end so we don't check any more */
@@ -1022,8 +1020,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			sra = NULL;
 		}
 	next:
-		if (sra)
-			sysfs_free(sra);
+		sysfs_free(sra);
 		if (st != st2)
 			free(st2);
 		if (dl)

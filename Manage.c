@@ -119,8 +119,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 	}
 out:
 #ifndef MDASSEMBLE
-	if (mdi)
-		sysfs_free(mdi);
+	sysfs_free(mdi);
 #endif
 	return rv;
 }
@@ -516,8 +515,7 @@ done:
 	map_remove(&map, devnm);
 	map_unlock(&map);
 out:
-	if (mdi)
-		sysfs_free(mdi);
+	sysfs_free(mdi);
 
 	return rv;
 }
@@ -1164,8 +1162,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 						    "state", "remove");
 			else
 				err = -1;
-			if (sra)
-				sysfs_free(sra);
+			sysfs_free(sra);
 		}
 	}
 	if (err) {

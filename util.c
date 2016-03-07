@@ -1191,8 +1191,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 			subarray = xstrdup(subarray);
 		}
 		strcpy(container, dev);
-		if (sra)
-			sysfs_free(sra);
+		sysfs_free(sra);
 		sra = sysfs_read(-1, container, GET_VERSION);
 		if (sra && sra->text_version[0])
 			verstr = sra->text_version;
@@ -1203,8 +1202,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 	for (i = 0; st == NULL && superlist[i] ; i++)
 		st = superlist[i]->match_metadata_desc(verstr);
 
-	if (sra)
-		sysfs_free(sra);
+	sysfs_free(sra);
 	if (st) {
 		st->sb = NULL;
 		if (subarrayp)

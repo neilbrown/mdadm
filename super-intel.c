@@ -1781,7 +1781,10 @@ static int print_vmd_attached_devs(struct sys_dev *hba)
 	 * this hba
 	 */
 	dir = opendir("/sys/bus/pci/drivers/nvme");
-	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+	if (!dir)
+		return 1;
+
+	for (ent = readdir(dir); ent; ent = readdir(dir)) {
 		int n;
 
 		/* is 'ent' a device? check that the 'subsystem' link exists and
@@ -1814,6 +1817,7 @@ static int print_vmd_attached_devs(struct sys_dev *hba)
 		free(rp);
 	}
 
+	closedir(dir);
 	return 0;
 }
 

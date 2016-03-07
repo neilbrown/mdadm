@@ -724,8 +724,10 @@ char *vmd_domain_to_controller(struct sys_dev *hba, char *buf)
 		return NULL;
 
 	dir = opendir("/sys/bus/pci/drivers/vmd");
+	if (!dir)
+		return NULL;
 
-	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+	for (ent = readdir(dir); ent; ent = readdir(dir)) {
 		sprintf(path, "/sys/bus/pci/drivers/vmd/%s/domain/device",
 			ent->d_name);
 
@@ -734,8 +736,11 @@ char *vmd_domain_to_controller(struct sys_dev *hba, char *buf)
 
 		if (strncmp(buf, hba->path, strlen(buf)) == 0) {
 			sprintf(path, "/sys/bus/pci/drivers/vmd/%s", ent->d_name);
+			closedir(dir);
 			return realpath(path, buf);
 		}
 	}
+
+	closedir(dir);
 	return NULL;
 }

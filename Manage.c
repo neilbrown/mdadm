@@ -944,9 +944,12 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		}
 
 		if (strncmp(mdp->sysfs_array_state, "readonly", 8) != 0) {
+			sysfs_free(mdp);
 			pr_err("%s is not readonly, cannot add journal.\n", devname);
 			return -1;
 		}
+
+		sysfs_free(mdp);
 
 		tst->ss->getinfo_super(tst, &mdi, NULL);
 		if (mdi.journal_device_required == 0) {

@@ -1156,7 +1156,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	return 1;
 }
 
-static int locate_bitmap0(struct supertype *st, int fd)
+static int locate_bitmap0(struct supertype *st, int fd, int node_num)
 {
 	unsigned long long dsize;
 	unsigned long long offset;

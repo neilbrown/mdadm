@@ -1548,7 +1548,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 }
 #endif
 
-static int locate_bitmap1(struct supertype *st, int fd);
+static int locate_bitmap1(struct supertype *st, int fd, int node_num);
 
 static int store_super1(struct supertype *st, int fd)
 {
@@ -1622,7 +1622,7 @@ static int store_super1(struct supertype *st, int fd)
 		struct bitmap_super_s *bm = (struct bitmap_super_s*)
 			(((char*)sb)+MAX_SB_SIZE);
 		if (__le32_to_cpu(bm->magic) == BITMAP_MAGIC) {
-			locate_bitmap1(st, fd);
+			locate_bitmap1(st, fd, 0);
 			if (awrite(&afd, bm, sizeof(*bm)) != sizeof(*bm))
 				return 5;
 		}
@@ -2062,7 +2062,7 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 	 * valid.  If it doesn't clear the bit.  An --assemble --force
 	 * should get that written out.
 	 */
-	locate_bitmap1(st, fd);
+	locate_bitmap1(st, fd, 0);
 	if (aread(&afd, bsb, 512) != 512)
 		goto no_bitmap;
 
@@ -2334,7 +2334,7 @@ add_internal_bitmap1(struct supertype *st,
 	return 1;
 }
 
-static int locate_bitmap1(struct supertype *st, int fd)
+static int locate_bitmap1(struct supertype *st, int fd, int node_num)
 {
 	unsigned long long offset;
 	struct mdp_superblock_1 *sb;
@@ -2353,7 +2353,7 @@ static int locate_bitmap1(struct supertype *st, int fd)
 	else
 		ret = -1;
 	offset = __le64_to_cpu(sb->super_offset);
-	offset += (int32_t) __le32_to_cpu(sb->bitmap_offset);
+	offset += (int32_t) __le32_to_cpu(sb->bitmap_offset) * (node_num + 1);
 	if (mustfree)
 		free(sb);
 	lseek64(fd, offset<<9, 0);
@@ -2408,7 +2408,7 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 
 	init_afd(&afd, fd);
 
-	locate_bitmap1(st, fd);
+	locate_bitmap1(st, fd, 0);
 
 	if (posix_memalign(&buf, 4096, 4096))
 		return -ENOMEM;

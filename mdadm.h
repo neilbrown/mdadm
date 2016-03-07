@@ -904,7 +904,7 @@ extern struct superswitch {
 	/* Seek 'fd' to start of write-intent-bitmap.  Must be an
 	 * md-native format bitmap
 	 */
-	int (*locate_bitmap)(struct supertype *st, int fd);
+	int (*locate_bitmap)(struct supertype *st, int fd, int node_num);
 	/* if add_internal_bitmap succeeded for existing array, this
 	 * writes it out.
 	 */

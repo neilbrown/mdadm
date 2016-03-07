@@ -194,7 +194,7 @@ out:
 	return info;
 }
 
-int bitmap_file_open(char *filename, struct supertype **stp)
+int bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 {
 	int fd;
 	struct stat stb;
@@ -222,7 +222,7 @@ int bitmap_file_open(char *filename, struct supertype **stp)
 				st->ss->name);
 			return -1;
 		} else {
-			if (st->ss->locate_bitmap(st, fd)) {
+			if (st->ss->locate_bitmap(st, fd, node_num)) {
 				pr_err("%s doesn't have bitmap\n", filename);
 				fd = -1;
 			}
@@ -267,7 +267,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	int fd, i;
 	__u32 uuid32[4];
 
-	fd = bitmap_file_open(filename, &st);
+	fd = bitmap_file_open(filename, &st, 0);
 	if (fd < 0)
 		return rv;
 
@@ -348,11 +348,11 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 		printf("   Cluster nodes : %d\n", sb->nodes);
 		printf("    Cluster name : %-64s\n", sb->cluster_name);
 		for (i = 0; i < (int)sb->nodes; i++) {
-			if (i) {
-				free(info);
-				info = bitmap_fd_read(fd, brief);
-				sb = &info->sb;
-			}
+			st = NULL;
+			free(info);
+			fd = bitmap_file_open(filename, &st, i);
+			info = bitmap_fd_read(fd, brief);
+			sb = &info->sb;
 			if (sb->magic != BITMAP_MAGIC)
 				pr_err("invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);
 
@@ -367,7 +367,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 			printf("          Bitmap : %llu bits (chunks), %llu dirty (%2.1f%%)\n",
 			       info->total_bits, info->dirty_bits,
 			       100.0 * info->dirty_bits / (info->total_bits?:1));
-
+			 close(fd);
 		}
 	}
 

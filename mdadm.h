@@ -64,7 +64,6 @@ typedef uint64_t cmap_handle_t;
 #include	<errno.h>
 #else
 #define LKF_NOQUEUE	0x00000001
-#define LKF_CONVERT	0x00000004
 #define LKM_PWMODE	4
 #define EUNLOCK		0x10002
 

@@ -147,13 +147,7 @@ int cluster_get_dlmlock(int *lockid)
 		return -ENOMEM;
 	}
 
-	/* Conversions need the lockid in the LKSB */
-	if (flags & LKF_CONVERT)
-		dlm_lock_res->lksb.sb_lkid = *lockid;
-
 	snprintf(str, 64, "bitmap%s", cluster_name);
-	/* if flags with LKF_CONVERT causes below return ENOENT which means
-	 * "No such file or directory" */
 	ret = dlm_hooks->ls_lock(dlm_lock_res->ls, LKM_PWMODE, &dlm_lock_res->lksb,
 			  flags, str, strlen(str), 0, dlm_ast,
 			  dlm_lock_res, NULL, NULL);
@@ -177,8 +171,6 @@ int cluster_release_dlmlock(int lockid)
 	if (!cluster_name)
 		return -1;
 
-	/* if flags with LKF_CONVERT causes below return EINVAL which means
-	 * "Invalid argument" */
 	ret = dlm_hooks->ls_unlock(dlm_lock_res->ls, lockid, 0,
 				     &dlm_lock_res->lksb, dlm_lock_res);
 	if (ret) {

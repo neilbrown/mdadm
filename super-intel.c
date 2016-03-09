@@ -10521,7 +10521,10 @@ static int imsm_manage_reshape(
 	int degraded = 0;
 	int source_layout = 0;
 
-	if (!fds || !offsets || !sra)
+	if (!sra)
+		return ret_val;
+
+	if (!fds || !offsets)
 		goto abort;
 
 	/* Find volume during the reshape */

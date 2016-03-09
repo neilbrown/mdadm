@@ -1883,7 +1883,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	struct map_ent *map = NULL;
 	int old_raid_disks;
 	int start_reshape;
-	char *avail = NULL;
+	char *avail;
 	int err;
 
 	sysfs_init(content, mdfd, NULL);

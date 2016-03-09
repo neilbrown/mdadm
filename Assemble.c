@@ -1880,7 +1880,6 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	struct mdinfo *dev, *sra, *dev2;
 	int working = 0, preexist = 0;
 	int expansion = 0;
-	struct map_ent *map = NULL;
 	int old_raid_disks;
 	int start_reshape;
 	char *avail;
@@ -1949,10 +1948,8 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		free(avail);
 		return 1;/* Nothing new, don't try to start */
 	}
-	map_update(&map, fd2devnm(mdfd),
-		   content->text_version,
+	map_update(NULL, fd2devnm(mdfd), content->text_version,
 		   content->uuid, chosen_name);
-
 
 	if (enough(content->array.level, content->array.raid_disks,
 		   content->array.layout, content->array.state & 1, avail) == 0) {

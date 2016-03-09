@@ -143,9 +143,9 @@ int main(int argc, char *argv[])
 			continue;
 
 		case 'b':
-			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE
-			    || mode == GROW || mode == INCREMENTAL
-			    || mode == MANAGE)
+			if (mode == ASSEMBLE || mode == BUILD ||
+			    mode == CREATE || mode == GROW ||
+			    mode == INCREMENTAL || mode == MANAGE)
 				break; /* b means bitmap */
 		case Brief:
 			c.brief = 1;
@@ -282,8 +282,8 @@ int main(int argc, char *argv[])
 		} else {
 			/* special case of -c --help */
 			if ((opt == 'c' || opt == ConfigFile) &&
-			    ( strncmp(optarg, "--h", 3)==0 ||
-			      strncmp(optarg, "-h", 2)==0)) {
+			    (strncmp(optarg, "--h", 3) == 0 ||
+			     strncmp(optarg, "-h", 2) == 0)) {
 				fputs(Help_config, stdout);
 				exit(0);
 			}
@@ -424,14 +424,12 @@ int main(int argc, char *argv[])
 				pr_err("size may only be specified once. Second value is %s.\n", optarg);
 				exit(2);
 			}
-			if (strcmp(optarg, "max")==0)
+			if (strcmp(optarg, "max") == 0)
 				s.size = MAX_SIZE;
 			else {
 				s.size = parse_size(optarg);
-				if (s.size == INVALID_SECTORS ||
-				    s.size < 8) {
-					pr_err("invalid size: %s\n",
-						optarg);
+				if (s.size == INVALID_SECTORS || s.size < 8) {
+					pr_err("invalid size: %s\n", optarg);
 					exit(2);
 				}
 				/* convert sectors to K */
@@ -463,8 +461,7 @@ int main(int argc, char *argv[])
 				pr_err("data-offset may only be specified one. Second value is %s.\n", optarg);
 				exit(2);
 			}
-			if (mode == CREATE &&
-			    strcmp(optarg, "variable") == 0)
+			if (mode == CREATE && strcmp(optarg, "variable") == 0)
 				data_offset = VARIABLE_OFFSET;
 			else
 				data_offset = parse_size(optarg);
@@ -488,9 +485,9 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (s.level != 0 && s.level != LEVEL_LINEAR && s.level != 1 &&
-			    s.level != LEVEL_MULTIPATH && s.level != LEVEL_FAULTY &&
-			    s.level != 10 &&
+			if (s.level != 0 && s.level != LEVEL_LINEAR &&
+			    s.level != 1 && s.level != LEVEL_MULTIPATH &&
+			    s.level != LEVEL_FAULTY && s.level != 10 &&
 			    mode == BUILD) {
 				pr_err("Raid level %s not permitted with --build.\n",
 					optarg);
@@ -702,7 +699,7 @@ int main(int argc, char *argv[])
 				pr_err("super-minor cannot be set twice.  Second value: %s.\n", optarg);
 				exit(2);
 			}
-			if (strcmp(optarg, "dev")==0)
+			if (strcmp(optarg, "dev") == 0)
 				ident.super_minor = -2;
 			else {
 				ident.super_minor = parse_num(optarg);
@@ -731,27 +728,27 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			c.update = optarg;
-			if (strcmp(c.update, "sparc2.2")==0)
+			if (strcmp(c.update, "sparc2.2") == 0)
 				continue;
 			if (strcmp(c.update, "super-minor") == 0)
 				continue;
-			if (strcmp(c.update, "summaries")==0)
+			if (strcmp(c.update, "summaries") == 0)
 				continue;
-			if (strcmp(c.update, "resync")==0)
+			if (strcmp(c.update, "resync") == 0)
 				continue;
-			if (strcmp(c.update, "uuid")==0)
+			if (strcmp(c.update, "uuid") == 0)
 				continue;
-			if (strcmp(c.update, "name")==0)
+			if (strcmp(c.update, "name") == 0)
 				continue;
-			if (strcmp(c.update, "homehost")==0)
+			if (strcmp(c.update, "homehost") == 0)
 				continue;
-			if (strcmp(c.update, "home-cluster")==0)
+			if (strcmp(c.update, "home-cluster") == 0)
 				continue;
-			if (strcmp(c.update, "nodes")==0)
+			if (strcmp(c.update, "nodes") == 0)
 				continue;
-			if (strcmp(c.update, "devicesize")==0)
+			if (strcmp(c.update, "devicesize") == 0)
 				continue;
-			if (strcmp(c.update, "no-bitmap")==0)
+			if (strcmp(c.update, "no-bitmap") == 0)
 				continue;
 			if (strcmp(c.update, "bbl") == 0)
 				continue;
@@ -1031,7 +1028,8 @@ int main(int argc, char *argv[])
 				}
 			}
 			if (devmode && devmode != opt &&
-			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
+			    (devmode == 'E' ||
+			     (opt == 'E' && devmode != 'Q'))) {
 				pr_err("--examine/-E cannot be given with ");
 				if (devmode == 'E') {
 					if (option_index >= 0)
@@ -1085,7 +1083,7 @@ int main(int argc, char *argv[])
 				pr_err("bitmap file needed with -b in --assemble mode\n");
 				exit(2);
 			}
-			if (strcmp(optarg, "internal")==0) {
+			if (strcmp(optarg, "internal") == 0) {
 				pr_err("there is no need to specify --bitmap when assembling arrays with internal bitmaps\n");
 				continue;
 			}
@@ -1127,13 +1125,13 @@ int main(int argc, char *argv[])
 		case O(CREATE,Bitmap): /* here we create the bitmap */
 		case O(GROW,'b'):
 		case O(GROW,Bitmap):
-			if (strcmp(optarg, "internal")== 0 ||
-			    strcmp(optarg, "none")== 0 ||
+			if (strcmp(optarg, "internal") == 0 ||
+			    strcmp(optarg, "none") == 0 ||
 			    strchr(optarg, '/') != NULL) {
 				s.bitmap_file = optarg;
 				continue;
 			}
-			if (strcmp(optarg, "clustered")== 0) {
+			if (strcmp(optarg, "clustered") == 0) {
 				s.bitmap_file = optarg;
 				/* Set the default number of cluster nodes
 				 * to 4 if not already set by user
@@ -1264,9 +1262,8 @@ int main(int argc, char *argv[])
 	 * an md device.  We check that here and open it.
 	 */
 
-	if (mode == MANAGE || mode == BUILD || mode == CREATE
-	    || mode == GROW
-	    || (mode == ASSEMBLE && ! c.scan)) {
+	if (mode == MANAGE || mode == BUILD || mode == CREATE ||
+	    mode == GROW || (mode == ASSEMBLE && ! c.scan)) {
 		if (devs_found < 1) {
 			pr_err("an md device must be given in this mode\n");
 			exit(2);
@@ -1316,13 +1313,14 @@ int main(int argc, char *argv[])
 
 	if (c.homehost == NULL && c.require_homehost)
 		c.homehost = conf_get_homehost(&c.require_homehost);
-	if (c.homehost == NULL || strcasecmp(c.homehost, "<system>")==0) {
+	if (c.homehost == NULL || strcasecmp(c.homehost, "<system>") == 0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			sys_hostname[sizeof(sys_hostname)-1] = 0;
 			c.homehost = sys_hostname;
 		}
 	}
-	if (c.homehost && (!c.homehost[0] || strcasecmp(c.homehost, "<none>") == 0)) {
+	if (c.homehost &&
+	    (!c.homehost[0] || strcasecmp(c.homehost, "<none>") == 0)) {
 		c.homehost = NULL;
 		c.require_homehost = 0;
 	}
@@ -1346,8 +1344,8 @@ int main(int argc, char *argv[])
 		exit(2);
 	}
 
-	if ((mode == MISC && devmode == 'E')
-	    || (mode == MONITOR && spare_sharing == 0))
+	if ((mode == MISC && devmode == 'E') ||
+	    (mode == MONITOR && spare_sharing == 0))
 		/* Anyone may try this */;
 	else if (geteuid() != 0) {
 		pr_err("must be super-user to perform this action\n");
@@ -1378,7 +1376,8 @@ int main(int argc, char *argv[])
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
-		    ident.super_minor == UnSet && ident.name[0] == 0 && !c.scan ) {
+		    ident.super_minor == UnSet && ident.name[0] == 0 &&
+		    !c.scan ) {
 			/* Only a device has been given, so get details from config file */
 			struct mddev_ident *array_ident = conf_get_ident(devlist->devname);
 			if (array_ident == NULL) {
@@ -1446,7 +1445,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (s.bitmap_file) {
-			if (strcmp(s.bitmap_file, "internal")==0 ||
+			if (strcmp(s.bitmap_file, "internal") == 0 ||
 			    strcmp(s.bitmap_file, "clustered") == 0) {
 				pr_err("'internal' and 'clustered' bitmaps not supported with --build\n");
 				rv |= 1;
@@ -1460,7 +1459,8 @@ int main(int argc, char *argv[])
 			c.delay = DEFAULT_BITMAP_DELAY;
 
 		if (c.nodes) {
-			if (!s.bitmap_file || strcmp(s.bitmap_file, "clustered") != 0) {
+			if (!s.bitmap_file ||
+			    strcmp(s.bitmap_file, "clustered") != 0) {
 				pr_err("--nodes argument only compatible with --bitmap=clustered\n");
 				rv = 1;
 				break;
@@ -1509,7 +1509,8 @@ int main(int argc, char *argv[])
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
 				rv = stop_scan(c.verbose);
-			else if ((devmode == 'D' || devmode == Waitclean) && c.scan)
+			else if ((devmode == 'D' || devmode == Waitclean) &&
+				 c.scan)
 				rv = misc_scan(devmode, &c);
 			else if (devmode == UdevRules)
 				rv = Write_rules(udev_filename);
@@ -1575,7 +1576,8 @@ int main(int argc, char *argv[])
 		}
 		if (devs_found > 1 && s.raiddisks == 0 && s.level == UnSet) {
 			/* must be '-a'. */
-			if (s.size > 0 || s.chunk || s.layout_str != NULL || s.bitmap_file) {
+			if (s.size > 0 || s.chunk ||
+			    s.layout_str || s.bitmap_file) {
 				pr_err("--add cannot be used with other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
@@ -1588,7 +1590,7 @@ int main(int argc, char *argv[])
 			}
 		} else if (s.bitmap_file) {
 			if (s.size > 0 || s.raiddisks || s.chunk ||
-			    s.layout_str != NULL || devs_found > 1) {
+			    s.layout_str || devs_found > 1) {
 				pr_err("--bitmap changes cannot be used with other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
@@ -1600,9 +1602,9 @@ int main(int argc, char *argv[])
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,
 						   c.verbose);
-		else if (s.size > 0 || s.raiddisks || s.layout_str != NULL
-			 || s.chunk != 0 || s.level != UnSet
-			 || data_offset != INVALID_SECTORS) {
+		else if (s.size > 0 || s.raiddisks || s.layout_str ||
+			 s.chunk != 0 || s.level != UnSet ||
+			 data_offset != INVALID_SECTORS) {
 			rv = Grow_reshape(devlist->devname, mdfd,
 					  devlist->next,
 					  data_offset, &c, &s);
@@ -1718,11 +1720,11 @@ static int scan_assemble(struct supertype *ss,
 				rv2 = Assemble(ss, NULL,
 					       ident,
 					       devlist, c);
-				if (rv2==0) {
+				if (rv2 == 0) {
 					cnt++;
 					acnt++;
 				}
-			} while (rv2!=2);
+			} while (rv2 != 2);
 			/* Incase there are stacked devices, we need to go around again */
 		} while (acnt);
 		if (cnt == 0 && rv == 0) {
@@ -1763,8 +1765,7 @@ static int misc_scan(char devmode, struct context *c)
 			if (me && me->path
 			    && strcmp(me->path, "/unknown") != 0)
 				name = me->path;
-			if (name == NULL ||
-			    stat(name, &stb) != 0)
+			if (name == NULL || stat(name, &stb) != 0)
 				name = get_md_name(e->devnm);
 
 			if (!name) {

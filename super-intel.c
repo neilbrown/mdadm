@@ -537,7 +537,8 @@ static struct intel_hba * alloc_intel_hba(struct sys_dev *device)
 
 static struct intel_hba * find_intel_hba(struct intel_hba *hba, struct sys_dev *device)
 {
-	struct intel_hba *result=NULL;
+	struct intel_hba *result;
+
 	for (result = hba; result; result = result->next) {
 		if (result->type == device->type && strcmp(result->path, device->path) == 0)
 			break;
@@ -2462,12 +2463,12 @@ static struct imsm_dev *imsm_get_device_during_migration(
 static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 {
 	struct mdinfo *sd;
-	struct dl *dl = NULL;
+	struct dl *dl;
 	char nm[30];
 	int retval = -1;
 	int fd = -1;
 	struct imsm_dev *dev;
-	struct imsm_map *map = NULL;
+	struct imsm_map *map;
 	int slot = -1;
 
 	/* find map under migration */
@@ -2588,7 +2589,7 @@ static int write_imsm_migr_rec(struct supertype *st)
 	int len;
 	struct imsm_update_general_migration_checkpoint *u;
 	struct imsm_dev *dev;
-	struct imsm_map *map = NULL;
+	struct imsm_map *map;
 
 	/* find map under migration */
 	dev = imsm_get_device_during_migration(super);
@@ -3060,7 +3061,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
  * for each disk in array */
 struct mdinfo *getinfo_super_disks_imsm(struct supertype *st)
 {
-	struct mdinfo *mddev = NULL;
+	struct mdinfo *mddev;
 	struct intel_super *super = st->sb;
 	struct imsm_disk *disk;
 	int count = 0;
@@ -4474,7 +4475,7 @@ get_devlist_super_block(struct md_list *devlist, struct intel_super **super_list
 static int get_super_block(struct intel_super **super_list, char *devnm, char *devname,
 			   int major, int minor, int keep_fd)
 {
-	struct intel_super*s = NULL;
+	struct intel_super *s;
 	char nm[32];
 	int dfd = -1;
 	int err = 0;
@@ -5460,7 +5461,7 @@ static int validate_geometry_imsm_container(struct supertype *st, int level,
 {
 	int fd;
 	unsigned long long ldsize;
-	struct intel_super *super=NULL;
+	struct intel_super *super;
 	int rv = 0;
 
 	if (level != LEVEL_CONTAINER)
@@ -5653,10 +5654,10 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 			int dpa, int verbose)
 {
 	struct mdstat_ent *mdstat = mdstat_read(0, 0);
-	struct mdstat_ent *memb = NULL;
+	struct mdstat_ent *memb;
 	int count = 0;
 	int num = 0;
-	struct md_list *dv = NULL;
+	struct md_list *dv;
 	int found;
 
 	for (memb = mdstat ; memb ; memb = memb->next) {
@@ -5714,7 +5715,7 @@ get_loop_devices(void)
 {
 	int i;
 	struct md_list *devlist = NULL;
-	struct md_list *dv = NULL;
+	struct md_list *dv;
 
 	for(i = 0; i < 12; i++) {
 		dv = xcalloc(1, sizeof(*dv));
@@ -5731,7 +5732,7 @@ static struct md_list*
 get_devices(const char *hba_path)
 {
 	struct md_list *devlist = NULL;
-	struct md_list *dv = NULL;
+	struct md_list *dv;
 	struct dirent *ent;
 	DIR *dir;
 	int err = 0;
@@ -5794,7 +5795,7 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 {
 	struct md_list *tmpdev;
 	int count = 0;
-	struct supertype *st = NULL;
+	struct supertype *st;
 
 	/* first walk the list of devices to find a consistent set
 	 * that match the criterea, if that is possible.
@@ -5978,7 +5979,7 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 
 	devid_list = entry->devid_list;
 	for (dv = devid_list; dv; dv = dv->next) {
-		struct md_list *devlist = NULL;
+		struct md_list *devlist;
 		struct sys_dev *device = device_by_id(dv->devid);
 		char *hba_path;
 		int found = 0;
@@ -7912,7 +7913,8 @@ static int disks_overlap(struct intel_super *super, int idx, struct imsm_update_
 
 static struct dl *get_disk_super(struct intel_super *super, int major, int minor)
 {
-	struct dl *dl = NULL;
+	struct dl *dl;
+
 	for (dl = super->disks; dl; dl = dl->next)
 		if ((dl->major == major) &&  (dl->minor == minor))
 			return dl;
@@ -7921,7 +7923,7 @@ static struct dl *get_disk_super(struct intel_super *super, int major, int minor
 
 static int remove_disk_super(struct intel_super *super, int major, int minor)
 {
-	struct dl *prev = NULL;
+	struct dl *prev;
 	struct dl *dl;
 
 	prev = NULL;
@@ -7947,7 +7949,8 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 static int add_remove_disk_update(struct intel_super *super)
 {
 	int check_degraded = 0;
-	struct dl *disk = NULL;
+	struct dl *disk;
+
 	/* add/remove some spares to/from the metadata/contrainer */
 	while (super->disk_mgmt_list) {
 		struct dl *disk_cfg;
@@ -9369,8 +9372,8 @@ int save_backup_imsm(struct supertype *st,
 {
 	int rv = -1;
 	struct intel_super *super = st->sb;
-	unsigned long long *target_offsets = NULL;
-	int *targets = NULL;
+	unsigned long long *target_offsets;
+	int *targets;
 	int i;
 	struct imsm_map *map_dest = get_imsm_map(dev, MAP_0);
 	int new_disks = map_dest->num_members;
@@ -9497,7 +9500,7 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 {
 	struct intel_super *super = st->sb;
 	struct migr_record *migr_rec = super->migr_rec;
-	struct imsm_map *map_dest = NULL;
+	struct imsm_map *map_dest;
 	struct intel_dev *id = NULL;
 	unsigned long long read_offset;
 	unsigned long long write_offset;
@@ -9620,7 +9623,7 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 	strncat(disk_path, path, PATH_MAX - strlen(disk_path) - 1);
 	if (stat(disk_path, &st) == 0) {
 		struct sys_dev* hba;
-		char *path=NULL;
+		char *path;
 
 		path = devt_to_devpath(st.st_rdev);
 		if (path == NULL)
@@ -9785,11 +9788,11 @@ static int imsm_create_metadata_update_for_reshape(
 {
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb = super->anchor;
-	int update_memory_size = 0;
-	struct imsm_update_reshape *u = NULL;
-	struct mdinfo *spares = NULL;
+	int update_memory_size;
+	struct imsm_update_reshape *u;
+	struct mdinfo *spares;
 	int i;
-	int delta_disks = 0;
+	int delta_disks;
 	struct mdinfo *dev;
 
 	dprintf("(enter) raid_disks = %i\n", geo->raid_disks);
@@ -9866,8 +9869,8 @@ static int imsm_create_metadata_update_for_size_change(
 				struct imsm_update_size_change **updatep)
 {
 	struct intel_super *super = st->sb;
-	int update_memory_size = 0;
-	struct imsm_update_size_change *u = NULL;
+	int update_memory_size;
+	struct imsm_update_size_change *u;
 
 	dprintf("(enter) New size = %llu\n", geo->size);
 
@@ -9896,8 +9899,8 @@ static int imsm_create_metadata_update_for_migration(
 					struct imsm_update_reshape_migration **updatep)
 {
 	struct intel_super *super = st->sb;
-	int update_memory_size = 0;
-	struct imsm_update_reshape_migration *u = NULL;
+	int update_memory_size;
+	struct imsm_update_reshape_migration *u;
 	struct imsm_dev *dev;
 	int previous_level = -1;
 
@@ -10500,7 +10503,7 @@ static int imsm_manage_reshape(
 {
 	int ret_val = 0;
 	struct intel_super *super = st->sb;
-	struct intel_dev *dv = NULL;
+	struct intel_dev *dv;
 	struct imsm_dev *dev = NULL;
 	struct imsm_map *map_src;
 	int migr_vol_qan = 0;
@@ -10620,7 +10623,7 @@ static int imsm_manage_reshape(
 			 *             to backup alligned to source array
 			 *             [bytes]
 			 */
-			unsigned long long next_step_filler = 0;
+			unsigned long long next_step_filler;
 			unsigned long long copy_length = next_step * 512;
 
 			/* allign copy area length to stripe in old geometry */

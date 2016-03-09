@@ -1766,7 +1766,7 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 	return err;
 }
 
-static int print_vmd_attached_devs(struct sys_dev *hba)
+static void print_vmd_attached_devs(struct sys_dev *hba)
 {
 	struct dirent *ent;
 	DIR *dir;
@@ -1775,14 +1775,14 @@ static int print_vmd_attached_devs(struct sys_dev *hba)
 	char *c, *rp;
 
 	if (hba->type != SYS_DEV_VMD)
-		return 1;
+		return;
 
 	/* scroll through /sys/dev/block looking for devices attached to
 	 * this hba
 	 */
 	dir = opendir("/sys/bus/pci/drivers/nvme");
 	if (!dir)
-		return 1;
+		return;
 
 	for (ent = readdir(dir); ent; ent = readdir(dir)) {
 		int n;
@@ -1818,7 +1818,6 @@ static int print_vmd_attached_devs(struct sys_dev *hba)
 	}
 
 	closedir(dir);
-	return 0;
 }
 
 static void print_found_intel_controllers(struct sys_dev *elem)

@@ -1416,7 +1416,7 @@ int Manage_subdevs(char *devname, int fd,
 		}
 
 		if (strcmp(dv->devname, "missing") == 0) {
-			struct mddev_dev *add_devlist = NULL;
+			struct mddev_dev *add_devlist;
 			struct mddev_dev **dp;
 			if (dv->disposition == 'c') {
 				rv = ioctl(fd, CLUSTERED_DISK_NACK, NULL);

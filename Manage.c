@@ -738,7 +738,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	       int raid_slot)
 {
 	unsigned long long ldsize;
-	struct supertype *dev_st = NULL;
+	struct supertype *dev_st;
 	int j;
 	mdu_disk_info_t disc;
 
@@ -843,20 +843,19 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		 * simply re-add it.
 		 */
 
-		if (array->not_persistent==0) {
+		if (array->not_persistent == 0) {
 			dev_st = dup_super(tst);
 			dev_st->ss->load_super(dev_st, tfd, NULL);
-		}
-		if (dev_st && dev_st->sb && dv->disposition != 'S') {
-			int rv = attempt_re_add(fd, tfd, dv,
-						dev_st, tst,
-						rdev,
-						update, devname,
-						verbose,
-						array);
-			dev_st->ss->free_super(dev_st);
-			if (rv)
-				return rv;
+			if (dev_st->sb && dv->disposition != 'S') {
+				int rv;
+
+				rv = attempt_re_add(fd, tfd, dv, dev_st, tst,
+						    rdev, update, devname,
+						    verbose, array);
+				dev_st->ss->free_super(dev_st);
+				if (rv)
+					return rv;
+			}
 		}
 		if (dv->disposition == 'M') {
 			if (verbose > 0)

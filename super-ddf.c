@@ -2688,10 +2688,10 @@ static int init_super_ddf_bvd(struct supertype *st,
 		free(vcl);
 		return 0;
 	}
-	vc->blocks = cpu_to_be64(info->size * 2);
+	vc->blocks = cpu_to_be64(size * 2);
 	vc->array_blocks = cpu_to_be64(
 		calc_array_size(info->level, info->raid_disks, info->layout,
-				info->chunk_size, info->size*2));
+				info->chunk_size, size * 2));
 	memset(vc->pad1, 0xff, 8);
 	vc->spare_refs[0] = cpu_to_be32(0xffffffff);
 	vc->spare_refs[1] = cpu_to_be32(0xffffffff);

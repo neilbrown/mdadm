@@ -1077,6 +1077,9 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 			re->level = 1;
 			return NULL;
 		}
+		if (info->array.raid_disks != 2 &&
+		    info->new_level == 5)
+			return "Can only convert a 2-device array to RAID5";
 		if (info->array.raid_disks == 2 &&
 		    info->new_level == 5) {
 

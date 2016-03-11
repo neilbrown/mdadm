@@ -2070,6 +2070,10 @@ size_change_error:
 		 * number of devices (On-Line Capacity Expansion) must be
 		 * performed at the level of the container
 		 */
+		if (fd > 0) {
+			close(fd);
+			fd = -1;
+		}
 		rv = reshape_container(container, devname, -1, st, &info,
 				       c->force, c->backup_file, c->verbose, 0, 0, 0);
 		frozen = 0;

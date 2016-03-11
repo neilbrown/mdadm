@@ -1624,7 +1624,10 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 	 * this hba
 	 */
 	dir = opendir("/sys/dev/block");
-	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
+	if (!dir)
+		return 1;
+
+	for (ent = readdir(dir); ent; ent = readdir(dir)) {
 		int fd;
 		char model[64];
 		char vendor[64];

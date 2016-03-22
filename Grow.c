@@ -3009,9 +3009,11 @@ static int reshape_array(char *container, int fd, char *devname,
 	 * array.  Now that the array has been changed to the right
 	 * level and frozen, we can safely add them.
 	 */
-	if (devlist)
-		Manage_subdevs(devname, fd, devlist, verbose,
-			       0,NULL, 0);
+	if (devlist) {
+		if (Manage_subdevs(devname, fd, devlist, verbose,
+				   0, NULL, 0))
+			goto release;
+	}
 
 	if (reshape.backup_blocks == 0 && data_offset != INVALID_SECTORS)
 		reshape.backup_blocks = reshape.before.data_disks * info->array.chunk_size/512;

@@ -1867,7 +1867,7 @@ static int write_init_super1(struct supertype *st)
 		}
 
 		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
-			rv = st->ss->write_bitmap(st, di->fd, NoUpdate);
+			rv = st->ss->write_bitmap(st, di->fd, NodeNumUpdate);
 		close(di->fd);
 		di->fd = -1;
 		if (rv)

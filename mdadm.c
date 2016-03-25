@@ -589,6 +589,7 @@ int main(int argc, char *argv[])
 			ident.raid_disks = s.raiddisks;
 			continue;
 		case O(ASSEMBLE, Nodes):
+		case O(GROW, Nodes):
 		case O(CREATE, Nodes):
 			c.nodes = parse_num(optarg);
 			if (c.nodes <= 0) {

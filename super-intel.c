@@ -4589,7 +4589,11 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 
 	/* retry the load if we might have raced against mdmon */
 	if (rv == 3) {
-		struct mdstat_ent *mdstat = mdstat_by_component(fd2devnm(fd));
+		struct mdstat_ent *mdstat = NULL;
+		char *name = fd2kname(fd);
+
+		if (name)
+			mdstat = mdstat_by_component(name);
 
 		if (mdstat && mdmon_running(mdstat->devnm) && getpid() != mdmon_pid(mdstat->devnm)) {
 			for (retry = 0; retry < 3; retry++) {

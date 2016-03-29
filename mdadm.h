@@ -1474,7 +1474,8 @@ void abort_reshape(struct mdinfo *sra);
 
 void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0);
 
-extern void fmt_devname(char *name, int num);
+extern char *stat2kname(struct stat *st);
+extern char *fd2kname(int fd);
 extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
 

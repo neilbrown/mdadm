@@ -84,6 +84,21 @@ char *devid2kname(int devid)
 	return NULL;
 }
 
+char *stat2kname(struct stat *st)
+{
+	if ((S_IFMT & st->st_mode) != S_IFBLK)
+		return NULL;
+	return devid2kname(st->st_rdev);
+}
+
+char *fd2kname(int fd)
+{
+	struct stat stb;
+	if (fstat(fd, &stb) == 0)
+		return stat2kname(&stb);
+	return NULL;
+}
+
 char *devid2devnm(int devid)
 {
 	char path[30];

@@ -2016,6 +2016,8 @@ static int load_super1(struct supertype *st, int fd, char *devname)
 		return 1;
 	}
 
+	memset(super, 0, SUPER1_SIZE);
+
 	if (aread(&afd, super, MAX_SB_SIZE) != MAX_SB_SIZE) {
 		if (devname)
 			pr_err("Cannot read superblock on %s\n",

@@ -114,8 +114,13 @@ int Create(struct supertype *st, char *mddev,
 	unsigned long long newsize;
 
 	int major_num = BITMAP_MAJOR_HI;
-	if (s->bitmap_file && strcmp(s->bitmap_file, "clustered") == 0)
+	if (s->bitmap_file && strcmp(s->bitmap_file, "clustered") == 0) {
 		major_num = BITMAP_MAJOR_CLUSTERED;
+		if (c->nodes <= 1) {
+			pr_err("At least 2 nodes are needed for cluster-md\n");
+			return 1;
+		}
+	}
 
 	memset(&info, 0, sizeof(info));
 	if (s->level == UnSet && st && st->ss->default_geometry)

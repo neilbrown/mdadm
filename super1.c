@@ -2394,6 +2394,11 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 			return -EINVAL;
 		}
 
+		if (bms->version == BITMAP_MAJOR_CLUSTERED && st->nodes <= 1) {
+			pr_err("Warning: cluster-md at least needs two nodes\n");
+			return -EINVAL;
+		}
+
 		/* Each node has an independent bitmap, it is necessary to calculate the
 		 * space is enough or not, first get how many bytes for the total bitmap */
 		bm_space_per_node = calc_bitmap_size(bms, 4096);

@@ -2389,7 +2389,7 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 		break;
 	case NodeNumUpdate:
 		/* cluster md only supports superblock 1.2 now */
-		if (st->minor_version != 2) {
+		if (st->minor_version != 2 && bms->version == BITMAP_MAJOR_CLUSTERED) {
 			pr_err("Warning: cluster md only works with superblock 1.2\n");
 			return -EINVAL;
 		}

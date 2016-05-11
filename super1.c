@@ -2394,9 +2394,25 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 			return -EINVAL;
 		}
 
-		if (bms->version == BITMAP_MAJOR_CLUSTERED && st->nodes <= 1) {
-			pr_err("Warning: cluster-md at least needs two nodes\n");
-			return -EINVAL;
+		if (bms->version == BITMAP_MAJOR_CLUSTERED) {
+			if (st->nodes == 1) {
+				/* the parameter for nodes is not valid */
+				pr_err("Warning: cluster-md at least needs two nodes\n");
+				return -EINVAL;
+			} else if (st->nodes == 0)
+				/* --nodes is not specified */
+				break;
+			else if (__cpu_to_le32(st->nodes) < bms->nodes) {
+				/* Since the nodes num is not increased, no need to check the space
+				 * is enough or not, just update bms->nodes */
+				bms->nodes = __cpu_to_le32(st->nodes);
+				break;
+			}
+		} else {
+			/* no need to change bms->nodes for other bitmap types */
+			if (st->nodes)
+				pr_err("Warning: --nodes option is only suitable for clustered bitmap\n");
+			break;
 		}
 
 		/* Each node has an independent bitmap, it is necessary to calculate the

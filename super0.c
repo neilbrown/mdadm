@@ -1139,7 +1139,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 		if (chunk < 64*1024*1024)
 			chunk = 64*1024*1024;
 	} else if ((unsigned long long)chunk < min_chunk)
-		return 0; /* chunk size too small */
+		return -EINVAL; /* chunk size too small */
 
 	sb->state |= (1<<MD_SB_BITMAP_PRESENT);
 
@@ -1153,7 +1153,7 @@ static int add_internal_bitmap0(struct supertype *st, int *chunkp,
 	bms->sync_size = __cpu_to_le64(size);
 	bms->write_behind = __cpu_to_le32(write_behind);
 	*chunkp = chunk;
-	return 1;
+	return 0;
 }
 
 static int locate_bitmap0(struct supertype *st, int fd, int node_num)

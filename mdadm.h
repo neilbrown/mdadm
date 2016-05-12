@@ -896,6 +896,8 @@ extern struct superswitch {
 	 * created, in which case data_size may be updated, or it might
 	 * already exist.  Metadata handler can know if init_super
 	 * has been called, but not write_init_super.
+	 *  0:     Success
+	 * -Exxxx: On error
 	 */
 	int (*add_internal_bitmap)(struct supertype *st, int *chunkp,
 				   int delay, int write_behind,

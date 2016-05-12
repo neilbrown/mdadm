@@ -774,9 +774,9 @@ int Create(struct supertype *st, char *mddev,
 				st->ss->name);
 			goto abort_locked;
 		}
-		if (!st->ss->add_internal_bitmap(st, &s->bitmap_chunk,
-						 c->delay, s->write_behind,
-						 bitmapsize, 1, major_num)) {
+		if (st->ss->add_internal_bitmap(st, &s->bitmap_chunk,
+						c->delay, s->write_behind,
+						bitmapsize, 1, major_num)) {
 			pr_err("Given bitmap chunk size not supported.\n");
 			goto abort_locked;
 		}

@@ -423,7 +423,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 				continue;
 			rv = st->ss->load_super(st, fd2, NULL);
 			if (!rv) {
-				if (st->ss->add_internal_bitmap(
+				if (!st->ss->add_internal_bitmap(
 					    st, &s->bitmap_chunk, c->delay,
 					    s->write_behind, bitmapsize,
 					    offset_setable, major))

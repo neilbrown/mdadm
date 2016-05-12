@@ -2270,7 +2270,7 @@ add_internal_bitmap1(struct supertype *st,
 		}
 		break;
 	default:
-		return 0;
+		return -ENOSPC;
 	}
 
 	room -= bbl_size;
@@ -2280,7 +2280,7 @@ add_internal_bitmap1(struct supertype *st,
 
 	if (room <= 1)
 		/* No room for a bitmap */
-		return 0;
+		return -ENOSPC;
 
 	max_bits = (room * 512 - sizeof(bitmap_super_t)) * 8;
 
@@ -2298,9 +2298,9 @@ add_internal_bitmap1(struct supertype *st,
 		if (chunk < 64*1024*1024)
 			chunk = 64*1024*1024;
 	} else if (chunk < min_chunk)
-		return 0; /* chunk size too small */
+		return -EINVAL; /* chunk size too small */
 	if (chunk == 0) /* rounding problem */
-		return 0;
+		return -EINVAL;
 
 	if (offset == 0) {
 		/* start bitmap on a 4K boundary with enough space for
@@ -2336,7 +2336,7 @@ add_internal_bitmap1(struct supertype *st,
 	}
 
 	*chunkp = chunk;
-	return 1;
+	return 0;
 }
 
 static int locate_bitmap1(struct supertype *st, int fd, int node_num)

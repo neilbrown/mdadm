@@ -315,8 +315,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		return 1;
 	}
 	if (bmf.pathname[0]) {
-		if (strcmp(s->bitmap_file,"none")==0) {
-			if (ioctl(fd, SET_BITMAP_FILE, -1)!= 0) {
+		if (strcmp(s->bitmap_file,"none") == 0) {
+			if (ioctl(fd, SET_BITMAP_FILE, -1) != 0) {
 				pr_err("failed to remove bitmap %s\n",
 					bmf.pathname);
 				return 1;
@@ -331,11 +331,11 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		pr_err("cannot get array status for %s\n", devname);
 		return 1;
 	}
-	if (array.state & (1<<MD_SB_BITMAP_PRESENT)) {
+	if (array.state & (1 << MD_SB_BITMAP_PRESENT)) {
 		if (strcmp(s->bitmap_file, "none")==0) {
-			array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
-			if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
-				if (array.state & (1<<MD_SB_CLUSTERED))
+			array.state &= ~(1 << MD_SB_BITMAP_PRESENT);
+			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+				if (array.state & (1 << MD_SB_CLUSTERED))
 					pr_err("failed to remove clustered bitmap.\n");
 				else
 					pr_err("failed to remove internal bitmap.\n");
@@ -359,7 +359,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	bitmapsize = array.size;
 	bitmapsize <<= 1;
 	if (get_dev_size(fd, NULL, &array_size) &&
-	    array_size > (0x7fffffffULL<<9)) {
+	    array_size > (0x7fffffffULL << 9)) {
 		/* Array is big enough that we cannot trust array.size
 		 * try other approaches
 		 */
@@ -371,7 +371,9 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	}
 
 	if (array.level == 10) {
-		int ncopies = (array.layout&255)*((array.layout>>8)&255);
+		int ncopies;
+
+		ncopies = (array.layout & 255) * ((array.layout >> 8) & 255);
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
 	}
 
@@ -402,7 +404,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		mdi = sysfs_read(fd, NULL, GET_BITMAP_LOCATION);
 		if (mdi)
 			offset_setable = 1;
-		for (d=0; d< st->max_devs; d++) {
+		for (d = 0; d < st->max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;
 			int fd2;
@@ -410,10 +412,9 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			disk.number = d;
 			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
 				continue;
-			if (disk.major == 0 &&
-			    disk.minor == 0)
+			if (disk.major == 0 && disk.minor == 0)
 				continue;
-			if ((disk.state & (1<<MD_DISK_SYNC))==0)
+			if ((disk.state & (1 << MD_DISK_SYNC)) == 0)
 				continue;
 			dv = map_dev(disk.major, disk.minor, 1);
 			if (!dv)
@@ -447,8 +448,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 						  mdi->bitmap_offset);
 		} else {
 			if (strcmp(s->bitmap_file, "clustered") == 0)
-				array.state |= (1<<MD_SB_CLUSTERED);
-			array.state |= (1<<MD_SB_BITMAP_PRESENT);
+				array.state |= (1 << MD_SB_CLUSTERED);
+			array.state |= (1 << MD_SB_BITMAP_PRESENT);
 			rv = ioctl(fd, SET_ARRAY_INFO, &array);
 		}
 		if (rv < 0) {
@@ -471,8 +472,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			disk.number = d;
 			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
 				continue;
-			if ((disk.major==0 && disk.minor==0) ||
-			    (disk.state & (1<<MD_DISK_REMOVED)))
+			if ((disk.major==0 && disk.minor == 0) ||
+			    (disk.state & (1 << MD_DISK_REMOVED)))
 				continue;
 			dv = map_dev(disk.major, disk.minor, 1);
 			if (!dv)
@@ -491,14 +492,14 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			pr_err("cannot find UUID for array!\n");
 			return 1;
 		}
-		if (CreateBitmap(s->bitmap_file, c->force, (char*)uuid, s->bitmap_chunk,
-				 c->delay, s->write_behind, bitmapsize, major)) {
+		if (CreateBitmap(s->bitmap_file, c->force, (char*)uuid,
+				 s->bitmap_chunk, c->delay, s->write_behind,
+				 bitmapsize, major)) {
 			return 1;
 		}
 		bitmap_fd = open(s->bitmap_file, O_RDWR);
 		if (bitmap_fd < 0) {
-			pr_err("weird: %s cannot be opened\n",
-				s->bitmap_file);
+			pr_err("weird: %s cannot be opened\n", s->bitmap_file);
 			return 1;
 		}
 		if (ioctl(fd, SET_BITMAP_FILE, bitmap_fd) < 0) {

@@ -421,7 +421,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			fd2 = dev_open(dv, O_RDWR);
 			if (fd2 < 0)
 				continue;
-			if (st->ss->load_super(st, fd2, NULL)==0) {
+			rv = st->ss->load_super(st, fd2, NULL);
+			if (!rv) {
 				if (st->ss->add_internal_bitmap(
 					    st, &s->bitmap_chunk, c->delay,
 					    s->write_behind, bitmapsize,
@@ -432,6 +433,10 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 					close(fd2);
 					return 1;
 				}
+			} else {
+				pr_err("failed to load super-block.\n");
+				close(fd2);
+				return 1;
 			}
 			close(fd2);
 		}

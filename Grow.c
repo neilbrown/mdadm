@@ -423,22 +423,22 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 				continue;
 			rv = st->ss->load_super(st, fd2, NULL);
 			if (!rv) {
-				if (!st->ss->add_internal_bitmap(
-					    st, &s->bitmap_chunk, c->delay,
-					    s->write_behind, bitmapsize,
-					    offset_setable, major))
-					st->ss->write_bitmap(st, fd2, NodeNumUpdate);
-				else {
+				rv = st->ss->add_internal_bitmap(
+					st, &s->bitmap_chunk, c->delay,
+					s->write_behind, bitmapsize,
+					offset_setable, major);
+				if (!rv) {
+					st->ss->write_bitmap(st, fd2,
+							     NodeNumUpdate);
+				} else {
 					pr_err("failed to create internal bitmap - chunksize problem.\n");
-					close(fd2);
-					return 1;
 				}
 			} else {
 				pr_err("failed to load super-block.\n");
-				close(fd2);
-				return 1;
 			}
 			close(fd2);
+			if (rv)
+				return 1;
 		}
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);

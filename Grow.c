@@ -405,6 +405,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		for (d=0; d< st->max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;
+			int fd2;
+
 			disk.number = d;
 			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
 				continue;
@@ -414,26 +416,24 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			if ((disk.state & (1<<MD_DISK_SYNC))==0)
 				continue;
 			dv = map_dev(disk.major, disk.minor, 1);
-			if (dv) {
-				int fd2 = dev_open(dv, O_RDWR);
-				if (fd2 < 0)
-					continue;
-				if (st->ss->load_super(st, fd2, NULL)==0) {
-					if (st->ss->add_internal_bitmap(
-						    st,
-						    &s->bitmap_chunk, c->delay, s->write_behind,
-						    bitmapsize, offset_setable,
-						    major)
-						)
-						st->ss->write_bitmap(st, fd2, NodeNumUpdate);
-					else {
-						pr_err("failed to create internal bitmap - chunksize problem.\n");
-						close(fd2);
-						return 1;
-					}
+			if (!dv)
+				continue;
+			fd2 = dev_open(dv, O_RDWR);
+			if (fd2 < 0)
+				continue;
+			if (st->ss->load_super(st, fd2, NULL)==0) {
+				if (st->ss->add_internal_bitmap(
+					    st, &s->bitmap_chunk, c->delay,
+					    s->write_behind, bitmapsize,
+					    offset_setable, major))
+					st->ss->write_bitmap(st, fd2, NodeNumUpdate);
+				else {
+					pr_err("failed to create internal bitmap - chunksize problem.\n");
+					close(fd2);
+					return 1;
 				}
-				close(fd2);
 			}
+			close(fd2);
 		}
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);

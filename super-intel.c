@@ -10378,6 +10378,7 @@ exit_imsm_reshape_super:
 int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 {
 	int fd = sysfs_get_fd(sra, NULL, "sync_completed");
+	int retry = 3;
 	unsigned long long completed;
 	/* to_complete : new sync_max position */
 	unsigned long long to_complete = sra->reshape_progress;
@@ -10388,11 +10389,17 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 		return 1;
 	}
 
-	if (sysfs_fd_get_ll(fd, &completed) < 0) {
-		dprintf("cannot read reshape_position (no reshape in progres)\n");
-		close(fd);
-		return 1;
-	}
+	do {
+		if (sysfs_fd_get_ll(fd, &completed) < 0) {
+			if (!retry) {
+				dprintf("cannot read reshape_position (no reshape in progres)\n");
+				close(fd);
+				return 1;
+			}
+			usleep(30000);
+		} else
+			break;
+	} while (retry--);
 
 	if (completed > position_to_set) {
 		dprintf("wrong next position to set %llu (%llu)\n",

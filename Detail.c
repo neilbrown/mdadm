@@ -130,7 +130,7 @@ int Detail(char *dev, struct context *c)
 		/* This is a subarray of some container.
 		 * We want the name of the container, and the member
 		 */
-		int devid = devnm2devid(st->container_devnm);
+		dev_t devid = devnm2devid(st->container_devnm);
 		int cfd, err;
 
 		member = subarray;
@@ -577,7 +577,7 @@ This is pretty boring
 				char path[200];
 				char vbuf[1024];
 				int nlen = strlen(sra->sys_name);
-				int devid;
+				dev_t devid;
 				if (de->d_name[0] == '.')
 					continue;
 				sprintf(path, "/sys/block/%s/md/metadata_version",

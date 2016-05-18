@@ -348,7 +348,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		if (lstat(devname, &stb) == 0) {
 			/* Must be the correct device, else error */
 			if ((stb.st_mode&S_IFMT) != S_IFBLK ||
-			    stb.st_rdev != (dev_t)devnm2devid(devnm)) {
+			    stb.st_rdev != devnm2devid(devnm)) {
 				pr_err("%s exists but looks wrong, please fix\n",
 					devname);
 				return -1;
@@ -452,7 +452,7 @@ char *find_free_devnm(int use_partitions)
 		if (!use_udev()) {
 			/* make sure it is new to /dev too, at least as a
 			 * non-standard */
-			int devid = devnm2devid(devnm);
+			dev_t devid = devnm2devid(devnm);
 			if (devid) {
 				char *dn = map_dev(major(devid),
 						   minor(devid), 0);

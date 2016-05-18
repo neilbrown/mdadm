@@ -99,7 +99,7 @@ char *fd2kname(int fd)
 	return NULL;
 }
 
-char *devid2devnm(int devid)
+char *devid2devnm(dev_t devid)
 {
 	char path[30];
 	char link[200];

@@ -374,7 +374,7 @@ void RebuildMap(void)
 			char dn[30];
 			int dfd;
 			int ok;
-			int devid;
+			dev_t devid;
 			struct supertype *st;
 			char *subarray = NULL;
 			char *path;

@@ -928,7 +928,7 @@ int get_data_disks(int level, int layout, int raid_disks)
 	return data_disks;
 }
 
-int devnm2devid(char *devnm)
+dev_t devnm2devid(char *devnm)
 {
 	/* First look in /sys/block/$DEVNM/dev for %d:%d
 	 * If that fails, try parsing out a number
@@ -1065,7 +1065,7 @@ int dev_open(char *dev, int flags)
 
 int open_dev_flags(char *devnm, int flags)
 {
-	int devid;
+	dev_t devid;
 	char buf[20];
 
 	devid = devnm2devid(devnm);
@@ -1083,7 +1083,7 @@ int open_dev_excl(char *devnm)
 	char buf[20];
 	int i;
 	int flags = O_RDWR;
-	int devid = devnm2devid(devnm);
+	dev_t devid = devnm2devid(devnm);
 	long delay = 1000;
 
 	sprintf(buf, "%d:%d", major(devid), minor(devid));

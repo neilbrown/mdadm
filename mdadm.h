@@ -1440,8 +1440,8 @@ extern char *find_free_devnm(int use_partitions);
 
 extern void put_md_name(char *name);
 extern char *devid2kname(int devid);
-extern char *devid2devnm(int devid);
-extern int devnm2devid(char *devnm);
+extern char *devid2devnm(dev_t devid);
+extern dev_t devnm2devid(char *devnm);
 extern char *get_md_name(char *devnm);
 
 extern char DefaultConfFile[];

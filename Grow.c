@@ -3533,7 +3533,7 @@ int reshape_container(char *container, char *devname,
 		int fd;
 		struct mdstat_ent *mdstat;
 		char *adev;
-		int devid;
+		dev_t devid;
 
 		sysfs_free(cc);
 

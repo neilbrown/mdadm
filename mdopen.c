@@ -439,7 +439,7 @@ char *find_free_devnm(int use_partitions)
 	static char devnm[32];
 	int devnum;
 	for (devnum = 127; devnum != 128;
-	     devnum = devnum ? devnum-1 : (1<<20)-1) {
+	     devnum = devnum ? devnum-1 : (1<<9)-1) {
 
 		if (use_partitions)
 			sprintf(devnm, "md_d%d", devnum);

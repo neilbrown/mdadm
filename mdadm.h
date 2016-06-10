@@ -289,7 +289,7 @@ struct mdinfo {
 	int container_enough; /* flag external handlers can set to
 			       * indicate that subarrays have not enough (-1),
 			       * enough to start (0), or all expected disks (1) */
-	char		sys_name[20];
+	char		sys_name[32];
 	struct mdinfo *devs;
 	struct mdinfo *next;
 

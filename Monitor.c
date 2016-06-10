@@ -597,7 +597,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		} else
 			alert("RebuildFinished", dev, NULL, ainfo);
 		if (sra)
-			free(sra);
+			sysfs_free(sra);
 	}
 	st->percent = mse->percent;
 

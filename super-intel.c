@@ -10423,6 +10423,8 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 		if (sysfs_get_str(sra, NULL, "sync_action",
 				  action, 20) > 0 &&
 				strncmp(action, "reshape", 7) != 0) {
+			if (strncmp(action, "idle", 4) == 0)
+				break;
 			close(fd);
 			return -1;
 		}
@@ -10432,9 +10434,9 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 			return 1;
 		}
 	} while (completed < position_to_set);
+
 	close(fd);
 	return 0;
-
 }
 
 /*******************************************************************************

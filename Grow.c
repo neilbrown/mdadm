@@ -4788,6 +4788,7 @@ int Grow_continue_command(char *devname, int fd,
 	dprintf("Grow continue is run for ");
 	if (st->ss->external == 0) {
 		int d;
+		int cnt = 5;
 		dprintf_cont("native array (%s)\n", devname);
 		if (ioctl(fd, GET_ARRAY_INFO, &array.array) < 0) {
 			pr_err("%s is not an active md array - aborting\n", devname);
@@ -4799,36 +4800,42 @@ int Grow_continue_command(char *devname, int fd,
 		 * FIXME we should really get what we need from
 		 * sysfs
 		 */
-		for (d = 0; d < MAX_DISKS; d++) {
-			mdu_disk_info_t disk;
-			char *dv;
-			int err;
-			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
-				continue;
-			if (disk.major == 0 && disk.minor == 0)
-				continue;
-			if ((disk.state & (1 << MD_DISK_ACTIVE)) == 0)
-				continue;
-			dv = map_dev(disk.major, disk.minor, 1);
-			if (!dv)
-				continue;
-			fd2 = dev_open(dv, O_RDONLY);
-			if (fd2 < 0)
-				continue;
-			err = st->ss->load_super(st, fd2, NULL);
-			close(fd2);
-			if (err)
-				continue;
-			break;
-		}
-		if (d == MAX_DISKS) {
-			pr_err("Unable to load metadata for %s\n",
-			       devname);
-			ret_val = 1;
-			goto Grow_continue_command_exit;
-		}
-		st->ss->getinfo_super(st, content, NULL);
+		do {
+			for (d = 0; d < MAX_DISKS; d++) {
+				mdu_disk_info_t disk;
+				char *dv;
+				int err;
+				disk.number = d;
+				if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+					continue;
+				if (disk.major == 0 && disk.minor == 0)
+					continue;
+				if ((disk.state & (1 << MD_DISK_ACTIVE)) == 0)
+					continue;
+				dv = map_dev(disk.major, disk.minor, 1);
+				if (!dv)
+					continue;
+				fd2 = dev_open(dv, O_RDONLY);
+				if (fd2 < 0)
+					continue;
+				err = st->ss->load_super(st, fd2, NULL);
+				close(fd2);
+				if (err)
+					continue;
+				break;
+			}
+			if (d == MAX_DISKS) {
+				pr_err("Unable to load metadata for %s\n",
+				       devname);
+				ret_val = 1;
+				goto Grow_continue_command_exit;
+			}
+			st->ss->getinfo_super(st, content, NULL);
+			if (!content->reshape_active)
+				sleep(3);
+			else
+				break;
+		} while (cnt-- > 0);
 	} else {
 		char *container;
 

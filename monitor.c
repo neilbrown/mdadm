@@ -420,6 +420,9 @@ static int read_and_act(struct active_array *a)
 	if (sync_completed > a->last_checkpoint)
 		a->last_checkpoint = sync_completed;
 
+	if (sync_completed >= a->info.component_size)
+		a->last_checkpoint = 0;
+
 	a->container->ss->sync_metadata(a->container);
 	dprintf("(%d): state:%s action:%s next(", a->info.container_member,
 		array_states[a->curr_state], sync_actions[a->curr_action]);

@@ -10363,6 +10363,33 @@ exit_imsm_reshape_super:
 	return ret_val;
 }
 
+#define COMPLETED_OK		0
+#define COMPLETED_NONE		1
+#define COMPLETED_DELAYED	2
+
+static int read_completed(int fd, unsigned long long *val)
+{
+	int ret;
+	char buf[50];
+
+	ret = sysfs_fd_get_str(fd, buf, 50);
+	if (ret < 0)
+		return ret;
+
+	ret = COMPLETED_OK;
+	if (strncmp(buf, "none", 4) == 0) {
+		ret = COMPLETED_NONE;
+	} else if (strncmp(buf, "delayed", 7) == 0) {
+		ret = COMPLETED_DELAYED;
+	} else {
+		char *ep;
+		*val = strtoull(buf, &ep, 0);
+		if (ep == buf || (*ep != 0 && *ep != '\n' && *ep != ' '))
+			ret = -1;
+	}
+	return ret;
+}
+
 /*******************************************************************************
  * Function:	wait_for_reshape_imsm
  * Description:	Function writes new sync_max value and waits until
@@ -10417,8 +10444,10 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 	}
 
 	do {
+		int rc;
 		char action[20];
 		int timeout = 3000;
+
 		sysfs_wait(fd, &timeout);
 		if (sysfs_get_str(sra, NULL, "sync_action",
 				  action, 20) > 0 &&
@@ -10428,11 +10457,14 @@ int wait_for_reshape_imsm(struct mdinfo *sra, int ndata)
 			close(fd);
 			return -1;
 		}
-		if (sysfs_fd_get_ll(fd, &completed) < 0) {
+
+		rc = read_completed(fd, &completed);
+		if (rc < 0) {
 			dprintf("cannot read reshape_position (in loop)\n");
 			close(fd);
 			return 1;
-		}
+		} else if (rc == COMPLETED_NONE)
+			break;
 	} while (completed < position_to_set);
 
 	close(fd);

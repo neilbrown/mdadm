@@ -133,7 +133,11 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 	int fd;
 
 	if (hold && mdstat_fd != -1) {
-		lseek(mdstat_fd, 0L, 0);
+		off_t offset = lseek(mdstat_fd, 0L, 0);
+		if (offset == (off_t)-1) {
+			mdstat_close();
+			return NULL;
+		}
 		fd = dup(mdstat_fd);
 		if (fd >= 0)
 			f = fdopen(fd, "r");

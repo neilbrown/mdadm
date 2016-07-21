@@ -1125,19 +1125,34 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		 */
 		if (rdev == 0)
 			ret = -1;
-		else
-			ret = sysfs_unique_holder(devnm, rdev);
-		if (ret == 0) {
-			pr_err("%s is not a member, cannot remove.\n",
-			       dv->devname);
-			close(lfd);
-			return -1;
-		}
-		if (ret >= 2) {
-			pr_err("%s is still in use, cannot remove.\n",
-			       dv->devname);
-			close(lfd);
-			return -1;
+		else {
+			/*
+			 * The drive has already been set to 'faulty', however
+			 * monitor might not have had time to process it and the
+			 * drive might still have an entry in the 'holders'
+			 * directory. Try a few times to avoid a false error
+			 */
+			int count = 20;
+
+			do {
+				ret = sysfs_unique_holder(devnm, rdev);
+				if (ret < 2)
+					break;
+				usleep(100 * 1000);	/* 100ms */
+			} while (--count > 0);
+
+			if (ret == 0) {
+				pr_err("%s is not a member, cannot remove.\n",
+					dv->devname);
+				close(lfd);
+				return -1;
+			}
+			if (ret >= 2) {
+				pr_err("%s is still in use, cannot remove.\n",
+					dv->devname);
+				close(lfd);
+				return -1;
+			}
 		}
 	}
 	/* FIXME check that it is a current member */

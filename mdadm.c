@@ -1142,7 +1142,7 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			/* probable typo */
-			pr_err("bitmap file must contain a '/', or be 'internal', or 'none'\n"
+			pr_err("bitmap file must contain a '/', or be 'internal', or be 'clustered', or 'none'\n"
 				"       not '%s'\n", optarg);
 			exit(2);
 

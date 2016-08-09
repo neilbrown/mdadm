@@ -1347,8 +1347,12 @@ restart:
 
 		if (devnm && strcmp(devnm, me->devnm) != 0)
 			continue;
-		if (devnm && me->metadata[0] == '/') {
+		if (me->metadata[0] == '/') {
 			char *sl;
+
+			if (!devnm)
+				continue;
+
 			/* member array, need to work on container */
 			strncpy(container, me->metadata+1, 32);
 			container[31] = 0;

@@ -1039,7 +1039,8 @@ int dev_open(char *dev, int flags)
 	int major;
 	int minor;
 
-	if (!dev) return -1;
+	if (!dev)
+		return -1;
 	flags |= O_DIRECT;
 
 	if (get_maj_min(dev, &major, &minor)) {

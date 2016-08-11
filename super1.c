@@ -1643,7 +1643,8 @@ static unsigned long choose_bm_space(unsigned long devsize)
 	 * NOTE: result must be multiple of 4K else bad things happen
 	 * on 4K-sector devices.
 	 */
-	if (devsize < 64*2) return 0;
+	if (devsize < 64*2)
+		return 0;
 	if (devsize - 64*2 >= 200*1024*1024*2)
 		return 128*2;
 	if (devsize - 4*2 > 8*1024*1024*2)

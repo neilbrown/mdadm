@@ -394,7 +394,8 @@ unsigned long long get_component_size(int fd)
 	struct stat stb;
 	char fname[50];
 	int n;
-	if (fstat(fd, &stb)) return 0;
+	if (fstat(fd, &stb))
+		return 0;
 	if (major(stb.st_rdev) != (unsigned)get_mdp_major())
 		sprintf(fname, "/sys/block/md%d/md/component_size",
 			(int)minor(stb.st_rdev));

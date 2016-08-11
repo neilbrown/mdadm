@@ -226,7 +226,7 @@ char *map_dev_preferred(int major, int minor, int create,
 	int did_check = 0;
 
 	if (major == 0 && minor == 0)
-			return NULL;
+		return NULL;
 
  retry:
 	if (!devlist_ready) {
@@ -464,7 +464,8 @@ char *conf_line(FILE *file)
 	char *list;
 
 	w = conf_word(file, 1);
-	if (w == NULL) return NULL;
+	if (w == NULL)
+		return NULL;
 
 	list = dl_strdup(w);
 	free(w);

@@ -1444,6 +1444,14 @@ number. The receiving node must acknowledge this message
 with \-\-cluster\-confirm. Valid arguments are <slot>:<devicename> in case
 the device is found or <slot>:missing in case the device is not found.
 
+.TP
+.BR \-\-add-journal
+Recreate journal for RAID-4/5/6 array that lost a journal device. In the
+current implementation, this command cannot add a journal to an array
+that had a failed journal. To avoid interrupting on-going write opertions,
+.B \-\-add-journal
+only works for array in Read-Only state.
+
 .P
 Each of these options requires that the first device listed is the array
 to be acted upon, and the remainder are component devices to be added,

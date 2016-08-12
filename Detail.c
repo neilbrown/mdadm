@@ -323,7 +323,8 @@ int Detail(char *dev, struct context *c)
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
 		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
-		    && disks[disk.raid_disk*2].state == (1<<MD_DISK_REMOVED))
+		    && disks[disk.raid_disk*2].state == (1<<MD_DISK_REMOVED)
+		    && ((disk.state & (1<<MD_DISK_JOURNAL)) == 0))
 			disks[disk.raid_disk*2] = disk;
 		else if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
 			 && disks[disk.raid_disk*2+1].state == (1<<MD_DISK_REMOVED)

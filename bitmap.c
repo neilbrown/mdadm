@@ -200,20 +200,24 @@ int bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 	struct stat stb;
 	struct supertype *st = *stp;
 
-	if (stat(filename, &stb) < 0) {
-		pr_err("failed to find file %s: %s\n",
-			filename, strerror(errno));
+	fd = open(filename, O_RDONLY|O_DIRECT);
+	if (fd < 0) {
+		pr_err("failed to open bitmap file %s: %s\n",
+		       filename, strerror(errno));
 		return -1;
 	}
-	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
-		fd = open(filename, O_RDONLY|O_DIRECT);
-		if (fd < 0) {
-			pr_err("failed to open bitmap file %s: %s\n",
-				filename, strerror(errno));
-			return -1;
-		}
+
+	if (fstat(fd, &stb) < 0) {
+		pr_err("failed to determine bitmap file/device type: %s\n",
+			strerror(errno));
+		close(fd);
+		return -1;
+	}
+
+	if ((stb.st_mode & S_IFMT) == S_IFBLK) {
 		/* block device, so we are probably after an internal bitmap */
-		if (!st) st = guess_super(fd);
+		if (!st)
+			st = guess_super(fd);
 		if (!st) {
 			/* just look at device... */
 			lseek(fd, 0, 0);
@@ -231,13 +235,6 @@ int bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 		}
 
 		*stp = st;
-	} else {
-		fd = open(filename, O_RDONLY|O_DIRECT);
-		if (fd < 0) {
-			pr_err("failed to open bitmap file %s: %s\n",
-				filename, strerror(errno));
-			return -1;
-		}
 	}
 
 	return fd;

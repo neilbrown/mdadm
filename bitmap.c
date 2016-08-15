@@ -350,7 +350,17 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 			st = NULL;
 			free(info);
 			fd = bitmap_file_open(filename, &st, i);
+			if (fd < 0) {
+				printf("   Unable to open bitmap file on node: %i\n", i);
+
+				continue;
+			}
 			info = bitmap_fd_read(fd, brief);
+			if (!info) {
+				close(fd);
+				printf("   Unable to read bitmap on node: %i\n", i);
+				continue;
+			}
 			sb = &info->sb;
 			if (sb->magic != BITMAP_MAGIC)
 				pr_err("invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);

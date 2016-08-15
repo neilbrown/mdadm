@@ -47,13 +47,13 @@ mapping_t bitmap_states[] = {
 	{ NULL, -1 }
 };
 
-const char *bitmap_state(int state_num)
+static const char *bitmap_state(int state_num)
 {
 	char *state = map_num(bitmap_states, state_num);
 	return state ? state : "Unknown";
 }
 
-const char *human_chunksize(unsigned long bytes)
+static const char *human_chunksize(unsigned long bytes)
 {
 	static char buf[16];
 	char *suffixes[] = { "B", "KB", "MB", "GB", "TB", NULL };
@@ -95,7 +95,7 @@ static inline int count_dirty_bits_byte(char byte, int num_bits)
 	return num;
 }
 
-int count_dirty_bits(char *buf, int num_bits)
+static int count_dirty_bits(char *buf, int num_bits)
 {
 	int i, num = 0;
 
@@ -109,8 +109,8 @@ int count_dirty_bits(char *buf, int num_bits)
 }
 
 /* calculate the size of the bitmap given the array size and bitmap chunksize */
-unsigned long long bitmap_bits(unsigned long long array_size,
-				unsigned long chunksize)
+static unsigned long long
+bitmap_bits(unsigned long long array_size, unsigned long chunksize)
 {
 	return (array_size * 512 + chunksize - 1) / chunksize;
 }
@@ -123,7 +123,7 @@ unsigned long bitmap_sectors(struct bitmap_super_s *bsb)
 	return (bits + bits_per_sector - 1) / bits_per_sector;
 }
 
-bitmap_info_t *bitmap_fd_read(int fd, int brief)
+static bitmap_info_t *bitmap_fd_read(int fd, int brief)
 {
 	/* Note: fd might be open O_DIRECT, so we must be
 	 * careful to align reads properly
@@ -194,7 +194,8 @@ out:
 	return info;
 }
 
-int bitmap_file_open(char *filename, struct supertype **stp, int node_num)
+static int
+bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 {
 	int fd;
 	struct stat stb;
@@ -240,7 +241,7 @@ int bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 	return fd;
 }
 
-__u32 swapl(__u32 l)
+static __u32 swapl(__u32 l)
 {
 	char *c = (char*)&l;
 	char t= c[0];

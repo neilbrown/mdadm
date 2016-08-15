@@ -752,16 +752,12 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 		sb->set_uuid2 = uuid[2];
 		sb->set_uuid3 = uuid[3];
 	} else {
-		int rfd = open("/dev/urandom", O_RDONLY);
-		if (rfd < 0 || read(rfd, &sb->set_uuid0, 4) != 4)
-			sb->set_uuid0 = random();
-		if (rfd < 0 || read(rfd, &sb->set_uuid1, 12) != 12) {
-			sb->set_uuid1 = random();
-			sb->set_uuid2 = random();
-			sb->set_uuid3 = random();
-		}
-		if (rfd >= 0)
-			close(rfd);
+		__u32 r[4];
+		random_uuid((__u8 *)r);
+		sb->set_uuid0 = r[0];
+		sb->set_uuid1 = r[1];
+		sb->set_uuid2 = r[2];
+		sb->set_uuid3 = r[3];
 	}
 	if (homehost && !uuid) {
 		char buf[20];

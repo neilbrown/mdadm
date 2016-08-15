@@ -87,17 +87,17 @@ static void examine_super0(struct supertype *st, char *homehost)
 	char *c;
 
 	printf("          Magic : %08x\n", sb->md_magic);
-	printf("        Version : %d.%02d.%02d\n", sb->major_version, sb->minor_version,
-	       sb->patch_version);
+	printf("        Version : %d.%02d.%02d\n",
+	       sb->major_version, sb->minor_version, sb->patch_version);
 	if (sb->minor_version >= 90) {
-		printf("           UUID : %08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
-		       sb->set_uuid2, sb->set_uuid3);
+		printf("           UUID : %08x:%08x:%08x:%08x", sb->set_uuid0,
+		       sb->set_uuid1, sb->set_uuid2, sb->set_uuid3);
 		if (homehost) {
 			char buf[20];
-			void *hash = sha1_buffer(homehost,
-						 strlen(homehost),
-						 buf);
-			if (memcmp(&sb->set_uuid2, hash, 8)==0)
+			void *hash;
+
+			hash = sha1_buffer(homehost, strlen(homehost), buf);
+			if (memcmp(&sb->set_uuid2, hash, 8) == 0)
 				printf(" (local to host %s)", homehost);
 		}
 		printf("\n");
@@ -109,19 +109,27 @@ static void examine_super0(struct supertype *st, char *homehost)
 
 	atime = sb->ctime;
 	printf("  Creation Time : %.24s\n", ctime(&atime));
-	c=map_num(pers, sb->level);
+	c = map_num(pers, sb->level);
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	if ((int)sb->level > 0) {
 		int ddsks = 0, ddsks_denom = 1;
 		printf("  Used Dev Size : %d%s\n", sb->size,
 		       human_size((long long)sb->size<<10));
 		switch(sb->level) {
-		case 1: ddsks=1;break;
+		case 1:
+			ddsks=1;
+			break;
 		case 4:
-		case 5: ddsks = sb->raid_disks-1; break;
-		case 6: ddsks = sb->raid_disks-2; break;
-		case 10: ddsks = sb->raid_disks;
-			ddsks_denom =  (sb->layout&255) * ((sb->layout>>8)&255);
+		case 5:
+			ddsks = sb->raid_disks - 1;
+			break;
+		case 6:
+			ddsks = sb->raid_disks - 2;
+			break;
+		case 10:
+			ddsks = sb->raid_disks;
+			ddsks_denom =
+				(sb->layout & 255) * ((sb->layout >> 8) & 255);
 		}
 		if (ddsks) {
 			long long asize = sb->size;
@@ -134,11 +142,14 @@ static void examine_super0(struct supertype *st, char *homehost)
 	printf("  Total Devices : %d\n", sb->nr_disks);
 	printf("Preferred Minor : %d\n", sb->md_minor);
 	printf("\n");
-	if (sb->minor_version > 90 && (sb->reshape_position+1) != 0) {
-		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)sb->reshape_position/2, human_size((long long)sb->reshape_position<<9));
+	if (sb->minor_version > 90 && (sb->reshape_position + 1) != 0) {
+		printf("  Reshape pos'n : %llu%s\n",
+		       (unsigned long long)sb->reshape_position / 2,
+		       human_size((long long)sb->reshape_position << 9));
 		if (sb->delta_disks) {
 			printf("  Delta Devices : %d", sb->delta_disks);
-			printf(" (%d->%d)\n", sb->raid_disks-sb->delta_disks, sb->raid_disks);
+			printf(" (%d->%d)\n", sb->raid_disks-sb->delta_disks,
+			       sb->raid_disks);
 			if (((int)sb->delta_disks) < 0)
 				delta_extra = - sb->delta_disks;
 		}
@@ -149,11 +160,13 @@ static void examine_super0(struct supertype *st, char *homehost)
 		if (sb->new_layout != sb->layout) {
 			if (sb->level == 5) {
 				c = map_num(r5layout, sb->new_layout);
-				printf("     New Layout : %s\n", c?c:"-unknown-");
+				printf("     New Layout : %s\n",
+				       c?c:"-unknown-");
 			}
 			if (sb->level == 6) {
 				c = map_num(r6layout, sb->new_layout);
-				printf("     New Layout : %s\n", c?c:"-unknown-");
+				printf("     New Layout : %s\n",
+				       c?c:"-unknown-");
 			}
 			if (sb->level == 10) {
 				printf("     New Layout : near=%d, %s=%d\n",
@@ -169,8 +182,8 @@ static void examine_super0(struct supertype *st, char *homehost)
 	atime = sb->utime;
 	printf("    Update Time : %.24s\n", ctime(&atime));
 	printf("          State : %s\n",
-	       (sb->state&(1<<MD_SB_CLEAN))?"clean":"active");
-	if (sb->state & (1<<MD_SB_BITMAP_PRESENT))
+	       (sb->state&(1 << MD_SB_CLEAN)) ? "clean":"active");
+	if (sb->state & (1 << MD_SB_BITMAP_PRESENT))
 		printf("Internal Bitmap : present\n");
 	printf(" Active Devices : %d\n", sb->active_disks);
 	printf("Working Devices : %d\n", sb->working_disks);
@@ -179,10 +192,10 @@ static void examine_super0(struct supertype *st, char *homehost)
 	if (calc_sb0_csum(sb) == sb->sb_csum)
 		printf("       Checksum : %x - correct\n", sb->sb_csum);
 	else
-		printf("       Checksum : %x - expected %lx\n", sb->sb_csum, calc_sb0_csum(sb));
+		printf("       Checksum : %x - expected %lx\n",
+		       sb->sb_csum, calc_sb0_csum(sb));
 	printf("         Events : %llu\n",
-	       ((unsigned long long)sb->events_hi << 32)
-	       + sb->events_lo);
+	       ((unsigned long long)sb->events_hi << 32) + sb->events_lo);
 	printf("\n");
 	if (sb->level == 5) {
 		c = map_num(r5layout, sb->layout);
@@ -203,16 +216,19 @@ static void examine_super0(struct supertype *st, char *homehost)
 	case 5:
 	case 6:
 	case 10:
-		printf("     Chunk Size : %dK\n", sb->chunk_size/1024);
+		printf("     Chunk Size : %dK\n", sb->chunk_size / 1024);
 		break;
 	case -1:
-		printf("       Rounding : %dK\n", sb->chunk_size/1024);
+		printf("       Rounding : %dK\n", sb->chunk_size / 1024);
 		break;
-	default: break;
+	default:
+		break;
 	}
 	printf("\n");
 	printf("      Number   Major   Minor   RaidDevice State\n");
-	for (d= -1; d<(signed int)(sb->raid_disks+delta_extra + sb->spare_disks); d++) {
+	for (d = -1;
+	     d < (signed int)(sb->raid_disks + delta_extra + sb->spare_disks);
+	     d++) {
 		mdp_disk_t *dp;
 		char *dv;
 		char nb[5];
@@ -220,20 +236,27 @@ static void examine_super0(struct supertype *st, char *homehost)
 		if (d>=0) dp = &sb->disks[d];
 		else dp = &sb->this_disk;
 		snprintf(nb, sizeof(nb), "%4d", d);
-		printf("%4s %5d   %5d    %5d    %5d     ", d < 0 ? "this" :  nb,
+		printf("%4s %5d   %5d    %5d    %5d     ", d < 0 ? "this" : nb,
 		       dp->number, dp->major, dp->minor, dp->raid_disk);
-		wonly = dp->state & (1<<MD_DISK_WRITEMOSTLY);
-		dp->state &= ~(1<<MD_DISK_WRITEMOSTLY);
-		if (dp->state & (1<<MD_DISK_FAULTY)) printf(" faulty");
-		if (dp->state & (1<<MD_DISK_ACTIVE)) printf(" active");
-		if (dp->state & (1<<MD_DISK_SYNC)) printf(" sync");
-		if (dp->state & (1<<MD_DISK_REMOVED)) printf(" removed");
-		if (wonly) printf(" write-mostly");
-		if (dp->state == 0) printf(" spare");
-		if ((dv=map_dev(dp->major, dp->minor, 0)))
+		wonly = dp->state & (1 << MD_DISK_WRITEMOSTLY);
+		dp->state &= ~(1 << MD_DISK_WRITEMOSTLY);
+		if (dp->state & (1 << MD_DISK_FAULTY))
+			printf(" faulty");
+		if (dp->state & (1 << MD_DISK_ACTIVE))
+			printf(" active");
+		if (dp->state & (1 << MD_DISK_SYNC))
+			printf(" sync");
+		if (dp->state & (1 << MD_DISK_REMOVED))
+			printf(" removed");
+		if (wonly)
+			printf(" write-mostly");
+		if (dp->state == 0)
+			printf(" spare");
+		if ((dv = map_dev(dp->major, dp->minor, 0)))
 			printf("   %s", dv);
 		printf("\n");
-		if (d == -1) printf("\n");
+		if (d == -1)
+			printf("\n");
 	}
 }
 

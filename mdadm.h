@@ -45,6 +45,10 @@ extern __off64_t lseek64 __P ((int __fd, __off64_t __offset, int __whence));
 #include	<errno.h>
 #include	<string.h>
 #include	<syslog.h>
+#ifdef __GLIBC__
+/* Newer glibc requires sys/sysmacros.h directly for makedev() */
+#include	<sys/sysmacros.h>
+#endif
 #ifdef __dietlibc__
 #include	<strings.h>
 /* dietlibc has deprecated random and srandom!! */

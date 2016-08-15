@@ -1175,7 +1175,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		}
 	} else if (strcmp(update, "linear-grow-new") == 0) {
 		unsigned int i;
-		int rfd, fd;
+		int fd;
 		unsigned int max = __le32_to_cpu(sb->max_dev);
 
 		for (i=0 ; i < max ; i++)
@@ -1186,13 +1186,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		if (max >= __le32_to_cpu(sb->max_dev))
 			sb->max_dev = __cpu_to_le32(max+1);
 
-		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-		    read(rfd, sb->device_uuid, 16) != 16) {
-			__u32 r[4] = {random(), random(), random(), random()};
-			memcpy(sb->device_uuid, r, 16);
-		}
-		if (rfd >= 0)
-			close(rfd);
+		random_uuid(sb->device_uuid);
 
 		sb->dev_roles[i] =
 			__cpu_to_le16(info->disk.raid_disk);
@@ -1407,7 +1401,6 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 {
 	struct mdp_superblock_1 *sb;
 	int spares;
-	int rfd;
 	char defname[10];
 	int sbsize;
 
@@ -1437,14 +1430,8 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 
 	if (uuid)
 		copy_uuid(sb->set_uuid, uuid, super1.swapuuid);
-	else {
-		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-		    read(rfd, sb->set_uuid, 16) != 16) {
-			__u32 r[4] = {random(), random(), random(), random()};
-			memcpy(sb->set_uuid, r, 16);
-		}
-		if (rfd >= 0) close(rfd);
-	}
+	else
+		random_uuid(sb->set_uuid);;
 
 	if (name == NULL || *name == 0) {
 		sprintf(defname, "%d", info->md_minor);
@@ -1707,7 +1694,6 @@ static int write_init_super1(struct supertype *st)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	struct supertype *refst;
-	int rfd;
 	int rv = 0;
 	unsigned long long bm_space;
 	struct devinfo *di;
@@ -1735,13 +1721,7 @@ static int write_init_super1(struct supertype *st)
 		else
 			sb->devflags &= ~WriteMostly1;
 
-		if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-		    read(rfd, sb->device_uuid, 16) != 16) {
-			__u32 r[4] = {random(), random(), random(), random()};
-			memcpy(sb->device_uuid, r, 16);
-		}
-		if (rfd >= 0)
-			close(rfd);
+		random_uuid(sb->device_uuid);
 
 		if (!(di->disk.state & (1<<MD_DISK_JOURNAL)))
 			sb->events = 0;
@@ -2597,7 +2577,6 @@ void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0
 	void *ret;
 	struct mdp_superblock_1 *sb;
 	int i;
-	int rfd;
 	unsigned long long offset;
 
 	if (posix_memalign(&ret, 4096, 1024) != 0)
@@ -2629,13 +2608,7 @@ void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0
 	sb->super_offset = __cpu_to_le64(offset);
 	//*(__u64*)(st->other + 128 + 8 + 8) = __cpu_to_le64(offset);
 
-	if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-	    read(rfd, sb->device_uuid, 16) != 16) {
-		__u32 r[4] = {random(), random(), random(), random()};
-		memcpy(sb->device_uuid, r, 16);
-	}
-	if (rfd >= 0)
-		close(rfd);
+	random_uuid(sb->device_uuid);
 
 	for (i = 0; i < MD_SB_DISKS; i++) {
 		int state = sb0->disks[i].state;

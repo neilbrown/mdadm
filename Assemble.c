@@ -599,18 +599,9 @@ static int load_devices(struct devs *devices, char *devmap,
 			int err;
 			fstat(mdfd, &stb2);
 
-			if (strcmp(c->update, "uuid")==0 &&
-			    !ident->uuid_set) {
-				int rfd;
-				if ((rfd = open("/dev/urandom", O_RDONLY)) < 0 ||
-				    read(rfd, ident->uuid, 16) != 16) {
-					*(__u32*)(ident->uuid) = random();
-					*(__u32*)(ident->uuid+1) = random();
-					*(__u32*)(ident->uuid+2) = random();
-					*(__u32*)(ident->uuid+3) = random();
-				}
-				if (rfd >= 0) close(rfd);
-			}
+			if (strcmp(c->update, "uuid") == 0 && !ident->uuid_set)
+				random_uuid((__u8 *)ident->uuid);
+
 			dfd = dev_open(devname,
 				       tmpdev->disposition == 'I'
 				       ? O_RDWR : (O_RDWR|O_EXCL));

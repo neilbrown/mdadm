@@ -1936,6 +1936,27 @@ __u32 random32(void)
 	return rv;
 }
 
+void random_uuid(__u8 *buf)
+{
+	int fd, i, len;
+	__u32 r[4];
+
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd < 0)
+		goto use_random;
+	len = read(fd, buf, 16);
+	close(fd);
+	if (len != 16)
+		goto use_random;
+
+	return;
+
+use_random:
+	for (i = 0; i < 4; i++)
+		r[i] = random();
+	memcpy(buf, r, 16);
+}
+
 #ifndef MDASSEMBLE
 int flush_metadata_updates(struct supertype *st)
 {

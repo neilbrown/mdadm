@@ -1470,6 +1470,7 @@ extern int mdmon_running(char *devnm);
 extern int mdmon_pid(char *devnm);
 extern int check_env(char *name);
 extern __u32 random32(void);
+extern void random_uuid(__u8 *buf);
 extern int start_mdmon(char *devnm);
 
 extern int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,

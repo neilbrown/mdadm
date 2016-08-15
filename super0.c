@@ -693,16 +693,14 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 }
 
 /*
- * For verion-0 superblock, the homehost is 'stored' in the
- * uuid.  8 bytes for a hash of the host leaving 8 bytes
- * of random material.
- * We use the first 8 bytes (64bits) of the sha1 of the
- * host name
+ * For version-0 superblock, the homehost is 'stored' in the uuid.
+ * 8 bytes for a hash of the host leaving 8 bytes of random material.
+ * We use the first 8 bytes (64bits) of the sha1 of the host name
  */
-
 static int init_super0(struct supertype *st, mdu_array_info_t *info,
-		       unsigned long long size, char *ignored_name, char *homehost,
-		       int *uuid, unsigned long long data_offset)
+		       unsigned long long size, char *ignored_name,
+		       char *homehost, int *uuid,
+		       unsigned long long data_offset)
 {
 	mdp_super_t *sb;
 	int spares;

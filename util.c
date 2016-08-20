@@ -936,7 +936,8 @@ dev_t devnm2devid(char *devnm)
 	char path[100];
 	char *ep;
 	int fd;
-	int mjr,mnr;
+	int mjr;
+	unsigned long mnr;
 
 	sprintf(path, "/sys/block/%s/dev", devnm);
 	fd = open(path, O_RDONLY);
@@ -946,18 +947,18 @@ dev_t devnm2devid(char *devnm)
 		close(fd);
 		if (n > 0)
 			buf[n] = 0;
-		if (n > 0 && sscanf(buf, "%d:%d\n", &mjr, &mnr) == 2)
+		if (n > 0 && sscanf(buf, "%d:%lu\n", &mjr, &mnr) == 2)
 			return makedev(mjr, mnr);
 	}
 	if (strncmp(devnm, "md_d", 4) == 0 &&
 	    isdigit(devnm[4]) &&
-	    (mnr = strtoul(devnm+4, &ep, 10)) >= 0 &&
+	    (mnr = strtoul(devnm+4, &ep, 10)) &&
 	    ep > devnm && *ep == 0)
 		return makedev(get_mdp_major(), mnr << MdpMinorShift);
 
 	if (strncmp(devnm, "md", 2) == 0 &&
 	    isdigit(devnm[2]) &&
-	    (mnr = strtoul(devnm+2, &ep, 10)) >= 0 &&
+	    (mnr = strtoul(devnm+2, &ep, 10)) &&
 	    ep > devnm && *ep == 0)
 		return makedev(MD_MAJOR, mnr);
 
@@ -1020,12 +1021,12 @@ void put_md_name(char *name)
 }
 #endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
-int get_maj_min(char *dev, int *major, int *minor)
+int get_maj_min(char *dev, int *major, unsigned long *minor)
 {
 	char *e;
 	*major = strtoul(dev, &e, 0);
 	return (e > dev && *e == ':' && e[1] &&
-		(*minor = strtoul(e+1, &e, 0)) >= 0 &&
+		(*minor = strtoul(e+1, &e, 0)) &&
 		*e == 0);
 }
 
@@ -1037,14 +1038,14 @@ int dev_open(char *dev, int flags)
 	int fd = -1;
 	char devname[32];
 	int major;
-	int minor;
+	unsigned long minor;
 
 	if (!dev)
 		return -1;
 	flags |= O_DIRECT;
 
 	if (get_maj_min(dev, &major, &minor)) {
-		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%d",
+		snprintf(devname, sizeof(devname), "/dev/.tmp.md.%d:%d:%lu",
 			 (int)getpid(), major, minor);
 		if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
 			fd = open(devname, flags);
@@ -1052,7 +1053,7 @@ int dev_open(char *dev, int flags)
 		}
 		if (fd < 0) {
 			/* Try /tmp as /dev appear to be read-only */
-			snprintf(devname, sizeof(devname), "/tmp/.tmp.md.%d:%d:%d",
+			snprintf(devname, sizeof(devname), "/tmp/.tmp.md.%d:%d:%lu",
 				 (int)getpid(), major, minor);
 			if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
 				fd = open(devname, flags);
@@ -1070,7 +1071,7 @@ int open_dev_flags(char *devnm, int flags)
 	char buf[20];
 
 	devid = devnm2devid(devnm);
-	sprintf(buf, "%d:%d", major(devid), minor(devid));
+	sprintf(buf, "%d:%lu", major(devid), (unsigned long)minor(devid));
 	return dev_open(buf, flags);
 }
 

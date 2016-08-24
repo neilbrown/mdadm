@@ -144,7 +144,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	struct createinfo *ci = conf_get_create_info();
 	int parts;
 	char *cname;
-	char devname[20];
+	char devname[37];
 	char devnm[32];
 	char cbuf[400];
 	if (chosen == NULL)

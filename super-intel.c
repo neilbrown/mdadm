@@ -7789,6 +7789,11 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 			IMSM_T_STATE_DEGRADED)
 		return NULL;
 
+	if (get_imsm_map(dev, MAP_0)->map_state == IMSM_T_STATE_UNINITIALIZED) {
+		dprintf("imsm: No spare activation allowed. Volume is not initialized.\n");
+		return NULL;
+	}
+
 	/*
 	 * If there are any failed disks check state of the other volume.
 	 * Block rebuild if the another one is failed until failed disks

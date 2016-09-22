@@ -710,17 +710,22 @@ int check_raid(int fd, char *name)
 
 	if (!st)
 		return 0;
-	st->ss->load_super(st, fd, name);
-	/* Looks like a raid array .. */
-	pr_err("%s appears to be part of a raid array:\n",
-		name);
-	st->ss->getinfo_super(st, &info, NULL);
-	st->ss->free_super(st);
-	crtime = info.array.ctime;
-	level = map_num(pers, info.array.level);
-	if (!level) level = "-unknown-";
-	cont_err("level=%s devices=%d ctime=%s",
-		 level, info.array.raid_disks, ctime(&crtime));
+	if (st->ss->add_to_super != NULL) {
+		st->ss->load_super(st, fd, name);
+		/* Looks like a raid array .. */
+		pr_err("%s appears to be part of a raid array:\n", name);
+		st->ss->getinfo_super(st, &info, NULL);
+		st->ss->free_super(st);
+		crtime = info.array.ctime;
+		level = map_num(pers, info.array.level);
+		if (!level)
+			level = "-unknown-";
+		cont_err("level=%s devices=%d ctime=%s",
+			level, info.array.raid_disks, ctime(&crtime));
+	} else {
+		/* Looks like GPT or MBR */
+		pr_err("partition table exists on %s\n", name);
+	}
 	return 1;
 }
 

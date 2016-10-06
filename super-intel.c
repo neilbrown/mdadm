@@ -3331,23 +3331,40 @@ static void fd2devname(int fd, char *name)
 	}
 }
 
+static int nvme_get_serial(int fd, void *buf, size_t buf_len)
+{
+	char path[60];
+	char *name = fd2kname(fd);
+
+	if (!name)
+		return 1;
+
+	if (strncmp(name, "nvme", 4) != 0)
+		return 1;
+
+	snprintf(path, sizeof(path) - 1, "/sys/block/%s/device/serial", name);
+
+	return load_sys(path, buf, buf_len);
+}
+
 extern int scsi_get_serial(int fd, void *buf, size_t buf_len);
 
 static int imsm_read_serial(int fd, char *devname,
 			    __u8 serial[MAX_RAID_SERIAL_LEN])
 {
-	unsigned char scsi_serial[255];
+	char buf[50];
 	int rv;
-	int rsp_len;
 	int len;
 	char *dest;
 	char *src;
-	char *rsp_buf;
-	int i;
+	unsigned int i;
 
-	memset(scsi_serial, 0, sizeof(scsi_serial));
+	memset(buf, 0, sizeof(buf));
 
-	rv = scsi_get_serial(fd, scsi_serial, sizeof(scsi_serial));
+	rv = nvme_get_serial(fd, buf, sizeof(buf));
+
+	if (rv)
+		rv = scsi_get_serial(fd, buf, sizeof(buf));
 
 	if (rv && check_env("IMSM_DEVNAME_AS_SERIAL")) {
 		memset(serial, 0, MAX_RAID_SERIAL_LEN);
@@ -3362,20 +3379,11 @@ static int imsm_read_serial(int fd, char *devname,
 		return rv;
 	}
 
-	rsp_len = scsi_serial[3];
-	if (!rsp_len) {
-		if (devname)
-			pr_err("Failed to retrieve serial for %s\n",
-			       devname);
-		return 2;
-	}
-	rsp_buf = (char *) &scsi_serial[4];
-
 	/* trim all whitespace and non-printable characters and convert
 	 * ':' to ';'
 	 */
-	for (i = 0, dest = rsp_buf; i < rsp_len; i++) {
-		src = &rsp_buf[i];
+	for (i = 0, dest = buf; i < sizeof(buf) && buf[i]; i++) {
+		src = &buf[i];
 		if (*src > 0x20) {
 			/* ':' is reserved for use in placeholder serial
 			 * numbers for missing disks
@@ -3386,8 +3394,8 @@ static int imsm_read_serial(int fd, char *devname,
 				*dest++ = *src;
 		}
 	}
-	len = dest - rsp_buf;
-	dest = rsp_buf;
+	len = dest - buf;
+	dest = buf;
 
 	/* truncate leading characters */
 	if (len > MAX_RAID_SERIAL_LEN) {

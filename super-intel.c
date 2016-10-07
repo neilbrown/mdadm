@@ -10154,7 +10154,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				geo->size = max_size;
 		}
 
-		if ((direction == ROLLBACK_METADATA_CHANGES)) {
+		if (direction == ROLLBACK_METADATA_CHANGES) {
 			/* accept size for rollback only
 			*/
 		} else {

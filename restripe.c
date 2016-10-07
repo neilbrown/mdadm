@@ -482,7 +482,7 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 		}
 
 		if((Px == 0) && (Qx == 0))
-			curr_broken_disk = curr_broken_disk;
+			curr_broken_disk = prev_broken_disk;
 
 		if(curr_broken_disk >= data_disks + 2)
 			broken_status = 2;

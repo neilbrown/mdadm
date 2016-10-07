@@ -318,7 +318,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	else if (num < 0) {
 		/* need to choose a free number. */
 		char *_devnm = find_free_devnm(use_mdp);
-		if (devnm == NULL) {
+		if (_devnm == NULL) {
 			pr_err("No avail md devices - aborting\n");
 			return -1;
 		}

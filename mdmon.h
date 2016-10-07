@@ -101,7 +101,7 @@ static inline int is_resync_complete(struct mdinfo *array)
 		break;
 	case 10:
 		l = array->array.layout;
-		ncopies = (l & 0xff) * ((l >> 8) && 0xff);
+		ncopies = (l & 0xff) * ((l >> 8) & 0xff);
 		sync_size = array->component_size * array->array.raid_disks;
 		sync_size /= ncopies;
 		break;

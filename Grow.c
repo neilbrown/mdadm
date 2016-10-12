@@ -777,6 +777,26 @@ int remove_disks_for_takeover(struct supertype *st,
 	struct mdinfo *remaining;
 	int slot;
 
+	if (st->ss->external) {
+		int rv = 0;
+		struct mdinfo *arrays = st->ss->container_content(st, NULL);
+		/*
+		 * containter_content returns list of arrays in container
+		 * If arrays->next is not NULL it means that there are
+		 * 2 arrays in container and operation should be blocked
+		 */
+		if (arrays) {
+			if (arrays->next)
+				rv = 1;
+			sysfs_free(arrays);
+			if (rv) {
+				pr_err("Error. Cannot perform operation on /dev/%s\n", st->devnm);
+				pr_err("For this operation it MUST be single array in container\n");
+				return rv;
+			}
+		}
+	}
+
 	if (sra->array.level == 10)
 		nr_of_copies = layout & 0xff;
 	else if (sra->array.level == 1)

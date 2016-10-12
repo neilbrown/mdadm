@@ -10087,10 +10087,16 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	}
 
 	if ((geo->chunksize > 0) && (geo->chunksize != UnSet)
-	    && (geo->chunksize != info.array.chunk_size))
+	    && (geo->chunksize != info.array.chunk_size)) {
+		if (info.array.level == 10) {
+			pr_err("Error. Chunk size change for RAID 10 is not supported.\n");
+			change = -1;
+			goto analyse_change_exit;
+		}
 		change = CH_MIGRATION;
-	else
+	} else {
 		geo->chunksize = info.array.chunk_size;
+	}
 
 	chunk = geo->chunksize / 1024;
 

@@ -2433,7 +2433,15 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 			memset(buf, 0xff, 4096);
 		memcpy(buf, (char *)bms, sizeof(bitmap_super_t));
 
-		towrite = calc_bitmap_size(bms, 4096);
+		/*
+		 * use 4096 boundary if bitmap_offset is aligned
+		 * with 8 sectors, then it should compatible with
+		 * older mdadm.
+		 */
+		if (__le32_to_cpu(sb->bitmap_offset) & 7)
+			towrite = calc_bitmap_size(bms, 512);
+		else
+			towrite = calc_bitmap_size(bms, 4096);
 		while (towrite > 0) {
 			n = towrite;
 			if (n > 4096)

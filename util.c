@@ -1412,7 +1412,6 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 static int get_last_partition_end(int fd, unsigned long long *endofpart)
 {
 	struct MBR boot_sect;
-	struct MBR_part_record *part;
 	unsigned long long curr_part_end;
 	unsigned part_nr;
 	int retval = 0;
@@ -1429,21 +1428,26 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 	if (boot_sect.magic == MBR_SIGNATURE_MAGIC) {
 		retval = 1;
 		/* found the correct signature */
-		part = boot_sect.parts;
 
 		for (part_nr = 0; part_nr < MBR_PARTITIONS; part_nr++) {
+			/*
+			 * Have to make every access through boot_sect rather
+			 * than using a pointer to the partition table (or an
+			 * entry), since the entries are not properly aligned.
+			 */
+
 			/* check for GPT type */
-			if (part->part_type == MBR_GPT_PARTITION_TYPE) {
+			if (boot_sect.parts[part_nr].part_type ==
+			    MBR_GPT_PARTITION_TYPE) {
 				retval = get_gpt_last_partition_end(fd, endofpart);
 				break;
 			}
 			/* check the last used lba for the current partition  */
-			curr_part_end = __le32_to_cpu(part->first_sect_lba) +
-				__le32_to_cpu(part->blocks_num);
+			curr_part_end =
+				__le32_to_cpu(boot_sect.parts[part_nr].first_sect_lba) +
+				__le32_to_cpu(boot_sect.parts[part_nr].blocks_num);
 			if (curr_part_end > *endofpart)
 				*endofpart = curr_part_end;
-
-			part++;
 		}
 	} else {
 		/* Unknown partition table */

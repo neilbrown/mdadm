@@ -57,6 +57,11 @@ static void examine_mbr(struct supertype *st, char *homehost)
 
 	printf("   MBR Magic : %04x\n", sb->magic);
 	for (i = 0; i < MBR_PARTITIONS; i++)
+		/*
+		 * Have to make every access through sb rather than using a
+		 * pointer to the partition table (or an entry), since the
+		 * entries are not properly aligned.
+		 */
 		if (sb->parts[i].blocks_num)
 			printf("Partition[%d] : %12lu sectors at %12lu (type %02x)\n",
 			       i,
@@ -151,6 +156,11 @@ static void getinfo_mbr(struct supertype *st, struct mdinfo *info, char *map)
 	info->component_size = 0;
 
 	for (i = 0; i < MBR_PARTITIONS ; i++)
+		/*
+		 * Have to make every access through sb rather than using a
+		 * pointer to the partition table (or an entry), since the
+		 * entries are not properly aligned.
+		 */
 		if (sb->parts[i].blocks_num) {
 			unsigned long last =
 				(unsigned long)__le32_to_cpu(sb->parts[i].blocks_num)

@@ -1223,7 +1223,7 @@ static void print_imsm_dev(struct intel_super *super,
 		printf(" <-- %s", map_state_str[map->map_state]);
 		printf("\n     Checkpoint : %u ",
 			   __le32_to_cpu(dev->vol.curr_migr_unit));
-		if ((is_gen_migration(dev)) && ((slot > 1) || (slot < 0)))
+		if (is_gen_migration(dev) && (slot > 1 || slot < 0))
 			printf("(N/A)");
 		else
 			printf("(%llu)", (unsigned long long)
@@ -1276,7 +1276,7 @@ void examine_migr_rec_imsm(struct intel_super *super)
 		map = get_imsm_map(dev, MAP_0);
 		if (map)
 			slot = get_imsm_disk_slot(map, super->disks->index);
-		if ((map == NULL) || (slot > 1) || (slot < 0)) {
+		if (map == NULL || slot > 1 || slot < 0) {
 			printf(" Empty\n                              ");
 			printf("Examine one of first two disks in array\n");
 			break;
@@ -2489,7 +2489,7 @@ static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 			if (map)
 				slot = get_imsm_disk_slot(map,
 							  sd->disk.raid_disk);
-			if ((map == NULL) || (slot > 1) || (slot < 0))
+			if (map == NULL || slot > 1 || slot < 0)
 				continue;
 
 			sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
@@ -2507,7 +2507,7 @@ static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 			/* read only from one of the first two slots */
 			if (map)
 				slot = get_imsm_disk_slot(map, dl->index);
-			if ((map == NULL) || (slot > 1) || (slot < 0))
+			if (map == NULL || slot > 1 || slot < 0)
 				continue;
 			sprintf(nm, "%d:%d", dl->major, dl->minor);
 			fd = dev_open(nm, O_RDONLY);
@@ -2611,7 +2611,7 @@ static int write_imsm_migr_rec(struct supertype *st)
 		/* write to 2 first slots only */
 		if (map)
 			slot = get_imsm_disk_slot(map, sd->index);
-		if ((map == NULL) || (slot > 1) || (slot < 0))
+		if (map == NULL || slot > 1 || slot < 0)
 			continue;
 
 		sprintf(nm, "%d:%d", sd->major, sd->minor);
@@ -3527,8 +3527,7 @@ static void migrate(struct imsm_dev *dev, struct intel_super *super,
 
 	/* duplicate and then set the target end state in map[0] */
 	memcpy(dest, src, sizeof_imsm_map(src));
-	if ((migr_type == MIGR_REBUILD) ||
-	    (migr_type ==  MIGR_GEN_MIGR)) {
+	if (migr_type == MIGR_REBUILD || migr_type ==  MIGR_GEN_MIGR) {
 		__u32 ord;
 		int i;
 
@@ -3558,8 +3557,8 @@ static void end_migration(struct imsm_dev *dev, struct intel_super *super,
 	 *
 	 * FIXME add support for raid-level-migration
 	 */
-	if ((map_state != map->map_state) && (is_gen_migration(dev) == 0) &&
-		(prev->map_state != IMSM_T_STATE_UNINITIALIZED)) {
+	if (map_state != map->map_state && (is_gen_migration(dev) == 0) &&
+	    prev->map_state != IMSM_T_STATE_UNINITIALIZED) {
 		/* when final map state is other than expected
 		 * merge maps (not for migration)
 		 */
@@ -3951,7 +3950,7 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 	struct sys_dev *hba_name;
 	int rv = 0;
 
-	if ((fd < 0) || check_env("IMSM_NO_PLATFORM")) {
+	if (fd < 0 || check_env("IMSM_NO_PLATFORM")) {
 		super->orom = NULL;
 		super->hba = NULL;
 		return 0;
@@ -4394,7 +4393,7 @@ static int load_super_imsm_all(struct supertype *st, int fd, void **sbp,
 	}
 
 	/* Check migration compatibility */
-	if ((err == 0) && (check_mpb_migr_compatibility(super) != 0)) {
+	if (err == 0 && check_mpb_migr_compatibility(super) != 0) {
 		pr_err("Unsupported migration detected");
 		if (devname)
 			fprintf(stderr, " on %s\n", devname);
@@ -4523,7 +4522,7 @@ static int get_super_block(struct intel_super **super_list, char *devnm, char *d
 		if (dfd >= 0)
 			close(dfd);
 	}
-	if ((dfd >= 0) && (!keep_fd))
+	if (dfd >= 0 && !keep_fd)
 		close(dfd);
 	return err;
 
@@ -4587,7 +4586,7 @@ static int load_super_imsm(struct supertype *st, int fd, char *devname)
 	 */
 	rv = find_intel_hba_capability(fd, super, devname);
 	/* no orom/efi or non-intel hba of the disk */
-	if ((rv != 0) && (st->ignore_hw_compat == 0)) {
+	if (rv != 0 && st->ignore_hw_compat == 0) {
 		if (devname)
 			pr_err("No OROM/EFI properties for %s\n", devname);
 		free_imsm(super);
@@ -5037,8 +5036,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 				struct imsm_map *map2 = get_imsm_map(dev,
 								     MAP_1);
 				int slot2 = get_imsm_disk_slot(map2, df->index);
-				if ((slot2 < map2->num_members) &&
-				    (slot2 >= 0)) {
+				if (slot2 < map2->num_members && slot2 >= 0) {
 					__u32 ord2 = get_imsm_ord_tbl_ent(dev,
 									 slot2,
 									 MAP_1);
@@ -5685,7 +5683,7 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 				num = sprintf(path, "%s%s", "/dev/", dev->name);
 				if (num > 0)
 					fd = open(path, O_RDONLY, 0);
-				if ((num <= 0) || (fd < 0)) {
+				if (num <= 0 || fd < 0) {
 					pr_vrb("Cannot open %s: %s\n",
 					       dev->name, strerror(errno));
 				}
@@ -5693,10 +5691,10 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 				dev = dev->next;
 			}
 			found = 0;
-			if ((fd >= 0) && disk_attached_to_hba(fd, hba)) {
+			if (fd >= 0 && disk_attached_to_hba(fd, hba)) {
 				struct mdstat_ent *vol;
 				for (vol = mdstat ; vol ; vol = vol->next) {
-					if ((vol->active > 0) &&
+					if (vol->active > 0 &&
 					    vol->metadata_version &&
 					    is_container_member(vol, memb->devnm)) {
 						found++;
@@ -5948,7 +5946,7 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 	}
 
 	for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
-		if ((tmpdev->used == 1) && (tmpdev->found)) {
+		if (tmpdev->used == 1 && tmpdev->found) {
 			if (count) {
 				if (count < tmpdev->found)
 					count = 0;
@@ -6005,7 +6003,7 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 		 * VMD arrays should be counted per domain (controller), so skip
 		 * domains that are not the given one.
 		 */
-		if ((hba->type == SYS_DEV_VMD) &&
+		if (hba->type == SYS_DEV_VMD &&
 		   (strncmp(device->path, hba->path, strlen(device->path)) != 0))
 			continue;
 
@@ -6982,8 +6980,8 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev,
 		/* when MAP_X is passed both maps failures are counted
 		 */
 		if (prev &&
-		    ((look_in_map == MAP_1) || (look_in_map == MAP_X)) &&
-		    (i < prev->num_members)) {
+		    (look_in_map == MAP_1 || look_in_map == MAP_X) &&
+		    i < prev->num_members) {
 			ord = __le32_to_cpu(prev->disk_ord_tbl[i]);
 			idx_1 = ord_to_idx(ord);
 
@@ -6991,8 +6989,8 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev,
 			if (!disk || is_failed(disk) || ord & IMSM_ORD_REBUILD)
 				failed++;
 		}
-		if (((look_in_map == MAP_0) || (look_in_map == MAP_X)) &&
-		    (i < map->num_members)) {
+		if ((look_in_map == MAP_0 || look_in_map == MAP_X) &&
+		    i < map->num_members) {
 			ord = __le32_to_cpu(map->disk_ord_tbl[i]);
 			idx = ord_to_idx(ord);
 
@@ -7041,8 +7039,8 @@ static int is_resyncing(struct imsm_dev *dev)
 
 	migr_map = get_imsm_map(dev, MAP_1);
 
-	if ((migr_map->map_state == IMSM_T_STATE_NORMAL) &&
-	    (dev->vol.migr_type != MIGR_GEN_MIGR))
+	if (migr_map->map_state == IMSM_T_STATE_NORMAL &&
+	    dev->vol.migr_type != MIGR_GEN_MIGR)
 		return 1;
 	else
 		return 0;
@@ -7085,8 +7083,7 @@ static int mark_failure(struct imsm_dev *dev, struct imsm_disk *disk, int idx)
 		struct imsm_map *map2 = get_imsm_map(dev, MAP_1);
 		int slot2 = get_imsm_disk_slot(map2, idx);
 
-		if ((slot2 < map2->num_members) &&
-		    (slot2 >= 0))
+		if (slot2 < map2->num_members && slot2 >= 0)
 			set_imsm_ord_tbl_ent(map2, slot2,
 					     idx | IMSM_ORD_REBUILD);
 	}
@@ -7466,8 +7463,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	break;
 	case IMSM_T_STATE_DEGRADED: /* transition to degraded state */
 		dprintf_cont("degraded: ");
-		if ((map->map_state != map_state) &&
-		    !dev->vol.migr_state) {
+		if (map->map_state != map_state && !dev->vol.migr_state) {
 			dprintf_cont("mark degraded");
 			map->map_state = map_state;
 			super->updates_pending++;
@@ -7933,7 +7929,7 @@ static struct dl *get_disk_super(struct intel_super *super, int major, int minor
 	struct dl *dl;
 
 	for (dl = super->disks; dl; dl = dl->next)
-		if ((dl->major == major) &&  (dl->minor == minor))
+		if (dl->major == major &&  dl->minor == minor)
 			return dl;
 	return NULL;
 }
@@ -7945,7 +7941,7 @@ static int remove_disk_super(struct intel_super *super, int major, int minor)
 
 	prev = NULL;
 	for (dl = super->disks; dl; dl = dl->next) {
-		if ((dl->major == major) && (dl->minor == minor)) {
+		if (dl->major == major && dl->minor == minor) {
 			/* remove */
 			if (prev)
 				prev->next = dl->next;
@@ -8014,12 +8010,11 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 	int ret_val = 0;
 
 	dprintf("(enter)\n");
-	if ((u->subdev < 0) ||
-	    (u->subdev > 1)) {
+	if (u->subdev < 0 || u->subdev > 1) {
 		dprintf("imsm: Error: Wrong subdev: %i\n", u->subdev);
 		return ret_val;
 	}
-	if ((space_list == NULL) || (*space_list == NULL)) {
+	if (space_list == NULL || *space_list == NULL) {
 		dprintf("imsm: Error: Memory is not allocated\n");
 		return ret_val;
 	}
@@ -8080,9 +8075,8 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 
 			/* add disk
 			 */
-			if ((u->new_level != 5) ||
-			    (migr_map->raid_level != 0) ||
-			    (migr_map->raid_level == map->raid_level))
+			if (u->new_level != 5 || migr_map->raid_level != 0 ||
+			    migr_map->raid_level == map->raid_level)
 				goto skip_disk_add;
 
 			if (u->new_disks[0] >= 0) {
@@ -8133,8 +8127,7 @@ static int apply_size_change_update(struct imsm_update_size_change *u,
 	int ret_val = 0;
 
 	dprintf("(enter)\n");
-	if ((u->subdev < 0) ||
-	    (u->subdev > 1)) {
+	if (u->subdev < 0 || u->subdev > 1) {
 		dprintf("imsm: Error: Wrong subdev: %i\n", u->subdev);
 		return ret_val;
 	}
@@ -8301,9 +8294,9 @@ static int apply_reshape_container_disks_update(struct imsm_update_reshape *u,
 		dprintf("imsm: new disk for reshape is: %i:%i (%p, index = %i)\n",
 			major(u->new_disks[i]), minor(u->new_disks[i]),
 			new_disk, new_disk->index);
-		if ((new_disk == NULL) ||
-		    ((new_disk->index >= 0) &&
-		     (new_disk->index < u->old_raid_disks)))
+		if (new_disk == NULL ||
+		    (new_disk->index >= 0 &&
+		     new_disk->index < u->old_raid_disks))
 			goto update_reshape_exit;
 		new_disk->index = disk_count++;
 		/* slot to fill in autolayout
@@ -8925,7 +8918,7 @@ static int imsm_prepare_update(struct supertype *st,
 				current_level = map->raid_level;
 				break;
 			}
-		if ((u->new_level == 5) && (u->new_level != current_level)) {
+		if (u->new_level == 5 && u->new_level != current_level) {
 			struct mdinfo *spares;
 
 			spares = get_spares_for_grow(st);
@@ -9189,8 +9182,7 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds,
 			continue;
 		}
 
-		if ((sd->disk.raid_disk >= raid_disks) ||
-		    (sd->disk.raid_disk < 0))
+		if (sd->disk.raid_disk >= raid_disks || sd->disk.raid_disk < 0)
 			continue;
 
 		dn = map_dev(sd->disk.major,
@@ -9205,9 +9197,8 @@ int open_backup_targets(struct mdinfo *info, int raid_disks, int *raid_fds,
 	/* check if maximum array degradation level is not exceeded
 	*/
 	if ((raid_disks - opened) >
-			imsm_get_allowed_degradation(info->new_level,
-						     raid_disks,
-						     super, dev)) {
+	    imsm_get_allowed_degradation(info->new_level, raid_disks,
+					 super, dev)) {
 		pr_err("Not enough disks can be opened.\n");
 		close_targets(raid_fds, raid_disks);
 		return -2;
@@ -9277,7 +9268,8 @@ int validate_container_imsm(struct mdinfo *info)
 			return 1;
 		}
 
-		if ((orom != orom2) || ((hba->type == SYS_DEV_VMD) && (hba != hba2))) {
+		if (orom != orom2 ||
+		    (hba->type == SYS_DEV_VMD && hba != hba2)) {
 			pr_err("WARNING - IMSM container assembled with disks under different HBAs!\n"
 				"       This operation is not supported and can lead to data loss.\n");
 			return 1;
@@ -9719,8 +9711,7 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
 			break;
 		}
 
-		if ((info->array.level != 0) &&
-		    (info->array.level != 5)) {
+		if (info->array.level != 0 && info->array.level != 5) {
 			/* we cannot use this container with other raid level
 			 */
 			dprintf("imsm: for container operation wrong raid level (%i) detected\n",
@@ -9952,12 +9943,12 @@ static int imsm_create_metadata_update_for_migration(
 			previous_level = map->raid_level;
 		}
 	}
-	if ((geo->level == 5) && (previous_level == 0)) {
+	if (geo->level == 5 && previous_level == 0) {
 		struct mdinfo *spares = NULL;
 
 		u->new_raid_disks++;
 		spares = get_spares_for_grow(st);
-		if ((spares == NULL) || (spares->array.spare_disks < 1)) {
+		if (spares == NULL || spares->array.spare_disks < 1) {
 			free(u);
 			sysfs_free(spares);
 			update_memory_size = 0;
@@ -10021,9 +10012,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int rv;
 
 	getinfo_super_imsm_volume(st, &info, NULL);
-	if ((geo->level != info.array.level) &&
-	    (geo->level >= 0) &&
-	    (geo->level != UnSet)) {
+	if (geo->level != info.array.level && geo->level >= 0 &&
+	    geo->level != UnSet) {
 		switch (info.array.level) {
 		case 0:
 			if (geo->level == 5) {
@@ -10061,16 +10051,14 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	} else
 		geo->level = info.array.level;
 
-	if ((geo->layout != info.array.layout)
-	    && ((geo->layout != UnSet) && (geo->layout != -1))) {
+	if (geo->layout != info.array.layout &&
+	    (geo->layout != UnSet && geo->layout != -1)) {
 		change = CH_MIGRATION;
-		if ((info.array.layout == 0)
-		    && (info.array.level == 5)
-		    && (geo->layout == 5)) {
+		if (info.array.layout == 0 && info.array.level == 5 &&
+		    geo->layout == 5) {
 			/* reshape 5 -> 4 */
-		} else if ((info.array.layout == 5)
-			   && (info.array.level == 5)
-			   && (geo->layout == 0)) {
+		} else if (info.array.layout == 5 && info.array.level == 5 &&
+			   geo->layout == 0) {
 			/* reshape 4 -> 5 */
 			geo->layout = 0;
 			geo->level = 5;
@@ -10086,8 +10074,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			imsm_layout = info.array.layout;
 	}
 
-	if ((geo->chunksize > 0) && (geo->chunksize != UnSet)
-	    && (geo->chunksize != info.array.chunk_size)) {
+	if (geo->chunksize > 0 && geo->chunksize != UnSet &&
+	    geo->chunksize != info.array.chunk_size) {
 		if (info.array.level == 10) {
 			pr_err("Error. Chunk size change for RAID 10 is not supported.\n");
 			change = -1;
@@ -10107,7 +10095,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	 */
 	current_size = info.custom_array_size / data_disks;
 
-	if ((geo->size > 0) && (geo->size != MAX_SIZE)) {
+	if (geo->size > 0 && geo->size != MAX_SIZE) {
 		/* align component size
 		 */
 		geo->size = imsm_component_size_aligment_check(
@@ -10121,7 +10109,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 		}
 	}
 
-	if ((current_size != geo->size) && (geo->size > 0)) {
+	if (current_size != geo->size && geo->size > 0) {
 		if (change != -1) {
 			pr_err("Error. Size change should be the only one at a time.\n");
 			change = -1;
@@ -10206,8 +10194,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	}
 
 analyse_change_exit:
-	if ((direction == ROLLBACK_METADATA_CHANGES) &&
-	     ((change == CH_MIGRATION) || (change == CH_TAKEOVER))) {
+	if (direction == ROLLBACK_METADATA_CHANGES &&
+	    (change == CH_MIGRATION || change == CH_TAKEOVER)) {
 		dprintf("imsm: Metadata changes rollback is not supported for migration and takeover operations.\n");
 		change = -1;
 	}
@@ -10508,7 +10496,7 @@ int check_degradation_change(struct mdinfo *info,
 	int rv;
 
 	rv = sysfs_get_ll(info, NULL, "degraded", &new_degraded);
-	if ((rv == -1) || (new_degraded != (unsigned long long)degraded)) {
+	if (rv == -1 || (new_degraded != (unsigned long long)degraded)) {
 		/* check each device to ensure it is still working */
 		struct mdinfo *sd;
 		new_degraded = 0;

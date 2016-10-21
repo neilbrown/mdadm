@@ -64,7 +64,7 @@ int get_mdp_major(void)
 char *devid2kname(int devid)
 {
 	char path[30];
-	char link[200];
+	char link[PATH_MAX];
 	static char devnm[32];
 	char *cp;
 	int n;

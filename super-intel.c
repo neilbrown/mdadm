@@ -2477,19 +2477,12 @@ static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 	*/
 	if (dev == NULL)
 		return -2;
-	map = get_imsm_map(dev, MAP_0);
 
 	if (info) {
 		for (sd = info->devs ; sd ; sd = sd->next) {
-			/* skip spare and failed disks
-			 */
-			if (sd->disk.raid_disk < 0)
-				continue;
 			/* read only from one of the first two slots */
-			if (map)
-				slot = get_imsm_disk_slot(map,
-							  sd->disk.raid_disk);
-			if (map == NULL || slot > 1 || slot < 0)
+			if ((sd->disk.raid_disk < 0) ||
+			    (sd->disk.raid_disk > 1))
 				continue;
 
 			sprintf(nm, "%d:%d", sd->disk.major, sd->disk.minor);
@@ -2499,6 +2492,7 @@ static int load_imsm_migr_rec(struct intel_super *super, struct mdinfo *info)
 		}
 	}
 	if (fd < 0) {
+		map = get_imsm_map(dev, MAP_0);
 		for (dl = super->disks; dl; dl = dl->next) {
 			/* skip spare and failed disks
 			*/

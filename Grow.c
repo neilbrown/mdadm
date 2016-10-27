@@ -4048,8 +4048,10 @@ static int grow_backup(struct mdinfo *sra,
 			if (sd->disk.state & (1<<MD_DISK_FAULTY))
 				continue;
 			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
-				char sbuf[20];
-				if (sysfs_get_str(sra, sd, "state", sbuf, 20) < 0 ||
+				char sbuf[100];
+
+				if (sysfs_get_str(sra, sd, "state",
+						  sbuf, sizeof(sbuf)) < 0 ||
 				    strstr(sbuf, "faulty") ||
 				    strstr(sbuf, "in_sync") == NULL) {
 					/* this device is dead */

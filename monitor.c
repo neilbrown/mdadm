@@ -131,8 +131,8 @@ static enum sync_action read_action( int fd)
 
 int read_dev_state(int fd)
 {
-	char buf[60];
-	int n = read_attr(buf, 60, fd);
+	char buf[100];
+	int n = read_attr(buf, sizeof(buf), fd);
 	char *cp;
 	int rv = 0;
 

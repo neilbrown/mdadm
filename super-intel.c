@@ -10708,9 +10708,10 @@ int check_degradation_change(struct mdinfo *info,
 			if (sd->disk.state & (1<<MD_DISK_FAULTY))
 				continue;
 			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
-				char sbuf[20];
+				char sbuf[100];
+
 				if (sysfs_get_str(info,
-					sd, "state", sbuf, 20) < 0 ||
+					sd, "state", sbuf, sizeof(sbuf)) < 0 ||
 					strstr(sbuf, "faulty") ||
 					strstr(sbuf, "in_sync") == NULL) {
 					/* this device is dead */

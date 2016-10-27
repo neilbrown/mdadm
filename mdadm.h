@@ -1055,6 +1055,10 @@ extern struct superswitch {
 	/* validate container after assemble */
 	int (*validate_container)(struct mdinfo *info);
 
+	/* records new bad block in metadata */
+	int (*record_bad_block)(struct active_array *a, int n,
+					unsigned long long sector, int length);
+
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 	const char *name; /* canonical metadata name */

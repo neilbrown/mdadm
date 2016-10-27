@@ -33,6 +33,7 @@ static char *sync_actions[] = {
 
 enum bb_action {
 	RECORD_BB = 1,
+	COMPARE_BB,
 };
 
 static int write_attr(char *attr, int fd)
@@ -184,6 +185,49 @@ int process_ubb(struct active_array *a, struct mdinfo *mdi, const unsigned long
 	return -1;
 }
 
+int compare_bb(struct active_array *a, struct mdinfo *mdi, const unsigned long
+	       long sector, const unsigned int length, void *arg)
+{
+	struct superswitch *ss = a->container->ss;
+	struct md_bb *bb = (struct md_bb *) arg;
+	int record = 1;
+	int i;
+
+	for (i = 0; i < bb->count; i++) {
+		unsigned long long start = bb->entries[i].sector;
+		unsigned long long len = bb->entries[i].length;
+
+		/*
+		 * bad block in metadata exactly matches bad block in kernel
+		 * list, just remove it from a list
+		 */
+		if ((start == sector) && (len == length)) {
+			if (i < bb->count - 1)
+				bb->entries[i] = bb->entries[bb->count - 1];
+			bb->count -= 1;
+			record = 0;
+			break;
+		}
+		/*
+		 * bad block in metadata spans bad block in kernel list,
+		 * clear it and record new bad block
+		 */
+		if ((sector >= start) && (sector + length <= start + len)) {
+			ss->clear_bad_block(a, mdi->disk.raid_disk, start, len);
+			break;
+		}
+	}
+
+	/* record all bad blocks not in metadata list */
+	if (record && (ss->record_bad_block(a, mdi->disk.raid_disk, sector,
+					     length) <= 0)) {
+		sysfs_set_str(&a->info, mdi, "state", "-external_bbl");
+		return -1;
+	}
+
+	return 1;
+}
+
 static int read_bb_file(int fd, struct active_array *a, struct mdinfo *mdi,
 			enum bb_action action, void *arg)
 {
@@ -242,6 +286,8 @@ static int read_bb_file(int fd, struct active_array *a, struct mdinfo *mdi,
 			if (action == RECORD_BB)
 				rc = process_ubb(a, mdi, sector, length,
 						  buf + off, consumed);
+			else if (action == COMPARE_BB)
+				rc = compare_bb(a, mdi, sector, length, arg);
 			else
 				rc = -1;
 
@@ -258,6 +304,34 @@ static int read_bb_file(int fd, struct active_array *a, struct mdinfo *mdi,
 static int process_dev_ubb(struct active_array *a, struct mdinfo *mdi)
 {
 	return read_bb_file(mdi->ubb_fd, a, mdi, RECORD_BB, NULL);
+}
+
+static int check_for_cleared_bb(struct active_array *a, struct mdinfo *mdi)
+{
+	struct superswitch *ss = a->container->ss;
+	struct md_bb *bb;
+	int i;
+
+	/*
+	 * Get a list of bad blocks for an array, then read list of
+	 * acknowledged bad blocks from kernel and compare it against metadata
+	 * list, clear all bad blocks remaining in metadata list
+	 */
+	bb = ss->get_bad_blocks(a, mdi->disk.raid_disk);
+	if (!bb)
+		return -1;
+
+	if (read_bb_file(mdi->bb_fd, a, mdi, COMPARE_BB, bb) < 0)
+		return -1;
+
+	for (i = 0; i < bb->count; i++) {
+		unsigned long long sector = bb->entries[i].sector;
+		int length = bb->entries[i].length;
+
+		ss->clear_bad_block(a, mdi->disk.raid_disk, sector, length);
+	}
+
+	return 0;
 }
 
 static void signal_manager(void)
@@ -326,7 +400,7 @@ static void signal_manager(void)
 
 #define ARRAY_DIRTY 1
 #define ARRAY_BUSY 2
-static int read_and_act(struct active_array *a)
+static int read_and_act(struct active_array *a, fd_set *fds)
 {
 	unsigned long long sync_completed;
 	int check_degraded = 0;
@@ -368,6 +442,8 @@ static int read_and_act(struct active_array *a)
 		    (process_dev_ubb(a, mdi) > 0)) {
 			mdi->next_state |= DS_UNBLOCK;
 		}
+		if (FD_ISSET(mdi->bb_fd, fds))
+			check_for_cleared_bb(a, mdi);
 	}
 
 	gettimeofday(&tv, NULL);
@@ -754,6 +830,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 		if (rv == -1) {
 			if (errno == EINTR) {
 				rv = 0;
+				FD_ZERO(&rfds);
 				dprintf("monitor: caught signal\n");
 			} else
 				dprintf("monitor: error %d in pselect\n",
@@ -795,7 +872,7 @@ static int wait_and_act(struct supertype *container, int nowait)
 			signal_manager();
 		}
 		if (a->container && !a->to_remove) {
-			int ret = read_and_act(a);
+			int ret = read_and_act(a, &rfds);
 			rv |= 1;
 			dirty_arrays += !!(ret & ARRAY_DIRTY);
 			/* when terminating stop manipulating the array after it

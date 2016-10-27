@@ -1059,6 +1059,13 @@ extern struct superswitch {
 	int (*record_bad_block)(struct active_array *a, int n,
 					unsigned long long sector, int length);
 
+	/* clears bad block from metadata */
+	int (*clear_bad_block)(struct active_array *a, int n,
+					unsigned long long sector, int length);
+
+	/* get list of bad blocks from metadata */
+	struct md_bb *(*get_bad_blocks)(struct active_array *a, int n);
+
 	int swapuuid; /* true if uuid is bigending rather than hostendian */
 	int external;
 	const char *name; /* canonical metadata name */

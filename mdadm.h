@@ -311,6 +311,8 @@ struct mdinfo {
 	/* Device info for mdmon: */
 	int recovery_fd;
 	int state_fd;
+	int bb_fd;
+	int ubb_fd;
 	#define DS_FAULTY	1
 	#define	DS_INSYNC	2
 	#define	DS_WRITE_MOSTLY	4

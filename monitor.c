@@ -454,6 +454,8 @@ static int read_and_act(struct active_array *a)
 				dprintf_cont(" %d:removed", mdi->disk.raid_disk);
 				close(mdi->state_fd);
 				close(mdi->recovery_fd);
+				close(mdi->bb_fd);
+				close(mdi->ubb_fd);
 				mdi->state_fd = -1;
 			} else
 				ret |= ARRAY_BUSY;
@@ -583,8 +585,11 @@ static int wait_and_act(struct supertype *container, int nowait)
 		add_fd(&rfds, &maxfd, a->info.state_fd);
 		add_fd(&rfds, &maxfd, a->action_fd);
 		add_fd(&rfds, &maxfd, a->sync_completed_fd);
-		for (mdi = a->info.devs ; mdi ; mdi = mdi->next)
+		for (mdi = a->info.devs ; mdi ; mdi = mdi->next) {
 			add_fd(&rfds, &maxfd, mdi->state_fd);
+			add_fd(&rfds, &maxfd, mdi->bb_fd);
+			add_fd(&rfds, &maxfd, mdi->ubb_fd);
+		}
 
 		ap = &(*ap)->next;
 	}

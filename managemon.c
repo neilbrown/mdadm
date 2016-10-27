@@ -115,6 +115,8 @@ static void close_aa(struct active_array *aa)
 	for (d = aa->info.devs; d; d = d->next) {
 		close(d->recovery_fd);
 		close(d->state_fd);
+		close(d->bb_fd);
+		close(d->ubb_fd);
 	}
 
 	if (aa->action_fd >= 0)
@@ -431,6 +433,21 @@ static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
 	disk->state_fd = sysfs_open2(aa->info.sys_name, disk->sys_name, "state");
 	if (disk->state_fd < 0) {
 		close(disk->recovery_fd);
+		return -1;
+	}
+	disk->bb_fd = sysfs_open2(aa->info.sys_name, disk->sys_name,
+				 "bad_blocks");
+	if (disk->bb_fd < 0) {
+		close(disk->recovery_fd);
+		close(disk->state_fd);
+		return -1;
+	}
+	disk->ubb_fd = sysfs_open2(aa->info.sys_name, disk->sys_name,
+				  "unacknowledged_bad_blocks");
+	if (disk->ubb_fd < 0) {
+		close(disk->recovery_fd);
+		close(disk->state_fd);
+		close(disk->bb_fd);
 		return -1;
 	}
 	disk->prev_state = read_dev_state(disk->state_fd);

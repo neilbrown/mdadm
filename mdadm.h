@@ -1331,7 +1331,14 @@ extern int CreateBitmap(char *filename, int force, char uuid[16],
 extern int ExamineBitmap(char *filename, int brief, struct supertype *st);
 extern int Write_rules(char *rule_name);
 extern int bitmap_update_uuid(int fd, int *uuid, int swap);
-extern unsigned long bitmap_sectors(struct bitmap_super_s *bsb);
+
+/* calculate the size of the bitmap given the array size and bitmap chunksize */
+static inline unsigned long long
+bitmap_bits(unsigned long long array_size, unsigned long chunksize)
+{
+	return (array_size * 512 + chunksize - 1) / chunksize;
+}
+
 extern int Dump_metadata(char *dev, char *dir, struct context *c,
 			 struct supertype *st);
 extern int Restore_metadata(char *dev, char *dir, struct context *c,

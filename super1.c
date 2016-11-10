@@ -162,7 +162,8 @@ static unsigned int calc_bitmap_size(bitmap_super_t *bms, unsigned int boundary)
 {
 	unsigned long long bits, bytes;
 
-	bits = __le64_to_cpu(bms->sync_size) / (__le32_to_cpu(bms->chunksize)>>9);
+	bits = bitmap_bits(__le64_to_cpu(bms->sync_size),
+			   __le32_to_cpu(bms->chunksize));
 	bytes = (bits+7) >> 3;
 	bytes += sizeof(bitmap_super_t);
 	bytes = ROUND_UP(bytes, boundary);
@@ -973,11 +974,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		earliest = super_offset + (32+4)*2; /* match kernel */
 		if (info->bitmap_offset > 0) {
 			unsigned long long bmend = info->bitmap_offset;
-			unsigned long long size = __le64_to_cpu(bsb->sync_size);
-			size /= __le32_to_cpu(bsb->chunksize) >> 9;
-			size = (size + 7) >> 3;
-			size += sizeof(bitmap_super_t);
-			size = ROUND_UP(size, 4096);
+			unsigned long long size = calc_bitmap_size(bsb, 4096);
 			size /= 512;
 			bmend += size;
 			if (bmend > earliest)
@@ -1219,11 +1216,8 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 	} else if (strcmp(update, "uuid") == 0) {
 		copy_uuid(sb->set_uuid, info->uuid, super1.swapuuid);
 
-		if (__le32_to_cpu(sb->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
-			struct bitmap_super_s *bm;
-			bm = (struct bitmap_super_s*)(st->sb+MAX_SB_SIZE);
-			memcpy(bm->uuid, sb->set_uuid, 16);
-		}
+		if (__le32_to_cpu(sb->feature_map) & MD_FEATURE_BITMAP_OFFSET)
+			memcpy(bms->uuid, sb->set_uuid, 16);
 	} else if (strcmp(update, "no-bitmap") == 0) {
 		sb->feature_map &= ~__cpu_to_le32(MD_FEATURE_BITMAP_OFFSET);
 	} else if (strcmp(update, "bbl") == 0) {
@@ -1232,15 +1226,14 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		 */
 		unsigned long long sb_offset = __le64_to_cpu(sb->super_offset);
 		unsigned long long data_offset = __le64_to_cpu(sb->data_offset);
-		long bitmap_offset = (long)(int32_t)__le32_to_cpu(sb->bitmap_offset);
+		long bitmap_offset = 0;
 		long bm_sectors = 0;
 		long space;
 
 #ifndef MDASSEMBLE
 		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
-			struct bitmap_super_s *bsb;
-			bsb = (struct bitmap_super_s *)(((char*)sb)+MAX_SB_SIZE);
-			bm_sectors = bitmap_sectors(bsb);
+			bitmap_offset = (long)__le32_to_cpu(sb->bitmap_offset);
+			bm_sectors = calc_bitmap_size(bms, 4096) >> 9;
 		}
 #endif
 		if (sb_offset < data_offset) {
@@ -2120,7 +2113,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 		/* hot-add. allow for actual size of bitmap */
 		struct bitmap_super_s *bsb;
 		bsb = (struct bitmap_super_s *)(((char*)super)+MAX_SB_SIZE);
-		bmspace = bitmap_sectors(bsb);
+		bmspace = calc_bitmap_size(bsb, 4096) >> 9;
 	}
 #endif
 	/* Allow space for bad block log */

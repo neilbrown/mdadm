@@ -1324,12 +1324,28 @@ int get_dev_size(int fd, char *dname, unsigned long long *sizep)
 			ldsize <<= 9;
 		} else {
 			if (dname)
-				pr_err("Cannot get size of %s: %s\b",
+				pr_err("Cannot get size of %s: %s\n",
 					dname, strerror(errno));
 			return 0;
 		}
 	}
 	*sizep = ldsize;
+	return 1;
+}
+
+/* Return sector size of device in bytes */
+int get_dev_sector_size(int fd, char *dname, unsigned int *sectsizep)
+{
+	unsigned int sectsize;
+
+	if (ioctl(fd, BLKSSZGET, &sectsize) != 0) {
+		if (dname)
+			pr_err("Cannot get sector size of %s: %s\n",
+				dname, strerror(errno));
+		return 0;
+	}
+
+	*sectsizep = sectsize;
 	return 1;
 }
 

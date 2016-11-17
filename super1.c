@@ -213,8 +213,7 @@ struct align_fd {
 static void init_afd(struct align_fd *afd, int fd)
 {
 	afd->fd = fd;
-
-	if (ioctl(afd->fd, BLKSSZGET, &afd->blk_sz) != 0)
+	if (!get_dev_sector_size(afd->fd, NULL, (unsigned int *)&afd->blk_sz))
 		afd->blk_sz = 512;
 }
 

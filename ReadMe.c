@@ -136,6 +136,8 @@ struct option long_options[] = {
     {"bitmap-chunk", 1, 0, BitmapChunk},
     {"write-behind", 2, 0, WriteBehind},
     {"write-mostly",0, 0, WriteMostly},
+    {"failfast",  0, 0,  FailFast},
+    {"nofailfast",0, 0,  NoFailFast},
     {"re-add",    0, 0,  ReAdd},
     {"homehost",  1, 0,  HomeHost},
     {"symlinks",  1, 0,  Symlinks},

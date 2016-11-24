@@ -916,6 +916,60 @@ slow).  The extra latency of the remote link will not slow down normal
 operations, but the remote system will still have a reasonably
 up-to-date copy of all data.
 
+.SS FAILFAST
+
+From Linux 4.10,
+.I
+md
+supports FAILFAST for RAID1 and RAID10 arrays.  This is a flag that
+can be set on individual drives, though it is usually set on all
+drives, or no drives.
+
+When
+.I md
+sends an I/O request to a drive that is marked as FAILFAST, and when
+the array could survive the loss of that drive without losing data,
+.I md
+will request that the underlying device does not perform any retries.
+This means that a failure will be reported to
+.I md
+promptly, and it can mark the device as faulty and continue using the
+other device(s).
+.I md
+cannot control the timeout that the underlying devices use to
+determine failure.  Any changes desired to that timeout must be set
+explictly on the underlying device, separately from using
+.IR mdadm .
+
+If a FAILFAST request does fail, and if it is still safe to mark the
+device as faulty without data loss, that will be done and the array
+will continue functioning on a reduced number of devices.  If it is not
+possible to safely mark the device as faulty,
+.I md
+will retry the request without disabling retries in the underlying
+device.  In any case,
+.I md
+will not attempt to repair read errors on a device marked as FAILFAST
+by writing out the correct.  It will just mark the device as faulty.
+
+FAILFAST is appropriate for storage arrays that have a low probability
+of true failure, but will sometimes introduce unacceptable delays to
+I/O requests while performing internal maintenance.  The value of
+setting FAILFAST involves a trade-off.  The gain is that the chance of
+unacceptable delays is substantially reduced.  The cost is that the
+unlikely event of data-loss on one device is slightly more likely to
+result in data-loss for the array.
+
+When a device in an array using FAILFAST is marked as faulty, it will
+usually become usable again in a short while.
+.I mdadm
+makes no attempt to detect that possibility.  Some separate
+mechanism, tuned to the specific details of the expected failure modes,
+needs to be created to monitor devices to see when they return to full
+functionality, and to then re-add them to the array.  In order of
+this "re-add" functionality to be effective, an array using FAILFAST
+should always have a write-intent bitmap.
+
 .SS RESTRIPING
 
 .IR Restriping ,

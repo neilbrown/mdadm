@@ -683,8 +683,13 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
 		if (dv->writemostly == 2)
 			disc.state &= ~(1 << MD_DISK_WRITEMOSTLY);
+		if (dv->failfast == 1)
+			disc.state |= 1 << MD_DISK_FAILFAST;
+		if (dv->failfast == 2)
+			disc.state &= ~(1 << MD_DISK_FAILFAST);
 		remove_partitions(tfd);
-		if (update || dv->writemostly > 0) {
+		if (update || dv->writemostly > 0
+			|| dv->failfast > 0) {
 			int rv = -1;
 			tfd = dev_open(dv->devname, O_RDWR);
 			if (tfd < 0) {
@@ -699,6 +704,14 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 			if (dv->writemostly == 2)
 				rv = dev_st->ss->update_super(
 					dev_st, NULL, "readwrite",
+					devname, verbose, 0, NULL);
+			if (dv->failfast == 1)
+				rv = dev_st->ss->update_super(
+					dev_st, NULL, "failfast",
+					devname, verbose, 0, NULL);
+			if (dv->failfast == 2)
+				rv = dev_st->ss->update_super(
+					dev_st, NULL, "nofailfast",
 					devname, verbose, 0, NULL);
 			if (update)
 				rv = dev_st->ss->update_super(
@@ -964,6 +977,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			disc.state |= (1 << MD_DISK_JOURNAL) | (1 << MD_DISK_SYNC);
 		if (dv->writemostly == 1)
 			disc.state |= 1 << MD_DISK_WRITEMOSTLY;
+		if (dv->failfast == 1)
+			disc.state |= 1 << MD_DISK_FAILFAST;
 		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
 		if (tst->ss->add_to_super(tst, &disc, dfd,
 					  dv->devname, INVALID_SECTORS))
@@ -1009,6 +1024,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 	if (dv->writemostly == 1)
 		disc.state |= (1 << MD_DISK_WRITEMOSTLY);
+	if (dv->failfast == 1)
+		disc.state |= (1 << MD_DISK_FAILFAST);
 	if (tst->ss->external) {
 		/* add a disk
 		 * to an external metadata container */
@@ -1785,6 +1802,7 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 	devlist.next = NULL;
 	devlist.used = 0;
 	devlist.writemostly = 0;
+	devlist.failfast = 0;
 	devlist.devname = devname;
 	sprintf(devname, "%d:%d", major(devid), minor(devid));
 

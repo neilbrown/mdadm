@@ -383,6 +383,8 @@ enum special_options {
 	ConfigFile,
 	ChunkSize,
 	WriteMostly,
+	FailFast,
+	NoFailFast,
 	Layout,
 	Auto,
 	Force,
@@ -516,6 +518,7 @@ struct mddev_dev {
 				 * Not set for names read from .config
 				 */
 	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
+	char failfast;		/* Ditto but for 'failfast' flag */
 	int used;		/* set when used */
 	long long data_offset;
 	struct mddev_dev *next;
@@ -821,6 +824,8 @@ extern struct superswitch {
 	 *   linear-grow-update - now change the size of the array.
 	 *   writemostly - set the WriteMostly1 bit in the superblock devflags
 	 *   readwrite - clear the WriteMostly1 bit in the superblock devflags
+	 *   failfast - set the FailFast1 bit in the superblock
+	 *   nofailfast - clear the FailFast1 bit
 	 *   no-bitmap - clear any record that a bitmap is present.
 	 *   bbl       - add a bad-block-log if possible
 	 *   no-bbl    - remove any bad-block-log is it is empty.

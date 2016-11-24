@@ -77,6 +77,7 @@ struct mdp_superblock_1 {
 	__u8	device_uuid[16]; /* user-space setable, ignored by kernel */
 	__u8    devflags;        /* per-device flags.  Only one defined...*/
 #define WriteMostly1    1        /* mask for writemostly flag in above */
+#define FailFast1	2        /* Device should get FailFast requests */
 	/* bad block log.  If there are any bad blocks the feature flag is set.
 	 * if offset and size are non-zero, that space is reserved and available.
 	 */
@@ -430,6 +431,8 @@ static void examine_super1(struct supertype *st, char *homehost)
 		printf("          Flags :");
 		if (sb->devflags & WriteMostly1)
 			printf(" write-mostly");
+		if (sb->devflags & FailFast1)
+			printf(" failfast");
 		printf("\n");
 	}
 
@@ -1020,6 +1023,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	}
 	if (sb->devflags & WriteMostly1)
 		info->disk.state |= (1 << MD_DISK_WRITEMOSTLY);
+	if (sb->devflags & FailFast1)
+		info->disk.state |= (1 << MD_DISK_FAILFAST);
 	info->events = __le64_to_cpu(sb->events);
 	sprintf(info->text_version, "1.%d", st->minor_version);
 	info->safe_mode_delay = 200;
@@ -1377,6 +1382,10 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		sb->devflags |= WriteMostly1;
 	else if (strcmp(update, "readwrite")==0)
 		sb->devflags &= ~WriteMostly1;
+	else if (strcmp(update, "failfast") == 0)
+		sb->devflags |= FailFast1;
+	else if (strcmp(update, "nofailfast") == 0)
+		sb->devflags &= ~FailFast1;
 	else
 		rv = -1;
 
@@ -1713,6 +1722,10 @@ static int write_init_super1(struct supertype *st)
 			sb->devflags |= WriteMostly1;
 		else
 			sb->devflags &= ~WriteMostly1;
+		if (di->disk.state & (1<<MD_DISK_FAILFAST))
+			sb->devflags |= FailFast1;
+		else
+			sb->devflags &= ~FailFast1;
 
 		random_uuid(sb->device_uuid);
 

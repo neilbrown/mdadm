@@ -232,14 +232,15 @@ static void examine_super0(struct supertype *st, char *homehost)
 		mdp_disk_t *dp;
 		char *dv;
 		char nb[5];
-		int wonly;
+		int wonly, failfast;
 		if (d>=0) dp = &sb->disks[d];
 		else dp = &sb->this_disk;
 		snprintf(nb, sizeof(nb), "%4d", d);
 		printf("%4s %5d   %5d    %5d    %5d     ", d < 0 ? "this" : nb,
 		       dp->number, dp->major, dp->minor, dp->raid_disk);
 		wonly = dp->state & (1 << MD_DISK_WRITEMOSTLY);
-		dp->state &= ~(1 << MD_DISK_WRITEMOSTLY);
+		failfast = dp->state & (1<<MD_DISK_FAILFAST);
+		dp->state &= ~(wonly | failfast);
 		if (dp->state & (1 << MD_DISK_FAULTY))
 			printf(" faulty");
 		if (dp->state & (1 << MD_DISK_ACTIVE))
@@ -250,6 +251,8 @@ static void examine_super0(struct supertype *st, char *homehost)
 			printf(" removed");
 		if (wonly)
 			printf(" write-mostly");
+		if (failfast)
+			printf(" failfast");
 		if (dp->state == 0)
 			printf(" spare");
 		if ((dv = map_dev(dp->major, dp->minor, 0)))
@@ -581,7 +584,8 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 	} else if (strcmp(update, "assemble")==0) {
 		int d = info->disk.number;
 		int wonly = sb->disks[d].state & (1<<MD_DISK_WRITEMOSTLY);
-		int mask = (1<<MD_DISK_WRITEMOSTLY);
+		int failfast = sb->disks[d].state & (1<<MD_DISK_FAILFAST);
+		int mask = (1<<MD_DISK_WRITEMOSTLY)|(1<<MD_DISK_FAILFAST);
 		int add = 0;
 		if (sb->minor_version >= 91)
 			/* During reshape we don't insist on everything
@@ -590,7 +594,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			add = (1<<MD_DISK_SYNC);
 		if (((sb->disks[d].state & ~mask) | add)
 		    != (unsigned)info->disk.state) {
-			sb->disks[d].state = info->disk.state | wonly;
+			sb->disks[d].state = info->disk.state | wonly |failfast;
 			rv = 1;
 		}
 		if (info->reshape_active &&

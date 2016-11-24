@@ -747,7 +747,7 @@ subsequent devices listed in a
 .BR \-\-create ,
 or
 .B \-\-add
-command will be flagged as 'write-mostly'.  This is valid for RAID1
+command will be flagged as 'write\-mostly'.  This is valid for RAID1
 only and means that the 'md' driver will avoid reading from these
 devices if at all possible.  This can be useful if mirroring over a
 slow link.
@@ -760,6 +760,25 @@ of outstanding writes allowed.  The default value is 256.
 A write-intent bitmap is required in order to use write-behind
 mode, and write-behind is only attempted on drives marked as
 .IR write-mostly .
+
+.TP
+.BR \-\-failfast
+subsequent devices listed in a
+.B \-\-create
+or
+.B \-\-add
+command will be flagged as  'failfast'.  This is valid for RAID1 and
+RAID10 only.  IO requests to these devices will be encouraged to fail
+quickly rather than cause long delays due to error handling.  Also no
+attempt is made to repair a read error on these devices.
+
+If an array becomes degraded so that the 'failfast' device is the only
+usable device, the 'failfast' flag will then be ignored and extended
+delays will be preferred to complete failure.
+
+The 'failfast' flag is appropriate for storage arrays which have a
+low probability of true failure, but which may sometimes
+cause unacceptable delays due to internal maintenance functions.
 
 .TP
 .BR \-\-assume\-clean
@@ -1451,6 +1470,17 @@ current implementation, this command cannot add a journal to an array
 that had a failed journal. To avoid interrupting on-going write opertions,
 .B \-\-add-journal
 only works for array in Read-Only state.
+
+.TP
+.BR \-\-failfast
+Subsequent devices that are added or re\-added will have
+the 'failfast' flag set.  This is only valid for RAID1 and RAID10 and
+means that the 'md' driver will avoid long timeouts on error handling
+where possible.
+.TP
+.BR \-\-nofailfast
+Subsequent devices that are re\-added will be re\-added without
+the 'failfast' flag set.
 
 .P
 Each of these options requires that the first device listed is the array

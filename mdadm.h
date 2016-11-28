@@ -237,6 +237,17 @@ struct dlm_lksb {
 
 extern const char Name[];
 
+struct md_bb_entry {
+	unsigned long long sector;
+	int length;
+};
+
+struct md_bb {
+	int supported;
+	int count;
+	struct md_bb_entry *entries;
+};
+
 /* general information that might be extracted from a superblock */
 struct mdinfo {
 	mdu_array_info_t	array;
@@ -311,6 +322,8 @@ struct mdinfo {
 
 	/* info read from sysfs */
 	char		sysfs_array_state[20];
+
+	struct md_bb bb;
 };
 
 struct createinfo {

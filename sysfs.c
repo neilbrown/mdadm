@@ -52,8 +52,10 @@ void sysfs_free(struct mdinfo *sra)
 		while (sra->devs) {
 			struct mdinfo *d = sra->devs;
 			sra->devs = d->next;
+			free(d->bb.entries);
 			free(d);
 		}
+		free(sra->bb.entries);
 		free(sra);
 		sra = sra2;
 	}
@@ -261,7 +263,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		dbase = base + strlen(base);
 		*dbase++ = '/';
 
-		dev = xmalloc(sizeof(*dev));
+		dev = xcalloc(1, sizeof(*dev));
 
 		/* Always get slot, major, minor */
 		strcpy(dbase, "slot");
@@ -691,6 +693,7 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 	char nm[PATH_MAX];
 	char *dname;
 	int rv;
+	int i;
 
 	sprintf(dv, "%d:%d", sd->disk.major, sd->disk.minor);
 	rv = sysfs_set_str(sra, NULL, "new_dev", dv);
@@ -721,6 +724,28 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 			rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
 		if (resume)
 			sysfs_set_num(sra, sd, "recovery_start", sd->recovery_start);
+	}
+	if (sd->bb.supported) {
+		if (sysfs_set_str(sra, sd, "state", "external_bbl")) {
+			/*
+			 * backward compatibility - if kernel doesn't support
+			 * bad blocks for external metadata, let it continue
+			 * as long as there are none known so far
+			 */
+			if (sd->bb.count) {
+				pr_err("The kernel has no support for bad blocks in external metadata\n");
+				return -1;
+			}
+		}
+
+		for (i = 0; i < sd->bb.count; i++) {
+			char s[30];
+			const struct md_bb_entry *entry = &sd->bb.entries[i];
+
+			snprintf(s, sizeof(s) - 1, "%llu %d\n", entry->sector,
+				 entry->length);
+			rv |= sysfs_set_str(sra, sd, "bad_blocks", s);
+		}
 	}
 	return rv;
 }

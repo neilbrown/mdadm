@@ -1526,6 +1526,7 @@ void convert_to_4k(struct intel_super *super)
 	struct imsm_super *mpb = super->anchor;
 	struct imsm_disk *disk;
 	int i;
+	__u32 bbm_log_size = __le32_to_cpu(mpb->bbm_log_size);
 
 	for (i = 0; i < mpb->num_disks ; i++) {
 		disk = __get_imsm_disk(mpb, i);
@@ -1552,6 +1553,24 @@ void convert_to_4k(struct intel_super *super)
 			    blocks_per_member(map)/IMSM_4K_DIV);
 			map->blocks_per_strip /= IMSM_4K_DIV;
 			set_pba_of_lba0(map, pba_of_lba0(map)/IMSM_4K_DIV);
+		}
+	}
+	if (bbm_log_size) {
+		struct bbm_log *log = (void *)mpb +
+			__le32_to_cpu(mpb->mpb_size) - bbm_log_size;
+		__u32 i;
+
+		for (i = 0; i < log->entry_count; i++) {
+			struct bbm_log_entry *entry =
+				&log->marked_block_entries[i];
+
+			__u8 count = entry->marked_count + 1;
+			unsigned long long sector =
+				__le48_to_cpu(&entry->defective_block_start);
+
+			entry->defective_block_start =
+				__cpu_to_le48(sector/IMSM_4K_DIV);
+			entry->marked_count = max(count/IMSM_4K_DIV, 1) - 1;
 		}
 	}
 
@@ -1635,6 +1654,7 @@ void convert_from_4k(struct intel_super *super)
 	struct imsm_super *mpb = super->anchor;
 	struct imsm_disk *disk;
 	int i;
+	__u32 bbm_log_size = __le32_to_cpu(mpb->bbm_log_size);
 
 	for (i = 0; i < mpb->num_disks ; i++) {
 		disk = __get_imsm_disk(mpb, i);
@@ -1662,6 +1682,24 @@ void convert_from_4k(struct intel_super *super)
 			    blocks_per_member(map)*IMSM_4K_DIV);
 			map->blocks_per_strip *= IMSM_4K_DIV;
 			set_pba_of_lba0(map, pba_of_lba0(map)*IMSM_4K_DIV);
+		}
+	}
+	if (bbm_log_size) {
+		struct bbm_log *log = (void *)mpb +
+			__le32_to_cpu(mpb->mpb_size) - bbm_log_size;
+		__u32 i;
+
+		for (i = 0; i < log->entry_count; i++) {
+			struct bbm_log_entry *entry =
+				&log->marked_block_entries[i];
+
+			__u8 count = entry->marked_count + 1;
+			unsigned long long sector =
+				__le48_to_cpu(&entry->defective_block_start);
+
+			entry->defective_block_start =
+				__cpu_to_le48(sector*IMSM_4K_DIV);
+			entry->marked_count = count*IMSM_4K_DIV - 1;
 		}
 	}
 

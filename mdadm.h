@@ -439,6 +439,10 @@ enum bitmap_update {
     NodeNumUpdate,
 };
 
+enum flag_mode {
+	FlagDefault, FlagSet, FlagClear,
+};
+
 /* structures read from config file */
 /* List of mddevice names and identifiers
  * Identifiers can be:
@@ -532,8 +536,8 @@ struct mddev_dev {
 				 * 'A' for re_add.
 				 * Not set for names read from .config
 				 */
-	char writemostly;	/* 1 for 'set writemostly', 2 for 'clear writemostly' */
-	char failfast;		/* Ditto but for 'failfast' flag */
+	enum flag_mode writemostly;
+	enum flag_mode failfast;
 	int used;		/* set when used */
 	long long data_offset;
 	struct mddev_dev *next;

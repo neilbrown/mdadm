@@ -89,8 +89,8 @@ int main(int argc, char *argv[])
 	int oneshot = 0;
 	int spare_sharing = 1;
 	struct supertype *ss = NULL;
-	int writemostly = 0;
-	int failfast = 0;
+	enum flag_mode writemostly = FlagDefault;
+	enum flag_mode failfast = FlagDefault;
 	char *shortopt = short_options;
 	int dosyslog = 0;
 	int rebuild_map = 0;
@@ -412,20 +412,20 @@ int main(int argc, char *argv[])
 		case O(CREATE,'W'):
 		case O(CREATE,WriteMostly):
 			/* set write-mostly for following devices */
-			writemostly = 1;
+			writemostly = FlagSet;
 			continue;
 
 		case O(MANAGE,'w'):
 			/* clear write-mostly for following devices */
-			writemostly = 2;
+			writemostly = FlagClear;
 			continue;
 
 		case O(MANAGE,FailFast):
 		case O(CREATE,FailFast):
-			failfast = 1;
+			failfast = FlagSet;
 			continue;
 		case O(MANAGE,NoFailFast):
-			failfast = 2;
+			failfast = FlagClear;
 			continue;
 
 		case O(GROW,'z'):

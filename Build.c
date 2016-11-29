@@ -192,7 +192,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			disk.number = i;
 			disk.raid_disk = i;
 			disk.state = (1<<MD_DISK_SYNC) | (1<<MD_DISK_ACTIVE);
-			if (dv->writemostly == 1)
+			if (dv->writemostly == FlagSet)
 				disk.state |= 1<<MD_DISK_WRITEMOSTLY;
 			disk.major = major(stb.st_rdev);
 			disk.minor = minor(stb.st_rdev);

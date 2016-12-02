@@ -393,6 +393,7 @@ struct intel_super {
 	struct intel_hba *hba; /* device path of the raid controller for this metadata */
 	const struct imsm_orom *orom; /* platform firmware support */
 	struct intel_super *next; /* (temp) list for disambiguating family_num */
+	struct md_bb bb;	/* memory for get_bad_blocks call */
 };
 
 struct intel_disk {
@@ -4283,6 +4284,7 @@ static void __free_imsm(struct intel_super *super, int free_disks)
 static void free_imsm(struct intel_super *super)
 {
 	__free_imsm(super, 1);
+	free(super->bb.entries);
 	free(super);
 }
 
@@ -4303,6 +4305,14 @@ static struct intel_super *alloc_super(void)
 
 	super->current_vol = -1;
 	super->create_offset = ~((unsigned long long) 0);
+
+	super->bb.entries = xmalloc(BBM_LOG_MAX_ENTRIES *
+				   sizeof(struct md_bb_entry));
+	if (!super->bb.entries) {
+		free(super);
+		return NULL;
+	}
+
 	return super;
 }
 
@@ -9882,6 +9892,34 @@ static int imsm_clear_badblock(struct active_array *a, int slot,
 	return ret;
 }
 /*******************************************************************************
+* Function:   imsm_get_badblocks
+* Description: This routine get list of bad blocks for an array
+*
+* Parameters:
+*     a		: array
+*     slot	: disk number
+* Returns:
+*     bb	: structure containing bad blocks
+*     NULL	: error
+******************************************************************************/
+static struct md_bb *imsm_get_badblocks(struct active_array *a, int slot)
+{
+	int inst = a->info.container_member;
+	struct intel_super *super = a->container->sb;
+	struct imsm_dev *dev = get_imsm_dev(super, inst);
+	struct imsm_map *map = get_imsm_map(dev, MAP_0);
+	int ord;
+
+	ord = imsm_disk_slot_to_ord(a, slot);
+	if (ord < 0)
+		return NULL;
+
+	get_volume_badblocks(super->bbm_log, ord_to_idx(ord), pba_of_lba0(map),
+			     blocks_per_member(map), &super->bb);
+
+	return &super->bb;
+}
+/*******************************************************************************
  * Function:	init_migr_record_imsm
  * Description:	Function inits imsm migration record
  * Parameters:
@@ -11436,5 +11474,6 @@ struct superswitch super_imsm = {
 	.prepare_update = imsm_prepare_update,
 	.record_bad_block = imsm_record_badblock,
 	.clear_bad_block  = imsm_clear_badblock,
+	.get_bad_blocks   = imsm_get_badblocks,
 #endif /* MDASSEMBLE */
 };

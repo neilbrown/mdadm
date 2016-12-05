@@ -32,7 +32,7 @@ char const Name[] = "mdassemble";
 /* from mdopen.c */
 int open_mddev(char *dev, int report_errors/*unused*/)
 {
-	int mdfd = open(dev, O_RDWR);
+	int mdfd = open(dev, O_RDONLY);
 	if (mdfd < 0)
 		pr_err("error opening %s: %s\n",
 			dev, strerror(errno));

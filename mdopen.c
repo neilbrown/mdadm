@@ -416,9 +416,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
  */
 int open_mddev(char *dev, int report_errors)
 {
-	int mdfd = open(dev, O_RDWR);
-	if (mdfd < 0 && errno == EACCES)
-		mdfd = open(dev, O_RDONLY);
+	int mdfd = open(dev, O_RDONLY);
 	if (mdfd < 0) {
 		if (report_errors)
 			pr_err("error opening %s: %s\n",

@@ -3380,6 +3380,7 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 
 	/* do we have the all the insync disks that we expect? */
 	mpb = super->anchor;
+	info->events = __le32_to_cpu(mpb->generation_num);
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);

@@ -1378,12 +1378,15 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 	unsigned long long curr_part_end;
 	unsigned all_partitions, entry_size;
 	unsigned part_nr;
+	unsigned int sector_size = 0;
 
 	*endofpart = 0;
 
 	BUILD_BUG_ON(sizeof(gpt) != 512);
 	/* skip protective MBR */
-	lseek(fd, 512, SEEK_SET);
+	if (!get_dev_sector_size(fd, NULL, &sector_size))
+		return 0;
+	lseek(fd, sector_size, SEEK_SET);
 	/* read GPT header */
 	if (read(fd, &gpt, 512) != 512)
 		return 0;
@@ -1403,6 +1406,8 @@ static int get_gpt_last_partition_end(int fd, unsigned long long *endofpart)
 
 	part = (struct GPT_part_entry *)buf;
 
+	/* set offset to third block (GPT entries) */
+	lseek(fd, sector_size*2, SEEK_SET);
 	for (part_nr = 0; part_nr < all_partitions; part_nr++) {
 		/* read partition entry */
 		if (read(fd, buf, entry_size) != (ssize_t)entry_size)

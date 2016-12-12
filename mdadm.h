@@ -1397,7 +1397,7 @@ extern int check_partitions(int fd, char *dname,
 			    unsigned long long size);
 
 extern int get_mdp_major(void);
-extern int get_maj_min(char *dev, int *major, int *minor);
+extern int get_maj_min(char *dev, int *major, unsigned long *minor);
 extern int dev_open(char *dev, int flags);
 extern int open_dev(char *devnm);
 extern void reopen_mddev(int mdfd);

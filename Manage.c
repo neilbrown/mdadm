@@ -1412,7 +1412,8 @@ int Manage_subdevs(char *devname, int fd,
 	for (dv = devlist; dv; dv = dv->next) {
 		unsigned long rdev = 0; /* device to add/remove etc */
 		int rv;
-		int mj,mn;
+		int mj;
+		unsigned long mn;
 
 		raid_slot = -1;
 		if (dv->disposition == 'c') {
@@ -1518,7 +1519,7 @@ int Manage_subdevs(char *devname, int fd,
 			if (sysfd >= 0) {
 				char dn[20];
 				if (sysfs_fd_get_str(sysfd, dn, 20) > 0 &&
-				    sscanf(dn, "%d:%d", &mj,&mn) == 2) {
+				    sscanf(dn, "%d:%lu", &mj,&mn) == 2) {
 					rdev = makedev(mj,mn);
 					found = 1;
 				}

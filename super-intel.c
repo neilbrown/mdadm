@@ -2199,9 +2199,6 @@ static int print_vmd_attached_devs(struct sys_dev *hba)
 			continue;
 
 		sprintf(path, "/sys/bus/pci/drivers/nvme/%s", ent->d_name);
-		/* if not a intel NVMe - skip it*/
-		if (devpath_to_vendor(path) != 0x8086)
-			continue;
 
 		rp = realpath(path, NULL);
 		if (!rp)
@@ -2416,6 +2413,8 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 	for (entry = orom_entries; entry; entry = entry->next) {
 		if (entry->type == SYS_DEV_VMD) {
 			print_imsm_capability(&entry->orom);
+			printf(" 3rd party NVMe :%s supported\n",
+			    imsm_orom_has_tpv_support(&entry->orom)?"":" not");
 			for (hba = list; hba; hba = hba->next) {
 				if (hba->type == SYS_DEV_VMD) {
 					char buf[PATH_MAX];
@@ -5609,6 +5608,13 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 						"\tRAID 0 is the only supported configuration for this type of x8 device.\n");
 				break;
 			}
+		} else if (super->hba->type == SYS_DEV_VMD && super->orom &&
+		    !imsm_orom_has_tpv_support(super->orom)) {
+			pr_err("\tPlatform configuration does not support non-Intel NVMe drives.\n"
+			       "\tPlease refer to Intel(R) RSTe user guide.\n");
+			free(dd->devname);
+			free(dd);
+			return 1;
 		}
 	}
 

@@ -99,6 +99,8 @@ struct imsm_orom {
 	#define IMSM_OROM_CAPABILITIES_Rohi (1 << 5)
 	#define IMSM_OROM_CAPABILITIES_ReadPatrol (1 << 6)
 	#define IMSM_OROM_CAPABILITIES_XorHw (1 << 7)
+	#define IMSM_OROM_CAPABILITIES_SKUMode ((1 << 8)|(1 << 9))
+	#define IMSM_OROM_CAPABILITIES_TPV (1 << 10)
 } __attribute__((packed));
 
 static inline int imsm_orom_has_raid0(const struct imsm_orom *orom)
@@ -182,6 +184,11 @@ static inline int imsm_orom_is_nvme(const struct imsm_orom *orom)
 {
 	return memcmp(orom->signature, IMSM_NVME_OROM_COMPAT_SIGNATURE,
 			sizeof(orom->signature)) == 0;
+}
+
+static inline int imsm_orom_has_tpv_support(const struct imsm_orom *orom)
+{
+	return !!(orom->driver_features & IMSM_OROM_CAPABILITIES_TPV);
 }
 
 enum sys_dev_type {

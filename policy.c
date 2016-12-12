@@ -253,13 +253,13 @@ static int pol_match(struct rule *rule, char *path, char *type)
 	int typeok = 0;
 
 	while (rule) {
-		if (rule->name == rule_path) {
+		if (!strcmp(rule->name, rule_path)) {
 			if (pathok == 0)
 				pathok = -1;
 			if (path && fnmatch(rule->value, path, 0) == 0)
 				pathok = 1;
 		}
-		if (rule->name == rule_type) {
+		if (!strcmp(rule->name, rule_type)) {
 			if (typeok == 0)
 				typeok = -1;
 			if (type && strcmp(rule->value, type) == 0)

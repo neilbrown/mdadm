@@ -13,7 +13,7 @@ mdadm.conf \- configuration for management of Software RAID with mdadm
 .PP
 .I mdadm
 is a tool for creating, managing, and monitoring RAID devices using the
-.B md
+.B MD
 driver in Linux.
 .PP
 Some common tasks, such as assembling all arrays, can be simplified
@@ -199,12 +199,12 @@ It tells
 whether to use partitionable array or non-partitionable arrays and,
 in the absence of
 .IR udev ,
-how many partition devices to create.  From 2.6.28 all md array
+how many partition devices to create.  From 2.6.28 all MD array
 devices are partitionable, hence this option is not needed.
 
 The value of this option can be "yes" or "md" to indicate that a
-traditional, non-partitionable md array should be created, or "mdp",
-"part" or "partition" to indicate that a partitionable md array (only
+traditional, non-partitionable MD array should be created, or "mdp",
+"part" or "partition" to indicate that a partitionable MD array (only
 available in linux 2.6 and later) should be used.  This later set can
 also have a number appended to indicate how many partitions to create
 device files for, e.g.
@@ -217,7 +217,7 @@ The option specifies a file in which a write-intent bitmap should be
 found.  When assembling the array,
 .I mdadm
 will provide this file to the
-.B md
+.B MD
 driver as the bitmap file.  This has the same function as the
 .B \-\-bitmap\-file
 option to
@@ -281,7 +281,7 @@ line gives the name of a program to be run when
 .B "mdadm \-\-monitor"
 detects potentially interesting events on any of the arrays that it
 is monitoring.  This program gets run with two or three arguments, they
-being the Event, the md device, and possibly the related component
+being the Event, the MD device, and possibly the related component
 device.
 
 There should only be one
@@ -343,14 +343,14 @@ to suppress this symlink creation.
 .TP
 .B names=yes
 Since Linux 2.6.29 it has been possible to create
-.B md
+.B MD
 devices with a name like
 .B md_home
 rather than just a number, like
 .BR md3 .
 .I mdadm
 will use the numeric alternative by default as other tools that interact
-with md arrays may expect only numbers.
+with MD arrays may expect only numbers.
 If
 .B names=yes
 is given in
@@ -361,7 +361,7 @@ will use a name when appropriate.
 If
 .B names=no
 is given, then non-numeric
-.I md
+.I MD
 device names will not be used even if the default changes in a future
 release of
 .IR mdadm .
@@ -596,7 +596,7 @@ ARRAY /dev/md5 uuid=19464854:03f71b1b:e0df2edd:246cc977
 .br
            spare\-group=group1
 .br
-# /dev/md/home is created if need to be a partitionable md array
+# /dev/md/home is created if need to be a partitionable MD array
 .br
 # any spare device number is allocated.
 .br

@@ -6,7 +6,7 @@
 .\" See file COPYING in distribution for details.
 .TH MD 4
 .SH NAME
-md \- Multiple Device driver aka Linux Software RAID
+MD \- Multiple Device driver aka Linux Software RAID
 .SH SYNOPSIS
 .BI /dev/md n
 .br
@@ -15,13 +15,13 @@ md \- Multiple Device driver aka Linux Software RAID
 .BR /dev/md/ name
 .SH DESCRIPTION
 The
-.B md
+.B MD
 driver provides virtual devices that are created from one or more
 independent underlying devices.  This array of devices often contains
 redundancy and the devices are often disk drives, hence the acronym RAID
 which stands for a Redundant Array of Independent Disks.
 .PP
-.B md
+.B MD
 supports RAID levels
 1 (mirroring),
 4 (striped array with parity device),
@@ -33,7 +33,7 @@ levels, the array will continue to function; this number is one for
 RAID levels 4 and 5, two for RAID level 6, and all but one (N-1) for
 RAID level 1, and dependent on configuration for level 10.
 .PP
-.B md
+.B MD
 also supports a number of pseudo RAID (non-redundant) configurations
 including RAID0 (striped array), LINEAR (catenated array),
 MULTIPATH (a set of different interfaces to the same device),
@@ -48,7 +48,7 @@ The metadata records information about the structure and state of the array.
 This allows the array to be reliably re-assembled after a shutdown.
 
 From Linux kernel version 2.6.10,
-.B md
+.B MD
 provides support for two different formats of metadata, and
 other formats can be added.  Prior to this release, only one format is
 supported.
@@ -100,11 +100,11 @@ array without superblocks is preferred.  These include:
 .TP
 LEGACY ARRAYS
 Early versions of the
-.B md
+.B MD
 driver only supported LINEAR and RAID0 configurations and did not use
 a superblock (which is less critical with these configurations).
 While such arrays should be rebuilt with superblocks if possible,
-.B md
+.B MD
 continues to support them.
 .TP
 FAULTY
@@ -126,18 +126,18 @@ have special-purpose uses and is supported.
 .SS ARRAYS WITH EXTERNAL METADATA
 
 From release 2.6.28, the
-.I md
+.I MD
 driver supports arrays with externally managed metadata.  That is,
 the metadata is not managed by the kernel but rather by a user-space
 program which is external to the kernel.  This allows support for a
 variety of metadata formats without cluttering the kernel with lots of
 details.
 .PP
-.I md
+.I MD
 is able to communicate with the user-space program through various
 sysfs attributes so that it can make appropriate changes to the
 metadata \- for example to mark a device as faulty.  When necessary,
-.I md
+.I MD
 will wait for the program to acknowledge the event by writing to a
 sysfs attribute.
 The manual page for
@@ -148,10 +148,10 @@ contains more detail about this interaction.
 Many metadata formats use a single block of metadata to describe a
 number of different arrays which all use the same set of devices.
 In this case it is helpful for the kernel to know about the full set
-of devices as a whole.  This set is known to md as a
+of devices as a whole.  This set is known to MD as a
 .IR container .
 A container is an
-.I md
+.I MD
 array with externally managed metadata and with device offset and size
 so that it just covers the metadata part of the devices.  The
 remainder of each device is available to be incorporated into various
@@ -605,7 +605,7 @@ unlikely to be of real value.
 .SS MULTIPATH
 
 MULTIPATH is not really a RAID at all as there is only one real device
-in a MULTIPATH md array.  However there are multiple access points
+in a MULTIPATH MD array.  However there are multiple access points
 (paths) to this device, and one of these paths might fail, so there
 are some similarities.
 
@@ -620,13 +620,13 @@ should be considered a legacy driver.  The device-mapper based
 multipath drivers should be preferred for new installations.
 
 .SS FAULTY
-The FAULTY md module is provided for testing purposes.  A FAULTY array
+The FAULTY MD module is provided for testing purposes.  A FAULTY array
 has exactly one component device and is normally assembled without a
-superblock, so the md array created provides direct access to all of
+superblock, so the MD array created provides direct access to all of
 the data in the component device.
 
 The FAULTY module may be requested to simulate faults to allow testing
-of other md levels or of filesystems.  Faults can be chosen to trigger
+of other MD levels or of filesystems.  Faults can be chosen to trigger
 on read requests or write requests, and can be transient (a subsequent
 read/write at the address will probably succeed) or persistent
 (subsequent read/write of the same address will fail).  Further, read
@@ -657,9 +657,9 @@ time.  Thus if a system with one of these arrays is shutdown in the
 middle of a write operation (e.g. due to power failure), the array may
 not be consistent.
 
-To handle this situation, the md driver marks an array as "dirty"
+To handle this situation, the MD driver marks an array as "dirty"
 before writing any data to it, and marks it as "clean" when the array
-is being disabled, e.g. at shutdown.  If the md driver finds an array
+is being disabled, e.g. at shutdown.  If the MD driver finds an array
 to be dirty at startup, it proceeds to correct any possibly
 inconsistency.  For RAID1, this involves copying the contents of the
 first drive onto all other drives.  For RAID4, RAID5 and RAID6 this
@@ -672,15 +672,15 @@ The array can still be used, though possibly with reduced performance.
 If a RAID4, RAID5 or RAID6 array is degraded (missing at least one
 drive, two for RAID6) when it is restarted after an unclean shutdown, it cannot
 recalculate parity, and so it is possible that data might be
-undetectably corrupted.  The 2.4 md driver
+undetectably corrupted.  The 2.4 MD driver
 .B does not
-alert the operator to this condition.  The 2.6 md driver will fail to
+alert the operator to this condition.  The 2.6 MD driver will fail to
 start an array in this condition without manual intervention, though
 this behaviour can be overridden by a kernel parameter.
 
 .SS RECOVERY
 
-If the md driver detects a write error on a device in a RAID1, RAID4,
+If the MD driver detects a write error on a device in a RAID1, RAID4,
 RAID5, RAID6, or RAID10 array, it immediately disables that device
 (marking it as faulty) and continues operation on the remaining
 devices.  If there are spare drives, the driver will start recreating
@@ -691,13 +691,13 @@ by finding and copying originals for RAID10.
 
 In kernels prior to about 2.6.15, a read error would cause the same
 effect as a write error.  In later kernels, a read-error will instead
-cause md to attempt a recovery by overwriting the bad block. i.e. it
+cause MD to attempt a recovery by overwriting the bad block. i.e. it
 will find the correct data from elsewhere, write it over the block
 that failed, and then try to read it back again.  If either the write
-or the re-read fail, md will treat the error the same way that a write
+or the re-read fail, MD will treat the error the same way that a write
 error is treated, and will fail the whole device.
 
-While this recovery process is happening, the md driver will monitor
+While this recovery process is happening, the MD driver will monitor
 accesses to the array and will slow down the rate of recovery if other
 activity is happening, so that normal access to the array will not be
 unduly affected.  When no other activity is happening, the recovery
@@ -715,7 +715,7 @@ to regularly read all blocks on all devices in an array so as to catch
 such bad blocks early.  This process is called
 .IR scrubbing .
 
-md arrays can be scrubbed by writing either
+MD arrays can be scrubbed by writing either
 .I check
 or
 .I repair
@@ -726,7 +726,7 @@ in the
 directory for the device.
 
 Requesting a scrub will cause
-.I md
+.I MD
 to read every block on every device in the array, and check that the
 data is consistent.  For RAID1 and RAID10, this means checking that the copies
 are identical.  For RAID4, RAID5, RAID6 this means checking that the
@@ -761,7 +761,7 @@ file
 This is set to zero when a
 scrub starts and is incremented whenever a sector is
 found that is a mismatch.
-.I md
+.I MD
 normally works in units much larger than a single sector and when it
 finds a mismatch, it does not determine exactly how many actual sectors were
 affected but simply adds the number of sectors in the IO unit that was
@@ -817,10 +817,10 @@ especially when the device is used for swap.
 .SS BITMAP WRITE-INTENT LOGGING
 
 From Linux 2.6.13,
-.I md
+.I MD
 supports a bitmap based write-intent log.  If configured, the bitmap
 is used to record which blocks of the array may be out of sync.
-Before any write request is honoured, md will make sure that the
+Before any write request is honoured, MD will make sure that the
 corresponding bit in the log is set.  After a period of time with no
 writes to an area of the array, the corresponding bit will be cleared.
 
@@ -830,9 +830,9 @@ Firstly, after an unclean shutdown, the resync process will consult
 the bitmap and only resync those blocks that correspond to bits in the
 bitmap that are set.  This can dramatically reduce resync time.
 
-Secondly, when a drive fails and is removed from the array, md stops
+Secondly, when a drive fails and is removed from the array, MD stops
 clearing bits in the intent log.  If that same drive is re-added to
-the array, md will notice and will only recover the sections of the
+the array, MD will notice and will only recover the sections of the
 drive that are covered by bits in the intent log that are set.  This
 can allow a device to be temporarily removed and reinserted without
 causing an enormous recovery cost.
@@ -849,7 +849,7 @@ with redundancy are supported from 2.6.15.
 .SS BAD BLOCK LIST
 
 From Linux 3.5 each device in an
-.I md
+.I MD
 array can store a list of known-bad-blocks.  This list is 4K in size
 and usually positioned at the end of the space between the superblock
 and the data.
@@ -897,7 +897,7 @@ read-only mode.
 .SS WRITE-BEHIND
 
 From Linux 2.6.14,
-.I md
+.I MD
 supports WRITE-BEHIND on RAID1 arrays.
 
 This allows certain devices in the array to be flagged as
@@ -906,7 +906,7 @@ MD will only read from such devices if there is no
 other option.
 
 If a write-intent bitmap is also provided, write requests to
-write-mostly devices will be treated as write-behind requests and md
+write-mostly devices will be treated as write-behind requests and MD
 will not wait for writes to those requests to complete before
 reporting the write as complete to the filesystem.
 
@@ -981,7 +981,7 @@ array (so the stripes are wider), changing the chunk size (so stripes
 are deeper or shallower), or changing the arrangement of data and
 parity (possibly changing the RAID level, e.g. 1 to 5 or 5 to 6).
 
-As of Linux 2.6.35, md can reshape a RAID4, RAID5, or RAID6 array to
+As of Linux 2.6.35, MD can reshape a RAID4, RAID5, or RAID6 array to
 have a different number of devices (more or fewer) and to have a
 different layout or chunk size.  It can also convert between these
 different RAID levels.  It can also convert between RAID0 and RAID10,
@@ -999,8 +999,8 @@ data \(em the live data has already been located away.
 For a reshape which reduces the number of devices, the 'critical
 section' is at the end of the reshape process.
 
-md is not able to ensure data preservation if there is a crash
-(e.g. power failure) during the critical section.  If md is asked to
+MD is not able to ensure data preservation if there is a crash
+(e.g. power failure) during the critical section.  If MD is asked to
 start an array which failed during a critical section of restriping,
 it will fail to start the array.
 
@@ -1034,7 +1034,7 @@ Each block device appears as a directory in
 (which is usually mounted at
 .BR /sys ).
 For MD devices, this directory will contain a subdirectory called
-.B md
+.B MD
 which contains various files for providing access to information about
 the array.
 
@@ -1102,10 +1102,10 @@ doing small or random writes.
 
 .SS KERNEL PARAMETERS
 
-The md driver recognised several different kernel parameters.
+The MD driver recognised several different kernel parameters.
 .TP
 .B raid=noautodetect
-This will disable the normal detection of md arrays that happens at
+This will disable the normal detection of MD arrays that happens at
 boot time.  If a drive is partitioned with MS-DOS style partitions,
 then if any of the 4 main partitions has a partition type of 0xFD,
 then that partition will normally be inspected to see if it is part of
@@ -1118,7 +1118,7 @@ kernel parameter disables this behaviour.
 .B raid=part
 These are available in 2.6 and later kernels only.  They indicate that
 autodetected MD arrays should be created as partitionable arrays, with
-a different major device number to the original non-partitionable md
+a different major device number to the original non-partitionable MD
 arrays.  The device number is listed as
 .I mdp
 in
@@ -1128,17 +1128,17 @@ in
 .B md_mod.start_ro=1
 .TP
 .B /sys/module/md_mod/parameters/start_ro
-This tells md to start all arrays in read-only mode.  This is a soft
+This tells MD to start all arrays in read-only mode.  This is a soft
 read-only that will automatically switch to read-write on the first
 write request.  However until that write request, nothing is written
-to any device by md, and in particular, no resync or recovery
+to any device by MD, and in particular, no resync or recovery
 operation is started.
 
 .TP
 .B md_mod.start_dirty_degraded=1
 .TP
 .B /sys/module/md_mod/parameters/start_dirty_degraded
-As mentioned above, md will not normally start a RAID4, RAID5, or
+As mentioned above, MD will not normally start a RAID4, RAID5, or
 RAID6 that is both dirty and degraded as this situation can imply
 hidden data loss.  This can be awkward if the root filesystem is
 affected.  Using this module parameter allows such arrays to be started
@@ -1149,7 +1149,7 @@ small) risk of data corruption in this situation.
 .BI md= n , dev , dev ,...
 .TP
 .BI md=d n , dev , dev ,...
-This tells the md driver to assemble
+This tells the MD driver to assemble
 .B /dev/md n
 from the listed devices.  It is only necessary to start the device
 holding the root filesystem this way.  Other arrays are best started
@@ -1165,10 +1165,10 @@ should be created rather than the original non-partitionable device.
 
 .TP
 .BI md= n , l , c , i , dev...
-This tells the md driver to assemble a legacy RAID0 or LINEAR array
+This tells the MD driver to assemble a legacy RAID0 or LINEAR array
 without a superblock.
 .I n
-gives the md device number,
+gives the MD device number,
 .I l
 gives the level, 0 for RAID0 or \-1 for LINEAR,
 .I c

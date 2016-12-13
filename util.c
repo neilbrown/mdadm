@@ -1435,6 +1435,7 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 	struct MBR boot_sect;
 	unsigned long long curr_part_end;
 	unsigned part_nr;
+	unsigned int sector_size;
 	int retval = 0;
 
 	*endofpart = 0;
@@ -1474,6 +1475,9 @@ static int get_last_partition_end(int fd, unsigned long long *endofpart)
 		/* Unknown partition table */
 		retval = -1;
 	}
+	/* calculate number of 512-byte blocks */
+	if (get_dev_sector_size(fd, NULL, &sector_size))
+		*endofpart *= (sector_size / 512);
  abort:
 	return retval;
 }
@@ -1485,9 +1489,8 @@ int check_partitions(int fd, char *dname, unsigned long long freesize,
 	 * Check where the last partition ends
 	 */
 	unsigned long long endofpart;
-	int ret;
 
-	if ((ret = get_last_partition_end(fd, &endofpart)) > 0) {
+	if (get_last_partition_end(fd, &endofpart) > 0) {
 		/* There appears to be a partition table here */
 		if (freesize == 0) {
 			/* partitions will not be visible in new device */

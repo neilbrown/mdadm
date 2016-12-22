@@ -10815,6 +10815,11 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			pr_err("Error. Chunk size change for RAID 10 is not supported.\n");
 			change = -1;
 			goto analyse_change_exit;
+		} else if (info.component_size % (geo->chunksize/512)) {
+			pr_err("New chunk size (%dK) does not evenly divide device size (%lluk). Aborting...\n",
+			       geo->chunksize/1024, info.component_size/2);
+			change = -1;
+			goto analyse_change_exit;
 		}
 		change = CH_MIGRATION;
 	} else {

@@ -400,14 +400,8 @@ unsigned long long get_component_size(int fd)
 	int n;
 	if (fstat(fd, &stb))
 		return 0;
-	if (major(stb.st_rdev) != (unsigned)get_mdp_major())
-		snprintf(fname, MAX_SYSFS_PATH_LEN,
-			"/sys/block/md%d/md/component_size",
-			(int)minor(stb.st_rdev));
-	else
-		snprintf(fname, MAX_SYSFS_PATH_LEN,
-			"/sys/block/md_d%d/md/component_size",
-			(int)minor(stb.st_rdev)>>MdpMinorShift);
+	snprintf(fname, MAX_SYSFS_PATH_LEN,
+		 "/sys/block/%s/md/component_size", stat2devnm(&stb));
 	fd = open(fname, O_RDONLY);
 	if (fd < 0)
 		return 0;

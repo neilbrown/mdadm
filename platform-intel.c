@@ -48,9 +48,9 @@ static void free_sys_dev(struct sys_dev **list)
 struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 {
 	/* search sysfs for devices driven by 'driver' */
-	char path[292];
-	char link[256];
-	char *c;
+	char path[PATH_MAX];
+	char link[PATH_MAX];
+	char *c, *p;
 	DIR *driver_dir;
 	struct dirent *de;
 	struct sys_dev *head = NULL;
@@ -123,6 +123,22 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		if (devpath_to_ll(path, "class", &class) != 0)
 			continue;
 
+		/*
+		 * Each VMD device (domain) adds separate PCI bus, it is better
+		 * to store path as a path to that bus (easier further
+		 * determination which NVMe dev is connected to this particular
+		 * VMD domain).
+		 */
+		if (type == SYS_DEV_VMD) {
+			sprintf(path, "/sys/bus/%s/drivers/%s/%s/domain/device",
+				bus, driver, de->d_name);
+		}
+		p = realpath(path, NULL);
+		if (p == NULL) {
+			pr_err("Unable to get real path for '%s'\n", path);
+			continue;
+		}
+
 		/* start / add list entry */
 		if (!head) {
 			head = xmalloc(sizeof(*head));
@@ -140,16 +156,9 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		list->dev_id = (__u16) dev_id;
 		list->class = (__u32) class;
 		list->type = type;
-		/* Each VMD device (domain) adds separate PCI bus, it is better to
-		 * store path as a path to that bus (easier further determination which
-		 * NVMe dev is connected to this particular VMD domain).
-		 */
-		if (type == SYS_DEV_VMD) {
-			sprintf(path, "/sys/bus/%s/drivers/%s/%s/domain/device",
-			bus, driver, de->d_name);
-		}
-		list->path = realpath(path, NULL);
 		list->next = NULL;
+		list->path = p;
+
 		if ((list->pci_id = strrchr(list->path, '/')) != NULL)
 			list->pci_id++;
 	}

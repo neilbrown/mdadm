@@ -23,6 +23,7 @@ ANNOUNCE-3.3.2
 ANNOUNCE-3.3.3
 ANNOUNCE-3.3.4
 ANNOUNCE-3.4
+ANNOUNCE-4.0
 Assemble.c
 Build.c
 COPYING
@@ -242,6 +243,7 @@ tests/19raid6check
 tests/19raid6repair
 tests/19repair-does-not-destroy
 tests/20raid5journal
+tests/21raid5cache
 tests/ToTest
 tests/check
 tests/env-ddf-template

@@ -6483,20 +6483,20 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 	return count;
 }
 
-static int
-count_volumes(struct intel_hba *hba, int dpa, int verbose)
+static int __count_volumes(char *hba_path, int dpa, int verbose,
+			   int cmp_hba_path)
 {
 	struct sys_dev *idev, *intel_devices = find_intel_devices();
 	int count = 0;
 	const struct orom_entry *entry;
 	struct devid_list *dv, *devid_list;
 
-	if (!hba || !hba->path)
+	if (!hba_path)
 		return 0;
 
 	for (idev = intel_devices; idev; idev = idev->next) {
-		if (strstr(idev->path, hba->path))
-				break;
+		if (strstr(idev->path, hba_path))
+			break;
 	}
 
 	if (!idev || !idev->dev_id)
@@ -6510,22 +6510,28 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 	devid_list = entry->devid_list;
 	for (dv = devid_list; dv; dv = dv->next) {
 		struct md_list *devlist;
-		struct sys_dev *device = device_by_id(dv->devid);
-		char *hba_path;
+		struct sys_dev *device = NULL;
+		char *hpath;
 		int found = 0;
 
+		if (cmp_hba_path)
+			device = device_by_id_and_path(dv->devid, hba_path);
+		else
+			device = device_by_id(dv->devid);
+
 		if (device)
-			hba_path = device->path;
+			hpath = device->path;
 		else
 			return 0;
 
-		devlist = get_devices(hba_path);
+		devlist = get_devices(hpath);
 		/* if no intel devices return zero volumes */
 		if (devlist == NULL)
 			return 0;
 
-		count += active_arrays_by_format("imsm", hba_path, &devlist, dpa, verbose);
-		dprintf("path: %s active arrays: %d\n", hba_path, count);
+		count += active_arrays_by_format("imsm", hpath, &devlist, dpa,
+						 verbose);
+		dprintf("path: %s active arrays: %d\n", hpath, count);
 		if (devlist == NULL)
 			return 0;
 		do  {
@@ -6537,7 +6543,7 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 			dprintf("found %d count: %d\n", found, count);
 		} while (found);
 
-		dprintf("path: %s total number of volumes: %d\n", hba_path, count);
+		dprintf("path: %s total number of volumes: %d\n", hpath, count);
 
 		while (devlist) {
 			struct md_list *dv = devlist;
@@ -6547,6 +6553,24 @@ count_volumes(struct intel_hba *hba, int dpa, int verbose)
 		}
 	}
 	return count;
+}
+
+static int count_volumes(struct intel_hba *hba, int dpa, int verbose)
+{
+	if (!hba)
+		return 0;
+	if (hba->type == SYS_DEV_VMD) {
+		struct sys_dev *dev;
+		int count = 0;
+
+		for (dev = find_intel_devices(); dev; dev = dev->next) {
+			if (dev->type == SYS_DEV_VMD)
+				count += __count_volumes(dev->path, dpa,
+							 verbose, 1);
+		}
+		return count;
+	}
+	return __count_volumes(hba->path, dpa, verbose, 0);
 }
 
 static int imsm_default_chunk(const struct imsm_orom *orom)

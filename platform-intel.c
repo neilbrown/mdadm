@@ -187,6 +187,16 @@ struct sys_dev *device_by_id(__u16 device_id)
 	return NULL;
 }
 
+struct sys_dev *device_by_id_and_path(__u16 device_id, const char *path)
+{
+	struct sys_dev *iter;
+
+	for (iter = intel_devices; iter != NULL; iter = iter->next)
+		if ((iter->dev_id == device_id) && strstr(iter->path, path))
+			return iter;
+	return NULL;
+}
+
 static int devpath_to_ll(const char *dev_path, const char *entry, unsigned long long *val)
 {
 	char path[strlen(dev_path) + strlen(entry) + 2];

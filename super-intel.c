@@ -10718,7 +10718,7 @@ static int imsm_create_metadata_update_for_migration(
 			free(u);
 			sysfs_free(spares);
 			update_memory_size = 0;
-			dprintf("error: cannot get spare device for requested migration");
+			pr_err("cannot get spare device for requested migration\n");
 			return 0;
 		}
 		sysfs_free(spares);

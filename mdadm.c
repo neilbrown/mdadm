@@ -603,8 +603,8 @@ int main(int argc, char *argv[])
 		case O(GROW, Nodes):
 		case O(CREATE, Nodes):
 			c.nodes = parse_num(optarg);
-			if (c.nodes <= 0) {
-				pr_err("invalid number for the number of cluster nodes: %s\n",
+			if (c.nodes < 2) {
+				pr_err("clustered array needs two nodes at least: %s\n",
 					optarg);
 				exit(2);
 			}

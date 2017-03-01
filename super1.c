@@ -2380,14 +2380,7 @@ static int write_bitmap1(struct supertype *st, int fd, enum bitmap_update update
 		}
 
 		if (bms->version == BITMAP_MAJOR_CLUSTERED) {
-			if (st->nodes == 1) {
-				/* the parameter for nodes is not valid */
-				pr_err("Warning: cluster-md at least needs two nodes\n");
-				return -EINVAL;
-			} else if (st->nodes == 0)
-				/* --nodes is not specified */
-				break;
-			else if (__cpu_to_le32(st->nodes) < bms->nodes) {
+			if (__cpu_to_le32(st->nodes) < bms->nodes) {
 				/* Since the nodes num is not increased, no need to check the space
 				 * is enough or not, just update bms->nodes */
 				bms->nodes = __cpu_to_le32(st->nodes);

@@ -1268,7 +1268,7 @@ int main(int argc, char *argv[])
 	 * hopefully it's mostly right but there might be some stuff
 	 * missing
 	 *
-	 * That is mosty checked in the per-mode stuff but...
+	 * That is mostly checked in the per-mode stuff but...
 	 *
 	 * For @,B,C and A without -s, the first device listed must be
 	 * an md device.  We check that here and open it.

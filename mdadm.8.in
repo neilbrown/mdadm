@@ -1015,6 +1015,11 @@ simultaneously. If not specified, this defaults to 4.
 Specify journal device for the RAID-4/5/6 array. The journal device
 should be a SSD with reasonable lifetime.
 
+.TP
+.BR \-\-symlinks
+Auto creation of symlinks in /dev to /dev/md, option --symlinks must
+be 'no' or 'yes' and work with --create and --build.
+
 
 .SH For assemble:
 
@@ -1290,6 +1295,10 @@ Losing file system context would cause reshape to be broken.
 Reshape can be continued later using the
 .B \-\-continue
 option for the grow command.
+
+.TP
+.BR \-\-symlinks
+See this option under Create and Build options.
 
 .SH For Manage mode:
 

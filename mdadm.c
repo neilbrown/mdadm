@@ -1095,8 +1095,10 @@ int main(int argc, char *argv[])
 				pr_err("bitmap file needed with -b in --assemble mode\n");
 				exit(2);
 			}
-			if (strcmp(optarg, "internal") == 0) {
-				pr_err("there is no need to specify --bitmap when assembling arrays with internal bitmaps\n");
+			if (strcmp(optarg, "internal") == 0 ||
+			    strcmp(optarg, "clustered") == 0) {
+				pr_err("no need to specify --bitmap when assembling"
+					" arrays with internal or clustered bitmap\n");
 				continue;
 			}
 			bitmap_fd = open(optarg, O_RDWR);

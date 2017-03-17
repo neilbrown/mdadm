@@ -231,7 +231,7 @@ static void examine_super0(struct supertype *st, char *homehost)
 	     d++) {
 		mdp_disk_t *dp;
 		char *dv;
-		char nb[5];
+		char nb[11];
 		int wonly, failfast;
 		if (d>=0) dp = &sb->disks[d];
 		else dp = &sb->this_disk;

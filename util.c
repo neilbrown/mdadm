@@ -811,7 +811,7 @@ unsigned long calc_csum(void *super, int bytes)
 #ifndef MDASSEMBLE
 char *human_size(long long bytes)
 {
-	static char buf[30];
+	static char buf[47];
 
 	/* We convert bytes to either centi-M{ega,ibi}bytes or
 	 * centi-G{igi,ibi}bytes, with appropriate rounding,

@@ -575,7 +575,7 @@ This is pretty boring
 			printf("  Member Arrays :");
 
 			while (dir && (de = readdir(dir)) != NULL) {
-				char path[200];
+				char path[287];
 				char vbuf[1024];
 				int nlen = strlen(sra->sys_name);
 				dev_t devid;

@@ -48,6 +48,11 @@ ifdef WARN_UNUSED
 CWFLAGS += -Wp,-D_FORTIFY_SOURCE=2 -O3
 endif
 
+FALLTHROUGH := $(shell gcc -v --help 2>&1 | grep "implicit-fallthrough" | wc -l)
+ifneq "$(FALLTHROUGH)"  "0"
+CWFLAGS += -Wimplicit-fallthrough=0
+endif
+
 ifdef DEBIAN
 CPPFLAGS += -DDEBIAN
 endif

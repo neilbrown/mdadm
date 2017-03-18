@@ -1811,7 +1811,8 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	__u32 reserved = imsm_reserved_sectors(super, super->disks);
 	struct dl *dl;
 
-	snprintf(str, MPB_SIG_LEN, "%s", mpb->sig);
+	strncpy(str, (char *)mpb->sig, MPB_SIG_LEN);
+	str[MPB_SIG_LEN-1] = '\0';
 	printf("          Magic : %s\n", str);
 	snprintf(str, strlen(MPB_VERSION_RAID0), "%s", get_imsm_version(mpb));
 	printf("        Version : %s\n", get_imsm_version(mpb));
@@ -7142,14 +7143,16 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 
 			u->type = update_rename_array;
 			u->dev_idx = vol;
-			snprintf((char *) u->name, MAX_RAID_SERIAL_LEN, "%s", name);
+			strncpy((char *) u->name, name, MAX_RAID_SERIAL_LEN);
+			u->name[MAX_RAID_SERIAL_LEN-1] = '\0';
 			append_metadata_update(st, u, sizeof(*u));
 		} else {
 			struct imsm_dev *dev;
 			int i;
 
 			dev = get_imsm_dev(super, vol);
-			snprintf((char *) dev->volume, MAX_RAID_SERIAL_LEN, "%s", name);
+			strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
+			dev->volume[MAX_RAID_SERIAL_LEN-1] = '\0';
 			for (i = 0; i < mpb->num_raid_devs; i++) {
 				dev = get_imsm_dev(super, i);
 				handle_missing(super, dev);

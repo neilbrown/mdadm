@@ -5228,7 +5228,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 			disk->status = CONFIGURED_DISK | FAILED_DISK;
 			disk->scsi_id = __cpu_to_le32(~(__u32)0);
 			snprintf((char *) disk->serial, MAX_RAID_SERIAL_LEN,
-				 "missing:%d", i);
+				 "missing:%d", (__u8)i);
 		}
 		find_missing(super);
 	} else {

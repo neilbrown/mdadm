@@ -1139,6 +1139,10 @@ int main(int argc, char *argv[])
 		case O(CREATE,Bitmap): /* here we create the bitmap */
 		case O(GROW,'b'):
 		case O(GROW,Bitmap):
+			if (s.bitmap_file) {
+				pr_err("bitmap cannot be set twice. Second value: %s.\n", optarg);
+				exit(2);
+			}
 			if (strcmp(optarg, "internal") == 0 ||
 			    strcmp(optarg, "none") == 0 ||
 			    strchr(optarg, '/') != NULL) {

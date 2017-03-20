@@ -552,7 +552,7 @@ struct mdstat_ent {
 	char		devnm[32];
 	int		active;
 	char		*level;
-	char		*pattern; /* U or up, _ for down */
+	char		*pattern; /* U for up, _ for down */
 	int		percent; /* -1 if no resync */
 	int		resync; /* 3 if check, 2 if reshape, 1 if resync, 0 if recovery */
 	int		devcnt;
@@ -742,7 +742,7 @@ struct reshape {
 	unsigned long long new_size; /* New size of array in sectors */
 };
 
-/* A superswitch provides entry point the a metadata handler.
+/* A superswitch provides entry point to a metadata handler.
  *
  * The superswitch primarily operates on some "metadata" that
  * is accessed via the 'supertype'.

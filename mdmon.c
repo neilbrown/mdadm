@@ -580,11 +580,6 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 	return 1;
 }
 
-void abort_reshape(struct mdinfo *sra)
-{
-	return;
-}
-
 int save_stripes(int *source, unsigned long long *offsets,
 		 int raid_disks, int chunk_size, int level, int layout,
 		 int nwrites, int *dest,

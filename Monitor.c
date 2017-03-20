@@ -994,6 +994,7 @@ int Wait(char *dev)
 {
 	struct stat stb;
 	char devnm[32];
+	char *tmp;
 	int rv = 1;
 	int frozen_remaining = 3;
 
@@ -1002,7 +1003,12 @@ int Wait(char *dev)
 			strerror(errno));
 		return 2;
 	}
-	strcpy(devnm, stat2devnm(&stb));
+	tmp = stat2devnm(&stb);
+	if (!tmp) {
+		pr_err("%s is not a block device.\n", dev);
+		return 2;
+	}
+	strcpy(devnm, tmp);
 
 	while(1) {
 		struct mdstat_ent *ms = mdstat_read(1, 0);

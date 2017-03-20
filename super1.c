@@ -1491,6 +1491,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	struct devinfo *di, **dip;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
 	int rv, lockid;
+	int dk_state;
 
 	if (bms->version == BITMAP_MAJOR_CLUSTERED && dlm_funs_ready()) {
 		rv = cluster_get_dlmlock(&lockid);
@@ -1501,11 +1502,12 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 		}
 	}
 
-	if ((dk->state & 6) == 6) /* active, sync */
+	dk_state = dk->state & ~(1<<MD_DISK_FAILFAST);
+	if ((dk_state & 6) == 6) /* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
-	else if (dk->state & (1<<MD_DISK_JOURNAL))
+	else if (dk_state & (1<<MD_DISK_JOURNAL))
                 *rp = MD_DISK_ROLE_JOURNAL;
-	else if ((dk->state & ~2) == 0) /* active or idle -> spare */
+	else if ((dk_state & ~2) == 0) /* active or idle -> spare */
 		*rp = MD_DISK_ROLE_SPARE;
 	else
 		*rp = MD_DISK_ROLE_FAULTY;

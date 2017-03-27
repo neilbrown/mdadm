@@ -1813,6 +1813,18 @@ int hot_remove_disk(int mdfd, unsigned long dev)
 	return ret;
 }
 
+int sys_hot_remove_disk(int statefd)
+{
+	int cnt = 5;
+	int ret;
+
+	while ((ret = write(statefd, "remove", 6)) == -1 &&
+	       errno == EBUSY &&
+	       cnt-- > 0)
+		usleep(10000);
+	return ret == 6 ? 0 : -1;
+}
+
 int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 {
 	/* Initialise kernel's knowledge of array.

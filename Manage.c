@@ -1177,11 +1177,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		/* device has been removed and we don't know
 		 * the major:minor number
 		 */
-		int n = write(sysfd, "remove", 6);
-		if (n != 6)
-			err = -1;
-		else
-			err = 0;
+		err = sys_hot_remove_disk(sysfd);
 	} else {
 		err = hot_remove_disk(fd, rdev);
 		if (err && errno == ENODEV) {

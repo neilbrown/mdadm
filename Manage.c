@@ -1110,7 +1110,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 }
 
 int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
-		  int sysfd, unsigned long rdev, int verbose, char *devname)
+		  int sysfd, unsigned long rdev, int force, int verbose, char *devname)
 {
 	int lfd = -1;
 	int err;
@@ -1177,9 +1177,9 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		/* device has been removed and we don't know
 		 * the major:minor number
 		 */
-		err = sys_hot_remove_disk(sysfd);
+		err = sys_hot_remove_disk(sysfd, force);
 	} else {
-		err = hot_remove_disk(fd, rdev);
+		err = hot_remove_disk(fd, rdev, force);
 		if (err && errno == ENODEV) {
 			/* Old kernels rejected this if no personality
 			 * is registered */
@@ -1603,7 +1603,7 @@ int Manage_subdevs(char *devname, int fd,
 
 			if (dv->disposition == 'F')
 				/* Need to remove first */
-				hot_remove_disk(fd, rdev);
+				hot_remove_disk(fd, rdev, force);
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd >= 0) {
@@ -1645,7 +1645,7 @@ int Manage_subdevs(char *devname, int fd,
 				rv = -1;
 			} else
 				rv = Manage_remove(tst, fd, dv, sysfd,
-						   rdev, verbose,
+						   rdev, verbose, force,
 						   devname);
 			if (sysfd >= 0)
 				close(sysfd);

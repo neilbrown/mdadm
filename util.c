@@ -1795,15 +1795,15 @@ int remove_disk(int mdfd, struct supertype *st,
 	return rv;
 }
 
-int hot_remove_disk(int mdfd, unsigned long dev)
+int hot_remove_disk(int mdfd, unsigned long dev, int force)
 {
-	int cnt = 5;
+	int cnt = force ? 500 : 5;
 	int ret;
 
 	/* HOT_REMOVE_DISK can fail with EBUSY if there are
 	 * outstanding IO requests to the device.
 	 * In this case, it can be helpful to wait a little while,
-	 * up to half a second, for that IO to flush.
+	 * up to 5 seconds if 'force' is set, or 50 msec if not.
 	 */
 	while ((ret = ioctl(mdfd, HOT_REMOVE_DISK, dev)) == -1 &&
 	       errno == EBUSY &&
@@ -1813,9 +1813,9 @@ int hot_remove_disk(int mdfd, unsigned long dev)
 	return ret;
 }
 
-int sys_hot_remove_disk(int statefd)
+int sys_hot_remove_disk(int statefd, int force)
 {
-	int cnt = 5;
+	int cnt = force ? 500 : 5;
 	int ret;
 
 	while ((ret = write(statefd, "remove", 6)) == -1 &&

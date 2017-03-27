@@ -2749,7 +2749,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 				continue;
 			ioctl(fd, SET_DISK_FAULTY,
 			      makedev(disk.major, disk.minor));
-			hot_remove_disk(fd, makedev(disk.major, disk.minor));
+			hot_remove_disk(fd, makedev(disk.major, disk.minor), 1);
 		}
 	}
 	c = map_num(pers, level);

@@ -7,6 +7,9 @@ ENV{ANACONDA}=="?*", GOTO="md_inc_end"
 
 SUBSYSTEM!="block", GOTO="md_inc_end"
 
+# skip non-initialized devices
+ENV{SYSTEMD_READY}=="0", GOTO="md_inc_end"
+
 # handle potential components of arrays (the ones supported by md)
 ENV{ID_FS_TYPE}=="linux_raid_member", GOTO="md_inc"
 

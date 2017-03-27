@@ -1183,7 +1183,7 @@ int Manage_remove(struct supertype *tst, int fd, struct mddev_dev *dv,
 		else
 			err = 0;
 	} else {
-		err = ioctl(fd, HOT_REMOVE_DISK, rdev);
+		err = hot_remove_disk(fd, rdev);
 		if (err && errno == ENODEV) {
 			/* Old kernels rejected this if no personality
 			 * is registered */
@@ -1607,7 +1607,7 @@ int Manage_subdevs(char *devname, int fd,
 
 			if (dv->disposition == 'F')
 				/* Need to remove first */
-				ioctl(fd, HOT_REMOVE_DISK, rdev);
+				hot_remove_disk(fd, rdev);
 			/* Make sure it isn't in use (in 2.6 or later) */
 			tfd = dev_open(dv->devname, O_RDONLY|O_EXCL);
 			if (tfd >= 0) {

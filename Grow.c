@@ -2736,7 +2736,6 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 		for (d = 0, found = 0;
 		     d < MAX_DISKS && found < array.nr_disks;
 		     d++) {
-			int cnt;
 			mdu_disk_info_t disk;
 			disk.number = d;
 			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
@@ -2750,13 +2749,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 				continue;
 			ioctl(fd, SET_DISK_FAULTY,
 			      makedev(disk.major, disk.minor));
-			cnt = 5;
-			while (ioctl(fd, HOT_REMOVE_DISK,
-				     makedev(disk.major, disk.minor)) < 0
-			       && errno == EBUSY
-			       && cnt--) {
-				usleep(10000);
-			}
+			hot_remove_disk(fd, makedev(disk.major, disk.minor));
 		}
 	}
 	c = map_num(pers, level);

@@ -1795,6 +1795,24 @@ int remove_disk(int mdfd, struct supertype *st,
 	return rv;
 }
 
+int hot_remove_disk(int mdfd, unsigned long dev)
+{
+	int cnt = 5;
+	int ret;
+
+	/* HOT_REMOVE_DISK can fail with EBUSY if there are
+	 * outstanding IO requests to the device.
+	 * In this case, it can be helpful to wait a little while,
+	 * up to half a second, for that IO to flush.
+	 */
+	while ((ret = ioctl(mdfd, HOT_REMOVE_DISK, dev)) == -1 &&
+	       errno == EBUSY &&
+	       cnt-- > 0)
+		usleep(10000);
+
+	return ret;
+}
+
 int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 {
 	/* Initialise kernel's knowledge of array.

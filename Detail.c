@@ -110,6 +110,14 @@ int Detail(char *dev, struct context *c)
 	if (ioctl(fd, GET_ARRAY_INFO, &array) == 0) {
 		inactive = 0;
 	} else if (errno == ENODEV && sra) {
+		if (sra->array.major_version == -1 &&
+		    sra->array.minor_version == -1 &&
+		    sra->devs == NULL) {
+			pr_err("Array associated with md device %s does not exist.\n", dev);
+			close(fd);
+			sysfs_free(sra);
+			return rv;
+		}
 		array = sra->array;
 		inactive = 1;
 	} else {

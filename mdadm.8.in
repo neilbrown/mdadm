@@ -1526,9 +1526,8 @@ the device is found or <slot>:missing in case the device is not found.
 
 .TP
 .BR \-\-add-journal
-Recreate journal for RAID-4/5/6 array that lost a journal device. In the
-current implementation, this command cannot add a journal to an array
-that had a failed journal. To avoid interrupting on-going write opertions,
+Add journal to an existing array, or recreate journal for RAID-4/5/6 array
+that lost a journal device. To avoid interrupting on-going write opertions,
 .B \-\-add-journal
 only works for array in Read-Only state.
 

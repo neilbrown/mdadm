@@ -911,7 +911,6 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 	/* only add journal to array that supports journaling */
 	if (dv->disposition == 'j') {
-		struct mdinfo mdi;
 		struct mdinfo *mdp;
 
 		mdp = sysfs_read(fd, NULL, GET_ARRAY_STATE);
@@ -928,11 +927,6 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 		sysfs_free(mdp);
 
-		tst->ss->getinfo_super(tst, &mdi, NULL);
-		if (mdi.journal_device_required == 0) {
-			pr_err("%s does not support journal device.\n", devname);
-			return -1;
-		}
 		disc.raid_disk = 0;
 	}
 

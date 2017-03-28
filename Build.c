@@ -56,6 +56,10 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	int uuid[4] = {0,0,0,0};
 	struct map_ent *map = NULL;
 
+	if (s->level == UnSet) {
+		pr_err("a RAID level is needed to Build an array.\n");
+		return 1;
+	}
 	/* scan all devices, make sure they really are block devices */
 	for (dv = devlist; dv; dv=dv->next) {
 		subdevs++;

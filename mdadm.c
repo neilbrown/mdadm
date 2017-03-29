@@ -1221,6 +1221,7 @@ int main(int argc, char *argv[])
 			s.journaldisks = 1;
 			continue;
 		case O(CREATE, 'k'):
+		case O(GROW, 'k'):
 			s.consistency_policy = map_name(consistency_policies,
 							optarg);
 			if (s.consistency_policy == UnSet ||
@@ -1679,6 +1680,8 @@ int main(int argc, char *argv[])
 			rv = Grow_reshape(devlist->devname, mdfd,
 					  devlist->next,
 					  data_offset, &c, &s);
+		} else if (s.consistency_policy != UnSet) {
+			rv = Grow_consistency_policy(devlist->devname, mdfd, &c, &s);
 		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");
 		break;

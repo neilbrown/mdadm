@@ -1331,6 +1331,8 @@ extern int Grow_restart(struct supertype *st, struct mdinfo *info,
 extern int Grow_continue(int mdfd, struct supertype *st,
 			 struct mdinfo *info, char *backup_file,
 			 int forked, int freeze_reshape);
+extern int Grow_consistency_policy(char *devname, int fd,
+				   struct context *c, struct shape *s);
 
 extern int restore_backup(struct supertype *st,
 			  struct mdinfo *content,

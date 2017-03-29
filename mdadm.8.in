@@ -126,7 +126,7 @@ of component devices and changing the number of active devices in
 Linear and RAID levels 0/1/4/5/6,
 changing the RAID level between 0, 1, 5, and 6, and between 0 and 10,
 changing the chunk size and layout for RAID 0,4,5,6,10 as well as adding or
-removing a write-intent bitmap.
+removing a write-intent bitmap and changing the array's consistency policy.
 
 .TP
 .B "Incremental Assembly"
@@ -1050,6 +1050,10 @@ after unclean shutdown. Implicitly selected when using
 For RAID5 only, Partial Parity Log is used to close the write hole and
 eliminate resync. PPL is stored in the metadata region of RAID member drives,
 no additional journal drive is needed.
+
+.PP
+Can be used with \-\-grow to change the consistency policy of an active array
+in some cases. See CONSISTENCY POLICY CHANGES below.
 .RE
 
 
@@ -2694,6 +2698,8 @@ RAID0, RAID4, and RAID5, and between RAID0 and RAID10 (in the near-2 mode).
 .IP \(bu 4
 add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
+.IP \(bu 4
+change the array's consistency policy.
 .PP
 
 Using GROW on containers is currently supported only for Intel's IMSM
@@ -2849,6 +2855,16 @@ array.  Either internal bitmaps, or bitmaps stored in a separate file,
 can be added.  Note that if you add a bitmap stored in a file which is
 in a filesystem that is on the RAID array being affected, the system
 will deadlock.  The bitmap must be on a separate filesystem.
+
+.SS CONSISTENCY POLICY CHANGES
+
+The consistency policy of an active array can be changed by using the
+.B \-\-consistency\-policy
+option in Grow mode. Currently this works only for the
+.B ppl
+and
+.B resync
+policies and allows to enable or disable the RAID5 Partial Parity Log (PPL).
 
 .SH INCREMENTAL MODE
 

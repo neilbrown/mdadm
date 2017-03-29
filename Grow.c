@@ -528,6 +528,178 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	return 0;
 }
 
+int Grow_consistency_policy(char *devname, int fd, struct context *c, struct shape *s)
+{
+	struct supertype *st;
+	struct mdinfo *sra;
+	struct mdinfo *sd;
+	char *subarray = NULL;
+	int ret = 0;
+	char container_dev[PATH_MAX];
+
+	if (s->consistency_policy != CONSISTENCY_POLICY_RESYNC &&
+	    s->consistency_policy != CONSISTENCY_POLICY_PPL) {
+		pr_err("Operation not supported for consistency policy %s\n",
+		       map_num(consistency_policies, s->consistency_policy));
+		return 1;
+	}
+
+	st = super_by_fd(fd, &subarray);
+	if (!st)
+		return 1;
+
+	sra = sysfs_read(fd, NULL, GET_CONSISTENCY_POLICY|GET_LEVEL|
+				   GET_DEVS|GET_STATE);
+	if (!sra) {
+		ret = 1;
+		goto free_st;
+	}
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL &&
+	    !st->ss->write_init_ppl) {
+		pr_err("%s metadata does not support PPL\n", st->ss->name);
+		ret = 1;
+		goto free_info;
+	}
+
+	if (sra->array.level != 5) {
+		pr_err("Operation not supported for array level %d\n",
+				sra->array.level);
+		ret = 1;
+		goto free_info;
+	}
+
+	if (sra->consistency_policy == (unsigned)s->consistency_policy) {
+		pr_err("Consistency policy is already %s\n",
+		       map_num(consistency_policies, s->consistency_policy));
+		ret = 1;
+		goto free_info;
+	} else if (sra->consistency_policy != CONSISTENCY_POLICY_RESYNC &&
+		   sra->consistency_policy != CONSISTENCY_POLICY_PPL) {
+		pr_err("Current consistency policy is %s, cannot change to %s\n",
+		       map_num(consistency_policies, sra->consistency_policy),
+		       map_num(consistency_policies, s->consistency_policy));
+		ret = 1;
+		goto free_info;
+	}
+
+	if (subarray) {
+		char *update;
+
+		if (s->consistency_policy == CONSISTENCY_POLICY_PPL)
+			update = "ppl";
+		else
+			update = "no-ppl";
+
+		sprintf(container_dev, "/dev/%s", st->container_devnm);
+
+		ret = Update_subarray(container_dev, subarray, update, NULL,
+				      c->verbose);
+		if (ret)
+			goto free_info;
+	}
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL) {
+		struct mdinfo info;
+
+		if (subarray) {
+			struct mdinfo *mdi;
+			int cfd;
+
+			cfd = open(container_dev, O_RDWR|O_EXCL);
+			if (cfd < 0) {
+				pr_err("Failed to open %s\n", container_dev);
+				ret = 1;
+				goto free_info;
+			}
+
+			ret = st->ss->load_container(st, cfd, st->container_devnm);
+			close(cfd);
+
+			if (ret) {
+				pr_err("Cannot read superblock for %s\n",
+				       container_dev);
+				goto free_info;
+			}
+
+			mdi = st->ss->container_content(st, subarray);
+			info = *mdi;
+			free(mdi);
+		}
+
+		for (sd = sra->devs; sd; sd = sd->next) {
+			int dfd;
+			char *devpath;
+
+			if ((sd->disk.state & (1 << MD_DISK_SYNC)) == 0)
+				continue;
+
+			devpath = map_dev(sd->disk.major, sd->disk.minor, 0);
+			dfd = dev_open(devpath, O_RDWR);
+			if (dfd < 0) {
+				pr_err("Failed to open %s\n", devpath);
+				ret = 1;
+				goto free_info;
+			}
+
+			if (!subarray) {
+				ret = st->ss->load_super(st, dfd, NULL);
+				if (ret) {
+					pr_err("Failed to load super-block.\n");
+					close(dfd);
+					goto free_info;
+				}
+
+				ret = st->ss->update_super(st, sra, "ppl", devname,
+							   c->verbose, 0, NULL);
+				if (ret) {
+					close(dfd);
+					st->ss->free_super(st);
+					goto free_info;
+				}
+				st->ss->getinfo_super(st, &info, NULL);
+			}
+
+			ret |= sysfs_set_num(sra, sd, "ppl_sector", info.ppl_sector);
+			ret |= sysfs_set_num(sra, sd, "ppl_size", info.ppl_size);
+
+			if (ret) {
+				pr_err("Failed to set PPL attributes for %s\n",
+				       sd->sys_name);
+				close(dfd);
+				st->ss->free_super(st);
+				goto free_info;
+			}
+
+			ret = st->ss->write_init_ppl(st, &info, dfd);
+			if (ret)
+				pr_err("Failed to write PPL\n");
+
+			close(dfd);
+
+			if (!subarray)
+				st->ss->free_super(st);
+
+			if (ret)
+				goto free_info;
+		}
+	}
+
+	ret = sysfs_set_str(sra, NULL, "consistency_policy",
+			    map_num(consistency_policies,
+				    s->consistency_policy));
+	if (ret)
+		pr_err("Failed to change array consistency policy\n");
+
+free_info:
+	sysfs_free(sra);
+free_st:
+	free(st);
+	free(subarray);
+
+	return ret;
+}
+
 /*
  * When reshaping an array we might need to backup some data.
  * This is written to all spares with a 'super_block' describing it.

@@ -1325,6 +1325,55 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		sb->bblog_size = 0;
 		sb->bblog_shift = 0;
 		sb->bblog_offset = 0;
+	} else if (strcmp(update, "ppl") == 0) {
+		unsigned long long sb_offset = __le64_to_cpu(sb->super_offset);
+		unsigned long long data_offset = __le64_to_cpu(sb->data_offset);
+		unsigned long long data_size = __le64_to_cpu(sb->data_size);
+		long bb_offset = __le32_to_cpu(sb->bblog_offset);
+		int space;
+		int optimal_space;
+		int offset;
+
+		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
+			pr_err("Cannot add PPL to array with bitmap\n");
+			return -2;
+		}
+
+		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_JOURNAL)) {
+			pr_err("Cannot add PPL to array with journal\n");
+			return -2;
+		}
+
+		if (sb_offset < data_offset) {
+			if (bb_offset)
+				space = bb_offset - 8;
+			else
+				space = data_offset - sb_offset - 8;
+			offset = 8;
+		} else {
+			offset = -(sb_offset - data_offset - data_size);
+			if (offset < INT16_MIN)
+				offset = INT16_MIN;
+			space = -(offset - bb_offset);
+		}
+
+		if (space < (PPL_HEADER_SIZE >> 9) + 8) {
+			pr_err("Not enough space to add ppl\n");
+			return -2;
+		}
+
+		optimal_space = choose_ppl_space(__le32_to_cpu(sb->chunksize));
+
+		if (space > optimal_space)
+			space = optimal_space;
+		if (space > UINT16_MAX)
+			space = UINT16_MAX;
+
+		sb->ppl.offset = __cpu_to_le16(offset);
+		sb->ppl.size = __cpu_to_le16(space);
+		sb->feature_map |= __cpu_to_le32(MD_FEATURE_PPL);
+	} else if (strcmp(update, "no-ppl") == 0) {
+		sb->feature_map &= ~ __cpu_to_le32(MD_FEATURE_PPL);
 	} else if (strcmp(update, "name") == 0) {
 		if (info->name[0] == 0)
 			sprintf(info->name, "%d", info->array.md_minor);

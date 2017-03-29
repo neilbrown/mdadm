@@ -602,6 +602,12 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (strcmp(c->update, "uuid") == 0 && !ident->uuid_set)
 				random_uuid((__u8 *)ident->uuid);
 
+			if (strcmp(c->update, "ppl") == 0 &&
+			    ident->bitmap_fd >= 0) {
+				pr_err("PPL is not compatible with bitmap\n");
+				return -1;
+			}
+
 			dfd = dev_open(devname,
 				       tmpdev->disposition == 'I'
 				       ? O_RDWR : (O_RDWR|O_EXCL));

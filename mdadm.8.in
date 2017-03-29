@@ -1176,6 +1176,8 @@ argument given to this flag can be one of
 .BR no\-bitmap ,
 .BR bbl ,
 .BR no\-bbl ,
+.BR ppl ,
+.BR no\-ppl ,
 .BR metadata ,
 or
 .BR super\-minor .
@@ -1315,6 +1317,16 @@ The
 option will cause any reservation of space for a bad block list to be
 removed.  If the bad block list contains entries, this will fail, as
 removing the list could cause data corruption.
+
+The
+.B ppl
+option will enable PPL for a RAID5 array and reserve space for PPL on each
+device. There must be enough free space between the data and superblock and a
+write-intent bitmap or journal must not be used.
+
+The
+.B no\-ppl
+option will disable PPL in the superblock.
 
 .TP
 .BR \-\-freeze\-reshape
@@ -2327,9 +2339,11 @@ superblock field in the subarray.  Similar to updating an array in
 .B \-U
 or
 .B \-\-update=
-option.  Currently only
-.B name
-is supported.
+option. The supported options are
+.BR name ,
+.B ppl
+and
+.BR no\-ppl .
 
 The
 .B name
@@ -2339,6 +2353,13 @@ re\-assembled.  If updating
 .B name
 would change the UUID of an active subarray this operation is blocked,
 and the command will end in an error.
+
+The
+.B ppl
+and
+.B no\-ppl
+options enable and disable PPL in the metadata. Currently supported only for
+IMSM subarrays.
 
 .TP
 .B \-\-examine

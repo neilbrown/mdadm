@@ -769,6 +769,10 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "force-no-bbl") == 0)
 				continue;
+			if (strcmp(c.update, "ppl") == 0)
+				continue;
+			if (strcmp(c.update, "no-ppl") == 0)
+				continue;
 			if (strcmp(c.update, "metadata") == 0)
 				continue;
 			if (strcmp(c.update, "revert-reshape") == 0)
@@ -802,7 +806,7 @@ int main(int argc, char *argv[])
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'nodes', 'resync',\n"
 		"     'summaries', 'homehost', 'home-cluster', 'byteorder', 'devicesize',\n"
 		"     'no-bitmap', 'metadata', 'revert-reshape'\n"
-		"     'bbl', 'no-bbl', 'force-no-bbl'\n"
+		"     'bbl', 'no-bbl', 'force-no-bbl', 'ppl', 'no-ppl'\n"
 				);
 			exit(outf == stdout ? 0 : 2);
 

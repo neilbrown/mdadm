@@ -451,6 +451,7 @@ enum imsm_update_type {
 	update_general_migration_checkpoint,
 	update_size_change,
 	update_prealloc_badblocks_mem,
+	update_rwh_policy,
 };
 
 struct imsm_update_activate_spare {
@@ -541,6 +542,12 @@ struct imsm_update_add_remove_disk {
 
 struct imsm_update_prealloc_bb_mem {
 	enum imsm_update_type type;
+};
+
+struct imsm_update_rwh_policy {
+	enum imsm_update_type type;
+	int new_policy;
+	int dev_idx;
 };
 
 static const char *_sys_dev_type[] = {
@@ -7373,6 +7380,34 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 			}
 			super->updates_pending++;
 		}
+	} else if (strcmp(update, "ppl") == 0 ||
+		   strcmp(update, "no-ppl") == 0) {
+		int new_policy;
+		char *ep;
+		int vol = strtoul(subarray, &ep, 10);
+
+		if (*ep != '\0' || vol >= super->anchor->num_raid_devs)
+			return 2;
+
+		if (strcmp(update, "ppl") == 0)
+			new_policy = RWH_DISTRIBUTED;
+		else
+			new_policy = RWH_OFF;
+
+		if (st->update_tail) {
+			struct imsm_update_rwh_policy *u = xmalloc(sizeof(*u));
+
+			u->type = update_rwh_policy;
+			u->dev_idx = vol;
+			u->new_policy = new_policy;
+			append_metadata_update(st, u, sizeof(*u));
+		} else {
+			struct imsm_dev *dev;
+
+			dev = get_imsm_dev(super, vol);
+			dev->rwh_policy = new_policy;
+			super->updates_pending++;
+		}
 	} else
 		return 2;
 
@@ -9599,6 +9634,21 @@ static void imsm_process_update(struct supertype *st,
 	}
 	case update_prealloc_badblocks_mem:
 		break;
+	case update_rwh_policy: {
+		struct imsm_update_rwh_policy *u = (void *)update->buf;
+		int target = u->dev_idx;
+		struct imsm_dev *dev = get_imsm_dev(super, target);
+		if (!dev) {
+			dprintf("could not find subarray-%d\n", target);
+			break;
+		}
+
+		if (dev->rwh_policy != u->new_policy) {
+			dev->rwh_policy = u->new_policy;
+			super->updates_pending++;
+		}
+		break;
+	}
 	default:
 		pr_err("error: unsuported process update type:(type: %d)\n",	type);
 	}
@@ -9844,6 +9894,11 @@ static int imsm_prepare_update(struct supertype *st,
 		super->extra_space += sizeof(struct bbm_log) -
 			get_imsm_bbm_log_size(super->bbm_log);
 		break;
+	case update_rwh_policy: {
+		if (update->len < (int)sizeof(struct imsm_update_rwh_policy))
+			return 0;
+		break;
+	}
 	default:
 		return 0;
 	}

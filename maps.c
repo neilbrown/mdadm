@@ -129,6 +129,16 @@ mapping_t faultylayout[] = {
 	{ NULL, 0}
 };
 
+mapping_t consistency_policies[] = {
+	{ "unknown", CONSISTENCY_POLICY_UNKNOWN},
+	{ "none", CONSISTENCY_POLICY_NONE},
+	{ "resync", CONSISTENCY_POLICY_RESYNC},
+	{ "bitmap", CONSISTENCY_POLICY_BITMAP},
+	{ "journal", CONSISTENCY_POLICY_JOURNAL},
+	{ "ppl", CONSISTENCY_POLICY_PPL},
+	{ NULL, 0}
+};
+
 char *map_num(mapping_t *map, int num)
 {
 	while (map->name) {

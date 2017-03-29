@@ -205,7 +205,7 @@ static int validate_geometry(struct supertype *st, int level,
 			     int *chunk, unsigned long long size,
 			     unsigned long long data_offset,
 			     char *subdev, unsigned long long *freesize,
-			     int verbose)
+			     int consistency_policy, int verbose)
 {
 	pr_err("gpt metadata cannot be used this way\n");
 	return 0;

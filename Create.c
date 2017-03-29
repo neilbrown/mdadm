@@ -259,7 +259,8 @@ int Create(struct supertype *st, char *mddev,
 	if (st && ! st->ss->validate_geometry(st, s->level, s->layout, s->raiddisks,
 					      &s->chunk, s->size*2,
 					      data_offset, NULL,
-					      &newsize, c->verbose>=0))
+					      &newsize, s->consistency_policy,
+					      c->verbose>=0))
 		return 1;
 
 	if (s->chunk && s->chunk != UnSet) {
@@ -358,7 +359,8 @@ int Create(struct supertype *st, char *mddev,
 						st, s->level, s->layout, s->raiddisks,
 						&s->chunk, s->size*2,
 						dv->data_offset, dname,
-						&freesize, c->verbose > 0)) {
+						&freesize, s->consistency_policy,
+						c->verbose > 0)) {
 				case -1: /* Not valid, message printed, and not
 					  * worth checking any further */
 					exit(2);
@@ -395,6 +397,7 @@ int Create(struct supertype *st, char *mddev,
 						       &s->chunk, s->size*2,
 						       dv->data_offset,
 						       dname, &freesize,
+						       s->consistency_policy,
 						       c->verbose >= 0)) {
 
 				pr_err("%s is not suitable for this array.\n",
@@ -501,7 +504,8 @@ int Create(struct supertype *st, char *mddev,
 						       s->raiddisks,
 						       &s->chunk, minsize*2,
 						       data_offset,
-						       NULL, NULL, 0)) {
+						       NULL, NULL,
+						       s->consistency_policy, 0)) {
 				pr_err("devices too large for RAID level %d\n", s->level);
 				return 1;
 			}
@@ -527,6 +531,12 @@ int Create(struct supertype *st, char *mddev,
 	}
 	if (s->bitmap_file && strcmp(s->bitmap_file, "none") == 0)
 		s->bitmap_file = NULL;
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL &&
+	    !st->ss->write_init_ppl) {
+		pr_err("%s metadata does not support PPL\n", st->ss->name);
+		return 1;
+	}
 
 	if (!have_container && s->level > 0 && ((maxsize-s->size)*100 > maxsize)) {
 		if (c->runstop != 1 || c->verbose >= 0)
@@ -720,7 +730,7 @@ int Create(struct supertype *st, char *mddev,
 				name += 2;
 		}
 	}
-	if (!st->ss->init_super(st, &info.array, s->size, name, c->homehost, uuid,
+	if (!st->ss->init_super(st, &info.array, s, name, c->homehost, uuid,
 				data_offset))
 		goto abort_locked;
 

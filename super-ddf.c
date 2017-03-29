@@ -2290,7 +2290,7 @@ static unsigned int find_vde_by_guid(const struct ddf_super *ddf,
 
 static int init_super_ddf(struct supertype *st,
 			  mdu_array_info_t *info,
-			  unsigned long long size, char *name, char *homehost,
+			  struct shape *s, char *name, char *homehost,
 			  int *uuid, unsigned long long data_offset)
 {
 	/* This is primarily called by Create when creating a new array.
@@ -2328,7 +2328,7 @@ static int init_super_ddf(struct supertype *st,
 	struct virtual_disk *vd;
 
 	if (st->sb)
-		return init_super_ddf_bvd(st, info, size, name, homehost, uuid,
+		return init_super_ddf_bvd(st, info, s->size, name, homehost, uuid,
 					  data_offset);
 
 	if (posix_memalign((void**)&ddf, 512, sizeof(*ddf)) != 0) {
@@ -3347,7 +3347,7 @@ static int validate_geometry_ddf(struct supertype *st,
 				 int *chunk, unsigned long long size,
 				 unsigned long long data_offset,
 				 char *dev, unsigned long long *freesize,
-				 int verbose)
+				 int consistency_policy, int verbose)
 {
 	int fd;
 	struct mdinfo *sra;

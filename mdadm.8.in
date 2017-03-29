@@ -724,7 +724,9 @@ When creating an array on devices which are 100G or larger,
 .I mdadm
 automatically adds an internal bitmap as it will usually be
 beneficial.  This can be suppressed with
-.B "\-\-bitmap=none".
+.B "\-\-bitmap=none"
+or by selecting a different consistency policy with
+.BR \-\-consistency\-policy .
 
 .TP
 .BR \-\-bitmap\-chunk=
@@ -1019,6 +1021,36 @@ should be a SSD with reasonable lifetime.
 .BR \-\-symlinks
 Auto creation of symlinks in /dev to /dev/md, option --symlinks must
 be 'no' or 'yes' and work with --create and --build.
+
+.TP
+.BR \-k ", " \-\-consistency\-policy=
+Specify how the array maintains consistency in case of unexpected shutdown.
+Only relevant for RAID levels with redundancy.
+Currently supported options are:
+.RS
+
+.TP
+.B resync
+Full resync is performed and all redundancy is regenerated when the array is
+started after unclean shutdown.
+
+.TP
+.B bitmap
+Resync assisted by a write-intent bitmap. Implicitly selected when using
+.BR \-\-bitmap .
+
+.TP
+.B journal
+For RAID levels 4/5/6, journal device is used to log transactions and replay
+after unclean shutdown. Implicitly selected when using
+.BR \-\-write\-journal .
+
+.TP
+.B ppl
+For RAID5 only, Partial Parity Log is used to close the write hole and
+eliminate resync. PPL is stored in the metadata region of RAID member drives,
+no additional journal drive is needed.
+.RE
 
 
 .SH For assemble:
@@ -2153,8 +2185,10 @@ in the array exceed 100G is size, an internal write-intent bitmap
 will automatically be added unless some other option is explicitly
 requested with the
 .B \-\-bitmap
-option.  In any case space for a bitmap will be reserved so that one
-can be added layer with
+option or a different consistency policy is selected with the
+.B \-\-consistency\-policy
+option. In any case space for a bitmap will be reserved so that one
+can be added later with
 .BR "\-\-grow \-\-bitmap=internal" .
 
 If the metadata type supports it (currently only 1.x metadata), space

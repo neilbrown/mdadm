@@ -78,11 +78,11 @@ char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
  *     found, it is started.
  */
 
-char short_options[]="-ABCDEFGIQhVXYWZ:vqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
+char short_options[]="-ABCDEFGIQhVXYWZ:vqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:k:";
 char short_bitmap_options[]=
-		"-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
+		"-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:k:";
 char short_bitmap_auto_options[]=
-		"-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sa:rfRSow1tye:";
+		"-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sa:rfRSow1tye:k:";
 
 struct option long_options[] = {
     {"manage",    0, 0, ManageOpt},
@@ -148,6 +148,7 @@ struct option long_options[] = {
     {"nodes",1, 0, Nodes}, /* also for --assemble */
     {"home-cluster",1, 0, ClusterName},
     {"write-journal",1, 0, WriteJournal},
+    {"consistency-policy", 1, 0, 'k'},
 
     /* For assemble */
     {"uuid",      1, 0, 'u'},
@@ -362,27 +363,29 @@ char Help_create[] =
 " other levels.\n"
 "\n"
 " Options that are valid with --create (-C) are:\n"
-"  --bitmap=          : Create a bitmap for the array with the given filename\n"
-"                     : or an internal bitmap is 'internal' is given\n"
-"  --chunk=      -c   : chunk size in kibibytes\n"
-"  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,6,10,linear,multipath and synonyms\n"
-"  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
-"  --layout=          : same as --parity, for RAID10: [fno]NN \n"
-"  --raid-devices= -n : number of active devices in array\n"
-"  --spare-devices= -x: number of spare (eXtra) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
-"  --data-offset=     : Space to leave between start of device and start\n"
-"                     : of array data.\n"
-"  --force       -f   : Honour devices as listed on command line.  Don't\n"
-"                     : insert a missing drive for RAID5.\n"
-"  --run         -R   : insist of running the array even if not all\n"
-"                     : devices are present or some look odd.\n"
-"  --readonly    -o   : start the array readonly - not supported yet.\n"
-"  --name=       -N   : Textual name for array - max 32 characters\n"
-"  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
-"  --delay=      -d   : bitmap update delay in seconds.\n"
-"  --write-journal=   : Specify journal device for RAID-4/5/6 array\n"
+"  --bitmap=          -b : Create a bitmap for the array with the given filename\n"
+"                        : or an internal bitmap if 'internal' is given\n"
+"  --chunk=           -c : chunk size in kibibytes\n"
+"  --rounding=           : rounding factor for linear array (==chunk size)\n"
+"  --level=           -l : raid level: 0,1,4,5,6,10,linear,multipath and synonyms\n"
+"  --parity=          -p : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
+"  --layout=             : same as --parity, for RAID10: [fno]NN \n"
+"  --raid-devices=    -n : number of active devices in array\n"
+"  --spare-devices=   -x : number of spare (eXtra) devices in initial array\n"
+"  --size=            -z : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
+"  --data-offset=        : Space to leave between start of device and start\n"
+"                        : of array data.\n"
+"  --force            -f : Honour devices as listed on command line.  Don't\n"
+"                        : insert a missing drive for RAID5.\n"
+"  --run              -R : insist of running the array even if not all\n"
+"                        : devices are present or some look odd.\n"
+"  --readonly         -o : start the array readonly - not supported yet.\n"
+"  --name=            -N : Textual name for array - max 32 characters\n"
+"  --bitmap-chunk=       : bitmap chunksize in Kilobytes.\n"
+"  --delay=           -d : bitmap update delay in seconds.\n"
+"  --write-journal=      : Specify journal device for RAID-4/5/6 array\n"
+"  --consistency-policy= : Specify the policy that determines how the array\n"
+"                     -k : maintains consistency in case of unexpected shutdown.\n"
 "\n"
 ;
 

@@ -1397,7 +1397,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 }
 
 static int init_super1(struct supertype *st, mdu_array_info_t *info,
-		       unsigned long long size, char *name, char *homehost,
+		       struct shape *s, char *name, char *homehost,
 		       int *uuid, unsigned long long data_offset)
 {
 	struct mdp_superblock_1 *sb;
@@ -1450,7 +1450,7 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);
 	sb->layout = __cpu_to_le32(info->layout);
-	sb->size = __cpu_to_le64(size*2ULL);
+	sb->size = __cpu_to_le64(s->size*2ULL);
 	sb->chunksize = __cpu_to_le32(info->chunk_size>>9);
 	sb->raid_disks = __cpu_to_le32(info->raid_disks);
 
@@ -2487,7 +2487,7 @@ static int validate_geometry1(struct supertype *st, int level,
 			      int *chunk, unsigned long long size,
 			      unsigned long long data_offset,
 			      char *subdev, unsigned long long *freesize,
-			      int verbose)
+			      int consistency_policy, int verbose)
 {
 	unsigned long long ldsize, devsize;
 	int bmspace;

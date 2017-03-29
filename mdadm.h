@@ -279,6 +279,15 @@ struct mdinfo {
 	int journal_device_required;
 	int journal_clean;
 
+	enum {
+		CONSISTENCY_POLICY_UNKNOWN,
+		CONSISTENCY_POLICY_NONE,
+		CONSISTENCY_POLICY_RESYNC,
+		CONSISTENCY_POLICY_BITMAP,
+		CONSISTENCY_POLICY_JOURNAL,
+		CONSISTENCY_POLICY_PPL,
+	} consistency_policy;
+
 	/* During reshape we can sometimes change the data_offset to avoid
 	 * over-writing still-valid data.  We need to know if there is space.
 	 * So getinfo_super will fill in space_before and space_after in sectors.
@@ -426,6 +435,7 @@ enum special_options {
 	ClusterName,
 	ClusterConfirm,
 	WriteJournal,
+	ConsistencyPolicy,
 };
 
 enum prefix_standard {
@@ -527,6 +537,7 @@ struct shape {
 	int	assume_clean;
 	int	write_behind;
 	unsigned long long size;
+	int	consistency_policy;
 };
 
 /* List of device names - wildcards expanded */
@@ -618,6 +629,7 @@ enum sysfs_read_flags {
 	GET_STATE	= (1 << 23),
 	GET_ERROR	= (1 << 24),
 	GET_ARRAY_STATE = (1 << 25),
+	GET_CONSISTENCY_POLICY	= (1 << 26),
 };
 
 /* If fd >= 0, get the array it is open on,
@@ -701,7 +713,7 @@ extern int restore_stripes(int *dest, unsigned long long *offsets,
 
 extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
-extern mapping_t r5layout[], r6layout[], pers[], modes[], faultylayout[];
+extern mapping_t r5layout[], r6layout[], pers[], modes[], faultylayout[], consistency_policies[];
 
 extern char *map_dev_preferred(int major, int minor, int create,
 			       char *prefer);
@@ -863,7 +875,7 @@ extern struct superswitch {
 	 * metadata.
 	 */
 	int (*init_super)(struct supertype *st, mdu_array_info_t *info,
-			  unsigned long long size, char *name,
+			  struct shape *s, char *name,
 			  char *homehost, int *uuid,
 			  unsigned long long data_offset);
 
@@ -961,7 +973,7 @@ extern struct superswitch {
 				 int *chunk, unsigned long long size,
 				 unsigned long long data_offset,
 				 char *subdev, unsigned long long *freesize,
-				 int verbose);
+				 int consistency_policy, int verbose);
 
 	/* Return a linked list of 'mdinfo' structures for all arrays
 	 * in the container.  For non-containers, it is like
@@ -1058,6 +1070,9 @@ extern struct superswitch {
 
 	/* validate container after assemble */
 	int (*validate_container)(struct mdinfo *info);
+
+	/* write initial empty PPL on device */
+	int (*write_init_ppl)(struct supertype *st, struct mdinfo *info, int fd);
 
 	/* records new bad block in metadata */
 	int (*record_bad_block)(struct active_array *a, int n,

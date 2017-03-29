@@ -725,7 +725,7 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
  * We use the first 8 bytes (64bits) of the sha1 of the host name
  */
 static int init_super0(struct supertype *st, mdu_array_info_t *info,
-		       unsigned long long size, char *ignored_name,
+		       struct shape *s, char *ignored_name,
 		       char *homehost, int *uuid,
 		       unsigned long long data_offset)
 {
@@ -764,8 +764,8 @@ static int init_super0(struct supertype *st, mdu_array_info_t *info,
 	sb->gvalid_words = 0; /* ignored */
 	sb->ctime = time(0);
 	sb->level = info->level;
-	sb->size = size;
-	if (size != (unsigned long long)sb->size)
+	sb->size = s->size;
+	if (s->size != (unsigned long long)sb->size)
 		return 0;
 	sb->nr_disks = info->nr_disks;
 	sb->raid_disks = info->raid_disks;
@@ -1267,7 +1267,7 @@ static int validate_geometry0(struct supertype *st, int level,
 			      int *chunk, unsigned long long size,
 			      unsigned long long data_offset,
 			      char *subdev, unsigned long long *freesize,
-			      int verbose)
+			      int consistency_policy, int verbose)
 {
 	unsigned long long ldsize;
 	int fd;

@@ -242,6 +242,17 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	} else
 		sra->sysfs_array_state[0] = 0;
 
+	if (options & GET_CONSISTENCY_POLICY) {
+		strcpy(base, "consistency_policy");
+		if (load_sys(fname, buf, sizeof(buf))) {
+			sra->consistency_policy = CONSISTENCY_POLICY_UNKNOWN;
+		} else {
+			sra->consistency_policy = map_name(consistency_policies, buf);
+			if (sra->consistency_policy == UnSet)
+				sra->consistency_policy = CONSISTENCY_POLICY_UNKNOWN;
+		}
+	}
+
 	if (! (options & GET_DEVS))
 		return sra;
 

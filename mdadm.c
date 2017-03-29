@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 		.level		= UnSet,
 		.layout		= UnSet,
 		.bitmap_chunk	= UnSet,
+		.consistency_policy	= UnSet,
 	};
 
 	char sys_hostname[256];
@@ -1215,6 +1216,16 @@ int main(int argc, char *argv[])
 
 			s.journaldisks = 1;
 			continue;
+		case O(CREATE, 'k'):
+			s.consistency_policy = map_name(consistency_policies,
+							optarg);
+			if (s.consistency_policy == UnSet ||
+			    s.consistency_policy < CONSISTENCY_POLICY_RESYNC) {
+				pr_err("Invalid consistency policy: %s\n",
+				       optarg);
+				exit(2);
+			}
+			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -1242,9 +1253,47 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	if (s.journaldisks && (s.level < 4 || s.level > 6)) {
-		pr_err("--write-journal is only supported for RAID level 4/5/6.\n");
-		exit(2);
+	if (s.journaldisks) {
+		if (s.level < 4 || s.level > 6) {
+			pr_err("--write-journal is only supported for RAID level 4/5/6.\n");
+			exit(2);
+		}
+		if (s.consistency_policy != UnSet &&
+		    s.consistency_policy != CONSISTENCY_POLICY_JOURNAL) {
+			pr_err("--write-journal is not supported with consistency policy: %s\n",
+			       map_num(consistency_policies, s.consistency_policy));
+			exit(2);
+		}
+	}
+
+	if (mode == CREATE && s.consistency_policy != UnSet) {
+		if (s.level <= 0) {
+			pr_err("--consistency-policy not meaningful with level %s.\n",
+			       map_num(pers, s.level));
+			exit(2);
+		} else if (s.consistency_policy == CONSISTENCY_POLICY_JOURNAL &&
+			   !s.journaldisks) {
+			pr_err("--write-journal is required for consistency policy: %s\n",
+			       map_num(consistency_policies, s.consistency_policy));
+			exit(2);
+		} else if (s.consistency_policy == CONSISTENCY_POLICY_PPL &&
+			   s.level != 5) {
+			pr_err("PPL consistency policy is only supported for RAID level 5.\n");
+			exit(2);
+		} else if (s.consistency_policy == CONSISTENCY_POLICY_BITMAP &&
+			   (!s.bitmap_file ||
+			    strcmp(s.bitmap_file, "none") == 0)) {
+			pr_err("--bitmap is required for consistency policy: %s\n",
+			       map_num(consistency_policies, s.consistency_policy));
+			exit(2);
+		} else if (s.bitmap_file &&
+			   strcmp(s.bitmap_file, "none") != 0 &&
+			   s.consistency_policy != CONSISTENCY_POLICY_BITMAP &&
+			   s.consistency_policy != CONSISTENCY_POLICY_JOURNAL) {
+			pr_err("--bitmap is not compatible with consistency policy: %s\n",
+			       map_num(consistency_policies, s.consistency_policy));
+			exit(2);
+		}
 	}
 
 	if (!mode && devs_found) {

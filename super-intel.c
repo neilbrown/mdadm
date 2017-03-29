@@ -5155,7 +5155,7 @@ static int check_name(struct intel_super *super, char *name, int quiet)
 }
 
 static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
-				  unsigned long long size, char *name,
+				  struct shape *s, char *name,
 				  char *homehost, int *uuid,
 				  long long data_offset)
 {
@@ -5250,7 +5250,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
 	array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
-					       size * 2);
+					       s->size * 2);
 	/* round array size down to closest MB */
 	array_blocks = (array_blocks >> SECT_PER_MB_SHIFT) << SECT_PER_MB_SHIFT;
 
@@ -5264,7 +5264,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	vol->curr_migr_unit = 0;
 	map = get_imsm_map(dev, MAP_0);
 	set_pba_of_lba0(map, super->create_offset);
-	set_blocks_per_member(map, info_to_blocks_per_member(info, size));
+	set_blocks_per_member(map, info_to_blocks_per_member(info, s->size));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->failed_disk_num = ~0;
 	if (info->level > 0)
@@ -5292,7 +5292,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		map->num_domains = 1;
 
 	/* info->size is only int so use the 'size' parameter instead */
-	num_data_stripes = (size * 2) / info_to_blocks_per_strip(info);
+	num_data_stripes = (s->size * 2) / info_to_blocks_per_strip(info);
 	num_data_stripes /= map->num_domains;
 	set_num_data_stripes(map, num_data_stripes);
 
@@ -5314,7 +5314,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 }
 
 static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
-			   unsigned long long size, char *name,
+		           struct shape *s, char *name,
 			   char *homehost, int *uuid,
 			   unsigned long long data_offset)
 {
@@ -5337,7 +5337,7 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	}
 
 	if (st->sb)
-		return init_super_imsm_volume(st, info, size, name, homehost, uuid,
+		return init_super_imsm_volume(st, info, s, name, homehost, uuid,
 					      data_offset);
 
 	if (info)
@@ -6914,7 +6914,7 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 				  int raiddisks, int *chunk, unsigned long long size,
 				  unsigned long long data_offset,
 				  char *dev, unsigned long long *freesize,
-				  int verbose)
+				  int consistency_policy, int verbose)
 {
 	int fd, cfd;
 	struct mdinfo *sra;
@@ -10953,7 +10953,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 				    geo->raid_disks + devNumChange,
 				    &chunk,
 				    geo->size, INVALID_SECTORS,
-				    0, 0, 1))
+				    0, 0, info.consistency_policy, 1))
 		change = -1;
 
 	if (check_devs) {

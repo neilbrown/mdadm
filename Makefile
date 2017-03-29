@@ -151,7 +151,7 @@ MON_OBJS = mdmon.o monitor.o managemon.o util.o maps.o mdstat.o sysfs.o \
 	Kill.o sg_io.o dlink.o ReadMe.o super-intel.o \
 	super-mbr.o super-gpt.o \
 	super-ddf.o sha1.o crc32.o msg.o bitmap.o xmalloc.o \
-	platform-intel.o probe_roms.o
+	platform-intel.o probe_roms.o crc32c.o
 
 MON_SRCS = $(patsubst %.o,%.c,$(MON_OBJS))
 
@@ -161,7 +161,8 @@ STATICOBJS = pwgr.o
 ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c policy.c dlink.c util.c \
 	maps.c lib.c xmalloc.c \
 	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
-	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c mapfile.c
+	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c mapfile.c \
+	crc32c.c
 ASSEMBLE_AUTO_SRCS := mdopen.c
 ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
 ifdef MDASSEMBLE_AUTO

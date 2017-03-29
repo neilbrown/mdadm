@@ -689,6 +689,16 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		 * once the reshape completes.
 		 */
 	}
+
+	if (info->consistency_policy == CONSISTENCY_POLICY_PPL) {
+		if (sysfs_set_str(info, NULL, "consistency_policy",
+				  map_num(consistency_policies,
+					  info->consistency_policy))) {
+			pr_err("This kernel does not support PPL\n");
+			return 1;
+		}
+	}
+
 	return rv;
 }
 
@@ -720,6 +730,10 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 	rv = sysfs_set_num(sra, sd, "offset", sd->data_offset);
 	rv |= sysfs_set_num(sra, sd, "size", (sd->component_size+1) / 2);
 	if (sra->array.level != LEVEL_CONTAINER) {
+		if (sd->consistency_policy == CONSISTENCY_POLICY_PPL) {
+			rv |= sysfs_set_num(sra, sd, "ppl_sector", sd->ppl_sector);
+			rv |= sysfs_set_num(sra, sd, "ppl_size", sd->ppl_size);
+		}
 		if (sd->recovery_start == MaxSector)
 			/* This can correctly fail if array isn't started,
 			 * yet, so just ignore status for now.

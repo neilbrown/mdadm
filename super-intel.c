@@ -102,6 +102,7 @@ struct imsm_disk {
 #define SPARE_DISK      __cpu_to_le32(0x01)  /* Spare */
 #define CONFIGURED_DISK __cpu_to_le32(0x02)  /* Member of some RaidDev */
 #define FAILED_DISK     __cpu_to_le32(0x04)  /* Permanent failure */
+#define JOURNAL_DISK    __cpu_to_le32(0x2000000) /* Device marked as Journaling Drive */
 	__u32 status;			 /* 0xF0 - 0xF3 */
 	__u32 owner_cfg_num; /* which config 0,1,2... owns this disk */
 	__u32 total_blocks_hi;		 /* 0xF4 - 0xF5 total blocks hi */
@@ -155,6 +156,9 @@ struct imsm_vol {
 #define MIGR_STATE_CHANGE 4
 #define MIGR_REPAIR 5
 	__u8  migr_type;	/* Initializing, Rebuilding, ... */
+#define RAIDVOL_CLEAN          0
+#define RAIDVOL_DIRTY          1
+#define RAIDVOL_DSRECORD_VALID 2
 	__u8  dirty;
 	__u8  fs_state;		/* fast-sync state for CnG (0xff == disabled) */
 	__u16 verify_errors;	/* number of mismatches */
@@ -190,7 +194,24 @@ struct imsm_dev {
 	__u16 cache_policy;
 	__u8  cng_state;
 	__u8  cng_sub_state;
-#define IMSM_DEV_FILLERS 10
+	__u16 my_vol_raid_dev_num; /* Used in Unique volume Id for this RaidDev */
+
+	/* NVM_EN */
+	__u8 nv_cache_mode;
+	__u8 nv_cache_flags;
+
+	/* Unique Volume Id of the NvCache Volume associated with this volume */
+	__u32 nvc_vol_orig_family_num;
+	__u16 nvc_vol_raid_dev_num;
+
+#define RWH_OFF 0
+#define RWH_DISTRIBUTED 1
+#define RWH_JOURNALING_DRIVE 2
+	__u8  rwh_policy; /* Raid Write Hole Policy */
+	__u8  jd_serial[MAX_RAID_SERIAL_LEN]; /* Journal Drive serial number */
+	__u8  filler1;
+
+#define IMSM_DEV_FILLERS 3
 	__u32 filler[IMSM_DEV_FILLERS];
 	struct imsm_vol vol;
 } __attribute__ ((packed));
@@ -257,6 +278,9 @@ static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed"
 #define UNIT_SRC_IN_CP_AREA 1   /* Source data for curr_migr_unit has
 				 *  already been migrated and must
 				 *  be recovered from checkpoint area */
+
+#define PPL_ENTRY_SPACE (128 * 1024) /* Size of the PPL, without the header */
+
 struct migr_record {
 	__u32 rec_status;	    /* Status used to determine how to restart
 				     * migration in case it aborts
@@ -1288,6 +1312,11 @@ static int is_failed(struct imsm_disk *disk)
 	return (disk->status & FAILED_DISK) == FAILED_DISK;
 }
 
+static int is_journal(struct imsm_disk *disk)
+{
+	return (disk->status & JOURNAL_DISK) == JOURNAL_DISK;
+}
+
 /* try to determine how much space is reserved for metadata from
  * the last get_extents() entry on the smallest active disk,
  * otherwise fallback to the default
@@ -1477,7 +1506,17 @@ static void print_imsm_dev(struct intel_super *super,
 				   blocks_per_migr_unit(super, dev));
 	}
 	printf("\n");
-	printf("    Dirty State : %s\n", dev->vol.dirty ? "dirty" : "clean");
+	printf("    Dirty State : %s\n", (dev->vol.dirty & RAIDVOL_DIRTY) ?
+					 "dirty" : "clean");
+	printf("     RWH Policy : ");
+	if (dev->rwh_policy == RWH_OFF)
+		printf("off\n");
+	else if (dev->rwh_policy == RWH_DISTRIBUTED)
+		printf("PPL distributed\n");
+	else if (dev->rwh_policy == RWH_JOURNALING_DRIVE)
+		printf("PPL journaling drive\n");
+	else
+		printf("<unknown:%d>\n", dev->rwh_policy);
 }
 
 static void print_imsm_disk(struct imsm_disk *disk,
@@ -1496,9 +1535,10 @@ static void print_imsm_disk(struct imsm_disk *disk,
 		printf("  Disk%02d Serial : %s\n", index, str);
 	else
 		printf("    Disk Serial : %s\n", str);
-	printf("          State :%s%s%s\n", is_spare(disk) ? " spare" : "",
-					    is_configured(disk) ? " active" : "",
-					    is_failed(disk) ? " failed" : "");
+	printf("          State :%s%s%s%s\n", is_spare(disk) ? " spare" : "",
+					      is_configured(disk) ? " active" : "",
+					      is_failed(disk) ? " failed" : "",
+					      is_journal(disk) ? " journal" : "");
 	printf("             Id : %08x\n", __le32_to_cpu(disk->scsi_id));
 	sz = total_blocks(disk) - reserved;
 	printf("    Usable Size : %llu%s\n",
@@ -3114,6 +3154,15 @@ static unsigned long long imsm_component_size_aligment_check(int level,
 	return component_size;
 }
 
+static unsigned long long get_ppl_sector(struct intel_super *super, int dev_idx)
+{
+	struct imsm_dev *dev = get_imsm_dev(super, dev_idx);
+	struct imsm_map *map = get_imsm_map(dev, MAP_0);
+
+	return pba_of_lba0(map) +
+	       (num_data_stripes(map) * map->blocks_per_strip);
+}
+
 static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info, char *dmap)
 {
 	struct intel_super *super = st->sb;
@@ -3140,7 +3189,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->array.utime	  = 0;
 	info->array.chunk_size	  =
 		__le16_to_cpu(map_to_analyse->blocks_per_strip) << 9;
-	info->array.state	  = !dev->vol.dirty;
+	info->array.state	  = !(dev->vol.dirty & RAIDVOL_DIRTY);
 	info->custom_array_size   = __le32_to_cpu(dev->size_high);
 	info->custom_array_size   <<= 32;
 	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
@@ -3221,10 +3270,20 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	memset(info->uuid, 0, sizeof(info->uuid));
 	info->recovery_start = MaxSector;
 
+	if (info->array.level == 5 && dev->rwh_policy == RWH_DISTRIBUTED) {
+		info->consistency_policy = CONSISTENCY_POLICY_PPL;
+		info->ppl_sector = get_ppl_sector(super, super->current_vol);
+		info->ppl_size = (PPL_HEADER_SIZE + PPL_ENTRY_SPACE) >> 9;
+	} else if (info->array.level <= 0) {
+		info->consistency_policy = CONSISTENCY_POLICY_NONE;
+	} else {
+		info->consistency_policy = CONSISTENCY_POLICY_RESYNC;
+	}
+
 	info->reshape_progress = 0;
 	info->resync_start = MaxSector;
 	if ((map_to_analyse->map_state == IMSM_T_STATE_UNINITIALIZED ||
-	    dev->vol.dirty) &&
+	    !(info->array.state & 1)) &&
 	    imsm_reshape_blocks_arrays_changes(super) == 0) {
 		info->resync_start = 0;
 	}
@@ -3451,7 +3510,8 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 		 * found the 'most fresh' version of the metadata
 		 */
 		info->disk.state |= is_failed(disk) ? (1 << MD_DISK_FAULTY) : 0;
-		info->disk.state |= is_spare(disk) ? 0 : (1 << MD_DISK_SYNC);
+		info->disk.state |= (is_spare(disk) || is_journal(disk)) ?
+				    0 : (1 << MD_DISK_SYNC);
 	}
 
 	/* only call uuid_from_super_imsm when this disk is part of a populated container,
@@ -3906,7 +3966,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 		 */
 		if (is_failed(&dl->disk))
 			dl->index = -2;
-		else if (is_spare(&dl->disk))
+		else if (is_spare(&dl->disk) || is_journal(&dl->disk))
 			dl->index = -1;
 	}
 
@@ -5303,6 +5363,20 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	}
 	mpb->num_raid_devs++;
 
+	if (s->consistency_policy == UnSet ||
+	    s->consistency_policy == CONSISTENCY_POLICY_RESYNC ||
+	    s->consistency_policy == CONSISTENCY_POLICY_NONE) {
+		dev->rwh_policy = RWH_OFF;
+	} else if (s->consistency_policy == CONSISTENCY_POLICY_PPL) {
+		dev->rwh_policy = RWH_DISTRIBUTED;
+	} else {
+		free(dev);
+		free(dv);
+		pr_err("imsm does not support consistency policy %s\n",
+		       map_num(consistency_policies, s->consistency_policy));
+		return 0;
+	}
+
 	dv->dev = dev;
 	dv->index = super->current_vol;
 	dv->next = super->devlist;
@@ -5927,11 +6001,146 @@ static int mgmt_disk(struct supertype *st)
 
 	return 0;
 }
+#endif
+
+__u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
+
+static int write_init_ppl_imsm(struct supertype *st, struct mdinfo *info, int fd)
+{
+	struct intel_super *super = st->sb;
+	void *buf;
+	struct ppl_header *ppl_hdr;
+	int ret;
+
+	ret = posix_memalign(&buf, 4096, PPL_HEADER_SIZE);
+	if (ret) {
+		pr_err("Failed to allocate PPL header buffer\n");
+		return ret;
+	}
+
+	memset(buf, 0, PPL_HEADER_SIZE);
+	ppl_hdr = buf;
+	memset(ppl_hdr->reserved, 0xff, PPL_HDR_RESERVED);
+	ppl_hdr->signature = __cpu_to_le32(super->anchor->orig_family_num);
+	ppl_hdr->checksum = __cpu_to_le32(~crc32c_le(~0, buf, PPL_HEADER_SIZE));
+
+	if (lseek64(fd, info->ppl_sector * 512, SEEK_SET) < 0) {
+		ret = errno;
+		perror("Failed to seek to PPL header location");
+	}
+
+	if (!ret && write(fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
+		ret = errno;
+		perror("Write PPL header failed");
+	}
+
+	if (!ret)
+		fsync(fd);
+
+	free(buf);
+	return ret;
+}
+
+static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
+			     struct mdinfo *disk)
+{
+	struct intel_super *super = st->sb;
+	struct dl *d;
+	void *buf;
+	int ret = 0;
+	struct ppl_header *ppl_hdr;
+	__u32 crc;
+	struct imsm_dev *dev;
+	struct imsm_map *map;
+	__u32 idx;
+
+	if (disk->disk.raid_disk < 0)
+		return 0;
+
+	if (posix_memalign(&buf, 4096, PPL_HEADER_SIZE)) {
+		pr_err("Failed to allocate PPL header buffer\n");
+		return -1;
+	}
+
+	dev = get_imsm_dev(super, info->container_member);
+	map = get_imsm_map(dev, MAP_X);
+	idx = get_imsm_disk_idx(dev, disk->disk.raid_disk, MAP_X);
+	d = get_imsm_dl_disk(super, idx);
+
+	if (!d || d->index < 0 || is_failed(&d->disk))
+		goto out;
+
+	if (lseek64(d->fd, info->ppl_sector * 512, SEEK_SET) < 0) {
+		perror("Failed to seek to PPL header location");
+		ret = -1;
+		goto out;
+	}
+
+	if (read(d->fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
+		perror("Read PPL header failed");
+		ret = -1;
+		goto out;
+	}
+
+	ppl_hdr = buf;
+
+	crc = __le32_to_cpu(ppl_hdr->checksum);
+	ppl_hdr->checksum = 0;
+
+	if (crc != ~crc32c_le(~0, buf, PPL_HEADER_SIZE)) {
+		dprintf("Wrong PPL header checksum on %s\n",
+			d->devname);
+		ret = 1;
+	}
+
+	if (!ret && (__le32_to_cpu(ppl_hdr->signature) !=
+		      super->anchor->orig_family_num)) {
+		dprintf("Wrong PPL header signature on %s\n",
+			d->devname);
+		ret = 1;
+	}
+
+out:
+	free(buf);
+
+	if (ret == 1 && map->map_state == IMSM_T_STATE_UNINITIALIZED)
+		return st->ss->write_init_ppl(st, info, d->fd);
+
+	return ret;
+}
+
+#ifndef MDASSEMBLE
+
+static int write_init_ppl_imsm_all(struct supertype *st, struct mdinfo *info)
+{
+	struct intel_super *super = st->sb;
+	struct dl *d;
+	int ret = 0;
+
+	if (info->consistency_policy != CONSISTENCY_POLICY_PPL ||
+	    info->array.level != 5)
+		return 0;
+
+	for (d = super->disks; d ; d = d->next) {
+		if (d->index < 0 || is_failed(&d->disk))
+			continue;
+
+		ret = st->ss->write_init_ppl(st, info, d->fd);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
 
 static int write_init_super_imsm(struct supertype *st)
 {
 	struct intel_super *super = st->sb;
 	int current_vol = super->current_vol;
+	int rv = 0;
+	struct mdinfo info;
+
+	getinfo_super_imsm(st, &info, NULL);
 
 	/* we are done with current_vol reset it to point st at the container */
 	super->current_vol = -1;
@@ -5939,24 +6148,29 @@ static int write_init_super_imsm(struct supertype *st)
 	if (st->update_tail) {
 		/* queue the recently created array / added disk
 		 * as a metadata update */
-		int rv;
 
 		/* determine if we are creating a volume or adding a disk */
 		if (current_vol < 0) {
 			/* in the mgmt (add/remove) disk case we are running
 			 * in mdmon context, so don't close fd's
 			 */
-			return mgmt_disk(st);
-		} else
-			rv = create_array(st, current_vol);
-
-		return rv;
+			rv = mgmt_disk(st);
+		} else {
+			rv = write_init_ppl_imsm_all(st, &info);
+			if (!rv)
+				rv = create_array(st, current_vol);
+		}
 	} else {
 		struct dl *d;
 		for (d = super->disks; d; d = d->next)
 			Kill(d->devname, NULL, 0, -1, 1);
-		return write_super_imsm(st, 1);
+		if (current_vol >= 0)
+			rv = write_init_ppl_imsm_all(st, &info);
+		if (!rv)
+			rv = write_super_imsm(st, 1);
 	}
+
+	return rv;
 }
 #endif
 
@@ -7375,7 +7589,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			 *
 			 * FIXME handle dirty degraded
 			 */
-			if ((skip || recovery_start == 0) && !dev->vol.dirty)
+			if ((skip || recovery_start == 0) &&
+			    !(dev->vol.dirty & RAIDVOL_DIRTY))
 				this->resync_start = MaxSector;
 			if (skip)
 				continue;
@@ -7410,9 +7625,12 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				info_d->component_size =
 						num_data_stripes(map) *
 						map->blocks_per_strip;
+				info_d->ppl_sector = this->ppl_sector;
+				info_d->ppl_size = this->ppl_size;
 			} else {
 				info_d->component_size = blocks_per_member(map);
 			}
+			info_d->consistency_policy = this->consistency_policy;
 
 			info_d->bb.supported = 1;
 			get_volume_badblocks(super->bbm_log, ord_to_idx(ord),
@@ -7928,12 +8146,16 @@ mark_checkpoint:
 
 skip_mark_checkpoint:
 	/* mark dirty / clean */
-	if (dev->vol.dirty != !consistent) {
+	if (((dev->vol.dirty & RAIDVOL_DIRTY) && consistent) ||
+	    (!(dev->vol.dirty & RAIDVOL_DIRTY) && !consistent)) {
 		dprintf("imsm: mark '%s'\n", consistent ? "clean" : "dirty");
-		if (consistent)
-			dev->vol.dirty = 0;
-		else
-			dev->vol.dirty = 1;
+		if (consistent) {
+			dev->vol.dirty = RAIDVOL_CLEAN;
+		} else {
+			dev->vol.dirty = RAIDVOL_DIRTY;
+			if (dev->rwh_policy == RWH_DISTRIBUTED)
+				dev->vol.dirty |= RAIDVOL_DSRECORD_VALID;
+		}
 		super->updates_pending++;
 	}
 
@@ -8445,6 +8667,11 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		di->component_size = a->info.component_size;
 		di->container_member = inst;
 		di->bb.supported = 1;
+		if (dev->rwh_policy == RWH_DISTRIBUTED) {
+			di->consistency_policy = CONSISTENCY_POLICY_PPL;
+			di->ppl_sector = get_ppl_sector(super, inst);
+			di->ppl_size = (PPL_HEADER_SIZE + PPL_ENTRY_SPACE) >> 9;
+		}
 		super->random = random32();
 		di->next = rv;
 		rv = di;
@@ -11599,6 +11826,9 @@ struct superswitch super_imsm = {
 	.match_metadata_desc = match_metadata_desc_imsm,
 	.container_content = container_content_imsm,
 	.validate_container = validate_container_imsm,
+
+	.write_init_ppl = write_init_ppl_imsm,
+	.validate_ppl	= validate_ppl_imsm,
 
 	.external	= 1,
 	.name = "imsm",

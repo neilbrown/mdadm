@@ -300,6 +300,8 @@ struct mdinfo {
 		#define MaxSector  (~0ULL) /* resync/recovery complete position */
 	};
 	long			bitmap_offset;	/* 0 == none, 1 == a file */
+	unsigned int		ppl_size;
+	unsigned long long	ppl_sector;
 	unsigned long		safe_mode_delay; /* ms delay to mark clean */
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;
@@ -1073,6 +1075,10 @@ extern struct superswitch {
 
 	/* write initial empty PPL on device */
 	int (*write_init_ppl)(struct supertype *st, struct mdinfo *info, int fd);
+
+	/* validate ppl before assemble */
+	int (*validate_ppl)(struct supertype *st, struct mdinfo *info,
+			    struct mdinfo *disk);
 
 	/* records new bad block in metadata */
 	int (*record_bad_block)(struct active_array *a, int n,

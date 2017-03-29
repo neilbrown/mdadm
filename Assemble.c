@@ -1942,6 +1942,55 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	map_update(NULL, fd2devnm(mdfd), content->text_version,
 		   content->uuid, chosen_name);
 
+	if (content->consistency_policy == CONSISTENCY_POLICY_PPL &&
+	    st->ss->validate_ppl) {
+		content->array.state |= 1;
+		err = 0;
+
+		for (dev = content->devs; dev; dev = dev->next) {
+			int dfd;
+			char *devpath;
+			int ret;
+
+			ret = st->ss->validate_ppl(st, content, dev);
+			if (ret == 0)
+				continue;
+
+			if (ret < 0) {
+				err = 1;
+				break;
+			}
+
+			if (!c->force) {
+				pr_err("%s contains invalid PPL - consider --force or --update-subarray with --update=no-ppl\n",
+					chosen_name);
+				content->array.state &= ~1;
+				avail[dev->disk.raid_disk] = 0;
+				break;
+			}
+
+			/* have --force - overwrite the invalid ppl */
+			devpath = map_dev(dev->disk.major, dev->disk.minor, 0);
+			dfd = dev_open(devpath, O_RDWR);
+			if (dfd < 0) {
+				pr_err("Failed to open %s\n", devpath);
+				err = 1;
+				break;
+			}
+
+			err = st->ss->write_init_ppl(st, content, dfd);
+			close(dfd);
+
+			if (err)
+				break;
+		}
+
+		if (err) {
+			free(avail);
+			return err;
+		}
+	}
+
 	if (enough(content->array.level, content->array.raid_disks,
 		   content->array.layout, content->array.state & 1, avail) == 0) {
 		if (c->export && result)

@@ -1269,8 +1269,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 		 * raid5 with 2 disks, or
 		 * raid0 with 1 disk
 		 */
-		if (info->new_level > 1 &&
-		    (info->component_size & 7))
+		if (info->new_level > 1 && (info->component_size & 7))
 			return "Cannot convert RAID1 of this size - reduce size to multiple of 4K first.";
 		if (info->new_level == 0) {
 			if (info->delta_disks != UnSet &&
@@ -1288,12 +1287,9 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 			re->level = 1;
 			return NULL;
 		}
-		if (info->array.raid_disks != 2 &&
-		    info->new_level == 5)
+		if (info->array.raid_disks != 2 && info->new_level == 5)
 			return "Can only convert a 2-device array to RAID5";
-		if (info->array.raid_disks == 2 &&
-		    info->new_level == 5) {
-
+		if (info->array.raid_disks == 2 && info->new_level == 5) {
 			re->level = 5;
 			re->before.data_disks = 1;
 			if (info->delta_disks != UnSet &&
@@ -1404,7 +1400,8 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 	case 0:
 		/* RAID0 can be converted to RAID10, or to RAID456 */
 		if (info->new_level == 10) {
-			if (info->new_layout == UnSet && info->delta_disks == UnSet) {
+			if (info->new_layout == UnSet &&
+			    info->delta_disks == UnSet) {
 				/* Assume near=2 layout */
 				info->new_layout = 0x102;
 				info->delta_disks = info->array.raid_disks;
@@ -1643,16 +1640,19 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 	if (info->delta_disks == UnSet)
 		info->delta_disks = delta_parity;
 
-	re->after.data_disks = (re->before.data_disks
-				+ info->delta_disks
-				- delta_parity);
+	re->after.data_disks =
+		(re->before.data_disks + info->delta_disks - delta_parity);
+
 	switch (re->level) {
-	case 6: re->parity = 2;
+	case 6:
+		re->parity = 2;
 		break;
 	case 4:
-	case 5: re->parity = 1;
+	case 5:
+		re->parity = 1;
 		break;
-	default: re->parity = 0;
+	default:
+		re->parity = 0;
 		break;
 	}
 	/* So we have a restripe operation, we need to calculate the number
@@ -1706,7 +1706,7 @@ static int set_array_size(struct supertype *st, struct mdinfo *sra,
 
 	if (text_version == NULL)
 		text_version = sra->text_version;
-	subarray = strchr(text_version+1, '/')+1;
+	subarray = strchr(text_version + 1, '/')+1;
 	info = st->ss->container_content(st, subarray);
 	if (info) {
 		unsigned long long current_size = 0;
@@ -1789,8 +1789,8 @@ int Grow_reshape(char *devname, int fd,
 			devname);
 		return 1;
 	}
-	if (data_offset != INVALID_SECTORS && array.level != 10
-	    && (array.level < 4 || array.level > 6)) {
+	if (data_offset != INVALID_SECTORS && array.level != 10 &&
+	    (array.level < 4 || array.level > 6)) {
 		pr_err("--grow --data-offset not yet supported\n");
 		return 1;
 	}
@@ -1802,8 +1802,8 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
-	if (s->raiddisks && s->raiddisks < array.raid_disks && array.level > 1 &&
-	    get_linux_version() < 2006032 &&
+	if (s->raiddisks && s->raiddisks < array.raid_disks &&
+	    array.level > 1 && get_linux_version() < 2006032 &&
 	    !check_env("MDADM_FORCE_FEWER")) {
 		pr_err("reducing the number of devices is not safe before Linux 2.6.32\n"
 			"       Please use a newer kernel\n");
@@ -1873,10 +1873,11 @@ int Grow_reshape(char *devname, int fd,
 				/* check if reshape is allowed based on metadata
 				 * indications stored in content.array.status
 				 */
-				if (content->array.state & (1<<MD_SB_BLOCK_VOLUME))
+				if (content->array.state &
+				    (1 << MD_SB_BLOCK_VOLUME))
 					allow_reshape = 0;
-				if (content->array.state
-				    & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))
+				if (content->array.state &
+				    (1 << MD_SB_BLOCK_CONTAINER_RESHAPE))
 					allow_reshape = 0;
 				if (!allow_reshape) {
 					pr_err("cannot reshape arrays in container with unsupported metadata: %s(%s)\n",
@@ -1896,7 +1897,7 @@ int Grow_reshape(char *devname, int fd,
 	for (dv = devlist; dv; dv = dv->next)
 		added_disks++;
 	if (s->raiddisks > array.raid_disks &&
-	    array.spare_disks +added_disks < (s->raiddisks - array.raid_disks) &&
+	    array.spare_disks + added_disks < (s->raiddisks - array.raid_disks) &&
 	    !c->force) {
 		pr_err("Need %d spare%s to avoid degraded array, and only have %d.\n"
 		       "       Use --force to over-ride this check.\n",
@@ -1906,8 +1907,8 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
-	sra = sysfs_read(fd, NULL, GET_LEVEL | GET_DISKS | GET_DEVS
-			 | GET_STATE | GET_VERSION);
+	sra = sysfs_read(fd, NULL, GET_LEVEL | GET_DISKS | GET_DEVS |
+			 GET_STATE | GET_VERSION);
 	if (sra) {
 		if (st->ss->external && subarray == NULL) {
 			array.level = LEVEL_CONTAINER;
@@ -1930,7 +1931,8 @@ int Grow_reshape(char *devname, int fd,
 	}
 
 	/* ========= set size =============== */
-	if (s->size > 0 && (s->size == MAX_SIZE || s->size != (unsigned)array.size)) {
+	if (s->size > 0 &&
+	    (s->size == MAX_SIZE || s->size != (unsigned)array.size)) {
 		unsigned long long orig_size = get_component_size(fd)/2;
 		unsigned long long min_csize;
 		struct mdinfo *mdi;
@@ -1946,7 +1948,8 @@ int Grow_reshape(char *devname, int fd,
 		}
 
 		if (reshape_super(st, s->size, UnSet, UnSet, 0, 0, UnSet, NULL,
-				  devname, APPLY_METADATA_CHANGES, c->verbose > 0)) {
+				  devname, APPLY_METADATA_CHANGES,
+				  c->verbose > 0)) {
 			rv = 1;
 			goto release;
 		}
@@ -1965,7 +1968,8 @@ int Grow_reshape(char *devname, int fd,
 						sizeinfo->array.layout,
 						sizeinfo->array.raid_disks);
 				new_size /= data_disks;
-				dprintf("Metadata size correction from %llu to %llu (%llu)\n", orig_size, new_size,
+				dprintf("Metadata size correction from %llu to %llu (%llu)\n",
+					orig_size, new_size,
 					new_size * data_disks);
 				s->size = new_size;
 				sysfs_free(sizeinfo);

@@ -1040,7 +1040,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		info->disk.state = 0; /* spare: not active, not sync, not faulty */
 		break;
 	case MD_DISK_ROLE_FAULTY:
-		info->disk.state = 1; /* faulty */
+		info->disk.state = (1 << MD_DISK_FAULTY); /* faulty */
 		break;
 	case MD_DISK_ROLE_JOURNAL:
 		info->disk.state = (1 << MD_DISK_JOURNAL);
@@ -1600,11 +1600,12 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	}
 
 	dk_state = dk->state & ~(1<<MD_DISK_FAILFAST);
-	if ((dk_state & 6) == 6) /* active, sync */
+	if ((dk_state & (1<<MD_DISK_ACTIVE)) &&
+	    (dk_state & (1<<MD_DISK_SYNC)))/* active, sync */
 		*rp = __cpu_to_le16(dk->raid_disk);
 	else if (dk_state & (1<<MD_DISK_JOURNAL))
                 *rp = MD_DISK_ROLE_JOURNAL;
-	else if ((dk_state & ~2) == 0) /* active or idle -> spare */
+	else if ((dk_state & ~(1<<MD_DISK_ACTIVE)) == 0) /* active or idle -> spare */
 		*rp = MD_DISK_ROLE_SPARE;
 	else
 		*rp = MD_DISK_ROLE_FAULTY;

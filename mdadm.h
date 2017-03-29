@@ -302,6 +302,7 @@ struct mdinfo {
 	long			bitmap_offset;	/* 0 == none, 1 == a file */
 	unsigned int		ppl_size;
 	unsigned long long	ppl_sector;
+	int			ppl_offset;
 	unsigned long		safe_mode_delay; /* ms delay to mark clean */
 	int			new_level, delta_disks, new_layout, new_chunk;
 	int			errors;

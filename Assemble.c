@@ -962,6 +962,9 @@ static int start_array(int mdfd,
 		c->readonly = 1;
 	}
 
+	if (content->consistency_policy == CONSISTENCY_POLICY_PPL)
+		clean = 1;
+
 	rv = set_array_info(mdfd, st, content);
 	if (rv && !err_ok) {
 		pr_err("failed to set array info for %s: %s\n",

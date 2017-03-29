@@ -290,6 +290,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	int major = BITMAP_MAJOR_HI;
 	int vers = md_get_version(fd);
 	unsigned long long bitmapsize, array_size;
+	struct mdinfo *mdi;
 
 	if (vers < 9003) {
 		major = BITMAP_MAJOR_HOSTENDIAN;
@@ -389,12 +390,23 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		free(st);
 		return 1;
 	}
+
+	mdi = sysfs_read(fd, NULL, GET_CONSISTENCY_POLICY);
+	if (mdi) {
+		if (mdi->consistency_policy == CONSISTENCY_POLICY_PPL) {
+			pr_err("Cannot add bitmap to array with PPL\n");
+			free(mdi);
+			free(st);
+			return 1;
+		}
+		free(mdi);
+	}
+
 	if (strcmp(s->bitmap_file, "internal") == 0 ||
 	    strcmp(s->bitmap_file, "clustered") == 0) {
 		int rv;
 		int d;
 		int offset_setable = 0;
-		struct mdinfo *mdi;
 		if (st->ss->add_internal_bitmap == NULL) {
 			pr_err("Internal bitmaps not supported with %s metadata\n", st->ss->name);
 			return 1;
@@ -446,6 +458,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			sysfs_init(mdi, fd, NULL);
 			rv = sysfs_set_num_signed(mdi, NULL, "bitmap/location",
 						  mdi->bitmap_offset);
+			free(mdi);
 		} else {
 			if (strcmp(s->bitmap_file, "clustered") == 0)
 				array.state |= (1 << MD_SB_CLUSTERED);

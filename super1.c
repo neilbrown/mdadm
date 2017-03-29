@@ -48,10 +48,18 @@ struct mdp_superblock_1 {
 
 	__u32	chunksize;	/* in 512byte sectors */
 	__u32	raid_disks;
-	__u32	bitmap_offset;	/* sectors after start of superblock that bitmap starts
-				 * NOTE: signed, so bitmap can be before superblock
-				 * only meaningful of feature_map[0] is set.
-				 */
+	union {
+		__u32	bitmap_offset;	/* sectors after start of superblock that bitmap starts
+					 * NOTE: signed, so bitmap can be before superblock
+					 * only meaningful of feature_map[0] is set.
+					 */
+
+		/* only meaningful when feature_map[MD_FEATURE_PPL] is set */
+		struct {
+			__s16 offset; /* sectors from start of superblock that ppl starts */
+			__u16 size; /* ppl size in sectors */
+		} ppl;
+	};
 
 	/* These are only valid with feature bit '4' */
 	__u32	new_level;	/* new level we are reshaping to		*/
@@ -131,6 +139,7 @@ struct misc_dev_info {
 #define	MD_FEATURE_NEW_OFFSET		64 /* new_offset must be honoured */
 #define	MD_FEATURE_BITMAP_VERSIONED	256 /* bitmap version number checked properly */
 #define	MD_FEATURE_JOURNAL		512 /* support write journal */
+#define	MD_FEATURE_PPL			1024 /* support PPL */
 #define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
 					|MD_FEATURE_RECOVERY_OFFSET	\
 					|MD_FEATURE_RESHAPE_ACTIVE	\
@@ -140,6 +149,7 @@ struct misc_dev_info {
 					|MD_FEATURE_NEW_OFFSET		\
 					|MD_FEATURE_BITMAP_VERSIONED	\
 					|MD_FEATURE_JOURNAL		\
+					|MD_FEATURE_PPL			\
 					)
 
 #ifndef MDASSEMBLE
@@ -289,6 +299,11 @@ static int awrite(struct align_fd *afd, void *buf, int len)
 	return len;
 }
 
+static inline unsigned int choose_ppl_space(int chunk)
+{
+	return (PPL_HEADER_SIZE >> 9) + (chunk > 128*2 ? chunk : 128*2);
+}
+
 #ifndef MDASSEMBLE
 static void examine_super1(struct supertype *st, char *homehost)
 {
@@ -392,6 +407,10 @@ static void examine_super1(struct supertype *st, char *homehost)
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 		printf("Internal Bitmap : %ld sectors from superblock\n",
 		       (long)(int32_t)__le32_to_cpu(sb->bitmap_offset));
+	} else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_PPL)) {
+		printf("            PPL : %u sectors at offset %d sectors from superblock\n",
+		       __le16_to_cpu(sb->ppl.size),
+		       __le16_to_cpu(sb->ppl.offset));
 	}
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_RESHAPE_ACTIVE)) {
 		printf("  Reshape pos'n : %llu%s\n", (unsigned long long)__le64_to_cpu(sb->reshape_position)/2,
@@ -934,10 +953,16 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	if (__le32_to_cpu(bsb->nodes) > 1)
 		info->array.state |= (1 << MD_SB_CLUSTERED);
 
+	super_offset = __le64_to_cpu(sb->super_offset);
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);
-	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET))
+	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET)) {
 		info->bitmap_offset = (int32_t)__le32_to_cpu(sb->bitmap_offset);
+	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_PPL)) {
+		info->ppl_offset = __le16_to_cpu(sb->ppl.offset);
+		info->ppl_size = __le16_to_cpu(sb->ppl.size);
+		info->ppl_sector = super_offset + info->ppl_offset;
+	}
 
 	info->disk.major = 0;
 	info->disk.minor = 0;
@@ -948,7 +973,6 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	else
 		role = __le16_to_cpu(sb->dev_roles[__le32_to_cpu(sb->dev_number)]);
 
-	super_offset = __le64_to_cpu(sb->super_offset);
 	if (info->array.level <= 0)
 		data_size = __le64_to_cpu(sb->data_size);
 	else
@@ -965,8 +989,8 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 				end = bboffset;
 		}
 
-		if (super_offset + info->bitmap_offset < end)
-			end = super_offset + info->bitmap_offset;
+		if (super_offset + info->bitmap_offset + info->ppl_offset < end)
+			end = super_offset + info->bitmap_offset + info->ppl_offset;
 
 		if (info->data_offset + data_size < end)
 			info->space_after = end - data_size - info->data_offset;
@@ -982,6 +1006,11 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 			bmend += size;
 			if (bmend > earliest)
 				earliest = bmend;
+		} else if (info->ppl_offset > 0) {
+			unsigned long long pplend = info->ppl_offset +
+						    info->ppl_size;
+			if (pplend > earliest)
+				earliest = pplend;
 		}
 		if (sb->bblog_offset && sb->bblog_size) {
 			unsigned long long bbend = super_offset;
@@ -1075,8 +1104,20 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	}
 
 	info->array.working_disks = working;
-	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_JOURNAL))
+
+	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_JOURNAL)) {
 		info->journal_device_required = 1;
+		info->consistency_policy = CONSISTENCY_POLICY_JOURNAL;
+	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_PPL)) {
+		info->consistency_policy = CONSISTENCY_POLICY_PPL;
+	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET)) {
+		info->consistency_policy = CONSISTENCY_POLICY_BITMAP;
+	} else if (info->array.level <= 0) {
+		info->consistency_policy = CONSISTENCY_POLICY_NONE;
+	} else {
+		info->consistency_policy = CONSISTENCY_POLICY_RESYNC;
+	}
+
 	info->journal_clean = 0;
 }
 
@@ -1239,6 +1280,9 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 			bitmap_offset = (long)__le32_to_cpu(sb->bitmap_offset);
 			bm_sectors = calc_bitmap_size(bms, 4096) >> 9;
+		} else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_PPL)) {
+			bitmap_offset = (long)__le16_to_cpu(sb->ppl.offset);
+			bm_sectors = (long)__le16_to_cpu(sb->ppl.size);
 		}
 #endif
 		if (sb_offset < data_offset) {
@@ -1472,6 +1516,9 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 
 	memset(sb->dev_roles, 0xff, MAX_SB_SIZE - sizeof(struct mdp_superblock_1));
 
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL)
+		sb->feature_map |= __cpu_to_le32(MD_FEATURE_PPL);
+
 	return 1;
 }
 
@@ -1645,10 +1692,49 @@ static unsigned long choose_bm_space(unsigned long devsize)
 
 static void free_super1(struct supertype *st);
 
-#define META_BLOCK_SIZE 4096
+#ifndef MDASSEMBLE
+
 __u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
 
-#ifndef MDASSEMBLE
+static int write_init_ppl1(struct supertype *st, struct mdinfo *info, int fd)
+{
+	struct mdp_superblock_1 *sb = st->sb;
+	void *buf;
+	struct ppl_header *ppl_hdr;
+	int ret;
+
+	ret = posix_memalign(&buf, 4096, PPL_HEADER_SIZE);
+	if (ret) {
+		pr_err("Failed to allocate PPL header buffer\n");
+		return ret;
+	}
+
+	memset(buf, 0, PPL_HEADER_SIZE);
+	ppl_hdr = buf;
+	memset(ppl_hdr->reserved, 0xff, PPL_HDR_RESERVED);
+	ppl_hdr->signature = __cpu_to_le32(~crc32c_le(~0, sb->set_uuid,
+						      sizeof(sb->set_uuid)));
+	ppl_hdr->checksum = __cpu_to_le32(~crc32c_le(~0, buf, PPL_HEADER_SIZE));
+
+	if (lseek64(fd, info->ppl_sector * 512, SEEK_SET) < 0) {
+		ret = errno;
+		perror("Failed to seek to PPL header location");
+	}
+
+	if (!ret && write(fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
+		ret = errno;
+		perror("Write PPL header failed");
+	}
+
+	if (!ret)
+		fsync(fd);
+
+	free(buf);
+	return ret;
+}
+
+#define META_BLOCK_SIZE 4096
+
 static int write_empty_r5l_meta_block(struct supertype *st, int fd)
 {
 	struct r5l_meta_block *mb;
@@ -1675,7 +1761,7 @@ static int write_empty_r5l_meta_block(struct supertype *st, int fd)
 	crc = crc32c_le(crc, (void *)mb, META_BLOCK_SIZE);
 	mb->checksum = crc;
 
-	if (lseek64(fd, (sb->data_offset) * 512, 0) < 0LL) {
+	if (lseek64(fd, __le64_to_cpu(sb->data_offset) * 512, 0) < 0LL) {
 		pr_err("cannot seek to offset of the meta block\n");
 		goto fail_to_write;
 	}
@@ -1708,7 +1794,7 @@ static int write_init_super1(struct supertype *st)
 
 	for (di = st->info; di; di = di->next) {
 		if (di->disk.state & (1 << MD_DISK_JOURNAL))
-			sb->feature_map |= MD_FEATURE_JOURNAL;
+			sb->feature_map |= __cpu_to_le32(MD_FEATURE_JOURNAL);
 	}
 
 	for (di = st->info; di; di = di->next) {
@@ -1783,6 +1869,21 @@ static int write_init_super1(struct supertype *st)
 					(((char *)sb) + MAX_SB_SIZE);
 			bm_space = calc_bitmap_size(bms, 4096) >> 9;
 			bm_offset = (long)__le32_to_cpu(sb->bitmap_offset);
+		} else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_PPL)) {
+			bm_space = choose_ppl_space(__le32_to_cpu(sb->chunksize));
+			if (bm_space > UINT16_MAX)
+				bm_space = UINT16_MAX;
+			if (st->minor_version == 0) {
+				bm_offset = -bm_space - 8;
+				if (bm_offset < INT16_MIN) {
+					bm_offset = INT16_MIN;
+					bm_space = -bm_offset - 8;
+				}
+			} else {
+				bm_offset = 8;
+			}
+			sb->ppl.offset = __cpu_to_le16(bm_offset);
+			sb->ppl.size = __cpu_to_le16(bm_space);
 		} else {
 			bm_space = choose_bm_space(array_size);
 			bm_offset = 8;
@@ -1854,8 +1955,17 @@ static int write_init_super1(struct supertype *st)
 				goto error_out;
 		}
 
-		if (rv == 0 && (__le32_to_cpu(sb->feature_map) & 1))
+		if (rv == 0 &&
+		    (__le32_to_cpu(sb->feature_map) & MD_FEATURE_BITMAP_OFFSET)) {
 			rv = st->ss->write_bitmap(st, di->fd, NodeNumUpdate);
+		} else if (rv == 0 &&
+			 (__le32_to_cpu(sb->feature_map) & MD_FEATURE_PPL)) {
+			struct mdinfo info;
+
+			st->ss->getinfo_super(st, &info, NULL);
+			rv = st->ss->write_init_ppl(st, &info, di->fd);
+		}
+
 		close(di->fd);
 		di->fd = -1;
 		if (rv)
@@ -2123,11 +2233,13 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 		return 0;
 
 #ifndef MDASSEMBLE
-	if (__le32_to_cpu(super->feature_map)&MD_FEATURE_BITMAP_OFFSET) {
+	if (__le32_to_cpu(super->feature_map) & MD_FEATURE_BITMAP_OFFSET) {
 		/* hot-add. allow for actual size of bitmap */
 		struct bitmap_super_s *bsb;
 		bsb = (struct bitmap_super_s *)(((char*)super)+MAX_SB_SIZE);
 		bmspace = calc_bitmap_size(bsb, 4096) >> 9;
+	} else if (__le32_to_cpu(super->feature_map) & MD_FEATURE_PPL) {
+		bmspace = __le16_to_cpu(super->ppl.size);
 	}
 #endif
 	/* Allow space for bad block log */
@@ -2530,8 +2642,9 @@ static int validate_geometry1(struct supertype *st, int level,
 		return 0;
 	}
 
-	/* creating:  allow suitable space for bitmap */
-	bmspace = choose_bm_space(devsize);
+	/* creating:  allow suitable space for bitmap or PPL */
+	bmspace = consistency_policy == CONSISTENCY_POLICY_PPL ?
+		  choose_ppl_space((*chunk)*2) : choose_bm_space(devsize);
 
 	if (data_offset == INVALID_SECTORS)
 		data_offset = st->data_offset;
@@ -2566,7 +2679,7 @@ static int validate_geometry1(struct supertype *st, int level,
 	switch(st->minor_version) {
 	case 0: /* metadata at end.  Round down and subtract space to reserve */
 		devsize = (devsize & ~(4ULL*2-1));
-		/* space for metadata, bblog, bitmap */
+		/* space for metadata, bblog, bitmap/ppl */
 		devsize -= 8*2 + 8 + bmspace;
 		break;
 	case 1:
@@ -2642,6 +2755,7 @@ struct superswitch super1 = {
 	.add_to_super = add_to_super1,
 	.examine_badblocks = examine_badblocks_super1,
 	.copy_metadata = copy_metadata1,
+	.write_init_ppl = write_init_ppl1,
 #endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,

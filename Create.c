@@ -524,6 +524,8 @@ int Create(struct supertype *st, char *mddev,
 	if (!s->bitmap_file &&
 	    s->level >= 1 &&
 	    st->ss->add_internal_bitmap &&
+	    (s->consistency_policy != CONSISTENCY_POLICY_RESYNC &&
+	     s->consistency_policy != CONSISTENCY_POLICY_PPL) &&
 	    (s->write_behind || s->size > 100*1024*1024ULL)) {
 		if (c->verbose > 0)
 			pr_err("automatically enabling write-intent bitmap on large array\n");

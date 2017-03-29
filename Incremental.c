@@ -528,6 +528,9 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 
 	journal_device_missing = (info.journal_device_required) && (info.journal_clean == 0);
 
+	if (info.consistency_policy == CONSISTENCY_POLICY_PPL)
+		info.array.state |= 1;
+
 	if (enough(info.array.level, info.array.raid_disks,
 		   info.array.layout, info.array.state & 1,
 		   avail) == 0) {

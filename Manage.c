@@ -95,7 +95,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 		goto out;
 	}
 #endif
-	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
+	if (md_get_array_info(fd, &array)) {
 		pr_err("%s does not appear to be active.\n",
 			devname);
 		rv = 1;
@@ -539,7 +539,7 @@ static void add_faulty(struct mddev_dev *dv, int fd, char disp)
 	int remaining_disks;
 	int i;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0)
+	if (md_get_array_info(fd, &array) != 0)
 		return;
 
 	remaining_disks = array.nr_disks;
@@ -565,7 +565,7 @@ static void add_detached(struct mddev_dev *dv, int fd, char disp)
 	int remaining_disks;
 	int i;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0)
+	if (md_get_array_info(fd, &array) != 0)
 		return;
 
 	remaining_disks = array.nr_disks;
@@ -602,7 +602,7 @@ static void add_set(struct mddev_dev *dv, int fd, char set_char)
 	int copies, set;
 	int i;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0)
+	if (md_get_array_info(fd, &array) != 0)
 		return;
 	if (array.level != 10)
 		return;
@@ -1383,9 +1383,8 @@ int Manage_subdevs(char *devname, int fd,
 	int busy = 0;
 	int raid_slot = -1;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array)) {
-		pr_err("Cannot get array info for %s\n",
-			devname);
+	if (md_get_array_info(fd, &array)) {
+		pr_err("Cannot get array info for %s\n", devname);
 		goto abort;
 	}
 	sysfs_init(&info, fd, NULL);

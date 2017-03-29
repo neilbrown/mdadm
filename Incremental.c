@@ -398,7 +398,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		    && ! policy_action_allows(policy, st->ss->name,
 					      act_re_add)
 		    && c->runstop < 1) {
-			if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
+			if (md_get_array_info(mdfd, &ainf) == 0) {
 				pr_err("not adding %s to active array (without --run) %s\n",
 				       devname, chosen_name);
 				rv = 2;
@@ -549,7 +549,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	/*   + add any bitmap file  */
 	/*   + start the array (auto-readonly). */
 
-	if (ioctl(mdfd, GET_ARRAY_INFO, &ainf) == 0) {
+	if (md_get_array_info(mdfd, &ainf) == 0) {
 		if (c->export) {
 			printf("MD_STARTED=already\n");
 		} else if (c->verbose >= 0)
@@ -664,7 +664,7 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 	struct mdinfo *d;
 	mdu_array_info_t ra;
 
-	if (ioctl(mdfd, GET_ARRAY_INFO, &ra) == 0)
+	if (md_get_array_info(mdfd, &ra) == 0)
 		return; /* not safe to remove from active arrays
 			 * without thinking more */
 
@@ -837,7 +837,7 @@ static int container_members_max_degradation(struct map_ent *map, struct map_ent
 		if (afd < 0)
 			continue;
 		/* most accurate information regarding array degradation */
-		if (ioctl(afd, GET_ARRAY_INFO, &array) >= 0) {
+		if (md_get_array_info(afd, &array) >= 0) {
 			int degraded = array.raid_disks - array.active_disks -
 				       array.spare_disks;
 			if (degraded > max_degraded)
@@ -1390,8 +1390,7 @@ restart:
 				rv = 1;
 			continue;
 		}
-		if (ioctl(mdfd, GET_ARRAY_INFO, &array) == 0 ||
-		    errno != ENODEV) {
+		if (md_get_array_info(mdfd, &array) == 0 || errno != ENODEV) {
 			close(mdfd);
 			continue;
 		}

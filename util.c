@@ -212,6 +212,15 @@ int cluster_release_dlmlock(int lockid)
 #endif
 
 /*
+ * Get array info from the kernel. Longer term we want to deprecate the
+ * ioctl and get it from sysfs.
+ */
+int md_get_array_info(int fd, struct mdu_array_info_s *array)
+{
+	return ioctl(fd, GET_ARRAY_INFO, array);
+}
+
+/*
  * Parse a 128 bit uuid in 4 integers
  * format is 32 hexx nibbles with options :.<space> separator
  * If not exactly 32 hex digits are found, return 0
@@ -539,8 +548,7 @@ int enough_fd(int fd)
 	int i, rv;
 	char *avail;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0 ||
-	    array.raid_disks <= 0)
+	if (md_get_array_info(fd, &array) != 0 || array.raid_disks <= 0)
 		return 0;
 	avail = xcalloc(array.raid_disks, 1);
 	for (i = 0; i < MAX_DISKS && array.nr_disks > 0; i++) {
@@ -1175,7 +1183,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 		minor = sra->array.minor_version;
 		verstr = sra->text_version;
 	} else {
-		if (ioctl(fd, GET_ARRAY_INFO, &array))
+		if (md_get_array_info(fd, &array))
 			array.major_version = array.minor_version = 0;
 		vers = array.major_version;
 		minor = array.minor_version;

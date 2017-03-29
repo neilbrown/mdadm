@@ -156,8 +156,7 @@ int Create(struct supertype *st, char *mddev,
 		memset(&inf, 0, sizeof(inf));
 		fd = open(devlist->devname, O_RDONLY);
 		if (fd >= 0 &&
-		    ioctl(fd, GET_ARRAY_INFO, &inf) == 0 &&
-		    inf.raid_disks == 0) {
+		    md_get_array_info(fd, &inf) == 0 && inf.raid_disks == 0) {
 			/* yep, looks like a container */
 			if (st) {
 				rv = st->ss->load_container(st, fd,
@@ -634,7 +633,7 @@ int Create(struct supertype *st, char *mddev,
 	} else {
 		mdu_array_info_t inf;
 		memset(&inf, 0, sizeof(inf));
-		ioctl(mdfd, GET_ARRAY_INFO, &inf);
+		md_get_array_info(mdfd, &inf);
 		if (inf.working_disks != 0) {
 			pr_err("another array by this name is already running.\n");
 			goto abort_locked;

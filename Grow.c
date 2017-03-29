@@ -115,7 +115,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	struct supertype *st = NULL;
 	char *subarray = NULL;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
+	if (md_get_array_info(fd, &info.array) < 0) {
 		pr_err("cannot get array info for %s\n", devname);
 		return 1;
 	}
@@ -221,7 +221,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 * Now go through and update all superblocks
 	 */
 
-	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
+	if (md_get_array_info(fd, &info.array) < 0) {
 		pr_err("cannot get array info for %s\n", devname);
 		return 1;
 	}
@@ -328,7 +328,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			devname, bmf.pathname);
 		return 1;
 	}
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+	if (md_get_array_info(fd, &array) != 0) {
 		pr_err("cannot get array status for %s\n", devname);
 		return 1;
 	}
@@ -1784,7 +1784,7 @@ int Grow_reshape(char *devname, int fd,
 	struct mdinfo info;
 	struct mdinfo *sra;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
+	if (md_get_array_info(fd, &array) < 0) {
 		pr_err("%s is not an active md array - aborting\n",
 			devname);
 		return 1;
@@ -2030,7 +2030,7 @@ int Grow_reshape(char *devname, int fd,
 					/* get array parameters after takeover
 					 * to change one parameter at time only
 					 */
-					rv = ioctl(fd, GET_ARRAY_INFO, &array);
+					rv = md_get_array_info(fd, &array);
 				}
 			}
 			/* make sure mdmon is
@@ -2072,7 +2072,7 @@ int Grow_reshape(char *devname, int fd,
 			/* go back to raid0, drop parity disk
 			 */
 			sysfs_set_str(sra, NULL, "level", "raid0");
-			ioctl(fd, GET_ARRAY_INFO, &array);
+			md_get_array_info(fd, &array);
 		}
 
 size_change_error:
@@ -2101,7 +2101,7 @@ size_change_error:
 			    sysfs_set_str(sra, NULL, "resync_start", "none") < 0)
 				pr_err("--assume-clean not supported with --grow on this kernel\n");
 		}
-		ioctl(fd, GET_ARRAY_INFO, &array);
+		md_get_array_info(fd, &array);
 		s->size = get_component_size(fd)/2;
 		if (s->size == 0)
 			s->size = array.size;
@@ -2267,7 +2267,7 @@ size_change_error:
 			rv =1 ;
 		}
 		if (s->layout_str) {
-			if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+			if (md_get_array_info(fd, &array) != 0) {
 				dprintf("Cannot get array information.\n");
 				goto release;
 			}
@@ -2830,7 +2830,7 @@ static int impose_reshape(struct mdinfo *sra,
 						 * reshape->after.data_disks);
 	}
 
-	ioctl(fd, GET_ARRAY_INFO, &array);
+	md_get_array_info(fd, &array);
 	if (info->array.chunk_size == info->new_chunk &&
 	    reshape->before.layout == reshape->after.layout &&
 	    st->ss->external == 0) {
@@ -2885,7 +2885,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 	struct mdinfo info;
 	sysfs_init(&info, fd, NULL);
 
-	ioctl(fd, GET_ARRAY_INFO, &array);
+	md_get_array_info(fd, &array);
 	if (level == 0 &&
 	    (array.level >= 4 && array.level <= 6)) {
 		/* To convert to RAID0 we need to fail and
@@ -2921,7 +2921,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 			      makedev(disk.major, disk.minor));
 		}
 		/* Now fail anything left */
-		ioctl(fd, GET_ARRAY_INFO, &array);
+		md_get_array_info(fd, &array);
 		for (d = 0, found = 0;
 		     d < MAX_DISKS && found < array.nr_disks;
 		     d++) {
@@ -3042,7 +3042,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	/* when reshaping a RAID0, the component_size might be zero.
 	 * So try to fix that up.
 	 */
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+	if (md_get_array_info(fd, &array) != 0) {
 		dprintf("Cannot get array information.\n");
 		goto release;
 	}
@@ -3230,7 +3230,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		 * some more changes: layout, raid_disks, chunk_size
 		 */
 		/* read current array info */
-		if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+		if (md_get_array_info(fd, &array) != 0) {
 			dprintf("Cannot get array information.\n");
 			goto release;
 		}
@@ -4994,8 +4994,9 @@ int Grow_continue_command(char *devname, int fd,
 		int d;
 		int cnt = 5;
 		dprintf_cont("native array (%s)\n", devname);
-		if (ioctl(fd, GET_ARRAY_INFO, &array.array) < 0) {
-			pr_err("%s is not an active md array - aborting\n", devname);
+		if (md_get_array_info(fd, &array.array) < 0) {
+			pr_err("%s is not an active md array - aborting\n",
+			       devname);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}

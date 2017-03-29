@@ -53,9 +53,10 @@ int Query(char *dev)
 	}
 
 	vers = md_get_version(fd);
-	if (ioctl(fd, GET_ARRAY_INFO, &array)<0)
+	if (md_get_array_info(fd, &array) < 0)
 		ioctlerr = errno;
-	else ioctlerr = 0;
+	else
+		ioctlerr = 0;
 
 	fstat(fd, &stb);
 
@@ -100,7 +101,7 @@ int Query(char *dev)
 			activity = "undetected";
 			if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
 				if (md_get_version(fd) >= 9000 &&
-				    ioctl(fd, GET_ARRAY_INFO, &array)>= 0) {
+				    md_get_array_info(fd, &array) >= 0) {
 					if (ioctl(fd, GET_DISK_INFO, &disc) >= 0 &&
 					    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
 						activity = "active";

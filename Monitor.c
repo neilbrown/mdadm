@@ -497,7 +497,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		return 0;
 	}
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
-	if (ioctl(fd, GET_ARRAY_INFO, &array)<0) {
+	if (md_get_array_info(fd, &array) < 0) {
 		if (!st->err)
 			alert("DeviceDisappeared", dev, NULL, ainfo);
 		st->err++;
@@ -709,9 +709,10 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 
 			st->devname = xstrdup(name);
 			if ((fd = open(st->devname, O_RDONLY)) < 0 ||
-			    ioctl(fd, GET_ARRAY_INFO, &array)< 0) {
+			    md_get_array_info(fd, &array) < 0) {
 				/* no such array */
-				if (fd >=0) close(fd);
+				if (fd >= 0)
+					close(fd);
 				put_md_name(st->devname);
 				free(st->devname);
 				if (st->metadata) {

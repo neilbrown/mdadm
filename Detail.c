@@ -107,7 +107,7 @@ int Detail(char *dev, struct context *c)
 	external = (sra != NULL && sra->array.major_version == -1
 		    && sra->array.minor_version == -2);
 	st = super_by_fd(fd, &subarray);
-	if (ioctl(fd, GET_ARRAY_INFO, &array) == 0) {
+	if (md_get_array_info(fd, &array) == 0) {
 		inactive = 0;
 	} else if (errno == ENODEV && sra) {
 		if (sra->array.major_version == -1 &&

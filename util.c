@@ -221,6 +221,14 @@ int md_get_array_info(int fd, struct mdu_array_info_s *array)
 }
 
 /*
+ * Set array info
+ */
+int md_set_array_info(int fd, struct mdu_array_info_s *array)
+{
+	return ioctl(fd, SET_ARRAY_INFO, array);
+}
+
+/*
  * Get disk info from the kernel.
  */
 int md_get_disk_info(int fd, struct mdu_disk_info_s *disk)
@@ -1858,9 +1866,9 @@ int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 		memset(&inf, 0, sizeof(inf));
 		inf.major_version = info->array.major_version;
 		inf.minor_version = info->array.minor_version;
-		rv = ioctl(mdfd, SET_ARRAY_INFO, &inf);
+		rv = md_set_array_info(mdfd, &inf);
 	} else
-		rv = ioctl(mdfd, SET_ARRAY_INFO, NULL);
+		rv = md_set_array_info(mdfd, NULL);
 	return rv;
 }
 

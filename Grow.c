@@ -335,7 +335,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	if (array.state & (1 << MD_SB_BITMAP_PRESENT)) {
 		if (strcmp(s->bitmap_file, "none")==0) {
 			array.state &= ~(1 << MD_SB_BITMAP_PRESENT);
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				if (array.state & (1 << MD_SB_CLUSTERED))
 					pr_err("failed to remove clustered bitmap.\n");
 				else
@@ -463,7 +463,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			if (strcmp(s->bitmap_file, "clustered") == 0)
 				array.state |= (1 << MD_SB_CLUSTERED);
 			array.state |= (1 << MD_SB_BITMAP_PRESENT);
-			rv = ioctl(fd, SET_ARRAY_INFO, &array);
+			rv = md_set_array_info(fd, &array);
 		}
 		if (rv < 0) {
 			if (errno == EBUSY)
@@ -1823,7 +1823,7 @@ int Grow_reshape(char *devname, int fd,
 	    (array.state & (1<<MD_SB_BITMAP_PRESENT)) &&
 	    !(array.state & (1<<MD_SB_CLUSTERED))) {
                 array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
-                if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
+                if (md_set_array_info(fd, &array)!= 0) {
                         pr_err("failed to remove internal bitmap.\n");
                         return 1;
                 }
@@ -2056,7 +2056,7 @@ int Grow_reshape(char *devname, int fd,
 			else
 				rv = -1;
 		} else {
-			rv = ioctl(fd, SET_ARRAY_INFO, &array);
+			rv = md_set_array_info(fd, &array);
 
 			/* manage array size when it is managed externally
 			 */
@@ -2272,7 +2272,7 @@ size_change_error:
 				goto release;
 			}
 			array.layout = info.new_layout;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				rv = 1;
 			} else if (c->verbose >= 0)
@@ -2836,8 +2836,7 @@ static int impose_reshape(struct mdinfo *sra,
 	    st->ss->external == 0) {
 		/* use SET_ARRAY_INFO but only if reshape hasn't started */
 		array.raid_disks = reshape->after.data_disks + reshape->parity;
-		if (!restart &&
-		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+		if (!restart && md_set_array_info(fd, &array) != 0) {
 			int err = errno;
 
 			pr_err("Cannot set device shape for %s: %s\n",
@@ -3239,7 +3238,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		if (info->new_layout != UnSet &&
 		    info->new_layout != array.layout) {
 			array.layout = info->new_layout;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				goto release;
 			} else if (verbose >= 0)
@@ -3250,7 +3249,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		    info->delta_disks != 0 &&
 		    array.raid_disks != (info->array.raid_disks + info->delta_disks)) {
 			array.raid_disks += info->delta_disks;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				pr_err("failed to set raid disks\n");
 				goto release;
 			} else if (verbose >= 0) {

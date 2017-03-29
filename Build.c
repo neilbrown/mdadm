@@ -148,8 +148,8 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			s->chunk = 64;
 		array.chunk_size = s->chunk*1024;
 		array.layout = s->layout;
-		if (ioctl(mdfd, SET_ARRAY_INFO, &array)) {
-			pr_err("SET_ARRAY_INFO failed for %s: %s\n",
+		if (md_set_array_info(mdfd, &array)) {
+			pr_err("md_set_array_info() failed for %s: %s\n",
 				mddev, strerror(errno));
 			goto abort;
 		}

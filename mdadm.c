@@ -106,11 +106,11 @@ int main(int argc, char *argv[])
 
 	srandom(time(0) ^ getpid());
 
-	ident.uuid_set=0;
+	ident.uuid_set = 0;
 	ident.level = UnSet;
 	ident.raid_disks = UnSet;
-	ident.super_minor= UnSet;
-	ident.devices=0;
+	ident.super_minor = UnSet;
+	ident.devices = 0;
 	ident.spare_group = NULL;
 	ident.autof = 0;
 	ident.st = NULL;
@@ -120,10 +120,9 @@ int main(int argc, char *argv[])
 	ident.container = NULL;
 	ident.member = NULL;
 
-	while ((option_index = -1) ,
-	       (opt=getopt_long(argc, argv,
-				shortopt, long_options,
-				&option_index)) != -1) {
+	while ((option_index = -1),
+	       (opt = getopt_long(argc, argv, shortopt, long_options,
+				  &option_index)) != -1) {
 		int newmode = mode;
 		/* firstly, some mode-independent options */
 		switch(opt) {
@@ -397,7 +396,7 @@ int main(int argc, char *argv[])
 				pr_err("metadata information already given\n");
 				exit(2);
 			}
-			for(i=0; !ss && superlist[i]; i++)
+			for(i = 0; !ss && superlist[i]; i++)
 				ss = superlist[i]->match_metadata_desc(optarg);
 
 			if (!ss) {
@@ -542,7 +541,7 @@ int main(int argc, char *argv[])
 
 			case 5:
 				s.layout = map_name(r5layout, optarg);
-				if (s.layout==UnSet) {
+				if (s.layout == UnSet) {
 					pr_err("layout %s not understood for raid5.\n",
 						optarg);
 					exit(2);
@@ -550,7 +549,7 @@ int main(int argc, char *argv[])
 				break;
 			case 6:
 				s.layout = map_name(r6layout, optarg);
-				if (s.layout==UnSet) {
+				if (s.layout == UnSet) {
 					pr_err("layout %s not understood for raid6.\n",
 						optarg);
 					exit(2);
@@ -665,7 +664,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'f'): /* force zero */
 		case O(MISC,Force): /* force zero */
 		case O(MANAGE,Force): /* add device which is too large */
-			c.force=1;
+			c.force = 1;
 			continue;
 			/* now for the Assemble options */
 		case O(ASSEMBLE, FreezeReshape):   /* Freeze reshape during
@@ -777,12 +776,12 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "revert-reshape") == 0)
 				continue;
-			if (strcmp(c.update, "byteorder")==0) {
+			if (strcmp(c.update, "byteorder") == 0) {
 				if (ss) {
 					pr_err("must not set metadata type with --update=byteorder.\n");
 					exit(2);
 				}
-				for(i=0; !ss && superlist[i]; i++)
+				for(i = 0; !ss && superlist[i]; i++)
 					ss = superlist[i]->match_metadata_desc(
 						"0.swap");
 				if (!ss) {
@@ -1476,7 +1475,7 @@ int main(int argc, char *argv[])
 				pr_err("can only assemble a single array when providing a backup file.\n");
 				exit(1);
 			}
-			for (dv = devlist ; dv ; dv=dv->next) {
+			for (dv = devlist; dv; dv = dv->next) {
 				struct mddev_ident *array_ident = conf_get_ident(dv->devname);
 				if (array_ident == NULL) {
 					pr_err("%s not identified in config file.\n",
@@ -1611,10 +1610,10 @@ int main(int argc, char *argv[])
 			else
 				c.delay = 60;
 		}
-		rv= Monitor(devlist, mailaddr, program,
-			    &c, daemonise, oneshot,
-			    dosyslog, pidfile, increments,
-			    spare_sharing);
+		rv = Monitor(devlist, mailaddr, program,
+			     &c, daemonise, oneshot,
+			     dosyslog, pidfile, increments,
+			     spare_sharing);
 		break;
 
 	case GROW:
@@ -1654,7 +1653,7 @@ int main(int argc, char *argv[])
 				rv = 1;
 				break;
 			}
-			for (dv=devlist->next; dv ; dv=dv->next) {
+			for (dv = devlist->next; dv; dv = dv->next) {
 				rv = Grow_Add_device(devlist->devname, mdfd,
 						     dv->devname);
 				if (rv)
@@ -1749,7 +1748,7 @@ static int scan_assemble(struct supertype *ss,
 		pr_err("No devices listed in conf file were found.\n");
 		return 1;
 	}
-	for (a = array_list; a ; a = a->next) {
+	for (a = array_list; a; a = a->next) {
 		a->assembled = 0;
 		if (a->autof == 0)
 			a->autof = c->autof;
@@ -1760,7 +1759,7 @@ static int scan_assemble(struct supertype *ss,
 		failures = 0;
 		successes = 0;
 		rv = 0;
-		for (a = array_list; a ; a = a->next) {
+		for (a = array_list; a; a = a->next) {
 			int r;
 			if (a->assembled)
 				continue;
@@ -1826,7 +1825,7 @@ static int misc_scan(char devmode, struct context *c)
 	int rv = 0;
 
 	for (members = 0; members <= 1; members++) {
-		for (e=ms ; e ; e=e->next) {
+		for (e = ms; e; e = e->next) {
 			char *name = NULL;
 			struct map_ent *me;
 			struct stat stb;
@@ -1864,7 +1863,7 @@ static int stop_scan(int verbose)
 	/* Due to possible stacking of devices, repeat until
 	 * nothing more can be stopped
 	 */
-	int progress=1, err;
+	int progress = 1, err;
 	int last = 0;
 	int rv = 0;
 	do {
@@ -1873,7 +1872,7 @@ static int stop_scan(int verbose)
 
 		if (!progress) last = 1;
 		progress = 0; err = 0;
-		for (e=ms ; e ; e=e->next) {
+		for (e = ms; e; e = e->next) {
 			char *name = get_md_name(e->devnm);
 			int mdfd;
 
@@ -1908,7 +1907,7 @@ static int misc_list(struct mddev_dev *devlist,
 	struct mddev_dev *dv;
 	int rv = 0;
 
-	for (dv=devlist ; dv; dv=(rv & 16) ? NULL : dv->next) {
+	for (dv = devlist; dv; dv = (rv & 16) ? NULL : dv->next) {
 		int mdfd;
 
 		switch(dv->disposition) {
@@ -1974,7 +1973,7 @@ static int misc_list(struct mddev_dev *devlist,
 			case 1:
 				mdfd = open_mddev(dv->devname, 1);  
 		}
-		if (mdfd>=0) {
+		if (mdfd >= 0) {
 			switch(dv->disposition) {
 			case 'R':
 				c->runstop = 1;

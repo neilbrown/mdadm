@@ -1928,16 +1928,21 @@ static int misc_list(struct mddev_dev *devlist,
 			}
 			continue;
 		case 'Q':
-			rv |= Query(dv->devname); continue;
+			rv |= Query(dv->devname);
+			continue;
 		case 'X':
-			rv |= ExamineBitmap(dv->devname, c->brief, ss); continue;
+			rv |= ExamineBitmap(dv->devname, c->brief, ss);
+			continue;
 		case ExamineBB:
-			rv |= ExamineBadblocks(dv->devname, c->brief, ss); continue;
+			rv |= ExamineBadblocks(dv->devname, c->brief, ss);
+			continue;
 		case 'W':
 		case WaitOpt:
-			rv |= Wait(dv->devname); continue;
+			rv |= Wait(dv->devname);
+			continue;
 		case Waitclean:
-			rv |= WaitClean(dv->devname, -1, c->verbose); continue;
+			rv |= WaitClean(dv->devname, -1, c->verbose);
+			continue;
 		case KillSubarray:
 			rv |= Kill_subarray(dv->devname, c->subarray, c->verbose);
 			continue;
@@ -1964,7 +1969,8 @@ static int misc_list(struct mddev_dev *devlist,
 		switch(dv->devname[0] == '/') {
 			case 0:
 				mdfd = open_dev(dv->devname);
-				if (mdfd >= 0) break;
+				if (mdfd >= 0)
+					break;
 			case 1:
 				mdfd = open_mddev(dv->devname, 1);  
 		}
@@ -1972,13 +1978,17 @@ static int misc_list(struct mddev_dev *devlist,
 			switch(dv->disposition) {
 			case 'R':
 				c->runstop = 1;
-				rv |= Manage_run(dv->devname, mdfd, c); break;
+				rv |= Manage_run(dv->devname, mdfd, c);
+				break;
 			case 'S':
-				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0); break;
+				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0);
+				break;
 			case 'o':
-				rv |= Manage_ro(dv->devname, mdfd, 1); break;
+				rv |= Manage_ro(dv->devname, mdfd, 1);
+				break;
 			case 'w':
-				rv |= Manage_ro(dv->devname, mdfd, -1); break;
+				rv |= Manage_ro(dv->devname, mdfd, -1);
+				break;
 			}
 			close(mdfd);
 		} else

@@ -780,19 +780,20 @@ static void detail_super1(struct supertype *st, char *homehost)
 	int i;
 	int l = homehost ? strlen(homehost) : 0;
 
-	printf("           Name : %.32s", sb->set_name);
+	printf("              Name : %.32s", sb->set_name);
 	if (l > 0 && l < 32 &&
 	    sb->set_name[l] == ':' &&
 	    strncmp(sb->set_name, homehost, l) == 0)
 		printf("  (local to host %s)", homehost);
 	if (bms->nodes > 0 && (__le32_to_cpu(sb->feature_map) & MD_FEATURE_BITMAP_OFFSET))
-	    printf("\n   Cluster Name : %-64s", bms->cluster_name);
-	printf("\n           UUID : ");
+	    printf("\n      Cluster Name : %-64s", bms->cluster_name);
+	printf("\n              UUID : ");
 	for (i=0; i<16; i++) {
 		if ((i&3)==0 && i != 0) printf(":");
 		printf("%02x", sb->set_uuid[i]);
 	}
-	printf("\n         Events : %llu\n\n", (unsigned long long)__le64_to_cpu(sb->events));
+	printf("\n            Events : %llu\n\n",
+	       (unsigned long long)__le64_to_cpu(sb->events));
 }
 
 static void brief_detail_super1(struct supertype *st)

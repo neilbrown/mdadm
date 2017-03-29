@@ -353,7 +353,7 @@ err:
 static void detail_super0(struct supertype *st, char *homehost)
 {
 	mdp_super_t *sb = st->sb;
-	printf("           UUID : ");
+	printf("              UUID : ");
 	if (sb->minor_version >= 90)
 		printf("%08x:%08x:%08x:%08x", sb->set_uuid0, sb->set_uuid1,
 		       sb->set_uuid2, sb->set_uuid3);
@@ -367,7 +367,7 @@ static void detail_super0(struct supertype *st, char *homehost)
 		if (memcmp(&sb->set_uuid2, hash, 8)==0)
 			printf(" (local to host %s)", homehost);
 	}
-	printf("\n         Events : %d.%d\n\n", sb->events_hi, sb->events_lo);
+	printf("\n            Events : %d.%d\n\n", sb->events_hi, sb->events_lo);
 }
 
 static void brief_detail_super0(struct supertype *st)

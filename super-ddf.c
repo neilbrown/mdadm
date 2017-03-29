@@ -1742,10 +1742,10 @@ static void detail_super_ddf(struct supertype *st, char *homehost)
 	struct ddf_super *sb = st->sb;
 	int cnt = be16_to_cpu(sb->virt->populated_vdes);
 
-	printf(" Container GUID : "); print_guid(sb->anchor.guid, 1);
+	printf("    Container GUID : "); print_guid(sb->anchor.guid, 1);
 	printf("\n");
-	printf("            Seq : %08x\n", be32_to_cpu(sb->active->seq));
-	printf("  Virtual Disks : %d\n", cnt);
+	printf("               Seq : %08x\n", be32_to_cpu(sb->active->seq));
+	printf("     Virtual Disks : %d\n", cnt);
 	printf("\n");
 }
 #endif

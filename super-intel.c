@@ -1987,7 +1987,7 @@ static void detail_super_imsm(struct supertype *st, char *homehost)
 
 	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
-	printf("\n           UUID : %s\n", nbuf + 5);
+	printf("\n              UUID : %s\n", nbuf + 5);
 }
 
 static void brief_detail_super_imsm(struct supertype *st)

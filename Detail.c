@@ -51,10 +51,8 @@ static int add_device(const char *dev, char ***p_devices,
 int Detail(char *dev, struct context *c)
 {
 	/*
-	 * Print out details for an md array by using
-	 * GET_ARRAY_INFO and GET_DISK_INFO ioctl calls
+	 * Print out details for an md array
 	 */
-
 	int fd = open(dev, O_RDONLY);
 	int vers;
 	mdu_array_info_t array;
@@ -165,7 +163,7 @@ int Detail(char *dev, struct context *c)
 			disk = subdev->disk;
 		else {
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (d >= array.raid_disks &&
 			    disk.major == 0 &&
@@ -322,7 +320,7 @@ int Detail(char *dev, struct context *c)
 	} else for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
+		if (md_get_disk_info(fd, &disk) < 0) {
 			if (d < array.raid_disks)
 				pr_err("cannot get device detail for device %d: %s\n",
 					d, strerror(errno));

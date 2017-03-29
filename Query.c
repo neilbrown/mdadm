@@ -102,7 +102,7 @@ int Query(char *dev)
 			if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
 				if (md_get_version(fd) >= 9000 &&
 				    md_get_array_info(fd, &array) >= 0) {
-					if (ioctl(fd, GET_DISK_INFO, &disc) >= 0 &&
+					if (md_get_disk_info(fd, &disc) >= 0 &&
 					    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
 						activity = "active";
 					else

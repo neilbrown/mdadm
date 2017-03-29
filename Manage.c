@@ -546,7 +546,7 @@ static void add_faulty(struct mddev_dev *dv, int fd, char disp)
 	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
 		char buf[40];
 		disk.number = i;
-		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+		if (md_get_disk_info(fd, &disk) != 0)
 			continue;
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
@@ -573,7 +573,7 @@ static void add_detached(struct mddev_dev *dv, int fd, char disp)
 		char buf[40];
 		int sfd;
 		disk.number = i;
-		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+		if (md_get_disk_info(fd, &disk) != 0)
 			continue;
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
@@ -615,7 +615,7 @@ static void add_set(struct mddev_dev *dv, int fd, char set_char)
 	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
 		char buf[40];
 		disk.number = i;
-		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+		if (md_get_disk_info(fd, &disk) != 0)
 			continue;
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
@@ -661,9 +661,8 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 		    get_linux_version() <= 2006018)
 			goto skip_re_add;
 		disc.number = mdi.disk.number;
-		if (ioctl(fd, GET_DISK_INFO, &disc) != 0
-		    || disc.major != 0 || disc.minor != 0
-			)
+		if (md_get_disk_info(fd, &disc) != 0 ||
+		    disc.major != 0 || disc.minor != 0)
 			goto skip_re_add;
 		disc.major = major(rdev);
 		disc.minor = minor(rdev);
@@ -805,7 +804,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 				char *dev;
 				int dfd;
 				disc.number = j;
-				if (ioctl(fd, GET_DISK_INFO, &disc))
+				if (md_get_disk_info(fd, &disc))
 					continue;
 				if (disc.major==0 && disc.minor==0)
 					continue;
@@ -888,7 +887,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 			for (d = 0; d < MAX_DISKS && found < array->nr_disks; d++) {
 				disc.number = d;
-				if (ioctl(fd, GET_DISK_INFO, &disc))
+				if (md_get_disk_info(fd, &disc))
 					continue;
 				if (disc.major == 0 && disc.minor == 0)
 					continue;
@@ -929,7 +928,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 	 */
 	for (j = array->raid_disks; j < tst->max_devs; j++) {
 		disc.number = j;
-		if (ioctl(fd, GET_DISK_INFO, &disc))
+		if (md_get_disk_info(fd, &disc))
 			break;
 		if (disc.major==0 && disc.minor==0)
 			break;
@@ -994,7 +993,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		for (j = 0; j < tst->max_devs; j++) {
 			mdu_disk_info_t disc2;
 			disc2.number = j;
-			if (ioctl(fd, GET_DISK_INFO, &disc2))
+			if (md_get_disk_info(fd, &disc2))
 				continue;
 			if (disc2.major==0 && disc2.minor==0)
 				continue;

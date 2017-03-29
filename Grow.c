@@ -161,7 +161,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		st->ss->free_super(st);
 
 		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
+		if (md_get_disk_info(fd, &disk) < 0) {
 			pr_err("cannot get device detail for device %d\n",
 				d);
 			close(nfd);
@@ -232,7 +232,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		char *dv;
 
 		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
+		if (md_get_disk_info(fd, &disk) < 0) {
 			pr_err("cannot get device detail for device %d\n",
 				d);
 			return 1;
@@ -422,7 +422,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			int fd2;
 
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
@@ -483,7 +483,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			char *dv;
 			int fd2;
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if ((disk.major==0 && disk.minor == 0) ||
 			    (disk.state & (1 << MD_DISK_REMOVED)))
@@ -2908,7 +2908,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 		     d++) {
 			mdu_disk_info_t disk;
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
@@ -2927,7 +2927,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 		     d++) {
 			mdu_disk_info_t disk;
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
@@ -5011,7 +5011,7 @@ int Grow_continue_command(char *devname, int fd,
 				char *dv;
 				int err;
 				disk.number = d;
-				if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+				if (md_get_disk_info(fd, &disk) < 0)
 					continue;
 				if (disk.major == 0 && disk.minor == 0)
 					continue;

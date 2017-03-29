@@ -221,6 +221,14 @@ int md_get_array_info(int fd, struct mdu_array_info_s *array)
 }
 
 /*
+ * Get disk info from the kernel.
+ */
+int md_get_disk_info(int fd, struct mdu_disk_info_s *disk)
+{
+	return ioctl(fd, GET_DISK_INFO, disk);
+}
+
+/*
  * Parse a 128 bit uuid in 4 integers
  * format is 32 hexx nibbles with options :.<space> separator
  * If not exactly 32 hex digits are found, return 0
@@ -553,7 +561,7 @@ int enough_fd(int fd)
 	avail = xcalloc(array.raid_disks, 1);
 	for (i = 0; i < MAX_DISKS && array.nr_disks > 0; i++) {
 		disk.number = i;
-		if (ioctl(fd, GET_DISK_INFO, &disk) != 0)
+		if (md_get_disk_info(fd, &disk) != 0)
 			continue;
 		if (disk.major == 0 && disk.minor == 0)
 			continue;

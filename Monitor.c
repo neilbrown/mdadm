@@ -608,7 +608,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	     i++) {
 		mdu_disk_info_t disc;
 		disc.number = i;
-		if (ioctl(fd, GET_DISK_INFO, &disc) >= 0) {
+		if (md_get_disk_info(fd, &disc) >= 0) {
 			info[i].state = disc.state;
 			info[i].major = disc.major;
 			info[i].minor = disc.minor;

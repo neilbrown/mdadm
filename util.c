@@ -828,14 +828,12 @@ char *human_size(long long bytes)
 		long cMiB = (bytes * 200LL / (1LL<<20) + 1) / 2;
 		long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
 		snprintf(buf, sizeof(buf), " (%ld.%02ld MiB %ld.%02ld MB)",
-			cMiB/100 , cMiB % 100,
-			cMB/100, cMB % 100);
+			cMiB/100, cMiB % 100, cMB/100, cMB % 100);
 	} else {
 		long cGiB = (bytes * 200LL / (1LL<<30) +1) / 2;
 		long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
 		snprintf(buf, sizeof(buf), " (%ld.%02ld GiB %ld.%02ld GB)",
-			cGiB/100 , cGiB % 100,
-			cGB/100, cGB % 100);
+			cGiB/100, cGiB % 100, cGB/100, cGB % 100);
 	}
 	return buf;
 }
@@ -862,22 +860,22 @@ char *human_size_brief(long long bytes, int prefix)
 		if (bytes < 2*1024LL*1024LL*1024LL) {
 			long cMiB = (bytes * 200LL / (1LL<<20) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldMiB",
-				cMiB/100 , cMiB % 100);
+				 cMiB/100, cMiB % 100);
 		} else {
 			long cGiB = (bytes * 200LL / (1LL<<30) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldGiB",
-					cGiB/100 , cGiB % 100);
+				 cGiB/100, cGiB % 100);
 		}
 	}
 	else if (prefix == JEDEC) {
 		if (bytes < 2*1024LL*1024LL*1024LL) {
 			long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldMB",
-					cMB/100, cMB % 100);
+				 cMB/100, cMB % 100);
 		} else {
 			long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldGB",
-					cGB/100 , cGB % 100);
+				 cGB/100, cGB % 100);
 		}
 	}
 	else
@@ -1093,7 +1091,7 @@ int open_dev_excl(char *devnm)
 	long delay = 1000;
 
 	sprintf(buf, "%d:%d", major(devid), minor(devid));
-	for (i = 0 ; i < 25 ; i++) {
+	for (i = 0; i < 25; i++) {
 		int fd = dev_open(buf, flags|O_EXCL);
 		if (fd >= 0)
 			return fd;
@@ -1134,7 +1132,7 @@ void wait_for(char *dev, int fd)
 	    (stb_want.st_mode & S_IFMT) != S_IFBLK)
 		return;
 
-	for (i = 0 ; i < 25 ; i++) {
+	for (i = 0; i < 25; i++) {
 		struct stat stb;
 		if (stat(dev, &stb) == 0 &&
 		    (stb.st_mode & S_IFMT) == S_IFBLK &&
@@ -1205,7 +1203,7 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 			verstr = "-no-metadata-";
 	}
 
-	for (i = 0; st == NULL && superlist[i] ; i++)
+	for (i = 0; st == NULL && superlist[i]; i++)
 		st = superlist[i]->match_metadata_desc(verstr);
 
 	sysfs_free(sra);
@@ -1270,7 +1268,7 @@ struct supertype *guess_super_type(int fd, enum guess_types guess_type)
 	st = xcalloc(1, sizeof(*st));
 	st->container_devnm[0] = 0;
 
-	for (i = 0 ; superlist[i]; i++) {
+	for (i = 0; superlist[i]; i++) {
 		int rv;
 		ss = superlist[i];
 		if (guess_type == guess_array && ss->add_to_super == NULL)

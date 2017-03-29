@@ -1345,7 +1345,6 @@ int IncrementalScan(struct context *c, char *devnm)
 restart:
 	for (me = mapl ; me ; me = me->next) {
 		mdu_array_info_t array;
-		mdu_bitmap_file_t bmf;
 		struct mdinfo *sra;
 		int mdfd;
 
@@ -1405,13 +1404,12 @@ restart:
 			 * is a hint only
 			 */
 			int added = -1;
-			if (ioctl(mdfd, GET_ARRAY_INFO, &bmf) < 0) {
-				int bmfd = open(mddev->bitmap_file, O_RDWR);
-				if (bmfd >= 0) {
-					added = ioctl(mdfd, SET_BITMAP_FILE,
-						      bmfd);
-					close(bmfd);
-				}
+			int bmfd;
+
+			bmfd = open(mddev->bitmap_file, O_RDWR);
+			if (bmfd >= 0) {
+				added = ioctl(mdfd, SET_BITMAP_FILE, bmfd);
+				close(bmfd);
 			}
 			if (c->verbose >= 0) {
 				if (added == 0)

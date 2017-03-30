@@ -1834,7 +1834,7 @@ int Grow_reshape(char *devname, int fd,
 	 * pre-requisite spare devices (mdmon owns final validation)
 	 */
 	if (st->ss->external) {
-		int rv;
+		int retval;
 
 		if (subarray) {
 			container = st->container_devnm;
@@ -1852,9 +1852,9 @@ int Grow_reshape(char *devname, int fd,
 			return 1;
 		}
 
-		rv = st->ss->load_container(st, cfd, NULL);
+		retval = st->ss->load_container(st, cfd, NULL);
 
-		if (rv) {
+		if (retval) {
 			pr_err("Cannot read superblock for %s\n",
 				devname);
 			free(subarray);

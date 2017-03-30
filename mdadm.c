@@ -1965,14 +1965,12 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= SetAction(dv->devname, c->action);
 			continue;
 		}
-		switch(dv->devname[0] == '/') {
-			case 0:
-				mdfd = open_dev(dv->devname);
-				if (mdfd >= 0)
-					break;
-			case 1:
-				mdfd = open_mddev(dv->devname, 1);  
-		}
+
+		if (dv->devname[0] != '/')
+			mdfd = open_dev(dv->devname);
+		if (dv->devname[0] == '/' || mdfd < 0)
+			mdfd = open_mddev(dv->devname, 1);
+
 		if (mdfd >= 0) {
 			switch(dv->disposition) {
 			case 'R':

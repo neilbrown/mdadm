@@ -86,14 +86,21 @@ void sysfs_init_dev(struct mdinfo *mdi, unsigned long devid)
 
 void sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
 {
+	struct stat stb;
+	char fname[MAX_SYSFS_PATH_LEN];
+
 	mdi->sys_name[0] = 0;
-	if (fd >= 0) {
-		mdu_version_t vers;
-		if (ioctl(fd, RAID_VERSION, &vers) != 0)
-			return;
+	if (fd >= 0)
 		devnm = fd2devnm(fd);
-	}
+
 	if (devnm == NULL)
+		return;
+
+	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md", devnm);
+
+	if (stat(fname, &stb))
+		return;
+	if (!S_ISDIR(stb.st_mode))
 		return;
 	strcpy(mdi->sys_name, devnm);
 }

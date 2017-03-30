@@ -1982,15 +1982,7 @@ int Grow_reshape(char *devname, int fd,
 		 * understands '0' to mean 'max'.
 		 */
 		min_csize = 0;
-		rv = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
-			if (sysfs_set_num(sra, mdi, "size",
-					  s->size == MAX_SIZE ? 0 : s->size) < 0) {
-				/* Probably kernel refusing to let us
-				 * reduce the size - not an error.
-				 */
-				break;
-			}
 			if (array.not_persistent == 0 &&
 			    array.major_version == 0 &&
 			    get_linux_version() < 3001000) {
@@ -2004,10 +1996,6 @@ int Grow_reshape(char *devname, int fd,
 						min_csize = csize;
 				}
 			}
-		}
-		if (rv) {
-			pr_err("Cannot set size on array members.\n");
-			goto size_change_error;
 		}
 		if (min_csize && s->size > min_csize) {
 			pr_err("Cannot safely make this array use more than 2TB per device on this kernel.\n");

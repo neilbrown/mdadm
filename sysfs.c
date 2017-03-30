@@ -84,25 +84,30 @@ void sysfs_init_dev(struct mdinfo *mdi, unsigned long devid)
 		 sizeof(mdi->sys_name), "dev-%s", devid2kname(devid));
 }
 
-void sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
+int sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
 {
 	struct stat stb;
 	char fname[MAX_SYSFS_PATH_LEN];
+	int retval = -ENODEV;
 
 	mdi->sys_name[0] = 0;
 	if (fd >= 0)
 		devnm = fd2devnm(fd);
 
 	if (devnm == NULL)
-		return;
+		goto out;
 
 	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md", devnm);
 
 	if (stat(fname, &stb))
-		return;
+		goto out;
 	if (!S_ISDIR(stb.st_mode))
-		return;
+		goto out;
 	strcpy(mdi->sys_name, devnm);
+
+	retval = 0;
+out:
+	return retval;
 }
 
 struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
@@ -117,8 +122,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	struct dirent *de;
 
 	sra = xcalloc(1, sizeof(*sra));
-	sysfs_init(sra, fd, devnm);
-	if (sra->sys_name[0] == 0) {
+	if (sysfs_init(sra, fd, devnm)) {
 		free(sra);
 		return NULL;
 	}

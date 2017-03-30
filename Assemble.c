@@ -1670,7 +1670,12 @@ try_again:
 	}
 	st->ss->getinfo_super(st, content, NULL);
 #ifndef MDASSEMBLE
-	sysfs_init(content, mdfd, NULL);
+	if (sysfs_init(content, mdfd, NULL)) {
+		pr_err("Unable to initialize sysfs\n");
+		close(mdfd);
+		free(devices);
+		return 1;
+	}
 #endif
 	/* after reload context, store journal_clean in context */
 	content->journal_clean = journal_clean;
@@ -1885,7 +1890,10 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	char *avail;
 	int err;
 
-	sysfs_init(content, mdfd, NULL);
+	if (sysfs_init(content, mdfd, NULL)) {
+		pr_err("Unable to initialize sysfs\n");
+		return 1;
+	}
 
 	sra = sysfs_read(mdfd, NULL, GET_VERSION|GET_DEVS);
 	if (sra == NULL || strcmp(sra->text_version, content->text_version) != 0) {

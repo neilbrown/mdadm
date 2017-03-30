@@ -1631,7 +1631,10 @@ int main(int argc, char *argv[])
 				rv = 1;
 				break;
 			}
-			sysfs_init(&sra, mdfd, NULL);
+			if (sysfs_init(&sra, mdfd, NULL)) {
+				rv = 1;
+				break;
+			}
 			if (array_size == MAX_SIZE)
 				err = sysfs_set_str(&sra, NULL, "array_size", "default");
 			else
@@ -1998,13 +2001,15 @@ int SetAction(char *dev, char *action)
 {
 	int fd = open(dev, O_RDONLY);
 	struct mdinfo mdi;
+	int retval;
+
 	if (fd < 0) {
 		pr_err("Couldn't open %s: %s\n", dev, strerror(errno));
 		return 1;
 	}
-	sysfs_init(&mdi, fd, NULL);
+	retval = sysfs_init(&mdi, fd, NULL);
 	close(fd);
-	if (!mdi.sys_name[0]) {
+	if (retval) {
 		pr_err("%s is no an md array\n", dev);
 		return 1;
 	}

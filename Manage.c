@@ -1382,12 +1382,15 @@ int Manage_subdevs(char *devname, int fd,
 	int busy = 0;
 	int raid_slot = -1;
 
+	if (sysfs_init(&info, fd, NULL)) {
+		pr_err("sysfs not availabile for %s\n", devname);
+		goto abort;
+	}
+
 	if (md_get_array_info(fd, &array)) {
 		pr_err("Cannot get array info for %s\n", devname);
 		goto abort;
 	}
-	sysfs_init(&info, fd, NULL);
-
 	/* array.size is only 32 bits and may be truncated.
 	 * So read from sysfs if possible, and record number of sectors
 	 */

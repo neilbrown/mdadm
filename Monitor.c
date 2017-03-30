@@ -1026,7 +1026,9 @@ int Wait(char *dev)
 			 */
 			struct mdinfo mdi;
 			char buf[21];
-			sysfs_init(&mdi, -1, devnm);
+
+			if (sysfs_init(&mdi, -1, devnm))
+				return 2;
 			if (sysfs_get_str(&mdi, NULL, "sync_action",
 					  buf, 20) > 0 &&
 			    strcmp(buf,"idle\n") != 0) {

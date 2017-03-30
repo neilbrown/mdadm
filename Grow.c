@@ -455,7 +455,10 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		}
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);
-			sysfs_init(mdi, fd, NULL);
+			if (sysfs_init(mdi, fd, NULL)) {
+				pr_err("failed to intialize sysfs.\n");
+				free(mdi);
+			}
 			rv = sysfs_set_num_signed(mdi, NULL, "bitmap/location",
 						  mdi->bitmap_offset);
 			free(mdi);
@@ -2149,7 +2152,11 @@ size_change_error:
 
 	memset(&info, 0, sizeof(info));
 	info.array = array;
-	sysfs_init(&info, fd, NULL);
+	if (sysfs_init(&info, fd, NULL)) {
+		pr_err("failed to intialize sysfs.\n");
+		rv = 1;
+		goto release;
+	}
 	strcpy(info.text_version, sra->text_version);
 	info.component_size = s->size*2;
 	info.new_level = s->level;
@@ -2870,7 +2877,11 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 	char *c;
 	struct mdu_array_info_s array;
 	struct mdinfo info;
-	sysfs_init(&info, fd, NULL);
+
+	if (sysfs_init(&info, fd, NULL)) {
+		pr_err("failed to intialize sysfs.\n");
+		return  1;
+	}
 
 	md_get_array_info(fd, &array);
 	if (level == 0 &&
@@ -3178,7 +3189,12 @@ static int reshape_array(char *container, int fd, char *devname,
 		struct mdinfo *d;
 
 		if (info2) {
-			sysfs_init(info2, fd, st->devnm);
+			if (sysfs_init(info2, fd, st->devnm)) {
+				pr_err("unable to initialize sysfs for %s",
+				       st->devnm);
+				free(info2);
+				goto release;
+			}
 			/* When increasing number of devices, we need to set
 			 * new raid_disks before adding these, or they might
 			 * be rejected.
@@ -3777,7 +3793,12 @@ int reshape_container(char *container, char *devname,
 		}
 		strcpy(last_devnm, mdstat->devnm);
 
-		sysfs_init(content, fd, mdstat->devnm);
+		if (sysfs_init(content, fd, mdstat->devnm)) {
+			pr_err("Unable to initialize sysfs for %s\n",
+			       mdstat->devnm);
+			rv = 1;
+			break;
+		}
 
 		if (mdmon_running(container))
 			flush_mdmon(container);
@@ -5110,7 +5131,13 @@ int Grow_continue_command(char *devname, int fd,
 			goto Grow_continue_command_exit;
 		}
 
-		sysfs_init(content, fd2, mdstat->devnm);
+		if (sysfs_init(content, fd2, mdstat->devnm)) {
+			pr_err("Unable to initialize sysfs for %s, Grow cannot continue",
+			       mdstat->devnm);
+			ret_val = 1;
+			close(fd2);
+			goto Grow_continue_command_exit;
+		}
 
 		close(fd2);
 

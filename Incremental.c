@@ -326,7 +326,12 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		if (mdfd < 0)
 			goto out_unlock;
 
-		sysfs_init(&info, mdfd, NULL);
+		if (sysfs_init(&info, mdfd, NULL)) {
+			pr_err("unable to initialize sysfs for %s\n",
+			       chosen_name);
+			rv = 2;
+			goto out_unlock;
+		}
 
 		if (set_array_info(mdfd, st, &info) != 0) {
 			pr_err("failed to set array info for %s: %s\n",
@@ -1734,7 +1739,10 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 			pr_err("%s does not appear to be a component of any array\n", devname);
 		return 1;
 	}
-	sysfs_init(&mdi, -1, ent->devnm);
+	if (sysfs_init(&mdi, -1, ent->devnm)) {
+		pr_err("unable to initialize sysfs for: %s\n", devname);
+		return 1;
+	}
 	mdfd = open_dev_excl(ent->devnm);
 	if (mdfd > 0) {
 		close(mdfd);

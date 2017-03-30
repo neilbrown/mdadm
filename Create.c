@@ -737,7 +737,10 @@ int Create(struct supertype *st, char *mddev,
 
 	total_slots = info.array.nr_disks;
 	st->ss->getinfo_super(st, &info, NULL);
-	sysfs_init(&info, mdfd, NULL);
+	if (sysfs_init(&info, mdfd, NULL)) {
+		pr_err("unable to initialize sysfs\n");
+		goto abort_locked;
+	}
 
 	if (did_default && c->verbose >= 0) {
 		if (is_subarray(info.text_version)) {
@@ -794,7 +797,10 @@ int Create(struct supertype *st, char *mddev,
 		s->bitmap_file = NULL;
 	}
 
-	sysfs_init(&info, mdfd, NULL);
+	if (sysfs_init(&info, mdfd, NULL)) {
+		pr_err("unable to initialize sysfs\n");
+		goto abort_locked;
+	}
 
 	if (st->ss->external && st->container_devnm[0]) {
 		/* member */

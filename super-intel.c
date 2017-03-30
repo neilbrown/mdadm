@@ -264,6 +264,8 @@ struct bbm_log {
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
 #endif
 
+#define BLOCKS_PER_KB	(1024/512)
+
 #define RAID_DISK_RESERVED_BLOCKS_IMSM_HI 2209
 
 #define GEN_MIGR_AREA_SIZE 2048 /* General Migration Copy Area size in blocks */
@@ -1322,6 +1324,19 @@ static int is_failed(struct imsm_disk *disk)
 static int is_journal(struct imsm_disk *disk)
 {
 	return (disk->status & JOURNAL_DISK) == JOURNAL_DISK;
+}
+
+/* round array size down to closest MB and ensure it splits evenly
+ * between members
+ */
+static unsigned long long round_size_to_mb(unsigned long long size, unsigned int
+					   disk_count)
+{
+	size /= disk_count;
+	size = (size >> SECT_PER_MB_SHIFT) << SECT_PER_MB_SHIFT;
+	size *= disk_count;
+
+	return size;
 }
 
 /* try to determine how much space is reserved for metadata from
@@ -3330,11 +3345,10 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 			if (used_disks > 0) {
 				array_blocks = blocks_per_member(map) *
 					used_disks;
-				/* round array size down to closest MB
-				 */
-				info->custom_array_size = (array_blocks
-						>> SECT_PER_MB_SHIFT)
-						<< SECT_PER_MB_SHIFT;
+				info->custom_array_size =
+					round_size_to_mb(array_blocks,
+							 used_disks);
+
 			}
 		}
 		case MIGR_VERIFY:
@@ -5241,6 +5255,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	unsigned long long array_blocks;
 	size_t size_old, size_new;
 	unsigned long long num_data_stripes;
+	unsigned int data_disks;
+	unsigned long long size_per_member;
 
 	if (super->orom && mpb->num_raid_devs >= super->orom->vpa) {
 		pr_err("This imsm-container already has the maximum of %d volumes\n", super->orom->vpa);
@@ -5317,9 +5333,11 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
 	array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
-					       s->size * 2);
-	/* round array size down to closest MB */
-	array_blocks = (array_blocks >> SECT_PER_MB_SHIFT) << SECT_PER_MB_SHIFT;
+					       s->size * BLOCKS_PER_KB);
+	data_disks = get_data_disks(info->level, info->layout,
+				    info->raid_disks);
+	array_blocks = round_size_to_mb(array_blocks, data_disks);
+	size_per_member = array_blocks / data_disks;
 
 	dev->size_low = __cpu_to_le32((__u32) array_blocks);
 	dev->size_high = __cpu_to_le32((__u32) (array_blocks >> 32));
@@ -5331,7 +5349,9 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	vol->curr_migr_unit = 0;
 	map = get_imsm_map(dev, MAP_0);
 	set_pba_of_lba0(map, super->create_offset);
-	set_blocks_per_member(map, info_to_blocks_per_member(info, s->size));
+	set_blocks_per_member(map, info_to_blocks_per_member(info,
+							     size_per_member /
+							     BLOCKS_PER_KB));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->failed_disk_num = ~0;
 	if (info->level > 0)
@@ -5359,7 +5379,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		map->num_domains = 1;
 
 	/* info->size is only int so use the 'size' parameter instead */
-	num_data_stripes = (s->size * 2) / info_to_blocks_per_strip(info);
+	num_data_stripes = size_per_member / info_to_blocks_per_strip(info);
 	num_data_stripes /= map->num_domains;
 	set_num_data_stripes(map, num_data_stripes);
 
@@ -7981,9 +8001,7 @@ static unsigned long long imsm_set_array_size(struct imsm_dev *dev,
 		array_blocks = new_size;
 	}
 
-	/* round array size down to closest MB
-	 */
-	array_blocks = (array_blocks >> SECT_PER_MB_SHIFT) << SECT_PER_MB_SHIFT;
+	array_blocks = round_size_to_mb(array_blocks, used_disks);
 	dev->size_low = __cpu_to_le32((__u32)array_blocks);
 	dev->size_high = __cpu_to_le32((__u32)(array_blocks >> 32));
 
@@ -8096,11 +8114,9 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 					array_blocks =
 						blocks_per_member(map) *
 						used_disks;
-					/* round array size down to closest MB
-					 */
-					array_blocks = (array_blocks
-							>> SECT_PER_MB_SHIFT)
-						<< SECT_PER_MB_SHIFT;
+					array_blocks =
+						round_size_to_mb(array_blocks,
+								 used_disks);
 					a->info.custom_array_size = array_blocks;
 					/* encourage manager to update array
 					 * size

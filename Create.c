@@ -868,7 +868,7 @@ int Create(struct supertype *st, char *mddev,
 		for (dnum=0, raid_disk_num=0, dv = devlist ; dv ;
 		     dv=(dv->next)?(dv->next):moved_disk, dnum++) {
 			int fd;
-			struct stat stb;
+			struct stat stb2;
 			struct mdinfo *inf = &infos[dnum];
 
 			if (dnum >= total_slots)
@@ -924,9 +924,9 @@ int Create(struct supertype *st, char *mddev,
 							dv->devname);
 						goto abort_locked;
 					}
-					fstat(fd, &stb);
-					inf->disk.major = major(stb.st_rdev);
-					inf->disk.minor = minor(stb.st_rdev);
+					fstat(fd, &stb2);
+					inf->disk.major = major(stb2.st_rdev);
+					inf->disk.minor = minor(stb2.st_rdev);
 				}
 				if (fd >= 0)
 					remove_partitions(fd);
@@ -947,8 +947,8 @@ int Create(struct supertype *st, char *mddev,
 
 				if (!have_container) {
 					/* getinfo_super might have lost these ... */
-					inf->disk.major = major(stb.st_rdev);
-					inf->disk.minor = minor(stb.st_rdev);
+					inf->disk.major = major(stb2.st_rdev);
+					inf->disk.minor = minor(stb2.st_rdev);
 				}
 				break;
 			case 2:

@@ -97,7 +97,6 @@ int Create(struct supertype *st, char *mddev,
 	int insert_point = subdevs * 2; /* where to insert a missing drive */
 	int total_slots;
 	int pass;
-	int vers;
 	int rv;
 	int bitmap_fd;
 	int have_container = 0;
@@ -112,6 +111,7 @@ int Create(struct supertype *st, char *mddev,
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
 	unsigned long long newsize;
+	mdu_array_info_t inf;
 
 	int major_num = BITMAP_MAJOR_HI;
 	if (s->bitmap_file && strcmp(s->bitmap_file, "clustered") == 0) {
@@ -150,7 +150,6 @@ int Create(struct supertype *st, char *mddev,
 		/* If given a single device, it might be a container, and we can
 		 * extract a device list from there
 		 */
-		mdu_array_info_t inf;
 		int fd;
 
 		memset(&inf, 0, sizeof(inf));
@@ -625,18 +624,11 @@ int Create(struct supertype *st, char *mddev,
 	}
 	mddev = chosen_name;
 
-	vers = md_get_version(mdfd);
-	if (vers < 9000) {
-		pr_err("Create requires md driver version 0.90.0 or later\n");
+	memset(&inf, 0, sizeof(inf));
+	md_get_array_info(mdfd, &inf);
+	if (inf.working_disks != 0) {
+		pr_err("another array by this name is already running.\n");
 		goto abort_locked;
-	} else {
-		mdu_array_info_t inf;
-		memset(&inf, 0, sizeof(inf));
-		md_get_array_info(mdfd, &inf);
-		if (inf.working_disks != 0) {
-			pr_err("another array by this name is already running.\n");
-			goto abort_locked;
-		}
 	}
 
 	/* Ok, lets try some ioctls */
@@ -761,20 +753,8 @@ int Create(struct supertype *st, char *mddev,
 	 * to stop another mdadm from finding and using those devices.
 	 */
 
-	if (s->bitmap_file && vers < 9003) {
-		major_num = BITMAP_MAJOR_HOSTENDIAN;
-#ifdef __BIG_ENDIAN
-		pr_err("Warning - bitmaps created on this kernel are not portable\n"
-			"  between different architectured.  Consider upgrading the Linux kernel.\n");
-#endif
-	}
-
 	if (s->bitmap_file && (strcmp(s->bitmap_file, "internal") == 0 ||
 			       strcmp(s->bitmap_file, "clustered") == 0)) {
-		if ((vers % 100) < 2) {
-			pr_err("internal bitmaps not supported by this kernel.\n");
-			goto abort_locked;
-		}
 		if (!st->ss->add_internal_bitmap) {
 			pr_err("internal bitmaps not supported with %s metadata\n",
 				st->ss->name);

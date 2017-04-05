@@ -54,7 +54,6 @@ int Detail(char *dev, struct context *c)
 	 * Print out details for an md array
 	 */
 	int fd = open(dev, O_RDONLY);
-	int vers;
 	mdu_array_info_t array;
 	mdu_disk_info_t *disks;
 	int next;
@@ -88,22 +87,14 @@ int Detail(char *dev, struct context *c)
 			dev, strerror(errno));
 		return rv;
 	}
-	vers = md_get_version(fd);
-	if (vers < 0) {
-		pr_err("%s does not appear to be an md device\n",
-			dev);
-		close(fd);
-		return rv;
-	}
-	if (vers < 9000) {
-		pr_err("cannot get detail for md device %s: driver version too old.\n",
-			dev);
-		close(fd);
-		return rv;
-	}
 	sra = sysfs_read(fd, NULL, GET_VERSION|GET_DEVS);
-	external = (sra != NULL && sra->array.major_version == -1
-		    && sra->array.minor_version == -2);
+	if (!sra) {
+		pr_err("%s does not appear to be an md device\n", dev);
+		close(fd);
+		return rv;
+	}
+	external = (sra != NULL && sra->array.major_version == -1 &&
+		    sra->array.minor_version == -2);
 	st = super_by_fd(fd, &subarray);
 	if (md_get_array_info(fd, &array) == 0) {
 		inactive = 0;
@@ -378,9 +369,7 @@ int Detail(char *dev, struct context *c)
 		}
 
 		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
-		if (vers >= 9001 &&
-		    ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 &&
-		    bmf.pathname[0]) {
+		if (ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 && bmf.pathname[0]) {
 			printf(" bitmap=%s", bmf.pathname);
 		}
 	} else {
@@ -449,9 +438,7 @@ int Detail(char *dev, struct context *c)
 			       array.not_persistent?"not ":"");
 		printf("\n");
 		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
-		if (vers >= 9001 &&
-		    ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 &&
-		    bmf.pathname[0]) {
+		if (ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 && bmf.pathname[0]) {
 			printf("     Intent Bitmap : %s\n", bmf.pathname);
 			printf("\n");
 		} else if (array.state & (1<<MD_SB_BITMAP_PRESENT))

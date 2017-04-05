@@ -1477,8 +1477,7 @@ try_again:
 		return 1;
 	}
 	mddev = chosen_name;
-	if (get_linux_version() < 2004000 ||
-	    md_get_version(mdfd) < 9000) {
+	if (get_linux_version() < 2004000) {
 		pr_err("Assemble requires Linux 2.4 or later, and\n"
 		       "     md driver version 0.90.0 or later.\n"
 		       "    Upgrade your kernel or try --build\n");

@@ -260,7 +260,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	if (!info)
 		return rv;
 	sb = &info->sb;
-	if (sb->magic != BITMAP_MAGIC && md_get_version(fd) > 0) {
+	if (sb->magic != BITMAP_MAGIC) {
 		pr_err("This is an md array.  To view a bitmap you need to examine\n");
 		pr_err("a member device, not the array.\n");
 		pr_err("Reporting bitmap that would be used if this array were used\n");

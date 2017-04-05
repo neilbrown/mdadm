@@ -1901,7 +1901,7 @@ int assemble_container_content(struct supertype *st, int mdfd,
 		    c->readonly &&
 		    content->text_version[0] == '/')
 			content->text_version[0] = '-';
-		if (sysfs_set_array(content, md_get_version(mdfd)) != 0) {
+		if (sysfs_set_array(content, 9003) != 0) {
 			sysfs_free(sra);
 			return 1;
 		}

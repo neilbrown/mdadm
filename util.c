@@ -273,35 +273,6 @@ int parse_uuid(char *str, int uuid[4])
 	return 0;
 }
 
-/*
- * Get the md version number.
- * We use the RAID_VERSION ioctl if it is supported
- * If not, but we have a block device with major '9', we assume
- * 0.36.0
- *
- * Return version number as 24 but number - assume version parts
- * always < 255
- */
-
-int md_get_version(int fd)
-{
-	struct stat stb;
-	mdu_version_t vers;
-
-	if (fstat(fd, &stb)<0)
-		return -1;
-	if ((S_IFMT&stb.st_mode) != S_IFBLK)
-		return -1;
-
-	if (ioctl(fd, RAID_VERSION, &vers) == 0)
-		return  (vers.major*10000) + (vers.minor*100) + vers.patchlevel;
-	if (errno == EACCES)
-		return -1;
-	if (major(stb.st_rdev) == MD_MAJOR)
-		return (3600);
-	return -1;
-}
-
 int get_linux_version()
 {
 	struct utsname name;

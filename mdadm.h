@@ -1404,7 +1404,6 @@ extern int Dump_metadata(char *dev, char *dir, struct context *c,
 extern int Restore_metadata(char *dev, char *dir, struct context *c,
 			    struct supertype *st, int only);
 
-extern int md_get_version(int fd);
 int md_get_array_info(int fd, struct mdu_array_info_s *array);
 int md_set_array_info(int fd, struct mdu_array_info_s *array);
 int md_get_disk_info(int fd, struct mdu_disk_info_s *disk);

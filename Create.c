@@ -84,12 +84,12 @@ int Create(struct supertype *st, char *mddev,
 	 * RUN_ARRAY
 	 */
 	int mdfd;
-	unsigned long long minsize=0, maxsize=0;
+	unsigned long long minsize = 0, maxsize = 0;
 	char *mindisc = NULL;
 	char *maxdisc = NULL;
 	int dnum, raid_disk_num;
 	struct mddev_dev *dv;
-	int fail=0, warn=0;
+	int fail = 0, warn = 0;
 	struct stat stb;
 	int first_missing = subdevs * 2;
 	int second_missing = subdevs * 2;
@@ -259,7 +259,7 @@ int Create(struct supertype *st, char *mddev,
 					      &s->chunk, s->size*2,
 					      data_offset, NULL,
 					      &newsize, s->consistency_policy,
-					      c->verbose>=0))
+					      c->verbose >= 0))
 		return 1;
 
 	if (s->chunk && s->chunk != UnSet) {
@@ -290,7 +290,7 @@ int Create(struct supertype *st, char *mddev,
 	info.array.active_disks = 0;
 	info.array.working_disks = 0;
 	dnum = 0;
-	for (dv = devlist; dv ; dv = dv->next)
+	for (dv = devlist; dv; dv = dv->next)
 		if (data_offset == VARIABLE_OFFSET)
 			dv->data_offset = INVALID_SECTORS;
 		else
@@ -302,7 +302,7 @@ int Create(struct supertype *st, char *mddev,
 		int dfd;
 		char *doff;
 
-		if (strcasecmp(dname, "missing")==0) {
+		if (strcasecmp(dname, "missing") == 0) {
 			if (first_missing > dnum)
 				first_missing = dnum;
 			if (second_missing > dnum && dnum > first_missing)
@@ -348,7 +348,7 @@ int Create(struct supertype *st, char *mddev,
 			 */
 			int i;
 			char *name = "default";
-			for(i=0; !st && superlist[i]; i++) {
+			for(i = 0; !st && superlist[i]; i++) {
 				st = superlist[i]->match_metadata_desc(name);
 				if (!st)
 					continue;
@@ -444,10 +444,10 @@ int Create(struct supertype *st, char *mddev,
 	skip_size_check:
 		if (c->runstop != 1 || c->verbose >= 0) {
 			int fd = open(dname, O_RDONLY);
-			if (fd <0 ) {
+			if (fd < 0) {
 				pr_err("Cannot open %s: %s\n",
 					dname, strerror(errno));
-				fail=1;
+				fail = 1;
 				continue;
 			}
 			warn |= check_ext2(fd, dname);
@@ -496,7 +496,7 @@ int Create(struct supertype *st, char *mddev,
 			return 1;
 		}
 		if (s->level > 0 || s->level == LEVEL_MULTIPATH ||
-		    s->level == LEVEL_FAULTY || st->ss->external ) {
+		    s->level == LEVEL_FAULTY || st->ss->external) {
 			/* size is meaningful */
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
@@ -571,9 +571,9 @@ int Create(struct supertype *st, char *mddev,
 	 * as missing, so that a reconstruct happens (faster than re-parity)
 	 * FIX: Can we do this for raid6 as well?
 	 */
-	if (st->ss->external == 0 &&
-	    s->assume_clean==0 && c->force == 0 && first_missing >= s->raiddisks) {
-		switch ( s->level ) {
+	if (st->ss->external == 0 && s->assume_clean == 0 &&
+	    c->force == 0 && first_missing >= s->raiddisks) {
+		switch (s->level) {
 		case 4:
 		case 5:
 			insert_point = s->raiddisks-1;
@@ -648,7 +648,7 @@ int Create(struct supertype *st, char *mddev,
 	 * with, but it chooses to trust me instead. Sigh
 	 */
 	info.array.md_minor = 0;
-	if (fstat(mdfd, &stb)==0)
+	if (fstat(mdfd, &stb) == 0)
 		info.array.md_minor = minor(stb.st_rdev);
 	info.array.not_persistent = 0;
 
@@ -714,13 +714,11 @@ int Create(struct supertype *st, char *mddev,
 		name = strrchr(mddev, '/');
 		if (name) {
 			name++;
-			if (strncmp(name, "md_", 3)==0 &&
-			    strlen(name) > 3 &&
-			    (name-mddev) == 5 /* /dev/ */)
+			if (strncmp(name, "md_", 3) == 0 &&
+			    strlen(name) > 3 && (name-mddev) == 5 /* /dev/ */)
 				name += 3;
-			else if (strncmp(name, "md", 2)==0 &&
-				 strlen(name) > 2 &&
-				 isdigit(name[2]) &&
+			else if (strncmp(name, "md", 2) == 0 &&
+				 strlen(name) > 2 && isdigit(name[2]) &&
 				 (name-mddev) == 5 /* /dev/ */)
 				name += 2;
 		}
@@ -771,9 +769,9 @@ int Create(struct supertype *st, char *mddev,
 #endif
 	}
 
-	if (s->bitmap_file && (strcmp(s->bitmap_file, "internal")==0 ||
-			       strcmp(s->bitmap_file, "clustered")==0)) {
-		if ((vers%100) < 2) {
+	if (s->bitmap_file && (strcmp(s->bitmap_file, "internal") == 0 ||
+			       strcmp(s->bitmap_file, "clustered") == 0)) {
+		if ((vers % 100) < 2) {
 			pr_err("internal bitmaps not supported by this kernel.\n");
 			goto abort_locked;
 		}
@@ -856,11 +854,11 @@ int Create(struct supertype *st, char *mddev,
 
 	infos = xmalloc(sizeof(*infos) * total_slots);
 	enable_fds(total_slots);
-	for (pass=1; pass <=2 ; pass++) {
+	for (pass = 1; pass <= 2; pass++) {
 		struct mddev_dev *moved_disk = NULL; /* the disk that was moved out of the insert point */
 
-		for (dnum=0, raid_disk_num=0, dv = devlist ; dv ;
-		     dv=(dv->next)?(dv->next):moved_disk, dnum++) {
+		for (dnum = 0, raid_disk_num = 0, dv = devlist; dv;
+		     dv = (dv->next) ? (dv->next) : moved_disk, dnum++) {
 			int fd;
 			struct stat stb2;
 			struct mdinfo *inf = &infos[dnum];
@@ -872,7 +870,7 @@ int Create(struct supertype *st, char *mddev,
 				moved_disk = dv;
 				continue;
 			}
-			if (strcasecmp(dv->devname, "missing")==0) {
+			if (strcasecmp(dv->devname, "missing") == 0) {
 				raid_disk_num += 1;
 				continue;
 			}

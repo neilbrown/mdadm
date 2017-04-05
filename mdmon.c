@@ -408,10 +408,6 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 		pr_err("%s: %s\n", devnm, strerror(errno));
 		return 1;
 	}
-	if (md_get_version(mdfd) < 0) {
-		pr_err("%s: Not an md device\n", devnm);
-		return 1;
-	}
 
 	/* Fork, and have the child tell us when they are ready */
 	if (must_fork) {

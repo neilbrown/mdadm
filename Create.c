@@ -457,8 +457,8 @@ int Create(struct supertype *st, char *mddev,
 			    st->minor_version >= 1)
 				/* metadata at front */
 				warn |= check_partitions(fd, dname, 0, 0);
-			else if (s->level == 1 || s->level == LEVEL_CONTAINER
-				    || (s->level == 0 && s->raiddisks == 1))
+			else if (s->level == 1 || s->level == LEVEL_CONTAINER ||
+				 (s->level == 0 && s->raiddisks == 1))
 				/* partitions could be meaningful */
 				warn |= check_partitions(fd, dname, freesize*2, s->size*2);
 			else
@@ -495,9 +495,8 @@ int Create(struct supertype *st, char *mddev,
 			pr_err("no size and no drives given - aborting create.\n");
 			return 1;
 		}
-		if (s->level > 0 || s->level == LEVEL_MULTIPATH
-		    || s->level == LEVEL_FAULTY
-		    || st->ss->external ) {
+		if (s->level > 0 || s->level == LEVEL_MULTIPATH ||
+		    s->level == LEVEL_FAULTY || st->ss->external ) {
 			/* size is meaningful */
 			if (!st->ss->validate_geometry(st, s->level, s->layout,
 						       s->raiddisks,
@@ -616,8 +615,8 @@ int Create(struct supertype *st, char *mddev,
 	 * it could be in conflict with already existing device
 	 * e.g. container, array
 	 */
-	if (strncmp(chosen_name, "/dev/md/", 8) == 0
-	    && map_by_name(&map, chosen_name+8) != NULL) {
+	if (strncmp(chosen_name, "/dev/md/", 8) == 0 &&
+	    map_by_name(&map, chosen_name+8) != NULL) {
 		pr_err("Array name %s is in use already.\n",
 			chosen_name);
 		close(mdfd);
@@ -653,16 +652,11 @@ int Create(struct supertype *st, char *mddev,
 		info.array.md_minor = minor(stb.st_rdev);
 	info.array.not_persistent = 0;
 
-	if ( ( (s->level == 4 || s->level == 5) &&
-	       (insert_point < s->raiddisks || first_missing < s->raiddisks) )
-	     ||
-	     ( s->level == 6 && (insert_point < s->raiddisks
-			      || second_missing < s->raiddisks))
-	     ||
-	     ( s->level <= 0 )
-	     ||
-	     s->assume_clean
-		) {
+	if (((s->level == 4 || s->level == 5) &&
+	     (insert_point < s->raiddisks || first_missing < s->raiddisks)) ||
+	    (s->level == 6 && (insert_point < s->raiddisks ||
+			       second_missing < s->raiddisks)) ||
+	    (s->level <= 0) || s->assume_clean) {
 		info.array.state = 1; /* clean, but one+ drive will be missing*/
 		info.resync_start = MaxSector;
 	} else {

@@ -32,13 +32,12 @@ char const Name[] = "mdassemble";
 /* from mdopen.c */
 int open_mddev(char *dev, int report_errors/*unused*/)
 {
+	struct mdu_array_info_s array;
 	int mdfd = open(dev, O_RDONLY);
 	if (mdfd < 0)
-		pr_err("error opening %s: %s\n",
-			dev, strerror(errno));
-	else if (md_get_version(mdfd) <= 0) {
-		pr_err("%s does not appear to be an md device\n",
-			dev);
+		pr_err("error opening %s: %s\n", dev, strerror(errno));
+	else if (md_get_array_info(mdfd, &array) != 0) {
+		pr_err("%s does not appear to be an md device\n", dev);
 		close(mdfd);
 		mdfd = -1;
 	}

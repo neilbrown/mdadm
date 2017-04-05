@@ -1376,9 +1376,14 @@ int get_dev_sector_size(int fd, char *dname, unsigned int *sectsizep)
  */
 int must_be_container(int fd)
 {
+	struct mdinfo *mdi;
 	unsigned long long size;
-	if (md_get_version(fd) < 0)
+
+	mdi = sysfs_read(fd, NULL, GET_VERSION);
+	if (!mdi)
 		return 0;
+	sysfs_free(mdi);
+
 	if (get_dev_size(fd, NULL, &size) == 0)
 		return 1;
 	if (size == 0)

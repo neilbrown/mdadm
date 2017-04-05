@@ -1858,22 +1858,19 @@ int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 	 * This varies between externally managed arrays
 	 * and older kernels
 	 */
-	int vers = md_get_version(mdfd);
+	mdu_array_info_t inf;
 	int rv;
 
 #ifndef MDASSEMBLE
 	if (st->ss->external)
-		rv = sysfs_set_array(info, vers);
-	else
+		return sysfs_set_array(info, 9003);
 #endif
-		if ((vers % 100) >= 1) { /* can use different versions */
-		mdu_array_info_t inf;
-		memset(&inf, 0, sizeof(inf));
-		inf.major_version = info->array.major_version;
-		inf.minor_version = info->array.minor_version;
-		rv = md_set_array_info(mdfd, &inf);
-	} else
-		rv = md_set_array_info(mdfd, NULL);
+		
+	memset(&inf, 0, sizeof(inf));
+	inf.major_version = info->array.major_version;
+	inf.minor_version = info->array.minor_version;
+	rv = md_set_array_info(mdfd, &inf);
+
 	return rv;
 }
 

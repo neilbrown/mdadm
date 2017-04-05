@@ -288,15 +288,8 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	struct supertype *st;
 	char *subarray = NULL;
 	int major = BITMAP_MAJOR_HI;
-	int vers = md_get_version(fd);
 	unsigned long long bitmapsize, array_size;
 	struct mdinfo *mdi;
-
-	if (vers < 9003) {
-		major = BITMAP_MAJOR_HOSTENDIAN;
-		pr_err("Warning - bitmaps created on this kernel are not portable\n"
-			"  between different architectures.  Consider upgrading the Linux kernel.\n");
-	}
 
 	/*
 	 * We only ever get called if s->bitmap_file is != NULL, so this check

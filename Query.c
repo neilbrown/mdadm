@@ -33,7 +33,6 @@ int Query(char *dev)
 	 * a superblock
 	 */
 	int fd = open(dev, O_RDONLY);
-	int vers;
 	int ioctlerr;
 	int superror;
 	struct mdinfo info;
@@ -52,7 +51,6 @@ int Query(char *dev)
 		return 1;
 	}
 
-	vers = md_get_version(fd);
 	if (md_get_array_info(fd, &array) < 0)
 		ioctlerr = errno;
 	else
@@ -60,16 +58,12 @@ int Query(char *dev)
 
 	fstat(fd, &stb);
 
-	if (vers>=9000 && !ioctlerr) {
+	if (!ioctlerr) {
 		if (!get_dev_size(fd, NULL, &larray_size))
 			larray_size = 0;
 	}
 
-	if (vers < 0)
-		printf("%s: is not an md array\n", dev);
-	else if (vers < 9000)
-		printf("%s: is an md device, but kernel cannot provide details\n", dev);
-	else if (ioctlerr == ENODEV)
+	if (ioctlerr == ENODEV)
 		printf("%s: is an md device which is not active\n", dev);
 	else if (ioctlerr)
 		printf("%s: is an md device, but gives \"%s\" when queried\n",
@@ -100,8 +94,7 @@ int Query(char *dev)
 			disc.number = info.disk.number;
 			activity = "undetected";
 			if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
-				if (md_get_version(fd) >= 9000 &&
-				    md_get_array_info(fd, &array) >= 0) {
+				if (md_get_array_info(fd, &array) >= 0) {
 					if (md_get_disk_info(fd, &disc) >= 0 &&
 					    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
 						activity = "active";

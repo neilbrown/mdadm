@@ -46,10 +46,6 @@ int Manage_ro(char *devname, int fd, int readonly)
 #endif
 	int rv = 0;
 
-	if (md_get_version(fd) < 9000) {
-		pr_err("need md driver version 0.90.0 or later\n");
-		return 1;
-	}
 #ifndef MDASSEMBLE
 	/* If this is an externally-managed array, we need to modify the
 	 * metadata_version so that mdmon doesn't undo our change.
@@ -176,10 +172,6 @@ int Manage_run(char *devname, int fd, struct context *c)
 	 */
 	char nm[32], *nmp;
 
-	if (md_get_version(fd) < 9000) {
-		pr_err("need md driver version 0.90.0 or later\n");
-		return 1;
-	}
 	nmp = fd2devnm(fd);
 	if (!nmp) {
 		pr_err("Cannot find %s in sysfs!!\n", devname);
@@ -206,14 +198,6 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 
 	if (will_retry && verbose == 0)
 		verbose = -1;
-
-	if (md_get_version(fd) < 9000) {
-		if (ioctl(fd, STOP_MD, 0) == 0)
-			return 0;
-		pr_err("stopping device %s failed: %s\n",
-		       devname, strerror(errno));
-		return 1;
-	}
 
 	strcpy(devnm, fd2devnm(fd));
 	/* Get EXCL access first.  If this fails, then attempting
@@ -773,9 +757,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		       "       Adding anyway as --force was given.\n",
 		       dv->devname, devname);
 	}
-	if (!tst->ss->external &&
-	    array->major_version == 0 &&
-	    md_get_version(fd)%100 < 2) {
+	if (!tst->ss->external && array->major_version == 0) {
 		if (ioctl(fd, HOT_ADD_DISK, rdev)==0) {
 			if (verbose >= 0)
 				pr_err("hot added %s\n",

@@ -120,6 +120,11 @@ int main(int argc, char *argv[])
 	ident.container = NULL;
 	ident.member = NULL;
 
+	if (get_linux_version() < 2006015) {
+		pr_err("This version of mdadm does not support kernels older than 2.6.15\n");
+		exit(1);
+	}
+
 	while ((option_index = -1),
 	       (opt = getopt_long(argc, argv, shortopt, long_options,
 				  &option_index)) != -1) {

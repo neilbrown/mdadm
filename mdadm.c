@@ -1916,7 +1916,7 @@ static int misc_list(struct mddev_dev *devlist,
 	int rv = 0;
 
 	for (dv = devlist; dv; dv = (rv & 16) ? NULL : dv->next) {
-		int mdfd;
+		int mdfd = -1;
 
 		switch(dv->disposition) {
 		case 'D':

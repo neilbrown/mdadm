@@ -10,7 +10,7 @@ Description=Manage MD Reshape on /dev/%I
 DefaultDependencies=no
 
 [Service]
-ExecStart=BINDIR/mdadm --grow --continue /dev/%i
+ExecStart=BINDIR/mdadm --grow --continue /dev/%I
 StandardInput=null
 StandardOutput=null
 StandardError=null

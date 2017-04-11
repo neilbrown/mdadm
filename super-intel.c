@@ -260,9 +260,7 @@ struct bbm_log {
 	struct bbm_log_entry marked_block_entries[BBM_LOG_MAX_ENTRIES];
 } __attribute__ ((__packed__));
 
-#ifndef MDASSEMBLE
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
-#endif
 
 #define BLOCKS_PER_KB	(1024/512)
 
@@ -672,12 +670,10 @@ static struct supertype *match_metadata_desc_imsm(char *arg)
 	return st;
 }
 
-#ifndef MDASSEMBLE
 static __u8 *get_imsm_version(struct imsm_super *mpb)
 {
 	return &mpb->sig[MPB_SIG_LEN];
 }
-#endif
 
 /* retrieve a disk directly from the anchor when the anchor is known to be
  * up-to-date, currently only at load time
@@ -784,7 +780,6 @@ static size_t sizeof_imsm_dev(struct imsm_dev *dev, int migr_state)
 	return size;
 }
 
-#ifndef MDASSEMBLE
 /* retrieve disk serial number list from a metadata update */
 static struct disk_info *get_disk_info(struct imsm_update_create_array *update)
 {
@@ -796,7 +791,6 @@ static struct disk_info *get_disk_info(struct imsm_update_create_array *update)
 
 	return inf;
 }
-#endif
 
 static struct imsm_dev *__get_imsm_dev(struct imsm_super *mpb, __u8 index)
 {
@@ -847,7 +841,6 @@ static inline struct bbm_log_block_addr __cpu_to_le48(unsigned long long sec)
 	return addr;
 }
 
-#ifndef MDASSEMBLE
 /* get size of the bbm log */
 static __u32 get_imsm_bbm_log_size(struct bbm_log *log)
 {
@@ -978,7 +971,6 @@ static int clear_badblock(struct bbm_log *log, const __u8 idx, const unsigned
 
 	return 1;
 }
-#endif /* MDASSEMBLE */
 
 /* allocate and load BBM log from metadata */
 static int load_bbm_log(struct intel_super *super)
@@ -1423,7 +1415,6 @@ static int is_gen_migration(struct imsm_dev *dev);
 
 #define IMSM_4K_DIV 8
 
-#ifndef MDASSEMBLE
 static __u64 blocks_per_migr_unit(struct intel_super *super,
 				  struct imsm_dev *dev);
 
@@ -1698,7 +1689,6 @@ void examine_migr_rec_imsm(struct intel_super *super)
 		break;
 	}
 }
-#endif /* MDASSEMBLE */
 
 void convert_from_4k_imsm_migr_rec(struct intel_super *super)
 {
@@ -1858,7 +1848,6 @@ static int imsm_check_attributes(__u32 attributes)
 	return ret_val;
 }
 
-#ifndef MDASSEMBLE
 static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *map);
 
 static void examine_super_imsm(struct supertype *st, char *homehost)
@@ -2572,8 +2561,6 @@ static int export_detail_platform_imsm(int verbose, char *controller_path)
 	return result;
 }
 
-#endif
-
 static int match_home_imsm(struct supertype *st, char *homehost)
 {
 	/* the imsm metadata format does not specify any host
@@ -2984,7 +2971,6 @@ out:
 	return retval;
 }
 
-#ifndef MDASSEMBLE
 /*******************************************************************************
  * function: imsm_create_metadata_checkpoint_update
  * Description: It creates update for checkpoint change.
@@ -3125,7 +3111,6 @@ static int write_imsm_migr_rec(struct supertype *st)
 		close(fd);
 	return retval;
 }
-#endif /* MDASSEMBLE */
 
 /* spare/missing disks activations are not allowe when
  * array/container performs reshape operation, because
@@ -3396,7 +3381,6 @@ static __u8 imsm_check_degraded(struct intel_super *super, struct imsm_dev *dev,
 static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev,
 			     int look_in_map);
 
-#ifndef MDASSEMBLE
 static void manage_second_map(struct intel_super *super, struct imsm_dev *dev)
 {
 	if (is_gen_migration(dev)) {
@@ -3412,7 +3396,6 @@ static void manage_second_map(struct intel_super *super, struct imsm_dev *dev)
 		}
 	}
 }
-#endif
 
 static struct imsm_disk *get_imsm_missing(struct intel_super *super, __u8 index)
 {
@@ -3994,7 +3977,6 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	return 0;
 }
 
-#ifndef MDASSEMBLE
 /* When migrating map0 contains the 'destination' state while map1
  * contains the current state.  When not migrating map0 contains the
  * current state.  This routine assumes that map[0].map_state is set to
@@ -4082,7 +4064,6 @@ static void end_migration(struct imsm_dev *dev, struct intel_super *super,
 	dev->vol.curr_migr_unit = 0;
 	map->map_state = map_state;
 }
-#endif
 
 static int parse_raid_devices(struct intel_super *super)
 {
@@ -4528,7 +4509,6 @@ static int find_missing(struct intel_super *super)
 	return 0;
 }
 
-#ifndef MDASSEMBLE
 static struct intel_disk *disk_list_get(__u8 *serial, struct intel_disk *disk_list)
 {
 	struct intel_disk *idisk = disk_list;
@@ -5066,7 +5046,6 @@ static int load_container_imsm(struct supertype *st, int fd, char *devname)
 {
 	return load_super_imsm_all(st, fd, &st->sb, devname, NULL, 1);
 }
-#endif
 
 static int load_super_imsm(struct supertype *st, int fd, char *devname)
 {
@@ -5483,7 +5462,6 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	return 1;
 }
 
-#ifndef MDASSEMBLE
 static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 				     int fd, char *devname)
 {
@@ -6028,7 +6006,6 @@ static int mgmt_disk(struct supertype *st)
 
 	return 0;
 }
-#endif
 
 __u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
 
@@ -6136,8 +6113,6 @@ out:
 	return ret;
 }
 
-#ifndef MDASSEMBLE
-
 static int write_init_ppl_imsm_all(struct supertype *st, struct mdinfo *info)
 {
 	struct intel_super *super = st->sb;
@@ -6199,7 +6174,6 @@ static int write_init_super_imsm(struct supertype *st)
 
 	return rv;
 }
-#endif
 
 static int store_super_imsm(struct supertype *st, int fd)
 {
@@ -6209,16 +6183,11 @@ static int store_super_imsm(struct supertype *st, int fd)
 	if (!mpb)
 		return 1;
 
-#ifndef MDASSEMBLE
 	if (super->sector_size == 4096)
 		convert_to_4k(super);
 	return store_imsm_mpb(fd, mpb);
-#else
-	return 1;
-#endif
 }
 
-#ifndef MDASSEMBLE
 static int validate_geometry_imsm_container(struct supertype *st, int level,
 					    int layout, int raiddisks, int chunk,
 					    unsigned long long size,
@@ -7433,7 +7402,6 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 
 	return 0;
 }
-#endif /* MDASSEMBLE */
 
 static int is_gen_migration(struct imsm_dev *dev)
 {
@@ -7467,7 +7435,6 @@ static int is_rebuilding(struct imsm_dev *dev)
 		return 0;
 }
 
-#ifndef MDASSEMBLE
 static int is_initializing(struct imsm_dev *dev)
 {
 	struct imsm_map *migr_map;
@@ -7485,7 +7452,6 @@ static int is_initializing(struct imsm_dev *dev)
 
 	return 0;
 }
-#endif
 
 static void update_recovery_start(struct intel_super *super,
 					struct imsm_dev *dev,
@@ -7519,9 +7485,7 @@ static void update_recovery_start(struct intel_super *super,
 	rebuild->recovery_start = units * blocks_per_migr_unit(super, dev);
 }
 
-#ifndef MDASSEMBLE
 static int recover_backup_imsm(struct supertype *st, struct mdinfo *info);
-#endif
 
 static struct mdinfo *container_content_imsm(struct supertype *st, char *subarray)
 {
@@ -7560,9 +7524,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		struct imsm_map *map2;
 		struct mdinfo *this;
 		int slot;
-#ifndef MDASSEMBLE
 		int chunk;
-#endif
 		char *ep;
 
 		if (subarray &&
@@ -7591,7 +7553,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		super->current_vol = i;
 		getinfo_super_imsm_volume(st, this, NULL);
 		this->next = rest;
-#ifndef MDASSEMBLE
 		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
 		/* mdadm does not support all metadata features- set the bit in all arrays state */
 		if (!validate_geometry_imsm_orom(super,
@@ -7606,7 +7567,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			  (1<<MD_SB_BLOCK_CONTAINER_RESHAPE) |
 			  (1<<MD_SB_BLOCK_VOLUME);
 		}
-#endif
 
 		/* if array has bad blocks, set suitable bit in all arrays state */
 		if (sb_errors)
@@ -7697,11 +7657,9 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		update_recovery_start(super, dev, this);
 		this->array.spare_disks += spare_disks;
 
-#ifndef MDASSEMBLE
 		/* check for reshape */
 		if (this->reshape_active == 1)
 			recover_backup_imsm(st, this);
-#endif
 		rest = this;
 	}
 
@@ -7831,7 +7789,6 @@ static int imsm_count_failed(struct intel_super *super, struct imsm_dev *dev,
 	return failed;
 }
 
-#ifndef MDASSEMBLE
 static int imsm_open_new(struct supertype *c, struct active_array *a,
 			 char *inst)
 {
@@ -10003,7 +9960,6 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 		__free_imsm_disk(dl);
 	}
 }
-#endif /* MDASSEMBLE */
 
 static void close_targets(int *targets, int new_disks)
 {
@@ -10206,7 +10162,7 @@ int validate_container_imsm(struct mdinfo *info)
 
 	return 0;
 }
-#ifndef MDASSEMBLE
+
 /*******************************************************************************
 * Function:   imsm_record_badblock
 * Description: This routine stores new bad block record in BBM log
@@ -11852,10 +11808,7 @@ abort:
 	return ret_val;
 }
 
-#endif /* MDASSEMBLE */
-
 struct superswitch super_imsm = {
-#ifndef	MDASSEMBLE
 	.examine_super	= examine_super_imsm,
 	.brief_examine_super = brief_examine_super_imsm,
 	.brief_examine_subarrays = brief_examine_subarrays_imsm,
@@ -11878,7 +11831,6 @@ struct superswitch super_imsm = {
 	.recover_backup = recover_backup_imsm,
 	.copy_metadata = copy_metadata_imsm,
 	.examine_badblocks = examine_badblocks_imsm,
-#endif
 	.match_home	= match_home_imsm,
 	.uuid_from_super= uuid_from_super_imsm,
 	.getinfo_super  = getinfo_super_imsm,
@@ -11904,7 +11856,6 @@ struct superswitch super_imsm = {
 	.external	= 1,
 	.name = "imsm",
 
-#ifndef MDASSEMBLE
 /* for mdmon */
 	.open_new	= imsm_open_new,
 	.set_array_state= imsm_set_array_state,
@@ -11916,5 +11867,4 @@ struct superswitch super_imsm = {
 	.record_bad_block = imsm_record_badblock,
 	.clear_bad_block  = imsm_clear_badblock,
 	.get_bad_blocks   = imsm_get_badblocks,
-#endif /* MDASSEMBLE */
 };

@@ -152,7 +152,6 @@ struct misc_dev_info {
 					|MD_FEATURE_PPL			\
 					)
 
-#ifndef MDASSEMBLE
 static int role_from_sb(struct mdp_superblock_1 *sb)
 {
 	unsigned int d;
@@ -165,7 +164,6 @@ static int role_from_sb(struct mdp_superblock_1 *sb)
 		role = MD_DISK_ROLE_SPARE;
 	return role;
 }
-#endif
 
 /* return how many bytes are needed for bitmap, for cluster-md each node
  * should have it's own bitmap */
@@ -304,7 +302,6 @@ static inline unsigned int choose_ppl_space(int chunk)
 	return (PPL_HEADER_SIZE >> 9) + (chunk > 128*2 ? chunk : 128*2);
 }
 
-#ifndef MDASSEMBLE
 static void examine_super1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
@@ -903,8 +900,6 @@ static int examine_badblocks_super1(struct supertype *st, int fd, char *devname)
 	return 0;
 }
 
-#endif
-
 static int match_home1(struct supertype *st, char *homehost)
 {
 	struct mdp_superblock_1 *sb = st->sb;
@@ -1276,7 +1271,6 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		long bm_sectors = 0;
 		long space;
 
-#ifndef MDASSEMBLE
 		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 			bitmap_offset = (long)__le32_to_cpu(sb->bitmap_offset);
 			bm_sectors = calc_bitmap_size(bms, 4096) >> 9;
@@ -1284,7 +1278,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			bitmap_offset = (long)__le16_to_cpu(sb->ppl.offset);
 			bm_sectors = (long)__le16_to_cpu(sb->ppl.size);
 		}
-#endif
+
 		if (sb_offset < data_offset) {
 			/* 1.1 or 1.2.  Put bbl after bitmap leaving at least 32K
 			 */
@@ -1578,7 +1572,7 @@ struct devinfo {
 	mdu_disk_info_t disk;
 	struct devinfo *next;
 };
-#ifndef MDASSEMBLE
+
 /* Add a device to the superblock being created */
 static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 			 int fd, char *devname, unsigned long long data_offset)
@@ -1634,7 +1628,6 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 
 	return 0;
 }
-#endif
 
 static int locate_bitmap1(struct supertype *st, int fd, int node_num);
 
@@ -1741,8 +1734,6 @@ static unsigned long choose_bm_space(unsigned long devsize)
 }
 
 static void free_super1(struct supertype *st);
-
-#ifndef MDASSEMBLE
 
 __u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
 
@@ -2028,7 +2019,6 @@ error_out:
 out:
 	return rv;
 }
-#endif
 
 static int compare_super1(struct supertype *st, struct supertype *tst)
 {
@@ -2282,7 +2272,6 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 	if (devsize < 24)
 		return 0;
 
-#ifndef MDASSEMBLE
 	if (__le32_to_cpu(super->feature_map) & MD_FEATURE_BITMAP_OFFSET) {
 		/* hot-add. allow for actual size of bitmap */
 		struct bitmap_super_s *bsb;
@@ -2291,7 +2280,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 	} else if (__le32_to_cpu(super->feature_map) & MD_FEATURE_PPL) {
 		bmspace = __le16_to_cpu(super->ppl.size);
 	}
-#endif
+
 	/* Allow space for bad block log */
 	if (super->bblog_size)
 		bbspace = __le16_to_cpu(super->bblog_size);
@@ -2644,7 +2633,6 @@ static void free_super1(struct supertype *st)
 	st->sb = NULL;
 }
 
-#ifndef MDASSEMBLE
 static int validate_geometry1(struct supertype *st, int level,
 			      int layout, int raiddisks,
 			      int *chunk, unsigned long long size,
@@ -2740,7 +2728,6 @@ static int validate_geometry1(struct supertype *st, int level,
 	*freesize = devsize;
 	return 1;
 }
-#endif /* MDASSEMBLE */
 
 void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0)
 {
@@ -2793,7 +2780,6 @@ void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0
 }
 
 struct superswitch super1 = {
-#ifndef MDASSEMBLE
 	.examine_super = examine_super1,
 	.brief_examine_super = brief_examine_super1,
 	.export_examine_super = export_examine_super1,
@@ -2806,7 +2792,6 @@ struct superswitch super1 = {
 	.examine_badblocks = examine_badblocks_super1,
 	.copy_metadata = copy_metadata1,
 	.write_init_ppl = write_init_ppl1,
-#endif
 	.match_home = match_home1,
 	.uuid_from_super = uuid_from_super1,
 	.getinfo_super = getinfo_super1,

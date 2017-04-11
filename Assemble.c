@@ -222,13 +222,11 @@ static int select_devices(struct mddev_dev *devlist,
 					pr_err("%s is a container, but we are looking for components\n",
 					       devname);
 				tmpdev->used = 2;
-#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 			} if (!tst && (tst = super_by_fd(dfd, NULL)) == NULL) {
 				if (report_mismatch)
 					pr_err("not a recognisable container: %s\n",
 					       devname);
 				tmpdev->used = 2;
-#endif
 			} else if (!tst->ss->load_container
 				   || tst->ss->load_container(tst, dfd, NULL)) {
 				if (report_mismatch)
@@ -574,9 +572,7 @@ static int load_devices(struct devs *devices, char *devmap,
 	struct mddev_dev *tmpdev;
 	int devcnt = 0;
 	int nextspare = 0;
-#ifndef MDASSEMBLE
 	int bitmap_done = 0;
-#endif
 	int most_recent = -1;
 	int bestcnt = 0;
 	int *best = *bestp;
@@ -592,7 +588,6 @@ static int load_devices(struct devs *devices, char *devmap,
 		if (tmpdev->used != 1)
 			continue;
 		/* looks like a good enough match to update the super block if needed */
-#ifndef MDASSEMBLE
 		if (c->update) {
 			/* prepare useful information in info structures */
 			struct stat stb2;
@@ -683,9 +678,7 @@ static int load_devices(struct devs *devices, char *devmap,
 				else
 					bitmap_done = 1;
 			}
-		} else
-#endif
-		{
+		} else {
 			dfd = dev_open(devname,
 				       tmpdev->disposition == 'I'
 				       ? O_RDWR : (O_RDWR|O_EXCL));
@@ -1097,7 +1090,6 @@ static int start_array(int mdfd,
 		 * it read-only and let the grow code make it writable.
 		 */
 		int rv;
-#ifndef MDASSEMBLE
 		if (content->reshape_active &&
 		    !(content->reshape_active & RESHAPE_NO_BACKUP) &&
 		    content->delta_disks <= 0) {
@@ -1122,7 +1114,6 @@ static int start_array(int mdfd,
 			rv = sysfs_set_str(content, NULL,
 					   "array_state", "readonly");
 		} else
-#endif
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
 		reopen_mddev(mdfd); /* drop O_EXCL */
 		if (rv == 0) {
@@ -1506,7 +1497,6 @@ try_again:
 		ioctl(mdfd, STOP_ARRAY, NULL);
 	}
 
-#ifndef MDASSEMBLE
 	if (content != &info) {
 		/* This is a member of a container.  Try starting the array. */
 		int err;
@@ -1515,7 +1505,7 @@ try_again:
 		close(mdfd);
 		return err;
 	}
-#endif
+
 	/* Ok, no bad inconsistancy, we can try updating etc */
 	devices = xcalloc(num_devs, sizeof(*devices));
 	devmap = xcalloc(num_devs, content->array.raid_disks);
@@ -1668,14 +1658,13 @@ try_again:
 		return 1;
 	}
 	st->ss->getinfo_super(st, content, NULL);
-#ifndef MDASSEMBLE
 	if (sysfs_init(content, mdfd, NULL)) {
 		pr_err("Unable to initialize sysfs\n");
 		close(mdfd);
 		free(devices);
 		return 1;
 	}
-#endif
+
 	/* after reload context, store journal_clean in context */
 	content->journal_clean = journal_clean;
 	for (i=0; i<bestcnt; i++) {
@@ -1761,7 +1750,6 @@ try_again:
 	 * that was moved aside due to the reshape overwriting live data
 	 * The code of doing this lives in Grow.c
 	 */
-#ifndef MDASSEMBLE
 	if (content->reshape_active &&
 	    !(content->reshape_active & RESHAPE_NO_BACKUP)) {
 		int err = 0;
@@ -1813,7 +1801,6 @@ try_again:
 			return err;
 		}
 	}
-#endif
 
 	/* Almost ready to actually *do* something */
 	/* First, fill in the map, so that udev can find our name
@@ -1876,7 +1863,6 @@ try_again:
 	return rv == 2 ? 0 : rv;
 }
 
-#ifndef MDASSEMBLE
 int assemble_container_content(struct supertype *st, int mdfd,
 			       struct mdinfo *content, struct context *c,
 			       char *chosen_name, int *result)
@@ -2119,4 +2105,3 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	return err;
 	/* FIXME should have an O_EXCL and wait for read-auto */
 }
-#endif

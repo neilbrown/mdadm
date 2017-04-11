@@ -1058,8 +1058,6 @@ int Wait(char *dev)
 	}
 }
 
-#ifndef MDASSEMBLE
-
 static char *clean_states[] = {
 	"clear", "inactive", "readonly", "read-auto", "clean", NULL };
 
@@ -1151,4 +1149,3 @@ int WaitClean(char *dev, int sock, int verbose)
 
 	return rv;
 }
-#endif /* MDASSEMBLE */

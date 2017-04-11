@@ -158,18 +158,6 @@ MON_SRCS = $(patsubst %.o,%.c,$(MON_OBJS))
 STATICSRC = pwgr.c
 STATICOBJS = pwgr.o
 
-ASSEMBLE_SRCS := mdassemble.c Assemble.c Manage.c config.c policy.c dlink.c util.c \
-	maps.c lib.c xmalloc.c \
-	super0.c super1.c super-ddf.c super-intel.c sha1.c crc32.c sg_io.c mdstat.c \
-	platform-intel.c probe_roms.c sysfs.c super-mbr.c super-gpt.c mapfile.c \
-	crc32c.c
-ASSEMBLE_AUTO_SRCS := mdopen.c
-ASSEMBLE_FLAGS:= $(CFLAGS) -DMDASSEMBLE
-ifdef MDASSEMBLE_AUTO
-ASSEMBLE_SRCS += $(ASSEMBLE_AUTO_SRCS)
-ASSEMBLE_FLAGS += -DMDASSEMBLE_AUTO
-endif
-
 all : mdadm mdmon
 man : mdadm.man md.man mdadm.conf.man mdmon.man raid6check.man
 
@@ -221,31 +209,6 @@ test_stripe : restripe.c xmalloc.o mdadm.h
 
 raid6check : raid6check.o mdadm.h $(CHECK_OBJS)
 	$(CC) $(CXFLAGS) $(LDFLAGS) -o raid6check raid6check.o $(CHECK_OBJS)
-
-mdassemble : $(ASSEMBLE_SRCS) $(INCL)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  $(STATICSRC)
-
-mdassemble.diet : $(ASSEMBLE_SRCS) $(INCL)
-	rm -f $(OBJS)
-	$(DIET_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)  $(STATICSRC)
-
-mdassemble.static : $(ASSEMBLE_SRCS) $(INCL)
-	rm -f $(OBJS)
-	$(CC) $(LDFLAGS) $(CPPFLAGS) $(ASSEMBLE_FLAGS) -static -DHAVE_STDINT_H -o mdassemble.static $(ASSEMBLE_SRCS) $(STATICSRC)
-
-mdassemble.auto : $(ASSEMBLE_SRCS) $(INCL) $(ASSEMBLE_AUTO_SRCS)
-	rm -f mdassemble.static
-	$(MAKE) MDASSEMBLE_AUTO=1 mdassemble.static
-	mv mdassemble.static mdassemble.auto
-
-mdassemble.uclibc : $(ASSEMBLE_SRCS) $(INCL)
-	rm -f $(OJS)
-	$(UCLIBC_GCC) $(ASSEMBLE_FLAGS) -DUCLIBC -DHAVE_STDINT_H -static -o mdassemble.uclibc $(ASSEMBLE_SRCS) $(STATICSRC)
-
-# This doesn't work
-mdassemble.klibc : $(ASSEMBLE_SRCS) $(INCL)
-	rm -f $(OBJS)
-	$(KLIBC_GCC) $(ASSEMBLE_FLAGS) -o mdassemble $(ASSEMBLE_SRCS)
 
 mdadm.8 : mdadm.8.in
 	sed -e 's/{DEFAULT_METADATA}/$(DEFAULT_METADATA)/g' \

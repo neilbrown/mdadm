@@ -41,12 +41,9 @@ int Manage_ro(char *devname, int fd, int readonly)
 	 *
 	 */
 	mdu_array_info_t array;
-#ifndef MDASSEMBLE
 	struct mdinfo *mdi;
-#endif
 	int rv = 0;
 
-#ifndef MDASSEMBLE
 	/* If this is an externally-managed array, we need to modify the
 	 * metadata_version so that mdmon doesn't undo our change.
 	 */
@@ -90,7 +87,7 @@ int Manage_ro(char *devname, int fd, int readonly)
 		}
 		goto out;
 	}
-#endif
+
 	if (md_get_array_info(fd, &array)) {
 		pr_err("%s does not appear to be active.\n",
 			devname);
@@ -114,13 +111,9 @@ int Manage_ro(char *devname, int fd, int readonly)
 		}
 	}
 out:
-#ifndef MDASSEMBLE
 	sysfs_free(mdi);
-#endif
 	return rv;
 }
-
-#ifndef MDASSEMBLE
 
 static void remove_devices(char *devnm, char *path)
 {
@@ -1802,4 +1795,3 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 	close(fd2);
 	return 0;
 }
-#endif

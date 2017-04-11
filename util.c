@@ -89,7 +89,6 @@ int dlm_funs_ready(void)
 	return is_dlm_hooks_ready ? 1 : 0;
 }
 
-#ifndef MDASSEMBLE
 static struct dlm_hooks *dlm_hooks = NULL;
 struct dlm_lock_resource *dlm_lock_res = NULL;
 static int ast_called = 0;
@@ -200,16 +199,6 @@ int cluster_release_dlmlock(int lockid)
 out:
 	return ret;
 }
-#else
-int cluster_get_dlmlock(int *lockid)
-{
-	return -1;
-}
-int cluster_release_dlmlock(int lockid)
-{
-	return -1;
-}
-#endif
 
 /*
  * Get array info from the kernel. Longer term we want to deprecate the
@@ -291,7 +280,6 @@ int get_linux_version()
 	return (a*1000000)+(b*1000)+c;
 }
 
-#ifndef MDASSEMBLE
 int mdadm_version(char *version)
 {
 	int a, b, c;
@@ -397,7 +385,6 @@ long parse_num(char *num)
 	else
 		return rv;
 }
-#endif
 
 int parse_cluster_confirm_arg(char *input, char **devname, int *slot)
 {
@@ -639,7 +626,6 @@ char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char
 	return __fname_from_uuid(info->uuid, (st->ss == &super1) ? 1 : st->ss->swapuuid, buf, sep);
 }
 
-#ifndef MDASSEMBLE
 int check_ext2(int fd, char *name)
 {
 	/*
@@ -743,7 +729,6 @@ int ask(char *mesg)
 	pr_err("assuming 'no'\n");
 	return 0;
 }
-#endif /* MDASSEMBLE */
 
 int is_standard(char *dev, int *nump)
 {
@@ -803,7 +788,6 @@ unsigned long calc_csum(void *super, int bytes)
 	return csum;
 }
 
-#ifndef MDASSEMBLE
 char *human_size(long long bytes)
 {
 	static char buf[47];
@@ -895,7 +879,6 @@ void print_r10_layout(int layout)
 	if (near*far == 1)
 		printf("NO REDUNDANCY");
 }
-#endif
 
 unsigned long long calc_array_size(int level, int raid_disks, int layout,
 				   int chunksize, unsigned long long devsize)
@@ -962,7 +945,6 @@ dev_t devnm2devid(char *devnm)
 	return 0;
 }
 
-#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
 char *get_md_name(char *devnm)
 {
 	/* find /dev/md%d or /dev/md/%d or make a device /dev/.tmp.md%d */
@@ -1016,7 +998,6 @@ void put_md_name(char *name)
 	if (strncmp(name, "/dev/.tmp.md", 12) == 0)
 		unlink(name);
 }
-#endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
 int get_maj_min(char *dev, int *major, int *minor)
 {
@@ -1146,9 +1127,8 @@ struct superswitch *superlist[] =
 	&super0, &super1,
 	&super_ddf, &super_imsm,
 	&mbr, &gpt,
-	NULL };
-
-#if !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO)
+	NULL
+};
 
 struct supertype *super_by_fd(int fd, char **subarrayp)
 {
@@ -1213,7 +1193,6 @@ struct supertype *super_by_fd(int fd, char **subarrayp)
 
 	return st;
 }
-#endif /* !defined(MDASSEMBLE) || defined(MDASSEMBLE) && defined(MDASSEMBLE_AUTO) */
 
 int dev_size_from_id(dev_t id, unsigned long long *size)
 {
@@ -1753,7 +1732,7 @@ int add_disk(int mdfd, struct supertype *st,
 {
 	/* Add a device to an array, in one of 2 ways. */
 	int rv;
-#ifndef MDASSEMBLE
+
 	if (st->ss->external) {
 		if (info->disk.state & (1<<MD_DISK_SYNC))
 			info->recovery_start = MaxSector;
@@ -1773,7 +1752,6 @@ int add_disk(int mdfd, struct supertype *st,
 			}
 		}
 	} else
-#endif
 		rv = ioctl(mdfd, ADD_NEW_DISK, &info->disk);
 	return rv;
 }
@@ -1782,12 +1760,11 @@ int remove_disk(int mdfd, struct supertype *st,
 		struct mdinfo *sra, struct mdinfo *info)
 {
 	int rv;
+
 	/* Remove the disk given by 'info' from the array */
-#ifndef MDASSEMBLE
 	if (st->ss->external)
 		rv = sysfs_set_str(sra, info, "slot", "none");
 	else
-#endif
 		rv = ioctl(mdfd, HOT_REMOVE_DISK, makedev(info->disk.major,
 							  info->disk.minor));
 	return rv;
@@ -1832,10 +1809,8 @@ int set_array_info(int mdfd, struct supertype *st, struct mdinfo *info)
 	mdu_array_info_t inf;
 	int rv;
 
-#ifndef MDASSEMBLE
 	if (st->ss->external)
 		return sysfs_set_array(info, 9003);
-#endif
 		
 	memset(&inf, 0, sizeof(inf));
 	inf.major_version = info->array.major_version;
@@ -2015,7 +1990,6 @@ use_random:
 	memcpy(buf, r, 16);
 }
 
-#ifndef MDASSEMBLE
 int flush_metadata_updates(struct supertype *st)
 {
 	int sfd;
@@ -2057,7 +2031,6 @@ void append_metadata_update(struct supertype *st, void *buf, int len)
 	*st->update_tail = mu;
 	st->update_tail = &mu->next;
 }
-#endif /* MDASSEMBLE */
 
 #ifdef __TINYC__
 /* tinyc doesn't optimize this check in ioctl.h out ... */
@@ -2197,7 +2170,6 @@ void reopen_mddev(int mdfd)
 		dup2(fd, mdfd);
 }
 
-#ifndef MDASSEMBLE
 static struct cmap_hooks *cmap_hooks = NULL;
 static int is_cmap_hooks_ready = 0;
 
@@ -2272,4 +2244,3 @@ void set_hooks(void)
 	set_dlm_hooks();
 	set_cmap_hooks();
 }
-#endif

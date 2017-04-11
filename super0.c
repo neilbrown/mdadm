@@ -76,8 +76,6 @@ static void super0_swap_endian(struct mdp_superblock_s *sb)
 
 }
 
-#ifndef MDASSEMBLE
-
 static void examine_super0(struct supertype *st, char *homehost)
 {
 	mdp_super_t *sb = st->sb;
@@ -380,7 +378,6 @@ static void brief_detail_super0(struct supertype *st)
 	else
 		printf("%08x", sb->set_uuid0);
 }
-#endif
 
 static int match_home0(struct supertype *st, char *homehost)
 {
@@ -814,7 +811,6 @@ struct devinfo {
 	struct devinfo *next;
 };
 
-#ifndef MDASSEMBLE
 /* Add a device to the superblock being created */
 static int add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 			 int fd, char *devname, unsigned long long data_offset)
@@ -845,7 +841,6 @@ static int add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 
 	return 0;
 }
-#endif
 
 static int store_super0(struct supertype *st, int fd)
 {
@@ -899,7 +894,6 @@ static int store_super0(struct supertype *st, int fd)
 	return 0;
 }
 
-#ifndef MDASSEMBLE
 static int write_init_super0(struct supertype *st)
 {
 	mdp_super_t *sb = st->sb;
@@ -930,7 +924,6 @@ static int write_init_super0(struct supertype *st)
 	}
 	return rv;
 }
-#endif
 
 static int compare_super0(struct supertype *st, struct supertype *tst)
 {
@@ -1261,7 +1254,6 @@ static void free_super0(struct supertype *st)
 	st->sb = NULL;
 }
 
-#ifndef MDASSEMBLE
 static int validate_geometry0(struct supertype *st, int level,
 			      int layout, int raiddisks,
 			      int *chunk, unsigned long long size,
@@ -1320,10 +1312,8 @@ static int validate_geometry0(struct supertype *st, int level,
 	*freesize = MD_NEW_SIZE_SECTORS(ldsize >> 9);
 	return 1;
 }
-#endif /* MDASSEMBLE */
 
 struct superswitch super0 = {
-#ifndef MDASSEMBLE
 	.examine_super = examine_super0,
 	.brief_examine_super = brief_examine_super0,
 	.export_examine_super = export_examine_super0,
@@ -1333,7 +1323,6 @@ struct superswitch super0 = {
 	.validate_geometry = validate_geometry0,
 	.add_to_super = add_to_super0,
 	.copy_metadata = copy_metadata0,
-#endif
 	.match_home = match_home0,
 	.uuid_from_super = uuid_from_super0,
 	.getinfo_super = getinfo_super0,

@@ -1487,13 +1487,6 @@ try_again:
 		return 1;
 	}
 	mddev = chosen_name;
-	if (get_linux_version() < 2004000) {
-		pr_err("Assemble requires Linux 2.4 or later, and\n"
-		       "     md driver version 0.90.0 or later.\n"
-		       "    Upgrade your kernel or try --build\n");
-		close(mdfd);
-		return 1;
-	}
 	if (pre_exist == NULL) {
 		if (mddev_busy(fd2devnm(mdfd))) {
 			pr_err("%s already active, cannot restart it!\n",

@@ -141,13 +141,15 @@ int Detail(char *dev, struct context *c)
 	}
 
 	/* try to load a superblock. Try sra->devs first, then try ioctl */
-	if (st && !info) for (d = 0, subdev = sra ? sra->devs : NULL;
-			      d < max_disks || subdev;
-			      subdev ? (void)(subdev = subdev->next) : (void)(d++)){
+	if (st && !info)
+		for (d = 0, subdev = sra ? sra->devs : NULL;
+		     d < max_disks || subdev;
+		     subdev ? (void)(subdev = subdev->next) : (void)(d++)){
 		mdu_disk_info_t disk;
 		char *dv;
 		int fd2;
 		int err;
+
 		if (subdev)
 			disk = subdev->disk;
 		else {

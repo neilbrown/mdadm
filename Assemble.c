@@ -992,7 +992,7 @@ static int start_array(int mdfd,
 	}
 
 	/* First, add the raid disks, but add the chosen one last */
-	for (i=0; i<= bestcnt; i++) {
+	for (i = 0; i <= bestcnt; i++) {
 		int j;
 		if (i < bestcnt) {
 			j = best[i];
@@ -1002,8 +1002,9 @@ static int start_array(int mdfd,
 			j = chosen_drive;
 
 		if (j >= 0 && !devices[j].included) {
-			int dfd = dev_open(devices[j].devname,
-					   O_RDWR|O_EXCL);
+			int dfd;
+
+			dfd = dev_open(devices[j].devname, O_RDWR|O_EXCL);
 			if (dfd >= 0) {
 				remove_partitions(dfd);
 				close(dfd);
@@ -1012,28 +1013,30 @@ static int start_array(int mdfd,
 
 			if (rv) {
 				pr_err("failed to add %s to %s: %s\n",
-				       devices[j].devname,
-				       mddev,
+				       devices[j].devname, mddev,
 				       strerror(errno));
-				if (i < content->array.raid_disks * 2
-				    || i == bestcnt)
+				if (i < content->array.raid_disks * 2 ||
+				    i == bestcnt)
 					okcnt--;
 				else
 					sparecnt--;
-			} else if (c->verbose > 0)
+			} else if (c->verbose > 0) {
 				pr_err("added %s to %s as %d%s%s\n",
 				       devices[j].devname, mddev,
 				       devices[j].i.disk.raid_disk,
 				       devices[j].uptodate?"":
 				       " (possibly out of date)",
-				       (devices[j].i.disk.state & (1<<MD_DISK_REPLACEMENT))?" replacement":"");
+				       (devices[j].i.disk.state &
+					(1<<MD_DISK_REPLACEMENT)) ?
+				       " replacement":"");
+			}
 		} else if (j >= 0) {
 			if (c->verbose > 0)
 				pr_err("%s is already in %s as %d\n",
 				       devices[j].devname, mddev,
 				       devices[j].i.disk.raid_disk);
-		} else if (c->verbose > 0 && i < content->array.raid_disks*2
-			   && (i&1) == 0)
+		} else if (c->verbose > 0 &&
+			   i < content->array.raid_disks * 2 && (i & 1) == 0)
 			pr_err("no uptodate device for slot %d of %s\n",
 			       i/2, mddev);
 	}
@@ -1041,8 +1044,8 @@ static int start_array(int mdfd,
 	if (content->array.level == LEVEL_CONTAINER) {
 		if (c->verbose >= 0) {
 			pr_err("Container %s has been assembled with %d drive%s",
-			       mddev, okcnt+sparecnt+journalcnt,
-			       okcnt+sparecnt+journalcnt==1?"":"s");
+			       mddev, okcnt + sparecnt + journalcnt,
+			       okcnt + sparecnt + journalcnt == 1 ? "" : "s");
 			if (okcnt < (unsigned)content->array.raid_disks)
 				fprintf(stderr, " (out of %d)",
 					content->array.raid_disks);
@@ -1051,10 +1054,13 @@ static int start_array(int mdfd,
 
 		if (st->ss->validate_container) {
 			struct mdinfo *devices_list;
-			struct mdinfo *info_devices = xmalloc(sizeof(struct mdinfo)*(okcnt+sparecnt));
+			struct mdinfo *info_devices;
 			unsigned int count;
+
 			devices_list = NULL;
-			for (count = 0; count < okcnt+sparecnt; count++) {
+			info_devices = xmalloc(sizeof(struct mdinfo) *
+					       (okcnt + sparecnt));
+			for (count = 0; count < okcnt + sparecnt; count++) {
 				info_devices[count] = devices[count].i;
 				info_devices[count].next = devices_list;
 				devices_list = &info_devices[count];
@@ -1080,16 +1086,16 @@ static int start_array(int mdfd,
 
 	if (c->runstop == 1 ||
 	    (c->runstop <= 0 &&
-	     ( enough(content->array.level, content->array.raid_disks,
-		      content->array.layout, clean, avail) &&
-	       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)
-		     ))) {
+	     (enough(content->array.level, content->array.raid_disks,
+		     content->array.layout, clean, avail) &&
+	       (okcnt + rebuilding_cnt >= req_cnt || start_partial_ok)))) {
 		/* This array is good-to-go.
 		 * If a reshape is in progress then we might need to
 		 * continue monitoring it.  In that case we start
 		 * it read-only and let the grow code make it writable.
 		 */
 		int rv;
+
 		if (content->reshape_active &&
 		    !(content->reshape_active & RESHAPE_NO_BACKUP) &&
 		    content->delta_disks <= 0) {
@@ -1109,8 +1115,8 @@ static int start_array(int mdfd,
 						   c->backup_file, 0,
 						   c->freeze_reshape);
 		} else if (c->readonly &&
-			   sysfs_attribute_available(
-				   content, NULL, "array_state")) {
+			   sysfs_attribute_available(content, NULL,
+						     "array_state")) {
 			rv = sysfs_set_str(content, NULL,
 					   "array_state", "readonly");
 		} else
@@ -1121,13 +1127,19 @@ static int start_array(int mdfd,
 				pr_err("%s has been started with %d drive%s",
 				       mddev, okcnt, okcnt==1?"":"s");
 				if (okcnt < (unsigned)content->array.raid_disks)
-					fprintf(stderr, " (out of %d)", content->array.raid_disks);
+					fprintf(stderr, " (out of %d)",
+						content->array.raid_disks);
 				if (rebuilding_cnt)
-					fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
+					fprintf(stderr, "%s %d rebuilding",
+						sparecnt?",":" and",
+						rebuilding_cnt);
 				if (sparecnt)
-					fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
+					fprintf(stderr, " and %d spare%s",
+						sparecnt,
+						sparecnt == 1 ? "" : "s");
 				if (content->journal_clean)
-					fprintf(stderr, " and %d journal", journalcnt);
+					fprintf(stderr, " and %d journal",
+						journalcnt);
 				fprintf(stderr, ".\n");
 			}
 			if (content->reshape_active &&
@@ -1137,11 +1149,14 @@ static int start_array(int mdfd,
 				 * of the stripe cache - default is 256
 				 */
 				int chunk_size = content->array.chunk_size;
+
 				if (content->reshape_active &&
 				    content->new_chunk > chunk_size)
 					chunk_size = content->new_chunk;
 				if (256 < 4 * ((chunk_size+4065)/4096)) {
-					struct mdinfo *sra = sysfs_read(mdfd, NULL, 0);
+					struct mdinfo *sra;
+
+					sra = sysfs_read(mdfd, NULL, 0);
 					if (sra)
 						sysfs_set_num(sra, NULL,
 							      "stripe_cache_size",
@@ -1174,7 +1189,9 @@ static int start_array(int mdfd,
 			if (content->array.level == 6 &&
 			    okcnt + 1 == (unsigned)content->array.raid_disks &&
 			    was_forced) {
-				struct mdinfo *sra = sysfs_read(mdfd, NULL, 0);
+				struct mdinfo *sra;
+
+				sra = sysfs_read(mdfd, NULL, 0);
 				if (sra)
 					sysfs_set_str(sra, NULL,
 						      "sync_action", "repair");
@@ -1182,45 +1199,47 @@ static int start_array(int mdfd,
 			}
 			return 0;
 		}
-		pr_err("failed to RUN_ARRAY %s: %s\n",
-		       mddev, strerror(errno));
+		pr_err("failed to RUN_ARRAY %s: %s\n", mddev, strerror(errno));
 
 		if (!enough(content->array.level, content->array.raid_disks,
 			    content->array.layout, 1, avail))
 			pr_err("Not enough devices to start the array.\n");
 		else if (!enough(content->array.level,
 				 content->array.raid_disks,
-				 content->array.layout, clean,
-				 avail))
+				 content->array.layout, clean, avail))
 			pr_err("Not enough devices to start the array while not clean - consider --force.\n");
 
 		return 1;
 	}
 	if (c->runstop == -1) {
 		pr_err("%s assembled from %d drive%s",
-		       mddev, okcnt, okcnt==1?"":"s");
+		       mddev, okcnt, okcnt == 1 ? "" : "s");
 		if (okcnt != (unsigned)content->array.raid_disks)
-			fprintf(stderr, " (out of %d)", content->array.raid_disks);
+			fprintf(stderr, " (out of %d)",
+				content->array.raid_disks);
 		fprintf(stderr, ", but not started.\n");
 		return 2;
 	}
 	if (c->verbose >= -1) {
-		pr_err("%s assembled from %d drive%s", mddev, okcnt, okcnt==1?"":"s");
+		pr_err("%s assembled from %d drive%s",
+		       mddev, okcnt, okcnt == 1 ? "" : "s");
 		if (rebuilding_cnt)
-			fprintf(stderr, "%s %d rebuilding", sparecnt?",":" and", rebuilding_cnt);
+			fprintf(stderr, "%s %d rebuilding",
+				sparecnt ? "," : " and", rebuilding_cnt);
 		if (sparecnt)
-			fprintf(stderr, " and %d spare%s", sparecnt, sparecnt==1?"":"s");
+			fprintf(stderr, " and %d spare%s", sparecnt,
+				sparecnt == 1 ? "" : "s");
 		if (!enough(content->array.level, content->array.raid_disks,
 			    content->array.layout, 1, avail))
 			fprintf(stderr, " - not enough to start the array.\n");
 		else if (!enough(content->array.level,
 				 content->array.raid_disks,
-				 content->array.layout, clean,
-				 avail))
+				 content->array.layout, clean, avail))
 			fprintf(stderr, " - not enough to start the array while not clean - consider --force.\n");
 		else {
 			if (req_cnt == (unsigned)content->array.raid_disks)
-				fprintf(stderr, " - need all %d to start it", req_cnt);
+				fprintf(stderr, " - need all %d to start it",
+					req_cnt);
 			else
 				fprintf(stderr, " - need %d to start", req_cnt);
 			fprintf(stderr, " (use --run to insist).\n");

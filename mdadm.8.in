@@ -925,7 +925,8 @@ will not try to be so clever.
 Start the array
 .B read only
 rather than read-write as normal.  No writes will be allowed to the
-array, and no resync, recovery, or reshape will be started.
+array, and no resync, recovery, or reshape will be started. It works with
+Create, Assemble, Manage and Misc mode.
 
 .TP
 .BR \-a ", " "\-\-auto{=yes,md,mdp,part,p}{NN}"
@@ -2232,7 +2233,7 @@ be in use.
 
 .TP
 .B \-\-readonly
-start the array readonly \(em not supported yet.
+start the array in readonly mode.
 
 .SH MANAGE MODE
 .HP 12

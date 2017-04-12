@@ -541,6 +541,8 @@ A value of
 restores the apparent size of the array to be whatever the real
 amount of available space is.
 
+Clustered arrays do not support this parameter yet.
+
 .TP
 .BR \-c ", " \-\-chunk=
 Specify chunk size of kilobytes.  The default when creating an

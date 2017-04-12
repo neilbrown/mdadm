@@ -64,8 +64,6 @@ int Detail(char *dev, struct context *c)
 	int max_devices = 0, n_devices = 0;
 	int spares = 0;
 	struct stat stb;
-	int is_26 = get_linux_version() >= 2006000;
-	int is_rebuilding = 0;
 	int failed = 0;
 	struct supertype *st;
 	char *subarray = NULL;
@@ -527,7 +525,6 @@ int Detail(char *dev, struct context *c)
 				"Reshape", "Check"};
 			printf("    %7s Status : %d%% complete\n",
 			       sync_action[e->resync], e->percent);
-			is_rebuilding = 1;
 		}
 		free_mdstat(ms);
 
@@ -676,19 +673,9 @@ This is pretty boring
 			      |(1<<MD_DISK_REMOVED)|(1<<MD_DISK_FAULTY)|(1<<MD_DISK_JOURNAL)))
 			    == 0) {
 				printf(" spare");
-				if (is_26) {
-					if (disk.raid_disk < array.raid_disks && disk.raid_disk >= 0)
-						printf(" rebuilding");
-				} else if (is_rebuilding && failed) {
-					/* Taking a bit of a risk here, we remove the
-					 * device from the array, and then put it back.
-					 * If this fails, we are rebuilding
-					 */
-					int err = ioctl(fd, HOT_REMOVE_DISK, makedev(disk.major, disk.minor));
-					if (err == 0) ioctl(fd, HOT_ADD_DISK, makedev(disk.major, disk.minor));
-					if (err && errno ==  EBUSY)
-						printf(" rebuilding");
-				}
+				if (disk.raid_disk < array.raid_disks &&
+				    disk.raid_disk >= 0)
+					printf(" rebuilding");
 			}
 		}
 		if (disk.state == 0) spares++;

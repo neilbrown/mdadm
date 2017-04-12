@@ -313,6 +313,18 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		if (n < 0)
 			devnm[0] = 0;
 	}
+	if (num >= 0) {
+		int fd;
+		int n = -1;
+		sprintf(devnm, "md%d", num);
+		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
+		if (fd >= 0) {
+			n = write(fd, devnm, strlen(devnm));
+			close(fd);
+		}
+		if (n < 0)
+			devnm[0] = 0;
+	}
 	if (devnm[0])
 		;
 	else if (num < 0) {

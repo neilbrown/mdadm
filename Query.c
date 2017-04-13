@@ -35,7 +35,9 @@ int Query(char *dev)
 	int fd;
 	int ioctlerr, staterr;
 	int superror;
+	int level, raid_disks, spare_disks;
 	struct mdinfo info;
+	struct mdinfo *sra;
 	mdu_array_info_t array;
 	struct supertype *st = NULL;
 	unsigned long long larray_size;
@@ -50,15 +52,27 @@ int Query(char *dev)
 		return 1;
 	}
 
-	if (md_get_array_info(fd, &array) < 0)
-		ioctlerr = errno;
-	else
-		ioctlerr = 0;
-
 	if (fstat(fd, &stb) < 0)
 		staterr = errno;
 	else
 		staterr = 0;
+
+	ioctlerr = 0;
+
+	sra = sysfs_read(fd, dev, GET_DISKS | GET_LEVEL | GET_DEVS | GET_STATE);
+	if (sra) {
+		level = sra->array.level;
+		raid_disks = sra->array.raid_disks;
+		spare_disks = sra->array.spare_disks;
+	} else {
+		if (md_get_array_info(fd, &array) < 0) {
+			ioctlerr = errno;
+		} else {
+			level = array.level;
+			raid_disks = array.raid_disks;
+			spare_disks = array.spare_disks;
+		}
+	}
 
 	if (!ioctlerr && !staterr) {
 		if (!get_dev_size(fd, NULL, &larray_size))
@@ -75,11 +89,9 @@ int Query(char *dev)
 		       dev, strerror(ioctlerr));
 	else {
 		printf("%s: %s %s %d devices, %d spare%s. Use mdadm --detail for more detail.\n",
-		       dev,
-		       human_size_brief(larray_size,IEC),
-		       map_num(pers, array.level),
-		       array.raid_disks,
-		       array.spare_disks, array.spare_disks==1?"":"s");
+		       dev, human_size_brief(larray_size,IEC),
+		       map_num(pers, level), raid_disks,
+		       spare_disks, spare_disks == 1 ? "" : "s");
 	}
 	st = guess_super(fd);
 	if (st && st->ss->compare_super != NULL)

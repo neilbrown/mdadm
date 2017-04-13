@@ -200,6 +200,33 @@ out:
 	return ret;
 }
 
+int md_array_active(int fd)
+{
+	struct mdinfo *sra;
+	struct mdu_array_info_s array;
+	int ret;
+
+	sra = sysfs_read(fd, NULL, GET_ARRAY_STATE);
+	if (sra) {
+		if (sra->array_state != ARRAY_CLEAR &&
+		    sra->array_state != ARRAY_INACTIVE &&
+		    sra->array_state != ARRAY_UNKNOWN_STATE)
+			ret = 0;
+		else
+			ret = -ENODEV;
+
+		free(sra);
+	} else {
+		/*
+		 * GET_ARRAY_INFO doesn't provide access to the proper state
+		 * information, so fallback to a basic check for raid_disks != 0
+		 */
+		ret = ioctl(fd, GET_ARRAY_INFO, &array);
+	}
+
+	return !ret;
+}
+
 /*
  * Get array info from the kernel. Longer term we want to deprecate the
  * ioctl and get it from sysfs.

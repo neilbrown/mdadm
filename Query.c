@@ -38,7 +38,6 @@ int Query(char *dev)
 	int level, raid_disks, spare_disks;
 	struct mdinfo info;
 	struct mdinfo *sra;
-	mdu_array_info_t array;
 	struct supertype *st = NULL;
 	unsigned long long larray_size;
 	struct stat stb;
@@ -65,6 +64,8 @@ int Query(char *dev)
 		raid_disks = sra->array.raid_disks;
 		spare_disks = sra->array.spare_disks;
 	} else {
+		mdu_array_info_t array;
+
 		if (md_get_array_info(fd, &array) < 0) {
 			ioctlerr = errno;
 		} else {
@@ -111,7 +112,7 @@ int Query(char *dev)
 			disc.number = info.disk.number;
 			activity = "undetected";
 			if (mddev && (fd = open(mddev, O_RDONLY))>=0) {
-				if (md_get_array_info(fd, &array) >= 0) {
+				if (md_array_active(fd)) {
 					if (md_get_disk_info(fd, &disc) >= 0 &&
 					    makedev((unsigned)disc.major,(unsigned)disc.minor) == stb.st_rdev)
 						activity = "active";

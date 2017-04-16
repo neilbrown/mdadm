@@ -2835,7 +2835,7 @@ operation, as described below under LAYOUT CHANGES.
 .SS CHUNK-SIZE AND LAYOUT CHANGES
 
 Changing the chunk-size of layout without also changing the number of
-devices as the same time will involve re-writing all blocks in-place.
+devices at the same time will involve re-writing all blocks in-place.
 To ensure against data loss in the case of a crash, a
 .B --backup-file
 must be provided for these changes.  Small sections of the array will

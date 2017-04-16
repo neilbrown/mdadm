@@ -169,12 +169,10 @@ check_rundir:
 	fi
 
 everything: all mdadm.static swap_super test_stripe raid6check \
-	mdassemble mdassemble.auto mdassemble.static mdassemble.man \
 	mdadm.Os mdadm.O2 man
 everything-test: all mdadm.static swap_super test_stripe \
-	mdassemble.auto mdassemble.static mdassemble.man \
 	mdadm.Os mdadm.O2 man
-# mdadm.uclibc and mdassemble.uclibc don't work on x86-64
+# mdadm.uclibc doesn't work on x86-64
 # mdadm.tcc doesn't work..
 
 mdadm : $(OBJS) | check_rundir
@@ -225,9 +223,6 @@ md.man : md.4
 
 mdadm.conf.man : mdadm.conf.5
 	man -l mdadm.conf.5 > mdadm.conf.man
-
-mdassemble.man : mdassemble.8
-	man -l mdassemble.8 > mdassemble.man
 
 raid6check.man : raid6check.8
 	man -l raid6check.8 > raid6check.man
@@ -293,9 +288,7 @@ test: mdadm mdmon test_stripe swap_super raid6check
 clean :
 	rm -f mdadm mdmon $(OBJS) $(MON_OBJS) $(STATICOBJS) core *.man \
 	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt .merge_file_* \
-	mdadm.Os mdadm.O2 mdmon.O2 \
-	mdassemble mdassemble.static mdassemble.auto mdassemble.uclibc \
-	mdassemble.klibc swap_super \
+	mdadm.Os mdadm.O2 mdmon.O2 swap_super \
 	init.cpio.gz mdadm.uclibc.static test_stripe raid6check raid6check.o mdmon \
 	mdadm.8
 

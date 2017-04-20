@@ -25,6 +25,7 @@
 #include	"mdadm.h"
 #include	"md_p.h"
 #include	"md_u.h"
+#include	<ctype.h>
 #include	<dirent.h>
 
 static int cmpstringp(const void *p1, const void *p2)
@@ -276,17 +277,22 @@ int Detail(char *dev, struct context *c)
 				char *path =
 					map_dev(mdi->disk.major,
 						mdi->disk.minor, 0);
+				char *sysdev = xstrdup(mdi->sys_name + 1);
+				char *cp;
+				for (cp = sysdev; *cp; cp++)
+					if (!isalnum(*cp))
+						*cp = '_';
 
 				if (mdi->disk.raid_disk >= 0)
 					printf("MD_DEVICE_%s_ROLE=%d\n",
-					       mdi->sys_name+4,
+					       sysdev,
 					       mdi->disk.raid_disk);
 				else
 					printf("MD_DEVICE_%s_ROLE=spare\n",
-					       mdi->sys_name+4);
+					       sysdev);
 				if (path)
 					printf("MD_DEVICE_%s_DEV=%s\n",
-					       mdi->sys_name+4, path);
+					       sysdev, path);
 			}
 		}
 		goto out;

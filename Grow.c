@@ -5002,6 +5002,7 @@ int Grow_continue_command(char *devname, int fd,
 			goto Grow_continue_command_exit;
 		}
 		content = &array;
+		sysfs_init(content, fd, NULL);
 		/* Need to load a superblock.
 		 * FIXME we should really get what we need from
 		 * sysfs

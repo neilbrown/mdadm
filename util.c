@@ -542,37 +542,6 @@ int enough(int level, int raid_disks, int layout, int clean, char *avail)
 	}
 }
 
-int enough_fd(int fd)
-{
-	struct mdu_array_info_s array;
-	struct mdu_disk_info_s disk;
-	int i, rv;
-	char *avail;
-
-	if (md_get_array_info(fd, &array) != 0 || array.raid_disks <= 0)
-		return 0;
-	avail = xcalloc(array.raid_disks, 1);
-	for (i = 0; i < MAX_DISKS && array.nr_disks > 0; i++) {
-		disk.number = i;
-		if (md_get_disk_info(fd, &disk) != 0)
-			continue;
-		if (disk.major == 0 && disk.minor == 0)
-			continue;
-		array.nr_disks--;
-
-		if (! (disk.state & (1<<MD_DISK_SYNC)))
-			continue;
-		if (disk.raid_disk < 0 || disk.raid_disk >= array.raid_disks)
-			continue;
-		avail[disk.raid_disk] = 1;
-	}
-	/* This is used on an active array, so assume it is clean */
-	rv = enough(array.level, array.raid_disks, array.layout,
-		    1, avail);
-	free(avail);
-	return rv;
-}
-
 const int uuid_zero[4] = { 0, 0, 0, 0 };
 
 int same_uuid(int a[4], int b[4], int swapuuid)

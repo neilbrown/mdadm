@@ -106,6 +106,7 @@ mapping_t modes[] = {
 	{ "grow", GROW},
 	{ "incremental", INCREMENTAL},
 	{ "auto-detect", AUTODETECT},
+	{ NULL, 0 }
 };
 
 mapping_t faultylayout[] = {

@@ -929,7 +929,7 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 			return -1;
 		}
 
-		if (strncmp(mdp->sysfs_array_state, "readonly", 8) != 0) {
+		if (mdp->array_state != ARRAY_READONLY) {
 			sysfs_free(mdp);
 			pr_err("%s is not readonly, cannot add journal.\n", devname);
 			return -1;

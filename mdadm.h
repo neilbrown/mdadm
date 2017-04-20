@@ -335,8 +335,18 @@ struct mdinfo {
 	int prev_state, curr_state, next_state;
 
 	/* info read from sysfs */
-	char		sysfs_array_state[20];
-
+	enum {
+		ARRAY_CLEAR,
+		ARRAY_INACTIVE,
+		ARRAY_SUSPENDED,
+		ARRAY_READONLY,
+		ARRAY_READ_AUTO,
+		ARRAY_CLEAN,
+		ARRAY_ACTIVE,
+		ARRAY_WRITE_PENDING,
+		ARRAY_ACTIVE_IDLE,
+		ARRAY_UNKNOWN_STATE,
+	} array_state;
 	struct md_bb bb;
 };
 
@@ -716,7 +726,8 @@ extern int restore_stripes(int *dest, unsigned long long *offsets,
 
 extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
-extern mapping_t r5layout[], r6layout[], pers[], modes[], faultylayout[], consistency_policies[];
+extern mapping_t r5layout[], r6layout[], pers[], modes[], faultylayout[];
+extern mapping_t consistency_policies[], sysfs_array_states[];
 
 extern char *map_dev_preferred(int major, int minor, int create,
 			       char *prefer);

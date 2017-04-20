@@ -139,6 +139,23 @@ mapping_t consistency_policies[] = {
 	{ NULL, 0}
 };
 
+mapping_t sysfs_array_states[] = {
+	/*
+	 * Beware map_name() uses strcmp() so active-idle must come before
+	 * active, to be detected correctly.
+	 */
+	{ "active-idle", ARRAY_ACTIVE_IDLE },
+	{ "active", ARRAY_ACTIVE },
+	{ "clear", ARRAY_CLEAR },
+	{ "inactive", ARRAY_INACTIVE },
+	{ "suspended", ARRAY_SUSPENDED },
+	{ "readonly", ARRAY_READONLY },
+	{ "read-auto", ARRAY_READ_AUTO },
+	{ "clean", ARRAY_CLEAN },
+	{ "write-pending", ARRAY_WRITE_PENDING },
+	{ NULL, 0 }
+};
+
 char *map_num(mapping_t *map, int num)
 {
 	while (map->name) {

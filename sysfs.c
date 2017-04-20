@@ -247,11 +247,12 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 	if (options & GET_ARRAY_STATE) {
 		strcpy(base, "array_state");
-		if (load_sys(fname, sra->sysfs_array_state,
-			     sizeof(sra->sysfs_array_state)))
+		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
-	} else
-		sra->sysfs_array_state[0] = 0;
+		sra->array_state = map_name(sysfs_array_states, buf);
+		if (sra->array_state == UnSet)
+			sra->array_state = ARRAY_UNKNOWN_STATE;
+	}
 
 	if (options & GET_CONSISTENCY_POLICY) {
 		strcpy(base, "consistency_policy");

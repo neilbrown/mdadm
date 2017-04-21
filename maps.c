@@ -165,11 +165,8 @@ char *map_num(mapping_t *map, int num)
 
 int map_name(mapping_t *map, char *name)
 {
-	while (map->name) {
-		if (strcmp(map->name, name)==0)
-			return map->num;
+	while (map->name && strcmp(map->name, name) != 0)
 		map++;
-	}
 
 	return map->num;
 }

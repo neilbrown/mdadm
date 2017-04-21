@@ -68,6 +68,9 @@ int Query(char *dev)
 
 		if (md_get_array_info(fd, &array) < 0) {
 			ioctlerr = errno;
+			level = -1;
+			raid_disks = -1;
+			spare_disks = -1;
 		} else {
 			level = array.level;
 			raid_disks = array.raid_disks;

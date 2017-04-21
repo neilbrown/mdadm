@@ -30,6 +30,7 @@
 
 # define "CXFLAGS" to give extra flags to CC.
 # e.g.  make CXFLAGS=-O to optimise
+CXFLAGS ?=-O2
 TCC = tcc
 UCLIBC_GCC = $(shell for nm in i386-uclibc-linux-gcc i386-uclibc-gcc; do which $$nm > /dev/null && { echo $$nm ; exit; } ; done; echo false No uclibc found )
 #DIET_GCC = diet gcc

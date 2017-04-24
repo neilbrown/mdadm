@@ -137,7 +137,7 @@ mapping_t consistency_policies[] = {
 	{ "bitmap", CONSISTENCY_POLICY_BITMAP},
 	{ "journal", CONSISTENCY_POLICY_JOURNAL},
 	{ "ppl", CONSISTENCY_POLICY_PPL},
-	{ NULL, UnSet }
+	{ NULL, CONSISTENCY_POLICY_UNKNOWN }
 };
 
 mapping_t sysfs_array_states[] = {

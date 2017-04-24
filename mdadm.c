@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 		.level		= UnSet,
 		.layout		= UnSet,
 		.bitmap_chunk	= UnSet,
-		.consistency_policy	= UnSet,
+		.consistency_policy	= CONSISTENCY_POLICY_UNKNOWN,
 	};
 
 	char sys_hostname[256];
@@ -1228,8 +1228,7 @@ int main(int argc, char *argv[])
 		case O(GROW, 'k'):
 			s.consistency_policy = map_name(consistency_policies,
 							optarg);
-			if (s.consistency_policy == UnSet ||
-			    s.consistency_policy < CONSISTENCY_POLICY_RESYNC) {
+			if (s.consistency_policy < CONSISTENCY_POLICY_RESYNC) {
 				pr_err("Invalid consistency policy: %s\n",
 				       optarg);
 				exit(2);
@@ -1267,7 +1266,7 @@ int main(int argc, char *argv[])
 			pr_err("--write-journal is only supported for RAID level 4/5/6.\n");
 			exit(2);
 		}
-		if (s.consistency_policy != UnSet &&
+		if (s.consistency_policy != CONSISTENCY_POLICY_UNKNOWN &&
 		    s.consistency_policy != CONSISTENCY_POLICY_JOURNAL) {
 			pr_err("--write-journal is not supported with consistency policy: %s\n",
 			       map_num(consistency_policies, s.consistency_policy));
@@ -1275,7 +1274,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (mode == CREATE && s.consistency_policy != UnSet) {
+	if (mode == CREATE &&
+	    s.consistency_policy != CONSISTENCY_POLICY_UNKNOWN) {
 		if (s.level <= 0) {
 			pr_err("--consistency-policy not meaningful with level %s.\n",
 			       map_num(pers, s.level));
@@ -1687,7 +1687,7 @@ int main(int argc, char *argv[])
 			rv = Grow_reshape(devlist->devname, mdfd,
 					  devlist->next,
 					  data_offset, &c, &s);
-		} else if (s.consistency_policy != UnSet) {
+		} else if (s.consistency_policy != CONSISTENCY_POLICY_UNKNOWN) {
 			rv = Grow_consistency_policy(devlist->devname, mdfd, &c, &s);
 		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");

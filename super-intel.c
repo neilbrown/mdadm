@@ -5369,9 +5369,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	}
 	mpb->num_raid_devs++;
 
-	if (s->consistency_policy == UnSet ||
-	    s->consistency_policy == CONSISTENCY_POLICY_RESYNC ||
-	    s->consistency_policy == CONSISTENCY_POLICY_NONE) {
+	if (s->consistency_policy <= CONSISTENCY_POLICY_RESYNC) {
 		dev->rwh_policy = RWH_OFF;
 	} else if (s->consistency_policy == CONSISTENCY_POLICY_PPL) {
 		dev->rwh_policy = RWH_DISTRIBUTED;

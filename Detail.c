@@ -88,9 +88,11 @@ int Detail(char *dev, struct context *c)
 	}
 	sra = sysfs_read(fd, NULL, GET_VERSION | GET_DEVS | GET_ARRAY_STATE);
 	if (!sra) {
-		pr_err("%s does not appear to be an md device\n", dev);
-		close(fd);
-		return rv;
+		if (md_get_array_info(fd, &array)) {
+			pr_err("%s does not appear to be an md device\n", dev);
+			close(fd);
+			return rv;
+		}
 	}
 	external = (sra != NULL && sra->array.major_version == -1 &&
 		    sra->array.minor_version == -2);

@@ -225,8 +225,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	if (!match && rv == 2)
 		goto out;
 
-	if (match && match->devname
-	    && strcasecmp(match->devname, "<ignore>") == 0) {
+	if (match && match->devname &&
+	    strcasecmp(match->devname, "<ignore>") == 0) {
 		if (c->verbose >= 0)
 			pr_err("array containing %s is explicitly ignored by mdadm.conf\n",
 				devname);
@@ -267,8 +267,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		c->autof = ci->autof;
 
 	name_to_use = info.name;
-	if (name_to_use[0] == 0 &&
-	    info.array.level == LEVEL_CONTAINER) {
+	if (name_to_use[0] == 0 && info.array.level == LEVEL_CONTAINER) {
 		name_to_use = info.text_version;
 		trustworthy = METADATA;
 	}
@@ -398,11 +397,10 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		 * flag has a different meaning.  The test has to happen
 		 * at the device level there
 		 */
-		if (!st->ss->external
-		    && (info.disk.state & (1<<MD_DISK_SYNC)) != 0
-		    && ! policy_action_allows(policy, st->ss->name,
-					      act_re_add)
-		    && c->runstop < 1) {
+		if (!st->ss->external &&
+		    (info.disk.state & (1 << MD_DISK_SYNC)) != 0 &&
+		    !policy_action_allows(policy, st->ss->name, act_re_add) &&
+		    c->runstop < 1) {
 			if (md_array_active(mdfd)) {
 				pr_err("not adding %s to active array (without --run) %s\n",
 				       devname, chosen_name);
@@ -537,8 +535,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		info.array.state |= 1;
 
 	if (enough(info.array.level, info.array.raid_disks,
-		   info.array.layout, info.array.state & 1,
-		   avail) == 0) {
+		   info.array.layout, info.array.state & 1, avail) == 0) {
 		if (c->export) {
 			printf("MD_STARTED=no\n");
 		} else if (c->verbose >= 0)
@@ -599,8 +596,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 			if (d->disk.state & (1<<MD_DISK_REMOVED))
 				remove_disk(mdfd, st, sra, d);
 
-		if ((sra == NULL || active_disks >= info.array.working_disks)
-		    && trustworthy != FOREIGN)
+		if ((sra == NULL || active_disks >= info.array.working_disks) &&
+		    trustworthy != FOREIGN)
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
 		else
 			rv = sysfs_set_str(sra, NULL,
@@ -624,7 +621,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 			 * those devices we should re-add them now.
 			 */
 			for (dsk = sra->devs; dsk ; dsk = dsk->next) {
-				if (disk_action_allows(dsk, st->ss->name, act_re_add) &&
+				if (disk_action_allows(dsk, st->ss->name,
+						       act_re_add) &&
 				    add_disk(mdfd, st, sra, dsk) == 0)
 					pr_err("%s re-added to %s\n",
 					       dsk->sys_name, chosen_name);
@@ -688,8 +686,7 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 		st->ss->free_super(st);
 		close(dfd);
 
-		if (info.disk.number != number ||
-		    info.events >= events)
+		if (info.disk.number != number || info.events >= events)
 			continue;
 
 		if (d->disk.raid_disk > -1)
@@ -970,11 +967,9 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		}
 		if ((sra->component_size > 0 &&
 		     st2->ss->avail_size(st2, devsize,
-					 sra->devs
-					 ? sra->devs->data_offset
-					 : INVALID_SECTORS)
-		     < sra->component_size)
-		    ||
+					 sra->devs ? sra->devs->data_offset :
+					 INVALID_SECTORS) <
+		     sra->component_size) ||
 		    (sra->component_size == 0 && devsize < component_size)) {
 			if (verbose > 1)
 				pr_err("not adding %s to %s as it is too small\n",
@@ -1107,8 +1102,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		char *devname = NULL;
 		unsigned long long devsectors;
 
-		if (de->d_ino == 0 ||
-		    de->d_name[0] == '.' ||
+		if (de->d_ino == 0 || de->d_name[0] == '.' ||
 		    (de->d_type != DT_LNK && de->d_type != DT_UNKNOWN))
 			goto next;
 
@@ -1146,8 +1140,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			st2 = dup_super(st);
 		else
 			st2 = guess_super_type(fd, guess_partitions);
-		if (st2 == NULL ||
-		    st2->ss->load_super(st2, fd, NULL) < 0)
+		if (st2 == NULL || st2->ss->load_super(st2, fd, NULL) < 0)
 			goto next;
 		st2->ignore_hw_compat = 0;
 
@@ -1175,8 +1168,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		 * metadata which makes better use of the device can
 		 * be found.
 		 */
-		if (chosen == NULL ||
-		    chosen_size < info.component_size) {
+		if (chosen == NULL || chosen_size < info.component_size) {
 			chosen_size = info.component_size;
 			free(chosen);
 			chosen = devname;
@@ -1399,8 +1391,8 @@ restart:
 		}
 		/* Ok, we can try this one.   Maybe it needs a bitmap */
 		for (mddev = devs ; mddev ; mddev = mddev->next)
-			if (mddev->devname && me->path
-			    && devname_matches(mddev->devname, me->path))
+			if (mddev->devname && me->path &&
+			    devname_matches(mddev->devname, me->path))
 				break;
 		if (mddev && mddev->bitmap_file) {
 			/*

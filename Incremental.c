@@ -403,7 +403,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		    && ! policy_action_allows(policy, st->ss->name,
 					      act_re_add)
 		    && c->runstop < 1) {
-			if (md_get_array_info(mdfd, &ainf) == 0) {
+			if (md_array_active(mdfd)) {
 				pr_err("not adding %s to active array (without --run) %s\n",
 				       devname, chosen_name);
 				rv = 2;
@@ -667,9 +667,8 @@ static void find_reject(int mdfd, struct supertype *st, struct mdinfo *sra,
 	 * and events less than the passed events, and remove the device.
 	 */
 	struct mdinfo *d;
-	mdu_array_info_t ra;
 
-	if (md_get_array_info(mdfd, &ra) == 0)
+	if (md_array_active(mdfd))
 		return; /* not safe to remove from active arrays
 			 * without thinking more */
 

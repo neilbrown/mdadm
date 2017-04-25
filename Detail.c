@@ -86,7 +86,7 @@ int Detail(char *dev, struct context *c)
 			dev, strerror(errno));
 		return rv;
 	}
-	sra = sysfs_read(fd, NULL, GET_VERSION|GET_DEVS);
+	sra = sysfs_read(fd, NULL, GET_VERSION | GET_DEVS | GET_ARRAY_STATE);
 	if (!sra) {
 		pr_err("%s does not appear to be an md device\n", dev);
 		close(fd);
@@ -94,10 +94,10 @@ int Detail(char *dev, struct context *c)
 	}
 	external = (sra != NULL && sra->array.major_version == -1 &&
 		    sra->array.minor_version == -2);
+	inactive = (sra->array_state == ARRAY_ACTIVE ||
+		    sra->array_state == ARRAY_CLEAR);
 	st = super_by_fd(fd, &subarray);
-	if (md_get_array_info(fd, &array) == 0) {
-		inactive = 0;
-	} else if (errno == ENODEV && sra) {
+	if (md_get_array_info(fd, &array) && errno == ENODEV) {
 		if (sra->array.major_version == -1 &&
 		    sra->array.minor_version == -1 &&
 		    sra->devs == NULL) {
@@ -107,7 +107,6 @@ int Detail(char *dev, struct context *c)
 			return rv;
 		}
 		array = sra->array;
-		inactive = 1;
 	} else {
 		pr_err("cannot get array detail for %s: %s\n",
 		       dev, strerror(errno));

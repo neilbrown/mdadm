@@ -157,8 +157,7 @@ int Detail(char *dev, struct context *c)
 			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (d >= array.raid_disks &&
-			    disk.major == 0 &&
-			    disk.minor == 0)
+			    disk.major == 0 && disk.minor == 0)
 				continue;
 		}
 
@@ -236,7 +235,8 @@ int Detail(char *dev, struct context *c)
 				printf("MD_METADATA=%s\n", sra->text_version);
 			else
 				printf("MD_METADATA=%d.%d\n",
-				       array.major_version, array.minor_version);
+				       array.major_version,
+				       array.minor_version);
 		}
 
 		if (st && st->sb && info) {
@@ -244,12 +244,12 @@ int Detail(char *dev, struct context *c)
 			struct map_ent *mp, *map = NULL;
 
 			fname_from_uuid(st, info, nbuf, ':');
-			printf("MD_UUID=%s\n", nbuf+5);
+			printf("MD_UUID=%s\n", nbuf + 5);
 			mp = map_by_uuid(&map, info->uuid);
 			if (mp && mp->path &&
 			    strncmp(mp->path, "/dev/md/", 8) == 0) {
 				printf("MD_DEVNAME=");
-				print_escape(mp->path+8);
+				print_escape(mp->path + 8);
 				putchar('\n');
 			}
 
@@ -273,11 +273,12 @@ int Detail(char *dev, struct context *c)
 		if (sra) {
 			struct mdinfo *mdi;
 			for (mdi  = sra->devs; mdi; mdi = mdi->next) {
-				char *path =
-					map_dev(mdi->disk.major,
-						mdi->disk.minor, 0);
+				char *path;
 				char *sysdev = xstrdup(mdi->sys_name + 1);
 				char *cp;
+
+				path = map_dev(mdi->disk.major,
+					       mdi->disk.minor, 0);
 				for (cp = sysdev; *cp; cp++)
 					if (!isalnum(*cp))
 						*cp = '_';
@@ -299,19 +300,19 @@ int Detail(char *dev, struct context *c)
 
 	disks = xmalloc(max_disks * 2 * sizeof(mdu_disk_info_t));
 	for (d = 0; d < max_disks * 2; d++) {
-		disks[d].state = (1<<MD_DISK_REMOVED);
+		disks[d].state = (1 << MD_DISK_REMOVED);
 		disks[d].major = disks[d].minor = 0;
 		disks[d].number = -1;
-		disks[d].raid_disk = d/2;
+		disks[d].raid_disk = d / 2;
 	}
 
-	next = array.raid_disks*2;
+	next = array.raid_disks * 2;
 	if (inactive) {
 		struct mdinfo *mdi;
 		if (sra != NULL)
 			for (mdi = sra->devs; mdi; mdi = mdi->next) {
 				disks[next++] = mdi->disk;
-				disks[next-1].number = -1;
+				disks[next - 1].number = -1;
 			}
 	} else for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
@@ -324,21 +325,23 @@ int Detail(char *dev, struct context *c)
 		}
 		if (disk.major == 0 && disk.minor == 0)
 			continue;
-		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
-		    && disks[disk.raid_disk*2].state == (1<<MD_DISK_REMOVED)
-		    && ((disk.state & (1<<MD_DISK_JOURNAL)) == 0))
-			disks[disk.raid_disk*2] = disk;
-		else if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks
-			 && disks[disk.raid_disk*2+1].state == (1<<MD_DISK_REMOVED)
-			 && !(disk.state & (1<<MD_DISK_JOURNAL)))
-			disks[disk.raid_disk*2+1] = disk;
-		else if (next < max_disks*2)
+		if (disk.raid_disk >= 0 && disk.raid_disk < array.raid_disks &&
+		    disks[disk.raid_disk * 2].state == (1 << MD_DISK_REMOVED) &&
+		    ((disk.state & (1 << MD_DISK_JOURNAL)) == 0))
+			disks[disk.raid_disk * 2] = disk;
+		else if (disk.raid_disk >= 0 &&
+			 disk.raid_disk < array.raid_disks &&
+			 disks[disk.raid_disk * 2 + 1].state ==
+			 (1 << MD_DISK_REMOVED) &&
+			 !(disk.state & (1 << MD_DISK_JOURNAL)))
+			disks[disk.raid_disk * 2 + 1] = disk;
+		else if (next < max_disks * 2)
 			disks[next++] = disk;
 	}
 
 	avail = xcalloc(array.raid_disks, 1);
 
-	for (d= 0; d < array.raid_disks; d++) {
+	for (d = 0; d < array.raid_disks; d++) {
 
 		if ((disks[d*2].state & (1<<MD_DISK_SYNC)) ||
 		    (disks[d*2+1].state & (1<<MD_DISK_SYNC))) {
@@ -354,8 +357,8 @@ int Detail(char *dev, struct context *c)
 		if (c->verbose > 0) {
 			if (array.raid_disks)
 				printf(" level=%s num-devices=%d",
-				       str?str:"-unknown-",
-				       array.raid_disks );
+				       str ? str : "-unknown-",
+				       array.raid_disks);
 			else if (!inactive)
 				printf(" level=container num-devices=%d",
 				       array.nr_disks);
@@ -369,8 +372,8 @@ int Detail(char *dev, struct context *c)
 			if (sra && sra->array.major_version < 0)
 				printf(" metadata=%s", sra->text_version);
 			else
-				printf(" metadata=%d.%d",
-				       array.major_version, array.minor_version);
+				printf(" metadata=%d.%d", array.major_version,
+				       array.minor_version);
 		}
 
 		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
@@ -385,7 +388,7 @@ int Detail(char *dev, struct context *c)
 		char *devnm;
 
 		devnm = stat2devnm(&stb);
-		for (e=ms; e; e=e->next)
+		for (e = ms; e; e = e->next)
 			if (strcmp(e->devnm, devnm) == 0)
 				break;
 		if (!get_dev_size(fd, NULL, &larray_size))
@@ -394,14 +397,16 @@ int Detail(char *dev, struct context *c)
 		printf("%s:\n", dev);
 
 		if (container)
-			printf("         Container : %s, member %s\n", container,
-			       member);
+			printf("         Container : %s, member %s\n",
+			       container, member);
 		else {
-		if (sra && sra->array.major_version < 0)
-			printf("           Version : %s\n", sra->text_version);
-		else
-			printf("           Version : %d.%d\n",
-			       array.major_version, array.minor_version);
+			if (sra && sra->array.major_version < 0)
+				printf("           Version : %s\n",
+				       sra->text_version);
+			else
+				printf("           Version : %d.%d\n",
+				       array.major_version,
+				       array.minor_version);
 		}
 
 		atime = array.ctime;
@@ -412,14 +417,17 @@ int Detail(char *dev, struct context *c)
 		if (str)
 			printf("        Raid Level : %s\n", str);
 		if (larray_size)
-			printf("        Array Size : %llu%s\n", (larray_size>>10),
+			printf("        Array Size : %llu%s\n",
+			       (larray_size >> 10),
 			       human_size(larray_size));
 		if (array.level >= 1) {
 			if (sra)
 				array.major_version = sra->array.major_version;
 			if (array.major_version != 0 &&
 			    (larray_size >= 0xFFFFFFFFULL|| array.size == 0)) {
-				unsigned long long dsize = get_component_size(fd);
+				unsigned long long dsize;
+
+				dsize = get_component_size(fd);
 				if (dsize > 0)
 					printf("     Used Dev Size : %llu%s\n",
 					       dsize/2,
@@ -429,7 +437,8 @@ int Detail(char *dev, struct context *c)
 			} else
 				printf("     Used Dev Size : %lu%s\n",
 				       (unsigned long)array.size,
-				       human_size((unsigned long long)array.size<<10));
+				       human_size((unsigned long long)
+						  array.size << 10));
 		}
 		if (array.raid_disks)
 			printf("      Raid Devices : %d\n", array.raid_disks);
@@ -440,7 +449,7 @@ int Detail(char *dev, struct context *c)
 			printf("   Preferred Minor : %d\n", array.md_minor);
 		if (sra == NULL || sra->array.major_version >= 0)
 			printf("       Persistence : Superblock is %spersistent\n",
-			       array.not_persistent?"not ":"");
+			       array.not_persistent ? "not " : "");
 		printf("\n");
 		/* Only try GET_BITMAP_FILE for 0.90.01 and later */
 		if (ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 && bmf.pathname[0]) {
@@ -465,19 +474,25 @@ int Detail(char *dev, struct context *c)
 				st = ", degraded";
 
 			printf("             State : %s%s%s%s%s%s \n",
-			       (array.state&(1<<MD_SB_CLEAN))?"clean":"active", st,
-			       (!e || (e->percent < 0 && e->percent != RESYNC_PENDING &&
-			       e->percent != RESYNC_DELAYED)) ? "" : sync_action[e->resync],
+			       (array.state & (1 << MD_SB_CLEAN)) ?
+			       "clean" : "active", st,
+			       (!e || (e->percent < 0 &&
+				       e->percent != RESYNC_PENDING &&
+				       e->percent != RESYNC_DELAYED)) ?
+			       "" : sync_action[e->resync],
 			       larray_size ? "": ", Not Started",
-			       (e && e->percent == RESYNC_DELAYED) ? " (DELAYED)": "",
-			       (e && e->percent == RESYNC_PENDING) ? " (PENDING)": "");
+			       (e && e->percent == RESYNC_DELAYED) ?
+			       " (DELAYED)": "",
+			       (e && e->percent == RESYNC_PENDING) ?
+			       " (PENDING)": "");
 		} else if (inactive) {
 			printf("             State : inactive\n");
 		}
 		if (array.raid_disks)
 			printf("    Active Devices : %d\n", array.active_disks);
 		if (array.working_disks > 0)
-			printf("   Working Devices : %d\n", array.working_disks);
+			printf("   Working Devices : %d\n",
+			       array.working_disks);
 		if (array.raid_disks) {
 			printf("    Failed Devices : %d\n", array.failed_disks);
 			printf("     Spare Devices : %d\n", array.spare_disks);
@@ -485,11 +500,13 @@ int Detail(char *dev, struct context *c)
 		printf("\n");
 		if (array.level == 5) {
 			str = map_num(r5layout, array.layout);
-			printf("            Layout : %s\n", str?str:"-unknown-");
+			printf("            Layout : %s\n",
+			       str ? str : "-unknown-");
 		}
 		if (array.level == 6) {
 			str = map_num(r6layout, array.layout);
-			printf("            Layout : %s\n", str?str:"-unknown-");
+			printf("            Layout : %s\n",
+			       str ? str : "-unknown-");
 		}
 		if (array.level == 10) {
 			printf("            Layout :");
@@ -510,12 +527,14 @@ int Detail(char *dev, struct context *c)
 			printf("          Rounding : %dK\n\n",
 			       array.chunk_size/1024);
 			break;
-		default: break;
+		default:
+			break;
 		}
 
 		if (array.raid_disks) {
-			struct mdinfo *mdi = sysfs_read(fd, NULL,
-							GET_CONSISTENCY_POLICY);
+			struct mdinfo *mdi;
+
+			mdi = sysfs_read(fd, NULL, GET_CONSISTENCY_POLICY);
 			if (mdi) {
 				char *policy = map_num(consistency_policies,
 						       mdi->consistency_policy);
@@ -528,8 +547,7 @@ int Detail(char *dev, struct context *c)
 
 		if (e && e->percent >= 0) {
 			static char *sync_action[] = {
-				"Rebuild", "Resync",
-				"Reshape", "Check"};
+				"Rebuild", "Resync", "Reshape", "Check"};
 			printf("    %7s Status : %d%% complete\n",
 			       sync_action[e->resync], e->percent);
 		}
@@ -539,8 +557,9 @@ int Detail(char *dev, struct context *c)
 #if 0
 This is pretty boring
 			printf("     Reshape pos'n : %llu%s\n",
-			       (unsigned long long) info->reshape_progress<<9,
-			       human_size((unsigned long long)info->reshape_progress<<9));
+			       (unsigned long long) info->reshape_progress << 9,
+			       human_size((unsigned long long)
+					  info->reshape_progress << 9));
 #endif
 			if (info->delta_disks != 0)
 				printf("     Delta Devices : %d, (%d->%d)\n",
@@ -549,25 +568,29 @@ This is pretty boring
 				       array.raid_disks);
 			if (info->new_level != array.level) {
 				str = map_num(pers, info->new_level);
-				printf("         New Level : %s\n", str?str:"-unknown-");
+				printf("         New Level : %s\n",
+				       str ? str : "-unknown-");
 			}
 			if (info->new_level != array.level ||
 			    info->new_layout != array.layout) {
 				if (info->new_level == 5) {
-					str = map_num(r5layout, info->new_layout);
+					str = map_num(r5layout,
+						      info->new_layout);
 					printf("        New Layout : %s\n",
-					       str?str:"-unknown-");
+					       str ? str : "-unknown-");
 				}
 				if (info->new_level == 6) {
-					str = map_num(r6layout, info->new_layout);
+					str = map_num(r6layout,
+						      info->new_layout);
 					printf("        New Layout : %s\n",
-					       str?str:"-unknown-");
+					       str ? str : "-unknown-");
 				}
 				if (info->new_level == 10) {
 					printf("        New Layout : near=%d, %s=%d\n",
-					       info->new_layout&255,
-					       (info->new_layout&0x10000)?"offset":"far",
-					       (info->new_layout>>8)&255);
+					       info->new_layout & 255,
+					       (info->new_layout & 0x10000) ?
+					       "offset" : "far",
+					       (info->new_layout >> 8) & 255);
 				}
 			}
 			if (info->new_chunk != array.chunk_size)
@@ -579,8 +602,10 @@ This is pretty boring
 		if (st && st->sb)
 			st->ss->detail_super(st, c->homehost);
 
-		if (array.raid_disks == 0 && sra && sra->array.major_version == -1
-		    && sra->array.minor_version == -2 && sra->text_version[0] != '/') {
+		if (array.raid_disks == 0 && sra &&
+		    sra->array.major_version == -1 &&
+		    sra->array.minor_version == -2 &&
+		    sra->text_version[0] != '/') {
 			/* This looks like a container.  Find any active arrays
 			 * That claim to be a member.
 			 */
@@ -596,19 +621,21 @@ This is pretty boring
 				dev_t devid;
 				if (de->d_name[0] == '.')
 					continue;
-				sprintf(path, "/sys/block/%s/md/metadata_version",
+				sprintf(path,
+					"/sys/block/%s/md/metadata_version",
 					de->d_name);
 				if (load_sys(path, vbuf, sizeof(vbuf)) < 0)
 					continue;
-				if (strncmp(vbuf, "external:", 9) != 0 ||
-				    !is_subarray(vbuf+9) ||
-				    strncmp(vbuf+10, sra->sys_name, nlen) != 0 ||
-				    vbuf[10+nlen] != '/')
+				if (strncmp(vbuf, "external:", 9) ||
+				    !is_subarray(vbuf + 9) ||
+				    strncmp(vbuf + 10, sra->sys_name, nlen) ||
+				    vbuf[10 + nlen] != '/')
 					continue;
 				devid = devnm2devid(de->d_name);
-				printf(" %s", map_dev_preferred(
-					       major(devid),
-					       minor(devid), 1, c->prefer));
+				printf(" %s",
+				       map_dev_preferred(major(devid),
+							 minor(devid), 1,
+							 c->prefer));
 			}
 			if (dir)
 				closedir(dir);
@@ -622,24 +649,23 @@ This is pretty boring
 	}
 	free(info);
 
-	for (d= 0; d < max_disks * 2; d++) {
+	for (d = 0; d < max_disks * 2; d++) {
 		char *dv;
 		mdu_disk_info_t disk = disks[d];
 
-		if (d >= array.raid_disks*2 &&
-		    disk.major == 0 &&
-		    disk.minor == 0)
+		if (d >= array.raid_disks * 2 &&
+		    disk.major == 0 && disk.minor == 0)
 			continue;
-		if ((d & 1) &&
-		    disk.major == 0 &&
-		    disk.minor == 0)
+		if ((d & 1) && disk.major == 0 && disk.minor == 0)
 			continue;
 		if (!c->brief) {
-			if (d == array.raid_disks*2) printf("\n");
+			if (d == array.raid_disks*2)
+				printf("\n");
 			if (disk.number < 0 && disk.raid_disk < 0)
 				printf("       -   %5d    %5d        -     ",
 				       disk.major, disk.minor);
-			else if (disk.raid_disk < 0 || disk.state & (1<<MD_DISK_JOURNAL))
+			else if (disk.raid_disk < 0 ||
+				 disk.state & (1 << MD_DISK_JOURNAL))
 				printf("   %5d   %5d    %5d        -     ",
 				       disk.number, disk.major, disk.minor);
 			else if (disk.number < 0)
@@ -647,34 +673,44 @@ This is pretty boring
 				       disk.major, disk.minor, disk.raid_disk);
 			else
 				printf("   %5d   %5d    %5d    %5d     ",
-				       disk.number, disk.major, disk.minor, disk.raid_disk);
+				       disk.number, disk.major, disk.minor,
+				       disk.raid_disk);
 		}
 		if (!c->brief && array.raid_disks) {
-
-			if (disk.state & (1<<MD_DISK_FAULTY)) {
+			if (disk.state & (1 << MD_DISK_FAULTY)) {
 				printf(" faulty");
 				if (disk.raid_disk < array.raid_disks &&
 				    disk.raid_disk >= 0)
 					failed++;
 			}
-			if (disk.state & (1<<MD_DISK_ACTIVE)) printf(" active");
-			if (disk.state & (1<<MD_DISK_SYNC)) {
+			if (disk.state & (1 << MD_DISK_ACTIVE))
+				printf(" active");
+			if (disk.state & (1 << MD_DISK_SYNC)) {
 				printf(" sync");
-				if (array.level == 10 && (array.layout & ~0x1FFFF) == 0) {
+				if (array.level == 10 &&
+				    (array.layout & ~0x1FFFF) == 0) {
 					int nc = array.layout & 0xff;
 					int fc = (array.layout >> 8) & 0xff;
 					int copies = nc*fc;
-					if (fc == 1 && array.raid_disks % copies == 0 && copies <= 26) {
-						/* We can divide the devices into 'sets' */
-						int set = disk.raid_disk % copies;
+					if (fc == 1 &&
+					    array.raid_disks % copies == 0 &&
+					    copies <= 26) {
+						/* We can divide the devices
+						   into 'sets' */
+						int set;
+						set = disk.raid_disk % copies;
 						printf(" set-%c", set + 'A');
 					}
 				}
 			}
-			if (disk.state & (1<<MD_DISK_REMOVED)) printf(" removed");
-			if (disk.state & (1<<MD_DISK_WRITEMOSTLY)) printf(" writemostly");
-			if (disk.state & (1<<MD_DISK_FAILFAST)) printf(" failfast");
-			if (disk.state & (1<<MD_DISK_JOURNAL)) printf(" journal");
+			if (disk.state & (1 << MD_DISK_REMOVED))
+				printf(" removed");
+			if (disk.state & (1 << MD_DISK_WRITEMOSTLY))
+				printf(" writemostly");
+			if (disk.state & (1 << MD_DISK_FAILFAST))
+				printf(" failfast");
+			if (disk.state & (1 << MD_DISK_JOURNAL))
+				printf(" journal");
 			if ((disk.state &
 			     ((1<<MD_DISK_ACTIVE)|(1<<MD_DISK_SYNC)
 			      |(1<<MD_DISK_REMOVED)|(1<<MD_DISK_FAULTY)|(1<<MD_DISK_JOURNAL)))
@@ -685,19 +721,21 @@ This is pretty boring
 					printf(" rebuilding");
 			}
 		}
-		if (disk.state == 0) spares++;
-		dv=map_dev_preferred(disk.major, disk.minor, 0, c->prefer);
+		if (disk.state == 0)
+			spares++;
+		dv = map_dev_preferred(disk.major, disk.minor, 0, c->prefer);
 		if (dv != NULL) {
 			if (c->brief)
 				n_devices = add_device(dv, &devices,
-						       &max_devices,
-						       n_devices);
+						       &max_devices, n_devices);
 			else
 				printf("   %s", dv);
 		}
-		if (!c->brief) printf("\n");
+		if (!c->brief)
+			printf("\n");
 	}
-	if (spares && c->brief && array.raid_disks) printf(" spares=%d", spares);
+	if (spares && c->brief && array.raid_disks)
+		printf(" spares=%d", spares);
 	if (c->brief && st && st->sb)
 		st->ss->brief_detail_super(st);
 	if (st)
@@ -712,8 +750,7 @@ This is pretty boring
 	if (c->brief)
 		printf("\n");
 	if (c->test &&
-	    !enough(array.level, array.raid_disks, array.layout,
-		    1, avail))
+	    !enough(array.level, array.raid_disks, array.layout, 1, avail))
 		rv = 2;
 
 	free(disks);

@@ -1533,7 +1533,7 @@ extern char *get_md_name(char *devnm);
 extern char DefaultConfFile[];
 
 extern int create_mddev(char *dev, char *name, int autof, int trustworthy,
-			char *chosen);
+			char *chosen, int block_udev);
 /* values for 'trustworthy' */
 #define	LOCAL	1
 #define	LOCAL_ANY 10
@@ -1567,6 +1567,8 @@ extern char *stat2kname(struct stat *st);
 extern char *fd2kname(int fd);
 extern char *stat2devnm(struct stat *st);
 extern char *fd2devnm(int fd);
+extern void udev_block(char *devnm);
+extern void udev_unblock(void);
 
 extern int in_initrd(void);
 

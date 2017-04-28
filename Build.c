@@ -109,7 +109,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	/* We need to create the device.  It can have no name. */
 	map_lock(&map);
 	mdfd = create_mddev(mddev, NULL, c->autof, LOCAL,
-			    chosen_name);
+			    chosen_name, 0);
 	if (mdfd < 0) {
 		map_unlock(&map);
 		return 1;

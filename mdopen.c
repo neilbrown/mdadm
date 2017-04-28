@@ -135,7 +135,7 @@ void make_parts(char *dev, int cnt)
  */
 
 int create_mddev(char *dev, char *name, int autof, int trustworthy,
-		 char *chosen)
+		 char *chosen, int block_udev)
 {
 	int mdfd;
 	struct stat stb;
@@ -147,6 +147,10 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	char devname[37];
 	char devnm[32];
 	char cbuf[400];
+
+	if (!use_udev())
+		block_udev = 0;
+
 	if (chosen == NULL)
 		chosen = cbuf;
 
@@ -305,43 +309,53 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		int fd;
 		int n = -1;
 		sprintf(devnm, "md_%s", cname);
+		if (block_udev)
+			udev_block(devnm);
 		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
 		if (fd >= 0) {
 			n = write(fd, devnm, strlen(devnm));
 			close(fd);
 		}
-		if (n < 0)
+		if (n < 0) {
 			devnm[0] = 0;
+			udev_unblock();
+		}
 	}
 	if (num >= 0) {
 		int fd;
 		int n = -1;
 		sprintf(devnm, "md%d", num);
+		if (block_udev)
+			udev_block(devnm);
 		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
 		if (fd >= 0) {
 			n = write(fd, devnm, strlen(devnm));
 			close(fd);
 		}
-		if (n < 0)
+		if (n < 0) {
 			devnm[0] = 0;
+			udev_unblock();
+		}
 	}
-	if (devnm[0])
-		;
-	else if (num < 0) {
-		/* need to choose a free number. */
-		char *_devnm = find_free_devnm(use_mdp);
-		if (_devnm == NULL) {
-			pr_err("No avail md devices - aborting\n");
-			return -1;
+	if (devnm[0] == 0) {
+		if (num < 0) {
+			/* need to choose a free number. */
+			char *_devnm = find_free_devnm(use_mdp);
+			if (_devnm == NULL) {
+				pr_err("No avail md devices - aborting\n");
+				return -1;
+			}
+			strcpy(devnm, _devnm);
+		} else {
+			sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
+			if (mddev_busy(devnm)) {
+				pr_err("%s is already in use.\n",
+				       dev);
+				return -1;
+			}
 		}
-		strcpy(devnm, _devnm);
-	} else {
-		sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
-		if (mddev_busy(devnm)) {
-			pr_err("%s is already in use.\n",
-				dev);
-			return -1;
-		}
+		if (block_udev)
+			udev_block(devnm);
 	}
 
 	sprintf(devname, "/dev/%s", devnm);

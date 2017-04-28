@@ -605,7 +605,7 @@ int Create(struct supertype *st, char *mddev,
 
 	/* We need to create the device */
 	map_lock(&map);
-	mdfd = create_mddev(mddev, name, c->autof, LOCAL, chosen_name);
+	mdfd = create_mddev(mddev, name, c->autof, LOCAL, chosen_name, 1);
 	if (mdfd < 0) {
 		map_unlock(&map);
 		return 1;
@@ -620,6 +620,7 @@ int Create(struct supertype *st, char *mddev,
 			chosen_name);
 		close(mdfd);
 		map_unlock(&map);
+		udev_unblock();
 		return 1;
 	}
 	mddev = chosen_name;
@@ -1053,9 +1054,15 @@ int Create(struct supertype *st, char *mddev,
 		pr_err("not starting array - not enough devices.\n");
 	}
 	close(mdfd);
+	/* Give udev a moment to process the Change event caused
+	 * by the close.
+	 */
+	usleep(100*1000);
+	udev_unblock();
 	return 0;
 
  abort:
+	udev_unblock();
 	map_lock(&map);
  abort_locked:
 	map_remove(&map, fd2devnm(mdfd));

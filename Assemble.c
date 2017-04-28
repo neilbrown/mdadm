@@ -1478,7 +1478,7 @@ try_again:
 			name = strchr(name, ':')+1;
 
 		mdfd = create_mddev(mddev, name, ident->autof, trustworthy,
-				    chosen_name);
+				    chosen_name, 0);
 	}
 	if (mdfd < 0) {
 		st->ss->free_super(st);

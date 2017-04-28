@@ -320,7 +320,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 
 		/* Couldn't find an existing array, maybe make a new one */
 		mdfd = create_mddev(match ? match->devname : NULL,
-				    name_to_use, c->autof, trustworthy, chosen_name);
+				    name_to_use, c->autof, trustworthy, chosen_name, 0);
 
 		if (mdfd < 0)
 			goto out_unlock;
@@ -1596,7 +1596,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 					    ra->name,
 					    c->autof,
 					    trustworthy,
-					    chosen_name);
+					    chosen_name, 0);
 		}
 		if (only && (!mp || strcmp(mp->devnm, only) != 0))
 			continue;

@@ -99,7 +99,6 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	int active_disks;
 	int trustworthy;
 	char *name_to_use;
-	mdu_array_info_t ainf;
 	struct dev_policy *policy = NULL;
 	struct map_ent target_array;
 	int have_target;
@@ -551,7 +550,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	/*   + add any bitmap file  */
 	/*   + start the array (auto-readonly). */
 
-	if (md_get_array_info(mdfd, &ainf) == 0) {
+	if (md_array_active(mdfd)) {
 		if (c->export) {
 			printf("MD_STARTED=already\n");
 		} else if (c->verbose >= 0)

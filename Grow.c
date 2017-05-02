@@ -5075,7 +5075,7 @@ int Grow_continue_command(char *devname, int fd,
 
 		cc = st->ss->container_content(st, subarray);
 		for (content = cc; content ; content = content->next) {
-			char *array;
+			char *array_name;
 			int allow_reshape = 1;
 
 			if (content->reshape_active == 0)
@@ -5100,8 +5100,8 @@ int Grow_continue_command(char *devname, int fd,
 				goto Grow_continue_command_exit;
 			}
 
-			array = strchr(content->text_version+1, '/')+1;
-			mdstat = mdstat_by_subdev(array, container);
+			array_name = strchr(content->text_version+1, '/')+1;
+			mdstat = mdstat_by_subdev(array_name, container);
 			if (!mdstat)
 				continue;
 			if (mdstat->active == 0) {

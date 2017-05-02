@@ -40,7 +40,6 @@ int Manage_ro(char *devname, int fd, int readonly)
 	 * use RESTART_ARRAY_RW or STOP_ARRAY_RO
 	 *
 	 */
-	mdu_array_info_t array;
 	struct mdinfo *mdi;
 	int rv = 0;
 
@@ -88,9 +87,8 @@ int Manage_ro(char *devname, int fd, int readonly)
 		goto out;
 	}
 
-	if (md_get_array_info(fd, &array)) {
-		pr_err("%s does not appear to be active.\n",
-			devname);
+	if (!md_array_active(fd)) {
+		pr_err("%s does not appear to be active.\n", devname);
 		rv = 1;
 		goto out;
 	}

@@ -200,6 +200,30 @@ out:
 	return ret;
 }
 
+int md_array_valid(int fd)
+{
+	struct mdinfo *sra;
+	int ret;
+
+	sra = sysfs_read(fd, NULL, GET_ARRAY_STATE);
+	if (sra) {
+		if (sra->array_state != ARRAY_UNKNOWN_STATE)
+			ret = 0;
+		else
+			ret = -ENODEV;
+
+		free(sra);
+	} else {
+		/*
+		 * GET_ARRAY_INFO doesn't provide access to the proper state
+		 * information, so fallback to a basic check for raid_disks != 0
+		 */
+		ret = ioctl(fd, RAID_VERSION);
+	}
+
+	return !ret;
+}
+
 int md_array_active(int fd)
 {
 	struct mdinfo *sra;

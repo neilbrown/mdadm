@@ -442,7 +442,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
  */
 int open_mddev(char *dev, int report_errors)
 {
-	struct mdu_array_info_s array;
 	int mdfd = open(dev, O_RDONLY);
 
 	if (mdfd < 0) {
@@ -452,7 +451,7 @@ int open_mddev(char *dev, int report_errors)
 		return -1;
 	}
 
-	if (md_get_array_info(mdfd, &array) != 0) {
+	if (md_array_valid(mdfd) == 0) {
 		close(mdfd);
 		if (report_errors)
 			pr_err("%s does not appear to be an md device\n", dev);

@@ -1415,6 +1415,7 @@ extern int Dump_metadata(char *dev, char *dir, struct context *c,
 extern int Restore_metadata(char *dev, char *dir, struct context *c,
 			    struct supertype *st, int only);
 
+int md_array_valid(int fd);
 int md_array_active(int fd);
 int md_get_array_info(int fd, struct mdu_array_info_s *array);
 int md_set_array_info(int fd, struct mdu_array_info_s *array);

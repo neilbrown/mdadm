@@ -149,6 +149,7 @@ static int select_devices(struct mddev_dev *devlist,
 	struct mdinfo *content = NULL;
 	int report_mismatch = ((inargv && c->verbose >= 0) || c->verbose > 0);
 	struct domainlist *domains = NULL;
+	dev_t rdev;
 
 	tmpdev = devlist; num_devs = 0;
 	while (tmpdev) {
@@ -169,7 +170,6 @@ static int select_devices(struct mddev_dev *devlist,
 	     tmpdev = tmpdev ? tmpdev->next : NULL) {
 		char *devname = tmpdev->devname;
 		int dfd;
-		struct stat stb;
 		struct supertype *tst;
 		struct dev_policy *pol = NULL;
 		int found_container = 0;
@@ -204,14 +204,7 @@ static int select_devices(struct mddev_dev *devlist,
 				pr_err("cannot open device %s: %s\n",
 				       devname, strerror(errno));
 			tmpdev->used = 2;
-		} else if (fstat(dfd, &stb)< 0) {
-			/* Impossible! */
-			pr_err("fstat failed for %s: %s\n",
-			       devname, strerror(errno));
-			tmpdev->used = 2;
-		} else if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			pr_err("%s is not a block device.\n",
-			       devname);
+		} else if (!fstat_is_blkdev(dfd, devname, &rdev)) {
 			tmpdev->used = 2;
 		} else if (must_be_container(dfd)) {
 			if (st) {
@@ -234,7 +227,8 @@ static int select_devices(struct mddev_dev *devlist,
 					       devname);
 				tmpdev->used = 2;
 			} else if (auto_assem &&
-				   !conf_test_metadata(tst->ss->name, (pol = devid_policy(stb.st_rdev)),
+				   !conf_test_metadata(tst->ss->name,
+						       (pol = devid_policy(rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_mismatch)
 					pr_err("%s has metadata type %s for which auto-assembly is disabled\n",
@@ -261,7 +255,8 @@ static int select_devices(struct mddev_dev *devlist,
 					       tst->ss->name, devname);
 				tmpdev->used = 2;
 			} else if (auto_assem && st == NULL &&
-				   !conf_test_metadata(tst->ss->name, (pol = devid_policy(stb.st_rdev)),
+				   !conf_test_metadata(tst->ss->name,
+						       (pol = devid_policy(rdev)),
 						       tst->ss->match_home(tst, c->homehost) == 1)) {
 				if (report_mismatch)
 					pr_err("%s has metadata type %s for which auto-assembly is disabled\n",
@@ -484,7 +479,7 @@ static int select_devices(struct mddev_dev *devlist,
 		/* Collect domain information from members only */
 		if (tmpdev && tmpdev->used == 1) {
 			if (!pol)
-				pol = devid_policy(stb.st_rdev);
+				pol = devid_policy(rdev);
 			domain_merge(&domains, pol, tst?tst->ss->name:NULL);
 		}
 		dev_policy_free(pol);

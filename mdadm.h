@@ -1434,6 +1434,7 @@ extern int check_raid(int fd, char *name);
 extern int check_partitions(int fd, char *dname,
 			    unsigned long long freesize,
 			    unsigned long long size);
+extern int fstat_is_blkdev(int fd, char *devname, dev_t *rdev);
 
 extern int get_mdp_major(void);
 extern int get_maj_min(char *dev, int *major, int *minor);

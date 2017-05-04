@@ -183,7 +183,6 @@ static int
 bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 {
 	int fd;
-	struct stat stb;
 	struct supertype *st = *stp;
 
 	fd = open(filename, O_RDONLY|O_DIRECT);
@@ -193,14 +192,7 @@ bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 		return -1;
 	}
 
-	if (fstat(fd, &stb) < 0) {
-		pr_err("failed to determine bitmap file/device type: %s\n",
-			strerror(errno));
-		close(fd);
-		return -1;
-	}
-
-	if ((stb.st_mode & S_IFMT) == S_IFBLK) {
+	if (fstat_is_blkdev(fd, filename, NULL)) {
 		/* block device, so we are probably after an internal bitmap */
 		if (!st)
 			st = guess_super(fd);
@@ -221,6 +213,9 @@ bitmap_file_open(char *filename, struct supertype **stp, int node_num)
 		}
 
 		*stp = st;
+	} else {
+		close(fd);
+		return -1;
 	}
 
 	return fd;

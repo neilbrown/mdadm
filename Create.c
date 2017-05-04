@@ -89,8 +89,8 @@ int Create(struct supertype *st, char *mddev,
 	char *maxdisc = NULL;
 	int dnum, raid_disk_num;
 	struct mddev_dev *dv;
+	dev_t rdev;
 	int fail = 0, warn = 0;
-	struct stat stb;
 	int first_missing = subdevs * 2;
 	int second_missing = subdevs * 2;
 	int missing_disks = 0;
@@ -325,11 +325,8 @@ int Create(struct supertype *st, char *mddev,
 				dname, strerror(errno));
 			exit(2);
 		}
-		if (fstat(dfd, &stb) != 0 ||
-		    (stb.st_mode & S_IFMT) != S_IFBLK) {
+		if (!fstat_is_blkdev(dfd, dname, NULL)) {
 			close(dfd);
-			pr_err("%s is not a block device\n",
-				dname);
 			exit(2);
 		}
 		close(dfd);
@@ -641,8 +638,8 @@ int Create(struct supertype *st, char *mddev,
 	 * with, but it chooses to trust me instead. Sigh
 	 */
 	info.array.md_minor = 0;
-	if (fstat(mdfd, &stb) == 0)
-		info.array.md_minor = minor(stb.st_rdev);
+	if (fstat_is_blkdev(mdfd, mddev, &rdev))
+		info.array.md_minor = minor(rdev);
 	info.array.not_persistent = 0;
 
 	if (((s->level == 4 || s->level == 5) &&
@@ -841,7 +838,6 @@ int Create(struct supertype *st, char *mddev,
 		for (dnum = 0, raid_disk_num = 0, dv = devlist; dv;
 		     dv = (dv->next) ? (dv->next) : moved_disk, dnum++) {
 			int fd;
-			struct stat stb2;
 			struct mdinfo *inf = &infos[dnum];
 
 			if (dnum >= total_slots)
@@ -897,9 +893,10 @@ int Create(struct supertype *st, char *mddev,
 							dv->devname);
 						goto abort_locked;
 					}
-					fstat(fd, &stb2);
-					inf->disk.major = major(stb2.st_rdev);
-					inf->disk.minor = minor(stb2.st_rdev);
+					if (!fstat_is_blkdev(fd, dv->devname, &rdev))
+						return 1;
+					inf->disk.major = major(rdev);
+					inf->disk.minor = minor(rdev);
 				}
 				if (fd >= 0)
 					remove_partitions(fd);
@@ -920,8 +917,8 @@ int Create(struct supertype *st, char *mddev,
 
 				if (!have_container) {
 					/* getinfo_super might have lost these ... */
-					inf->disk.major = major(stb2.st_rdev);
-					inf->disk.minor = minor(stb2.st_rdev);
+					inf->disk.major = major(rdev);
+					inf->disk.minor = minor(rdev);
 				}
 				break;
 			case 2:

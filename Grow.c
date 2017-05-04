@@ -109,7 +109,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 */
 	struct mdinfo info;
 
-	struct stat stb;
+	dev_t rdev;
 	int nfd, fd2;
 	int d, nd;
 	struct supertype *st = NULL;
@@ -145,9 +145,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		free(st);
 		return 1;
 	}
-	fstat(nfd, &stb);
-	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		pr_err("%s is not a block device!\n", newdev);
+	if (!fstat_is_blkdev(nfd, newdev, &rdev)) {
 		close(nfd);
 		free(st);
 		return 1;
@@ -198,8 +196,8 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 */
 
 	info.disk.number = d;
-	info.disk.major = major(stb.st_rdev);
-	info.disk.minor = minor(stb.st_rdev);
+	info.disk.major = major(rdev);
+	info.disk.minor = minor(rdev);
 	info.disk.raid_disk = d;
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
 	st->ss->update_super(st, &info, "linear-grow-new", newdev,

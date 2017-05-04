@@ -6562,7 +6562,7 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 
 	for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
 		char *devname = tmpdev->devname;
-		struct stat stb;
+		dev_t rdev;
 		struct supertype *tst;
 		int dfd;
 		if (tmpdev->used > 1)
@@ -6578,14 +6578,7 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 			dprintf("cannot open device %s: %s\n",
 				devname, strerror(errno));
 			tmpdev->used = 2;
-		} else if (fstat(dfd, &stb)< 0) {
-			/* Impossible! */
-			dprintf("fstat failed for %s: %s\n",
-				devname, strerror(errno));
-			tmpdev->used = 2;
-		} else if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			dprintf("%s is not a block device.\n",
-				devname);
+		} else if (!fstat_is_blkdev(dfd, devname, &rdev)) {
 			tmpdev->used = 2;
 		} else if (must_be_container(dfd)) {
 			struct supertype *cst;
@@ -6607,7 +6600,7 @@ count_volumes_list(struct md_list *devlist, char *homehost,
 			if (cst)
 				cst->ss->free_super(cst);
 		} else {
-			tmpdev->st_rdev = stb.st_rdev;
+			tmpdev->st_rdev = rdev;
 			if (tst->ss->load_super(tst,dfd, NULL)) {
 				dprintf("no RAID superblock on %s\n",
 					devname);

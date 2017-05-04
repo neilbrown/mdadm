@@ -87,6 +87,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	 *   start the array (auto-readonly).
 	 */
 	struct stat stb;
+	dev_t rdev;
 	struct mdinfo info, dinfo;
 	struct mdinfo *sra = NULL, *d;
 	struct mddev_ident *match;
@@ -174,21 +175,11 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	/* 2/ Find metadata, reject if none appropriate (check
 	 *            version/name from args) */
 
-	if (fstat(dfd, &stb) < 0) {
-		if (c->verbose >= 0)
-			pr_err("fstat failed for %s: %s.\n",
-				devname, strerror(errno));
+	if (!fstat_is_blkdev(dfd, devname, &rdev))
 		goto out;
-	}
-	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		if (c->verbose >= 0)
-			pr_err("%s is not a block device.\n",
-				devname);
-		goto out;
-	}
 
-	dinfo.disk.major = major(stb.st_rdev);
-	dinfo.disk.minor = minor(stb.st_rdev);
+	dinfo.disk.major = major(rdev);
+	dinfo.disk.minor = minor(rdev);
 
 	policy = disk_policy(&dinfo);
 	have_target = policy_check_path(&dinfo, &target_array);
@@ -339,8 +330,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 		}
 
 		dinfo = info;
-		dinfo.disk.major = major(stb.st_rdev);
-		dinfo.disk.minor = minor(stb.st_rdev);
+		dinfo.disk.major = major(rdev);
+		dinfo.disk.minor = minor(rdev);
 		if (add_disk(mdfd, st, &info, &dinfo) != 0) {
 			pr_err("failed to add %s to new array %s: %s.\n",
 				devname, chosen_name, strerror(errno));
@@ -441,8 +432,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 				goto out_unlock;
 			}
 		}
-		info.disk.major = major(stb.st_rdev);
-		info.disk.minor = minor(stb.st_rdev);
+		info.disk.major = major(rdev);
+		info.disk.minor = minor(rdev);
 		/* add disk needs to know about containers */
 		if (st->ss->external)
 			sra->array.level = LEVEL_CONTAINER;
@@ -863,12 +854,12 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	 * Return 0 on success, or some exit code on failure, probably 1.
 	 */
 	int rv = 1;
-	struct stat stb;
+	dev_t rdev;
 	struct map_ent *mp, *map = NULL;
 	struct mdinfo *chosen = NULL;
 	int dfd = *dfdp;
 
-	if (fstat(dfd, &stb) != 0)
+	if (!fstat_is_blkdev(dfd, devname, &rdev))
 		return 1;
 
 	/*
@@ -1038,8 +1029,8 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			devlist.writemostly = FlagDefault;
 			devlist.failfast = FlagDefault;
 			devlist.devname = chosen_devname;
-			sprintf(chosen_devname, "%d:%d", major(stb.st_rdev),
-				minor(stb.st_rdev));
+			sprintf(chosen_devname, "%d:%d", major(rdev),
+				minor(rdev));
 			devlist.disposition = 'a';
 			close(dfd);
 			*dfdp = -1;

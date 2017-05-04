@@ -42,6 +42,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	 */
 	int i;
 	struct stat stb;
+	dev_t rdev;
 	int subdevs = 0, missing_disks = 0;
 	struct mddev_dev *dv;
 	int bitmap_fd;
@@ -126,8 +127,8 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	array.nr_disks = s->raiddisks;
 	array.raid_disks = s->raiddisks;
 	array.md_minor = 0;
-	if (fstat(mdfd, &stb) == 0)
-		array.md_minor = minor(stb.st_rdev);
+	if (fstat_is_blkdev(mdfd, mddev, &rdev))
+		array.md_minor = minor(rdev);
 	array.not_persistent = 1;
 	array.state = 0; /* not clean, but no errors */
 	if (s->assume_clean)

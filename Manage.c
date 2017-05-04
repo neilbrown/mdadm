@@ -1513,7 +1513,7 @@ int Manage_subdevs(char *devname, int fd,
 			struct stat stb;
 			tfd = dev_open(dv->devname, O_RDONLY);
 			if (tfd >= 0) {
-				fstat(tfd, &stb);
+				fstat_is_blkdev(tfd, dv->devname, &rdev);
 				close(tfd);
 			} else {
 				int open_err = errno;

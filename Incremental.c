@@ -823,7 +823,7 @@ static int container_members_max_degradation(struct map_ent *map, struct map_ent
 		}
 		close(afd);
 	}
-	return (max_degraded);
+	return max_degraded;
 }
 
 static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,

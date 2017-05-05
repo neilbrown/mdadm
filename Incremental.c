@@ -1317,7 +1317,6 @@ int IncrementalScan(struct context *c, char *devnm)
 
 restart:
 	for (me = mapl ; me ; me = me->next) {
-		mdu_array_info_t array;
 		struct mdinfo *sra;
 		int mdfd;
 
@@ -1362,7 +1361,7 @@ restart:
 				rv = 1;
 			continue;
 		}
-		if (md_get_array_info(mdfd, &array) == 0 || errno != ENODEV) {
+		if (md_array_active(mdfd)) {
 			close(mdfd);
 			continue;
 		}

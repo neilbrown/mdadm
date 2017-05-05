@@ -41,7 +41,6 @@ int Build(char *mddev, struct mddev_dev *devlist,
 	 * cc = chunk size factor: 0==4k, 1==8k etc.
 	 */
 	int i;
-	struct stat stb;
 	dev_t rdev;
 	int subdevs = 0, missing_disks = 0;
 	struct mddev_dev *dv;
@@ -65,16 +64,8 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			missing_disks++;
 			continue;
 		}
-		if (stat(dv->devname, &stb)) {
-			pr_err("Cannot find %s: %s\n",
-				dv->devname, strerror(errno));
+		if (!stat_is_blkdev(dv->devname, NULL))
 			return 1;
-		}
-		if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-			pr_err("%s is not a block device.\n",
-				dv->devname);
-			return 1;
-		}
 	}
 
 	if (s->raiddisks != subdevs) {
@@ -162,16 +153,8 @@ int Build(char *mddev, struct mddev_dev *devlist,
 
 		if (strcmp("missing", dv->devname) == 0)
 			continue;
-		if (stat(dv->devname, &stb)) {
-			pr_err("Weird: %s has disappeared.\n",
-				dv->devname);
+		if (!stat_is_blkdev(dv->devname, &rdev))
 			goto abort;
-		}
-		if ((stb.st_mode & S_IFMT)!= S_IFBLK) {
-			pr_err("Weird: %s is no longer a block device.\n",
-				dv->devname);
-			goto abort;
-		}
 		fd = open(dv->devname, O_RDONLY|O_EXCL);
 		if (fd < 0) {
 			pr_err("Cannot open %s: %s\n",
@@ -187,8 +170,8 @@ int Build(char *mddev, struct mddev_dev *devlist,
 		disk.state = (1<<MD_DISK_SYNC) | (1<<MD_DISK_ACTIVE);
 		if (dv->writemostly == FlagSet)
 			disk.state |= 1<<MD_DISK_WRITEMOSTLY;
-		disk.major = major(stb.st_rdev);
-		disk.minor = minor(stb.st_rdev);
+		disk.major = major(rdev);
+		disk.minor = minor(rdev);
 		if (ioctl(mdfd, ADD_NEW_DISK, &disk)) {
 			pr_err("ADD_NEW_DISK failed for %s: %s\n",
 			       dv->devname, strerror(errno));

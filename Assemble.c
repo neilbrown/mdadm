@@ -512,15 +512,12 @@ static int select_devices(struct mddev_dev *devlist,
 
 	/* Now reject spares that don't match domains of identified members */
 	for (tmpdev = devlist; tmpdev; tmpdev = tmpdev->next) {
-		struct stat stb;
 		if (tmpdev->used != 3)
 			continue;
-		if (stat(tmpdev->devname, &stb)< 0) {
-			pr_err("fstat failed for %s: %s\n",
-			       tmpdev->devname, strerror(errno));
+		if (!stat_is_blkdev(tmpdev->devname, &rdev)) {
 			tmpdev->used = 2;
 		} else {
-			struct dev_policy *pol = devid_policy(stb.st_rdev);
+			struct dev_policy *pol = devid_policy(rdev);
 			int dt = domain_test(domains, pol, NULL);
 			if (inargv && dt != 0)
 				/* take this spare as domains match

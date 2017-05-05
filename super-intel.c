@@ -6855,7 +6855,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 					 unsigned long long *freesize,
 					 int verbose)
 {
-	struct stat stb;
+	dev_t rdev;
 	struct intel_super *super = st->sb;
 	struct imsm_super *mpb;
 	struct dl *dl;
@@ -6920,13 +6920,11 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	}
 
 	/* This device must be a member of the set */
-	if (stat(dev, &stb) < 0)
-		return 0;
-	if ((S_IFMT & stb.st_mode) != S_IFBLK)
+	if (!stat_is_blkdev(dev, &rdev))
 		return 0;
 	for (dl = super->disks ; dl ; dl = dl->next) {
-		if (dl->major == (int)major(stb.st_rdev) &&
-		    dl->minor == (int)minor(stb.st_rdev))
+		if (dl->major == (int)major(rdev) &&
+		    dl->minor == (int)minor(rdev))
 			break;
 	}
 	if (!dl) {

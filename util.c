@@ -747,6 +747,23 @@ int fstat_is_blkdev(int fd, char *devname, dev_t *rdev)
 	return 1;
 }
 
+int stat_is_blkdev(char *devname, dev_t *rdev)
+{
+	struct stat stb;
+
+	if (stat(devname, &stb) != 0) {
+		pr_err("stat failed for %s: %s\n", devname, strerror(errno));
+		return 0;
+	}
+	if ((S_IFMT & stb.st_mode) != S_IFBLK) {
+		pr_err("%s is not a block device.\n", devname);
+		return 0;
+	}
+	if (rdev)
+		*rdev = stb.st_rdev;
+	return 1;
+}
+
 int ask(char *mesg)
 {
 	char *add = "";

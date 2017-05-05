@@ -993,23 +993,13 @@ static void link_containers_with_subarrays(struct state *list)
 /* Not really Monitor but ... */
 int Wait(char *dev)
 {
-	struct stat stb;
 	char devnm[32];
-	char *tmp;
 	int rv = 1;
 	int frozen_remaining = 3;
 
-	if (stat(dev, &stb) != 0) {
-		pr_err("Cannot find %s: %s\n", dev,
-			strerror(errno));
+	if (!stat_is_blkdev(dev, NULL))
 		return 2;
-	}
-	tmp = stat2devnm(&stb);
-	if (!tmp) {
-		pr_err("%s is not a block device.\n", dev);
-		return 2;
-	}
-	strcpy(devnm, tmp);
+	strcpy(devnm, dev);
 
 	while(1) {
 		struct mdstat_ent *ms = mdstat_read(1, 0);
@@ -1068,6 +1058,8 @@ int WaitClean(char *dev, int sock, int verbose)
 	int rv = 1;
 	char devnm[32];
 
+	if (!stat_is_blkdev(dev, NULL))
+		return 2;
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {
 		if (verbose)

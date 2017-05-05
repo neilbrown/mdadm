@@ -86,8 +86,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	 * - if number of OK devices match expected, or -R and there are enough,
 	 *   start the array (auto-readonly).
 	 */
-	struct stat stb;
-	dev_t rdev;
+	dev_t rdev, rdev2;
 	struct mdinfo info, dinfo;
 	struct mdinfo *sra = NULL, *d;
 	struct mddev_ident *match;
@@ -108,18 +107,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 
 	struct createinfo *ci = conf_get_create_info();
 
-	if (stat(devname, &stb) < 0) {
-		if (c->verbose >= 0)
-			pr_err("stat failed for %s: %s.\n",
-				devname, strerror(errno));
+	if (!stat_is_blkdev(devname, &rdev))
 		return rv;
-	}
-	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		if (c->verbose >= 0)
-			pr_err("%s is not a block device.\n",
-				devname);
-		return rv;
-	}
 	dfd = dev_open(devname, O_RDONLY);
 	if (dfd < 0) {
 		if (c->verbose >= 0)
@@ -158,10 +147,8 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 	if (!devlist) {
 		devlist = conf_get_devs();
 		for (;devlist; devlist = devlist->next) {
-			struct stat st2;
-			if (stat(devlist->devname, &st2) == 0 &&
-			    (st2.st_mode & S_IFMT) == S_IFBLK &&
-			    st2.st_rdev == stb.st_rdev)
+			if (stat_is_blkdev(devlist->devname, &rdev2) &&
+			    rdev2 == rdev)
 				break;
 		}
 	}

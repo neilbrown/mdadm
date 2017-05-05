@@ -3490,7 +3490,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 				     char *dev, unsigned long long *freesize,
 				     int verbose)
 {
-	struct stat stb;
+	dev_t rdev;
 	struct ddf_super *ddf = st->sb;
 	struct dl *dl;
 	unsigned long long maxsize;
@@ -3526,13 +3526,11 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		return 1;
 	}
 	/* This device must be a member of the set */
-	if (stat(dev, &stb) < 0)
-		return 0;
-	if ((S_IFMT & stb.st_mode) != S_IFBLK)
+	if (!stat_is_blkdev(dev, NULL))
 		return 0;
 	for (dl = ddf->dlist ; dl ; dl = dl->next) {
-		if (dl->major == (int)major(stb.st_rdev) &&
-		    dl->minor == (int)minor(stb.st_rdev))
+		if (dl->major == (int)major(rdev) &&
+		    dl->minor == (int)minor(rdev))
 			break;
 	}
 	if (!dl) {

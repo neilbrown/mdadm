@@ -1510,24 +1510,16 @@ int Manage_subdevs(char *devname, int fd,
 			 */
 			rdev = makedev(mj, mn);
 		} else {
-			struct stat stb;
 			tfd = dev_open(dv->devname, O_RDONLY);
 			if (tfd >= 0) {
 				fstat_is_blkdev(tfd, dv->devname, &rdev);
 				close(tfd);
 			} else {
 				int open_err = errno;
-				if (stat(dv->devname, &stb) != 0) {
-					pr_err("Cannot find %s: %s\n",
-					       dv->devname, strerror(errno));
-					goto abort;
-				}
-				if ((stb.st_mode & S_IFMT) != S_IFBLK) {
+				if (!stat_is_blkdev(dv->devname, &rdev)) {
 					if (dv->disposition == 'M')
 						/* non-fatal. Also improbable */
 						continue;
-					pr_err("%s is not a block device.\n",
-					       dv->devname);
 					goto abort;
 				}
 				if (dv->disposition == 'r')
@@ -1544,7 +1536,6 @@ int Manage_subdevs(char *devname, int fd,
 					goto abort;
 				}
 			}
-			rdev = stb.st_rdev;
 		}
 		switch(dv->disposition){
 		default:

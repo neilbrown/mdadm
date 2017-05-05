@@ -802,27 +802,27 @@ static int count_active(struct supertype *st, struct mdinfo *sra,
 }
 
 /* test if container has degraded member(s) */
-static int container_members_max_degradation(struct map_ent *map, struct map_ent *me)
+static int
+container_members_max_degradation(struct map_ent *map, struct map_ent *me)
 {
-	mdu_array_info_t array;
-	int afd;
-	int max_degraded = 0;
+	struct mdinfo *sra;
+	int degraded, max_degraded = 0;
 
 	for(; map; map = map->next) {
 		if (!metadata_container_matches(map->metadata, me->devnm))
 			continue;
-		afd = open_dev(map->devnm);
-		if (afd < 0)
-			continue;
 		/* most accurate information regarding array degradation */
-		if (md_get_array_info(afd, &array) >= 0) {
-			int degraded = array.raid_disks - array.active_disks -
-				       array.spare_disks;
-			if (degraded > max_degraded)
-				max_degraded = degraded;
-		}
-		close(afd);
+		sra = sysfs_read(-1, map->devnm,
+				 GET_DISKS | GET_DEVS | GET_STATE);
+		if (!sra)
+			continue;
+		degraded = sra->array.raid_disks - sra->array.active_disks -
+			sra->array.spare_disks;
+		if (degraded > max_degraded)
+			max_degraded = degraded;
+		sysfs_free(sra);
 	}
+
 	return max_degraded;
 }
 

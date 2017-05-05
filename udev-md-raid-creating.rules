@@ -4,4 +4,4 @@
 # the array is not "ready" and we should make sure the
 # content is ignored.
 
-KERNEL=="md*", TEST="/run/mdadm/creating-$kernel", ENV{SYSTEMD_READY}="0"
+KERNEL=="md*", TEST=="/run/mdadm/creating-$kernel", ENV{SYSTEMD_READY}="0"

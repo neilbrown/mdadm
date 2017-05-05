@@ -165,7 +165,7 @@ char *fd2devnm(int fd)
 
 /* When we create a new array, we don't want the content to
  * be immediately examined by udev - it is probably meaningless.
- * So create /run/mdadm/creating-FOO and expect that a udev
+ * So create /run/mdadm/creating-mdXXX and expect that a udev
  * rule will noticed this and act accordingly.
  */
 static char block_path[] = "/run/mdadm/creating-%s";

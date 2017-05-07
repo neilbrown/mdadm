@@ -1264,7 +1264,8 @@ is correct.
 The
 .B byteorder
 option allows arrays to be moved between machines with different
-byte-order.
+byte-order, such as from a big-endian machine like a Sparc or some
+MIPS machines, to a little-endian x86_64 machine.
 When assembling such an array for the first time after a move, giving
 .B "\-\-update=byteorder"
 will cause

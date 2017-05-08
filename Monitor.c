@@ -527,13 +527,10 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		alert("NewArray", st->devname, NULL, ainfo);
 	}
 
-	if (st->utime == array.utime &&
-	    st->failed == array.failed_disks &&
+	if (st->utime == array.utime && st->failed == array.failed_disks &&
 	    st->working == array.working_disks &&
 	    st->spare == array.spare_disks &&
-	    (mse == NULL  || (
-		    mse->percent == st->percent
-		    ))) {
+	    (mse == NULL  || (mse->percent == st->percent))) {
 		close(fd);
 		if ((st->active < st->raid) && st->spare == 0)
 			return 1;
@@ -541,32 +538,33 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			return 0;
 	}
 	if (st->utime == 0 && /* new array */
-	    mse->pattern && strchr(mse->pattern, '_') /* degraded */
-		)
+	    mse->pattern && strchr(mse->pattern, '_') /* degraded */)
 		alert("DegradedArray", dev, NULL, ainfo);
 
 	if (st->utime == 0 && /* new array */
-	    st->expected_spares > 0 &&
-	    array.spare_disks < st->expected_spares)
+	    st->expected_spares > 0 && array.spare_disks < st->expected_spares)
 		alert("SparesMissing", dev, NULL, ainfo);
 	if (st->percent < 0 && st->percent != RESYNC_UNKNOWN &&
 	    mse->percent >= 0)
 		alert("RebuildStarted", dev, NULL, ainfo);
-	if (st->percent >= 0 &&
-	    mse->percent >= 0 &&
+	if (st->percent >= 0 && mse->percent >= 0 &&
 	    (mse->percent / increments) > (st->percent / increments)) {
-		char percentalert[15]; // "RebuildNN" (10 chars) or "RebuildStarted" (15 chars)
+		char percentalert[15];
+		/*
+		 * "RebuildNN" (10 chars) or "RebuildStarted" (15 chars)
+		 */
 
 		if((mse->percent / increments) == 0)
-			snprintf(percentalert, sizeof(percentalert), "RebuildStarted");
+			snprintf(percentalert, sizeof(percentalert),
+				 "RebuildStarted");
 		else
-			snprintf(percentalert, sizeof(percentalert), "Rebuild%02d", mse->percent);
+			snprintf(percentalert, sizeof(percentalert),
+				 "Rebuild%02d", mse->percent);
 
 		alert(percentalert, dev, NULL, ainfo);
 	}
 
-	if (mse->percent == RESYNC_NONE &&
-	    st->percent >= 0) {
+	if (mse->percent == RESYNC_NONE && st->percent >= 0) {
 		/* Rebuild/sync/whatever just finished.
 		 * If there is a number in /mismatch_cnt,
 		 * we should report that.
@@ -587,8 +585,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	st->percent = mse->percent;
 
 	remaining_disks = array.nr_disks;
-	for (i=0; i<MAX_DISKS && remaining_disks > 0;
-	     i++) {
+	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
 		mdu_disk_info_t disc;
 		disc.number = i;
 		if (md_get_disk_info(fd, &disc) >= 0) {
@@ -606,15 +603,13 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	    strncmp(mse->metadata_version, "external:", 9) == 0 &&
 	    is_subarray(mse->metadata_version+9)) {
 		char *sl;
-		strcpy(st->parent_devnm,
-		       mse->metadata_version+10);
+		strcpy(st->parent_devnm, mse->metadata_version+10);
 		sl = strchr(st->parent_devnm, '/');
 		if (sl)
 			*sl = 0;
 	} else
 		st->parent_devnm[0] = 0;
-	if (st->metadata == NULL &&
-	    st->parent_devnm[0] == 0)
+	if (st->metadata == NULL && st->parent_devnm[0] == 0)
 		st->metadata = super_by_fd(fd, NULL);
 
 	close(fd);
@@ -625,12 +620,10 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		int change;
 		char *dv = NULL;
 		disc.number = i;
-		if (i < last_disk &&
-		    (info[i].major || info[i].minor)) {
+		if (i < last_disk && (info[i].major || info[i].minor)) {
 			newstate = info[i].state;
-			dv = map_dev_preferred(
-				info[i].major, info[i].minor, 1,
-				prefer);
+			dv = map_dev_preferred(info[i].major, info[i].minor, 1,
+					       prefer);
 			disc.state = newstate;
 			disc.major = info[i].major;
 			disc.minor = info[i].minor;
@@ -638,18 +631,18 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			newstate = (1 << MD_DISK_REMOVED);
 
 		if (dv == NULL && st->devid[i])
-			dv = map_dev_preferred(
-				major(st->devid[i]),
-				minor(st->devid[i]), 1, prefer);
+			dv = map_dev_preferred(major(st->devid[i]),
+					       minor(st->devid[i]), 1, prefer);
 		change = newstate ^ st->devstate[i];
 		if (st->utime && change && !st->err && !new_array) {
-			if ((st->devstate[i]&change)&(1<<MD_DISK_SYNC))
+			if ((st->devstate[i]&change) & (1 << MD_DISK_SYNC))
 				alert("Fail", dev, dv, ainfo);
-			else if ((newstate & (1<<MD_DISK_FAULTY)) &&
+			else if ((newstate & (1 << MD_DISK_FAULTY)) &&
 				 (disc.major || disc.minor) &&
-				 st->devid[i] == makedev(disc.major, disc.minor))
+				 st->devid[i] == makedev(disc.major,
+							 disc.minor))
 				alert("FailSpare", dev, dv, ainfo);
-			else if ((newstate&change)&(1<<MD_DISK_SYNC))
+			else if ((newstate&change) & (1 << MD_DISK_SYNC))
 				alert("SpareActive", dev, dv, ainfo);
 		}
 		st->devstate[i] = newstate;

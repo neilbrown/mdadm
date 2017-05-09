@@ -524,7 +524,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	}
 
 	if (st->utime == array.utime && st->failed == sra->array.failed_disks &&
-	    st->working == array.working_disks &&
+	    st->working == sra->array.working_disks &&
 	    st->spare == sra->array.spare_disks &&
 	    (mse == NULL  || (mse->percent == st->percent))) {
 		if ((st->active < st->raid) && st->spare == 0)
@@ -637,7 +637,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		st->devid[i] = makedev(disc.major, disc.minor);
 	}
 	st->active = sra->array.active_disks;
-	st->working = array.working_disks;
+	st->working = sra->array.working_disks;
 	st->spare = sra->array.spare_disks;
 	st->failed = sra->array.failed_disks;
 	st->utime = array.utime;

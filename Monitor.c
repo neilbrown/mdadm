@@ -481,14 +481,14 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (st->devnm[0] == 0)
 		strcpy(st->devnm, fd2devnm(fd));
 
-	sra = sysfs_read(-1, st->devnm, GET_MISMATCH);
+	sra = sysfs_read(-1, st->devnm, GET_LEVEL | GET_MISMATCH);
 	if (!sra)
 		goto disappeared;
 
 	/* It's much easier to list what array levels can't
 	 * have a device disappear than all of them that can
 	 */
-	if (array.level == 0 || array.level == -1) {
+	if (sra->array.level == 0 || sra->array.level == -1) {
 		if (!st->err && !st->from_config)
 			alert("DeviceDisappeared", dev, " Wrong-Level", ainfo);
 		st->err++;
@@ -566,7 +566,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			char cnt[80];
 			snprintf(cnt, sizeof(cnt),
 				 " mismatches found: %d (on raid level %d)",
-				sra->mismatch_cnt, array.level);
+				sra->mismatch_cnt, sra->array.level);
 			alert("RebuildFinished", dev, cnt, ainfo);
 		} else
 			alert("RebuildFinished", dev, NULL, ainfo);

@@ -5716,12 +5716,6 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	if (super->sector_size == 0) {
 		/* this a first device, so sector_size is not set yet */
 		super->sector_size = member_sector_size;
-	} else if (member_sector_size != super->sector_size) {
-		pr_err("Mixing between different sector size is forbidden, aborting...\n");
-		if (dd->devname)
-			free(dd->devname);
-		free(dd);
-		return 1;
 	}
 
 	/* clear migr_rec when adding disk to container */

@@ -272,6 +272,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	sra->array.spare_disks = 0;
 	sra->array.active_disks = 0;
 	sra->array.failed_disks = 0;
+	sra->array.working_disks = 0;
 
 	devp = &sra->devs;
 	sra->devs = NULL;
@@ -358,16 +359,18 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			strcpy(dbase, "state");
 			if (load_sys(fname, buf, sizeof(buf)))
 				goto abort;
-			if (strstr(buf, "in_sync")) {
-				dev->disk.state |= (1<<MD_DISK_SYNC);
-				sra->array.active_disks++;
-			}
 			if (strstr(buf, "faulty")) {
 				dev->disk.state |= (1<<MD_DISK_FAULTY);
 				sra->array.failed_disks++;
+			} else {
+				sra->array.working_disks++;
+				if (strstr(buf, "in_sync")) {
+					dev->disk.state |= (1<<MD_DISK_SYNC);
+					sra->array.active_disks++;
+				}
+				if (dev->disk.state == 0)
+					sra->array.spare_disks++;
 			}
-			if (dev->disk.state == 0)
-				sra->array.spare_disks++;
 		}
 		if (options & GET_ERROR) {
 			strcpy(buf, "errors");

@@ -723,13 +723,14 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 	return new_found;
 }
 
-static int get_min_spare_size_required(struct state *st, unsigned long long *sizep)
+static int get_required_spare_criteria(struct state *st,
+				       struct spare_criteria *sc)
 {
 	int fd;
 
 	if (!st->metadata ||
-	    !st->metadata->ss->min_acceptable_spare_size) {
-		*sizep = 0;
+	    !st->metadata->ss->get_spare_criteria) {
+		sc->min_size = 0;
 		return 0;
 	}
 
@@ -743,7 +744,8 @@ static int get_min_spare_size_required(struct state *st, unsigned long long *siz
 	close(fd);
 	if (!st->metadata->sb)
 		return 1;
-	*sizep = st->metadata->ss->min_acceptable_spare_size(st->metadata);
+
+	st->metadata->ss->get_spare_criteria(st->metadata, sc);
 	st->metadata->ss->free_super(st->metadata);
 
 	return 0;
@@ -775,7 +777,7 @@ static int check_donor(struct state *from, struct state *to)
 }
 
 static dev_t choose_spare(struct state *from, struct state *to,
-			struct domainlist *domlist, unsigned long long min_size)
+			struct domainlist *domlist, struct spare_criteria *sc)
 {
 	int d;
 	dev_t dev = 0;
@@ -790,9 +792,9 @@ static dev_t choose_spare(struct state *from, struct state *to,
 			    test_partition_from_id(from->devid[d]))
 				continue;
 
-			if (min_size &&
+			if (sc->min_size &&
 			    dev_size_from_id(from->devid[d], &dev_size) &&
-			    dev_size < min_size)
+			    dev_size < sc->min_size)
 				continue;
 
 			pol = devid_policy(from->devid[d]);
@@ -809,7 +811,7 @@ static dev_t choose_spare(struct state *from, struct state *to,
 
 static dev_t container_choose_spare(struct state *from, struct state *to,
 				    struct domainlist *domlist,
-				    unsigned long long min_size, int active)
+				    struct spare_criteria *sc, int active)
 {
 	/* This is similar to choose_spare, but we cannot trust devstate,
 	 * so we need to read the metadata instead
@@ -860,7 +862,7 @@ static dev_t container_choose_spare(struct state *from, struct state *to,
 	}
 
 	/* We only need one spare so full list not needed */
-	list = container_choose_spares(st, min_size, domlist, from->spare_group,
+	list = container_choose_spares(st, sc, domlist, from->spare_group,
 				       to->metadata->ss->name, 1);
 	if (list) {
 		struct mdinfo *disks = list->devs;
@@ -876,6 +878,7 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 {
 	struct state *from;
 	struct state *st;
+	struct spare_criteria sc;
 
 	link_containers_with_subarrays(statelist);
 	for (st = statelist; st; st = st->next)
@@ -884,7 +887,6 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 			struct domainlist *domlist = NULL;
 			int d;
 			struct state *to = st;
-			unsigned long long min_size;
 
 			if (to->parent_devnm[0] && !to->parent)
 				/* subarray monitored without parent container
@@ -895,14 +897,14 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 				/* member of a container */
 				to = to->parent;
 
-			if (get_min_spare_size_required(to, &min_size))
+			if (get_required_spare_criteria(to, &sc))
 				continue;
 			if (to->metadata->ss->external) {
 				/* We must make sure there is
 				 * no suitable spare in container already.
 				 * If there is we don't add more */
 				dev_t devid = container_choose_spare(
-					to, to, NULL, min_size, st->active);
+					to, to, NULL, &sc, st->active);
 				if (devid > 0)
 					continue;
 			}
@@ -925,10 +927,10 @@ static void try_spare_migration(struct state *statelist, struct alert_info *info
 					continue;
 				if (from->metadata->ss->external)
 					devid = container_choose_spare(
-						from, to, domlist, min_size, 0);
+						from, to, domlist, &sc, 0);
 				else
 					devid = choose_spare(from, to, domlist,
-							     min_size);
+							     &sc);
 				if (devid > 0
 				    && move_spare(from->devname, to->devname, devid)) {
 					alert("MoveSpare", to->devname, from->devname, info);

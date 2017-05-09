@@ -2107,7 +2107,7 @@ int experimental(void)
  * if spare_group given add it to domains of each spare
  * metadata allows to test domains using metadata of destination array */
 struct mdinfo *container_choose_spares(struct supertype *st,
-				       unsigned long long min_size,
+				       struct spare_criteria *criteria,
 				       struct domainlist *domlist,
 				       char *spare_group,
 				       const char *metadata, int get_one)
@@ -2131,9 +2131,9 @@ struct mdinfo *container_choose_spares(struct supertype *st,
 			unsigned long long dev_size;
 			dev_t dev = makedev(d->disk.major,d->disk.minor);
 
-			if (!min_size ||
+			if (!criteria->min_size ||
 			   (dev_size_from_id(dev,  &dev_size) &&
-			    dev_size >= min_size))
+			    dev_size >= criteria->min_size))
 				found = 1;
 			/* check if domain matches */
 			if (found && domlist) {

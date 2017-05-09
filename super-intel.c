@@ -1383,37 +1383,44 @@ static __u32 imsm_min_reserved_sectors(struct intel_super *super)
 	return  (remainder < rv) ? remainder : rv;
 }
 
-/* Return minimum size of a spare that can be used in this array*/
-static unsigned long long min_acceptable_spare_size_imsm(struct supertype *st)
+/*
+ * Return minimum size of a spare and sector size
+ * that can be used in this array
+ */
+int get_spare_criteria_imsm(struct supertype *st, struct spare_criteria *c)
 {
 	struct intel_super *super = st->sb;
 	struct dl *dl;
 	struct extent *e;
 	int i;
-	unsigned long long rv = 0;
+	unsigned long long size = 0;
+
+	c->min_size = 0;
 
 	if (!super)
-		return rv;
+		return -EINVAL;
 	/* find first active disk in array */
 	dl = super->disks;
 	while (dl && (is_failed(&dl->disk) || dl->index == -1))
 		dl = dl->next;
 	if (!dl)
-		return rv;
+		return -EINVAL;
 	/* find last lba used by subarrays */
 	e = get_extents(super, dl);
 	if (!e)
-		return rv;
+		return -EINVAL;
 	for (i = 0; e[i].size; i++)
 		continue;
 	if (i > 0)
-		rv = e[i-1].start + e[i-1].size;
+		size = e[i-1].start + e[i-1].size;
 	free(e);
 
 	/* add the amount of space needed for metadata */
-	rv = rv + imsm_min_reserved_sectors(super);
+	size += imsm_min_reserved_sectors(super);
 
-	return rv * 512;
+	c->min_size = size * 512;
+
+	return 0;
 }
 
 static int is_gen_migration(struct imsm_dev *dev);
@@ -10817,8 +10824,10 @@ static int imsm_reshape_is_allowed_on_container(struct supertype *st,
  */
 static struct mdinfo *get_spares_for_grow(struct supertype *st)
 {
-	unsigned long long min_size = min_acceptable_spare_size_imsm(st);
-	return container_choose_spares(st, min_size, NULL, NULL, NULL, 0);
+	struct spare_criteria sc;
+
+	get_spare_criteria_imsm(st, &sc);
+	return container_choose_spares(st, &sc, NULL, NULL, NULL, 0);
 }
 
 /******************************************************************************
@@ -11853,7 +11862,7 @@ struct superswitch super_imsm = {
 	.update_super	= update_super_imsm,
 
 	.avail_size	= avail_size_imsm,
-	.min_acceptable_spare_size = min_acceptable_spare_size_imsm,
+	.get_spare_criteria = get_spare_criteria_imsm,
 
 	.compare_super	= compare_super_imsm,
 

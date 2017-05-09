@@ -867,7 +867,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		struct domainlist *dl = NULL;
 		struct mdinfo *sra;
 		unsigned long long devsize;
-		unsigned long long component_size = 0;
+		struct spare_criteria sc = {0};
 
 		if (is_subarray(mp->metadata))
 			continue;
@@ -936,7 +936,8 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			}
 			if (st3->ss->load_container &&
 			    !st3->ss->load_container(st3, mdfd, mp->path)) {
-				component_size = st3->ss->min_acceptable_spare_size(st3);
+				if (st3->ss->get_spare_criteria)
+					st3->ss->get_spare_criteria(st3, &sc);
 				st3->ss->free_super(st3);
 			}
 			free(st3);
@@ -947,7 +948,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 					 sra->devs ? sra->devs->data_offset :
 					 INVALID_SECTORS) <
 		     sra->component_size) ||
-		    (sra->component_size == 0 && devsize < component_size)) {
+		    (sra->component_size == 0 && devsize < sc.min_size)) {
 			if (verbose > 1)
 				pr_err("not adding %s to %s as it is too small\n",
 					devname, mp->path);
@@ -1624,12 +1625,15 @@ static int Incremental_container(struct supertype *st, char *devname,
 		struct supertype *sst =
 			super_imsm.match_metadata_desc("imsm");
 		struct mdinfo *sinfo;
-		unsigned long long min_size = 0;
-		if (st->ss->min_acceptable_spare_size)
-			min_size = st->ss->min_acceptable_spare_size(st);
+
 		if (!sst->ss->load_container(sst, sfd, NULL)) {
+			struct spare_criteria sc = {0};
+
+			if (st->ss->get_spare_criteria)
+				st->ss->get_spare_criteria(st, &sc);
+
 			close(sfd);
-			sinfo = container_choose_spares(sst, min_size,
+			sinfo = container_choose_spares(sst, &sc,
 							domains, NULL,
 							st->ss->name, 0);
 			sst->ss->free_super(sst);

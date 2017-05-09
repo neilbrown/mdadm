@@ -361,6 +361,10 @@ struct createinfo {
 	struct supertype *supertype;
 };
 
+struct spare_criteria {
+	unsigned long long min_size;
+};
+
 enum mode {
 	ASSEMBLE=1,
 	BUILD,
@@ -940,11 +944,13 @@ extern struct superswitch {
 	 */
 	__u64 (*avail_size)(struct supertype *st, __u64 size,
 			    unsigned long long data_offset);
-	/* This is similar to 'avail_size' in purpose, but is used for
-	 * containers for which there is no 'component size' to compare.
-	 * This reports that whole-device size which is a minimum
+	/*
+	 * Return spare criteria for array:
+	 * - minimum disk size can be used in array;
+	 * Return values: 0 - for success and -EINVAL on error.
 	 */
-	unsigned long long (*min_acceptable_spare_size)(struct supertype *st);
+	int (*get_spare_criteria)(struct supertype *st,
+				  struct spare_criteria *sc);
 	/* Find somewhere to put a bitmap - possibly auto-size it - and
 	 * update the metadata to record this.  The array may be newly
 	 * created, in which case data_size may be updated, or it might
@@ -1507,7 +1513,7 @@ extern int assemble_container_content(struct supertype *st, int mdfd,
 #define	INCR_ALREADY	4
 #define	INCR_YES	8
 extern struct mdinfo *container_choose_spares(struct supertype *st,
-					      unsigned long long min_size,
+					      struct spare_criteria *criteria,
 					      struct domainlist *domlist,
 					      char *spare_group,
 					      const char *metadata, int get_one);

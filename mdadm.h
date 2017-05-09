@@ -363,6 +363,7 @@ struct createinfo {
 
 struct spare_criteria {
 	unsigned long long min_size;
+	unsigned int sector_size;
 };
 
 enum mode {
@@ -947,6 +948,7 @@ extern struct superswitch {
 	/*
 	 * Return spare criteria for array:
 	 * - minimum disk size can be used in array;
+	 * - sector size can be used in array.
 	 * Return values: 0 - for success and -EINVAL on error.
 	 */
 	int (*get_spare_criteria)(struct supertype *st,
@@ -1189,6 +1191,7 @@ extern int get_dev_size(int fd, char *dname, unsigned long long *sizep);
 extern int get_dev_sector_size(int fd, char *dname, unsigned int *sectsizep);
 extern int must_be_container(int fd);
 extern int dev_size_from_id(dev_t id, unsigned long long *size);
+extern int dev_sector_size_from_id(dev_t id, unsigned int *size);
 void wait_for(char *dev, int fd);
 
 /*

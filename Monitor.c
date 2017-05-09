@@ -731,6 +731,7 @@ static int get_required_spare_criteria(struct state *st,
 	if (!st->metadata ||
 	    !st->metadata->ss->get_spare_criteria) {
 		sc->min_size = 0;
+		sc->sector_size = 0;
 		return 0;
 	}
 
@@ -787,6 +788,7 @@ static dev_t choose_spare(struct state *from, struct state *to,
 		    from->devstate[d] == 0) {
 			struct dev_policy *pol;
 			unsigned long long dev_size;
+			unsigned int dev_sector_size;
 
 			if (to->metadata->ss->external &&
 			    test_partition_from_id(from->devid[d]))
@@ -795,6 +797,12 @@ static dev_t choose_spare(struct state *from, struct state *to,
 			if (sc->min_size &&
 			    dev_size_from_id(from->devid[d], &dev_size) &&
 			    dev_size < sc->min_size)
+				continue;
+
+			if (sc->sector_size &&
+			    dev_sector_size_from_id(from->devid[d],
+						    &dev_sector_size) &&
+			    sc->sector_size != dev_sector_size)
 				continue;
 
 			pol = devid_policy(from->devid[d]);

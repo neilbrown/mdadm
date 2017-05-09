@@ -1265,6 +1265,23 @@ int dev_size_from_id(dev_t id, unsigned long long *size)
 	return 0;
 }
 
+int dev_sector_size_from_id(dev_t id, unsigned int *size)
+{
+	char buf[20];
+	int fd;
+
+	sprintf(buf, "%d:%d", major(id), minor(id));
+	fd = dev_open(buf, O_RDONLY);
+	if (fd < 0)
+		return 0;
+	if (get_dev_sector_size(fd, NULL, size)) {
+		close(fd);
+		return 1;
+	}
+	close(fd);
+	return 0;
+}
+
 struct supertype *dup_super(struct supertype *orig)
 {
 	struct supertype *st;
@@ -2129,12 +2146,24 @@ struct mdinfo *container_choose_spares(struct supertype *st,
 		if (d->disk.state == 0) {
 			/* check if size is acceptable */
 			unsigned long long dev_size;
+			unsigned int dev_sector_size;
+			int size_valid = 0;
+			int sector_size_valid = 0;
+
 			dev_t dev = makedev(d->disk.major,d->disk.minor);
 
 			if (!criteria->min_size ||
 			   (dev_size_from_id(dev,  &dev_size) &&
 			    dev_size >= criteria->min_size))
-				found = 1;
+				size_valid = 1;
+
+			if (!criteria->sector_size ||
+			    (dev_sector_size_from_id(dev, &dev_sector_size) &&
+			     criteria->sector_size == dev_sector_size))
+				sector_size_valid = 1;
+
+			found = size_valid && sector_size_valid;
+
 			/* check if domain matches */
 			if (found && domlist) {
 				struct dev_policy *pol = devid_policy(dev);

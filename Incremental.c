@@ -867,7 +867,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		struct domainlist *dl = NULL;
 		struct mdinfo *sra;
 		unsigned long long devsize;
-		struct spare_criteria sc = {0};
+		struct spare_criteria sc = {0, 0};
 
 		if (is_subarray(mp->metadata))
 			continue;
@@ -1627,7 +1627,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 		struct mdinfo *sinfo;
 
 		if (!sst->ss->load_container(sst, sfd, NULL)) {
-			struct spare_criteria sc = {0};
+			struct spare_criteria sc = {0, 0};
 
 			if (st->ss->get_spare_criteria)
 				st->ss->get_spare_criteria(st, &sc);

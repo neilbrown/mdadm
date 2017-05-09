@@ -1396,6 +1396,7 @@ int get_spare_criteria_imsm(struct supertype *st, struct spare_criteria *c)
 	unsigned long long size = 0;
 
 	c->min_size = 0;
+	c->sector_size = 0;
 
 	if (!super)
 		return -EINVAL;
@@ -1419,6 +1420,7 @@ int get_spare_criteria_imsm(struct supertype *st, struct spare_criteria *c)
 	size += imsm_min_reserved_sectors(super);
 
 	c->min_size = size * 512;
+	c->sector_size = super->sector_size;
 
 	return 0;
 }

@@ -5468,6 +5468,22 @@ static int init_super_imsm(struct supertype *st, mdu_array_info_t *info,
 	return 1;
 }
 
+static int drive_validate_sector_size(struct intel_super *super, struct dl *dl)
+{
+	unsigned int member_sector_size;
+
+	if (dl->fd < 0) {
+		pr_err("Invalid file descriptor for %s\n", dl->devname);
+		return 0;
+	}
+
+	if (!get_dev_sector_size(dl->fd, dl->devname, &member_sector_size))
+		return 0;
+	if (member_sector_size != super->sector_size)
+		return 0;
+	return 1;
+}
+
 static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 				     int fd, char *devname)
 {
@@ -5504,6 +5520,11 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 
 	if (!dl) {
 		pr_err("%s is not a member of the same container\n", devname);
+		return 1;
+	}
+
+	if (!drive_validate_sector_size(super, dl)) {
+		pr_err("Combining drives of different sector size in one volume is not allowed\n");
 		return 1;
 	}
 
@@ -8438,6 +8459,9 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 		 * assimilated drives
 		 */
 		if (dl->index == -1 && !activate_new)
+			continue;
+
+		if (!drive_validate_sector_size(super, dl))
 			continue;
 
 		/* Does this unused device have the requisite free space?

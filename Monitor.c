@@ -451,7 +451,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	 * '1' if the array is degraded, or '0' if it is optimal (or dead).
 	 */
 	struct { int state, major, minor; } info[MAX_DISKS];
-	struct mdinfo *sra;
+	struct mdinfo *sra = NULL;
 	mdu_array_info_t array;
 	struct mdstat_ent *mse = NULL, *mse2;
 	char *dev = st->devname;
@@ -478,6 +478,13 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (md_get_array_info(fd, &array) < 0)
 		goto disappeared;
 
+	if (st->devnm[0] == 0)
+		strcpy(st->devnm, fd2devnm(fd));
+
+	sra = sysfs_read(-1, st->devnm, GET_MISMATCH);
+	if (!sra)
+		goto disappeared;
+
 	/* It's much easier to list what array levels can't
 	 * have a device disappear than all of them that can
 	 */
@@ -487,8 +494,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		st->err++;
 		goto out;
 	}
-	if (st->devnm[0] == 0)
-		strcpy(st->devnm, fd2devnm(fd));
 
 	for (mse2 = mdstat ; mse2 ; mse2=mse2->next)
 		if (strcmp(mse2->devnm, st->devnm) == 0) {
@@ -557,7 +562,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		 * If there is a number in /mismatch_cnt,
 		 * we should report that.
 		 */
-		sra = sysfs_read(-1, st->devnm, GET_MISMATCH);
 		if (sra && sra->mismatch_cnt > 0) {
 			char cnt[80];
 			snprintf(cnt, sizeof(cnt),
@@ -566,8 +570,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			alert("RebuildFinished", dev, cnt, ainfo);
 		} else
 			alert("RebuildFinished", dev, NULL, ainfo);
-		if (sra)
-			sysfs_free(sra);
 	}
 	st->percent = mse->percent;
 
@@ -644,6 +646,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		retval = 1;
 
  out:
+	if (sra)
+		sysfs_free(sra);
 	if (fd > 0)
 		close(fd);
 	return retval;

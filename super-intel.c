@@ -1482,13 +1482,16 @@ static void print_imsm_dev(struct intel_super *super,
 		       ord & IMSM_ORD_REBUILD ? " (out-of-sync)" : "");
 	} else
 		printf("      This Slot : ?\n");
+	printf("    Sector Size : %u\n", super->sector_size);
 	sz = __le32_to_cpu(dev->size_high);
 	sz <<= 32;
 	sz += __le32_to_cpu(dev->size_low);
-	printf("     Array Size : %llu%s\n", (unsigned long long)sz,
+	printf("     Array Size : %llu%s\n",
+		   (unsigned long long)sz * 512 / super->sector_size,
 	       human_size(sz * 512));
 	sz = blocks_per_member(map);
-	printf("   Per Dev Size : %llu%s\n", (unsigned long long)sz,
+	printf("   Per Dev Size : %llu%s\n",
+		   (unsigned long long)sz * 512 / super->sector_size,
 	       human_size(sz * 512));
 	printf("  Sector Offset : %llu\n",
 		pba_of_lba0(map));

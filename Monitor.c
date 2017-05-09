@@ -481,7 +481,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (st->devnm[0] == 0)
 		strcpy(st->devnm, fd2devnm(fd));
 
-	sra = sysfs_read(-1, st->devnm, GET_LEVEL | GET_DEGRADED |
+	sra = sysfs_read(-1, st->devnm, GET_LEVEL | GET_DISKS | GET_DEGRADED |
 			 GET_MISMATCH);
 	if (!sra)
 		goto disappeared;
@@ -641,7 +641,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	st->spare = array.spare_disks;
 	st->failed = sra->array.failed_disks;
 	st->utime = array.utime;
-	st->raid = array.raid_disks;
+	st->raid = sra->array.raid_disks;
 	st->err = 0;
 	if ((st->active < st->raid) && st->spare == 0)
 		retval = 1;

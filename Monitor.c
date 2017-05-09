@@ -467,29 +467,16 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	retval = 0;
 
 	fd = open(dev, O_RDONLY);
-	if (fd < 0) {
-		if (!st->err)
-			alert("DeviceDisappeared", dev, NULL, ainfo);
-		st->err++;
-		goto out;
-	}
+	if (fd < 0)
+		goto disappeared;
 
-	if (!md_array_active(fd)) {
-		close(fd);
-		if (!st->err)
-			alert("DeviceDisappeared", dev, NULL, ainfo);
-		st->err++;
-		goto out;
-	}
+	if (!md_array_active(fd))
+		goto disappeared;
 
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
-	if (md_get_array_info(fd, &array) < 0) {
-		if (!st->err)
-			alert("DeviceDisappeared", dev, NULL, ainfo);
-		st->err++;
-		close(fd);
-		goto out;
-	}
+	if (md_get_array_info(fd, &array) < 0)
+		goto disappeared;
+
 	/* It's much easier to list what array levels can't
 	 * have a device disappear than all of them that can
 	 */
@@ -497,7 +484,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		if (!st->err && !st->from_config)
 			alert("DeviceDisappeared", dev, " Wrong-Level", ainfo);
 		st->err++;
-		close(fd);
 		goto out;
 	}
 	if (st->devnm[0] == 0)
@@ -534,7 +520,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	    st->working == array.working_disks &&
 	    st->spare == array.spare_disks &&
 	    (mse == NULL  || (mse->percent == st->percent))) {
-		close(fd);
 		if ((st->active < st->raid) && st->spare == 0)
 			retval = 1;
 		goto out;
@@ -614,8 +599,6 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (st->metadata == NULL && st->parent_devnm[0] == 0)
 		st->metadata = super_by_fd(fd, NULL);
 
-	close(fd);
-
 	for (i=0; i<MAX_DISKS; i++) {
 		mdu_disk_info_t disc = {0,0,0,0,0};
 		int newstate=0;
@@ -661,7 +644,15 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		retval = 1;
 
  out:
+	if (fd > 0)
+		close(fd);
 	return retval;
+
+ disappeared:
+	if (!st->err)
+		alert("DeviceDisappeared", dev, NULL, ainfo);
+	st->err++;
+	goto out;
 }
 
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,

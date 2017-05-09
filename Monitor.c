@@ -451,6 +451,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	 * '1' if the array is degraded, or '0' if it is optimal (or dead).
 	 */
 	struct { int state, major, minor; } info[MAX_DISKS];
+	struct mdinfo *sra;
 	mdu_array_info_t array;
 	struct mdstat_ent *mse = NULL, *mse2;
 	char *dev = st->devname;
@@ -556,8 +557,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		 * If there is a number in /mismatch_cnt,
 		 * we should report that.
 		 */
-		struct mdinfo *sra =
-			sysfs_read(-1, st->devnm, GET_MISMATCH);
+		sra = sysfs_read(-1, st->devnm, GET_MISMATCH);
 		if (sra && sra->mismatch_cnt > 0) {
 			char cnt[80];
 			snprintf(cnt, sizeof(cnt),

@@ -459,16 +459,19 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	int remaining_disks;
 	int last_disk;
 	int new_array = 0;
+	int retval;
 
 	if (test)
 		alert("TestMessage", dev, NULL, ainfo);
+
+	retval = 0;
 
 	fd = open(dev, O_RDONLY);
 	if (fd < 0) {
 		if (!st->err)
 			alert("DeviceDisappeared", dev, NULL, ainfo);
 		st->err++;
-		return 0;
+		goto out;
 	}
 
 	if (!md_array_active(fd)) {
@@ -476,7 +479,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		if (!st->err)
 			alert("DeviceDisappeared", dev, NULL, ainfo);
 		st->err++;
-		return 0;
+		goto out;
 	}
 
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
@@ -485,7 +488,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			alert("DeviceDisappeared", dev, NULL, ainfo);
 		st->err++;
 		close(fd);
-		return 0;
+		goto out;
 	}
 	/* It's much easier to list what array levels can't
 	 * have a device disappear than all of them that can
@@ -495,7 +498,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 			alert("DeviceDisappeared", dev, " Wrong-Level", ainfo);
 		st->err++;
 		close(fd);
-		return 0;
+		goto out;
 	}
 	if (st->devnm[0] == 0)
 		strcpy(st->devnm, fd2devnm(fd));
@@ -511,7 +514,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		 * or re-created after reading mdstat*/
 		st->err++;
 		close(fd);
-		return 0;
+		goto out;
 	}
 	/* this array is in /proc/mdstat */
 	if (array.utime == 0)
@@ -533,9 +536,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	    (mse == NULL  || (mse->percent == st->percent))) {
 		close(fd);
 		if ((st->active < st->raid) && st->spare == 0)
-			return 1;
-		else
-			return 0;
+			retval = 1;
+		goto out;
 	}
 	if (st->utime == 0 && /* new array */
 	    mse->pattern && strchr(mse->pattern, '_') /* degraded */)
@@ -656,8 +658,10 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	st->raid = array.raid_disks;
 	st->err = 0;
 	if ((st->active < st->raid) && st->spare == 0)
-		return 1;
-	return 0;
+		retval = 1;
+
+ out:
+	return retval;
 }
 
 static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,

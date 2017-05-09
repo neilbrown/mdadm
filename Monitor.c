@@ -482,7 +482,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		strcpy(st->devnm, fd2devnm(fd));
 
 	sra = sysfs_read(-1, st->devnm, GET_LEVEL | GET_DISKS | GET_DEGRADED |
-			 GET_MISMATCH);
+			 GET_MISMATCH | GET_DEVS | GET_STATE);
 	if (!sra)
 		goto disappeared;
 
@@ -525,7 +525,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 
 	if (st->utime == array.utime && st->failed == sra->array.failed_disks &&
 	    st->working == array.working_disks &&
-	    st->spare == array.spare_disks &&
+	    st->spare == sra->array.spare_disks &&
 	    (mse == NULL  || (mse->percent == st->percent))) {
 		if ((st->active < st->raid) && st->spare == 0)
 			retval = 1;
@@ -535,8 +535,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	    mse->pattern && strchr(mse->pattern, '_') /* degraded */)
 		alert("DegradedArray", dev, NULL, ainfo);
 
-	if (st->utime == 0 && /* new array */
-	    st->expected_spares > 0 && array.spare_disks < st->expected_spares)
+	if (st->utime == 0 && /* new array */ st->expected_spares > 0 &&
+	    sra->array.spare_disks < st->expected_spares)
 		alert("SparesMissing", dev, NULL, ainfo);
 	if (st->percent < 0 && st->percent != RESYNC_UNKNOWN &&
 	    mse->percent >= 0)
@@ -574,7 +574,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	}
 	st->percent = mse->percent;
 
-	remaining_disks = array.nr_disks;
+	remaining_disks = sra->array.nr_disks;
 	for (i = 0; i < MAX_DISKS && remaining_disks > 0; i++) {
 		mdu_disk_info_t disc;
 		disc.number = i;
@@ -636,9 +636,9 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		st->devstate[i] = newstate;
 		st->devid[i] = makedev(disc.major, disc.minor);
 	}
-	st->active = array.active_disks;
+	st->active = sra->array.active_disks;
 	st->working = array.working_disks;
-	st->spare = array.spare_disks;
+	st->spare = sra->array.spare_disks;
 	st->failed = sra->array.failed_disks;
 	st->utime = array.utime;
 	st->raid = sra->array.raid_disks;

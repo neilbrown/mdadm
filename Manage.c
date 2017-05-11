@@ -27,10 +27,6 @@
 #include "md_p.h"
 #include <ctype.h>
 
-#define REGISTER_DEV		_IO (MD_MAJOR, 1)
-#define START_MD		_IO (MD_MAJOR, 2)
-#define STOP_MD			_IO (MD_MAJOR, 3)
-
 int Manage_ro(char *devname, int fd, int readonly)
 {
 	/* switch to readonly or rw

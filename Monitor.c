@@ -127,6 +127,7 @@ int Monitor(struct mddev_dev *devlist,
 	struct mdstat_ent *mdstat = NULL;
 	char *mailfrom = NULL;
 	struct alert_info info;
+	struct mddev_ident *mdlist;
 
 	if (!mailaddr) {
 		mailaddr = conf_get_mailaddr();
@@ -162,7 +163,7 @@ int Monitor(struct mddev_dev *devlist,
 			return 1;
 
 	if (devlist == NULL) {
-		struct mddev_ident *mdlist = conf_get_ident(NULL);
+		mdlist = conf_get_ident(NULL);
 		for (; mdlist; mdlist=mdlist->next) {
 			struct state *st;
 			if (mdlist->devname == NULL)
@@ -189,8 +190,8 @@ int Monitor(struct mddev_dev *devlist,
 	} else {
 		struct mddev_dev *dv;
 		for (dv=devlist ; dv; dv=dv->next) {
-			struct mddev_ident *mdlist = conf_get_ident(dv->devname);
 			struct state *st = xcalloc(1, sizeof *st);
+			mdlist = conf_get_ident(dv->devname);
 			st->devname = xstrdup(dv->devname);
 			st->next = statelist;
 			st->devnm[0] = 0;

@@ -125,7 +125,7 @@ int Monitor(struct mddev_dev *devlist,
 	struct state *st2;
 	int finished = 0;
 	struct mdstat_ent *mdstat = NULL;
-	char *mailfrom = NULL;
+	char *mailfrom;
 	struct alert_info info;
 	struct mddev_ident *mdlist;
 

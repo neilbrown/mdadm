@@ -3526,7 +3526,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		return 1;
 	}
 	/* This device must be a member of the set */
-	if (!stat_is_blkdev(dev, NULL))
+	if (!stat_is_blkdev(dev, &rdev))
 		return 0;
 	for (dl = ddf->dlist ; dl ; dl = dl->next) {
 		if (dl->major == (int)major(rdev) &&

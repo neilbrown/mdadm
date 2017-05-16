@@ -813,8 +813,8 @@ static void unfreeze(struct supertype *st)
 		char buf[20];
 
 		if (sra &&
-		    sysfs_get_str(sra, NULL, "sync_action", buf, 20) > 0
-		    && strcmp(buf, "frozen\n") == 0)
+		    sysfs_get_str(sra, NULL, "sync_action", buf, 20) > 0 &&
+		    strcmp(buf, "frozen\n") == 0)
 			sysfs_set_str(sra, NULL, "sync_action", "idle");
 		sysfs_free(sra);
 	}
@@ -2902,8 +2902,8 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
 			found++;
-			if ((disk.state & (1 << MD_DISK_ACTIVE))
-			    && disk.raid_disk < data_disks)
+			if ((disk.state & (1 << MD_DISK_ACTIVE)) &&
+			    disk.raid_disk < data_disks)
 				/* keep this */
 				continue;
 			ioctl(fd, HOT_REMOVE_DISK,
@@ -2921,8 +2921,8 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
 			found++;
-			if ((disk.state & (1 << MD_DISK_ACTIVE))
-			    && disk.raid_disk < data_disks)
+			if ((disk.state & (1 << MD_DISK_ACTIVE)) &&
+			    disk.raid_disk < data_disks)
 				/* keep this */
 				continue;
 			ioctl(fd, SET_DISK_FAULTY,
@@ -3597,9 +3597,8 @@ started:
 	}
 
 	if (!st->ss->external &&
-	    !(reshape.before.data_disks != reshape.after.data_disks
-	      && info->custom_array_size) &&
-	    info->new_level == reshape.level &&
+	    !(reshape.before.data_disks != reshape.after.data_disks &&
+	      info->custom_array_size) && info->new_level == reshape.level &&
 	    !forked) {
 		/* no need to wait for the reshape to finish as
 		 * there is nothing more to do.
@@ -4092,14 +4091,14 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		 * before setting 'sync_action' to 'idle'.
 		 * So we need these extra tests.
 		 */
-		if (completed == 0 && advancing
-		    && strncmp(action, "idle", 4) == 0
-		    && info->reshape_progress > 0)
+		if (completed == 0 && advancing &&
+		    strncmp(action, "idle", 4) == 0 &&
+		    info->reshape_progress > 0)
 			break;
-		if (completed == 0 && !advancing
-		    && strncmp(action, "idle", 4) == 0
-		    && info->reshape_progress < (info->component_size
-						 * reshape->after.data_disks))
+		if (completed == 0 && !advancing &&
+		    strncmp(action, "idle", 4) == 0 &&
+		    info->reshape_progress < (info->component_size
+					      * reshape->after.data_disks))
 			break;
 		sysfs_wait(fd, NULL);
 		if (sysfs_fd_get_ll(fd, &completed) < 0)
@@ -4787,8 +4786,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				/* reshape_progress is increasing */
 				if ((__le64_to_cpu(bsb.arraystart)
 				     + __le64_to_cpu(bsb.length)
-				     < info->reshape_progress)
-				    &&
+				     < info->reshape_progress) &&
 				    (__le64_to_cpu(bsb.arraystart2)
 				     + __le64_to_cpu(bsb.length2)
 				     < info->reshape_progress))

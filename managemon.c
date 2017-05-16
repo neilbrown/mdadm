@@ -499,9 +499,9 @@ static void manage_member(struct mdstat_ent *mdstat,
 		frozen = 1; /* can't read metadata_version assume the worst */
 
 	/* If sync_action is not 'idle' then don't try recovery now */
-	if (!frozen
-	    && sysfs_get_str(&a->info, NULL, "sync_action", buf, sizeof(buf)) > 0
-	    && strncmp(buf, "idle", 4) != 0)
+	if (!frozen &&
+	    sysfs_get_str(&a->info, NULL, "sync_action",
+			  buf, sizeof(buf)) > 0 && strncmp(buf, "idle", 4) != 0)
 		frozen = 1;
 
 	if (mdstat->level) {
@@ -626,8 +626,8 @@ static void manage_member(struct mdstat_ent *mdstat,
 			newd = xmalloc(sizeof(*newd));
 			disk_init_and_add(newd, d, newa);
 		}
-		if (sysfs_get_ll(info, NULL, "array_size", &array_size) == 0
-		    && a->info.custom_array_size > array_size*2) {
+		if (sysfs_get_ll(info, NULL, "array_size", &array_size) == 0 &&
+		    a->info.custom_array_size > array_size*2) {
 			sysfs_set_num(info, NULL, "array_size",
 				      a->info.custom_array_size/2);
 		}

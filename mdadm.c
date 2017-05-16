@@ -1843,8 +1843,7 @@ static int misc_scan(char devmode, struct context *c)
 			if (members != member)
 				continue;
 			me = map_by_devnm(&map, e->devnm);
-			if (me && me->path
-			    && strcmp(me->path, "/unknown") != 0)
+			if (me && me->path && strcmp(me->path, "/unknown") != 0)
 				name = me->path;
 			if (name == NULL || stat(name, &stb) != 0)
 				name = get_md_name(e->devnm);

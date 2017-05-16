@@ -753,12 +753,12 @@ static int load_devices(struct devs *devices, char *devmap,
 				bestcnt = newbestcnt;
 			}
 			if (best[i] >=0 &&
-			    devices[best[i]].i.events
-			    == devices[devcnt].i.events
-			    && (devices[best[i]].i.disk.minor
-				!= devices[devcnt].i.disk.minor)
-			    && st->ss == &super0
-			    && content->array.level != LEVEL_MULTIPATH) {
+			    devices[best[i]].i.events ==
+			    devices[devcnt].i.events &&
+			    (devices[best[i]].i.disk.minor
+			     != devices[devcnt].i.disk.minor) &&
+			    st->ss == &super0 &&
+			    content->array.level != LEVEL_MULTIPATH) {
 				/* two different devices with identical superblock.
 				 * Could be a mis-detection caused by overlapping
 				 * partitions.  fail-safe.
@@ -801,14 +801,11 @@ static int force_array(struct mdinfo *content,
 	int okcnt = 0;
 	while (!enough(content->array.level, content->array.raid_disks,
 		       content->array.layout, 1,
-		       avail)
-	       ||
+		       avail) ||
 	       (content->reshape_active && content->delta_disks > 0 &&
 		!enough(content->array.level, (content->array.raid_disks
 					       - content->delta_disks),
-			content->new_layout, 1,
-			avail)
-		       )) {
+			content->new_layout, 1, avail))) {
 		/* Choose the newest best drive which is
 		 * not up-to-date, update the superblock
 		 * and add it.
@@ -1303,8 +1300,8 @@ int Assemble(struct supertype *st, char *mddev,
 	int mdfd;
 	int clean;
 	int auto_assem = (mddev == NULL && !ident->uuid_set &&
-			  ident->super_minor == UnSet && ident->name[0] == 0
-			  && (ident->container == NULL || ident->member == NULL));
+			  ident->super_minor == UnSet && ident->name[0] == 0 &&
+			  (ident->container == NULL || ident->member == NULL));
 	struct devs *devices;
 	char *devmap;
 	int *best = NULL; /* indexed by raid_disk */

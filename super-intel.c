@@ -4165,8 +4165,8 @@ int check_mpb_migr_compatibility(struct intel_super *super)
 			if (pba_of_lba0(map0) != pba_of_lba0(map1))
 				/* migration optimization area was used */
 				return -1;
-			if (migr_rec->ascending_migr == 0
-				&& migr_rec->dest_depth_per_unit > 0)
+			if (migr_rec->ascending_migr == 0 &&
+			    migr_rec->dest_depth_per_unit > 0)
 				/* descending reshape not supported yet */
 				return -1;
 		}
@@ -6442,7 +6442,7 @@ active_arrays_by_format(char *name, char* hba, struct md_list **devlist,
 
 	for (memb = mdstat ; memb ; memb = memb->next) {
 		if (memb->metadata_version &&
-		    (strncmp(memb->metadata_version, "external:", 9) == 0)  &&
+		    (strncmp(memb->metadata_version, "external:", 9) == 0) &&
 		    (strcmp(&memb->metadata_version[9], name) == 0) &&
 		    !is_subarray(memb->metadata_version+9) &&
 		    memb->members) {
@@ -11640,8 +11640,8 @@ static int imsm_manage_reshape(
 
 	/* Find volume during the reshape */
 	for (dv = super->devlist; dv; dv = dv->next) {
-		if (dv->dev->vol.migr_type == MIGR_GEN_MIGR
-		    && dv->dev->vol.migr_state == 1) {
+		if (dv->dev->vol.migr_type == MIGR_GEN_MIGR &&
+		    dv->dev->vol.migr_state == 1) {
 			dev = dv->dev;
 			migr_vol_qan++;
 		}

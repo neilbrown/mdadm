@@ -1014,21 +1014,18 @@ char *get_md_name(char *devnm)
 	if (strncmp(devnm, "md_", 3) == 0) {
 		snprintf(devname, sizeof(devname), "/dev/md/%s",
 			devnm + 3);
-		if (stat(devname, &stb) == 0
-		    && (S_IFMT&stb.st_mode) == S_IFBLK
-		    && (stb.st_rdev == rdev))
+		if (stat(devname, &stb) == 0 &&
+		    (S_IFMT&stb.st_mode) == S_IFBLK && (stb.st_rdev == rdev))
 			return devname;
 	}
 	snprintf(devname, sizeof(devname), "/dev/%s", devnm);
-	if (stat(devname, &stb) == 0
-	    && (S_IFMT&stb.st_mode) == S_IFBLK
-	    && (stb.st_rdev == rdev))
+	if (stat(devname, &stb) == 0 && (S_IFMT&stb.st_mode) == S_IFBLK &&
+	    (stb.st_rdev == rdev))
 		return devname;
 
 	snprintf(devname, sizeof(devname), "/dev/md/%s", devnm+2);
-	if (stat(devname, &stb) == 0
-	    && (S_IFMT&stb.st_mode) == S_IFBLK
-	    && (stb.st_rdev == rdev))
+	if (stat(devname, &stb) == 0 && (S_IFMT&stb.st_mode) == S_IFBLK &&
+	    (stb.st_rdev == rdev))
 		return devname;
 
 	dn = map_dev(major(rdev), minor(rdev), 0);
@@ -1039,9 +1036,8 @@ char *get_md_name(char *devnm)
 		if (errno != EEXIST)
 			return NULL;
 
-	if (stat(devname, &stb) == 0
-	    && (S_IFMT&stb.st_mode) == S_IFBLK
-	    && (stb.st_rdev == rdev))
+	if (stat(devname, &stb) == 0 && (S_IFMT&stb.st_mode) == S_IFBLK &&
+	    (stb.st_rdev == rdev))
 		return devname;
 	unlink(devname);
 	return NULL;

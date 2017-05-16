@@ -204,11 +204,9 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 	count = 5;
 	while (((fd = ((devname[0] == '/')
 		       ?open(devname, O_RDONLY|O_EXCL)
-		       :open_dev_flags(devnm, O_RDONLY|O_EXCL))) < 0
-		|| strcmp(fd2devnm(fd), devnm) != 0)
-	       && container[0]
-	       && mdmon_running(container)
-	       && count) {
+		       :open_dev_flags(devnm, O_RDONLY|O_EXCL))) < 0 ||
+		strcmp(fd2devnm(fd), devnm) != 0) && container[0] &&
+	       mdmon_running(container) && count) {
 		/* Can't open, so something might be wrong.  However it
 		 * is a container, so we might be racing with mdmon, so
 		 * retry for a bit.
@@ -244,8 +242,8 @@ int Manage_stop(char *devname, int fd, int verbose, int will_retry)
 		while (count &&
 		       (err = sysfs_set_str(mdi, NULL,
 					    "array_state",
-					    "inactive")) < 0
-		       && errno == EBUSY) {
+					    "inactive")) < 0 &&
+		       errno == EBUSY) {
 			usleep(200000);
 			count--;
 		}
@@ -447,9 +445,8 @@ done:
 	 * so it is reasonable to retry for a while - 5 seconds.
 	 */
 	count = 25; err = 0;
-	while (count && fd >= 0
-	       && (err = ioctl(fd, STOP_ARRAY, NULL)) < 0
-	       && errno == EBUSY) {
+	while (count && fd >= 0 &&
+	       (err = ioctl(fd, STOP_ARRAY, NULL)) < 0 && errno == EBUSY) {
 		usleep(200000);
 		count --;
 	}
@@ -795,8 +792,8 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 				break;
 			}
 		/* FIXME this is a bad test to be using */
-		if (!tst->sb && (dv->disposition != 'a'
-				 && dv->disposition != 'S')) {
+		if (!tst->sb && (dv->disposition != 'a' &&
+				 dv->disposition != 'S')) {
 			/* we are re-adding a device to a
 			 * completely dead array - have to depend
 			 * on kernel to check
@@ -1393,8 +1390,7 @@ int Manage_subdevs(char *devname, int fd,
 
 		if (strcmp(dv->devname, "failed") == 0 ||
 		    strcmp(dv->devname, "faulty") == 0) {
-			if (dv->disposition != 'A'
-			    && dv->disposition != 'r') {
+			if (dv->disposition != 'A' && dv->disposition != 'r') {
 				pr_err("%s only meaningful with -r or --re-add, not -%c\n",
 					dv->devname, dv->disposition);
 				goto abort;
@@ -1499,8 +1495,9 @@ int Manage_subdevs(char *devname, int fd,
 					goto abort;
 				}
 			}
-		} else if ((dv->disposition == 'r' || dv->disposition == 'f')
-			   && get_maj_min(dv->devname, &mj, &mn)) {
+		} else if ((dv->disposition == 'r' ||
+			    dv->disposition == 'f') &&
+			   get_maj_min(dv->devname, &mj, &mn)) {
 			/* for 'fail' and 'remove', the device might
 			 * not exist.
 			 */

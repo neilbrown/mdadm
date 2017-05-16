@@ -670,8 +670,8 @@ static int layout_md2ddf(const mdu_array_info_t *array,
 			sec_elmnt_count = array->raid_disks / 2;
 			srl = DDF_2SPANNED;
 			prl = DDF_RAID1;
-		} else if (array->raid_disks % 3 == 0
-			   && array->layout == 0x103) {
+		} else if (array->raid_disks % 3 == 0 &&
+			   array->layout == 0x103) {
 			rlq = DDF_RAID1_MULTI;
 			prim_elmnt_count =  cpu_to_be16(3);
 			sec_elmnt_count = array->raid_disks / 3;
@@ -853,8 +853,8 @@ static void *load_section(int fd, struct ddf_super *super, void *buf,
 	int dofree = (buf == NULL);
 
 	if (check)
-		if (len != 2 && len != 8 && len != 32
-		    && len != 128 && len != 512)
+		if (len != 2 && len != 8 && len != 32 &&
+		    len != 128 && len != 512)
 			return NULL;
 
 	if (len > 1024)
@@ -2028,8 +2028,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 			       be32_to_cpu(ddf->phys->entries[e].refnum) == 0xffffffff)
 				e++;
 			if (i < info->array.raid_disks && e < max &&
-			    !(be16_to_cpu(ddf->phys->entries[e].state)
-			      & DDF_Failed))
+			    !(be16_to_cpu(ddf->phys->entries[e].state) &
+			      DDF_Failed))
 				map[i] = 1;
 			else
 				map[i] = 0;
@@ -2114,11 +2114,10 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->resync_start = 0;
 	info->reshape_active = 0;
 	info->recovery_blocked = 0;
-	if (!(ddf->virt->entries[info->container_member].state
-	      & DDF_state_inconsistent)  &&
-	    (ddf->virt->entries[info->container_member].init_state
-	     & DDF_initstate_mask)
-	    == DDF_init_full)
+	if (!(ddf->virt->entries[info->container_member].state &
+	      DDF_state_inconsistent) &&
+	    (ddf->virt->entries[info->container_member].init_state &
+	     DDF_initstate_mask) == DDF_init_full)
 		info->resync_start = MaxSector;
 
 	uuid_from_super_ddf(st, info->uuid);
@@ -2135,7 +2134,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	if (map)
 		for (j = 0; j < map_disks; j++) {
 			map[j] = 0;
-			if (j <  info->array.raid_disks) {
+			if (j < info->array.raid_disks) {
 				int i = find_phys(ddf, vc->conf.phys_refnum[j]);
 				if (i >= 0 &&
 				    (be16_to_cpu(ddf->phys->entries[i].state)
@@ -4618,9 +4617,9 @@ static void ddf_remove_failed(struct ddf_super *ddf)
 		    0xFFFFFFFF)
 			continue;
 		if (be16_and(ddf->phys->entries[pdnum].state,
-			     cpu_to_be16(DDF_Failed))
-		    && be16_and(ddf->phys->entries[pdnum].state,
-				cpu_to_be16(DDF_Transition))) {
+			     cpu_to_be16(DDF_Failed)) &&
+		    be16_and(ddf->phys->entries[pdnum].state,
+			     cpu_to_be16(DDF_Transition))) {
 			/* skip this one unless in dlist*/
 			for (dl = ddf->dlist; dl; dl = dl->next)
 				if (dl->pdnum == (int)pdnum)
@@ -5151,8 +5150,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 		vc = (struct vd_config *)(mu->buf
 					  + i_sec * ddf->conf_rec_len * 512);
 		for (dl = ddf->dlist; dl; dl = dl->next)
-			if (dl->major == di->disk.major
-			    && dl->minor == di->disk.minor)
+			if (dl->major == di->disk.major &&
+			    dl->minor == di->disk.minor)
 				break;
 		if (!dl || dl->pdnum < 0) {
 			pr_err("BUG: can't find disk %d (%d/%d)\n",

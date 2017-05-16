@@ -4023,7 +4023,7 @@ static void migrate(struct imsm_dev *dev, struct intel_super *super,
 
 	/* duplicate and then set the target end state in map[0] */
 	memcpy(dest, src, sizeof_imsm_map(src));
-	if (migr_type == MIGR_REBUILD || migr_type ==  MIGR_GEN_MIGR) {
+	if (migr_type == MIGR_REBUILD || migr_type == MIGR_GEN_MIGR) {
 		__u32 ord;
 		int i;
 

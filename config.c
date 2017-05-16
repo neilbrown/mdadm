@@ -1118,8 +1118,8 @@ struct mddev_ident *conf_match(struct supertype *st,
 	match = NULL;
 	for (; array_list; array_list = array_list->next) {
 		if (array_list->uuid_set &&
-		    same_uuid(array_list->uuid, info->uuid, st->ss->swapuuid)
-		    == 0) {
+		    same_uuid(array_list->uuid, info->uuid,
+			      st->ss->swapuuid) == 0) {
 			if (verbose >= 2 && array_list->devname)
 				pr_err("UUID differs from %s.\n",
 				       array_list->devname);

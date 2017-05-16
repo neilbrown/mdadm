@@ -714,9 +714,9 @@ This is pretty boring
 			if (disk.state & (1 << MD_DISK_JOURNAL))
 				printf(" journal");
 			if ((disk.state &
-			     ((1<<MD_DISK_ACTIVE)|(1<<MD_DISK_SYNC)
-			      |(1<<MD_DISK_REMOVED)|(1<<MD_DISK_FAULTY)|(1<<MD_DISK_JOURNAL)))
-			    == 0) {
+			     ((1 << MD_DISK_ACTIVE) | (1 << MD_DISK_SYNC) |
+			      (1 << MD_DISK_REMOVED) | (1 << MD_DISK_FAULTY) |
+			      (1 << MD_DISK_JOURNAL))) == 0) {
 				printf(" spare");
 				if (disk.raid_disk < array.raid_disks &&
 				    disk.raid_disk >= 0)

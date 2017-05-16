@@ -1883,8 +1883,8 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 		nsec = n / be16_to_cpu(conf->prim_elmnt_count);
 		if (conf->sec_elmnt_seq != nsec) {
 			for (ibvd = 1; ibvd < conf->sec_elmnt_count; ibvd++) {
-				if (v->other_bvds[ibvd-1]->sec_elmnt_seq
-				    == nsec)
+				if (v->other_bvds[ibvd-1]->sec_elmnt_seq ==
+				    nsec)
 					break;
 			}
 			if (ibvd == conf->sec_elmnt_count)
@@ -3814,13 +3814,13 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			unsigned int iphys;
 			int stt;
 
-			if (be32_to_cpu(ddf->phys->entries[pd].refnum)
-			    == 0xFFFFFFFF)
+			if (be32_to_cpu(ddf->phys->entries[pd].refnum) ==
+			    0xffffffff)
 				continue;
 
 			stt = be16_to_cpu(ddf->phys->entries[pd].state);
-			if ((stt & (DDF_Online|DDF_Failed|DDF_Rebuilding))
-			    != DDF_Online)
+			if ((stt & (DDF_Online|DDF_Failed|DDF_Rebuilding)) !=
+			    DDF_Online)
 				continue;
 
 			i = get_pd_index_from_refnum(
@@ -4205,8 +4205,8 @@ static int get_bvd_state(const struct ddf_super *ddf,
 		if (pd < 0)
 			continue;
 		st = be16_to_cpu(ddf->phys->entries[pd].state);
-		if ((st & (DDF_Online|DDF_Failed|DDF_Rebuilding))
-		    == DDF_Online) {
+		if ((st & (DDF_Online|DDF_Failed|DDF_Rebuilding)) ==
+		    DDF_Online) {
 			working++;
 			avail[i] = 1;
 		}

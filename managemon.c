@@ -580,8 +580,8 @@ static void manage_member(struct mdstat_ent *mdstat,
 			usleep(15*1000);
 		}
 		replace_array(container, a, newa);
-		if (sysfs_set_str(&a->info, NULL, "sync_action", "recover")
-		    == 0)
+		if (sysfs_set_str(&a->info, NULL,
+				  "sync_action", "recover") == 0)
 			newa->prev_action = recover;
 		dprintf("recovery started on %s\n", a->info.sys_name);
  out:

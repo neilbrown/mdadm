@@ -3557,7 +3557,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	char nm[20];
 	int dfd;
 
-	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
+	sra = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 	if (sra->array.major_version != -1 ||

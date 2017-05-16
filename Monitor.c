@@ -530,7 +530,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (st->utime == array.utime && st->failed == sra->array.failed_disks &&
 	    st->working == sra->array.working_disks &&
 	    st->spare == sra->array.spare_disks &&
-	    (mse == NULL  || (mse->percent == st->percent))) {
+	    (mse == NULL || (mse->percent == st->percent))) {
 		if ((st->active < st->raid) && st->spare == 0)
 			retval = 1;
 		goto out;
@@ -672,7 +672,7 @@ static int add_new_arrays(struct mdstat_ent *mdstat, struct state **statelist,
 	char *name;
 
 	for (mse = mdstat; mse; mse = mse->next)
-		if (mse->devnm[0] && (!mse->level  || /* retrieve containers */
+		if (mse->devnm[0] && (!mse->level || /* retrieve containers */
 				      (strcmp(mse->level, "raid0") != 0 &&
 				       strcmp(mse->level, "linear") != 0))) {
 			struct state *st = xcalloc(1, sizeof *st);

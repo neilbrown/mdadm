@@ -2213,8 +2213,7 @@ void enable_fds(int devices)
 {
 	unsigned int fds = 20 + devices;
 	struct rlimit lim;
-	if (getrlimit(RLIMIT_NOFILE, &lim) != 0
-	    || lim.rlim_cur >= fds)
+	if (getrlimit(RLIMIT_NOFILE, &lim) != 0 || lim.rlim_cur >= fds)
 		return;
 	if (lim.rlim_max < fds)
 		lim.rlim_max = fds;

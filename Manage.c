@@ -655,8 +655,8 @@ int attempt_re_add(int fd, int tfd, struct mddev_dev *dv,
 		if (dv->failfast == FlagClear)
 			disc.state &= ~(1 << MD_DISK_FAILFAST);
 		remove_partitions(tfd);
-		if (update || dv->writemostly != FlagDefault
-			|| dv->failfast != FlagDefault) {
+		if (update || dv->writemostly != FlagDefault ||
+		    dv->failfast != FlagDefault) {
 			int rv = -1;
 			tfd = dev_open(dv->devname, O_RDWR);
 			if (tfd < 0) {

@@ -220,8 +220,8 @@ static int select_devices(struct mddev_dev *devlist,
 					pr_err("not a recognisable container: %s\n",
 					       devname);
 				tmpdev->used = 2;
-			} else if (!tst->ss->load_container
-				   || tst->ss->load_container(tst, dfd, NULL)) {
+			} else if (!tst->ss->load_container ||
+				   tst->ss->load_container(tst, dfd, NULL)) {
 				if (report_mismatch)
 					pr_err("no correct container type: %s\n",
 					       devname);
@@ -776,9 +776,8 @@ static int load_devices(struct devs *devices, char *devmap,
 				*stp = st;
 				return -1;
 			}
-			if (best[i] == -1
-			    || (devices[best[i]].i.events
-				< devices[devcnt].i.events))
+			if (best[i] == -1 || (devices[best[i]].i.events
+					      < devices[devcnt].i.events))
 				best[i] = devcnt;
 		}
 		devcnt++;

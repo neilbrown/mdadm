@@ -548,8 +548,8 @@ static int read_efi_variable(void *buffer, ssize_t buf_size, char *variable_name
 
 	errno = 0;
 	var_data_len = strtoul(buf, NULL, 16);
-	if ((errno == ERANGE && (var_data_len == LONG_MAX))
-	    || (errno != 0 && var_data_len == 0))
+	if ((errno == ERANGE && (var_data_len == LONG_MAX)) ||
+	    (errno != 0 && var_data_len == 0))
 		return 1;
 
 	/* get data */

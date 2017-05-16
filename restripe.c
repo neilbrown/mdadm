@@ -731,8 +731,8 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		zero_size = chunk_size;
 	}
 
-	if (stripe_buf == NULL || stripes == NULL || blocks == NULL
-	    || zero == NULL) {
+	if (stripe_buf == NULL || stripes == NULL || blocks == NULL ||
+	    zero == NULL) {
 		rv = -2;
 		goto abort;
 	}

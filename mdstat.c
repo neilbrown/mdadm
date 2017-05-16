@@ -166,8 +166,8 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			continue;
 		insert_here = NULL;
 		/* Better be an md line.. */
-		if (strncmp(line, "md", 2)!= 0 || strlen(line) >= 32
-		    || (line[2] != '_' && !isdigit(line[2])))
+		if (strncmp(line, "md", 2)!= 0 || strlen(line) >= 32 ||
+		    (line[2] != '_' && !isdigit(line[2])))
 			continue;
 		strcpy(devnm, line);
 
@@ -212,8 +212,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					struct mdstat_ent **ih;
 					ih = &all;
 					while (ih != insert_here && *ih &&
-					       ((int)strlen((*ih)->devnm) != ep-w
-						|| strncmp((*ih)->devnm, w, ep-w) != 0))
+					       ((int)strlen((*ih)->devnm) !=
+						ep-w ||
+						strncmp((*ih)->devnm, w,
+							ep-w) != 0))
 						ih = & (*ih)->next;
 					insert_here = ih;
 				}

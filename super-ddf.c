@@ -932,14 +932,13 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 	if (load_ddf_header(fd, be64_to_cpu(super->anchor.secondary_lba),
 			    dsize >> 9,  2,
 			    &super->secondary, &super->anchor)) {
-		if (super->active == NULL
-		    || (be32_to_cpu(super->primary.seq)
-			< be32_to_cpu(super->secondary.seq) &&
-			!super->secondary.openflag)
-		    || (be32_to_cpu(super->primary.seq)
-			== be32_to_cpu(super->secondary.seq) &&
-			super->primary.openflag && !super->secondary.openflag)
-			)
+		if (super->active == NULL ||
+		    (be32_to_cpu(super->primary.seq)
+		     < be32_to_cpu(super->secondary.seq) &&
+			!super->secondary.openflag) ||
+		    (be32_to_cpu(super->primary.seq) ==
+		     be32_to_cpu(super->secondary.seq) &&
+			super->primary.openflag && !super->secondary.openflag))
 			super->active = &super->secondary;
 	} else if (devname &&
 		   be64_to_cpu(super->anchor.secondary_lba) != ~(__u64)0)

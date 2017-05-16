@@ -439,8 +439,8 @@ void RebuildMap(void)
 					if ((homehost == NULL ||
 					     st->ss->match_home(st, homehost) != 1) &&
 					    st->ss->match_home(st, "any") != 1 &&
-					    (require_homehost
-					     || ! conf_name_is_free(info->name)))
+					    (require_homehost ||
+					     !conf_name_is_free(info->name)))
 						/* require a numeric suffix */
 						unum = 0;
 					else

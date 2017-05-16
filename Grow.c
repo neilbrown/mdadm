@@ -3995,8 +3995,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * a backup.
 	 */
 	if (advancing) {
-		if ((need_backup > info->reshape_progress
-		     || info->array.major_version < 0) &&
+		if ((need_backup > info->reshape_progress ||
+		     info->array.major_version < 0) &&
 		    *suspend_point < info->reshape_progress + target) {
 			if (need_backup < *suspend_point + 2 * target)
 				*suspend_point = need_backup;
@@ -4149,8 +4149,9 @@ check_progress:
 	 * it was just a device failure that leaves us degraded but
 	 * functioning.
 	 */
-	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0
-	    || strncmp(buf, "none", 4) != 0) {
+	if (sysfs_get_str(info, NULL, "reshape_position", buf,
+			  sizeof(buf)) < 0 ||
+	    strncmp(buf, "none", 4) != 0) {
 		/* The abort might only be temporary.  Wait up to 10
 		 * seconds for fd to contain a valid number again.
 		 */
@@ -4182,9 +4183,10 @@ check_progress:
 		/* Maybe racing with array shutdown - check state */
 		if (fd >= 0)
 			close(fd);
-		if (sysfs_get_str(info, NULL, "array_state", buf, sizeof(buf)) < 0
-		    || strncmp(buf, "inactive", 8) == 0
-		    || strncmp(buf, "clear",5) == 0)
+		if (sysfs_get_str(info, NULL, "array_state", buf,
+				  sizeof(buf)) < 0 ||
+		    strncmp(buf, "inactive", 8) == 0 ||
+		    strncmp(buf, "clear",5) == 0)
 			return -2; /* abort */
 		return -1; /* complete */
 	}

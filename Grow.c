@@ -1403,8 +1403,8 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 			if (info->new_layout == UnSet) {
 				int copies = 1 + (info->delta_disks
 						  / info->array.raid_disks);
-				if (info->array.raid_disks * (copies-1)
-				    != info->delta_disks)
+				if (info->array.raid_disks * (copies-1) !=
+				    info->delta_disks)
 					return "Impossible number of devices for RAID0->RAID10";
 				info->new_layout = 0x100 + copies;
 			}
@@ -3067,8 +3067,8 @@ static int reshape_array(char *container, int fd, char *devname,
 	if (restart &&
 	    (reshape.level != info->array.level ||
 	     reshape.before.layout != info->array.layout ||
-	     reshape.before.data_disks + reshape.parity
-	     != info->array.raid_disks - max(0, info->delta_disks))) {
+	     reshape.before.data_disks + reshape.parity !=
+	     info->array.raid_disks - max(0, info->delta_disks))) {
 		pr_err("reshape info is not in native format - cannot continue.\n");
 		goto release;
 	}
@@ -4281,8 +4281,9 @@ static int grow_backup(struct mdinfo *sra,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 
 		rv = -1;
-		if ((unsigned long long)lseek64(destfd[i], destoffsets[i] - 4096, 0)
-		    != destoffsets[i] - 4096)
+		if ((unsigned long long)lseek64(destfd[i],
+						destoffsets[i] - 4096, 0) !=
+		    destoffsets[i] - 4096)
 			break;
 		if (write(destfd[i], &bsb, 512) != 512)
 			break;

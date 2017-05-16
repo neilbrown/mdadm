@@ -755,8 +755,8 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (best[i] >=0 &&
 			    devices[best[i]].i.events ==
 			    devices[devcnt].i.events &&
-			    (devices[best[i]].i.disk.minor
-			     != devices[devcnt].i.disk.minor) &&
+			    (devices[best[i]].i.disk.minor !=
+			     devices[devcnt].i.disk.minor) &&
 			    st->ss == &super0 &&
 			    content->array.level != LEVEL_MULTIPATH) {
 				/* two different devices with identical superblock.

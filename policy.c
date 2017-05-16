@@ -887,9 +887,8 @@ int Write_rules(char *rule_name)
 		fd = 1;
 
 	/* write static invocation */
-	if (write(fd, udev_template_start,
-		  sizeof(udev_template_start) - 1)
-	    != (int)sizeof(udev_template_start)-1)
+	if (write(fd, udev_template_start, sizeof(udev_template_start) - 1) !=
+	    (int)sizeof(udev_template_start) - 1)
 		goto abort;
 
 	/* iterate, if none created or error occurred, remove file */

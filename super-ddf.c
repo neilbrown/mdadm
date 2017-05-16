@@ -3511,8 +3511,8 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		if (minsize == 0)
 			minsize = 8;
 		for (dl = ddf->dlist; dl ; dl = dl->next) {
-			if (find_space(ddf, dl, data_offset, &minsize)
-			    != INVALID_SECTORS)
+			if (find_space(ddf, dl, data_offset, &minsize) !=
+			    INVALID_SECTORS)
 				dcnt++;
 		}
 		if (dcnt < raiddisks) {
@@ -4004,8 +4004,8 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 			continue;
 
 		if (posix_memalign((void **)&dl1, 512,
-		       sizeof(*dl1) + (first->max_part) * sizeof(dl1->vlist[0]))
-		    != 0) {
+				   sizeof(*dl1) + (first->max_part) *
+				   sizeof(dl1->vlist[0])) != 0) {
 			pr_err("could not allocate disk info buffer\n");
 			return 3;
 		}

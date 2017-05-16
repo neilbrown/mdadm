@@ -589,8 +589,8 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 			 * being marked 'sync'
 			 */
 			add = (1<<MD_DISK_SYNC);
-		if (((sb->disks[d].state & ~mask) | add)
-		    != (unsigned)info->disk.state) {
+		if (((sb->disks[d].state & ~mask) | add) !=
+		    (unsigned)info->disk.state) {
 			sb->disks[d].state = info->disk.state | wonly |failfast;
 			rv = 1;
 		}
@@ -1058,8 +1058,8 @@ static int load_super0(struct supertype *st, int fd, char *devname)
 	 * valid.  If it doesn't clear the bit.  An --assemble --force
 	 * should get that written out.
 	 */
-	if (read(fd, super+1, ROUND_UP(sizeof(struct bitmap_super_s),4096))
-	    != ROUND_UP(sizeof(struct bitmap_super_s),4096))
+	if (read(fd, super+1, ROUND_UP(sizeof(struct bitmap_super_s),4096)) !=
+	    ROUND_UP(sizeof(struct bitmap_super_s), 4096))
 		goto no_bitmap;
 
 	uuid_from_super0(st, uuid);

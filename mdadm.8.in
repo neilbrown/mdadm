@@ -2211,8 +2211,8 @@ option. In any case space for a bitmap will be reserved so that one
 can be added later with
 .BR "\-\-grow \-\-bitmap=internal" .
 
-If the metadata type supports it (currently only 1.x metadata), space
-will be allocated to store a bad block list.  This allows a modest
+If the metadata type supports it (currently only 1.x and IMSM metadata),
+space will be allocated to store a bad block list.  This allows a modest
 number of bad blocks to be recorded, allowing the drive to remain in
 service while only partially functional.
 

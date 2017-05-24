@@ -99,21 +99,24 @@ int Detail(char *dev, struct context *c)
 	inactive = (sra->array_state == ARRAY_ACTIVE ||
 		    sra->array_state == ARRAY_CLEAR);
 	st = super_by_fd(fd, &subarray);
-	if (md_get_array_info(fd, &array) && errno == ENODEV) {
-		if (sra->array.major_version == -1 &&
-		    sra->array.minor_version == -1 &&
-		    sra->devs == NULL) {
-			pr_err("Array associated with md device %s does not exist.\n", dev);
+	if (md_get_array_info(fd, &array)) {
+		if (errno == ENODEV) {
+			if (sra->array.major_version == -1 &&
+			    sra->array.minor_version == -1 &&
+			    sra->devs == NULL) {
+				pr_err("Array associated with md device %s does not exist.\n",
+				       dev);
+				close(fd);
+				sysfs_free(sra);
+				return rv;
+			}
+			array = sra->array;
+		} else {
+			pr_err("cannot get array detail for %s: %s\n",
+			       dev, strerror(errno));
 			close(fd);
-			sysfs_free(sra);
 			return rv;
 		}
-		array = sra->array;
-	} else {
-		pr_err("cannot get array detail for %s: %s\n",
-		       dev, strerror(errno));
-		close(fd);
-		return rv;
 	}
 
 	if (fstat(fd, &stb) != 0 && !S_ISBLK(stb.st_mode))

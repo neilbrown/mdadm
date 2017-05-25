@@ -1267,8 +1267,9 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 				break;
 		sb->dev_number = __cpu_to_le32(i);
 		info->disk.number = i;
-		if (max >= __le32_to_cpu(sb->max_dev))
+		if (i >= max) {
 			sb->max_dev = __cpu_to_le32(max+1);
+		}
 
 		random_uuid(sb->device_uuid);
 
@@ -1293,7 +1294,11 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			}
 		}
 	} else if (strcmp(update, "linear-grow-update") == 0) {
+		int max = __le32_to_cpu(sb->max_dev);
 		sb->raid_disks = __cpu_to_le32(info->array.raid_disks);
+		if (info->array.raid_disks > max) {
+			sb->max_dev = __cpu_to_le32(max+1);
+		}
 		sb->dev_roles[info->disk.number] =
 			__cpu_to_le16(info->disk.raid_disk);
 	} else if (strcmp(update, "resync") == 0) {

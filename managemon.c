@@ -685,8 +685,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	mdi = sysfs_read(-1, mdstat->devnm,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
-			 GET_DEGRADED|GET_SAFEMODE|
-			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|GET_LAYOUT);
+			 GET_SAFEMODE|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
+			 GET_LAYOUT);
 
 	if (!mdi)
 		return;

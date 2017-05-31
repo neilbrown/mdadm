@@ -886,16 +886,10 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		}
 		sra = sysfs_read(-1, mp->devnm,
 				 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
-				 GET_DEGRADED|GET_COMPONENT|GET_VERSION);
-		if (!sra) {
-			/* Probably a container - no degraded info */
-			sra = sysfs_read(-1, mp->devnm,
-					 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
-					 GET_COMPONENT|GET_VERSION);
-			if (sra)
-				sra->array.failed_disks = -1;
-		}
-		if (!sra)
+				 GET_COMPONENT|GET_VERSION);
+		if (sra)
+			sra->array.failed_disks = -1;
+		else
 			continue;
 		if (st == NULL) {
 			int i;

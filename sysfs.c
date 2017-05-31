@@ -162,17 +162,11 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			goto abort;
 		sra->array.layout = strtoul(buf, NULL, 0);
 	}
-	if (options & GET_DISKS) {
+	if (options & (GET_DISKS|GET_STATE)) {
 		strcpy(base, "raid_disks");
 		if (load_sys(fname, buf, sizeof(buf)))
 			goto abort;
 		sra->array.raid_disks = strtoul(buf, NULL, 0);
-	}
-	if (options & GET_DEGRADED) {
-		strcpy(base, "degraded");
-		if (load_sys(fname, buf, sizeof(buf)))
-			goto abort;
-		sra->array.failed_disks = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_COMPONENT) {
 		strcpy(base, "component_size");
@@ -359,10 +353,9 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			strcpy(dbase, "state");
 			if (load_sys(fname, buf, sizeof(buf)))
 				goto abort;
-			if (strstr(buf, "faulty")) {
+			if (strstr(buf, "faulty"))
 				dev->disk.state |= (1<<MD_DISK_FAULTY);
-				sra->array.failed_disks++;
-			} else {
+			else {
 				sra->array.working_disks++;
 				if (strstr(buf, "in_sync")) {
 					dev->disk.state |= (1<<MD_DISK_SYNC);
@@ -379,6 +372,11 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			dev->errors = strtoul(buf, NULL, 0);
 		}
 	}
+
+	if ((options & GET_STATE) && sra->array.raid_disks)
+		sra->array.failed_disks = sra->array.raid_disks -
+			sra->array.active_disks - sra->array.spare_disks;
+
 	closedir(dir);
 	return sra;
 

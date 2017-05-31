@@ -637,7 +637,6 @@ enum sysfs_read_flags {
 	GET_MISMATCH	= (1 << 5),
 	GET_VERSION	= (1 << 6),
 	GET_DISKS	= (1 << 7),
-	GET_DEGRADED	= (1 << 8),
 	GET_SAFEMODE	= (1 << 9),
 	GET_BITMAP_LOCATION = (1 << 10),
 

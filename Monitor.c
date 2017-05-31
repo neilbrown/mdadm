@@ -485,8 +485,8 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (st->devnm[0] == 0)
 		strcpy(st->devnm, fd2devnm(fd));
 
-	sra = sysfs_read(-1, st->devnm, GET_LEVEL | GET_DISKS | GET_DEGRADED |
-			 GET_MISMATCH | GET_DEVS | GET_STATE);
+	sra = sysfs_read(-1, st->devnm, GET_LEVEL | GET_DISKS | GET_MISMATCH |
+			 GET_DEVS | GET_STATE);
 	if (!sra)
 		goto disappeared;
 

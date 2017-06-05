@@ -1977,6 +1977,8 @@ int Grow_reshape(char *devname, int fd,
 		 */
 		min_csize = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
+			sysfs_set_num(sra, mdi, "size", s->size == MAX_SIZE ? 0
+				      : s->size);
 			if (array.not_persistent == 0 &&
 			    array.major_version == 0 &&
 			    get_linux_version() < 3001000) {

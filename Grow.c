@@ -1880,6 +1880,13 @@ int Grow_reshape(char *devname, int fd,
 					free(subarray);
 					return 1;
 				}
+				if (content->consistency_policy ==
+				    CONSISTENCY_POLICY_PPL) {
+					pr_err("Operation not supported when ppl consistency policy is enabled\n");
+					sysfs_free(cc);
+					free(subarray);
+					return 1;
+				}
 			}
 			sysfs_free(cc);
 		}

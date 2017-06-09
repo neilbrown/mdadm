@@ -530,6 +530,7 @@ int Grow_consistency_policy(char *devname, int fd, struct context *c, struct sha
 	char *subarray = NULL;
 	int ret = 0;
 	char container_dev[PATH_MAX];
+	char buf[20];
 
 	if (s->consistency_policy != CONSISTENCY_POLICY_RESYNC &&
 	    s->consistency_policy != CONSISTENCY_POLICY_PPL) {
@@ -575,6 +576,17 @@ int Grow_consistency_policy(char *devname, int fd, struct context *c, struct sha
 		       map_num(consistency_policies, s->consistency_policy));
 		ret = 1;
 		goto free_info;
+	}
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL) {
+		if (sysfs_get_str(sra, NULL, "sync_action", buf, 20) <= 0) {
+			ret = 1;
+			goto free_info;
+		} else if (strcmp(buf, "reshape\n") == 0) {
+			pr_err("PPL cannot be enabled when reshape is in progress\n");
+			ret = 1;
+			goto free_info;
+		}
 	}
 
 	if (subarray) {

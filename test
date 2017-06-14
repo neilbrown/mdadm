@@ -73,11 +73,11 @@ save_log() {
 	then
 		# not supported lvm type yet
 		echo
-	elif [ $DEVTYPE == 'loop' ]
+	elif [ "$DEVTYPE" == 'loop' -o "$DEVTYPE" == 'disk' ]
 	then
 		if [ ! -z ${array[@]} -a ${#array[@]} -ge 1 ]
 		then
-			md_disks=($($mdadm -D -Y ${array[@]} | grep "/dev/$DEVTYPE" | cut -d'=' -f2))
+			md_disks=($($mdadm -D -Y ${array[@]} | grep "/dev/" | cut -d'=' -f2))
 			cat /proc/mdstat | grep -q "bitmap"
 			if [ $? -eq 0 ]
 			then
@@ -114,6 +114,9 @@ cleanup() {
 			eval "lvremove --quiet -f \$dev$d"
 		done
 		;;
+	disk )
+		$mdadm --zero ${disks[@]} &> /dev/null
+		;;
 	esac
 }
 
@@ -128,6 +131,7 @@ do_setup() {
 	[ -d $logdir ] || mkdir -p $logdir
 	dmesg -c > /dev/null
 
+	devlist=
 	if [ "$DEVTYPE" == "loop" ]
 	then
 		# make sure there are no loop devices remaining.
@@ -139,8 +143,22 @@ do_setup() {
 			losetup -d /dev/loop[0-9]* 2> /dev/null
 			sleep 0.2
 		done
+	elif [ "$DEVTYPE" == "disk" ]
+	then
+		if [ ! -z "$disks" ]
+		then
+			for d in $(seq 0 ${#disks[@]})
+			do
+				eval "dev$d=${disks[$d]}"
+				eval devlist=\"\$devlist \$dev$d\"
+				eval devlist$d=\"\$devlist\"
+			done
+			$mdadm --zero ${disks[@]} &> /dev/null
+		else
+			echo "Forget to provide physical devices for disk mode."
+			exit 1
+		fi
 	fi
-	devlist=
 	for d in 0 1 2 3 4 5 6 7 8 9 10 11 12 13
 	do
 		sz=$size
@@ -320,6 +338,7 @@ no_errors() {
 # basic device test
 testdev() {
 	[ -b $1 ] || die "$1 isn't a block device."
+	[ "$DEVTYPE" == "disk" ] && return 0
 	udevadm settle
 	dev=$1
 	cnt=$2
@@ -383,6 +402,7 @@ do_test() {
 do_help() {
 	cat <<-EOF
 	Usage: $0 [options]
+	Example for disk mode: ./test --dev=disk --disks=/dev/sda{2..15}
 	Options:
 		--tests=test1,test2,...     Comma separated list of tests to run
 		--raidtype=                 raid0|linear|raid1|raid456|raid10|ddf|imsm
@@ -391,7 +411,8 @@ do_help() {
 		--logdir=directory          Directory to save all logfiles in
 		--save-logs                 Usually use with --logdir together
 		--keep-going | --no-error   Don't stop on error, ie. run all tests
-		--dev=loop|lvm|ram          Use loop devices (default), LVM, or RAM disk
+		--dev=loop|lvm|ram|disk     Use loop devices (default), LVM, RAM or disk
+		--disks=                    Provide a bunch of physical devices for test
 		--volgroup=name             LVM volume group for LVM test
 		setup                       Setup test environment and exit
 		cleanup                     Cleanup test environment
@@ -476,12 +497,18 @@ parse_args() {
 			ram )
 				DEVTYPE=ram
 				;;
+			disk )
+				DEVTYPE=disk
+				;;
 			* )
 				echo "Unknown argument: $i"
 				do_help
 				exit 1
 				;;
 			esac
+			;;
+		--disks=* )
+			disks=(${disks[*]} ${i##*=})
 			;;
 		--volgroup=* )
 			LVM_VOLGROUP=`expr "x$i" : 'x[^=]*=\(.*\)'`
@@ -509,7 +536,7 @@ check_env() {
 		echo "test: please run 'make everything' before perform testing."
 		exit 1
 	}
-	cmds=(mdadm lsblk df udevadm losetup mkfs.ext3 fsck)
+	cmds=(mdadm lsblk df udevadm losetup mkfs.ext3 fsck seq)
 	for cmd in ${cmds[@]}
 	do
 		which $cmd > /dev/null || {

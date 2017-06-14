@@ -385,6 +385,7 @@ do_help() {
 	Usage: $0 [options]
 	Options:
 		--tests=test1,test2,...     Comma separated list of tests to run
+		--raidtype=                 raid0|linear|raid1|raid456|raid10|ddf|imsm
 		--disable-multipath         Disable any tests involving multipath
 		--disable-integrity         Disable slow tests of RAID[56] consistency
 		--logdir=directory          Directory to save all logfiles in
@@ -418,6 +419,36 @@ parse_args() {
 			;;
 		--tests=* )
 			TESTLIST=($(echo ${i##*=} | sed -e 's/,/ /g'))
+			;;
+		--raidtype=* )
+			case ${i##*=} in
+			raid0 )
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r0\|raid0"))
+				;;
+			linear )
+				TESTLIST=($(ls $testdir | grep "linear"))
+				;;
+			raid1 )
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r1\|raid1" | grep -vi raid10))
+				;;
+			raid456 )
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r[4-6]\|raid[4-6]"))
+				;;
+			raid10 )
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r10\|raid10"))
+				;;
+			ddf )
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]ddf"))
+				;;
+			imsm )
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]imsm"))
+				;;
+			* )
+				echo "Unknown argument: $i"
+				do_help
+				exit 1
+				;;
+			esac
 			;;
 		--logdir=* )
 			logdir="${i##*=}"

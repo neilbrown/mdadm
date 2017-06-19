@@ -982,12 +982,21 @@ static void link_containers_with_subarrays(struct state *list)
 int Wait(char *dev)
 {
 	char devnm[32];
+	dev_t rdev;
+	char *tmp;
 	int rv = 1;
 	int frozen_remaining = 3;
 
-	if (!stat_is_blkdev(dev, NULL))
+	if (!stat_is_blkdev(dev, &rdev))
 		return 2;
-	strcpy(devnm, dev);
+
+	tmp = devid2devnm(rdev);
+	if (!tmp) {
+		pr_err("Cannot get md device name.\n");
+		return 2;
+	}
+
+	strcpy(devnm, tmp);
 
 	while(1) {
 		struct mdstat_ent *ms = mdstat_read(1, 0);

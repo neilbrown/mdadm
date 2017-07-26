@@ -2796,8 +2796,7 @@ static int validate_geometry1(struct supertype *st, int level,
 				headroom >>= 1;
 			data_offset = 12*2 + bmspace + headroom;
 			#define ONE_MEG (2*1024)
-			if (data_offset > ONE_MEG)
-				data_offset = (data_offset / ONE_MEG) * ONE_MEG;
+			data_offset = ROUND_UP(data_offset, ONE_MEG);
 			break;
 		}
 	if (st->data_offset == INVALID_SECTORS)

@@ -977,14 +977,14 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	info->array.chunk_size = __le32_to_cpu(sb->chunksize)*512;
 	info->array.state =
 		(__le64_to_cpu(sb->resync_offset) == MaxSector)	? 1 : 0;
-	if (__le32_to_cpu(bsb->nodes) > 1)
-		info->array.state |= (1 << MD_SB_CLUSTERED);
 
 	super_offset = __le64_to_cpu(sb->super_offset);
 	info->data_offset = __le64_to_cpu(sb->data_offset);
 	info->component_size = __le64_to_cpu(sb->size);
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET)) {
 		info->bitmap_offset = (int32_t)__le32_to_cpu(sb->bitmap_offset);
+		if (__le32_to_cpu(bsb->nodes) > 1)
+			info->array.state |= (1 << MD_SB_CLUSTERED);
 	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_PPL)) {
 		info->ppl_offset = __le16_to_cpu(sb->ppl.offset);
 		info->ppl_size = __le16_to_cpu(sb->ppl.size);

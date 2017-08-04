@@ -619,7 +619,7 @@ int main(int argc, char *argv[])
 			c.homecluster = optarg;
 			if (strlen(c.homecluster) > 64) {
 				pr_err("Cluster name too big.\n");
-				exit(ERANGE);
+				exit(2);
 			}
 			continue;
 		case O(CREATE,'x'): /* number of spare (eXtra) disks */

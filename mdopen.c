@@ -198,7 +198,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			return -1;
 		}
 		if (cname[0] == 0) {
-			pr_err("%s is an invalid name for an md device (empty!).", dev);
+			pr_err("%s is an invalid name for an md device (empty!).\n", dev);
 			return -1;
 		}
 		if (num < 0) {

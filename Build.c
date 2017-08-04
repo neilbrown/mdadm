@@ -181,7 +181,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			int major = BITMAP_MAJOR_HI;
 #if 0
 			if (s->bitmap_chunk == UnSet) {
-				pr_err("%s cannot be openned.", s->bitmap_file);
+				pr_err("%s cannot be opened.\n", s->bitmap_file);
 				goto abort;
 			}
 #endif
@@ -193,7 +193,7 @@ int Build(char *mddev, struct mddev_dev *devlist,
 			}
 			bitmap_fd = open(s->bitmap_file, O_RDWR);
 			if (bitmap_fd < 0) {
-				pr_err("%s cannot be openned.", s->bitmap_file);
+				pr_err("%s cannot be opened.\n", s->bitmap_file);
 				goto abort;
 			}
 		}

@@ -3202,7 +3202,7 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		if (info2) {
 			if (sysfs_init(info2, fd, st->devnm)) {
-				pr_err("unable to initialize sysfs for %s",
+				pr_err("unable to initialize sysfs for %s\n",
 				       st->devnm);
 				free(info2);
 				goto release;
@@ -5146,7 +5146,7 @@ int Grow_continue_command(char *devname, int fd,
 		}
 
 		if (sysfs_init(content, fd2, mdstat->devnm)) {
-			pr_err("Unable to initialize sysfs for %s, Grow cannot continue",
+			pr_err("Unable to initialize sysfs for %s, Grow cannot continue.\n",
 			       mdstat->devnm);
 			ret_val = 1;
 			close(fd2);

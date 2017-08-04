@@ -1417,7 +1417,7 @@ int Manage_subdevs(char *devname, int fd,
 			}
 			add_devlist = conf_get_devs();
 			if (add_devlist == NULL) {
-				pr_err("no devices to scan for missing members.");
+				pr_err("no devices to scan for missing members.\n");
 				continue;
 			}
 			for (dp = &add_devlist; *dp; dp = & (*dp)->next)

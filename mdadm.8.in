@@ -2947,7 +2947,7 @@ This is the only context where the aliases are used.  They are
 usually provided by a
 .I udev
 rules mentioning
-.BR ${DEVLINKS} .
+.BR $env{DEVLINKS} .
 
 .IP +
 Does the device have a valid md superblock?  If a specific metadata

@@ -1671,6 +1671,8 @@ try_again:
 		int j = best[i];
 		unsigned int desired_state;
 
+		if (j < 0)
+			continue;
 		if (devices[j].i.disk.raid_disk == MD_DISK_ROLE_JOURNAL)
 			desired_state = (1<<MD_DISK_JOURNAL);
 		else if (i >= content->array.raid_disks * 2)
@@ -1680,8 +1682,6 @@ try_again:
 		else
 			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);
 
-		if (j<0)
-			continue;
 		if (!devices[j].uptodate)
 			continue;
 

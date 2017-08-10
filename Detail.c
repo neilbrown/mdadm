@@ -86,7 +86,8 @@ int Detail(char *dev, struct context *c)
 			dev, strerror(errno));
 		return rv;
 	}
-	sra = sysfs_read(fd, NULL, GET_VERSION | GET_DEVS | GET_ARRAY_STATE);
+	sra = sysfs_read(fd, NULL, GET_VERSION | GET_DEVS |
+			GET_ARRAY_STATE | GET_STATE);
 	if (!sra) {
 		if (md_get_array_info(fd, &array)) {
 			pr_err("%s does not appear to be an md device\n", dev);
@@ -96,8 +97,7 @@ int Detail(char *dev, struct context *c)
 	}
 	external = (sra != NULL && sra->array.major_version == -1 &&
 		    sra->array.minor_version == -2);
-	inactive = (sra->array_state == ARRAY_ACTIVE ||
-		    sra->array_state == ARRAY_CLEAR);
+	inactive = (sra != NULL && !md_array_is_active(sra));
 	st = super_by_fd(fd, &subarray);
 	if (md_get_array_info(fd, &array)) {
 		if (errno == ENODEV) {
@@ -314,11 +314,10 @@ int Detail(char *dev, struct context *c)
 	next = array.raid_disks * 2;
 	if (inactive) {
 		struct mdinfo *mdi;
-		if (sra != NULL)
-			for (mdi = sra->devs; mdi; mdi = mdi->next) {
-				disks[next++] = mdi->disk;
-				disks[next - 1].number = -1;
-			}
+		for (mdi = sra->devs; mdi; mdi = mdi->next) {
+			disks[next++] = mdi->disk;
+			disks[next - 1].number = -1;
+		}
 	} else for (d = 0; d < max_disks; d++) {
 		mdu_disk_info_t disk;
 		disk.number = d;

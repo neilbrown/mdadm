@@ -1425,6 +1425,7 @@ extern int Restore_metadata(char *dev, char *dir, struct context *c,
 
 int md_array_valid(int fd);
 int md_array_active(int fd);
+int md_array_is_active(struct mdinfo *info);
 int md_get_array_info(int fd, struct mdu_array_info_s *array);
 int md_set_array_info(int fd, struct mdu_array_info_s *array);
 int md_get_disk_info(int fd, struct mdu_disk_info_s *disk);

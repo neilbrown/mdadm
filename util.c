@@ -228,15 +228,11 @@ int md_array_active(int fd)
 {
 	struct mdinfo *sra;
 	struct mdu_array_info_s array;
-	int ret;
+	int ret = 0;
 
 	sra = sysfs_read(fd, NULL, GET_ARRAY_STATE);
 	if (sra) {
-		if (sra->array_state != ARRAY_CLEAR &&
-		    sra->array_state != ARRAY_INACTIVE &&
-		    sra->array_state != ARRAY_UNKNOWN_STATE)
-			ret = 0;
-		else
+		if (!md_array_is_active(sra))
 			ret = -ENODEV;
 
 		free(sra);
@@ -249,6 +245,13 @@ int md_array_active(int fd)
 	}
 
 	return !ret;
+}
+
+int md_array_is_active(struct mdinfo *info)
+{
+	return (info->array_state != ARRAY_CLEAR &&
+		info->array_state != ARRAY_INACTIVE &&
+		info->array_state != ARRAY_UNKNOWN_STATE);
 }
 
 /*

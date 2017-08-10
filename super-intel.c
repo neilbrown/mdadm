@@ -4023,7 +4023,7 @@ static void migrate(struct imsm_dev *dev, struct intel_super *super,
 
 	/* duplicate and then set the target end state in map[0] */
 	memcpy(dest, src, sizeof_imsm_map(src));
-	if (migr_type == MIGR_REBUILD || migr_type == MIGR_GEN_MIGR) {
+	if (migr_type == MIGR_GEN_MIGR) {
 		__u32 ord;
 		int i;
 
@@ -7936,14 +7936,35 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 	/* end process for initialization and rebuild only
 	 */
 	if (is_gen_migration(dev) == 0) {
-		__u8 map_state;
-		int failed;
+		int failed = imsm_count_failed(super, dev, MAP_0);
 
-		failed = imsm_count_failed(super, dev, MAP_0);
-		map_state = imsm_check_degraded(super, dev, failed, MAP_0);
+		if (failed) {
+			__u8 map_state;
+			struct imsm_map *map = get_imsm_map(dev, MAP_0);
+			struct imsm_map *map1;
+			int i, ord, ord_map1;
+			int rebuilt = 1;
 
-		if (failed)
-			end_migration(dev, super, map_state);
+			for (i = 0; i < map->num_members; i++) {
+				ord = get_imsm_ord_tbl_ent(dev, i, MAP_0);
+				if (!(ord & IMSM_ORD_REBUILD))
+					continue;
+
+				map1 = get_imsm_map(dev, MAP_1);
+				if (!map1)
+					continue;
+
+				ord_map1 = __le32_to_cpu(map1->disk_ord_tbl[i]);
+				if (ord_map1 & IMSM_ORD_REBUILD)
+					rebuilt = 0;
+			}
+
+			if (rebuilt) {
+				map_state = imsm_check_degraded(super, dev,
+								failed, MAP_0);
+				end_migration(dev, super, map_state);
+			}
+		}
 	}
 	for (dl = super->missing; dl; dl = dl->next)
 		mark_missing(super, dev, &dl->disk, dl->index);
@@ -8225,8 +8246,10 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	int failed;
 	int ord;
 	__u8 map_state;
+	int rebuild_done = 0;
+	int i;
 
-	ord = imsm_disk_slot_to_ord(a, n);
+	ord = get_imsm_ord_tbl_ent(dev, n, MAP_X);
 	if (ord < 0)
 		return;
 
@@ -8244,6 +8267,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		struct imsm_map *migr_map = get_imsm_map(dev, MAP_1);
 
 		set_imsm_ord_tbl_ent(migr_map, n, ord_to_idx(ord));
+		rebuild_done = 1;
 		super->updates_pending++;
 	}
 
@@ -8306,7 +8330,39 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 				dprintf_cont(" Map state change");
 				end_migration(dev, super, map_state);
 				super->updates_pending++;
+			} else if (!rebuild_done) {
+				break;
 			}
+
+			/* check if recovery is really finished */
+			for (mdi = a->info.devs; mdi ; mdi = mdi->next)
+				if (mdi->recovery_start != MaxSector) {
+					recovery_not_finished = 1;
+					break;
+				}
+			if (recovery_not_finished) {
+				dprintf_cont("\n");
+				dprintf("Rebuild has not finished yet, state not changed");
+				if (a->last_checkpoint < mdi->recovery_start) {
+					a->last_checkpoint =
+						mdi->recovery_start;
+					super->updates_pending++;
+				}
+				break;
+			}
+
+			dprintf_cont(" Rebuild done, still degraded");
+			dev->vol.migr_state = 0;
+			set_migr_type(dev, 0);
+			dev->vol.curr_migr_unit = 0;
+
+			for (i = 0; i < map->num_members; i++) {
+				int idx = get_imsm_ord_tbl_ent(dev, i, MAP_0);
+
+				if (idx & IMSM_ORD_REBUILD)
+					map->failed_disk_num = i;
+			}
+			super->updates_pending++;
 			break;
 		}
 		if (is_gen_migration(dev)) {
@@ -9936,7 +9992,7 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 	struct imsm_dev *dev;
 	struct imsm_map *map;
 	unsigned int i, j, num_members;
-	__u32 ord;
+	__u32 ord, ord_map0;
 	struct bbm_log *log = super->bbm_log;
 
 	dprintf("deleting device[%d] from imsm_super\n", index);
@@ -9958,12 +10014,13 @@ static void imsm_delete(struct intel_super *super, struct dl **dlp, unsigned ind
 			 * ord-flags to the first map
 			 */
 			ord = get_imsm_ord_tbl_ent(dev, j, MAP_X);
+			ord_map0 = get_imsm_ord_tbl_ent(dev, j, MAP_0);
 
 			if (ord_to_idx(ord) <= index)
 				continue;
 
 			map = get_imsm_map(dev, MAP_0);
-			set_imsm_ord_tbl_ent(map, j, ord_to_idx(ord - 1));
+			set_imsm_ord_tbl_ent(map, j, ord_map0 - 1);
 			map = get_imsm_map(dev, MAP_1);
 			if (map)
 				set_imsm_ord_tbl_ent(map, j, ord - 1);

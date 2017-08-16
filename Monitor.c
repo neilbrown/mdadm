@@ -497,7 +497,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 	if (mse->level == NULL)
 		is_container = 1;
 
-	if (!md_array_active(fd))
+	if (!is_container && !md_array_active(fd))
 		goto disappeared;
 
 	fcntl(fd, F_SETFD, FD_CLOEXEC);

@@ -75,7 +75,7 @@ save_log() {
 		echo
 	elif [ "$DEVTYPE" == 'loop' -o "$DEVTYPE" == 'disk' ]
 	then
-		if [ ! -z ${array[@]} -a ${#array[@]} -ge 1 ]
+		if [ ! -z "$array" -a ${#array[@]} -ge 1 ]
 		then
 			md_disks=($($mdadm -D -Y ${array[@]} | grep "/dev/" | cut -d'=' -f2))
 			cat /proc/mdstat | grep -q "bitmap"

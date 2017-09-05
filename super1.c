@@ -89,12 +89,12 @@ struct mdp_superblock_1 {
 	/* bad block log.  If there are any bad blocks the feature flag is set.
 	 * if offset and size are non-zero, that space is reserved and available.
 	 */
-	__u8	bblog_shift;	/* shift from sectors to block size for badblocklist */
-	__u16	bblog_size;	/* number of sectors reserved for badblocklist */
+	__u8	bblog_shift;	/* shift from sectors to block size for badblock list */
+	__u16	bblog_size;	/* number of sectors reserved for badblock list */
 	__u32	bblog_offset;	/* sector offset from superblock to bblog, signed */
 
 	/* array state information - 64 bytes */
-	__u64	utime;		/* 40 bits second, 24 btes microseconds */
+	__u64	utime;		/* 40 bits second, 24 bits microseconds */
 	__u64	events;		/* incremented when superblock updated */
 	__u64	resync_offset;	/* data before this offset (from data_offset) known to be in sync */
 	__u32	sb_csum;	/* checksum upto dev_roles[max_dev] */
@@ -2396,7 +2396,7 @@ add_internal_bitmap1(struct supertype *st,
 	/*
 	 * If not may_change, then this is a 'Grow' without sysfs support for
 	 * bitmaps, and the bitmap must fit after the superblock at 1K offset.
-	 * If may_change, then this is create or a Grow with sysfs syupport,
+	 * If may_change, then this is create or a Grow with sysfs support,
 	 * and we can put the bitmap wherever we like.
 	 *
 	 * size is in sectors,  chunk is in bytes !!!

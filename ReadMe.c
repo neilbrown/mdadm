@@ -342,7 +342,7 @@ char OptionHelp[] =
 */
 
 char Help_create[] =
-"Usage:  mdadm --create device -chunk=X --level=Y --raid-devices=Z devices\n"
+"Usage:  mdadm --create device --chunk=X --level=Y --raid-devices=Z devices\n"
 "\n"
 " This usage will initialise a new md array, associate some\n"
 " devices with it, and activate the array.   In order to create an\n"

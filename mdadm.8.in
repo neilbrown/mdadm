@@ -2758,6 +2758,11 @@ Also the size of an array cannot be changed while it has an active
 bitmap.  If an array has a bitmap, it must be removed before the size
 can be changed. Once the change is complete a new bitmap can be created.
 
+.PP
+Note:
+.B "--grow --size"
+is not yet supported for external file bitmap.
+
 .SS RAID\-DEVICES CHANGES
 
 A RAID1 array can work with any number of devices from 1 upwards

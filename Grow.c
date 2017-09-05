@@ -1816,6 +1816,12 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
+	if (array.level > 1 &&
+	   (array.chunk_size / 1024) > (int)s->size) {
+		pr_err("component size must be larger than chunk size.\n");
+		return 1;
+	}
+
 	st = super_by_fd(fd, &subarray);
 	if (!st) {
 		pr_err("Unable to determine metadata format for %s\n", devname);

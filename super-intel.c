@@ -10749,6 +10749,10 @@ static const char *imsm_get_disk_controller_domain(const char *path)
 			drv = "isci";
 		else if (hba && hba->type == SYS_DEV_SATA)
 			drv = "ahci";
+		else if (hba && hba->type == SYS_DEV_VMD)
+			drv = "vmd";
+		else if (hba && hba->type == SYS_DEV_NVME)
+			drv = "nvme";
 		else
 			drv = "unknown";
 		dprintf("path: %s hba: %s attached: %s\n",

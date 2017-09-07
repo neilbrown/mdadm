@@ -3003,9 +3003,9 @@ static int continue_via_systemd(char *devnm)
 		snprintf(pathbuf, sizeof(pathbuf), "mdadm-grow-continue@%s.service",
 			 devnm);
 		status = execl("/usr/bin/systemctl", "systemctl",
-			       "start",
+			       "restart",
 			       pathbuf, NULL);
-		status = execl("/bin/systemctl", "systemctl", "start",
+		status = execl("/bin/systemctl", "systemctl", "restart",
 			       pathbuf, NULL);
 		exit(1);
 	case -1: /* Just do it ourselves. */

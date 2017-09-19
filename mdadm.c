@@ -1734,6 +1734,8 @@ int main(int argc, char *argv[])
 		autodetect();
 		break;
 	}
+	if (mdfd > 0)
+		close(mdfd);
 	exit(rv);
 }
 

@@ -312,6 +312,10 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		if (block_udev)
 			udev_block(devnm);
 		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
+		if (fd < 0 && errno == ENOENT) {
+			system("modprobe md_mod");
+			fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
+		}
 		if (fd >= 0) {
 			n = write(fd, devnm, strlen(devnm));
 			close(fd);

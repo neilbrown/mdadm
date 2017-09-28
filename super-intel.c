@@ -6080,6 +6080,16 @@ static int write_init_ppl_imsm(struct supertype *st, struct mdinfo *info, int fd
 	ppl_hdr = buf;
 	memset(ppl_hdr->reserved, 0xff, PPL_HDR_RESERVED);
 	ppl_hdr->signature = __cpu_to_le32(super->anchor->orig_family_num);
+
+	if (info->mismatch_cnt) {
+		/*
+		 * We are overwriting an invalid ppl. Make one entry with wrong
+		 * checksum to prevent the kernel from skipping resync.
+		 */
+		ppl_hdr->entries_count = __cpu_to_le32(1);
+		ppl_hdr->entries[0].checksum = ~0;
+	}
+
 	ppl_hdr->checksum = __cpu_to_le32(~crc32c_le(~0, buf, PPL_HEADER_SIZE));
 
 	if (lseek64(fd, info->ppl_sector * 512, SEEK_SET) < 0) {
@@ -6214,8 +6224,12 @@ out:
 		}
 	}
 
-	if (ret == 1 && map->map_state == IMSM_T_STATE_UNINITIALIZED)
-		return st->ss->write_init_ppl(st, info, d->fd);
+	if (ret == 1) {
+		if (map->map_state == IMSM_T_STATE_UNINITIALIZED)
+			ret = st->ss->write_init_ppl(st, info, d->fd);
+		else
+			info->mismatch_cnt++;
+	}
 
 	return ret;
 }

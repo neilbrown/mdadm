@@ -7756,6 +7756,9 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 						map->blocks_per_strip;
 				info_d->ppl_sector = this->ppl_sector;
 				info_d->ppl_size = this->ppl_size;
+				if (this->consistency_policy == CONSISTENCY_POLICY_PPL &&
+				    recovery_start == 0)
+					this->resync_start = 0;
 			} else {
 				info_d->component_size = blocks_per_member(map);
 			}

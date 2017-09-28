@@ -637,9 +637,6 @@ int Grow_consistency_policy(char *devname, int fd, struct context *c, struct sha
 			int dfd;
 			char *devpath;
 
-			if ((sd->disk.state & (1 << MD_DISK_SYNC)) == 0)
-				continue;
-
 			devpath = map_dev(sd->disk.major, sd->disk.minor, 0);
 			dfd = dev_open(devpath, O_RDWR);
 			if (dfd < 0) {

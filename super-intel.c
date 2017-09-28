@@ -6225,7 +6225,9 @@ out:
 	}
 
 	if (ret == 1) {
-		if (map->map_state == IMSM_T_STATE_UNINITIALIZED)
+		if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
+		   (map->map_state == IMSM_T_STATE_NORMAL &&
+		   !(dev->vol.dirty & RAIDVOL_DIRTY)))
 			ret = st->ss->write_init_ppl(st, info, d->fd);
 		else
 			info->mismatch_cnt++;

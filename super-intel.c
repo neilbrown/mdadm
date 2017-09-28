@@ -7669,7 +7669,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			} else {
 				info_d->component_size = blocks_per_member(map);
 			}
-			info_d->consistency_policy = this->consistency_policy;
 
 			info_d->bb.supported = 1;
 			get_volume_badblocks(super->bbm_log, ord_to_idx(ord),
@@ -8758,8 +8757,7 @@ static struct mdinfo *imsm_activate_spare(struct active_array *a,
 		di->component_size = a->info.component_size;
 		di->container_member = inst;
 		di->bb.supported = 1;
-		if (dev->rwh_policy == RWH_DISTRIBUTED) {
-			di->consistency_policy = CONSISTENCY_POLICY_PPL;
+		if (a->info.consistency_policy == CONSISTENCY_POLICY_PPL) {
 			di->ppl_sector = get_ppl_sector(super, inst);
 			di->ppl_size = (PPL_HEADER_SIZE + PPL_ENTRY_SPACE) >> 9;
 		}

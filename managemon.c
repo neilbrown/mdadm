@@ -477,7 +477,7 @@ static void manage_member(struct mdstat_ent *mdstat,
 	char buf[64];
 	int frozen;
 	struct supertype *container = a->container;
-	unsigned long long int component_size = 0;
+	struct mdinfo *mdi;
 
 	if (container == NULL)
 		/* Raced with something */
@@ -489,8 +489,13 @@ static void manage_member(struct mdstat_ent *mdstat,
 		// MORE
 	}
 
-	if (sysfs_get_ll(&a->info, NULL, "component_size", &component_size) >= 0)
-		a->info.component_size = component_size << 1;
+	mdi = sysfs_read(-1, mdstat->devnm,
+			 GET_COMPONENT|GET_CONSISTENCY_POLICY);
+	if (mdi) {
+		a->info.component_size = mdi->component_size;
+		a->info.consistency_policy = mdi->consistency_policy;
+		sysfs_free(mdi);
+	}
 
 	/* honor 'frozen' */
 	if (sysfs_get_str(&a->info, NULL, "metadata_version", buf, sizeof(buf)) > 0)

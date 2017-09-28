@@ -6119,7 +6119,6 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 	struct ppl_header *ppl_hdr;
 	__u32 crc;
 	struct imsm_dev *dev;
-	struct imsm_map *map;
 	__u32 idx;
 	unsigned int i;
 	unsigned long long ppl_offset = 0;
@@ -6134,8 +6133,7 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 	}
 
 	dev = get_imsm_dev(super, info->container_member);
-	map = get_imsm_map(dev, MAP_X);
-	idx = get_imsm_disk_idx(dev, disk->disk.raid_disk, MAP_X);
+	idx = get_imsm_disk_idx(dev, disk->disk.raid_disk, MAP_0);
 	d = get_imsm_dl_disk(super, idx);
 
 	if (!d || d->index < 0 || is_failed(&d->disk))
@@ -6225,6 +6223,8 @@ out:
 	}
 
 	if (ret == 1) {
+		struct imsm_map *map = get_imsm_map(dev, MAP_X);
+
 		if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
 		   (map->map_state == IMSM_T_STATE_NORMAL &&
 		   !(dev->vol.dirty & RAIDVOL_DIRTY)))

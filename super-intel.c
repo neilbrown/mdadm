@@ -6106,11 +6106,14 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 	struct imsm_dev *dev;
 	struct imsm_map *map;
 	__u32 idx;
+	unsigned int i;
+	unsigned long long ppl_offset = 0;
+	unsigned long long prev_gen_num = 0;
 
 	if (disk->disk.raid_disk < 0)
 		return 0;
 
-	if (posix_memalign(&buf, 4096, PPL_HEADER_SIZE)) {
+	if (posix_memalign(&buf, MAX_SECTOR_SIZE, PPL_HEADER_SIZE)) {
 		pr_err("Failed to allocate PPL header buffer\n");
 		return -1;
 	}
@@ -6123,34 +6126,54 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 	if (!d || d->index < 0 || is_failed(&d->disk))
 		goto out;
 
-	if (lseek64(d->fd, info->ppl_sector * 512, SEEK_SET) < 0) {
-		perror("Failed to seek to PPL header location");
-		ret = -1;
-		goto out;
-	}
+	ret = 1;
+	while (ppl_offset < MULTIPLE_PPL_AREA_SIZE_IMSM) {
+		dprintf("Checking potential PPL at offset: %llu\n", ppl_offset);
 
-	if (read(d->fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
-		perror("Read PPL header failed");
-		ret = -1;
-		goto out;
-	}
+		if (lseek64(d->fd, info->ppl_sector * 512 + ppl_offset,
+			    SEEK_SET) < 0) {
+			perror("Failed to seek to PPL header location");
+			ret = -1;
+			goto out;
+		}
 
-	ppl_hdr = buf;
+		if (read(d->fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
+			perror("Read PPL header failed");
+			ret = -1;
+			goto out;
+		}
 
-	crc = __le32_to_cpu(ppl_hdr->checksum);
-	ppl_hdr->checksum = 0;
+		ppl_hdr = buf;
 
-	if (crc != ~crc32c_le(~0, buf, PPL_HEADER_SIZE)) {
-		dprintf("Wrong PPL header checksum on %s\n",
-			d->devname);
-		ret = 1;
-	}
+		crc = __le32_to_cpu(ppl_hdr->checksum);
+		ppl_hdr->checksum = 0;
 
-	if (!ret && (__le32_to_cpu(ppl_hdr->signature) !=
-		      super->anchor->orig_family_num)) {
-		dprintf("Wrong PPL header signature on %s\n",
-			d->devname);
-		ret = 1;
+		if (crc != ~crc32c_le(~0, buf, PPL_HEADER_SIZE)) {
+			dprintf("Wrong PPL header checksum on %s\n",
+				d->devname);
+			goto out;
+		}
+
+		if (prev_gen_num > __le64_to_cpu(ppl_hdr->generation)) {
+			/* previous was newest, it was already checked */
+			goto out;
+		}
+
+		if ((__le32_to_cpu(ppl_hdr->signature) !=
+			      super->anchor->orig_family_num)) {
+			dprintf("Wrong PPL header signature on %s\n",
+				d->devname);
+			ret = 1;
+			goto out;
+		}
+
+		ret = 0;
+		prev_gen_num = __le64_to_cpu(ppl_hdr->generation);
+
+		ppl_offset += PPL_HEADER_SIZE;
+		for (i = 0; i < __le32_to_cpu(ppl_hdr->entries_count); i++)
+			ppl_offset +=
+				   __le32_to_cpu(ppl_hdr->entries[i].pp_size);
 	}
 
 out:

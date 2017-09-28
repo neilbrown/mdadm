@@ -6184,6 +6184,36 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 out:
 	free(buf);
 
+	/*
+	 * Update metadata to use mutliple PPLs area (1MB).
+	 * This is done once for all RAID members
+	 */
+	if (info->consistency_policy == CONSISTENCY_POLICY_PPL &&
+	    info->ppl_size != (MULTIPLE_PPL_AREA_SIZE_IMSM >> 9)) {
+		char subarray[20];
+		struct mdinfo *member_dev;
+
+		sprintf(subarray, "%d", info->container_member);
+
+		if (mdmon_running(st->container_devnm))
+			st->update_tail = &st->updates;
+
+		if (st->ss->update_subarray(st, subarray, "ppl", NULL)) {
+			pr_err("Failed to update subarray %s\n",
+			      subarray);
+		} else {
+			if (st->update_tail)
+				flush_metadata_updates(st);
+			else
+				st->ss->sync_metadata(st);
+			info->ppl_size = (MULTIPLE_PPL_AREA_SIZE_IMSM >> 9);
+			for (member_dev = info->devs; member_dev;
+			     member_dev = member_dev->next)
+				member_dev->ppl_size =
+				    (MULTIPLE_PPL_AREA_SIZE_IMSM >> 9);
+		}
+	}
+
 	if (ret == 1 && map->map_state == IMSM_T_STATE_UNINITIALIZED)
 		return st->ss->write_init_ppl(st, info, d->fd);
 

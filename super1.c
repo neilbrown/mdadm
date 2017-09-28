@@ -121,6 +121,9 @@ struct misc_dev_info {
 	__u64 device_size;
 };
 
+#define MULTIPLE_PPL_AREA_SIZE_SUPER1 (1024 * 1024) /* Size of the whole
+						     * mutliple PPL area
+						     */
 /* feature_map bits */
 #define MD_FEATURE_BITMAP_OFFSET	1
 #define	MD_FEATURE_RECOVERY_OFFSET	2 /* recovery_offset is present and
@@ -140,6 +143,7 @@ struct misc_dev_info {
 #define	MD_FEATURE_BITMAP_VERSIONED	256 /* bitmap version number checked properly */
 #define	MD_FEATURE_JOURNAL		512 /* support write journal */
 #define	MD_FEATURE_PPL			1024 /* support PPL */
+#define	MD_FEATURE_MUTLIPLE_PPLS	2048 /* support for multiple PPLs */
 #define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
 					|MD_FEATURE_RECOVERY_OFFSET	\
 					|MD_FEATURE_RESHAPE_ACTIVE	\
@@ -150,6 +154,7 @@ struct misc_dev_info {
 					|MD_FEATURE_BITMAP_VERSIONED	\
 					|MD_FEATURE_JOURNAL		\
 					|MD_FEATURE_PPL			\
+					|MD_FEATURE_MULTIPLE_PPLS	\
 					)
 
 static int role_from_sb(struct mdp_superblock_1 *sb)
@@ -298,6 +303,12 @@ static int awrite(struct align_fd *afd, void *buf, int len)
 	return len;
 }
 
+static inline unsigned int md_feature_any_ppl_on(__u32 feature_map)
+{
+	return ((__cpu_to_le32(feature_map) &
+	    (MD_FEATURE_PPL | MD_FEATURE_MUTLIPLE_PPLS)));
+}
+
 static inline unsigned int choose_ppl_space(int chunk)
 {
 	return (PPL_HEADER_SIZE >> 9) + (chunk > 128*2 ? chunk : 128*2);
@@ -409,7 +420,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 		printf("Internal Bitmap : %ld sectors from superblock\n",
 		       (long)(int32_t)__le32_to_cpu(sb->bitmap_offset));
-	} else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_PPL)) {
+	} else if (md_feature_any_ppl_on(sb->feature_map)) {
 		printf("            PPL : %u sectors at offset %d sectors from superblock\n",
 		       __le16_to_cpu(sb->ppl.size),
 		       __le16_to_cpu(sb->ppl.offset));
@@ -985,7 +996,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 		info->bitmap_offset = (int32_t)__le32_to_cpu(sb->bitmap_offset);
 		if (__le32_to_cpu(bsb->nodes) > 1)
 			info->array.state |= (1 << MD_SB_CLUSTERED);
-	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_PPL)) {
+	} else if (md_feature_any_ppl_on(sb->feature_map)) {
 		info->ppl_offset = __le16_to_cpu(sb->ppl.offset);
 		info->ppl_size = __le16_to_cpu(sb->ppl.size);
 		info->ppl_sector = super_offset + info->ppl_offset;
@@ -1140,7 +1151,7 @@ static void getinfo_super1(struct supertype *st, struct mdinfo *info, char *map)
 	if (sb->feature_map & __le32_to_cpu(MD_FEATURE_JOURNAL)) {
 		info->journal_device_required = 1;
 		info->consistency_policy = CONSISTENCY_POLICY_JOURNAL;
-	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_PPL)) {
+	} else if (md_feature_any_ppl_on(sb->feature_map)) {
 		info->consistency_policy = CONSISTENCY_POLICY_PPL;
 	} else if (sb->feature_map & __le32_to_cpu(MD_FEATURE_BITMAP_OFFSET)) {
 		info->consistency_policy = CONSISTENCY_POLICY_BITMAP;
@@ -1324,7 +1335,7 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
 			bitmap_offset = (long)__le32_to_cpu(sb->bitmap_offset);
 			bm_sectors = calc_bitmap_size(bms, 4096) >> 9;
-		} else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_PPL)) {
+		} else if (md_feature_any_ppl_on(sb->feature_map)) {
 			bitmap_offset = (long)__le16_to_cpu(sb->ppl.offset);
 			bm_sectors = (long)__le16_to_cpu(sb->ppl.size);
 		}
@@ -1377,7 +1388,6 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		unsigned long long data_size = __le64_to_cpu(sb->data_size);
 		long bb_offset = __le32_to_cpu(sb->bblog_offset);
 		int space;
-		int optimal_space;
 		int offset;
 
 		if (sb->feature_map & __cpu_to_le32(MD_FEATURE_BITMAP_OFFSET)) {
@@ -1408,18 +1418,23 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			return -2;
 		}
 
-		optimal_space = choose_ppl_space(__le32_to_cpu(sb->chunksize));
-
-		if (space > optimal_space)
-			space = optimal_space;
-		if (space > UINT16_MAX)
-			space = UINT16_MAX;
+		if (space >= (MULTIPLE_PPL_AREA_SIZE_SUPER1 >> 9)) {
+			space = (MULTIPLE_PPL_AREA_SIZE_SUPER1 >> 9);
+		} else {
+			int optimal_space = choose_ppl_space(
+						__le32_to_cpu(sb->chunksize));
+			if (space > optimal_space)
+				space = optimal_space;
+			if (space > UINT16_MAX)
+				space = UINT16_MAX;
+		}
 
 		sb->ppl.offset = __cpu_to_le16(offset);
 		sb->ppl.size = __cpu_to_le16(space);
 		sb->feature_map |= __cpu_to_le32(MD_FEATURE_PPL);
 	} else if (strcmp(update, "no-ppl") == 0) {
-		sb->feature_map &= ~ __cpu_to_le32(MD_FEATURE_PPL);
+		sb->feature_map &= ~__cpu_to_le32(MD_FEATURE_PPL |
+						   MD_FEATURE_MUTLIPLE_PPLS);
 	} else if (strcmp(update, "name") == 0) {
 		if (info->name[0] == 0)
 			sprintf(info->name, "%d", info->array.md_minor);
@@ -1974,20 +1989,12 @@ static int write_init_super1(struct supertype *st)
 					(((char *)sb) + MAX_SB_SIZE);
 			bm_space = calc_bitmap_size(bms, 4096) >> 9;
 			bm_offset = (long)__le32_to_cpu(sb->bitmap_offset);
-		} else if (sb->feature_map & __cpu_to_le32(MD_FEATURE_PPL)) {
-			bm_space =
-			  choose_ppl_space(__le32_to_cpu(sb->chunksize));
-			if (bm_space > UINT16_MAX)
-				bm_space = UINT16_MAX;
-			if (st->minor_version == 0) {
+		} else if (md_feature_any_ppl_on(sb->feature_map)) {
+			bm_space = MULTIPLE_PPL_AREA_SIZE_SUPER1 >> 9;
+			if (st->minor_version == 0)
 				bm_offset = -bm_space - 8;
-				if (bm_offset < INT16_MIN) {
-					bm_offset = INT16_MIN;
-					bm_space = -bm_offset - 8;
-				}
-			} else {
+			else
 				bm_offset = 8;
-			}
 			sb->ppl.offset = __cpu_to_le16(bm_offset);
 			sb->ppl.size = __cpu_to_le16(bm_space);
 		} else {
@@ -2069,7 +2076,7 @@ static int write_init_super1(struct supertype *st)
 		     MD_FEATURE_BITMAP_OFFSET)) {
 			rv = st->ss->write_bitmap(st, di->fd, NodeNumUpdate);
 		} else if (rv == 0 &&
-			 (__le32_to_cpu(sb->feature_map) & MD_FEATURE_PPL)) {
+		    md_feature_any_ppl_on(sb->feature_map)) {
 			struct mdinfo info;
 
 			st->ss->getinfo_super(st, &info, NULL);
@@ -2345,7 +2352,7 @@ static __u64 avail_size1(struct supertype *st, __u64 devsize,
 		struct bitmap_super_s *bsb;
 		bsb = (struct bitmap_super_s *)(((char*)super)+MAX_SB_SIZE);
 		bmspace = calc_bitmap_size(bsb, 4096) >> 9;
-	} else if (__le32_to_cpu(super->feature_map) & MD_FEATURE_PPL) {
+	} else if (md_feature_any_ppl_on(super->feature_map)) {
 		bmspace = __le16_to_cpu(super->ppl.size);
 	}
 
@@ -2769,8 +2776,10 @@ static int validate_geometry1(struct supertype *st, int level,
 	}
 
 	/* creating:  allow suitable space for bitmap or PPL */
-	bmspace = consistency_policy == CONSISTENCY_POLICY_PPL ?
-		  choose_ppl_space((*chunk)*2) : choose_bm_space(devsize);
+	if (consistency_policy == CONSISTENCY_POLICY_PPL)
+		bmspace = MULTIPLE_PPL_AREA_SIZE_SUPER1 >> 9;
+	else
+		bmspace = choose_bm_space(devsize);
 
 	if (data_offset == INVALID_SECTORS)
 		data_offset = st->data_offset;

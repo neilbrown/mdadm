@@ -6227,7 +6227,10 @@ out:
 
 		if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
 		   (map->map_state == IMSM_T_STATE_NORMAL &&
-		   !(dev->vol.dirty & RAIDVOL_DIRTY)))
+		   !(dev->vol.dirty & RAIDVOL_DIRTY)) ||
+		   (dev->vol.migr_state == MIGR_REBUILD &&
+		    dev->vol.curr_migr_unit == 0 &&
+		    get_imsm_disk_idx(dev, disk->disk.raid_disk, MAP_1) != idx))
 			ret = st->ss->write_init_ppl(st, info, d->fd);
 		else
 			info->mismatch_cnt++;

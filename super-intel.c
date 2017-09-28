@@ -6065,7 +6065,12 @@ static int write_init_ppl_imsm(struct supertype *st, struct mdinfo *info, int fd
 	struct ppl_header *ppl_hdr;
 	int ret;
 
-	ret = posix_memalign(&buf, 4096, PPL_HEADER_SIZE);
+	/* first clear entire ppl space */
+	ret = zero_disk_range(fd, info->ppl_sector, info->ppl_size);
+	if (ret)
+		return ret;
+
+	ret = posix_memalign(&buf, MAX_SECTOR_SIZE, PPL_HEADER_SIZE);
 	if (ret) {
 		pr_err("Failed to allocate PPL header buffer\n");
 		return ret;

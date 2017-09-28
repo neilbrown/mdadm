@@ -30,6 +30,7 @@
 #include	<sys/un.h>
 #include	<sys/resource.h>
 #include	<sys/vfs.h>
+#include	<sys/mman.h>
 #include	<linux/magic.h>
 #include	<poll.h>
 #include	<ctype.h>
@@ -2333,4 +2334,52 @@ void set_hooks(void)
 {
 	set_dlm_hooks();
 	set_cmap_hooks();
+}
+
+int zero_disk_range(int fd, unsigned long long sector, size_t count)
+{
+	int ret = 0;
+	int fd_zero;
+	void *addr = NULL;
+	size_t written = 0;
+	size_t len = count * 512;
+	ssize_t n;
+
+	fd_zero = open("/dev/zero", O_RDONLY);
+	if (fd_zero < 0) {
+		pr_err("Cannot open /dev/zero\n");
+		return -1;
+	}
+
+	if (lseek64(fd, sector * 512, SEEK_SET) < 0) {
+		ret = -errno;
+		pr_err("Failed to seek offset for zeroing\n");
+		goto out;
+	}
+
+	addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd_zero, 0);
+
+	if (addr == MAP_FAILED) {
+		ret = -errno;
+		pr_err("Mapping /dev/zero failed\n");
+		goto out;
+	}
+
+	do {
+		n = write(fd, addr + written, len - written);
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			ret = -errno;
+			pr_err("Zeroing disk range failed\n");
+			break;
+		}
+		written += n;
+	} while (written != len);
+
+	munmap(addr, len);
+
+out:
+	close(fd_zero);
+	return ret;
 }

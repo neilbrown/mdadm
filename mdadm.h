@@ -654,7 +654,7 @@ enum sysfs_read_flags {
  */
 extern int sysfs_open(char *devnm, char *devname, char *attr);
 extern int sysfs_init(struct mdinfo *mdi, int fd, char *devnm);
-extern void sysfs_init_dev(struct mdinfo *mdi, unsigned long devid);
+extern void sysfs_init_dev(struct mdinfo *mdi, dev_t devid);
 extern void sysfs_free(struct mdinfo *sra);
 extern struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options);
 extern int sysfs_attr_match(const char *attr, const char *str);

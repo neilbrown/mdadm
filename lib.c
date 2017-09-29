@@ -61,7 +61,7 @@ int get_mdp_major(void)
 	return mdp_major;
 }
 
-char *devid2kname(int devid)
+char *devid2kname(dev_t devid)
 {
 	char path[30];
 	char link[PATH_MAX];
@@ -73,8 +73,7 @@ char *devid2kname(int devid)
 	 * /sys/dev/block/%d:%d link which must look like
 	 * and take the last component.
 	 */
-	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
-		minor(devid));
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid), minor(devid));
 	n = readlink(path, link, sizeof(link) - 1);
 	if (n > 0) {
 		link[n] = 0;

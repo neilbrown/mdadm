@@ -147,9 +147,9 @@ int cluster_get_dlmlock(int *lockid)
 	}
 
 	snprintf(str, 64, "bitmap%s", cluster_name);
-	ret = dlm_hooks->ls_lock(dlm_lock_res->ls, LKM_PWMODE, &dlm_lock_res->lksb,
-			  flags, str, strlen(str), 0, dlm_ast,
-			  dlm_lock_res, NULL, NULL);
+	ret = dlm_hooks->ls_lock(dlm_lock_res->ls, LKM_PWMODE,
+				 &dlm_lock_res->lksb, flags, str, strlen(str),
+				 0, dlm_ast, dlm_lock_res, NULL, NULL);
 	if (ret) {
 		pr_err("error %d when get PW mode on lock %s\n", errno, str);
 		dlm_hooks->release_lockspace(cluster_name, dlm_lock_res->ls, 1);
@@ -183,7 +183,8 @@ int cluster_release_dlmlock(int lockid)
 
 	errno =	dlm_lock_res->lksb.sb_status;
 	if (errno != EUNLOCK) {
-		pr_err("error %d happened in ast when unlock lockspace\n", errno);
+		pr_err("error %d happened in ast when unlock lockspace\n",
+		       errno);
 		/* XXX make sure the lockspace is unlocked eventually */
                 goto out;
 	}
@@ -639,14 +640,16 @@ char *__fname_from_uuid(int id[4], int swap, char *buf, char sep)
 
 }
 
-char *fname_from_uuid(struct supertype *st, struct mdinfo *info, char *buf, char sep)
+char *fname_from_uuid(struct supertype *st, struct mdinfo *info,
+		      char *buf, char sep)
 {
 	// dirty hack to work around an issue with super1 superblocks...
 	// super1 superblocks need swapuuid set in order for assembly to
 	// work, but can't have it set if we want this printout to match
 	// all the other uuid printouts in super1.c, so we force swapuuid
 	// to 1 to make our printout match the rest of super1
-	return __fname_from_uuid(info->uuid, (st->ss == &super1) ? 1 : st->ss->swapuuid, buf, sep);
+	return __fname_from_uuid(info->uuid, (st->ss == &super1) ? 1 :
+				 st->ss->swapuuid, buf, sep);
 }
 
 int check_ext2(int fd, char *name)
@@ -1084,9 +1087,11 @@ int dev_open(char *dev, int flags)
 		}
 		if (fd < 0) {
 			/* Try /tmp as /dev appear to be read-only */
-			snprintf(devname, sizeof(devname), "/tmp/.tmp.md.%d:%d:%d",
+			snprintf(devname, sizeof(devname),
+				 "/tmp/.tmp.md.%d:%d:%d",
 				 (int)getpid(), major, minor);
-			if (mknod(devname, S_IFBLK|0600, makedev(major, minor)) == 0) {
+			if (mknod(devname, S_IFBLK|0600,
+				  makedev(major, minor)) == 0) {
 				fd = open(devname, flags);
 				unlink(devname);
 			}
@@ -2261,8 +2266,10 @@ void set_cmap_hooks(void)
 	if (!cmap_hooks->cmap_handle)
 		return;
 
-	cmap_hooks->initialize = dlsym(cmap_hooks->cmap_handle, "cmap_initialize");
-	cmap_hooks->get_string = dlsym(cmap_hooks->cmap_handle, "cmap_get_string");
+	cmap_hooks->initialize =
+		dlsym(cmap_hooks->cmap_handle, "cmap_initialize");
+	cmap_hooks->get_string =
+		dlsym(cmap_hooks->cmap_handle, "cmap_get_string");
 	cmap_hooks->finalize = dlsym(cmap_hooks->cmap_handle, "cmap_finalize");
 
 	if (!cmap_hooks->initialize || !cmap_hooks->get_string ||
@@ -2305,8 +2312,10 @@ void set_dlm_hooks(void)
 	if (!dlm_hooks->dlm_handle)
 		return;
 
-	dlm_hooks->create_lockspace = dlsym(dlm_hooks->dlm_handle, "dlm_create_lockspace");
-	dlm_hooks->release_lockspace = dlsym(dlm_hooks->dlm_handle, "dlm_release_lockspace");
+	dlm_hooks->create_lockspace =
+		dlsym(dlm_hooks->dlm_handle, "dlm_create_lockspace");
+	dlm_hooks->release_lockspace =
+		dlsym(dlm_hooks->dlm_handle, "dlm_release_lockspace");
 	dlm_hooks->ls_lock = dlsym(dlm_hooks->dlm_handle, "dlm_ls_lock");
 	dlm_hooks->ls_unlock = dlsym(dlm_hooks->dlm_handle, "dlm_ls_unlock");
 	dlm_hooks->ls_get_fd = dlsym(dlm_hooks->dlm_handle, "dlm_ls_get_fd");

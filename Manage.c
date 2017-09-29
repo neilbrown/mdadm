@@ -1367,7 +1367,7 @@ int Manage_subdevs(char *devname, int fd,
 	}
 
 	for (dv = devlist; dv; dv = dv->next) {
-		unsigned long rdev = 0; /* device to add/remove etc */
+		dev_t rdev = 0; /* device to add/remove etc */
 		int rv;
 		int mj,mn;
 

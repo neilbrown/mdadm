@@ -3502,6 +3502,9 @@ static void getinfo_super_imsm(struct supertype *st, struct mdinfo *info, char *
 			__u32 ord = get_imsm_ord_tbl_ent(dev, j, MAP_0);
 			__u32 idx = ord_to_idx(ord);
 
+			if (super->disks && super->disks->index == (int)idx)
+				info->disk.raid_disk = j;
+
 			if (!(ord & IMSM_ORD_REBUILD) &&
 			    get_imsm_missing(super, idx)) {
 				missing = 1;

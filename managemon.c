@@ -129,6 +129,8 @@ static void close_aa(struct active_array *aa)
 		close(aa->metadata_fd);
 	if (aa->sync_completed_fd >= 0)
 		close(aa->sync_completed_fd);
+	if (aa->safe_mode_delay_fd >= 0)
+		close(aa->safe_mode_delay_fd);
 }
 
 static void free_aa(struct active_array *aa)
@@ -532,9 +534,15 @@ static void manage_member(struct mdstat_ent *mdstat,
 	if (a->container == NULL)
 		return;
 
-	if (sigterm && a->info.safe_mode_delay != 1) {
-		sysfs_set_safemode(&a->info, 1);
-		a->info.safe_mode_delay = 1;
+	if (sigterm && a->info.safe_mode_delay != 1 &&
+	    a->safe_mode_delay_fd >= 0) {
+		long int new_delay = 1;
+		char delay[10];
+		ssize_t len;
+
+		len = snprintf(delay, sizeof(delay), "0.%03ld\n", new_delay);
+		if (write(a->safe_mode_delay_fd, delay, len) == len)
+			a->info.safe_mode_delay = new_delay;
 	}
 
 	/* We don't check the array while any update is pending, as it
@@ -734,6 +742,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->resync_start_fd = sysfs_open2(new->info.sys_name, NULL, "resync_start");
 	new->metadata_fd = sysfs_open2(new->info.sys_name, NULL, "metadata_version");
 	new->sync_completed_fd = sysfs_open2(new->info.sys_name, NULL, "sync_completed");
+	new->safe_mode_delay_fd = sysfs_open2(new->info.sys_name, NULL,
+					      "safe_mode_delay");
 
 	dprintf("inst: %s action: %d state: %d\n", inst,
 		new->action_fd, new->info.state_fd);

@@ -85,6 +85,7 @@ MDMON_DIR = $(RUN_DIR)
 # place for autoreplace cookies
 FAILED_SLOTS_DIR = $(RUN_DIR)/failed-slots
 SYSTEMD_DIR=/lib/systemd/system
+LIB_DIR=/usr/libexec/mdadm
 
 COROSYNC:=$(shell [ -d /usr/include/corosync ] || echo -DNO_COROSYNC)
 DLM:=$(shell [ -f /usr/include/libdlm.h ] || echo -DNO_DLM)
@@ -280,7 +281,7 @@ install-systemd: systemd/mdmon@.service
 	   $(INSTALL) -D -m 755  .install.tmp.3 $(DESTDIR)$(SYSTEMD_DIR)-shutdown/$$file ; \
 	   rm -f .install.tmp.3; \
 	done
-	if [ -f /etc/SuSE-release -o -n "$(SUSE)" ] ;then $(INSTALL) -D -m 755 systemd/SUSE-mdadm_env.sh $(DESTDIR)$(SYSTEMD_DIR)/../scripts/mdadm_env.sh ;fi
+	if [ -f /etc/SuSE-release -o -n "$(SUSE)" ] ;then $(INSTALL) -D -m 755 systemd/SUSE-mdadm_env.sh $(DESTDIR)$(LIB_DIR)/mdadm_env.sh ;fi
 
 uninstall:
 	rm -f $(DESTDIR)$(MAN8DIR)/mdadm.8 $(DESTDIR)$(MAN8DIR)/mdmon.8 $(DESTDIR)$(MAN4DIR)/md.4 $(DESTDIR)$(MAN5DIR)/mdadm.conf.5 $(DESTDIR)$(BINDIR)/mdadm

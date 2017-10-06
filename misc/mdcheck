@@ -66,7 +66,7 @@ shift
 
 # We need a temp file occasionally...
 tmp=/var/lib/mdcheck/.md-check-$$
-trap 'rm -f "$tmp"' 0
+trap 'rm -f "$tmp"' 0 2 3 15
 
 
 # firstly, clean out really old state files

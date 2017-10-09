@@ -244,7 +244,7 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					ent->resync = 0;
 			} else if (ent->percent == RESYNC_NONE &&
 				   (w[0] == 'r' || w[0] == 'c')) {
-				if (strncmp(w, "resync", 4) == 0)
+				if (strncmp(w, "resync", 6) == 0)
 					ent->resync = 1;
 				if (strncmp(w, "reshape", 7) == 0)
 					ent->resync = 2;

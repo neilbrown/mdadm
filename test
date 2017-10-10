@@ -320,6 +320,13 @@ check() {
 		grep -sq "inactive" /proc/mdstat ||
 			die "array is not inactive!"
 		;;
+	# It only can be used when there is only one raid
+	chunk )
+		chunk_size=`awk -F',' '/chunk/{print $2}' /proc/mdstat | awk -F'[a-z]' '{print $1}'`
+		if [ "$chunk_size" -ne "$2" ] ; then
+			die "chunksize should be $2, but it's $chunk_size"
+		fi
+		;;
 	* )
 		die "unknown check $1"
 		;;

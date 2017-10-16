@@ -100,6 +100,31 @@ void make_parts(char *dev, int cnt)
 	free(name);
 }
 
+int create_named_array(char *devnm)
+{
+	int fd;
+	int n = -1;
+	static const char new_array_file[] = {
+		"/sys/module/md_mod/parameters/new_array"
+	};
+
+	fd = open(new_array_file, O_WRONLY);
+	if (fd < 0 && errno == ENOENT) {
+		if (system("modprobe md_mod") == 0)
+			fd = open(new_array_file, O_WRONLY);
+	}
+	if (fd >= 0) {
+		n = write(fd, devnm, strlen(devnm));
+		close(fd);
+	}
+	if (fd < 0 || n != (int)strlen(devnm)) {
+		pr_err("Fail create %s when using %s\n", devnm, new_array_file);
+		return 0;
+	}
+
+	return 1;
+}
+
 /*
  * We need a new md device to assemble/build/create an array.
  * 'dev' is a name given us by the user (command line or mdadm.conf)
@@ -306,37 +331,19 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 	devnm[0] = 0;
 	if (num < 0 && cname && ci->names) {
-		int fd;
-		int n = -1;
 		sprintf(devnm, "md_%s", cname);
 		if (block_udev)
 			udev_block(devnm);
-		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
-		if (fd < 0 && errno == ENOENT) {
-			system("modprobe md_mod");
-			fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
-		}
-		if (fd >= 0) {
-			n = write(fd, devnm, strlen(devnm));
-			close(fd);
-		}
-		if (n < 0) {
+		if (!create_named_array(devnm)) {
 			devnm[0] = 0;
 			udev_unblock();
 		}
 	}
 	if (num >= 0) {
-		int fd;
-		int n = -1;
 		sprintf(devnm, "md%d", num);
 		if (block_udev)
 			udev_block(devnm);
-		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
-		if (fd >= 0) {
-			n = write(fd, devnm, strlen(devnm));
-			close(fd);
-		}
-		if (n < 0) {
+		if (!create_named_array(devnm)) {
 			devnm[0] = 0;
 			udev_unblock();
 		}

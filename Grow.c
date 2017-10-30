@@ -359,6 +359,12 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 
 		ncopies = (array.layout & 255) * ((array.layout >> 8) & 255);
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
+
+		if (strcmp(s->bitmap_file, "clustered") == 0 &&
+		    !is_near_layout_10(array.layout)) {
+			pr_err("only near layout is supported with clustered raid10\n");
+			return 1;
+		}
 	}
 
 	st = super_by_fd(fd, &subarray);

@@ -397,6 +397,17 @@ unsigned long long parse_size(char *size)
 	return s;
 }
 
+int is_near_layout_10(int layout)
+{
+	int fc, fo;
+
+	fc = (layout >> 8) & 255;
+	fo = layout & (1 << 16);
+	if (fc > 1 || fo > 0)
+		return 0;
+	return 1;
+}
+
 int parse_layout_10(char *layout)
 {
 	int copies, rv;

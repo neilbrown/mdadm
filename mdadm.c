@@ -1542,8 +1542,13 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (s.level != 1) {
-				pr_err("--bitmap=clustered is currently supported with RAID mirror only\n");
+			if (s.level != 1 && s.level != 10) {
+				pr_err("--bitmap=clustered is currently supported with raid1/10 only\n");
+				rv = 1;
+				break;
+			}
+			if (s.level == 10 && !is_near_layout_10(s.layout)) {
+				pr_err("only near layout is supported with clustered raid10\n");
 				rv = 1;
 				break;
 			}

@@ -870,7 +870,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		struct supertype *st2;
 		struct domainlist *dl = NULL;
 		struct mdinfo *sra;
-		unsigned long long devsize;
+		unsigned long long devsize, freesize = 0;
 		struct spare_criteria sc = {0, 0};
 
 		if (is_subarray(mp->metadata))
@@ -942,10 +942,13 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			close(mdfd);
 		}
 		if ((sra->component_size > 0 &&
-		     st2->ss->avail_size(st2, devsize,
-					 sra->devs ? sra->devs->data_offset :
-					 INVALID_SECTORS) <
-		     sra->component_size) ||
+		     st2->ss->validate_geometry(st2, sra->array.level, sra->array.layout,
+						sra->array.raid_disks, &sra->array.chunk_size,
+						sra->component_size,
+						sra->devs ? sra->devs->data_offset : INVALID_SECTORS,
+						devname, &freesize, sra->consistency_policy,
+						0) &&
+		     freesize < sra->component_size) ||
 		    (sra->component_size == 0 && devsize < sc.min_size)) {
 			if (verbose > 1)
 				pr_err("not adding %s to %s as it is too small\n",
@@ -1265,7 +1268,7 @@ static int try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 	 * what arrays might be candidates.
 	 */
 	if (st) {
-		/* just try try 'array' or 'partition' based on this metadata */
+		/* just try to add 'array' or 'partition' based on this metadata */
 		if (st->ss->add_to_super)
 			return array_try_spare(devname, dfdp, pol, target, bare,
 					       st, verbose);

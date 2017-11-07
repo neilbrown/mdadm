@@ -307,6 +307,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		dev->disk.raid_disk = strtoul(buf, &ep, 10);
 		if (*ep) dev->disk.raid_disk = -1;
 
+		sra->array.nr_disks++;
 		strcpy(dbase, "block/dev");
 		if (load_sys(fname, buf, sizeof(buf))) {
 			/* assume this is a stale reference to a hot
@@ -315,7 +316,6 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			free(dev);
 			continue;
 		}
-		sra->array.nr_disks++;
 		sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
 
 		/* special case check for block devices that can go 'offline' */

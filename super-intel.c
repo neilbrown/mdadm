@@ -4500,8 +4500,7 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 				hba = hba->next;
 			}
 			fprintf(stderr, ").\n"
-				"    Mixing devices attached to different %s is not allowed.\n",
-				hba_name->type == SYS_DEV_VMD ? "VMD domains" : "controllers");
+				"    Mixing devices attached to different controllers is not allowed.\n");
 		}
 		return 2;
 	}

@@ -1342,6 +1342,20 @@ static unsigned long long round_size_to_mb(unsigned long long size, unsigned int
 	return size;
 }
 
+static int able_to_resync(int raid_level, int missing_disks)
+{
+	int max_missing_disks = 0;
+
+	switch (raid_level) {
+	case 10:
+		max_missing_disks = 1;
+		break;
+	default:
+		max_missing_disks = 0;
+	}
+	return missing_disks <= max_missing_disks;
+}
+
 /* try to determine how much space is reserved for metadata from
  * the last get_extents() entry on the smallest active disk,
  * otherwise fallback to the default
@@ -7645,6 +7659,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		int slot;
 		int chunk;
 		char *ep;
+		int level;
 
 		if (subarray &&
 		    (i != strtoul(subarray, &ep, 10) || *ep != '\0'))
@@ -7653,6 +7668,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		dev = get_imsm_dev(super, i);
 		map = get_imsm_map(dev, MAP_0);
 		map2 = get_imsm_map(dev, MAP_1);
+		level = get_imsm_raid_level(map);
 
 		/* do not publish arrays that are in the middle of an
 		 * unsupported migration
@@ -7675,8 +7691,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 		chunk = __le16_to_cpu(map->blocks_per_strip) >> 1;
 		/* mdadm does not support all metadata features- set the bit in all arrays state */
 		if (!validate_geometry_imsm_orom(super,
-						 get_imsm_raid_level(map), /* RAID level */
-						 imsm_level_to_layout(get_imsm_raid_level(map)),
+						 level, /* RAID level */
+						 imsm_level_to_layout(level),
 						 map->num_members, /* raid disks */
 						 &chunk, join_u32(dev->size_low, dev->size_high),
 						 1 /* verbose */)) {
@@ -7700,6 +7716,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 			int idx;
 			int skip;
 			__u32 ord;
+			int missing = 0;
 
 			skip = 0;
 			idx = get_imsm_disk_idx(dev, slot, MAP_0);
@@ -7713,19 +7730,27 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				skip = 1;
 			if (d && is_failed(&d->disk))
 				skip = 1;
-			if (ord & IMSM_ORD_REBUILD)
+			if (!skip && (ord & IMSM_ORD_REBUILD))
 				recovery_start = 0;
 
 			/*
 			 * if we skip some disks the array will be assmebled degraded;
 			 * reset resync start to avoid a dirty-degraded
 			 * situation when performing the intial sync
-			 *
-			 * FIXME handle dirty degraded
 			 */
-			if ((skip || recovery_start == 0) &&
-			    !(dev->vol.dirty & RAIDVOL_DIRTY))
-				this->resync_start = MaxSector;
+			if (skip)
+				missing++;
+
+			if (!(dev->vol.dirty & RAIDVOL_DIRTY)) {
+				if ((!able_to_resync(level, missing) ||
+				     recovery_start == 0))
+					this->resync_start = MaxSector;
+			} else {
+				/*
+				 * FIXME handle dirty degraded
+				 */
+			}
+
 			if (skip)
 				continue;
 

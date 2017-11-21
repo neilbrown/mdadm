@@ -1395,7 +1395,7 @@ extern int Kill(char *dev, struct supertype *st, int force, int verbose, int noe
 extern int Kill_subarray(char *dev, char *subarray, int verbose);
 extern int Update_subarray(char *dev, char *subarray, char *update, struct mddev_ident *ident, int quiet);
 extern int Wait(char *dev);
-extern int WaitClean(char *dev, int sock, int verbose);
+extern int WaitClean(char *dev, int verbose);
 extern int SetAction(char *dev, char *action);
 
 extern int Incremental(struct mddev_dev *devlist, struct context *c,

@@ -1863,7 +1863,7 @@ static int misc_scan(char devmode, struct context *c)
 			if (devmode == 'D')
 				rv |= Detail(name, c);
 			else
-				rv |= WaitClean(name, -1, c->verbose);
+				rv |= WaitClean(name, c->verbose);
 			put_md_name(name);
 		}
 	}
@@ -1954,7 +1954,7 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= Wait(dv->devname);
 			continue;
 		case Waitclean:
-			rv |= WaitClean(dv->devname, -1, c->verbose);
+			rv |= WaitClean(dv->devname, c->verbose);
 			continue;
 		case KillSubarray:
 			rv |= Kill_subarray(dv->devname, c->subarray, c->verbose);

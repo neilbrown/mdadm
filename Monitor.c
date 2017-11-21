@@ -1058,7 +1058,7 @@ int Wait(char *dev)
 static char *clean_states[] = {
 	"clear", "inactive", "readonly", "read-auto", "clean", NULL };
 
-int WaitClean(char *dev, int sock, int verbose)
+int WaitClean(char *dev, int verbose)
 {
 	int fd;
 	struct mdinfo *mdi;
@@ -1125,15 +1125,16 @@ int WaitClean(char *dev, int sock, int verbose)
 		}
 		if (rv < 0)
 			rv = 1;
-		else if (fping_monitor(sock) == 0 ||
-			 ping_monitor(mdi->text_version) == 0) {
+		else if (ping_monitor(mdi->text_version) == 0) {
 			/* we need to ping to close the window between array
 			 * state transitioning to clean and the metadata being
 			 * marked clean
 			 */
 			rv = 0;
-		} else
+		} else {
 			rv = 1;
+			pr_err("Error connecting monitor with %s\n", dev);
+		}
 		if (rv && verbose)
 			pr_err("Error waiting for %s to be clean\n", dev);
 

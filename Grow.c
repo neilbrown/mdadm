@@ -1815,7 +1815,7 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
-	if (array.level > 1 && s->size > 0 &&
+	if (array.level > 1 && s->size > 1 &&
 	    (array.chunk_size / 1024) > (int)s->size) {
 		pr_err("component size must be larger than chunk size.\n");
 		return 1;

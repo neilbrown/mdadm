@@ -266,9 +266,7 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 {
 	int dfd;
 	char nm[20];
-	struct supertype *st2;
 	struct metadata_update *update = NULL;
-	struct mdinfo info;
 	mdu_disk_info_t dk = {
 		.number = -1,
 		.major = sd->disk.major,
@@ -286,25 +284,6 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	dfd = dev_open(nm, O_RDWR);
 	if (dfd < 0)
 		return;
-
-	/* Check the metadata and see if it is already part of this
-	 * array
-	 */
-	st2 = dup_super(st);
-	if (st2->ss->load_super(st2, dfd, NULL) == 0) {
-		st2->ss->getinfo_super(st2, &info, NULL);
-		if (st->ss->compare_super(st, st2) == 0 &&
-		    info.disk.raid_disk >= 0) {
-			/* Looks like a good member of array.
-			 * Just accept it.
-			 * mdadm will incorporate any parts into
-			 * active arrays.
-			 */
-			st2->ss->free_super(st2);
-			return;
-		}
-	}
-	st2->ss->free_super(st2);
 
 	st->update_tail = &update;
 	st->ss->add_to_super(st, &dk, dfd, NULL, INVALID_SECTORS);

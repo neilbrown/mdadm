@@ -661,6 +661,7 @@ int domain_test(struct domainlist *dom, struct dev_policy *pol,
 	 *  1:  has domains, all match
 	 */
 	int found_any = -1;
+	int has_one_domain = 1;
 	struct dev_policy *p;
 
 	pol = pol_find(pol, pol_domain);
@@ -670,6 +671,9 @@ int domain_test(struct domainlist *dom, struct dev_policy *pol,
 			dom = dom->next;
 		if (!dom || strcmp(dom->dom, p->value) != 0)
 			return 0;
+		if (has_one_domain && metadata && strcmp(metadata, "imsm") == 0)
+			found_any = -1;
+		has_one_domain = 0;
 	}
 	return found_any;
 }

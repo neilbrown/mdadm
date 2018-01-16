@@ -59,16 +59,11 @@ save_log() {
 	cp $targetdir/log $logdir/$_basename.log
 	echo "## $HOSTNAME: saving dmesg." >> $logdir/$logfile
 	dmesg -c >> $logdir/$logfile
-	$mdadm -As 2> /dev/null
 	echo "## $HOSTNAME: saving proc mdstat." >> $logdir/$logfile
 	cat /proc/mdstat >> $logdir/$logfile
 	array=($(mdadm -Ds | cut -d' ' -f2))
-	echo "## $HOSTNAME: mdadm -D ${array[@]}" >> $logdir/$logfile
-	$mdadm -D ${array[@]} >> $logdir/$logfile
 	[ "$1" == "fail" ] &&
 		echo "FAILED - see $logdir/$_basename.log and $logdir/$logfile for details"
-	# ignore saving external(external file, imsm...) bitmap
-	cat /proc/mdstat | grep -q "linear\|external" && return 0
 	if [ $DEVTYPE == 'lvm' ]
 	then
 		# not supported lvm type yet
@@ -77,6 +72,10 @@ save_log() {
 	then
 		if [ ! -z "$array" -a ${#array[@]} -ge 1 ]
 		then
+			echo "## $HOSTNAME: mdadm -D ${array[@]}" >> $logdir/$logfile
+			$mdadm -D ${array[@]} >> $logdir/$logfile
+			# ignore saving external(external file, imsm...) bitmap
+			cat /proc/mdstat | grep -q "linear\|external" && return 0
 			md_disks=($($mdadm -D -Y ${array[@]} | grep "/dev/" | cut -d'=' -f2))
 			cat /proc/mdstat | grep -q "bitmap"
 			if [ $? -eq 0 ]

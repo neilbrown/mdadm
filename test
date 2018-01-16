@@ -1,14 +1,12 @@
 #!/bin/bash
 #
 # run test suite for mdadm
-
-. tests/func.sh
-
 mdadm=$PWD/mdadm
-testdir="tests"
 targetdir="/var/tmp"
 logdir="$targetdir"
 config=/tmp/mdadm.conf
+testdir=
+devlist=
 
 savelogs=0
 exitonerror=1
@@ -114,6 +112,7 @@ do_help() {
 	Example for disk mode: ./test --dev=disk --disks=/dev/sda{2..15}
 	Options:
 		--tests=test1,test2,...     Comma separated list of tests to run
+		--testdir=                  Specify testdir as tests|clustermd_tests
 		--raidtype=                 raid0|linear|raid1|raid456|raid10|ddf|imsm
 		--disable-multipath         Disable any tests involving multipath
 		--disable-integrity         Disable slow tests of RAID[56] consistency
@@ -134,6 +133,29 @@ parse_args() {
 	for i in $*
 	do
 		case $i in
+		--testdir=* )
+			case ${i##*=} in
+			tests )
+				testdir=tests
+			;;
+			clustermd_tests )
+				testdir=clustermd_tests
+				CLUSTER_CONF="$PWD/$testdir/cluster_conf"
+			;;
+			* )
+				echo "Unknown argument: $i"
+				do_help
+				exit 1
+			;;
+			esac
+		;;
+		esac
+	done
+	[ -z "$testdir" ] && testdir=tests
+	. $testdir/func.sh
+	for i in $*
+	do
+		case $i in
 		[0-9][0-9] )
 			prefix=$i
 			;;
@@ -146,6 +168,8 @@ parse_args() {
 		cleanup )
 			cleanup
 			exit 0
+			;;
+		--testdir=* )
 			;;
 		--tests=* )
 			TESTLIST=($(echo ${i##*=} | sed -e 's/,/ /g'))

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-CLUSTER_CONF=$PWD/cluster_conf
-
 check_ssh()
 {
 	NODE1="$(grep '^NODE1' $CLUSTER_CONF | cut -d'=' -f2)"

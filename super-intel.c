@@ -2369,6 +2369,8 @@ static void print_imsm_capability(const struct imsm_orom *orom)
 	printf("       Platform : Intel(R) ");
 	if (orom->capabilities == 0 && orom->driver_features == 0)
 		printf("Matrix Storage Manager\n");
+	else if (imsm_orom_is_enterprise(orom) && orom->major_ver >= 6)
+		printf("Virtual RAID on CPU\n");
 	else
 		printf("Rapid Storage Technology%s\n",
 			imsm_orom_is_enterprise(orom) ? " enterprise" : "");

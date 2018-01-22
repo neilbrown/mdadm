@@ -1604,6 +1604,7 @@ struct dlm_hooks {
 
 	dlm_lshandle_t (*create_lockspace)(const char *name,
 					   unsigned int mode);
+	dlm_lshandle_t (*open_lockspace)(const char *name);
 	int (*release_lockspace)(const char *name, dlm_lshandle_t ls,
 				 int force);
 	int (*ls_lock)(dlm_lshandle_t lockspace, uint32_t mode,
@@ -1612,17 +1613,16 @@ struct dlm_hooks {
 		       uint32_t parent, void (*astaddr) (void *astarg),
 		       void *astarg, void (*bastaddr) (void *astarg),
 		       void *range);
-	int (*ls_unlock)(dlm_lshandle_t lockspace, uint32_t lkid,
-			 uint32_t flags, struct dlm_lksb *lksb,
-			 void *astarg);
+	int (*ls_unlock_wait)(dlm_lshandle_t lockspace, uint32_t lkid,
+			      uint32_t flags, struct dlm_lksb *lksb);
 	int (*ls_get_fd)(dlm_lshandle_t ls);
 	int (*dispatch)(int fd);
 };
 
 extern int get_cluster_name(char **name);
 extern int dlm_funs_ready(void);
-extern int cluster_get_dlmlock(int *lockid);
-extern int cluster_release_dlmlock(int lockid);
+extern int cluster_get_dlmlock(void);
+extern int cluster_release_dlmlock(void);
 extern void set_dlm_hooks(void);
 
 #define _ROUND_UP(val, base)	(((val) + (base) - 1) & ~(base - 1))

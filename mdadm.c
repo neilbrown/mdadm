@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
 	struct mddev_dev *devlist = NULL;
 	struct mddev_dev **devlistend = & devlist;
 	struct mddev_dev *dv;
+	mdu_array_info_t array;
 	int devs_found = 0;
 	char *symlinks = NULL;
 	int grow_continue = 0;
@@ -103,6 +104,7 @@ int main(int argc, char *argv[])
 	FILE *outf;
 
 	int mdfd = -1;
+	int locked = 0;
 
 	srandom(time(0) ^ getpid());
 
@@ -1434,6 +1436,22 @@ int main(int argc, char *argv[])
 		/* --scan implied --brief unless -vv */
 		c.brief = 1;
 
+	if (mode == CREATE) {
+		if (s.bitmap_file && strcmp(s.bitmap_file, "clustered") == 0) {
+			locked = cluster_get_dlmlock();
+			if (locked != 1)
+				exit(1);
+		}
+	} else if (mode == MANAGE || mode == GROW || mode == INCREMENTAL) {
+		if (!md_get_array_info(mdfd, &array) && (devmode != 'c')) {
+			if (array.state & (1 << MD_SB_CLUSTERED)) {
+				locked = cluster_get_dlmlock();
+				if (locked != 1)
+					exit(1);
+			}
+		}
+	}
+
 	switch(mode) {
 	case MANAGE:
 		/* readonly, add/remove, readwrite, runstop */
@@ -1739,6 +1757,8 @@ int main(int argc, char *argv[])
 		autodetect();
 		break;
 	}
+	if (locked)
+		cluster_release_dlmlock();
 	if (mdfd > 0)
 		close(mdfd);
 	exit(rv);

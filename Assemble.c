@@ -1344,6 +1344,9 @@ int Assemble(struct supertype *st, char *mddev,
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
 	struct map_ent *mp;
+	int locked = 0;
+	struct mdp_superblock_1 *sb;
+	bitmap_super_t *bms;
 
 	/*
 	 * If any subdevs are listed, then any that don't
@@ -1374,6 +1377,12 @@ try_again:
 	 * set of devices failed.  Those are now marked as ->used==2 and
 	 * we ignore them and try again
 	 */
+	if (locked)
+		/*
+		 * if come back try_again is called, then need to unlock first,
+		 * and lock again since the metadate is re-read.
+		 */
+		cluster_release_dlmlock();
 	if (!st && ident->st)
 		st = ident->st;
 	if (c->verbose>0)
@@ -1390,6 +1399,14 @@ try_again:
 
 	if (!st || !st->sb || !content)
 		return 2;
+
+	sb = st->sb;
+	bms = (bitmap_super_t*)(((char*)sb) + 4096);
+	if (sb && bms->version == BITMAP_MAJOR_CLUSTERED) {
+		locked = cluster_get_dlmlock();
+		if (locked != 1)
+			return 1;
+	}
 
 	/* We have a full set of devices - we now need to find the
 	 * array device.
@@ -1417,6 +1434,8 @@ try_again:
 			pr_err("Found some drive for an array that is already active: %s\n",
 			       mp->path);
 			pr_err("giving up.\n");
+			if (locked == 1)
+				cluster_release_dlmlock();
 			return 1;
 		}
 		for (dv = pre_exist->devs; dv; dv = dv->next) {
@@ -1490,6 +1509,8 @@ try_again:
 		st->ss->free_super(st);
 		if (auto_assem)
 			goto try_again;
+		if (locked == 1)
+			cluster_release_dlmlock();
 		return 1;
 	}
 	mddev = chosen_name;
@@ -1509,6 +1530,8 @@ try_again:
 			st->ss->free_super(st);
 			if (auto_assem)
 				goto try_again;
+			if (locked == 1)
+				cluster_release_dlmlock();
 			return 1;
 		}
 		/* just incase it was started but has no content */
@@ -1521,6 +1544,8 @@ try_again:
 		err = assemble_container_content(st, mdfd, content, c,
 						 chosen_name, NULL);
 		close(mdfd);
+		if (locked == 1)
+			cluster_release_dlmlock();
 		return err;
 	}
 
@@ -1530,8 +1555,11 @@ try_again:
 	devcnt = load_devices(devices, devmap, ident, &st, devlist,
 			      c, content, mdfd, mddev,
 			      &most_recent, &bestcnt, &best, inargv);
-	if (devcnt < 0)
+	if (devcnt < 0) {
+		if (locked == 1)
+			cluster_release_dlmlock();
 		return 1;
+	}
 
 	if (devcnt == 0) {
 		pr_err("no devices found for %s\n",
@@ -1878,6 +1906,8 @@ try_again:
 		close(mdfd);
 
 	/* '2' means 'OK, but not started yet' */
+	if (locked == 1)
+		cluster_release_dlmlock();
 	return rv == 2 ? 0 : rv;
 }
 

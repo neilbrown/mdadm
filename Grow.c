@@ -1794,6 +1794,11 @@ int Grow_reshape(char *devname, int fd,
 			devname);
 		return 1;
 	}
+	if (s->level != UnSet && s->chunk) {
+		pr_err("Cannot change array level in the same operation as changing chunk size.\n");
+		return 1;
+	}
+
 	if (data_offset != INVALID_SECTORS && array.level != 10 &&
 	    (array.level < 4 || array.level > 6)) {
 		pr_err("--grow --data-offset not yet supported\n");

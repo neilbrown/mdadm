@@ -475,6 +475,10 @@ int Create(struct supertype *st, char *mddev,
 			close(fd);
 		}
 	}
+	if (missing_disks == dnum) {
+		pr_err("Subdevs can't be all missing\n");
+		return 1;
+	}
 	if (s->raiddisks + s->sparedisks > st->max_devs) {
 		pr_err("Too many devices: %s metadata only supports %d\n",
 			st->ss->name, st->max_devs);

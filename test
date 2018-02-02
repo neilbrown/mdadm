@@ -82,11 +82,9 @@ do_test() {
 	if [ -f "$_script" ]
 	then
 		rm -f $targetdir/stderr
-		# stop all arrays, just incase some script left an array active.
-		$mdadm -Ssq 2> /dev/null
-		mdadm --zero $devlist 2> /dev/null
 		# this might have been reset: restore the default.
 		echo 2000 > /proc/sys/dev/raid/speed_limit_max
+		do_clean
 		# source script in a subshell, so it has access to our
 		# namespace, but cannot change it.
 		echo -ne "$_script... "

@@ -88,6 +88,13 @@ cleanup() {
 	esac
 }
 
+do_clean()
+{
+	mdadm -Ss > /dev/null
+	mdadm --zero $devlist 2> /dev/null
+	dmesg -c > /dev/null
+}
+
 check_env() {
 	user=$(id -un)
 	[ "X$user" != "Xroot" ] && {
@@ -141,7 +148,6 @@ do_setup() {
 
 	check_env
 	[ -d $logdir ] || mkdir -p $logdir
-	dmesg -c > /dev/null
 
 	devlist=
 	if [ "$DEVTYPE" == "loop" ]

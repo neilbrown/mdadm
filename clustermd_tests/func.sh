@@ -196,14 +196,19 @@ do_setup()
 	ulimit -c unlimited
 }
 
-cleanup()
+do_clean()
 {
-	check_ssh
 	for ip in $NODE1 $NODE2
 	do
 		ssh $ip "mdadm -Ssq; dmesg -c > /dev/null"
 	done
 	mdadm --zero ${devlist[@]} &> /dev/null
+}
+
+cleanup()
+{
+	check_ssh
+	do_clean
 }
 
 # check: $1/cluster_node $2/feature $3/optional

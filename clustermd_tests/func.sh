@@ -178,6 +178,8 @@ save_log()
 			then
 				echo "##$ip: mdadm -X ${md_disks[@]}" >> $logdir/$logfile
 				ssh $ip "mdadm -X ${md_disks[@]}" >> $logdir/$logfile
+				echo "##$ip: mdadm -E ${md_disks[@]}" >> $logdir/$logfile
+				ssh $ip "mdadm -E ${md_disks[@]}" >> $logdir/$logfile
 			fi
 		else
 			echo "##$ip: no array assembled!" >> $logdir/$logfile

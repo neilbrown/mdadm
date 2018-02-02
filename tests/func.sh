@@ -55,6 +55,8 @@ save_log() {
 			then
 				echo "## $HOSTNAME: mdadm -X ${md_disks[@]}" >> $logdir/$logfile
 				$mdadm -X ${md_disks[@]} >> $logdir/$logfile
+				echo "## $HOSTNAME: mdadm -E ${md_disks[@]}" >> $logdir/$logfile
+				$mdadm -E ${md_disks[@]} >> $logdir/$logfile
 			fi
 		else
 			echo "## $HOSTNAME: no array assembled!" >> $logdir/$logfile

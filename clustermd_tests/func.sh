@@ -278,8 +278,6 @@ check()
 		bitmap )
 			for ip in ${NODES[@]}
 			do
-				echo $ip
-				ssh $ip cat /proc/mdstat
 				ssh $ip "grep -sq '$2' /proc/mdstat" ||
 					die "$ip: no '$2' found in /proc/mdstat."
 			done

@@ -183,7 +183,7 @@ parse_args() {
 				TESTLIST=($(ls $testdir | grep "linear"))
 				;;
 			raid1 )
-				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r1\|raid1" | grep -vi raid10))
+				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r1\|raid1" | grep -vi "r10\|raid10"))
 				;;
 			raid456 )
 				TESTLIST=($(ls $testdir | grep "[0-9][0-9]r[4-6]\|raid[4-6]"))

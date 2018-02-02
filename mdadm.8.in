@@ -1691,6 +1691,10 @@ overwritten with zeros.  With
 the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
 
+.B Note:
+Be careful to call \-\-zero\-superblock with clustered raid, make sure
+array isn't used or assembled in other cluster node before execute it.
+
 .TP
 .B \-\-kill\-subarray=
 If the device is a container and the argument to \-\-kill\-subarray

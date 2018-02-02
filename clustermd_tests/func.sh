@@ -284,6 +284,13 @@ check()
 					die "$ip: no '$2' found in /proc/mdstat."
 			done
 		;;
+		nobitmap )
+			for ip in ${NODES[@]}
+			do
+				ssh $ip "grep -sq 'bitmap' /proc/mdstat" &&
+					die "$ip: 'bitmap' found in /proc/mdstat."
+			done
+		;;
 		chunk )
 			for ip in ${NODES[@]}
 			do

@@ -5771,7 +5771,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		} else if (super->hba->type == SYS_DEV_VMD && super->orom &&
 		    !imsm_orom_has_tpv_support(super->orom)) {
 			pr_err("\tPlatform configuration does not support non-Intel NVMe drives.\n"
-			       "\tPlease refer to Intel(R) RSTe user guide.\n");
+			       "\tPlease refer to Intel(R) RSTe/VROC user guide.\n");
 			free(dd->devname);
 			free(dd);
 			return 1;

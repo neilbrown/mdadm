@@ -219,6 +219,10 @@ do_setup() {
 # check various things
 check() {
 	case $1 in
+	opposite_result )
+		if [ $? -eq 0 ]; then
+			die "This command shouldn't run successfully"
+		fi
 	spares )
 		spares=$(tr '] ' '\012\012' < /proc/mdstat | grep -c '(S)' || exit 0)
 		[ $spares -ne $2 ] &&

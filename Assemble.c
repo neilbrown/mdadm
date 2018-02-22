@@ -846,7 +846,19 @@ static int force_array(struct mdinfo *content,
 					/* OK */;
 				else
 					continue;
-			}
+			} else if (devices[j].i.reshape_active !=
+			    content->reshape_active ||
+			    (devices[j].i.reshape_active &&
+			    devices[j].i.reshape_progress !=
+			    content->reshape_progress))
+				/* Here, it may be a source of data. If two
+				 * devices claim different progresses, it
+				 * means that reshape boundaries differ for
+				 * their own devices. Kernel will only treat
+				 * the first one as reshape progress and
+				 * go on. It may cause disaster, so avoid it.
+				 */
+				continue;
 			if (chosen_drive < 0 ||
 			     devices[j].i.events
 			    > devices[chosen_drive].i.events)
@@ -908,7 +920,13 @@ static int force_array(struct mdinfo *content,
 			if (j >= 0 &&
 			    !devices[j].uptodate &&
 			    devices[j].i.recovery_start == MaxSector &&
-			    devices[j].i.events == current_events) {
+			    devices[j].i.events == current_events &&
+			    ((!devices[j].i.reshape_active &&
+			    !content->reshape_active) ||
+			    (devices[j].i.reshape_active ==
+			    content->reshape_active &&
+			    devices[j].i.reshape_progress ==
+			    content->reshape_progress))) {
 				chosen_drive = j;
 				goto add_another;
 			}

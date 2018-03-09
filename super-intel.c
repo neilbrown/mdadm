@@ -6076,6 +6076,30 @@ static int mgmt_disk(struct supertype *st)
 
 __u32 crc32c_le(__u32 crc, unsigned char const *p, size_t len);
 
+static int write_ppl_header(unsigned long long ppl_sector, int fd, void *buf)
+{
+	struct ppl_header *ppl_hdr = buf;
+	int ret;
+
+	ppl_hdr->checksum = __cpu_to_le32(~crc32c_le(~0, buf, PPL_HEADER_SIZE));
+
+	if (lseek64(fd, ppl_sector * 512, SEEK_SET) < 0) {
+		ret = -errno;
+		perror("Failed to seek to PPL header location");
+		return ret;
+	}
+
+	if (write(fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
+		ret = -errno;
+		perror("Write PPL header failed");
+		return ret;
+	}
+
+	fsync(fd);
+
+	return 0;
+}
+
 static int write_init_ppl_imsm(struct supertype *st, struct mdinfo *info, int fd)
 {
 	struct intel_super *super = st->sb;
@@ -6091,7 +6115,7 @@ static int write_init_ppl_imsm(struct supertype *st, struct mdinfo *info, int fd
 	ret = posix_memalign(&buf, MAX_SECTOR_SIZE, PPL_HEADER_SIZE);
 	if (ret) {
 		pr_err("Failed to allocate PPL header buffer\n");
-		return ret;
+		return -ret;
 	}
 
 	memset(buf, 0, PPL_HEADER_SIZE);
@@ -6108,33 +6132,22 @@ static int write_init_ppl_imsm(struct supertype *st, struct mdinfo *info, int fd
 		ppl_hdr->entries[0].checksum = ~0;
 	}
 
-	ppl_hdr->checksum = __cpu_to_le32(~crc32c_le(~0, buf, PPL_HEADER_SIZE));
-
-	if (lseek64(fd, info->ppl_sector * 512, SEEK_SET) < 0) {
-		ret = errno;
-		perror("Failed to seek to PPL header location");
-	}
-
-	if (!ret && write(fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
-		ret = errno;
-		perror("Write PPL header failed");
-	}
-
-	if (!ret)
-		fsync(fd);
+	ret = write_ppl_header(info->ppl_sector, fd, buf);
 
 	free(buf);
 	return ret;
 }
+
+static int is_rebuilding(struct imsm_dev *dev);
 
 static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 			     struct mdinfo *disk)
 {
 	struct intel_super *super = st->sb;
 	struct dl *d;
-	void *buf;
+	void *buf_orig, *buf, *buf_prev = NULL;
 	int ret = 0;
-	struct ppl_header *ppl_hdr;
+	struct ppl_header *ppl_hdr = NULL;
 	__u32 crc;
 	struct imsm_dev *dev;
 	__u32 idx;
@@ -6145,33 +6158,36 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 	if (disk->disk.raid_disk < 0)
 		return 0;
 
-	if (posix_memalign(&buf, MAX_SECTOR_SIZE, PPL_HEADER_SIZE)) {
-		pr_err("Failed to allocate PPL header buffer\n");
-		return -1;
-	}
-
 	dev = get_imsm_dev(super, info->container_member);
 	idx = get_imsm_disk_idx(dev, disk->disk.raid_disk, MAP_0);
 	d = get_imsm_dl_disk(super, idx);
 
 	if (!d || d->index < 0 || is_failed(&d->disk))
-		goto out;
+		return 0;
+
+	if (posix_memalign(&buf_orig, MAX_SECTOR_SIZE, PPL_HEADER_SIZE * 2)) {
+		pr_err("Failed to allocate PPL header buffer\n");
+		return -1;
+	}
+	buf = buf_orig;
 
 	ret = 1;
 	while (ppl_offset < MULTIPLE_PPL_AREA_SIZE_IMSM) {
+		void *tmp;
+
 		dprintf("Checking potential PPL at offset: %llu\n", ppl_offset);
 
 		if (lseek64(d->fd, info->ppl_sector * 512 + ppl_offset,
 			    SEEK_SET) < 0) {
 			perror("Failed to seek to PPL header location");
 			ret = -1;
-			goto out;
+			break;
 		}
 
 		if (read(d->fd, buf, PPL_HEADER_SIZE) != PPL_HEADER_SIZE) {
 			perror("Read PPL header failed");
 			ret = -1;
-			goto out;
+			break;
 		}
 
 		ppl_hdr = buf;
@@ -6182,12 +6198,12 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 		if (crc != ~crc32c_le(~0, buf, PPL_HEADER_SIZE)) {
 			dprintf("Wrong PPL header checksum on %s\n",
 				d->devname);
-			goto out;
+			break;
 		}
 
 		if (prev_gen_num > __le64_to_cpu(ppl_hdr->generation)) {
 			/* previous was newest, it was already checked */
-			goto out;
+			break;
 		}
 
 		if ((__le32_to_cpu(ppl_hdr->signature) !=
@@ -6195,7 +6211,7 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 			dprintf("Wrong PPL header signature on %s\n",
 				d->devname);
 			ret = 1;
-			goto out;
+			break;
 		}
 
 		ret = 0;
@@ -6205,10 +6221,18 @@ static int validate_ppl_imsm(struct supertype *st, struct mdinfo *info,
 		for (i = 0; i < __le32_to_cpu(ppl_hdr->entries_count); i++)
 			ppl_offset +=
 				   __le32_to_cpu(ppl_hdr->entries[i].pp_size);
+
+		if (!buf_prev)
+			buf_prev = buf + PPL_HEADER_SIZE;
+		tmp = buf_prev;
+		buf_prev = buf;
+		buf = tmp;
 	}
 
-out:
-	free(buf);
+	if (buf_prev) {
+		buf = buf_prev;
+		ppl_hdr = buf_prev;
+	}
 
 	/*
 	 * Update metadata to use mutliple PPLs area (1MB).
@@ -6246,13 +6270,26 @@ out:
 		if (map->map_state == IMSM_T_STATE_UNINITIALIZED ||
 		   (map->map_state == IMSM_T_STATE_NORMAL &&
 		   !(dev->vol.dirty & RAIDVOL_DIRTY)) ||
-		   (dev->vol.migr_state == MIGR_REBUILD &&
+		   (is_rebuilding(dev) &&
 		    dev->vol.curr_migr_unit == 0 &&
 		    get_imsm_disk_idx(dev, disk->disk.raid_disk, MAP_1) != idx))
 			ret = st->ss->write_init_ppl(st, info, d->fd);
 		else
 			info->mismatch_cnt++;
+	} else if (ret == 0 &&
+		   ppl_hdr->entries_count == 0 &&
+		   is_rebuilding(dev) &&
+		   info->resync_start == 0) {
+		/*
+		 * The header has no entries - add a single empty entry and
+		 * rewrite the header to prevent the kernel from going into
+		 * resync after an interrupted rebuild.
+		 */
+		ppl_hdr->entries_count = __cpu_to_le32(1);
+		ret = write_ppl_header(info->ppl_sector, d->fd, buf);
 	}
+
+	free(buf_orig);
 
 	return ret;
 }

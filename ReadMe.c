@@ -28,10 +28,10 @@
 #include "mdadm.h"
 
 #ifndef VERSION
-#define VERSION "4.0"
+#define VERSION "4.1-rc1"
 #endif
 #ifndef VERS_DATE
-#define VERS_DATE "2017-01-09"
+#define VERS_DATE "2018-03-22"
 #endif
 char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
 

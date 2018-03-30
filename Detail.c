@@ -561,7 +561,6 @@ int Detail(char *dev, struct context *c)
 			printf("    %7s Status : %d%% complete\n",
 			       sync_action[e->resync], e->percent);
 		}
-		free_mdstat(ms);
 
 		if ((st && st->sb) && (info && info->reshape_active)) {
 #if 0
@@ -609,6 +608,8 @@ This is pretty boring
 			printf("\n");
 		} else if (e && e->percent >= 0)
 			printf("\n");
+		free_mdstat(ms);
+
 		if (st && st->sb)
 			st->ss->detail_super(st, c->homehost);
 

@@ -2767,13 +2767,11 @@ static __u32 num_stripes_per_unit_rebuild(struct imsm_dev *dev)
 		return num_stripes_per_unit_resync(dev);
 }
 
-static __u8 imsm_num_data_members(struct imsm_dev *dev, int second_map)
+static __u8 imsm_num_data_members(struct imsm_map *map)
 {
 	/* named 'imsm_' because raid0, raid1 and raid10
 	 * counter-intuitively have the same number of data disks
 	 */
-	struct imsm_map *map = get_imsm_map(dev, second_map);
-
 	switch (get_imsm_raid_level(map)) {
 	case 0:
 		return map->num_members;
@@ -2862,7 +2860,7 @@ static __u64 blocks_per_migr_unit(struct intel_super *super,
 		 */
 		stripes_per_unit = num_stripes_per_unit_resync(dev);
 		migr_chunk = migr_strip_blocks_resync(dev);
-		disks = imsm_num_data_members(dev, MAP_0);
+		disks = imsm_num_data_members(map);
 		blocks_per_unit = stripes_per_unit * migr_chunk * disks;
 		stripe = __le16_to_cpu(map->blocks_per_strip) * disks;
 		segment = blocks_per_unit / stripe;
@@ -3381,7 +3379,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 				(unsigned long long)blocks_per_unit,
 				info->reshape_progress);
 
-			used_disks = imsm_num_data_members(dev, MAP_1);
+			used_disks = imsm_num_data_members(prev_map);
 			if (used_disks > 0) {
 				array_blocks = blocks_per_member(map) *
 					used_disks;
@@ -8140,9 +8138,9 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 static unsigned long long imsm_set_array_size(struct imsm_dev *dev,
 					      long long new_size)
 {
-	int used_disks = imsm_num_data_members(dev, MAP_0);
 	unsigned long long array_blocks;
-	struct imsm_map *map;
+	struct imsm_map *map = get_imsm_map(dev, MAP_0);
+	int used_disks = imsm_num_data_members(map);
 
 	if (used_disks == 0) {
 		/* when problems occures
@@ -8155,17 +8153,15 @@ static unsigned long long imsm_set_array_size(struct imsm_dev *dev,
 
 	/* set array size in metadata
 	 */
-	if (new_size <= 0) {
+	if (new_size <= 0)
 		/* OLCE size change is caused by added disks
 		 */
-		map = get_imsm_map(dev, MAP_0);
 		array_blocks = blocks_per_member(map) * used_disks;
-	} else {
+	else
 		/* Online Volume Size Change
 		 * Using  available free space
 		 */
 		array_blocks = new_size;
-	}
 
 	array_blocks = round_size_to_mb(array_blocks, used_disks);
 	set_imsm_dev_size(dev, array_blocks);
@@ -8274,7 +8270,7 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 				int used_disks;
 				struct mdinfo *mdi;
 
-				used_disks = imsm_num_data_members(dev, MAP_0);
+				used_disks = imsm_num_data_members(map);
 				if (used_disks > 0) {
 					array_blocks =
 						blocks_per_member(map) *
@@ -9132,8 +9128,10 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 			 */
 			if (u->new_chunksize > 0) {
 				unsigned long long num_data_stripes;
+				struct imsm_map *dest_map =
+					get_imsm_map(dev, MAP_0);
 				int used_disks =
-					imsm_num_data_members(dev, MAP_0);
+					imsm_num_data_members(dest_map);
 
 				if (used_disks == 0)
 					return ret_val;
@@ -9210,7 +9208,7 @@ static int apply_size_change_update(struct imsm_update_size_change *u,
 		if (id->index == (unsigned)u->subdev) {
 			struct imsm_dev *dev = get_imsm_dev(super, u->subdev);
 			struct imsm_map *map = get_imsm_map(dev, MAP_0);
-			int used_disks = imsm_num_data_members(dev, MAP_0);
+			int used_disks = imsm_num_data_members(map);
 			unsigned long long blocks_per_member;
 			unsigned long long num_data_stripes;
 
@@ -10589,7 +10587,7 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 		max(map_dest->blocks_per_strip, map_src->blocks_per_strip);
 	migr_rec->dest_depth_per_unit *=
 		max(map_dest->blocks_per_strip, map_src->blocks_per_strip);
-	new_data_disks = imsm_num_data_members(dev, MAP_0);
+	new_data_disks = imsm_num_data_members(map_dest);
 	migr_rec->blocks_per_unit =
 		__cpu_to_le32(migr_rec->dest_depth_per_unit * new_data_disks);
 	migr_rec->dest_depth_per_unit =
@@ -10657,7 +10655,7 @@ int save_backup_imsm(struct supertype *st,
 	int dest_layout = 0;
 	int dest_chunk;
 	unsigned long long start;
-	int data_disks = imsm_num_data_members(dev, MAP_0);
+	int data_disks = imsm_num_data_members(map_dest);
 
 	targets = xmalloc(new_disks * sizeof(int));
 
@@ -11279,6 +11277,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int imsm_layout = -1;
 	int data_disks;
 	struct imsm_dev *dev;
+	struct imsm_map *map;
 	struct intel_super *super;
 	unsigned long long current_size;
 	unsigned long long free_size;
@@ -11369,7 +11368,8 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 
 	super = st->sb;
 	dev = get_imsm_dev(super, super->current_vol);
-	data_disks = imsm_num_data_members(dev , MAP_0);
+	map = get_imsm_map(dev, MAP_0);
+	data_disks = imsm_num_data_members(map);
 	/* compute current size per disk member
 	 */
 	current_size = info.custom_array_size / data_disks;
@@ -11838,7 +11838,7 @@ static int imsm_manage_reshape(
 	struct intel_dev *dv;
 	unsigned int sector_size = super->sector_size;
 	struct imsm_dev *dev = NULL;
-	struct imsm_map *map_src;
+	struct imsm_map *map_src, *map_dest;
 	int migr_vol_qan = 0;
 	int ndata, odata; /* [bytes] */
 	int chunk; /* [bytes] */
@@ -11876,12 +11876,13 @@ static int imsm_manage_reshape(
 		goto abort;
 	}
 
+	map_dest = get_imsm_map(dev, MAP_0);
 	map_src = get_imsm_map(dev, MAP_1);
 	if (map_src == NULL)
 		goto abort;
 
-	ndata = imsm_num_data_members(dev, MAP_0);
-	odata = imsm_num_data_members(dev, MAP_1);
+	ndata = imsm_num_data_members(map_dest);
+	odata = imsm_num_data_members(map_src);
 
 	chunk = __le16_to_cpu(map_src->blocks_per_strip) * 512;
 	old_data_stripe_length = odata * chunk;

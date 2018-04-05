@@ -1201,6 +1201,13 @@ static unsigned long long num_data_stripes(struct imsm_map *map)
 	return join_u32(map->num_data_stripes_lo, map->num_data_stripes_hi);
 }
 
+static unsigned long long imsm_dev_size(struct imsm_dev *dev)
+{
+	if (dev == NULL)
+		return 0;
+	return join_u32(dev->size_low, dev->size_high);
+}
+
 static void set_total_blocks(struct imsm_disk *disk, unsigned long long n)
 {
 	split_ull(n, &disk->total_blocks_lo, &disk->total_blocks_hi);
@@ -1219,6 +1226,11 @@ static void set_blocks_per_member(struct imsm_map *map, unsigned long long n)
 static void set_num_data_stripes(struct imsm_map *map, unsigned long long n)
 {
 	split_ull(n, &map->num_data_stripes_lo, &map->num_data_stripes_hi);
+}
+
+static void set_imsm_dev_size(struct imsm_dev *dev, unsigned long long n)
+{
+	split_ull(n, &dev->size_low, &dev->size_high);
 }
 
 static struct extent *get_extents(struct intel_super *super, struct dl *dl)
@@ -1503,9 +1515,7 @@ static void print_imsm_dev(struct intel_super *super,
 	} else
 		printf("      This Slot : ?\n");
 	printf("    Sector Size : %u\n", super->sector_size);
-	sz = __le32_to_cpu(dev->size_high);
-	sz <<= 32;
-	sz += __le32_to_cpu(dev->size_low);
+	sz = imsm_dev_size(dev);
 	printf("     Array Size : %llu%s\n",
 		   (unsigned long long)sz * 512 / super->sector_size,
 	       human_size(sz * 512));
@@ -1634,8 +1644,7 @@ void convert_to_4k(struct intel_super *super)
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 		struct imsm_map *map = get_imsm_map(dev, MAP_0);
 		/* dev */
-		split_ull((join_u32(dev->size_low, dev->size_high)/IMSM_4K_DIV),
-				 &dev->size_low, &dev->size_high);
+		set_imsm_dev_size(dev, imsm_dev_size(dev)/IMSM_4K_DIV);
 		dev->vol.curr_migr_unit /= IMSM_4K_DIV;
 
 		/* map0 */
@@ -1762,8 +1771,7 @@ void convert_from_4k(struct intel_super *super)
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 		struct imsm_map *map = get_imsm_map(dev, MAP_0);
 		/* dev */
-		split_ull((join_u32(dev->size_low, dev->size_high)*IMSM_4K_DIV),
-				 &dev->size_low, &dev->size_high);
+		set_imsm_dev_size(dev, imsm_dev_size(dev)*IMSM_4K_DIV);
 		dev->vol.curr_migr_unit *= IMSM_4K_DIV;
 
 		/* map0 */
@@ -3240,9 +3248,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->array.chunk_size	  =
 		__le16_to_cpu(map_to_analyse->blocks_per_strip) << 9;
 	info->array.state	  = !(dev->vol.dirty & RAIDVOL_DIRTY);
-	info->custom_array_size   = __le32_to_cpu(dev->size_high);
-	info->custom_array_size   <<= 32;
-	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
+	info->custom_array_size   = imsm_dev_size(dev);
 	info->recovery_blocked = imsm_reshape_blocks_arrays_changes(st->sb);
 
 	if (is_gen_migration(dev)) {
@@ -5370,8 +5376,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	array_blocks = round_size_to_mb(array_blocks, data_disks);
 	size_per_member = array_blocks / data_disks;
 
-	dev->size_low = __cpu_to_le32((__u32) array_blocks);
-	dev->size_high = __cpu_to_le32((__u32) (array_blocks >> 32));
+	set_imsm_dev_size(dev, array_blocks);
 	dev->status = (DEV_READ_COALESCING | DEV_WRITE_COALESCING);
 	vol = &dev->vol;
 	vol->migr_state = 0;
@@ -7733,7 +7738,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 						 level, /* RAID level */
 						 imsm_level_to_layout(level),
 						 map->num_members, /* raid disks */
-						 &chunk, join_u32(dev->size_low, dev->size_high),
+						 &chunk, imsm_dev_size(dev),
 						 1 /* verbose */)) {
 			pr_err("IMSM RAID geometry validation failed.  Array %s activation is blocked.\n",
 				dev->volume);
@@ -8143,9 +8148,7 @@ static unsigned long long imsm_set_array_size(struct imsm_dev *dev,
 		/* when problems occures
 		 * return current array_blocks value
 		 */
-		array_blocks = __le32_to_cpu(dev->size_high);
-		array_blocks = array_blocks << 32;
-		array_blocks += __le32_to_cpu(dev->size_low);
+		array_blocks = imsm_dev_size(dev);
 
 		return array_blocks;
 	}
@@ -8165,8 +8168,7 @@ static unsigned long long imsm_set_array_size(struct imsm_dev *dev,
 	}
 
 	array_blocks = round_size_to_mb(array_blocks, used_disks);
-	dev->size_low = __cpu_to_le32((__u32)array_blocks);
-	dev->size_high = __cpu_to_le32((__u32)(array_blocks >> 32));
+	set_imsm_dev_size(dev, array_blocks);
 
 	return array_blocks;
 }
@@ -9139,8 +9141,7 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 				map->blocks_per_strip =
 					__cpu_to_le16(u->new_chunksize * 2);
 				num_data_stripes =
-					(join_u32(dev->size_low, dev->size_high)
-					/ used_disks);
+					imsm_dev_size(dev) / used_disks;
 				num_data_stripes /= map->blocks_per_strip;
 				num_data_stripes /= map->num_domains;
 				set_num_data_stripes(map, num_data_stripes);

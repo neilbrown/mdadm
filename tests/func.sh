@@ -101,8 +101,8 @@ check_env() {
 		echo "test: testing can only be done as 'root'."
 		exit 1
 	}
-	[ -x "raid6check" -a -x $mdadm ] || {
-		echo "test: please run 'make everything' before perform testing."
+	[ \! -x $mdadm ] && {
+		echo "test: please run make everything before perform testing."
 		exit 1
 	}
 	cmds=(mdadm lsblk df udevadm losetup mkfs.ext3 fsck seq)
@@ -113,23 +113,6 @@ check_env() {
 			exit 1
 		}
 	done
-	mdadm_src_ver="$($mdadm -V 2>&1)"
-	mdadm_sbin_ver="$($(which mdadm) -V 2>&1)"
-	if [ "$mdadm_src_ver" != "$mdadm_sbin_ver" ]
-	then
-		# it's nessesary to 'make install' mdadm to /SBIN/DIR,
-		# such as systemd/mdadm-grow-continue@.service, would
-		# run as an instance by systemd when reshape happens,
-		# thus ensure that the correct mdadm is in testing.
-		echo "test: please run 'make install' before testing."
-		exit 1
-	fi
-	if ! $(df -T . | grep -iq ext)
-	then
-		# 'external file' bitmap only supports with ext[2-4] file system
-		echo "test: please run test suite with ext[2-4] file system."
-		exit 1
-	fi
 	if $(lsblk -a | grep -iq raid)
 	then
 		# donot run mdadm -Ss directly if there are RAIDs working.
@@ -231,6 +214,7 @@ check() {
 		if [ $? -eq 0 ]; then
 			die "This command shouldn't run successfully"
 		fi
+	;;
 	spares )
 		spares=$(tr '] ' '\012\012' < /proc/mdstat | grep -c '(S)' || exit 0)
 		[ $spares -ne $2 ] &&

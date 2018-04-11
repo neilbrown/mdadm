@@ -5,7 +5,7 @@ mdadm=$PWD/mdadm
 targetdir="/var/tmp"
 logdir="$targetdir"
 config=/tmp/mdadm.conf
-testdir=
+testdir=$PWD/tests
 devlist=
 
 savelogs=0

@@ -7358,6 +7358,16 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							verbose);
 	}
 
+	if (size && ((size < 1024) || (*chunk != UnSet &&
+	    size < (unsigned long long) *chunk))) {
+		pr_err("Given size must be greater than 1M and chunk size.\n");
+		/* Depends on algorithm in Create.c :
+		 * if container was given (dev == NULL) return -1,
+		 * if block device was given ( dev != NULL) return 0.
+		 */
+		return dev ? -1 : 0;
+	}
+
 	if (!dev) {
 		if (st->sb) {
 			struct intel_super *super = st->sb;

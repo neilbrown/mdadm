@@ -5323,6 +5323,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	struct imsm_map *map;
 	int idx = mpb->num_raid_devs;
 	int i;
+	int namelen;
 	unsigned long long array_blocks;
 	size_t size_old, size_new;
 	unsigned long long num_data_stripes;
@@ -5402,7 +5403,12 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		return 0;
 	dv = xmalloc(sizeof(*dv));
 	dev = xcalloc(1, sizeof(*dev) + sizeof(__u32) * (info->raid_disks - 1));
-	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
+	/*
+	 * Explicitly allow truncating to not confuse gcc's
+	 * -Werror=stringop-truncation
+	 */
+	namelen = min((int) strlen(name), MAX_RAID_SERIAL_LEN);
+	memcpy(dev->volume, name, namelen);
 	array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
 					       s->size * BLOCKS_PER_KB);

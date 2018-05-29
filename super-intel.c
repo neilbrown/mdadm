@@ -5616,6 +5616,11 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		return 1;
 	}
 
+	if (mpb->num_disks == 0)
+		if (!get_dev_sector_size(dl->fd, dl->devname,
+					 &super->sector_size))
+			return 1;
+
 	if (!drive_validate_sector_size(super, dl)) {
 		pr_err("Combining drives of different sector size in one volume is not allowed\n");
 		return 1;

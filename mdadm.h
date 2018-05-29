@@ -1485,7 +1485,6 @@ extern struct mddev_ident *conf_match(struct supertype *st,
 				      struct mdinfo *info,
 				      char *devname,
 				      int verbose, int *rvp);
-extern int experimental(void);
 
 extern void free_line(char *line);
 extern int match_oneof(char *devices, char *devname);

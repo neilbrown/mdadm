@@ -11607,9 +11607,6 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 	dprintf("for level      : %i\n", geo.level);
 	dprintf("for raid_disks : %i\n", geo.raid_disks);
 
-	if (experimental() == 0)
-		return ret_val;
-
 	if (strcmp(st->container_devnm, st->devnm) == 0) {
 		/* On container level we can only increase number of devices. */
 		dprintf("imsm: info: Container operation\n");

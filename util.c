@@ -2149,16 +2149,6 @@ void append_metadata_update(struct supertype *st, void *buf, int len)
 unsigned int __invalid_size_argument_for_IOC = 0;
 #endif
 
-int experimental(void)
-{
-	if (check_env("MDADM_EXPERIMENTAL"))
-		return 1;
-	else {
-		pr_err("To use this feature MDADM_EXPERIMENTAL environment variable has to be defined.\n");
-		return 0;
-	}
-}
-
 /* Pick all spares matching given criteria from a container
  * if min_size == 0 do not check size
  * if domlist == NULL do not check domains

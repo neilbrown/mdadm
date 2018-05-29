@@ -2718,27 +2718,15 @@ above.  Resizing arrays in an IMSM container with
 .B "--grow --size"
 is not yet supported.
 
-Grow functionality (e.g. expand a number of raid devices) for Intel's
-IMSM container format has an experimental status. It is guarded by the
-.B MDADM_EXPERIMENTAL
-environment variable which must be set to '1' for a GROW command to
-succeed.
-This is for the following reasons:
-
-.IP 1.
-Intel's native IMSM check-pointing is not fully tested yet.
-This can causes IMSM incompatibility during the grow process: an array
-which is growing cannot roam between Microsoft Windows(R) and Linux
-systems.
-
-.IP 2.
-Interrupting a grow operation is not recommended, because it
-has not been fully tested for Intel's IMSM container format yet.
-
 .PP
-Note: Intel's native checkpointing doesn't use
+Notes:
+.IP \(bu 4
+Intel's native checkpointing doesn't use
 .B --backup-file
 option and it is transparent for assembly feature.
+.IP \(bu 4
+Roaming between Windows(R) and Linux systems for IMSM metadata is not
+supported during grow process.
 
 .SS SIZE CHANGES
 Normally when an array is built the "size" is taken from the smallest

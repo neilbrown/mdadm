@@ -8098,7 +8098,7 @@ static int mark_failure(struct intel_super *super,
 	strcat(buf, ":0");
 	if ((len = strlen(buf)) >= MAX_RAID_SERIAL_LEN)
 		shift = len - MAX_RAID_SERIAL_LEN + 1;
-	strncpy((char *)disk->serial, &buf[shift], MAX_RAID_SERIAL_LEN);
+	memcpy(disk->serial, &buf[shift], len + 1 - shift);
 
 	disk->status |= FAILED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);

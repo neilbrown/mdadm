@@ -3228,27 +3228,27 @@ int imsm_reshape_blocks_arrays_changes(struct intel_super *super)
 	}
 	return rv;
 }
-static unsigned long long imsm_component_size_aligment_check(int level,
+static unsigned long long imsm_component_size_alignment_check(int level,
 					      int chunk_size,
 					      unsigned int sector_size,
 					      unsigned long long component_size)
 {
-	unsigned int component_size_alligment;
+	unsigned int component_size_alignment;
 
-	/* check component size aligment
+	/* check component size alignment
 	*/
-	component_size_alligment = component_size % (chunk_size/sector_size);
+	component_size_alignment = component_size % (chunk_size/sector_size);
 
-	dprintf("(Level: %i, chunk_size = %i, component_size = %llu), component_size_alligment = %u\n",
+	dprintf("(Level: %i, chunk_size = %i, component_size = %llu), component_size_alignment = %u\n",
 		level, chunk_size, component_size,
-		component_size_alligment);
+		component_size_alignment);
 
-	if (component_size_alligment && (level != 1) && (level != UnSet)) {
-		dprintf("imsm: reported component size alligned from %llu ",
+	if (component_size_alignment && (level != 1) && (level != UnSet)) {
+		dprintf("imsm: reported component size aligned from %llu ",
 			component_size);
-		component_size -= component_size_alligment;
+		component_size -= component_size_alignment;
 		dprintf_cont("to %llu (%i).\n",
-			component_size, component_size_alligment);
+			component_size, component_size_alignment);
 	}
 
 	return component_size;
@@ -3351,7 +3351,7 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 
 	info->data_offset	  = pba_of_lba0(map_to_analyse);
 	info->component_size = calc_component_size(map, dev);
-	info->component_size = imsm_component_size_aligment_check(
+	info->component_size = imsm_component_size_alignment_check(
 							info->array.level,
 							info->array.chunk_size,
 							super->sector_size,
@@ -7089,7 +7089,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	mpb = super->anchor;
 
 	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, size, verbose)) {
-		pr_err("RAID gemetry validation failed. Cannot proceed with the action(s).\n");
+		pr_err("RAID geometry validation failed. Cannot proceed with the action(s).\n");
 		return 0;
 	}
 	if (!dev) {
@@ -11434,7 +11434,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	if (geo->size > 0 && geo->size != MAX_SIZE) {
 		/* align component size
 		 */
-		geo->size = imsm_component_size_aligment_check(
+		geo->size = imsm_component_size_alignment_check(
 				    get_imsm_raid_level(dev->vol.map),
 				    chunk * 1024, super->sector_size,
 				    geo->size * 2);
@@ -11468,7 +11468,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			max_size = free_size + current_size;
 			/* align component size
 			 */
-			max_size = imsm_component_size_aligment_check(
+			max_size = imsm_component_size_alignment_check(
 					get_imsm_raid_level(dev->vol.map),
 					chunk * 1024, super->sector_size,
 					max_size);
@@ -11970,7 +11970,7 @@ static int imsm_manage_reshape(
 	buf_size = __le32_to_cpu(migr_rec->blocks_per_unit) * 512;
 	/* extend  buffer size for parity disk */
 	buf_size += __le32_to_cpu(migr_rec->dest_depth_per_unit) * 512;
-	/* add space for stripe aligment */
+	/* add space for stripe alignment */
 	buf_size += old_data_stripe_length;
 	if (posix_memalign((void **)&buf, MAX_SECTOR_SIZE, buf_size)) {
 		dprintf("imsm: Cannot allocate checkpoint buffer\n");

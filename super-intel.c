@@ -9881,6 +9881,7 @@ static void imsm_process_update(struct supertype *st,
 		/* sanity check that we are not affecting the uuid of
 		 * an active array
 		 */
+		memset(name, 0, sizeof(name));
 		snprintf(name, MAX_RAID_SERIAL_LEN, "%s", (char *) u->name);
 		name[MAX_RAID_SERIAL_LEN] = '\0';
 		for (a = st->arrays; a; a = a->next)
@@ -9892,7 +9893,7 @@ static void imsm_process_update(struct supertype *st,
 			break;
 		}
 
-		snprintf((char *) dev->volume, MAX_RAID_SERIAL_LEN, "%s", name);
+		memcpy(dev->volume, name, MAX_RAID_SERIAL_LEN);
 		super->updates_pending++;
 		break;
 	}

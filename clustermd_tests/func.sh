@@ -86,10 +86,13 @@ check_env()
 		echo "testing can only be done as 'root'."
 		exit 1
 	}
+	[ \! -x $mdadm ] && {
+		echo "test: please run make everything before perform testing."
+		exit 1
+	}
 	check_ssh
 	commands=(mdadm iscsiadm bc modinfo dlm_controld
 		  udevadm crm crm_mon lsblk pgrep sbd)
-	mdadm_src_ver="$($mdadm -V 2>&1)"
 	for ip in $NODE1 $NODE2
 	do
 		for cmd in ${commands[@]}
@@ -99,12 +102,6 @@ check_env()
 				exit 1
 			}
 		done
-		mdadm_sbin_ver="$(ssh $ip "mdadm -V 2>&1")"
-		if [ "$mdadm_src_ver" != "$mdadm_sbin_ver" ]
-		then
-			echo "$ip: please run 'make install' before testing."
-			exit 1
-		fi
 		mods=(raid1 raid10 md_mod dlm md-cluster)
 		for mod in ${mods[@]}
 		do

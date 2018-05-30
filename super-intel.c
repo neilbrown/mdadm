@@ -7587,11 +7587,12 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 			append_metadata_update(st, u, sizeof(*u));
 		} else {
 			struct imsm_dev *dev;
-			int i;
+			int i, namelen;
 
 			dev = get_imsm_dev(super, vol);
-			strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
-			dev->volume[MAX_RAID_SERIAL_LEN-1] = '\0';
+			memset(dev->volume, '\0', MAX_RAID_SERIAL_LEN);
+			namelen = min((int)strlen(name), MAX_RAID_SERIAL_LEN);
+			memcpy(dev->volume, name, namelen);
 			for (i = 0; i < mpb->num_raid_devs; i++) {
 				dev = get_imsm_dev(super, i);
 				handle_missing(super, dev);

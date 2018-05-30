@@ -85,11 +85,10 @@ int Query(char *dev)
 
 	if (ioctlerr == ENODEV)
 		printf("%s: is an md device which is not active\n", dev);
+	else if (ioctlerr && major(stb.st_rdev) != MD_MAJOR)
+		printf("%s: is not an md array\n", dev);
 	else if (ioctlerr)
 		printf("%s: is an md device, but gives \"%s\" when queried\n",
-		       dev, strerror(ioctlerr));
-	else if (staterr)
-		printf("%s: is not a valid md device, returning %s\n",
 		       dev, strerror(ioctlerr));
 	else {
 		printf("%s: %s %s %d devices, %d spare%s. Use mdadm --detail for more detail.\n",

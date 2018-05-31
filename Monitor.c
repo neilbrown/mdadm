@@ -557,7 +557,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
 		alert("RebuildStarted", dev, NULL, ainfo);
 	if (st->percent >= 0 && mse->percent >= 0 &&
 	    (mse->percent / increments) > (st->percent / increments)) {
-		char percentalert[15];
+		char percentalert[18];
 		/*
 		 * "RebuildNN" (10 chars) or "RebuildStarted" (15 chars)
 		 */

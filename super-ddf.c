@@ -2881,8 +2881,9 @@ static int add_to_super_ddf(struct supertype *st,
 	dd->disk.magic = DDF_PHYS_DATA_MAGIC;
 	now = time(0);
 	tm = localtime(&now);
-	sprintf(dd->disk.guid, "%8s%04d%02d%02d",
-		T10, tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday);
+	sprintf(dd->disk.guid, "%8s%04d%02d%02d", T10,
+		(__u16)tm->tm_year+1900,
+		(__u8)tm->tm_mon+1, (__u8)tm->tm_mday);
 	tptr = (__u32 *)(dd->disk.guid + 16);
 	*tptr++ = random32();
 	*tptr = random32();

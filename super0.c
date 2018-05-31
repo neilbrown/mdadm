@@ -520,9 +520,10 @@ static int update_super0(struct supertype *st, struct mdinfo *info,
 		 * up 4 bytes before continuing
 		 */
 		__u32 *sb32 = (__u32*)sb;
-		memcpy(sb32+MD_SB_GENERIC_CONSTANT_WORDS+7,
-		       sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
-		       (MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1))*4);
+
+		memmove(sb32+MD_SB_GENERIC_CONSTANT_WORDS+7,
+			sb32+MD_SB_GENERIC_CONSTANT_WORDS+7+1,
+			(MD_SB_WORDS - (MD_SB_GENERIC_CONSTANT_WORDS+7+1))*4);
 		if (verbose >= 0)
 			pr_err("adjusting superblock of %s for 2.2/sparc compatibility.\n",
 			       devname);

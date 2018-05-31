@@ -1434,8 +1434,15 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 			strcpy(sb->set_name, homehost);
 			strcat(sb->set_name, ":");
 			strcat(sb->set_name, info->name);
-		} else
-			strncpy(sb->set_name, info->name, sizeof(sb->set_name));
+		} else {
+			int namelen;
+
+			namelen = min((int)strlen(info->name),
+				      (int)sizeof(sb->set_name) - 1);
+			memcpy(sb->set_name, info->name, namelen);
+			memset(&sb->set_name[namelen], '\0',
+			       sizeof(sb->set_name) - namelen);
+		}
 	} else if (strcmp(update, "devicesize") == 0 &&
 		   __le64_to_cpu(sb->super_offset) <
 		   __le64_to_cpu(sb->data_offset)) {
@@ -1592,8 +1599,15 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 		strcpy(sb->set_name, homehost);
 		strcat(sb->set_name, ":");
 		strcat(sb->set_name, name);
-	} else
-		strncpy(sb->set_name, name, sizeof(sb->set_name));
+	} else {
+		int namelen;
+
+		namelen = min((int)strlen(name),
+			      (int)sizeof(sb->set_name) - 1);
+		memcpy(sb->set_name, name, namelen);
+		memset(&sb->set_name[namelen], '\0',
+		       sizeof(sb->set_name) - namelen);
+	}
 
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);

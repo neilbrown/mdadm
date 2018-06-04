@@ -42,6 +42,10 @@ KLIBC=/home/src/klibc/klibc-0.77
 
 KLIBC_GCC = gcc -nostdinc -iwithprefix include -I$(KLIBC)/klibc/include -I$(KLIBC)/linux/include -I$(KLIBC)/klibc/arch/i386/include -I$(KLIBC)/klibc/include/bits32
 
+ifdef COVERITY
+COVERITY_FLAGS=-include coverity-gcc-hack.h
+endif
+
 CC ?= $(CROSS_COMPILE)gcc
 CXFLAGS ?= -ggdb
 CWFLAGS = -Wall -Werror -Wstrict-prototypes -Wextra -Wno-unused-parameter
@@ -177,6 +181,9 @@ everything-test: all mdadm.static swap_super test_stripe \
 # mdadm.uclibc doesn't work on x86-64
 # mdadm.tcc doesn't work..
 
+%.o: %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(COVERITY_FLAGS) -o $@ -c $<
+
 mdadm : $(OBJS) | check_rundir
 	$(CC) $(CFLAGS) $(LDFLAGS) -o mdadm $(OBJS) $(LDLIBS)
 
@@ -291,10 +298,10 @@ test: mdadm mdmon test_stripe swap_super raid6check
 
 clean :
 	rm -f mdadm mdmon $(OBJS) $(MON_OBJS) $(STATICOBJS) core *.man \
-	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt .merge_file_* \
-	mdadm.Os mdadm.O2 mdmon.O2 swap_super \
-	init.cpio.gz mdadm.uclibc.static test_stripe raid6check raid6check.o mdmon \
-	mdadm.8
+	mdadm.tcc mdadm.uclibc mdadm.static *.orig *.porig *.rej *.alt \
+	.merge_file_* mdadm.Os mdadm.O2 mdmon.O2 swap_super init.cpio.gz \
+	mdadm.uclibc.static test_stripe raid6check raid6check.o mdmon mdadm.8
+	rm -rf cov-int
 
 dist : clean
 	./makedist

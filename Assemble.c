@@ -779,6 +779,8 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (best[i] == -1 || (devices[best[i]].i.events
 					      < devices[devcnt].i.events))
 				best[i] = devcnt;
+			else if (st->ss == &super_imsm)
+				best[i+1] = devcnt;
 		}
 		devcnt++;
 	}

@@ -9543,12 +9543,6 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 	if (u->direction == R10_TO_R0) {
 		unsigned long long num_data_stripes;
 
-		map->num_domains = 1;
-		num_data_stripes = imsm_dev_size(dev) / 2;
-		num_data_stripes /= map->blocks_per_strip;
-		num_data_stripes /= map->num_domains;
-		set_num_data_stripes(map, num_data_stripes);
-
 		/* Number of failed disks must be half of initial disk number */
 		if (imsm_count_failed(super, dev, MAP_0) !=
 				(map->num_members / 2))
@@ -9574,10 +9568,15 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 		map->num_domains = 1;
 		map->raid_level = 0;
 		map->failed_disk_num = -1;
+		num_data_stripes = imsm_dev_size(dev) / 2;
+		num_data_stripes /= map->blocks_per_strip;
+		set_num_data_stripes(map, num_data_stripes);
 	}
 
 	if (u->direction == R0_TO_R10) {
 		void **space;
+		unsigned long long num_data_stripes;
+
 		/* update slots in current disk list */
 		for (dm = super->disks; dm; dm = dm->next) {
 			if (dm->index >= 0)
@@ -9615,6 +9614,11 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 		map->map_state = IMSM_T_STATE_DEGRADED;
 		map->num_domains = 2;
 		map->raid_level = 1;
+		num_data_stripes = imsm_dev_size(dev) / 2;
+		num_data_stripes /= map->blocks_per_strip;
+		num_data_stripes /= map->num_domains;
+		set_num_data_stripes(map, num_data_stripes);
+
 		/* replace dev<->dev_new */
 		dv->dev = dev_new;
 	}

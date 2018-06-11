@@ -1413,6 +1413,7 @@ restart:
 			sysfs_free(sra);
 		}
 	}
+	map_free(mapl);
 	return rv;
 }
 
@@ -1587,6 +1588,8 @@ static int Incremental_container(struct supertype *st, char *devname,
 
 		assemble_container_content(st, mdfd, ra, c,
 					   chosen_name, &result);
+		map_free(map);
+		map = NULL;
 		close(mdfd);
 	}
 	if (c->export && result) {
@@ -1663,6 +1666,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 			close(sfd);
 	}
 	domain_free(domains);
+	map_free(map);
 	return 0;
 }
 

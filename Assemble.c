@@ -1851,8 +1851,8 @@ try_again:
 	if (rv == 1 && !pre_exist)
 		ioctl(mdfd, STOP_ARRAY, NULL);
 	free(devices);
-	map_unlock(&map);
 out:
+	map_unlock(&map);
 	if (rv == 0) {
 		wait_for(chosen_name, mdfd);
 		close(mdfd);

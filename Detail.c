@@ -263,6 +263,7 @@ int Detail(char *dev, struct context *c)
 
 			if (st->ss->export_detail_super)
 				st->ss->export_detail_super(st);
+			map_free(map);
 		} else {
 			struct map_ent *mp, *map = NULL;
 			char nbuf[64];
@@ -277,6 +278,7 @@ int Detail(char *dev, struct context *c)
 				print_escape(mp->path+8);
 				putchar('\n');
 			}
+			map_free(map);
 		}
 		if (sra) {
 			struct mdinfo *mdi;

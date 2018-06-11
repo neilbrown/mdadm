@@ -1885,6 +1885,8 @@ static int misc_scan(char devmode, struct context *c)
 			else
 				rv |= WaitClean(name, c->verbose);
 			put_md_name(name);
+			map_free(map);
+			map = NULL;
 		}
 	}
 	free_mdstat(ms);

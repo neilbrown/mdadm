@@ -143,6 +143,8 @@ void map_unlock(struct map_ent **melp)
 		unlink(mapname[2]);
 		fclose(lf);
 	}
+	if (*melp)
+		map_free(*melp);
 	lf = NULL;
 }
 

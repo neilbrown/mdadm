@@ -281,6 +281,8 @@ static int select_devices(struct mddev_dev *devlist,
 				st->ss->free_super(st);
 			dev_policy_free(pol);
 			domain_free(domains);
+			if (tst)
+				tst->ss->free_super(tst);
 			return -1;
 		}
 

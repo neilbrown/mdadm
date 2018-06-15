@@ -242,6 +242,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		if (st->ss->load_super(st, fd2, NULL)) {
 			pr_err("cannot find super block on %s\n", dv);
 			close(fd);
+			close(fd2);
 			return 1;
 		}
 		info.array.raid_disks = nd+1;

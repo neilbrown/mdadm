@@ -30,7 +30,7 @@ imsm_check() {
         fi
         _chunk=`cat ${sysfs}/md/chunk_size`
         if [ $t_chunk -ne $((_chunk/1024)) ]; then
-            echo "**Error**: Chunk size mismatch - expected $t_chunk, actual $_chunk" >&2
+            echo "**Error**: Chunk size mismatch - expected $t_chunk, actual $(($_chunk/1024))" >&2
             err=$((err + 1))
         fi
         for i in `seq 0 $((t_num_disks - 1))`; do

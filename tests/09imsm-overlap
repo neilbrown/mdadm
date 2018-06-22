@@ -18,13 +18,11 @@ udevadm settle
 
 offset=0
 imsm_check member $member0 $num_disks $level $size 1024 $offset
-offset=$((offset+size+2048))
+offset=$((offset+size+4096))
 imsm_check member $member1 $num_disks $level $size 1024 $offset
-offset=$((offset+size+2048))
+offset=$((offset+size+4096))
 imsm_check member $member2 $num_disks $level $size 1024 $offset
-# at this point there should be more freespace at the start of the disk
-# than the end
-offset=0
+offset=$((offset+size+4096))
 imsm_check member $member3 $num_disks $level $size 1024 $offset
-offset=$((offset+size+2048))
+offset=$((offset+size+4096))
 imsm_check member $member4 $num_disks $level $size 1024 $offset

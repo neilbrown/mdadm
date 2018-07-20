@@ -1348,9 +1348,6 @@ int Assemble(struct supertype *st, char *mddev,
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
 	struct map_ent *mp;
-	int locked = 0;
-	struct mdp_superblock_1 *sb;
-	bitmap_super_t *bms;
 
 	/*
 	 * If any subdevs are listed, then any that don't
@@ -1381,12 +1378,6 @@ try_again:
 	 * set of devices failed.  Those are now marked as ->used==2 and
 	 * we ignore them and try again
 	 */
-	if (locked)
-		/*
-		 * if come back try_again is called, then need to unlock first,
-		 * and lock again since the metadate is re-read.
-		 */
-		cluster_release_dlmlock();
 	if (!st && ident->st)
 		st = ident->st;
 	if (c->verbose>0)
@@ -1403,14 +1394,6 @@ try_again:
 
 	if (!st || !st->sb || !content)
 		return 2;
-
-	sb = st->sb;
-	bms = (bitmap_super_t*)(((char*)sb) + 4096);
-	if (sb && bms->version == BITMAP_MAJOR_CLUSTERED) {
-		locked = cluster_get_dlmlock();
-		if (locked != 1)
-			return 1;
-	}
 
 	/* We have a full set of devices - we now need to find the
 	 * array device.
@@ -1542,8 +1525,6 @@ try_again:
 		err = assemble_container_content(st, mdfd, content, c,
 						 chosen_name, NULL);
 		close(mdfd);
-		if (locked == 1)
-			cluster_release_dlmlock();
 		return err;
 	}
 
@@ -1888,8 +1869,6 @@ out:
 		close(mdfd);
 
 	/* '2' means 'OK, but not started yet' */
-	if (locked == 1)
-		cluster_release_dlmlock();
 	if (rv == -1) {
 		free(devices);
 		return 1;

@@ -55,7 +55,7 @@ ACTION=="add|change", \
   ENV{MD_LEVEL}=="raid[1-9]*", \
   TEST=="/sys/block/$parent/device/timeout", \
   TEST=="/usr/sbin/smartctl", \
-  PROGRAM!="/usr/bin/sh -c '/usr/sbin/smartctl -l scterc /dev/$parent | grep -q seconds && exit 0 || exit 1'", \
-  RUN+="/usr/bin/sh -c '/usr/bin/echo 180 > /sys/block/$parent/device/timeout && /usr/bin/logger timeout for /dev/$parent set to 180 secs'"
+  PROGRAM!="/bin/sh -c '/usr/sbin/smartctl -l scterc /dev/$parent | grep -q seconds && exit 0 || exit 1'", \
+  RUN+="/bin/sh -c 'echo 180 > /sys/block/$parent/device/timeout && /usr/bin/logger timeout for /dev/$parent set to 180 secs'"
 
 LABEL="md_timeouts_end"

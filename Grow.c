@@ -754,7 +754,8 @@ static int check_idle(struct supertype *st)
 	for (e = ent ; e; e = e->next) {
 		if (!is_container_member(e, container))
 			continue;
-		if (e->percent >= 0) {
+		/* frozen array is not idle*/
+		if (e->percent >= 0 || e->metadata_version[9] == '-') {
 			is_idle = 0;
 			break;
 		}

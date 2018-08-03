@@ -25,6 +25,7 @@ ANNOUNCE-3.3.4
 ANNOUNCE-3.4
 ANNOUNCE-4.0
 ANNOUNCE-4.1-rc1
+ANNOUNCE-4.1-rc2
 Assemble.c
 Build.c
 COPYING
@@ -67,6 +68,7 @@ clustermd_tests/03r1_switch-resync
 clustermd_tests/cluster_conf
 clustermd_tests/func.sh
 config.c
+coverity-gcc-hack.h
 crc32.c
 crc32.h
 crc32c.c

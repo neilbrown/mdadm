@@ -1683,6 +1683,44 @@ static void run_udisks(char *arg1, char *arg2)
 		;
 }
 
+static int force_remove(char *devnm, int fd, struct mdinfo *mdi, int verbose)
+{
+	int rv;
+	int devid = devnm2devid(devnm);
+
+	run_udisks("--unmount", map_dev(major(devid), minor(devid), 0));
+	rv = Manage_stop(devnm, fd, verbose, 1);
+	if (rv) {
+		/* At least we can try to trigger a 'remove' */
+		sysfs_uevent(mdi, "remove");
+		if (verbose)
+			pr_err("Fail to stop %s too.\n", devnm);
+	}
+	return rv;
+}
+
+static void remove_from_member_array(struct mdstat_ent *memb,
+				    struct mddev_dev *devlist, int verbose)
+{
+	int rv;
+	struct mdinfo mmdi;
+	int subfd = open_dev(memb->devnm);
+
+	if (subfd >= 0) {
+		rv = Manage_subdevs(memb->devnm, subfd, devlist, verbose,
+				    0, NULL, 0);
+		if (rv & 2) {
+			if (sysfs_init(&mmdi, -1, memb->devnm))
+				pr_err("unable to initialize sysfs for: %s\n",
+				       memb->devnm);
+			else
+				force_remove(memb->devnm, subfd, &mmdi,
+					     verbose);
+		}
+		close(subfd);
+	}
+}
+
 /*
  * IncrementalRemove - Attempt to see if the passed in device belongs to any
  * raid arrays, and if so first fail (if needed) and then remove the device.
@@ -1754,40 +1792,28 @@ int IncrementalRemove(char *devname, char *id_path, int verbose)
 	    strncmp(ent->metadata_version, "external:", 9) == 0) {
 		struct mdstat_ent *mdstat = mdstat_read(0, 0);
 		struct mdstat_ent *memb;
-		for (memb = mdstat ; memb ; memb = memb->next)
-			if (is_container_member(memb, ent->devnm)) {
-				int subfd = open_dev(memb->devnm);
-				if (subfd >= 0) {
-					rv |= Manage_subdevs(
-						memb->devnm, subfd,
-						&devlist, verbose, 0,
-						NULL, 0);
-					close(subfd);
-				}
-			}
+		for (memb = mdstat ; memb ; memb = memb->next) {
+			if (is_container_member(memb, ent->devnm))
+				remove_from_member_array(memb,
+					&devlist, verbose);
+		}
 		free_mdstat(mdstat);
-	} else
+	} else {
 		rv |= Manage_subdevs(ent->devnm, mdfd, &devlist,
 				    verbose, 0, NULL, 0);
-	if (rv & 2) {
+		if (rv & 2) {
 		/* Failed due to EBUSY, try to stop the array.
 		 * Give udisks a chance to unmount it first.
 		 */
-		int devid = devnm2devid(ent->devnm);
-		run_udisks("--unmount", map_dev(major(devid),minor(devid), 0));
-		rv = Manage_stop(ent->devnm, mdfd, verbose, 1);
-		if (rv)
-			/* At least we can try to trigger a 'remove' */
-			sysfs_uevent(&mdi, "remove");
-		if (verbose) {
-			if (rv)
-				pr_err("Fail to stop %s too.\n", ent->devnm);
+			rv = force_remove(ent->devnm, mdfd, &mdi, verbose);
+			goto end;
 		}
-	} else {
-		devlist.disposition = 'r';
-		rv = Manage_subdevs(ent->devnm, mdfd, &devlist,
-				    verbose, 0, NULL, 0);
 	}
+
+	devlist.disposition = 'r';
+	rv = Manage_subdevs(ent->devnm, mdfd, &devlist,
+			    verbose, 0, NULL, 0);
+end:
 	close(mdfd);
 	free_mdstat(ent);
 	return rv;

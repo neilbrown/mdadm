@@ -5285,10 +5285,22 @@ static int check_name(struct intel_super *super, char *name, int quiet)
 {
 	struct imsm_super *mpb = super->anchor;
 	char *reason = NULL;
+	char *start = name;
+	size_t len = strlen(name);
 	int i;
 
-	if (strlen(name) > MAX_RAID_SERIAL_LEN)
+	if (len > 0) {
+		while (isspace(start[len - 1]))
+			start[--len] = 0;
+		while (*start && isspace(*start))
+			++start, --len;
+		memmove(name, start, len + 1);
+	}
+
+	if (len > MAX_RAID_SERIAL_LEN)
 		reason = "must be 16 characters or less";
+	else if (len == 0)
+		reason = "must be a non-empty string";
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);

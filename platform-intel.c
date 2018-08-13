@@ -371,6 +371,9 @@ static int scan(const void *start, const void *end, const void *data)
 	if (__le16_to_cpu(ptr->vendorID) != 0x8086)
 		return 0;
 
+	if (get_orom_by_device_id(ptr->deviceID))
+		return 0;
+
 	for (offset = 0; offset < len; offset += 4) {
 		const void *mem = start + offset;
 

@@ -594,6 +594,9 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (strcmp(c->update, "ppl") == 0 &&
 			    ident->bitmap_fd >= 0) {
 				pr_err("PPL is not compatible with bitmap\n");
+				close(mdfd);
+				free(devices);
+				free(devmap);
 				return -1;
 			}
 

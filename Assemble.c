@@ -1539,6 +1539,11 @@ try_again:
 			      &most_recent, &bestcnt, &best, inargv);
 	if (devcnt < 0) {
 		mdfd = -3;
+		/*
+		 * devices is already freed in load_devices, so set devices
+		 * to NULL to avoid double free devices.
+		 */
+		devices = NULL;
 		goto out;
 	}
 

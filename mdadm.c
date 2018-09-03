@@ -1959,7 +1959,7 @@ static int misc_list(struct mddev_dev *devlist,
 					rv |= Kill(dv->devname, NULL, c->force, v, 0);
 					v = -1;
 				} while (rv == 0);
-				rv &= ~2;
+				rv &= ~4;
 			}
 			continue;
 		case 'Q':

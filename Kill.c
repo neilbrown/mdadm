@@ -37,7 +37,8 @@ int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 	 * Returns:
 	 *  0 - a zero superblock was successfully written out
 	 *  1 - failed to write the zero superblock
-	 *  2 - failed to open the device or find a superblock.
+	 *  2 - failed to open the device.
+	 *  4 - failed to find a superblock.
 	 */
 
 	int fd, rv = 0;
@@ -57,7 +58,7 @@ int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 		if (verbose >= 0)
 			pr_err("Unrecognised md component device - %s\n", dev);
 		close(fd);
-		return 2;
+		return 4;
 	}
 	st->ignore_hw_compat = 1;
 	rv = st->ss->load_super(st, fd, dev);

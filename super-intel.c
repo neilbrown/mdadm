@@ -4523,6 +4523,11 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 	struct sys_dev *hba_name;
 	int rv = 0;
 
+	if (fd >= 0 && test_partition(fd)) {
+		pr_err("imsm: %s is a partition, cannot be used in IMSM\n",
+		       devname);
+		return 1;
+	}
 	if (fd < 0 || check_env("IMSM_NO_PLATFORM")) {
 		super->orom = NULL;
 		super->hba = NULL;

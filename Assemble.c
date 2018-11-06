@@ -578,6 +578,7 @@ static int load_devices(struct devs *devices, char *devmap,
 		struct supertype *tst;
 		int i;
 		int dfd;
+		int disk_state;
 
 		if (tmpdev->used != 1)
 			continue;
@@ -711,7 +712,9 @@ static int load_devices(struct devs *devices, char *devmap,
 		devices[devcnt].i.disk.major = major(stb.st_rdev);
 		devices[devcnt].i.disk.minor = minor(stb.st_rdev);
 
-		if (devices[devcnt].i.disk.state == 6) {
+		disk_state = devices[devcnt].i.disk.state & ~((1<<MD_DISK_FAILFAST) |
+							      (1<<MD_DISK_WRITEMOSTLY));
+		if (disk_state == ((1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC))) {
 			if (most_recent < 0 ||
 			    devices[devcnt].i.events
 			    > devices[most_recent].i.events) {

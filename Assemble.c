@@ -1704,6 +1704,9 @@ try_again:
 		else
 			desired_state = (1<<MD_DISK_ACTIVE) | (1<<MD_DISK_SYNC);
 
+		desired_state |= devices[j].i.disk.state & ((1<<MD_DISK_FAILFAST) |
+							    (1<<MD_DISK_WRITEMOSTLY));
+
 		if (!devices[j].uptodate)
 			continue;
 

@@ -1247,7 +1247,7 @@ extern void policyline(char *line, char *type);
 extern void policy_add(char *type, ...);
 extern void policy_free(void);
 
-extern struct dev_policy *path_policy(char *path, char *type);
+extern struct dev_policy *path_policy(char **paths, char *type);
 extern struct dev_policy *disk_policy(struct mdinfo *disk);
 extern struct dev_policy *devid_policy(int devid);
 extern void dev_policy_free(struct dev_policy *p);

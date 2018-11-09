@@ -1080,6 +1080,7 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 		struct supertype *st2 = NULL;
 		char *devname = NULL;
 		unsigned long long devsectors;
+		char *pathlist[2];
 
 		if (de->d_ino == 0 || de->d_name[0] == '.' ||
 		    (de->d_type != DT_LNK && de->d_type != DT_UNKNOWN))
@@ -1094,7 +1095,9 @@ static int partition_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
 			/* This is a partition - skip it */
 			goto next;
 
-		pol2 = path_policy(de->d_name, type_disk);
+		pathlist[0] = de->d_name;
+		pathlist[1] = NULL;
+		pol2 = path_policy(pathlist, type_disk);
 
 		domain_merge(&domlist, pol2, st ? st->ss->name : NULL);
 		if (domain_test(domlist, pol, st ? st->ss->name : NULL) != 1)

@@ -189,15 +189,17 @@ struct dev_policy *pol_find(struct dev_policy *pol, char *name)
 	return pol;
 }
 
-static char *disk_path(struct mdinfo *disk)
+static char **disk_paths(struct mdinfo *disk)
 {
 	struct stat stb;
 	int prefix_len;
 	DIR *by_path;
 	char symlink[PATH_MAX] = "/dev/disk/by-path/";
-	char nm[PATH_MAX];
+	char **paths;
+	int cnt = 0;
 	struct dirent *ent;
-	int rv;
+
+	paths = xmalloc(sizeof(*paths) * (cnt+1));
 
 	by_path = opendir(symlink);
 	if (by_path) {
@@ -214,22 +216,13 @@ static char *disk_path(struct mdinfo *disk)
 				continue;
 			if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
 				continue;
-			closedir(by_path);
-			return xstrdup(ent->d_name);
+			paths[cnt++] = xstrdup(ent->d_name);
+			paths = xrealloc(paths, sizeof(*paths) * (cnt+1));
 		}
 		closedir(by_path);
 	}
-	/* A NULL path isn't really acceptable - use the devname.. */
-	sprintf(symlink, "/sys/dev/block/%d:%d", disk->disk.major, disk->disk.minor);
-	rv = readlink(symlink, nm, sizeof(nm)-1);
-	if (rv > 0) {
-		char *dname;
-		nm[rv] = 0;
-		dname = strrchr(nm, '/');
-		if (dname)
-			return xstrdup(dname + 1);
-	}
-	return xstrdup("unknown");
+	paths[cnt] = NULL;
+	return paths;
 }
 
 char type_part[] = "part";
@@ -244,46 +237,6 @@ static char *disk_type(struct mdinfo *disk)
 		return type_part;
 	else
 		return type_disk;
-}
-
-static int pol_match(struct rule *rule, char *path, char *type)
-{
-	/* check if this rule matches on path and type */
-	int pathok = 0; /* 0 == no path, 1 == match, -1 == no match yet */
-	int typeok = 0;
-
-	while (rule) {
-		if (rule->name == rule_path) {
-			if (pathok == 0)
-				pathok = -1;
-			if (path && fnmatch(rule->value, path, 0) == 0)
-				pathok = 1;
-		}
-		if (rule->name == rule_type) {
-			if (typeok == 0)
-				typeok = -1;
-			if (type && strcmp(rule->value, type) == 0)
-				typeok = 1;
-		}
-		rule = rule->next;
-	}
-	return pathok >= 0 && typeok >= 0;
-}
-
-static void pol_merge(struct dev_policy **pol, struct rule *rule)
-{
-	/* copy any name assignments from rule into pol */
-	struct rule *r;
-	char *metadata = NULL;
-	for (r = rule; r ; r = r->next)
-		if (r->name == pol_metadata)
-			metadata = r->value;
-
-	for (r = rule; r ; r = r->next)
-		if (r->name == pol_act ||
-		    r->name == pol_domain ||
-		    r->name == pol_auto)
-			pol_new(pol, r->name, r->value, metadata);
 }
 
 static int path_has_part(char *path, char **part)
@@ -302,6 +255,62 @@ static int path_has_part(char *path, char **part)
 		return 0;
 	*part = path+l-5;
 	return 1;
+}
+
+static int pol_match(struct rule *rule, char **paths, char *type, char **part)
+{
+	/* Check if this rule matches on any path and type.
+	 * If 'part' is not NULL, then 'path' must end in -partN, which
+	 * we ignore for matching, and return in *part on success.
+	 */
+	int pathok = 0; /* 0 == no path, 1 == match, -1 == no match yet */
+	int typeok = 0;
+
+	for (; rule; rule = rule->next) {
+		if (rule->name == rule_path) {
+			char *p;
+			int i;
+			if (pathok == 0)
+				pathok = -1;
+			if (!paths)
+				continue;
+			for (i = 0; paths[i]; i++) {
+				if (part) {
+					if (!path_has_part(paths[i], &p))
+						continue;
+					*p = '\0';
+					*part = p+1;
+				}
+				if (fnmatch(rule->value, paths[i], 0) == 0)
+					pathok = 1;
+				if (part)
+					*p = '-';
+			}
+		}
+		if (rule->name == rule_type) {
+			if (typeok == 0)
+				typeok = -1;
+			if (type && strcmp(rule->value, type) == 0)
+				typeok = 1;
+		}
+	}
+	return pathok >= 0 && typeok >= 0;
+}
+
+static void pol_merge(struct dev_policy **pol, struct rule *rule)
+{
+	/* copy any name assignments from rule into pol */
+	struct rule *r;
+	char *metadata = NULL;
+	for (r = rule; r ; r = r->next)
+		if (r->name == pol_metadata)
+			metadata = r->value;
+
+	for (r = rule; r ; r = r->next)
+		if (r->name == pol_act ||
+		    r->name == pol_domain ||
+		    r->name == pol_auto)
+			pol_new(pol, r->name, r->value, metadata);
 }
 
 static void pol_merge_part(struct dev_policy **pol, struct rule *rule, char *part)
@@ -352,7 +361,7 @@ static int config_rules_has_path = 0;
  * path_policy() gathers policy information for the
  * disk described in the given a 'path' and a 'type'.
  */
-struct dev_policy *path_policy(char *path, char *type)
+struct dev_policy *path_policy(char **paths, char *type)
 {
 	struct pol_rule *rules;
 	struct dev_policy *pol = NULL;
@@ -361,27 +370,24 @@ struct dev_policy *path_policy(char *path, char *type)
 	rules = config_rules;
 
 	while (rules) {
-		char *part;
+		char *part = NULL;
 		if (rules->type == rule_policy)
-			if (pol_match(rules->rule, path, type))
+			if (pol_match(rules->rule, paths, type, NULL))
 				pol_merge(&pol, rules->rule);
 		if (rules->type == rule_part && strcmp(type, type_part) == 0)
-			if (path_has_part(path, &part)) {
-				*part = 0;
-				if (pol_match(rules->rule, path, type_disk))
-					pol_merge_part(&pol, rules->rule, part+1);
-				*part = '-';
-			}
+			if (pol_match(rules->rule, paths, type_disk, &part))
+					pol_merge_part(&pol, rules->rule, part);
 		rules = rules->next;
 	}
 
 	/* Now add any metadata-specific internal knowledge
 	 * about this path
 	 */
-	for (i=0; path && superlist[i]; i++)
+	for (i=0; paths[0] && superlist[i]; i++)
 		if (superlist[i]->get_disk_controller_domain) {
 			const char *d =
-				superlist[i]->get_disk_controller_domain(path);
+				superlist[i]->get_disk_controller_domain(
+					paths[0]);
 			if (d)
 				pol_new(&pol, pol_domain, d, superlist[i]->name);
 		}
@@ -400,22 +406,34 @@ void pol_add(struct dev_policy **pol,
 	pol_dedup(*pol);
 }
 
+static void free_paths(char **paths)
+{
+	int i;
+
+	if (!paths)
+		return;
+
+	for (i = 0; paths[i]; i++)
+		free(paths[i]);
+	free(paths);
+}
+
 /*
  * disk_policy() gathers policy information for the
  * disk described in the given mdinfo (disk.{major,minor}).
  */
 struct dev_policy *disk_policy(struct mdinfo *disk)
 {
-	char *path = NULL;
+	char **paths = NULL;
 	char *type = disk_type(disk);
 	struct dev_policy *pol = NULL;
 
 	if (config_rules_has_path)
-		path = disk_path(disk);
+		paths = disk_paths(disk);
 
-	pol = path_policy(path, type);
+	pol = path_policy(paths, type);
 
-	free(path);
+	free_paths(paths);
 	return pol;
 }
 
@@ -756,27 +774,26 @@ int policy_check_path(struct mdinfo *disk, struct map_ent *array)
 {
 	char path[PATH_MAX];
 	FILE *f = NULL;
-	char *id_path = disk_path(disk);
-	int rv;
+	char **id_paths = disk_paths(disk);
+	int i;
+	int rv = 0;
 
-	if (!id_path)
-		return 0;
+	for (i = 0; id_paths[i]; i++) {
+		snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_paths[i]);
+		f = fopen(path, "r");
+		if (!f)
+			continue;
 
-	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
-	f = fopen(path, "r");
-	if (!f) {
-		free(id_path);
-		return 0;
+		rv = fscanf(f, " %s %x:%x:%x:%x\n",
+			    array->metadata,
+			    array->uuid,
+			    array->uuid+1,
+			    array->uuid+2,
+			    array->uuid+3);
+		fclose(f);
+		break;
 	}
-
-	rv = fscanf(f, " %s %x:%x:%x:%x\n",
-		    array->metadata,
-		    array->uuid,
-		    array->uuid+1,
-		    array->uuid+2,
-		    array->uuid+3);
-	fclose(f);
-	free(id_path);
+	free_paths(id_paths);
 	return rv == 5;
 }
 

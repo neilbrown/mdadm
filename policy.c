@@ -300,7 +300,7 @@ static int path_has_part(char *path, char **part)
 		l--;
 	if (l < 5 || strncmp(path+l-5, "-part", 5) != 0)
 		return 0;
-	*part = path+l-4;
+	*part = path+l-5;
 	return 1;
 }
 

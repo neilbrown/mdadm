@@ -3286,7 +3286,7 @@ static int reshape_array(char *container, int fd, char *devname,
 				goto release;
 			} else if (verbose >= 0)
 				printf("chunk size for %s set to %d\n",
-				       devname, array.chunk_size);
+				       devname, info->new_chunk);
 		}
 		unfreeze(st);
 		return 0;

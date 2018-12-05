@@ -279,6 +279,7 @@ install-systemd: systemd/mdmon@.service
 		mdadm-last-resort@.service mdadm-grow-continue@.service \
 		mdcheck_start.timer mdcheck_start.service \
 		mdcheck_continue.timer mdcheck_continue.service \
+		mdmonitor-oneshot.timer mdmonitor-oneshot.service \
 		; \
 	do sed -e 's,BINDIR,$(BINDIR),g' systemd/$$file > .install.tmp.2 && \
 	   $(ECHO) $(INSTALL) -D -m 644 systemd/$$file $(DESTDIR)$(SYSTEMD_DIR)/$$file ; \

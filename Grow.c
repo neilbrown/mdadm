@@ -1196,7 +1196,8 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	/* Find GCD */
 	a = GCD(a, b);
 	/* LCM == product / GCD */
-	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
+	blocks = (unsigned long)(ochunk/512) * (unsigned long)(nchunk/512) *
+		odata * ndata / a;
 
 	return blocks;
 }

@@ -383,7 +383,7 @@ struct dev_policy *path_policy(char **paths, char *type)
 	/* Now add any metadata-specific internal knowledge
 	 * about this path
 	 */
-	for (i=0; paths[0] && superlist[i]; i++)
+	for (i=0; paths && paths[0] && superlist[i]; i++)
 		if (superlist[i]->get_disk_controller_domain) {
 			const char *d =
 				superlist[i]->get_disk_controller_domain(

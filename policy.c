@@ -268,7 +268,7 @@ static int pol_match(struct rule *rule, char **paths, char *type, char **part)
 
 	for (; rule; rule = rule->next) {
 		if (rule->name == rule_path) {
-			char *p;
+			char *p = NULL;
 			int i;
 			if (pathok == 0)
 				pathok = -1;

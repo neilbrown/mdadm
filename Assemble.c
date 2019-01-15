@@ -879,7 +879,7 @@ static int force_array(struct mdinfo *content,
 		current_events = devices[chosen_drive].i.events;
 	add_another:
 		if (c->verbose >= 0)
-			pr_err("forcing event count in %s(%d) from %d upto %d\n",
+			pr_err("forcing event count in %s(%d) from %d up to %d\n",
 			       devices[chosen_drive].devname,
 			       devices[chosen_drive].i.disk.raid_disk,
 			       (int)(devices[chosen_drive].i.events),

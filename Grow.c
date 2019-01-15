@@ -446,7 +446,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);
 			if (sysfs_init(mdi, fd, NULL)) {
-				pr_err("failed to intialize sysfs.\n");
+				pr_err("failed to initialize sysfs.\n");
 				free(mdi);
 			}
 			rv = sysfs_set_num_signed(mdi, NULL, "bitmap/location",
@@ -2178,7 +2178,7 @@ size_change_error:
 	memset(&info, 0, sizeof(info));
 	info.array = array;
 	if (sysfs_init(&info, fd, NULL)) {
-		pr_err("failed to intialize sysfs.\n");
+		pr_err("failed to initialize sysfs.\n");
 		rv = 1;
 		goto release;
 	}
@@ -2903,7 +2903,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 	struct mdinfo info;
 
 	if (sysfs_init(&info, fd, NULL)) {
-		pr_err("failed to intialize sysfs.\n");
+		pr_err("failed to initialize sysfs.\n");
 		return  1;
 	}
 

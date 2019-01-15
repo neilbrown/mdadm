@@ -10034,7 +10034,7 @@ static void imsm_process_update(struct supertype *st,
 		break;
 	}
 	default:
-		pr_err("error: unsuported process update type:(type: %d)\n",	type);
+		pr_err("error: unsupported process update type:(type: %d)\n",	type);
 	}
 }
 

@@ -1900,7 +1900,7 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 		return conf;
 	}
 bad:
-	pr_err("Could't find disk %d in array %u\n", n, inst);
+	pr_err("Couldn't find disk %d in array %u\n", n, inst);
 	return NULL;
 }
 

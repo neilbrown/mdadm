@@ -823,7 +823,7 @@ int Create(struct supertype *st, char *mddev,
 		}
 		bitmap_fd = open(s->bitmap_file, O_RDWR);
 		if (bitmap_fd < 0) {
-			pr_err("weird: %s cannot be openned\n",
+			pr_err("weird: %s cannot be opened\n",
 				s->bitmap_file);
 			goto abort_locked;
 		}

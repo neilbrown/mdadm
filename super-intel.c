@@ -296,7 +296,7 @@ struct migr_record {
 	__u32 rec_status;	    /* Status used to determine how to restart
 				     * migration in case it aborts
 				     * in some fashion */
-	__u32 curr_migr_unit;	    /* 0..numMigrUnits-1 */
+	__u32 curr_migr_unit_lo;    /* 0..numMigrUnits-1 */
 	__u32 family_num;	    /* Family number of MPB
 				     * containing the RaidDev
 				     * that is migrating */
@@ -306,16 +306,23 @@ struct migr_record {
 	__u32 dest_depth_per_unit;  /* Num member blocks each destMap
 				     * member disk
 				     * advances per unit-of-operation */
-	__u32 ckpt_area_pba;	    /* Pba of first block of ckpt copy area */
-	__u32 dest_1st_member_lba;  /* First member lba on first
-				     * stripe of destination */
-	__u32 num_migr_units;	    /* Total num migration units-of-op */
+	__u32 ckpt_area_pba_lo;	    /* Pba of first block of ckpt copy area */
+	__u32 dest_1st_member_lba_lo;	/* First member lba on first
+					 * stripe of destination */
+	__u32 num_migr_units_lo;    /* Total num migration units-of-op */
 	__u32 post_migr_vol_cap;    /* Size of volume after
 				     * migration completes */
 	__u32 post_migr_vol_cap_hi; /* Expansion space for LBA64 */
 	__u32 ckpt_read_disk_num;   /* Which member disk in destSubMap[0] the
 				     * migration ckpt record was read from
 				     * (for recovered migrations) */
+	__u32 curr_migr_unit_hi;    /* 0..numMigrUnits-1 high order 32 bits */
+	__u32 ckpt_area_pba_hi;	    /* Pba of first block of ckpt copy area
+				     * high order 32 bits */
+	__u32 dest_1st_member_lba_hi; /* First member lba on first stripe of
+				       * destination - high order 32 bits */
+	__u32 num_migr_units_hi;      /* Total num migration units-of-op
+				       * high order 32 bits */
 } __attribute__ ((__packed__));
 
 struct md_list {
@@ -1208,6 +1215,38 @@ static unsigned long long imsm_dev_size(struct imsm_dev *dev)
 	return join_u32(dev->size_low, dev->size_high);
 }
 
+static unsigned long long migr_chkp_area_pba(struct migr_record *migr_rec)
+{
+	if (migr_rec == NULL)
+		return 0;
+	return join_u32(migr_rec->ckpt_area_pba_lo,
+			migr_rec->ckpt_area_pba_hi);
+}
+
+static unsigned long long current_migr_unit(struct migr_record *migr_rec)
+{
+	if (migr_rec == NULL)
+		return 0;
+	return join_u32(migr_rec->curr_migr_unit_lo,
+			migr_rec->curr_migr_unit_hi);
+}
+
+static unsigned long long migr_dest_1st_member_lba(struct migr_record *migr_rec)
+{
+	if (migr_rec == NULL)
+		return 0;
+	return join_u32(migr_rec->dest_1st_member_lba_lo,
+			migr_rec->dest_1st_member_lba_hi);
+}
+
+static unsigned long long get_num_migr_units(struct migr_record *migr_rec)
+{
+	if (migr_rec == NULL)
+		return 0;
+	return join_u32(migr_rec->num_migr_units_lo,
+			migr_rec->num_migr_units_hi);
+}
+
 static void set_total_blocks(struct imsm_disk *disk, unsigned long long n)
 {
 	split_ull(n, &disk->total_blocks_lo, &disk->total_blocks_hi);
@@ -1231,6 +1270,33 @@ static void set_num_data_stripes(struct imsm_map *map, unsigned long long n)
 static void set_imsm_dev_size(struct imsm_dev *dev, unsigned long long n)
 {
 	split_ull(n, &dev->size_low, &dev->size_high);
+}
+
+static void set_migr_chkp_area_pba(struct migr_record *migr_rec,
+				   unsigned long long n)
+{
+	split_ull(n, &migr_rec->ckpt_area_pba_lo, &migr_rec->ckpt_area_pba_hi);
+}
+
+static void set_current_migr_unit(struct migr_record *migr_rec,
+				  unsigned long long n)
+{
+	split_ull(n, &migr_rec->curr_migr_unit_lo,
+		  &migr_rec->curr_migr_unit_hi);
+}
+
+static void set_migr_dest_1st_member_lba(struct migr_record *migr_rec,
+					 unsigned long long n)
+{
+	split_ull(n, &migr_rec->dest_1st_member_lba_lo,
+		  &migr_rec->dest_1st_member_lba_hi);
+}
+
+static void set_num_migr_units(struct migr_record *migr_rec,
+			       unsigned long long n)
+{
+	split_ull(n, &migr_rec->num_migr_units_lo,
+		  &migr_rec->num_migr_units_hi);
 }
 
 static unsigned long long per_dev_array_size(struct imsm_map *map)
@@ -1629,12 +1695,14 @@ void convert_to_4k_imsm_migr_rec(struct intel_super *super)
 	struct migr_record *migr_rec = super->migr_rec;
 
 	migr_rec->blocks_per_unit /= IMSM_4K_DIV;
-	migr_rec->ckpt_area_pba /= IMSM_4K_DIV;
-	migr_rec->dest_1st_member_lba /= IMSM_4K_DIV;
 	migr_rec->dest_depth_per_unit /= IMSM_4K_DIV;
 	split_ull((join_u32(migr_rec->post_migr_vol_cap,
 		 migr_rec->post_migr_vol_cap_hi) / IMSM_4K_DIV),
 		 &migr_rec->post_migr_vol_cap, &migr_rec->post_migr_vol_cap_hi);
+	set_migr_chkp_area_pba(migr_rec,
+		 migr_chkp_area_pba(migr_rec) / IMSM_4K_DIV);
+	set_migr_dest_1st_member_lba(migr_rec,
+		 migr_dest_1st_member_lba(migr_rec) / IMSM_4K_DIV);
 }
 
 void convert_to_4k_imsm_disk(struct imsm_disk *disk)
@@ -1727,8 +1795,8 @@ void examine_migr_rec_imsm(struct intel_super *super)
 			printf("Normal\n");
 		else
 			printf("Contains Data\n");
-		printf("               Current Unit : %u\n",
-		       __le32_to_cpu(migr_rec->curr_migr_unit));
+		printf("               Current Unit : %llu\n",
+		       current_migr_unit(migr_rec));
 		printf("                     Family : %u\n",
 		       __le32_to_cpu(migr_rec->family_num));
 		printf("                  Ascending : %u\n",
@@ -1737,16 +1805,15 @@ void examine_migr_rec_imsm(struct intel_super *super)
 		       __le32_to_cpu(migr_rec->blocks_per_unit));
 		printf("       Dest. Depth Per Unit : %u\n",
 		       __le32_to_cpu(migr_rec->dest_depth_per_unit));
-		printf("        Checkpoint Area pba : %u\n",
-		       __le32_to_cpu(migr_rec->ckpt_area_pba));
-		printf("           First member lba : %u\n",
-		       __le32_to_cpu(migr_rec->dest_1st_member_lba));
-		printf("      Total Number of Units : %u\n",
-		       __le32_to_cpu(migr_rec->num_migr_units));
-		printf("             Size of volume : %u\n",
-		       __le32_to_cpu(migr_rec->post_migr_vol_cap));
-		printf("  Expansion space for LBA64 : %u\n",
-		       __le32_to_cpu(migr_rec->post_migr_vol_cap_hi));
+		printf("        Checkpoint Area pba : %llu\n",
+		       migr_chkp_area_pba(migr_rec));
+		printf("           First member lba : %llu\n",
+		       migr_dest_1st_member_lba(migr_rec));
+		printf("      Total Number of Units : %llu\n",
+		       get_num_migr_units(migr_rec));
+		printf("             Size of volume : %llu\n",
+		       join_u32(migr_rec->post_migr_vol_cap,
+				migr_rec->post_migr_vol_cap_hi));
 		printf("       Record was read from : %u\n",
 		       __le32_to_cpu(migr_rec->ckpt_read_disk_num));
 
@@ -1759,13 +1826,15 @@ void convert_from_4k_imsm_migr_rec(struct intel_super *super)
 	struct migr_record *migr_rec = super->migr_rec;
 
 	migr_rec->blocks_per_unit *= IMSM_4K_DIV;
-	migr_rec->ckpt_area_pba *= IMSM_4K_DIV;
-	migr_rec->dest_1st_member_lba *= IMSM_4K_DIV;
 	migr_rec->dest_depth_per_unit *= IMSM_4K_DIV;
 	split_ull((join_u32(migr_rec->post_migr_vol_cap,
 		 migr_rec->post_migr_vol_cap_hi) * IMSM_4K_DIV),
 		 &migr_rec->post_migr_vol_cap,
 		 &migr_rec->post_migr_vol_cap_hi);
+	set_migr_chkp_area_pba(migr_rec,
+		 migr_chkp_area_pba(migr_rec) * IMSM_4K_DIV);
+	set_migr_dest_1st_member_lba(migr_rec,
+		 migr_dest_1st_member_lba(migr_rec) * IMSM_4K_DIV);
 }
 
 void convert_from_4k(struct intel_super *super)
@@ -3096,7 +3165,7 @@ static int imsm_create_metadata_checkpoint_update(
 		return 0;
 	}
 	(*u)->type = update_general_migration_checkpoint;
-	(*u)->curr_migr_unit = __le32_to_cpu(super->migr_rec->curr_migr_unit);
+	(*u)->curr_migr_unit = current_migr_unit(super->migr_rec);
 	dprintf("prepared for %u\n", (*u)->curr_migr_unit);
 
 	return update_memory_size;
@@ -3397,13 +3466,13 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 		case MIGR_GEN_MIGR: {
 			__u64 blocks_per_unit = blocks_per_migr_unit(super,
 								     dev);
-			__u64 units = __le32_to_cpu(migr_rec->curr_migr_unit);
+			__u64 units = current_migr_unit(migr_rec);
 			unsigned long long array_blocks;
 			int used_disks;
 
 			if (__le32_to_cpu(migr_rec->ascending_migr) &&
 			    (units <
-				(__le32_to_cpu(migr_rec->num_migr_units)-1)) &&
+				(get_num_migr_units(migr_rec)-1)) &&
 			    (super->migr_rec->rec_status ==
 					__cpu_to_le32(UNIT_SRC_IN_CP_AREA)))
 				units++;
@@ -10697,7 +10766,7 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 
 	if (array_blocks % __le32_to_cpu(migr_rec->blocks_per_unit))
 		num_migr_units++;
-	migr_rec->num_migr_units = __cpu_to_le32(num_migr_units);
+	set_num_migr_units(migr_rec, num_migr_units);
 
 	migr_rec->post_migr_vol_cap =  dev->size_low;
 	migr_rec->post_migr_vol_cap_hi = dev->size_high;
@@ -10714,7 +10783,7 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 			min_dev_sectors = dev_sectors;
 		close(fd);
 	}
-	migr_rec->ckpt_area_pba = __cpu_to_le32(min_dev_sectors -
+	set_migr_chkp_area_pba(migr_rec, min_dev_sectors -
 					RAID_DISK_RESERVED_BLOCKS_IMSM_HI);
 
 	write_imsm_migr_rec(st);
@@ -10765,8 +10834,7 @@ int save_backup_imsm(struct supertype *st,
 
 	start = info->reshape_progress * 512;
 	for (i = 0; i < new_disks; i++) {
-		target_offsets[i] = (unsigned long long)
-		  __le32_to_cpu(super->migr_rec->ckpt_area_pba) * 512;
+		target_offsets[i] = migr_chkp_area_pba(super->migr_rec) * 512;
 		/* move back copy area adderss, it will be moved forward
 		 * in restore_stripes() using start input variable
 		 */
@@ -10845,12 +10913,11 @@ int save_checkpoint_imsm(struct supertype *st, struct mdinfo *info, int state)
 	if (info->reshape_progress % blocks_per_unit)
 		curr_migr_unit++;
 
-	super->migr_rec->curr_migr_unit =
-		__cpu_to_le32(curr_migr_unit);
+	set_current_migr_unit(super->migr_rec, curr_migr_unit);
 	super->migr_rec->rec_status = __cpu_to_le32(state);
-	super->migr_rec->dest_1st_member_lba =
-		__cpu_to_le32(curr_migr_unit *
-			      __le32_to_cpu(super->migr_rec->dest_depth_per_unit));
+	set_migr_dest_1st_member_lba(super->migr_rec,
+			super->migr_rec->dest_depth_per_unit * curr_migr_unit);
+
 	if (write_imsm_migr_rec(st) < 0) {
 		dprintf("imsm: Cannot write migration record outside backup area\n");
 		return 1;
@@ -10884,8 +10951,8 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	char *buf = NULL;
 	int retval = 1;
 	unsigned int sector_size = super->sector_size;
-	unsigned long curr_migr_unit = __le32_to_cpu(migr_rec->curr_migr_unit);
-	unsigned long num_migr_units = __le32_to_cpu(migr_rec->num_migr_units);
+	unsigned long curr_migr_unit = current_migr_unit(migr_rec);
+	unsigned long num_migr_units = get_num_migr_units(migr_rec);
 	char buffer[20];
 	int skipped_disks = 0;
 
@@ -10912,11 +10979,9 @@ int recover_backup_imsm(struct supertype *st, struct mdinfo *info)
 	map_dest = get_imsm_map(id->dev, MAP_0);
 	new_disks = map_dest->num_members;
 
-	read_offset = (unsigned long long)
-			__le32_to_cpu(migr_rec->ckpt_area_pba) * 512;
+	read_offset = migr_chkp_area_pba(migr_rec) * 512;
 
-	write_offset = ((unsigned long long)
-			__le32_to_cpu(migr_rec->dest_1st_member_lba) +
+	write_offset = (migr_dest_1st_member_lba(migr_rec) +
 			pba_of_lba0(map_dest)) * 512;
 
 	unit_len = __le32_to_cpu(migr_rec->dest_depth_per_unit) * 512;
@@ -12019,12 +12084,12 @@ static int imsm_manage_reshape(
 	max_position = sra->component_size * ndata;
 	source_layout = imsm_level_to_layout(map_src->raid_level);
 
-	while (__le32_to_cpu(migr_rec->curr_migr_unit) <
-	       __le32_to_cpu(migr_rec->num_migr_units)) {
+	while (current_migr_unit(migr_rec) <
+	       get_num_migr_units(migr_rec)) {
 		/* current reshape position [blocks] */
 		unsigned long long current_position =
 			__le32_to_cpu(migr_rec->blocks_per_unit)
-			* __le32_to_cpu(migr_rec->curr_migr_unit);
+			* current_migr_unit(migr_rec);
 		unsigned long long border;
 
 		/* Check that array hasn't become failed.

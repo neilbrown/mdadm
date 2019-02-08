@@ -8560,25 +8560,21 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 		}
 		if (is_rebuilding(dev)) {
 			dprintf_cont("while rebuilding ");
-			if (map->map_state != map_state)  {
-				dprintf_cont("map state change ");
+			if (state & DS_FAULTY)  {
+				dprintf_cont("removing failed drive ");
 				if (n == map->failed_disk_num) {
 					dprintf_cont("end migration");
 					end_migration(dev, super, map_state);
+					a->last_checkpoint = 0;
 				} else {
-					dprintf_cont("raid10 double degradation, map state change");
+					dprintf_cont("fail detected during rebuild, changing map state");
 					map->map_state = map_state;
 				}
 				super->updates_pending++;
-			} else if (!rebuild_done)
-				break;
-			else if (n == map->failed_disk_num) {
-				/* r10 double degraded to degraded transition */
-				dprintf_cont("raid10 double degradation end migration");
-				end_migration(dev, super, map_state);
-				a->last_checkpoint = 0;
-				super->updates_pending++;
 			}
+
+			if (!rebuild_done)
+				break;
 
 			/* check if recovery is really finished */
 			for (mdi = a->info.devs; mdi ; mdi = mdi->next)
@@ -8588,7 +8584,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 				}
 			if (recovery_not_finished) {
 				dprintf_cont("\n");
-				dprintf_cont("Rebuild has not finished yet, map state changes only if raid10 double degradation happens");
+				dprintf_cont("Rebuild has not finished yet");
 				if (a->last_checkpoint < mdi->recovery_start) {
 					a->last_checkpoint =
 						mdi->recovery_start;
@@ -8598,9 +8594,9 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 			}
 
 			dprintf_cont(" Rebuild done, still degraded");
-			dev->vol.migr_state = 0;
-			set_migr_type(dev, 0);
-			dev->vol.curr_migr_unit = 0;
+			end_migration(dev, super, map_state);
+			a->last_checkpoint = 0;
+			super->updates_pending++;
 
 			for (i = 0; i < map->num_members; i++) {
 				int idx = get_imsm_ord_tbl_ent(dev, i, MAP_0);

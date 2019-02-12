@@ -2613,8 +2613,8 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS &&
-				    data_offset < sd->data_offset - min) {
-					pr_err("--data-offset too small on %s\n",
+				    data_offset > sd->data_offset - min) {
+					pr_err("--data-offset too large on %s\n",
 						dn);
 					goto release;
 				}

@@ -284,7 +284,7 @@ int Detail(char *dev, struct context *c)
 			struct mdinfo *mdi;
 			for (mdi  = sra->devs; mdi; mdi = mdi->next) {
 				char *path;
-				char *sysdev = xstrdup(mdi->sys_name + 1);
+				char *sysdev = xstrdup(mdi->sys_name);
 				char *cp;
 
 				path = map_dev(mdi->disk.major,

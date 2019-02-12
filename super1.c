@@ -360,7 +360,7 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf("     Raid Level : %s\n", c?c:"-unknown-");
 	printf("   Raid Devices : %d\n", __le32_to_cpu(sb->raid_disks));
 	printf("\n");
-	printf(" Avail Dev Size : %llu%s\n",
+	printf(" Avail Dev Size : %llu sectors%s\n",
 	       (unsigned long long)__le64_to_cpu(sb->data_size),
 	       human_size(__le64_to_cpu(sb->data_size)<<9));
 	if (__le32_to_cpu(sb->level) > 0) {
@@ -378,11 +378,11 @@ static void examine_super1(struct supertype *st, char *homehost)
 		if (ddsks) {
 			long long asize = __le64_to_cpu(sb->size);
 			asize = (asize << 9) * ddsks / ddsks_denom;
-			printf("     Array Size : %llu%s\n",
+			printf("     Array Size : %llu KiB%s\n",
 			       asize >> 10,  human_size(asize));
 		}
 		if (sb->size != sb->data_size)
-			printf("  Used Dev Size : %llu%s\n",
+			printf("  Used Dev Size : %llu sectors%s\n",
 			       (unsigned long long)__le64_to_cpu(sb->size),
 			       human_size(__le64_to_cpu(sb->size)<<9));
 	}

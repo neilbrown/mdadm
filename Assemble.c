@@ -2061,8 +2061,22 @@ int assemble_container_content(struct supertype *st, int mdfd,
 				   spare, &c->backup_file, c->verbose) == 1)
 			return 1;
 
-		err = sysfs_set_str(content, NULL,
-				    "array_state", "readonly");
+		if (content->reshape_progress == 0) {
+			/* If reshape progress is 0 - we are assembling the
+			 * array that was stopped, before reshape has started.
+			 * Array needs to be started as active, Grow_continue()
+			 * will start the reshape.
+			 */
+			sysfs_set_num(content, NULL, "reshape_position",
+				      MaxSector);
+			err = sysfs_set_str(content, NULL,
+					    "array_state", "active");
+			sysfs_set_num(content, NULL, "reshape_position", 0);
+		} else {
+			err = sysfs_set_str(content, NULL,
+					    "array_state", "readonly");
+		}
+
 		if (err)
 			return 1;
 

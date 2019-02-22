@@ -727,9 +727,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	dprintf("inst: %s action: %d state: %d\n", inst,
 		new->action_fd, new->info.state_fd);
 
-	if (sigterm)
-		new->info.safe_mode_delay = 1;
-	else if (mdi->safe_mode_delay >= 50)
+	if (mdi->safe_mode_delay >= 50)
 		/* Normal start, mdadm set this. */
 		new->info.safe_mode_delay = mdi->safe_mode_delay;
 	else
@@ -803,7 +801,7 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 				break;
 			}
 		}
-		if (a == NULL || !a->container)
+		if ((a == NULL || !a->container) && !sigterm)
 			manage_new(mdstat, container, a);
 	}
 }

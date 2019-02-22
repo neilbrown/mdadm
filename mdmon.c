@@ -171,6 +171,7 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	int fd;
 	int n;
 	long fl;
+	int rv;
 
 	/* first rule of survival... don't off yourself */
 	if (pid == getpid())
@@ -201,9 +202,16 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	fl &= ~O_NONBLOCK;
 	fcntl(sock, F_SETFL, fl);
 	n = read(sock, buf, 100);
-	/* Ignore result, it is just the wait that
-	 * matters
-	 */
+
+	/* If there is I/O going on it might took some time to get to
+	 * clean state. Wait for monitor to exit fully to avoid races.
+	 * Ping it with SIGUSR1 in case that it is sleeping  */
+	for (n = 0; n < 25; n++) {
+		rv = kill(pid, SIGUSR1);
+		if (rv < 0)
+			break;
+		usleep(200000);
+	}
 }
 
 void remove_pidfile(char *devname)

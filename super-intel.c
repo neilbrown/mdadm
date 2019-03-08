@@ -1313,7 +1313,8 @@ static unsigned long long per_dev_array_size(struct imsm_map *map)
 	return array_size;
 }
 
-static struct extent *get_extents(struct intel_super *super, struct dl *dl)
+static struct extent *get_extents(struct intel_super *super, struct dl *dl,
+				  int get_minimal_reservation)
 {
 	/* find a list of used extents on the given physical device */
 	struct extent *rv, *e;
@@ -1325,7 +1326,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 	 * regardless of whether the OROM has assigned sectors from the
 	 * IMSM_RESERVED_SECTORS region
 	 */
-	if (dl->index == -1)
+	if (dl->index == -1 || get_minimal_reservation)
 		reservation = imsm_min_reserved_sectors(super);
 	else
 		reservation = MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
@@ -1386,7 +1387,7 @@ static __u32 imsm_reserved_sectors(struct intel_super *super, struct dl *dl)
 	if (dl->index == -1)
 		return MPB_SECTOR_CNT;
 
-	e = get_extents(super, dl);
+	e = get_extents(super, dl, 0);
 	if (!e)
 		return MPB_SECTOR_CNT + IMSM_RESERVED_SECTORS;
 
@@ -1478,7 +1479,7 @@ static __u32 imsm_min_reserved_sectors(struct intel_super *super)
 		return rv;
 
 	/* find last lba used by subarrays on the smallest active disk */
-	e = get_extents(super, dl_min);
+	e = get_extents(super, dl_min, 0);
 	if (!e)
 		return rv;
 	for (i = 0; e[i].size; i++)
@@ -1519,7 +1520,7 @@ int get_spare_criteria_imsm(struct supertype *st, struct spare_criteria *c)
 	if (!dl)
 		return -EINVAL;
 	/* find last lba used by subarrays */
-	e = get_extents(super, dl);
+	e = get_extents(super, dl, 0);
 	if (!e)
 		return -EINVAL;
 	for (i = 0; e[i].size; i++)
@@ -7203,7 +7204,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 
 			pos = 0;
 			i = 0;
-			e = get_extents(super, dl);
+			e = get_extents(super, dl, 0);
 			if (!e) continue;
 			do {
 				unsigned long long esize;
@@ -7261,7 +7262,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	}
 
 	/* retrieve the largest free space block */
-	e = get_extents(super, dl);
+	e = get_extents(super, dl, 0);
 	maxsize = 0;
 	i = 0;
 	if (e) {
@@ -7359,7 +7360,7 @@ static int imsm_get_free_size(struct supertype *st, int raiddisks,
 		if (super->orom && dl->index < 0 && mpb->num_raid_devs)
 			continue;
 
-		e = get_extents(super, dl);
+		e = get_extents(super, dl, 0);
 		if (!e)
 			continue;
 		for (i = 1; e[i-1].size; i++)
@@ -8846,7 +8847,7 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 		/* Does this unused device have the requisite free space?
 		 * It needs to be able to cover all member volumes
 		 */
-		ex = get_extents(super, dl);
+		ex = get_extents(super, dl, 1);
 		if (!ex) {
 			dprintf("cannot get extents\n");
 			continue;

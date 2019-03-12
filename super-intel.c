@@ -9585,9 +9585,9 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 			du->major = 0;
 			du->index = (i * 2) + 1;
 			sprintf((char *)du->disk.serial,
-				" MISSING_%d", du->index);
+				" MISSING_%hu", du->index);
 			sprintf((char *)du->serial,
-				"MISSING_%d", du->index);
+				"MISSING_%hu", du->index);
 			du->next = super->missing;
 			super->missing = du;
 		}

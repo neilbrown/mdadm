@@ -27,6 +27,18 @@
 #include	"md_p.h"
 #include	<ctype.h>
 
+static int round_size_and_verify(unsigned long long *size, int chunk)
+{
+	if (*size == 0)
+		return 0;
+	*size &= ~(unsigned long long)(chunk - 1);
+	if (*size == 0) {
+		pr_err("Size cannot be smaller than chunk.\n");
+		return 1;
+	}
+	return 0;
+}
+
 static int default_layout(struct supertype *st, int level, int verbose)
 {
 	int layout = UnSet;
@@ -248,11 +260,14 @@ int Create(struct supertype *st, char *mddev,
 		pr_err("unknown level %d\n", s->level);
 		return 1;
 	}
+
 	if (s->size == MAX_SIZE)
 		/* use '0' to mean 'max' now... */
 		s->size = 0;
 	if (s->size && s->chunk && s->chunk != UnSet)
-		s->size &= ~(unsigned long long)(s->chunk - 1);
+		if (round_size_and_verify(&s->size, s->chunk))
+			return 1;
+
 	newsize = s->size * 2;
 	if (st && ! st->ss->validate_geometry(st, s->level, s->layout, s->raiddisks,
 					      &s->chunk, s->size*2,
@@ -267,7 +282,8 @@ int Create(struct supertype *st, char *mddev,
 			/* default chunk was just set */
 			if (c->verbose > 0)
 				pr_err("chunk size defaults to %dK\n", s->chunk);
-			s->size &= ~(unsigned long long)(s->chunk - 1);
+			if (round_size_and_verify(&s->size, s->chunk))
+				return 1;
 			do_default_chunk = 0;
 		}
 	}
@@ -413,7 +429,8 @@ int Create(struct supertype *st, char *mddev,
 				/* default chunk was just set */
 				if (c->verbose > 0)
 					pr_err("chunk size defaults to %dK\n", s->chunk);
-				s->size &= ~(unsigned long long)(s->chunk - 1);
+				if (round_size_and_verify(&s->size, s->chunk))
+					return 1;
 				do_default_chunk = 0;
 			}
 		}

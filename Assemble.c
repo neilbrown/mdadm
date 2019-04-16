@@ -269,7 +269,7 @@ static int select_devices(struct mddev_dev *devlist,
 			if (auto_assem || !inargv)
 				/* Ignore unrecognised devices during auto-assembly */
 				goto loop;
-			if (ident->uuid_set || ident->name[0] ||
+			if (ident->name[0] ||
 			    ident->super_minor != UnSet)
 				/* Ignore unrecognised device if looking for
 				 * specific array */

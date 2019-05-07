@@ -313,17 +313,22 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 			/* assume this is a stale reference to a hot
 			 * removed device
 			 */
-			free(dev);
-			continue;
+			if (!(options & GET_DEVS_ALL)) {
+				free(dev);
+				continue;
+			}
+		} else {
+			sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
 		}
-		sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
 
-		/* special case check for block devices that can go 'offline' */
-		strcpy(dbase, "block/device/state");
-		if (load_sys(fname, buf, sizeof(buf)) == 0 &&
-		    strncmp(buf, "offline", 7) == 0) {
-			free(dev);
-			continue;
+		if (!(options & GET_DEVS_ALL)) {
+			/* special case check for block devices that can go 'offline' */
+			strcpy(dbase, "block/device/state");
+			if (load_sys(fname, buf, sizeof(buf)) == 0 &&
+			    strncmp(buf, "offline", 7) == 0) {
+				free(dev);
+				continue;
+			}
 		}
 
 		/* finally add this disk to the array */

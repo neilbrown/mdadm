@@ -8560,7 +8560,7 @@ static void imsm_set_disk(struct active_array *a, int n, int state)
 	disk = get_imsm_disk(super, ord_to_idx(ord));
 
 	/* check for new failures */
-	if (state & DS_FAULTY) {
+	if (disk && (state & DS_FAULTY)) {
 		if (mark_failure(super, dev, disk, ord_to_idx(ord)))
 			super->updates_pending++;
 	}

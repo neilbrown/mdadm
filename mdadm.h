@@ -647,6 +647,7 @@ enum sysfs_read_flags {
 	GET_ERROR	= (1 << 24),
 	GET_ARRAY_STATE = (1 << 25),
 	GET_CONSISTENCY_POLICY	= (1 << 26),
+	GET_DEVS_ALL	= (1 << 27),
 };
 
 /* If fd >= 0, get the array it is open on,

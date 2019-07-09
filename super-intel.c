@@ -1165,12 +1165,12 @@ static int count_memberships(struct dl *dl, struct intel_super *super)
 
 static __u32 imsm_min_reserved_sectors(struct intel_super *super);
 
-static int split_ull(unsigned long long n, __u32 *lo, __u32 *hi)
+static int split_ull(unsigned long long n, void *lo, void *hi)
 {
 	if (lo == 0 || hi == 0)
 		return 1;
-	*lo = __le32_to_cpu((unsigned)n);
-	*hi = __le32_to_cpu((unsigned)(n >> 32));
+	__put_unaligned32(__cpu_to_le32((__u32)n), lo);
+	__put_unaligned32(__cpu_to_le32((n >> 32)), hi);
 	return 0;
 }
 

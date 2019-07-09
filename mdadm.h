@@ -192,6 +192,36 @@ struct dlm_lksb {
 #endif /* __KLIBC__ */
 
 /*
+ * Partially stolen from include/linux/unaligned/packed_struct.h
+ */
+struct __una_u16 { __u16 x; } __attribute__ ((packed));
+struct __una_u32 { __u32 x; } __attribute__ ((packed));
+
+static inline __u16 __get_unaligned16(const void *p)
+{
+	const struct __una_u16 *ptr = (const struct __una_u16 *)p;
+	return ptr->x;
+}
+
+static inline __u32 __get_unaligned32(const void *p)
+{
+	const struct __una_u32 *ptr = (const struct __una_u32 *)p;
+	return ptr->x;
+}
+
+static inline void __put_unaligned16(__u16 val, void *p)
+{
+	struct __una_u16 *ptr = (struct __una_u16 *)p;
+	ptr->x = val;
+}
+
+static inline void __put_unaligned32(__u32 val, void *p)
+{
+	struct __una_u32 *ptr = (struct __una_u32 *)p;
+	ptr->x = val;
+}
+
+/*
   * Check at compile time that something is of a particular type.
   * Always evaluates to 1 so you may use it easily in comparisons.
 */

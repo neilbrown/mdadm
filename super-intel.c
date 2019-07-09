@@ -2875,7 +2875,7 @@ static unsigned long long calc_component_size(struct imsm_map *map,
 {
 	unsigned long long component_size;
 	unsigned long long dev_size = imsm_dev_size(dev);
-	unsigned long long calc_dev_size = 0;
+	long long calc_dev_size = 0;
 	unsigned int member_disks = imsm_num_data_members(map);
 
 	if (member_disks == 0)
@@ -2889,7 +2889,7 @@ static unsigned long long calc_component_size(struct imsm_map *map,
 	 * 2048 blocks per each device. If the difference is higher it means
 	 * that array size was expanded and num_data_stripes was not updated.
 	 */
-	if ((unsigned int)abs(calc_dev_size - dev_size) >
+	if (llabs(calc_dev_size - (long long)dev_size) >
 	    (1 << SECT_PER_MB_SHIFT) * member_disks) {
 		component_size = dev_size / member_disks;
 		dprintf("Invalid num_data_stripes in metadata; expected=%llu, found=%llu\n",

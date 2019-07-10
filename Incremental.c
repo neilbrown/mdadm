@@ -480,6 +480,7 @@ int Incremental(struct mddev_dev *devlist, struct context *c,
 			pr_err("container %s now has %d device%s\n",
 			       chosen_name, info.array.working_disks,
 			       info.array.working_disks == 1?"":"s");
+		sysfs_rules_apply(chosen_name, &info);
 		wait_for(chosen_name, mdfd);
 		if (st->ss->external)
 			strcpy(devnm, fd2devnm(mdfd));

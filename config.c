@@ -80,7 +80,8 @@ char DefaultAltConfFile[] = CONFFILE2;
 char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
-		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, LTEnd };
+		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, Sysfs,
+		LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -93,6 +94,7 @@ char *keywords[] = {
 	[AutoMode] = "auto",
 	[Policy]   = "policy",
 	[PartPolicy]="part-policy",
+	[Sysfs]    = "sysfs",
 	[LTEnd]    = NULL
 };
 
@@ -763,6 +765,9 @@ void conf_file(FILE *f)
 			break;
 		case PartPolicy:
 			policyline(line, rule_part);
+			break;
+		case Sysfs:
+			sysfsline(line);
 			break;
 		default:
 			pr_err("Unknown keyword %s\n", line);

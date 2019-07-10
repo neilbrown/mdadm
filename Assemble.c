@@ -1063,9 +1063,12 @@ static int start_array(int mdfd,
 			       mddev, okcnt + sparecnt + journalcnt,
 			       okcnt + sparecnt + journalcnt == 1 ? "" : "s");
 			if (okcnt < (unsigned)content->array.raid_disks)
-				fprintf(stderr, " (out of %d)",
+				fprintf(stderr, " (out of %d)\n",
 					content->array.raid_disks);
-			fprintf(stderr, "\n");
+			else {
+				fprintf(stderr, "\n");
+				sysfs_rules_apply(mddev, content);
+			}
 		}
 
 		if (st->ss->validate_container) {
@@ -1139,6 +1142,7 @@ static int start_array(int mdfd,
 			rv = ioctl(mdfd, RUN_ARRAY, NULL);
 		reopen_mddev(mdfd); /* drop O_EXCL */
 		if (rv == 0) {
+			sysfs_rules_apply(mddev, content);
 			if (c->verbose >= 0) {
 				pr_err("%s has been started with %d drive%s",
 				       mddev, okcnt, okcnt==1?"":"s");
@@ -2130,10 +2134,12 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			pr_err("array %s now has %d device%s",
 			       chosen_name, working + preexist,
 			       working + preexist == 1 ? "":"s");
-		else
+		else {
+			sysfs_rules_apply(chosen_name, content);
 			pr_err("Started %s with %d device%s",
 			       chosen_name, working + preexist,
 			       working + preexist == 1 ? "":"s");
+		}
 		if (preexist)
 			fprintf(stderr, " (%d new)", working);
 		if (expansion)

@@ -587,6 +587,26 @@ be based on the domain, but with
 appended, when N is the partition number for the partition that was
 found.
 
+.TP
+.B SYSFS
+The SYSFS line lists custom values of MD device's sysfs attributes which will be
+stored in sysfs after the array is assembled. Multiple lines are allowed and each
+line has to contain the uuid or the name of the device to which it relates.
+.RS 4
+.TP
+.B uuid=
+hexadecimal identifier of MD device. This has to match the uuid stored in the
+superblock.
+.TP
+.B name=
+name of the MD device as was given to
+.I mdadm
+when the array was created. It will be ignored if
+.B uuid
+is not empty.
+.TP
+.RS 7
+
 .SH EXAMPLE
 DEVICE /dev/sd[bcdjkl]1
 .br
@@ -657,6 +677,11 @@ CREATE group=system mode=0640 auto=part\-8
 HOMEHOST <system>
 .br
 AUTO +1.x homehost \-all
+.br
+SYSFS name=/dev/md/raid5 group_thread_cnt=4 sync_speed_max=1000000
+.br
+SYSFS uuid=bead5eb6:31c17a27:da120ba2:7dfda40d group_thread_cnt=4
+sync_speed_max=1000000
 
 .SH SEE ALSO
 .BR mdadm (8),

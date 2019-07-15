@@ -9200,6 +9200,9 @@ static int add_remove_disk_update(struct intel_super *super)
 					remove_disk_super(super,
 							  disk_cfg->major,
 							  disk_cfg->minor);
+				} else {
+					disk_cfg->fd = disk->fd;
+					disk->fd = -1;
 				}
 			}
 			/* release allocate disk structure */

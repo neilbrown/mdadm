@@ -56,7 +56,7 @@ int Detail(char *dev, struct context *c)
 	 */
 	int fd = open(dev, O_RDONLY);
 	mdu_array_info_t array;
-	mdu_disk_info_t *disks;
+	mdu_disk_info_t *disks = NULL;
 	int next;
 	int d;
 	time_t atime;
@@ -280,7 +280,7 @@ int Detail(char *dev, struct context *c)
 			}
 			map_free(map);
 		}
-		if (sra) {
+		if (!c->no_devices && sra) {
 			struct mdinfo *mdi;
 			for (mdi  = sra->devs; mdi; mdi = mdi->next) {
 				char *path;
@@ -655,12 +655,17 @@ This is pretty boring
 			printf("\n\n");
 		}
 
-		if (array.raid_disks)
-			printf("    Number   Major   Minor   RaidDevice State\n");
-		else
-			printf("    Number   Major   Minor   RaidDevice\n");
+		if (!c->no_devices) {
+			if (array.raid_disks)
+				printf("    Number   Major   Minor   RaidDevice State\n");
+			else
+				printf("    Number   Major   Minor   RaidDevice\n");
+		}
 	}
-	free(info);
+
+	/* if --no_devices specified, not print component devices info */
+	if (c->no_devices)
+		goto skip_devices_state;
 
 	for (d = 0; d < max_disks * 2; d++) {
 		char *dv;
@@ -747,6 +752,8 @@ This is pretty boring
 		if (!c->brief)
 			printf("\n");
 	}
+
+skip_devices_state:
 	if (spares && c->brief && array.raid_disks)
 		printf(" spares=%d", spares);
 	if (c->brief && st && st->sb)
@@ -766,8 +773,9 @@ This is pretty boring
 	    !enough(array.level, array.raid_disks, array.layout, 1, avail))
 		rv = 2;
 
-	free(disks);
 out:
+	free(info);
+	free(disks);
 	close(fd);
 	free(subarray);
 	free(avail);

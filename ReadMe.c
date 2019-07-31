@@ -181,6 +181,7 @@ struct option long_options[] = {
 
     /* For Detail/Examine */
     {"brief",	  0, 0, Brief},
+    {"no-devices",0, 0, NoDevices},
     {"export",	  0, 0, 'Y'},
     {"sparc2.2",  0, 0, Sparc22},
     {"test",      0, 0, 't'},

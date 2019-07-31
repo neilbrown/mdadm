@@ -440,6 +440,7 @@ enum special_options {
 	NoSharing,
 	HelpOptions,
 	Brief,
+	NoDevices,
 	ManageOpt,
 	Add,
 	AddSpare,
@@ -550,6 +551,7 @@ struct context {
 	int	runstop;
 	int	verbose;
 	int	brief;
+	int	no_devices;
 	int	force;
 	char	*homehost;
 	int	require_homehost;

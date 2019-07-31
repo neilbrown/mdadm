@@ -159,6 +159,10 @@ int main(int argc, char *argv[])
 			c.brief = 1;
 			continue;
 
+		case NoDevices:
+			c.no_devices = 1;
+			continue;
+
 		case 'Y': c.export++;
 			continue;
 

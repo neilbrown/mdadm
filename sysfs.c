@@ -1023,12 +1023,20 @@ int sysfs_rules_apply_check(const struct mdinfo *sra,
 	char dname[MAX_SYSFS_PATH_LEN];
 	char resolved_path[PATH_MAX];
 	char resolved_dir[PATH_MAX];
+	int result;
 
 	if (sra == NULL || ent == NULL)
 		return -1;
 
-	snprintf(dname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md/", sra->sys_name);
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "%s/%s", dname, ent->name);
+	result = snprintf(dname, MAX_SYSFS_PATH_LEN,
+			  "/sys/block/%s/md/", sra->sys_name);
+	if (result < 0 || result >= MAX_SYSFS_PATH_LEN)
+		return -1;
+
+	result = snprintf(fname, MAX_SYSFS_PATH_LEN,
+			  "%s/%s", dname, ent->name);
+	if (result < 0 || result >= MAX_SYSFS_PATH_LEN)
+		return -1;
 
 	if (realpath(fname, resolved_path) == NULL ||
 	    realpath(dname, resolved_dir) == NULL)

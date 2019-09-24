@@ -685,8 +685,12 @@ char *fname_from_uuid(struct supertype *st, struct mdinfo *info,
 	// work, but can't have it set if we want this printout to match
 	// all the other uuid printouts in super1.c, so we force swapuuid
 	// to 1 to make our printout match the rest of super1
+#if __BYTE_ORDER == BIG_ENDIAN
+	return __fname_from_uuid(info->uuid, 1, buf, sep);
+#else
 	return __fname_from_uuid(info->uuid, (st->ss == &super1) ? 1 :
 				 st->ss->swapuuid, buf, sep);
+#endif
 }
 
 int check_ext2(int fd, char *name)

@@ -11,3 +11,5 @@ Description=MD array scrubbing - continuation
 [Timer]
 OnCalendar= 1:05:00
 
+[Install]
+WantedBy= mdmonitor.service

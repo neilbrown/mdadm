@@ -13,3 +13,4 @@ OnCalendar=Sun *-*-1..7 1:00:00
 
 [Install]
 WantedBy= mdmonitor.service
+Also= mdcheck_continue.timer

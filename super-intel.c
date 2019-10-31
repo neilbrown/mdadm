@@ -96,6 +96,19 @@
 						   * mutliple PPL area
 						   */
 
+/*
+ * This macro let's us ensure that no-one accidentally
+ * changes the size of a struct
+ */
+#define ASSERT_SIZE(_struct, size) \
+static inline void __assert_size_##_struct(void)	\
+{							\
+	switch (0) {					\
+	case 0: break;					\
+	case (sizeof(struct _struct) == size): break;	\
+	}						\
+}
+
 /* Disk configuration info. */
 #define IMSM_MAX_DEVICES 255
 struct imsm_disk {
@@ -112,6 +125,7 @@ struct imsm_disk {
 #define	IMSM_DISK_FILLERS	3
 	__u32 filler[IMSM_DISK_FILLERS]; /* 0xF5 - 0x107 MPB_DISK_FILLERS for future expansion */
 };
+ASSERT_SIZE(imsm_disk, 48)
 
 /* map selector for map managment
  */
@@ -146,7 +160,8 @@ struct imsm_map {
 	__u32 disk_ord_tbl[1];	/* disk_ord_tbl[num_members],
 				 * top byte contains some flags
 				 */
-} __attribute__ ((packed));
+};
+ASSERT_SIZE(imsm_map, 52)
 
 struct imsm_vol {
 	__u32 curr_migr_unit;
@@ -169,7 +184,8 @@ struct imsm_vol {
 	__u32 filler[4];
 	struct imsm_map map[1];
 	/* here comes another one if migr_state */
-} __attribute__ ((packed));
+};
+ASSERT_SIZE(imsm_vol, 84)
 
 struct imsm_dev {
 	__u8  volume[MAX_RAID_SERIAL_LEN];
@@ -220,7 +236,8 @@ struct imsm_dev {
 #define IMSM_DEV_FILLERS 3
 	__u32 filler[IMSM_DEV_FILLERS];
 	struct imsm_vol vol;
-} __attribute__ ((packed));
+};
+ASSERT_SIZE(imsm_dev, 164)
 
 struct imsm_super {
 	__u8 sig[MAX_SIGNATURE_LENGTH];	/* 0x00 - 0x1F */
@@ -248,7 +265,8 @@ struct imsm_super {
 	struct imsm_disk disk[1];	/* 0xD8 diskTbl[numDisks] */
 	/* here comes imsm_dev[num_raid_devs] */
 	/* here comes BBM logs */
-} __attribute__ ((packed));
+};
+ASSERT_SIZE(imsm_super, 264)
 
 #define BBM_LOG_MAX_ENTRIES 254
 #define BBM_LOG_MAX_LBA_ENTRY_VAL 256		/* Represents 256 LBAs */
@@ -269,7 +287,8 @@ struct bbm_log {
 	__u32 signature; /* 0xABADB10C */
 	__u32 entry_count;
 	struct bbm_log_entry marked_block_entries[BBM_LOG_MAX_ENTRIES];
-} __attribute__ ((__packed__));
+};
+ASSERT_SIZE(bbm_log, 2040)
 
 static char *map_state_str[] = { "normal", "uninitialized", "degraded", "failed" };
 
@@ -323,7 +342,8 @@ struct migr_record {
 				       * destination - high order 32 bits */
 	__u32 num_migr_units_hi;      /* Total num migration units-of-op
 				       * high order 32 bits */
-} __attribute__ ((__packed__));
+};
+ASSERT_SIZE(migr_record, 64)
 
 struct md_list {
 	/* usage marker:

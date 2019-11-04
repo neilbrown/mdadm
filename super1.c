@@ -1550,7 +1550,17 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
 		sb->devflags |= FailFast1;
 	else if (strcmp(update, "nofailfast") == 0)
 		sb->devflags &= ~FailFast1;
-	else
+	else if (strcmp(update, "layout-original") == 0 ||
+		 strcmp(update, "layout-alternate") == 0) {
+		if (__le32_to_cpu(sb->level) != 0) {
+			pr_err("%s: %s only supported for RAID0\n",
+			       devname?:"", update);
+			rv = -1;
+		} else {
+			sb->feature_map |= __cpu_to_le32(MD_FEATURE_RAID0_LAYOUT);
+			sb->layout = __cpu_to_le32(update[7] == 'o' ? 1 : 2);
+		}
+	} else
 		rv = -1;
 
 	sb->sb_csum = calc_sb_1_csum(sb);

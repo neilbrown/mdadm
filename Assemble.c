@@ -1031,6 +1031,11 @@ static int start_array(int mdfd,
 				pr_err("failed to add %s to %s: %s\n",
 				       devices[j].devname, mddev,
 				       strerror(errno));
+				if (errno == EINVAL && content->array.level == 0 &&
+				    content->array.layout != 0) {
+					cont_err("Possibly your kernel doesn't support RAID0 layouts.\n");
+					cont_err("Please upgrade.\n");
+				}
 				if (i < content->array.raid_disks * 2 ||
 				    i == bestcnt)
 					okcnt--;
@@ -1220,6 +1225,9 @@ static int start_array(int mdfd,
 			return 0;
 		}
 		pr_err("failed to RUN_ARRAY %s: %s\n", mddev, strerror(errno));
+		if (errno == 524 /* ENOTSUP */ &&
+		    content->array.level == 0 && content->array.layout == 0)
+			cont_err("Please use --update=layout-original or --update=layout-alternate\n");
 
 		if (!enough(content->array.level, content->array.raid_disks,
 			    content->array.layout, 1, avail))

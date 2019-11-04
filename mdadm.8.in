@@ -1213,6 +1213,8 @@ argument given to this flag can be one of
 .BR no\-bbl ,
 .BR ppl ,
 .BR no\-ppl ,
+.BR layout\-original ,
+.BR layout\-alternate ,
 .BR metadata ,
 or
 .BR super\-minor .
@@ -1363,6 +1365,21 @@ write-intent bitmap or journal must not be used.
 The
 .B no\-ppl
 option will disable PPL in the superblock.
+
+The
+.B layout\-original
+and
+.B layout\-alternate
+options are for RAID0 arrays in use before Linux 5.4.  If the array was being
+used with Linux 3.13 or earlier, then to assemble the array on a new kernel,
+.B \-\-update=layout\-original
+must be given.  If the array was created and used with a kernel from Linux 3.14 to
+Linux 5.3, then
+.B \-\-update=layout\-alternate
+must be given.  This only needs to be given once.  Subsequent assembly of the array
+will happen normally.
+For more information, see
+.IR md (4).
 
 .TP
 .BR \-\-freeze\-reshape

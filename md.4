@@ -208,6 +208,13 @@ array,
 will record the chosen layout in the metadata in a way that allows newer
 kernels to assemble the array without needing a module parameter.
 
+To assemble an old array on a new kernel without using the module parameter,
+use either the
+.B "--update=layout-original"
+option or the
+.B "--update=layout-alternate"
+option.
+
 .SS RAID1
 
 A RAID1 array is also known as a mirrored set (though mirrors tend to

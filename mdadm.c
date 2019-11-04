@@ -550,6 +550,14 @@ int main(int argc, char *argv[])
 				pr_err("raid level must be given before layout.\n");
 				exit(2);
 
+			case 0:
+				s.layout = map_name(r0layout, optarg);
+				if (s.layout == UnSet) {
+					pr_err("layout %s not understood for raid0.\n",
+						optarg);
+					exit(2);
+				}
+				break;
 			case 5:
 				s.layout = map_name(r5layout, optarg);
 				if (s.layout == UnSet) {

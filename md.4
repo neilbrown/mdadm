@@ -193,6 +193,20 @@ smallest device has been exhausted, the RAID0 driver starts
 collecting chunks into smaller stripes that only span the drives which
 still have remaining space.
 
+A bug was introduced in linux 3.14 which changed the layout of blocks in
+a RAID0 beyond the region that is striped over all devices.  This bug
+does not affect an array with all devices the same size, but can affect
+other RAID0 arrays.
+
+Linux 5.4 (and some stable kernels to which the change was backported)
+will not normally assemble such an array as it cannot know which layout
+to use.  There is a module parameter "raid0.default_layout" which can be
+set to "1" to force the kernel to use the pre-3.14 layout or to "2" to
+force it to use the 3.14-and-later layout.  when creating a new RAID0
+array,
+.I mdadm
+will record the chosen layout in the metadata in a way that allows newer
+kernels to assemble the array without needing a module parameter.
 
 .SS RAID1
 

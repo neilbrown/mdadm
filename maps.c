@@ -73,6 +73,18 @@ mapping_t r6layout[] = {
 	{ NULL, UnSet }
 };
 
+/* raid0 layout is only needed because of a bug in 3.14 which changed
+ * the effective layout of raid0 arrays with varying device sizes.
+ */
+mapping_t r0layout[] = {
+	{ "original", RAID0_ORIG_LAYOUT},
+	{ "alternate", RAID0_ALT_MULTIZONE_LAYOUT},
+	{ "1", 1}, /* aka ORIG */
+	{ "2", 2}, /* aka ALT */
+	{ "dangerous", 0},
+	{ NULL, UnSet},
+};
+
 mapping_t pers[] = {
 	{ "linear", LEVEL_LINEAR},
 	{ "raid0", 0},

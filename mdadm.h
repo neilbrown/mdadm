@@ -763,7 +763,8 @@ extern int restore_stripes(int *dest, unsigned long long *offsets,
 
 extern char *map_num(mapping_t *map, int num);
 extern int map_name(mapping_t *map, char *name);
-extern mapping_t r5layout[], r6layout[], pers[], modes[], faultylayout[];
+extern mapping_t r0layout[], r5layout[], r6layout[],
+	pers[], modes[], faultylayout[];
 extern mapping_t consistency_policies[], sysfs_array_states[];
 
 extern char *map_dev_preferred(int major, int minor, int create,
@@ -1757,6 +1758,11 @@ char *xstrdup(const char *str);
 #define major(x) (((x)>>8)&0xff)
 #define makedev(M,m) (((M)<<8) | (m))
 #endif
+
+enum r0layout {
+	RAID0_ORIG_LAYOUT = 1,
+	RAID0_ALT_MULTIZONE_LAYOUT = 2,
+};
 
 /* for raid4/5/6 */
 #define ALGORITHM_LEFT_ASYMMETRIC	0

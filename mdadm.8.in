@@ -593,6 +593,8 @@ to change the RAID level in some cases.  See LEVEL CHANGES below.
 This option configures the fine details of data layout for RAID5, RAID6,
 and RAID10 arrays, and controls the failure modes for
 .IR faulty .
+It can also be used for working around a kernel bug with RAID0, but generally
+doesn't need to be used explicitly.
 
 The layout of the RAID5 parity block can be one of
 .BR left\-asymmetric ,
@@ -652,7 +654,7 @@ option to set subsequent failure modes.
 "clear" or "none" will remove any pending or periodic failure modes,
 and "flush" will clear any persistent faults.
 
-Finally, the layout options for RAID10 are one of 'n', 'o' or 'f' followed
+The layout options for RAID10 are one of 'n', 'o' or 'f' followed
 by a small number.  The default is 'n2'.  The supported options are:
 
 .I 'n'
@@ -676,6 +678,32 @@ can be useful.  This number can be at most equal to the number of
 devices in the array.  It does not need to divide evenly into that
 number (e.g. it is perfectly legal to have an 'n2' layout for an array
 with an odd number of devices).
+
+A bug introduced in Linux 3.14 means that RAID0 arrays
+.B "with devices of differing sizes"
+started using a different layout.  This could lead to
+data corruption.  Since Linux 5.4 (and various stable releases that received
+backports), the kernel will not accept such an array unless
+a layout is explictly set.  It can be set to
+.RB ' original '
+or
+.RB ' alternate '.
+When creating a new array,
+.I mdadm
+will select
+.RB ' original '
+by default, so the layout does not normally need to be set.
+An array created for either
+.RB ' original '
+or
+.RB ' alternate '
+will not be recognized by an (unpatched) kernel prior to 5.4.  To create
+a RAID0 array with devices of differing sizes that can be used on an
+older kernel, you can set the layout to
+.RB ' dangerous '.
+This will use whichever layout the running kernel supports, so the data
+on the array may become corrupt when changing kernel from pre-3.14 to a
+later kernel.
 
 When an array is converted between RAID5 and RAID6 an intermediate
 RAID6 layout is used in which the second parity block (Q) is always on

@@ -43,7 +43,7 @@ struct mdp_superblock_1 {
 
 	__u64	ctime;		/* lo 40 bits are seconds, top 24 are microseconds or 0*/
 	__u32	level;		/* -4 (multipath), -1 (linear), 0,1,4,5 */
-	__u32	layout;		/* only for raid5 currently */
+	__u32	layout;		/* used for raid5, raid6, raid10, and raid0 */
 	__u64	size;		/* used size of component devices, in 512byte sectors */
 
 	__u32	chunksize;	/* in 512byte sectors */
@@ -144,6 +144,7 @@ struct misc_dev_info {
 #define	MD_FEATURE_JOURNAL		512 /* support write journal */
 #define	MD_FEATURE_PPL			1024 /* support PPL */
 #define	MD_FEATURE_MUTLIPLE_PPLS	2048 /* support for multiple PPLs */
+#define	MD_FEATURE_RAID0_LAYOUT		4096 /* layout is meaningful in RAID0 */
 #define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
 					|MD_FEATURE_RECOVERY_OFFSET	\
 					|MD_FEATURE_RESHAPE_ACTIVE	\
@@ -155,6 +156,7 @@ struct misc_dev_info {
 					|MD_FEATURE_JOURNAL		\
 					|MD_FEATURE_PPL			\
 					|MD_FEATURE_MULTIPLE_PPLS	\
+					|MD_FEATURE_RAID0_LAYOUT	\
 					)
 
 static int role_from_sb(struct mdp_superblock_1 *sb)
@@ -498,6 +500,11 @@ static void examine_super1(struct supertype *st, char *homehost)
 	printf("         Events : %llu\n",
 	       (unsigned long long)__le64_to_cpu(sb->events));
 	printf("\n");
+	if (__le32_to_cpu(sb->level) == 0 &&
+	    (sb->feature_map & __cpu_to_le32(MD_FEATURE_RAID0_LAYOUT))) {
+		c = map_num(r0layout, __le32_to_cpu(sb->layout));
+		printf("         Layout : %s\n", c?c:"-unknown-");
+	}
 	if (__le32_to_cpu(sb->level) == 5) {
 		c = map_num(r5layout, __le32_to_cpu(sb->layout));
 		printf("         Layout : %s\n", c?c:"-unknown-");
@@ -1646,6 +1653,7 @@ struct devinfo {
 	int fd;
 	char *devname;
 	long long data_offset;
+	unsigned long long dev_size;
 	mdu_disk_info_t disk;
 	struct devinfo *next;
 };
@@ -1687,6 +1695,7 @@ static int add_to_super1(struct supertype *st, mdu_disk_info_t *dk,
 	di->devname = devname;
 	di->disk = *dk;
 	di->data_offset = data_offset;
+	get_dev_size(fd, NULL, &di->dev_size);
 	di->next = NULL;
 	*dip = di;
 
@@ -1888,10 +1897,25 @@ static int write_init_super1(struct supertype *st)
 	unsigned long long sb_offset;
 	unsigned long long data_offset;
 	long bm_offset;
+	int raid0_need_layout = 0;
 
 	for (di = st->info; di; di = di->next) {
 		if (di->disk.state & (1 << MD_DISK_JOURNAL))
 			sb->feature_map |= __cpu_to_le32(MD_FEATURE_JOURNAL);
+		if (sb->level == 0 && sb->layout != 0) {
+			struct devinfo *di2 = st->info;
+			unsigned long long s1, s2;
+			s1 = di->dev_size;
+			if (di->data_offset != INVALID_SECTORS)
+				s1 -= di->data_offset;
+			s1 /= __le32_to_cpu(sb->chunksize);
+			s2 = di2->dev_size;
+			if (di2->data_offset != INVALID_SECTORS)
+				s2 -= di2->data_offset;
+			s2 /= __le32_to_cpu(sb->chunksize);
+			if (s1 != s2)
+				raid0_need_layout = 1;
+		}
 	}
 
 	for (di = st->info; di; di = di->next) {
@@ -2038,6 +2062,10 @@ static int write_init_super1(struct supertype *st)
 			sb->bblog_size = 0;
 			sb->bblog_offset = 0;
 		}
+
+		/* RAID0 needs a layout if devices aren't all the same size */
+		if (raid0_need_layout)
+			sb->feature_map |= __cpu_to_le32(MD_FEATURE_RAID0_LAYOUT);
 
 		sb->sb_csum = calc_sb_1_csum(sb);
 		rv = store_super1(st, di->fd);

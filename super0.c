@@ -1291,6 +1291,12 @@ static int validate_geometry0(struct supertype *st, int level,
 	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
+	if (level == 0 && layout != UnSet) {
+		if (verbose)
+			pr_err("0.90 metadata does not support layouts for RAID0\n");
+		return 0;
+	}
+
 	if (!subdev)
 		return 1;
 

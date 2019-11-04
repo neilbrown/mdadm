@@ -525,6 +525,11 @@ int Detail(char *dev, struct context *c)
 			printf("            Layout : %s\n",
 			       str ? str : "-unknown-");
 		}
+		if (array.level == 0 && array.layout) {
+			str = map_num(r0layout, array.layout);
+			printf("            Layout : %s\n",
+			       str ? str : "-unknown-");
+		}
 		if (array.level == 6) {
 			str = map_num(r6layout, array.layout);
 			printf("            Layout : %s\n",

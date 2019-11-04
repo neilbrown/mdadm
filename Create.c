@@ -51,6 +51,9 @@ static int default_layout(struct supertype *st, int level, int verbose)
 		default: /* no layout */
 			layout = 0;
 			break;
+		case 0:
+			layout = RAID0_ORIG_LAYOUT;
+			break;
 		case 10:
 			layout = 0x102; /* near=2, far=1 */
 			if (verbose > 0)
@@ -950,6 +953,11 @@ int Create(struct supertype *st, char *mddev,
 				if (rv) {
 					pr_err("ADD_NEW_DISK for %s failed: %s\n",
 					       dv->devname, strerror(errno));
+					if (errno == EINVAL &&
+					    info.array.level == 0) {
+						pr_err("Possibly your kernel doesn't support RAID0 layouts.\n");
+						pr_err("Either upgrade, or use --layout=dangerous\n");
+					}
 					goto abort_locked;
 				}
 				break;
@@ -1046,6 +1054,9 @@ int Create(struct supertype *st, char *mddev,
 			if (ioctl(mdfd, RUN_ARRAY, &param)) {
 				pr_err("RUN_ARRAY failed: %s\n",
 				       strerror(errno));
+				if (errno == 524 /* ENOTSUP */ &&
+				    info.array.level == 0)
+					cont_err("Please use --layout=original or --layout=alternate\n");
 				if (info.array.chunk_size & (info.array.chunk_size-1)) {
 					cont_err("Problem may be that chunk size is not a power of 2\n");
 				}

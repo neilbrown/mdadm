@@ -7298,11 +7298,8 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 
 	maxsize = merge_extents(super, i);
 
-	if (!check_env("IMSM_NO_PLATFORM") &&
-	    mpb->num_raid_devs > 0 && size && size != maxsize) {
-		pr_err("attempting to create a second volume with size less then remaining space. Aborting...\n");
-		return 0;
-	}
+	if (mpb->num_raid_devs > 0 && size && size != maxsize)
+		pr_err("attempting to create a second volume with size less then remaining space.\n");
 
 	if (maxsize < size || maxsize == 0) {
 		if (verbose) {
@@ -7393,11 +7390,8 @@ static int imsm_get_free_size(struct supertype *st, int raiddisks,
 		}
 		maxsize = size;
 	}
-	if (!check_env("IMSM_NO_PLATFORM") &&
-	    mpb->num_raid_devs > 0 && size && size != maxsize) {
-		pr_err("attempting to create a second volume with size less then remaining space. Aborting...\n");
-		return 0;
-	}
+	if (mpb->num_raid_devs > 0 && size && size != maxsize)
+		pr_err("attempting to create a second volume with size less then remaining space.\n");
 	cnt = 0;
 	for (dl = super->disks; dl; dl = dl->next)
 		if (dl->e)

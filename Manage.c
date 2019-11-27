@@ -741,18 +741,6 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 		       "       Adding anyway as --force was given.\n",
 		       dv->devname, devname);
 	}
-	if (!tst->ss->external && array->major_version == 0) {
-		if (ioctl(fd, HOT_ADD_DISK, rdev)==0) {
-			if (verbose >= 0)
-				pr_err("hot added %s\n",
-				       dv->devname);
-			return 1;
-		}
-
-		pr_err("hot add failed for %s: %s\n",
-		       dv->devname, strerror(errno));
-		return -1;
-	}
 
 	if (array->not_persistent == 0 || tst->ss->external) {
 

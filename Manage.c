@@ -1728,8 +1728,10 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 	int fd2 = open(from_devname, O_RDONLY);
 
 	if (fd1 < 0 || fd2 < 0) {
-		if (fd1>=0) close(fd1);
-		if (fd2>=0) close(fd2);
+		if (fd1 >= 0)
+			close(fd1);
+		if (fd2 >= 0)
+			close(fd2);
 		return 0;
 	}
 
@@ -1743,7 +1745,8 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 	devlist.disposition = 'r';
 	if (Manage_subdevs(from_devname, fd2, &devlist, -1, 0, NULL, 0) == 0) {
 		devlist.disposition = 'a';
-		if (Manage_subdevs(to_devname, fd1, &devlist, -1, 0, NULL, 0) == 0) {
+		if (Manage_subdevs(to_devname, fd1, &devlist, -1, 0,
+				   NULL, 0) == 0) {
 			/* make sure manager is aware of changes */
 			ping_manager(to_devname);
 			ping_manager(from_devname);
@@ -1751,7 +1754,9 @@ int move_spare(char *from_devname, char *to_devname, dev_t devid)
 			close(fd2);
 			return 1;
 		}
-		else Manage_subdevs(from_devname, fd2, &devlist, -1, 0, NULL, 0);
+		else
+			Manage_subdevs(from_devname, fd2, &devlist,
+				       -1, 0, NULL, 0);
 	}
 	close(fd1);
 	close(fd2);

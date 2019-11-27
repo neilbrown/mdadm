@@ -1289,8 +1289,6 @@ int Manage_subdevs(char *devname, int fd,
 	/* Do something to each dev.
 	 * devmode can be
 	 *  'a' - add the device
-	 *	   try HOT_ADD_DISK
-	 *         If that fails EINVAL, try ADD_NEW_DISK
 	 *  'S' - add the device as a spare - don't try re-add
 	 *  'j' - add the device as a journal device
 	 *  'A' - re-add the device

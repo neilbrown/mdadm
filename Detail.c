@@ -623,7 +623,7 @@ This is pretty boring
 		free_mdstat(ms);
 
 		if (st && st->sb)
-			st->ss->detail_super(st, c->homehost);
+			st->ss->detail_super(st, c->homehost, subarray);
 
 		if (array.raid_disks == 0 && sra &&
 		    sra->array.major_version == -1 &&
@@ -767,7 +767,7 @@ skip_devices_state:
 	if (spares && c->brief && array.raid_disks)
 		printf(" spares=%d", spares);
 	if (c->brief && st && st->sb)
-		st->ss->brief_detail_super(st);
+		st->ss->brief_detail_super(st, subarray);
 	if (st)
 		st->ss->free_super(st);
 

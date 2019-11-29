@@ -348,7 +348,7 @@ err:
 	return 1;
 }
 
-static void detail_super0(struct supertype *st, char *homehost)
+static void detail_super0(struct supertype *st, char *homehost, char *subarray)
 {
 	mdp_super_t *sb = st->sb;
 	printf("              UUID : ");
@@ -368,7 +368,7 @@ static void detail_super0(struct supertype *st, char *homehost)
 	printf("\n            Events : %d.%d\n\n", sb->events_hi, sb->events_lo);
 }
 
-static void brief_detail_super0(struct supertype *st)
+static void brief_detail_super0(struct supertype *st, char *subarray)
 {
 	mdp_super_t *sb = st->sb;
 	printf(" UUID=");

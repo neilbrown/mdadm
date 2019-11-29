@@ -1730,7 +1730,8 @@ err:
 	return 1;
 }
 
-static void detail_super_ddf(struct supertype *st, char *homehost)
+static void detail_super_ddf(struct supertype *st, char *homehost,
+			     char *subarray)
 {
 	struct ddf_super *sb = st->sb;
 	int cnt = be16_to_cpu(sb->virt->populated_vdes);
@@ -1787,7 +1788,7 @@ static void uuid_of_ddf_subarray(const struct ddf_super *ddf,
 	memcpy(uuid, sha, 4*4);
 }
 
-static void brief_detail_super_ddf(struct supertype *st)
+static void brief_detail_super_ddf(struct supertype *st, char *subarray)
 {
 	struct mdinfo info;
 	char nbuf[64];

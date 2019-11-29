@@ -833,7 +833,7 @@ err:
 	return 1;
 }
 
-static void detail_super1(struct supertype *st, char *homehost)
+static void detail_super1(struct supertype *st, char *homehost, char *subarray)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	bitmap_super_t *bms = (bitmap_super_t*)(((char*)sb) + MAX_SB_SIZE);
@@ -857,7 +857,7 @@ static void detail_super1(struct supertype *st, char *homehost)
 	       (unsigned long long)__le64_to_cpu(sb->events));
 }
 
-static void brief_detail_super1(struct supertype *st)
+static void brief_detail_super1(struct supertype *st, char *subarray)
 {
 	struct mdp_superblock_1 *sb = st->sb;
 	int i;

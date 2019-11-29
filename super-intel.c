@@ -2183,23 +2183,39 @@ err:
 	return 1;
 }
 
-static void detail_super_imsm(struct supertype *st, char *homehost)
+static void detail_super_imsm(struct supertype *st, char *homehost,
+			      char *subarray)
 {
 	struct mdinfo info;
 	char nbuf[64];
+	struct intel_super *super = st->sb;
+	int temp_vol = super->current_vol;
+
+	if (subarray)
+		super->current_vol = strtoul(subarray, NULL, 10);
 
 	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf("\n              UUID : %s\n", nbuf + 5);
+
+	super->current_vol = temp_vol;
 }
 
-static void brief_detail_super_imsm(struct supertype *st)
+static void brief_detail_super_imsm(struct supertype *st, char *subarray)
 {
 	struct mdinfo info;
 	char nbuf[64];
+	struct intel_super *super = st->sb;
+	int temp_vol = super->current_vol;
+
+	if (subarray)
+		super->current_vol = strtoul(subarray, NULL, 10);
+
 	getinfo_super_imsm(st, &info, NULL);
 	fname_from_uuid(st, &info, nbuf, ':');
 	printf(" UUID=%s", nbuf + 5);
+
+	super->current_vol = temp_vol;
 }
 
 static int imsm_read_serial(int fd, char *devname, __u8 *serial);

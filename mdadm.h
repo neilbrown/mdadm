@@ -847,8 +847,9 @@ extern struct superswitch {
 	/* Used to report details of an active array.
 	 * ->load_super was possibly given a 'component' string.
 	 */
-	void (*detail_super)(struct supertype *st, char *homehost);
-	void (*brief_detail_super)(struct supertype *st);
+	void (*detail_super)(struct supertype *st, char *homehost,
+			     char *subarray);
+	void (*brief_detail_super)(struct supertype *st, char *subarray);
 	void (*export_detail_super)(struct supertype *st);
 
 	/* Optional: platform hardware / firmware details */

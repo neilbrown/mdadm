@@ -2218,7 +2218,8 @@ static void brief_detail_super_imsm(struct supertype *st, char *subarray)
 	super->current_vol = temp_vol;
 }
 
-static int imsm_read_serial(int fd, char *devname, __u8 *serial);
+static int imsm_read_serial(int fd, char *devname, __u8 *serial,
+			    size_t serial_buf_len);
 static void fd2devname(int fd, char *name);
 
 static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_base, int verbose)
@@ -2364,8 +2365,9 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 		else {
 			fd2devname(fd, buf);
 			printf("          Port%d : %s", port, buf);
-			if (imsm_read_serial(fd, NULL, (__u8 *) buf) == 0)
-				printf(" (%.*s)\n", MAX_RAID_SERIAL_LEN, buf);
+			if (imsm_read_serial(fd, NULL, (__u8 *)buf,
+					     sizeof(buf)) == 0)
+				printf(" (%s)\n", buf);
 			else
 				printf(" ()\n");
 			close(fd);
@@ -2388,52 +2390,45 @@ static int ahci_enumerate_ports(const char *hba_path, int port_count, int host_b
 	return err;
 }
 
-static int print_vmd_attached_devs(struct sys_dev *hba)
+static int print_nvme_info(struct sys_dev *hba)
 {
+	char buf[1024];
 	struct dirent *ent;
 	DIR *dir;
-	char path[292];
-	char link[256];
-	char *c, *rp;
+	char *rp;
+	int fd;
 
-	if (hba->type != SYS_DEV_VMD)
-		return 1;
-
-	/* scroll through /sys/dev/block looking for devices attached to
-	 * this hba
-	 */
-	dir = opendir("/sys/bus/pci/drivers/nvme");
+	dir = opendir("/sys/block/");
 	if (!dir)
 		return 1;
 
 	for (ent = readdir(dir); ent; ent = readdir(dir)) {
-		int n;
+		if (strstr(ent->d_name, "nvme")) {
+			sprintf(buf, "/sys/block/%s", ent->d_name);
+			rp = realpath(buf, NULL);
+			if (!rp)
+				continue;
+			if (path_attached_to_hba(rp, hba->path)) {
+				fd = open_dev(ent->d_name);
+				if (fd < 0) {
+					free(rp);
+					continue;
+				}
 
-		/* is 'ent' a device? check that the 'subsystem' link exists and
-		 * that its target matches 'bus'
-		 */
-		sprintf(path, "/sys/bus/pci/drivers/nvme/%s/subsystem",
-			ent->d_name);
-		n = readlink(path, link, sizeof(link));
-		if (n < 0 || n >= (int)sizeof(link))
-			continue;
-		link[n] = '\0';
-		c = strrchr(link, '/');
-		if (!c)
-			continue;
-		if (strncmp("pci", c+1, strlen("pci")) != 0)
-			continue;
-
-		sprintf(path, "/sys/bus/pci/drivers/nvme/%s", ent->d_name);
-
-		rp = realpath(path, NULL);
-		if (!rp)
-			continue;
-
-		if (path_attached_to_hba(rp, hba->path)) {
-			printf(" NVMe under VMD : %s\n", rp);
+				fd2devname(fd, buf);
+				if (hba->type == SYS_DEV_VMD)
+					printf(" NVMe under VMD : %s", buf);
+				else if (hba->type == SYS_DEV_NVME)
+					printf("    NVMe Device : %s", buf);
+				if (!imsm_read_serial(fd, NULL, (__u8 *)buf,
+						      sizeof(buf)))
+					printf(" (%s)\n", buf);
+				else
+					printf("()\n");
+				close(fd);
+			}
+			free(rp);
 		}
-		free(rp);
 	}
 
 	closedir(dir);
@@ -2648,7 +2643,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 					char buf[PATH_MAX];
 					printf(" I/O Controller : %s (%s)\n",
 						vmd_domain_to_controller(hba, buf), get_sys_dev_type(hba->type));
-					if (print_vmd_attached_devs(hba)) {
+					if (print_nvme_info(hba)) {
 						if (verbose > 0)
 							pr_err("failed to get devices attached to VMD domain.\n");
 						result |= 2;
@@ -2663,7 +2658,7 @@ static int detail_platform_imsm(int verbose, int enumerate_only, char *controlle
 		if (entry->type == SYS_DEV_NVME) {
 			for (hba = list; hba; hba = hba->next) {
 				if (hba->type == SYS_DEV_NVME)
-					printf("    NVMe Device : %s\n", hba->path);
+					print_nvme_info(hba);
 			}
 			printf("\n");
 			continue;
@@ -4028,11 +4023,11 @@ static int nvme_get_serial(int fd, void *buf, size_t buf_len)
 extern int scsi_get_serial(int fd, void *buf, size_t buf_len);
 
 static int imsm_read_serial(int fd, char *devname,
-			    __u8 serial[MAX_RAID_SERIAL_LEN])
+			    __u8 *serial, size_t serial_buf_len)
 {
 	char buf[50];
 	int rv;
-	int len;
+	size_t len;
 	char *dest;
 	char *src;
 	unsigned int i;
@@ -4075,13 +4070,13 @@ static int imsm_read_serial(int fd, char *devname,
 	len = dest - buf;
 	dest = buf;
 
-	/* truncate leading characters */
-	if (len > MAX_RAID_SERIAL_LEN) {
-		dest += len - MAX_RAID_SERIAL_LEN;
-		len = MAX_RAID_SERIAL_LEN;
+	if (len > serial_buf_len) {
+		/* truncate leading characters */
+		dest += len - serial_buf_len;
+		len = serial_buf_len;
 	}
 
-	memset(serial, 0, MAX_RAID_SERIAL_LEN);
+	memset(serial, 0, serial_buf_len);
 	memcpy(serial, dest, len);
 
 	return 0;
@@ -4136,7 +4131,7 @@ load_imsm_disk(int fd, struct intel_super *super, char *devname, int keep_fd)
 	char name[40];
 	__u8 serial[MAX_RAID_SERIAL_LEN];
 
-	rv = imsm_read_serial(fd, devname, serial);
+	rv = imsm_read_serial(fd, devname, serial, MAX_RAID_SERIAL_LEN);
 
 	if (rv != 0)
 		return 2;
@@ -5844,7 +5839,7 @@ int mark_spare(struct dl *disk)
 		return ret_val;
 
 	ret_val = 0;
-	if (!imsm_read_serial(disk->fd, NULL, serial)) {
+	if (!imsm_read_serial(disk->fd, NULL, serial, MAX_RAID_SERIAL_LEN)) {
 		/* Restore disk serial number, because takeover marks disk
 		 * as failed and adds to serial ':0' before it becomes
 		 * a spare disk.
@@ -5895,7 +5890,7 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 	dd->fd = fd;
 	dd->e = NULL;
 	dd->action = DISK_ADD;
-	rv = imsm_read_serial(fd, devname, dd->serial);
+	rv = imsm_read_serial(fd, devname, dd->serial, MAX_RAID_SERIAL_LEN);
 	if (rv) {
 		pr_err("failed to retrieve scsi serial, aborting\n");
 		if (dd->devname)

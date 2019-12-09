@@ -46,7 +46,9 @@ ifdef COVERITY
 COVERITY_FLAGS=-include coverity-gcc-hack.h
 endif
 
-CC ?= $(CROSS_COMPILE)gcc
+ifeq ($(origin CC),default)
+CC := $(CROSS_COMPILE)gcc
+endif
 CXFLAGS ?= -ggdb
 CWFLAGS = -Wall -Werror -Wstrict-prototypes -Wextra -Wno-unused-parameter
 ifdef WARN_UNUSED

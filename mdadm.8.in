@@ -481,9 +481,7 @@ still be larger than any replacement.
 This value can be set with
 .B \-\-grow
 for RAID level 1/4/5/6 though
-.B CONTAINER
-based arrays such as those with IMSM metadata may not be able to
-support this.
+DDF arrays may not be able to support this.
 If the array was created with a size smaller than the currently
 active drives, the extra space can be accessed using
 .BR \-\-grow .
@@ -2759,9 +2757,7 @@ container format.  The number of devices in a container can be
 increased - which affects all arrays in the container - or an array
 in a container can be converted between levels where those levels are
 supported by the container, and the conversion is on of those listed
-above.  Resizing arrays in an IMSM container with
-.B "--grow --size"
-is not yet supported.
+above.
 
 .PP
 Notes:

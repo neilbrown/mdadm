@@ -1485,9 +1485,12 @@ int main(int argc, char *argv[])
 			rv = Manage_stop(devlist->devname, mdfd, c.verbose, 0);
 		break;
 	case ASSEMBLE:
-		if (devs_found == 1 && ident.uuid_set == 0 &&
-		    ident.super_minor == UnSet && ident.name[0] == 0 &&
-		    !c.scan ) {
+		if (!c.scan && c.runstop == -1) {
+			pr_err("--no-degraded not meaningful without a --scan assembly.\n");
+			exit(1);
+		} else if (devs_found == 1 && ident.uuid_set == 0 &&
+			   ident.super_minor == UnSet && ident.name[0] == 0 &&
+			   !c.scan) {
 			/* Only a device has been given, so get details from config file */
 			struct mddev_ident *array_ident = conf_get_ident(devlist->devname);
 			if (array_ident == NULL) {

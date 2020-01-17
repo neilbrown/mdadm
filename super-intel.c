@@ -7946,7 +7946,8 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				skip = 1;
 			if (!skip && (ord & IMSM_ORD_REBUILD))
 				recovery_start = 0;
-
+			if (!(ord & IMSM_ORD_REBUILD))
+				this->array.working_disks++;
 			/*
 			 * if we skip some disks the array will be assmebled degraded;
 			 * reset resync start to avoid a dirty-degraded
@@ -7988,8 +7989,6 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 				else
 					this->array.spare_disks++;
 			}
-			if (info_d->recovery_start == MaxSector)
-				this->array.working_disks++;
 
 			info_d->events = __le32_to_cpu(mpb->generation_num);
 			info_d->data_offset = pba_of_lba0(map);

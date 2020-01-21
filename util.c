@@ -389,7 +389,7 @@ int mdadm_version(char *version)
 unsigned long long parse_size(char *size)
 {
 	/* parse 'size' which should be a number optionally
-	 * followed by 'K', 'M', or 'G'.
+	 * followed by 'K', 'M'. 'G' or 'T'.
 	 * Without a suffix, K is assumed.
 	 * Number returned is in sectors (half-K)
 	 * INVALID_SECTORS returned on error.
@@ -410,6 +410,10 @@ unsigned long long parse_size(char *size)
 		case 'G':
 			c++;
 			s *= 1024 * 1024 * 2;
+			break;
+		case 'T':
+			c++;
+			s *= 1024 * 1024 * 1024 * 2LL;
 			break;
 		case 's': /* sectors */
 			c++;
@@ -893,13 +897,14 @@ char *human_size(long long bytes)
 {
 	static char buf[47];
 
-	/* We convert bytes to either centi-M{ega,ibi}bytes or
-	 * centi-G{igi,ibi}bytes, with appropriate rounding,
-	 * and then print 1/100th of those as a decimal.
+	/* We convert bytes to either centi-M{ega,ibi}bytes,
+	 * centi-G{igi,ibi}bytes or centi-T{era,ebi}bytes
+	 * with appropriate rounding, and then print
+	 * 1/100th of those as a decimal.
 	 * We allow upto 2048Megabytes before converting to
-	 * gigabytes, as that shows more precision and isn't
+	 * gigabytes and 2048Gigabytes before converting to
+	 * terabytes, as that shows more precision and isn't
 	 * too large a number.
-	 * Terabytes are not yet handled.
 	 */
 
 	if (bytes < 5000*1024)
@@ -909,11 +914,16 @@ char *human_size(long long bytes)
 		long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
 		snprintf(buf, sizeof(buf), " (%ld.%02ld MiB %ld.%02ld MB)",
 			cMiB/100, cMiB % 100, cMB/100, cMB % 100);
-	} else {
+	} else if (bytes < 2*1024LL*1024LL*1024LL*1024LL) {
 		long cGiB = (bytes * 200LL / (1LL<<30) +1) / 2;
 		long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
 		snprintf(buf, sizeof(buf), " (%ld.%02ld GiB %ld.%02ld GB)",
 			cGiB/100, cGiB % 100, cGB/100, cGB % 100);
+	} else {
+		long cTiB = (bytes * 200LL / (1LL<<40) + 1) / 2;
+		long cTB  = (bytes / (1000000000000LL / 200LL) + 1) / 2;
+		snprintf(buf, sizeof(buf), " (%ld.%02ld TiB %ld.%02ld TB)",
+			cTiB/100, cTiB % 100, cTB/100, cTB % 100);
 	}
 	return buf;
 }
@@ -922,13 +932,14 @@ char *human_size_brief(long long bytes, int prefix)
 {
 	static char buf[30];
 
-	/* We convert bytes to either centi-M{ega,ibi}bytes or
-	 * centi-G{igi,ibi}bytes, with appropriate rounding,
-	 * and then print 1/100th of those as a decimal.
+	/* We convert bytes to either centi-M{ega,ibi}bytes,
+	 * centi-G{igi,ibi}bytes or centi-T{era,ebi}bytes
+	 * with appropriate rounding, and then print
+	 * 1/100th of those as a decimal.
 	 * We allow upto 2048Megabytes before converting to
-	 * gigabytes, as that shows more precision and isn't
+	 * gigabytes and 2048Gigabytes before converting to
+	 * terabytes, as that shows more precision and isn't
 	 * too large a number.
-	 * Terabytes are not yet handled.
 	 *
 	 * If prefix == IEC, we mean prefixes like kibi,mebi,gibi etc.
 	 * If prefix == JEDEC, we mean prefixes like kilo,mega,giga etc.
@@ -941,10 +952,14 @@ char *human_size_brief(long long bytes, int prefix)
 			long cMiB = (bytes * 200LL / (1LL<<20) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldMiB",
 				 cMiB/100, cMiB % 100);
-		} else {
+		} else if (bytes < 2*1024LL*1024LL*1024LL*1024LL) {
 			long cGiB = (bytes * 200LL / (1LL<<30) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldGiB",
 				 cGiB/100, cGiB % 100);
+		} else {
+			long cTiB = (bytes * 200LL / (1LL<<40) + 1) / 2;
+			snprintf(buf, sizeof(buf), "%ld.%02ldTiB",
+				 cTiB/100, cTiB % 100);
 		}
 	}
 	else if (prefix == JEDEC) {
@@ -952,10 +967,14 @@ char *human_size_brief(long long bytes, int prefix)
 			long cMB  = (bytes / ( 1000000LL / 200LL ) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldMB",
 				 cMB/100, cMB % 100);
-		} else {
+		} else if (bytes < 2*1024LL*1024LL*1024LL*1024LL) {
 			long cGB  = (bytes / (1000000000LL/200LL ) +1) /2;
 			snprintf(buf, sizeof(buf), "%ld.%02ldGB",
 				 cGB/100, cGB % 100);
+		} else {
+			long cTB  = (bytes / (1000000000000LL / 200LL) + 1) / 2;
+			snprintf(buf, sizeof(buf), "%ld.%02ldTB",
+				 cTB/100, cTB % 100);
 		}
 	}
 	else

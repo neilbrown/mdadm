@@ -9,7 +9,7 @@
 Description=Reminder for degraded MD arrays
 
 [Service]
-Environment=  MDADM_MONITOR_ARGS=--scan
+Environment=MDADM_MONITOR_ARGS=--scan
 EnvironmentFile=-/run/sysconfig/mdadm
 ExecStartPre=-/usr/lib/mdadm/mdadm_env.sh
 ExecStart=BINDIR/mdadm --monitor --oneshot $MDADM_MONITOR_ARGS

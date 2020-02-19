@@ -1038,7 +1038,8 @@ extern struct superswitch {
 	/* query the supertype for default geometry */
 	void (*default_geometry)(struct supertype *st, int *level, int *layout, int *chunk); /* optional */
 	/* Permit subarray's to be deleted from inactive containers */
-	int (*kill_subarray)(struct supertype *st); /* optional */
+	int (*kill_subarray)(struct supertype *st,
+			     char *subarray_id); /* optional */
 	/* Permit subarray's to be modified */
 	int (*update_subarray)(struct supertype *st, char *subarray,
 			       char *update, struct mddev_ident *ident); /* optional */

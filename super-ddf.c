@@ -4446,7 +4446,7 @@ static int _kill_subarray_ddf(struct ddf_super *ddf, const char *guid)
 	return 0;
 }
 
-static int kill_subarray_ddf(struct supertype *st)
+static int kill_subarray_ddf(struct supertype *st, char *subarray_id)
 {
 	struct ddf_super *ddf = st->sb;
 	/*

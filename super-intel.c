@@ -7600,18 +7600,17 @@ static void default_geometry_imsm(struct supertype *st, int *level, int *layout,
 
 static void handle_missing(struct intel_super *super, struct imsm_dev *dev);
 
-static int kill_subarray_imsm(struct supertype *st)
+static int kill_subarray_imsm(struct supertype *st, char *subarray_id)
 {
-	/* remove the subarray currently referenced by ->current_vol */
+	/* remove the subarray currently referenced by subarray_id */
 	__u8 i;
 	struct intel_dev **dp;
 	struct intel_super *super = st->sb;
-	__u8 current_vol = super->current_vol;
+	__u8 current_vol = strtoul(subarray_id, NULL, 10);
 	struct imsm_super *mpb = super->anchor;
 
-	if (super->current_vol < 0)
+	if (mpb->num_raid_devs == 0)
 		return 2;
-	super->current_vol = -1; /* invalidate subarray cursor */
 
 	/* block deletions that would change the uuid of active subarrays
 	 *

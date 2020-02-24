@@ -2768,6 +2768,12 @@ option and it is transparent for assembly feature.
 .IP \(bu 4
 Roaming between Windows(R) and Linux systems for IMSM metadata is not
 supported during grow process.
+.IP \(bu 4
+When growing a raid0 device, the new component disk size (or external
+backup size) should be larger than LCM(old, new) * chunk-size * 2,
+where LCM() is the least common multiple of the old and new count of
+component disks, and "* 2" comes from the fact that mdadm refuses to
+use more than half of a spare device for backup space.
 
 .SS SIZE CHANGES
 Normally when an array is built the "size" is taken from the smallest

@@ -7425,7 +7425,10 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							verbose);
 	}
 
-	if (size && (size < 1024)) {
+	/*
+	 * Size is given in sectors.
+	 */
+	if (size && (size < 2048)) {
 		pr_err("Given size must be greater than 1M.\n");
 		/* Depends on algorithm in Create.c :
 		 * if container was given (dev == NULL) return -1,

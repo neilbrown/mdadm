@@ -468,7 +468,9 @@ int Detail(char *dev, struct context *c)
 		if (ioctl(fd, GET_BITMAP_FILE, &bmf) == 0 && bmf.pathname[0]) {
 			printf("     Intent Bitmap : %s\n", bmf.pathname);
 			printf("\n");
-		} else if (array.state & (1<<MD_SB_BITMAP_PRESENT))
+		} else if (array.state & (1<<MD_SB_CLUSTERED))
+			printf("     Intent Bitmap : Internal(Clustered)\n\n");
+		else if (array.state & (1<<MD_SB_BITMAP_PRESENT))
 			printf("     Intent Bitmap : Internal\n\n");
 		atime = array.utime;
 		if (atime)

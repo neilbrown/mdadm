@@ -1579,6 +1579,7 @@ static void print_imsm_dev(struct intel_super *super,
 
 	printf("\n");
 	printf("[%.16s]:\n", dev->volume);
+	printf("       Subarray : %d\n", super->current_vol);
 	printf("           UUID : %s\n", uuid);
 	printf("     RAID Level : %d", get_imsm_raid_level(map));
 	if (map2)
@@ -1683,6 +1684,8 @@ static void print_imsm_dev(struct intel_super *super,
 		printf("Multiple PPLs on journaling drive\n");
 	else
 		printf("<unknown:%d>\n", dev->rwh_policy);
+
+	printf("      Volume ID : %u\n", dev->my_vol_raid_dev_num);
 }
 
 static void print_imsm_disk(struct imsm_disk *disk,

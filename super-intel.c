@@ -260,8 +260,9 @@ struct imsm_super {
 					 * (starts at 1)
 					 */
 	__u16 filler1;			/* 0x4E - 0x4F */
-#define IMSM_FILLERS 34
-	__u32 filler[IMSM_FILLERS];	/* 0x50 - 0xD7 RAID_MPB_FILLERS */
+	__u64 creation_time;		/* 0x50 - 0x57 Array creation time */
+#define IMSM_FILLERS 32
+	__u32 filler[IMSM_FILLERS];	/* 0x58 - 0xD7 RAID_MPB_FILLERS */
 	struct imsm_disk disk[1];	/* 0xD8 diskTbl[numDisks] */
 	/* here comes imsm_dev[num_raid_devs] */
 	/* here comes BBM logs */
@@ -2014,6 +2015,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	__u32 sum;
 	__u32 reserved = imsm_reserved_sectors(super, super->disks);
 	struct dl *dl;
+	time_t creation_time;
 
 	strncpy(str, (char *)mpb->sig, MPB_SIG_LEN);
 	str[MPB_SIG_LEN-1] = '\0';
@@ -2022,6 +2024,9 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	printf("    Orig Family : %08x\n", __le32_to_cpu(mpb->orig_family_num));
 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
 	printf("     Generation : %08x\n", __le32_to_cpu(mpb->generation_num));
+	creation_time = __le64_to_cpu(mpb->creation_time);
+	printf("  Creation Time : %.24s\n",
+		creation_time ? ctime(&creation_time) : "Unknown");
 	printf("     Attributes : ");
 	if (imsm_check_attributes(mpb->attributes))
 		printf("All supported\n");
@@ -2126,6 +2131,7 @@ static void export_examine_super_imsm(struct supertype *st)
 	printf("MD_LEVEL=container\n");
 	printf("MD_UUID=%s\n", nbuf+5);
 	printf("MD_DEVICES=%u\n", mpb->num_disks);
+	printf("MD_CREATION_TIME=%llu\n", __le64_to_cpu(mpb->creation_time));
 }
 
 static void detail_super_imsm(struct supertype *st, char *homehost,
@@ -5762,6 +5768,7 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		sum += __gen_imsm_checksum(mpb);
 		mpb->family_num = __cpu_to_le32(sum);
 		mpb->orig_family_num = mpb->family_num;
+		mpb->creation_time = __cpu_to_le64((__u64)time(NULL));
 	}
 	super->current_disk = dl;
 	return 0;

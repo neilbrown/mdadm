@@ -301,26 +301,34 @@ static int make_daemon(char *pidfile)
 
 static int check_one_sharer(int scan)
 {
-	int pid, rv;
+	int pid;
+	FILE *comm_fp;
 	FILE *fp;
-	char dir[20];
+	char comm_path[100];
 	char path[100];
-	struct stat buf;
+	char comm[20];
+
 	sprintf(path, "%s/autorebuild.pid", MDMON_DIR);
 	fp = fopen(path, "r");
 	if (fp) {
 		if (fscanf(fp, "%d", &pid) != 1)
 			pid = -1;
-		sprintf(dir, "/proc/%d", pid);
-		rv = stat(dir, &buf);
-		if (rv != -1) {
-			if (scan) {
-				pr_err("Only one autorebuild process allowed in scan mode, aborting\n");
-				fclose(fp);
-				return 1;
-			} else {
-				pr_err("Warning: One autorebuild process already running.\n");
+		snprintf(comm_path, sizeof(comm_path),
+			 "/proc/%d/comm", pid);
+		comm_fp = fopen(comm_path, "r");
+		if (comm_fp) {
+			if (fscanf(comm_fp, "%s", comm) &&
+			    strncmp(basename(comm), Name, strlen(Name)) == 0) {
+				if (scan) {
+					pr_err("Only one autorebuild process allowed in scan mode, aborting\n");
+					fclose(comm_fp);
+					fclose(fp);
+					return 1;
+				} else {
+					pr_err("Warning: One autorebuild process already running.\n");
+				}
 			}
+			fclose(comm_fp);
 		}
 		fclose(fp);
 	}

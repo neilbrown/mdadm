@@ -498,17 +498,20 @@ int Detail(char *dev, struct context *c)
 			} else
 				arrayst = "active";
 
-			printf("             State : %s%s%s%s%s%s \n",
+			printf("             State : %s%s%s%s%s%s%s \n",
 			       arrayst, st,
 			       (!e || (e->percent < 0 &&
 				       e->percent != RESYNC_PENDING &&
-				       e->percent != RESYNC_DELAYED)) ?
+				       e->percent != RESYNC_DELAYED &&
+				       e->percent != RESYNC_REMOTE)) ?
 			       "" : sync_action[e->resync],
 			       larray_size ? "": ", Not Started",
 			       (e && e->percent == RESYNC_DELAYED) ?
 			       " (DELAYED)": "",
 			       (e && e->percent == RESYNC_PENDING) ?
-			       " (PENDING)": "");
+			       " (PENDING)": "",
+			       (e && e->percent == RESYNC_REMOTE) ?
+			       " (REMOTE)": "");
 		} else if (inactive && !is_container) {
 			printf("             State : inactive\n");
 		}

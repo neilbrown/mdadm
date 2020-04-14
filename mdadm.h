@@ -1815,7 +1815,8 @@ enum r0layout {
 #define RESYNC_NONE -1
 #define RESYNC_DELAYED -2
 #define RESYNC_PENDING -3
-#define RESYNC_UNKNOWN -4
+#define RESYNC_REMOTE  -4
+#define RESYNC_UNKNOWN -5
 
 /* When using "GET_DISK_INFO" it isn't certain how high
  * we need to check.  So we impose an absolute limit of

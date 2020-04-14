@@ -257,6 +257,8 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					ent->percent = RESYNC_DELAYED;
 				if (l > 8 && strcmp(w+l-8, "=PENDING") == 0)
 					ent->percent = RESYNC_PENDING;
+				if (l > 7 && strcmp(w+l-7, "=REMOTE") == 0)
+					ent->percent = RESYNC_REMOTE;
 			} else if (ent->percent == RESYNC_NONE &&
 				   w[0] >= '0' &&
 				   w[0] <= '9' &&

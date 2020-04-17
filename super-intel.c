@@ -5809,6 +5809,9 @@ int mark_spare(struct dl *disk)
 	return ret_val;
 }
 
+
+static int write_super_imsm_spare(struct intel_super *super, struct dl *d);
+
 static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 			     int fd, char *devname,
 			     unsigned long long data_offset)
@@ -5938,9 +5941,13 @@ static int add_to_super_imsm(struct supertype *st, mdu_disk_info_t *dk,
 		dd->next = super->disk_mgmt_list;
 		super->disk_mgmt_list = dd;
 	} else {
+		/* this is called outside of mdmon
+		 * write initial spare metadata
+		 * mdmon will overwrite it.
+		 */
 		dd->next = super->disks;
 		super->disks = dd;
-		super->updates_pending++;
+		write_super_imsm_spare(super, dd);
 	}
 
 	return 0;
@@ -5979,15 +5986,15 @@ static union {
 	struct imsm_super anchor;
 } spare_record __attribute__ ((aligned(MAX_SECTOR_SIZE)));
 
-/* spare records have their own family number and do not have any defined raid
- * devices
- */
-static int write_super_imsm_spares(struct intel_super *super, int doclose)
+
+static int write_super_imsm_spare(struct intel_super *super, struct dl *d)
 {
 	struct imsm_super *mpb = super->anchor;
 	struct imsm_super *spare = &spare_record.anchor;
 	__u32 sum;
-	struct dl *d;
+
+	if (d->index != -1)
+		return 1;
 
 	spare->mpb_size = __cpu_to_le32(sizeof(struct imsm_super));
 	spare->generation_num = __cpu_to_le32(1UL);
@@ -6000,28 +6007,41 @@ static int write_super_imsm_spares(struct intel_super *super, int doclose)
 	snprintf((char *) spare->sig, MAX_SIGNATURE_LENGTH,
 		 MPB_SIGNATURE MPB_VERSION_RAID0);
 
+	spare->disk[0] = d->disk;
+	if (__le32_to_cpu(d->disk.total_blocks_hi) > 0)
+		spare->attributes |= MPB_ATTRIB_2TB_DISK;
+
+	if (super->sector_size == 4096)
+		convert_to_4k_imsm_disk(&spare->disk[0]);
+
+	sum = __gen_imsm_checksum(spare);
+	spare->family_num = __cpu_to_le32(sum);
+	spare->orig_family_num = 0;
+	sum = __gen_imsm_checksum(spare);
+	spare->check_sum = __cpu_to_le32(sum);
+
+	if (store_imsm_mpb(d->fd, spare)) {
+		pr_err("failed for device %d:%d %s\n",
+			d->major, d->minor, strerror(errno));
+		return 1;
+	}
+
+	return 0;
+}
+/* spare records have their own family number and do not have any defined raid
+ * devices
+ */
+static int write_super_imsm_spares(struct intel_super *super, int doclose)
+{
+	struct dl *d;
+
 	for (d = super->disks; d; d = d->next) {
 		if (d->index != -1)
 			continue;
 
-		spare->disk[0] = d->disk;
-		if (__le32_to_cpu(d->disk.total_blocks_hi) > 0)
-			spare->attributes |= MPB_ATTRIB_2TB_DISK;
-
-		if (super->sector_size == 4096)
-			convert_to_4k_imsm_disk(&spare->disk[0]);
-
-		sum = __gen_imsm_checksum(spare);
-		spare->family_num = __cpu_to_le32(sum);
-		spare->orig_family_num = 0;
-		sum = __gen_imsm_checksum(spare);
-		spare->check_sum = __cpu_to_le32(sum);
-
-		if (store_imsm_mpb(d->fd, spare)) {
-			pr_err("failed for device %d:%d %s\n",
-				d->major, d->minor, strerror(errno));
+		if (write_super_imsm_spare(super, d))
 			return 1;
-		}
+
 		if (doclose) {
 			close(d->fd);
 			d->fd = -1;

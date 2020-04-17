@@ -994,17 +994,13 @@ int Manage_add(int fd, int tfd, struct mddev_dev *dv,
 
 		Kill(dv->devname, NULL, 0, -1, 0);
 		dfd = dev_open(dv->devname, O_RDWR | O_EXCL|O_DIRECT);
-		if (mdmon_running(tst->container_devnm))
-			tst->update_tail = &tst->updates;
 		if (tst->ss->add_to_super(tst, &disc, dfd,
 					  dv->devname, INVALID_SECTORS)) {
 			close(dfd);
 			close(container_fd);
 			return -1;
 		}
-		if (tst->update_tail)
-			flush_metadata_updates(tst);
-		else
+		if (!mdmon_running(tst->container_devnm))
 			tst->ss->sync_metadata(tst);
 
 		sra = sysfs_read(container_fd, NULL, 0);

@@ -2030,6 +2030,15 @@ int assemble_container_content(struct supertype *st, int mdfd,
 			free(avail);
 			return err;
 		}
+	} else if (c->force) {
+		/* Set the array as 'clean' so that we can proceed with starting
+		 * it even if we don't have all devices. Mdmon doesn't care
+		 * if the dirty flag is set in metadata, it will start managing
+		 * it anyway.
+		 * This is really important for raid456 (RWH case), other levels
+		 * are started anyway.
+		 */
+		content->array.state |= 1;
 	}
 
 	if (enough(content->array.level, content->array.raid_disks,
@@ -2049,20 +2058,36 @@ int assemble_container_content(struct supertype *st, int mdfd,
 	}
 	free(avail);
 
-	if (c->runstop <= 0 &&
-	    (working + preexist + expansion) <
-	    content->array.working_disks) {
-		if (c->export && result)
-			*result |= INCR_UNSAFE;
-		else if (c->verbose >= 0) {
-			pr_err("%s assembled with %d device%s",
-			       chosen_name, preexist + working,
-			       preexist + working == 1 ? "":"s");
-			if (preexist)
-				fprintf(stderr, " (%d new)", working);
-			fprintf(stderr, " but not safe to start\n");
+	if ((working + preexist + expansion) < content->array.working_disks) {
+		if (c->runstop <= 0) {
+			if (c->export && result)
+				*result |= INCR_UNSAFE;
+			else if (c->verbose >= 0) {
+				pr_err("%s assembled with %d device%s",
+					chosen_name, preexist + working,
+					preexist + working == 1 ? "":"s");
+				if (preexist)
+					fprintf(stderr, " (%d new)", working);
+				fprintf(stderr, " but not safe to start\n");
+				if (c->force)
+					pr_err("Consider --run to start array as degraded.\n");
+			}
+			return 1;
+		} else if (content->array.level >= 4 &&
+			   content->array.level <= 6 &&
+			   content->resync_start != MaxSector &&
+			   c->force) {
+			/* Don't inform the kernel that the array is not
+			 * clean and requires resync.
+			 */
+			content->resync_start = MaxSector;
+			err = sysfs_set_num(content, NULL, "resync_start",
+					    MaxSector);
+			if (err)
+				return 1;
+			pr_err("%s array state forced to clean. It may cause data corruption.\n",
+				chosen_name);
 		}
-		return 1;
 	}
 
 

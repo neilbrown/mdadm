@@ -33,7 +33,10 @@
 #ifndef VERS_DATE
 #define VERS_DATE "2018-10-01"
 #endif
-char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
+#ifndef EXTRAVERSION
+#define EXTRAVERSION ""
+#endif
+char Version[] = "mdadm - v" VERSION " - " VERS_DATE EXTRAVERSION "\n";
 
 /*
  * File: ReadMe.c

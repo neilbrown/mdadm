@@ -866,8 +866,16 @@ int test_stripes(int *source, unsigned long long *offsets,
 		int disk;
 
 		for (i = 0 ; i < raid_disks ; i++) {
-			lseek64(source[i], offsets[i]+start, 0);
-			read(source[i], stripes[i], chunk_size);
+			if ((lseek64(source[i], offsets[i]+start, 0) < 0) ||
+			    (read(source[i], stripes[i], chunk_size) !=
+			     chunk_size)) {
+				free(q);
+				free(p);
+				free(blocks);
+				free(stripes);
+				free(stripe_buf);
+				return -1;
+			}
 		}
 		for (i = 0 ; i < data_disks ; i++) {
 			int disk = geo_map(i, start/chunk_size, raid_disks,

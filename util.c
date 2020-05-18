@@ -306,43 +306,6 @@ int md_get_disk_info(int fd, struct mdu_disk_info_s *disk)
 	return ioctl(fd, GET_DISK_INFO, disk);
 }
 
-/*
- * Parse a 128 bit uuid in 4 integers
- * format is 32 hexx nibbles with options :.<space> separator
- * If not exactly 32 hex digits are found, return 0
- * else return 1
- */
-int parse_uuid(char *str, int uuid[4])
-{
-	int hit = 0; /* number of Hex digIT */
-	int i;
-	char c;
-	for (i = 0; i < 4; i++)
-		uuid[i] = 0;
-
-	while ((c = *str++) != 0) {
-		int n;
-		if (c >= '0' && c <= '9')
-			n = c-'0';
-		else if (c >= 'a' && c <= 'f')
-			n = 10 + c - 'a';
-		else if (c >= 'A' && c <= 'F')
-			n = 10 + c - 'A';
-		else if (strchr(":. -", c))
-			continue;
-		else return 0;
-
-		if (hit<32) {
-			uuid[hit/8] <<= 4;
-			uuid[hit/8] += n;
-		}
-		hit++;
-	}
-	if (hit == 32)
-		return 1;
-	return 0;
-}
-
 int get_linux_version()
 {
 	struct utsname name;
@@ -609,56 +572,6 @@ int enough(int level, int raid_disks, int layout, int clean, char *avail)
 	default:
 		return 0;
 	}
-}
-
-const int uuid_zero[4] = { 0, 0, 0, 0 };
-
-int same_uuid(int a[4], int b[4], int swapuuid)
-{
-	if (swapuuid) {
-		/* parse uuids are hostendian.
-		 * uuid's from some superblocks are big-ending
-		 * if there is a difference, we need to swap..
-		 */
-		unsigned char *ac = (unsigned char *)a;
-		unsigned char *bc = (unsigned char *)b;
-		int i;
-		for (i = 0; i < 16; i += 4) {
-			if (ac[i+0] != bc[i+3] ||
-			    ac[i+1] != bc[i+2] ||
-			    ac[i+2] != bc[i+1] ||
-			    ac[i+3] != bc[i+0])
-				return 0;
-		}
-		return 1;
-	} else {
-		if (a[0]==b[0] &&
-		    a[1]==b[1] &&
-		    a[2]==b[2] &&
-		    a[3]==b[3])
-			return 1;
-		return 0;
-	}
-}
-
-void copy_uuid(void *a, int b[4], int swapuuid)
-{
-	if (swapuuid) {
-		/* parse uuids are hostendian.
-		 * uuid's from some superblocks are big-ending
-		 * if there is a difference, we need to swap..
-		 */
-		unsigned char *ac = (unsigned char *)a;
-		unsigned char *bc = (unsigned char *)b;
-		int i;
-		for (i = 0; i < 16; i += 4) {
-			ac[i+0] = bc[i+3];
-			ac[i+1] = bc[i+2];
-			ac[i+2] = bc[i+1];
-			ac[i+3] = bc[i+0];
-		}
-	} else
-		memcpy(a, b, 16);
 }
 
 char *__fname_from_uuid(int id[4], int swap, char *buf, char sep)

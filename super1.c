@@ -2753,6 +2753,7 @@ static int validate_geometry1(struct supertype *st, int level,
 	unsigned long long ldsize, devsize;
 	int bmspace;
 	unsigned long long headroom;
+	unsigned long long overhead;
 	int fd;
 
 	if (level == LEVEL_CONTAINER) {
@@ -2785,10 +2786,6 @@ static int validate_geometry1(struct supertype *st, int level,
 	close(fd);
 
 	devsize = ldsize >> 9;
-	if (devsize < 24) {
-		*freesize = 0;
-		return 0;
-	}
 
 	/* creating:  allow suitable space for bitmap or PPL */
 	if (consistency_policy == CONSISTENCY_POLICY_PPL)
@@ -2829,15 +2826,27 @@ static int validate_geometry1(struct supertype *st, int level,
 	case 0: /* metadata at end.  Round down and subtract space to reserve */
 		devsize = (devsize & ~(4ULL*2-1));
 		/* space for metadata, bblog, bitmap/ppl */
-		devsize -= 8*2 + 8 + bmspace;
+		overhead = 8*2 + 8 + bmspace;
+		if (devsize < overhead) /* detect underflow */
+			goto dev_too_small_err;
+		devsize -= overhead;
 		break;
 	case 1:
 	case 2:
+		if (devsize < data_offset) /* detect underflow */
+			goto dev_too_small_err;
 		devsize -= data_offset;
 		break;
 	}
 	*freesize = devsize;
 	return 1;
+
+/* Error condition, device cannot even hold the overhead. */
+dev_too_small_err:
+	fprintf(stderr, "device %s is too small (%lluK) for "
+			"required metadata!\n", subdev, devsize>>1);
+	*freesize = 0;
+	return 0;
 }
 
 void *super1_make_v0(struct supertype *st, struct mdinfo *info, mdp_super_t *sb0)

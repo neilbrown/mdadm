@@ -367,7 +367,7 @@ Use the Intel(R) Matrix Storage Manager metadata format.  This creates a
 which is managed in a similar manner to DDF, and is supported by an
 option-rom on some platforms:
 .IP
-.B http://www.intel.com/design/chipsets/matrixstorage_sb.htm
+.B https://www.intel.com/design/chipsets/matrixstorage_sb.htm
 .PP
 .RE
 
@@ -3407,7 +3407,7 @@ was previously known as
 For further information on mdadm usage, MD and the various levels of
 RAID, see:
 .IP
-.B http://raid.wiki.kernel.org/
+.B https://raid.wiki.kernel.org/
 .PP
 (based upon Jakob \(/Ostergaard's Software\-RAID.HOWTO)
 .PP
@@ -3415,7 +3415,7 @@ The latest version of
 .I mdadm
 should always be available from
 .IP
-.B http://www.kernel.org/pub/linux/utils/raid/mdadm/
+.B https://www.kernel.org/pub/linux/utils/raid/mdadm/
 .PP
 Related man pages:
 .PP

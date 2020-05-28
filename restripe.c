@@ -333,7 +333,7 @@ void make_tables(void)
 
 	/* Compute log and inverse log */
 	/* Modified code from:
-	 *    http://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.html
+	 *    https://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.html
 	 */
 	b = 1;
 	raid6_gflog[0] = 0;

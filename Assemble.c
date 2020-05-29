@@ -1482,6 +1482,10 @@ try_again:
 				name = content->name;
 			break;
 		}
+		if (mddev && map_by_name(&map, mddev) != NULL) {
+			pr_err("Cannot create device with %s because is in use\n", mddev);
+			goto out;
+		}
 		if (!auto_assem)
 			/* If the array is listed in mdadm.conf or on
 			 * command line, then we trust the name

@@ -3517,6 +3517,7 @@ started:
 			return 0;
 		}
 
+	close(fd);
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
 	 * This is all done by a forked background process.
@@ -3569,7 +3570,6 @@ started:
 			mdstat_wait(30 - (delayed-1) * 25);
 	} while (delayed);
 	mdstat_close();
-	close(fd);
 	if (check_env("MDADM_GROW_VERIFY"))
 		fd = open(devname, O_RDONLY | O_DIRECT);
 	else

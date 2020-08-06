@@ -1695,9 +1695,11 @@ does not report the bitmap for that array.
 .TP
 .B \-\-examine\-badblocks
 List the bad-blocks recorded for the device, if a bad-blocks list has
-been configured.  Currently only
+been configured. Currently only
 .B 1.x
-metadata supports bad-blocks lists.
+and
+.B IMSM
+metadata support bad-blocks lists.
 
 .TP
 .BI \-\-dump= directory

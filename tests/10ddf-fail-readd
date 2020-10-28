@@ -10,7 +10,7 @@ mdadm -CR $container -e ddf -l container -n 2 $dev8 $dev9
 mdadm -CR $member0 -l raid1 -n 2 $container
 #$dir/mdadm -CR $member0 -l raid1 -n 2 $container >/tmp/mdmon.txt 2>&1
 
-mke2fs $member0
+mke2fs -F $member0
 check wait
 
 set -- $(get_raiddisks $member0)

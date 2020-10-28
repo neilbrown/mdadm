@@ -143,6 +143,8 @@ void map_unlock(struct map_ent **melp)
 		unlink(mapname[2]);
 		fclose(lf);
 	}
+	if (*melp)
+		map_free(*melp);
 	lf = NULL;
 }
 
@@ -176,7 +178,7 @@ void map_read(struct map_ent **melp)
 {
 	FILE *f;
 	char buf[8192];
-	char path[200];
+	char path[201];
 	int uuid[4];
 	char devnm[32];
 	char metadata[30];
@@ -266,6 +268,7 @@ void map_remove(struct map_ent **mapp, char *devnm)
 	map_delete(mapp, devnm);
 	map_write(*mapp);
 	map_free(*mapp);
+	*mapp = NULL;
 }
 
 struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
@@ -374,7 +377,7 @@ void RebuildMap(void)
 			char dn[30];
 			int dfd;
 			int ok;
-			int devid;
+			dev_t devid;
 			struct supertype *st;
 			char *subarray = NULL;
 			char *path;
@@ -439,8 +442,8 @@ void RebuildMap(void)
 					if ((homehost == NULL ||
 					     st->ss->match_home(st, homehost) != 1) &&
 					    st->ss->match_home(st, "any") != 1 &&
-					    (require_homehost
-					     || ! conf_name_is_free(info->name)))
+					    (require_homehost ||
+					     !conf_name_is_free(info->name)))
 						/* require a numeric suffix */
 						unum = 0;
 					else

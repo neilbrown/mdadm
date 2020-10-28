@@ -5,7 +5,7 @@
 .\"   the Free Software Foundation; either version 2 of the License, or
 .\"   (at your option) any later version.
 .\" See file COPYING in distribution for details.
-.TH MDADM 8 "" v3.3.2
+.TH MDADM 8 "" v4.1-rc2
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -126,7 +126,7 @@ of component devices and changing the number of active devices in
 Linear and RAID levels 0/1/4/5/6,
 changing the RAID level between 0, 1, 5, and 6, and between 0 and 10,
 changing the chunk size and layout for RAID 0,4,5,6,10 as well as adding or
-removing a write-intent bitmap.
+removing a write-intent bitmap and changing the array's consistency policy.
 
 .TP
 .B "Incremental Assembly"
@@ -367,7 +367,7 @@ Use the Intel(R) Matrix Storage Manager metadata format.  This creates a
 which is managed in a similar manner to DDF, and is supported by an
 option-rom on some platforms:
 .IP
-.B http://www.intel.com/design/chipsets/matrixstorage_sb.htm
+.B https://www.intel.com/content/www/us/en/support/products/122484/memory-and-storage/ssd-software/intel-virtual-raid-on-cpu-intel-vroc.html
 .PP
 .RE
 
@@ -392,6 +392,13 @@ When using Auto-Assemble, only arrays tagged for the given homehost
 will be allowed to use 'local' names (i.e. not ending in '_' followed
 by a digit string).  See below under
 .BR "Auto Assembly" .
+
+The special name "\fBany\fP" can be used as a wild card.  If an array
+is created with
+.B --homehost=any
+then the name "\fBany\fP" will be stored in the array and it can be
+assembled in the same way on any host.  If an array is assembled with
+this option, then the homehost recorded on the array will be ignored.
 
 .TP
 .B \-\-prefer=
@@ -452,7 +459,7 @@ number of spare devices.
 
 .TP
 .BR \-z ", " \-\-size=
-Amount (in Kibibytes) of space to use from each drive in RAID levels 1/4/5/6.
+Amount (in Kilobytes) of space to use from each drive in RAID levels 1/4/5/6.
 This must be a multiple of the chunk size, and must leave about 128Kb
 of space at the end of the drive for the RAID superblock.
 If this is not specified
@@ -460,8 +467,8 @@ If this is not specified
 size, though if there is a variance among the drives of greater than 1%, a warning is
 issued.
 
-A suffix of 'M' or 'G' can be given to indicate Megabytes or
-Gigabytes respectively.
+A suffix of 'K', 'M', 'G' or 'T' can be given to indicate Kilobytes,
+Megabytes, Gigabytes or Terabytes respectively.
 
 Sometimes a replacement drive can be a little smaller than the
 original drives though this should be minimised by IDEMA standards.
@@ -474,9 +481,7 @@ still be larger than any replacement.
 This value can be set with
 .B \-\-grow
 for RAID level 1/4/5/6 though
-.B CONTAINER
-based arrays such as those with IMSM metadata may not be able to
-support this.
+DDF arrays may not be able to support this.
 If the array was created with a size smaller than the currently
 active drives, the extra space can be accessed using
 .BR \-\-grow .
@@ -527,16 +532,18 @@ problems the array can be made bigger again with no loss with another
 .B "\-\-grow \-\-array\-size="
 command.
 
-A suffix of 'M' or 'G' can be given to indicate Megabytes or
-Gigabytes respectively.
+A suffix of 'K', 'M', 'G' or 'T' can be given to indicate Kilobytes,
+Megabytes, Gigabytes or Terabytes respectively.
 A value of
 .B max
 restores the apparent size of the array to be whatever the real
 amount of available space is.
 
+Clustered arrays do not support this parameter yet.
+
 .TP
 .BR \-c ", " \-\-chunk=
-Specify chunk size of kibibytes.  The default when creating an
+Specify chunk size of kilobytes.  The default when creating an
 array is 512KB.  To ensure compatibility with earlier versions, the
 default when building an array with no persistent metadata is 64KB.
 This is only meaningful for RAID0, RAID4, RAID5, RAID6, and RAID10.
@@ -544,8 +551,8 @@ This is only meaningful for RAID0, RAID4, RAID5, RAID6, and RAID10.
 RAID4, RAID5, RAID6, and RAID10 require the chunk size to be a power
 of 2.  In any case it must be a multiple of 4KB.
 
-A suffix of 'M' or 'G' can be given to indicate Megabytes or
-Gigabytes respectively.
+A suffix of 'K', 'M', 'G' or 'T' can be given to indicate Kilobytes,
+Megabytes, Gigabytes or Terabytes respectively.
 
 .TP
 .BR \-\-rounding=
@@ -584,6 +591,8 @@ to change the RAID level in some cases.  See LEVEL CHANGES below.
 This option configures the fine details of data layout for RAID5, RAID6,
 and RAID10 arrays, and controls the failure modes for
 .IR faulty .
+It can also be used for working around a kernel bug with RAID0, but generally
+doesn't need to be used explicitly.
 
 The layout of the RAID5 parity block can be one of
 .BR left\-asymmetric ,
@@ -643,7 +652,7 @@ option to set subsequent failure modes.
 "clear" or "none" will remove any pending or periodic failure modes,
 and "flush" will clear any persistent faults.
 
-Finally, the layout options for RAID10 are one of 'n', 'o' or 'f' followed
+The layout options for RAID10 are one of 'n', 'o' or 'f' followed
 by a small number.  The default is 'n2'.  The supported options are:
 
 .I 'n'
@@ -667,6 +676,32 @@ can be useful.  This number can be at most equal to the number of
 devices in the array.  It does not need to divide evenly into that
 number (e.g. it is perfectly legal to have an 'n2' layout for an array
 with an odd number of devices).
+
+A bug introduced in Linux 3.14 means that RAID0 arrays
+.B "with devices of differing sizes"
+started using a different layout.  This could lead to
+data corruption.  Since Linux 5.4 (and various stable releases that received
+backports), the kernel will not accept such an array unless
+a layout is explictly set.  It can be set to
+.RB ' original '
+or
+.RB ' alternate '.
+When creating a new array,
+.I mdadm
+will select
+.RB ' original '
+by default, so the layout does not normally need to be set.
+An array created for either
+.RB ' original '
+or
+.RB ' alternate '
+will not be recognized by an (unpatched) kernel prior to 5.4.  To create
+a RAID0 array with devices of differing sizes that can be used on an
+older kernel, you can set the layout to
+.RB ' dangerous '.
+This will use whichever layout the running kernel supports, so the data
+on the array may become corrupt when changing kernel from pre-3.14 to a
+later kernel.
 
 When an array is converted between RAID5 and RAID6 an intermediate
 RAID6 layout is used in which the second parity block (Q) is always on
@@ -717,7 +752,9 @@ When creating an array on devices which are 100G or larger,
 .I mdadm
 automatically adds an internal bitmap as it will usually be
 beneficial.  This can be suppressed with
-.B "\-\-bitmap=none".
+.B "\-\-bitmap=none"
+or by selecting a different consistency policy with
+.BR \-\-consistency\-policy .
 
 .TP
 .BR \-\-bitmap\-chunk=
@@ -730,8 +767,8 @@ When using an
 bitmap, the chunksize defaults to 64Meg, or larger if necessary to
 fit the bitmap into the available space.
 
-A suffix of 'M' or 'G' can be given to indicate Megabytes or
-Gigabytes respectively.
+A suffix of 'K', 'M', 'G' or 'T' can be given to indicate Kilobytes,
+Megabytes, Gigabytes or Terabytes respectively.
 
 .TP
 .BR \-W ", " \-\-write\-mostly
@@ -740,7 +777,7 @@ subsequent devices listed in a
 .BR \-\-create ,
 or
 .B \-\-add
-command will be flagged as 'write-mostly'.  This is valid for RAID1
+command will be flagged as 'write\-mostly'.  This is valid for RAID1
 only and means that the 'md' driver will avoid reading from these
 devices if at all possible.  This can be useful if mirroring over a
 slow link.
@@ -753,6 +790,25 @@ of outstanding writes allowed.  The default value is 256.
 A write-intent bitmap is required in order to use write-behind
 mode, and write-behind is only attempted on drives marked as
 .IR write-mostly .
+
+.TP
+.BR \-\-failfast
+subsequent devices listed in a
+.B \-\-create
+or
+.B \-\-add
+command will be flagged as  'failfast'.  This is valid for RAID1 and
+RAID10 only.  IO requests to these devices will be encouraged to fail
+quickly rather than cause long delays due to error handling.  Also no
+attempt is made to repair a read error on these devices.
+
+If an array becomes degraded so that the 'failfast' device is the only
+usable device, the 'failfast' flag will then be ignored and extended
+delays will be preferred to complete failure.
+
+The 'failfast' flag is appropriate for storage arrays which have a
+low probability of true failure, but which may sometimes
+cause unacceptable delays due to internal maintenance functions.
 
 .TP
 .BR \-\-assume\-clean
@@ -801,7 +857,8 @@ an array which was originally created using a different version of
 which computed a different offset.
 
 Setting the offset explicitly over-rides the default.  The value given
-is in Kilobytes unless an 'M' or 'G' suffix is given.
+is in Kilobytes unless a suffix of 'K', 'M', 'G' or 'T' is used to explicitly
+indicate Kilobytes, Megabytes, Gigabytes or Terabytes respectively.
 
 Since Linux 3.4,
 .B \-\-data\-offset
@@ -896,7 +953,8 @@ will not try to be so clever.
 Start the array
 .B read only
 rather than read-write as normal.  No writes will be allowed to the
-array, and no resync, recovery, or reshape will be started.
+array, and no resync, recovery, or reshape will be started. It works with
+Create, Assemble, Manage and Misc mode.
 
 .TP
 .BR \-a ", " "\-\-auto{=yes,md,mdp,part,p}{NN}"
@@ -982,6 +1040,51 @@ number of devices, and to add the new devices, in the same command.
 Only works when the array is for clustered environment. It specifies
 the maximum number of nodes in the cluster that will use this device
 simultaneously. If not specified, this defaults to 4.
+
+.TP
+.BR \-\-write-journal
+Specify journal device for the RAID-4/5/6 array. The journal device
+should be a SSD with reasonable lifetime.
+
+.TP
+.BR \-\-symlinks
+Auto creation of symlinks in /dev to /dev/md, option --symlinks must
+be 'no' or 'yes' and work with --create and --build.
+
+.TP
+.BR \-k ", " \-\-consistency\-policy=
+Specify how the array maintains consistency in case of unexpected shutdown.
+Only relevant for RAID levels with redundancy.
+Currently supported options are:
+.RS
+
+.TP
+.B resync
+Full resync is performed and all redundancy is regenerated when the array is
+started after unclean shutdown.
+
+.TP
+.B bitmap
+Resync assisted by a write-intent bitmap. Implicitly selected when using
+.BR \-\-bitmap .
+
+.TP
+.B journal
+For RAID levels 4/5/6, journal device is used to log transactions and replay
+after unclean shutdown. Implicitly selected when using
+.BR \-\-write\-journal .
+
+.TP
+.B ppl
+For RAID5 only, Partial Parity Log is used to close the write hole and
+eliminate resync. PPL is stored in the metadata region of RAID member drives,
+no additional journal drive is needed.
+
+.PP
+Can be used with \-\-grow to change the consistency policy of an active array
+in some cases. See CONSISTENCY POLICY CHANGES below.
+.RE
+
 
 .SH For assemble:
 
@@ -1106,6 +1209,10 @@ argument given to this flag can be one of
 .BR no\-bitmap ,
 .BR bbl ,
 .BR no\-bbl ,
+.BR ppl ,
+.BR no\-ppl ,
+.BR layout\-original ,
+.BR layout\-alternate ,
 .BR metadata ,
 or
 .BR super\-minor .
@@ -1150,15 +1257,15 @@ The
 .B name
 option will change the
 .I name
-of the array as stored in the superblock and bitmap. This option only
-works for clustered environment.
+of the array as stored in the superblock.  This is only supported for
+version-1 superblocks.
 
 The
 .B nodes
 option will change the
 .I nodes
-of the array as stored in the superblock.  This is only supported for
-version-1 superblocks.
+of the array as stored in the bitmap superblock. This option only
+works for a clustered environment.
 
 The
 .B homehost
@@ -1185,7 +1292,8 @@ is correct.
 The
 .B byteorder
 option allows arrays to be moved between machines with different
-byte-order.
+byte-order, such as from a big-endian machine like a Sparc or some
+MIPS machines, to a little-endian x86_64 machine.
 When assembling such an array for the first time after a move, giving
 .B "\-\-update=byteorder"
 will cause
@@ -1246,6 +1354,31 @@ option will cause any reservation of space for a bad block list to be
 removed.  If the bad block list contains entries, this will fail, as
 removing the list could cause data corruption.
 
+The
+.B ppl
+option will enable PPL for a RAID5 array and reserve space for PPL on each
+device. There must be enough free space between the data and superblock and a
+write-intent bitmap or journal must not be used.
+
+The
+.B no\-ppl
+option will disable PPL in the superblock.
+
+The
+.B layout\-original
+and
+.B layout\-alternate
+options are for RAID0 arrays in use before Linux 5.4.  If the array was being
+used with Linux 3.13 or earlier, then to assemble the array on a new kernel,
+.B \-\-update=layout\-original
+must be given.  If the array was created and used with a kernel from Linux 3.14 to
+Linux 5.3, then
+.B \-\-update=layout\-alternate
+must be given.  This only needs to be given once.  Subsequent assembly of the array
+will happen normally.
+For more information, see
+.IR md (4).
+
 .TP
 .BR \-\-freeze\-reshape
 Option is intended to be used in start-up scripts during initrd boot phase.
@@ -1257,6 +1390,10 @@ Losing file system context would cause reshape to be broken.
 Reshape can be continued later using the
 .B \-\-continue
 option for the grow command.
+
+.TP
+.BR \-\-symlinks
+See this option under Create and Build options.
 
 .SH For Manage mode:
 
@@ -1430,6 +1567,24 @@ number. The receiving node must acknowledge this message
 with \-\-cluster\-confirm. Valid arguments are <slot>:<devicename> in case
 the device is found or <slot>:missing in case the device is not found.
 
+.TP
+.BR \-\-add-journal
+Add journal to an existing array, or recreate journal for RAID-4/5/6 array
+that lost a journal device. To avoid interrupting on-going write opertions,
+.B \-\-add-journal
+only works for array in Read-Only state.
+
+.TP
+.BR \-\-failfast
+Subsequent devices that are added or re\-added will have
+the 'failfast' flag set.  This is only valid for RAID1 and RAID10 and
+means that the 'md' driver will avoid long timeouts on error handling
+where possible.
+.TP
+.BR \-\-nofailfast
+Subsequent devices that are re\-added will be re\-added without
+the 'failfast' flag set.
+
 .P
 Each of these options requires that the first device listed is the array
 to be acted upon, and the remainder are component devices to be added,
@@ -1540,9 +1695,11 @@ does not report the bitmap for that array.
 .TP
 .B \-\-examine\-badblocks
 List the bad-blocks recorded for the device, if a bad-blocks list has
-been configured.  Currently only
+been configured. Currently only
 .B 1.x
-metadata supports bad-blocks lists.
+and
+.B IMSM
+metadata support bad-blocks lists.
 
 .TP
 .BI \-\-dump= directory
@@ -1578,6 +1735,10 @@ overwritten with zeros.  With
 .B \-\-force
 the block where the superblock would be is overwritten even if it
 doesn't appear to be valid.
+
+.B Note:
+Be careful to call \-\-zero\-superblock with clustered raid, make sure
+array isn't used or assembled in other cluster node before execute it.
 
 .TP
 .B \-\-kill\-subarray=
@@ -2092,12 +2253,14 @@ in the array exceed 100G is size, an internal write-intent bitmap
 will automatically be added unless some other option is explicitly
 requested with the
 .B \-\-bitmap
-option.  In any case space for a bitmap will be reserved so that one
-can be added layer with
+option or a different consistency policy is selected with the
+.B \-\-consistency\-policy
+option. In any case space for a bitmap will be reserved so that one
+can be added later with
 .BR "\-\-grow \-\-bitmap=internal" .
 
-If the metadata type supports it (currently only 1.x metadata), space
-will be allocated to store a bad block list.  This allows a modest
+If the metadata type supports it (currently only 1.x and IMSM metadata),
+space will be allocated to store a bad block list.  This allows a modest
 number of bad blocks to be recorded, allowing the drive to remain in
 service while only partially functional.
 
@@ -2121,7 +2284,7 @@ be in use.
 
 .TP
 .B \-\-readonly
-start the array readonly \(em not supported yet.
+start the array in readonly mode.
 
 .SH MANAGE MODE
 .HP 12
@@ -2232,18 +2395,27 @@ superblock field in the subarray.  Similar to updating an array in
 .B \-U
 or
 .B \-\-update=
-option.  Currently only
-.B name
-is supported.
+option. The supported options are
+.BR name ,
+.B ppl
+and
+.BR no\-ppl .
 
-The 
+The
 .B name
 option updates the subarray name in the metadata, it may not affect the
 device node name or the device node symlink until the subarray is
-re\-assembled.  If updating 
+re\-assembled.  If updating
 .B name
 would change the UUID of an active subarray this operation is blocked,
 and the command will end in an error.
+
+The
+.B ppl
+and
+.B no\-ppl
+options enable and disable PPL in the metadata. Currently supported only for
+IMSM subarrays.
 
 .TP
 .B \-\-examine
@@ -2578,6 +2750,8 @@ RAID0, RAID4, and RAID5, and between RAID0 and RAID10 (in the near-2 mode).
 .IP \(bu 4
 add a write-intent bitmap to any array which supports these bitmaps, or
 remove a write-intent bitmap from such an array.
+.IP \(bu 4
+change the array's consistency policy.
 .PP
 
 Using GROW on containers is currently supported only for Intel's IMSM
@@ -2585,31 +2759,23 @@ container format.  The number of devices in a container can be
 increased - which affects all arrays in the container - or an array
 in a container can be converted between levels where those levels are
 supported by the container, and the conversion is on of those listed
-above.  Resizing arrays in an IMSM container with
-.B "--grow --size"
-is not yet supported.
-
-Grow functionality (e.g. expand a number of raid devices) for Intel's
-IMSM container format has an experimental status. It is guarded by the
-.B MDADM_EXPERIMENTAL
-environment variable which must be set to '1' for a GROW command to
-succeed.
-This is for the following reasons:
-
-.IP 1.
-Intel's native IMSM check-pointing is not fully tested yet.
-This can causes IMSM incompatibility during the grow process: an array
-which is growing cannot roam between Microsoft Windows(R) and Linux
-systems.
-
-.IP 2.
-Interrupting a grow operation is not recommended, because it
-has not been fully tested for Intel's IMSM container format yet.
+above.
 
 .PP
-Note: Intel's native checkpointing doesn't use
+Notes:
+.IP \(bu 4
+Intel's native checkpointing doesn't use
 .B --backup-file
 option and it is transparent for assembly feature.
+.IP \(bu 4
+Roaming between Windows(R) and Linux systems for IMSM metadata is not
+supported during grow process.
+.IP \(bu 4
+When growing a raid0 device, the new component disk size (or external
+backup size) should be larger than LCM(old, new) * chunk-size * 2,
+where LCM() is the least common multiple of the old and new count of
+component disks, and "* 2" comes from the fact that mdadm refuses to
+use more than half of a spare device for backup space.
 
 .SS SIZE CHANGES
 Normally when an array is built the "size" is taken from the smallest
@@ -2632,6 +2798,11 @@ to shrinking the array.
 Also the size of an array cannot be changed while it has an active
 bitmap.  If an array has a bitmap, it must be removed before the size
 can be changed. Once the change is complete a new bitmap can be created.
+
+.PP
+Note:
+.B "--grow --size"
+is not yet supported for external file bitmap.
 
 .SS RAID\-DEVICES CHANGES
 
@@ -2709,7 +2880,7 @@ operation, as described below under LAYOUT CHANGES.
 
 .SS CHUNK-SIZE AND LAYOUT CHANGES
 
-Changing the chunk-size of layout without also changing the number of
+Changing the chunk-size or layout without also changing the number of
 devices as the same time will involve re-writing all blocks in-place.
 To ensure against data loss in the case of a crash, a
 .B --backup-file
@@ -2733,6 +2904,16 @@ array.  Either internal bitmaps, or bitmaps stored in a separate file,
 can be added.  Note that if you add a bitmap stored in a file which is
 in a filesystem that is on the RAID array being affected, the system
 will deadlock.  The bitmap must be on a separate filesystem.
+
+.SS CONSISTENCY POLICY CHANGES
+
+The consistency policy of an active array can be changed by using the
+.B \-\-consistency\-policy
+option in Grow mode. Currently this works only for the
+.B ppl
+and
+.B resync
+policies and allows to enable or disable the RAID5 Partial Parity Log (PPL).
 
 .SH INCREMENTAL MODE
 
@@ -2812,7 +2993,7 @@ This is the only context where the aliases are used.  They are
 usually provided by a
 .I udev
 rules mentioning
-.BR ${DEVLINKS} .
+.BR $env{DEVLINKS} .
 
 .IP +
 Does the device have a valid md superblock?  If a specific metadata
@@ -3228,7 +3409,7 @@ was previously known as
 For further information on mdadm usage, MD and the various levels of
 RAID, see:
 .IP
-.B http://raid.wiki.kernel.org/
+.B https://raid.wiki.kernel.org/
 .PP
 (based upon Jakob \(/Ostergaard's Software\-RAID.HOWTO)
 .PP
@@ -3236,7 +3417,7 @@ The latest version of
 .I mdadm
 should always be available from
 .IP
-.B http://www.kernel.org/pub/linux/utils/raid/mdadm/
+.B https://www.kernel.org/pub/linux/utils/raid/mdadm/
 .PP
 Related man pages:
 .PP

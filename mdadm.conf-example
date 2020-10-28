@@ -15,9 +15,9 @@
 #	ARRAY lines specify information about how to identify arrays so
 #	  so that they can be activated
 #
-# You can have more than one device line and use wild cards. The first 
+# You can have more than one device line and use wild cards. The first
 # example includes SCSI the first partition of SCSI disks /dev/sdb,
-# /dev/sdc, /dev/sdd, /dev/sdj, /dev/sdk, and /dev/sdl. The second 
+# /dev/sdc, /dev/sdd, /dev/sdj, /dev/sdk, and /dev/sdl. The second
 # line looks for array slices on IDE disks.
 #
 #DEVICE /dev/sd[bcdjkl]1

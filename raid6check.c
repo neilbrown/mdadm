@@ -40,12 +40,14 @@ enum repair {
 
 int geo_map(int block, unsigned long long stripe, int raid_disks,
 	    int level, int layout);
+int is_ddf(int layout);
 void qsyndrome(uint8_t *p, uint8_t *q, uint8_t **sources, int disks, int size);
 void make_tables(void);
 void ensure_zero_has_size(int chunk_size);
-void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs);
+void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs,
+		       int neg_offset);
 void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
-		       uint8_t **ptrs);
+		       uint8_t **ptrs, int neg_offset);
 void xor_blocks(char *target, char **sources, int disks, int size);
 
 /* Collect per stripe consistency information */
@@ -159,38 +161,39 @@ int unlock_all_stripes(struct mdinfo *info, sighandler_t *sig) {
 }
 
 /* Autorepair */
-int autorepair(int *disk, int diskP, int diskQ, unsigned long long start, int chunk_size,
-		char *name[], int raid_disks, int data_disks, char **blocks_page,
-		char **blocks, uint8_t *p, char **stripes, int *block_index_for_slot,
+int autorepair(int *disk, unsigned long long start, int chunk_size,
+		char *name[], int raid_disks, int syndrome_disks, char **blocks_page,
+		char **blocks, uint8_t *p, int *block_index_for_slot,
 		int *source, unsigned long long *offsets)
 {
 	int i, j;
 	int pages_to_write_count = 0;
 	int page_to_write[chunk_size >> CHECK_PAGE_BITS];
 	for(j = 0; j < (chunk_size >> CHECK_PAGE_BITS); j++) {
-		if (disk[j] >= 0) {
-			printf("Auto-repairing slot %d (%s)\n", disk[j], name[disk[j]]);
+		if (disk[j] >= -2 && block_index_for_slot[disk[j]] >= 0) {
+			int slot = block_index_for_slot[disk[j]];
+			printf("Auto-repairing slot %d (%s)\n", slot, name[slot]);
 			pages_to_write_count++;
 			page_to_write[j] = 1;
-			for(i = 0; i < raid_disks; i++) {
+			for(i = -2; i < syndrome_disks; i++) {
 				blocks_page[i] = blocks[i] + j * CHECK_PAGE_SIZE;
 			}
-			if (disk[j] == diskQ) {
-				qsyndrome(p, (uint8_t*)stripes[diskQ] + j * CHECK_PAGE_SIZE, (uint8_t**)blocks_page, data_disks, CHECK_PAGE_SIZE);
+			if (disk[j] == -2) {
+				qsyndrome(p, (uint8_t*)blocks_page[-2],
+					  (uint8_t**)blocks_page,
+					  syndrome_disks, CHECK_PAGE_SIZE);
 			}
 			else {
-				char *all_but_failed_blocks[data_disks];
-				int failed_block_index = block_index_for_slot[disk[j]];
-				for(i = 0; i < data_disks; i++) {
-					if (failed_block_index == i) {
-						all_but_failed_blocks[i] = stripes[diskP] + j * CHECK_PAGE_SIZE;
-					}
-					else {
+				char *all_but_failed_blocks[syndrome_disks];
+				for(i = 0; i < syndrome_disks; i++) {
+					if (i == disk[j])
+						all_but_failed_blocks[i] = blocks_page[-1];
+					else
 						all_but_failed_blocks[i] = blocks_page[i];
-					}
 				}
-				xor_blocks(stripes[disk[j]] + j * CHECK_PAGE_SIZE,
-				all_but_failed_blocks, data_disks, CHECK_PAGE_SIZE);
+				xor_blocks(blocks_page[disk[j]],
+					   all_but_failed_blocks, syndrome_disks,
+					   CHECK_PAGE_SIZE);
 			}
 		}
 		else {
@@ -202,8 +205,11 @@ int autorepair(int *disk, int diskP, int diskQ, unsigned long long start, int ch
 		int write_res = 0;
 		for(j = 0; j < (chunk_size >> CHECK_PAGE_BITS); j++) {
 			if(page_to_write[j] == 1) {
-				lseek64(source[disk[j]], offsets[disk[j]] + start * chunk_size + j * CHECK_PAGE_SIZE, SEEK_SET);
-				write_res += write(source[disk[j]], stripes[disk[j]] + j * CHECK_PAGE_SIZE, CHECK_PAGE_SIZE);
+				int slot = block_index_for_slot[disk[j]];
+				lseek64(source[slot], offsets[slot] + start * chunk_size + j * CHECK_PAGE_SIZE, SEEK_SET);
+				write_res += write(source[slot],
+						   blocks[disk[j]] + j * CHECK_PAGE_SIZE,
+						   CHECK_PAGE_SIZE);
 			}
 		}
 
@@ -217,101 +223,79 @@ int autorepair(int *disk, int diskP, int diskQ, unsigned long long start, int ch
 }
 
 /* Manual repair */
-int manual_repair(int diskP, int diskQ, int chunk_size, int raid_disks, int data_disks,
-		  int failed_disk1, int failed_disk2, unsigned long long start, int *block_index_for_slot,
-		  char *name[], char **stripes, char **blocks, uint8_t *p, struct mdinfo *info, sighandler_t *sig,
+int manual_repair(int chunk_size, int syndrome_disks,
+		  int failed_slot1, int failed_slot2,
+		  unsigned long long start, int *block_index_for_slot,
+		  char *name[], char **stripes, char **blocks, uint8_t *p,
 		  int *source, unsigned long long *offsets)
 {
-	int err = 0;
 	int i;
+	int fd1 = block_index_for_slot[failed_slot1];
+	int fd2 = block_index_for_slot[failed_slot2];
 	printf("Repairing stripe %llu\n", start);
 	printf("Assuming slots %d (%s) and %d (%s) are incorrect\n",
-	       failed_disk1, name[failed_disk1],
-	       failed_disk2, name[failed_disk2]);
+	       fd1, name[fd1],
+	       fd2, name[fd2]);
 
-	if (failed_disk1 == diskQ || failed_disk2 == diskQ) {
-		char *all_but_failed_blocks[data_disks];
+	if (failed_slot1 == -2 || failed_slot2 == -2) {
+		char *all_but_failed_blocks[syndrome_disks];
 		int failed_data_or_p;
-		int failed_block_index;
 
-		if (failed_disk1 == diskQ) {
-			failed_data_or_p = failed_disk2;
-		}
-		else {
-			failed_data_or_p = failed_disk1;
-		}
+		if (failed_slot1 == -2)
+			failed_data_or_p = failed_slot2;
+		else
+			failed_data_or_p = failed_slot1;
+
 		printf("Repairing D/P(%d) and Q\n", failed_data_or_p);
-		failed_block_index = block_index_for_slot[failed_data_or_p];
-		for (i = 0; i < data_disks; i++) {
-			if (failed_block_index == i) {
-				all_but_failed_blocks[i] = stripes[diskP];
-			}
-			else {
-				all_but_failed_blocks[i] = blocks[i];
-			}
-		}
-		xor_blocks(stripes[failed_data_or_p],
-			   all_but_failed_blocks, data_disks, chunk_size);
-		qsyndrome(p, (uint8_t*)stripes[diskQ], (uint8_t**)blocks, data_disks, chunk_size);
-	}
-	else {
-		ensure_zero_has_size(chunk_size);
-		if (failed_disk1 == diskP || failed_disk2 == diskP) {
-			int failed_data, failed_block_index;
-			if (failed_disk1 == diskP) {
-				failed_data = failed_disk2;
-			}
-			else {
-				failed_data = failed_disk1;
-			}
-			failed_block_index = block_index_for_slot[failed_data];
-			printf("Repairing D(%d) and P\n", failed_data);
-			raid6_datap_recov(raid_disks, chunk_size, failed_block_index, (uint8_t**)blocks);
-		}
-		else {
-			printf("Repairing D and D\n");
-			int failed_block_index1 = block_index_for_slot[failed_disk1];
-			int failed_block_index2 = block_index_for_slot[failed_disk2];
-			if (failed_block_index1 > failed_block_index2) {
-				int t = failed_block_index1;
-				failed_block_index1 = failed_block_index2;
-				failed_block_index2 = t;
-			}
-			raid6_2data_recov(raid_disks, chunk_size, failed_block_index1, failed_block_index2, (uint8_t**)blocks);
-		}
-	}
 
-	err = lock_stripe(info, start, chunk_size, data_disks, sig);
-	if(err != 0) {
-		if (err != 2) {
-			return -1;
+		for (i = 0; i < syndrome_disks; i++) {
+			if (i == failed_data_or_p)
+				all_but_failed_blocks[i] = blocks[-1];
+			else
+				all_but_failed_blocks[i] = blocks[i];
 		}
-		return -2;;
+		xor_blocks(blocks[failed_data_or_p],
+			   all_but_failed_blocks, syndrome_disks, chunk_size);
+		qsyndrome(p, (uint8_t*)blocks[-2], (uint8_t**)blocks,
+			  syndrome_disks, chunk_size);
+	} else {
+		ensure_zero_has_size(chunk_size);
+		if (failed_slot1 == -1 || failed_slot2 == -1) {
+			int failed_data;
+			if (failed_slot1 == -1)
+				failed_data = failed_slot2;
+			else
+				failed_data = failed_slot1;
+
+			printf("Repairing D(%d) and P\n", failed_data);
+			raid6_datap_recov(syndrome_disks+2, chunk_size,
+					  failed_data, (uint8_t**)blocks, 1);
+		} else {
+			printf("Repairing D and D\n");
+			raid6_2data_recov(syndrome_disks+2, chunk_size,
+					  failed_slot1, failed_slot2,
+					  (uint8_t**)blocks, 1);
+		}
 	}
 
 	int write_res1, write_res2;
 	off64_t seek_res;
 
-	seek_res = lseek64(source[failed_disk1],
-			   offsets[failed_disk1] + start * chunk_size, SEEK_SET);
+	seek_res = lseek64(source[fd1],
+			   offsets[fd1] + start * chunk_size, SEEK_SET);
 	if (seek_res < 0) {
 		fprintf(stderr, "lseek failed for failed_disk1\n");
 		return -1;
 	}
-	write_res1 = write(source[failed_disk1], stripes[failed_disk1], chunk_size);
+	write_res1 = write(source[fd1], blocks[failed_slot1], chunk_size);
 
-	seek_res = lseek64(source[failed_disk2],
-			   offsets[failed_disk2] + start * chunk_size, SEEK_SET);
+	seek_res = lseek64(source[fd2],
+			   offsets[fd2] + start * chunk_size, SEEK_SET);
 	if (seek_res < 0) {
-		fprintf(stderr, "lseek failed for failed_disk1\n");
+		fprintf(stderr, "lseek failed for failed_disk2\n");
 		return -1;
 	}
-	write_res2 = write(source[failed_disk2], stripes[failed_disk2], chunk_size);
-
-	err = unlock_all_stripes(info, sig);
-	if(err != 0) {
-		return -2;
-	}
+	write_res2 = write(source[fd2], blocks[failed_slot2], chunk_size);
 
 	if (write_res1 != chunk_size || write_res2 != chunk_size) {
 		fprintf(stderr, "Failed to write a complete chunk.\n");
@@ -327,19 +311,38 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 		  enum repair repair, int failed_disk1, int failed_disk2)
 {
 	/* read the data and p and q blocks, and check we got them right */
-	char *stripe_buf = xmalloc(raid_disks * chunk_size);
+	int data_disks = raid_disks - 2;
+	int syndrome_disks = data_disks + is_ddf(layout) * 2;
+	char *stripe_buf;
+
+	/* stripes[] is indexed by raid_disk and holds chunks from each device */
 	char **stripes = xmalloc(raid_disks * sizeof(char*));
-	char **blocks = xmalloc(raid_disks * sizeof(char*));
-	char **blocks_page = xmalloc(raid_disks * sizeof(char*));
-	int *block_index_for_slot = xmalloc(raid_disks * sizeof(int));
+
+	/* blocks[] is indexed by syndrome number and points to either one of the
+	 * chunks from 'stripes[]', or to a chunk of zeros. -1 and -2 are
+	 * P and Q */
+	char **blocks = xmalloc((syndrome_disks + 2) * sizeof(char*));
+
+	/* blocks_page[] is a temporary index to just one page of the chunks
+	 * that blocks[] points to. */
+	char **blocks_page = xmalloc((syndrome_disks + 2) * sizeof(char*));
+
+	/* block_index_for_slot[] provides the reverse mapping from blocks to stripes.
+	 * The index is a syndrome position, the content is a raid_disk number.
+	 * indicies -1 and -2 work, and are P and Q disks */
+	int *block_index_for_slot = xmalloc((syndrome_disks+2) * sizeof(int));
+
+	/* 'p' and 'q' contain calcualted P and Q, to be compared with
+	 * blocks[-1] and blocks[-2];
+	 */
 	uint8_t *p = xmalloc(chunk_size);
 	uint8_t *q = xmalloc(chunk_size);
+	char *zero = xmalloc(chunk_size);
 	int *results = xmalloc(chunk_size * sizeof(int));
 	sighandler_t *sig = xmalloc(3 * sizeof(sighandler_t));
 
 	int i, j;
-	int diskP, diskQ;
-	int data_disks = raid_disks - 2;
+	int diskP, diskQ, diskD;
 	int err = 0;
 
 	extern int tables_ready;
@@ -347,10 +350,21 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 	if (!tables_ready)
 		make_tables();
 
+	if (posix_memalign((void**)&stripe_buf, 4096, raid_disks * chunk_size) != 0)
+		exit(4);
+	block_index_for_slot += 2;
+	blocks += 2;
+	blocks_page += 2;
+
+	memset(zero, 0, chunk_size);
 	for ( i = 0 ; i < raid_disks ; i++)
 		stripes[i] = stripe_buf + i * chunk_size;
 
 	while (length > 0) {
+		/* The syndrome number of the broken disk is recorded
+		 * in 'disk[]' which allows a different broken disk for
+		 * each page.
+		 */
 		int disk[chunk_size >> CHECK_PAGE_BITS];
 
 		err = lock_stripe(info, start, chunk_size, data_disks, sig);
@@ -377,42 +391,89 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			}
 		}
 
-		for (i = 0 ; i < data_disks ; i++) {
-			int disk = geo_map(i, start, raid_disks, level, layout);
-			blocks[i] = stripes[disk];
-			block_index_for_slot[disk] = i;
+		diskP = geo_map(-1, start, raid_disks, level, layout);
+		block_index_for_slot[-1] = diskP;
+		blocks[-1] = stripes[diskP];
+
+		diskQ = geo_map(-2, start, raid_disks, level, layout);
+		block_index_for_slot[-2] = diskQ;
+		blocks[-2] = stripes[diskQ];
+
+		if (!is_ddf(layout)) {
+			/* The syndrome-order of disks starts immediately after 'Q',
+			 * but skips P */
+			diskD = diskQ;
+			for (i = 0 ; i < data_disks ; i++) {
+				diskD = diskD + 1;
+				if (diskD >= raid_disks)
+					diskD = 0;
+				if (diskD == diskP)
+					diskD += 1;
+				if (diskD >= raid_disks)
+					diskD = 0;
+				blocks[i] = stripes[diskD];
+				block_index_for_slot[i] = diskD;
+			}
+		} else {
+			/* The syndrome-order exactly follows raid-disk
+			 * numbers, with ZERO in place of P and Q
+			 */
+			for (i = 0 ; i < raid_disks; i++) {
+				if (i == diskP || i == diskQ) {
+					blocks[i] = zero;
+					block_index_for_slot[i] = -1;
+				} else {
+					blocks[i] = stripes[i];
+					block_index_for_slot[i] = i;
+				}
+			}
 		}
 
-		qsyndrome(p, q, (uint8_t**)blocks, data_disks, chunk_size);
-		diskP = geo_map(-1, start, raid_disks, level, layout);
-		diskQ = geo_map(-2, start, raid_disks, level, layout);
-		blocks[data_disks] = stripes[diskP];
-		block_index_for_slot[diskP] = data_disks;
-		blocks[data_disks+1] = stripes[diskQ];
-		block_index_for_slot[diskQ] = data_disks+1;
+		qsyndrome(p, q, (uint8_t**)blocks, syndrome_disks, chunk_size);
 
 		raid6_collect(chunk_size, p, q, stripes[diskP], stripes[diskQ], results);
 		raid6_stats(disk, results, raid_disks, chunk_size);
 
 		for(j = 0; j < (chunk_size >> CHECK_PAGE_BITS); j++) {
-			if(disk[j] >= -2) {
-				disk[j] = geo_map(disk[j], start, raid_disks, level, layout);
-			}
-			if(disk[j] >= 0) {
-				printf("Error detected at stripe %llu, page %d: possible failed disk slot: %d --> %s\n",
-					start, j, disk[j], name[disk[j]]);
-			}
-			if(disk[j] == -65535) {
+			int role = disk[j];
+			if (role >= -2) {
+				int slot = block_index_for_slot[role];
+				if (slot >= 0)
+					printf("Error detected at stripe %llu, page %d: possible failed disk slot %d: %d --> %s\n",
+					       start, j, role, slot, name[slot]);
+				else
+					printf("Error detected at stripe %llu, page %d: failed slot %d should be zeros\n",
+					       start, j, role);
+			} else if(disk[j] == -65535) {
 				printf("Error detected at stripe %llu, page %d: disk slot unknown\n", start, j);
 			}
 		}
 
 		if(repair == AUTO_REPAIR) {
-			err = autorepair(disk, diskP, diskQ, start, chunk_size,
-					name, raid_disks, data_disks, blocks_page,
-					blocks, p, stripes, block_index_for_slot,
+			err = autorepair(disk, start, chunk_size,
+					name, raid_disks, syndrome_disks, blocks_page,
+					blocks, p, block_index_for_slot,
 					source, offsets);
 			if(err != 0) {
+				unlock_all_stripes(info, sig);
+				goto exitCheck;
+			}
+		}
+
+		if(repair == MANUAL_REPAIR) {
+			int failed_slot1 = -1, failed_slot2 = -1;
+			for (i = -2; i < syndrome_disks; i++) {
+				if (block_index_for_slot[i] == failed_disk1)
+					failed_slot1 = i;
+				if (block_index_for_slot[i] == failed_disk2)
+					failed_slot2 = i;
+			}
+			err = manual_repair(chunk_size, syndrome_disks,
+					    failed_slot1, failed_slot2,
+					    start, block_index_for_slot,
+					    name, stripes, blocks, p,
+					    source, offsets);
+			if(err == -1) {
 				unlock_all_stripes(info, sig);
 				goto exitCheck;
 			}
@@ -423,17 +484,6 @@ int check_stripes(struct mdinfo *info, int *source, unsigned long long *offsets,
 			goto exitCheck;
 		}
 
-		if(repair == MANUAL_REPAIR) {
-			err = manual_repair(diskP, diskQ, chunk_size, raid_disks, data_disks,
-					failed_disk1, failed_disk2, start, block_index_for_slot,
-					name, stripes, blocks, p, info, sig,
-					source, offsets);
-			if(err == -1) {
-				unlock_all_stripes(info, sig);
-				goto exitCheck;
-			}
-		}
-
 		length--;
 		start++;
 	}
@@ -442,9 +492,9 @@ exitCheck:
 
 	free(stripe_buf);
 	free(stripes);
-	free(blocks);
-	free(blocks_page);
-	free(block_index_for_slot);
+	free(blocks-2);
+	free(blocks_page-2);
+	free(block_index_for_slot-2);
 	free(p);
 	free(q);
 	free(results);
@@ -512,7 +562,7 @@ int main(int argc, char *argv[])
 			  GET_LEVEL|
 			  GET_LAYOUT|
 			  GET_DISKS|
-			  GET_DEGRADED |
+			  GET_STATE |
 			  GET_COMPONENT|
 			  GET_CHUNK|
 			  GET_DEVS|
@@ -628,7 +678,7 @@ int main(int argc, char *argv[])
 		if(disk_slot >= 0) {
 			disk_name[disk_slot] = map_dev(comp->disk.major, comp->disk.minor, 0);
 			offsets[disk_slot] = comp->data_offset * 512;
-			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR | O_SYNC);
+			fds[disk_slot] = open(disk_name[disk_slot], O_RDWR | O_DIRECT);
 			if (fds[disk_slot] < 0) {
 				perror(disk_name[disk_slot]);
 				fprintf(stderr,"%s: cannot open %s\n", prg, disk_name[disk_slot]);

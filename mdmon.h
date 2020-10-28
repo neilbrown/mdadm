@@ -21,7 +21,7 @@
 extern const char Name[];
 
 enum array_state { clear, inactive, suspended, readonly, read_auto,
-		   clean, active, write_pending, active_idle, bad_word};
+		   clean, active, write_pending, active_idle, broken, bad_word};
 
 enum sync_action { idle, reshape, resync, recover, check, repair, bad_action };
 
@@ -35,6 +35,7 @@ struct active_array {
 	int resync_start_fd;
 	int metadata_fd; /* for monitoring rw/ro status */
 	int sync_completed_fd; /* for checkpoint notification events */
+	int safe_mode_delay_fd;
 	unsigned long long last_checkpoint; /* sync_completed fires for many
 					     * reasons this field makes sure the
 					     * kernel has made progress before
@@ -101,7 +102,7 @@ static inline int is_resync_complete(struct mdinfo *array)
 		break;
 	case 10:
 		l = array->array.layout;
-		ncopies = (l & 0xff) * ((l >> 8) && 0xff);
+		ncopies = (l & 0xff) * ((l >> 8) & 0xff);
 		sync_size = array->component_size * array->array.raid_disks;
 		sync_size /= ncopies;
 		break;

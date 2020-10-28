@@ -99,6 +99,8 @@ struct imsm_orom {
 	#define IMSM_OROM_CAPABILITIES_Rohi (1 << 5)
 	#define IMSM_OROM_CAPABILITIES_ReadPatrol (1 << 6)
 	#define IMSM_OROM_CAPABILITIES_XorHw (1 << 7)
+	#define IMSM_OROM_CAPABILITIES_SKUMode ((1 << 8)|(1 << 9))
+	#define IMSM_OROM_CAPABILITIES_TPV (1 << 10)
 } __attribute__((packed));
 
 static inline int imsm_orom_has_raid0(const struct imsm_orom *orom)
@@ -167,7 +169,6 @@ static inline int fls(int x)
 		r -= 2;
 	}
 	if (!(x & 0x80000000u)) {
-		x <<= 1;
 		r -= 1;
 	}
 	return r;
@@ -184,11 +185,17 @@ static inline int imsm_orom_is_nvme(const struct imsm_orom *orom)
 			sizeof(orom->signature)) == 0;
 }
 
+static inline int imsm_orom_has_tpv_support(const struct imsm_orom *orom)
+{
+	return !!(orom->driver_features & IMSM_OROM_CAPABILITIES_TPV);
+}
+
 enum sys_dev_type {
 	SYS_DEV_UNKNOWN = 0,
 	SYS_DEV_SAS,
 	SYS_DEV_SATA,
 	SYS_DEV_NVME,
+	SYS_DEV_VMD,
 	SYS_DEV_MAX
 };
 
@@ -213,6 +220,7 @@ struct devid_list {
 struct orom_entry {
 	struct imsm_orom orom;
 	struct devid_list *devid_list;
+	enum sys_dev_type type;
 	struct orom_entry *next;
 };
 
@@ -229,6 +237,7 @@ static inline char *guid_str(char *buf, struct efi_guid guid)
 }
 
 char *diskfd_to_devpath(int fd);
+__u16 devpath_to_vendor(const char *dev_path);
 struct sys_dev *find_driver_devices(const char *bus, const char *driver);
 struct sys_dev *find_intel_devices(void);
 const struct imsm_orom *find_imsm_capability(struct sys_dev *hba);
@@ -241,3 +250,5 @@ const char *get_sys_dev_type(enum sys_dev_type);
 const struct orom_entry *get_orom_entry_by_device_id(__u16 dev_id);
 const struct imsm_orom *get_orom_by_device_id(__u16 device_id);
 struct sys_dev *device_by_id(__u16 device_id);
+struct sys_dev *device_by_id_and_path(__u16 device_id, const char *path);
+char *vmd_domain_to_controller(struct sys_dev *hba, char *buf);

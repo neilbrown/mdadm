@@ -32,7 +32,7 @@
 
 int get_mdp_major(void)
 {
-static int mdp_major = -1;
+	static int mdp_major = -1;
 	FILE *fl;
 	char *w;
 	int have_block = 0;
@@ -41,27 +41,30 @@ static int mdp_major = -1;
 
 	if (mdp_major != -1)
 		return mdp_major;
+
 	fl = fopen("/proc/devices", "r");
 	if (!fl)
 		return -1;
+
 	while ((w = conf_word(fl, 1))) {
-		if (have_block && strcmp(w, "devices:")==0)
+		if (have_block && strcmp(w, "devices:") == 0)
 			have_devices = 1;
-		have_block =  (strcmp(w, "Block")==0);
+		have_block =  (strcmp(w, "Block") == 0);
 		if (isdigit(w[0]))
 			last_num = atoi(w);
-		if (have_devices && strcmp(w, "mdp")==0)
+		if (have_devices && strcmp(w, "mdp") == 0)
 			mdp_major = last_num;
 		free(w);
 	}
 	fclose(fl);
+
 	return mdp_major;
 }
 
-char *devid2kname(int devid)
+char *devid2kname(dev_t devid)
 {
 	char path[30];
-	char link[200];
+	char link[PATH_MAX];
 	static char devnm[32];
 	char *cp;
 	int n;
@@ -70,21 +73,38 @@ char *devid2kname(int devid)
 	 * /sys/dev/block/%d:%d link which must look like
 	 * and take the last component.
 	 */
-	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
-		minor(devid));
-	n = readlink(path, link, sizeof(link)-1);
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid), minor(devid));
+	n = readlink(path, link, sizeof(link) - 1);
 	if (n > 0) {
 		link[n] = 0;
 		cp = strrchr(link, '/');
 		if (cp) {
-			strcpy(devnm, cp+1);
+			strcpy(devnm, cp + 1);
 			return devnm;
 		}
 	}
 	return NULL;
 }
 
-char *devid2devnm(int devid)
+char *stat2kname(struct stat *st)
+{
+	if ((S_IFMT & st->st_mode) != S_IFBLK)
+		return NULL;
+
+	return devid2kname(st->st_rdev);
+}
+
+char *fd2kname(int fd)
+{
+	struct stat stb;
+
+	if (fstat(fd, &stb) == 0)
+		return stat2kname(&stb);
+
+	return NULL;
+}
+
+char *devid2devnm(dev_t devid)
 {
 	char path[30];
 	char link[200];
@@ -99,9 +119,8 @@ char *devid2devnm(int devid)
 	 * or
 	 *    ...../block/md_FOO
 	 */
-	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
-		minor(devid));
-	n = readlink(path, link, sizeof(link)-1);
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid), minor(devid));
+	n = readlink(path, link, sizeof(link) - 1);
 	if (n > 0) {
 		link[n] = 0;
 		cp = strstr(link, "/block/");
@@ -121,6 +140,7 @@ char *devid2devnm(int devid)
 			(minor(devid)>>MdpMinorShift));
 	else
 		return NULL;
+
 	return devnm;
 }
 
@@ -128,15 +148,47 @@ char *stat2devnm(struct stat *st)
 {
 	if ((S_IFMT & st->st_mode) != S_IFBLK)
 		return NULL;
+
 	return devid2devnm(st->st_rdev);
 }
 
 char *fd2devnm(int fd)
 {
 	struct stat stb;
+
 	if (fstat(fd, &stb) == 0)
 		return stat2devnm(&stb);
+
 	return NULL;
+}
+
+/* When we create a new array, we don't want the content to
+ * be immediately examined by udev - it is probably meaningless.
+ * So create /run/mdadm/creating-mdXXX and expect that a udev
+ * rule will noticed this and act accordingly.
+ */
+static char block_path[] = "/run/mdadm/creating-%s";
+static char *unblock_path = NULL;
+void udev_block(char *devnm)
+{
+	int fd;
+	char *path = NULL;
+
+	xasprintf(&path, block_path, devnm);
+	fd = open(path, O_CREAT|O_RDWR, 0600);
+	if (fd >= 0) {
+		close(fd);
+		unblock_path = path;
+	} else
+		free(path);
+}
+
+void udev_unblock(void)
+{
+	if (unblock_path)
+		unlink(unblock_path);
+	free(unblock_path);
+	unblock_path = NULL;
 }
 
 /*
@@ -164,8 +216,8 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 	if ((stb->st_mode&S_IFMT)== S_IFBLK) {
 		char *n = xstrdup(name);
 		struct devmap *dm = xmalloc(sizeof(*dm));
-		if (strncmp(n, "/dev/./", 7)==0)
-			strcpy(n+4, name+6);
+		if (strncmp(n, "/dev/./", 7) == 0)
+			strcpy(n + 4, name + 6);
 		if (dm) {
 			dm->major = major(stb->st_rdev);
 			dm->minor = minor(stb->st_rdev);
@@ -174,6 +226,7 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 			devlist = dm;
 		}
 	}
+
 	return 0;
 }
 
@@ -183,12 +236,16 @@ int add_dev_1(const char *name, const struct stat *stb, int flag)
 {
 	return add_dev(name, stb, flag, NULL);
 }
-int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+int nftw(const char *path,
+	 int (*han)(const char *name, const struct stat *stb,
+		    int flag, struct FTW *s), int nopenfd, int flags)
 {
 	return ftw(path, add_dev_1, nopenfd);
 }
 #else
-int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+int nftw(const char *path,
+	 int (*han)(const char *name, const struct stat *stb,
+		    int flag, struct FTW *s), int nopenfd, int flags)
 {
 	return 0;
 }
@@ -211,7 +268,7 @@ char *map_dev_preferred(int major, int minor, int create,
 	int did_check = 0;
 
 	if (major == 0 && minor == 0)
-			return NULL;
+		return NULL;
 
  retry:
 	if (!devlist_ready) {
@@ -223,19 +280,17 @@ char *map_dev_preferred(int major, int minor, int create,
 			free(d->name);
 			free(d);
 		}
-		if (lstat(dev, &stb)==0 &&
-		    S_ISLNK(stb.st_mode))
+		if (lstat(dev, &stb) == 0 && S_ISLNK(stb.st_mode))
 			dev = "/dev/.";
 		nftw(dev, add_dev, 10, FTW_PHYS);
 		devlist_ready=1;
 		did_check = 1;
 	}
 
-	for (p=devlist; p; p=p->next)
-		if (p->major == major &&
-		    p->minor == minor) {
-			if (strncmp(p->name, "/dev/md/",8) == 0
-			    || (prefer && strstr(p->name, prefer))) {
+	for (p = devlist; p; p = p->next)
+		if (p->major == major && p->minor == minor) {
+			if (strncmp(p->name, "/dev/md/",8) == 0 ||
+			    (prefer && strstr(p->name, prefer))) {
 				if (preferred == NULL ||
 				    strlen(p->name) < strlen(preferred))
 					preferred = p->name;
@@ -274,14 +329,16 @@ char *conf_word(FILE *file, int allow_key)
 	int wordfound = 0;
 	char *word = xmalloc(wsize);
 
-	while (wordfound==0) {
+	while (wordfound == 0) {
 		/* at the end of a word.. */
 		c = getc(file);
 		if (c == '#')
 			while (c != EOF && c != '\n')
 				c = getc(file);
-		if (c == EOF) break;
-		if (c == '\n') continue;
+		if (c == EOF)
+			break;
+		if (c == '\n')
+			continue;
 
 		if (c != ' ' && c != '\t' && ! allow_key) {
 			ungetc(c, file);
@@ -294,9 +351,11 @@ char *conf_word(FILE *file, int allow_key)
 			c = getc(file);
 		if (c != EOF && c != '\n' && c != '#') {
 			/* we really have a character of a word, so start saving it */
-			while (c != EOF && c != '\n' && (quote || (c!=' ' && c != '\t'))) {
+			while (c != EOF && c != '\n' &&
+			       (quote || (c != ' ' && c != '\t'))) {
 				wordfound = 1;
-				if (quote && c == quote) quote = 0;
+				if (quote && c == quote)
+					quote = 0;
 				else if (quote == 0 && (c == '\'' || c == '"'))
 					quote = c;
 				else {
@@ -312,12 +371,13 @@ char *conf_word(FILE *file, int allow_key)
 				 * in /proc/mdstat instead of
 				 *        "active (auto-read-only)"
 				 */
-				if (c == '(' && len >= 6
-				    && strncmp(word+len-6, "active", 6) == 0)
+				if (c == '(' && len >= 6 &&
+				    strncmp(word + len - 6, "active", 6) == 0)
 					c = ' ';
 			}
 		}
-		if (c != EOF) ungetc(c, file);
+		if (c != EOF)
+			ungetc(c, file);
 	}
 	word[len] = 0;
 
@@ -386,7 +446,7 @@ void print_escape(char *str)
 	/* print str, but change space and tab to '_'
 	 * as is suitable for device names
 	 */
-	for (; *str ; str++) {
+	for (; *str; str++) {
 		switch (*str) {
 		case ' ':
 		case '\t':
@@ -417,9 +477,9 @@ int use_udev(void)
 	struct stat stb;
 
 	if (use < 0) {
-		use = ((stat("/dev/.udev", &stb) == 0
-			|| stat("/run/udev", &stb) == 0)
-		       && check_env("MDADM_NO_UDEV") == 0);
+		use = ((stat("/dev/.udev", &stb) == 0 ||
+			stat("/run/udev", &stb) == 0) &&
+		       check_env("MDADM_NO_UDEV") == 0);
 	}
 	return use;
 }
@@ -449,13 +509,14 @@ char *conf_line(FILE *file)
 	char *list;
 
 	w = conf_word(file, 1);
-	if (w == NULL) return NULL;
+	if (w == NULL)
+		return NULL;
 
 	list = dl_strdup(w);
 	free(w);
 	dl_init(list);
 
-	while ((w = conf_word(file,0))){
+	while ((w = conf_word(file, 0))){
 		char *w2 = dl_strdup(w);
 		free(w);
 		dl_add(list, w2);
@@ -467,7 +528,7 @@ char *conf_line(FILE *file)
 void free_line(char *line)
 {
 	char *w;
-	for (w=dl_next(line); w != line; w=dl_next(line)) {
+	for (w = dl_next(line); w != line; w = dl_next(line)) {
 		dl_del(w);
 		dl_free(w);
 	}

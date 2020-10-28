@@ -114,7 +114,6 @@ void free_mdstat(struct mdstat_ent *ms)
 {
 	while (ms) {
 		struct mdstat_ent *t;
-		free(ms->dev);
 		free(ms->level);
 		free(ms->pattern);
 		free(ms->metadata_version);
@@ -134,7 +133,11 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 	int fd;
 
 	if (hold && mdstat_fd != -1) {
-		lseek(mdstat_fd, 0L, 0);
+		off_t offset = lseek(mdstat_fd, 0L, 0);
+		if (offset == (off_t)-1) {
+			mdstat_close();
+			return NULL;
+		}
 		fd = dup(mdstat_fd);
 		if (fd >= 0)
 			f = fdopen(fd, "r");
@@ -155,21 +158,21 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		char devnm[32];
 		int in_devs = 0;
 
-		if (strcmp(line, "Personalities")==0)
+		if (strcmp(line, "Personalities") == 0)
 			continue;
-		if (strcmp(line, "read_ahead")==0)
+		if (strcmp(line, "read_ahead") == 0)
 			continue;
-		if (strcmp(line, "unused")==0)
+		if (strcmp(line, "unused") == 0)
 			continue;
 		insert_here = NULL;
 		/* Better be an md line.. */
-		if (strncmp(line, "md", 2)!= 0 || strlen(line) >= 32
-		    || (line[2] != '_' && !isdigit(line[2])))
+		if (strncmp(line, "md", 2)!= 0 || strlen(line) >= 32 ||
+		    (line[2] != '_' && !isdigit(line[2])))
 			continue;
 		strcpy(devnm, line);
 
 		ent = xmalloc(sizeof(*ent));
-		ent->dev = ent->level = ent->pattern= NULL;
+		ent->level = ent->pattern= NULL;
 		ent->next = NULL;
 		ent->percent = RESYNC_NONE;
 		ent->active = -1;
@@ -179,15 +182,14 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 		ent->devcnt = 0;
 		ent->members = NULL;
 
-		ent->dev = xstrdup(line);
 		strcpy(ent->devnm, devnm);
 
 		for (w=dl_next(line); w!= line ; w=dl_next(w)) {
 			int l = strlen(w);
 			char *eq;
-			if (strcmp(w, "active")==0)
+			if (strcmp(w, "active") == 0)
 				ent->active = 1;
-			else if (strcmp(w, "inactive")==0) {
+			else if (strcmp(w, "inactive") == 0) {
 				ent->active = 0;
 				in_devs = 1;
 			} else if (ent->active > 0 &&
@@ -195,13 +197,13 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 				 w[0] != '(' /*readonly*/) {
 				ent->level = xstrdup(w);
 				in_devs = 1;
-			} else if (in_devs && strcmp(w, "blocks")==0)
+			} else if (in_devs && strcmp(w, "blocks") == 0)
 				in_devs = 0;
 			else if (in_devs) {
 				char *ep = strchr(w, '[');
 				ent->devcnt +=
 					add_member_devname(&ent->members, w);
-				if (ep && strncmp(w, "md", 2)==0) {
+				if (ep && strncmp(w, "md", 2) == 0) {
 					/* This has an md device as a component.
 					 * If that device is already in the
 					 * list, make sure we insert before
@@ -210,8 +212,10 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 					struct mdstat_ent **ih;
 					ih = &all;
 					while (ih != insert_here && *ih &&
-					       ((int)strlen((*ih)->devnm) != ep-w
-						|| strncmp((*ih)->devnm, w, ep-w) != 0))
+					       ((int)strlen((*ih)->devnm) !=
+						ep-w ||
+						strncmp((*ih)->devnm, w,
+							ep-w) != 0))
 						ih = & (*ih)->next;
 					insert_here = ih;
 				}
@@ -222,37 +226,39 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			} else if (w[0] == '[' && isdigit(w[1])) {
 				ent->raid_disks = atoi(w+1);
 			} else if (!ent->pattern &&
-				 w[0] == '[' &&
-				 (w[1] == 'U' || w[1] == '_')) {
+				   w[0] == '[' &&
+				   (w[1] == 'U' || w[1] == '_')) {
 				ent->pattern = xstrdup(w+1);
-				if (ent->pattern[l-2]==']')
+				if (ent->pattern[l-2] == ']')
 					ent->pattern[l-2] = '\0';
 			} else if (ent->percent == RESYNC_NONE &&
-				   strncmp(w, "re", 2)== 0 &&
+				   strncmp(w, "re", 2) == 0 &&
 				   w[l-1] == '%' &&
-				   (eq=strchr(w, '=')) != NULL ) {
+				   (eq = strchr(w, '=')) != NULL ) {
 				ent->percent = atoi(eq+1);
-				if (strncmp(w,"resync", 6)==0)
+				if (strncmp(w,"resync", 6) == 0)
 					ent->resync = 1;
-				else if (strncmp(w, "reshape", 7)==0)
+				else if (strncmp(w, "reshape", 7) == 0)
 					ent->resync = 2;
 				else
 					ent->resync = 0;
 			} else if (ent->percent == RESYNC_NONE &&
 				   (w[0] == 'r' || w[0] == 'c')) {
-				if (strncmp(w, "resync", 4)==0)
+				if (strncmp(w, "resync", 6) == 0)
 					ent->resync = 1;
-				if (strncmp(w, "reshape", 7)==0)
+				if (strncmp(w, "reshape", 7) == 0)
 					ent->resync = 2;
-				if (strncmp(w, "recovery", 8)==0)
+				if (strncmp(w, "recovery", 8) == 0)
 					ent->resync = 0;
-				if (strncmp(w, "check", 5)==0)
+				if (strncmp(w, "check", 5) == 0)
 					ent->resync = 3;
 
 				if (l > 8 && strcmp(w+l-8, "=DELAYED") == 0)
 					ent->percent = RESYNC_DELAYED;
 				if (l > 8 && strcmp(w+l-8, "=PENDING") == 0)
 					ent->percent = RESYNC_PENDING;
+				if (l > 7 && strcmp(w+l-7, "=REMOTE") == 0)
+					ent->percent = RESYNC_REMOTE;
 			} else if (ent->percent == RESYNC_NONE &&
 				   w[0] >= '0' &&
 				   w[0] <= '9' &&
@@ -285,7 +291,8 @@ struct mdstat_ent *mdstat_read(int hold, int start)
 			e->next = rv;
 			rv = e;
 		}
-	} else rv = all;
+	} else
+		rv = all;
 	return rv;
 }
 

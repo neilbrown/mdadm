@@ -89,8 +89,15 @@
 				   * read requests will only be sent here in
 				   * dire need
 				   */
+#define	MD_DISK_FAILFAST	10 /* Fewer retries, more failures */
 
 #define MD_DISK_REPLACEMENT	17
+#define MD_DISK_JOURNAL		18 /* disk is used as the write journal in RAID-5/6 */
+
+#define MD_DISK_ROLE_SPARE	0xffff
+#define MD_DISK_ROLE_FAULTY	0xfffe
+#define MD_DISK_ROLE_JOURNAL	0xfffd
+#define MD_DISK_ROLE_MAX	0xff00 /* max value of regular disk role */
 
 typedef struct mdp_device_descriptor_s {
 	__u32 number;		/* 0 Device number in the entire set	      */
@@ -201,5 +208,88 @@ static inline __u64 md_event(mdp_super_t *sb) {
 	__u64 ev = sb->events_hi;
 	return (ev<<32)| sb->events_lo;
 }
+
+struct r5l_payload_header {
+	__u16 type;
+	__u16 flags;
+} __attribute__ ((__packed__));
+
+enum r5l_payload_type {
+	R5LOG_PAYLOAD_DATA = 0,
+	R5LOG_PAYLOAD_PARITY = 1,
+	R5LOG_PAYLOAD_FLUSH = 2,
+};
+
+struct r5l_payload_data_parity {
+	struct r5l_payload_header header;
+	__u32 size; /* sector. data/parity size. each 4k has a checksum */
+	__u64 location; /* sector. For data, it's raid sector. For
+				parity, it's stripe sector */
+	__u32 checksum[];
+} __attribute__ ((__packed__));
+
+enum r5l_payload_data_parity_flag {
+	R5LOG_PAYLOAD_FLAG_DISCARD = 1, /* payload is discard */
+	/*
+	 * RESHAPED/RESHAPING is only set when there is reshape activity. Note,
+	 * both data/parity of a stripe should have the same flag set
+	 *
+	 * RESHAPED: reshape is running, and this stripe finished reshape
+	 * RESHAPING: reshape is running, and this stripe isn't reshaped
+	 * */
+	R5LOG_PAYLOAD_FLAG_RESHAPED = 2,
+	R5LOG_PAYLOAD_FLAG_RESHAPING = 3,
+};
+
+struct r5l_payload_flush {
+	struct r5l_payload_header header;
+	__u32 size; /* flush_stripes size, bytes */
+	__u64 flush_stripes[];
+} __attribute__ ((__packed__));
+
+enum r5l_payload_flush_flag {
+	R5LOG_PAYLOAD_FLAG_FLUSH_STRIPE = 1, /* data represents whole stripe */
+};
+
+struct r5l_meta_block {
+	__u32 magic;
+	__u32 checksum;
+	__u8 version;
+	__u8 __zero_pading_1;
+	__u16 __zero_pading_2;
+	__u32 meta_size; /* whole size of the block */
+
+	__u64 seq;
+	__u64 position; /* sector, start from rdev->data_offset, current position */
+	struct r5l_payload_header payloads[];
+} __attribute__ ((__packed__));
+
+#define R5LOG_VERSION 0x1
+#define R5LOG_MAGIC 0x6433c509
+
+struct ppl_header_entry {
+	__u64 data_sector;	/* raid sector of the new data */
+	__u32 pp_size;		/* length of partial parity */
+	__u32 data_size;	/* length of data */
+	__u32 parity_disk;	/* member disk containing parity */
+	__u32 checksum;		/* checksum of this entry's partial parity */
+} __attribute__ ((__packed__));
+
+#define PPL_HEADER_SIZE 4096
+#define PPL_HDR_RESERVED 512
+#define PPL_HDR_ENTRY_SPACE \
+	(PPL_HEADER_SIZE - PPL_HDR_RESERVED - 4 * sizeof(__u32) - sizeof(__u64))
+#define PPL_HDR_MAX_ENTRIES \
+	(PPL_HDR_ENTRY_SPACE / sizeof(struct ppl_header_entry))
+
+struct ppl_header {
+	__u8 reserved[PPL_HDR_RESERVED];/* reserved space, fill with 0xff */
+	__u32 signature;		/* signature (family number of volume) */
+	__u32 padding;			/* zero pad */
+	__u64 generation;		/* generation number of the header */
+	__u32 entries_count;		/* number of entries in entry array */
+	__u32 checksum;			/* checksum of the header */
+	struct ppl_header_entry entries[PPL_HDR_MAX_ENTRIES];
+} __attribute__ ((__packed__));
 
 #endif

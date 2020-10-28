@@ -44,7 +44,7 @@ void make_parts(char *dev, int cnt)
 	int nlen = strlen(dev) + 20;
 	char *name;
 	int dig = isdigit(dev[strlen(dev)-1]);
-	char orig[1024];
+	char orig[1001];
 	char sym[1024];
 	int err;
 
@@ -58,8 +58,10 @@ void make_parts(char *dev, int cnt)
 		minor_num = minor(stb.st_rdev);
 		odig = -1;
 	} else if (S_ISLNK(stb.st_mode)) {
-		int len = readlink(dev, orig, sizeof(orig));
-		if (len < 0 || len > 1000)
+		int len;
+
+		len = readlink(dev, orig, sizeof(orig));
+		if (len < 0 || len >= (int)sizeof(orig))
 			return;
 		orig[len] = 0;
 		odig = isdigit(orig[len-1]);
@@ -100,6 +102,32 @@ void make_parts(char *dev, int cnt)
 	free(name);
 }
 
+int create_named_array(char *devnm)
+{
+	int fd;
+	int n = -1;
+	static const char new_array_file[] = {
+		"/sys/module/md_mod/parameters/new_array"
+	};
+
+	fd = open(new_array_file, O_WRONLY);
+	if (fd < 0 && errno == ENOENT) {
+		if (system("modprobe md_mod") == 0)
+			fd = open(new_array_file, O_WRONLY);
+	}
+	if (fd >= 0) {
+		n = write(fd, devnm, strlen(devnm));
+		close(fd);
+	}
+	if (fd < 0 || n != (int)strlen(devnm)) {
+		pr_err("Fail to create %s when using %s, fallback to creation via node\n",
+			devnm, new_array_file);
+		return 0;
+	}
+
+	return 1;
+}
+
 /*
  * We need a new md device to assemble/build/create an array.
  * 'dev' is a name given us by the user (command line or mdadm.conf)
@@ -135,7 +163,7 @@ void make_parts(char *dev, int cnt)
  */
 
 int create_mddev(char *dev, char *name, int autof, int trustworthy,
-		 char *chosen)
+		 char *chosen, int block_udev)
 {
 	int mdfd;
 	struct stat stb;
@@ -144,9 +172,13 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	struct createinfo *ci = conf_get_create_info();
 	int parts;
 	char *cname;
-	char devname[20];
+	char devname[37];
 	char devnm[32];
 	char cbuf[400];
+
+	if (!use_udev())
+		block_udev = 0;
+
 	if (chosen == NULL)
 		chosen = cbuf;
 
@@ -194,7 +226,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			return -1;
 		}
 		if (cname[0] == 0) {
-			pr_err("%s is an invalid name for an md device (empty!).", dev);
+			pr_err("%s is an invalid name for an md device (empty!).\n", dev);
 			return -1;
 		}
 		if (num < 0) {
@@ -302,34 +334,42 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 	devnm[0] = 0;
 	if (num < 0 && cname && ci->names) {
-		int fd;
-		int n = -1;
 		sprintf(devnm, "md_%s", cname);
-		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
-		if (fd >= 0) {
-			n = write(fd, devnm, strlen(devnm));
-			close(fd);
-		}
-		if (n < 0)
+		if (block_udev)
+			udev_block(devnm);
+		if (!create_named_array(devnm)) {
 			devnm[0] = 0;
+			udev_unblock();
+		}
 	}
-	if (devnm[0])
-		;
-	else if (num < 0) {
-		/* need to choose a free number. */
-		char *_devnm = find_free_devnm(use_mdp);
-		if (devnm == NULL) {
-			pr_err("No avail md devices - aborting\n");
-			return -1;
+	if (num >= 0) {
+		sprintf(devnm, "md%d", num);
+		if (block_udev)
+			udev_block(devnm);
+		if (!create_named_array(devnm)) {
+			devnm[0] = 0;
+			udev_unblock();
 		}
-		strcpy(devnm, _devnm);
-	} else {
-		sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
-		if (mddev_busy(devnm)) {
-			pr_err("%s is already in use.\n",
-				dev);
-			return -1;
+	}
+	if (devnm[0] == 0) {
+		if (num < 0) {
+			/* need to choose a free number. */
+			char *_devnm = find_free_devnm(use_mdp);
+			if (_devnm == NULL) {
+				pr_err("No avail md devices - aborting\n");
+				return -1;
+			}
+			strcpy(devnm, _devnm);
+		} else {
+			sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
+			if (mddev_busy(devnm)) {
+				pr_err("%s is already in use.\n",
+				       dev);
+				return -1;
+			}
 		}
+		if (block_udev)
+			udev_block(devnm);
 	}
 
 	sprintf(devname, "/dev/%s", devnm);
@@ -348,7 +388,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		if (lstat(devname, &stb) == 0) {
 			/* Must be the correct device, else error */
 			if ((stb.st_mode&S_IFMT) != S_IFBLK ||
-			    stb.st_rdev != (dev_t)devnm2devid(devnm)) {
+			    stb.st_rdev != devnm2devid(devnm)) {
 				pr_err("%s exists but looks wrong, please fix\n",
 					devname);
 				return -1;
@@ -416,21 +456,22 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
  */
 int open_mddev(char *dev, int report_errors)
 {
-	int mdfd = open(dev, O_RDWR);
-	if (mdfd < 0 && errno == EACCES)
-		mdfd = open(dev, O_RDONLY);
+	int mdfd = open(dev, O_RDONLY);
+
 	if (mdfd < 0) {
 		if (report_errors)
 			pr_err("error opening %s: %s\n",
 				dev, strerror(errno));
 		return -1;
 	}
-	if (md_get_version(mdfd) <= 0) {
+
+	if (md_array_valid(mdfd) == 0) {
 		close(mdfd);
 		if (report_errors)
 			pr_err("%s does not appear to be an md device\n", dev);
 		return -2;
 	}
+
 	return mdfd;
 }
 
@@ -439,7 +480,7 @@ char *find_free_devnm(int use_partitions)
 	static char devnm[32];
 	int devnum;
 	for (devnum = 127; devnum != 128;
-	     devnum = devnum ? devnum-1 : (1<<20)-1) {
+	     devnum = devnum ? devnum-1 : (1<<9)-1) {
 
 		if (use_partitions)
 			sprintf(devnm, "md_d%d", devnum);
@@ -452,7 +493,7 @@ char *find_free_devnm(int use_partitions)
 		if (!use_udev()) {
 			/* make sure it is new to /dev too, at least as a
 			 * non-standard */
-			int devid = devnm2devid(devnm);
+			dev_t devid = devnm2devid(devnm);
 			if (devid) {
 				char *dn = map_dev(major(devid),
 						   minor(devid), 0);

@@ -58,26 +58,30 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 		return block;
 	case 500 + ALGORITHM_LEFT_ASYMMETRIC:
 		pd = (raid_disks-1) - stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		if (block >= pd)
 			block++;
 		return block;
 
 	case 500 + ALGORITHM_RIGHT_ASYMMETRIC:
 		pd = stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		if (block >= pd)
 			block++;
 		return block;
 
 	case 500 + ALGORITHM_LEFT_SYMMETRIC:
 		pd = (raid_disks - 1) - stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		return (pd + 1 + block) % raid_disks;
 
 	case 500 + ALGORITHM_RIGHT_SYMMETRIC:
 		pd = stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		return (pd + 1 + block) % raid_disks;
 
 	case 500 + ALGORITHM_PARITY_0:
@@ -94,7 +98,8 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 			return raid_disks - 1;
 		raid_disks--;
 		pd = (raid_disks-1) - stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		if (block >= pd)
 			block++;
 		return block;
@@ -104,7 +109,8 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 			return raid_disks - 1;
 		raid_disks--;
 		pd = stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		if (block >= pd)
 			block++;
 		return block;
@@ -114,7 +120,8 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 			return raid_disks - 1;
 		raid_disks--;
 		pd = (raid_disks - 1) - stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		return (pd + 1 + block) % raid_disks;
 
 	case 600 + ALGORITHM_RIGHT_SYMMETRIC_6:
@@ -122,7 +129,8 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 			return raid_disks - 1;
 		raid_disks--;
 		pd = stripe % raid_disks;
-		if (block == -1) return pd;
+		if (block == -1)
+			return pd;
 		return (pd + 1 + block) % raid_disks;
 
 	case 600 + ALGORITHM_PARITY_0_6:
@@ -139,8 +147,10 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 
 	case 600 + ALGORITHM_LEFT_ASYMMETRIC:
 		pd = raid_disks - 1 - (stripe % raid_disks);
-		if (block == -1) return pd;
-		if (block == -2) return (pd+1) % raid_disks;
+		if (block == -1)
+			return pd;
+		if (block == -2)
+			return (pd+1) % raid_disks;
 		if (pd == raid_disks - 1)
 			return block+1;
 		if (block >= pd)
@@ -151,8 +161,10 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 		/* Different order for calculating Q, otherwize same as ... */
 	case 600 + ALGORITHM_RIGHT_ASYMMETRIC:
 		pd = stripe % raid_disks;
-		if (block == -1) return pd;
-		if (block == -2) return (pd+1) % raid_disks;
+		if (block == -1)
+			return pd;
+		if (block == -2)
+			return (pd+1) % raid_disks;
 		if (pd == raid_disks - 1)
 			return block+1;
 		if (block >= pd)
@@ -161,14 +173,18 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 
 	case 600 + ALGORITHM_LEFT_SYMMETRIC:
 		pd = raid_disks - 1 - (stripe % raid_disks);
-		if (block == -1) return pd;
-		if (block == -2) return (pd+1) % raid_disks;
+		if (block == -1)
+			return pd;
+		if (block == -2)
+			return (pd+1) % raid_disks;
 		return (pd + 2 + block) % raid_disks;
 
 	case 600 + ALGORITHM_RIGHT_SYMMETRIC:
 		pd = stripe % raid_disks;
-		if (block == -1) return pd;
-		if (block == -2) return (pd+1) % raid_disks;
+		if (block == -1)
+			return pd;
+		if (block == -2)
+			return (pd+1) % raid_disks;
 		return (pd + 2 + block) % raid_disks;
 
 	case 600 + ALGORITHM_ROTATING_N_RESTART:
@@ -177,8 +193,10 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 		 * Q D D D P
 		 */
 		pd = raid_disks - 1 - ((stripe + 1) % raid_disks);
-		if (block == -1) return pd;
-		if (block == -2) return (pd+1) % raid_disks;
+		if (block == -1)
+			return pd;
+		if (block == -2)
+			return (pd+1) % raid_disks;
 		if (pd == raid_disks - 1)
 			return block+1;
 		if (block >= pd)
@@ -188,13 +206,16 @@ int geo_map(int block, unsigned long long stripe, int raid_disks,
 	case 600 + ALGORITHM_ROTATING_N_CONTINUE:
 		/* Same as left_symmetric but Q is before P */
 		pd = raid_disks - 1 - (stripe % raid_disks);
-		if (block == -1) return pd;
-		if (block == -2) return (pd+raid_disks-1) % raid_disks;
+		if (block == -1)
+			return pd;
+		if (block == -2)
+			return (pd+raid_disks-1) % raid_disks;
 		return (pd + 1 + block) % raid_disks;
 	}
 	return -1;
 }
-static int is_ddf(int layout)
+
+int is_ddf(int layout)
 {
 	switch (layout)
 	{
@@ -312,7 +333,7 @@ void make_tables(void)
 
 	/* Compute log and inverse log */
 	/* Modified code from:
-	 *    http://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.html
+	 *    https://web.eecs.utk.edu/~plank/plank/papers/CS-96-332.html
 	 */
 	b = 1;
 	raid6_gflog[0] = 0;
@@ -344,16 +365,28 @@ void ensure_zero_has_size(int chunk_size)
 /* Following was taken from linux/drivers/md/raid6recov.c */
 
 /* Recover two failed data blocks. */
+
 void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
-		       uint8_t **ptrs)
+		       uint8_t **ptrs, int neg_offset)
 {
 	uint8_t *p, *q, *dp, *dq;
 	uint8_t px, qx, db;
 	const uint8_t *pbmul;	/* P multiplier table for B data */
 	const uint8_t *qmul;		/* Q multiplier table (for both) */
 
-	p = ptrs[disks-2];
-	q = ptrs[disks-1];
+	if (faila > failb) {
+		int t = faila;
+		faila = failb;
+		failb = t;
+	}
+
+	if (neg_offset) {
+		p = ptrs[-1];
+		q = ptrs[-2];
+	} else {
+		p = ptrs[disks-2];
+		q = ptrs[disks-1];
+	}
 
 	/* Compute syndrome with zero for the missing data pages
 	   Use the dead data pages as temporary storage for
@@ -384,13 +417,19 @@ void raid6_2data_recov(int disks, size_t bytes, int faila, int failb,
 }
 
 /* Recover failure of one data block plus the P block */
-void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs)
+void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs,
+		       int neg_offset)
 {
 	uint8_t *p, *q, *dq;
 	const uint8_t *qmul;		/* Q multiplier table */
 
-	p = ptrs[disks-2];
-	q = ptrs[disks-1];
+	if (neg_offset) {
+		p = ptrs[-1];
+		q = ptrs[-2];
+	} else {
+		p = ptrs[disks-2];
+		q = ptrs[disks-1];
+	}
 
 	/* Compute syndrome with zero for the missing data page
 	   Use the dead data page as temporary storage for delta q */
@@ -415,7 +454,7 @@ void raid6_datap_recov(int disks, size_t bytes, int faila, uint8_t **ptrs)
 /* Try to find out if a specific disk has a problem */
 int raid6_check_disks(int data_disks, int start, int chunk_size,
 		      int level, int layout, int diskP, int diskQ,
-		      char *p, char *q, char **stripes)
+		      uint8_t *p, uint8_t *q, char **stripes)
 {
 	int i;
 	int data_id, diskD;
@@ -443,7 +482,7 @@ int raid6_check_disks(int data_disks, int start, int chunk_size,
 		}
 
 		if((Px == 0) && (Qx == 0))
-			curr_broken_disk = curr_broken_disk;
+			curr_broken_disk = prev_broken_disk;
 
 		if(curr_broken_disk >= data_disks + 2)
 			broken_status = 2;
@@ -542,14 +581,16 @@ int save_stripes(int *source, unsigned long long *offsets,
 				       raid_disks, level, layout);
 			if (dnum < 0) abort();
 			if (source[dnum] < 0 ||
-			    lseek64(source[dnum], offsets[dnum]+offset, 0) < 0 ||
-			    read(source[dnum], buf+disk * chunk_size, chunk_size)
-			    != chunk_size)
+			    lseek64(source[dnum],
+				    offsets[dnum] + offset, 0) < 0 ||
+			    read(source[dnum], buf+disk * chunk_size,
+				 chunk_size) != chunk_size) {
 				if (failed <= 2) {
 					fdisk[failed] = dnum;
 					fblock[failed] = disk;
 					failed++;
 				}
+			}
 		}
 		if (failed == 0 || fblock[0] >= data_disks)
 			/* all data disks are good */
@@ -636,16 +677,11 @@ int save_stripes(int *source, unsigned long long *offsets,
 			if (fblock[1] == data_disks)
 				/* One data failed, and parity failed */
 				raid6_datap_recov(syndrome_disks+2, chunk_size,
-						  fdisk[0], bufs);
+						  fdisk[0], bufs, 0);
 			else {
-				if (fdisk[0] > fdisk[1]) {
-					int t = fdisk[0];
-					fdisk[0] = fdisk[1];
-					fdisk[1] = t;
-				}
 				/* Two data blocks failed, P,Q OK */
 				raid6_2data_recov(syndrome_disks+2, chunk_size,
-						  fdisk[0], fdisk[1], bufs);
+						  fdisk[0], fdisk[1], bufs, 0);
 			}
 		}
 		if (dest) {
@@ -697,8 +733,8 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		zero_size = chunk_size;
 	}
 
-	if (stripe_buf == NULL || stripes == NULL || blocks == NULL
-	    || zero == NULL) {
+	if (stripe_buf == NULL || stripes == NULL || blocks == NULL ||
+	    zero == NULL) {
 		rv = -2;
 		goto abort;
 	}
@@ -813,8 +849,8 @@ int test_stripes(int *source, unsigned long long *offsets,
 	char *stripe_buf = xmalloc(raid_disks * chunk_size);
 	char **stripes = xmalloc(raid_disks * sizeof(char*));
 	char **blocks = xmalloc(raid_disks * sizeof(char*));
-	char *p = xmalloc(chunk_size);
-	char *q = xmalloc(chunk_size);
+	uint8_t *p = xmalloc(chunk_size);
+	uint8_t *q = xmalloc(chunk_size);
 
 	int i;
 	int diskP, diskQ;
@@ -830,8 +866,16 @@ int test_stripes(int *source, unsigned long long *offsets,
 		int disk;
 
 		for (i = 0 ; i < raid_disks ; i++) {
-			lseek64(source[i], offsets[i]+start, 0);
-			read(source[i], stripes[i], chunk_size);
+			if ((lseek64(source[i], offsets[i]+start, 0) < 0) ||
+			    (read(source[i], stripes[i], chunk_size) !=
+			     chunk_size)) {
+				free(q);
+				free(p);
+				free(blocks);
+				free(stripes);
+				free(stripe_buf);
+				return -1;
+			}
 		}
 		for (i = 0 ; i < data_disks ; i++) {
 			int disk = geo_map(i, start/chunk_size, raid_disks,
@@ -883,7 +927,7 @@ unsigned long long getnum(char *str, char **err)
 }
 
 char const Name[] = "test_restripe";
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	/* save/restore file raid_disks chunk_size level layout start length devices...
 	 */

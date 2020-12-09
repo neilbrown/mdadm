@@ -1504,7 +1504,7 @@ static int Incremental_container(struct supertype *st, char *devname,
 		return 0;
 	}
 	for (ra = list ; ra ; ra = ra->next) {
-		int mdfd;
+		int mdfd = 0;
 		char chosen_name[1024];
 		struct map_ent *mp;
 		struct mddev_ident *match = NULL;

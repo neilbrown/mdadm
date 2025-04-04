@@ -1,0 +1,34 @@
+devs="$dev0 $dev1 $dev2"
+
+set_up_test()
+{
+	mdadm -Cv -R -n 3 -l5 $md0 $devs --size=10M || die "create array failed"
+	mdadm -a $md0 $dev3 || die "failed to bind new disk to array"
+	echo 1000 > /sys/block/md0/md/sync_speed_max
+}
+
+clean_up_test()
+{
+	echo idle > /sys/block/md0/md/sync_action
+	mdadm -S $md0
+}
+
+trap 'clean_up_test' EXIT
+
+set_up_test || die "set up test failed"
+
+# trigger reshape
+mdadm --grow -l 6 $md0
+sleep 2
+
+# stop reshape
+echo frozen > /sys/block/md0/md/sync_action
+
+# read accross reshape
+dd if=$md0 of=/dev/NULL bs=1m count=100 iflag=direct &> /dev/null &
+sleep 2
+
+# suspend array
+echo 1 > /sys/block/md0/md/suspend_lo
+
+exit 0

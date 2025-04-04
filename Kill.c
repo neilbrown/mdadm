@@ -37,9 +37,11 @@ int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 	 * Returns:
 	 *  0 - a zero superblock was successfully written out
 	 *  1 - failed to write the zero superblock
-	 *  2 - failed to open the device or find a superblock.
+	 *  2 - failed to open the device.
+	 *  4 - failed to find a superblock.
 	 */
 
+	bool free_super = false;
 	int fd, rv = 0;
 
 	if (force)
@@ -51,19 +53,21 @@ int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 				dev);
 		return 2;
 	}
-	if (st == NULL)
+	if (st == NULL) {
 		st = guess_super(fd);
+		free_super = true;
+	}
 	if (st == NULL || st->ss->init_super == NULL) {
 		if (verbose >= 0)
 			pr_err("Unrecognised md component device - %s\n", dev);
 		close(fd);
-		return 2;
+		return 4;
 	}
 	st->ignore_hw_compat = 1;
 	rv = st->ss->load_super(st, fd, dev);
 	if (rv == 0 || (force && rv >= 2)) {
 		st->ss->free_super(st);
-		st->ss->init_super(st, NULL, 0, "", NULL, NULL,
+		st->ss->init_super(st, NULL, NULL, "", NULL, NULL,
 				   INVALID_SECTORS);
 		if (st->ss->store_super(st, fd)) {
 			if (verbose >= 0)
@@ -75,6 +79,10 @@ int Kill(char *dev, struct supertype *st, int force, int verbose, int noexcl)
 				pr_err("superblock zeroed anyway\n");
 			rv = 0;
 		}
+	}
+	if (free_super && st) {
+		st->ss->free_super(st);
+		free(st);
 	}
 	close(fd);
 	return rv;
@@ -118,7 +126,7 @@ int Kill_subarray(char *dev, char *subarray, int verbose)
 		st->update_tail = &st->updates;
 
 	/* ok we've found our victim, drop the axe */
-	rv = st->ss->kill_subarray(st);
+	rv = st->ss->kill_subarray(st, subarray);
 	if (rv) {
 		if (verbose >= 0)
 			pr_err("Failed to delete subarray-%s from %s\n",

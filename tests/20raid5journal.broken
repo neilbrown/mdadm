@@ -1,0 +1,17 @@
+always fail
+
+++ /usr/sbin/mdadm -I /dev/loop4
+++ rv=0
+++ case $* in
+++ cat /var/tmp/stderr
+mdadm: /dev/loop4 attached to /dev/md/0_0, which has been started.
+++ return 0
+++ check raid5
+++ case $1 in
+++ grep -sq 'active raid5 ' /proc/mdstat
+++ die 'active raid5 not found'
+++ echo -e '\n\tERROR: active raid5 not found \n'
+
+        ERROR: active raid5 not found
+
+++ save_log fail

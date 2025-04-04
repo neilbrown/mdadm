@@ -12,12 +12,23 @@ imsm_check_hold() {
 }
 
 imsm_check_removal() {
-   if ! mdadm --remove $1 $2 ; then
-       echo "$2 removal from $1 should have succeeded" >&2
-       cat /proc/mdstat >&2
-       mdadm -E $2
-       exit 1
-   fi
+    local ret=5
+    local success=0
+
+    for ((i=1; i<=ret; i++)); do
+        if mdadm --remove "$1" "$2"; then
+            success=1
+            break
+        fi
+        sleep 2
+    done
+
+    if [ $success -ne 1 ]; then
+        echo "$2 removal from $1 should have succeeded" >&2
+        cat /proc/mdstat >&2
+        mdadm -E "$2"
+        exit 1
+    fi
 }
 
 export IMSM_DEVNAME_AS_SERIAL=1

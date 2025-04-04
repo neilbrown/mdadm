@@ -1,0 +1,89 @@
+# NAME is optional. Testing with native 1.2 superblock.
+function names_create() {
+	local DEVNAME=$1
+	local NAME=$2
+	local NEG_TEST=$3
+
+	if [[ -z "$NAME" ]]; then
+		mdadm -CR "$DEVNAME" -l0 -n 1 $dev0 --force
+	else
+		mdadm -CR "$DEVNAME" --name="$NAME" --metadata=1.2 -l0 -n 1 $dev0 --force
+	fi
+
+	if [[ "$NEG_TEST" == "true" ]]; then
+		[[ "$?" == "0" ]] && return 0
+		echo "Negative verification failed"
+		exit 1
+	fi
+
+	if [[ "$?" != "0" ]]; then
+		echo "Cannot create device."
+		exit 1
+	fi
+}
+
+# Three properties to check:
+# - devnode name
+# - link in /dev/md/ (MD_DEVNAME property from --detail --export)
+# - name in metadata (MD_NAME property from --detail --export)- that works only with 1.2 sb.
+function names_verify() {
+	local DEVNODE_NAME="$1"
+	local WANTED_LINK="$2"
+	local WANTED_NAME="$3"
+	local EXPECTED=""
+
+	# We don't know what is saved in metadata, but we know what to expect. Therfore check if
+	# expecation would be foreign (no hostname information).
+	is_raid_foreign $WANTED_NAME
+
+	local RES="$(mdadm -D --export $DEVNODE_NAME | grep MD_DEVNAME)"
+	if [[ "$?" != "0" ]]; then
+		echo "Cannot get details for $DEVNODE_NAME - unexpected devnode."
+		exit 1
+	fi
+
+	if [[ "$WANTED_LINK" != "empty" ]]; then
+		EXPECTED="MD_DEVNAME=$WANTED_LINK"
+
+		if [ ! -b /dev/md/$WANTED_LINK ]; then
+			echo "/dev/md/$WANTED_LINK doesn't exit"
+			exit 1
+		fi
+	fi
+
+	if [[ "$RES" != "$EXPECTED" ]]; then
+		echo "$RES doesn't match $EXPECTED."
+		exit 1
+	fi
+
+	local RES="$(mdadm -D --export $DEVNODE_NAME | grep MD_NAME)"
+	if [[ "$?" != "0" ]]; then
+		echo "Cannot get metadata from $dev0."
+		exit 1
+	fi
+
+	if [ $is_foreign == "no" ]; then
+		EXPECTED="MD_NAME=$(hostname):$WANTED_NAME"
+	else
+		EXPECTED="MD_NAME=$WANTED_NAME"
+	fi
+	if [[ "$RES" != "$EXPECTED" ]]; then
+		echo "$RES doesn't match $EXPECTED."
+		exit 1
+	fi
+}
+
+# Generate ARRAYLINE for tested array.
+names_make_conf() {
+	local UUID="$1"
+	local WANTED_DEVNAME="$2"
+	local CONF="$3"
+
+	local LINE="ARRAY metadata=1.2 UUID=$UUID"
+
+	if [[ "$WANTED_DEVNAME" != "empty" ]]; then
+		LINE="$LINE $WANTED_DEVNAME"
+	fi
+
+	echo $LINE > $CONF
+}

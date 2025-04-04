@@ -22,14 +22,16 @@
  *    Email: <neilb@suse.de>
  */
 
-#include	"mdadm.h"
 #include	"dlink.h"
+#include	"mdadm.h"
+#include	"md_u.h"
+#include	"md_p.h"
+#include	"xmalloc.h"
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
 #error no endian defined
 #endif
-#include	"md_u.h"
-#include	"md_p.h"
+
 int Examine(struct mddev_dev *devlist,
 	    struct context *c,
 	    struct supertype *forcest)
@@ -53,7 +55,6 @@ int Examine(struct mddev_dev *devlist,
 	 */
 	int fd;
 	int rv = 0;
-	int err = 0;
 
 	struct array {
 		struct supertype *st;
@@ -66,6 +67,8 @@ int Examine(struct mddev_dev *devlist,
 	for (; devlist ; devlist = devlist->next) {
 		struct supertype *st;
 		int have_container = 0;
+		int err = 0;
+		int container = 0;
 
 		fd = dev_open(devlist->devname, O_RDONLY);
 		if (fd < 0) {
@@ -74,60 +77,64 @@ int Examine(struct mddev_dev *devlist,
 				       devlist->devname, strerror(errno));
 				rv = 1;
 			}
+			continue;
+		}
+
+		if (forcest)
+			st = dup_super(forcest);
+		else if (must_be_container(fd)) {
+			/* might be a container */
+			st = super_by_fd(fd, NULL);
+			container = 1;
+		} else
+			st = guess_super(fd);
+		if (st) {
+			err = 1;
+			st->ignore_hw_compat = 1;
+			if (!container)
+				err = st->ss->load_super(st, fd,
+							 (c->brief||c->scan) ? NULL
+							 :devlist->devname);
+			if (err && st->ss->load_container) {
+				err = st->ss->load_container(st, fd,
+							     (c->brief||c->scan) ? NULL
+							     :devlist->devname);
+				if (!err)
+					have_container = 1;
+			}
+			st->ignore_hw_compat = 0;
+		} else {
+			if (!c->brief) {
+				pr_err("No md superblock detected on %s.\n", devlist->devname);
+				rv = 1;
+			}
 			err = 1;
 		}
-		else {
-			int container = 0;
-			if (forcest)
-				st = dup_super(forcest);
-			else if (must_be_container(fd)) {
-				/* might be a container */
-				st = super_by_fd(fd, NULL);
-				container = 1;
-			} else
-				st = guess_super(fd);
+		close(fd);
+
+		if (err) {
 			if (st) {
-				err = 1;
-				st->ignore_hw_compat = 1;
-				if (!container)
-					err = st->ss->load_super(st, fd,
-								 (c->brief||c->scan) ? NULL
-								 :devlist->devname);
-				if (err && st->ss->load_container) {
-					err = st->ss->load_container(st, fd,
-								 (c->brief||c->scan) ? NULL
-								 :devlist->devname);
-					if (!err)
-						have_container = 1;
-				}
-				st->ignore_hw_compat = 0;
-			} else {
-				if (!c->brief) {
-					pr_err("No md superblock detected on %s.\n", devlist->devname);
-					rv = 1;
-				}
-				err = 1;
+				st->ss->free_super(st);
+				free(st);
 			}
-			close(fd);
-		}
-		if (err)
 			continue;
+		}
 
 		if (c->SparcAdjust)
-			st->ss->update_super(st, NULL, "sparc2.2",
+			st->ss->update_super(st, NULL, UOPT_SPARC22,
 					     devlist->devname, 0, 0, NULL);
 		/* Ok, its good enough to try, though the checksum could be wrong */
 
 		if (c->brief && st->ss->brief_examine_super == NULL) {
 			if (!c->scan)
 				pr_err("No brief listing for %s on %s\n",
-					st->ss->name, devlist->devname);
+				       st->ss->name, devlist->devname);
 		} else if (c->brief) {
 			struct array *ap;
 			char *d;
 			for (ap = arrays; ap; ap = ap->next) {
 				if (st->ss == ap->st->ss &&
-				    st->ss->compare_super(ap->st, st) == 0)
+				    st->ss->compare_super(ap->st, st, 0) == 0)
 					break;
 			}
 			if (!ap) {
@@ -149,21 +156,26 @@ int Examine(struct mddev_dev *devlist,
 			if (st->ss->export_examine_super)
 				st->ss->export_examine_super(st);
 			st->ss->free_super(st);
+			free(st);
 		} else {
 			printf("%s:\n",devlist->devname);
 			st->ss->examine_super(st, c->homehost);
 			st->ss->free_super(st);
+			free(st);
 		}
 	}
 	if (c->brief) {
-		struct array *ap;
-		for (ap = arrays; ap; ap = ap->next) {
+		struct array *ap = arrays, *next;
+
+		while (ap) {
 			char sep='=';
 			char *d;
 			int newline = 0;
 
+			next = ap->next;
+
 			ap->st->ss->brief_examine_super(ap->st, c->verbose > 0);
-			if (ap->spares)
+			if (ap->spares && !ap->st->ss->external)
 				newline += printf("   spares=%d", ap->spares);
 			if (c->verbose > 0) {
 				newline += printf("   devices");
@@ -179,10 +191,15 @@ int Examine(struct mddev_dev *devlist,
 					printf("\n");
 				ap->st->ss->brief_examine_subarrays(ap->st, c->verbose);
 			}
-			ap->st->ss->free_super(ap->st);
-			/* FIXME free ap */
 			if (ap->spares || c->verbose > 0)
 				printf("\n");
+
+			ap->st->ss->free_super(ap->st);
+			free(ap->st);
+			dl_free_all(ap->devs);
+			free(ap);
+
+			ap = next;
 		}
 	}
 	return rv;

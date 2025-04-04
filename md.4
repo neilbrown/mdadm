@@ -4,6 +4,7 @@
 .\"   the Free Software Foundation; either version 2 of the License, or
 .\"   (at your option) any later version.
 .\" See file COPYING in distribution for details.
+.if n .pl 1000v
 .TH MD 4
 .SH NAME
 md \- Multiple Device driver aka Linux Software RAID
@@ -40,18 +41,16 @@ MULTIPATH (a set of different interfaces to the same device),
 and FAULTY (a layer over a single device into which errors can be injected).
 
 .SS MD METADATA
-Each device in an array may have some 
+Each device in an array may have some
 .I metadata
 stored in the device.  This metadata is sometimes called a
 .BR superblock .
 The metadata records information about the structure and state of the array.
 This allows the array to be reliably re-assembled after a shutdown.
 
-From Linux kernel version 2.6.10,
 .B md
 provides support for two different formats of metadata, and
-other formats can be added.  Prior to this release, only one format is
-supported.
+other formats can be added.
 
 The common format \(em known as version 0.90 \(em has
 a superblock that is 4K long and is written into a 64K aligned block that
@@ -125,7 +124,6 @@ have special-purpose uses and is supported.
 
 .SS ARRAYS WITH EXTERNAL METADATA
 
-From release 2.6.28, the
 .I md
 driver supports arrays with externally managed metadata.  That is,
 the metadata is not managed by the kernel but rather by a user-space
@@ -176,9 +174,8 @@ device is rounded down to a multiple of this chunksize.
 A RAID0 array (which has zero redundancy) is also known as a
 striped array.
 A RAID0 array is configured at creation with a
-.B "Chunk Size" 
-which must be a power of two (prior to Linux 2.6.31), and at least 4
-kibibytes.
+.B "Chunk Size"
+which must be at least 4 kibibytes.
 
 The RAID0 driver assigns the first chunk of the array to the first
 device, the second chunk to the second device, and so on until all
@@ -192,6 +189,40 @@ smallest device has been exhausted, the RAID0 driver starts
 collecting chunks into smaller stripes that only span the drives which
 still have remaining space.
 
+A bug was introduced in linux 3.14 which changed the layout of blocks in
+a RAID0 beyond the region that is striped over all devices.  This bug
+does not affect an array with all devices the same size, but can affect
+other RAID0 arrays.
+
+Linux 5.4 (and some stable kernels to which the change was backported)
+will not normally assemble such an array as it cannot know which layout
+to use.  There is a module parameter "raid0.default_layout" which can be
+set to "1" to force the kernel to use the pre-3.14 layout or to "2" to
+force it to use the 3.14-and-later layout.  when creating a new RAID0
+array,
+.I mdadm
+will record the chosen layout in the metadata in a way that allows newer
+kernels to assemble the array without needing a module parameter.
+
+To assemble an old array on a new kernel without using the module parameter,
+use either the
+.B "--update=layout-original"
+option or the
+.B "--update=layout-alternate"
+option.
+
+Once you have updated the layout you will not be able to mount the array
+on an older kernel.  If you need to revert to an older kernel, the
+layout information can be erased with the
+.B "--update=layout-unspecificed"
+option.  If you use this option to
+.B --assemble
+while running a newer kernel, the array will NOT assemble, but the
+metadata will be update so that it can be assembled on an older kernel.
+
+Note that setting the layout to "unspecified" removes protections against
+this bug, and you must be sure that the kernel you use matches the
+layout of the array.
 
 .SS RAID1
 
@@ -268,8 +299,7 @@ drives.
 
 When configuring a RAID10 array, it is necessary to specify the number
 of replicas of each data block that are required (this will usually
-be\ 2) and whether their layout should be "near", "far" or "offset"
-(with "offset" being available since Linux\ 2.6.18).
+be\ 2) and whether their layout should be "near", "far" or "offset".
 
 .B About the RAID10 Layout Examples:
 .br
@@ -672,9 +702,7 @@ The array can still be used, though possibly with reduced performance.
 If a RAID4, RAID5 or RAID6 array is degraded (missing at least one
 drive, two for RAID6) when it is restarted after an unclean shutdown, it cannot
 recalculate parity, and so it is possible that data might be
-undetectably corrupted.  The 2.4 md driver
-.B does not
-alert the operator to this condition.  The 2.6 md driver will fail to
+undetectably corrupted. The md driver will fail to
 start an array in this condition without manual intervention, though
 this behaviour can be overridden by a kernel parameter.
 
@@ -689,12 +717,9 @@ either by copying a working drive in a RAID1 configuration, or by
 doing calculations with the parity block on RAID4, RAID5 or RAID6, or
 by finding and copying originals for RAID10.
 
-In kernels prior to about 2.6.15, a read error would cause the same
-effect as a write error.  In later kernels, a read-error will instead
-cause md to attempt a recovery by overwriting the bad block. i.e. it
-will find the correct data from elsewhere, write it over the block
-that failed, and then try to read it back again.  If either the write
-or the re-read fail, md will treat the error the same way that a write
+A read-error will cause md to attempt a recovery by overwriting the bad block. i.e. it will find
+the correct data from elsewhere, write it over the block that failed, and then try to read it back
+again. If either the write or the re-read fail, md will treat the error the same way that a write
 error is treated, and will fail the whole device.
 
 While this recovery process is happening, the md driver will monitor
@@ -816,7 +841,6 @@ especially when the device is used for swap.
 
 .SS BITMAP WRITE-INTENT LOGGING
 
-From Linux 2.6.13,
 .I md
 supports a bitmap based write-intent log.  If configured, the bitmap
 is used to record which blocks of the array may be out of sync.
@@ -843,12 +867,11 @@ be stored near the superblocks of an array which has superblocks.
 It is possible to add an intent log to an active array, or remove an
 intent log if one is present.
 
-In 2.6.13, intent bitmaps are only supported with RAID1.  Other levels
-with redundancy are supported from 2.6.15.
+All raid levels with redundancy are supported.
 
 .SS BAD BLOCK LIST
 
-From Linux 3.5 each device in an
+Each device in an
 .I md
 array can store a list of known-bad-blocks.  This list is 4K in size
 and usually positioned at the end of the space between the superblock
@@ -874,11 +897,39 @@ The list is particularly useful when recovering to a spare.  If a few blocks
 cannot be read from the other devices, the bulk of the recovery can
 complete and those few bad blocks will be recorded in the bad block list.
 
-.SS WRITE-BEHIND
+.SS RAID WRITE HOLE
 
-From Linux 2.6.14,
-.I md
-supports WRITE-BEHIND on RAID1 arrays.
+Due to non-atomicity nature of RAID write operations,
+interruption of write operations (system crash, etc.) to RAID456
+array can lead to inconsistent parity and data loss (so called
+RAID-5 write hole).
+To plug the write hole md supports two mechanisms described below.
+
+.TP
+DIRTY STRIPE JOURNAL
+From Linux 4.4, md supports write ahead journal for RAID456.
+When the array is created, an additional journal device can be added to
+the array through write-journal option. The RAID write journal works
+similar to file system journals. Before writing to the data
+disks, md persists data AND parity of the stripe to the journal
+device. After crashes, md searches the journal device for
+incomplete write operations, and replay them to the data disks.
+
+When the journal device fails, the RAID array is forced to run in
+read-only mode.
+
+.TP
+PARTIAL PARITY LOG
+From Linux 4.12 md supports Partial Parity Log (PPL) for RAID5 arrays only.
+Partial parity for a write operation is the XOR of stripe data chunks not
+modified by the write. PPL is stored in the metadata region of RAID member drives,
+no additional journal drive is needed.
+After crashes, if one of the not modified data disks of
+the stripe is missing, this updated parity can be used to recover its data.
+
+See Documentation/driver-api/md/raid5-ppl.rst for implementation details.
+
+.SS WRITE-BEHIND
 
 This allows certain devices in the array to be flagged as
 .IR write-mostly .
@@ -896,6 +947,60 @@ slow).  The extra latency of the remote link will not slow down normal
 operations, but the remote system will still have a reasonably
 up-to-date copy of all data.
 
+.SS FAILFAST
+
+From Linux 4.10,
+.I
+md
+supports FAILFAST for RAID1 and RAID10 arrays.  This is a flag that
+can be set on individual drives, though it is usually set on all
+drives, or no drives.
+
+When
+.I md
+sends an I/O request to a drive that is marked as FAILFAST, and when
+the array could survive the loss of that drive without losing data,
+.I md
+will request that the underlying device does not perform any retries.
+This means that a failure will be reported to
+.I md
+promptly, and it can mark the device as faulty and continue using the
+other device(s).
+.I md
+cannot control the timeout that the underlying devices use to
+determine failure.  Any changes desired to that timeout must be set
+explictly on the underlying device, separately from using
+.IR mdadm .
+
+If a FAILFAST request does fail, and if it is still safe to mark the
+device as faulty without data loss, that will be done and the array
+will continue functioning on a reduced number of devices.  If it is not
+possible to safely mark the device as faulty,
+.I md
+will retry the request without disabling retries in the underlying
+device.  In any case,
+.I md
+will not attempt to repair read errors on a device marked as FAILFAST
+by writing out the correct.  It will just mark the device as faulty.
+
+FAILFAST is appropriate for storage arrays that have a low probability
+of true failure, but will sometimes introduce unacceptable delays to
+I/O requests while performing internal maintenance.  The value of
+setting FAILFAST involves a trade-off.  The gain is that the chance of
+unacceptable delays is substantially reduced.  The cost is that the
+unlikely event of data-loss on one device is slightly more likely to
+result in data-loss for the array.
+
+When a device in an array using FAILFAST is marked as faulty, it will
+usually become usable again in a short while.
+.I mdadm
+makes no attempt to detect that possibility.  Some separate
+mechanism, tuned to the specific details of the expected failure modes,
+needs to be created to monitor devices to see when they return to full
+functionality, and to then re-add them to the array.  In order of
+this "re-add" functionality to be effective, an array using FAILFAST
+should always have a write-intent bitmap.
+
 .SS RESTRIPING
 
 .IR Restriping ,
@@ -907,7 +1012,8 @@ array (so the stripes are wider), changing the chunk size (so stripes
 are deeper or shallower), or changing the arrangement of data and
 parity (possibly changing the RAID level, e.g. 1 to 5 or 5 to 6).
 
-As of Linux 2.6.35, md can reshape a RAID4, RAID5, or RAID6 array to
+.I md
+can reshape a RAID4, RAID5, or RAID6 array to
 have a different number of devices (more or fewer) and to have a
 different layout or chunk size.  It can also convert between these
 different RAID levels.  It can also convert between RAID0 and RAID10,
@@ -946,7 +1052,7 @@ after a system crash.
 .PP
 
 .B mdadm
-versions from 2.4 do this for growing a RAID5 array.
+do this for growing a RAID5 array.
 
 For operations that do not change the size of the array, like simply
 increasing chunk size, or converting RAID5 to RAID6 with one extra
@@ -965,7 +1071,7 @@ which contains various files for providing access to information about
 the array.
 
 This interface is documented more fully in the file
-.B Documentation/md.txt
+.B Documentation/admin-guide/md.rst
 which is distributed with the kernel sources.  That file should be
 consulted for full documentation.  The following are just a selection
 of attribute files that are available.
@@ -1024,7 +1130,76 @@ number of times MD will service a full-stripe-write before servicing a
 stripe that requires some "prereading".  For fairness this defaults to
 1.  Valid values are 0 to stripe_cache_size.  Setting this to 0
 maximizes sequential-write throughput at the cost of fairness to threads
-doing small or random writes.  
+doing small or random writes.
+
+.TP
+.B md/bitmap/backlog
+The value stored in the file only has any effect on RAID1 when write-mostly
+devices are active, and write requests to those devices are proceed in the
+background.
+
+This variable sets a limit on the number of concurrent background writes,
+the valid values are 0 to 16383, 0 means that write-behind is not allowed,
+while any other number means it can happen.  If there are more write requests
+than the number, new writes will by synchronous.
+
+.TP
+.B md/bitmap/can_clear
+This is for externally managed bitmaps, where the kernel writes the bitmap
+itself, but metadata describing the bitmap is managed by mdmon or similar.
+
+When the array is degraded, bits mustn't be cleared. When the array becomes
+optimal again, bit can be cleared, but first the metadata needs to record
+the current event count. So md sets this to 'false' and notifies mdmon,
+then mdmon updates the metadata and writes 'true'.
+
+There is no code in mdmon to actually do this, so maybe it doesn't even
+work.
+
+.TP
+.B md/bitmap/chunksize
+The bitmap chunksize can only be changed when no bitmap is active, and
+the value should be power of 2 and at least 512.
+
+.TP
+.B md/bitmap/location
+This indicates where the write-intent bitmap for the array is stored.
+It can be "none" or "file" or a signed offset from the array metadata
+- measured in sectors. You cannot set a file by writing here - that can
+only be done with the SET_BITMAP_FILE ioctl.
+
+Write 'none' to 'bitmap/location' will clear bitmap, and the previous
+location value must be write to it to restore bitmap.
+
+.TP
+.B md/bitmap/max_backlog_used
+This keeps track of the maximum number of concurrent write-behind requests
+for an md array, writing any value to this file will clear it.
+
+.TP
+.B md/bitmap/metadata
+This can be 'internal' or 'clustered' or 'external'. 'internal' is set
+by default, which means the metadata for bitmap is stored in the first 256
+bytes of the bitmap space. 'clustered' means separate bitmap metadata are
+used for each cluster node. 'external' means that bitmap metadata is managed
+externally to the kernel.
+
+.TP
+.B md/bitmap/space
+This shows the space (in sectors) which is available at md/bitmap/location,
+and allows the kernel to know when it is safe to resize the bitmap to match
+a resized array. It should big enough to contain the total bytes in the bitmap.
+
+For 1.0 metadata, assume we can use up to the superblock if before, else
+to 4K beyond superblock. For other metadata versions, assume no change is
+possible.
+
+.TP
+.B md/bitmap/time_base
+This shows the time (in seconds) between disk flushes, and is used to looking
+for bits in the bitmap to be cleared.
+
+The default value is 5 seconds, and it should be an unsigned long value.
 
 .SS KERNEL PARAMETERS
 
@@ -1037,18 +1212,6 @@ then if any of the 4 main partitions has a partition type of 0xFD,
 then that partition will normally be inspected to see if it is part of
 an MD array, and if any full arrays are found, they are started.  This
 kernel parameter disables this behaviour.
-
-.TP
-.B raid=partitionable
-.TP
-.B raid=part
-These are available in 2.6 and later kernels only.  They indicate that
-autodetected MD arrays should be created as partitionable arrays, with
-a different major device number to the original non-partitionable md
-arrays.  The device number is listed as
-.I mdp
-in
-.IR /proc/devices .
 
 .TP
 .B md_mod.start_ro=1
@@ -1080,14 +1243,6 @@ This tells the md driver to assemble
 from the listed devices.  It is only necessary to start the device
 holding the root filesystem this way.  Other arrays are best started
 once the system is booted.
-
-In 2.6 kernels, the
-.B d
-immediately after the
-.B =
-indicates that a partitionable device (e.g.
-.BR /dev/md/d0 )
-should be created rather than the original non-partitionable device.
 
 .TP
 .BI md= n , l , c , i , dev...

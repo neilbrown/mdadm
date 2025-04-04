@@ -2,9 +2,17 @@ set -x
 
 # create an array with a name
 
+is_raid_foreign $md0
+
 mdadm -CR $md0 -l0 -n2 --metadata=1 --name="Fred" $dev0 $dev1
-mdadm -E $dev0 | grep 'Name : [^:]*:Fred ' > /dev/null || exit 1
-mdadm -D $md0 | grep 'Name : [^:]*:Fred ' > /dev/null || exit 1
+
+if [ $is_foreign == "no" ]; then
+	mdadm -E $dev0 | grep "Name : $(hostname):Fred" > /dev/null || exit 1
+	mdadm -D $md0 | grep "Name : $(hostname):Fred" > /dev/null || exit 1
+else
+	mdadm -E $dev0 | grep "Name : Fred" > /dev/null || exit 1
+	mdadm -D $md0 | grep "Name : Fred" > /dev/null || exit 1
+fi
 mdadm -S $md0
 
 mdadm -A $md0 --name="Fred" $devlist

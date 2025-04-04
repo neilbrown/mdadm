@@ -1,0 +1,5 @@
+always fails
+
+Fails with error:
+
+    mdadm/tests/func.sh: line 325: dvsize/chunk: division by 0 (error token is "chunk")

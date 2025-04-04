@@ -24,6 +24,8 @@
 
 #include	"mdadm.h"
 #include	"dlink.h"
+#include	"xmalloc.h"
+
 #include	<dirent.h>
 #include	<glob.h>
 #include	<fnmatch.h>
@@ -63,6 +65,9 @@
  * but may not wrap over lines
  *
  */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
 
 #ifndef CONFFILE
 #define CONFFILE "/etc/mdadm.conf"
@@ -77,7 +82,8 @@ char DefaultAltConfFile[] = CONFFILE2;
 char DefaultAltConfDir[] = CONFFILE2 ".d";
 
 enum linetype { Devices, Array, Mailaddr, Mailfrom, Program, CreateDev,
-		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, LTEnd };
+		Homehost, HomeCluster, AutoMode, Policy, PartPolicy, Sysfs,
+		MonitorDelay, EncryptionNoVerify, LTEnd };
 char *keywords[] = {
 	[Devices]  = "devices",
 	[Array]    = "array",
@@ -90,6 +96,9 @@ char *keywords[] = {
 	[AutoMode] = "auto",
 	[Policy]   = "policy",
 	[PartPolicy]="part-policy",
+	[Sysfs]    = "sysfs",
+	[MonitorDelay] = "monitordelay",
+	[EncryptionNoVerify] = "ENCRYPTION_NO_VERIFY",
 	[LTEnd]    = NULL
 };
 
@@ -103,12 +112,209 @@ int match_keyword(char *word)
 	int len = strlen(word);
 	int n;
 
-	if (len < 3) return -1;
-	for (n=0; keywords[n]; n++) {
-		if (strncasecmp(word, keywords[n], len)==0)
+	if (len < 3)
+		return -1;
+	for (n = 0; keywords[n]; n++) {
+		if (strncasecmp(word, keywords[n], len) == 0)
 			return n;
 	}
+
 	return -1;
+}
+
+/**
+ * is_devname_ignore() - check if &devname is a special "<ignore>" keyword.
+ */
+bool is_devname_ignore(const char *devname)
+{
+	static const char keyword[] = "<ignore>";
+
+	if (strcasecmp(devname, keyword) == 0)
+		return true;
+	return false;
+}
+
+/**
+ * ident_log() - generate and write message to the user.
+ * @param_name: name of the property.
+ * @value: value of the property.
+ * @reason: meaningful description.
+ * @cmdline: context dependent actions, see below.
+ *
+ * The function is made to provide similar error handling for both config and cmdline. The behavior
+ * is configurable via @cmdline. Message has following format:
+ * "Value "@value" cannot be set for @param_name. Reason: @reason."
+ *
+ * If cmdline is on:
+ * - message is written to stderr.
+ * otherwise:
+ * - message is written to stdout.
+ * - "Value ignored" is added at the end of the message.
+ */
+static void ident_log(const char *param_name, const char *value, const char *reason,
+		      const bool cmdline)
+{
+	if (cmdline == true)
+		pr_err("Value \"%s\" cannot be set as %s. Reason: %s.\n", value, param_name,
+		       reason);
+	else
+		pr_info("Value \"%s\" cannot be set as %s. Reason: %s. Value ignored.\n", value,
+			param_name, reason);
+}
+
+/**
+ * ident_init() - Set defaults.
+ * @ident: ident pointer, not NULL.
+ */
+inline void ident_init(struct mddev_ident *ident)
+{
+	assert(ident);
+
+	ident->assembled = false;
+	ident->btype = BitmapUnknown;
+	ident->container = NULL;
+	ident->devices = NULL;
+	ident->devname = NULL;
+	ident->level = UnSet;
+	ident->member = NULL;
+	ident->name[0] = 0;
+	ident->next = NULL;
+	ident->raid_disks = UnSet;
+	ident->spare_group = NULL;
+	ident->spare_disks = 0;
+	ident->st = NULL;
+	ident->super_minor = UnSet;
+	ident->uuid[0] = 0;
+	ident->uuid_set = 0;
+}
+
+/** ident_check_name() - helper function to verify name.
+ * @name: name to check.
+ * @prop_name: the name of the property it is validated against, used for logging.
+ * @cmdline: context dependent actions.
+ *
+ * @name must follow name's criteria, be POSIX compatible and does not have leading dot.
+ */
+static mdadm_status_t ident_check_name(const char *name, const char *prop_name, const bool cmdline)
+{
+	if (!is_string_lq(name, MD_NAME_MAX + 1)) {
+		ident_log(prop_name, name, "Too long or empty", cmdline);
+		return MDADM_STATUS_ERROR;
+	}
+
+	if (*name == '.') {
+		/* MD device should not be considered as hidden. */
+		ident_log(prop_name, name, "Leading dot forbidden", cmdline);
+		return MDADM_STATUS_ERROR;
+	}
+
+	if (!is_name_posix_compatible(name)) {
+		ident_log(prop_name, name, "Not POSIX compatible", cmdline);
+		return MDADM_STATUS_ERROR;
+	}
+
+	return MDADM_STATUS_SUCCESS;
+}
+
+/**
+ * _ident_set_devname() - verify devname and set it in &mddev_ident.
+ * @ident: pointer to &mddev_ident.
+ * @devname: devname to be set.
+ * @cmdline: context dependent actions. If set, ignore keyword is not allowed.
+ *
+ * @devname can have following forms:
+ *	'<ignore>' keyword (if allowed)
+ *	/dev/md{number}
+ *	/dev/md_d{number} (legacy)
+ *	/dev/md_{name}
+ *	/dev/md/{name}
+ *	{name}
+ *
+ * If verification passed, duplicate memory and set devname in @ident.
+ *
+ * Return: %MDADM_STATUS_SUCCESS or %MDADM_STATUS_ERROR.
+ */
+mdadm_status_t _ident_set_devname(struct mddev_ident *ident, const char *devname,
+				  const bool cmdline)
+{
+	assert(ident);
+	assert(devname);
+
+	static const char named_dev_pref[] = DEV_NUM_PREF "_";
+	static const int named_dev_pref_size = sizeof(named_dev_pref) - 1;
+	const char *prop_name = "devname";
+	mdadm_status_t ret;
+	const char *name;
+
+	if (ident->devname) {
+		ident_log(prop_name, devname, "Already defined", cmdline);
+		return MDADM_STATUS_ERROR;
+	}
+
+	if (is_devname_ignore(devname) == true) {
+		if (!cmdline)
+			goto pass;
+
+		ident_log(prop_name, devname, "Special keyword is invalid in this context",
+			  cmdline);
+		return MDADM_STATUS_ERROR;
+	}
+
+	if (is_devname_md_numbered(devname) == true || is_devname_md_d_numbered(devname) == true)
+		goto pass;
+
+	if (strncmp(devname, DEV_MD_DIR, DEV_MD_DIR_LEN) == 0)
+		name = devname + DEV_MD_DIR_LEN;
+	else if (strncmp(devname, named_dev_pref, named_dev_pref_size) == 0)
+		name = devname + named_dev_pref_size;
+	else
+		name = devname;
+
+	ret = ident_check_name(name, prop_name, cmdline);
+	if (ret)
+		return ret;
+pass:
+	ident->devname = xstrdup(devname);
+	return MDADM_STATUS_SUCCESS;
+}
+
+/**
+ * _ident_set_name() - set name in &mddev_ident.
+ * @ident: pointer to &mddev_ident.
+ * @name: name to be set.
+ *
+ * If criteria passed, set name in @ident.
+ * Note: name is not used by config file, it for cmdline only.
+ *
+ * Return: %MDADM_STATUS_SUCCESS or %MDADM_STATUS_ERROR.
+ */
+mdadm_status_t ident_set_name(struct mddev_ident *ident, const char *name)
+{
+	assert(name);
+	assert(ident);
+
+	const char *prop_name = "name";
+	mdadm_status_t ret;
+
+	if (ident->name[0]) {
+		ident_log(prop_name, name, "Already defined", true);
+		return MDADM_STATUS_ERROR;
+	}
+
+	ret = ident_check_name(name, prop_name, true);
+	if (ret)
+		return ret;
+
+	snprintf(ident->name, MD_NAME_MAX + 1, "%s", name);
+	return MDADM_STATUS_SUCCESS;
+}
+
+/**
+ * ident_set_devname()- exported, for cmdline.
+ */
+mdadm_status_t ident_set_devname(struct mddev_ident *ident, const char *name)
+{
+	return _ident_set_devname(ident, name, true);
 }
 
 struct conf_dev {
@@ -121,6 +327,7 @@ struct mddev_dev *load_partitions(void)
 	FILE *f = fopen("/proc/partitions", "r");
 	char buf[1024];
 	struct mddev_dev *rv = NULL;
+
 	if (f == NULL) {
 		pr_err("cannot open /proc/partitions\n");
 		return NULL;
@@ -141,8 +348,7 @@ struct mddev_dev *load_partitions(void)
 		name = map_dev(major, minor, 1);
 		if (!name)
 			continue;
-		d = xmalloc(sizeof(*d));
-		memset(d, 0, sizeof(*d));
+		d = xcalloc(1, sizeof(*d));
 		d->devname = xstrdup(name);
 		d->next = rv;
 		rv = d;
@@ -154,39 +360,41 @@ struct mddev_dev *load_partitions(void)
 struct mddev_dev *load_containers(void)
 {
 	struct mdstat_ent *mdstat = mdstat_read(0, 0);
+	struct mddev_dev *dev_list = NULL;
+	struct map_ent *map_list = NULL;
 	struct mdstat_ent *ent;
-	struct mddev_dev *d;
-	struct mddev_dev *rv = NULL;
-	struct map_ent *map = NULL, *me;
 
-	if (!mdstat)
-		return NULL;
+	for (ent = mdstat; ent; ent = ent->next) {
+		struct mddev_dev *d;
+		struct map_ent *map;
 
-	for (ent = mdstat; ent; ent = ent->next)
-		if (ent->metadata_version &&
-		    strncmp(ent->metadata_version, "external:", 9) == 0 &&
-		    !is_subarray(&ent->metadata_version[9])) {
-			d = xmalloc(sizeof(*d));
-			memset(d, 0, sizeof(*d));
-			me = map_by_devnm(&map, ent->dev);
-			if (me)
-				d->devname = xstrdup(me->path);
-			else if (asprintf(&d->devname, "/dev/%s", ent->dev) < 0) {
-				free(d);
-				continue;
-			}
-			d->next = rv;
-			rv = d;
+		if (!is_mdstat_ent_external(ent))
+			continue;
+
+		if (is_mdstat_ent_subarray(ent))
+			continue;
+
+		d = xcalloc(1, sizeof(*d));
+
+		map = map_by_devnm(&map_list, ent->devnm);
+		if (map) {
+			d->devname = xstrdup(map->path);
+		} else if (asprintf(&d->devname, "/dev/%s", ent->devnm) < 0) {
+			free(d);
+			continue;
 		}
-	free_mdstat(mdstat);
-	map_free(map);
 
-	return rv;
+		d->next = dev_list;
+		dev_list = d;
+	}
+
+	free_mdstat(mdstat);
+	map_free(map_list);
+
+	return dev_list;
 }
 
 struct createinfo createinfo = {
-	.autof = 2, /* by default, create devices with standard names */
-	.symlinks = 1,
 	.names = 0, /* By default, stick with numbered md devices. */
 	.bblist = 1, /* Use a bad block list by default */
 #ifdef DEBIAN
@@ -197,114 +405,67 @@ struct createinfo createinfo = {
 #endif
 };
 
-int parse_auto(char *str, char *msg, int config)
-{
-	int autof;
-	if (str == NULL || *str == 0)
-		autof = 2;
-	else if (strcasecmp(str,"no")==0)
-		autof = 1;
-	else if (strcasecmp(str,"yes")==0)
-		autof = 2;
-	else if (strcasecmp(str,"md")==0)
-		autof = config?5:3;
-	else {
-		/* There might be digits, and maybe a hypen, at the end */
-		char *e = str + strlen(str);
-		int num = 4;
-		int len;
-		while (e > str && isdigit(e[-1]))
-			e--;
-		if (*e) {
-			num = atoi(e);
-			if (num <= 0) num = 1;
-		}
-		if (e > str && e[-1] == '-')
-			e--;
-		len = e - str;
-		if ((len == 2 && strncasecmp(str,"md",2)==0)) {
-			autof = config ? 5 : 3;
-		} else if ((len == 3 && strncasecmp(str,"yes",3)==0)) {
-			autof = 2;
-		} else if ((len == 3 && strncasecmp(str,"mdp",3)==0)) {
-			autof = config ? 6 : 4;
-		} else if ((len == 1 && strncasecmp(str,"p",1)==0) ||
-			   (len >= 4 && strncasecmp(str,"part",4)==0)) {
-			autof = 6;
-		} else {
-			pr_err("%s arg of \"%s\" unrecognised: use no,yes,md,mdp,part\n"
-				"        optionally followed by a number.\n",
-				msg, str);
-			exit(2);
-		}
-		autof |= num << 3;
-	}
-	return autof;
-}
-
 static void createline(char *line)
 {
 	char *w;
 	char *ep;
 
-	for (w=dl_next(line); w!=line; w=dl_next(w)) {
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
 		if (strncasecmp(w, "auto=", 5) == 0)
-			createinfo.autof = parse_auto(w+5, "auto=", 1);
+			/* auto is no supported now, ignore it silently */
+			continue;
 		else if (strncasecmp(w, "owner=", 6) == 0) {
 			if (w[6] == 0) {
 				pr_err("missing owner name\n");
 				continue;
 			}
-			createinfo.uid = strtoul(w+6, &ep, 10);
+			createinfo.uid = strtoul(w + 6, &ep, 10);
 			if (*ep != 0) {
 				struct passwd *pw;
 				/* must be a name */
-				pw = getpwnam(w+6);
+				pw = getpwnam(w + 6);
 				if (pw)
 					createinfo.uid = pw->pw_uid;
 				else
-					pr_err("CREATE user %s not found\n", w+6);
+					pr_err("CREATE user %s not found\n",
+					       w + 6);
 			}
 		} else if (strncasecmp(w, "group=", 6) == 0) {
 			if (w[6] == 0) {
 				pr_err("missing group name\n");
 				continue;
 			}
-			createinfo.gid = strtoul(w+6, &ep, 10);
+			createinfo.gid = strtoul(w + 6, &ep, 10);
 			if (*ep != 0) {
 				struct group *gr;
 				/* must be a name */
-				gr = getgrnam(w+6);
+				gr = getgrnam(w + 6);
 				if (gr)
 					createinfo.gid = gr->gr_gid;
 				else
-					pr_err("CREATE group %s not found\n", w+6);
+					pr_err("CREATE group %s not found\n",
+					       w + 6);
 			}
 		} else if (strncasecmp(w, "mode=", 5) == 0) {
 			if (w[5] == 0) {
 				pr_err("missing CREATE mode\n");
 				continue;
 			}
-			createinfo.mode = strtoul(w+5, &ep, 8);
+			createinfo.mode = strtoul(w + 5, &ep, 8);
 			if (*ep != 0) {
 				createinfo.mode = 0600;
 				pr_err("unrecognised CREATE mode %s\n",
-					w+5);
+					w + 5);
 			}
 		} else if (strncasecmp(w, "metadata=", 9) == 0) {
 			/* style of metadata to use by default */
 			int i;
-			for (i=0; superlist[i] && !createinfo.supertype; i++)
-				createinfo.supertype =
-					superlist[i]->match_metadata_desc(w+9);
+			for (i = 0; superlist[i] && !createinfo.supertype; i++)
+				createinfo.supertype = superlist[i]->match_metadata_desc(w + 9);
 			if (!createinfo.supertype)
 				pr_err("metadata format %s unknown, ignoring\n",
 					w+9);
-		} else if (strncasecmp(w, "symlinks=yes", 12) == 0)
-			createinfo.symlinks = 1;
-		else if  (strncasecmp(w, "symlinks=no", 11) == 0)
-			createinfo.symlinks = 0;
-		else if (strncasecmp(w, "names=yes", 12) == 0)
+		} else if (strncasecmp(w, "names=yes", 12) == 0)
 			createinfo.names = 1;
 		else if  (strncasecmp(w, "names=no", 11) == 0)
 			createinfo.names = 0;
@@ -324,7 +485,7 @@ void devline(char *line)
 	char *w;
 	struct conf_dev *cd;
 
-	for (w=dl_next(line); w != line; w=dl_next(w)) {
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
 		if (w[0] == '/' || strcasecmp(w, "partitions") == 0 ||
 		    strcasecmp(w, "containers") == 0) {
 			cd = xmalloc(sizeof(*cd));
@@ -332,25 +493,13 @@ void devline(char *line)
 			cd->next = cdevlist;
 			cdevlist = cd;
 		} else {
-			pr_err("unreconised word on DEVICE line: %s\n",
-				w);
+			pr_err("unreconised word on DEVICE line: %s\n", w);
 		}
 	}
 }
 
 struct mddev_ident *mddevlist = NULL;
 struct mddev_ident **mddevlp = &mddevlist;
-
-static int is_number(char *w)
-{
-	/* check if there are 1 or more digits and nothing else */
-	int digits = 0;
-	while (*w && isdigit(*w)) {
-		digits++;
-		w++;
-	}
-	return (digits && ! *w);
-}
 
 void arrayline(char *line)
 {
@@ -359,134 +508,98 @@ void arrayline(char *line)
 	struct mddev_ident mis;
 	struct mddev_ident *mi;
 
-	mis.uuid_set = 0;
-	mis.super_minor = UnSet;
-	mis.level = UnSet;
-	mis.raid_disks = UnSet;
-	mis.spare_disks = 0;
-	mis.devices = NULL;
-	mis.devname = NULL;
-	mis.spare_group = NULL;
-	mis.autof = 0;
-	mis.next = NULL;
-	mis.st = NULL;
-	mis.bitmap_fd = -1;
-	mis.bitmap_file = NULL;
-	mis.name[0] = 0;
-	mis.container = NULL;
-	mis.member = NULL;
+	ident_init(&mis);
 
-	for (w=dl_next(line); w!=line; w=dl_next(w)) {
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
 		if (w[0] == '/' || strchr(w, '=') == NULL) {
-			/* This names the device, or is '<ignore>'.
-			 * The rules match those in create_mddev.
-			 * 'w' must be:
-			 *  /dev/md/{anything}
-			 *  /dev/mdNN
-			 *  /dev/md_dNN
-			 *  <ignore>
-			 *  or anything that doesn't start '/' or '<'
-			 */
-			if (strcasecmp(w, "<ignore>") == 0 ||
-			    strncmp(w, "/dev/md/", 8) == 0 ||
-			    (w[0] != '/' && w[0] != '<') ||
-			    (strncmp(w, "/dev/md", 7) == 0 &&
-			     is_number(w+7)) ||
-			    (strncmp(w, "/dev/md_d", 9) == 0 &&
-			     is_number(w+9))
-				) {
-				/* This is acceptable */;
-				if (mis.devname)
-					pr_err("only give one device per ARRAY line: %s and %s\n",
-						mis.devname, w);
-				else
-					mis.devname = w;
-			}else {
-				pr_err("%s is an invalid name for an md device - ignored.\n", w);
-			}
-		} else if (strncasecmp(w, "uuid=", 5)==0 ) {
+			_ident_set_devname(&mis, w, false);
+		} else if (strncasecmp(w, "uuid=", 5) == 0) {
 			if (mis.uuid_set)
 				pr_err("only specify uuid once, %s ignored.\n",
-					w);
+				       w);
 			else {
-				if (parse_uuid(w+5, mis.uuid))
+				if (parse_uuid(w + 5, mis.uuid))
 					mis.uuid_set = 1;
 				else
 					pr_err("bad uuid: %s\n", w);
 			}
-		} else if (strncasecmp(w, "super-minor=", 12)==0 ) {
+		} else if (strncasecmp(w, "super-minor=", 12) == 0) {
 			if (mis.super_minor != UnSet)
 				pr_err("only specify super-minor once, %s ignored.\n",
 					w);
 			else {
 				char *endptr;
-				int minor = strtol(w+12, &endptr, 10);
+				int minor = strtol(w + 12, &endptr, 10);
 
-				if (w[12]==0 || endptr[0]!=0 || minor < 0)
+				if (w[12] == 0 || endptr[0] != 0 || minor < 0)
 					pr_err("invalid super-minor number: %s\n",
-						w);
+					       w);
 				else
 					mis.super_minor = minor;
 			}
-		} else if (strncasecmp(w, "name=", 5)==0) {
-			if (mis.name[0])
-				pr_err("only specify name once, %s ignored.\n",
-					w);
-			else if (strlen(w+5) > 32)
-				pr_err("name too long, ignoring %s\n", w);
-			else
-				strcpy(mis.name, w+5);
-
+		} else if (strncasecmp(w, "name=", 5) == 0) {
+			/* Ignore name in confile */
+			continue;
 		} else if (strncasecmp(w, "bitmap=", 7) == 0) {
-			if (mis.bitmap_file)
+			if (mis.btype != BitmapUnknown)
 				pr_err("only specify bitmap file once. %s ignored\n",
 					w);
-			else
-				mis.bitmap_file = xstrdup(w+7);
+			else {
+				char *bname = xstrdup(w + 7);
 
-		} else if (strncasecmp(w, "devices=", 8 ) == 0 ) {
+				if (strcmp(bname, STR_COMMON_NONE) == 0)
+					mis.btype = BitmapNone;
+				else if (strcmp(bname, "internal") == 0)
+					mis.btype = BitmapInternal;
+				else if (strcmp(bname, "clustered") == 0)
+					mis.btype = BitmapCluster;
+			}
+
+		} else if (strncasecmp(w, "devices=", 8 ) == 0) {
 			if (mis.devices)
 				pr_err("only specify devices once (use a comma separated list). %s ignored\n",
 					w);
 			else
-				mis.devices = xstrdup(w+8);
-		} else if (strncasecmp(w, "spare-group=", 12) == 0 ) {
+				mis.devices = xstrdup(w + 8);
+		} else if (strncasecmp(w, "spare-group=", 12) == 0) {
 			if (mis.spare_group)
 				pr_err("only specify one spare group per array. %s ignored.\n",
 					w);
 			else
-				mis.spare_group = xstrdup(w+12);
+				mis.spare_group = xstrdup(w + 12);
 		} else if (strncasecmp(w, "level=", 6) == 0 ) {
 			/* this is mainly for compatability with --brief output */
-			mis.level = map_name(pers, w+6);
-		} else if (strncasecmp(w, "disks=", 6) == 0 ) {
+			mis.level = map_name(pers, w + 6);
+		} else if (strncasecmp(w, "disks=", 6) == 0) {
 			/* again, for compat */
-			mis.raid_disks = atoi(w+6);
-		} else if (strncasecmp(w, "num-devices=", 12) == 0 ) {
+			mis.raid_disks = atoi(w + 6);
+		} else if (strncasecmp(w, "num-devices=", 12) == 0) {
 			/* again, for compat */
-			mis.raid_disks = atoi(w+12);
-		} else if (strncasecmp(w, "spares=", 7) == 0 ) {
+			mis.raid_disks = atoi(w + 12);
+		} else if (strncasecmp(w, "spares=", 7) == 0) {
 			/* for warning if not all spares present */
-			mis.spare_disks = atoi(w+7);
+			mis.spare_disks = atoi(w + 7);
 		} else if (strncasecmp(w, "metadata=", 9) == 0) {
 			/* style of metadata on the devices. */
 			int i;
 
 			for(i=0; superlist[i] && !mis.st; i++)
-				mis.st = superlist[i]->match_metadata_desc(w+9);
+				mis.st = superlist[i]->
+					match_metadata_desc(w + 9);
 
 			if (!mis.st)
-				pr_err("metadata format %s unknown, ignored.\n", w+9);
-		} else if (strncasecmp(w, "auto=", 5) == 0 ) {
-			/* whether to create device special files as needed */
-			mis.autof = parse_auto(w+5, "auto type", 0);
+				pr_err("metadata format %s unknown, ignored.\n",
+				       w + 9);
+		} else if (strncasecmp(w, "auto=", 5) == 0) {
+			/* Ignore for backward compatibility */
+			continue;
 		} else if (strncasecmp(w, "member=", 7) == 0) {
 			/* subarray within a container */
-			mis.member = xstrdup(w+7);
+			mis.member = xstrdup(w + 7);
 		} else if (strncasecmp(w, "container=", 10) == 0) {
-			/* the container holding this subarray.  Either a device name
-			 * or a uuid */
-			mis.container = xstrdup(w+10);
+			/* The container holding this subarray.
+			 * Either a device name or a uuid */
+			mis.container = xstrdup(w + 10);
 		} else {
 			pr_err("unrecognised word on ARRAY line: %s\n",
 				w);
@@ -495,7 +608,8 @@ void arrayline(char *line)
 	if (mis.uuid_set == 0 && mis.devices == NULL &&
 	    mis.super_minor == UnSet && mis.name[0] == 0 &&
 	    (mis.container == NULL || mis.member == NULL))
-		pr_err("ARRAY line %s has no identity information.\n", mis.devname);
+		pr_err("ARRAY line %s has no identity information.\n",
+		       mis.devname);
 	else {
 		mi = xmalloc(sizeof(*mi));
 		*mi = mis;
@@ -511,7 +625,7 @@ void mailline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w))
+	for (w = dl_next(line); w != line; w = dl_next(w))
 		if (alert_email == NULL)
 			alert_email = xstrdup(w);
 }
@@ -521,7 +635,7 @@ void mailfromline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
 		if (alert_mail_from == NULL)
 			alert_mail_from = xstrdup(w);
 		else {
@@ -540,7 +654,7 @@ void programline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w))
+	for (w = dl_next(line); w != line; w = dl_next(w))
 		if (alert_program == NULL)
 			alert_program = xstrdup(w);
 }
@@ -551,11 +665,11 @@ void homehostline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
-		if (strcasecmp(w, "<ignore>")==0)
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
+		if (is_devname_ignore(w) == true)
 			require_homehost = 0;
 		else if (home_host == NULL) {
-			if (strcasecmp(w, "<none>")==0)
+			if (strcasecmp(w, "<none>") == 0)
 				home_host = xstrdup("");
 			else
 				home_host = xstrdup(w);
@@ -568,13 +682,37 @@ void homeclusterline(char *line)
 {
 	char *w;
 
-	for (w=dl_next(line); w != line ; w=dl_next(w)) {
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
 		if (home_cluster == NULL) {
-			if (strcasecmp(w, "<none>")==0)
+			if (strcasecmp(w, "<none>") == 0)
 				home_cluster = xstrdup("");
 			else
 				home_cluster = xstrdup(w);
 		}
+	}
+}
+
+static int monitor_delay;
+void monitordelayline(char *line)
+{
+	char *w;
+
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
+		if (monitor_delay == 0)
+			monitor_delay = strtol(w, NULL, 10);
+	}
+}
+
+static bool sata_opal_encryption_no_verify;
+void encryption_no_verify_line(char *line)
+{
+	char *word;
+
+	for (word = dl_next(line); word != line; word = dl_next(word)) {
+		if (strcasecmp(word, "sata_opal") == 0)
+			sata_opal_encryption_no_verify = true;
+		else
+			pr_err("unrecognised word on ENCRYPTION_NO_VERIFY line: %s\n", word);
 	}
 }
 
@@ -596,7 +734,9 @@ void autoline(char *line)
 		return;
 	auto_seen = 1;
 
-	/* Parse the 'auto' line creating policy statements for the 'auto' policy.
+	/*
+	 * Parse the 'auto' line creating policy statements for the 'auto'
+	 * policy.
 	 *
 	 * The default is 'yes' but the 'auto' line might over-ride that.
 	 * Words in the line are processed in order with the first
@@ -622,7 +762,8 @@ void autoline(char *line)
 	 * been seen gets an appropriate auto= entry.
 	 */
 
-	/* If environment variable MDADM_CONF_AUTO is defined, then
+	/*
+	 * If environment variable MDADM_CONF_AUTO is defined, then
 	 * it is prepended to the auto line.  This allow a script
 	 * to easily disable some metadata types.
 	 */
@@ -644,7 +785,7 @@ void autoline(char *line)
 		;
 	seen = xcalloc(super_cnt, 1);
 
-	for (w = dl_next(line); w != line ; w = dl_next(w)) {
+	for (w = dl_next(line); w != line; w = dl_next(w)) {
 		char *val;
 
 		if (strcasecmp(w, "yes") == 0) {
@@ -672,22 +813,21 @@ void autoline(char *line)
 		} else
 			continue;
 
-		if (strcasecmp(w+1, "all") == 0) {
+		if (strcasecmp(w + 1, "all") == 0) {
 			dflt = val;
 			break;
 		}
 		for (i = 0; superlist[i]; i++) {
 			const char *version = superlist[i]->name;
-			if (strcasecmp(w+1, version) == 0)
+			if (strcasecmp(w + 1, version) == 0)
 				break;
 			/* 1 matches 1.x, 0 matches 0.90 */
-			if (version[1] == '.' &&
-			    strlen(w+1) == 1 &&
+			if (version[1] == '.' && strlen(w + 1) == 1 &&
 			    w[1] == version[0])
 				break;
 			/* 1.anything matches 1.x */
 			if (strcmp(version, "1.x") == 0 &&
-			    strncmp(w+1, "1.", 2) == 0)
+			    strncmp(w + 1, "1.", 2) == 0)
 				break;
 		}
 		if (superlist[i] == NULL)
@@ -696,12 +836,14 @@ void autoline(char *line)
 		if (seen[i])
 			/* already know about this metadata */
 			continue;
-		policy_add(rule_policy, pol_auto, val, pol_metadata, superlist[i]->name, NULL);
+		policy_add(rule_policy, pol_auto, val, pol_metadata,
+			   superlist[i]->name, NULL);
 		seen[i] = 1;
 	}
 	for (i = 0; i < super_cnt; i++)
 		if (!seen[i])
-			policy_add(rule_policy, pol_auto, dflt, pol_metadata, superlist[i]->name, NULL);
+			policy_add(rule_policy, pol_auto, dflt, pol_metadata,
+				   superlist[i]->name, NULL);
 
 	free(seen);
 }
@@ -717,7 +859,7 @@ void set_conffile(char *file)
 void conf_file(FILE *f)
 {
 	char *line;
-	while ((line=conf_line(f))) {
+	while ((line = conf_line(f))) {
 		switch(match_keyword(line)) {
 		case Devices:
 			devline(line);
@@ -752,6 +894,15 @@ void conf_file(FILE *f)
 		case PartPolicy:
 			policyline(line, rule_part);
 			break;
+		case Sysfs:
+			sysfsline(line);
+			break;
+		case MonitorDelay:
+			monitordelayline(line);
+			break;
+		case EncryptionNoVerify:
+			encryption_no_verify_line(line);
+			break;
 		default:
 			pr_err("Unknown keyword %s\n", line);
 		}
@@ -771,7 +922,8 @@ void conf_file_or_dir(FILE *f)
 	struct dirent *dp;
 	struct fname *list = NULL;
 
-	fstat(fileno(f), &st);
+	if (fstat(fileno(f), &st) != 0)
+		return;
 	if (S_ISREG(st.st_mode))
 		conf_file(f);
 	else if (!S_ISDIR(st.st_mode))
@@ -788,9 +940,9 @@ void conf_file_or_dir(FILE *f)
 		if (dp->d_name[0] == '.')
 			continue;
 		l = strlen(dp->d_name);
-		if (l < 6 || strcmp(dp->d_name+l-5, ".conf") != 0)
+		if (l < 6 || strcmp(dp->d_name + l - 5, ".conf") != 0)
 			continue;
-		fn = xmalloc(sizeof(*fn)+l+1);
+		fn = xmalloc(sizeof(*fn) + l + 1);
 		strcpy(fn->name, dp->d_name);
 		for (p = &list;
 		     *p && strcmp((*p)->name, fn->name) < 0;
@@ -833,21 +985,20 @@ void load_conffile(void)
 		confdir = DefaultConfDir;
 	}
 
-	if (strcmp(conffile, "partitions")==0) {
+	if (strcmp(conffile, "partitions") == 0) {
 		char *list = dl_strdup("DEV");
 		dl_init(list);
 		dl_add(list, dl_strdup("partitions"));
 		devline(list);
 		free_line(list);
-	} else if (strcmp(conffile, "none") != 0) {
+	} else if (str_is_none(conffile) == false) {
 		f = fopen(conffile, "r");
 		/* Debian chose to relocate mdadm.conf into /etc/mdadm/.
 		 * To allow Debian users to compile from clean source and still
 		 * have a working mdadm, we read /etc/mdadm/mdadm.conf
 		 * if /etc/mdadm.conf doesn't exist
 		 */
-		if (f == NULL &&
-		    conffile == DefaultConfFile) {
+		if (f == NULL && conffile == DefaultConfFile) {
 			f = fopen(DefaultAltConfFile, "r");
 			if (f) {
 				conffile = DefaultAltConfFile;
@@ -909,6 +1060,18 @@ char *conf_get_homecluster(void)
 	return home_cluster;
 }
 
+int conf_get_monitor_delay(void)
+{
+	load_conffile();
+	return monitor_delay;
+}
+
+bool conf_get_sata_opal_encryption_no_verify(void)
+{
+	load_conffile();
+	return sata_opal_encryption_no_verify;
+}
+
 struct createinfo *conf_get_create_info(void)
 {
 	load_conffile();
@@ -920,8 +1083,8 @@ struct mddev_ident *conf_get_ident(char *dev)
 	struct mddev_ident *rv;
 	load_conffile();
 	rv = mddevlist;
-	while (dev && rv && (rv->devname == NULL
-			     || !devname_matches(dev, rv->devname)))
+	while (dev && rv && (rv->devname == NULL ||
+			     !devname_matches(dev, rv->devname)))
 		rv = rv->next;
 	return rv;
 }
@@ -956,10 +1119,10 @@ struct mddev_dev *conf_get_devs()
 		append_dlist(&dlist, load_containers());
 	}
 
-	for (cd=cdevlist; cd; cd=cd->next) {
-		if (strcasecmp(cd->name, "partitions")==0)
+	for (cd = cdevlist; cd; cd = cd->next) {
+		if (strcasecmp(cd->name, "partitions") == 0)
 			append_dlist(&dlist, load_partitions());
-		else if (strcasecmp(cd->name, "containers")==0)
+		else if (strcasecmp(cd->name, "containers") == 0)
 			append_dlist(&dlist, load_containers());
 		else {
 			glob(cd->name, flags, NULL, &globbuf);
@@ -967,9 +1130,9 @@ struct mddev_dev *conf_get_devs()
 		}
 	}
 	if (flags & GLOB_APPEND) {
-		for (i=0; i<globbuf.gl_pathc; i++) {
-			struct mddev_dev *t = xmalloc(sizeof(*t));
-			memset(t, 0, sizeof(*t));
+		for (i = 0; i < globbuf.gl_pathc; i++) {
+			struct mddev_dev *t;
+			t = xcalloc(1, sizeof(*t));
 			t->devname = xstrdup(globbuf.gl_pathv[i]);
 			t->next = dlist;
 			dlist = t;
@@ -987,7 +1150,7 @@ int conf_test_dev(char *devname)
 	if (cdevlist == NULL)
 		/* allow anything by default */
 		return 1;
-	for (cd = cdevlist ; cd ; cd = cd->next) {
+	for (cd = cdevlist; cd; cd = cd->next) {
 		if (strcasecmp(cd->name, "partitions") == 0)
 			return 1;
 		if (fnmatch(cd->name, devname, FNM_PATHNAME) == 0)
@@ -1004,7 +1167,7 @@ int conf_test_metadata(const char *version, struct dev_policy *pol, int is_homeh
 	 * else 'yes'.
 	 */
 	struct dev_policy *p;
-	int no=0, found_homehost=0;
+	int no = 0, found_homehost = 0;
 	load_conffile();
 
 	pol = pol_find(pol, pol_auto);
@@ -1036,9 +1199,9 @@ int match_oneof(char *devices, char *devname)
 		if (!devices)
 			devices = p + strlen(p);
 		if (devices-p < 1024) {
-			strncpy(patn, p, devices-p);
+			strncpy(patn, p, devices - p);
 			patn[devices-p] = 0;
-			if (fnmatch(patn, devname, FNM_PATHNAME)==0)
+			if (fnmatch(patn, devname, FNM_PATHNAME) == 0)
 				return 1;
 		}
 		if (*devices == ',')
@@ -1057,21 +1220,19 @@ int devname_matches(char *name, char *match)
 	 *  mdNN with NN
 	 * then just strcmp
 	 */
-	if (strncmp(name, "/dev/md/", 8) == 0)
-		name += 8;
+	if (strncmp(name, DEV_MD_DIR, DEV_MD_DIR_LEN) == 0)
+		name += DEV_MD_DIR_LEN;
 	else if (strncmp(name, "/dev/", 5) == 0)
 		name += 5;
 
-	if (strncmp(match, "/dev/md/", 8) == 0)
-		match += 8;
+	if (strncmp(match, DEV_MD_DIR, DEV_MD_DIR_LEN) == 0)
+		match += DEV_MD_DIR_LEN;
 	else if (strncmp(match, "/dev/", 5) == 0)
 		match += 5;
 
-	if (strncmp(name, "md", 2) == 0 &&
-	    isdigit(name[2]))
+	if (strncmp(name, "md", 2) == 0 && isdigit(name[2]))
 		name += 2;
-	if (strncmp(match, "md", 2) == 0 &&
-	    isdigit(match[2]))
+	if (strncmp(match, "md", 2) == 0 && isdigit(match[2]))
 		match += 2;
 
 	return (strcmp(name, match) == 0);
@@ -1094,8 +1255,7 @@ int conf_name_is_free(char *name)
 		if (dev->name[0] && devname_matches(name, dev->name))
 			return 0;
 		sprintf(nbuf, "%d", dev->super_minor);
-		if (dev->super_minor != UnSet &&
-		    devname_matches(name, nbuf))
+		if (dev->super_minor != UnSet && devname_matches(name, nbuf))
 			return 0;
 	}
 	return 1;
@@ -1111,20 +1271,14 @@ struct mddev_ident *conf_match(struct supertype *st,
 	match = NULL;
 	for (; array_list; array_list = array_list->next) {
 		if (array_list->uuid_set &&
-		    same_uuid(array_list->uuid, info->uuid, st->ss->swapuuid)
-		    == 0) {
+		    same_uuid(array_list->uuid, info->uuid,
+			      st->ss->swapuuid) == 0) {
 			if (verbose >= 2 && array_list->devname)
 				pr_err("UUID differs from %s.\n",
 				       array_list->devname);
 			continue;
 		}
-		if (array_list->name[0] &&
-		    strcasecmp(array_list->name, info->name) != 0) {
-			if (verbose >= 2 && array_list->devname)
-				pr_err("Name differs from %s.\n",
-				       array_list->devname);
-			continue;
-		}
+
 		if (array_list->devices && devname &&
 		    !match_oneof(array_list->devices, devname)) {
 			if (verbose >= 2 && array_list->devname)
@@ -1139,10 +1293,8 @@ struct mddev_ident *conf_match(struct supertype *st,
 				       array_list->devname);
 			continue;
 		}
-		if (!array_list->uuid_set &&
-		    !array_list->name[0] &&
-		    !array_list->devices &&
-		    array_list->super_minor == UnSet) {
+		if (!array_list->uuid_set && !array_list->name[0] &&
+		    !array_list->devices && array_list->super_minor == UnSet) {
 			if (verbose >= 2 && array_list->devname)
 				pr_err("%s doesn't have any identifying information.\n",
 				       array_list->devname);

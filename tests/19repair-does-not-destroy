@@ -26,4 +26,3 @@ cmp -s -n $array_data_size_in_b $md0 /tmp/RandFile || { echo should not mess up 
 
 mdadm -S $md0
 udevadm settle
-blockdev --flushbufs $md0 $devs; sync

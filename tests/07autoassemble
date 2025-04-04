@@ -2,6 +2,9 @@
 # create two raid1s, build a raid0 on top, then
 # tear it down and get auto-assemble to rebuild it.
 
+#the length of md0/md1/md2 is same. So use md0 here.
+is_raid_foreign $md0
+
 mdadm -CR $md1 -l1 -n2 $dev0 $dev1  --homehost=testing
 mdadm -CR $md2 -l1 -n2 $dev2 $dev3  --homehost=testing
 mdadm -CR $md0 -l0 -n2 $md1 $md2  --homehost=testing
@@ -10,7 +13,14 @@ mdadm -Ss
 mdadm -As -c /dev/null --homehost=testing -vvv
 testdev $md1 1 $mdsize1a 64
 testdev $md2 1 $mdsize1a 64
-testdev $md0 2 $mdsize11a 512
+# md1 and md2 will be incremental assemble by udev rule. And
+# the testing machines' hostname is not testing. The md0 will
+# be considered as a foreign array. It can use 0 as metadata
+# name. md127 will be used
+testdev $md127 2 $mdsize11a 512
+mdadm --stop $md127
+mdadm --zero-superblock $md1
+mdadm --zero-superblock $md2
 mdadm -Ss
 
 mdadm --zero-superblock $dev0 $dev1 $dev2 $dev3
@@ -20,5 +30,32 @@ mdadm -CR $md0 -l0 -n2 $md1 $dev2  --homehost=testing
 mdadm -Ss
 mdadm -As -c /dev/null --homehost=testing -vvv
 testdev $md1 1 $mdsize1a 64
-testdev $md0 1 $[mdsize1a+mdsize11a] 512
+testdev $md127 1 $[mdsize1a+mdsize11a] 512
+mdadm --stop $md127
+mdadm --zero-superblock $md1
+mdadm -Ss
+
+# Don't specify homehost when creating raid and use the test
+# machine's homehost. For super1.2, if homehost name's length
+# is > 32, it doesn't use homehost name in metadata name and
+# the array will be treated as foreign array
+mdadm --zero-superblock $dev0 $dev1 $dev2 $dev3
+mdadm -CR $md1 -l1 -n2 $dev0 $dev1
+mdadm -CR $md2 -l1 -n2 $dev2 $dev3
+mdadm -CR $md0 -l0 -n2 $md1 $md2
+mdadm -Ss
+mdadm -As -c /dev/null
+cat /proc/mdstat # For logs
+if [ $is_foreign == "yes" ]; then
+	# md127 is md1
+	testdev $md127 1 $mdsize1a 64
+	# md126 is md0, udev rule incremental assemble it
+	testdev $md126 2 $mdsize11a 512
+	# md125 is md2
+	testdev $md125 1 $mdsize1a 64
+else
+	testdev $md1 1 $mdsize1a 64
+	testdev $md2 1 $mdsize1a 64
+	testdev $md127 2 $mdsize11a 512
+fi
 mdadm -Ss

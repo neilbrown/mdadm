@@ -1,0 +1,77 @@
+name: tests
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  pull_request:
+    paths:
+      - '*.c'
+      - '*.h'
+      - 'tests/*'
+      - 'test'
+      - '.github/*'
+      - '.github/workflows/*'
+      - '.github/tools/*'
+jobs:
+  upstream_tests:
+     if: ${{ github.repository == 'md-raid-utilities/mdadm' }}
+     runs-on: self-hosted
+     timeout-minutes: 150
+     name: upstream tests
+     steps:
+     - uses: actions/checkout@v4
+       if: ${{ github.event_name == 'pull_request' }}
+       with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+     - uses: actions/checkout@v4
+       if: ${{ github.event_name == 'schedule' }}
+       with:
+        ref: main
+        fetch-depth: 0
+     - name: 'Prepare machine'
+       run: |
+          cd ..
+          vagrant halt
+          vagrant status
+          vagrant up
+
+     - name: 'Run tests'
+       id: testing
+       continue-on-error: true
+       run: |
+          cd ..
+          vagrant ssh -c "cd /home/vagrant/host/mdadm && .github/tools/run_mdadm_tests.sh"
+
+     - name: 'Copy logs to host machine'
+       if: ${{ steps.testing.outcome == 'failure' }}
+       run: |
+          cd ..
+          vagrant ssh -c "sudo mkdir -p /home/vagrant/host/logs && sudo mv /var/tmp/*.log /home/vagrant/host/logs"
+
+     - name: "Save artifacts"
+       if: ${{ steps.testing.outcome == 'failure' }}
+       uses: actions/upload-artifact@v4
+       with:
+         name: "Logs from failed tests"
+         path: /home/ci/actions-runner/_work/mdadm/logs/*.log
+
+     - name: "Clean logs"
+       if: ${{ steps.testing.outcome == 'failure' }}
+       run: |
+          cd ..
+          sudo rm /home/ci/actions-runner/_work/mdadm/logs/*.log
+
+     - name: "Set failed"
+       if: ${{ steps.testing.outcome == 'failure' }}
+       run: exit 1
+
+  cleanup:
+    runs-on: self-hosted
+    needs: [upstream_tests]
+    steps:
+      - name: Restore clean VM
+        run:  |
+          cd ..
+          vagrant up
+          vagrant ssh -c "sudo mdadm -Ss"
+          vagrant halt

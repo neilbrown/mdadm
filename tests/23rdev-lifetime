@@ -1,0 +1,34 @@
+devname=${dev0##*/}
+devt=`cat /sys/block/$devname/dev`
+pid=""
+runtime=2
+
+clean_up_test() {
+	kill -9 $pid
+	echo clear > /sys/block/md0/md/array_state
+}
+
+trap 'clean_up_test' EXIT
+
+add_by_sysfs() {
+        while true; do
+                echo $devt > /sys/block/md0/md/new_dev
+        done
+}
+
+remove_by_sysfs(){
+        while true; do
+                echo remove > /sys/block/md0/md/dev-${devname}/state
+        done
+}
+
+echo md0 > /sys/module/md_mod/parameters/new_array || die "create md0 failed"
+
+add_by_sysfs &
+pid="$pid $!"
+
+remove_by_sysfs &
+pid="$pid $!"
+
+sleep $runtime
+exit 0

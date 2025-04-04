@@ -6,7 +6,7 @@ add/remove/fail
   raid5 DONE
   raid6/10 needed??
 
-assemble 
+assemble
   by devices     DONE
   by uuid        DONE
   by superminor  DONE
@@ -23,7 +23,7 @@ bitmap
   separate file
   internal
   filename in config file
-  
+
 examine
   --scan
   --brief

@@ -43,7 +43,7 @@ testdev $md0 2 $mdsize1 512
 mdadm -G $md0 -n 5
 sleep 3
 mdadm -S $md0
-strace -o /tmp/str ./mdadm -A $md0 --update=revert-reshape $devlist4
+mdadm -A $md0 --update=revert-reshape $devlist4
 check wait
 check raid10
 testdev $md0 2 $mdsize1 512

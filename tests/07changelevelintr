@@ -12,7 +12,7 @@ checkgeo() {
  shift
  sleep 0.5
  check wait
- sleep 1
+ sleep 2
  for attr in level raid_disks chunk_size layout
  do
    if [ $# -gt 0 ] ; then
@@ -27,11 +27,9 @@ checkgeo() {
 }
 
 restart() {
- sleep 0.5
  check reshape
  mdadm -S $md0
  mdadm -A $md0 $devs --backup-file=$bu
- sleep 0.5
  check reshape
 }
 
@@ -49,13 +47,16 @@ mdadm -G $md0 --layout rs --backup-file=$bu
 restart
 checkgeo md0 raid5 5 $[128*1024] 3
 
-mdadm -G $md0 --array-size 58368
+# It needs to shrink array size first. Choose a value that
+# is power of 2 for array size. If not, it can't change
+# chunk size.
+mdadm -G $md0 --array-size 51200
 mdadm -G $md0 --raid-disks 4 -c 64 --backup-file=$bu
 restart
 checkgeo md0 raid5 4 $[64*1024] 3
 
 devs="$dev0 $dev1 $dev2 $dev3"
-mdadm -G $md0 --array-size 19456
+mdadm -G $md0 --array-size 18432
 mdadm -G $md0 -n 2 -c 256 --backup-file=$bu
 restart
 checkgeo md0 raid5 2 $[256*1024] 3

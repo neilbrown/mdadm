@@ -16,7 +16,7 @@ set -- $(get_raiddisks $member0)
 fail0=$1
 mdadm $member0 --fail $fail0
 
-sleep 1
+sleep 2
 set -- $(get_raiddisks $member0)
 case $1 in MISSING) shift;; esac
 good0=$1
@@ -44,7 +44,7 @@ mdadm $container --remove $fail0
 # We re-add the disk now
 mdadm $container --add $fail0
 
-sleep 1
+sleep 2
 mdadm --wait $member0 || true
 
 set -- $(get_raiddisks $member0)

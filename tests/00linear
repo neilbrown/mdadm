@@ -1,6 +1,11 @@
 
 # create a simple linear
 
+if [ "$LINEAR" != "yes" ]; then
+  echo -ne 'skipping... '
+  exit 0
+fi
+
 mdadm -CR $md0 -l linear -n3 $dev0 $dev1 $dev2
 check linear
 testdev $md0 3 $mdsize2_l 1
@@ -19,7 +24,7 @@ testdev $md0 4 $mdsize1 1
 mdadm -S $md0
 
 # now with no superblock
-mdadm -B $md0 -l linear -n5 $dev0 $dev1 $dev2 $dev3 $dev4 
+mdadm -B $md0 -l linear -n5 $dev0 $dev1 $dev2 $dev3 $dev4
 check linear
 testdev $md0 5 $size 64
 mdadm -S $md0

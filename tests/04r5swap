@@ -2,7 +2,7 @@
 # make a raid5 array, byte swap the superblocks, then assemble...
 
 mdadm -CR $md0 -e 0.90 -l5 -n4 $dev0 $dev1 $dev2 $dev3
-sleep 4
+sleep 6
 mdadm -S $md0
 
 mdadm -E --metadata=0 $dev1  > $targetdir/d1

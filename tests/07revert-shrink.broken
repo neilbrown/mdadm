@@ -1,0 +1,9 @@
+always fails
+
+Fails with errors:
+
+    mdadm: this change will reduce the size of the array.
+           use --grow --array-size first to truncate array.
+           e.g. mdadm --grow /dev/md0 --array-size 53760
+
+    ERROR: active raid5 not found

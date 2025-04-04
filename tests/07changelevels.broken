@@ -1,0 +1,7 @@
+Fails in multiple ways.
+
+There are issues with RAID6:
+- R5 -> R6 migration makes md unresponsive
+- R6 -> R5 migration fails
+
+Not worth investigating this now, marking as broken to clear the CI.

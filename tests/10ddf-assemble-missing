@@ -16,7 +16,7 @@ mdadm --wait $member0 || true
 mdadm --wait $member1 || true
 
 mdadm -Ss
-sleep 1
+sleep 2
 
 # Add all devices except those for $member0
 mdadm -I $dev10

@@ -1,0 +1,6 @@
+always fails
+
+Fails with errors:
+
+    ERROR: /dev/md/vol0 has unexpected state on /dev/loop10
+    ERROR: unexpected number of online disks on /dev/loop10

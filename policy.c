@@ -23,6 +23,8 @@
  */
 
 #include "mdadm.h"
+#include "xmalloc.h"
+
 #include <dirent.h>
 #include <fnmatch.h>
 #include <ctype.h>
@@ -189,15 +191,17 @@ struct dev_policy *pol_find(struct dev_policy *pol, char *name)
 	return pol;
 }
 
-static char *disk_path(struct mdinfo *disk)
+static char **disk_paths(struct mdinfo *disk)
 {
 	struct stat stb;
 	int prefix_len;
 	DIR *by_path;
 	char symlink[PATH_MAX] = "/dev/disk/by-path/";
-	char nm[PATH_MAX];
+	char **paths;
+	int cnt = 0;
 	struct dirent *ent;
-	int rv;
+
+	paths = xmalloc(sizeof(*paths) * (cnt+1));
 
 	by_path = opendir(symlink);
 	if (by_path) {
@@ -214,22 +218,13 @@ static char *disk_path(struct mdinfo *disk)
 				continue;
 			if (stb.st_rdev != makedev(disk->disk.major, disk->disk.minor))
 				continue;
-			closedir(by_path);
-			return xstrdup(ent->d_name);
+			paths[cnt++] = xstrdup(ent->d_name);
+			paths = xrealloc(paths, sizeof(*paths) * (cnt+1));
 		}
 		closedir(by_path);
 	}
-	/* A NULL path isn't really acceptable - use the devname.. */
-	sprintf(symlink, "/sys/dev/block/%d:%d", disk->disk.major, disk->disk.minor);
-	rv = readlink(symlink, nm, sizeof(nm)-1);
-	if (rv > 0) {
-		char *dname;
-		nm[rv] = 0;
-		dname = strrchr(nm, '/');
-		if (dname)
-			return xstrdup(dname + 1);
-	}
-	return xstrdup("unknown");
+	paths[cnt] = NULL;
+	return paths;
 }
 
 char type_part[] = "part";
@@ -246,18 +241,53 @@ static char *disk_type(struct mdinfo *disk)
 		return type_disk;
 }
 
-static int pol_match(struct rule *rule, char *path, char *type)
+static int path_has_part(char *path, char **part)
 {
-	/* check if this rule matches on path and type */
+	/* check if path ends with "-partNN" and
+	 * if it does, place a pointer to "-pathNN"
+	 * in 'part'.
+	 */
+	int l;
+	if (!path)
+		return 0;
+	l = strlen(path);
+	while (l > 1 && isdigit(path[l-1]))
+		l--;
+	if (l < 5 || strncmp(path+l-5, "-part", 5) != 0)
+		return 0;
+	*part = path+l-5;
+	return 1;
+}
+
+static int pol_match(struct rule *rule, char **paths, char *type, char **part)
+{
+	/* Check if this rule matches on any path and type.
+	 * If 'part' is not NULL, then 'path' must end in -partN, which
+	 * we ignore for matching, and return in *part on success.
+	 */
 	int pathok = 0; /* 0 == no path, 1 == match, -1 == no match yet */
 	int typeok = 0;
 
-	while (rule) {
+	for (; rule; rule = rule->next) {
 		if (rule->name == rule_path) {
+			char *p = NULL;
+			int i;
 			if (pathok == 0)
 				pathok = -1;
-			if (path && fnmatch(rule->value, path, 0) == 0)
-				pathok = 1;
+			if (!paths)
+				continue;
+			for (i = 0; paths[i]; i++) {
+				if (part) {
+					if (!path_has_part(paths[i], &p))
+						continue;
+					*p = '\0';
+					*part = p+1;
+				}
+				if (fnmatch(rule->value, paths[i], 0) == 0)
+					pathok = 1;
+				if (part)
+					*p = '-';
+			}
 		}
 		if (rule->name == rule_type) {
 			if (typeok == 0)
@@ -265,7 +295,6 @@ static int pol_match(struct rule *rule, char *path, char *type)
 			if (type && strcmp(rule->value, type) == 0)
 				typeok = 1;
 		}
-		rule = rule->next;
 	}
 	return pathok >= 0 && typeok >= 0;
 }
@@ -284,24 +313,6 @@ static void pol_merge(struct dev_policy **pol, struct rule *rule)
 		    r->name == pol_domain ||
 		    r->name == pol_auto)
 			pol_new(pol, r->name, r->value, metadata);
-}
-
-static int path_has_part(char *path, char **part)
-{
-	/* check if path ends with "-partNN" and
-	 * if it does, place a pointer to "-pathNN"
-	 * in 'part'.
-	 */
-	int l;
-	if (!path)
-		return 0;
-	l = strlen(path);
-	while (l > 1 && isdigit(path[l-1]))
-		l--;
-	if (l < 5 || strncmp(path+l-5, "-part", 5) != 0)
-		return 0;
-	*part = path+l-4;
-	return 1;
 }
 
 static void pol_merge_part(struct dev_policy **pol, struct rule *rule, char *part)
@@ -352,43 +363,120 @@ static int config_rules_has_path = 0;
  * path_policy() gathers policy information for the
  * disk described in the given a 'path' and a 'type'.
  */
-struct dev_policy *path_policy(char *path, char *type)
+struct dev_policy *path_policy(char **paths, char *type)
 {
 	struct pol_rule *rules;
 	struct dev_policy *pol = NULL;
-	int i;
 
 	rules = config_rules;
 
 	while (rules) {
-		char *part;
+		char *part = NULL;
 		if (rules->type == rule_policy)
-			if (pol_match(rules->rule, path, type))
+			if (pol_match(rules->rule, paths, type, NULL))
 				pol_merge(&pol, rules->rule);
 		if (rules->type == rule_part && strcmp(type, type_part) == 0)
-			if (path_has_part(path, &part)) {
-				*part = 0;
-				if (pol_match(rules->rule, path, type_disk))
-					pol_merge_part(&pol, rules->rule, part+1);
-				*part = '-';
-			}
+			if (pol_match(rules->rule, paths, type_disk, &part))
+					pol_merge_part(&pol, rules->rule, part);
 		rules = rules->next;
 	}
-
-	/* Now add any metadata-specific internal knowledge
-	 * about this path
-	 */
-	for (i=0; path && superlist[i]; i++)
-		if (superlist[i]->get_disk_controller_domain) {
-			const char *d =
-				superlist[i]->get_disk_controller_domain(path);
-			if (d)
-				pol_new(&pol, pol_domain, d, superlist[i]->name);
-		}
 
 	pol_sort(&pol);
 	pol_dedup(pol);
 	return pol;
+}
+
+/**
+ * drive_test_and_add_policies() - get policies for drive and add them to pols.
+ * @st: supertype.
+ * @pols: pointer to pointer of first list entry, cannot be NULL, may point to NULL.
+ * @fd: device descriptor.
+ * @verbose: verbose flag.
+ *
+ * If supertype doesn't support this functionality return success. Use metadata handler to get
+ * policies.
+ */
+mdadm_status_t drive_test_and_add_policies(struct supertype *st, dev_policy_t **pols, int fd,
+					   const int verbose)
+{
+	if (!st->ss->test_and_add_drive_policies)
+		return MDADM_STATUS_SUCCESS;
+
+	if (st->ss->test_and_add_drive_policies(pols, fd, verbose) == MDADM_STATUS_SUCCESS) {
+		/* After successful call list cannot be empty */
+		assert(*pols);
+		return MDADM_STATUS_SUCCESS;
+	}
+
+	return MDADM_STATUS_ERROR;
+}
+
+/**
+ * sysfs_test_and_add_policies() - get policies for mddev and add them to pols.
+ * @st: supertype.
+ * @pols: pointer to pointer of first list entry, cannot be NULL, may point to NULL.
+ * @mdi: mdinfo describes the MD array, must have GET_DISKS option.
+ * @verbose: verbose flag.
+ *
+ * If supertype doesn't support this functionality return success. To get policies, all disks
+ * connected to mddev are analyzed.
+ */
+mdadm_status_t sysfs_test_and_add_drive_policies(struct supertype *st, dev_policy_t **pols,
+						 struct mdinfo *mdi, const int verbose)
+{
+	struct mdinfo *sd;
+
+	if (!st->ss->test_and_add_drive_policies)
+		return MDADM_STATUS_SUCCESS;
+
+	for (sd = mdi->devs; sd; sd = sd->next) {
+		char *devpath = map_dev(sd->disk.major, sd->disk.minor, 0);
+		int fd = dev_open(devpath, O_RDONLY);
+		int rv;
+
+		if (!is_fd_valid(fd)) {
+			pr_err("Cannot open fd for %s\n", devpath);
+			return MDADM_STATUS_ERROR;
+		}
+
+		rv = drive_test_and_add_policies(st, pols, fd, verbose);
+		close(fd);
+
+		if (rv)
+			return MDADM_STATUS_ERROR;
+	}
+
+	return MDADM_STATUS_SUCCESS;
+}
+
+/**
+ * mddev_test_and_add_policies() - get policies for mddev and add them to pols.
+ * @st: supertype.
+ * @pols: pointer to pointer of first list entry, cannot be NULL, may point to NULL.
+ * @array_fd: MD device descriptor.
+ * @verbose: verbose flag.
+ *
+ * If supertype doesn't support this functionality return success. Use fd to extract disks.
+ */
+mdadm_status_t mddev_test_and_add_drive_policies(struct supertype *st, dev_policy_t **pols,
+						 int array_fd, const int verbose)
+{
+	struct mdinfo *sra;
+	int ret;
+
+	if (!st->ss->test_and_add_drive_policies)
+		return MDADM_STATUS_SUCCESS;
+
+	sra = sysfs_read(array_fd, NULL, GET_DEVS);
+	if (!sra) {
+		pr_err("Cannot load sysfs for %s\n", fd2devnm(array_fd));
+		return MDADM_STATUS_ERROR;
+	}
+
+	ret = sysfs_test_and_add_drive_policies(st, pols, sra, verbose);
+
+	sysfs_free(sra);
+	return ret;
 }
 
 void pol_add(struct dev_policy **pol,
@@ -400,22 +488,34 @@ void pol_add(struct dev_policy **pol,
 	pol_dedup(*pol);
 }
 
+static void free_paths(char **paths)
+{
+	int i;
+
+	if (!paths)
+		return;
+
+	for (i = 0; paths[i]; i++)
+		free(paths[i]);
+	free(paths);
+}
+
 /*
  * disk_policy() gathers policy information for the
  * disk described in the given mdinfo (disk.{major,minor}).
  */
 struct dev_policy *disk_policy(struct mdinfo *disk)
 {
-	char *path = NULL;
+	char **paths = NULL;
 	char *type = disk_type(disk);
 	struct dev_policy *pol = NULL;
 
 	if (config_rules_has_path)
-		path = disk_path(disk);
+		paths = disk_paths(disk);
 
-	pol = path_policy(path, type);
+	pol = path_policy(paths, type);
 
-	free(path);
+	free_paths(paths);
 	return pol;
 }
 
@@ -739,7 +839,7 @@ void policy_save_path(char *id_path, struct map_ent *array)
 		return;
 	}
 
-	if (fprintf(f, "%s %08x:%08x:%08x:%08x\n",
+	if (fprintf(f, "%20s %08x:%08x:%08x:%08x\n",
 		    array->metadata,
 		    array->uuid[0], array->uuid[1],
 		    array->uuid[2], array->uuid[3]) <= 0)
@@ -752,27 +852,26 @@ int policy_check_path(struct mdinfo *disk, struct map_ent *array)
 {
 	char path[PATH_MAX];
 	FILE *f = NULL;
-	char *id_path = disk_path(disk);
-	int rv;
+	char **id_paths = disk_paths(disk);
+	int i;
+	int rv = 0;
 
-	if (!id_path)
-		return 0;
+	for (i = 0; id_paths[i]; i++) {
+		snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_paths[i]);
+		f = fopen(path, "r");
+		if (!f)
+			continue;
 
-	snprintf(path, PATH_MAX, FAILED_SLOTS_DIR "/%s", id_path);
-	f = fopen(path, "r");
-	if (!f) {
-		free(id_path);
-		return 0;
+		rv = fscanf(f, " %20s %x:%x:%x:%x\n",
+			    array->metadata,
+			    array->uuid,
+			    array->uuid+1,
+			    array->uuid+2,
+			    array->uuid+3);
+		fclose(f);
+		break;
 	}
-
-	rv = fscanf(f, " %s %x:%x:%x:%x\n",
-		    array->metadata,
-		    array->uuid,
-		    array->uuid+1,
-		    array->uuid+2,
-		    array->uuid+3);
-	fclose(f);
-	free(id_path);
+	free_paths(id_paths);
 	return rv == 5;
 }
 
@@ -872,24 +971,17 @@ int generate_entries(int fd)
  */
 int Write_rules(char *rule_name)
 {
-	int fd;
-	char udev_rule_file[PATH_MAX];
+	int fd = fileno(stdout);
 
-	if (rule_name) {
-		strncpy(udev_rule_file, rule_name, sizeof(udev_rule_file) - 6);
-		udev_rule_file[sizeof(udev_rule_file) - 6] = '\0';
-		strcat(udev_rule_file, ".temp");
-		fd = creat(udev_rule_file,
-			   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-		if (fd == -1)
-			return 1;
-	} else
-		fd = 1;
+	if (rule_name)
+		fd = creat(rule_name, 0644);
+
+	if (!is_fd_valid(fd))
+		return 1;
 
 	/* write static invocation */
-	if (write(fd, udev_template_start,
-		  sizeof(udev_template_start) - 1)
-	    != (int)sizeof(udev_template_start)-1)
+	if (write(fd, udev_template_start, sizeof(udev_template_start) - 1) !=
+	    (int)sizeof(udev_template_start) - 1)
 		goto abort;
 
 	/* iterate, if none created or error occurred, remove file */
@@ -897,15 +989,14 @@ int Write_rules(char *rule_name)
 		goto abort;
 
 	fsync(fd);
-	if (rule_name) {
+	if (rule_name)
 		close(fd);
-		rename(udev_rule_file, rule_name);
-	}
+
 	return 0;
 abort:
 	if (rule_name) {
 		close(fd);
-		unlink(udev_rule_file);
+		unlink(rule_name);
 	}
 	return 1;
 }

@@ -1,0 +1,7 @@
+always fails
+
+Fails with errors:
+
+    **Error**: Offset mismatch - expected 15360, actual 0
+    **Error**: Offset mismatch - expected 15360, actual 0
+    /dev/md/vol3 failed check

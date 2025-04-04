@@ -1,0 +1,88 @@
+devs="$dev0 $dev1 $dev2 $dev3"
+runtime=120
+pid=""
+action_pid=""
+
+set_up_injection()
+{
+	echo -1 > /sys/kernel/debug/fail_make_request/times
+	echo 1 > /sys/kernel/debug/fail_make_request/probability
+	echo 0 > /sys/kernel/debug/fail_make_request/verbose
+	echo 1 > /sys/block/${1##*/}/make-it-fail
+}
+
+clean_up_injection()
+{
+	echo 0 > /sys/block/${1##*/}/make-it-fail
+	echo 0 > /sys/kernel/debug/fail_make_request/times
+	echo 0 > /sys/kernel/debug/fail_make_request/probability
+	echo 2 > /sys/kernel/debug/fail_make_request/verbose
+}
+
+test_rdev()
+{
+	while true; do
+		mdadm -f $md0 $1 &> /dev/null
+		mdadm -r $md0 $1 &> /dev/null
+		mdadm --zero-superblock $1 &> /dev/null
+		mdadm -a $md0 $1 &> /dev/null
+		sleep $2
+	done
+}
+
+test_write_action()
+{
+	while true; do
+		echo frozen > /sys/block/md0/md/sync_action
+		echo idle > /sys/block/md0/md/sync_action
+		sleep 0.1
+	done
+}
+
+set_up_test()
+{
+	fio -h &> /dev/null || die "fio not found"
+
+	# create a simple raid10
+	mdadm -Cv -R -n 4 -l10 $md0 $devs || die "create raid10 failed"
+}
+
+clean_up_test()
+{
+	clean_up_injection $dev0
+	pkill -9 fio
+	kill -9 $pid
+	kill -9 $action_pid
+
+	sleep 2
+
+	if ps $action_pid | tail -1 | awk '{print $3}' | grep D; then
+		die "thread that is writing sysfs is stuck in D state, deadlock is triggered"
+	fi
+	mdadm -S $md0
+}
+
+cat /sys/kernel/debug/fail_make_request/times || skip "fault injection is not enabled"
+
+trap 'clean_up_test' EXIT
+
+set_up_test || die "set up test failed"
+
+# backgroup io pressure
+fio -filename=$md0 -rw=randwrite -direct=1 -name=test -bs=4k -numjobs=16 -iodepth=16 &
+
+# trigger add/remove device by io failure
+set_up_injection $dev0
+test_rdev $dev0 2 &
+pid="$pid $!"
+
+# add/remove device directly
+test_rdev $dev3 10 &
+pid="$pid $!"
+
+test_write_action &
+action_pid="$!"
+
+sleep $runtime
+
+exit 0

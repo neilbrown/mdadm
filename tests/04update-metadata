@@ -8,20 +8,29 @@ set -xe
 
 dlist="$dev0 $dev1 $dev2 $dev3"
 
-for ls in raid0/4 linear/4 raid1/1 raid5/3 raid6/2
+if [ $skipping_linear == "yes" ]; then
+	level_list="raid1/1 raid5/3 raid6/2"
+else
+	level_list="linear/4 raid1/1 raid5/3 raid6/2"
+fi
+for ls in $level_list
 do
-  s=${ls#*/} l=${ls%/*}
-  mdadm -CR --assume-clean -e 0.90 $md0 --level $l -n 4 -c 64 $dlist
-  testdev $md0 $s 19904 64
-  mdadm -S $md0
-  mdadm -A $md0 --update=metadata $dlist
-  testdev $md0 $s 19904 64 check
-  mdadm -S $md0
+	s=${ls#*/} l=${ls%/*}
+	if [[ $l == 'raid1' ]]; then
+		mdadm -CR --assume-clean -e 0.90 $md0 --level $l -n 4 $dlist
+	else
+		mdadm -CR --assume-clean -e 0.90 $md0 --level $l -n 4 -c 64 $dlist
+	fi
+	testdev $md0 $s 19904 64
+	mdadm -S $md0
+	mdadm -A $md0 --update=metadata $dlist
+	testdev $md0 $s 19904 64 check
+	mdadm -S $md0
 done
 
 if mdadm -A $md0 --update=metadata $dlist
 then echo >&2 should fail with v1.0 metadata
-     exit 1
+	exit 1
 fi
 
 mdadm -CR -e 0.90 $md0 --level=6 -n4 -c32 $dlist
@@ -29,7 +38,7 @@ mdadm -S $md0
 
 if mdadm -A $md0 --update=metadata $dlist
 then echo >&2 should fail during resync
-     exit 1
+	exit 1
 fi
 mdadm -A $md0 $dlist
 mdadm --wait $md0 || true
@@ -44,5 +53,5 @@ mdadm -S $md0
 
 if mdadm -A $md0 --update=metadata $dlist
 then echo >&2 should fail when bitmap present
-     exit 1
+	exit 1
 fi

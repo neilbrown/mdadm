@@ -40,7 +40,7 @@ struct MBR_part_record {
   __u8 last_cyl;
   __u32 first_sect_lba;
   __u32 blocks_num;
-};
+} __attribute__((packed));
 
 struct MBR {
 	__u8 pad[446];

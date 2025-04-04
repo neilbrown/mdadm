@@ -1,0 +1,24 @@
+#
+# create a raid1 with a drive and set badblocks for the drive.
+# add a new drive does not cause an error.
+#
+
+# create raid1
+mdadm -CR $md0 -l1 -n2 -e1.0 $dev1 missing
+testdev $md0 1 $mdsize1a 64
+sleep 3
+
+# set badblocks for the drive
+dev1_name=$(basename $dev1)
+echo "100 100" > /sys/block/md0/md/dev-$dev1_name/bad_blocks
+echo "write_error" > /sys/block/md0/md/dev-$dev1_name/state
+
+# write badblocks to metadata
+dd if=/dev/zero of=$md0 bs=512 count=200 oflag=direct
+
+# re-add and recovery
+mdadm $md0 -a $dev2
+check recovery
+
+mdadm -S $md0
+

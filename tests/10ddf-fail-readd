@@ -10,14 +10,14 @@ mdadm -CR $container -e ddf -l container -n 2 $dev8 $dev9
 mdadm -CR $member0 -l raid1 -n 2 $container
 #$dir/mdadm -CR $member0 -l raid1 -n 2 $container >/tmp/mdmon.txt 2>&1
 
-mke2fs $member0
+mke2fs -F $member0
 check wait
 
 set -- $(get_raiddisks $member0)
 fail0=$1
 mdadm $member0 --fail $fail0
 
-sleep 1
+sleep 2
 mdadm $container --remove $fail0
 
 set -- $(get_raiddisks $member0)
@@ -27,7 +27,7 @@ good0=$1
 # We re-add the disk now
 mdadm $container --add $fail0
 
-sleep 1
+sleep 2
 mdadm --wait $member0 || true
 
 ret=0

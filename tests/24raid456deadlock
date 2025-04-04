@@ -1,0 +1,58 @@
+devs="$dev0 $dev1 $dev2 $dev3 $dev4 $dev5"
+runtime=120
+pid=""
+old=`cat /proc/sys/vm/dirty_background_ratio`
+
+test_write_action()
+{
+	while true; do
+		echo check > /sys/block/md0/md/sync_action &> /dev/null
+		sleep 0.1
+		echo idle > /sys/block/md0/md/sync_action &> /dev/null
+	done
+}
+
+test_write_back()
+{
+	fio -filename=$md0 -bs=4k -rw=write -numjobs=1 -name=test \
+		-time_based -runtime=$runtime &> /dev/null
+}
+
+set_up_test()
+{
+	fio -h &> /dev/null || die "fio not found"
+
+	# create a simple raid6
+	mdadm -Cv -R -n 6 -l6 $md0 $devs --assume-clean || die "create raid6 failed"
+
+	# trigger dirty pages write back
+	echo 0 > /proc/sys/vm/dirty_background_ratio
+}
+
+clean_up_test()
+{
+	echo $old > /proc/sys/vm/dirty_background_ratio
+
+	pkill -9 fio
+	kill -9 $pid
+
+	sleep 2
+
+	if ps $pid | tail -1 | awk '{print $3}' | grep D; then
+		die "thread that is writing sysfs is stuck in D state, deadlock is triggered"
+	fi
+	mdadm -S $md0
+}
+
+trap 'clean_up_test' EXIT
+
+set_up_test || die "set up test failed"
+
+test_write_back &
+
+test_write_action &
+pid="$!"
+
+sleep $runtime
+
+exit 0

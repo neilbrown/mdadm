@@ -40,6 +40,7 @@
 
 #include "mdadm.h"
 #include "part.h"
+#include "xmalloc.h"
 
 static void free_gpt(struct supertype *st)
 {
@@ -47,7 +48,6 @@ static void free_gpt(struct supertype *st)
 	st->sb = NULL;
 }
 
-#ifndef MDASSEMBLE
 static void examine_gpt(struct supertype *st, char *homehost)
 {
 	struct GPT *gpt = st->sb + 512;
@@ -66,18 +66,23 @@ static void examine_gpt(struct supertype *st, char *homehost)
 			);
 	}
 }
-#endif /* MDASSEMBLE */
 
 static int load_gpt(struct supertype *st, int fd, char *devname)
 {
 	struct MBR *super;
 	struct GPT *gpt_head;
 	int to_read;
+	unsigned int sector_size;
 
 	free_gpt(st);
 
 	if (posix_memalign((void**)&super, 4096, 32*512) != 0) {
 		pr_err("could not allocate superblock\n");
+		return 1;
+	}
+
+	if (!get_dev_sector_size(fd, devname, &sector_size)) {
+		free(super);
 		return 1;
 	}
 
@@ -100,6 +105,9 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 		free(super);
 		return 1;
 	}
+	/* Set offset to second block (GPT header) */
+	if (lseek(fd, sector_size, SEEK_SET) == -1L)
+		goto no_read;
 	/* Seem to have GPT, load the header */
 	gpt_head = (struct GPT*)(super+1);
 	if (read(fd, gpt_head, sizeof(*gpt_head)) != sizeof(*gpt_head))
@@ -111,6 +119,9 @@ static int load_gpt(struct supertype *st, int fd, char *devname)
 
 	to_read = __le32_to_cpu(gpt_head->part_cnt) * sizeof(struct GPT_part_entry);
 	to_read =  ((to_read+511)/512) * 512;
+	/* Set offset to third block (GPT entries) */
+	if (lseek(fd, sector_size * 2, SEEK_SET) == -1L)
+		goto no_read;
 	if (read(fd, gpt_head+1, to_read) != to_read)
 		goto no_read;
 
@@ -189,24 +200,20 @@ static struct supertype *match_metadata_desc(char *arg)
 	return st;
 }
 
-#ifndef MDASSEMBLE
 static int validate_geometry(struct supertype *st, int level,
 			     int layout, int raiddisks,
 			     int *chunk, unsigned long long size,
 			     unsigned long long data_offset,
 			     char *subdev, unsigned long long *freesize,
-			     int verbose)
+			     int consistency_policy, int verbose)
 {
 	pr_err("gpt metadata cannot be used this way\n");
 	return 0;
 }
-#endif
 
 struct superswitch gpt = {
-#ifndef MDASSEMBLE
 	.examine_super = examine_gpt,
 	.validate_geometry = validate_geometry,
-#endif
 	.match_metadata_desc = match_metadata_desc,
 	.load_super = load_gpt,
 	.store_super = store_gpt,

@@ -5,12 +5,7 @@
 # put a partition on each, create an array, and see if we can
 # use autodetect to restart the array.
 
-if lsmod | grep md_mod > /dev/null 2>&1
-then
-  echo md is a module - cannot test autodetect
-  exit 0
-fi
-
+[if lsmod | grep md_mod > /dev/null 2>&1] || skip "md is a module - cannot test autodetect"
 
 mdadm -CR -e 0 $mdp0 -l0 -f -n1 $dev0
 mdadm -CR -e 0 $mdp1 -l0 -f -n1 $dev1
@@ -23,6 +18,7 @@ sfdisk $mdp1 >&2 << END
 END
 udevadm settle
 mdadm -CR -e 0 $md0 -l1 -n2 ${mdp0}p1 ${mdp1}p1
+sleep 2
 check resync
 check raid1
 check wait

@@ -104,9 +104,10 @@
 #endif
 #include	"mdadm.h"
 #include	"mdmon.h"
+#include	"xmalloc.h"
+
 #include	<sys/syscall.h>
 #include	<sys/socket.h>
-#include	<signal.h>
 
 static void close_aa(struct active_array *aa)
 {
@@ -115,6 +116,8 @@ static void close_aa(struct active_array *aa)
 	for (d = aa->info.devs; d; d = d->next) {
 		close(d->recovery_fd);
 		close(d->state_fd);
+		close(d->bb_fd);
+		close(d->ubb_fd);
 	}
 
 	if (aa->action_fd >= 0)
@@ -127,6 +130,8 @@ static void close_aa(struct active_array *aa)
 		close(aa->metadata_fd);
 	if (aa->sync_completed_fd >= 0)
 		close(aa->sync_completed_fd);
+	if (aa->safe_mode_delay_fd >= 0)
+		close(aa->safe_mode_delay_fd);
 }
 
 static void free_aa(struct active_array *aa)
@@ -204,7 +209,7 @@ static void replace_array(struct supertype *container,
 	remove_old();
 	while (pending_discard) {
 		while (discard_this == NULL)
-			sleep(1);
+			sleep_for(1, 0, true);
 		remove_old();
 	}
 	pending_discard = old;
@@ -262,9 +267,7 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 {
 	int dfd;
 	char nm[20];
-	struct supertype *st2;
 	struct metadata_update *update = NULL;
-	struct mdinfo info;
 	mdu_disk_info_t dk = {
 		.number = -1,
 		.major = sd->disk.major,
@@ -282,25 +285,6 @@ static void add_disk_to_container(struct supertype *st, struct mdinfo *sd)
 	dfd = dev_open(nm, O_RDWR);
 	if (dfd < 0)
 		return;
-
-	/* Check the metadata and see if it is already part of this
-	 * array
-	 */
-	st2 = dup_super(st);
-	if (st2->ss->load_super(st2, dfd, NULL) == 0) {
-		st2->ss->getinfo_super(st2, &info, NULL);
-		if (st->ss->compare_super(st, st2) == 0 &&
-		    info.disk.raid_disk >= 0) {
-			/* Looks like a good member of array.
-			 * Just accept it.
-			 * mdadm will incorporate any parts into
-			 * active arrays.
-			 */
-			st2->ss->free_super(st2);
-			return;
-		}
-	}
-	st2->ss->free_super(st2);
 
 	st->update_tail = &update;
 	st->ss->add_to_super(st, &dk, dfd, NULL, INVALID_SECTORS);
@@ -410,7 +394,9 @@ static int sysfs_open2(char *devnum, char *name, char *attr)
 		 * never needs too.
 		 */
 		char buf[200];
-		read(fd, buf, sizeof(buf));
+		if (read(fd, buf, sizeof(buf)) < 0)
+			/* pretend not to ignore return value */
+			return fd;
 	}
 	return fd;
 }
@@ -431,12 +417,60 @@ static int disk_init_and_add(struct mdinfo *disk, struct mdinfo *clone,
 		close(disk->recovery_fd);
 		return -1;
 	}
+	disk->bb_fd = sysfs_open2(aa->info.sys_name, disk->sys_name,
+				 "bad_blocks");
+	if (disk->bb_fd < 0) {
+		close(disk->recovery_fd);
+		close(disk->state_fd);
+		return -1;
+	}
+	disk->ubb_fd = sysfs_open2(aa->info.sys_name, disk->sys_name,
+				  "unacknowledged_bad_blocks");
+	if (disk->ubb_fd < 0) {
+		close(disk->recovery_fd);
+		close(disk->state_fd);
+		close(disk->bb_fd);
+		return -1;
+	}
 	disk->prev_state = read_dev_state(disk->state_fd);
 	disk->curr_state = disk->prev_state;
 	disk->next = aa->info.devs;
 	aa->info.devs = disk;
 
 	return 0;
+}
+
+/**
+ * managemon_disk_remove()- remove disk from the MD array.
+ * @disk: device to be removed.
+ * @array_devnm: the name of the array to remove disk from.
+ *
+ * It tries to remove the disk from the MD array and if it is successful then it closes all opened
+ * descriptors. Removing action requires suspend, it might take a while.
+ * Invalidating mdi->state_fd will prevent from using this device further (see duplicate_aa()).
+ *
+ * To avoid deadlock, new file descriptor is opened because monitor may already wait on
+ * mdddev_suspend() in kernel and keep saved descriptor locked.
+ *
+ * Returns MDADM_STATUS_SUCCESS if disk has been removed, MDADM_STATUS_ERROR otherwise.
+ */
+static mdadm_status_t managemon_disk_remove(struct mdinfo *disk, char *array_devnm)
+{
+	int new_state_fd = sysfs_open2(array_devnm, disk->sys_name, "state");
+
+	if (!is_fd_valid(new_state_fd))
+		return MDADM_STATUS_ERROR;
+
+	if (write_attr("remove", new_state_fd) != MDADM_STATUS_SUCCESS)
+		return MDADM_STATUS_ERROR;
+
+	close_fd(&new_state_fd);
+	close_fd(&disk->state_fd);
+	close_fd(&disk->recovery_fd);
+	close_fd(&disk->bb_fd);
+	close_fd(&disk->ubb_fd);
+
+	return MDADM_STATUS_SUCCESS;
 }
 
 static void manage_member(struct mdstat_ent *mdstat,
@@ -455,10 +489,10 @@ static void manage_member(struct mdstat_ent *mdstat,
 	 * trying to find and assign a spare.
 	 * We do that whenever the monitor tells us too.
 	 */
-	char buf[64];
+	char buf[SYSFS_MAX_BUF_SIZE];
 	int frozen;
 	struct supertype *container = a->container;
-	unsigned long long int component_size = 0;
+	struct mdinfo *mdi;
 
 	if (container == NULL)
 		/* Raced with something */
@@ -470,8 +504,13 @@ static void manage_member(struct mdstat_ent *mdstat,
 		// MORE
 	}
 
-	if (sysfs_get_ll(&a->info, NULL, "component_size", &component_size) >= 0)
-		a->info.component_size = component_size << 1;
+	mdi = sysfs_read(-1, mdstat->devnm,
+			 GET_COMPONENT|GET_CONSISTENCY_POLICY);
+	if (mdi) {
+		a->info.component_size = mdi->component_size;
+		a->info.consistency_policy = mdi->consistency_policy;
+		sysfs_free(mdi);
+	}
 
 	/* honor 'frozen' */
 	if (sysfs_get_str(&a->info, NULL, "metadata_version", buf, sizeof(buf)) > 0)
@@ -480,9 +519,9 @@ static void manage_member(struct mdstat_ent *mdstat,
 		frozen = 1; /* can't read metadata_version assume the worst */
 
 	/* If sync_action is not 'idle' then don't try recovery now */
-	if (!frozen
-	    && sysfs_get_str(&a->info, NULL, "sync_action", buf, sizeof(buf)) > 0
-	    && strncmp(buf, "idle", 4) != 0)
+	if (!frozen &&
+	    sysfs_get_str(&a->info, NULL, "sync_action",
+			  buf, sizeof(buf)) > 0 && strncmp(buf, "idle", 4) != 0)
 		frozen = 1;
 
 	if (mdstat->level) {
@@ -508,9 +547,45 @@ static void manage_member(struct mdstat_ent *mdstat,
 	if (a->container == NULL)
 		return;
 
-	if (sigterm && a->info.safe_mode_delay != 1) {
-		sysfs_set_safemode(&a->info, 1);
-		a->info.safe_mode_delay = 1;
+	if (sigterm && a->info.safe_mode_delay != 1 && a->safe_mode_delay_fd >= 0)
+		if (write_attr("0.001", a->safe_mode_delay_fd) == MDADM_STATUS_SUCCESS)
+			a->info.safe_mode_delay = 1;
+
+	if (a->check_member_remove) {
+		bool any_removed = false;
+		bool all_removed = true;
+		struct mdinfo *disk;
+
+		for (disk = a->info.devs; disk; disk = disk->next) {
+			if (disk->man_disk_to_remove == false)
+				continue;
+
+			if (disk->mon_descriptors_not_used == false) {
+				/* To early, repeat later */
+				all_removed = false;
+				continue;
+			}
+
+			if (managemon_disk_remove(disk, a->info.sys_name)) {
+				all_removed = false;
+				continue;
+			}
+
+			any_removed = true;
+		}
+
+		if (any_removed) {
+			struct active_array *newa = duplicate_aa(a);
+
+			if (all_removed)
+				newa->check_member_remove = false;
+
+			replace_array(container, a, newa);
+			a = newa;
+		}
+
+		if (!all_removed)
+			return;
 	}
 
 	/* We don't check the array while any update is pending, as it
@@ -534,8 +609,6 @@ static void manage_member(struct mdstat_ent *mdstat,
 			return;
 
 		newa = duplicate_aa(a);
-		if (!newa)
-			goto out;
 		/* prevent the kernel from activating the disk(s) before we
 		 * finish adding them
 		 */
@@ -558,14 +631,14 @@ static void manage_member(struct mdstat_ent *mdstat,
 		updates = NULL;
 		while (update_queue_pending || update_queue) {
 			check_update_queue(container);
-			usleep(15*1000);
+			sleep_for(0, MSEC_TO_NSEC(15), true);
 		}
 		replace_array(container, a, newa);
-		if (sysfs_set_str(&a->info, NULL, "sync_action", "recover")
-		    == 0)
+		if (sysfs_set_str(&a->info, NULL,
+				  "sync_action", "recover") == 0)
 			newa->prev_action = recover;
 		dprintf("recovery started on %s\n", a->info.sys_name);
- out:
+
 		while (newdev) {
 			d = newdev->next;
 			free(newdev);
@@ -599,16 +672,14 @@ static void manage_member(struct mdstat_ent *mdstat,
 			if (d2)
 				/* already have this one */
 				continue;
-			if (!newa) {
+			if (!newa)
 				newa = duplicate_aa(a);
-				if (!newa)
-					break;
-			}
+
 			newd = xmalloc(sizeof(*newd));
 			disk_init_and_add(newd, d, newa);
 		}
-		if (sysfs_get_ll(info, NULL, "array_size", &array_size) == 0
-		    && a->info.custom_array_size > array_size*2) {
+		if (sysfs_get_ll(info, NULL, "array_size", &array_size) == 0 &&
+		    a->info.custom_array_size > array_size*2) {
 			sysfs_set_num(info, NULL, "array_size",
 				      a->info.custom_array_size/2);
 		}
@@ -650,24 +721,24 @@ static void manage_new(struct mdstat_ent *mdstat,
 	 * the monitor.
 	 */
 
-	struct active_array *new;
-	struct mdinfo *mdi, *di;
-	char *inst;
-	int i;
+	struct metadata_update *update = NULL;
+	struct active_array *new = NULL;
+	struct mdinfo *mdi = NULL, *di;
+	char buf[SYSFS_MAX_BUF_SIZE];
 	int failed = 0;
-	char buf[40];
+	int i, inst;
 
 	/* check if array is ready to be monitored */
 	if (!mdstat->active || !mdstat->level)
 		return;
-	if (strcmp(mdstat->level, "raid0") == 0 ||
-	    strcmp(mdstat->level, "linear") == 0)
+	if (strncmp(mdstat->level, "raid0", strlen("raid0")) == 0 ||
+	    strncmp(mdstat->level, "linear", strlen("linear")) == 0)
 		return;
 
 	mdi = sysfs_read(-1, mdstat->devnm,
 			 GET_LEVEL|GET_CHUNK|GET_DISKS|GET_COMPONENT|
-			 GET_DEGRADED|GET_SAFEMODE|
-			 GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|GET_LAYOUT);
+			 GET_SAFEMODE|GET_DEVS|GET_OFFSET|GET_SIZE|GET_STATE|
+			 GET_LAYOUT|GET_DEVS_ALL);
 
 	if (!mdi)
 		return;
@@ -680,7 +751,8 @@ static void manage_new(struct mdstat_ent *mdstat,
 
 	new->container = container;
 
-	inst = to_subarray(mdstat, container->devnm);
+	if (parse_num(&inst, to_subarray(mdstat, container->devnm)) != 0)
+		goto error;
 
 	new->info.array = mdi->array;
 	new->info.component_size = mdi->component_size;
@@ -710,13 +782,13 @@ static void manage_new(struct mdstat_ent *mdstat,
 	new->resync_start_fd = sysfs_open2(new->info.sys_name, NULL, "resync_start");
 	new->metadata_fd = sysfs_open2(new->info.sys_name, NULL, "metadata_version");
 	new->sync_completed_fd = sysfs_open2(new->info.sys_name, NULL, "sync_completed");
+	new->safe_mode_delay_fd = sysfs_open2(new->info.sys_name, NULL,
+					      "safe_mode_delay");
 
-	dprintf("inst: %s action: %d state: %d\n", inst,
+	dprintf("inst: %d action: %d state: %d\n", inst,
 		new->action_fd, new->info.state_fd);
 
-	if (sigterm)
-		new->info.safe_mode_delay = 1;
-	else if (mdi->safe_mode_delay >= 50)
+	if (mdi->safe_mode_delay >= 50)
 		/* Normal start, mdadm set this. */
 		new->info.safe_mode_delay = mdi->safe_mode_delay;
 	else
@@ -728,7 +800,7 @@ static void manage_new(struct mdstat_ent *mdstat,
 	 * read this information for new arrays only (empty victim)
 	 */
 	if ((victim == NULL) &&
-	    (sysfs_get_str(mdi, NULL, "sync_action", buf, 40) > 0) &&
+	    (sysfs_get_str(mdi, NULL, "sync_action", buf, sizeof(buf)) > 0) &&
 	    (strncmp(buf, "reshape", 7) == 0)) {
 		if (sysfs_get_ll(mdi, NULL, "reshape_position",
 			&new->last_checkpoint) != 0)
@@ -748,22 +820,33 @@ static void manage_new(struct mdstat_ent *mdstat,
 	}
 
 	sysfs_free(mdi);
+	mdi = NULL;
 
 	/* if everything checks out tell the metadata handler we want to
 	 * manage this instance
 	 */
+	container->update_tail = &update;
 	if (!aa_ready(new) || container->ss->open_new(container, new, inst) < 0) {
-		pr_err("failed to monitor %s\n",
-			mdstat->metadata_version);
-		new->container = NULL;
-		free_aa(new);
+		container->update_tail = NULL;
+		goto error;
 	} else {
+		if (update)
+			queue_metadata_update(update);
+		container->update_tail = NULL;
 		replace_array(container, victim, new);
 		if (failed) {
 			new->check_degraded = 1;
 			manage_member(mdstat, new);
 		}
 	}
+	return;
+
+error:
+	pr_err("failed to monitor %s\n", mdstat->metadata_version);
+	new->container = NULL;
+	free_aa(new);
+	if (mdi)
+		sysfs_free(mdi);
 }
 
 void manage(struct mdstat_ent *mdstat, struct supertype *container)
@@ -790,7 +873,7 @@ void manage(struct mdstat_ent *mdstat, struct supertype *container)
 				break;
 			}
 		}
-		if (a == NULL || !a->container)
+		if ((a == NULL || !a->container) && !sigterm)
 			manage_new(mdstat, container, a);
 	}
 }
@@ -804,7 +887,7 @@ static void handle_message(struct supertype *container, struct metadata_update *
 	if (msg->len <= 0)
 		while (update_queue_pending || update_queue) {
 			check_update_queue(container);
-			usleep(15*1000);
+			sleep_for(0, MSEC_TO_NSEC(15), true);
 		}
 
 	if (msg->len == 0) { /* ping_monitor */
@@ -818,7 +901,7 @@ static void handle_message(struct supertype *container, struct metadata_update *
 		wakeup_monitor();
 
 		while (monitor_loop_cnt - cnt < 0)
-			usleep(10 * 1000);
+			sleep_for(0, MSEC_TO_NSEC(10), true);
 	} else if (msg->len == -1) { /* ping_manager */
 		struct mdstat_ent *mdstat = mdstat_read(1, 0);
 
@@ -852,8 +935,15 @@ void read_sock(struct supertype *container)
 		return;
 
 	fl = fcntl(fd, F_GETFL, 0);
+	if (fl < 0) {
+		close_fd(&fd);
+		return;
+	}
 	fl |= O_NONBLOCK;
-	fcntl(fd, F_SETFL, fl);
+	if (fcntl(fd, F_SETFL, fl) < 0) {
+		close_fd(&fd);
+		return;
+	}
 
 	do {
 		msg.buf = NULL;

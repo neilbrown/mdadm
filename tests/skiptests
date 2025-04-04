@@ -1,0 +1,9 @@
+casename:seconds
+01raid6integ:1732
+01replace:396
+07layouts:836
+11spare-migration:1140
+12imsm-r0_2d-grow-r0_5d:218
+13imsm-r0_r0_2d-grow-r0_r0_4d:218
+13imsm-r0_r0_2d-grow-r0_r0_5d:246
+19raid6check:268

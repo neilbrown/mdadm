@@ -24,7 +24,39 @@
 
 #include	"mdadm.h"
 #include	"dlink.h"
+#include	"xmalloc.h"
+
 #include	<ctype.h>
+#include	<limits.h>
+
+/**
+ * is_string_lq() - Check if string length with NULL byte is lower or equal to requested.
+ * @str: string to check.
+ * @max_len: max length.
+ *
+ * @str length must be bigger than 0 and be lower or equal @max_len, including termination byte.
+ */
+bool is_string_lq(const char * const str, size_t max_len)
+{
+	assert(str);
+
+	size_t _len = strnlen(str, max_len);
+
+	if (_len > 0 && _len < max_len)
+		return true;
+	return false;
+}
+
+bool is_dev_alive(char *path)
+{
+	if (!path)
+		return false;
+
+	if (access(path, R_OK) == 0)
+		return true;
+
+	return false;
+}
 
 /* This fill contains various 'library' style function.  They
  * have no dependency on anything outside this file.
@@ -32,7 +64,7 @@
 
 int get_mdp_major(void)
 {
-static int mdp_major = -1;
+	static int mdp_major = -1;
 	FILE *fl;
 	char *w;
 	int have_block = 0;
@@ -41,27 +73,30 @@ static int mdp_major = -1;
 
 	if (mdp_major != -1)
 		return mdp_major;
+
 	fl = fopen("/proc/devices", "r");
 	if (!fl)
 		return -1;
+
 	while ((w = conf_word(fl, 1))) {
-		if (have_block && strcmp(w, "devices:")==0)
+		if (have_block && strcmp(w, "devices:") == 0)
 			have_devices = 1;
-		have_block =  (strcmp(w, "Block")==0);
+		have_block =  (strcmp(w, "Block") == 0);
 		if (isdigit(w[0]))
 			last_num = atoi(w);
-		if (have_devices && strcmp(w, "mdp")==0)
+		if (have_devices && strcmp(w, "mdp") == 0)
 			mdp_major = last_num;
 		free(w);
 	}
 	fclose(fl);
+
 	return mdp_major;
 }
 
-char *devid2kname(int devid)
+char *devid2kname(dev_t devid)
 {
 	char path[30];
-	char link[200];
+	char link[PATH_MAX];
 	static char devnm[32];
 	char *cp;
 	int n;
@@ -70,21 +105,38 @@ char *devid2kname(int devid)
 	 * /sys/dev/block/%d:%d link which must look like
 	 * and take the last component.
 	 */
-	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
-		minor(devid));
-	n = readlink(path, link, sizeof(link)-1);
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid), minor(devid));
+	n = readlink(path, link, sizeof(link) - 1);
 	if (n > 0) {
 		link[n] = 0;
 		cp = strrchr(link, '/');
 		if (cp) {
-			strcpy(devnm, cp+1);
+			snprintf(devnm, sizeof(devnm), "%s", cp + 1);
 			return devnm;
 		}
 	}
 	return NULL;
 }
 
-char *devid2devnm(int devid)
+char *stat2kname(struct stat *st)
+{
+	if ((S_IFMT & st->st_mode) != S_IFBLK)
+		return NULL;
+
+	return devid2kname(st->st_rdev);
+}
+
+char *fd2kname(int fd)
+{
+	struct stat stb;
+
+	if (fstat(fd, &stb) == 0)
+		return stat2kname(&stb);
+
+	return NULL;
+}
+
+char *devid2devnm(dev_t devid)
 {
 	char path[30];
 	char link[200];
@@ -99,9 +151,8 @@ char *devid2devnm(int devid)
 	 * or
 	 *    ...../block/md_FOO
 	 */
-	sprintf(path, "/sys/dev/block/%d:%d", major(devid),
-		minor(devid));
-	n = readlink(path, link, sizeof(link)-1);
+	sprintf(path, "/sys/dev/block/%d:%d", major(devid), minor(devid));
+	n = readlink(path, link, sizeof(link) - 1);
 	if (n > 0) {
 		link[n] = 0;
 		cp = strstr(link, "/block/");
@@ -110,7 +161,7 @@ char *devid2devnm(int devid)
 			ep = strchr(cp, '/');
 			if (ep)
 				*ep = 0;
-			strcpy(devnm, cp);
+			snprintf(devnm, sizeof(devnm), "%s", cp);
 			return devnm;
 		}
 	}
@@ -121,6 +172,7 @@ char *devid2devnm(int devid)
 			(minor(devid)>>MdpMinorShift));
 	else
 		return NULL;
+
 	return devnm;
 }
 
@@ -128,14 +180,29 @@ char *stat2devnm(struct stat *st)
 {
 	if ((S_IFMT & st->st_mode) != S_IFBLK)
 		return NULL;
+
 	return devid2devnm(st->st_rdev);
+}
+
+bool stat_is_md_dev(struct stat *st)
+{
+	if ((S_IFMT & st->st_mode) != S_IFBLK)
+		return false;
+	if (major(st->st_rdev) == MD_MAJOR)
+		return true;
+	if (major(st->st_rdev) == (unsigned)get_mdp_major())
+		return true;
+
+	return false;
 }
 
 char *fd2devnm(int fd)
 {
 	struct stat stb;
+
 	if (fstat(fd, &stb) == 0)
 		return stat2devnm(&stb);
+
 	return NULL;
 }
 
@@ -164,8 +231,8 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 	if ((stb->st_mode&S_IFMT)== S_IFBLK) {
 		char *n = xstrdup(name);
 		struct devmap *dm = xmalloc(sizeof(*dm));
-		if (strncmp(n, "/dev/./", 7)==0)
-			strcpy(n+4, name+6);
+		if (strncmp(n, "/dev/./", 7) == 0)
+			strcpy(n + 4, name + 6);
 		if (dm) {
 			dm->major = major(stb->st_rdev);
 			dm->minor = minor(stb->st_rdev);
@@ -174,6 +241,7 @@ int add_dev(const char *name, const struct stat *stb, int flag, struct FTW *s)
 			devlist = dm;
 		}
 	}
+
 	return 0;
 }
 
@@ -183,12 +251,16 @@ int add_dev_1(const char *name, const struct stat *stb, int flag)
 {
 	return add_dev(name, stb, flag, NULL);
 }
-int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+int nftw(const char *path,
+	 int (*han)(const char *name, const struct stat *stb,
+		    int flag, struct FTW *s), int nopenfd, int flags)
 {
 	return ftw(path, add_dev_1, nopenfd);
 }
 #else
-int nftw(const char *path, int (*han)(const char *name, const struct stat *stb, int flag, struct FTW *s), int nopenfd, int flags)
+int nftw(const char *path,
+	 int (*han)(const char *name, const struct stat *stb,
+		    int flag, struct FTW *s), int nopenfd, int flags)
 {
 	return 0;
 }
@@ -211,7 +283,7 @@ char *map_dev_preferred(int major, int minor, int create,
 	int did_check = 0;
 
 	if (major == 0 && minor == 0)
-			return NULL;
+		return NULL;
 
  retry:
 	if (!devlist_ready) {
@@ -223,19 +295,17 @@ char *map_dev_preferred(int major, int minor, int create,
 			free(d->name);
 			free(d);
 		}
-		if (lstat(dev, &stb)==0 &&
-		    S_ISLNK(stb.st_mode))
+		if (lstat(dev, &stb) == 0 && S_ISLNK(stb.st_mode))
 			dev = "/dev/.";
 		nftw(dev, add_dev, 10, FTW_PHYS);
 		devlist_ready=1;
 		did_check = 1;
 	}
 
-	for (p=devlist; p; p=p->next)
-		if (p->major == major &&
-		    p->minor == minor) {
-			if (strncmp(p->name, "/dev/md/",8) == 0
-			    || (prefer && strstr(p->name, prefer))) {
+	for (p = devlist; p; p = p->next)
+		if (p->major == major && p->minor == minor) {
+			if (strncmp(p->name, DEV_MD_DIR, DEV_MD_DIR_LEN) == 0 ||
+			    (prefer && strstr(p->name, prefer))) {
 				if (preferred == NULL ||
 				    strlen(p->name) < strlen(preferred))
 					preferred = p->name;
@@ -274,14 +344,16 @@ char *conf_word(FILE *file, int allow_key)
 	int wordfound = 0;
 	char *word = xmalloc(wsize);
 
-	while (wordfound==0) {
+	while (wordfound == 0) {
 		/* at the end of a word.. */
 		c = getc(file);
 		if (c == '#')
 			while (c != EOF && c != '\n')
 				c = getc(file);
-		if (c == EOF) break;
-		if (c == '\n') continue;
+		if (c == EOF)
+			break;
+		if (c == '\n')
+			continue;
 
 		if (c != ' ' && c != '\t' && ! allow_key) {
 			ungetc(c, file);
@@ -294,9 +366,11 @@ char *conf_word(FILE *file, int allow_key)
 			c = getc(file);
 		if (c != EOF && c != '\n' && c != '#') {
 			/* we really have a character of a word, so start saving it */
-			while (c != EOF && c != '\n' && (quote || (c!=' ' && c != '\t'))) {
+			while (c != EOF && c != '\n' &&
+			       (quote || (c != ' ' && c != '\t'))) {
 				wordfound = 1;
-				if (quote && c == quote) quote = 0;
+				if (quote && c == quote)
+					quote = 0;
 				else if (quote == 0 && (c == '\'' || c == '"'))
 					quote = c;
 				else {
@@ -312,12 +386,13 @@ char *conf_word(FILE *file, int allow_key)
 				 * in /proc/mdstat instead of
 				 *        "active (auto-read-only)"
 				 */
-				if (c == '(' && len >= 6
-				    && strncmp(word+len-6, "active", 6) == 0)
+				if (c == '(' && len >= 6 &&
+				    strncmp(word + len - 6, "active", 6) == 0)
 					c = ' ';
 			}
 		}
-		if (c != EOF) ungetc(c, file);
+		if (c != EOF)
+			ungetc(c, file);
 	}
 	word[len] = 0;
 
@@ -381,24 +456,50 @@ void print_quoted(char *str)
 	putchar(q);
 }
 
-void print_escape(char *str)
+/**
+ * is_alphanum() - Check if sign is letter or digit.
+ * @c: char to analyze.
+ *
+ * Similar to isalnum() but additional locales are excluded.
+ *
+ * Return: %true on success, %false otherwise.
+ */
+bool is_alphanum(const char c)
 {
-	/* print str, but change space and tab to '_'
-	 * as is suitable for device names
-	 */
-	for (; *str ; str++) {
-		switch (*str) {
-		case ' ':
-		case '\t':
-			putchar('_');
-			break;
-		case '/':
-			putchar('-');
-			break;
-		default:
-			putchar(*str);
-		}
+	if (isupper(c) || islower(c) || isdigit(c) != 0)
+		return true;
+	return false;
+}
+
+/**
+ * is_name_posix_compatible() - Check if name is POSIX compatible.
+ * @name: name to check.
+ *
+ *  POSIX portable file name character set contains ASCII letters,
+ *  digits, '_', '.', and '-'. Also forbid leading '-'.
+ *  The length of the name cannot exceed NAME_MAX - 1 (ensure NULL ending).
+ *
+ * Return: %true on success, %false otherwise.
+ */
+bool is_name_posix_compatible(const char * const name)
+{
+	assert(name);
+
+	char allowed_symbols[] = "-_.";
+	const char *n = name;
+
+	if (!is_string_lq(name, NAME_MAX))
+		return false;
+
+	if (*n == '-')
+		return false;
+
+	while (*n != '\0') {
+		if (!is_alphanum(*n) && !strchr(allowed_symbols, *n))
+			return false;
+		n++;
 	}
+	return true;
 }
 
 int check_env(char *name)
@@ -409,19 +510,6 @@ int check_env(char *name)
 		return 1;
 
 	return 0;
-}
-
-int use_udev(void)
-{
-	static int use = -1;
-	struct stat stb;
-
-	if (use < 0) {
-		use = ((stat("/dev/.udev", &stb) == 0
-			|| stat("/run/udev", &stb) == 0)
-		       && check_env("MDADM_NO_UDEV") == 0);
-	}
-	return use;
 }
 
 unsigned long GCD(unsigned long a, unsigned long b)
@@ -449,13 +537,14 @@ char *conf_line(FILE *file)
 	char *list;
 
 	w = conf_word(file, 1);
-	if (w == NULL) return NULL;
+	if (w == NULL)
+		return NULL;
 
 	list = dl_strdup(w);
 	free(w);
 	dl_init(list);
 
-	while ((w = conf_word(file,0))){
+	while ((w = conf_word(file, 0))){
 		char *w2 = dl_strdup(w);
 		free(w);
 		dl_add(list, w2);
@@ -467,9 +556,55 @@ char *conf_line(FILE *file)
 void free_line(char *line)
 {
 	char *w;
-	for (w=dl_next(line); w != line; w=dl_next(line)) {
+	for (w = dl_next(line); w != line; w = dl_next(line)) {
 		dl_del(w);
 		dl_free(w);
 	}
 	dl_free(line);
+}
+
+/**
+ * parse_num() - Parse int from string.
+ * @dest: Pointer to destination.
+ * @num: Pointer to string that is going to be parsed.
+ *
+ * If string contains anything after a number, error code is returned.
+ * The same happens when number is bigger than INT_MAX or smaller than 0.
+ * Writes to destination only if successfully read the number.
+ *
+ * Return: 0 on success, 1 otherwise.
+ */
+int parse_num(int *dest, const char *num)
+{
+	char *c = NULL;
+	long temp;
+
+	if (!num)
+		return 1;
+
+	errno = 0;
+	temp = strtol(num, &c, 10);
+	if (temp < 0 || temp > INT_MAX || *c || errno != 0 || num == c)
+		return 1;
+	*dest = temp;
+	return 0;
+}
+
+/**
+ * s_gethostname() - secure get hostname. Assure null-terminated string.
+ *
+ * @buf: buffer for hostname.
+ * @buf_len: buffer length.
+ *
+ * Return: gethostname() result.
+ */
+int s_gethostname(char *buf, int buf_len)
+{
+	assert(buf);
+
+	int ret = gethostname(buf, buf_len);
+
+	buf[buf_len - 1] = 0;
+
+	return ret;
 }

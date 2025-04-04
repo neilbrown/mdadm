@@ -43,6 +43,8 @@
  * at compile time via MAP_DIR and MAP_FILE.
  */
 #include	"mdadm.h"
+#include	"xmalloc.h"
+
 #include	<sys/file.h>
 #include	<ctype.h>
 
@@ -143,6 +145,8 @@ void map_unlock(struct map_ent **melp)
 		unlink(mapname[2]);
 		fclose(lf);
 	}
+	if (*melp)
+		map_free(*melp);
 	lf = NULL;
 }
 
@@ -163,8 +167,8 @@ void map_add(struct map_ent **melp,
 {
 	struct map_ent *me = xmalloc(sizeof(*me));
 
-	strcpy(me->devnm, devnm);
-	strcpy(me->metadata, metadata);
+	snprintf(me->devnm, sizeof(me->devnm), "%s", devnm);
+	snprintf(me->metadata, sizeof(me->metadata), "%s", metadata);
 	memcpy(me->uuid, uuid, 16);
 	me->path = path ? xstrdup(path) : NULL;
 	me->next = *melp;
@@ -176,7 +180,7 @@ void map_read(struct map_ent **melp)
 {
 	FILE *f;
 	char buf[8192];
-	char path[200];
+	char path[201];
 	int uuid[4];
 	char devnm[32];
 	char metadata[30];
@@ -213,7 +217,7 @@ void map_free(struct map_ent *map)
 }
 
 int map_update(struct map_ent **mpp, char *devnm, char *metadata,
-	       int *uuid, char *path)
+	       int uuid[4], char *path)
 {
 	struct map_ent *map, *mp;
 	int rv;
@@ -225,7 +229,7 @@ int map_update(struct map_ent **mpp, char *devnm, char *metadata,
 
 	for (mp = map ; mp ; mp=mp->next)
 		if (strcmp(mp->devnm, devnm) == 0) {
-			strcpy(mp->metadata, metadata);
+			snprintf(mp->metadata, sizeof(mp->metadata), "%s", metadata);
 			memcpy(mp->uuid, uuid, 16);
 			free(mp->path);
 			mp->path = path ? xstrdup(path) : NULL;
@@ -266,6 +270,7 @@ void map_remove(struct map_ent **mapp, char *devnm)
 	map_delete(mapp, devnm);
 	map_write(*mapp);
 	map_free(*mapp);
+	*mapp = NULL;
 }
 
 struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
@@ -289,6 +294,10 @@ struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])
 struct map_ent *map_by_devnm(struct map_ent **map, char *devnm)
 {
 	struct map_ent *mp;
+
+	if (!devnm)
+		return NULL;
+
 	if (!*map)
 		map_read(map);
 
@@ -313,9 +322,9 @@ struct map_ent *map_by_name(struct map_ent **map, char *name)
 	for (mp = *map ; mp ; mp = mp->next) {
 		if (!mp->path)
 			continue;
-		if (strncmp(mp->path, "/dev/md/", 8) != 0)
+		if (strncmp(mp->path, DEV_MD_DIR, DEV_MD_DIR_LEN) != 0)
 			continue;
-		if (strcmp(mp->path+8, name) != 0)
+		if (strcmp(mp->path + DEV_MD_DIR_LEN, name) != 0)
 			continue;
 		if (!mddev_busy(mp->devnm)) {
 			mp->bad = 1;
@@ -332,18 +341,14 @@ struct map_ent *map_by_name(struct map_ent **map, char *name)
  */
 static char *get_member_info(struct mdstat_ent *ent)
 {
+	char *subarray;
 
-	if (ent->metadata_version == NULL ||
-	    strncmp(ent->metadata_version, "external:", 9) != 0)
+	if (!is_mdstat_ent_subarray(ent))
 		return NULL;
 
-	if (is_subarray(&ent->metadata_version[9])) {
-		char *subarray;
+	subarray = strrchr(ent->metadata_version, '/');
 
-		subarray = strrchr(ent->metadata_version, '/');
-		return subarray + 1;
-	}
-	return NULL;
+	return subarray + 1;
 }
 
 void RebuildMap(void)
@@ -356,8 +361,7 @@ void RebuildMap(void)
 	char *homehost = conf_get_homehost(&require_homehost);
 
 	if (homehost == NULL || strcmp(homehost, "<system>")==0) {
-		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
-			sys_hostname[sizeof(sys_hostname)-1] = 0;
+		if (s_gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			homehost = sys_hostname;
 		}
 	}
@@ -374,7 +378,7 @@ void RebuildMap(void)
 			char dn[30];
 			int dfd;
 			int ok;
-			int devid;
+			dev_t devid;
 			struct supertype *st;
 			char *subarray = NULL;
 			char *path;
@@ -406,7 +410,7 @@ void RebuildMap(void)
 			devid = devnm2devid(md->devnm);
 			path = map_dev(major(devid), minor(devid), 0);
 			if (path == NULL ||
-			    strncmp(path, "/dev/md/", 8) != 0) {
+			    strncmp(path, DEV_MD_DIR, DEV_MD_DIR_LEN) != 0) {
 				/* We would really like a name that provides
 				 * an MD_DEVNAME for udev.
 				 * The name needs to be unique both in /dev/md/
@@ -427,7 +431,7 @@ void RebuildMap(void)
 				if (match && match->devname && match->devname[0] == '/') {
 					path = match->devname;
 					if (path[0] != '/') {
-						strcpy(namebuf, "/dev/md/");
+						strcpy(namebuf, DEV_MD_DIR);
 						strcat(namebuf, path);
 						path = namebuf;
 					}
@@ -439,8 +443,8 @@ void RebuildMap(void)
 					if ((homehost == NULL ||
 					     st->ss->match_home(st, homehost) != 1) &&
 					    st->ss->match_home(st, "any") != 1 &&
-					    (require_homehost
-					     || ! conf_name_is_free(info->name)))
+					    (require_homehost ||
+					     !conf_name_is_free(info->name)))
 						/* require a numeric suffix */
 						unum = 0;
 					else
@@ -471,10 +475,10 @@ void RebuildMap(void)
 
 					while (conflict) {
 						if (unum >= 0)
-							sprintf(namebuf, "/dev/md/%s%s%d",
+							sprintf(namebuf, DEV_MD_DIR "%s%s%d",
 								name, sep, unum);
 						else
-							sprintf(namebuf, "/dev/md/%s",
+							sprintf(namebuf, DEV_MD_DIR "%s",
 								name);
 						unum++;
 						if (lstat(namebuf, &stb) != 0 &&

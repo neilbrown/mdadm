@@ -1,7 +1,8 @@
 /*
  * mdadm - manage Linux "md" devices aka RAID arrays.
  *
- * Copyright (C) 2001-2014 Neil Brown <neilb@suse.de>
+ * Copyright (C) 2001-2016 Neil Brown <neilb@suse.com>
+ * Copyright (C) 2016-2017 Jes Sorensen <Jes.Sorensen@gmail.com>
  *
  *
  *    This program is free software; you can redistribute it and/or modify
@@ -20,17 +21,22 @@
  *
  *    Author: Neil Brown
  *    Email: <neilb@suse.de>
+ *    Maintainer: Jes Sorensen
+ *    Email: <Jes.Sorensen@gmail.com>
  */
 
 #include "mdadm.h"
 
 #ifndef VERSION
-#define VERSION "3.3.2"
+#define VERSION "4.4"
 #endif
 #ifndef VERS_DATE
-#define VERS_DATE "21st August 2014"
+#define VERS_DATE "2024-11-07"
 #endif
-char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
+#ifndef EXTRAVERSION
+#define EXTRAVERSION ""
+#endif
+char Version[] = "mdadm - v" VERSION " - " VERS_DATE EXTRAVERSION "\n";
 
 /*
  * File: ReadMe.c
@@ -75,133 +81,137 @@ char Version[] = "mdadm - v" VERSION " - " VERS_DATE "\n";
  *     found, it is started.
  */
 
-char short_options[]="-ABCDEFGIQhVXYWZ:vqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
-char short_bitmap_options[]=
-		"-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:";
-char short_bitmap_auto_options[]=
-		"-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sa:rfRSow1tye:";
+char short_opts[] = "-ABCDEFGIQhVXYWZ:vqbc:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:k:";
+char short_monitor_opts[] = "-ABCDEFGIQhVXYWZ:vqbc:i:l:p:m:r:n:x:u:c:d:z:U:N:safRSow1tye:k:";
+char short_bitmap_opts[] = "-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sarfRSow1tye:k:";
+char short_bitmap_auto_opts[] = "-ABCDEFGIQhVXYWZ:vqb:c:i:l:p:m:n:x:u:c:d:z:U:N:sa:rfRSow1tye:k:";
 
 struct option long_options[] = {
-    {"manage",    0, 0, ManageOpt},
-    {"misc",      0, 0, MiscOpt},
-    {"assemble",  0, 0, 'A'},
-    {"build",     0, 0, 'B'},
-    {"create",    0, 0, 'C'},
-    {"detail",    0, 0, 'D'},
-    {"examine",   0, 0, 'E'},
-    {"follow",    0, 0, 'F'},
-    {"grow",      0, 0, 'G'},
-    {"incremental",0,0, 'I'},
-    {"zero-superblock", 0, 0, KillOpt}, /* deliberately not a short_option */
-    {"query",	  0, 0, 'Q'},
-    {"examine-bitmap", 0, 0, 'X'},
-    {"auto-detect", 0, 0, AutoDetect},
-    {"detail-platform", 0, 0, DetailPlatform},
-    {"kill-subarray", 1, 0, KillSubarray},
-    {"update-subarray", 1, 0, UpdateSubarray},
-    {"udev-rules", 2, 0, UdevRules},
-    {"offroot", 0, 0, OffRootOpt},
-    {"examine-badblocks", 0, 0, ExamineBB},
+	{"manage", 0, 0, ManageOpt},
+	{"misc", 0, 0, MiscOpt},
+	{"assemble", 0, 0, 'A'},
+	{"build", 0, 0, 'B'},
+	{"create", 0, 0, 'C'},
+	{"detail", 0, 0, 'D'},
+	{"examine", 0, 0, 'E'},
 
-    {"dump", 1, 0, Dump},
-    {"restore", 1, 0, Restore},
+	{"follow", 0, 0, 'F'},
+	{"monitor", 0, 0, 'F'},
 
-    /* synonyms */
-    {"monitor",   0, 0, 'F'},
+	{"grow", 0, 0, 'G'},
+	{"incremental", 0, 0, 'I'},
+	{"zero-superblock", 0, 0, KillOpt}, /* deliberately not a short_option */
+	{"query", 0, 0, 'Q'},
+	{"examine-bitmap", 0, 0, 'X'},
+	{"auto-detect", 0, 0, AutoDetect},
+	{"detail-platform", 0, 0, DetailPlatform},
+	{"kill-subarray", 1, 0, KillSubarray},
+	{"update-subarray", 1, 0, UpdateSubarray},
+	{"udev-rules", 2, 0, UdevRules},
+	{"offroot", 0, 0, OffRootOpt},
+	{"examine-badblocks", 0, 0, ExamineBB},
 
-    /* after those will normally come the name of the md device */
+	{"dump", 1, 0, Dump},
+	{"restore", 1, 0, Restore},
 
-    {"help",      0, 0, 'h'},
-    {"help-options",0,0, HelpOptions},
-    {"version",	  0, 0, 'V'},
-    {"verbose",   0, 0, 'v'},
-    {"quiet",	  0, 0, 'q'},
+	/* after those will normally come the name of the md device */
+	{"help", 0, 0, 'h'},
+	{"help-options", 0, 0, HelpOptions},
+	{"version", 0, 0, 'V'},
+	{"verbose", 0, 0, 'v'},
+	{"quiet", 0, 0, 'q'},
 
-    /* For create or build: */
-    {"chunk",	  1, 0, ChunkSize},
-    {"rounding",  1, 0, ChunkSize}, /* for linear, chunk is really a
-				     * rounding number */
-    {"level",     1, 0, 'l'}, /* 0,1,4,5,6,linear */
-    {"parity",    1, 0, Layout}, /* {left,right}-{a,}symmetric */
-    {"layout",    1, 0, Layout},
-    {"raid-disks",1, 0, 'n'},
-    {"raid-devices",1, 0, 'n'},
-    {"spare-disks",1,0, 'x'},
-    {"spare-devices",1,0, 'x'},
-    {"size",	  1, 0, 'z'},
-    {"auto",	  1, 0, Auto}, /* also for --assemble */
-    {"assume-clean",0,0, AssumeClean },
-    {"metadata",  1, 0, 'e'}, /* superblock format */
-    {"bitmap",	  1, 0, Bitmap},
-    {"bitmap-chunk", 1, 0, BitmapChunk},
-    {"write-behind", 2, 0, WriteBehind},
-    {"write-mostly",0, 0, WriteMostly},
-    {"re-add",    0, 0,  ReAdd},
-    {"homehost",  1, 0,  HomeHost},
-    {"symlinks",  1, 0,  Symlinks},
-    {"data-offset",1, 0, DataOffset},
-    {"nodes",1, 0, Nodes}, /* also for --assemble */
-    {"home-cluster",1, 0, ClusterName},
+	/* For create or build: */
+	{"chunk", 1, 0, ChunkSize},
+	{"rounding", 1, 0, ChunkSize}, /* for linear, chunk is really a rounding number */
+	{"level", 1, 0, 'l'}, /* 0, 1, 4, 5, 6, linear */
+	{"parity", 1, 0, Layout}, /* {left,right}-{a,}symmetric */
+	{"layout", 1, 0, Layout},
+	{"raid-disks", 1, 0, 'n'},
+	{"raid-devices", 1, 0, 'n'},
+	{"spare-disks", 1, 0, 'x'},
+	{"spare-devices", 1, 0, 'x'},
+	{"size", 1, 0, 'z'},
+	{"auto", 1, 0, Auto}, /* Deprecated, left for backward compatibility */
+	{"assume-clean", 0, 0, AssumeClean },
+	{"write-zeroes", 0, 0, WriteZeroes },
+	{"metadata", 1, 0, 'e'}, /* superblock format */
+	{"bitmap", 1, 0, Bitmap},
+	{"bitmap-chunk", 1, 0, BitmapChunk},
+	{"write-behind", 2, 0, WriteBehind},
+	{"write-mostly", 0, 0, WriteMostly},
+	{"failfast", 0, 0, FailFast},
+	{"nofailfast", 0, 0, NoFailFast},
+	{"re-add", 0, 0, ReAdd},
+	{"homehost", 1, 0, HomeHost},
+	{"data-offset", 1, 0, DataOffset},
+	{"nodes", 1, 0, Nodes},
+	{"home-cluster", 1, 0, ClusterName},
+	{"write-journal", 1, 0, WriteJournal},
+	{"consistency-policy", 1, 0, 'k'},
 
-    /* For assemble */
-    {"uuid",      1, 0, 'u'},
-    {"super-minor",1,0, SuperMinor},
-    {"name",	  1, 0, 'N'},
-    {"config",    1, 0, ConfigFile},
-    {"scan",      0, 0, 's'},
-    {"force",	  0, 0, Force},
-    {"update",	  1, 0, 'U'},
-    {"freeze-reshape", 0, 0, FreezeReshape},
+	/* For assemble */
+	{"uuid", 1, 0, 'u'},
+	{"super-minor", 1, 0, SuperMinor},
+	{"name", 1, 0, 'N'},
+	{"config", 1, 0, ConfigFile},
+	{"scan", 0, 0, 's'},
+	{"force", 0, 0, Force},
+	{"update", 1, 0, 'U'},
 
-    /* Management */
-    {"add",       0, 0, Add},
-    {"add-spare", 0, 0, AddSpare},
-    {"remove",    0, 0, Remove},
-    {"fail",      0, 0, Fail},
-    {"set-faulty",0, 0, Fail},
-    {"replace",   0, 0, Replace},
-    {"with",      0, 0, With},
-    {"run",       0, 0, 'R'},
-    {"stop",      0, 0, 'S'},
-    {"readonly",  0, 0, 'o'},
-    {"readwrite", 0, 0, 'w'},
-    {"no-degraded",0,0,  NoDegraded },
-    {"wait",	  0, 0,  WaitOpt},
-    {"wait-clean", 0, 0, Waitclean },
-    {"action",    1, 0, Action },
-    {"cluster-confirm", 0, 0, ClusterConfirm},
+	/* Management */
+	{"add", 0, 0, Add},
+	{"add-spare", 0, 0, AddSpare},
+	{"add-journal", 0, 0, AddJournal},
+	{"remove", 0, 0, Remove},
+	{"fail", 0, 0, Fail},
+	{"set-faulty", 0, 0, Fail},
+	{"replace", 0, 0, Replace},
+	{"with", 0, 0, With},
+	{"run", 0, 0, 'R'},
+	{"stop", 0, 0, 'S'},
+	{"readonly", 0, 0, 'o'},
+	{"readwrite", 0, 0, 'w'},
+	{"no-degraded", 0, 0, NoDegraded},
+	{"wait", 0, 0,  WaitOpt},
+	{"wait-clean", 0, 0, Waitclean},
+	{"action", 1, 0, Action},
+	{"cluster-confirm", 0, 0, ClusterConfirm},
 
-    /* For Detail/Examine */
-    {"brief",	  0, 0, Brief},
-    {"export",	  0, 0, 'Y'},
-    {"sparc2.2",  0, 0, Sparc22},
-    {"test",      0, 0, 't'},
-    {"prefer",    1, 0, Prefer},
+	/* For Detail/Examine */
+	{"brief", 0, 0, Brief},
+	{"no-devices", 0, 0, NoDevices},
+	{"export", 0, 0, 'Y'},
+	{"sparc2.2", 0, 0, Sparc22},
+	{"test", 0, 0, 't'},
+	{"prefer", 1, 0, Prefer},
 
-    /* For Follow/monitor */
-    {"mail",      1, 0, EMail},
-    {"program",   1, 0, ProgramOpt},
-    {"alert",     1, 0, ProgramOpt},
-    {"increment", 1, 0, Increment},
-    {"delay",     1, 0, 'd'},
-    {"daemonise", 0, 0, Fork},
-    {"daemonize", 0, 0, Fork},
-    {"oneshot",   0, 0, '1'},
-    {"pid-file",  1, 0, 'i'},
-    {"syslog",    0, 0, 'y'},
-    {"no-sharing", 0, 0, NoSharing},
+	/* For Follow/monitor */
+	{"mail", 1, 0, EMail},
+	{"program", 1, 0, ProgramOpt},
+	{"alert", 1, 0, ProgramOpt},
+	{"increment", 1, 0, Increment},
+	{"delay", 1, 0, 'd'},
 
-    /* For Grow */
-    {"backup-file", 1,0, BackupFile},
-    {"invalid-backup",0,0,InvalidBackup},
-    {"array-size", 1, 0, 'Z'},
-    {"continue", 0, 0, Continue},
+	{"daemonise", 0, 0, Fork},
+	{"daemonize", 0, 0, Fork},
 
-    /* For Incremental */
-    {"rebuild-map", 0, 0, RebuildMapOpt},
-    {"path", 1, 0, IncrementalPath},
+	{"oneshot", 0, 0, '1'},
+	{"pid-file", 1, 0, 'i'},
+	{"syslog", 0, 0, 'y'},
+	{"no-sharing", 0, 0, NoSharing},
 
-    {0, 0, 0, 0}
+	/* For Grow */
+	{"backup-file", 1, 0, BackupFile},
+	{"invalid-backup", 0, 0, InvalidBackup},
+	{"array-size", 1, 0, 'Z'},
+	{"continue", 0, 0, Continue},
+
+	/* For Incremental */
+	{"rebuild-map", 0, 0, RebuildMapOpt},
+	{"path", 1, 0, IncrementalPath},
+
+	{0, 0, 0, 0}
 };
 
 char Usage[] =
@@ -274,67 +284,9 @@ char OptionHelp[] =
 "                       device relates to the md driver\n"
 "  --auto-detect      : Start arrays auto-detected by the kernel\n"
 ;
-/*
-"\n"
-" For create or build:\n"
-"  --bitmap=     -b   : File to store bitmap in - may pre-exist for --build\n"
-"  --chunk=      -c   : chunk size of kibibytes\n"
-"  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,6,10,linear, or mp for create.\n"
-"                     :    0,1,10,mp,faulty or linear for build.\n"
-"  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
-"  --layout=          : same as --parity, for RAID10: [fno]NN \n"
-"  --raid-devices= -n : number of active devices in array\n"
-"  --spare-devices= -x: number of spare (eXtra) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
-"  --force       -f   : Honour devices as listed on command line.  Don't\n"
-"                     : insert a missing drive for RAID5.\n"
-"  --assume-clean     : Assume the array is already in-sync. This is dangerous for RAID5.\n"
-"  --bitmap-chunk=    : chunksize of bitmap in bitmap file (Kilobytes)\n"
-"  --delay=      -d   : seconds between bitmap updates\n"
-"  --write-behind=    : number of simultaneous write-behind requests to allow (requires bitmap)\n"
-"  --name=       -N   : Textual name for array - max 32 characters\n"
-"\n"
-" For assemble:\n"
-"  --bitmap=     -b   : File to find bitmap information in\n"
-"  --uuid=       -u   : uuid of array to assemble. Devices which don't\n"
-"                       have this uuid are excluded\n"
-"  --super-minor= -m  : minor number to look for in super-block when\n"
-"                       choosing devices to use.\n"
-"  --name=       -N   : Array name to look for in super-block.\n"
-"  --config=     -c   : config file\n"
-"  --scan        -s   : scan config file for missing information\n"
-"  --force       -f   : Assemble the array even if some superblocks appear out-of-date\n"
-"  --update=     -U   : Update superblock: try '-A --update=?' for list of options.\n"
-"  --no-degraded      : Do not start any degraded arrays - default unless --scan.\n"
-"\n"
-" For detail or examine:\n"
-"  --brief       -b   : Just print device name and UUID\n"
-"\n"
-" For follow/monitor:\n"
-"  --mail=       -m   : Address to mail alerts of failure to\n"
-"  --program=    -p   : Program to run when an event is detected\n"
-"  --alert=           : same as --program\n"
-"  --delay=      -d   : seconds of delay between polling state. default=60\n"
-"\n"
-" General management:\n"
-"  --add         -a   : add, or hotadd subsequent devices\n"
-"  --re-add           : re-add a recently removed device\n"
-"  --remove      -r   : remove subsequent devices\n"
-"  --fail        -f   : mark subsequent devices as faulty\n"
-"  --set-faulty       : same as --fail\n"
-"  --replace          : mark a device for replacement\n"
-"  --run         -R   : start a partially built array\n"
-"  --stop        -S   : deactivate array, releasing all resources\n"
-"  --readonly    -o   : mark array as readonly\n"
-"  --readwrite   -w   : mark array as readwrite\n"
-"  --zero-superblock  : erase the MD superblock from a device.\n"
-"  --wait        -W   : wait for recovery/resync/reshape to finish.\n"
-;
-*/
 
 char Help_create[] =
-"Usage:  mdadm --create device -chunk=X --level=Y --raid-devices=Z devices\n"
+"Usage:  mdadm --create device --chunk=X --level=Y --raid-devices=Z devices\n"
 "\n"
 " This usage will initialise a new md array, associate some\n"
 " devices with it, and activate the array.   In order to create an\n"
@@ -355,26 +307,30 @@ char Help_create[] =
 " other levels.\n"
 "\n"
 " Options that are valid with --create (-C) are:\n"
-"  --bitmap=          : Create a bitmap for the array with the given filename\n"
-"                     : or an internal bitmap is 'internal' is given\n"
-"  --chunk=      -c   : chunk size in kibibytes\n"
-"  --rounding=        : rounding factor for linear array (==chunk size)\n"
-"  --level=      -l   : raid level: 0,1,4,5,6,10,linear,multipath and synonyms\n"
-"  --parity=     -p   : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
-"  --layout=          : same as --parity, for RAID10: [fno]NN \n"
-"  --raid-devices= -n : number of active devices in array\n"
-"  --spare-devices= -x: number of spare (eXtra) devices in initial array\n"
-"  --size=       -z   : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
-"  --data-offset=     : Space to leave between start of device and start\n"
-"                     : of array data.\n"
-"  --force       -f   : Honour devices as listed on command line.  Don't\n"
-"                     : insert a missing drive for RAID5.\n"
-"  --run         -R   : insist of running the array even if not all\n"
-"                     : devices are present or some look odd.\n"
-"  --readonly    -o   : start the array readonly - not supported yet.\n"
-"  --name=       -N   : Textual name for array - max 32 characters\n"
-"  --bitmap-chunk=    : bitmap chunksize in Kilobytes.\n"
-"  --delay=      -d   : bitmap update delay in seconds.\n"
+"  --bitmap=          -b : Create a bitmap for the array with the given filename\n"
+"                        : or an internal bitmap if 'internal' is given\n"
+"  --chunk=           -c : chunk size in kibibytes\n"
+"  --rounding=           : rounding factor for linear array (==chunk size)\n"
+"  --level=           -l : raid level: 0,1,4,5,6,10,linear,multipath and synonyms\n"
+"  --parity=          -p : raid5/6 parity algorithm: {left,right}-{,a}symmetric\n"
+"  --layout=             : same as --parity, for RAID10: [fno]NN\n"
+"  --raid-devices=    -n : number of active devices in array\n"
+"  --spare-devices=   -x : number of spare (eXtra) devices in initial array\n"
+"  --size=            -z : Size (in K) of each drive in RAID1/4/5/6/10 - optional\n"
+"  --data-offset=        : Space to leave between start of device and start\n"
+"                        : of array data.\n"
+"  --force            -f : Honour devices as listed on command line.  Don't\n"
+"                        : insert a missing drive for RAID5.\n"
+"  --run              -R : insist of running the array even if not all\n"
+"                        : devices are present or some look odd.\n"
+"  --readonly         -o : start the array readonly - not supported yet.\n"
+"  --name=            -N : Textual name for array - max 32 characters\n"
+"  --bitmap-chunk=       : bitmap chunksize in Kilobytes.\n"
+"  --delay=           -d : bitmap update delay in seconds.\n"
+"  --write-journal=      : Specify journal device for RAID-4/5/6 array\n"
+"  --consistency-policy= : Specify the policy that determines how the array\n"
+"                     -k : maintains consistency in case of unexpected shutdown.\n"
+"  --write-zeroes        : Write zeroes to the disks before creating. This will bypass initial sync.\n"
 "\n"
 ;
 
@@ -462,7 +418,7 @@ char Help_assemble[] =
 ;
 
 char Help_manage[] =
-"Usage: mdadm arraydevice options component devices...\n"
+"Usage: mdadm [mode] arraydevice [options] <component devices...>\n"
 "\n"
 "This usage is for managing the component devices within an array.\n"
 "The --manage option is not needed and is assumed if the first argument\n"
@@ -548,28 +504,30 @@ char Help_grow[] =
 "reconfiguration.\n"
 "\n"
 "Options that are valid with the grow (-G --grow) mode are:\n"
-"  --level=       -l   : Tell mdadm what level to convert the array to.\n"
-"  --layout=      -p   : For a FAULTY array, set/change the error mode.\n"
-"                      : for other arrays, update the layout\n"
-"  --size=        -z   : Change the active size of devices in an array.\n"
-"                      : This is useful if all devices have been replaced\n"
-"                      : with larger devices.   Value is in Kilobytes, or\n"
-"                      : the special word 'max' meaning 'as large as possible'.\n"
-"  --assume-clean      : When increasing the --size, this flag will avoid\n"
-"                      : a resync of the new space\n"
-"  --chunk=       -c   : Change the chunksize of the array\n"
-"  --raid-devices= -n  : Change the number of active devices in an array.\n"
-"  --add=         -a   : Add listed devices as part of reshape.  This is\n"
-"                      : needed for resizing a RAID0 which cannot have\n"
-"                      : spares already present.\n"
-"  --bitmap=      -b   : Add or remove a write-intent bitmap.\n"
-"  --backup-file= file : A file on a different device to store data for a\n"
-"                      : short time while increasing raid-devices on a\n"
-"                      : RAID4/5/6 array. Also needed throughout a reshape\n"
-"                      : when changing parameters other than raid-devices\n"
-"  --array-size=  -Z   : Change visible size of array.  This does not change\n"
-"                      : any data on the device, and is not stable across restarts.\n"
-"  --data-offset=      : Location on device to move start of data to.\n"
+"  --level=           -l : Tell mdadm what level to convert the array to.\n"
+"  --layout=          -p : For a FAULTY array, set/change the error mode.\n"
+"                        : for other arrays, update the layout\n"
+"  --size=            -z : Change the active size of devices in an array.\n"
+"                        : This is useful if all devices have been replaced\n"
+"                        : with larger devices.   Value is in Kilobytes, or\n"
+"                        : the special word 'max' meaning 'as large as possible'.\n"
+"  --assume-clean        : When increasing the --size, this flag will avoid\n"
+"                        : a resync of the new space\n"
+"  --chunk=           -c : Change the chunksize of the array\n"
+"  --raid-devices=    -n : Change the number of active devices in an array.\n"
+"  --add=             -a : Add listed devices as part of reshape.  This is\n"
+"                        : needed for resizing a RAID0 which cannot have\n"
+"                        : spares already present.\n"
+"  --bitmap=          -b : Add or remove a write-intent bitmap.\n"
+"  --backup-file= file   : A file on a different device to store data for a\n"
+"                        : short time while increasing raid-devices on a\n"
+"                        : RAID4/5/6 array. Also needed throughout a reshape\n"
+"                        : when changing parameters other than raid-devices\n"
+"  --array-size=      -Z : Change visible size of array. This does not change any\n"
+"                        : data on the device, and is not stable across restarts.\n"
+"  --data-offset=        : Location on device to move start of data to.\n"
+"  --consistency-policy= : Change the consistency policy of an active array.\n"
+"                     -k : Currently works only for PPL with RAID5.\n"
 ;
 
 char Help_incr[] =
@@ -596,7 +554,6 @@ char Help_incr[] =
 ;
 
 char Help_config[] =
-"The /etc/mdadm.conf config file:\n\n"
 " The config file contains, apart from blank lines and comment lines that\n"
 " start with a hash(#), array lines, device lines, and various\n"
 " configuration lines.\n"
@@ -619,10 +576,12 @@ char Help_config[] =
 " than a device must match all of them to be considered.\n"
 "\n"
 " Other configuration lines include:\n"
-"  mailaddr, mailfrom, program     used for --monitor mode\n"
-"  create, auto                    used when creating device names in /dev\n"
-"  homehost, policy, part-policy   used to guide policy in various\n"
-"                                  situations\n"
+"  mailaddr, mailfrom, program, monitordelay    used for --monitor mode\n"
+"  create,                                      used when creating device names in /dev\n"
+"  homehost, homecluster, policy, part-policy   used to guide policy in various\n"
+"                                               situations\n"
+"\n"
+"For more details see mdadm.conf(5).\n"
 "\n"
 ;
 
@@ -637,3 +596,34 @@ char *mode_help[mode_count] = {
 	[GROW]		= Help_grow,
 	[INCREMENTAL]	= Help_incr,
 };
+
+/**
+ * fprint_update_options() - Print valid update options depending on the mode.
+ * @outf: File (output stream)
+ * @update_mode: Used to distinguish update and update_subarray
+ */
+void fprint_update_options(FILE *outf, enum update_opt update_mode)
+{
+	int counter = UOPT_NAME, breakpoint = UOPT_HELP;
+	mapping_t *map = update_options;
+
+	if (!outf)
+		return;
+	if (update_mode == UOPT_SUBARRAY_ONLY) {
+		breakpoint = UOPT_SUBARRAY_ONLY;
+		fprintf(outf, "Valid --update options for update-subarray are:\n\t");
+	} else
+		fprintf(outf, "Valid --update options are:\n\t");
+	while (map->num) {
+		if (map->num >= breakpoint)
+			break;
+		fprintf(outf, "'%s', ", map->name);
+		if (counter % 5 == 0)
+			fprintf(outf, "\n\t");
+		counter++;
+		map++;
+	}
+	if ((counter - 1) % 5)
+		fprintf(outf, "\n");
+	fprintf(outf, "\r");
+}

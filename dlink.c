@@ -26,6 +26,21 @@ void dl_free(void *v)
     free(vv-1);
 }
 
+void dl_free_all(void *head)
+{
+	/* The list head is linked with the list tail so in order to free
+	 * all the elements properly there is a need to keep starting point.
+	 */
+	void *d = dl_next(head), *next;
+
+	while (d != head) {
+		next = dl_next(d);
+		dl_free(d);
+		d = next;
+	}
+	dl_free(head);
+}
+
 void dl_init(void *v)
 {
     dl_next(v) = v;
@@ -63,7 +78,7 @@ char *dl_strndup(char *s, int l)
     if (s == NULL)
 	return NULL;
     n = dl_newv(char, l+1);
-    strncpy(n, s, l);
+    strncpy(n, s, l+1);
     n[l] = 0;
     return n;
 }

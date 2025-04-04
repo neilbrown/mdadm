@@ -1,0 +1,45 @@
+name: review
+on: [pull_request]
+env:
+  cflags: -Werror
+jobs:
+  make:
+    # when gcc is not found, it may be needed to update runner version
+    runs-on: ubuntu-24.04
+    name: Compilation test with gcc
+    strategy:
+      matrix:
+        # gcc-versions are used to test up to 5 years old
+        gcc-version: [9, 10, 11, 12, 13, 14]
+    steps:
+        - uses: actions/checkout@v4
+        - name: 'Add ubuntu repository and install dependencies'
+          run: .github/tools/install_ubuntu_packages.sh ${{ matrix.gcc-version }}
+        - name: 'Check if gcc was installed correctly'
+          run: gcc-${{ matrix.gcc-version }} --version
+        - name: 'Make with DEBUG flag'
+          run: V=1 make -j$(nproc) -B CC=gcc-${{ matrix.gcc-version }} CXFLAGS=-DEBUG && make clean
+        - name: 'Make with DEBIAN flag'
+          run: V=1 make -j$(nproc) -B CC=gcc-${{ matrix.gcc-version }} CXFLAGS=-DEBIAN && make clean
+        - name: 'Make with USE_PTHREADS flag'
+          run: V=1 make -j$(nproc) -B CC=gcc-${{ matrix.gcc-version }} CXFLAGS=-USE_PTHREADS && make clean
+        - name: 'Make with DNO_LIBUDEV flag'
+          run: V=1 make -j$(nproc) -B CC=gcc-${{ matrix.gcc-version }} CXFLAGS=-DNO_LIBUDEV && make clean
+        - name: 'Make'
+          run: V=1 make -j$(nproc) CC=gcc-${{ matrix.gcc-version }}
+        - name: hardening-check mdadm
+          run: hardening-check mdadm
+        - name: hardening-check mdmon
+          run: hardening-check mdmon
+  checkpatch:
+    runs-on: ubuntu-latest
+    name: checkpatch review
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+    - name: 'Move prepared .checkpatch.conf file to main directory'
+      run: mv .github/tools/.checkpatch.conf .
+    - name: Run checkpatch review
+      uses: webispy/checkpatch-action@v9

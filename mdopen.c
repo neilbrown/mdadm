@@ -23,81 +23,83 @@
  */
 
 #include "mdadm.h"
+#include "udev.h"
 #include "md_p.h"
+#include "xmalloc.h"
+
 #include <ctype.h>
 
-void make_parts(char *dev, int cnt)
+int create_named_array(char *devnm)
 {
-	/* make 'cnt' partition devices for 'dev'
-	 * If dev is a device name we use the
-	 *  major/minor from dev and add 1..cnt
-	 * If it is a symlink, we make similar symlinks.
-	 * If dev ends with a digit, we add "p%d" else "%d"
-	 * If the name exists, we use it's owner/mode,
-	 * else that of dev
-	 */
-	struct stat stb;
-	int major_num;
-	int minor_num;
-	int odig;
-	int i;
-	int nlen = strlen(dev) + 20;
-	char *name;
-	int dig = isdigit(dev[strlen(dev)-1]);
-	char orig[1024];
-	char sym[1024];
-	int err;
+	int fd;
+	int n = -1;
+	static const char new_array_file[] = {
+		"/sys/module/md_mod/parameters/new_array"
+	};
 
-	if (cnt == 0)
-		cnt = 4;
-	if (lstat(dev, &stb)!= 0)
-		return;
+	fd = open(new_array_file, O_WRONLY);
+	if (fd < 0 && errno == ENOENT) {
+		char buf[PATH_MAX] = {0};
+		char *env_ptr;
 
-	if (S_ISBLK(stb.st_mode)) {
-		major_num = major(stb.st_rdev);
-		minor_num = minor(stb.st_rdev);
-		odig = -1;
-	} else if (S_ISLNK(stb.st_mode)) {
-		int len = readlink(dev, orig, sizeof(orig));
-		if (len < 0 || len > 1000)
-			return;
-		orig[len] = 0;
-		odig = isdigit(orig[len-1]);
-		major_num = -1;
-		minor_num = -1;
-	} else
-		return;
-	name = xmalloc(nlen);
-	for (i = 1; i <= cnt ; i++) {
-		struct stat stb2;
-		snprintf(name, nlen, "%s%s%d", dev, dig?"p":"", i);
-		if (stat(name, &stb2) == 0) {
-			if (!S_ISBLK(stb2.st_mode) || !S_ISBLK(stb.st_mode))
-				continue;
-			if (stb2.st_rdev == makedev(major_num, minor_num+i))
-				continue;
-			unlink(name);
-		} else {
-			stb2 = stb;
-		}
-		if (S_ISBLK(stb.st_mode)) {
-			if (mknod(name, S_IFBLK | 0600,
-				  makedev(major_num, minor_num+i)))
-				perror("mknod");
-			if (chown(name, stb2.st_uid, stb2.st_gid))
-				perror("chown");
-			if (chmod(name, stb2.st_mode & 07777))
-				perror("chmod");
-			err = 0;
-		} else {
-			snprintf(sym, sizeof(sym), "%s%s%d", orig, odig?"p":"", i);
-			err = symlink(sym, name);
-		}
+		env_ptr = getenv("PATH");
+		/*
+		 * When called by udev worker context, path of modprobe
+		 * might not be in env PATH. Set sbin paths into PATH
+		 * env to avoid potential failure when run modprobe here.
+		 */
+		if (env_ptr)
+			snprintf(buf, PATH_MAX - 1, "%s:%s", env_ptr,
+				 "/sbin:/usr/sbin:/usr/local/sbin");
+		else
+			snprintf(buf, PATH_MAX - 1, "%s",
+				 "/sbin:/usr/sbin:/usr/local/sbin");
 
-		if (err == 0 && stat(name, &stb2) == 0)
-			add_dev(name, &stb2, 0, NULL);
+		setenv("PATH", buf, 1);
+
+		if (system("modprobe md_mod") == 0)
+			fd = open(new_array_file, O_WRONLY);
 	}
-	free(name);
+	if (fd >= 0) {
+		n = write(fd, devnm, strlen(devnm));
+		close(fd);
+	}
+	if (fd < 0 || n != (int)strlen(devnm)) {
+		pr_err("Fail to create %s when using %s, fallback to creation via node\n",
+			devnm, new_array_file);
+		return 0;
+	}
+
+	return 1;
+}
+
+char *find_free_devnm(void)
+{
+	static char devnm[MD_NAME_MAX];
+	int devnum;
+
+	for (devnum = 127; devnum != 128; devnum = devnum ? devnum - 1 : 511) {
+		sprintf(devnm, "md%d", devnum);
+
+		if (mddev_busy(devnm))
+			continue;
+
+		if (!conf_name_is_free(devnm))
+			continue;
+
+		if (!udev_is_available()) {
+			/* make sure it is new to /dev too*/
+			dev_t devid = devnm2devid(devnm);
+
+			if (devid && map_dev(major(devid), minor(devid), 0))
+				continue;
+		}
+
+		break;
+	}
+	if (devnum == 128)
+		return NULL;
+	return devnm;
 }
 
 /*
@@ -134,41 +136,37 @@ void make_parts(char *dev, int cnt)
  * When we create devices, we use uid/gid/umask from config file.
  */
 
-int create_mddev(char *dev, char *name, int autof, int trustworthy,
-		 char *chosen)
+int create_mddev(char *dev, char *name, int trustworthy,
+		 char *chosen, int block_udev)
 {
 	int mdfd;
 	struct stat stb;
 	int num = -1;
-	int use_mdp = -1;
 	struct createinfo *ci = conf_get_create_info();
-	int parts;
 	char *cname;
-	char devname[20];
+	char devname[37];
 	char devnm[32];
 	char cbuf[400];
+
+	if (!udev_is_available())
+		block_udev = 0;
+
 	if (chosen == NULL)
 		chosen = cbuf;
 
-	if (autof == 0)
-		autof = ci->autof;
-
-	parts = autof >> 3;
-	autof &= 7;
-
-	strcpy(chosen, "/dev/md/");
+	strcpy(chosen, DEV_MD_DIR);
 	cname = chosen + strlen(chosen);
 
 	if (dev) {
-		if (strncmp(dev, "/dev/md/", 8) == 0) {
-			strcpy(cname, dev+8);
+		if (strncmp(dev, DEV_MD_DIR, DEV_MD_DIR_LEN) == 0) {
+			snprintf(cname, MD_NAME_MAX, "%s", dev + DEV_MD_DIR_LEN);
 		} else if (strncmp(dev, "/dev/", 5) == 0) {
 			char *e = dev + strlen(dev);
 			while (e > dev && isdigit(e[-1]))
 				e--;
 			if (e[0])
 				num = strtoul(e, NULL, 10);
-			strcpy(cname, dev+5);
+			snprintf(cname, MD_NAME_MAX, "%s", dev + 5);
 			cname[e-(dev+5)] = 0;
 			/* name *must* be mdXX or md_dXX in this context */
 			if (num < 0 ||
@@ -177,12 +175,9 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 					dev, dev+5);
 				return -1;
 			}
-			if (strcmp(cname, "md") == 0)
-				use_mdp = 0;
-			else
-				use_mdp = 1;
+
 			/* recreate name: /dev/md/0 or /dev/md/d0 */
-			sprintf(cname, "%s%d", use_mdp?"d":"", num);
+			sprintf(cname, "%d", num);
 		} else
 			strcpy(cname, dev);
 
@@ -194,7 +189,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			return -1;
 		}
 		if (cname[0] == 0) {
-			pr_err("%s is an invalid name for an md device (empty!).", dev);
+			pr_err("%s is an invalid name for an md device (empty!).\n", dev);
 			return -1;
 		}
 		if (num < 0) {
@@ -211,29 +206,13 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				ep = sp;
 			if (ep == sp || *ep || num < 0)
 				num = -1;
-			else if (cname[0] == 'd')
-				use_mdp = 1;
-			else
-				use_mdp = 0;
 		}
 	}
 
 	/* Now determine device number */
-	/* named 'METADATA' cannot use 'mdp'. */
 	if (name && name[0] == 0)
 		name = NULL;
-	if (name && trustworthy == METADATA && use_mdp == 1) {
-		pr_err("%s is not allowed for a %s container. Consider /dev/md%d.\n", dev, name, num);
-		return -1;
-	}
-	if (name && trustworthy == METADATA)
-		use_mdp = 0;
-	if (use_mdp == -1) {
-		if (autof == 4 || autof == 6)
-			use_mdp = 1;
-		else
-			use_mdp = 0;
-	}
+
 	if (num < 0 && trustworthy == LOCAL && name) {
 		/* if name is numeric, possibly prefixed by
 		 * 'md' or '/dev/md', use that for num
@@ -250,7 +229,7 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 		if (ep == n2 || *ep)
 			num = -1;
 		else {
-			sprintf(devnm, "md%s%d", use_mdp ? "_d":"", num);
+			sprintf(devnm, "md%d", num);
 			if (mddev_busy(devnm))
 				num = -1;
 		}
@@ -302,39 +281,49 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 
 	devnm[0] = 0;
 	if (num < 0 && cname && ci->names) {
-		int fd;
-		int n = -1;
 		sprintf(devnm, "md_%s", cname);
-		fd = open("/sys/module/md_mod/parameters/new_array", O_WRONLY);
-		if (fd >= 0) {
-			n = write(fd, devnm, strlen(devnm));
-			close(fd);
-		}
-		if (n < 0)
+		if (block_udev && udev_block(devnm) != UDEV_STATUS_SUCCESS)
+			return -1;
+		if (!create_named_array(devnm)) {
 			devnm[0] = 0;
+			udev_unblock();
+		}
 	}
-	if (devnm[0])
-		;
-	else if (num < 0) {
-		/* need to choose a free number. */
-		char *_devnm = find_free_devnm(use_mdp);
-		if (devnm == NULL) {
-			pr_err("No avail md devices - aborting\n");
+	if (num >= 0) {
+		sprintf(devnm, "md%d", num);
+		if (block_udev && udev_block(devnm) != UDEV_STATUS_SUCCESS)
 			return -1;
+		if (!create_named_array(devnm)) {
+			devnm[0] = 0;
+			udev_unblock();
 		}
-		strcpy(devnm, _devnm);
-	} else {
-		sprintf(devnm, "%s%d", use_mdp?"md_d":"md", num);
-		if (mddev_busy(devnm)) {
-			pr_err("%s is already in use.\n",
-				dev);
+	}
+	if (devnm[0] == 0) {
+		if (num < 0) {
+			/* need to choose a free number. */
+			char *_devnm = find_free_devnm();
+
+			if (!_devnm) {
+				pr_err("No avail md devices - aborting\n");
+				return -1;
+			}
+			strcpy(devnm, _devnm);
+		} else {
+			sprintf(devnm, "md%d", num);
+			if (mddev_busy(devnm)) {
+				pr_err("%s is already in use.\n",
+				       dev);
+				return -1;
+			}
+		}
+		if (block_udev && udev_block(devnm) != UDEV_STATUS_SUCCESS)
 			return -1;
-		}
+		create_named_array(devnm);
 	}
 
 	sprintf(devname, "/dev/%s", devnm);
 
-	if (dev && dev[0] == '/')
+	if (dev && dev[0] == '/' && strlen(dev) < 400)
 		strcpy(chosen, dev);
 	else if (cname[0] == 0)
 		strcpy(chosen, devname);
@@ -343,12 +332,12 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 	 * If we cannot detect udev, we need to make
 	 * devices and links ourselves.
 	 */
-	if (!use_udev()) {
+	if (!udev_is_available()) {
 		/* Make sure 'devname' exists and 'chosen' is a symlink to it */
 		if (lstat(devname, &stb) == 0) {
 			/* Must be the correct device, else error */
 			if ((stb.st_mode&S_IFMT) != S_IFBLK ||
-			    stb.st_rdev != (dev_t)devnm2devid(devnm)) {
+			    stb.st_rdev != devnm2devid(devnm)) {
 				pr_err("%s exists but looks wrong, please fix\n",
 					devname);
 				return -1;
@@ -364,18 +353,20 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 				perror("chown");
 			if (chmod(devname, ci->mode))
 				perror("chmod");
-			stat(devname, &stb);
+			if (stat(devname, &stb) < 0) {
+				pr_err("failed to stat %s\n",
+						devname);
+				return -1;
+			}
 			add_dev(devname, &stb, 0, NULL);
 		}
-		if (use_mdp == 1)
-			make_parts(devname, parts);
 
 		if (strcmp(chosen, devname) != 0) {
-			if (mkdir("/dev/md",0700) == 0) {
-				if (chown("/dev/md", ci->uid, ci->gid))
-					perror("chown /dev/md");
-				if (chmod("/dev/md", ci->mode| ((ci->mode>>2) & 0111)))
-					perror("chmod /dev/md");
+			if (mkdir(DEV_NUM_PREF, 0700) == 0) {
+				if (chown(DEV_NUM_PREF, ci->uid, ci->gid))
+					perror("chown " DEV_NUM_PREF);
+				if (chmod(DEV_NUM_PREF, ci->mode | ((ci->mode >> 2) & 0111)))
+					perror("chmod " DEV_NUM_PREF);
 			}
 
 			if (dev && strcmp(chosen, dev) == 0)
@@ -398,8 +389,6 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
 			} else if (symlink(devname, chosen) != 0)
 				pr_err("failed to create %s: %s\n",
 					chosen, strerror(errno));
-			if (use_mdp && strcmp(chosen, devname) != 0)
-				make_parts(chosen, parts);
 		}
 	}
 	mdfd = open_dev_excl(devnm);
@@ -416,53 +405,38 @@ int create_mddev(char *dev, char *name, int autof, int trustworthy,
  */
 int open_mddev(char *dev, int report_errors)
 {
-	int mdfd = open(dev, O_RDWR);
-	if (mdfd < 0 && errno == EACCES)
-		mdfd = open(dev, O_RDONLY);
+	int mdfd = open(dev, O_RDONLY);
+
 	if (mdfd < 0) {
 		if (report_errors)
 			pr_err("error opening %s: %s\n",
 				dev, strerror(errno));
 		return -1;
 	}
-	if (md_get_version(mdfd) <= 0) {
+
+	if (md_array_valid(mdfd) == 0) {
 		close(mdfd);
 		if (report_errors)
 			pr_err("%s does not appear to be an md device\n", dev);
 		return -2;
 	}
+
 	return mdfd;
 }
 
-char *find_free_devnm(int use_partitions)
+/**
+ * is_mddev() - check that file name passed is an md device.
+ * @dev: file name that has to be checked.
+ * Return: 1 if file passed is an md device, 0 if not.
+ */
+int is_mddev(char *dev)
 {
-	static char devnm[32];
-	int devnum;
-	for (devnum = 127; devnum != 128;
-	     devnum = devnum ? devnum-1 : (1<<20)-1) {
+	int fd = open_mddev(dev, 1);
 
-		if (use_partitions)
-			sprintf(devnm, "md_d%d", devnum);
-		else
-			sprintf(devnm, "md%d", devnum);
-		if (mddev_busy(devnm))
-			continue;
-		if (!conf_name_is_free(devnm))
-			continue;
-		if (!use_udev()) {
-			/* make sure it is new to /dev too, at least as a
-			 * non-standard */
-			int devid = devnm2devid(devnm);
-			if (devid) {
-				char *dn = map_dev(major(devid),
-						   minor(devid), 0);
-				if (dn && ! is_standard(dn, NULL))
-					continue;
-			}
-		}
-		break;
+	if (fd >= 0) {
+		close(fd);
+		return 1;
 	}
-	if (devnum == 128)
-		return NULL;
-	return devnm;
+
+	return 0;
 }

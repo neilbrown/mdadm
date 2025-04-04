@@ -78,7 +78,7 @@ mdadm -Ss
 
 # and now assemble fully incrementally.
 for i in  $dev8 $dev9 $dev10 $dev11 $dev12
-do 
+do
    mdadm -I $i -c /var/tmp/mdadm.conf
 done
 check nosync

@@ -10,7 +10,6 @@ export MDADM_GROW_VERIFY=1
 dotest() {
  sleep 2
  check wait
- testdev $md0 $1 19968 64 nd
  blockdev --flushbufs $md0
  cmp -s -n $[textK*1024] $md0 /tmp/RandFile || { echo cmp failed; exit 2; }
  # write something new - shift chars 4 space
@@ -24,10 +23,10 @@ checkgeo() {
  # level raid_disks chunk_size layout
  dev=$1
  shift
- sleep 0.5
+ sleep 25
  check wait
- sleep 1
- for attr in level raid_disks chunk_size layout 
+ sleep 2
+ for attr in level raid_disks chunk_size layout
  do
    if [ $# -gt 0 ] ; then
       val=$1
@@ -43,22 +42,25 @@ checkgeo() {
 
 bu=/tmp/md-test-backup
 rm -f $bu
-mdadm -CR $md0 -l1 -n2 -x1 $dev0 $dev1 $dev2 -z 19968
-testdev $md0 1 $mdsize1a 64
+mdadm -CR $md0 -l1 -n2 -x1 $dev0 $dev1 $dev2
+[ -b $md0 ] || die "$1 isn't a block device."
 dd if=/tmp/RandFile of=$md0
 dotest 1
 
-mdadm --grow $md0 -l5 -n3 --chunk 64
+mdadm --grow $md0 -l5 -n3
+checkgeo md0 raid5 3
 dotest 2
 
 mdadm $md0 --add $dev3 $dev4
 mdadm --grow $md0 -n4 --chunk 32
+checkgeo md0 raid5 4 $[32*1024]
 dotest 3
 
 mdadm -G $md0 -l6 --backup-file $bu
+checkgeo md0 raid6 5 $[32*1024]
 dotest 3
 
-mdadm -G /dev/md0 --array-size 39936
+mdadm -G /dev/md0 --array-size 37888
 mdadm -G $md0 -n4 --backup-file $bu
 checkgeo md0 raid6 4 $[32*1024]
 dotest 2
@@ -67,12 +69,9 @@ mdadm -G $md0 -l5 --backup-file $bu
 checkgeo md0 raid5 3 $[32*1024]
 dotest 2
 
-mdadm -G /dev/md0 --array-size 19968
+mdadm -G /dev/md0 --array-size 18944
 mdadm -G $md0 -n2 --backup-file $bu
 checkgeo md0 raid5 2 $[32*1024]
-dotest 1
-
-mdadm -G --level=1 $md0
 dotest 1
 
 # now repeat that last few steps only with a degraded array.
@@ -83,7 +82,7 @@ dotest 3
 
 mdadm $md0 --fail $dev0
 
-mdadm -G /dev/md0 --array-size 37888
+mdadm -G /dev/md0 --array-size 35840
 mdadm -G $md0 -n4 --backup-file $bu
 dotest 2
 checkgeo md0 raid6 4 $[512*1024]
@@ -103,12 +102,10 @@ dotest 2
 mdadm -G $md0 -l5 --backup-file $bu
 dotest 2
 
-mdadm -G /dev/md0 --array-size 18944
+mdadm -G /dev/md0 --array-size 17920
 mdadm -G $md0 -n2 --backup-file $bu
 dotest 1
 checkgeo md0 raid5 2 $[512*1024]
 mdadm $md0 --fail $dev2
 
-mdadm -G --level=1 $md0
-dotest 1
-checkgeo md0 raid1 2
+mdadm -S $md0

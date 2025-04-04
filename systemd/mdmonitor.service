@@ -8,9 +8,24 @@
 [Unit]
 Description=MD array monitor
 DefaultDependencies=no
+Documentation=man:mdadm(8)
 
 [Service]
-Environment=  MDADM_MONITOR_ARGS=--scan
-EnvironmentFile=-/run/sysconfig/mdadm
-ExecStartPre=-/usr/lib/systemd/scripts/mdadm_env.sh
-ExecStart=BINDIR/mdadm --monitor $MDADM_MONITOR_ARGS
+# For Maintainers:
+# We need to ensure that the mdmonitor configuration aligns with the guidelines provided
+# in the man page for users.
+# /etc/sysconfig/mdadm, /etc/sysconfig/mdmonitor, or any other similar configuration file should
+# not be supported because non upstream components are not described in man pages.
+
+# Parameters designed to be customized by user, should be settable via mdadm.conf:
+# - MONITORDELAY (do not set --delay in service)
+# - MAILADDR (do not set --mail in service)
+# - MAILFROM (not settable from cmdline)
+# - PROGRAM (do not set --program or --alert in service)
+#
+# Following parameters can be customized in service:
+# - --syslog (configure syslog logging)
+# - --fork (Type=forking must be added, not recommended and not needed with systemd)
+# - --pid-file (allowed only when --fork selected)
+
+ExecStart=BINDIR/mdadm --monitor --scan

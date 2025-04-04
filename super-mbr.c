@@ -41,14 +41,13 @@
 
 #include "mdadm.h"
 #include "part.h"
+#include "xmalloc.h"
 
 static void free_mbr(struct supertype *st)
 {
 	free(st->sb);
 	st->sb = NULL;
 }
-
-#ifndef MDASSEMBLE
 
 static void examine_mbr(struct supertype *st, char *homehost)
 {
@@ -57,6 +56,11 @@ static void examine_mbr(struct supertype *st, char *homehost)
 
 	printf("   MBR Magic : %04x\n", sb->magic);
 	for (i = 0; i < MBR_PARTITIONS; i++)
+		/*
+		 * Have to make every access through sb rather than using a
+		 * pointer to the partition table (or an entry), since the
+		 * entries are not properly aligned.
+		 */
 		if (sb->parts[i].blocks_num)
 			printf("Partition[%d] : %12lu sectors at %12lu (type %02x)\n",
 			       i,
@@ -65,8 +69,6 @@ static void examine_mbr(struct supertype *st, char *homehost)
 			       sb->parts[i].part_type);
 
 }
-
-#endif /*MDASSEMBLE */
 
 static int load_super_mbr(struct supertype *st, int fd, char *devname)
 {
@@ -151,6 +153,11 @@ static void getinfo_mbr(struct supertype *st, struct mdinfo *info, char *map)
 	info->component_size = 0;
 
 	for (i = 0; i < MBR_PARTITIONS ; i++)
+		/*
+		 * Have to make every access through sb rather than using a
+		 * pointer to the partition table (or an entry), since the
+		 * entries are not properly aligned.
+		 */
 		if (sb->parts[i].blocks_num) {
 			unsigned long last =
 				(unsigned long)__le32_to_cpu(sb->parts[i].blocks_num)
@@ -177,24 +184,20 @@ static struct supertype *match_metadata_desc(char *arg)
 	return st;
 }
 
-#ifndef MDASSEMBLE
 static int validate_geometry(struct supertype *st, int level,
 			     int layout, int raiddisks,
 			     int *chunk, unsigned long long size,
 			     unsigned long long data_offset,
 			     char *subdev, unsigned long long *freesize,
-			     int verbose)
+			     int consistency_policy, int verbose)
 {
 	pr_err("mbr metadata cannot be used this way\n");
 	return 0;
 }
-#endif
 
 struct superswitch mbr = {
-#ifndef MDASSEMBLE
 	.examine_super = examine_mbr,
 	.validate_geometry = validate_geometry,
-#endif
 	.match_metadata_desc = match_metadata_desc,
 	.load_super = load_super_mbr,
 	.store_super = store_mbr,

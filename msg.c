@@ -30,6 +30,7 @@
 #include <sys/un.h>
 #include "mdadm.h"
 #include "mdmon.h"
+#include "xmalloc.h"
 
 static const __u32 start_magic = 0x5a5aa5a5;
 static const __u32 end_magic = 0xa5a55a5a;
@@ -170,14 +171,21 @@ int connect_monitor(char *devname)
 
 	addr.sun_family = PF_LOCAL;
 	strcpy(addr.sun_path, path);
-	if (connect(sfd, &addr, sizeof(addr)) < 0) {
+	if (connect(sfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		close(sfd);
 		return -1;
 	}
 
 	fl = fcntl(sfd, F_GETFL, 0);
+	if (fl < 0) {
+		close(sfd);
+		return -1;
+	}
 	fl |= O_NONBLOCK;
-	fcntl(sfd, F_SETFL, fl);
+	if (fcntl(sfd, F_SETFL, fl) < 0) {
+		close(sfd);
+		return -1;
+	}
 
 	return sfd;
 }
@@ -324,7 +332,7 @@ int block_monitor(char *container, const int freeze)
 {
 	struct mdstat_ent *ent, *e, *e2;
 	struct mdinfo *sra = NULL;
-	char buf[64];
+	char buf[SYSFS_MAX_BUF_SIZE];
 	int rv = 0;
 
 	if (check_mdmon_version(container))
@@ -366,7 +374,7 @@ int block_monitor(char *container, const int freeze)
 		     !sysfs_attribute_available(sra, NULL, "sync_action")) ||
 		    (freeze &&
 		     sysfs_attribute_available(sra, NULL, "sync_action") &&
-		     sysfs_get_str(sra, NULL, "sync_action", buf, 20) > 0 &&
+		     sysfs_get_str(sra, NULL, "sync_action", buf, sizeof(buf)) > 0 &&
 		     strcmp(buf, "frozen\n") == 0))
 			/* pass */;
 		else {
@@ -395,7 +403,7 @@ int block_monitor(char *container, const int freeze)
 			sysfs_free(sra);
 			sra = sysfs_read(-1, e2->devnm, GET_VERSION);
 			if (unblock_subarray(sra, freeze))
-				pr_err("Failed to unfreeze %s\n", e2->dev);
+				pr_err("Failed to unfreeze %s\n", e2->devnm);
 		}
 
 		ping_monitor(container); /* cleared frozen */
@@ -431,7 +439,7 @@ void unblock_monitor(char *container, const int unfreeze)
 		if (sra->array.level > 0)
 			to_ping++;
 		if (unblock_subarray(sra, unfreeze))
-			pr_err("Failed to unfreeze %s\n", e->dev);
+			pr_err("Failed to unfreeze %s\n", e->devnm);
 	}
 	if (to_ping)
 		ping_monitor(container);

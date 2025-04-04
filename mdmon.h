@@ -21,7 +21,7 @@
 extern const char Name[];
 
 enum array_state { clear, inactive, suspended, readonly, read_auto,
-		   clean, active, write_pending, active_idle, bad_word};
+		   clean, active, write_pending, active_idle, broken, bad_word};
 
 enum sync_action { idle, reshape, resync, recover, check, repair, bad_action };
 
@@ -35,6 +35,7 @@ struct active_array {
 	int resync_start_fd;
 	int metadata_fd; /* for monitoring rw/ro status */
 	int sync_completed_fd; /* for checkpoint notification events */
+	int safe_mode_delay_fd;
 	unsigned long long last_checkpoint; /* sync_completed fires for many
 					     * reasons this field makes sure the
 					     * kernel has made progress before
@@ -47,8 +48,14 @@ struct active_array {
 	enum array_state prev_state, curr_state, next_state;
 	enum sync_action prev_action, curr_action, next_action;
 
-	int check_degraded; /* flag set by mon, read by manage */
-	int check_reshape; /* flag set by mon, read by manage */
+	bool check_degraded : 1; /* flag set by mon, read by manage */
+	bool check_reshape : 1; /* flag set by mon, read by manage */
+
+	/**
+	 * Signalize managemon there is a mdi to be removed.
+	 * Monitor must acknowledge faulty state first.
+	 */
+	bool check_member_remove : 1;
 };
 
 /*
@@ -77,7 +84,7 @@ void do_manager(struct supertype *container);
 extern int sigterm;
 
 int read_dev_state(int fd);
-int is_container_member(struct mdstat_ent *mdstat, char *container);
+bool is_container_member(struct mdstat_ent *mdstat, char *container);
 
 struct mdstat_ent *mdstat_read(int hold, int start);
 
@@ -101,7 +108,7 @@ static inline int is_resync_complete(struct mdinfo *array)
 		break;
 	case 10:
 		l = array->array.layout;
-		ncopies = (l & 0xff) * ((l >> 8) && 0xff);
+		ncopies = (l & 0xff) * ((l >> 8) & 0xff);
 		sync_size = array->component_size * array->array.raid_disks;
 		sync_size /= ncopies;
 		break;

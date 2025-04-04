@@ -3,6 +3,7 @@
 /*-stamp
 /mdadm
 /mdadm.8
+/mdadm.conf.5
 /mdadm.udeb
 /mdassemble
 /mdmon

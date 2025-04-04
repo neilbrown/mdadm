@@ -1,0 +1,9 @@
+always fails
+
+Fails with errors:
+    ERROR: sha1sum of /dev/md/vol0 has changed
+    ERROR: /dev/md/vol0 has unexpected state on /dev/loop10
+    ERROR: unexpected number of online disks on /dev/loop10
+    ERROR: /dev/md/vol0 has unexpected state on /dev/loop8
+    ERROR: unexpected number of online disks on /dev/loop8
+    ERROR: sha1sum of /dev/md/vol0 has changed

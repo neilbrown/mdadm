@@ -1,0 +1,35 @@
+devs="$dev0 $dev1 $dev2"
+
+set_up_test()
+{
+	mdadm -Cv -R -n 3 -l5 $md0 $devs --size=10M || die "create array failed"
+	mdadm -a $md0 $dev3 || die "failed to bind new disk to array"
+	mkfs.ext4 -F $md0 || die "mkfs failed"
+	e2fsck -pvf $md0 || die "check fs failed"
+}
+
+clean_up_test()
+{
+	mdadm -S $md0
+}
+
+trap 'clean_up_test' EXIT
+
+set_up_test || die "set up test failed"
+
+# trigger reshape
+echo 1000 > /sys/block/md0/md/sync_speed_max
+mdadm --grow -l 6 $md0
+sleep 2
+
+# stop and start reshape
+echo frozen > /sys/block/md0/md/sync_action
+echo system > /sys/block/md0/md/sync_speed_max
+echo reshape > /sys/block/md0/md/sync_action
+
+mdadm -W $md0
+
+# check if data is corrupted
+e2fsck -vn $md0 || die "data is corrupted after reshape"
+
+exit 0

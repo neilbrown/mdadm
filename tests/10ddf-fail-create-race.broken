@@ -1,0 +1,7 @@
+usually fails
+
+Fails about 9 out of 10 times with many errors:
+
+    mdadm: cannot open MISSING: No such file or directory
+    ERROR: non-degraded array found
+    ERROR: disk 0 not marked as failed in meta data

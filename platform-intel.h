@@ -19,11 +19,15 @@
 #include <asm/types.h>
 #include <strings.h>
 
+/* according to GUID format: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" */
+#define GUID_STR_MAX	37
+
 /* The IMSM Capability (IMSM AHCI and ISCU OROM/EFI variable) Version Table definition */
 struct imsm_orom {
 	__u8 signature[4];
 	#define IMSM_OROM_SIGNATURE "$VER"
 	#define IMSM_NVME_OROM_COMPAT_SIGNATURE "$NVM"
+	#define IMSM_VMD_OROM_COMPAT_SIGNATURE "$VMD"
 	__u8 table_ver_major; /* Currently 2 (can change with future revs) */
 	__u8 table_ver_minor; /* Currently 2 (can change with future revs) */
 	__u16 major_ver; /* Example: 8 as in 8.6.0.1020 */
@@ -65,11 +69,13 @@ struct imsm_orom {
 	__u16 tds; /* Total Disks Supported */
 	#define IMSM_OROM_TOTAL_DISKS 6
 	#define IMSM_OROM_TOTAL_DISKS_NVME 12
+	#define IMSM_OROM_TOTAL_DISKS_VMD 48
 	__u8 vpa; /* # Volumes Per Array supported */
 	#define IMSM_OROM_VOLUMES_PER_ARRAY 2
 	__u8 vphba; /* # Volumes Per Host Bus Adapter supported */
 	#define IMSM_OROM_VOLUMES_PER_HBA 4
 	#define IMSM_OROM_VOLUMES_PER_HBA_NVME 4
+	#define IMSM_OROM_VOLUMES_PER_HBA_VMD 24
 	/* Attributes supported. This should map to the
 	 * attributes in the MPB. Also, lower 16 bits
 	 * should match/duplicate RLC bits above.
@@ -99,27 +105,30 @@ struct imsm_orom {
 	#define IMSM_OROM_CAPABILITIES_Rohi (1 << 5)
 	#define IMSM_OROM_CAPABILITIES_ReadPatrol (1 << 6)
 	#define IMSM_OROM_CAPABILITIES_XorHw (1 << 7)
+	#define IMSM_OROM_CAPABILITIES_SKUMode ((1 << 8)|(1 << 9))
+	#define IMSM_OROM_CAPABILITIES_SKUMode_LOW ((1 << 8) | (1 << 9))
+	#define IMSM_OROM_CAPABILITIES_SKUMode_LOW_SHIFT 8
+	#define IMSM_OROM_CAPABILITIES_TPV (1 << 10)
+	#define IMSM_OROM_CAPABILITIES_SKUMode_HIGH ((1 << 11) | (1 << 12))
+	#define IMSM_OROM_CAPABILITIES_SKUMode_HIGH_SHIFT 9
+	#define IMSM_OROM_CAPABILITIES_SKUMode_NON_PRODUCTION (1 << 13)
 } __attribute__((packed));
 
-static inline int imsm_orom_has_raid0(const struct imsm_orom *orom)
+/* IMSM metadata requirements for each level */
+struct imsm_level_ops {
+	int level;
+	bool (*is_level_supported)(const struct imsm_orom *);
+	bool (*is_raiddisks_count_supported)(const int);
+	char *name;
+};
+
+extern struct imsm_level_ops imsm_level_ops[];
+
+static inline bool imsm_rlc_has_bit(const struct imsm_orom *orom, const unsigned short bit)
 {
-	return !!(orom->rlc & IMSM_OROM_RLC_RAID0);
-}
-static inline int imsm_orom_has_raid1(const struct imsm_orom *orom)
-{
-	return !!(orom->rlc & IMSM_OROM_RLC_RAID1);
-}
-static inline int imsm_orom_has_raid1e(const struct imsm_orom *orom)
-{
-	return !!(orom->rlc & IMSM_OROM_RLC_RAID1E);
-}
-static inline int imsm_orom_has_raid10(const struct imsm_orom *orom)
-{
-	return !!(orom->rlc & IMSM_OROM_RLC_RAID10);
-}
-static inline int imsm_orom_has_raid5(const struct imsm_orom *orom)
-{
-	return !!(orom->rlc & IMSM_OROM_RLC_RAID5);
+	if (orom->rlc & bit)
+		return true;
+	return false;
 }
 
 /**
@@ -167,7 +176,6 @@ static inline int fls(int x)
 		r -= 2;
 	}
 	if (!(x & 0x80000000u)) {
-		x <<= 1;
 		r -= 1;
 	}
 	return r;
@@ -181,7 +189,18 @@ static inline int imsm_orom_is_enterprise(const struct imsm_orom *orom)
 static inline int imsm_orom_is_nvme(const struct imsm_orom *orom)
 {
 	return memcmp(orom->signature, IMSM_NVME_OROM_COMPAT_SIGNATURE,
-			sizeof(orom->signature)) == 0;
+		      sizeof(orom->signature)) == 0;
+}
+
+static inline int imsm_orom_is_vmd_without_efi(const struct imsm_orom *orom)
+{
+	return memcmp(orom->signature, IMSM_VMD_OROM_COMPAT_SIGNATURE,
+		      sizeof(orom->signature)) == 0;
+}
+
+static inline int imsm_orom_has_tpv_support(const struct imsm_orom *orom)
+{
+	return !!(orom->driver_features & IMSM_OROM_CAPABILITIES_TPV);
 }
 
 enum sys_dev_type {
@@ -189,6 +208,8 @@ enum sys_dev_type {
 	SYS_DEV_SAS,
 	SYS_DEV_SATA,
 	SYS_DEV_NVME,
+	SYS_DEV_VMD,
+	SYS_DEV_SATA_VMD,
 	SYS_DEV_MAX
 };
 
@@ -213,6 +234,7 @@ struct devid_list {
 struct orom_entry {
 	struct imsm_orom orom;
 	struct devid_list *devid_list;
+	enum sys_dev_type type;
 	struct orom_entry *next;
 };
 
@@ -220,7 +242,7 @@ extern struct orom_entry *orom_entries;
 
 static inline char *guid_str(char *buf, struct efi_guid guid)
 {
-	sprintf(buf, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+	snprintf(buf, GUID_STR_MAX, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 		 guid.b[3], guid.b[2], guid.b[1], guid.b[0],
 		 guid.b[5], guid.b[4], guid.b[7], guid.b[6],
 		 guid.b[8], guid.b[9], guid.b[10], guid.b[11],
@@ -228,16 +250,23 @@ static inline char *guid_str(char *buf, struct efi_guid guid)
 	return buf;
 }
 
-char *diskfd_to_devpath(int fd);
+char *get_nvme_multipath_dev_hw_path(const char *dev_path);
+char *diskfd_to_devpath(int fd, int dev_level, char *buf);
+int devpath_to_char(const char *dev_path, const char *entry, char *buf,
+		    int len, int verbose);
+__u16 devpath_to_vendor(const char *dev_path);
 struct sys_dev *find_driver_devices(const char *bus, const char *driver);
 struct sys_dev *find_intel_devices(void);
 const struct imsm_orom *find_imsm_capability(struct sys_dev *hba);
 const struct imsm_orom *find_imsm_orom(void);
 int disk_attached_to_hba(int fd, const char *hba_path);
 int devt_attached_to_hba(dev_t dev, const char *hba_path);
-char *devt_to_devpath(dev_t dev);
-int path_attached_to_hba(const char *disk_path, const char *hba_path);
-const char *get_sys_dev_type(enum sys_dev_type);
+char *devt_to_devpath(dev_t dev, int dev_level, char *buf);
+bool is_path_attached_to_hba(const char *disk_path, const char *hba_path);
 const struct orom_entry *get_orom_entry_by_device_id(__u16 dev_id);
 const struct imsm_orom *get_orom_by_device_id(__u16 device_id);
 struct sys_dev *device_by_id(__u16 device_id);
+struct sys_dev *device_by_id_and_path(__u16 device_id, const char *path);
+int is_multipath_nvme(int disk_fd);
+int imsm_is_nvme_namespace_supported(int disk_fd, int verbose);
+char *vmd_domain_to_controller(struct sys_dev *hba, char *buf);

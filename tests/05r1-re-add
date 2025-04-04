@@ -9,17 +9,17 @@ mdadm -CR $md0 -l1 -n2 -binternal --bitmap-chunk=4 -d1 $dev1 $dev2
 check resync
 check wait
 testdev $md0 1 $mdsize1a 64
-sleep 4
+sleep 6
 
 mdadm $md0 -f $dev2
-sleep 1
+sleep 2
 mdadm $md0 -r $dev2
 mdadm $md0 -a $dev2
 #cat /proc/mdstat
 check nosync
 
 mdadm $md0 -f $dev2
-sleep 1
+sleep 2
 mdadm $md0 -r $dev2
 testdev $md0 1 $mdsize1a 64
 mdadm $md0 -a $dev2
@@ -27,9 +27,10 @@ check wait
 blockdev --flushbufs $dev1 $dev2
 cmp --ignore-initial=$[64*512] --bytes=$[$mdsize0*1024] $dev1 $dev2
 
-mdadm $md0 -f $dev2; sleep 1
+mdadm $md0 -f $dev2; sleep 2
 mdadm $md0 -r $dev2
 if dd if=/dev/zero of=$md0 ; then : ; fi
+blockdev --flushbufs $md0 # ensure writes have been sent.
 mdadm $md0 -a $dev2
 check recovery
 check wait

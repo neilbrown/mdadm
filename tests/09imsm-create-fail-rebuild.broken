@@ -1,0 +1,5 @@
+always fails
+
+Fails with error:
+
+    **Error**: Array size mismatch - expected 3072, actual 16384

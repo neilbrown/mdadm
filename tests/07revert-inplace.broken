@@ -1,0 +1,8 @@
+always fails
+
+Fails with errors:
+	++ /usr/sbin/mdadm -A /dev/md0 --update=revert-reshape /dev/loop0 /dev/loop1 /dev/loop2 /dev/loop3 /dev/loop4 --backup-file=/tmp/md-backup
+++ rv=1
+++ case $* in
+++ cat /var/tmp/stderr
+mdadm: failed to RUN_ARRAY /dev/md0: Invalid argument

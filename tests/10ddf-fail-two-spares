@@ -23,7 +23,7 @@ sum0=$(sha1sum $member0)
 sum1=$(sha1sum $member1)
 
 mdadm --fail $member1 $dev11
-sleep 1
+sleep 2
 mdadm --fail $member1 $dev12
 
 # We will have 4 resync procedures, 2 spares for 2 arrays.

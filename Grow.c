@@ -23,10 +23,11 @@
  */
 #include	"mdadm.h"
 #include	"dlink.h"
+#include	"xmalloc.h"
+
 #include	<sys/mman.h>
 #include	<stddef.h>
 #include	<stdint.h>
-#include	<signal.h>
 #include	<sys/wait.h>
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
@@ -58,9 +59,8 @@ int restore_backup(struct supertype *st,
 	for (dev = content->devs; dev; dev = dev->next) {
 		char buf[22];
 		int fd;
-		sprintf(buf, "%d:%d",
-			dev->disk.major,
-			dev->disk.minor);
+
+		sprintf(buf, "%d:%d", dev->disk.major, dev->disk.minor);
 		fd = dev_open(buf, O_RDWR);
 
 		if (dev->disk.raid_disk >= 0)
@@ -109,13 +109,13 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 */
 	struct mdinfo info;
 
-	struct stat stb;
+	dev_t rdev;
 	int nfd, fd2;
 	int d, nd;
 	struct supertype *st = NULL;
 	char *subarray = NULL;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
+	if (md_get_array_info(fd, &info.array) < 0) {
 		pr_err("cannot get array info for %s\n", devname);
 		return 1;
 	}
@@ -145,9 +145,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		free(st);
 		return 1;
 	}
-	fstat(nfd, &stb);
-	if ((stb.st_mode & S_IFMT) != S_IFBLK) {
-		pr_err("%s is not a block device!\n", newdev);
+	if (!fstat_is_blkdev(nfd, newdev, &rdev)) {
 		close(nfd);
 		free(st);
 		return 1;
@@ -161,17 +159,15 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		st->ss->free_super(st);
 
 		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
-			pr_err("cannot get device detail for device %d\n",
-				d);
+		if (md_get_disk_info(fd, &disk) < 0) {
+			pr_err("cannot get device detail for device %d\n", d);
 			close(nfd);
 			free(st);
 			return 1;
 		}
 		dv = map_dev(disk.major, disk.minor, 1);
 		if (!dv) {
-			pr_err("cannot find device file for device %d\n",
-				d);
+			pr_err("cannot find device file for device %d\n", d);
 			close(nfd);
 			free(st);
 			return 1;
@@ -198,16 +194,19 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 */
 
 	info.disk.number = d;
-	info.disk.major = major(stb.st_rdev);
-	info.disk.minor = minor(stb.st_rdev);
+	info.disk.major = major(rdev);
+	info.disk.minor = minor(rdev);
 	info.disk.raid_disk = d;
 	info.disk.state = (1 << MD_DISK_SYNC) | (1 << MD_DISK_ACTIVE);
-	st->ss->update_super(st, &info, "linear-grow-new", newdev,
-			     0, 0, NULL);
+	if (st->ss->update_super(st, &info, UOPT_SPEC_LINEAR_GROW_NEW, newdev,
+				 0, 0, NULL) != 0) {
+		pr_err("Preparing new metadata failed on %s\n", newdev);
+		close(nfd);
+		return 1;
+	}
 
 	if (st->ss->store_super(st, nfd)) {
-		pr_err("Cannot store new superblock on %s\n",
-			newdev);
+		pr_err("Cannot store new superblock on %s\n", newdev);
 		close(nfd);
 		return 1;
 	}
@@ -221,7 +220,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 	 * Now go through and update all superblocks
 	 */
 
-	if (ioctl(fd, GET_ARRAY_INFO, &info.array) < 0) {
+	if (md_get_array_info(fd, &info.array) < 0) {
 		pr_err("cannot get array info for %s\n", devname);
 		return 1;
 	}
@@ -232,15 +231,13 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		char *dv;
 
 		disk.number = d;
-		if (ioctl(fd, GET_DISK_INFO, &disk) < 0) {
-			pr_err("cannot get device detail for device %d\n",
-				d);
+		if (md_get_disk_info(fd, &disk) < 0) {
+			pr_err("cannot get device detail for device %d\n", d);
 			return 1;
 		}
 		dv = map_dev(disk.major, disk.minor, 1);
 		if (!dv) {
-			pr_err("cannot find device file for device %d\n",
-				d);
+			pr_err("cannot find device file for device %d\n", d);
 			return 1;
 		}
 		fd2 = dev_open(dv, O_RDWR);
@@ -251,6 +248,7 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		if (st->ss->load_super(st, fd2, NULL)) {
 			pr_err("cannot find super block on %s\n", dv);
 			close(fd);
+			close(fd2);
 			return 1;
 		}
 		info.array.raid_disks = nd+1;
@@ -258,8 +256,12 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		info.array.active_disks = nd+1;
 		info.array.working_disks = nd+1;
 
-		st->ss->update_super(st, &info, "linear-grow-update", dv,
-				     0, 0, NULL);
+		if (st->ss->update_super(st, &info, UOPT_SPEC_LINEAR_GROW_UPDATE, dv,
+				     0, 0, NULL) != 0) {
+			pr_err("Updating metadata failed on %s\n", dv);
+			close(fd2);
+			return 1;
+		}
 
 		if (st->ss->store_super(st, fd2)) {
 			pr_err("Cannot store new superblock on %s\n", dv);
@@ -283,61 +285,48 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	 * find all the active devices, and write the bitmap block
 	 * to all devices
 	 */
-	mdu_bitmap_file_t bmf;
 	mdu_array_info_t array;
 	struct supertype *st;
 	char *subarray = NULL;
 	int major = BITMAP_MAJOR_HI;
-	int vers = md_get_version(fd);
 	unsigned long long bitmapsize, array_size;
+	struct mdinfo *mdi;
 
-	if (vers < 9003) {
-		major = BITMAP_MAJOR_HOSTENDIAN;
-		pr_err("Warning - bitmaps created on this kernel are not portable\n"
-			"  between different architectures.  Consider upgrading the Linux kernel.\n");
-	}
+	/*
+	 * We only ever get called if bitmap is not none, so this check
+	 * is just here to quiet down static code checkers.
+	 */
+	if (s->btype == BitmapUnknown)
+		return 1;
 
-	if (ioctl(fd, GET_BITMAP_FILE, &bmf) != 0) {
-		if (errno == ENOMEM)
-			pr_err("Memory allocation failure.\n");
-		else
-			pr_err("bitmaps not supported by this kernel.\n");
-		return 1;
-	}
-	if (bmf.pathname[0]) {
-		if (strcmp(s->bitmap_file,"none")==0) {
-			if (ioctl(fd, SET_BITMAP_FILE, -1)!= 0) {
-				pr_err("failed to remove bitmap %s\n",
-					bmf.pathname);
-				return 1;
-			}
-			return 0;
-		}
-		pr_err("%s already has a bitmap (%s)\n",
-			devname, bmf.pathname);
-		return 1;
-	}
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+	if (s->btype == BitmapCluster)
+		major = BITMAP_MAJOR_CLUSTERED;
+
+	if (md_get_array_info(fd, &array) != 0) {
 		pr_err("cannot get array status for %s\n", devname);
 		return 1;
 	}
-	if (array.state & (1<<MD_SB_BITMAP_PRESENT)) {
-		if (strcmp(s->bitmap_file, "none")==0) {
-			array.state &= ~(1<<MD_SB_BITMAP_PRESENT);
-			if (ioctl(fd, SET_ARRAY_INFO, &array)!= 0) {
-				pr_err("failed to remove internal bitmap.\n");
+	if (array.state & (1 << MD_SB_BITMAP_PRESENT)) {
+		if (s->btype == BitmapNone) {
+			array.state &= ~(1 << MD_SB_BITMAP_PRESENT);
+			if (md_set_array_info(fd, &array) != 0) {
+				if (array.state & (1 << MD_SB_CLUSTERED))
+					pr_err("failed to remove clustered bitmap.\n");
+				else
+					pr_err("failed to remove internal bitmap.\n");
 				return 1;
 			}
 			return 0;
 		}
-		pr_err("%s bitmap already present on %s\n", s->bitmap_file, devname);
+		pr_err("bitmap already present on %s\n", devname);
 		return 1;
 	}
 
-	if (strcmp(s->bitmap_file, "none") == 0) {
+	if (s->btype == BitmapNone) {
 		pr_err("no bitmap found on %s\n", devname);
 		return 1;
 	}
+
 	if (array.level <= 0) {
 		pr_err("Bitmaps not meaningful with level %s\n",
 			map_num(pers, array.level)?:"of this array");
@@ -346,7 +335,7 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	bitmapsize = array.size;
 	bitmapsize <<= 1;
 	if (get_dev_size(fd, NULL, &array_size) &&
-	    array_size > (0x7fffffffULL<<9)) {
+	    array_size > (0x7fffffffULL << 9)) {
 		/* Array is big enough that we cannot trust array.size
 		 * try other approaches
 		 */
@@ -358,8 +347,16 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 	}
 
 	if (array.level == 10) {
-		int ncopies = (array.layout&255)*((array.layout>>8)&255);
+		int ncopies;
+
+		ncopies = (array.layout & 255) * ((array.layout >> 8) & 255);
 		bitmapsize = bitmapsize * array.raid_disks / ncopies;
+
+		if (s->btype == BitmapCluster &&
+		    !is_near_layout_10(array.layout)) {
+			pr_err("only near layout is supported with clustered raid10\n");
+			return 1;
+		}
 	}
 
 	st = super_by_fd(fd, &subarray);
@@ -374,12 +371,22 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		free(st);
 		return 1;
 	}
-	if (strcmp(s->bitmap_file, "internal") == 0 ||
-	    strcmp(s->bitmap_file, "clustered") == 0) {
+
+	mdi = sysfs_read(fd, NULL, GET_CONSISTENCY_POLICY);
+	if (mdi) {
+		if (mdi->consistency_policy == CONSISTENCY_POLICY_PPL) {
+			pr_err("Cannot add bitmap to array with PPL\n");
+			free(mdi);
+			free(st);
+			return 1;
+		}
+		free(mdi);
+	}
+
+	if (s->btype == BitmapInternal || s->btype == BitmapCluster) {
 		int rv;
 		int d;
 		int offset_setable = 0;
-		struct mdinfo *mdi;
 		if (st->ss->add_internal_bitmap == NULL) {
 			pr_err("Internal bitmaps not supported with %s metadata\n", st->ss->name);
 			return 1;
@@ -389,49 +396,65 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 		mdi = sysfs_read(fd, NULL, GET_BITMAP_LOCATION);
 		if (mdi)
 			offset_setable = 1;
-		for (d=0; d< st->max_devs; d++) {
+		for (d = 0; d < st->max_devs; d++) {
 			mdu_disk_info_t disk;
 			char *dv;
+			int fd2;
+
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
-			if (disk.major == 0 &&
-			    disk.minor == 0)
+			if (disk.major == 0 && disk.minor == 0)
 				continue;
-			if ((disk.state & (1<<MD_DISK_SYNC))==0)
+			if ((disk.state & (1 << MD_DISK_SYNC)) == 0)
 				continue;
 			dv = map_dev(disk.major, disk.minor, 1);
-			if (dv) {
-				int fd2 = dev_open(dv, O_RDWR);
-				if (fd2 < 0)
-					continue;
-				if (st->ss->load_super(st, fd2, NULL)==0) {
-					if (st->ss->add_internal_bitmap(
-						    st,
-						    &s->bitmap_chunk, c->delay, s->write_behind,
-						    bitmapsize, offset_setable,
-						    major)
-						)
-						st->ss->write_bitmap(st, fd2, NoUpdate);
-					else {
-						pr_err("failed to create internal bitmap - chunksize problem.\n");
-						close(fd2);
-						return 1;
-					}
+			if (!dv)
+				continue;
+			if ((disk.state & (1 << MD_DISK_WRITEMOSTLY)) &&
+			    s->btype == BitmapCluster) {
+				pr_err("%s disks marked write-mostly are not supported with clustered bitmap\n",devname);
+				free(mdi);
+				return 1;
+			}
+			fd2 = dev_open(dv, O_RDWR);
+			if (fd2 < 0)
+				continue;
+			rv = st->ss->load_super(st, fd2, NULL);
+			if (!rv) {
+				rv = st->ss->add_internal_bitmap(
+					st, &s->bitmap_chunk, c->delay,
+					s->write_behind, bitmapsize,
+					offset_setable, major);
+				if (!rv) {
+					st->ss->write_bitmap(st, fd2,
+							     NodeNumUpdate);
+				} else {
+					pr_err("failed to create internal bitmap - chunksize problem.\n");
 				}
-				close(fd2);
+			} else {
+				pr_err("failed to load super-block.\n");
+			}
+			close(fd2);
+			if (rv) {
+				free(mdi);
+				return 1;
 			}
 		}
 		if (offset_setable) {
 			st->ss->getinfo_super(st, mdi, NULL);
-			sysfs_init(mdi, fd, NULL);
+			if (sysfs_init(mdi, fd, NULL)) {
+				pr_err("failed to initialize sysfs.\n");
+				free(mdi);
+			}
 			rv = sysfs_set_num_signed(mdi, NULL, "bitmap/location",
 						  mdi->bitmap_offset);
+			free(mdi);
 		} else {
-			if (strcmp(s->bitmap_file, "clustered") == 0)
-				array.state |= (1<<MD_SB_CLUSTERED);
-			array.state |= (1<<MD_SB_BITMAP_PRESENT);
-			rv = ioctl(fd, SET_ARRAY_INFO, &array);
+			if (s->btype == BitmapCluster)
+				array.state |= (1 << MD_SB_CLUSTERED);
+			array.state |= (1 << MD_SB_BITMAP_PRESENT);
+			rv = md_set_array_info(fd, &array);
 		}
 		if (rv < 0) {
 			if (errno == EBUSY)
@@ -439,61 +462,193 @@ int Grow_addbitmap(char *devname, int fd, struct context *c, struct shape *s)
 			pr_err("failed to set internal bitmap.\n");
 			return 1;
 		}
-	} else {
-		int uuid[4];
-		int bitmap_fd;
-		int d;
-		int max_devs = st->max_devs;
-
-		/* try to load a superblock */
-		for (d = 0; d < max_devs; d++) {
-			mdu_disk_info_t disk;
-			char *dv;
-			int fd2;
-			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
-				continue;
-			if ((disk.major==0 && disk.minor==0) ||
-			    (disk.state & (1<<MD_DISK_REMOVED)))
-				continue;
-			dv = map_dev(disk.major, disk.minor, 1);
-			if (!dv)
-				continue;
-			fd2 = dev_open(dv, O_RDONLY);
-			if (fd2 >= 0) {
-				if (st->ss->load_super(st, fd2, NULL) == 0) {
-					close(fd2);
-					st->ss->uuid_from_super(st, uuid);
-					break;
-				}
-				close(fd2);
-			}
-		}
-		if (d == max_devs) {
-			pr_err("cannot find UUID for array!\n");
-			return 1;
-		}
-		if (CreateBitmap(s->bitmap_file, c->force, (char*)uuid, s->bitmap_chunk,
-				 c->delay, s->write_behind, bitmapsize, major)) {
-			return 1;
-		}
-		bitmap_fd = open(s->bitmap_file, O_RDWR);
-		if (bitmap_fd < 0) {
-			pr_err("weird: %s cannot be opened\n",
-				s->bitmap_file);
-			return 1;
-		}
-		if (ioctl(fd, SET_BITMAP_FILE, bitmap_fd) < 0) {
-			int err = errno;
-			if (errno == EBUSY)
-				pr_err("Cannot add bitmap while array is resyncing or reshaping etc.\n");
-			pr_err("Cannot set bitmap file for %s: %s\n",
-				devname, strerror(err));
-			return 1;
-		}
 	}
 
 	return 0;
+}
+
+int Grow_consistency_policy(char *devname, int fd, struct context *c, struct shape *s)
+{
+	struct supertype *st;
+	struct mdinfo *sra;
+	struct mdinfo *sd;
+	char *subarray = NULL;
+	int ret = 0;
+	char container_dev[PATH_MAX];
+	char buf[SYSFS_MAX_BUF_SIZE];
+
+	if (s->consistency_policy != CONSISTENCY_POLICY_RESYNC &&
+	    s->consistency_policy != CONSISTENCY_POLICY_PPL) {
+		pr_err("Operation not supported for consistency policy %s\n",
+		       map_num_s(consistency_policies, s->consistency_policy));
+		return 1;
+	}
+
+	st = super_by_fd(fd, &subarray);
+	if (!st)
+		return 1;
+
+	sra = sysfs_read(fd, NULL, GET_CONSISTENCY_POLICY|GET_LEVEL|
+				   GET_DEVS|GET_STATE);
+	if (!sra) {
+		ret = 1;
+		goto free_st;
+	}
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL &&
+	    !st->ss->write_init_ppl) {
+		pr_err("%s metadata does not support PPL\n", st->ss->name);
+		ret = 1;
+		goto free_info;
+	}
+
+	if (sra->array.level != 5) {
+		pr_err("Operation not supported for array level %d\n",
+				sra->array.level);
+		ret = 1;
+		goto free_info;
+	}
+
+	if (sra->consistency_policy == (unsigned)s->consistency_policy) {
+		pr_err("Consistency policy is already %s\n",
+		       map_num_s(consistency_policies, s->consistency_policy));
+		ret = 1;
+		goto free_info;
+	} else if (sra->consistency_policy != CONSISTENCY_POLICY_RESYNC &&
+		   sra->consistency_policy != CONSISTENCY_POLICY_PPL) {
+		pr_err("Current consistency policy is %s, cannot change to %s\n",
+		       map_num_s(consistency_policies, sra->consistency_policy),
+		       map_num_s(consistency_policies, s->consistency_policy));
+		ret = 1;
+		goto free_info;
+	}
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL) {
+		if (sysfs_get_str(sra, NULL, "sync_action", buf, sizeof(buf)) <= 0) {
+			ret = 1;
+			goto free_info;
+		} else if (strcmp(buf, "reshape\n") == 0) {
+			pr_err("PPL cannot be enabled when reshape is in progress\n");
+			ret = 1;
+			goto free_info;
+		}
+	}
+
+	if (subarray) {
+		enum update_opt update;
+
+		if (s->consistency_policy == CONSISTENCY_POLICY_PPL)
+			update = UOPT_PPL;
+		else
+			update = UOPT_NO_PPL;
+
+		sprintf(container_dev, "/dev/%s", st->container_devnm);
+
+		ret = Update_subarray(container_dev, subarray, update, NULL,
+				      c->verbose);
+		if (ret)
+			goto free_info;
+	}
+
+	if (s->consistency_policy == CONSISTENCY_POLICY_PPL) {
+		struct mdinfo info;
+
+		if (subarray) {
+			struct mdinfo *mdi;
+			int cfd;
+
+			cfd = open(container_dev, O_RDWR|O_EXCL);
+			if (cfd < 0) {
+				pr_err("Failed to open %s\n", container_dev);
+				ret = 1;
+				goto free_info;
+			}
+
+			ret = st->ss->load_container(st, cfd, st->container_devnm);
+			close(cfd);
+
+			if (ret) {
+				pr_err("Cannot read superblock for %s\n",
+				       container_dev);
+				goto free_info;
+			}
+
+			mdi = st->ss->container_content(st, subarray);
+			info = *mdi;
+			free(mdi);
+		}
+
+		for (sd = sra->devs; sd; sd = sd->next) {
+			int dfd;
+			char *devpath;
+
+			devpath = map_dev(sd->disk.major, sd->disk.minor, 0);
+			dfd = dev_open(devpath, O_RDWR);
+			if (dfd < 0) {
+				pr_err("Failed to open %s\n", devpath);
+				ret = 1;
+				goto free_info;
+			}
+
+			if (!subarray) {
+				ret = st->ss->load_super(st, dfd, NULL);
+				if (ret) {
+					pr_err("Failed to load super-block.\n");
+					close(dfd);
+					goto free_info;
+				}
+
+				ret = st->ss->update_super(st, sra, UOPT_PPL,
+							   devname,
+							   c->verbose, 0, NULL);
+				if (ret) {
+					close(dfd);
+					st->ss->free_super(st);
+					goto free_info;
+				}
+				st->ss->getinfo_super(st, &info, NULL);
+			}
+
+			ret |= sysfs_set_num(sra, sd, "ppl_sector",
+					     info.ppl_sector);
+			ret |= sysfs_set_num(sra, sd, "ppl_size",
+					     info.ppl_size);
+
+			if (ret) {
+				pr_err("Failed to set PPL attributes for %s\n",
+				       sd->sys_name);
+				close(dfd);
+				st->ss->free_super(st);
+				goto free_info;
+			}
+
+			ret = st->ss->write_init_ppl(st, &info, dfd);
+			if (ret)
+				pr_err("Failed to write PPL\n");
+
+			close(dfd);
+
+			if (!subarray)
+				st->ss->free_super(st);
+
+			if (ret)
+				goto free_info;
+		}
+	}
+
+	ret = sysfs_set_str(sra, NULL, "consistency_policy",
+			    map_num_s(consistency_policies,
+					 s->consistency_policy));
+	if (ret)
+		pr_err("Failed to change array consistency policy\n");
+
+free_info:
+	sysfs_free(sra);
+free_st:
+	free(st);
+	free(subarray);
+
+	return ret;
 }
 
 /*
@@ -545,7 +700,8 @@ static int check_idle(struct supertype *st)
 	for (e = ent ; e; e = e->next) {
 		if (!is_container_member(e, container))
 			continue;
-		if (e->percent >= 0) {
+		/* frozen array is not idle*/
+		if (e->percent >= 0 || e->metadata_version[9] == '-') {
 			is_idle = 0;
 			break;
 		}
@@ -591,12 +747,12 @@ static int freeze(struct supertype *st)
 	else {
 		struct mdinfo *sra = sysfs_read(-1, st->devnm, GET_VERSION);
 		int err;
-		char buf[20];
+		char buf[SYSFS_MAX_BUF_SIZE];
 
 		if (!sra)
 			return -1;
 		/* Need to clear any 'read-auto' status */
-		if (sysfs_get_str(sra, NULL, "array_state", buf, 20) > 0 &&
+		if (sysfs_get_str(sra, NULL, "array_state", buf, sizeof(buf)) > 0 &&
 		    strncmp(buf, "read-auto", 9) == 0)
 			sysfs_set_str(sra, NULL, "array_state", "clean");
 
@@ -612,14 +768,12 @@ static void unfreeze(struct supertype *st)
 		return unfreeze_container(st);
 	else {
 		struct mdinfo *sra = sysfs_read(-1, st->devnm, GET_VERSION);
-		char buf[20];
+		char buf[SYSFS_MAX_BUF_SIZE];
 
 		if (sra &&
-		    sysfs_get_str(sra, NULL, "sync_action", buf, 20) > 0
-		    && strcmp(buf, "frozen\n") == 0) {
-			printf("unfreeze\n");
+		    sysfs_get_str(sra, NULL, "sync_action", buf, sizeof(buf)) > 0 &&
+		    strcmp(buf, "frozen\n") == 0)
 			sysfs_set_str(sra, NULL, "sync_action", "idle");
-		}
 		sysfs_free(sra);
 	}
 }
@@ -627,35 +781,87 @@ static void unfreeze(struct supertype *st)
 static void wait_reshape(struct mdinfo *sra)
 {
 	int fd = sysfs_get_fd(sra, NULL, "sync_action");
-	char action[20];
+	char action[SYSFS_MAX_BUF_SIZE];
 
 	if (fd < 0)
 		return;
 
-	while (sysfs_fd_get_str(fd, action, 20) > 0 &&
+	while (sysfs_fd_get_str(fd, action, sizeof(action)) > 0 &&
 	       strncmp(action, "reshape", 7) == 0)
 		sysfs_wait(fd, NULL);
 	close(fd);
 }
 
-static int reshape_super(struct supertype *st, unsigned long long size,
-			 int level, int layout, int chunksize, int raid_disks,
-			 int delta_disks, char *backup_file, char *dev,
-			 int direction, int verbose)
+static int reshape_super(struct supertype *st, struct shape *shape, struct context *c)
 {
 	/* nothing extra to check in the native case */
 	if (!st->ss->external)
 		return 0;
-	if (!st->ss->reshape_super ||
-	    !st->ss->manage_reshape) {
+	if (!st->ss->reshape_super || !st->ss->manage_reshape) {
 		pr_err("%s metadata does not support reshape\n",
 			st->ss->name);
 		return 1;
 	}
 
-	return st->ss->reshape_super(st, size, level, layout, chunksize,
-				     raid_disks, delta_disks, backup_file, dev,
-				     direction, verbose);
+	return st->ss->reshape_super(st, shape, c);
+}
+
+/**
+ * reshape_super_size() - Reshape array, size only.
+ *
+ * @st: supertype.
+ * @devname: device name.
+ * @size: component size.
+ * @dir metadata changes direction
+ * Returns: 0 on success, 1 otherwise.
+ *
+ * This function is solely used to change size of the volume.
+ * Setting size is not valid for container.
+ * Size is only change that can be rolled back, thus the @dir param.
+ */
+static int reshape_super_size(struct supertype *st, char *devname,
+			      unsigned long long size, change_dir_t direction,
+			      struct context *c)
+{
+	struct shape shape = {0};
+
+	shape.level = UnSet;
+	shape.layout = UnSet;
+	shape.delta_disks = UnSet;
+	shape.dev = devname;
+	shape.size = size;
+	shape.direction = direction;
+
+	return reshape_super(st, &shape, c);
+}
+
+/**
+ * reshape_super_non_size() - Reshape array, non size changes.
+ *
+ * @st: supertype.
+ * @devname: device name.
+ * @info: superblock info.
+ * Returns: 0 on success, 1 otherwise.
+ *
+ * This function is used for any external array changes but size.
+ * It handles both volumes and containers.
+ * For changes other than size, rollback is not possible.
+ */
+static int reshape_super_non_size(struct supertype *st, char *devname,
+				  struct mdinfo *info, struct context *c)
+{
+	struct shape shape = {0};
+	/* Size already set to zero, not updating size */
+	shape.level = info->new_level;
+	shape.layout = info->new_layout;
+	shape.chunk = info->new_chunk;
+	shape.raiddisks = info->array.raid_disks;
+	shape.delta_disks = info->delta_disks;
+	shape.dev = devname;
+	/* Rollback not possible for non size changes */
+	shape.direction = APPLY_METADATA_CHANGES;
+
+	return reshape_super(st, &shape, c);
 }
 
 static void sync_metadata(struct supertype *st)
@@ -679,7 +885,7 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 	 * to close a race with the array_state going clean before the
 	 * next write to raid_disks / stripe_cache_size
 	 */
-	char safe[50];
+	char safe[SYSFS_MAX_BUF_SIZE];
 	int rc;
 
 	/* only 'raid_disks' and 'stripe_cache_size' trigger md_allow_write */
@@ -705,7 +911,7 @@ static int subarray_set_num(char *container, struct mdinfo *sra, char *name, int
 }
 
 int start_reshape(struct mdinfo *sra, int already_running,
-		  int before_data_disks, int data_disks)
+		  int before_data_disks, int data_disks, struct supertype *st)
 {
 	int err;
 	unsigned long long sync_max_to_set;
@@ -719,15 +925,22 @@ int start_reshape(struct mdinfo *sra, int already_running,
 	else
 		sync_max_to_set = (sra->component_size * data_disks
 				   - sra->reshape_progress) / data_disks;
+
 	if (!already_running)
 		sysfs_set_num(sra, NULL, "sync_min", sync_max_to_set);
-	err = err ?: sysfs_set_num(sra, NULL, "sync_max", sync_max_to_set);
+
+        if (st->ss->external)
+		err = err ?: sysfs_set_num(sra, NULL, "sync_max", sync_max_to_set);
+	else
+		err = err ?: sysfs_set_str(sra, NULL, "sync_max", "max");
+
 	if (!already_running && err == 0) {
 		int cnt = 5;
 		do {
-			err = sysfs_set_str(sra, NULL, "sync_action", "reshape");
+			err = sysfs_set_str(sra, NULL, "sync_action",
+					    "reshape");
 			if (err)
-				sleep(1);
+				sleep_for(1, 0, true);
 		} while (err && errno == EBUSY && cnt-- > 0);
 	}
 	return err;
@@ -736,6 +949,14 @@ int start_reshape(struct mdinfo *sra, int already_running,
 void abort_reshape(struct mdinfo *sra)
 {
 	sysfs_set_str(sra, NULL, "sync_action", "idle");
+	/*
+	 * Prior to kernel commit: 23ddff3792f6 ("md: allow suspend_lo and
+	 * suspend_hi to decrease as well as increase.")
+	 * you could only increase suspend_{lo,hi} unless the region they
+	 * covered was empty.  So to reset to 0, you need to push suspend_lo
+	 * up past suspend_hi first.  So to maximize the chance of mdadm
+	 * working on all kernels, we want to keep doing that.
+	 */
 	sysfs_set_num(sra, NULL, "suspend_lo", 0x7FFFFFFFFFFFFFFFULL);
 	sysfs_set_num(sra, NULL, "suspend_hi", 0);
 	sysfs_set_num(sra, NULL, "suspend_lo", 0);
@@ -751,6 +972,26 @@ int remove_disks_for_takeover(struct supertype *st,
 	int nr_of_copies;
 	struct mdinfo *remaining;
 	int slot;
+
+	if (st->ss->external) {
+		int rv = 0;
+		struct mdinfo *arrays = st->ss->container_content(st, NULL);
+		/*
+		 * containter_content returns list of arrays in container
+		 * If arrays->next is not NULL it means that there are
+		 * 2 arrays in container and operation should be blocked
+		 */
+		if (arrays) {
+			if (arrays->next)
+				rv = 1;
+			sysfs_free(arrays);
+			if (rv) {
+				pr_err("Error. Cannot perform operation on %s- for this operation "
+				       "it MUST be single array in container\n", st->devnm);
+				return rv;
+			}
+		}
+	}
 
 	if (sra->array.level == 10)
 		nr_of_copies = layout & 0xff;
@@ -809,7 +1050,7 @@ int remove_disks_for_takeover(struct supertype *st,
 		remaining = sd->next;
 
 		sysfs_set_str(sra, sd, "state", "faulty");
-		sysfs_set_str(sra, sd, "slot", "none");
+		sysfs_set_str(sra, sd, "slot", STR_COMMON_NONE);
 		/* for external metadata disks should be removed in mdmon */
 		if (!st->ss->external)
 			sysfs_set_str(sra, sd, "state", "remove");
@@ -856,10 +1097,8 @@ int reshape_prepare_fdlist(char *devname,
 			continue;
 		if (sd->disk.state & (1<<MD_DISK_SYNC) &&
 		    sd->disk.raid_disk < raid_disks) {
-			char *dn = map_dev(sd->disk.major,
-					   sd->disk.minor, 1);
-			fdlist[sd->disk.raid_disk]
-				= dev_open(dn, O_RDONLY);
+			char *dn = map_dev(sd->disk.major, sd->disk.minor, 1);
+			fdlist[sd->disk.raid_disk] = dev_open(dn, O_RDONLY);
 			offsets[sd->disk.raid_disk] = sd->data_offset*512;
 			if (fdlist[sd->disk.raid_disk] < 0) {
 				pr_err("%s: cannot open component %s\n",
@@ -869,8 +1108,7 @@ int reshape_prepare_fdlist(char *devname,
 			}
 		} else if (backup_file == NULL) {
 			/* spare */
-			char *dn = map_dev(sd->disk.major,
-					   sd->disk.minor, 1);
+			char *dn = map_dev(sd->disk.major, sd->disk.minor, 1);
 				fdlist[d] = dev_open(dn, O_RDWR);
 				offsets[d] = (sd->data_offset + sra->component_size - blocks - 8)*512;
 				if (fdlist[d] < 0) {
@@ -915,13 +1153,14 @@ int reshape_open_backup_file(char *backup_file,
 	 * way this will not notice, but it is better than
 	 * nothing.
 	 */
-	fstat(*fdlist, &stb);
+	if (fstat(*fdlist, &stb) != 0)
+		goto error;
 	dev = stb.st_dev;
-	fstat(fd, &stb);
+	if (fstat(fd, &stb) != 0)
+		goto error;
 	if (stb.st_rdev == dev) {
 		pr_err("backup file must NOT be on the array being reshaped.\n");
-		close(*fdlist);
-		return 0;
+		goto error;
 	}
 
 	memset(buf, 0, 512);
@@ -947,6 +1186,9 @@ int reshape_open_backup_file(char *backup_file,
 	}
 
 	return 1;
+error:
+	close(*fdlist);
+	return 0;
 }
 
 unsigned long compute_backup_blocks(int nchunk, int ochunk,
@@ -963,7 +1205,8 @@ unsigned long compute_backup_blocks(int nchunk, int ochunk,
 	/* Find GCD */
 	a = GCD(a, b);
 	/* LCM == product / GCD */
-	blocks = (ochunk/512) * (nchunk/512) * odata * ndata / a;
+	blocks = (unsigned long)(ochunk/512) * (unsigned long)(nchunk/512) *
+		odata * ndata / a;
 
 	return blocks;
 }
@@ -1039,8 +1282,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 		 * raid5 with 2 disks, or
 		 * raid0 with 1 disk
 		 */
-		if (info->new_level > 1 &&
-		    (info->component_size & 7))
+		if (info->new_level > 1 && (info->component_size & 7))
 			return "Cannot convert RAID1 of this size - reduce size to multiple of 4K first.";
 		if (info->new_level == 0) {
 			if (info->delta_disks != UnSet &&
@@ -1058,9 +1300,9 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 			re->level = 1;
 			return NULL;
 		}
-		if (info->array.raid_disks == 2 &&
-		    info->new_level == 5) {
-
+		if (info->array.raid_disks != 2 && info->new_level == 5)
+			return "Can only convert a 2-device array to RAID5";
+		if (info->array.raid_disks == 2 && info->new_level == 5) {
 			re->level = 5;
 			re->before.data_disks = 1;
 			if (info->delta_disks != UnSet &&
@@ -1090,17 +1332,22 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 		case 0:
 			if ((info->array.layout & ~0xff) != 0x100)
 				return "Cannot Grow RAID10 with far/offset layout";
-			/* number of devices must be multiple of number of copies */
-			if (info->array.raid_disks % (info->array.layout & 0xff))
+			/*
+			 * number of devices must be multiple of
+			 * number of copies
+			 */
+			if (info->array.raid_disks %
+			    (info->array.layout & 0xff))
 				return "RAID10 layout too complex for Grow operation";
 
-			new_disks = (info->array.raid_disks
-				     / (info->array.layout & 0xff));
+			new_disks = (info->array.raid_disks /
+				     (info->array.layout & 0xff));
 			if (info->delta_disks == UnSet)
 				info->delta_disks = (new_disks
 						     - info->array.raid_disks);
 
-			if (info->delta_disks != new_disks - info->array.raid_disks)
+			if (info->delta_disks !=
+			    new_disks - info->array.raid_disks)
 				return "New number of raid-devices impossible for RAID10";
 			if (info->new_chunk &&
 			    info->new_chunk != info->array.chunk_size)
@@ -1171,7 +1418,8 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 	case 0:
 		/* RAID0 can be converted to RAID10, or to RAID456 */
 		if (info->new_level == 10) {
-			if (info->new_layout == UnSet && info->delta_disks == UnSet) {
+			if (info->new_layout == UnSet &&
+			    info->delta_disks == UnSet) {
 				/* Assume near=2 layout */
 				info->new_layout = 0x102;
 				info->delta_disks = info->array.raid_disks;
@@ -1179,8 +1427,8 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 			if (info->new_layout == UnSet) {
 				int copies = 1 + (info->delta_disks
 						  / info->array.raid_disks);
-				if (info->array.raid_disks * (copies-1)
-				    != info->delta_disks)
+				if (info->array.raid_disks * (copies-1) !=
+				    info->delta_disks)
 					return "Impossible number of devices for RAID0->RAID10";
 				info->new_layout = 0x100 + copies;
 			}
@@ -1374,7 +1622,7 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 					/* Current RAID6 layout has a RAID5
 					 * equivalent - good
 					 */
-					strcat(strcpy(layout, ls), "-6");
+					snprintf(layout, 40, "%s-6", ls);
 					l = map_name(r6layout, layout);
 					if (l == UnSet)
 						return "Cannot find RAID6 layout to convert to";
@@ -1384,7 +1632,8 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 					 * can leave it unchanged, else we must
 					 * fail
 					 */
-					ls = map_num(r6layout, info->new_layout);
+					ls = map_num(r6layout,
+						     info->new_layout);
 					if (!ls ||
 					    strcmp(ls+strlen(ls)-2, "-6") != 0)
 						return "Please specify new layout";
@@ -1410,16 +1659,19 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 	if (info->delta_disks == UnSet)
 		info->delta_disks = delta_parity;
 
-	re->after.data_disks = (re->before.data_disks
-				+ info->delta_disks
-				- delta_parity);
+	re->after.data_disks =
+		(re->before.data_disks + info->delta_disks - delta_parity);
+
 	switch (re->level) {
-	case 6: re->parity = 2;
+	case 6:
+		re->parity = 2;
 		break;
 	case 4:
-	case 5: re->parity = 1;
+	case 5:
+		re->parity = 1;
 		break;
-	default: re->parity = 0;
+	default:
+		re->parity = 0;
 		break;
 	}
 	/* So we have a restripe operation, we need to calculate the number
@@ -1443,18 +1695,9 @@ char *analyse_change(char *devname, struct mdinfo *info, struct reshape *re)
 		return NULL;
 	}
 
-	if (re->after.data_disks == re->before.data_disks &&
-	    get_linux_version() < 2006032)
-		return "in-place reshape is not safe before 2.6.32 - sorry.";
-
-	if (re->after.data_disks < re->before.data_disks &&
-	    get_linux_version() < 2006030)
-		return "reshape to fewer devices is not supported before 2.6.30 - sorry.";
-
 	re->backup_blocks = compute_backup_blocks(
 		info->new_chunk, info->array.chunk_size,
-		re->after.data_disks,
-		re->before.data_disks);
+		re->after.data_disks, re->before.data_disks);
 	re->min_offset_change = re->backup_blocks / re->before.data_disks;
 
 	re->new_size = info->component_size * re->after.data_disks;
@@ -1473,12 +1716,11 @@ static int set_array_size(struct supertype *st, struct mdinfo *sra,
 
 	if (text_version == NULL)
 		text_version = sra->text_version;
-	subarray = strchr(text_version+1, '/')+1;
+	subarray = strchr(text_version + 1, '/')+1;
 	info = st->ss->container_content(st, subarray);
 	if (info) {
 		unsigned long long current_size = 0;
-		unsigned long long new_size =
-			info->custom_array_size/2;
+		unsigned long long new_size = info->custom_array_size/2;
 
 		if (sysfs_get_ll(sra, NULL, "array_size", &current_size) == 0 &&
 		    new_size > current_size) {
@@ -1504,18 +1746,75 @@ static int reshape_array(char *container, int fd, char *devname,
 			 int force, struct mddev_dev *devlist,
 			 unsigned long long data_offset,
 			 char *backup_file, int verbose, int forked,
-			 int restart, int freeze_reshape);
+			 int restart);
 static int reshape_container(char *container, char *devname,
 			     int mdfd,
 			     struct supertype *st,
 			     struct mdinfo *info,
-			     int force,
-			     char *backup_file, int verbose,
-			     int forked, int restart, int freeze_reshape);
+			     struct context *c,
+			     int forked, int restart);
+
+/**
+ * prepare_external_reshape() - prepares update on external metadata if supported.
+ * @devname: Device name.
+ * @subarray: Subarray.
+ * @st: Supertype.
+ * @container: Container.
+ * @cfd: Container file descriptor.
+ *
+ * Function checks that the requested reshape is supported on external metadata,
+ * and performs an initial check that the container holds the pre-requisite
+ * spare devices (mdmon owns final validation).
+ *
+ * Return: 0 on success, else 1
+ */
+static int prepare_external_reshape(char *devname, char *subarray,
+				    struct supertype *st, char *container,
+				    const int cfd)
+{
+	struct mdinfo *cc = NULL;
+	struct mdinfo *content = NULL;
+
+	if (st->ss->load_container(st, cfd, NULL)) {
+		pr_err("Cannot read superblock for %s\n", devname);
+		return 1;
+	}
+
+	if (!st->ss->container_content)
+		return 1;
+
+	cc = st->ss->container_content(st, subarray);
+	for (content = cc; content ; content = content->next) {
+		/*
+		 * check if reshape is allowed based on metadata
+		 * indications stored in content.array.status
+		 */
+		if (is_bit_set(&content->array.state, MD_SB_BLOCK_VOLUME) ||
+		    is_bit_set(&content->array.state, MD_SB_BLOCK_CONTAINER_RESHAPE)) {
+			pr_err("Cannot reshape arrays in container with unsupported metadata: %s(%s)\n",
+			       devname, container);
+			goto error;
+		}
+		if (content->consistency_policy == CONSISTENCY_POLICY_PPL) {
+			pr_err("Operation not supported when ppl consistency policy is enabled\n");
+			goto error;
+		}
+		if (content->consistency_policy == CONSISTENCY_POLICY_BITMAP) {
+			pr_err("Operation not supported when write-intent bitmap consistency policy is enabled\n");
+			goto error;
+		}
+	}
+	sysfs_free(cc);
+	if (mdmon_running(container))
+		st->update_tail = &st->updates;
+	return 0;
+error:
+	sysfs_free(cc);
+	return 1;
+}
 
 int Grow_reshape(char *devname, int fd,
 		 struct mddev_dev *devlist,
-		 unsigned long long data_offset,
 		 struct context *c, struct shape *s)
 {
 	/* Make some changes in the shape of an array.
@@ -1540,7 +1839,7 @@ int Grow_reshape(char *devname, int fd,
 	struct supertype *st;
 	char *subarray = NULL;
 
-	int frozen;
+	int frozen = 0;
 	int changed = 0;
 	char *container = NULL;
 	int cfd = -1;
@@ -1549,15 +1848,20 @@ int Grow_reshape(char *devname, int fd,
 	int added_disks;
 
 	struct mdinfo info;
-	struct mdinfo *sra;
+	struct mdinfo *sra = NULL;
 
-	if (ioctl(fd, GET_ARRAY_INFO, &array) < 0) {
+	if (md_get_array_info(fd, &array) < 0) {
 		pr_err("%s is not an active md array - aborting\n",
 			devname);
 		return 1;
 	}
-	if (data_offset != INVALID_SECTORS && array.level != 10
-	    && (array.level < 4 || array.level > 6)) {
+	if (s->level != UnSet && s->chunk) {
+		pr_err("Cannot change array level in the same operation as changing chunk size.\n");
+		return 1;
+	}
+
+	if (s->data_offset != INVALID_SECTORS && array.level != 10 &&
+	    (array.level < 4 || array.level > 6)) {
 		pr_err("--grow --data-offset not yet supported\n");
 		return 1;
 	}
@@ -1569,11 +1873,9 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
-	if (s->raiddisks && s->raiddisks < array.raid_disks && array.level > 1 &&
-	    get_linux_version() < 2006032 &&
-	    !check_env("MDADM_FORCE_FEWER")) {
-		pr_err("reducing the number of devices is not safe before Linux 2.6.32\n"
-			"       Please use a newer kernel\n");
+	if (array.level > 1 && s->size > 1 &&
+	    (unsigned long long) (array.chunk_size / 1024) > s->size) {
+		pr_err("component size must be larger than chunk size.\n");
 		return 1;
 	}
 
@@ -1586,14 +1888,16 @@ int Grow_reshape(char *devname, int fd,
 		pr_err("Cannot increase raid-disks on this array beyond %d\n", st->max_devs);
 		return 1;
 	}
+	if (s->level == 0 && (array.state & (1 << MD_SB_BITMAP_PRESENT)) &&
+		!(array.state & (1 << MD_SB_CLUSTERED)) && !st->ss->external) {
+		array.state &= ~(1 << MD_SB_BITMAP_PRESENT);
+		if (md_set_array_info(fd, &array) != 0) {
+			pr_err("failed to remove internal bitmap.\n");
+			return 1;
+		}
+	}
 
-	/* in the external case we need to check that the requested reshape is
-	 * supported, and perform an initial check that the container holds the
-	 * pre-requisite spare devices (mdmon owns final validation)
-	 */
 	if (st->ss->external) {
-		int rv;
-
 		if (subarray) {
 			container = st->container_devnm;
 			cfd = open_dev_excl(st->container_devnm);
@@ -1604,57 +1908,33 @@ int Grow_reshape(char *devname, int fd,
 			fd = cfd;
 		}
 		if (cfd < 0) {
-			pr_err("Unable to open container for %s\n",
-				devname);
+			pr_err("Unable to open container for %s\n", devname);
 			free(subarray);
 			return 1;
 		}
 
-		rv = st->ss->load_container(st, cfd, NULL);
+		rv = prepare_external_reshape(devname, subarray, st,
+					      container, cfd);
+		if (rv > 0) {
+			free(subarray);
+			close(cfd);
+			goto release;
+		}
 
-		if (rv) {
-			pr_err("Cannot read superblock for %s\n",
-				devname);
+		if (s->raiddisks && subarray) {
+			pr_err("--raid-devices operation can be performed on a container only\n");
+			close(cfd);
 			free(subarray);
 			return 1;
 		}
-
-		/* check if operation is supported for metadata handler */
-		if (st->ss->container_content) {
-			struct mdinfo *cc = NULL;
-			struct mdinfo *content = NULL;
-
-			cc = st->ss->container_content(st, subarray);
-			for (content = cc; content ; content = content->next) {
-				int allow_reshape = 1;
-
-				/* check if reshape is allowed based on metadata
-				 * indications stored in content.array.status
-				 */
-				if (content->array.state & (1<<MD_SB_BLOCK_VOLUME))
-					allow_reshape = 0;
-				if (content->array.state
-				    & (1<<MD_SB_BLOCK_CONTAINER_RESHAPE))
-					allow_reshape = 0;
-				if (!allow_reshape) {
-					pr_err("cannot reshape arrays in container with unsupported metadata: %s(%s)\n",
-					       devname, container);
-					sysfs_free(cc);
-					free(subarray);
-					return 1;
-				}
-			}
-			sysfs_free(cc);
-		}
-		if (mdmon_running(container))
-			st->update_tail = &st->updates;
 	}
 
 	added_disks = 0;
 	for (dv = devlist; dv; dv = dv->next)
 		added_disks++;
 	if (s->raiddisks > array.raid_disks &&
-	    array.spare_disks +added_disks < (s->raiddisks - array.raid_disks) &&
+	    array.spare_disks + added_disks <
+	    (s->raiddisks - array.raid_disks) &&
 	    !c->force) {
 		pr_err("Need %d spare%s to avoid degraded array, and only have %d.\n"
 		       "       Use --force to over-ride this check.\n",
@@ -1664,8 +1944,8 @@ int Grow_reshape(char *devname, int fd,
 		return 1;
 	}
 
-	sra = sysfs_read(fd, NULL, GET_LEVEL | GET_DISKS | GET_DEVS
-			 | GET_STATE | GET_VERSION);
+	sra = sysfs_read(fd, NULL, GET_LEVEL | GET_DISKS | GET_DEVS |
+			 GET_STATE | GET_VERSION);
 	if (sra) {
 		if (st->ss->external && subarray == NULL) {
 			array.level = LEVEL_CONTAINER;
@@ -1682,14 +1962,15 @@ int Grow_reshape(char *devname, int fd,
 		sysfs_free(sra);
 		return 1;
 	} else if (frozen < 0) {
-		pr_err("%s is performing resync/recovery and cannot be reshaped\n", devname);
+		pr_err("%s is performing resync/recovery and cannot be %s\n", devname,
+		       (s->level != UnSet && s->level != array.level) ? "taken over" : "reshaped");
 		sysfs_free(sra);
 		return 1;
 	}
 
 	/* ========= set size =============== */
 	if (s->size > 0 && (s->size == MAX_SIZE || s->size != (unsigned)array.size)) {
-		unsigned long long orig_size = get_component_size(fd)/2;
+		unsigned long long orig_size = get_component_size(fd) / 2;
 		unsigned long long min_csize;
 		struct mdinfo *mdi;
 		int raid0_takeover = 0;
@@ -1703,8 +1984,13 @@ int Grow_reshape(char *devname, int fd,
 			goto release;
 		}
 
-		if (reshape_super(st, s->size, UnSet, UnSet, 0, 0, UnSet, NULL,
-				  devname, APPLY_METADATA_CHANGES, c->verbose > 0)) {
+		if (array.level == 0) {
+			pr_err("Component size change is not supported for RAID0\n");
+			rv = 1;
+			goto release;
+		}
+
+		if (reshape_super_size(st, devname, s->size, APPLY_METADATA_CHANGES, c)) {
 			rv = 1;
 			goto release;
 		}
@@ -1723,7 +2009,8 @@ int Grow_reshape(char *devname, int fd,
 						sizeinfo->array.layout,
 						sizeinfo->array.raid_disks);
 				new_size /= data_disks;
-				dprintf("Metadata size correction from %llu to %llu (%llu)\n", orig_size, new_size,
+				dprintf("Metadata size correction from %llu to %llu (%llu)\n",
+					orig_size, new_size,
 					new_size * data_disks);
 				s->size = new_size;
 				sysfs_free(sizeinfo);
@@ -1736,32 +2023,23 @@ int Grow_reshape(char *devname, int fd,
 		 * understands '0' to mean 'max'.
 		 */
 		min_csize = 0;
-		rv = 0;
 		for (mdi = sra->devs; mdi; mdi = mdi->next) {
-			if (sysfs_set_num(sra, mdi, "size",
-					  s->size == MAX_SIZE ? 0 : s->size) < 0) {
-				/* Probably kernel refusing to let us
-				 * reduce the size - not an error.
-				 */
-				break;
-			}
+			sysfs_set_num(sra, mdi, "size",
+				      s->size == MAX_SIZE ? 0 : s->size);
 			if (array.not_persistent == 0 &&
 			    array.major_version == 0 &&
 			    get_linux_version() < 3001000) {
 				/* Dangerous to allow size to exceed 2TB */
 				unsigned long long csize;
-				if (sysfs_get_ll(sra, mdi, "size", &csize) == 0) {
+				if (sysfs_get_ll(sra, mdi, "size",
+						 &csize) == 0) {
 					if (csize >= 2ULL*1024*1024*1024)
 						csize = 2ULL*1024*1024*1024;
-					if ((min_csize == 0 || (min_csize
-								> csize)))
+					if ((min_csize == 0 ||
+					     (min_csize > csize)))
 						min_csize = csize;
 				}
 			}
-		}
-		if (rv) {
-			pr_err("Cannot set size on array members.\n");
-			goto size_change_error;
 		}
 		if (min_csize && s->size > min_csize) {
 			pr_err("Cannot safely make this array use more than 2TB per device on this kernel.\n");
@@ -1777,14 +2055,13 @@ int Grow_reshape(char *devname, int fd,
 		}
 		if (st->ss->external) {
 			if (sra->array.level == 0) {
-				rv = sysfs_set_str(sra, NULL, "level",
-						   "raid5");
+				rv = sysfs_set_str(sra, NULL, "level", "raid5");
 				if (!rv) {
 					raid0_takeover = 1;
 					/* get array parameters after takeover
 					 * to change one parameter at time only
 					 */
-					rv = ioctl(fd, GET_ARRAY_INFO, &array);
+					rv = md_get_array_info(fd, &array);
 				}
 			}
 			/* make sure mdmon is
@@ -1792,31 +2069,23 @@ int Grow_reshape(char *devname, int fd,
 			if (!mdmon_running(st->container_devnm))
 				start_mdmon(st->container_devnm);
 			ping_monitor(container);
-			if (mdmon_running(st->container_devnm) &&
-					st->update_tail == NULL)
-				st->update_tail = &st->updates;
+			if (wait_for_mdmon(st->container_devnm) != MDADM_STATUS_SUCCESS) {
+				pr_err("No mdmon found. Grow cannot continue.\n");
+				goto release;
+			}
 		}
 
 		if (s->size == MAX_SIZE)
 			s->size = 0;
 		array.size = s->size;
-		if (s->size & ~INT32_MAX) {
-			/* got truncated to 32bit, write to
-			 * component_size instead
-			 */
-			if (sra)
-				rv = sysfs_set_num(sra, NULL,
-						   "component_size", s->size);
-			else
-				rv = -1;
-		} else {
-			rv = ioctl(fd, SET_ARRAY_INFO, &array);
+		rv = sysfs_set_num(sra, NULL, "component_size", s->size);
 
-			/* manage array size when it is managed externally
-			 */
-			if ((rv == 0) && st->ss->external)
-				rv = set_array_size(st, sra, sra->text_version);
-		}
+		/*
+		 * For native metadata, md/array_size is updated by kernel,
+		 * for external management update it here.
+		 */
+		if (st->ss->external && rv == MDADM_STATUS_SUCCESS)
+			rv = set_array_size(st, sra, sra->text_version);
 
 		if (raid0_takeover) {
 			/* do not recync non-existing parity,
@@ -1826,7 +2095,7 @@ int Grow_reshape(char *devname, int fd,
 			/* go back to raid0, drop parity disk
 			 */
 			sysfs_set_str(sra, NULL, "level", "raid0");
-			ioctl(fd, GET_ARRAY_INFO, &array);
+			md_get_array_info(fd, &array);
 		}
 
 size_change_error:
@@ -1834,10 +2103,8 @@ size_change_error:
 			int err = errno;
 
 			/* restore metadata */
-			if (reshape_super(st, orig_size, UnSet, UnSet, 0, 0,
-					  UnSet, NULL, devname,
-					  ROLLBACK_METADATA_CHANGES,
-					  c->verbose) == 0)
+			if (reshape_super_size(st, devname, orig_size,
+					       ROLLBACK_METADATA_CHANGES, c) == 0)
 				sync_metadata(st);
 			pr_err("Cannot set device size for %s: %s\n",
 				devname, strerror(err));
@@ -1852,10 +2119,10 @@ size_change_error:
 			 * a backport has been arranged.
 			 */
 			if (sra == NULL ||
-			    sysfs_set_str(sra, NULL, "resync_start", "none") < 0)
+			    sysfs_set_str(sra, NULL, "resync_start", STR_COMMON_NONE) < 0)
 				pr_err("--assume-clean not supported with --grow on this kernel\n");
 		}
-		ioctl(fd, GET_ARRAY_INFO, &array);
+		md_get_array_info(fd, &array);
 		s->size = get_component_size(fd)/2;
 		if (s->size == 0)
 			s->size = array.size;
@@ -1868,7 +2135,7 @@ size_change_error:
 					devname, s->size);
 		}
 		changed = 1;
-	} else if (array.level != LEVEL_CONTAINER) {
+	} else if (!is_container(array.level)) {
 		s->size = get_component_size(fd)/2;
 		if (s->size == 0)
 			s->size = array.size;
@@ -1878,12 +2145,11 @@ size_change_error:
 	if ((s->level == UnSet || s->level == array.level) &&
 	    (s->layout_str == NULL) &&
 	    (s->chunk == 0 || s->chunk == array.chunk_size) &&
-	    data_offset == INVALID_SECTORS &&
+	    s->data_offset == INVALID_SECTORS &&
 	    (s->raiddisks == 0 || s->raiddisks == array.raid_disks)) {
 		/* Nothing more to do */
 		if (!changed && c->verbose >= 0)
-			pr_err("%s: no change requested\n",
-				devname);
+			pr_err("%s: no change requested\n", devname);
 		goto release;
 	}
 
@@ -1897,6 +2163,7 @@ size_change_error:
 	     array.layout == ((1 << 8) + 2) && !(array.raid_disks & 1)) ||
 	    (s->level == 0 && array.level == 1 && sra)) {
 		int err;
+
 		err = remove_disks_for_takeover(st, sra, array.layout);
 		if (err) {
 			dprintf("Array cannot be reshaped\n");
@@ -1915,12 +2182,16 @@ size_change_error:
 
 	memset(&info, 0, sizeof(info));
 	info.array = array;
-	sysfs_init(&info, fd, NULL);
+	if (sysfs_init(&info, fd, NULL)) {
+		pr_err("failed to initialize sysfs.\n");
+		rv = 1;
+		goto release;
+	}
 	strcpy(info.text_version, sra->text_version);
 	info.component_size = s->size*2;
 	info.new_level = s->level;
 	info.new_chunk = s->chunk * 1024;
-	if (info.array.level == LEVEL_CONTAINER) {
+	if (is_container(info.array.level)) {
 		info.delta_disks = UnSet;
 		info.array.raid_disks = s->raiddisks;
 	} else if (s->raiddisks)
@@ -1944,7 +2215,7 @@ size_change_error:
 		info.new_layout = UnSet;
 		if (info.array.level == 6 && info.new_level == UnSet) {
 			char l[40], *h;
-			strcpy(l, map_num(r6layout, info.array.layout));
+			strcpy(l, map_num_s(r6layout, info.array.layout));
 			h = strrchr(l, '-');
 			if (h && strcmp(h, "-6") == 0) {
 				*h = 0;
@@ -1969,7 +2240,7 @@ size_change_error:
 			info.new_layout = info.array.layout;
 		else if (info.array.level == 5 && info.new_level == 6) {
 			char l[40];
-			strcpy(l, map_num(r5layout, info.array.layout));
+			strcpy(l, map_num_s(r5layout, info.array.layout));
 			strcat(l, "-6");
 			info.new_layout = map_name(r6layout, l);
 		} else {
@@ -2021,19 +2292,19 @@ size_change_error:
 			rv =1 ;
 		}
 		if (s->layout_str) {
-			if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+			if (md_get_array_info(fd, &array) != 0) {
 				dprintf("Cannot get array information.\n");
 				goto release;
 			}
 			array.layout = info.new_layout;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				rv = 1;
 			} else if (c->verbose >= 0)
 				printf("layout for %s set to %d\n",
 				       devname, array.layout);
 		}
-	} else if (array.level == LEVEL_CONTAINER) {
+	} else if (is_container(array.level)) {
 		/* This change is to be applied to every array in the
 		 * container.  This is only needed when the metadata imposes
 		 * restraints of the various arrays in the container.
@@ -2042,8 +2313,9 @@ size_change_error:
 		 * number of devices (On-Line Capacity Expansion) must be
 		 * performed at the level of the container
 		 */
+		close_fd(&fd);
 		rv = reshape_container(container, devname, -1, st, &info,
-				       c->force, c->backup_file, c->verbose, 0, 0, 0);
+				       c, 0, 0);
 		frozen = 0;
 	} else {
 		/* get spare devices from external metadata
@@ -2060,20 +2332,16 @@ size_change_error:
 		}
 
 		/* Impose these changes on a single array.  First
-		 * check that the metadata is OK with the change. */
-
-		if (reshape_super(st, 0, info.new_level,
-				  info.new_layout, info.new_chunk,
-				  info.array.raid_disks, info.delta_disks,
-				  c->backup_file, devname, APPLY_METADATA_CHANGES,
-				  c->verbose)) {
+		 * check that the metadata is OK with the change.
+		 */
+		if (reshape_super_non_size(st, devname, &info, c)) {
 			rv = 1;
 			goto release;
 		}
 		sync_metadata(st);
 		rv = reshape_array(container, fd, devname, st, &info, c->force,
-				   devlist, data_offset, c->backup_file, c->verbose,
-				   0, 0, 0);
+				   devlist, s->data_offset, c->backup_file,
+				   c->verbose, 0, 0);
 		frozen = 0;
 	}
 release:
@@ -2096,11 +2364,11 @@ release:
 static int verify_reshape_position(struct mdinfo *info, int level)
 {
 	int ret_val = 0;
-	char buf[40];
+	char buf[SYSFS_MAX_BUF_SIZE];
 	int rv;
 
 	/* read sync_max, failure can mean raid0 array */
-	rv = sysfs_get_str(info, NULL, "sync_max", buf, 40);
+	rv = sysfs_get_str(info, NULL, "sync_max", buf, sizeof(buf));
 
 	if (rv > 0) {
 		char *ep;
@@ -2119,6 +2387,7 @@ static int verify_reshape_position(struct mdinfo *info, int level)
 			} else if (info->reshape_progress > position) {
 				pr_err("Fatal error: array reshape was not properly frozen (expected reshape position is %llu, but reshape progress is %llu.\n",
 				       position, info->reshape_progress);
+				pr_err("Reassemble array to try to restore critical sector.\n");
 				ret_val = -1;
 			} else {
 				dprintf("Reshape position in md and metadata are the same;");
@@ -2244,8 +2513,10 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 					dir = -1;
 				else
 					dir = 1;
-			} else if ((data_offset <= info2.data_offset && dir == 1) ||
-				   (data_offset >= info2.data_offset && dir == -1)) {
+			} else if ((data_offset <= info2.data_offset &&
+				    dir == 1) ||
+				   (data_offset >= info2.data_offset &&
+				    dir == -1)) {
 				pr_err("%s: differing data offsets on devices make this --data-offset setting impossible\n",
 					dn);
 				goto release;
@@ -2340,8 +2611,8 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 					goto release;
 				}
 				if (data_offset != INVALID_SECTORS &&
-				    data_offset < sd->data_offset - min) {
-					pr_err("--data-offset too small on %s\n",
+				    data_offset > sd->data_offset - min) {
+					pr_err("--data-offset too large on %s\n",
 						dn);
 					goto release;
 				}
@@ -2370,8 +2641,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 		}
 		if (err < 0) {
 			if (errno == E2BIG && data_offset != INVALID_SECTORS) {
-				pr_err("data-offset is too big for %s\n",
-				       dn);
+				pr_err("data-offset is too big for %s\n", dn);
 				goto release;
 			}
 			if (sd == sra->devs &&
@@ -2381,8 +2651,7 @@ static int set_new_data_offset(struct mdinfo *sra, struct supertype *st,
 				 * For RAID5/6 this is not fatal
 				 */
 				return 1;
-			pr_err("Cannot set new_offset for %s\n",
-				dn);
+			pr_err("Cannot set new_offset for %s\n", dn);
 			break;
 		}
 	}
@@ -2428,8 +2697,7 @@ static int raid10_reshape(char *container, int fd, char *devname,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK
 		);
 	if (!sra) {
-		pr_err("%s: Cannot get array details from sysfs\n",
-			devname);
+		pr_err("%s: Cannot get array details from sysfs\n", devname);
 		goto release;
 	}
 	min = reshape->min_offset_change;
@@ -2437,18 +2705,16 @@ static int raid10_reshape(char *container, int fd, char *devname,
 	if (info->delta_disks)
 		sysfs_set_str(sra, NULL, "reshape_direction",
 			      info->delta_disks < 0 ? "backwards" : "forwards");
-	if (info->delta_disks < 0 &&
-	    info->space_after < min) {
+	if (info->delta_disks < 0 && info->space_after < min) {
 		int rv = sysfs_set_num(sra, NULL, "component_size",
-				       (sra->component_size -
-					min)/2);
+				       (sra->component_size - min)/2);
 		if (rv) {
 			pr_err("cannot reduce component size\n");
 			goto release;
 		}
 	}
-	err = set_new_data_offset(sra, st, devname, info->delta_disks, data_offset,
-				  min, 0);
+	err = set_new_data_offset(sra, st, devname, info->delta_disks,
+				  data_offset, min, 0);
 	if (err == 1) {
 		pr_err("Cannot set new_data_offset: RAID10 reshape not\n");
 		cont_err("supported on this kernel\n");
@@ -2459,10 +2725,12 @@ static int raid10_reshape(char *container, int fd, char *devname,
 
 	if (!err && sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
 		err = errno;
-	if (!err && sysfs_set_num(sra, NULL, "layout", reshape->after.layout) < 0)
+	if (!err && sysfs_set_num(sra, NULL, "layout",
+				  reshape->after.layout) < 0)
 		err = errno;
-	if (!err && sysfs_set_num(sra, NULL, "raid_disks",
-				  info->array.raid_disks + info->delta_disks) < 0)
+	if (!err &&
+	    sysfs_set_num(sra, NULL, "raid_disks",
+			  info->array.raid_disks + info->delta_disks) < 0)
 		err = errno;
 	if (!err && sysfs_set_str(sra, NULL, "sync_action", "reshape") < 0)
 		err = errno;
@@ -2544,7 +2812,7 @@ static void update_cache_size(char *container, struct mdinfo *sra,
 	/* make sure there is room for 'blocks' with a bit to spare */
 	if (cache < 16 + blocks / disks)
 		cache = 16 + blocks / disks;
-	cache /= (4096/512); /* Covert from sectors to pages */
+	cache /= (4096/512); /* Convert from sectors to pages */
 
 	if (sra->cache_size < cache)
 		subarray_set_num(container, sra, "stripe_cache_size",
@@ -2580,14 +2848,13 @@ static int impose_reshape(struct mdinfo *sra,
 						 * reshape->after.data_disks);
 	}
 
-	ioctl(fd, GET_ARRAY_INFO, &array);
+	md_get_array_info(fd, &array);
 	if (info->array.chunk_size == info->new_chunk &&
 	    reshape->before.layout == reshape->after.layout &&
 	    st->ss->external == 0) {
 		/* use SET_ARRAY_INFO but only if reshape hasn't started */
 		array.raid_disks = reshape->after.data_disks + reshape->parity;
-		if (!restart &&
-		    ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+		if (!restart && md_set_array_info(fd, &array) != 0) {
 			int err = errno;
 
 			pr_err("Cannot set device shape for %s: %s\n",
@@ -2604,18 +2871,26 @@ static int impose_reshape(struct mdinfo *sra,
 		 * persists from some earlier problem.
 		 */
 		int err = 0;
+
 		if (sysfs_set_num(sra, NULL, "chunk_size", info->new_chunk) < 0)
 			err = errno;
+
 		if (!err && sysfs_set_num(sra, NULL, "layout",
 					  reshape->after.layout) < 0)
 			err = errno;
+
+		/* new_level is introduced in kernel 6.12 */
+		if (!err && sysfs_attribute_available(sra, NULL, "new_level") &&
+				sysfs_set_num(sra, NULL, "new_level", info->new_level) < 0)
+			err = errno;
+
 		if (!err && subarray_set_num(container, sra, "raid_disks",
 					     reshape->after.data_disks +
 					     reshape->parity) < 0)
 			err = errno;
+
 		if (err) {
-			pr_err("Cannot set device shape for %s\n",
-				devname);
+			pr_err("Cannot set device shape for %s\n", devname);
 
 			if (err == EBUSY &&
 			    (array.state & (1<<MD_SB_BITMAP_PRESENT)))
@@ -2633,11 +2908,14 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 	char *c;
 	struct mdu_array_info_s array;
 	struct mdinfo info;
-	sysfs_init(&info, fd, NULL);
 
-	ioctl(fd, GET_ARRAY_INFO, &array);
-	if (level == 0 &&
-	    (array.level >= 4 && array.level <= 6)) {
+	if (sysfs_init(&info, fd, NULL)) {
+		pr_err("failed to initialize sysfs.\n");
+		return  1;
+	}
+
+	md_get_array_info(fd, &array);
+	if (level == 0 && is_level456(array.level)) {
 		/* To convert to RAID0 we need to fail and
 		 * remove any non-data devices. */
 		int found = 0;
@@ -2645,58 +2923,54 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 		int data_disks = array.raid_disks - 1;
 		if (array.level == 6)
 			data_disks -= 1;
-		if (array.level == 5 &&
-		    array.layout != ALGORITHM_PARITY_N)
+		if (array.level == 5 && array.layout != ALGORITHM_PARITY_N)
 			return -1;
-		if (array.level == 6 &&
-		    array.layout != ALGORITHM_PARITY_N_6)
+		if (array.level == 6 && array.layout != ALGORITHM_PARITY_N_6)
 			return -1;
 		sysfs_set_str(&info, NULL,"sync_action", "idle");
 		/* First remove any spares so no recovery starts */
 		for (d = 0, found = 0;
-		     d < MAX_DISKS && found < array.nr_disks;
-		     d++) {
+		     d < MAX_DISKS && found < array.nr_disks; d++) {
 			mdu_disk_info_t disk;
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
 			found++;
-			if ((disk.state & (1 << MD_DISK_ACTIVE))
-			    && disk.raid_disk < data_disks)
+			if ((disk.state & (1 << MD_DISK_ACTIVE)) &&
+			    disk.raid_disk < data_disks)
 				/* keep this */
 				continue;
 			ioctl(fd, HOT_REMOVE_DISK,
 			      makedev(disk.major, disk.minor));
 		}
 		/* Now fail anything left */
-		ioctl(fd, GET_ARRAY_INFO, &array);
+		md_get_array_info(fd, &array);
 		for (d = 0, found = 0;
-		     d < MAX_DISKS && found < array.nr_disks;
-		     d++) {
-			int cnt;
+		     d < MAX_DISKS && found < array.nr_disks; d++) {
 			mdu_disk_info_t disk;
 			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
+			if (md_get_disk_info(fd, &disk) < 0)
 				continue;
 			if (disk.major == 0 && disk.minor == 0)
 				continue;
 			found++;
-			if ((disk.state & (1 << MD_DISK_ACTIVE))
-			    && disk.raid_disk < data_disks)
+			if ((disk.state & (1 << MD_DISK_ACTIVE)) &&
+			    disk.raid_disk < data_disks)
 				/* keep this */
 				continue;
 			ioctl(fd, SET_DISK_FAULTY,
 			      makedev(disk.major, disk.minor));
-			cnt = 5;
-			while (ioctl(fd, HOT_REMOVE_DISK,
-				     makedev(disk.major, disk.minor)) < 0
-			       && errno == EBUSY
-			       && cnt--) {
-				usleep(10000);
-			}
+			hot_remove_disk(fd, makedev(disk.major, disk.minor), 1);
 		}
+		/*
+		 * hot_remove_disk lets kernel set MD_RECOVERY_RUNNING
+		 * and it can't set level. It needs to wait sometime
+		 * to let md thread to clear the flag.
+		 */
+		pr_info("wait 5 seconds to give kernel space to finish job\n");
+		sleep_for(5, 0, true);
 	}
 	c = map_num(pers, level);
 	if (c) {
@@ -2711,8 +2985,7 @@ static int impose_level(int fd, int level, char *devname, int verbose)
 			return err;
 		}
 		if (verbose >= 0)
-			pr_err("level of %s changed to %s\n",
-				devname, c);
+			pr_err("level of %s changed to %s\n", devname, c);
 	}
 	return 0;
 }
@@ -2723,46 +2996,32 @@ static void catch_term(int sig)
 	sigterm = 1;
 }
 
-static int continue_via_systemd(char *devnm)
-{
-	int skipped, i, pid, status;
-	char pathbuf[1024];
-	/* In a systemd/udev world, it is best to get systemd to
-	 * run "mdadm --grow --continue" rather than running in the
-	 * background.
-	 */
-	switch(fork()) {
-	case  0:
-		/* FIXME yuk. CLOSE_EXEC?? */
-		skipped = 0;
-		for (i = 3; skipped < 20; i++)
-			if (close(i) < 0)
-				skipped++;
-			else
-				skipped = 0;
 
-		/* Don't want to see error messages from
-		 * systemctl.  If the service doesn't exist,
-		 * we fork ourselves.
-		 */
-		close(2);
-		open("/dev/null", O_WRONLY);
-		snprintf(pathbuf, sizeof(pathbuf), "mdadm-grow-continue@%s.service",
-			 devnm);
-		status = execl("/usr/bin/systemctl", "systemctl",
-			       "start",
-			       pathbuf, NULL);
-		status = execl("/bin/systemctl", "systemctl", "start",
-			       pathbuf, NULL);
-		exit(1);
-	case -1: /* Just do it ourselves. */
-		break;
-	default: /* parent - good */
-		pid = wait(&status);
-		if (pid >= 0 && status == 0)
-			return 1;
+/**
+ * handle_forking() - Handle reshape forking.
+ *
+ * @forked: if already forked.
+ * @devname: device name.
+ * Returns: -1 if fork() failed,
+ *           0 if child process,
+ *           1 if job delegated to forked process or systemd.
+ *
+ * This function is a helper function for reshapes for fork handling.
+ */
+static mdadm_status_t handle_forking(bool forked, char *devname)
+{
+	if (forked)
+		return MDADM_STATUS_FORKED;
+
+	if (devname && continue_via_systemd(devname, GROW_SERVICE, NULL) == MDADM_STATUS_SUCCESS)
+		return MDADM_STATUS_SUCCESS;
+
+	switch (fork()) {
+	case -1: return MDADM_STATUS_ERROR; /* error */
+	case 0: return MDADM_STATUS_FORKED; /* child */
+	default: return MDADM_STATUS_SUCCESS; /* parent */
 	}
-	return 0;
+
 }
 
 static int reshape_array(char *container, int fd, char *devname,
@@ -2770,7 +3029,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			 int force, struct mddev_dev *devlist,
 			 unsigned long long data_offset,
 			 char *backup_file, int verbose, int forked,
-			 int restart, int freeze_reshape)
+			 int restart)
 {
 	struct reshape reshape;
 	int spares_needed;
@@ -2794,15 +3053,18 @@ static int reshape_array(char *container, int fd, char *devname,
 	unsigned long long array_size;
 	int done;
 	struct mdinfo *sra = NULL;
-	char buf[20];
+	char buf[SYSFS_MAX_BUF_SIZE];
+	bool located_backup = false;
 
 	/* when reshaping a RAID0, the component_size might be zero.
 	 * So try to fix that up.
 	 */
-	if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+	if (md_get_array_info(fd, &array) != 0) {
 		dprintf("Cannot get array information.\n");
 		goto release;
 	}
+	if (st->update_tail == NULL)
+		st->update_tail = &st->updates;
 	if (array.level == 0 && info->component_size == 0) {
 		get_dev_size(fd, NULL, &array_size);
 		info->component_size = array_size / array.raid_disks;
@@ -2832,17 +3094,17 @@ static int reshape_array(char *container, int fd, char *devname,
 			pr_err("%s\n", msg);
 		goto release;
 	}
-	if (restart &&
-	    (reshape.level != info->array.level ||
-	     reshape.before.layout != info->array.layout ||
-	     reshape.before.data_disks + reshape.parity
-	     != info->array.raid_disks - max(0, info->delta_disks))) {
+	if (restart && (reshape.level != info->array.level ||
+			reshape.before.layout != info->array.layout ||
+			reshape.before.data_disks + reshape.parity !=
+			info->array.raid_disks - max(0, info->delta_disks))) {
 		pr_err("reshape info is not in native format - cannot continue.\n");
 		goto release;
 	}
 
 	if (st->ss->external && restart && (info->reshape_progress == 0) &&
-	    !((sysfs_get_str(info, NULL, "sync_action", buf, sizeof(buf)) > 0) &&
+	    !((sysfs_get_str(info, NULL, "sync_action",
+			     buf, sizeof(buf)) > 0) &&
 	      (strncmp(buf, "reshape", 7) == 0))) {
 		/* When reshape is restarted from '0', very begin of array
 		 * it is possible that for external metadata reshape and array
@@ -2856,7 +3118,10 @@ static int reshape_array(char *container, int fd, char *devname,
 			restart = 0;
 	}
 	if (restart) {
-		/* reshape already started. just skip to monitoring the reshape */
+		/*
+		 * reshape already started. just skip to monitoring
+		 * the reshape
+		 */
 		if (reshape.backup_blocks == 0)
 			return 0;
 		if (restart & RESHAPE_NO_BACKUP)
@@ -2864,16 +3129,18 @@ static int reshape_array(char *container, int fd, char *devname,
 
 		/* Need 'sra' down at 'started:' */
 		sra = sysfs_read(fd, NULL,
-				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
-				 GET_CACHE);
+				 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|
+				 GET_CHUNK|GET_CACHE);
 		if (!sra) {
 			pr_err("%s: Cannot get array details from sysfs\n",
 			       devname);
 			goto release;
 		}
 
-		if (!backup_file)
+		if (!backup_file) {
 			backup_file = locate_backup(sra->sys_name);
+			located_backup = true;
+		}
 
 		goto started;
 	}
@@ -2888,11 +3155,10 @@ static int reshape_array(char *container, int fd, char *devname,
 	for (dv = devlist; dv ; dv=dv->next)
 		added_disks++;
 	spares_needed = max(reshape.before.data_disks,
-			    reshape.after.data_disks)
-		+ reshape.parity - array.raid_disks;
+			    reshape.after.data_disks) +
+		reshape.parity - array.raid_disks;
 
-	if (!force &&
-	    info->new_level > 1 && info->array.level > 1 &&
+	if (!force && info->new_level > 1 && info->array.level > 1 &&
 	    spares_needed > info->array.spare_disks + added_disks) {
 		pr_err("Need %d spare%s to avoid degraded array, and only have %d.\n"
 		       "       Use --force to over-ride this check.\n",
@@ -2908,8 +3174,7 @@ static int reshape_array(char *container, int fd, char *devname,
 	if ((info->new_level > 1 || info->new_level == 0) &&
 	    spares_needed > info->array.spare_disks +added_disks) {
 		pr_err("Need %d spare%s to create working array, and only have %d.\n",
-		       spares_needed,
-		       spares_needed == 1 ? "" : "s",
+		       spares_needed, spares_needed == 1 ? "" : "s",
 		       info->array.spare_disks + added_disks);
 		goto release;
 	}
@@ -2931,8 +3196,8 @@ static int reshape_array(char *container, int fd, char *devname,
 			if (!mdmon_running(container))
 				start_mdmon(container);
 			ping_monitor(container);
-			if (mdmon_running(container) &&
-			    st->update_tail == NULL)
+			if (wait_for_mdmon(container) == MDADM_STATUS_SUCCESS &&
+			    !st->update_tail)
 				st->update_tail = &st->updates;
 		}
 	}
@@ -2948,13 +3213,19 @@ static int reshape_array(char *container, int fd, char *devname,
 		struct mdinfo *d;
 
 		if (info2) {
-			sysfs_init(info2, fd, st->devnm);
+			if (sysfs_init(info2, fd, st->devnm)) {
+				pr_err("unable to initialize sysfs for %s\n",
+				       st->devnm);
+				free(info2);
+				goto release;
+			}
 			/* When increasing number of devices, we need to set
 			 * new raid_disks before adding these, or they might
 			 * be rejected.
 			 */
 			if (reshape.backup_blocks &&
-			    reshape.after.data_disks > reshape.before.data_disks)
+			    reshape.after.data_disks >
+			    reshape.before.data_disks)
 				subarray_set_num(container, info2, "raid_disks",
 						 reshape.after.data_disks +
 						 reshape.parity);
@@ -2964,7 +3235,12 @@ static int reshape_array(char *container, int fd, char *devname,
 					/* This is a spare that wants to
 					 * be part of the array.
 					 */
-					add_disk(fd, st, info2, d);
+					if (add_disk(fd, st, info2, d) < 0) {
+						pr_err("Can not add disk %s\n",
+								d->sys_name);
+						free(info2);
+						goto release;
+					}
 				}
 			}
 			sysfs_free(info2);
@@ -2974,9 +3250,10 @@ static int reshape_array(char *container, int fd, char *devname,
 	 * array.  Now that the array has been changed to the right
 	 * level and frozen, we can safely add them.
 	 */
-	if (devlist)
-		Manage_subdevs(devname, fd, devlist, verbose,
-			       0,NULL, 0);
+	if (devlist) {
+		if (Manage_subdevs(devname, fd, devlist, verbose, 0, UOPT_UNDEFINED, 0))
+			goto release;
+	}
 
 	if (reshape.backup_blocks == 0 && data_offset != INVALID_SECTORS)
 		reshape.backup_blocks = reshape.before.data_disks * info->array.chunk_size/512;
@@ -2985,7 +3262,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		 * some more changes: layout, raid_disks, chunk_size
 		 */
 		/* read current array info */
-		if (ioctl(fd, GET_ARRAY_INFO, &array) != 0) {
+		if (md_get_array_info(fd, &array) != 0) {
 			dprintf("Cannot get array information.\n");
 			goto release;
 		}
@@ -2994,18 +3271,18 @@ static int reshape_array(char *container, int fd, char *devname,
 		if (info->new_layout != UnSet &&
 		    info->new_layout != array.layout) {
 			array.layout = info->new_layout;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				pr_err("failed to set new layout\n");
 				goto release;
 			} else if (verbose >= 0)
 				printf("layout for %s set to %d\n",
 				       devname, array.layout);
 		}
-		if (info->delta_disks != UnSet &&
-		    info->delta_disks != 0 &&
-		    array.raid_disks != (info->array.raid_disks + info->delta_disks)) {
+		if (info->delta_disks != UnSet && info->delta_disks != 0 &&
+		    array.raid_disks !=
+		    (info->array.raid_disks + info->delta_disks)) {
 			array.raid_disks += info->delta_disks;
-			if (ioctl(fd, SET_ARRAY_INFO, &array) != 0) {
+			if (md_set_array_info(fd, &array) != 0) {
 				pr_err("failed to set raid disks\n");
 				goto release;
 			} else if (verbose >= 0) {
@@ -3021,7 +3298,7 @@ static int reshape_array(char *container, int fd, char *devname,
 				goto release;
 			} else if (verbose >= 0)
 				printf("chunk size for %s set to %d\n",
-				       devname, array.chunk_size);
+				       devname, info->new_chunk);
 		}
 		unfreeze(st);
 		return 0;
@@ -3080,8 +3357,7 @@ static int reshape_array(char *container, int fd, char *devname,
 			/* Nothing to do. */
 			return 0;
 		return raid10_reshape(container, fd, devname, st, info,
-				      &reshape, data_offset,
-				      force, verbose);
+				      &reshape, data_offset, force, verbose);
 	}
 	sra = sysfs_read(fd, NULL,
 			 GET_COMPONENT|GET_DEVS|GET_OFFSET|GET_STATE|GET_CHUNK|
@@ -3137,6 +3413,7 @@ static int reshape_array(char *container, int fd, char *devname,
 		default: /* parent */
 			return 0;
 		case 0:
+			manage_fork_fds(0);
 			map_fork();
 			break;
 		}
@@ -3165,15 +3442,13 @@ started:
 		 * not so big that we reject it below.
 		 * Try for 16 megabytes
 		 */
-		while (blocks * 32 < sra->component_size &&
-		       blocks < 16*1024*2)
+		while (blocks * 32 < sra->component_size && blocks < 16*1024*2)
 			blocks *= 2;
 	} else
 		pr_err("Need to backup %luK of critical section..\n", blocks/2);
 
 	if (blocks >= sra->component_size/2) {
-		pr_err("%s: Something wrong - reshape aborted\n",
-			devname);
+		pr_err("%s: Something wrong - reshape aborted\n", devname);
 		goto release;
 	}
 
@@ -3186,9 +3461,8 @@ started:
 	offsets = xcalloc((1+nrdisks), sizeof(offsets[0]));
 
 	odisks = reshape.before.data_disks + reshape.parity;
-	d = reshape_prepare_fdlist(devname, sra, odisks,
-				   nrdisks, blocks, backup_file,
-				   fdlist, offsets);
+	d = reshape_prepare_fdlist(devname, sra, odisks, nrdisks, blocks,
+				   backup_file, fdlist, offsets);
 	if (d < odisks) {
 		goto release;
 	}
@@ -3209,8 +3483,7 @@ started:
 			if (!reshape_open_backup_file(backup_file, fd, devname,
 						      (signed)blocks,
 						      fdlist+d, offsets+d,
-						      sra->sys_name,
-						      restart)) {
+						      sra->sys_name, restart)) {
 				goto release;
 			}
 			d++;
@@ -3218,8 +3491,8 @@ started:
 	}
 
 	update_cache_size(container, sra, info,
-			  min(reshape.before.data_disks, reshape.after.data_disks),
-			  blocks);
+			  min(reshape.before.data_disks,
+			      reshape.after.data_disks), blocks);
 
 	/* Right, everything seems fine. Let's kick things off.
 	 * If only changing raid_disks, use ioctl, else use
@@ -3232,51 +3505,48 @@ started:
 		goto release;
 
 	err = start_reshape(sra, restart, reshape.before.data_disks,
-			    reshape.after.data_disks);
+			    reshape.after.data_disks, st);
 	if (err) {
 		pr_err("Cannot %s reshape for %s\n",
-		       restart ? "continue" : "start",
-		       devname);
+		       restart ? "continue" : "start", devname);
 		goto release;
 	}
 	if (restart)
 		sysfs_set_str(sra, NULL, "array_state", "active");
-	if (freeze_reshape) {
+
+	/* Do not run in initrd */
+	if (in_initrd()) {
 		free(fdlist);
 		free(offsets);
 		sysfs_free(sra);
-		pr_err("Reshape has to be continued from location %llu when root filesystem has been mounted.\n",
+		pr_info("Reshape has to be continued from location %llu when root filesystem has been mounted.\n",
 			sra->reshape_progress);
 		return 1;
 	}
-
-	if (!forked && !check_env("MDADM_NO_SYSTEMCTL"))
-		if (continue_via_systemd(container ?: sra->sys_name)) {
-			free(fdlist);
-			free(offsets);
-			sysfs_free(sra);
-			return 0;
-		}
 
 	/* Now we just need to kick off the reshape and watch, while
 	 * handling backups of the data...
 	 * This is all done by a forked background process.
 	 */
-	switch(forked ? 0 : fork()) {
-	case -1:
+	switch (handle_forking(forked, container ? container : sra->sys_name)) {
+	default: /* Unused, only to satisfy compiler. */
+	case MDADM_STATUS_ERROR: /* error */
 		pr_err("Cannot run child to monitor reshape: %s\n",
 			strerror(errno));
 		abort_reshape(sra);
 		goto release;
-	default:
+	case MDADM_STATUS_FORKED: /* child */
+		map_fork();
+		break;
+	case MDADM_STATUS_SUCCESS: /* parent */
 		free(fdlist);
 		free(offsets);
 		sysfs_free(sra);
 		return 0;
-	case 0:
-		map_fork();
-		break;
 	}
+
+	/* Close unused file descriptor in the forked process */
+	close_fd(&fd);
 
 	/* If another array on the same devices is busy, the
 	 * reshape will wait for them.  This would mean that
@@ -3291,8 +3561,7 @@ started:
 		mds = mdstat_read(1, 0);
 		for (m = mds; m; m = m->next)
 			if (strcmp(m->devnm, sra->sys_name) == 0) {
-				if (m->resync &&
-				    m->percent == RESYNC_DELAYED)
+				if (m->resync && m->percent == RESYNC_DELAYED)
 					delayed = 1;
 				if (m->resync == 0)
 					/* Haven't started the reshape thread
@@ -3311,29 +3580,25 @@ started:
 			mdstat_wait(30 - (delayed-1) * 25);
 	} while (delayed);
 	mdstat_close();
-	close(fd);
-	if (check_env("MDADM_GROW_VERIFY"))
-		fd = open(devname, O_RDONLY | O_DIRECT);
-	else
-		fd = -1;
 	mlockall(MCL_FUTURE);
 
-	signal(SIGTERM, catch_term);
+	if (signal_s(SIGTERM, catch_term) == SIG_ERR)
+		goto release;
 
+	if (check_env("MDADM_GROW_VERIFY"))
+		fd = open(devname, O_RDONLY | O_DIRECT);
 	if (st->ss->external) {
 		/* metadata handler takes it from here */
 		done = st->ss->manage_reshape(
 			fd, sra, &reshape, st, blocks,
-			fdlist, offsets,
-			d - odisks, fdlist+odisks,
-			offsets+odisks);
+			fdlist, offsets, d - odisks, fdlist + odisks,
+			offsets + odisks);
 	} else
 		done = child_monitor(
-			fd, sra, &reshape, st, blocks,
-			fdlist, offsets,
-			d - odisks, fdlist+odisks,
-			offsets+odisks);
+			fd, sra, &reshape, st, blocks, fdlist, offsets,
+			d - odisks, fdlist + odisks, offsets + odisks);
 
+	close_fd(&fd);
 	free(fdlist);
 	free(offsets);
 
@@ -3358,9 +3623,8 @@ started:
 	}
 
 	if (!st->ss->external &&
-	    !(reshape.before.data_disks != reshape.after.data_disks
-	      && info->custom_array_size) &&
-	    info->new_level == reshape.level &&
+	    !(reshape.before.data_disks != reshape.after.data_disks &&
+	      info->custom_array_size) && info->new_level == reshape.level &&
 	    !forked) {
 		/* no need to wait for the reshape to finish as
 		 * there is nothing more to do.
@@ -3384,15 +3648,17 @@ started:
 	/* set new array size if required customer_array_size is used
 	 * by this metadata.
 	 */
-	if (reshape.before.data_disks !=
-	    reshape.after.data_disks &&
+	if (reshape.before.data_disks != reshape.after.data_disks &&
 	    info->custom_array_size)
 		set_array_size(st, info, info->text_version);
 
 	if (info->new_level != reshape.level) {
-		if (fd < 0)
-			fd = open(devname, O_RDONLY);
-		impose_level(fd, info->new_level, devname, verbose);
+		fd = open_dev(sra->sys_name);
+		if (fd < 0) {
+			pr_err("Can't open %s\n", sra->sys_name);
+			goto out;
+		}
+		impose_level(fd, info->new_level, sra->sys_name, verbose);
 		close(fd);
 		if (info->new_level == 0)
 			st->update_tail = NULL;
@@ -3405,6 +3671,8 @@ out:
 	exit(0);
 
 release:
+	if (located_backup)
+		free(backup_file);
 	free(fdlist);
 	free(offsets);
 	if (orig_level != UnSet && sra) {
@@ -3424,23 +3692,15 @@ int reshape_container(char *container, char *devname,
 		      int mdfd,
 		      struct supertype *st,
 		      struct mdinfo *info,
-		      int force,
-		      char *backup_file, int verbose,
-		      int forked, int restart, int freeze_reshape)
+		      struct context *c,
+		      int forked, int restart)
 {
 	struct mdinfo *cc = NULL;
 	int rv = restart;
 	char last_devnm[32] = "";
 
-	/* component_size is not meaningful for a container,
-	 * so pass '0' meaning 'no change'
-	 */
-	if (!restart &&
-	    reshape_super(st, 0, info->new_level,
-			  info->new_layout, info->new_chunk,
-			  info->array.raid_disks, info->delta_disks,
-			  backup_file, devname, APPLY_METADATA_CHANGES,
-			  verbose)) {
+	/* component_size is not meaningful for a container */
+	if (!restart && reshape_super_non_size(st, devname, info, c)) {
 		unfreeze(st);
 		return 1;
 	}
@@ -3451,22 +3711,19 @@ int reshape_container(char *container, char *devname,
 	 */
 	ping_monitor(container);
 
-	if (!forked && !freeze_reshape && !check_env("MDADM_NO_SYSTEMCTL"))
-		if (continue_via_systemd(container))
-			return 0;
-
-	switch (forked ? 0 : fork()) {
-	case -1: /* error */
+	switch (handle_forking(forked, container)) {
+	default: /* Unused, only to satisfy compiler. */
+	case MDADM_STATUS_ERROR: /* error */
 		perror("Cannot fork to complete reshape\n");
 		unfreeze(st);
 		return 1;
-	default: /* parent */
-		if (!freeze_reshape)
-			printf("%s: multi-array reshape continues in background\n", Name);
-		return 0;
-	case 0: /* child */
+	case MDADM_STATUS_FORKED: /* child */
+		manage_fork_fds(0);
 		map_fork();
 		break;
+	case MDADM_STATUS_SUCCESS: /* parent */
+		printf("%s: multi-array reshape continues in background\n", Name);
+		return 0;
 	}
 
 	/* close unused handle in child process
@@ -3490,7 +3747,7 @@ int reshape_container(char *container, char *devname,
 		int fd;
 		struct mdstat_ent *mdstat;
 		char *adev;
-		int devid;
+		dev_t devid;
 
 		sysfs_free(cc);
 
@@ -3524,7 +3781,8 @@ int reshape_container(char *container, char *devname,
 
 		fd = open_dev(mdstat->devnm);
 		if (fd < 0) {
-			pr_err("Device %s cannot be opened for reshape.\n", adev);
+			pr_err("Device %s cannot be opened for reshape.\n",
+			       adev);
 			break;
 		}
 
@@ -3545,18 +3803,24 @@ int reshape_container(char *container, char *devname,
 		}
 		strcpy(last_devnm, mdstat->devnm);
 
-		sysfs_init(content, fd, mdstat->devnm);
+		if (sysfs_init(content, fd, mdstat->devnm)) {
+			pr_err("Unable to initialize sysfs for %s\n",
+			       mdstat->devnm);
+			rv = 1;
+			close_fd(&fd);
+			break;
+		}
 
 		if (mdmon_running(container))
 			flush_mdmon(container);
 
 		rv = reshape_array(container, fd, adev, st,
-				   content, force, NULL, INVALID_SECTORS,
-				   backup_file, verbose, 1, restart,
-				   freeze_reshape);
+				   content, c->force, NULL, INVALID_SECTORS,
+				   c->backup_file, c->verbose, 1, restart);
 		close(fd);
 
-		if (freeze_reshape) {
+		/* Do not run reshape in initrd but let it initialize.*/
+		if (in_initrd()) {
 			sysfs_free(cc);
 			exit(0);
 		}
@@ -3663,7 +3927,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	unsigned long long array_size = (info->component_size
 					 * reshape->before.data_disks);
 	int fd;
-	char buf[20];
+	char buf[SYSFS_MAX_BUF_SIZE];
 
 	/* First, we unsuspend any region that is now known to be safe.
 	 * If suspend_point is on the 'wrong' side of reshape_progress, then
@@ -3706,8 +3970,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			max_progress = backup_point;
 		else
 			max_progress =
-				read_offset *
-				reshape->after.data_disks;
+				read_offset * reshape->after.data_disks;
 	} else {
 		if (read_offset > write_offset - write_range)
 			/* Can only progress as far as has been backed up,
@@ -3722,8 +3985,7 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			else {
 				/* Can progress until metadata update is required */
 				max_progress =
-					read_offset *
-					reshape->after.data_disks;
+					read_offset * reshape->after.data_disks;
 				/* but data must be suspended */
 				if (max_progress < *suspend_point)
 					max_progress = *suspend_point;
@@ -3752,8 +4014,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 * a backup.
 	 */
 	if (advancing) {
-		if ((need_backup > info->reshape_progress
-		     || info->array.major_version < 0) &&
+		if ((need_backup > info->reshape_progress ||
+		     info->array.major_version < 0) &&
 		    *suspend_point < info->reshape_progress + target) {
 			if (need_backup < *suspend_point + 2 * target)
 				*suspend_point = need_backup;
@@ -3772,7 +4034,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 			    *suspend_point > 0) {
 				*suspend_point = 0;
 				sysfs_set_num(info, NULL, "suspend_lo", 0);
-				sysfs_set_num(info, NULL, "suspend_hi", need_backup);
+				sysfs_set_num(info, NULL, "suspend_hi",
+					      need_backup);
 			}
 		} else {
 			/* Need to suspend continually */
@@ -3803,7 +4066,10 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 */
 	/* scale down max_progress to per_disk */
 	max_progress /= reshape->after.data_disks;
-	/* Round to chunk size as some kernels give an erroneously high number */
+	/*
+	 * Round to chunk size as some kernels give an erroneously
+	 * high number
+	 */
 	max_progress /= info->new_chunk/512;
 	max_progress *= info->new_chunk/512;
 	/* And round to old chunk size as the kernel wants that */
@@ -3839,23 +4105,28 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 		/* Check that sync_action is still 'reshape' to avoid
 		 * waiting forever on a dead array
 		 */
-		char action[20];
-		if (sysfs_get_str(info, NULL, "sync_action",
-				  action, 20) <= 0 ||
-		    strncmp(action, "reshape", 7) != 0)
+		char action[SYSFS_MAX_BUF_SIZE];
+
+		if (sysfs_get_str(info, NULL, "sync_action", action, sizeof(action)) <= 0)
 			break;
 		/* Some kernels reset 'sync_completed' to zero
 		 * before setting 'sync_action' to 'idle'.
 		 * So we need these extra tests.
 		 */
-		if (completed == 0 && advancing
-		    && strncmp(action, "idle", 4) == 0
-		    && info->reshape_progress > 0)
+		if (completed == 0 && advancing &&
+		    strncmp(action, "idle", 4) == 0 &&
+		    info->reshape_progress > 0) {
+			info->reshape_progress = need_backup;
 			break;
-		if (completed == 0 && !advancing
-		    && strncmp(action, "idle", 4) == 0
-		    && info->reshape_progress < (info->component_size
-						 * reshape->after.data_disks))
+		}
+		if (completed == 0 && !advancing &&
+		    strncmp(action, "idle", 4) == 0 &&
+		    info->reshape_progress <
+		    (info->component_size * reshape->after.data_disks)) {
+			info->reshape_progress = need_backup;
+			break;
+		}
+		if (strncmp(action, "reshape", 7) != 0)
 			break;
 		sysfs_wait(fd, NULL);
 		if (sysfs_fd_get_ll(fd, &completed) < 0)
@@ -3867,9 +4138,8 @@ int progress_reshape(struct mdinfo *info, struct reshape *reshape,
 	 */
 	if (completed == 0) {
 		unsigned long long reshapep;
-		char action[20];
-		if (sysfs_get_str(info, NULL, "sync_action",
-				  action, 20) > 0 &&
+		char action[SYSFS_MAX_BUF_SIZE];
+		if (sysfs_get_str(info, NULL, "sync_action", action, sizeof(action)) > 0 &&
 		    strncmp(action, "idle", 4) == 0 &&
 		    sysfs_get_ll(info, NULL,
 				 "reshape_position", &reshapep) == 0)
@@ -3906,8 +4176,8 @@ check_progress:
 	 * it was just a device failure that leaves us degraded but
 	 * functioning.
 	 */
-	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0
-	    || strncmp(buf, "none", 4) != 0) {
+	if (sysfs_get_str(info, NULL, "reshape_position", buf, sizeof(buf)) < 0 ||
+	    str_is_none(buf) == false) {
 		/* The abort might only be temporary.  Wait up to 10
 		 * seconds for fd to contain a valid number again.
 		 */
@@ -3924,7 +4194,8 @@ check_progress:
 				/* If "sync_max" is no longer max_progress
 				 * we need to freeze things
 				 */
-				sysfs_get_ll(info, NULL, "sync_max", &new_sync_max);
+				sysfs_get_ll(info, NULL, "sync_max",
+					     &new_sync_max);
 				*frozen = (new_sync_max != max_progress);
 				break;
 			case -2: /* read error - abort */
@@ -3939,9 +4210,10 @@ check_progress:
 		/* Maybe racing with array shutdown - check state */
 		if (fd >= 0)
 			close(fd);
-		if (sysfs_get_str(info, NULL, "array_state", buf, sizeof(buf)) < 0
-		    || strncmp(buf, "inactive", 8) == 0
-		    || strncmp(buf, "clear",5) == 0)
+		if (sysfs_get_str(info, NULL, "array_state", buf,
+				  sizeof(buf)) < 0 ||
+		    strncmp(buf, "inactive", 8) == 0 ||
+		    strncmp(buf, "clear",5) == 0)
 			return -2; /* abort */
 		return -1; /* complete */
 	}
@@ -3985,8 +4257,10 @@ static int grow_backup(struct mdinfo *sra,
 			if (sd->disk.state & (1<<MD_DISK_FAULTY))
 				continue;
 			if (sd->disk.state & (1<<MD_DISK_SYNC)) {
-				char sbuf[20];
-				if (sysfs_get_str(sra, sd, "state", sbuf, 20) < 0 ||
+				char sbuf[SYSFS_MAX_BUF_SIZE];
+
+				if (sysfs_get_str(sra, sd, "state",
+						  sbuf, sizeof(sbuf)) < 0 ||
 				    strstr(sbuf, "faulty") ||
 				    strstr(sbuf, "in_sync") == NULL) {
 					/* this device is dead */
@@ -4012,15 +4286,14 @@ static int grow_backup(struct mdinfo *sra,
 		bsb.magic[15] = '2';
 	for (i = 0; i < dests; i++)
 		if (part)
-			lseek64(destfd[i], destoffsets[i] + __le64_to_cpu(bsb.devstart2)*512, 0);
+			lseek64(destfd[i], destoffsets[i] +
+				__le64_to_cpu(bsb.devstart2)*512, 0);
 		else
 			lseek64(destfd[i], destoffsets[i], 0);
 
-	rv = save_stripes(sources, offsets,
-			  disks, chunk, level, layout,
-			  dests, destfd,
-			  offset*512*odata, stripes * chunk * odata,
-			  buf);
+	rv = save_stripes(sources, offsets, disks, chunk, level, layout,
+			  dests, destfd, offset * 512 * odata,
+			  stripes * chunk * odata, buf);
 
 	if (rv)
 		return rv;
@@ -4028,14 +4301,16 @@ static int grow_backup(struct mdinfo *sra,
 	for (i = 0; i < dests; i++) {
 		bsb.devstart = __cpu_to_le64(destoffsets[i]/512);
 
-		bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
+		bsb.sb_csum = bsb_csum((char*)&bsb,
+				       ((char*)&bsb.sb_csum)-((char*)&bsb));
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0)
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 
 		rv = -1;
-		if ((unsigned long long)lseek64(destfd[i], destoffsets[i] - 4096, 0)
-		    != destoffsets[i] - 4096)
+		if ((unsigned long long)lseek64(destfd[i],
+						destoffsets[i] - 4096, 0) !=
+		    destoffsets[i] - 4096)
 			break;
 		if (write(destfd[i], &bsb, 512) != 512)
 			break;
@@ -4085,15 +4360,15 @@ static int forget_backup(int dests, int *destfd,
 	rv = 0;
 	for (i = 0; i < dests; i++) {
 		bsb.devstart = __cpu_to_le64(destoffsets[i]/512);
-		bsb.sb_csum = bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb));
+		bsb.sb_csum = bsb_csum((char*)&bsb,
+				       ((char*)&bsb.sb_csum)-((char*)&bsb));
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0)
 			bsb.sb_csum2 = bsb_csum((char*)&bsb,
 						((char*)&bsb.sb_csum2)-((char*)&bsb));
 		if ((unsigned long long)lseek64(destfd[i], destoffsets[i]-4096, 0) !=
 		    destoffsets[i]-4096)
 			rv = -1;
-		if (rv == 0 &&
-		    write(destfd[i], &bsb, 512) != 512)
+		if (rv == 0 && write(destfd[i], &bsb, 512) != 512)
 			rv = -1;
 		fsync(destfd[i]);
 	}
@@ -4118,7 +4393,10 @@ static void validate(int afd, int bfd, unsigned long long offset)
 	 */
 	if (afd < 0)
 		return;
-	lseek64(bfd, offset - 4096, 0);
+	if (lseek64(bfd, offset - 4096, 0) < 0) {
+		pr_err("lseek64 fails %d:%s\n", errno, strerror(errno));
+		return;
+	}
 	if (read(bfd, &bsb2, 512) != 512)
 		fail("cannot read bsb");
 	if (bsb2.sb_csum != bsb_csum((char*)&bsb2,
@@ -4149,27 +4427,23 @@ static void validate(int afd, int bfd, unsigned long long offset)
 			}
 		}
 
-		lseek64(bfd, offset, 0);
+		if (lseek64(bfd, offset, 0) < 0) {
+			pr_err("lseek64 fails %d:%s\n", errno, strerror(errno));
+			goto out;
+		}
 		if ((unsigned long long)read(bfd, bbuf, len) != len) {
 			//printf("len %llu\n", len);
 			fail("read first backup failed");
 		}
-		lseek64(afd, __le64_to_cpu(bsb2.arraystart)*512, 0);
+
+		if (lseek64(afd, __le64_to_cpu(bsb2.arraystart)*512, 0) < 0) {
+			pr_err("lseek64 fails %d:%s\n", errno, strerror(errno));
+			goto out;
+		}
 		if ((unsigned long long)read(afd, abuf, len) != len)
 			fail("read first from array failed");
-		if (memcmp(bbuf, abuf, len) != 0) {
-#if 0
-			int i;
-			printf("offset=%llu len=%llu\n",
-			       (unsigned long long)__le64_to_cpu(bsb2.arraystart)*512, len);
-			for (i=0; i<len; i++)
-				if (bbuf[i] != abuf[i]) {
-					printf("first diff byte %d\n", i);
-					break;
-				}
-#endif
+		if (memcmp(bbuf, abuf, len) != 0)
 			fail("data1 compare failed");
-		}
 	}
 	if (bsb2.length2) {
 		unsigned long long len = __le64_to_cpu(bsb2.length2)*512;
@@ -4182,15 +4456,25 @@ static void validate(int afd, int bfd, unsigned long long offset)
 			bbuf = xmalloc(abuflen);
 		}
 
-		lseek64(bfd, offset+__le64_to_cpu(bsb2.devstart2)*512, 0);
+		if (lseek64(bfd, offset+__le64_to_cpu(bsb2.devstart2)*512, 0) < 0) {
+			pr_err("lseek64 fails %d:%s\n", errno, strerror(errno));
+			goto out;
+		}
 		if ((unsigned long long)read(bfd, bbuf, len) != len)
 			fail("read second backup failed");
-		lseek64(afd, __le64_to_cpu(bsb2.arraystart2)*512, 0);
+		if (lseek64(afd, __le64_to_cpu(bsb2.arraystart2)*512, 0) < 0) {
+			pr_err("lseek64 fails %d:%s\n", errno, strerror(errno));
+			goto out;
+		}
 		if ((unsigned long long)read(afd, abuf, len) != len)
 			fail("read second from array failed");
 		if (memcmp(bbuf, abuf, len) != 0)
 			fail("data2 compare failed");
 	}
+out:
+	free(abuf);
+	free(bbuf);
+	return;
 }
 
 int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
@@ -4204,14 +4488,14 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	 */
 	char *buf;
 	int degraded = -1;
-	unsigned long long speed;
 	unsigned long long suspend_point, array_size;
 	unsigned long long backup_point, wait_point;
 	unsigned long long reshape_completed;
 	int done = 0;
-	int increasing = reshape->after.data_disks >= reshape->before.data_disks;
-	int part = 0; /* The next part of the backup area to fill.  It may already
-		       * be full, so we need to check */
+	int increasing = reshape->after.data_disks >=
+		reshape->before.data_disks;
+	int part = 0; /* The next part of the backup area to fill.  It
+		       * may already be full, so we need to check */
 	int level = reshape->level;
 	int layout = reshape->before.layout;
 	int data = reshape->before.data_disks;
@@ -4259,10 +4543,6 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	if (posix_memalign((void**)&buf, 4096, disks * chunk))
 		/* Don't start the 'reshape' */
 		return 0;
-	if (reshape->before.data_disks == reshape->after.data_disks) {
-		sysfs_get_ll(sra, NULL, "sync_speed_min", &speed);
-		sysfs_set_num(sra, NULL, "sync_speed_min", 200000);
-	}
 
 	if (increasing) {
 		array_size = sra->component_size * reshape->after.data_disks;
@@ -4375,11 +4655,9 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 			}
 			if (actual_stripes == 0)
 				break;
-			grow_backup(sra, offset, actual_stripes,
-				    fds, offsets,
-				    disks, chunk, level, layout,
-				    dests, destfd, destoffsets,
-				    part, &degraded, buf);
+			grow_backup(sra, offset, actual_stripes, fds, offsets,
+				    disks, chunk, level, layout, dests, destfd,
+				    destoffsets, part, &degraded, buf);
 			validate(afd, destfd[0], destoffsets[0]);
 			/* record where 'part' is up to */
 			part = !part;
@@ -4397,8 +4675,6 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
 	sysfs_set_num(sra, NULL, "suspend_lo", 0);
 	sysfs_set_num(sra, NULL, "sync_min", 0);
 
-	if (reshape->before.data_disks == reshape->after.data_disks)
-		sysfs_set_num(sra, NULL, "sync_speed_min", speed);
 	free(buf);
 	return done;
 }
@@ -4408,19 +4684,22 @@ int child_monitor(int afd, struct mdinfo *sra, struct reshape *reshape,
  * write that data into the array and update the super blocks with
  * the new reshape_progress
  */
-int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt,
-		 char *backup_file, int verbose)
+int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist,
+		 int cnt, char *backup_file, int verbose)
 {
 	int i, j;
 	int old_disks;
 	unsigned long long *offsets;
 	unsigned long long  nstripe, ostripe;
 	int ndata, odata;
+	int fd, backup_fd = -1;
 
 	odata = info->array.raid_disks - info->delta_disks - 1;
-	if (info->array.level == 6) odata--; /* number of data disks */
+	if (info->array.level == 6)
+		odata--; /* number of data disks */
 	ndata = info->array.raid_disks - 1;
-	if (info->new_level == 6) ndata--;
+	if (info->new_level == 6)
+		ndata--;
 
 	old_disks = info->array.raid_disks - info->delta_disks;
 
@@ -4429,9 +4708,18 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		 * been used
 		 */
 		old_disks = cnt;
+
+	if (backup_file) {
+		backup_fd = open(backup_file, O_RDONLY);
+		if (!is_fd_valid(backup_fd)) {
+			pr_err("Can't open backup file %s : %s\n",
+				backup_file, strerror(errno));
+			return -EINVAL;
+		}
+	}
+
 	for (i=old_disks-(backup_file?1:0); i<cnt; i++) {
 		struct mdinfo dinfo;
-		int fd;
 		int bsbsize;
 		char *devname, namebuf[20];
 		unsigned long long lo, hi;
@@ -4444,12 +4732,9 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		 * else restore data and update all superblocks
 		 */
 		if (i == old_disks-1) {
-			fd = open(backup_file, O_RDONLY);
-			if (fd<0) {
-				pr_err("backup file %s inaccessible: %s\n",
-					backup_file, strerror(errno));
+			if (!is_fd_valid(backup_fd))
 				continue;
-			}
+			fd = backup_fd;
 			devname = backup_file;
 		} else {
 			fd = fdlist[i];
@@ -4483,27 +4768,33 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		}
 		if (bsb.sb_csum != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum)-((char*)&bsb))) {
 			if (verbose)
-				pr_err("Bad backup-metadata checksum on %s\n", devname);
+				pr_err("Bad backup-metadata checksum on %s\n",
+				       devname);
 			continue; /* bad checksum */
 		}
 		if (memcmp(bsb.magic, "md_backup_data-2", 16) == 0 &&
 		    bsb.sb_csum2 != bsb_csum((char*)&bsb, ((char*)&bsb.sb_csum2)-((char*)&bsb))) {
 			if (verbose)
-				pr_err("Bad backup-metadata checksum2 on %s\n", devname);
+				pr_err("Bad backup-metadata checksum2 on %s\n",
+				       devname);
 			continue; /* Bad second checksum */
 		}
 		if (memcmp(bsb.set_uuid,info->uuid, 16) != 0) {
 			if (verbose)
-				pr_err("Wrong uuid on backup-metadata on %s\n", devname);
+				pr_err("Wrong uuid on backup-metadata on %s\n",
+				       devname);
 			continue; /* Wrong uuid */
 		}
 
-		/* array utime and backup-mtime should be updated at much the same time, but it seems that
-		 * sometimes they aren't... So allow considerable flexability in matching, and allow
-		 * this test to be overridden by an environment variable.
+		/*
+		 * array utime and backup-mtime should be updated at
+		 * much the same time, but it seems that sometimes
+		 * they aren't... So allow considerable flexability in
+		 * matching, and allow this test to be overridden by
+		 * an environment variable.
 		 */
-		if (info->array.utime > (int)__le64_to_cpu(bsb.mtime) + 2*60*60 ||
-		    info->array.utime < (int)__le64_to_cpu(bsb.mtime) - 10*60) {
+		if(time_after(info->array.utime, (unsigned int)__le64_to_cpu(bsb.mtime) + 2*60*60) ||
+		   time_before(info->array.utime, (unsigned int)__le64_to_cpu(bsb.mtime) - 10*60)) {
 			if (check_env("MDADM_GROW_ALLOW_OLD")) {
 				pr_err("accepting backup with timestamp %lu for array with timestamp %lu\n",
 					(unsigned long)__le64_to_cpu(bsb.mtime),
@@ -4541,8 +4832,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				/* reshape_progress is increasing */
 				if ((__le64_to_cpu(bsb.arraystart)
 				     + __le64_to_cpu(bsb.length)
-				     < info->reshape_progress)
-				    &&
+				     < info->reshape_progress) &&
 				    (__le64_to_cpu(bsb.arraystart2)
 				     + __le64_to_cpu(bsb.length2)
 				     < info->reshape_progress))
@@ -4588,12 +4878,10 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		}
 		printf("%s: restoring critical section\n", Name);
 
-		if (restore_stripes(fdlist, offsets,
-				    info->array.raid_disks,
-				    info->new_chunk,
-				    info->new_level,
-				    info->new_layout,
-				    fd, __le64_to_cpu(bsb.devstart)*512,
+		if (restore_stripes(fdlist, offsets, info->array.raid_disks,
+				    info->new_chunk, info->new_level,
+				    info->new_layout, fd,
+				    __le64_to_cpu(bsb.devstart)*512,
 				    __le64_to_cpu(bsb.arraystart)*512,
 				    __le64_to_cpu(bsb.length)*512, NULL)) {
 			/* didn't succeed, so giveup */
@@ -4601,16 +4889,15 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				pr_err("Error restoring backup from %s\n",
 					devname);
 			free(offsets);
+			close_fd(&backup_fd);
 			return 1;
 		}
 
 		if (bsb.magic[15] == '2' &&
-		    restore_stripes(fdlist, offsets,
-				    info->array.raid_disks,
-				    info->new_chunk,
-				    info->new_level,
-				    info->new_layout,
-				    fd, __le64_to_cpu(bsb.devstart)*512 +
+		    restore_stripes(fdlist, offsets, info->array.raid_disks,
+				    info->new_chunk, info->new_level,
+				    info->new_layout, fd,
+				    __le64_to_cpu(bsb.devstart)*512 +
 				    __le64_to_cpu(bsb.devstart2)*512,
 				    __le64_to_cpu(bsb.arraystart2)*512,
 				    __le64_to_cpu(bsb.length2)*512, NULL)) {
@@ -4619,6 +4906,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 				pr_err("Error restoring second backup from %s\n",
 					devname);
 			free(offsets);
+			close_fd(&backup_fd);
 			return 1;
 		}
 
@@ -4643,15 +4931,16 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			else
 				lo = lo1;
 		}
-		if (lo < hi &&
-		    (info->reshape_progress < lo ||
-		     info->reshape_progress > hi))
+		if (lo < hi && (info->reshape_progress < lo ||
+				info->reshape_progress > hi))
 			/* backup does not affect reshape_progress*/ ;
 		else if (info->delta_disks >= 0) {
 			info->reshape_progress = __le64_to_cpu(bsb.arraystart) +
 				__le64_to_cpu(bsb.length);
 			if (bsb.magic[15] == '2') {
-				unsigned long long p2 = __le64_to_cpu(bsb.arraystart2) +
+				unsigned long long p2;
+
+				p2 = __le64_to_cpu(bsb.arraystart2) +
 					__le64_to_cpu(bsb.length2);
 				if (p2 > info->reshape_progress)
 					info->reshape_progress = p2;
@@ -4659,7 +4948,9 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 		} else {
 			info->reshape_progress = __le64_to_cpu(bsb.arraystart);
 			if (bsb.magic[15] == '2') {
-				unsigned long long p2 = __le64_to_cpu(bsb.arraystart2);
+				unsigned long long p2;
+
+				p2 = __le64_to_cpu(bsb.arraystart2);
 				if (p2 < info->reshape_progress)
 					info->reshape_progress = p2;
 			}
@@ -4672,13 +4963,17 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 			st->ss->getinfo_super(st, &dinfo, NULL);
 			dinfo.reshape_progress = info->reshape_progress;
 			st->ss->update_super(st, &dinfo,
-					     "_reshape_progress",
+					     UOPT_SPEC__RESHAPE_PROGRESS,
 					     NULL,0, 0, NULL);
 			st->ss->store_super(st, fdlist[j]);
 			st->ss->free_super(st);
 		}
+		close_fd(&backup_fd);
 		return 0;
 	}
+
+	close_fd(&backup_fd);
+
 	/* Didn't find any backup data, try to see if any
 	 * was needed.
 	 */
@@ -4720,8 +5015,7 @@ int Grow_restart(struct supertype *st, struct mdinfo *info, int *fdlist, int cnt
 	return 1;
 }
 
-int Grow_continue_command(char *devname, int fd,
-			  char *backup_file, int verbose)
+int Grow_continue_command(char *devname, int fd, struct context *c)
 {
 	int ret_val = 0;
 	struct supertype *st = NULL;
@@ -4731,63 +5025,72 @@ int Grow_continue_command(char *devname, int fd,
 	struct mdinfo *cc = NULL;
 	struct mdstat_ent *mdstat = NULL;
 	int cfd = -1;
-	int fd2 = -1;
+	int fd2;
 
-	dprintf("Grow continue from command line called for %s\n",
-		devname);
+	dprintf("Grow continue from command line called for %s\n", devname);
 
 	st = super_by_fd(fd, &subarray);
 	if (!st || !st->ss) {
-		pr_err("Unable to determine metadata format for %s\n",
-		       devname);
+		pr_err("Unable to determine metadata format for %s\n", devname);
 		return 1;
 	}
 	dprintf("Grow continue is run for ");
 	if (st->ss->external == 0) {
 		int d;
+		int cnt = 5;
 		dprintf_cont("native array (%s)\n", devname);
-		if (ioctl(fd, GET_ARRAY_INFO, &array.array) < 0) {
-			pr_err("%s is not an active md array - aborting\n", devname);
-			ret_val = 1;
-			goto Grow_continue_command_exit;
-		}
-		content = &array;
-		/* Need to load a superblock.
-		 * FIXME we should really get what we need from
-		 * sysfs
-		 */
-		for (d = 0; d < MAX_DISKS; d++) {
-			mdu_disk_info_t disk;
-			char *dv;
-			int err;
-			disk.number = d;
-			if (ioctl(fd, GET_DISK_INFO, &disk) < 0)
-				continue;
-			if (disk.major == 0 && disk.minor == 0)
-				continue;
-			if ((disk.state & (1 << MD_DISK_ACTIVE)) == 0)
-				continue;
-			dv = map_dev(disk.major, disk.minor, 1);
-			if (!dv)
-				continue;
-			fd2 = dev_open(dv, O_RDONLY);
-			if (fd2 < 0)
-				continue;
-			err = st->ss->load_super(st, fd2, NULL);
-			close(fd2);
-			/* invalidate fd2 to avoid possible double close() */
-			fd2 = -1;
-			if (err)
-				continue;
-			break;
-		}
-		if (d == MAX_DISKS) {
-			pr_err("Unable to load metadata for %s\n",
+		if (md_get_array_info(fd, &array.array) < 0) {
+			pr_err("%s is not an active md array - aborting\n",
 			       devname);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
-		st->ss->getinfo_super(st, content, NULL);
+		content = &array;
+		if (sysfs_init(content, fd, NULL) < 0) {
+			pr_err("sysfs_init fails\n");
+			ret_val = 1;
+			goto Grow_continue_command_exit;
+		}
+		/* Need to load a superblock.
+		 * FIXME we should really get what we need from
+		 * sysfs
+		 */
+		do {
+			for (d = 0; d < MAX_DISKS; d++) {
+				mdu_disk_info_t disk;
+				char *dv;
+				int err;
+				disk.number = d;
+				if (md_get_disk_info(fd, &disk) < 0)
+					continue;
+				if (disk.major == 0 && disk.minor == 0)
+					continue;
+				if ((disk.state & (1 << MD_DISK_ACTIVE)) == 0)
+					continue;
+				dv = map_dev(disk.major, disk.minor, 1);
+				if (!dv)
+					continue;
+				fd2 = dev_open(dv, O_RDONLY);
+				if (fd2 < 0)
+					continue;
+				err = st->ss->load_super(st, fd2, NULL);
+				close(fd2);
+				if (err)
+					continue;
+				break;
+			}
+			if (d == MAX_DISKS) {
+				pr_err("Unable to load metadata for %s\n",
+				       devname);
+				ret_val = 1;
+				goto Grow_continue_command_exit;
+			}
+			st->ss->getinfo_super(st, content, NULL);
+			if (!content->reshape_active)
+				sleep_for(3, 0, true);
+			else
+				break;
+		} while (cnt-- > 0);
 	} else {
 		char *container;
 
@@ -4812,15 +5115,14 @@ int Grow_continue_command(char *devname, int fd,
 		 */
 		ret_val = st->ss->load_container(st, cfd, NULL);
 		if (ret_val) {
-			pr_err("Cannot read superblock for %s\n",
-			       devname);
+			pr_err("Cannot read superblock for %s\n", devname);
 			ret_val = 1;
 			goto Grow_continue_command_exit;
 		}
 
 		cc = st->ss->container_content(st, subarray);
 		for (content = cc; content ; content = content->next) {
-			char *array;
+			char *array_name;
 			int allow_reshape = 1;
 
 			if (content->reshape_active == 0)
@@ -4845,8 +5147,8 @@ int Grow_continue_command(char *devname, int fd,
 				goto Grow_continue_command_exit;
 			}
 
-			array = strchr(content->text_version+1, '/')+1;
-			mdstat = mdstat_by_subdev(array, container);
+			array_name = strchr(content->text_version+1, '/')+1;
+			mdstat = mdstat_by_subdev(array_name, container);
 			if (!mdstat)
 				continue;
 			if (mdstat->active == 0) {
@@ -4870,7 +5172,15 @@ int Grow_continue_command(char *devname, int fd,
 			goto Grow_continue_command_exit;
 		}
 
-		sysfs_init(content, fd2, mdstat->devnm);
+		if (sysfs_init(content, fd2, mdstat->devnm)) {
+			pr_err("Unable to initialize sysfs for %s, Grow cannot continue.\n",
+			       mdstat->devnm);
+			ret_val = 1;
+			close(fd2);
+			goto Grow_continue_command_exit;
+		}
+
+		close(fd2);
 
 		/* start mdmon in case it is not running
 		 */
@@ -4878,9 +5188,7 @@ int Grow_continue_command(char *devname, int fd,
 			start_mdmon(container);
 		ping_monitor(container);
 
-		if (mdmon_running(container))
-			st->update_tail = &st->updates;
-		else {
+		if (wait_for_mdmon(container) != MDADM_STATUS_SUCCESS) {
 			pr_err("No mdmon found. Grow cannot continue.\n");
 			ret_val = 1;
 			goto Grow_continue_command_exit;
@@ -4897,11 +5205,9 @@ int Grow_continue_command(char *devname, int fd,
 
 	/* continue reshape
 	 */
-	ret_val = Grow_continue(fd, st, content, backup_file, 1, 0);
+	ret_val = Grow_continue(fd, st, content, 1, c);
 
 Grow_continue_command_exit:
-	if (fd2 > -1)
-		close(fd2);
 	if (cfd > -1)
 		close(cfd);
 	st->ss->free_super(st);
@@ -4913,7 +5219,7 @@ Grow_continue_command_exit:
 }
 
 int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
-		  char *backup_file, int forked, int freeze_reshape)
+		  int forked, struct context *c)
 {
 	int ret_val = 2;
 
@@ -4929,16 +5235,11 @@ int Grow_continue(int mdfd, struct supertype *st, struct mdinfo *info,
 		st->ss->load_container(st, cfd, st->container_devnm);
 		close(cfd);
 		ret_val = reshape_container(st->container_devnm, NULL, mdfd,
-					    st, info, 0, backup_file,
-					    0, forked,
-					    1 | info->reshape_active,
-					    freeze_reshape);
+					    st, info, c, forked, 1 | info->reshape_active);
 	} else
 		ret_val = reshape_array(NULL, mdfd, "array", st, info, 1,
-					NULL, INVALID_SECTORS,
-					backup_file, 0, forked,
-					1 | info->reshape_active,
-					freeze_reshape);
+					NULL, INVALID_SECTORS, c->backup_file,
+					0, forked, 1 | info->reshape_active);
 
 	return ret_val;
 }
@@ -4960,8 +5261,7 @@ char *locate_backup(char *name)
 	char *fl = make_backup(name);
 	struct stat stb;
 
-	if (stat(fl, &stb) == 0 &&
-	    S_ISREG(stb.st_mode))
+	if (stat(fl, &stb) == 0 && S_ISREG(stb.st_mode))
 		return fl;
 
 	free(fl);

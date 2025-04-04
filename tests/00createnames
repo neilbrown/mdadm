@@ -1,0 +1,44 @@
+set -x -e
+. tests/templates/names_template
+
+# Test how <devname> and --name= are handled for create mode.
+
+# The most trivial case.
+names_create "/dev/md/name"
+names_verify "/dev/md127" "name" "name"
+mdadm -S "/dev/md127"
+
+names_create "name"
+names_verify "/dev/md127" "name" "name"
+mdadm -S "/dev/md127"
+
+# Use 'mdX' as name.
+names_create "/dev/md/md0"
+names_verify "/dev/md127" "md0" "md0"
+mdadm -S "/dev/md127"
+
+names_create "md0"
+names_verify "/dev/md127" "md0" "md0"
+mdadm -S "/dev/md127"
+
+# <devnode> is used to create MD_DEVNAME but, name is used to create MD_NAME.
+names_create "/dev/md/devnode" "name"
+names_verify "/dev/md127" "devnode" "name"
+mdadm -S "/dev/md127"
+
+names_create "devnode" "name"
+names_verify "/dev/md127" "devnode" "name"
+mdadm -S "/dev/md127"
+
+# Devnode points to /dev/ directory. MD_DEVNAME doesn't exist.
+names_create "/dev/md0"
+names_verify "/dev/md0" "empty" "0"
+mdadm -S "/dev/md0"
+
+# Devnode points to /dev/ directory and name is set.
+names_create "/dev/md0" "name"
+names_verify "/dev/md0" "empty" "name"
+mdadm -S "/dev/md0"
+
+# Devnode is a special ignore keyword. Should be rejected.
+names_create "<ignore>" "name", "true"

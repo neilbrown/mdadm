@@ -56,7 +56,6 @@
 #include	<errno.h>
 #include	<string.h>
 #include	<fcntl.h>
-#include	<signal.h>
 #include	<dirent.h>
 #ifdef USE_PTHREADS
 #include	<pthread.h>
@@ -66,6 +65,7 @@
 
 #include	"mdadm.h"
 #include	"mdmon.h"
+#include	"xmalloc.h"
 
 char const Name[] = "mdmon";
 
@@ -100,7 +100,7 @@ static int clone_monitor(struct supertype *container)
 	if (rc)
 		return rc;
 	while (mon_tid == -1)
-		usleep(10);
+		sleep_for(0, USEC_TO_NSEC(10), true);
 	pthread_attr_destroy(&attr);
 
 	mgr_tid = syscall(SYS_gettid);
@@ -171,6 +171,7 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	int fd;
 	int n;
 	long fl;
+	int rv;
 
 	/* first rule of survival... don't off yourself */
 	if (pid == getpid())
@@ -198,12 +199,23 @@ static void try_kill_monitor(pid_t pid, char *devname, int sock)
 	/* Wait for monitor to exit by reading from the socket, after
 	 * clearing the non-blocking flag */
 	fl = fcntl(sock, F_GETFL, 0);
+	if (fl < 0)
+		return;
+
 	fl &= ~O_NONBLOCK;
-	fcntl(sock, F_SETFL, fl);
+	if (fcntl(sock, F_SETFL, fl) < 0)
+		return;
 	n = read(sock, buf, 100);
-	/* Ignore result, it is just the wait that
-	 * matters
-	 */
+
+	/* If there is I/O going on it might took some time to get to
+	 * clean state. Wait for monitor to exit fully to avoid races.
+	 * Ping it with SIGUSR1 in case that it is sleeping  */
+	for (n = 0; n < 25; n++) {
+		rv = kill(pid, SIGUSR1);
+		if (rv < 0)
+			break;
+		sleep_for(0, MSEC_TO_NSEC(200), true);
+	}
 }
 
 void remove_pidfile(char *devname)
@@ -233,16 +245,19 @@ static int make_control_sock(char *devname)
 		return -1;
 
 	addr.sun_family = PF_LOCAL;
-	strcpy(addr.sun_path, path);
+	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", path);
 	umask(077); /* ensure no world write access */
-	if (bind(sfd, &addr, sizeof(addr)) < 0) {
+	if (bind(sfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		close(sfd);
 		return -1;
 	}
 	listen(sfd, 10);
 	fl = fcntl(sfd, F_GETFL, 0);
 	fl |= O_NONBLOCK;
-	fcntl(sfd, F_SETFL, fl);
+	if (fcntl(sfd, F_SETFL, fl) < 0) {
+		close_fd(&sfd);
+		return -1;
+	}
 	return sfd;
 }
 
@@ -281,17 +296,27 @@ void usage(void)
 	exit(2);
 }
 
+static bool is_duplicate_opt(const int opt, const int set_val, const char *long_name)
+{
+	if (opt == set_val) {
+		pr_err("--%s option duplicated!\n", long_name);
+		return true;
+	}
+	return false;
+}
+
 static int mdmon(char *devnm, int must_fork, int takeover);
 
 int main(int argc, char *argv[])
 {
 	char *container_name = NULL;
-	char *devnm = NULL;
 	int status = 0;
 	int opt;
 	int all = 0;
 	int takeover = 0;
 	int dofork = 1;
+	int mdfd = -1;
+	bool help = false;
 	static struct option options[] = {
 		{"all", 0, NULL, 'a'},
 		{"takeover", 0, NULL, 't'},
@@ -300,6 +325,46 @@ int main(int argc, char *argv[])
 		{"foreground", 0, NULL, 'F'},
 		{NULL, 0, NULL, 0}
 	};
+
+	/*
+	 * mdmon should never complain due to lack of a platform,
+	 * that is mdadm's job if at all.
+	 */
+	imsm_set_no_platform(1);
+
+	while ((opt = getopt_long(argc, argv, "thaF", options, NULL)) != -1) {
+		switch (opt) {
+		case 'a':
+			if (is_duplicate_opt(all, 1, "all"))
+				exit(1);
+			container_name = argv[optind-1];
+			all = 1;
+			break;
+		case 't':
+			if (is_duplicate_opt(takeover, 1, "takeover"))
+				exit(1);
+			takeover = 1;
+			break;
+		case 'F':
+			if (is_duplicate_opt(dofork, 0, "foreground"))
+				exit(1);
+			dofork = 0;
+			break;
+		case OffRootOpt:
+			if (is_duplicate_opt(argv[0][0], '@', "offroot"))
+				exit(1);
+			argv[0][0] = '@';
+			break;
+		case 'h':
+			if (is_duplicate_opt(help, true, "help"))
+				exit(1);
+			help = true;
+			break;
+		default:
+			usage();
+			break;
+		}
+	}
 
 	if (in_initrd()) {
 		/*
@@ -310,52 +375,34 @@ int main(int argc, char *argv[])
 		argv[0][0] = '@';
 	}
 
-	while ((opt = getopt_long(argc, argv, "thaF", options, NULL)) != -1) {
-		switch (opt) {
-		case 'a':
-			container_name = argv[optind-1];
-			all = 1;
-			break;
-		case 't':
-			takeover = 1;
-			break;
-		case 'F':
-			dofork = 0;
-			break;
-		case OffRootOpt:
-			argv[0][0] = '@';
-			break;
-		case 'h':
-		default:
-			usage();
-			break;
-		}
+	if (!all && argv[optind]) {
+		static const char prefix[] = "initrd/";
+		container_name = argv[optind];
+		if (strncmp(container_name, prefix,
+			    sizeof(prefix) - 1) == 0)
+			container_name += sizeof(prefix)-1;
+		container_name = get_md_name(container_name);
+		if (!container_name)
+			return 1;
 	}
 
-	if (all == 0 && container_name == NULL) {
-		if (argv[optind])
-			container_name = argv[optind];
-	}
-
-	if (container_name == NULL)
-		usage();
-
-	if (argc - optind > 1)
+	if (container_name == NULL || argc - optind > 1)
 		usage();
 
 	if (strcmp(container_name, "/proc/mdstat") == 0)
 		all = 1;
 
+	if (help)
+		usage();
+
 	if (all) {
 		struct mdstat_ent *mdstat, *e;
-		int container_len = strlen(container_name);
+		int container_len = strnlen(container_name, MD_NAME_MAX);
 
 		/* launch an mdmon instance for each container found */
 		mdstat = mdstat_read(0, 0);
 		for (e = mdstat; e; e = e->next) {
-			if (e->metadata_version &&
-			    strncmp(e->metadata_version, "external:", 9) == 0 &&
-			    !is_subarray(&e->metadata_version[9])) {
+			if (is_mdstat_ent_external(e) && !is_mdstat_ent_subarray(e)) {
 				/* update cmdline so this mdmon instance can be
 				 * distinguished from others in a call to ps(1)
 				 */
@@ -369,23 +416,20 @@ int main(int argc, char *argv[])
 		free_mdstat(mdstat);
 
 		return status;
-	} else if (strncmp(container_name, "md", 2) == 0) {
-		int id = devnm2devid(container_name);
-		if (id)
-			devnm = container_name;
-	} else {
-		struct stat st;
-
-		if (stat(container_name, &st) == 0)
-			devnm = xstrdup(stat2devnm(&st));
 	}
 
-	if (!devnm) {
-		pr_err("%s is not a valid md device name\n",
-			container_name);
-		exit(1);
+	mdfd = open_mddev(container_name, 0);
+	if (is_fd_valid(mdfd)) {
+		char *devnm = fd2devnm(mdfd);
+
+		close(mdfd);
+
+		if (devnm)
+			return mdmon(devnm, dofork && do_fork(), takeover);
 	}
-	return mdmon(devnm, dofork && do_fork(), takeover);
+
+	pr_err("%s is not a valid md device name\n", container_name);
+	return 1;
 }
 
 static int mdmon(char *devnm, int must_fork, int takeover)
@@ -408,38 +452,37 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 		pr_err("%s: %s\n", devnm, strerror(errno));
 		return 1;
 	}
-	if (md_get_version(mdfd) < 0) {
-		pr_err("%s: Not an md device\n", devnm);
-		return 1;
-	}
 
 	/* Fork, and have the child tell us when they are ready */
 	if (must_fork) {
 		if (pipe(pfd) != 0) {
 			pr_err("failed to create pipe\n");
+			close_fd(&mdfd);
 			return 1;
 		}
 		switch(fork()) {
 		case -1:
 			pr_err("failed to fork: %s\n", strerror(errno));
+			close_fd(&mdfd);
 			return 1;
 		case 0: /* child */
-			close(pfd[0]);
+			close_fd(&pfd[0]);
 			break;
 		default: /* parent */
-			close(pfd[1]);
+			close_fd(&pfd[1]);
 			if (read(pfd[0], &status, sizeof(status)) != sizeof(status)) {
 				wait(&status);
 				status = WEXITSTATUS(status);
 			}
-			close(pfd[0]);
+			close_fd(&pfd[0]);
+			close_fd(&mdfd);
 			return status;
 		}
 	} else
 		pfd[0] = pfd[1] = -1;
 
 	container = xcalloc(1, sizeof(*container));
-	strcpy(container->devnm, devnm);
+	snprintf(container->devnm, MD_NAME_MAX, "%s", devnm);
 	container->arrays = NULL;
 	container->sock = -1;
 
@@ -542,14 +585,7 @@ static int mdmon(char *devnm, int must_fork, int takeover)
 	}
 
 	setsid();
-	close(0);
-	open("/dev/null", O_RDWR);
-	close(1);
-	ignore = dup(0);
-#ifndef DEBUG
-	close(2);
-	ignore = dup(0);
-#endif
+	manage_fork_fds(0);
 
 	/* This silliness is to stop the compiler complaining
 	 * that we ignore 'ignore'
@@ -578,11 +614,6 @@ int restore_stripes(int *dest, unsigned long long *offsets,
 		    char *src_buf)
 {
 	return 1;
-}
-
-void abort_reshape(struct mdinfo *sra)
-{
-	return;
 }
 
 int save_stripes(int *source, unsigned long long *offsets,

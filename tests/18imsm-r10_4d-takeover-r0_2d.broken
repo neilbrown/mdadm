@@ -1,0 +1,5 @@
+fails rarely
+
+Fails about 1 run in 100 with message:
+
+   ERROR:  size is wrong for /dev/md/vol0: 2 * 5120 (chunk=128) = 20480, not 0

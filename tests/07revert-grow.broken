@@ -1,0 +1,31 @@
+always fails
+
+This patch, recently added to md-next causes the test to always fail:
+
+7e6ba434cc60 ("md: don't unregister sync_thread with reconfig_mutex held")
+
+The errors are:
+
+    mdadm: No active reshape to revert on /dev/loop0
+    ERROR: active raid5 not found
+
+Before the patch, the error seen is below.
+
+--
+
+fails rarely
+
+Fails about 1 in every 30 runs with errors:
+
+    mdadm: Merging with already-assembled /dev/md/0
+    mdadm: backup file /tmp/md-backup inaccessible: No such file or directory
+    mdadm: failed to add /dev/loop1 to /dev/md/0: Invalid argument
+    mdadm: failed to add /dev/loop2 to /dev/md/0: Invalid argument
+    mdadm: failed to add /dev/loop3 to /dev/md/0: Invalid argument
+    mdadm: failed to add /dev/loop0 to /dev/md/0: Invalid argument
+    mdadm: /dev/md/0 assembled from 1 drive - need all 5 to start it
+            (use --run to insist).
+
+    grep: /sys/block/md*/md/sync_action: No such file or directory
+
+    ERROR: active raid5 not found

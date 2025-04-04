@@ -7,7 +7,15 @@ ENV{ANACONDA}=="?*", GOTO="md_inc_end"
 
 SUBSYSTEM!="block", GOTO="md_inc_end"
 
+# skip non-initialized devices
+ENV{SYSTEMD_READY}=="0", GOTO="md_inc_end"
+
 # handle potential components of arrays (the ones supported by md)
+# For member devices which are md/dm devices, we don't need to
+# handle add event. Because md/dm devices need to do some init jobs.
+# Then the change event happens.
+# When adding md/dm devices, ID_FS_TYPE can only be linux_raid_member
+# after change event happens.
 ENV{ID_FS_TYPE}=="linux_raid_member", GOTO="md_inc"
 
 # "noiswmd" on kernel command line stops mdadm from handling
@@ -20,16 +28,20 @@ IMPORT{cmdline}="nodmraid"
 ENV{nodmraid}=="?*", GOTO="md_inc_end"
 ENV{ID_FS_TYPE}=="ddf_raid_member", GOTO="md_inc"
 ENV{noiswmd}=="?*", GOTO="md_inc_end"
-ENV{ID_FS_TYPE}=="isw_raid_member", GOTO="md_inc"
+ENV{ID_FS_TYPE}=="isw_raid_member", ACTION!="change", GOTO="md_inc"
 GOTO="md_inc_end"
 
 LABEL="md_inc"
 
+# Bare disks are ready when add event happens, the raid can be assembled.
+ACTION=="change", KERNEL!="dm-*|md*", GOTO="md_inc_end"
+
 # remember you can limit what gets auto/incrementally assembled by
 # mdadm.conf(5)'s 'AUTO' and selectively whitelist using 'ARRAY'
-ACTION=="add|change", IMPORT{program}="BINDIR/mdadm --incremental --export $devnode --offroot ${DEVLINKS}"
-ACTION=="add|change", ENV{MD_STARTED}=="*unsafe*", ENV{MD_FOREIGN}=="no", ENV{SYSTEMD_WANTS}+="mdadm-last-resort@$env{MD_DEVICE}.timer"
-ACTION=="remove", ENV{ID_PATH}=="?*", RUN+="BINDIR/mdadm -If $name --path $env{ID_PATH}"
-ACTION=="remove", ENV{ID_PATH}!="?*", RUN+="BINDIR/mdadm -If $name"
+ACTION!="remove", IMPORT{program}="BINDIR/mdadm --incremental --export $devnode --offroot $env{DEVLINKS}"
+ACTION!="remove", ENV{MD_STARTED}=="*unsafe*", ENV{MD_FOREIGN}=="no", ENV{SYSTEMD_WANTS}+="mdadm-last-resort@$env{MD_DEVICE}.timer"
+
+ACTION=="remove", ENV{ID_PATH}=="?*", RUN+="BINDIR/mdadm -If $devnode --path $env{ID_PATH}"
+ACTION=="remove", ENV{ID_PATH}!="?*", RUN+="BINDIR/mdadm -If $devnode"
 
 LABEL="md_inc_end"

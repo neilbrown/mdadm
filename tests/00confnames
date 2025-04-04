@@ -1,0 +1,56 @@
+set -x -e
+. tests/templates/names_template
+
+# Test how <devname> is handled during Incremental assemblation with
+# config file and ARRAYLINE specified.
+
+names_create "/dev/md/name"
+local _UUID="$(mdadm -D --export /dev/md127 | grep MD_UUID | cut -d'=' -f2)"
+[[ "$_UUID" == "" ]] && echo "Cannot obtain UUID for $DEVNODE_NAME" && exit 1
+
+
+# 1. <devname> definition consistent with metadata name.
+names_make_conf $_UUID "/dev/md/name" $config
+mdadm -S "/dev/md127"
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md127" "name" "name"
+mdadm -S "/dev/md127"
+
+# 2. Same as 1, but use short name form of <devname>.
+names_make_conf $_UUID "name" $config
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md127" "name" "name"
+mdadm -S "/dev/md127"
+
+# 3. Same as 1, but use different <devname> than metadata provides.
+names_make_conf $_UUID "/dev/md/other" $config
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md127" "other" "name"
+mdadm -S "/dev/md127"
+
+# 4. Same as 3, but use short name form of <devname>.
+names_make_conf $_UUID "other" $config
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md127" "other" "name"
+mdadm -S "/dev/md127"
+
+# 5. Force particular node creation by setting <devname> to /dev/mdX.
+# Link is not created in this case.
+names_make_conf $_UUID "/dev/md4" $config
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md4" "empty" "name"
+mdadm -S "/dev/md4"
+
+# 6. <devname> with some special symbols and locales.
+# <devname> should be ignored.
+names_make_conf $_UUID "tźż-\.,<>st+-" $config
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md127" "name" "name"
+mdadm -S "/dev/md127"
+
+# 7. No <devname> set.
+# Metadata name and default node used.
+names_make_conf $_UUID "empty" $config
+mdadm -I $dev0 --config=$config
+names_verify "/dev/md127" "name" "name"
+mdadm -S "/dev/md127"

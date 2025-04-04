@@ -16,10 +16,11 @@ struct __dl_head
 #define dl_prev(p) *(&(((struct __dl_head*)(p))[-1].dh_prev))
 
 void *dl_head(void);
-char *dl_strdup(char *);
-char *dl_strndup(char *, int);
-void dl_insert(void*, void*);
-void dl_add(void*, void*);
-void dl_del(void*);
-void dl_free(void*);
-void dl_init(void*);
+char *dl_strdup(char *s);
+char *dl_strndup(char *s, int l);
+void dl_insert(void *head, void *val);
+void dl_add(void *head, void *val);
+void dl_del(void *val);
+void dl_free(void *v);
+void dl_init(void *v);
+void dl_free_all(void *head);

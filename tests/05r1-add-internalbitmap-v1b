@@ -1,4 +1,4 @@
-# 
+#
 # create a raid1 without any bitmap, add the bitmap and then write to
 # the device. This should catch the case where the bitmap is created
 # but not reloaded correctly, such as the case fixed by

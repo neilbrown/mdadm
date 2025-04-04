@@ -229,7 +229,17 @@ sha1_process_bytes (const void *buffer, size_t len, struct sha1_ctx *ctx)
   if (len >= 64)
     {
 #if !_STRING_ARCH_unaligned
-# define alignof(type) offsetof (struct { char c; type x; }, x)
+/* GCC releases before GCC 4.9 had a bug in _Alignof.  See GCC bug 52023
+   <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52023>.
+   clang versions < 8.0.0 have the same bug.  */
+# if (!defined __STDC_VERSION__ || __STDC_VERSION__ < 201112 \
+      || (defined __GNUC__ && __GNUC__ < 4 + (__GNUC_MINOR__ < 9) \
+   && !defined __clang__) \
+      || (defined __clang__ && __clang_major__ < 8))
+#  define alignof(type) offsetof (struct { char c; type x; }, x)
+# else
+#  define alignof(type) _Alignof(type)
+# endif
 # define UNALIGNED_P(p) (((size_t) p) % alignof (sha1_uint32) != 0)
       if (UNALIGNED_P (buffer))
 	while (len > 64)
@@ -258,7 +268,7 @@ sha1_process_bytes (const void *buffer, size_t len, struct sha1_ctx *ctx)
 	{
 	  sha1_process_block (ctx->buffer, 64, ctx);
 	  left_over -= 64;
-	  memcpy (ctx->buffer, &ctx->buffer[16], left_over);
+	  memmove (ctx->buffer, &ctx->buffer[16], left_over);
 	}
       ctx->buflen = left_over;
     }

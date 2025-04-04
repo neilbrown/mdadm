@@ -33,7 +33,7 @@ do
 
   mdadm $md0 --add $dev1 $dev5
   mdadm $md0 --replace $dev0
-  sleep 1
+  sleep 2
   mdadm $md0 --fail $dev2
   check wait
   sum2=`sha1sum < $md0`
@@ -42,7 +42,7 @@ do
   mdadm $md0 --remove $dev0 $dev2
   mdadm $md0 --add $dev0 $dev2
   mdadm $md0 --replace $dev3
-  sleep 1
+  sleep 2
   mdadm $md0 --fail $dev0 $dev2
   check wait
   sum3=`sha1sum < $md0`

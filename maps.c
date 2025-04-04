@@ -44,7 +44,7 @@ mapping_t r5layout[] = {
 	{ "ddf-N-restart", ALGORITHM_LEFT_ASYMMETRIC},
 	{ "ddf-N-continue", ALGORITHM_LEFT_SYMMETRIC},
 
-	{ NULL, 0}
+	{ NULL, UnSet }
 };
 mapping_t r6layout[] = {
 	{ "left-asymmetric", ALGORITHM_LEFT_ASYMMETRIC},
@@ -70,7 +70,19 @@ mapping_t r6layout[] = {
 	{ "right-symmetric-6", ALGORITHM_RIGHT_SYMMETRIC_6},
 	{ "parity-first-6", ALGORITHM_PARITY_0_6},
 
-	{ NULL, 0}
+	{ NULL, UnSet }
+};
+
+/* raid0 layout is only needed because of a bug in 3.14 which changed
+ * the effective layout of raid0 arrays with varying device sizes.
+ */
+mapping_t r0layout[] = {
+	{ "original", RAID0_ORIG_LAYOUT},
+	{ "alternate", RAID0_ALT_MULTIZONE_LAYOUT},
+	{ "1", 1}, /* aka ORIG */
+	{ "2", 2}, /* aka ALT */
+	{ "dangerous", RAID0_DANGEROUS_LAYOUT},
+	{ NULL, UnSet},
 };
 
 mapping_t pers[] = {
@@ -93,7 +105,7 @@ mapping_t pers[] = {
 	{ "10", 10},
 	{ "faulty", LEVEL_FAULTY},
 	{ "container", LEVEL_CONTAINER},
-	{ NULL, 0}
+	{ NULL, UnSet }
 };
 
 mapping_t modes[] = {
@@ -106,6 +118,7 @@ mapping_t modes[] = {
 	{ "grow", GROW},
 	{ "incremental", INCREMENTAL},
 	{ "auto-detect", AUTODETECT},
+	{ NULL, UnSet }
 };
 
 mapping_t faultylayout[] = {
@@ -124,11 +137,90 @@ mapping_t faultylayout[] = {
 
 	{ "clear", ClearErrors},
 	{ "flush", ClearFaults},
-	{ "none", ClearErrors},
+	{ STR_COMMON_NONE, ClearErrors},
 	{ "default", ClearErrors},
-	{ NULL, 0}
+	{ NULL, UnSet }
 };
 
+mapping_t consistency_policies[] = {
+	{ "unknown", CONSISTENCY_POLICY_UNKNOWN},
+	{ STR_COMMON_NONE, CONSISTENCY_POLICY_NONE},
+	{ "resync", CONSISTENCY_POLICY_RESYNC},
+	{ "bitmap", CONSISTENCY_POLICY_BITMAP},
+	{ "journal", CONSISTENCY_POLICY_JOURNAL},
+	{ "ppl", CONSISTENCY_POLICY_PPL},
+	{ NULL, CONSISTENCY_POLICY_UNKNOWN }
+};
+
+mapping_t sysfs_array_states[] = {
+	{ "active-idle", ARRAY_ACTIVE_IDLE },
+	{ "active", ARRAY_ACTIVE },
+	{ "clear", ARRAY_CLEAR },
+	{ "inactive", ARRAY_INACTIVE },
+	{ "suspended", ARRAY_SUSPENDED },
+	{ "readonly", ARRAY_READONLY },
+	{ "read-auto", ARRAY_READ_AUTO },
+	{ "clean", ARRAY_CLEAN },
+	{ "write-pending", ARRAY_WRITE_PENDING },
+	{ "broken", ARRAY_BROKEN },
+	{ NULL, ARRAY_UNKNOWN_STATE }
+};
+/**
+ * mapping_t update_options - stores supported update options.
+ */
+mapping_t update_options[] = {
+	{ "name", UOPT_NAME },
+	{ "ppl", UOPT_PPL },
+	{ "no-ppl", UOPT_NO_PPL },
+	{ "bitmap", UOPT_BITMAP },
+	{ "no-bitmap", UOPT_NO_BITMAP },
+	{ "sparc2.2", UOPT_SPARC22 },
+	{ "super-minor", UOPT_SUPER_MINOR },
+	{ "summaries", UOPT_SUMMARIES },
+	{ "resync", UOPT_RESYNC },
+	{ "uuid", UOPT_UUID },
+	{ "homehost", UOPT_HOMEHOST },
+	{ "home-cluster", UOPT_HOME_CLUSTER },
+	{ "nodes", UOPT_NODES },
+	{ "devicesize", UOPT_DEVICESIZE },
+	{ "bbl", UOPT_BBL },
+	{ "no-bbl", UOPT_NO_BBL },
+	{ "force-no-bbl", UOPT_FORCE_NO_BBL },
+	{ "metadata", UOPT_METADATA },
+	{ "revert-reshape", UOPT_REVERT_RESHAPE },
+	{ "layout-original", UOPT_LAYOUT_ORIGINAL },
+	{ "layout-alternate", UOPT_LAYOUT_ALTERNATE },
+	{ "layout-unspecified", UOPT_LAYOUT_UNSPECIFIED },
+	{ "byteorder", UOPT_BYTEORDER },
+	{ "help", UOPT_HELP },
+	{ "?", UOPT_HELP },
+	{ NULL, UOPT_UNDEFINED}
+};
+
+/**
+ * map_num_s() - Safer alternative of map_num() function.
+ * @map: map to search.
+ * @num: key to match.
+ *
+ * Shall be used only if key existence is quaranted.
+ *
+ * Return: Pointer to name of the element.
+ */
+char *map_num_s(mapping_t *map, int num)
+{
+	char *ret = map_num(map, num);
+
+	assert(ret);
+	return ret;
+}
+
+/**
+ * map_num() - get element name by key.
+ * @map: map to search.
+ * @num: key to match.
+ *
+ * Return: Pointer to name of the element or NULL.
+ */
 char *map_num(mapping_t *map, int num)
 {
 	while (map->name) {
@@ -141,10 +233,8 @@ char *map_num(mapping_t *map, int num)
 
 int map_name(mapping_t *map, char *name)
 {
-	while (map->name) {
-		if (strcmp(map->name, name)==0)
-			return map->num;
+	while (map->name && strcmp(map->name, name) != 0)
 		map++;
-	}
-	return UnSet;
+
+	return map->num;
 }

@@ -103,6 +103,9 @@ int Build(struct mddev_ident *ident, struct mddev_dev *devlist, struct shape *s,
 		s->chunk = 64;
 	array.chunk_size = s->chunk*1024;
 	array.layout = s->layout;
+	if (array.level == 0 && array.layout == UnSet)
+		/* Raid0 leaves default to metadata handler.  That is us. */
+		array.layout = RAID0_ORIG_LAYOUT;
 	if (md_set_array_info(mdfd, &array)) {
 		pr_err("md_set_array_info() failed for %s: %s\n", chosen_name, strerror(errno));
 		goto abort;

@@ -77,7 +77,7 @@ int default_layout(struct supertype *st, int level, int verbose)
 		layout = 0;
 		break;
 	case 0:
-		layout = RAID0_ORIG_LAYOUT;
+		/* Leave unset - metadata handler choose default */
 		break;
 	case 10:
 		layout = 0x102; /* near=2, far=1 */

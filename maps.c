@@ -81,7 +81,7 @@ mapping_t r0layout[] = {
 	{ "alternate", RAID0_ALT_MULTIZONE_LAYOUT},
 	{ "1", 1}, /* aka ORIG */
 	{ "2", 2}, /* aka ALT */
-	{ "dangerous", 0},
+	{ "dangerous", RAID0_DANGEROUS_LAYOUT},
 	{ NULL, UnSet},
 };
 

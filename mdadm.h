@@ -2003,6 +2003,7 @@ static inline int xasprintf(char **strp, const char *fmt, ...) {
 #endif
 
 enum r0layout {
+	RAID0_DANGEROUS_LAYOUT = 0, /* layout depends on kernel version */
 	RAID0_ORIG_LAYOUT = 1,
 	RAID0_ALT_MULTIZONE_LAYOUT = 2,
 };

@@ -1677,6 +1677,10 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
 		       sizeof(sb->set_name) - namelen);
 	}
 
+	if (info->level == 0 && info->layout == UnSet)
+		/* Metadata chooses default layout for RAID0 */
+		info->layout = RAID0_ORIG_LAYOUT;
+
 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
 	sb->level = __cpu_to_le32(info->level);
 	sb->layout = __cpu_to_le32(info->layout);

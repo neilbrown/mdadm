@@ -837,6 +837,7 @@ struct devinfo {
 	int fd;
 	char *devname;
 	mdu_disk_info_t disk;
+	unsigned long long dev_size;
 	struct devinfo *next;
 };
 
@@ -866,6 +867,8 @@ static int add_to_super0(struct supertype *st, mdu_disk_info_t *dinfo,
 	di->devname = devname;
 	di->disk = *dinfo;
 	di->next = NULL;
+	if (is_fd_valid(fd))
+		get_dev_size(fd, NULL, &di->dev_size);
 	*dip = di;
 
 	return 0;
@@ -923,12 +926,34 @@ static int store_super0(struct supertype *st, int fd)
 	return 0;
 }
 
+static __u64 avail_size0(struct supertype *st, __u64 devsize,
+			 unsigned long long data_offset);
 static int write_init_super0(struct supertype *st)
 {
 	mdp_super_t *sb = st->sb;
 	int rv = 0;
 	struct devinfo *di;
 
+	if (sb->level == 0 && sb->layout == UnSet) {
+		/* Without requesting a dangerous (0) layout
+		 * we can only allow this RAID0 if all devices are
+		 * the same size
+		 */
+		for (di = st->info; di; di = di->next) {
+			struct devinfo *di2 = st->info;
+			unsigned long long s1, s2;
+			s1 = avail_size0(st, di->dev_size, 0) << 9;
+			s1 /= sb->chunk_size;
+			s2 = avail_size0(st, di2->dev_size, 0) << 9;
+			s2 /= sb->chunk_size;
+			if (s1 != s2) {
+				pr_err("Need explicit layout=dangerous to create 0.90 raid0 on non-uniform sized devices\n");
+				return 1;
+			}
+		}
+		/* looks safe */
+		sb->layout = 0;
+	}
 	for (di = st->info ; di && ! rv ; di = di->next) {
 
 		if (di->disk.state & (1 << MD_DISK_FAULTY))
@@ -1321,7 +1346,7 @@ static int validate_geometry0(struct supertype *st, int level,
 	if (*chunk == UnSet)
 		*chunk = DEFAULT_CHUNK;
 
-	if (level == 0 && layout != UnSet) {
+	if (level == 0 && layout != UnSet && layout != RAID0_DANGEROUS_LAYOUT) {
 		if (verbose)
 			pr_err("0.90 metadata does not support layouts for RAID0\n");
 		return 0;

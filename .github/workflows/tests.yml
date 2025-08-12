@@ -18,12 +18,12 @@ jobs:
      timeout-minutes: 150
      name: upstream tests
      steps:
-     - uses: actions/checkout@v4
+     - uses: actions/checkout@v5
        if: ${{ github.event_name == 'pull_request' }}
        with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
-     - uses: actions/checkout@v4
+     - uses: actions/checkout@v5
        if: ${{ github.event_name == 'schedule' }}
        with:
         ref: main

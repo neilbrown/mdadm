@@ -12,7 +12,7 @@ jobs:
         # gcc-versions are used to test up to 5 years old
         gcc-version: [9, 10, 11, 12, 13, 14]
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - name: 'Add ubuntu repository and install dependencies'
           run: .github/tools/install_ubuntu_packages.sh ${{ matrix.gcc-version }}
         - name: 'Check if gcc was installed correctly'
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     name: checkpatch review
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
